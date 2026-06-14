@@ -1,0 +1,151 @@
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { AppBar } from "@/components/common";
+import { Plus, X } from "lucide-react";
+import { businessService } from "@/services";
+import { useQuery } from "@/hooks/useApi";
+import { useApp } from "@/store";
+
+const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+interface DayHours {
+  open: boolean;
+  from: string;
+  to: string;
+}
+
+/** Serialize the per-day UI state into a compact human-readable string stored in DB. */
+function serialize(is24x7: boolean, hours: Record<string, DayHours>): string {
+  if (is24x7) return "Open 24×7";
+  return days
+    .map((d) => {
+      const h = hours[d];
+      return h.open ? `${d} ${h.from}–${h.to}` : `${d} Closed`;
+    })
+    .join(", ");
+}
+
+/** Parse a stored string back into per-day state. Falls back to defaults. */
+function parse(raw: string | undefined): { is24x7: boolean; hours: Record<string, DayHours> } {
+  const defaults = Object.fromEntries(days.map((d) => [d, { open: true, from: "11:00", to: "23:30" }]));
+  if (!raw) return { is24x7: false, hours: defaults };
+  if (raw === "Open 24×7") return { is24x7: true, hours: defaults };
+  const result = { ...defaults };
+  for (const chunk of raw.split(", ")) {
+    for (const d of days) {
+      if (chunk.startsWith(d + " Closed")) { result[d] = { open: false, from: "11:00", to: "23:30" }; break; }
+      const m = chunk.match(new RegExp(`^${d} (\\d{2}:\\d{2})–(\\d{2}:\\d{2})$`));
+      if (m) { result[d] = { open: true, from: m[1], to: m[2] }; break; }
+    }
+  }
+  return { is24x7: false, hours: result };
+}
+
+export default function HoursEditor() {
+  const { id = "b1" } = useParams();
+  const { showToast } = useApp();
+  const { data: b } = useQuery(() => businessService.get(id), [id]);
+
+  const [is24x7, setIs24x7] = useState(false);
+  const [hours, setHours] = useState<Record<string, DayHours>>(
+    Object.fromEntries(days.map((d) => [d, { open: true, from: "11:00", to: "23:30" }]))
+  );
+  const [special, setSpecial] = useState<{ date: string; note: string }[]>([]);
+  const [newSpecial, setNewSpecial] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // Seed form state from live business once loaded.
+  useEffect(() => {
+    if (!b) return;
+    const parsed = parse(b.hours);
+    setIs24x7(parsed.is24x7);
+    setHours(parsed.hours);
+  }, [b]);
+
+  function setDay(d: string, patch: Partial<DayHours>) {
+    setHours((h) => ({ ...h, [d]: { ...h[d], ...patch } }));
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await businessService.update(id, { hours: serialize(is24x7, hours) });
+      showToast("Hours saved");
+    } catch {
+      showToast("Couldn't save hours. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="screen">
+      <AppBar title="Hours" />
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+        <button
+          className="card row between"
+          style={{ padding: 14, border: is24x7 ? "2px solid var(--brand-500)" : "1px solid var(--line)" }}
+          onClick={() => setIs24x7((v) => !v)}
+        >
+          <span className="semi small">Open 24×7</span>
+          <span style={{ width: 44, height: 26, borderRadius: 999, background: is24x7 ? "var(--brand-600)" : "var(--ink-200)", position: "relative" }}>
+            <span style={{ position: "absolute", top: 3, left: is24x7 ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+          </span>
+        </button>
+
+        {!is24x7 && (
+          <div className="card" style={{ overflow: "hidden" }}>
+            {days.map((d, i) => {
+              const h = hours[d];
+              return (
+                <div key={d} className="row gap-10" style={{ padding: "12px 14px", borderBottom: i < days.length - 1 ? "1px solid var(--line)" : "none" }}>
+                  <span className="semi small" style={{ width: 36 }}>{d}</span>
+                  <button
+                    onClick={() => setDay(d, { open: !h.open })}
+                    style={{ width: 40, height: 24, borderRadius: 999, background: h.open ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}
+                  >
+                    <span style={{ position: "absolute", top: 3, left: h.open ? 19 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff" }} />
+                  </button>
+                  {h.open ? (
+                    <div className="row gap-6 grow" style={{ justifyContent: "flex-end" }}>
+                      <input className="input" style={{ width: 80, padding: "8px 8px", textAlign: "center" }} type="time" value={h.from} onChange={(e) => setDay(d, { from: e.target.value })} />
+                      <span className="muted">–</span>
+                      <input className="input" style={{ width: 80, padding: "8px 8px", textAlign: "center" }} type="time" value={h.to} onChange={(e) => setDay(d, { to: e.target.value })} />
+                    </div>
+                  ) : (
+                    <span className="grow tiny muted" style={{ textAlign: "right" }}>Closed</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Special / holiday hours */}
+        <div>
+          <div className="small semi muted" style={{ marginBottom: 8 }}>Special / holiday hours</div>
+          <div className="col gap-8">
+            {special.map((s, i) => (
+              <div key={i} className="card row between" style={{ padding: 12 }}>
+                <div><div className="semi small">{s.date}</div><div className="tiny muted">{s.note}</div></div>
+                <button className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => setSpecial((p) => p.filter((_, j) => j !== i))}><X size={15} /></button>
+              </div>
+            ))}
+            <div className="row gap-8">
+              <input className="input grow" placeholder="e.g. Holi (14 Mar) — Closed" value={newSpecial} onChange={(e) => setNewSpecial(e.target.value)} />
+              <button className="btn btn-ghost btn-sm" disabled={!newSpecial.trim()} onClick={() => { setSpecial((p) => [...p, { date: newSpecial, note: "" }]); setNewSpecial(""); }}>
+                <Plus size={16} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
+        <button className="btn btn-primary btn-block" disabled={saving} onClick={save}>
+          {saving ? "Saving…" : "Save hours"}
+        </button>
+      </div>
+    </div>
+  );
+}

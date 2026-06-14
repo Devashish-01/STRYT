@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+.vite
+
+# Playwright audit
+.auth
+test-results
+playwright-report
+playwright/.cache
