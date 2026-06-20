@@ -52,24 +52,19 @@ export default function TrackingPage() {
   useEffect(() => {
     if (!token) return;
     (async () => {
-      const { data: tt } = await anonSb
-        .from("tracking_tokens").select("*").eq("id", token).maybeSingle();
-      if (!tt || new Date(tt.expires_at) < new Date()) { setExpired(true); setLoading(false); return; }
-      setAgreementId(tt.agreement_id);
-
-      const { data: ag } = await anonSb
-        .from("agreements")
-        .select("provider_lat, provider_lng, live_status, responder_user_id")
-        .eq("id", tt.agreement_id).maybeSingle();
-      if (ag) {
-        setProviderLat(ag.provider_lat ?? null);
-        setProviderLng(ag.provider_lng ?? null);
-        setLiveStatus(ag.live_status ?? "ON_THE_WAY");
-
-        const { data: u } = await anonSb.from("users")
-          .select("name, avatar").eq("id", ag.responder_user_id).maybeSingle();
-        if (u) { setProviderName((u as any).name ?? "Provider"); setProviderAvatar((u as any).avatar ?? ""); }
-      }
+      // Read via the get_tracking() RPC, not the agreements table directly.
+      // The RPC returns only the safe live-location fields for a valid,
+      // non-expired token, so the agreements table stays locked to participants
+      // (see supabase/migration_launch_hardening.sql).
+      const { data, error } = await anonSb.rpc("get_tracking", { p_token: token });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (error || !row) { setExpired(true); setLoading(false); return; }
+      setAgreementId(row.agreement_id);
+      setProviderLat(row.provider_lat ?? null);
+      setProviderLng(row.provider_lng ?? null);
+      setLiveStatus(row.live_status ?? "ON_THE_WAY");
+      setProviderName(row.provider_name ?? "Provider");
+      setProviderAvatar(row.provider_avatar ?? "");
       setLoading(false);
     })();
   }, [token]);
@@ -106,22 +101,21 @@ export default function TrackingPage() {
     setEta(liveStatus === "DONE" ? "Job complete" : liveStatus === "ARRIVED" ? "Arrived" : "~8 min away");
   }, [providerLat, providerLng, liveStatus]);
 
-  // Realtime subscription
+  // Live updates: poll the safe RPC. (Realtime on agreements can't be used here
+  // because the agreements table is correctly locked to participants, and this
+  // page serves logged-out visitors via a share link.)
   useEffect(() => {
-    if (!agreementId) return;
-    const channel = anonSb
-      .channel(`track-${agreementId}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "agreements", filter: `id=eq.${agreementId}` },
-        (payload) => {
-          const row = payload.new as any;
-          if (row.provider_lat) setProviderLat(row.provider_lat);
-          if (row.provider_lng) setProviderLng(row.provider_lng);
-          if (row.live_status) setLiveStatus(row.live_status);
-        }
-      )
-      .subscribe();
-    return () => { void anonSb.removeChannel(channel); };
-  }, [agreementId]);
+    if (!agreementId || !token) return;
+    const poll = setInterval(async () => {
+      const { data } = await anonSb.rpc("get_tracking", { p_token: token });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) return;
+      if (row.provider_lat != null) setProviderLat(row.provider_lat);
+      if (row.provider_lng != null) setProviderLng(row.provider_lng);
+      if (row.live_status) setLiveStatus(row.live_status);
+    }, 15000);
+    return () => clearInterval(poll);
+  }, [agreementId, token]);
 
   if (loading) {
     return (

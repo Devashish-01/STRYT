@@ -188,6 +188,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (config.useMocks) return;
     const sb = getSupabase();
+    // Validate the persisted session on mount so a stale mirrored token in
+    // localStorage can't make the app believe we're authed when Supabase
+    // disagrees (every call would otherwise 401). The live session is the
+    // source of truth — tokenStore is only a cache.
+    void sb.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        tokenStore.clear();
+        setIsAuthed(false);
+      }
+    });
     const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
       if (session) {
         tokenStore.set(session.access_token, session.refresh_token);
@@ -306,27 +316,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const toggleBookmark = useCallback(
     (type: BookmarkTarget, id: string) => {
-      setBookmarks((prev) => {
-        const exists = prev.some((b) => b.type === type && b.id === id);
-        if (exists) {
-          showToast("Removed from saved");
-          if (!config.useMocks) {
-            void currentUserId().then((uid) => {
-              if (uid) getSupabase().from("bookmarks").delete().eq("user_id", uid).eq("target_type", type).eq("target_id", id);
-            });
-          }
-          return prev.filter((b) => !(b.type === type && b.id === id));
+      const exists = bookmarks.some((b) => b.type === type && b.id === id);
+      // Optimistic update first…
+      setBookmarks((prev) =>
+        exists ? prev.filter((b) => !(b.type === type && b.id === id)) : [...prev, { type, id }]
+      );
+      showToast(exists ? "Removed from saved" : "Saved");
+      if (config.useMocks) return;
+      // …then persist, and REVERT if the write fails so the UI never lies.
+      void (async () => {
+        const uid = await currentUserId();
+        if (!uid) return;
+        const sb = getSupabase();
+        const { error } = exists
+          ? await sb.from("bookmarks").delete().eq("user_id", uid).eq("target_type", type).eq("target_id", id)
+          : await sb.from("bookmarks").upsert({ user_id: uid, target_type: type, target_id: id }, { onConflict: "user_id,target_type,target_id" });
+        if (error) {
+          setBookmarks((prev) =>
+            exists ? [...prev, { type, id }] : prev.filter((b) => !(b.type === type && b.id === id))
+          );
+          showToast("Couldn't save — try again");
         }
-        showToast("Saved");
-        if (!config.useMocks) {
-          void currentUserId().then((uid) => {
-            if (uid) getSupabase().from("bookmarks").upsert({ user_id: uid, target_type: type, target_id: id }, { onConflict: "user_id,target_type,target_id" });
-          });
-        }
-        return [...prev, { type, id }];
-      });
+      })();
     },
-    [showToast]
+    [bookmarks, showToast]
   );
 
   const isBookmarked = useCallback(
@@ -336,27 +349,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const toggleFollow = useCallback(
     (type: "BUSINESS" | "PROVIDER", id: string, name?: string) => {
-      setFollows((prev) => {
-        const exists = prev.some((f) => f.type === type && f.id === id);
-        if (exists) {
-          showToast("Unfollowed");
-          if (!config.useMocks) {
-            void currentUserId().then((uid) => {
-              if (uid) getSupabase().from("follows").delete().eq("follower_user_id", uid).eq("target_type", type).eq("target_id", id);
-            });
-          }
-          return prev.filter((f) => !(f.type === type && f.id === id));
+      const exists = follows.some((f) => f.type === type && f.id === id);
+      setFollows((prev) =>
+        exists ? prev.filter((f) => !(f.type === type && f.id === id)) : [...prev, { type, id }]
+      );
+      showToast(exists ? "Unfollowed" : name ? `Following ${name}` : "Following");
+      if (config.useMocks) return;
+      void (async () => {
+        const uid = await currentUserId();
+        if (!uid) return;
+        const sb = getSupabase();
+        const { error } = exists
+          ? await sb.from("follows").delete().eq("follower_user_id", uid).eq("target_type", type).eq("target_id", id)
+          : await sb.from("follows").upsert({ follower_user_id: uid, target_type: type, target_id: id }, { onConflict: "follower_user_id,target_type,target_id" });
+        if (error) {
+          setFollows((prev) =>
+            exists ? [...prev, { type, id }] : prev.filter((f) => !(f.type === type && f.id === id))
+          );
+          showToast("Couldn't update — try again");
         }
-        showToast(name ? `Following ${name}` : "Following");
-        if (!config.useMocks) {
-          void currentUserId().then((uid) => {
-            if (uid) getSupabase().from("follows").upsert({ follower_user_id: uid, target_type: type, target_id: id }, { onConflict: "follower_user_id,target_type,target_id" });
-          });
-        }
-        return [...prev, { type, id }];
-      });
+      })();
     },
-    [showToast]
+    [follows, showToast]
   );
   const isFollowing = useCallback(
     (type: "BUSINESS" | "PROVIDER", id: string) => follows.some((f) => f.type === type && f.id === id),
@@ -392,55 +406,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const toggleCoupon = useCallback(
     (id: string) => {
-      setSavedCoupons((p) => {
-        if (p.includes(id)) {
-          if (!config.useMocks) void walletService.unsaveCoupon(id);
-          return p.filter((x) => x !== id);
+      const saved = savedCoupons.includes(id);
+      setSavedCoupons((p) => (saved ? p.filter((x) => x !== id) : [...p, id]));
+      if (!saved) showToast("Coupon saved to wallet");
+      if (config.useMocks) return;
+      void (async () => {
+        try {
+          if (saved) await walletService.unsaveCoupon(id);
+          else await walletService.saveCoupon(id);
+        } catch {
+          setSavedCoupons((p) => (saved ? [...p, id] : p.filter((x) => x !== id)));
+          showToast("Couldn't update wallet — try again");
         }
-        showToast("Coupon saved to wallet");
-        if (!config.useMocks) void walletService.saveCoupon(id);
-        return [...p, id];
-      });
+      })();
     },
-    [showToast]
+    [savedCoupons, showToast]
   );
 
   const addStamp = useCallback(
     (cardId: string) => {
       setExtraStamps((p) => ({ ...p, [cardId]: (p[cardId] ?? 0) + 1 }));
       showToast("Stamp added 🎉");
-      if (!config.useMocks) void walletService.addStamp(cardId);
+      if (config.useMocks) return;
+      void (async () => {
+        try {
+          await walletService.addStamp(cardId);
+        } catch {
+          setExtraStamps((p) => ({ ...p, [cardId]: Math.max(0, (p[cardId] ?? 1) - 1) }));
+          showToast("Couldn't add stamp — try again");
+        }
+      })();
     },
     [showToast]
   );
 
   const toggleEndorse = useCallback((providerId: string, skill: string) => {
     const key = `${providerId}:${skill}`;
-    setEndorsed((p) => {
-      const exists = p.includes(key);
-      if (!config.useMocks) {
-        if (exists) void socialService.removeEndorsement(providerId, skill);
-        else void socialService.addEndorsement(providerId, skill);
+    const exists = endorsed.includes(key);
+    setEndorsed((p) => (exists ? p.filter((x) => x !== key) : [...p, key]));
+    if (config.useMocks) return;
+    void (async () => {
+      try {
+        if (exists) await socialService.removeEndorsement(providerId, skill);
+        else await socialService.addEndorsement(providerId, skill);
+      } catch {
+        setEndorsed((p) => (exists ? [...p, key] : p.filter((x) => x !== key)));
+        showToast("Couldn't update — try again");
       }
-      return exists ? p.filter((x) => x !== key) : [...p, key];
-    });
-  }, []);
+    })();
+  }, [endorsed, showToast]);
 
   const toggleVouch = useCallback(
     (providerId: string) => {
-      setVouched((p) => {
-        const exists = p.includes(providerId);
-        if (exists) {
-          showToast("Vouch removed");
-          if (!config.useMocks) void socialService.removeVouch(providerId);
-          return p.filter((x) => x !== providerId);
+      const exists = vouched.includes(providerId);
+      setVouched((p) => (exists ? p.filter((x) => x !== providerId) : [...p, providerId]));
+      showToast(exists ? "Vouch removed" : "You vouched for this provider 🤝");
+      if (config.useMocks) return;
+      void (async () => {
+        try {
+          if (exists) await socialService.removeVouch(providerId);
+          else await socialService.addVouch(providerId);
+        } catch {
+          setVouched((p) => (exists ? [...p, providerId] : p.filter((x) => x !== providerId)));
+          showToast("Couldn't update — try again");
         }
-        showToast("You vouched for this provider 🤝");
-        if (!config.useMocks) void socialService.addVouch(providerId);
-        return [...p, providerId];
-      });
+      })();
     },
-    [showToast]
+    [vouched, showToast]
   );
 
   const toggleNotify = useCallback(
@@ -495,23 +527,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addToList = useCallback(
     (listId: string, type: BookmarkTarget, id: string) => {
+      const already = lists.find((l) => l.id === listId)?.items.some((it) => it.type === type && it.id === id);
+      if (already) { showToast("Already in list"); return; }
       setLists((p) =>
-        p.map((l) =>
-          l.id === listId
-            ? l.items.some((it) => it.type === type && it.id === id)
-              ? l
-              : { ...l, items: [...l.items, { type, id }] }
-            : l
-        )
+        p.map((l) => (l.id === listId ? { ...l, items: [...l.items, { type, id }] } : l))
       );
-      if (!config.useMocks) {
-        void getSupabase()
+      showToast("Added to list");
+      if (config.useMocks) return;
+      void (async () => {
+        const { error } = await getSupabase()
           .from("user_list_items")
           .upsert({ list_id: listId, target_type: type, target_id: id }, { onConflict: "list_id,target_type,target_id" });
-      }
-      showToast("Added to list");
+        if (error) {
+          setLists((p) =>
+            p.map((l) => (l.id === listId ? { ...l, items: l.items.filter((it) => !(it.type === type && it.id === id)) } : l))
+          );
+          showToast("Couldn't add to list — try again");
+        }
+      })();
     },
-    [showToast]
+    [lists, showToast]
   );
 
   const isInAnyList = useCallback(

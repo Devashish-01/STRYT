@@ -49,16 +49,13 @@ export default function OtpVerify() {
   async function verify() {
     setVerifying(true);
     try {
-      const result = await authService.verifyOtp(phone, code);
+      await authService.verifyOtp(phone, code);
       sessionStorage.removeItem("otp_phone");
       signIn();
-      // New account: created_at is within the last 2 minutes → show location setup.
-      // Returning user: created_at was days ago → go straight to home.
-      const createdAt = result.user?.created_at
-        ? new Date(result.user.created_at).getTime()
-        : 0;
-      const isNewUser = Date.now() - createdAt < 120_000;
-      nav(isNewUser ? "/auth/location" : "/home", { replace: true });
+      // Always go home; the Protected guard routes brand-new users (no area /
+      // location on their profile yet) to /auth/location based on real data,
+      // instead of a fragile "account created in the last 2 minutes" guess.
+      nav("/home", { replace: true });
     } catch (e) {
       const msg = e instanceof Error && e.message ? e.message : "Couldn't verify. Try again.";
       showToast(msg);
@@ -141,7 +138,7 @@ export default function OtpVerify() {
             style={{ marginTop: 24, padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}
           >
             <p className="tiny" style={{ color: "var(--brand-700)", textAlign: "center" }}>
-              💡 Demo mode: enter any 4 digits to continue
+              💡 Dev build: use a Supabase test number and its fixed code
             </p>
           </div>
         )}

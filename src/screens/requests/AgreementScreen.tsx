@@ -3,7 +3,6 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
 import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, ShieldAlert, Share2 } from "lucide-react";
 import { requestService } from "@/services";
-import { paymentService } from "@/services/paymentService";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
@@ -247,57 +246,6 @@ export default function AgreementScreen() {
     );
   }
 
-  function loadRazorpay(): Promise<void> {
-    return new Promise((resolve) => {
-      if ((window as any).Razorpay) { resolve(); return; }
-      const s = document.createElement("script");
-      s.src = "https://checkout.razorpay.com/v1/checkout.js";
-      s.onload = () => resolve();
-      document.head.appendChild(s);
-    });
-  }
-
-  async function payOnline() {
-    setBusy(true);
-    try {
-      await loadRazorpay();
-      const { orderId, amount, currency, keyId } = await paymentService.createOrder(
-        agreement!.id, agreement!.agreedPrice, user.id
-      );
-      const options = {
-        key: keyId,
-        amount,
-        currency,
-        name: "Naya",
-        description: agreement!.requestTitle,
-        order_id: orderId,
-        handler: async (response: any) => {
-          try {
-            await paymentService.verifyPayment(
-              orderId,
-              response.razorpay_payment_id,
-              response.razorpay_signature,
-              agreement!.id
-            );
-            showToast("Payment successful ✓");
-            refetch();
-          } catch {
-            showToast("Payment received but verification failed — contact support.");
-          }
-        },
-        prefill: { name: user.name, contact: user.phone },
-        theme: { color: "#6b21cc" },
-      };
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on("payment.failed", () => showToast("Payment failed. Try again."));
-      rzp.open();
-    } catch {
-      showToast("Could not start payment. Try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function handleLiveStep(key: JobLiveStatus) {
     const coords = await getGPS();
     await requestService.updateLiveStatus(agreement!.id, key, coords?.lat, coords?.lng);
@@ -376,16 +324,19 @@ export default function AgreementScreen() {
       if (status === "ACTIVE") {
         return (
           <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
-            <button className="btn btn-primary btn-block" disabled={busy} onClick={payOnline}>
-              <Wallet size={16} /> Pay online (Razorpay)
-            </button>
+            {/* Online payment (Razorpay) is disabled for v1 — settle offline.
+                Re-enable once the create-razorpay-order / verify-razorpay-payment
+                edge functions and the payments table escrow flow are live. */}
             <button
-              className="btn btn-outline btn-block"
+              className="btn btn-primary btn-block"
               disabled={busy}
-              onClick={() => run(() => requestService.markDepositPaid(agreement!.id), "Marked as paid offline ✓")}
+              onClick={() => run(() => requestService.markDepositPaid(agreement!.id), "Marked as paid ✓")}
             >
-              Mark paid offline (cash / UPI)
+              <Wallet size={16} /> Mark paid (cash / UPI)
             </button>
+            <p className="tiny muted" style={{ textAlign: "center" }}>
+              Pay the agreed amount in person. STRYT records the deal; online payments are coming soon.
+            </p>
           </div>
         );
       }

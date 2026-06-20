@@ -198,56 +198,14 @@ export const requestService = {
 
   async acceptProposal(proposalId: string) {
     const sb = getSupabase();
-    // Mark the proposal as ACCEPTED (requester's RLS policy allows this).
-    const { data: proposal, error: propErr } = await sb
-      .from("proposals")
-      .update({ status: "ACCEPTED" })
-      .eq("id", proposalId)
-      .select()
-      .maybeSingle();
-    throwIfError(propErr);
-    const p = toCamel<Proposal>(proposal);
-
-    // Fetch the request for requester_user_id and title.
-    const { data: req, error: reqErr } = await sb
-      .from("requests")
-      .select("id, title, requester_user_id")
-      .eq("id", p.requestId)
-      .maybeSingle();
-    throwIfError(reqErr);
-
-    // Insert agreement with all the denormalized fields the UI needs.
-    const { data: agreement, error: agErr } = await sb
-      .from("agreements")
-      .insert({
-        request_id: p.requestId,
-        request_title: (req as any).title ?? "",
-        proposal_id: proposalId,
-        requester_user_id: (req as any).requester_user_id,
-        responder_user_id: p.responderUserId,
-        agreed_price: p.price,
-        terms: p.message ?? "",
-        scheduled_for: null,
-        requester_confirmed: false,
-        responder_confirmed: false,
-        payment_mode: "OFFLINE",
-        status: "PENDING",
-      })
-      .select()
-      .maybeSingle();
-    throwIfError(agErr);
-
-    // Move the request into IN_PROGRESS.
-    await sb.from("requests").update({ status: "IN_PROGRESS" }).eq("id", p.requestId);
-
-    await sb
-      .from("proposals")
-      .update({ status: "REJECTED" })
-      .eq("request_id", p.requestId)
-      .neq("id", proposalId)
-      .eq("status", "SUBMITTED");
-
-    return { agreementId: (agreement as any)?.id ?? null, status: "PENDING" };
+    // Atomic + owner-checked on the server (accept_proposal RPC): marks the
+    // proposal ACCEPTED, creates the agreement, moves the request to
+    // IN_PROGRESS and rejects sibling proposals — all in one transaction, so a
+    // partial failure can no longer corrupt deal state. See
+    // supabase/migration_launch_hardening.sql.
+    const { data, error } = await sb.rpc("accept_proposal", { p_proposal_id: proposalId });
+    throwIfError(error);
+    return { agreementId: (data as string) ?? null, status: "PENDING" };
   },
 
   /** Toggle "me too" on a request. Insert if not yet; delete if already done. */
@@ -321,11 +279,11 @@ export const requestService = {
       .maybeSingle();
     throwIfError(error);
 
-    // If both sides confirmed, activate.
-    const reqConf = isRequester ? true : (ag as any)?.requester_confirmed;
-    const resConf = isRequester ? (ag as any)?.responder_confirmed : true;
-    void updated;
-    if (reqConf && resConf) {
+    // Activate only when BOTH sides are confirmed. Use the post-update row
+    // (not the stale pre-read) so two near-simultaneous confirmations can't
+    // both miss each other and leave the agreement stuck in PENDING — Postgres
+    // serializes the two UPDATEs, so whichever commits second sees both = true.
+    if ((updated as any)?.requester_confirmed && (updated as any)?.responder_confirmed) {
       await sb.from("agreements").update({ status: "ACTIVE" }).eq("id", id);
     }
     return { ok: true, isRequester };

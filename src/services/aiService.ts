@@ -33,18 +33,4 @@ export const aiService = {
       return null;
     }
   },
-
-  async categorize(text: string): Promise<{
-    title?: string;
-    category?: string;
-    urgency?: boolean;
-    budget_hint?: number | null;
-    tags?: string[];
-  } | null> {
-    try {
-      return await call("categorize", { text });
-    } catch {
-      return null;
-    }
-  },
 };
