@@ -3,7 +3,7 @@ import { ListSkeleton } from "@/components/states";
 import { socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
-
+//hii
 export default function Achievements() {
   const { user } = useApp();
   const { data, loading } = useQuery(() => socialService.achievements(), []);
