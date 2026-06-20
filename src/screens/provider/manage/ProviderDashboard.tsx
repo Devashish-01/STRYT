@@ -74,7 +74,7 @@ export default function ProviderDashboard() {
           ) : (
             <>
               <div className="row gap-10">
-                <Kpi icon={Eye} color="#6b21cc" value={(data?.views ?? 0).toLocaleString()} label="Profile views" />
+                <Kpi icon={Eye} color="#cc4415" value={(data?.views ?? 0).toLocaleString()} label="Profile views" />
                 <Kpi icon={Briefcase} color="#0ea5e9" value={data?.leads ?? 0} label="Leads" />
                 <Kpi icon={CheckCircle2} color="#16a34a" value={data?.accepted ?? 0} label="Won" />
               </div>

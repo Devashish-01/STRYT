@@ -62,9 +62,9 @@ export default function PhoneEntry() {
       <AppBar onBack={() => nav("/")} />
       <div className="screen-scroll page-pad" style={{ paddingBottom: 40 }}>
         <div style={{ textAlign: "center", marginTop: 12 }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.5 }}>Welcome to Naya</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: -0.5 }}>Welcome to STRYT</h1>
           <p className="muted" style={{ marginTop: 6, fontSize: 15, lineHeight: 1.5 }}>
-            Your neighborhood, in one app. Sign up or log in.
+            Your street. Your people. Sign up or log in.
           </p>
         </div>
 

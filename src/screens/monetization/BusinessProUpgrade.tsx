@@ -8,7 +8,7 @@ import { useApp } from "@/store";
 import { Skeleton } from "@/components/states";
 
 const PLAN_ICONS = { BASIC: Zap, PRO: Star, PREMIUM: Crown };
-const PLAN_COLOR = { BASIC: "#0ea5e9", PRO: "#6b21cc", PREMIUM: "#f59e0b" };
+const PLAN_COLOR = { BASIC: "#0ea5e9", PRO: "#6d28d9", PREMIUM: "#f59e0b" };
 
 export default function BusinessProUpgrade() {
   const { id = "" } = useParams<{ id: string }>();
@@ -32,8 +32,8 @@ export default function BusinessProUpgrade() {
         });
         loadRazorpay().then(() => {
           const rzp = new (window as any).Razorpay({
-            key: keyId, amount, currency: "INR", name: "Naya",
-            description: `Naya ${planId} Plan`,
+            key: keyId, amount, currency: "INR", name: "STRYT",
+            description: `STRYT ${planId} Plan`,
             order_id: orderId,
             handler: async (response: any) => {
               try {
@@ -43,7 +43,7 @@ export default function BusinessProUpgrade() {
                 res();
               } catch { rej(new Error("Activation failed")); }
             },
-            theme: { color: "#6b21cc" },
+            theme: { color: "#6d28d9" },
           });
           rzp.on("payment.failed", () => rej(new Error("Payment failed")));
           rzp.open();
@@ -58,14 +58,14 @@ export default function BusinessProUpgrade() {
 
   return (
     <div className="screen">
-      <AppBar title="Business Pro" subtitle="Grow your business on Naya" />
+      <AppBar title="Business Pro" subtitle="Grow your business on STRYT" />
       <div className="screen-scroll page-pad col gap-14" style={{ paddingTop: 16 }}>
 
         {proStatus?.isPro && (
-          <div className="card row gap-10" style={{ padding: 12, background: "#faf5ff", border: "1px solid #e9d5ff" }}>
-            <Star size={20} color="#6b21cc" style={{ flexShrink: 0 }} />
+          <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
+            <Star size={20} color="var(--brand-700)" style={{ flexShrink: 0 }} />
             <div>
-              <div className="semi small" style={{ color: "#6b21cc" }}>You're on a Pro plan</div>
+              <div className="semi small" style={{ color: "var(--brand-700)" }}>You're on a Pro plan</div>
               <div className="tiny muted">Valid until {proStatus.proUntil ? new Date(proStatus.proUntil).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : "—"}</div>
             </div>
           </div>
@@ -126,7 +126,7 @@ export default function BusinessProUpgrade() {
         <div className="card row gap-10" style={{ padding: 12, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
           <Check size={18} color="#16a34a" style={{ flexShrink: 0 }} />
           <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>
-            <span className="semi">Zero commission.</span> Naya never takes a cut on your jobs. Pro is purely for growth tools.
+            <span className="semi">Zero commission.</span> STRYT never takes a cut on your jobs. Pro is purely for growth tools.
           </span>
         </div>
       </div>

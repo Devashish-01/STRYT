@@ -85,7 +85,7 @@ export default function VerificationCenter() {
 
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 30 }}>
         <div className="card col center" style={{ padding: 18, gap: 6, background: status === "VERIFIED" ? "#e8f7ee" : "var(--brand-50)", border: "none" }}>
-          {status === "VERIFIED" ? <BadgeCheck size={42} color="#16a34a" /> : <Clock size={42} color="#6b21cc" />}
+          {status === "VERIFIED" ? <BadgeCheck size={42} color="#16a34a" /> : <Clock size={42} color="#cc4415" />}
           <div className="bold">{status === "VERIFIED" ? "Verified business" : status === "PENDING" ? "Under review" : "Not verified"}</div>
           <p className="tiny muted center" style={{ textAlign: "center" }}>
             {status === "VERIFIED" ? "Your blue tick is live on your public page." : "We review documents within ~24h."}

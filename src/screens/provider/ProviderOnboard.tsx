@@ -35,7 +35,7 @@ export default function ProviderOnboard() {
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
 
-  const serviceCats = serviceCatsData ?? [];
+  const serviceCats = (serviceCatsData ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
 
   const canNext = [
     (!!cat || newCat.trim().length > 2) && displayName.trim().length > 1,

@@ -74,8 +74,8 @@ export function useAmbientTheme(lat?: number, lng?: number): AmbientTheme {
                                 ["pharmacy", "emergency", "home-repair"];
 
     let banner: string | null = null;
-    let accent = "#7c3aed";
-    let bg     = "linear-gradient(180deg, #faf5ff 0%, #fff 100%)";
+    let accent = "#8b47f5";
+    let bg     = "linear-gradient(180deg, #f5f3ff 0%, #fff 100%)";
 
     // Seasonal nudge (sets boost extension, no banner)
     if (season === "monsoon") boost = ["plumber", "waterproofing", "umbrella-repair", ...boost];

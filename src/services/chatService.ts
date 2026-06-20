@@ -18,7 +18,7 @@ function resolveOther(
     // I'm the customer → show the listing's identity.
     return { id: otherId, name: c.subjectName ?? "Business", avatar: c.subjectAvatar ?? "" };
   }
-  return profile ?? { id: otherId, name: "Naya user", avatar: "" };
+  return profile ?? { id: otherId, name: "STRYT user", avatar: "" };
 }
 
 /** Always store participants in lexicographic order so the UNIQUE constraint works. */

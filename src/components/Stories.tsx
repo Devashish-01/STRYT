@@ -38,7 +38,7 @@ export function StoriesBar() {
           <div style={{ position: "relative", width: 64, height: 64 }}>
             {myStory ? (
               // User has an active story — show their avatar with gradient ring
-              <div style={{ width: 64, height: 64, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,#ff8400,#ec4899,#6b21cc)" }}>
+              <div style={{ width: 64, height: 64, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,#ff8400,#ec4899,#7c3aed)" }}>
                 <SafeImg
                   src={user.avatar}
                   alt="Your story"
@@ -56,7 +56,7 @@ export function StoriesBar() {
             <div style={{
               position: "absolute", bottom: 0, right: 0,
               width: 22, height: 22, borderRadius: "50%",
-              background: myStory ? "#6b21cc" : "var(--brand-600)",
+              background: myStory ? "var(--brand-600)" : "var(--brand-600)",
               border: "2px solid #fff",
               display: "flex", alignItems: "center", justifyContent: "center",
             }}>
@@ -82,7 +82,7 @@ export function StoriesBar() {
                 <button key={s.id} className="col center" style={{ gap: 6, width: 70, flexShrink: 0 }} onClick={() => setOpen(idx)}>
                   <div style={{
                     width: 64, height: 64, borderRadius: "50%", padding: 2.5,
-                    background: seen ? "var(--ink-200)" : "linear-gradient(135deg,#ff8400,#ec4899,#6b21cc)",
+                    background: seen ? "var(--ink-200)" : "linear-gradient(135deg,#ff8400,#ec4899,#7c3aed)",
                   }}>
                     <SafeImg
                       src={s.authorAvatar} alt={s.authorName} variant="avatar"

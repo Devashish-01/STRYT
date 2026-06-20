@@ -1,4 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect width="64" height="64" rx="16" fill="#5B21B6"/>
-  <path d="M20 44V20l24 24V20" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <defs>
+    <linearGradient id="strytBg" x1="6" y1="4" x2="58" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9a5cff"/>
+      <stop offset="1" stop-color="#6d28d9"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#strytBg)"/>
+  <!-- location pin -->
+  <path d="M32 13 C23 13 16 20 16 28.8 C16 39.5 32 52 32 52 C32 52 48 39.5 48 28.8 C48 20 41 13 32 13 Z" fill="#ffffff"/>
+  <!-- winding street -->
+  <path d="M32 39 C25 34 39 24 32 19" stroke="#7c3aed" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- street centre line -->
+  <path d="M32 39 C25 34 39 24 32 19" stroke="#ffb020" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-dasharray="0.5 3.6"/>
 </svg>

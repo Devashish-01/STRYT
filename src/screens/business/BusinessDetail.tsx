@@ -146,7 +146,7 @@ export default function BusinessDetail() {
               <div style={{ minWidth: 0 }}>
                 <div className="row gap-6">
                   <h1 className="bold" style={{ fontSize: 21 }}>{b.name}</h1>
-                  {b.isVerified && <BadgeCheck size={18} color="#7c2fe8" fill="#ede5ff" />}
+                  {b.isVerified && <BadgeCheck size={18} color="#e5521c" fill="#ffe8e2" />}
                 </div>
                 <p className="small muted" style={{ marginTop: 2 }}>{b.subCategory}</p>
               </div>
@@ -218,7 +218,7 @@ export default function BusinessDetail() {
           <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
             <div className="card row gap-12" style={{ padding: 14, background: queue.peopleAhead === 0 ? "#e8f7ee" : "var(--brand-50)", border: "none" }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Users size={20} color={queue.peopleAhead === 0 ? "#16a34a" : "#6b21cc"} />
+                <Users size={20} color={queue.peopleAhead === 0 ? "#16a34a" : "#cc4415"} />
               </div>
               <div className="grow">
                 <div className="semi small">
@@ -250,7 +250,7 @@ export default function BusinessDetail() {
           <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
             <button className="card row gap-12" style={{ padding: 14, width: "100%", textAlign: "left" }} onClick={() => nav("/wallet")}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Stamp size={20} color="#6b21cc" />
+                <Stamp size={20} color="#cc4415" />
               </div>
               <div className="grow">
                 <div className="semi small">Loyalty card • {loyalty.stamps}/{loyalty.target} stamps</div>

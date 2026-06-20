@@ -96,10 +96,10 @@ function ProcessGuide({ status, isRequester }: { status: AgreementStatus; isRequ
   const myAction    = isRequester ? step.requesterAction : step.responderAction;
   const otherAction = isRequester ? step.responderAction : step.requesterAction;
   return (
-    <div className="card" style={{ padding: 14, background: "#faf5ff", border: "1px solid #e9d5ff" }}>
-      <div className="semi small" style={{ color: "#6b21cc", marginBottom: 10 }}>What happens next</div>
+    <div className="card" style={{ padding: 14, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
+      <div className="semi small" style={{ color: "var(--brand-700)", marginBottom: 10 }}>What happens next</div>
       <div className="row gap-10" style={{ marginBottom: 8 }}>
-        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#6b21cc", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--brand-600)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <span style={{ fontSize: 13, color: "#fff", fontWeight: 700 }}>You</span>
         </div>
         <span className="small semi">{myAction}</span>
@@ -230,7 +230,7 @@ export default function AgreementScreen() {
     ).catch(() => null);
     try {
       await requestService.sosAlert(agreement!.id, pos?.coords.latitude ?? 0, pos?.coords.longitude ?? 0);
-      showToast("SOS sent — emergency contact and Naya team alerted");
+      showToast("SOS sent — emergency contact and STRYT team alerted");
     } catch {
       showToast("SOS recorded. Call your contact directly if SMS failed.");
     }
@@ -547,7 +547,7 @@ export default function AgreementScreen() {
             <>
               <div className="divider" />
               <div className="row gap-10 small">
-                <Calendar size={16} color="#6b21cc" />
+                <Calendar size={16} color="var(--brand-700)" />
                 <span className="semi">{agreement.scheduledFor}</span>
               </div>
             </>
@@ -563,7 +563,7 @@ export default function AgreementScreen() {
           <div className="card row gap-10" style={{ padding: 12, background: "#fff7ed", border: "1px dashed #fdba74" }}>
             <Info size={20} color="#f26a00" style={{ flexShrink: 0 }} />
             <span className="tiny" style={{ color: "#c2410c", lineHeight: 1.4 }}>
-              Pay in person / via Razorpay when prompted. <span className="semi">Naya secures online payments.</span>
+              Pay in person / via Razorpay when prompted. <span className="semi">STRYT secures online payments.</span>
             </span>
           </div>
         )}
@@ -602,7 +602,7 @@ export default function AgreementScreen() {
         {sosTriggered && (
           <div className="card row gap-10" style={{ padding: 12, background: "#fee2e2", border: "1px solid #fca5a5" }}>
             <ShieldAlert size={20} color="#dc2626" style={{ flexShrink: 0 }} />
-            <span className="tiny semi" style={{ color: "#991b1b" }}>SOS sent — your emergency contact and Naya have been alerted.</span>
+            <span className="tiny semi" style={{ color: "#991b1b" }}>SOS sent — your emergency contact and STRYT have been alerted.</span>
           </div>
         )}
       </div>

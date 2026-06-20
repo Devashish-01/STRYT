@@ -68,7 +68,7 @@ export default function PublicProfile() {
           <div className="card row" style={{ padding: 14 }}>
             <Stat icon={<Handshake size={18} color="#16a34a" />} value={u.helpedCount} label="Helped" />
             <Sep />
-            <Stat icon={<MessageSquareText size={18} color="#6b21cc" />} value={u.requestsCount} label="Requests" />
+            <Stat icon={<MessageSquareText size={18} color="#cc4415" />} value={u.requestsCount} label="Requests" />
             <Sep />
             <Stat icon={<Heart size={18} color="#ef4444" />} value={u.vouchCount} label="Vouches" />
           </div>

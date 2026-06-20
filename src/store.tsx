@@ -155,6 +155,7 @@ interface AppState {
 
   // auth
   isAuthed: boolean;
+  authReady: boolean;
   signIn: () => void;
   signOut: () => void;
 }
@@ -184,19 +185,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isAuthed, setIsAuthed] = useState(tokenStore.isAuthed);
+  // False until the first Supabase session check resolves. The route guard waits
+  // on this so an OAuth / magic-link redirect (which carries ?code= / #access_token
+  // and is exchanged for a session asynchronously) is never bounced back to the
+  // login screen mid-callback. In mock mode there's no async auth, so it's ready
+  // immediately.
+  const [authReady, setAuthReady] = useState(config.useMocks);
 
   useEffect(() => {
     if (config.useMocks) return;
     const sb = getSupabase();
-    // Validate the persisted session on mount so a stale mirrored token in
-    // localStorage can't make the app believe we're authed when Supabase
-    // disagrees (every call would otherwise 401). The live session is the
-    // source of truth — tokenStore is only a cache.
+    // Resolve the initial session on mount. With detectSessionInUrl enabled, a
+    // Google/email redirect lands here and getSession() awaits the code→session
+    // exchange before resolving — so by the time this runs we have a definitive
+    // answer. The live session is the source of truth; tokenStore is only a cache.
     void sb.auth.getSession().then(({ data }) => {
-      if (!data.session) {
+      if (data.session) {
+        tokenStore.set(data.session.access_token, data.session.refresh_token);
+        setIsAuthed(true);
+      } else {
         tokenStore.clear();
         setIsAuthed(false);
       }
+      setAuthReady(true);
     });
     const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
       if (session) {
@@ -217,6 +228,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         tokenStore.clear();
         setIsAuthed(false);
       }
+      setAuthReady(true);
     });
     return () => {
       subscription.unsubscribe();
@@ -619,6 +631,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toast,
       showToast,
       isAuthed,
+      authReady,
       signIn: () => setIsAuthed(true),
       signOut: () => {
         tokenStore.clear();
@@ -635,7 +648,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       area, activeRole, roles, activeContext, ownedBusinessIds, ownedProviderId,
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
-      unread, chatUnread, toast, isAuthed,
+      unread, chatUnread, toast, isAuthed, authReady,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,

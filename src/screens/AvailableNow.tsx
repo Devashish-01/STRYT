@@ -47,7 +47,7 @@ export default function AvailableNow() {
                     <div className="grow" style={{ minWidth: 0 }}>
                       <div className="row gap-6">
                         <span className="semi ellipsis">{p.displayName}</span>
-                        {p.isVerified && <BadgeCheck size={15} color="#7c2fe8" />}
+                        {p.isVerified && <BadgeCheck size={15} color="#e5521c" />}
                       </div>
                       <div className="tiny muted">{p.categoryName} • {p.distanceKm} km</div>
                       <div className="row gap-6" style={{ marginTop: 5 }}>

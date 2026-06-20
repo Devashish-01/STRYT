@@ -64,7 +64,7 @@ export default function StoryComposer() {
 
         <div className="field">
           <label className="row between"><span className="row gap-4"><Clock size={14} /> Expires after</span><span style={{ color: "var(--brand-700)" }}>{hours} hours</span></label>
-          <input type="range" min={1} max={24} value={hours} onChange={(e) => setHours(Number(e.target.value))} style={{ width: "100%", accentColor: "#6b21cc" }} />
+          <input type="range" min={1} max={24} value={hours} onChange={(e) => setHours(Number(e.target.value))} style={{ width: "100%", accentColor: "#cc4415" }} />
         </div>
       </div>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>

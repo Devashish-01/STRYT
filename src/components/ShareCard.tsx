@@ -51,7 +51,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, onClose }
 
   const channels = [
     { label: "WhatsApp", icon: MessageCircle, color: "#25D366", onClick: shareWhatsApp },
-    { label: "Copy link", icon: Link2, color: "#6b21cc", onClick: copyLink },
+    { label: "Copy link", icon: Link2, color: "var(--brand-700)", onClick: copyLink },
     { label: "Copy card", icon: Copy, color: "#0ea5e9", onClick: copyCard },
     { label: "More", icon: Send, color: "#f26a00", onClick: shareMore },
   ];
@@ -61,7 +61,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, onClose }
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
         <div className="row gap-8" style={{ marginBottom: 14 }}>
-          <Share2 size={20} color="#6b21cc" />
+          <Share2 size={20} color="var(--brand-700)" />
           <h3 className="bold" style={{ fontSize: 18 }}>Share with neighbors</h3>
         </div>
 
@@ -70,7 +70,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, onClose }
           style={{
             borderRadius: 20,
             overflow: "hidden",
-            background: "linear-gradient(160deg,#6b21cc,#4c1d95)",
+            background: "linear-gradient(160deg, var(--brand-500), var(--brand-800))",
             color: "#fff",
             boxShadow: "var(--shadow-md)",
           }}
@@ -87,7 +87,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, onClose }
             <div className="bold" style={{ fontSize: 19 }}>{title}</div>
             <div className="small" style={{ opacity: 0.9 }}>{subtitle}</div>
             {meta && <div className="tiny" style={{ opacity: 0.75, marginTop: 6 }}>{meta}</div>}
-            <div className="tiny semi" style={{ marginTop: 10, opacity: 0.9 }}>📍 Tap to open in Naya →</div>
+            <div className="tiny semi" style={{ marginTop: 10, opacity: 0.9 }}>📍 Tap to open in STRYT →</div>
           </div>
         </div>
 

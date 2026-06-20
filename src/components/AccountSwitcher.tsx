@@ -40,7 +40,7 @@ export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
             icon={<User size={14} />}
             title={user.name}
             sub="Personal · Customer"
-            color="#6b21cc"
+            color="#7c3aed"
             onClick={() => pick("customer", null, user.name, "/home")}
           />
 

@@ -8,7 +8,7 @@ import { useApp } from "@/store";
 import { ListSkeleton } from "@/components/states";
 
 const FREQ_LABEL: Record<string, string> = { DAILY: "Daily", WEEKLY: "Weekly", MONTHLY: "Monthly" };
-const FREQ_COLOR: Record<string, string> = { DAILY: "#6b21cc", WEEKLY: "#0ea5e9", MONTHLY: "#f26a00" };
+const FREQ_COLOR: Record<string, string> = { DAILY: "#6d28d9", WEEKLY: "#0ea5e9", MONTHLY: "#f26a00" };
 
 export default function SubscriptionManager() {
   const nav = useNavigate();

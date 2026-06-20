@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText, Camera } from "lucide-react";
+import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText } from "lucide-react";
 import { requestService, communityService, discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -21,7 +21,7 @@ const POST_LABELS: Record<"ALL" | CommunityPostType, string> = {
 export default function CommunityHub() {
   const nav = useNavigate();
   const { area, user, chatUnread } = useApp();
-  const [tab, setTab] = useState<HubTab>("requests");
+  const [tab, setTab] = useState<HubTab>("posts");
   const [postFilter, setPostFilter] = useState<"ALL" | CommunityPostType>("ALL");
   const [reqSpecial, setReqSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
 
@@ -56,7 +56,7 @@ export default function CommunityHub() {
               <div className="bold" style={{ fontSize: 20 }}>Community</div>
               <div className="tiny muted row gap-4"><MapPin size={11} /> {area}</div>
             </div>
-            <div className="row gap-8">
+            <div className="row gap-6">
               <button
                 className="icon-btn"
                 style={{ position: "relative" }}
@@ -72,17 +72,21 @@ export default function CommunityHub() {
                   }} />
                 )}
               </button>
-              <button className="icon-btn" onClick={() => nav("/story/new")} aria-label="Add story">
-                <Camera size={20} />
-              </button>
               <button className="icon-btn" onClick={() => nav("/search")} aria-label="Search">
                 <SearchIcon size={20} />
               </button>
               <button
                 className="btn btn-primary btn-sm"
-                onClick={() => tab === "requests" ? nav("/ask") : nav("/community/new")}
+                onClick={() => nav("/community/new")}
               >
-                <Plus size={15} /> {tab === "requests" ? "Ask" : "Post"}
+                <Plus size={14} /> Post
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ border: "1.5px solid var(--ink-200)", fontWeight: 700 }}
+                onClick={() => nav("/ask")}
+              >
+                <FileText size={14} /> Request
               </button>
             </div>
           </div>
@@ -161,7 +165,7 @@ export default function CommunityHub() {
             <EmptyState
               emoji="🏘️"
               title="Nothing posted yet"
-              text="Be the first to share something with your neighborhood."
+              text="Be the first to share something with your street."
               action={
                 <button className="btn btn-primary btn-sm" onClick={() => nav("/community/new")}>
                   <Plus size={15} /> Post something

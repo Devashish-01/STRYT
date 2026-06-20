@@ -43,7 +43,7 @@ export default function CommunityCompose() {
         pollOptions: type === "POLL" ? pollOpts.filter((o) => o.trim()).map((label, i) => ({ id: `o${i}`, label, votes: 0 })) : undefined,
       });
       showToast("Posted to community 🏘️");
-      setTimeout(() => nav("/community"), 500);
+      setTimeout(() => nav("/community-hub"), 500);
     } catch {
       showToast("Couldn't post. Try again.");
       setPosting(false);
@@ -144,7 +144,7 @@ export default function CommunityCompose() {
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
         <button className="btn btn-primary btn-block" disabled={!canPost} onClick={post}>
-          {posting ? "Posting…" : "Post to neighborhood"}
+          {posting ? "Posting…" : "Post to your street"}
         </button>
       </div>
     </div>

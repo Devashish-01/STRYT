@@ -33,7 +33,7 @@ export default function SocietyScreen() {
 
   return (
     <div className="screen">
-      <div style={{ background: "linear-gradient(135deg,#6b21cc,#7c3aed)", color: "#fff", padding: "16px 16px 0" }}>
+      <div style={{ background: "linear-gradient(135deg,var(--brand-500),var(--brand-700))", color: "#fff", padding: "16px 16px 0" }}>
         <div className="row between" style={{ marginBottom: 12 }}>
           <span className="bold" style={{ fontSize: 16 }}>{society.name}</span>
           {society.verified && <span style={{ background: "rgba(255,255,255,0.2)", borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 600 }}>✓ Verified</span>}
@@ -69,7 +69,7 @@ function SocietyHome({ society, isAdmin, showToast }: { society: Society; isAdmi
     <div className="page-pad col gap-14" style={{ paddingTop: 16 }}>
       <div className="row gap-10">
         <div className="card grow col center" style={{ padding: 16, gap: 6 }}>
-          <Users size={22} color="#6b21cc" />
+          <Users size={22} color="var(--brand-700)" />
           <span className="bold" style={{ fontSize: 22 }}>{society.unitCount}</span>
           <span className="tiny muted">Total units</span>
         </div>
@@ -83,7 +83,7 @@ function SocietyHome({ society, isAdmin, showToast }: { society: Society; isAdmi
       <div className="card" style={{ padding: 14 }}>
         <div className="semi small" style={{ marginBottom: 10 }}>Society join code</div>
         <div className="row gap-12 center">
-          <span style={{ fontFamily: "monospace", fontSize: 28, fontWeight: 800, letterSpacing: 6, color: "#6b21cc" }}>{society.joinCode}</span>
+          <span style={{ fontFamily: "monospace", fontSize: 28, fontWeight: 800, letterSpacing: 6, color: "var(--brand-700)" }}>{society.joinCode}</span>
           <button className="btn btn-outline btn-sm" onClick={copyCode}>Copy</button>
         </div>
         <div className="tiny muted" style={{ marginTop: 8, textAlign: "center" }}>Share this with neighbours to let them join</div>
@@ -92,7 +92,7 @@ function SocietyHome({ society, isAdmin, showToast }: { society: Society; isAdmi
       <div className="card" style={{ padding: 14 }}>
         <div className="semi small" style={{ marginBottom: 10 }}>Quick actions</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <QuickTile icon={<Key size={20} color="#6b21cc" />} label="Issue Gate Pass" />
+          <QuickTile icon={<Key size={20} color="var(--brand-700)" />} label="Issue Gate Pass" />
           <QuickTile icon={<ClipboardCheck size={20} color="#16a34a" />} label="Notice Board" />
           <QuickTile icon={<QrCode size={20} color="#f26a00" />} label="Provider Directory" />
           <QuickTile icon={<Users size={20} color="#0ea5e9" />} label="Maintenance Staff" />
@@ -100,10 +100,10 @@ function SocietyHome({ society, isAdmin, showToast }: { society: Society; isAdmi
       </div>
 
       {isAdmin && (
-        <div className="card row gap-10" style={{ padding: 12, background: "#faf5ff", border: "1px solid #e9d5ff" }}>
-          <Shield size={18} color="#6b21cc" style={{ flexShrink: 0 }} />
+        <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
+          <Shield size={18} color="var(--brand-700)" style={{ flexShrink: 0 }} />
           <div>
-            <div className="semi small" style={{ color: "#6b21cc" }}>Admin tools</div>
+            <div className="semi small" style={{ color: "var(--brand-700)" }}>Admin tools</div>
             <div className="tiny muted">Approve members, issue gate passes, manage the directory</div>
           </div>
         </div>
@@ -135,7 +135,7 @@ function MembersList({ societyId }: { societyId: string }) {
             <div className="semi small">{m.userName}</div>
             <div className="tiny muted">Unit {m.unitNumber}</div>
           </div>
-          <span className="badge" style={{ background: m.role === "ADMIN" ? "#faf5ff" : "#f0fdf4", color: m.role === "ADMIN" ? "#6b21cc" : "#15803d" }}>
+          <span className="badge" style={{ background: m.role === "ADMIN" ? "var(--brand-50)" : "#f0fdf4", color: m.role === "ADMIN" ? "var(--brand-700)" : "#15803d" }}>
             {m.role}
           </span>
         </div>

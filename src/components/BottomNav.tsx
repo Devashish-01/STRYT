@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Home, Compass, Plus, Users, User, X } from "lucide-react";
-import { useApp } from "@/store";
+import { Home, Map, Plus, User, X } from "lucide-react";
 
 export default function BottomNav() {
   const nav = useNavigate();
-  const { chatUnread } = useApp();
   const [sheet, setSheet] = useState(false);
 
   return (
@@ -20,11 +18,11 @@ export default function BottomNav() {
           )}
         </NavLink>
 
-        <NavLink to="/explore" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
+        <NavLink to="/map" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
           {({ isActive }) => (
             <>
-              <Compass size={22} strokeWidth={isActive ? 2.6 : 2} />
-              <span>Explore</span>
+              <Map size={22} strokeWidth={isActive ? 2.6 : 2} />
+              <span>Map</span>
             </>
           )}
         </NavLink>
@@ -34,20 +32,6 @@ export default function BottomNav() {
           <span className="fab-circle"><Plus size={26} strokeWidth={2.6} /></span>
           <span style={{ marginTop: 2 }}>Create</span>
         </button>
-
-        <NavLink to="/community-hub" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-          {({ isActive }) => (
-            <>
-              <span style={{ position: "relative", display: "inline-flex" }}>
-                <Users size={22} strokeWidth={isActive ? 2.6 : 2} />
-                {chatUnread > 0 && (
-                  <span className="nav-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>
-                )}
-              </span>
-              <span>Community</span>
-            </>
-          )}
-        </NavLink>
 
         <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
           {({ isActive }) => (
@@ -92,7 +76,7 @@ export default function BottomNav() {
                 <span style={{ fontSize: 32, lineHeight: 1 }}>📋</span>
                 <div className="grow">
                   <div className="semi small">Post a request</div>
-                  <div className="tiny muted">Ask your neighborhood for help or a quote</div>
+                  <div className="tiny muted">Ask your street for help or a quote</div>
                 </div>
               </button>
 
@@ -104,7 +88,7 @@ export default function BottomNav() {
                 <span style={{ fontSize: 32, lineHeight: 1 }}>📸</span>
                 <div className="grow">
                   <div className="semi small">Share a story</div>
-                  <div className="tiny muted">Share a photo moment with neighbors nearby</div>
+                  <div className="tiny muted">Share a photo moment with people on your street</div>
                 </div>
               </button>
 

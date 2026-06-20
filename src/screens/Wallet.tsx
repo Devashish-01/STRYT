@@ -94,11 +94,11 @@ export default function Wallet() {
 
         {!loading && !error && tab === "ledger" && (
           <>
-            <div className="card col center" style={{ padding: 16, gap: 4, background: "linear-gradient(135deg,#6b21cc,#4c1d95)", color: "#fff", border: "none" }}>
+            <div className="card col center" style={{ padding: 16, gap: 4, background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", border: "none" }}>
               <WalletIcon size={26} />
               <span className="tiny" style={{ opacity: 0.85 }}>Settled offline this month</span>
               <span className="bold" style={{ fontSize: 28 }}>{inr(totalSettled)}</span>
-              <span className="tiny" style={{ opacity: 0.75 }}>Naya records it — money changes hands in person</span>
+              <span className="tiny" style={{ opacity: 0.75 }}>STRYT records it — money changes hands in person</span>
             </div>
             {settlements.length === 0 ? (
               <EmptyState emoji="🧾" title="No settlements yet" text="Completed jobs you mark as paid show up here." />

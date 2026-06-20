@@ -120,7 +120,7 @@ export default function TrackingPage() {
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
-        <div style={{ color: "#6b21cc", fontWeight: 700, fontSize: 18 }}>Loading…</div>
+        <div style={{ color: "var(--brand-700)", fontWeight: 700, fontSize: 18 }}>Loading…</div>
       </div>
     );
   }
@@ -141,7 +141,14 @@ export default function TrackingPage() {
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       {/* Top bar */}
       <div style={{ height: 50, background: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
-        <span style={{ fontWeight: 800, fontSize: 18, color: "#6b21cc" }}>naya</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <svg width="22" height="22" viewBox="0 0 64 64">
+            <rect width="64" height="64" rx="16" fill="#7c3aed"/>
+            <path d="M32 13 C23 13 16 20 16 28.8 C16 39.5 32 52 32 52 C32 52 48 39.5 48 28.8 C48 20 41 13 32 13 Z" fill="#fff"/>
+            <path d="M32 39 C25 34 39 24 32 19" stroke="#7c3aed" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span style={{ fontWeight: 800, fontSize: 18, color: "var(--brand-700)", letterSpacing: 0.5 }}>STRYT</span>
+        </span>
         <span style={{ fontSize: 12, color: "#9ca3af" }}>Live tracking</span>
       </div>
 
@@ -149,7 +156,7 @@ export default function TrackingPage() {
       <div style={{ height: 60, background: "#fff", display: "flex", alignItems: "center", gap: 12, padding: "0 16px", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
         {providerAvatar
           ? <img src={providerAvatar} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
-          : <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e9d5ff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "#6b21cc" }}>{providerName[0]}</div>
+          : <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e9d5ff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--brand-700)" }}>{providerName[0]}</div>
         }
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{providerName} is {statusInfo.label.toLowerCase()}</div>
@@ -164,7 +171,7 @@ export default function TrackingPage() {
       {/* Footer */}
       <div style={{ height: 50, background: "#fff", borderTop: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", flexShrink: 0 }}>
         <span style={{ background: "#dcfce7", color: "#15803d", fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 20 }}>{eta}</span>
-        <span style={{ fontSize: 11, color: "#9ca3af" }}>Powered by Naya</span>
+        <span style={{ fontSize: 11, color: "#9ca3af" }}>Powered by STRYT</span>
       </div>
     </div>
   );

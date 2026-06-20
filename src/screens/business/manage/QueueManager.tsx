@@ -127,12 +127,12 @@ export default function QueueManager() {
               <input
                 type="range" min={2} max={30} value={avgTime}
                 onChange={(e) => saveAvgTime(Number(e.target.value))}
-                style={{ width: "100%", accentColor: "#6b21cc", marginTop: 8 }}
+                style={{ width: "100%", accentColor: "#cc4415", marginTop: 8 }}
               />
             </div>
 
             <div className="card col center" style={{ padding: 16, gap: 4, background: "var(--brand-50)", border: "none" }}>
-              <Users size={26} color="#6b21cc" />
+              <Users size={26} color="#cc4415" />
               <span className="bold" style={{ fontSize: 26 }}>{tokens.length}</span>
               <span className="tiny muted">in queue • ~{tokens.length * avgTime} min total</span>
             </div>

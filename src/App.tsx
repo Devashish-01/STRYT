@@ -19,6 +19,7 @@ import Profile from "./screens/Profile";
 import Search from "./screens/Search";
 import MapView from "./screens/MapView";
 import CategoryListing from "./screens/CategoryListing";
+import AllCategories from "./screens/AllCategories";
 import Notifications from "./screens/Notifications";
 import Bookmarks from "./screens/Bookmarks";
 import Settings from "./screens/Settings";
@@ -100,14 +101,49 @@ import NewSubscription from "./screens/subscriptions/NewSubscription";
 import BusinessProUpgrade from "./screens/monetization/BusinessProUpgrade";
 
 // Routes that show the bottom navigation bar
-const TAB_ROUTES = ["/home", "/explore", "/chats", "/requests", "/community-hub", "/profile"];
+const TAB_ROUTES = ["/home", "/map", "/explore", "/chats", "/requests", "/community-hub", "/community", "/profile"];
 // Routes accessible without authentication
 const PUBLIC_ROUTES = ["/", "/auth/phone", "/auth/otp", "/auth/location"];
 // Routes that should redirect away if the user is already signed in
 const AUTH_SCREENS = ["/", "/auth/phone", "/auth/otp"];
 
+// Brief full-screen loader shown while the initial Supabase session resolves
+// (including the OAuth / magic-link code→session exchange after a redirect).
+function AuthSplash() {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 18,
+        background: "linear-gradient(160deg, #8b47f5 0%, #7c3aed 55%, #4c1d95 100%)",
+        color: "#fff",
+      }}
+    >
+      <svg width="56" height="56" viewBox="0 0 64 64">
+        <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
+        <path d="M32 41 C24 35 40 24 32 17" stroke="#7c3aed" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <div
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: "50%",
+          border: "3px solid rgba(255,255,255,0.35)",
+          borderTopColor: "#fff",
+          animation: "spin 0.8s linear infinite",
+        }}
+      />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 function Protected({ children }: { children: ReactNode }) {
-  const { isAuthed, user } = useApp();
+  const { isAuthed, authReady, user } = useApp();
   const location = useLocation();
 
   // Allow Supabase OAuth / magic-link to land and parse its token before any redirect.
@@ -115,6 +151,13 @@ function Protected({ children }: { children: ReactNode }) {
     window.location.hash.includes("access_token=") ||
     window.location.hash.includes("error=") ||
     window.location.search.includes("code=");
+
+  // Wait for the initial session check (and any OAuth code→session exchange) to
+  // finish before deciding anything. Without this, a Google/email redirect is
+  // bounced to /auth/phone during the async callback and the login "fails".
+  if ((!authReady || isAuthCallback) && !isAuthed && !PUBLIC_ROUTES.includes(location.pathname) && !location.pathname.startsWith("/track/")) {
+    return <AuthSplash />;
+  }
 
   // Unauthenticated users go straight to login — not the marketing splash.
   if (!isAuthed && !PUBLIC_ROUTES.includes(location.pathname) && !location.pathname.startsWith("/track/") && !isAuthCallback) {
@@ -159,6 +202,7 @@ export default function App() {
 
           <Route path="/search" element={<Search />} />
           <Route path="/map" element={<MapView />} />
+          <Route path="/categories" element={<AllCategories />} />
           <Route path="/category/:id" element={<CategoryListing />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/bookmarks" element={<Bookmarks />} />

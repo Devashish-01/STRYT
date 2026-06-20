@@ -229,7 +229,7 @@ export default function ProviderDetail() {
                           style={{ padding: "6px 12px", background: isOn ? "var(--brand-100)" : "var(--ink-50)", color: isOn ? "var(--brand-700)" : "var(--ink-700)" }}
                           onClick={() => toggleEndorse(p.id, e.skill)}
                         >
-                          <ThumbsUp size={13} fill={isOn ? "#7c2fe8" : "none"} /> {isOn ? "Endorsed" : "Endorse"}
+                          <ThumbsUp size={13} fill={isOn ? "#e5521c" : "none"} /> {isOn ? "Endorsed" : "Endorse"}
                         </button>
                       </div>
                     );

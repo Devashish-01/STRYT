@@ -13,7 +13,7 @@ const Handshake = HandshakeIcon as any;
 const meta: Record<NotificationType, { icon: any; color: string; bg: string }> = {
   NEW_BUSINESS: { icon: Store, color: "#f26a00", bg: "#fff3e8" },
   NEW_PROVIDER: { icon: Briefcase, color: "#16a34a", bg: "#e8f7ee" },
-  NEARBY_REQUEST: { icon: MessageSquareText, color: "#6b21cc", bg: "#f3ecff" },
+  NEARBY_REQUEST: { icon: MessageSquareText, color: "var(--brand-700)", bg: "var(--brand-100)" },
   PROPOSAL: { icon: FileText, color: "#0ea5e9", bg: "#e6f5fe" },
   AGREEMENT: { icon: Handshake, color: "#16a34a", bg: "#e8f7ee" },
   OFFER: { icon: Tag, color: "#ec4899", bg: "#fdeef6" },

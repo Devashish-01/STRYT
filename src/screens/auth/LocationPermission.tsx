@@ -71,12 +71,12 @@ export default function LocationPermission() {
           }}
         >
           <span style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid var(--brand-300)", animation: "pulse-ring 2s infinite" }} />
-          <MapPin size={52} color="#6b21cc" />
+          <MapPin size={52} color="var(--brand-600)" />
         </div>
 
         <h1 style={{ fontSize: 26, fontWeight: 800, marginTop: 32 }}>Enable location</h1>
         <p className="muted" style={{ marginTop: 10, maxWidth: 300, lineHeight: 1.55 }}>
-          Naya is all about what's <span className="semi" style={{ color: "var(--ink-900)" }}>near you</span>. We use your location to show
+          STRYT is all about what's <span className="semi" style={{ color: "var(--ink-900)" }}>near you</span>. We use your location to show
           local businesses, providers and requests within your radius.
         </p>
 

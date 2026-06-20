@@ -212,7 +212,7 @@ export default function RequestDetail() {
                     <div className="grow" style={{ minWidth: 0 }}>
                       <div className="row gap-6">
                         <span className="semi small ellipsis">{p.responderName}</span>
-                        {p.responderType === "business" && <BadgeCheck size={14} color="#7c2fe8" />}
+                        {p.responderType === "business" && <BadgeCheck size={14} color="#e5521c" />}
                       </div>
                       <span className="tiny muted">{p.responderTagline}</span>
                     </div>
@@ -272,7 +272,7 @@ export default function RequestDetail() {
                             padding: "6px 10px",
                             maxWidth: "75%",
                           }}>
-                            <div className="tiny semi" style={{ color: c.by === "requester" ? "#6b21cc" : "#15803d" }}>
+                            <div className="tiny semi" style={{ color: c.by === "requester" ? "var(--brand-700)" : "#15803d" }}>
                               {c.by === "requester" ? "Requester" : "Provider"} counter: {inr(c.amount)}
                             </div>
                             {c.message && <div className="tiny muted" style={{ marginTop: 2 }}>{c.message}</div>}

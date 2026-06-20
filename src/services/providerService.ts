@@ -209,7 +209,7 @@ export const providerService = {
       kind: l.kind,
       name: l.from?.name ?? "Someone",
       avatar: l.from?.avatar ?? "",
-      text: l.note || "Reached out via Naya",
+      text: l.note || "Reached out via STRYT",
       time: relDate(l.created_at),
       handled: l.handled,
     }));

@@ -16,7 +16,7 @@ export default function Achievements() {
       <div className="screen-scroll">
         {/* Hero */}
         <div className="page-pad">
-          <div className="card col center" style={{ padding: 20, gap: 6, background: "linear-gradient(135deg,#6b21cc,#4c1d95)", color: "#fff", border: "none" }}>
+          <div className="card col center" style={{ padding: 20, gap: 6, background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", border: "none" }}>
             <SafeImg src={user.avatar} variant="avatar" className="avatar" style={{ width: 60, height: 60, border: "3px solid rgba(255,255,255,0.3)" }} />
             <div className="bold" style={{ fontSize: 17, marginTop: 4 }}>{user.name}</div>
             <div className="row gap-6">

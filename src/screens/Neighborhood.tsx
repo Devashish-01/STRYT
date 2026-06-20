@@ -34,7 +34,7 @@ export default function Neighborhood() {
   const stats = [
     { icon: Store, label: "Just opened", value: newCount, color: "#f26a00", to: "/explore" },
     { icon: Zap, label: "Available now", value: availCount, color: "#16a34a", to: "/available" },
-    { icon: MessageSquareText, label: "Open requests", value: openReq, color: "#6b21cc", to: "/requests" },
+    { icon: MessageSquareText, label: "Open requests", value: openReq, color: "var(--brand-600)", to: "/requests" },
   ];
 
   return (
@@ -50,7 +50,7 @@ export default function Neighborhood() {
 
       <div className="screen-scroll">
         {/* Live pulse header */}
-        <div style={{ background: "linear-gradient(135deg,#6b21cc,#4c1d95)", color: "#fff", padding: "16px", margin: "12px 16px 0", borderRadius: 20 }}>
+        <div style={{ background: "linear-gradient(135deg,var(--brand-500),var(--brand-700))", color: "#fff", padding: "16px", margin: "12px 16px 0", borderRadius: 20 }}>
           <div className="row gap-6" style={{ marginBottom: 10 }}>
             <span className="dot-new" style={{ background: "#4ade80", boxShadow: "0 0 0 3px rgba(74,222,128,0.3)" }} />
             <span className="tiny semi" style={{ letterSpacing: 0.5 }}>LIVE IN YOUR AREA</span>

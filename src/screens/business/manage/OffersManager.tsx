@@ -107,7 +107,7 @@ export default function OffersManager() {
                   }
                 }}
               >
-                <Megaphone size={15} color="#6b21cc" />
+                <Megaphone size={15} color="#cc4415" />
               </button>
               <button className="icon-btn" style={{ width: 32, height: 32, color: "#dc2626" }} onClick={() => remove(o.id)}>
                 <Trash2 size={15} />

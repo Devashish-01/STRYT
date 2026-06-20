@@ -47,6 +47,20 @@ export const catalogService = {
     return data ? toCamel<Category>(data) : undefined;
   },
 
+  async getCategoryCounts(): Promise<{ bizCounts: Record<string, number>; provCounts: Record<string, number> }> {
+    const sb = getSupabase();
+    const [{ data: bizRows }, { data: provRows }] = await Promise.all([
+      sb.from("businesses").select("category_id").eq("status", "ACTIVE"),
+      sb.from("providers").select("category_id").eq("status", "ACTIVE"),
+    ]);
+    const tally = (rows: { category_id: string }[] | null) => {
+      const c: Record<string, number> = {};
+      for (const r of rows ?? []) if (r.category_id) c[r.category_id] = (c[r.category_id] ?? 0) + 1;
+      return c;
+    };
+    return { bizCounts: tally(bizRows as any), provCounts: tally(provRows as any) };
+  },
+
   async proposeCategory(name: string, parentId: string | null, kind: string) {
     const sb = getSupabase();
     const uid = await currentUserId();

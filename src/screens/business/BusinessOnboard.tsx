@@ -34,7 +34,7 @@ export default function BusinessOnboard() {
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
 
-  const cats = categories ?? [];
+  const cats = (categories ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
   const selectedCat = cats.find((c) => c.id === cat);
 
   const canNext = [
@@ -251,7 +251,7 @@ export default function BusinessOnboard() {
         {step === 4 && (
           <>
             <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
-              <FileCheck size={20} color="#6b21cc" />
+              <FileCheck size={20} color="#cc4415" />
               <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>Pick one to verify your business. Documents are private and deleted after approval.</span>
             </div>
             <div className="col gap-10">

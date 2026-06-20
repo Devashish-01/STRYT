@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Navigation } from "lucide-react";
+import { ArrowLeft, Navigation, Pencil, Check } from "lucide-react";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
 import { makePinIcon } from "@/lib/leafletIcon";
@@ -30,7 +30,7 @@ const RADIUS_OPTIONS = [
 const pinColors: Record<Exclude<Layer, "story">, string> = {
   business: "#f26a00",
   provider: "#16a34a",
-  request:  "#6b21cc",
+  request:  "#7c3aed",
 };
 
 const layerLabels: Record<Layer, string> = {
@@ -43,7 +43,7 @@ const layerLabels: Record<Layer, string> = {
 function makeStoryIcon(avatarUrl: string, seen: boolean) {
   const ringStyle = seen
     ? "background:#9ca3af"
-    : "background:linear-gradient(135deg,#ff8400,#ec4899,#6b21cc)";
+    : "background:linear-gradient(135deg,#ff8400,#ec4899,#7c3aed)";
   return L.divIcon({
     className: "",
     html: `<div style="width:44px;height:44px;border-radius:50%;${ringStyle};padding:2.5px;box-shadow:0 2px 10px rgba(0,0,0,0.35)">
@@ -63,7 +63,7 @@ const requestIcon  = makePinIcon(pinColors.request);
 
 const meIcon = L.divIcon({
   className: "",
-  html: `<div style="width:18px;height:18px;border-radius:50%;background:#6b21cc;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>`,
+  html: `<div style="width:18px;height:18px;border-radius:50%;background:#8b47f5;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>`,
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
@@ -98,9 +98,14 @@ function RecenterButton({ lat, lng, radiusKm }: { lat: number; lng: number; radi
         map.fitBounds(bounds, { padding: [60, 80], animate: true, duration: 0.8 });
       }}
     >
-      <Navigation size={18} color="#6b21cc" />
+      <Navigation size={18} color="#8b47f5" />
     </button>
   );
+}
+
+function roundToHalf(v: number): number {
+  const r = Math.round(v * 2) / 2;
+  return Math.max(0.5, r);
 }
 
 export default function MapView() {
@@ -111,6 +116,24 @@ export default function MapView() {
   });
   const [radiusKm, setRadiusKm] = useState(5);
   const [storyViewer, setStoryViewer] = useState<{ stories: Story[]; idx: number } | null>(null);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customVal, setCustomVal] = useState("");
+  const customInputRef = useRef<HTMLInputElement>(null);
+
+  const presetKms = new Set<number>(RADIUS_OPTIONS.map((o) => o.km));
+  const isCustomActive = !presetKms.has(radiusKm);
+
+  function openCustom() {
+    setCustomVal(isCustomActive ? String(radiusKm) : "");
+    setShowCustom(true);
+    setTimeout(() => customInputRef.current?.focus(), 60);
+  }
+
+  function applyCustom() {
+    const n = parseFloat(customVal);
+    if (!isNaN(n) && n > 0) setRadiusKm(roundToHalf(n));
+    setShowCustom(false);
+  }
 
   const centerLat = user.lat || 18.536;
   const centerLng = user.lng || 73.893;
@@ -194,13 +217,77 @@ export default function MapView() {
       {visibleCount > 0 && (
         <div style={{
           position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
-          zIndex: 1000, background: "#6b21cc", color: "#fff",
+          zIndex: 1000, background: "#7c3aed", color: "#fff",
           borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700,
           boxShadow: "0 2px 12px rgba(107,33,204,0.45)", whiteSpace: "nowrap",
           pointerEvents: "none",
         }}>
-          {visibleCount} {visibleCount === 1 ? "place" : "places"}{isWorld ? " globally" : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
+          {visibleCount} {visibleCount === 1 ? "place" : "places"}
+          {isWorld ? " globally" : isCustomActive ? ` within ${radiusKm} km` : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
         </div>
+      )}
+
+      {/* Custom distance input card */}
+      {showCustom && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 1100 }}
+            onClick={() => setShowCustom(false)}
+          />
+          <div style={{
+            position: "absolute", bottom: 80, left: "50%", transform: "translateX(-50%)",
+            zIndex: 1200,
+            background: "#fff",
+            borderRadius: 20,
+            padding: "16px 18px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.22)",
+            minWidth: 240,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-500)", marginBottom: 10, letterSpacing: 0.4 }}>
+              CUSTOM RADIUS
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <input
+                ref={customInputRef}
+                type="number"
+                min={0.5}
+                step={0.5}
+                value={customVal}
+                placeholder="e.g. 3.7"
+                onChange={(e) => setCustomVal(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") applyCustom(); if (e.key === "Escape") setShowCustom(false); }}
+                style={{
+                  flex: 1,
+                  border: "1.5px solid var(--ink-200)",
+                  borderRadius: 12,
+                  padding: "10px 12px",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "var(--ink-900)",
+                  outline: "none",
+                  width: 0,
+                }}
+              />
+              <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-500)", flexShrink: 0 }}>km</span>
+              <button
+                onClick={applyCustom}
+                style={{
+                  width: 42, height: 42, borderRadius: 13,
+                  background: "#7c3aed", color: "#fff",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  border: "none", cursor: "pointer", flexShrink: 0,
+                }}
+              >
+                <Check size={20} strokeWidth={2.8} />
+              </button>
+            </div>
+            {customVal && !isNaN(parseFloat(customVal)) && parseFloat(customVal) > 0 && (
+              <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: 8 }}>
+                Snaps to <strong style={{ color: "#7c3aed" }}>{roundToHalf(parseFloat(customVal))} km</strong>
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Radius selector strip */}
@@ -222,12 +309,12 @@ export default function MapView() {
           return (
             <button
               key={opt.km}
-              onClick={() => setRadiusKm(opt.km)}
+              onClick={() => { setRadiusKm(opt.km); setShowCustom(false); }}
               style={{
                 padding: "6px 13px",
                 borderRadius: 22,
                 border: "none",
-                background: active ? "#6b21cc" : "transparent",
+                background: active ? "#7c3aed" : "transparent",
                 color: active ? "#fff" : "var(--ink-600)",
                 fontWeight: active ? 700 : 500,
                 fontSize: 13,
@@ -241,6 +328,28 @@ export default function MapView() {
             </button>
           );
         })}
+
+        {/* Custom button */}
+        <button
+          onClick={openCustom}
+          style={{
+            padding: "6px 13px",
+            borderRadius: 22,
+            border: "none",
+            background: isCustomActive ? "#7c3aed" : "transparent",
+            color: isCustomActive ? "#fff" : "var(--ink-600)",
+            fontWeight: isCustomActive ? 700 : 500,
+            fontSize: 13,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+            display: "flex", alignItems: "center", gap: 5,
+            transition: "background 0.15s, color 0.15s",
+          }}
+        >
+          <Pencil size={12} strokeWidth={2.5} />
+          {isCustomActive ? `${radiusKm} km` : "Custom"}
+        </button>
       </div>
 
       {/* Full-screen map */}
@@ -267,9 +376,9 @@ export default function MapView() {
             center={[centerLat, centerLng]}
             radius={radiusKm * 1000}
             pathOptions={{
-              color: "#6b21cc", weight: 1.5,
+              color: "#7c3aed", weight: 1.5,
               dashArray: "6 5",
-              fillColor: "#6b21cc", fillOpacity: 0.05,
+              fillColor: "#7c3aed", fillOpacity: 0.05,
             }}
           />
         )}
@@ -323,7 +432,7 @@ export default function MapView() {
             <Marker key={r.id} position={[lat, lng]} icon={requestIcon}>
               <Popup>
                 <div style={{ minWidth: 180 }}>
-                  <span style={{ fontSize: 11, background: "#e9d5ff", color: "#6b21cc", padding: "2px 6px", borderRadius: 4 }}>{r.categoryName}</span>
+                  <span style={{ fontSize: 11, background: "#e9d5ff", color: "#7c3aed", padding: "2px 6px", borderRadius: 4 }}>{r.categoryName}</span>
                   <div style={{ fontWeight: 700, marginTop: 4, fontSize: 14 }}>{r.title}</div>
                   <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
                     {r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget"}

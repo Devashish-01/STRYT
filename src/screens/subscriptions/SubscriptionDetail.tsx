@@ -71,7 +71,7 @@ export default function SubscriptionDetail() {
             <div style={{ width: 1, background: "var(--line)" }} />
             <SumCard label="Skipped" value={summary.skipped} color="#f26a00" />
             <div style={{ width: 1, background: "var(--line)" }} />
-            <SumCard label="Amount" value={`₹${summary.amount}`} color="#6b21cc" />
+            <SumCard label="Amount" value={`₹${summary.amount}`} color="var(--brand-700)" />
           </div>
         )}
 
@@ -130,7 +130,7 @@ function DayCell({ day, status, isFuture, isToday, isMarking, onMark }: {
     <div style={{ position: "relative" }}>
       <button
         onClick={() => !isFuture && setOpen((o) => !o)}
-        style={{ width: "100%", aspectRatio: "1", borderRadius: 8, background: bg, color, fontWeight: isToday ? 800 : 500, fontSize: 13, border: isToday ? "2px solid #6b21cc" : "none", opacity: isFuture ? 0.3 : 1, cursor: isFuture ? "default" : "pointer" }}
+        style={{ width: "100%", aspectRatio: "1", borderRadius: 8, background: bg, color, fontWeight: isToday ? 800 : 500, fontSize: 13, border: isToday ? "2px solid var(--brand-600)" : "none", opacity: isFuture ? 0.3 : 1, cursor: isFuture ? "default" : "pointer" }}
         disabled={isMarking}
       >
         {day}

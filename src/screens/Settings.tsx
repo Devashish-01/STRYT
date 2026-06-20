@@ -109,7 +109,7 @@ export default function Settings() {
           <div className="small semi muted" style={{ marginBottom: 8 }}>Location</div>
           <div className="card" style={{ padding: 14 }}>
             <div className="row gap-10">
-              <MapPin size={20} color="#6b21cc" style={{ flexShrink: 0 }} />
+              <MapPin size={20} color="var(--brand-700)" style={{ flexShrink: 0 }} />
               <div className="grow">
                 <input
                   className="input"
@@ -145,7 +145,7 @@ export default function Settings() {
               <span>Notification radius</span>
               <span style={{ color: "var(--brand-700)" }}>{radius} km</span>
             </div>
-            <input type="range" min={1} max={15} value={radius} onChange={(e) => setRadius(Number(e.target.value))} style={{ width: "100%", accentColor: "#6b21cc", marginTop: 8 }} />
+            <input type="range" min={1} max={15} value={radius} onChange={(e) => setRadius(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--brand-600)", marginTop: 8 }} />
           </div>
         </div>
 

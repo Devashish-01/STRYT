@@ -48,7 +48,7 @@ export default function ManageDashboard() {
           ) : (
             <>
               <div className="row gap-10">
-                <Kpi icon={Eye} color="#6b21cc" value={data!.views.toLocaleString()} label="Views" trend="" />
+                <Kpi icon={Eye} color="#cc4415" value={data!.views.toLocaleString()} label="Views" trend="" />
                 <Kpi icon={Phone} color="#16a34a" value={data!.calls} label="Calls" trend="" />
                 <Kpi icon={Navigation} color="#f26a00" value={data!.directions} label="Directions" trend="" />
               </div>

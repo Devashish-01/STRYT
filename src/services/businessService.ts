@@ -10,12 +10,12 @@ function relDate(iso: string): string {
 // Human label for a lead row, given its kind and optional note.
 function leadText(kind: string, note?: string): string {
   switch (kind) {
-    case "CALL": return "Called you via Naya";
+    case "CALL": return "Called you via STRYT";
     case "DIRECTIONS": return "Got directions to your shop";
     case "QUESTION": return note ? `Asked: ${note}` : "Asked a question";
     case "OFFER_CLIP": return "Clipped one of your offers";
     case "STORY_REPLY": return "Replied to your story";
-    default: return note || "Reached out via Naya";
+    default: return note || "Reached out via STRYT";
   }
 }
 

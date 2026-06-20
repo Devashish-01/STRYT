@@ -13,7 +13,7 @@ const meta: Record<string, { icon: any; color: string }> = {
   CALL: { icon: Phone, color: "#16a34a" },
   DIRECTIONS: { icon: Navigation, color: "#f26a00" },
   STORY_REPLY: { icon: MessageCircle, color: "#ec4899" },
-  OFFER_CLIP: { icon: Tag, color: "#6b21cc" },
+  OFFER_CLIP: { icon: Tag, color: "#cc4415" },
   RESERVATION: { icon: CalendarCheck, color: "#0ea5e9" },
   QUESTION: { icon: HelpCircle, color: "#6366f1" },
 };
@@ -29,7 +29,7 @@ export default function LeadsInbox() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Leads inbox" subtitle="Who reached out via Naya" />
+      <AppBar title="Leads inbox" subtitle="Who reached out via STRYT" />
       <div className="hscroll" style={{ paddingTop: 12 }}>
         <button className={`chip ${filter === "all" ? "active" : ""}`} onClick={() => setFilter("all")}>All</button>
         <button className={`chip ${filter === "new" ? "active" : ""}`} onClick={() => setFilter("new")}>New only</button>

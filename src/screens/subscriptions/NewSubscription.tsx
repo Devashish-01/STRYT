@@ -64,7 +64,7 @@ export default function NewSubscription() {
             onChange={(e) => set("providerName", e.target.value)} style={{ marginTop: 4 }} />
         </div>
         <div className="field">
-          <label className="tiny semi muted">Provider phone (optional — to link their Naya account)</label>
+          <label className="tiny semi muted">Provider phone (optional — to link their STRYT account)</label>
           <input className="input" placeholder="10-digit number" inputMode="numeric" maxLength={10} value={form.providerPhone}
             onChange={(e) => set("providerPhone", e.target.value.replace(/\D/g, ""))} style={{ marginTop: 4 }} />
         </div>
@@ -75,7 +75,7 @@ export default function NewSubscription() {
             {FREQ_OPTIONS.map((f) => (
               <button key={f.id} onClick={() => set("frequency", f.id)}
                 className="card row gap-12"
-                style={{ padding: "12px 14px", border: form.frequency === f.id ? "2px solid var(--brand-600)" : "1px solid var(--line)", background: form.frequency === f.id ? "#faf5ff" : "#fff", textAlign: "left" }}>
+                style={{ padding: "12px 14px", border: form.frequency === f.id ? "2px solid var(--brand-600)" : "1px solid var(--line)", background: form.frequency === f.id ? "var(--brand-50)" : "#fff", textAlign: "left" }}>
                 <div className="grow">
                   <div className="semi small">{f.label}</div>
                   <div className="tiny muted">{f.desc}</div>

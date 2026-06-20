@@ -36,7 +36,9 @@ export default function CommunityPostDetail() {
 
   // post is guaranteed non-undefined below this line.
   const safePost = post;
-  const liked = likes.includes(safePost.id);
+  // XOR: the store tracks session-toggles only (empty on load); DB truth is safePost.liked.
+  const toggled = likes.includes(safePost.id);
+  const liked = toggled ? !safePost.liked : safePost.liked;
   const likeCount = safePost.likes + (liked && !safePost.liked ? 1 : 0) - (!liked && safePost.liked ? 1 : 0);
   const votedOption = votes[safePost.id] ?? safePost.votedOptionId;
   const totalVotes = (safePost.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !safePost.votedOptionId ? 1 : 0);

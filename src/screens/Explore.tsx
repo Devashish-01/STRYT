@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Map, SlidersHorizontal } from "lucide-react";
 import { catalogService, discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -13,9 +13,15 @@ type Sort = "nearby" | "rating" | "new";
 
 export default function Explore() {
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const { area } = useApp();
   const [tab, setTab] = useState<Tab>("all");
-  const [cat, setCat] = useState<string | null>(null);
+  const [cat, setCat] = useState<string | null>(() => searchParams.get("cat"));
+
+  useEffect(() => {
+    const initial = searchParams.get("cat");
+    if (initial) setCat(initial);
+  }, []);
   const [sort, setSort] = useState<Sort>("nearby");
   const [radius, setRadius] = useState(5);
 
@@ -82,6 +88,13 @@ export default function Explore() {
               {c.icon} {c.name.split(" ")[0]}
             </button>
           ))}
+          <button
+            className="chip"
+            style={{ borderStyle: "dashed", color: "var(--brand-700)", borderColor: "var(--brand-400)", flexShrink: 0 }}
+            onClick={() => nav("/categories")}
+          >
+            Browse all →
+          </button>
         </div>
 
         {/* Sort + radius */}
@@ -106,7 +119,7 @@ export default function Explore() {
               max={15}
               value={radius}
               onChange={(e) => setRadius(Number(e.target.value))}
-              style={{ width: "100%", accentColor: "#6b21cc", marginTop: 8 }}
+              style={{ width: "100%", accentColor: "var(--brand-600)", marginTop: 8 }}
             />
           </div>
         </div>

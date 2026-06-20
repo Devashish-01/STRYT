@@ -58,7 +58,7 @@ export function BusinessCardWide({ b }: { b: Business }) {
         <div className="row between">
           <div className="row gap-6" style={{ minWidth: 0 }}>
             <span className="bold ellipsis" style={{ fontSize: 16 }}>{b.name}</span>
-            {b.isVerified && <BadgeCheck size={16} color="#7c2fe8" fill="#ede5ff" />}
+            {b.isVerified && <BadgeCheck size={16} color="#e5521c" fill="#ffe8e2" />}
           </div>
           <Rating value={b.ratingAvg} />
         </div>
@@ -137,7 +137,7 @@ export function ProviderCard({ p }: { p: Provider }) {
           <div className="row between">
             <div className="row gap-6" style={{ minWidth: 0 }}>
               <span className="bold ellipsis" style={{ fontSize: 15 }}>{p.displayName}</span>
-              {p.isVerified && <BadgeCheck size={15} color="#7c2fe8" fill="#ede5ff" />}
+              {p.isVerified && <BadgeCheck size={15} color="#e5521c" fill="#ffe8e2" />}
             </div>
             <button
               onClick={(e) => {
@@ -165,7 +165,7 @@ export function ProviderCard({ p }: { p: Provider }) {
       <div className="row between" style={{ marginTop: 11 }}>
         <div>
           <span className="tiny muted">Starts at </span>
-          <span className="bold" style={{ color: "#6b21cc" }}>{inr(p.startingPrice)}</span>
+          <span className="bold" style={{ color: "#16a34a" }}>{inr(p.startingPrice)}</span>
         </div>
         <span className="tiny muted row gap-4"><Clock size={12} /> Responds {p.responseTime}</span>
       </div>
@@ -182,7 +182,7 @@ export function ProviderCardSmall({ p }: { p: Provider }) {
         <div className="bold small ellipsis" style={{ maxWidth: "100%" }}>{p.displayName}</div>
         <div className="tiny muted ellipsis" style={{ maxWidth: "100%" }}>{p.categoryName}</div>
         <Rating value={p.ratingAvg} size={11} />
-        <div className="tiny" style={{ color: "#6b21cc", fontWeight: 700 }}>from {inr(p.startingPrice)}</div>
+        <div className="tiny" style={{ color: "#16a34a", fontWeight: 700 }}>from {inr(p.startingPrice)}</div>
       </div>
     </div>
   );
@@ -262,7 +262,7 @@ export function RequestCard({ r }: { r: RequestPost }) {
         </button>
         <div className="col" style={{ gap: 2, alignItems: "flex-end" }}>
           <span className="tiny muted row gap-4"><Eye size={11} /> {r.viewCount}</span>
-          <span className="semi small" style={{ color: "#6b21cc" }}>
+          <span className="semi small" style={{ color: "var(--brand-700)" }}>
             {r.proposals.length} {r.proposals.length === 1 ? "offer" : "offers"}
           </span>
         </div>

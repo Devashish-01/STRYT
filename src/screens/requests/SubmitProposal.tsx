@@ -87,7 +87,7 @@ export default function SubmitProposal() {
 
         <div className="row gap-8 tiny muted" style={{ lineHeight: 1.4 }}>
           <Info size={16} style={{ flexShrink: 0 }} />
-          <span>Payment is settled offline for now. Naya records the agreement; you and the requester handle the money in person.</span>
+          <span>Payment is settled offline for now. STRYT records the agreement; you and the requester handle the money in person.</span>
         </div>
       </div>
 

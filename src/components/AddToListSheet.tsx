@@ -24,7 +24,7 @@ export default function AddToListSheet({
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
         <div className="row gap-8" style={{ marginBottom: 14 }}>
-          <ListPlus size={20} color="#6b21cc" />
+          <ListPlus size={20} color="var(--brand-700)" />
           <h3 className="bold" style={{ fontSize: 18 }}>Save to a list</h3>
         </div>
 

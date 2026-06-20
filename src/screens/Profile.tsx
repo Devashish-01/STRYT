@@ -28,7 +28,7 @@ export default function Profile() {
   const totalAgreements  = agreementsData?.length ?? 0;
 
   const roleMeta: Record<Role, { label: string; icon: any; color: string; bg: string }> = {
-    customer:       { label: "Customer",  icon: Heart,    color: "#6b21cc", bg: "#f5f1ff" },
+    customer:       { label: "Customer",  icon: Heart,    color: "#7c3aed", bg: "#faf5ff" },
     business_owner: { label: "Business",  icon: Store,    color: "#f26a00", bg: "#fff7ed" },
     provider:       { label: "Provider",  icon: Briefcase, color: "#16a34a", bg: "#f0fdf4" },
   };
@@ -38,7 +38,7 @@ export default function Profile() {
       <div className="screen-scroll">
 
         {/* ── Hero header ── */}
-        <div style={{ background: "linear-gradient(135deg, #6b21cc, #4c1d95)", color: "#fff", padding: "20px 16px 32px" }}>
+        <div style={{ background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", padding: "20px 16px 32px" }}>
           <div className="row between">
             <span className="bold" style={{ fontSize: 20 }}>You</span>
             <div className="row gap-8">
@@ -130,7 +130,7 @@ export default function Profile() {
               <span className="tiny muted" style={{ fontSize: 10 }}>Achievements</span>
             </button>
             <button className="feature-card" onClick={() => nav("/leaderboard")}>
-              <Trophy size={24} color="#6b21cc" />
+              <Trophy size={24} color="var(--brand-700)" />
               <span className="semi" style={{ fontSize: 12 }}>Heroes</span>
               <span className="tiny muted" style={{ fontSize: 10 }}>Leaderboard</span>
             </button>
@@ -140,7 +140,7 @@ export default function Profile() {
         {/* ── Role switcher ── */}
         <div className="page-pad" style={{ paddingTop: 4 }}>
           <div className="card" style={{ padding: 14 }}>
-            <div className="small semi" style={{ color: "var(--ink-600)", marginBottom: 12 }}>I'm using Naya as a…</div>
+            <div className="small semi" style={{ color: "var(--ink-600)", marginBottom: 12 }}>I'm using STRYT as a…</div>
             <div className="row gap-8">
               {(["customer", "business_owner", "provider"] as Role[]).map((r) => {
                 const has    = roles.includes(r);
@@ -200,9 +200,9 @@ export default function Profile() {
         {/* ── Activity & community ── */}
         <div className="page-pad" style={{ paddingTop: 4 }}>
           <div className="card" style={{ overflow: "hidden" }}>
-            <MenuRow icon={<MessageCircle size={20} color="#6b21cc" />} label="Messages" badge={undefined} onClick={() => nav("/chats")} />
+            <MenuRow icon={<MessageCircle size={20} color="var(--brand-700)" />} label="Messages" badge={undefined} onClick={() => nav("/chats")} />
             <MenuRow icon={<HandshakeIcon size={20} color="#16a34a" />} label="My agreements" badge={activeAgreements.length || undefined} onClick={() => nav("/agreements")} />
-            <MenuRow icon={<FileText size={20} color="#6b21cc" />}     label="My requests"    onClick={() => nav("/requests")} />
+            <MenuRow icon={<FileText size={20} color="var(--brand-700)" />}     label="My requests"    onClick={() => nav("/requests")} />
             <MenuRow icon={<Users size={20} color="#3b82f6" />}        label="Community board" onClick={() => nav("/community-hub")} />
             <MenuRow icon={<Map size={20} color="#0ea5e9" />}          label="Map view"       onClick={() => nav("/map")} last />
           </div>
@@ -229,7 +229,7 @@ export default function Profile() {
         </div>
 
         <p className="tiny muted" style={{ textAlign: "center", padding: "8px 0 28px" }}>
-          Naya v0.1.0 · Made for your neighborhood
+          STRYT v0.1.0 · Made for your street
         </p>
       </div>
 

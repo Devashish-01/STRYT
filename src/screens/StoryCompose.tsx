@@ -134,7 +134,7 @@ export default function StoryCompose() {
         </div>
 
         <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
-          <MapPin size={18} color="#6b21cc" />
+          <MapPin size={18} color="var(--brand-700)" />
           <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>
             Visible within ~2 km of <strong>{area || "your location"}</strong> · auto-detected
           </span>

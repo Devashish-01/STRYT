@@ -60,7 +60,7 @@ function AdminDashboard() {
   const cards = [
     { label: "Businesses", value: d.businesses, icon: Store, color: "#f26a00" },
     { label: "Providers", value: d.providers, icon: Briefcase, color: "#16a34a" },
-    { label: "Open requests", value: d.openRequests, icon: Users, color: "#6b21cc" },
+    { label: "Open requests", value: d.openRequests, icon: Users, color: "var(--brand-700)" },
     { label: "Pending review", value: d.pendingReview, icon: Flag, color: "#ef4444" },
   ];
   return (
@@ -122,7 +122,7 @@ function AdminQueue() {
             return (
               <div key={item.id} className="card" style={{ padding: 14 }}>
                 <div className="row gap-12">
-                  {item.image ? <img src={item.image} className="thumb" style={{ width: 48, height: 48, borderRadius: 12 }} /> : <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color="#6b21cc" /></div>}
+                  {item.image ? <img src={item.image} className="thumb" style={{ width: 48, height: 48, borderRadius: 12 }} /> : <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color="var(--brand-600)" /></div>}
                   <div className="grow"><div className="semi small">{item.name}</div><div className="tiny muted">{item.sub}</div></div>
                 </div>
                 <div className="row gap-8" style={{ marginTop: 12 }}>
