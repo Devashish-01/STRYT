@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { MapPin, Navigation } from "lucide-react";
 import { useApp } from "@/store";
 import { userService } from "@/services";
+import { reverseGeocode } from "@/lib/geocode";
 
 export default function LocationPermission() {
   const nav = useNavigate();
@@ -27,13 +28,24 @@ export default function LocationPermission() {
     }
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        // Auto-name the area from the GPS fix (e.g. "Marathahalli") so the user
+        // doesn't type it. Only fall back to manual entry when it can't be named.
+        const areaName = await reverseGeocode(latitude, longitude);
         try {
-          await userService.setLocation(pos.coords.latitude, pos.coords.longitude);
+          await userService.setLocation(latitude, longitude, areaName ?? undefined);
           await refreshUser();
         } catch { /* ignore */ }
-        setArea("your area");
-        showToast("Location set ✓");
-        nav("/home");
+        if (areaName) {
+          setArea(areaName);
+          showToast(`Location set — ${areaName} ✓`);
+          nav("/home");
+        } else {
+          // Coordinates saved, but the area isn't on the map — let them name it.
+          setLocating(false);
+          showToast("Got your location — name your area");
+          setManualMode(true);
+        }
       },
       () => {
         setLocating(false);

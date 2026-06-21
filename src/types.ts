@@ -56,6 +56,8 @@ export interface Business {
   broadcastRadius?: number;
   verificationStatus?: VerificationStatus;
   verificationDocumentUrl?: string;
+  aadhaarDocUrl?: string;
+  panDocUrl?: string;
   tags: string[];
   priceForTwo?: number;
   deliveryTime?: string;
@@ -406,6 +408,9 @@ export interface Comment {
   time: string;
   listingType?: BookmarkTarget;
   listingId?: string;
+  // #8 optional shared phone, surfaced only when the viewer is allowed to see it
+  sharedPhone?: string;
+  phoneVisibility?: "OWNER" | "PUBLIC";
 }
 
 export interface SavedList {
@@ -418,7 +423,7 @@ export interface SavedList {
 
 export interface PublicUser {
   id: string;
-  name: string;
+  name: string; // public-safe: the alias (real name stays private)
   avatar: string;
   area: string;
   memberSince: string;
@@ -493,6 +498,7 @@ export type JobLiveStatus =
 export interface CurrentUser {
   id: string;
   name: string;
+  alias?: string;
   phone: string;
   avatar: string;
   roles: Role[];

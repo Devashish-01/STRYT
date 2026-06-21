@@ -2,6 +2,7 @@ import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import BottomNav from "./components/BottomNav";
 import { useApp } from "./store";
+import { returnTo } from "./lib/returnTo";
 
 // Auth & onboarding
 import Splash from "./screens/Splash";
@@ -137,7 +138,6 @@ function AuthSplash() {
           animation: "spin 0.8s linear infinite",
         }}
       />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
@@ -160,13 +160,17 @@ function Protected({ children }: { children: ReactNode }) {
   }
 
   // Unauthenticated users go straight to login — not the marketing splash.
+  // Remember the page they were trying to reach (e.g. a shared /map link) so we
+  // can return them there after sign-in instead of dropping them on /home.
   if (!isAuthed && !PUBLIC_ROUTES.includes(location.pathname) && !location.pathname.startsWith("/track/") && !isAuthCallback) {
+    returnTo.remember(location.pathname + location.search);
     return <Navigate to="/auth/phone" replace />;
   }
 
-  // Authenticated users should never see the auth/splash screens.
+  // Authenticated users should never see the auth/splash screens — send them to
+  // wherever they were originally headed (defaults to /home).
   if (isAuthed && AUTH_SCREENS.includes(location.pathname) && !isAuthCallback) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to={returnTo.consume()} replace />;
   }
 
   // New user with no location: prompt once per session, then let them skip freely.

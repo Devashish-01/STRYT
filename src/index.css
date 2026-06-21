@@ -429,6 +429,7 @@ textarea.input {
   70% { transform: scale(1.6); opacity: 0; }
   100% { opacity: 0; }
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ---------- Sheet / modal ---------- */
 .overlay {

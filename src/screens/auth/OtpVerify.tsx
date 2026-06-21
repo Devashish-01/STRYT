@@ -4,6 +4,7 @@ import { AppBar } from "@/components/common";
 import { authService } from "@/services";
 import { config } from "@/config";
 import { useApp } from "@/store";
+import { returnTo } from "@/lib/returnTo";
 
 export default function OtpVerify() {
   const nav = useNavigate();
@@ -52,10 +53,10 @@ export default function OtpVerify() {
       await authService.verifyOtp(phone, code);
       sessionStorage.removeItem("otp_phone");
       signIn();
-      // Always go home; the Protected guard routes brand-new users (no area /
-      // location on their profile yet) to /auth/location based on real data,
-      // instead of a fragile "account created in the last 2 minutes" guess.
-      nav("/home", { replace: true });
+      // Return to the page the user originally tried to open (a shared deep link),
+      // or /home. The Protected guard still routes brand-new users with no
+      // location to /auth/location based on real profile data.
+      nav(returnTo.consume(), { replace: true });
     } catch (e) {
       const msg = e instanceof Error && e.message ? e.message : "Couldn't verify. Try again.";
       showToast(msg);

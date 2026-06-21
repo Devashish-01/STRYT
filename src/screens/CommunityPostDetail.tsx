@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Heart, Send, CheckCircle2, MapPin } from "lucide-react";
+import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone } from "lucide-react";
 import { communityService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
@@ -22,6 +22,8 @@ export default function CommunityPostDetail() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [sending, setSending] = useState(false);
+  const [sharePhone, setSharePhone] = useState(false);
+  const [phoneVis, setPhoneVis] = useState<"OWNER" | "PUBLIC">("OWNER");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (initialComments) setComments(initialComments); }, [initialComments]);
@@ -60,8 +62,12 @@ export default function CommunityPostDetail() {
     setSending(true);
     setNewComment("");
     try {
-      const c = await communityService.addComment(safePost.id, text);
+      const c = await communityService.addComment(safePost.id, text, {
+        sharedPhone: sharePhone && user.phone ? user.phone : undefined,
+        phoneVisibility: phoneVis,
+      });
       setComments((prev) => [...prev, c]);
+      setSharePhone(false);
     } catch {
       showToast("Couldn't send. Try again.");
       setNewComment(text);
@@ -166,6 +172,16 @@ export default function CommunityPostDetail() {
                       <span className="tiny muted">{c.time}</span>
                     </div>
                     <p className="small" style={{ marginTop: 3, lineHeight: 1.45 }}>{c.body}</p>
+                    {c.sharedPhone && (
+                      <a
+                        href={`tel:${c.sharedPhone}`}
+                        className="tiny semi row gap-4"
+                        style={{ color: "var(--brand-700)", marginTop: 5, background: "var(--brand-50)", border: "1px solid var(--brand-100)", borderRadius: 8, padding: "4px 8px", width: "fit-content" }}
+                      >
+                        <Phone size={12} /> {c.sharedPhone}
+                        {c.phoneVisibility === "OWNER" && <span className="muted" style={{ fontWeight: 500 }}>· shared with you</span>}
+                      </a>
+                    )}
                     {c.listingId && (
                       <button
                         className="tiny semi"
@@ -188,7 +204,40 @@ export default function CommunityPostDetail() {
       </div>
 
       {/* Comment input */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px", display: "flex", gap: 10, alignItems: "flex-end" }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px" }}>
+        {/* #8 share-phone controls */}
+        <div className="row gap-8" style={{ marginBottom: 8, flexWrap: "wrap" }}>
+          <button
+            className="chip"
+            style={{ padding: "5px 11px", fontSize: 12, gap: 5, ...(sharePhone ? { background: "var(--brand-600)", borderColor: "var(--brand-600)", color: "#fff" } : {}) }}
+            onClick={() => {
+              if (!user.phone) { showToast("Add your number in Settings first"); return; }
+              setSharePhone((v) => !v);
+            }}
+          >
+            <Phone size={13} /> {sharePhone ? "Sharing my number" : "Share my number"}
+          </button>
+          {sharePhone && (
+            <>
+              <button
+                className={`chip ${phoneVis === "OWNER" ? "active" : ""}`}
+                style={{ padding: "5px 11px", fontSize: 12 }}
+                onClick={() => setPhoneVis("OWNER")}
+              >
+                Post owner only
+              </button>
+              <button
+                className={`chip ${phoneVis === "PUBLIC" ? "active" : ""}`}
+                style={{ padding: "5px 11px", fontSize: 12 }}
+                onClick={() => setPhoneVis("PUBLIC")}
+              >
+                Everyone
+              </button>
+            </>
+          )}
+        </div>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
         <SafeImg src={user.avatar} variant="avatar" className="avatar" style={{ width: 32, height: 32, flexShrink: 0 }} />
         <textarea
           className="input"
@@ -211,6 +260,7 @@ export default function CommunityPostDetail() {
         >
           <Send size={16} />
         </button>
+      </div>
       </div>
     </div>
   );

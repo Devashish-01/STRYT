@@ -31,23 +31,34 @@ export default function ProviderOnboard() {
   const [bio, setBio] = useState("");
   const [availability, setAvailability] = useState("");
   const [photos, setPhotos] = useState<{ file: File; previewUrl: string }[]>([]);
-  const [verify, setVerify] = useState<string | null>(null);
+  const [aadhaarNum, setAadhaarNum] = useState("");
+  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState("");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
 
   const serviceCats = (serviceCatsData ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
 
+  // KYC: a provider must provide an Aadhaar (number + photo) and a face photograph.
+  const verifyValid = aadhaarNum.replace(/\D/g, "").length === 12 && !!aadhaarFile && !!photoFile;
+
   const canNext = [
     (!!cat || newCat.trim().length > 2) && displayName.trim().length > 1,
     price.replace(/\D/g, "").length > 1 && bio.trim().length > 5 && lat !== null && lng !== null,
     true,
-    !!verify,
+    verifyValid,
   ][step];
 
   async function submit() {
     setSubmitting(true);
     try {
       if (newCat.trim()) await catalogService.proposeCategory(newCat.trim(), null, "SERVICE");
+      // Required KYC: Aadhaar document + a clear photograph (becomes the avatar).
+      const [aadhaarUrl, photoUrl] = await Promise.all([
+        uploadService.upload(aadhaarFile as File, "kyc-provider"),
+        uploadService.upload(photoFile as File, "provider-photo"),
+      ]);
       const created = await providerService.create({
         displayName: displayName.trim(),
         categoryId: cat ?? undefined,
@@ -55,6 +66,9 @@ export default function ProviderOnboard() {
         startingPrice: Number(price),
         serviceRadiusKm: radius,
         availabilityNote: availability,
+        avatar: photoUrl,
+        verificationDocumentUrl: aadhaarUrl,
+        verificationStatus: "UNDER_REVIEW",
         lat: lat!,
         lng: lng!,
       });
@@ -70,8 +84,9 @@ export default function ProviderOnboard() {
       addRole("provider");
       await refreshUser();
       setDone(true);
-    } catch {
-      showToast("Couldn't submit. Try again.");
+    } catch (e) {
+      const msg = e instanceof Error && e.message ? e.message : "Couldn't submit. Try again.";
+      showToast(msg);
     } finally {
       setSubmitting(false);
     }
@@ -206,17 +221,38 @@ export default function ProviderOnboard() {
           <>
             <div className="card row gap-10" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
               <Briefcase size={20} color="#16a34a" />
-              <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>Light verification for providers. A quick selfie or Aadhaar keeps the community safe.</span>
+              <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>
+                Providers verify with <b>Aadhaar</b> and a clear <b>photograph</b>. Kept private, used only to keep the community safe.
+              </span>
             </div>
-            <div className="col gap-10">
-              {[["SELFIE", "Quick selfie", "🤳"], ["AADHAR", "Aadhaar card", "🆔"], ["GST", "GST (if registered)", "🧾"]].map(([val, label, emoji]) => (
-                <button key={val} className="card row gap-12" style={{ padding: 14, border: verify === val ? "2px solid #16a34a" : "1.5px solid var(--ink-200)", textAlign: "left" }} onClick={() => setVerify(val)}>
-                  <span style={{ fontSize: 24 }}>{emoji}</span>
-                  <span className="semi grow small">{label}</span>
-                  <span style={{ width: 20, height: 20, borderRadius: "50%", border: verify === val ? "6px solid #16a34a" : "2px solid var(--ink-300)" }} />
-                </button>
-              ))}
+
+            {/* Photograph (becomes profile photo) */}
+            <div className="field">
+              <label>Your photograph *</label>
+              <label className="row gap-12" style={{ cursor: "pointer", alignItems: "center" }}>
+                {photoPreview
+                  ? <img src={photoPreview} className="thumb" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }} />
+                  : <div className="col center" style={{ width: 72, height: 72, borderRadius: "50%", border: "2px dashed var(--ink-300)", color: "var(--ink-500)" }}><Camera size={22} /></div>}
+                <span className="small semi" style={{ color: photoFile ? "var(--green-600)" : "var(--ink-600)" }}>
+                  {photoFile ? "Photo added — tap to change" : "Add a clear face photo"}
+                </span>
+                <input type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
+              </label>
             </div>
+
+            {/* Aadhaar */}
+            <div className="field">
+              <label>Aadhaar number *</label>
+              <input className="input" inputMode="numeric" maxLength={14} placeholder="1234 5678 9012"
+                value={aadhaarNum} onChange={(e) => setAadhaarNum(e.target.value.replace(/[^\d ]/g, ""))} />
+            </div>
+            <label className="col center" style={{ width: "100%", padding: 18, borderRadius: 14, border: `2px dashed ${aadhaarFile ? "#16a34a" : "var(--ink-300)"}`, color: aadhaarFile ? "var(--green-600)" : "var(--ink-500)", gap: 6, cursor: "pointer" }}>
+              <Camera size={24} />
+              <span className="small semi">{aadhaarFile ? `✓ ${aadhaarFile.name}` : "Upload Aadhaar card photo"}</span>
+              <input type="file" accept="image/*,.pdf" style={{ display: "none" }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setAadhaarFile(f); showToast("Aadhaar added"); } }} />
+            </label>
           </>
         )}
       </div>

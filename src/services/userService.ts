@@ -1,6 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
+import { generateAlias } from "@/lib/alias";
 import type { PublicUser, CurrentUser } from "@/types";
 
 export interface OwnedEntities {
@@ -25,7 +26,16 @@ export const userService = {
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Not signed in" }, 401);
     const { data, error } = await sb.from("users").select("*").eq("id", uid).maybeSingle();
     throwIfError(error);
-    if (data) return toCamel<CurrentUser>(data);
+    if (data) {
+      let u = toCamel<CurrentUser>(data);
+      // Backfill a privacy alias for older accounts created before the alias column.
+      if (!u.alias) {
+        const alias = generateAlias();
+        await sb.from("users").update({ alias }).eq("id", uid);
+        u = { ...u, alias };
+      }
+      return u;
+    }
     // Row missing — happens for Google OAuth users when the DB trigger hasn't run yet.
     // Upsert a seed row so FK constraints on requests / proposals don't block the user.
     const { data: authData } = await sb.auth.getUser();
@@ -34,11 +44,12 @@ export const userService = {
               || au?.email
               || au?.phone
               || "New user";
+    const alias = generateAlias();
     await sb.from("users").upsert(
-      { id: uid, name, phone: au?.phone ?? null, roles: ["customer"] },
+      { id: uid, name, alias, phone: au?.phone ?? null, roles: ["customer"] },
       { onConflict: "id", ignoreDuplicates: true }
     );
-    return toCamel<CurrentUser>({ id: uid, name, phone: au?.phone ?? null, avatar: null, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5 });
+    return toCamel<CurrentUser>({ id: uid, name, alias, phone: au?.phone ?? null, avatar: null, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5 });
   },
 
   async update(patch: Partial<CurrentUser>) {
@@ -81,7 +92,7 @@ export const userService = {
     const sb = getSupabase();
     const { data: u, error } = await sb
       .from("users")
-      .select("id, name, avatar, area, rating_avg, rating_count, created_at")
+      .select("id, name, alias, avatar, area, rating_avg, rating_count, created_at")
       .eq("id", id)
       .maybeSingle();
     throwIfError(error);
@@ -114,7 +125,8 @@ export const userService = {
 
     return {
       id: ur.id,
-      name: ur.name,
+      // Public profiles show the privacy alias, never the real name.
+      name: ur.alias || ur.name,
       avatar: ur.avatar ?? "",
       area: ur.area ?? "",
       memberSince: ur.created_at ? new Date(ur.created_at).getFullYear().toString() : "—",

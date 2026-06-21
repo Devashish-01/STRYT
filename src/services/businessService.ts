@@ -49,7 +49,7 @@ const BUSINESS_COLUMNS = new Set([
   "addressLine1","city","pincode","lat","lng","broadcastRadius","phone","whatsapp","hours","isOpenNow",
   "openingDate","isNew","status","coverImage","gallery","ratingAvg","ratingCount",
   "viewCount","isFeatured","isVerified","tags","priceForTwo","deliveryTime","offerText",
-  "verificationStatus","verificationDocumentUrl",
+  "verificationStatus","verificationDocumentUrl","aadhaarDocUrl","panDocUrl",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
@@ -241,9 +241,10 @@ export const businessService = {
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to list a business" }, 401);
     const cols = pickColumns(data as Record<string, unknown>, BUSINESS_COLUMNS);
-    // Stamp owner. Default PENDING so the owner goes through moderation;
-    // proper admin moderation is added in R12.
-    const row = { ...toSnake(cols), owner_user_id: uid, status: "PENDING" };
+    // Stamp owner. Go live immediately (ACTIVE) so the listing is visible to
+    // others — discovery filters on status='ACTIVE'. The "verified" badge is
+    // granted separately after the Aadhaar/PAN documents are reviewed.
+    const row = { ...toSnake(cols), owner_user_id: uid, status: "ACTIVE" };
     const { data: created, error } = await sb.from("businesses").insert(row).select().maybeSingle();
     throwIfError(error);
     return toCamel<Business>(created);
@@ -251,9 +252,11 @@ export const businessService = {
 
   async submitForReview(id: string) {
     const sb = getSupabase();
-    const { error } = await sb.from("businesses").update({ status: "PENDING" }).eq("id", id);
+    // Auto-approve so the listing is immediately visible. Verification of the
+    // submitted Aadhaar/PAN documents (the trust badge) is handled separately.
+    const { error } = await sb.from("businesses").update({ status: "ACTIVE" }).eq("id", id);
     throwIfError(error);
-    return { ok: true, status: "PENDING" };
+    return { ok: true, status: "ACTIVE" };
   },
 
   async submitVerification(id: string, docUrl: string) {

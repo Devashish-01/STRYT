@@ -1,6 +1,14 @@
 import { tokenStore } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabaseClient";
 import { toApiError } from "@/lib/supabasePage";
+import { returnTo } from "@/lib/returnTo";
+import { generateAlias } from "@/lib/alias";
+
+// Where an OAuth / magic-link redirect should land: the saved deep link the user
+// was trying to reach, else /home. Must be a same-origin path on the allow-list.
+function oauthReturnPath(): string {
+  return returnTo.peek() ?? "/home";
+}
 
 // Supabase manages its own session + auto-refresh, so the custom tokenStore
 // refresh path is unused when live. We still mirror the access token into
@@ -33,7 +41,7 @@ export async function ensureProfile(userId?: string, phone?: string | null, emai
   const { error } = await sb
     .from("users")
     .upsert(
-      { id: userId, name, phone: phone ?? null, roles: ["customer"] },
+      { id: userId, name, alias: generateAlias(), phone: phone ?? null, roles: ["customer"] },
       { onConflict: "id", ignoreDuplicates: true }
     );
   // Don't block login on a profile write hiccup; me() also self-heals on read.
@@ -53,7 +61,7 @@ export const authService = {
     const { error } = await sb.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: window.location.origin + "/home"
+        emailRedirectTo: window.location.origin + oauthReturnPath(),
       }
     });
     if (error) throw toApiError(error);
@@ -65,7 +73,10 @@ export const authService = {
     const { error } = await sb.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin + "/home"
+        // Land back on the page the user originally tried to open (a shared deep
+        // link), or /home. The full-page OAuth round-trip wipes React state, so
+        // the destination is read from sessionStorage via returnTo.
+        redirectTo: window.location.origin + oauthReturnPath(),
       }
     });
     if (error) throw toApiError(error);

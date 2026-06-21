@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock } from "lucide-react";
-import { catalogService, requestService } from "@/services";
+import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 
@@ -58,14 +58,6 @@ const SLOTS = [
   { key: "night",     label: "Night",     emoji: "🌙", hours: [20,21,22,23] },
 ] as const;
 
-function fmtHour(h: number): string {
-  if (h === 0) return "12 AM";
-  if (h === 12) return "12 PM";
-  return h < 12 ? `${h} AM` : `${h - 12} PM`;
-}
-
-const DURATIONS = ["1 hr", "2 hrs", "3 hrs", "4 hrs", "Half day", "Full day"];
-
 // ─────────────────────────────────────────────────────────────
 
 export default function AskCompose() {
@@ -82,10 +74,10 @@ export default function AskCompose() {
   const [paymentMode, setPaymentMode] = useState<"" | "fixed" | "hourly">("");
   const [schedDate, setSchedDate] = useState("");
   const [schedSlot, setSchedSlot] = useState("");
-  const [schedHour, setSchedHour] = useState<number | null>(null);
-  const [schedDuration, setSchedDuration] = useState("");
   const [radius, setRadius] = useState(3);
-  const [photos, setPhotos] = useState<number[]>([]);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [urgent, setUrgent] = useState(false);
   const [recurring, setRecurring] = useState(false);
   const [anon, setAnon] = useState(false);
@@ -143,16 +135,29 @@ export default function AskCompose() {
       const slot = SLOTS.find((s) => s.key === schedSlot);
       if (slot) parts.push(slot.label);
     }
-    if (schedHour !== null) parts.push(`${fmtHour(schedHour)}${schedDuration ? ` · ${schedDuration}` : ""}`);
-    else if (schedDuration) parts.push(schedDuration);
 
     return parts.join(" · ");
   }
 
-  const canPost = title.trim().length > 3 && !!cat && !posting;
-  const missing = !title.trim() ? "title" : !cat ? "category" : null;
+  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // allow re-picking the same file
+    if (files.length === 0) return;
+    setUploading(true);
+    try {
+      for (const f of files.slice(0, 4 - photos.length)) {
+        const url = await uploadService.upload(f, "request-photo");
+        setPhotos((p) => [...p, url]);
+      }
+    } catch (err) {
+      showToast(err instanceof Error && err.message ? err.message : "Couldn't upload photo");
+    } finally {
+      setUploading(false);
+    }
+  }
 
-  const stockPhotos = ["photo-1578985545062-69928b1d9587", "photo-1530103862676-de8c9debad1d", "photo-1556911220-bff31c812dba"];
+  const canPost = title.trim().length > 3 && !!cat && !posting && !uploading;
+  const missing = !title.trim() ? "title" : !cat ? "category" : null;
 
   function applyTemplate(t: Template) {
     setTemplate(t);
@@ -169,12 +174,6 @@ export default function AskCompose() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories]);
-
-  // Reset time/duration when slot changes
-  useEffect(() => {
-    setSchedHour(null);
-    setSchedDuration("");
-  }, [schedSlot]);
 
   async function post() {
     setPosting(true);
@@ -203,6 +202,7 @@ export default function AskCompose() {
         isUrgent: urgent,
         isRecurring: recurring,
         isAnonymous: anon,
+        photos: photos.length ? photos : undefined,
         area,
         lat: lat || 0,
         lng: lng || 0,
@@ -215,7 +215,6 @@ export default function AskCompose() {
     }
   }
 
-  const activeSlot = SLOTS.find((s) => s.key === schedSlot);
   const budgetLabel = paymentMode === "hourly" ? "Rate per hour (₹)" : "Budget (₹)";
   const budgetMinPlaceholder = paymentMode === "hourly" ? "Min/hr" : "Min";
   const budgetMaxPlaceholder = paymentMode === "hourly" ? "Max/hr" : "Max";
@@ -330,25 +329,31 @@ export default function AskCompose() {
           )}
         </div>
 
-        {/* Photos */}
+        {/* Photos — real device upload to Supabase Storage */}
         <div className="field">
           <label>Photos <span className="tiny muted">(optional)</span></label>
           <div className="row gap-8 wrap">
-            {photos.map((idx) => (
-              <div key={idx} style={{ position: "relative" }}>
-                <img src={`https://images.unsplash.com/${stockPhotos[idx]}?auto=format&fit=crop&w=200&q=70`} className="thumb" style={{ width: 76, height: 76, borderRadius: 12 }} />
-                <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "#ef4444", color: "#fff" }} onClick={() => setPhotos((p) => p.filter((x) => x !== idx))}>
+            {photos.map((url, i) => (
+              <div key={url} style={{ position: "relative" }}>
+                <img src={url} className="thumb" style={{ width: 76, height: 76, borderRadius: 12 }} />
+                <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "#ef4444", color: "#fff" }} onClick={() => setPhotos((p) => p.filter((_, x) => x !== i))}>
                   <X size={14} />
                 </button>
               </div>
             ))}
-            {photos.length < stockPhotos.length && (
-              <button className="col center" style={{ width: 76, height: 76, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 2 }} onClick={() => setPhotos((p) => [...p, p.length])}>
+            {photos.length < 4 && (
+              <button
+                className="col center"
+                style={{ width: 76, height: 76, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 2, opacity: uploading ? 0.6 : 1 }}
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+              >
                 <Camera size={20} />
-                <span className="tiny">Add</span>
+                <span className="tiny">{uploading ? "Uploading…" : "Add"}</span>
               </button>
             )}
           </div>
+          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={handleFiles} />
         </div>
 
         {/* ── Payment mode + budget ── */}
@@ -416,44 +421,6 @@ export default function AskCompose() {
               </button>
             ))}
           </div>
-
-          {/* Hour blocks — shown when a slot is selected */}
-          {activeSlot && (
-            <div className="col gap-8" style={{ marginTop: 10 }}>
-              <div className="tiny semi muted" style={{ marginBottom: 2 }}>Pick a start time</div>
-              <div className="row wrap gap-8">
-                {activeSlot.hours.map((h) => (
-                  <button
-                    key={h}
-                    className={`chip ${schedHour === h ? "active" : ""}`}
-                    style={{ padding: "6px 12px", fontSize: 12.5 }}
-                    onClick={() => setSchedHour(schedHour === h ? null : h)}
-                  >
-                    {fmtHour(h)}
-                  </button>
-                ))}
-              </div>
-
-              {/* Duration — shown when a start time is picked */}
-              {schedHour !== null && (
-                <>
-                  <div className="tiny semi muted" style={{ marginTop: 4, marginBottom: 2 }}>How long?</div>
-                  <div className="row wrap gap-8">
-                    {DURATIONS.map((d) => (
-                      <button
-                        key={d}
-                        className={`chip ${schedDuration === d ? "active" : ""}`}
-                        style={{ padding: "6px 12px", fontSize: 12.5 }}
-                        onClick={() => setSchedDuration(schedDuration === d ? "" : d)}
-                      >
-                        {d}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
 
           {/* Preview */}
           {buildDeadline() && (

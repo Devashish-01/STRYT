@@ -163,7 +163,7 @@ export const communityService = {
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
 
-    const { data: me } = await sb.from("users").select("name, avatar, lat, lng").eq("id", uid).maybeSingle();
+    const { data: me } = await sb.from("users").select("name, alias, avatar, lat, lng").eq("id", uid).maybeSingle();
     const lat = data.lat ?? (me as any)?.lat ?? null;
     const lng = data.lng ?? (me as any)?.lng ?? null;
 
@@ -171,7 +171,8 @@ export const communityService = {
 
     const { data: created, error } = await sb.from("community_posts").insert({
       author_user_id: uid,
-      author_name: (me as any)?.name ?? "Neighbor",
+      // #6 privacy: post under the public alias, never the real name.
+      author_name: (me as any)?.alias || (me as any)?.name || "Neighbor",
       author_avatar: (me as any)?.avatar ?? "",
       type: data.type,
       title: data.title,
@@ -220,37 +221,59 @@ export const communityService = {
 
   async comments(postId: string): Promise<Comment[]> {
     const sb = getSupabase();
+    const uid = await currentUserId();
+    // Need the post owner to decide who may see "owner-only" shared numbers (#8).
+    const { data: post } = await sb.from("community_posts").select("author_user_id").eq("id", postId).maybeSingle();
+    const ownerId = (post as any)?.author_user_id ?? null;
+
     const { data, error } = await sb
       .from("post_comments")
       .select("*")
       .eq("post_id", postId)
       .order("created_at", { ascending: true });
     throwIfError(error);
-    return (data ?? []).map((r: any) => ({
-      id: r.id,
-      authorName: r.author_name,
-      authorAvatar: r.author_avatar,
-      body: r.body,
-      time: relLabel(r.created_at),
-      listingType: r.listing_type ?? undefined,
-      listingId: r.listing_id ?? undefined,
-    }));
+    return (data ?? []).map((r: any) => {
+      // A shared number is visible if public, or to the post owner, or to the
+      // commenter who shared it. Gated here so owner-only numbers aren't exposed.
+      const canSeePhone = !!r.shared_phone && (
+        r.phone_visibility === "PUBLIC" || uid === ownerId || uid === r.author_user_id
+      );
+      return {
+        id: r.id,
+        authorName: r.author_name,
+        authorAvatar: r.author_avatar,
+        body: r.body,
+        time: relLabel(r.created_at),
+        listingType: r.listing_type ?? undefined,
+        listingId: r.listing_id ?? undefined,
+        sharedPhone: canSeePhone ? r.shared_phone : undefined,
+        phoneVisibility: r.phone_visibility ?? undefined,
+      };
+    });
   },
 
-  async addComment(postId: string, body: string, listingType?: string, listingId?: string): Promise<Comment> {
+  async addComment(
+    postId: string,
+    body: string,
+    opts: { listingType?: string; listingId?: string; sharedPhone?: string; phoneVisibility?: "OWNER" | "PUBLIC" } = {}
+  ): Promise<Comment> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
-    const { data: me } = await sb.from("users").select("name, avatar").eq("id", uid).maybeSingle();
+    const { data: me } = await sb.from("users").select("name, alias, avatar").eq("id", uid).maybeSingle();
+    const { listingType, listingId, sharedPhone, phoneVisibility } = opts;
 
     const { data: created, error } = await sb.from("post_comments").insert({
       post_id: postId,
       author_user_id: uid,
-      author_name: (me as any)?.name ?? "Neighbor",
+      // #6 privacy: comment under the public alias.
+      author_name: (me as any)?.alias || (me as any)?.name || "Neighbor",
       author_avatar: (me as any)?.avatar ?? "",
       body,
       listing_type: listingType ?? null,
       listing_id: listingId ?? null,
+      shared_phone: sharedPhone || null,
+      phone_visibility: sharedPhone ? (phoneVisibility ?? "OWNER") : null,
     }).select().maybeSingle();
     throwIfError(error);
 
@@ -266,6 +289,8 @@ export const communityService = {
       time: "just now",
       listingType: listingType as any,
       listingId,
+      sharedPhone: sharedPhone || undefined,
+      phoneVisibility: sharedPhone ? (phoneVisibility ?? "OWNER") : undefined,
     };
   },
 

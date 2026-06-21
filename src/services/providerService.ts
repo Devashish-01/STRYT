@@ -107,8 +107,10 @@ export const providerService = {
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to offer a service" }, 401);
     const cols = pickColumns(data as Record<string, unknown>, PROVIDER_COLUMNS);
     // displayName is required by the table; fall back to the user's name later if absent.
-    // Default PENDING so the provider profile goes through moderation.
-    const row = { ...toSnake(cols), user_id: uid, status: "PENDING" } as Record<string, unknown>;
+    // Go live immediately (ACTIVE) so the profile is visible to others — discovery
+    // filters on status='ACTIVE'. The "verified" badge is granted separately after
+    // the Aadhaar document is reviewed; being listed doesn't wait on that.
+    const row = { ...toSnake(cols), user_id: uid, status: "ACTIVE" } as Record<string, unknown>;
     if (!row["display_name"]) {
       const { data: me } = await sb.from("users").select("name").eq("id", uid).maybeSingle();
       row["display_name"] = (me as any)?.name || "Provider";
