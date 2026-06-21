@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppBar } from "@/components/common";
 import { MapPin, Moon, Volume2, Globe, Shield, Eye, Navigation, Loader, HeartPulse, Search } from "lucide-react";
 import { useApp } from "@/store";
@@ -54,7 +54,7 @@ export default function Settings() {
       showToast("Couldn't save handle");
     }
   }
-  const [silent, setSilent] = useState(true);
+  const [silent, setSilent] = useState(() => localStorage.getItem("settings_silent") !== "false");
   const [ecName, setEcName] = useState(user.emergencyContactName ?? "");
   const [ecPhone, setEcPhone] = useState(user.emergencyContact ?? "");
 
@@ -139,13 +139,52 @@ export default function Settings() {
       showToast("Couldn't save area name");
     }
   }
-  const [quiet, setQuiet] = useState(true);
-  const [newBiz, setNewBiz] = useState(true);
-  const [newProv, setNewProv] = useState(false);
-  const [reqs, setReqs] = useState(true);
-  const [offers, setOffers] = useState(true);
-  const [approx, setApprox] = useState(true);
-  const [radius, setRadius] = useState(5);
+  const [quiet, setQuiet] = useState(() => localStorage.getItem("settings_quiet") !== "false");
+  const [newBiz, setNewBiz] = useState(() => localStorage.getItem("settings_new_biz") !== "false");
+  const [newProv, setNewProv] = useState(() => localStorage.getItem("settings_new_prov") === "true");
+  const [reqs, setReqs] = useState(() => localStorage.getItem("settings_reqs") !== "false");
+  const [offers, setOffers] = useState(() => localStorage.getItem("settings_offers") !== "false");
+  const [approx, setApprox] = useState(() => localStorage.getItem("settings_approx") !== "false");
+  const [radius, setRadius] = useState(() => {
+    const saved = localStorage.getItem("settings_radius");
+    return saved ? Number(saved) : (user.notificationRadiusKm || 5);
+  });
+
+  useEffect(() => {
+    localStorage.setItem("settings_silent", String(silent));
+  }, [silent]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_quiet", String(quiet));
+  }, [quiet]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_new_biz", String(newBiz));
+  }, [newBiz]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_new_prov", String(newProv));
+  }, [newProv]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_reqs", String(reqs));
+  }, [reqs]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_offers", String(offers));
+  }, [offers]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_approx", String(approx));
+  }, [approx]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_radius", String(radius));
+    if (user.id && radius !== user.notificationRadiusKm) {
+      void userService.update({ notificationRadiusKm: radius }).catch(() => {});
+    }
+  }, [radius, user.id, user.notificationRadiusKm]);
+
   const { lang, setLang } = useI18n();
   const langs = Object.entries(LANG_LABELS) as [Lang, string][];
 
