@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { Routes, Route, useLocation, Navigate, Outlet } from "react-router-dom";
 import type { ReactNode } from "react";
 import BottomNav from "./components/BottomNav";
 import { useApp } from "./store";
@@ -40,6 +40,7 @@ import RateScreen from "./screens/requests/RateScreen";
 // Onboarding
 import BusinessOnboard from "./screens/business/BusinessOnboard";
 import ProviderOnboard from "./screens/provider/ProviderOnboard";
+import ManageHub from "./screens/manage/ManageHub";
 
 // Chat
 import ConversationList from "./screens/chat/ConversationList";
@@ -58,9 +59,6 @@ import Lists from "./screens/Lists";
 import PublicProfile from "./screens/PublicProfile";
 import Leaderboard from "./screens/Leaderboard";
 import Achievements from "./screens/Achievements";
-
-// Manage hub
-import ManageHub from "./screens/manage/ManageHub";
 
 // Business console
 import ManageDashboard from "./screens/business/manage/ManageDashboard";
@@ -103,13 +101,8 @@ import BusinessProUpgrade from "./screens/monetization/BusinessProUpgrade";
 
 // Routes that show the bottom navigation bar
 const TAB_ROUTES = ["/home", "/map", "/explore", "/chats", "/requests", "/community-hub", "/community", "/profile"];
-// Routes accessible without authentication
-const PUBLIC_ROUTES = ["/", "/auth/phone", "/auth/otp", "/auth/location"];
-// Routes that should redirect away if the user is already signed in
-const AUTH_SCREENS = ["/", "/auth/phone", "/auth/otp"];
 
 // Brief full-screen loader shown while the initial Supabase session resolves
-// (including the OAuth / magic-link code→session exchange after a redirect).
 function AuthSplash() {
   return (
     <div
@@ -142,7 +135,7 @@ function AuthSplash() {
   );
 }
 
-function Protected({ children }: { children: ReactNode }) {
+function ProtectedLayout() {
   const { isAuthed, authReady, user } = useApp();
   const location = useLocation();
 
@@ -152,37 +145,37 @@ function Protected({ children }: { children: ReactNode }) {
     window.location.hash.includes("error=") ||
     window.location.search.includes("code=");
 
-  // Wait for the initial session check (and any OAuth code→session exchange) to
-  // finish before deciding anything. Without this, a Google/email redirect is
-  // bounced to /auth/phone during the async callback and the login "fails".
-  if ((!authReady || isAuthCallback) && !isAuthed && !PUBLIC_ROUTES.includes(location.pathname) && !location.pathname.startsWith("/track/")) {
+  if ((!authReady || isAuthCallback) && !isAuthed) {
     return <AuthSplash />;
   }
 
-  // Unauthenticated users go straight to login — not the marketing splash.
-  // Remember the page they were trying to reach (e.g. a shared /map link) so we
-  // can return them there after sign-in instead of dropping them on /home.
-  if (!isAuthed && !PUBLIC_ROUTES.includes(location.pathname) && !location.pathname.startsWith("/track/") && !isAuthCallback) {
+  if (!isAuthed && !isAuthCallback) {
     returnTo.remember(location.pathname + location.search);
     return <Navigate to="/auth/phone" replace />;
   }
 
-  // Authenticated users should never see the auth/splash screens — send them to
-  // wherever they were originally headed (defaults to /home).
-  if (isAuthed && AUTH_SCREENS.includes(location.pathname) && !isAuthCallback) {
-    return <Navigate to={returnTo.consume()} replace />;
-  }
-
   // New user with no location: prompt once, then let them skip freely.
-  // localStorage flag is set by LocationPermission on mount so the redirect
-  // doesn't re-fire after the user taps "Skip for now".
   const locationSeen = localStorage.getItem("locationPromptShown") === "true";
   const needsLocation = isAuthed && user.id && !user.lat && !user.area && location.pathname === "/home" && !locationSeen;
   if (needsLocation) {
     return <Navigate to="/auth/location" replace />;
   }
 
-  return <>{children}</>;
+  return <Outlet />;
+}
+
+function PublicOnlyLayout() {
+  const { isAuthed } = useApp();
+  const isAuthCallback =
+    window.location.hash.includes("access_token=") ||
+    window.location.hash.includes("error=") ||
+    window.location.search.includes("code=");
+
+  if (isAuthed && !isAuthCallback) {
+    return <Navigate to={returnTo.consume()} replace />;
+  }
+
+  return <Outlet />;
 }
 
 export default function App() {
@@ -192,11 +185,19 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Protected>
-        <Routes>
+      <Routes>
+        {/* Public only auth routes */}
+        <Route element={<PublicOnlyLayout />}>
           <Route path="/" element={<Splash />} />
           <Route path="/auth/phone" element={<PhoneEntry />} />
           <Route path="/auth/otp" element={<OtpVerify />} />
+        </Route>
+
+        {/* Completely public / un-guarded routes */}
+        <Route path="/track/:token" element={<TrackingPage />} />
+
+        {/* Protected routes */}
+        <Route element={<ProtectedLayout />}>
           <Route path="/auth/location" element={<LocationPermission />} />
 
           <Route path="/home" element={<Home />} />
@@ -285,13 +286,7 @@ export default function App() {
 
           {/* Catch-all: redirect unknown paths to home */}
           <Route path="*" element={<Navigate to="/home" replace />} />
-        </Routes>
-      </Protected>
-
-      {/* Public routes — no auth needed */}
-      <Routes>
-        <Route path="/track/:token" element={<TrackingPage />} />
-        <Route path="*" element={null} />
+        </Route>
       </Routes>
 
       {showNav && <BottomNav />}
