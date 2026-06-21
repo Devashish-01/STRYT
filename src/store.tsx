@@ -29,7 +29,7 @@ const seedUser: CurrentUser = {
   notificationRadiusKm: 5,
 };
 import { userService } from "@/services/userService";
-import { ensureProfile } from "@/services/authService";
+import { ensureProfile, authService } from "@/services/authService";
 import { notificationService } from "@/services/notificationService";
 import { registerPush } from "@/lib/pushNotifications";
 import { socialService } from "@/services/socialService";
@@ -661,6 +661,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOwnedBusinessIds([]);
         setOwnedProviderId(null);
         setActiveContext({ type: "customer", id: null, name: seedUser.name });
+        localStorage.removeItem("locationPromptShown");
+        if (!config.useMocks) {
+          void authService.logout().catch((err) => console.error("Error signing out:", err));
+        }
       },
     }),
     [

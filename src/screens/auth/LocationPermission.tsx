@@ -14,7 +14,7 @@ export default function LocationPermission() {
 
   // Mark location prompt as seen so Protected doesn't re-redirect after "Skip".
   useEffect(() => {
-    sessionStorage.setItem("locationPromptShown", "true");
+    localStorage.setItem("locationPromptShown", "true");
   }, []);
 
   function allow() {

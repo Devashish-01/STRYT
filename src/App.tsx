@@ -173,10 +173,10 @@ function Protected({ children }: { children: ReactNode }) {
     return <Navigate to={returnTo.consume()} replace />;
   }
 
-  // New user with no location: prompt once per session, then let them skip freely.
-  // sessionStorage flag is set by LocationPermission on mount so the redirect
+  // New user with no location: prompt once, then let them skip freely.
+  // localStorage flag is set by LocationPermission on mount so the redirect
   // doesn't re-fire after the user taps "Skip for now".
-  const locationSeen = sessionStorage.getItem("locationPromptShown") === "true";
+  const locationSeen = localStorage.getItem("locationPromptShown") === "true";
   const needsLocation = isAuthed && user.id && !user.lat && !user.area && location.pathname === "/home" && !locationSeen;
   if (needsLocation) {
     return <Navigate to="/auth/location" replace />;

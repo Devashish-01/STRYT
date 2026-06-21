@@ -86,6 +86,9 @@ export const uploadService = {
   // Upload the file to Supabase Storage and return the public URL.
   async upload(file: unknown, kind = "photo") {
     if (config.useMocks) {
+      if (file instanceof File) {
+        return mockDelay(URL.createObjectURL(file), 400);
+      }
       const { finalUrl } = await this.sign(kind, "image/jpeg");
       return mockDelay(finalUrl, 400);
     }

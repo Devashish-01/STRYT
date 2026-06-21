@@ -1,6 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
+import { config } from "@/config";
 import type { CommunityPost, Comment } from "@/types";
 
 /** Safely parse poll_options whether stored as a JSONB array or (legacy) JSON string. */
@@ -57,6 +58,7 @@ function relLabel(iso: string): string {
 
 export const communityService = {
   async feed(opts: { lat?: number; lng?: number; radiusKm?: number } = {}): Promise<CommunityPost[]> {
+    if (config.useMocks) return [];
     const sb = getSupabase();
     const uid = await currentUserId();
 
@@ -127,6 +129,7 @@ export const communityService = {
   },
 
   async get(id: string): Promise<CommunityPost | undefined> {
+    if (config.useMocks) return undefined;
     const sb = getSupabase();
     const uid = await currentUserId();
     const { data: row, error } = await sb
@@ -159,6 +162,23 @@ export const communityService = {
   },
 
   async create(data: Partial<CommunityPost> & { lat?: number; lng?: number }): Promise<CommunityPost> {
+    if (config.useMocks) {
+      return {
+        id: "post_mock_" + Date.now(),
+        type: data.type ?? "ALERT",
+        authorName: data.authorName ?? "Neighbor",
+        authorAvatar: "",
+        title: data.title ?? "",
+        body: data.body ?? "",
+        area: data.area ?? "",
+        distanceKm: 0.5,
+        postedAt: "just now",
+        likes: 0,
+        liked: false,
+        commentsCount: 0,
+        resolved: false,
+      };
+    }
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
@@ -171,7 +191,6 @@ export const communityService = {
 
     const { data: created, error } = await sb.from("community_posts").insert({
       author_user_id: uid,
-      // #6 privacy: post under the public alias, never the real name.
       author_name: (me as any)?.alias || (me as any)?.name || "Neighbor",
       author_avatar: (me as any)?.avatar ?? "",
       type: data.type,
@@ -187,13 +206,12 @@ export const communityService = {
     return toCamel<CommunityPost>(created);
   },
 
-  /** Toggle like on a post. Returns new liked state. */
   async like(postId: string, currentlyLiked: boolean): Promise<boolean> {
+    if (config.useMocks) return !currentlyLiked;
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return currentlyLiked;
 
-    // Fetch current count first (read-modify-write; fine at MVP scale).
     const { data: cur } = await sb
       .from("community_posts").select("likes_count").eq("id", postId).maybeSingle();
     const count = (cur as any)?.likes_count ?? 0;
@@ -210,6 +228,7 @@ export const communityService = {
   },
 
   async vote(postId: string, optionId: string): Promise<void> {
+    if (config.useMocks) return;
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
@@ -220,9 +239,9 @@ export const communityService = {
   },
 
   async comments(postId: string): Promise<Comment[]> {
+    if (config.useMocks) return [];
     const sb = getSupabase();
     const uid = await currentUserId();
-    // Need the post owner to decide who may see "owner-only" shared numbers (#8).
     const { data: post } = await sb.from("community_posts").select("author_user_id").eq("id", postId).maybeSingle();
     const ownerId = (post as any)?.author_user_id ?? null;
 
@@ -233,8 +252,6 @@ export const communityService = {
       .order("created_at", { ascending: true });
     throwIfError(error);
     return (data ?? []).map((r: any) => {
-      // A shared number is visible if public, or to the post owner, or to the
-      // commenter who shared it. Gated here so owner-only numbers aren't exposed.
       const canSeePhone = !!r.shared_phone && (
         r.phone_visibility === "PUBLIC" || uid === ownerId || uid === r.author_user_id
       );
@@ -257,6 +274,19 @@ export const communityService = {
     body: string,
     opts: { listingType?: string; listingId?: string; sharedPhone?: string; phoneVisibility?: "OWNER" | "PUBLIC" } = {}
   ): Promise<Comment> {
+    if (config.useMocks) {
+      return {
+        id: "comment_mock_" + Date.now(),
+        authorName: "Neighbor",
+        authorAvatar: "",
+        body,
+        time: "just now",
+        listingType: opts.listingType as any,
+        listingId: opts.listingId,
+        sharedPhone: opts.sharedPhone,
+        phoneVisibility: opts.phoneVisibility,
+      };
+    }
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
@@ -266,7 +296,6 @@ export const communityService = {
     const { data: created, error } = await sb.from("post_comments").insert({
       post_id: postId,
       author_user_id: uid,
-      // #6 privacy: comment under the public alias.
       author_name: (me as any)?.alias || (me as any)?.name || "Neighbor",
       author_avatar: (me as any)?.avatar ?? "",
       body,
@@ -277,7 +306,6 @@ export const communityService = {
     }).select().maybeSingle();
     throwIfError(error);
 
-    // Increment comments_count
     const { data: cur } = await sb.from("community_posts").select("comments_count").eq("id", postId).maybeSingle();
     await sb.from("community_posts").update({ comments_count: ((cur as any)?.comments_count ?? 0) + 1 }).eq("id", postId);
 
@@ -294,8 +322,8 @@ export const communityService = {
     };
   },
 
-  /** Attach a recommendation (listing link) to a RECOMMENDATION-type post. */
   async recommendListing(postId: string, listingType: "BUSINESS" | "PROVIDER", listingId: string, byName: string): Promise<void> {
+    if (config.useMocks) return;
     const sb = getSupabase();
     const { data: post } = await sb.from("community_posts").select("recommendations").eq("id", postId).maybeSingle();
     const existing = (post as any)?.recommendations ?? [];

@@ -1,3 +1,10 @@
+import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import { throwIfError, toApiError } from "@/lib/supabasePage";
+import { toCamel, toSnake } from "@/lib/caseMap";
+import { config } from "@/config";
+import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, ReservationReq } from "@/types";
+import { leaderboardService } from "./leaderboardService";
+
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   if (d === 0) return "today";
@@ -35,12 +42,6 @@ function dailyBuckets(isoDates: string[]): number[] {
   return buckets;
 }
 
-import { getSupabase, currentUserId } from "@/lib/supabaseClient";
-import { throwIfError, toApiError } from "@/lib/supabasePage";
-import { toCamel, toSnake } from "@/lib/caseMap";
-import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, ReservationReq } from "@/types";
-import { leaderboardService } from "./leaderboardService";
-
 // Columns that exist on the businesses table — anything else (catalog, offers,
 // distanceKm, etc.) is stripped before insert/update so the write never fails
 // on an unknown column.
@@ -72,6 +73,7 @@ export interface BusinessAnalytics {
 
 export const businessService = {
   async mine(): Promise<Business[]> {
+    if (config.useMocks) return [];
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
@@ -81,6 +83,7 @@ export const businessService = {
   },
 
   async get(id: string): Promise<Business | undefined> {
+    if (config.useMocks) return undefined;
     const sb = getSupabase();
     const { data, error } = await sb
       .from("businesses")
@@ -92,6 +95,7 @@ export const businessService = {
   },
 
   async reviews(id: string): Promise<Review[]> {
+    if (config.useMocks) return [];
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
@@ -112,6 +116,7 @@ export const businessService = {
   },
 
   async queue(id: string): Promise<QueueInfo | undefined> {
+    if (config.useMocks) return undefined;
     const sb = getSupabase();
     const { data: settings } = await sb
       .from("queue_settings")
@@ -139,6 +144,7 @@ export const businessService = {
     avgServiceMin: number;
     tokens: Array<{ id: string; name: string; partySize: string }>;
   }> {
+    if (config.useMocks) return { isOpen: false, avgServiceMin: 8, tokens: [] };
     const sb = getSupabase();
     const [settingsRes, tokensRes] = await Promise.all([
       sb.from("queue_settings").select("is_open, avg_service_min").eq("business_id", businessId).maybeSingle(),
@@ -160,6 +166,7 @@ export const businessService = {
   },
 
   async setQueueSettings(businessId: string, patch: { isOpen?: boolean; avgServiceMin?: number }) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const row: Record<string, unknown> = { business_id: businessId, updated_at: new Date().toISOString() };
     if (patch.isOpen !== undefined) row.is_open = patch.isOpen;
@@ -170,6 +177,7 @@ export const businessService = {
   },
 
   async callNextToken(businessId: string) {
+    if (config.useMocks) return { ok: false, message: "Queue is empty" };
     const sb = getSupabase();
     // Fetch the oldest WAITING token for this business
     const { data, error: fetchErr } = await sb
@@ -188,6 +196,7 @@ export const businessService = {
   },
 
   async serveToken(tokenId: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb.from("queue_tokens").update({ status: "SERVED" }).eq("id", tokenId);
     throwIfError(error);
@@ -195,6 +204,7 @@ export const businessService = {
   },
 
   async joinQueueToken(businessId: string, customerName: string, partySize = "1 person") {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to join the queue" }, 401);
@@ -209,6 +219,7 @@ export const businessService = {
   },
 
   async loyaltyCard(id: string): Promise<LoyaltyCard | undefined> {
+    if (config.useMocks) return undefined;
     const sb = getSupabase();
     const { data: card, error } = await sb
       .from("loyalty_cards")
@@ -229,6 +240,9 @@ export const businessService = {
   },
 
   async update(id: string, patch: Partial<Business>) {
+    if (config.useMocks) {
+      return { id, ...patch } as any;
+    }
     const sb = getSupabase();
     const cols = pickColumns(patch as Record<string, unknown>, BUSINESS_COLUMNS);
     const { data, error } = await sb.from("businesses").update(toSnake(cols)).eq("id", id).select().maybeSingle();
@@ -237,13 +251,37 @@ export const businessService = {
   },
 
   async create(data: Partial<Business>) {
+    if (config.useMocks) {
+      return {
+        id: "biz_mock_" + Date.now(),
+        ownerUserId: "mock_user",
+        name: data.name ?? "New Shop",
+        slug: data.slug ?? "new-shop",
+        categoryId: data.categoryId ?? "1",
+        categoryName: data.categoryName ?? "",
+        subCategory: data.subCategory ?? "",
+        description: data.description ?? "",
+        addressLine1: data.addressLine1 ?? "",
+        city: data.city ?? "",
+        pincode: data.pincode ?? "",
+        lat: data.lat ?? 0,
+        lng: data.lng ?? 0,
+        phone: data.phone ?? "",
+        hours: data.hours ?? "9 AM - 9 PM",
+        status: "ACTIVE",
+        coverImage: data.coverImage ?? "",
+        gallery: data.gallery ?? [],
+        ratingAvg: 0,
+        ratingCount: 0,
+        isOpenNow: true,
+        isVerified: false,
+        isFeatured: false,
+      } as any;
+    }
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to list a business" }, 401);
     const cols = pickColumns(data as Record<string, unknown>, BUSINESS_COLUMNS);
-    // Stamp owner. Go live immediately (ACTIVE) so the listing is visible to
-    // others — discovery filters on status='ACTIVE'. The "verified" badge is
-    // granted separately after the Aadhaar/PAN documents are reviewed.
     const row = { ...toSnake(cols), owner_user_id: uid, status: "ACTIVE" };
     const { data: created, error } = await sb.from("businesses").insert(row).select().maybeSingle();
     throwIfError(error);
@@ -251,15 +289,15 @@ export const businessService = {
   },
 
   async submitForReview(id: string) {
+    if (config.useMocks) return { ok: true, status: "ACTIVE" };
     const sb = getSupabase();
-    // Auto-approve so the listing is immediately visible. Verification of the
-    // submitted Aadhaar/PAN documents (the trust badge) is handled separately.
     const { error } = await sb.from("businesses").update({ status: "ACTIVE" }).eq("id", id);
     throwIfError(error);
     return { ok: true, status: "ACTIVE" };
   },
 
   async submitVerification(id: string, docUrl: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb
       .from("businesses")
@@ -271,6 +309,9 @@ export const businessService = {
 
   // Catalog
   async addCatalogItem(id: string, item: Partial<CatalogItem>) {
+    if (config.useMocks) {
+      return { id: "item_mock_" + Date.now(), name: item.name ?? "", description: item.description ?? "", price: item.price ?? 0, stockStatus: "IN_STOCK" } as any;
+    }
     const sb = getSupabase();
     const row = { ...toSnake(item), business_id: id };
     const { data, error } = await sb.from("catalog_items").insert(row).select().maybeSingle();
@@ -278,12 +319,16 @@ export const businessService = {
     return toCamel<CatalogItem>(data);
   },
   async updateCatalogItem(id: string, itemId: string, patch: Partial<CatalogItem>) {
+    if (config.useMocks) {
+      return { id: itemId, ...patch } as any;
+    }
     const sb = getSupabase();
     const { data, error } = await sb.from("catalog_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
     throwIfError(error);
     return toCamel<CatalogItem>(data);
   },
   async deleteCatalogItem(id: string, itemId: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb.from("catalog_items").delete().eq("id", itemId);
     throwIfError(error);
@@ -292,6 +337,9 @@ export const businessService = {
 
   // Offers
   async addOffer(id: string, offer: Partial<Offer>) {
+    if (config.useMocks) {
+      return { id: "off_mock_" + Date.now(), title: offer.title ?? "", description: offer.description ?? "", validUntil: offer.validUntil ?? "" } as any;
+    }
     const sb = getSupabase();
     const row = { ...toSnake(offer), business_id: id };
     const { data, error } = await sb.from("offers").insert(row).select().maybeSingle();
@@ -299,6 +347,7 @@ export const businessService = {
     return toCamel<Offer>(data);
   },
   async deleteOffer(id: string, offerId: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb.from("offers").delete().eq("id", offerId);
     throwIfError(error);
@@ -307,8 +356,8 @@ export const businessService = {
 
   // Photos
   async addPhoto(id: string, url: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
-    // Append to the gallery array (read-modify-write; fine at this scale).
     const { data: cur, error: readErr } = await sb.from("businesses").select("gallery").eq("id", id).maybeSingle();
     throwIfError(readErr);
     const gallery = [...(((cur as { gallery?: string[] } | null)?.gallery) ?? []), url];
@@ -318,12 +367,12 @@ export const businessService = {
   },
 
   async deletePhoto(id: string, url: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { data: cur, error: readErr } = await sb.from("businesses").select("gallery, cover_image").eq("id", id).maybeSingle();
     throwIfError(readErr);
     const row = cur as { gallery?: string[]; cover_image?: string } | null;
     const gallery = (row?.gallery ?? []).filter((u: string) => u !== url);
-    // If the deleted url was the cover, promote the first gallery item.
     const patch: Record<string, unknown> = { gallery };
     if (row?.cover_image === url) patch.cover_image = gallery[0] ?? null;
     const { error } = await sb.from("businesses").update(patch).eq("id", id);
@@ -332,6 +381,7 @@ export const businessService = {
   },
 
   async setCoverPhoto(id: string, url: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb.from("businesses").update({ cover_image: url }).eq("id", id);
     throwIfError(error);
@@ -340,6 +390,17 @@ export const businessService = {
 
   // Dashboard analytics
   async analytics(id: string): Promise<BusinessAnalytics> {
+    if (config.useMocks) {
+      return {
+        views: 120,
+        calls: 8,
+        directions: 14,
+        catalogViews: 0,
+        reviews: 4,
+        viewsSeries: [10, 15, 8, 22, 19, 14, 32],
+        leadsSeries: [1, 2, 0, 1, 0, 3, 1],
+      };
+    }
     const sb = getSupabase();
     const [bizRes, viewsRes, leadsRes] = await Promise.all([
       sb.from("businesses").select("view_count, call_count, directions_count, rating_count").eq("id", id).maybeSingle(),
@@ -362,6 +423,7 @@ export const businessService = {
 
   // Q&A, reservations, leads
   async qna(id: string): Promise<import("@/types").QnaItem[]> {
+    if (config.useMocks) return [];
     const sb = getSupabase();
     const { data, error } = await sb
       .from("business_qna")
@@ -379,8 +441,8 @@ export const businessService = {
       askedAt: relDate(q.created_at),
     }));
   },
-  /** Customer asks a question on a business. The DB trigger also files a QUESTION lead. */
   async askQuestion(id: string, question: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to ask a question" }, 401);
@@ -389,6 +451,7 @@ export const businessService = {
     return { ok: true };
   },
   async answerQuestion(qId: string, answer: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb
       .from("business_qna")
@@ -397,8 +460,6 @@ export const businessService = {
     throwIfError(error);
     return { ok: true };
   },
-  // Reservations are out of scope for v1 (Phase 42, cut). No-op so any lingering
-  // entry point degrades gracefully.
   async reservations(_id: string): Promise<ReservationReq[]> {
     return [];
   },
@@ -406,6 +467,7 @@ export const businessService = {
     return { ok: false };
   },
   async leads(id: string) {
+    if (config.useMocks) return [];
     const sb = getSupabase();
     const { data, error } = await sb
       .from("leads")
@@ -425,38 +487,34 @@ export const businessService = {
       handled: l.handled,
     }));
   },
-  /** Mark a lead as handled (owner only — enforced by RLS). */
   async markLeadHandled(leadId: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb.from("leads").update({ handled: true }).eq("id", leadId);
     throwIfError(error);
     return { ok: true };
   },
-  /** Record a customer interaction: bumps the public counter AND files a lead. */
   async recordInteraction(id: string, kind: "CALL" | "DIRECTIONS") {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const uid = await currentUserId();
-    // Public counter (works for any viewer via SECURITY DEFINER rpc).
     await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: kind === "CALL" ? "call" : "directions" });
-    // Lead row needs an authenticated user; skip silently if signed out.
     if (uid) await sb.from("leads").insert({ business_id: id, from_user_id: uid, kind });
     return { ok: true };
   },
-  /** Bump the profile view counter (fire-and-forget). */
   async recordView(id: string) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: "view" });
     return { ok: true };
   },
   async team(_id: string): Promise<import("@/types").TeamMember[]> {
-    // Team management has no backend yet (V2) — no extra members rather than error.
     return [];
   },
 
-  // Boost (offline billed for now)
   async buyBoost(id: string, boostType: string) {
+    if (config.useMocks) return { ok: true, boostType };
     const sb = getSupabase();
-    // Most boosts run a week; one-time boosts (re-broadcast) have no end date.
     const weeklong = boostType !== "REBROADCAST";
     const endsAt = weeklong ? new Date(Date.now() + 7 * 86400 * 1000).toISOString() : null;
     const { error } = await sb.from("boosts").insert({
@@ -466,13 +524,12 @@ export const businessService = {
       ends_at: endsAt,
     });
     throwIfError(error);
-    // Flag the listing as boosted (owner-only update, enforced by RLS).
     await sb.from("businesses").update({ is_boosted: true, boosted_until: endsAt }).eq("id", id);
     return { ok: true, boostType };
   },
 
-  /** Active (non-expired) boost types for a business — used to pre-light the Promote screen. */
   async activeBoosts(id: string): Promise<string[]> {
+    if (config.useMocks) return [];
     const sb = getSupabase();
     const nowIso = new Date().toISOString();
     const { data, error } = await sb
@@ -486,12 +543,11 @@ export const businessService = {
       .map((b: any) => b.boost_type);
   },
 
-  /** Submit a star rating + comment for a business. Trigger recomputes rating_avg/count. */
   async addReview(id: string, rating: number, comment: string): Promise<void> {
+    if (config.useMocks) return Promise.resolve();
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
-    // Check if this is the first review so we can award the business owner points once.
     const { count: existingCount } = await sb
       .from("ratings")
       .select("*", { count: "exact", head: true })

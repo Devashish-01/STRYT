@@ -4,6 +4,7 @@ import { cursorToRange, throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { RequestPost, Proposal, Agreement, ProposalCounter } from "@/types";
 import { leaderboardService } from "./leaderboardService";
+import { config } from "@/config";
 
 // Columns that exist on the requests table.
 const REQUEST_COLUMNS = new Set([
@@ -98,7 +99,7 @@ function makePage<T>(rows: T[], count: number | null, from: number, limit: numbe
   };
 }
 
-/** Map a raw DB agreements row (with nested requester/responder user objects) → Agreement. */
+/** Map a DB agreements row (with nested requester/responder user objects) → Agreement. */
 function mapAgreement(row: any): Agreement {
   return {
     id: row.id,
@@ -132,6 +133,9 @@ const AGREEMENT_SELECT =
 
 export const requestService = {
   async feed(p: { category?: string; cursor?: string | null; special?: string; lat?: number; lng?: number } = {}): Promise<Page<RequestPost>> {
+    if (config.useMocks) {
+      return { data: [], page: { next_cursor: null, has_more: false } };
+    }
     const sb = getSupabase();
     const { from, to, limit } = cursorToRange(p.cursor);
     let q = sb.from("requests").select(REQUEST_SELECT, { count: "exact" }).in("status", ["OPEN", "AGREED"]);
@@ -146,6 +150,7 @@ export const requestService = {
   },
 
   async mine(userLat = 0, userLng = 0): Promise<RequestPost[]> {
+    if (config.useMocks) return [];
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
@@ -159,6 +164,7 @@ export const requestService = {
   },
 
   async get(id: string, userLat = 0, userLng = 0): Promise<RequestPost | undefined> {
+    if (config.useMocks) return undefined;
     const sb = getSupabase();
     const { data, error } = await sb.from("requests").select(REQUEST_SELECT).eq("id", id).maybeSingle();
     throwIfError(error);
@@ -166,6 +172,28 @@ export const requestService = {
   },
 
   async create(data: Partial<RequestPost>) {
+    if (config.useMocks) {
+      return {
+        id: "req_mock_" + Date.now(),
+        requesterUserId: "mock_user",
+        requesterName: "You",
+        requesterAvatar: "",
+        requesterRating: 5,
+        title: data.title ?? "",
+        description: data.description ?? "",
+        categoryName: data.categoryName ?? "",
+        categoryId: data.categoryId ?? null,
+        status: "OPEN",
+        postedAt: "just now",
+        distanceKm: 0,
+        radiusKm: data.radiusKm ?? 5,
+        photos: data.photos ?? [],
+        proposals: [],
+        viewCount: 0,
+        isBoosted: false,
+        deadline: data.deadline ?? new Date().toISOString(),
+      } as any;
+    }
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to post a request" }, 401);
@@ -178,6 +206,24 @@ export const requestService = {
   },
 
   async submitProposal(requestId: string, data: Partial<Proposal>) {
+    if (config.useMocks) {
+      return {
+        id: "prop_mock_" + Date.now(),
+        requestId,
+        responderUserId: "mock_responder",
+        responderName: data.responderName ?? "Mock Responder",
+        responderAvatar: "",
+        responderRating: 4.8,
+        responderType: data.responderType ?? "user",
+        responderTagline: data.responderTagline ?? "",
+        price: data.price ?? 0,
+        message: data.message ?? "",
+        eta: data.eta ?? "1 day",
+        status: "SUBMITTED",
+        isBoosted: false,
+        postedAt: "just now",
+      } as any;
+    }
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to send a proposal" }, 401);
@@ -204,6 +250,9 @@ export const requestService = {
   },
 
   async acceptProposal(proposalId: string) {
+    if (config.useMocks) {
+      return { agreementId: "ag_mock_" + Date.now(), status: "PENDING" };
+    }
     const sb = getSupabase();
     // Atomic + owner-checked on the server (accept_proposal RPC): marks the
     // proposal ACCEPTED, creates the agreement, moves the request to
@@ -217,6 +266,9 @@ export const requestService = {
 
   /** Toggle "me too" on a request. Insert if not yet; delete if already done. */
   async meToo(requestId: string): Promise<{ ok: boolean; meTooed: boolean }> {
+    if (config.useMocks) {
+      return { ok: true, meTooed: true };
+    }
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
@@ -241,6 +293,7 @@ export const requestService = {
   // ── Agreements ──────────────────────────────────────────────────────────────
 
   async agreements(): Promise<Agreement[]> {
+    if (config.useMocks) return [];
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
@@ -254,6 +307,7 @@ export const requestService = {
   },
 
   async getAgreement(id: string): Promise<Agreement | undefined> {
+    if (config.useMocks) return undefined;
     const sb = getSupabase();
     const { data, error } = await sb
       .from("agreements")
@@ -265,6 +319,7 @@ export const requestService = {
   },
 
   async confirmAgreement(id: string) {
+    if (config.useMocks) return { ok: true, isRequester: true };
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
@@ -297,6 +352,7 @@ export const requestService = {
   },
 
   async completeAgreement(id: string) {
+    if (config.useMocks) return { ok: true, status: "COMPLETED" };
     const sb = getSupabase();
     const uid = await currentUserId();
     const { error } = await sb.from("agreements").update({ status: "COMPLETED" }).eq("id", id);
@@ -311,6 +367,7 @@ export const requestService = {
   },
 
   async markDepositPaid(id: string) {
+    if (config.useMocks) return { ok: true, status: "DEPOSIT_PAID" };
     const sb = getSupabase();
     const { error } = await sb.from("agreements").update({ status: "DEPOSIT_PAID" }).eq("id", id);
     throwIfError(error);
@@ -318,6 +375,7 @@ export const requestService = {
   },
 
   async startWork(id: string) {
+    if (config.useMocks) return { ok: true, status: "IN_PROGRESS" };
     const sb = getSupabase();
     const { error } = await sb.from("agreements").update({ status: "IN_PROGRESS" }).eq("id", id);
     throwIfError(error);
@@ -325,6 +383,7 @@ export const requestService = {
   },
 
   async submitForReview(id: string) {
+    if (config.useMocks) return { ok: true, status: "REVIEW" };
     const sb = getSupabase();
     const { error } = await sb.from("agreements").update({ status: "REVIEW" }).eq("id", id);
     throwIfError(error);
@@ -332,6 +391,7 @@ export const requestService = {
   },
 
   async dispute(id: string, reason: string) {
+    if (config.useMocks) return { ok: true, status: "DISPUTED" };
     const sb = getSupabase();
     const { error } = await sb
       .from("agreements")
@@ -342,6 +402,7 @@ export const requestService = {
   },
 
   async submitCounter(proposalId: string, amount: number, message: string = "") {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
@@ -356,6 +417,7 @@ export const requestService = {
   },
 
   async rate(rateeId: string, rating: number, comment: string, tip?: number) {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
@@ -372,6 +434,7 @@ export const requestService = {
   },
 
   async sosAlert(agreementId: string, lat: number, lng: number): Promise<{ ok: boolean }> {
+    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
@@ -412,6 +475,7 @@ export const requestService = {
     lat?: number,
     lng?: number
   ): Promise<void> {
+    if (config.useMocks) return Promise.resolve();
     const sb = getSupabase();
     const patch: Record<string, unknown> = { live_status: status };
     if (lat !== undefined) patch.provider_lat = lat;
@@ -421,6 +485,7 @@ export const requestService = {
   },
 
   async generateTrackingToken(agreementId: string): Promise<string> {
+    if (config.useMocks) return "track_mock_token";
     const sb = getSupabase();
     const expiresAt = new Date(Date.now() + 4 * 3600 * 1000).toISOString();
     const { data, error } = await sb
