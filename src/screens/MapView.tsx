@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Navigation, Pencil, Check } from "lucide-react";
+import { ArrowLeft, Navigation, Pencil, Check, Search, X, ChevronRight } from "lucide-react";
 import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from "react-leaflet";
 import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";
-import { discoveryService, requestService, socialService } from "@/services";
+import { discoveryService, requestService, socialService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Rating, inr } from "@/components/common";
 import { useApp } from "@/store";
+import { forwardGeocode, reverseGeocode, type GeoPlace } from "@/lib/geocode";
 import { config } from "@/config";
 import { StoryViewer } from "@/components/Stories";
 import type { Story } from "@/types";
@@ -85,22 +86,133 @@ function RadiusController({ lat, lng, radiusKm }: { lat: number; lng: number; ra
   return null;
 }
 
-function RecenterButton({ lat, lng, radiusKm }: { lat: number; lng: number; radiusKm: number }) {
+function RecenterButton({ radiusKm }: { radiusKm: number }) {
   const map = useMap();
+  const { user, refreshUser, showToast } = useApp();
+  const lat = user.lat || 18.536;
+  const lng = user.lng || 73.893;
+
+  const recenterMap = (targetLat: number, targetLng: number) => {
+    if (radiusKm >= 5000) {
+      map.flyTo([targetLat, targetLng], 5, { duration: 0.8 });
+    } else {
+      const bounds = L.latLng(targetLat, targetLng).toBounds(radiusKm * 2000);
+      map.fitBounds(bounds, { padding: [60, 80], animate: true, duration: 0.8 });
+    }
+  };
+
   return (
     <button
       className="icon-btn"
       title="Re-centre"
-      style={{ background: "#fff", boxShadow: "var(--shadow)", position: "absolute", top: 70, right: 16, zIndex: 1000 }}
+      style={{ background: "#fff", boxShadow: "var(--shadow)", position: "absolute", bottom: 80, right: 16, zIndex: 1000 }}
       onClick={() => {
-        if (radiusKm >= 5000) { map.flyTo([lat, lng], 5, { duration: 0.8 }); return; }
-        const bounds = L.latLng(lat, lng).toBounds(radiusKm * 2000);
-        map.fitBounds(bounds, { padding: [60, 80], animate: true, duration: 0.8 });
+        if (!navigator.geolocation) {
+          showToast("GPS geolocation not supported on this device.");
+          recenterMap(lat, lng);
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const { latitude, longitude } = pos.coords;
+            try {
+              const areaName = await reverseGeocode(latitude, longitude);
+              await userService.setLocation(latitude, longitude, areaName || "Current Location");
+              await refreshUser();
+              showToast(`Location set to GPS — ${areaName || "Current Location"}`);
+              recenterMap(latitude, longitude);
+            } catch (err) {
+              showToast("Couldn't update saved location to GPS.");
+              recenterMap(latitude, longitude);
+            }
+          },
+          (error) => {
+            showToast("GPS unavailable. Centering on last saved location.");
+            recenterMap(lat, lng);
+          },
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
       }}
     >
       <Navigation size={18} color="#8b47f5" />
     </button>
   );
+}
+
+function MapEventsController() {
+  const { refreshUser, showToast } = useApp();
+  const map = useMap();
+  const pressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const startPress = (latlng: L.LatLng) => {
+      if (pressTimeoutRef.current) clearTimeout(pressTimeoutRef.current);
+      pressTimeoutRef.current = setTimeout(async () => {
+        const { lat, lng } = latlng;
+        try {
+          const areaName = (await reverseGeocode(lat, lng)) || "Custom Pin";
+          await userService.setLocation(lat, lng, areaName);
+          await refreshUser();
+          showToast(`Location set via long press — ${areaName}`);
+        } catch {
+          showToast("Couldn't set location");
+        }
+      }, 600);
+    };
+
+    const cancelPress = () => {
+      if (pressTimeoutRef.current) {
+        clearTimeout(pressTimeoutRef.current);
+        pressTimeoutRef.current = null;
+      }
+    };
+
+    const onMouseDown = (e: any) => startPress(e.latlng);
+    const onMouseUp = () => cancelPress();
+    const onTouchStart = (e: any) => {
+      if (e.latlng) startPress(e.latlng);
+    };
+    const onTouchEnd = () => cancelPress();
+    const onTouchMove = () => cancelPress();
+    const onDragStart = () => cancelPress();
+    const onZoomStart = () => cancelPress();
+    const onContextMenu = async (e: any) => {
+      cancelPress();
+      const { lat, lng } = e.latlng;
+      try {
+        const areaName = (await reverseGeocode(lat, lng)) || "Custom Pin";
+        await userService.setLocation(lat, lng, areaName);
+        await refreshUser();
+        showToast(`Location set via context menu — ${areaName}`);
+      } catch {
+        showToast("Couldn't set location");
+      }
+    };
+
+    map.on("mousedown", onMouseDown);
+    map.on("mouseup", onMouseUp);
+    map.on("touchstart", onTouchStart as any);
+    map.on("touchend", onTouchEnd as any);
+    map.on("touchmove", onTouchMove as any);
+    map.on("dragstart", onDragStart);
+    map.on("zoomstart", onZoomStart);
+    map.on("contextmenu", onContextMenu);
+
+    return () => {
+      map.off("mousedown", onMouseDown);
+      map.off("mouseup", onMouseUp);
+      map.off("touchstart", onTouchStart as any);
+      map.off("touchend", onTouchEnd as any);
+      map.off("touchmove", onTouchMove as any);
+      map.off("dragstart", onDragStart);
+      map.off("zoomstart", onZoomStart);
+      map.off("contextmenu", onContextMenu);
+      if (pressTimeoutRef.current) clearTimeout(pressTimeoutRef.current);
+    };
+  }, [map, refreshUser, showToast]);
+
+  return null;
 }
 
 function roundToHalf(v: number): number {
@@ -110,7 +222,7 @@ function roundToHalf(v: number): number {
 
 export default function MapView() {
   const nav = useNavigate();
-  const { user, viewedStories } = useApp();
+  const { user, viewedStories, refreshUser, showToast } = useApp();
   const [layers, setLayers] = useState<Record<Layer, boolean>>({
     business: true, provider: true, request: true, story: false,
   });
@@ -119,6 +231,36 @@ export default function MapView() {
   const [showCustom, setShowCustom] = useState(false);
   const [customVal, setCustomVal] = useState("");
   const customInputRef = useRef<HTMLInputElement>(null);
+
+  const [showNearbyPopup, setShowNearbyPopup] = useState(false);
+  const [activeTab, setActiveTab] = useState<"business" | "provider" | "story">("business");
+
+  const [locQuery, setLocQuery] = useState("");
+  const [locResults, setLocResults] = useState<GeoPlace[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  async function searchPlaces(q: string) {
+    setLocQuery(q);
+    if (q.trim().length < 2) { setLocResults([]); return; }
+    setSearching(true);
+    try {
+      setLocResults(await forwardGeocode(q));
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function pickPlace(p: GeoPlace) {
+    try {
+      await userService.setLocation(p.lat, p.lng, p.area);
+      await refreshUser();
+      setLocQuery("");
+      setLocResults([]);
+      showToast(`Location set — ${p.area}`);
+    } catch {
+      showToast("Couldn't set that location");
+    }
+  }
 
   const presetKms = new Set<number>(RADIUS_OPTIONS.map((o) => o.km));
   const isCustomActive = !presetKms.has(radiusKm);
@@ -173,22 +315,82 @@ export default function MapView() {
 
   return (
     <div className="screen" style={{ position: "relative" }}>
-      {/* Back button */}
-      <header className="appbar" style={{
-        background: "transparent", borderBottom: "none",
-        position: "absolute", top: 0, left: 0, right: 0, zIndex: 1000,
+      {/* Top search & back panel */}
+      <div style={{
+        position: "absolute", top: 12, left: 16, right: 16, zIndex: 1000,
+        display: "flex", gap: 10, alignItems: "center"
       }}>
         <button
           className="icon-btn"
-          style={{ background: "#fff", boxShadow: "var(--shadow)" }}
+          style={{ background: "#fff", boxShadow: "var(--shadow)", flexShrink: 0 }}
           onClick={() => nav(-1)}
         >
           <ArrowLeft size={20} />
         </button>
-      </header>
+        <div style={{ position: "relative", flex: 1 }}>
+          <Search size={16} color="var(--ink-400)" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+          <input
+            type="text"
+            className="input"
+            value={locQuery}
+            placeholder="Search location remotely..."
+            onChange={(e) => searchPlaces(e.target.value)}
+            style={{
+              width: "100%",
+              background: "#fff",
+              boxShadow: "var(--shadow)",
+              border: "1.5px solid var(--ink-200)",
+              borderRadius: 30,
+              padding: "10px 18px",
+              paddingLeft: "42px",
+              paddingRight: locQuery ? "35px" : "18px",
+              fontSize: 14,
+              fontWeight: 500,
+              outline: "none"
+            }}
+          />
+          {locQuery && (
+            <button
+              onClick={() => { setLocQuery(""); setLocResults([]); }}
+              style={{
+                position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                border: "none", background: "transparent", color: "var(--ink-400)", cursor: "pointer",
+                fontSize: 18, fontWeight: 700
+              }}
+            >
+              &times;
+            </button>
+          )}
+
+          {locResults.length > 0 && (
+            <div style={{
+              position: "absolute", top: "100%", left: 0, right: 0, marginTop: 8,
+              background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+              border: "1px solid var(--ink-200)", overflow: "hidden", zIndex: 1010
+            }}>
+              {locResults.map((r, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => pickPlace(r)}
+                  style={{
+                    width: "100%", padding: "12px 16px", border: "none", background: "none",
+                    textAlign: "left", fontSize: 13, color: "var(--ink-800)", borderBottom: idx < locResults.length - 1 ? "1px solid var(--ink-100)" : "none",
+                    cursor: "pointer", display: "block"
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--ink-50)"}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                >
+                  <div style={{ fontWeight: 600, color: "var(--ink-900)" }}>{r.area}</div>
+                  <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.full}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Layer toggles */}
-      <div style={{ position: "absolute", top: 70, left: 16, zIndex: 1000 }}>
+      <div style={{ position: "absolute", top: 74, left: 16, zIndex: 1000 }}>
         <div className="row gap-8" style={{ flexWrap: "wrap", maxWidth: 220 }}>
           {(["business", "provider", "request", "story"] as Layer[]).map((l) => {
             const color = l === "story" ? "#ec4899" : pinColors[l as Exclude<Layer, "story">];
@@ -213,18 +415,28 @@ export default function MapView() {
         </div>
       </div>
 
-      {/* Visible-count badge */}
+      {/* Visible-count badge (clickable button) */}
       {visibleCount > 0 && (
-        <div style={{
-          position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
-          zIndex: 1000, background: "#7c3aed", color: "#fff",
-          borderRadius: 20, padding: "5px 14px", fontSize: 12, fontWeight: 700,
-          boxShadow: "0 2px 12px rgba(107,33,204,0.45)", whiteSpace: "nowrap",
-          pointerEvents: "none",
-        }}>
-          {visibleCount} {visibleCount === 1 ? "place" : "places"}
-          {isWorld ? " globally" : isCustomActive ? ` within ${radiusKm} km` : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
-        </div>
+        <button
+          onClick={() => setShowNearbyPopup(true)}
+          style={{
+            position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
+            zIndex: 1000, background: "#7c3aed", color: "#fff",
+            borderRadius: 20, padding: "8px 16px", fontSize: 12, fontWeight: 700,
+            boxShadow: "0 4px 16px rgba(107,33,204,0.35)", whiteSpace: "nowrap",
+            border: "none", outline: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 6,
+            transition: "all 0.2s ease-in-out",
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "#6d28d9"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "#7c3aed"}
+        >
+          <span>
+            {visibleCount} {visibleCount === 1 ? "place" : "places"}
+            {isWorld ? " globally" : isCustomActive ? ` within ${radiusKm} km` : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
+          </span>
+          <ChevronRight size={14} style={{ opacity: 0.8 }} />
+        </button>
       )}
 
       {/* Custom distance input card */}
@@ -365,7 +577,8 @@ export default function MapView() {
         />
 
         <RadiusController lat={centerLat} lng={centerLng} radiusKm={radiusKm} />
-        <RecenterButton   lat={centerLat} lng={centerLng} radiusKm={radiusKm} />
+        <RecenterButton   radiusKm={radiusKm} />
+        <MapEventsController />
 
         {/* User dot */}
         <Marker position={[centerLat, centerLng]} icon={meIcon} />
@@ -379,6 +592,7 @@ export default function MapView() {
               color: "#7c3aed", weight: 1.5,
               dashArray: "6 5",
               fillColor: "#7c3aed", fillOpacity: 0.05,
+              interactive: false,
             }}
           />
         )}
@@ -483,6 +697,229 @@ export default function MapView() {
           startIndex={storyViewer.idx}
           onClose={() => setStoryViewer(null)}
         />
+      )}
+
+      {showNearbyPopup && (
+        <div className="overlay" onClick={() => setShowNearbyPopup(false)} style={{ zIndex: 1100 }}>
+          <div
+            className="sheet"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: "24px 24px 0 0",
+              background: "#fff",
+              paddingBottom: 24,
+            }}
+          >
+            <div className="sheet-grab" />
+            
+            {/* Header */}
+            <div className="row between" style={{ marginBottom: 16 }}>
+              <div>
+                <h3 className="bold" style={{ fontSize: 18 }}>Nearby on your Street</h3>
+                <span className="tiny muted">
+                  Showing {visibleCount} {visibleCount === 1 ? "item" : "items"}{isWorld ? " globally" : ` within ${radiusKm} km`}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowNearbyPopup(false)}
+                style={{
+                  background: "var(--ink-100)",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "var(--ink-700)"
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Tab switchers */}
+            <div className="row gap-8" style={{ marginBottom: 16, borderBottom: "1px solid var(--line)", paddingBottom: 8 }}>
+              <button
+                onClick={() => setActiveTab("business")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: activeTab === "business" ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
+                  color: activeTab === "business" ? "var(--brand-700)" : "var(--ink-500)",
+                  fontWeight: activeTab === "business" ? 700 : 500,
+                  padding: "8px 12px",
+                  fontSize: 14,
+                  cursor: "pointer",
+                  flex: 1,
+                  textAlign: "center"
+                }}
+              >
+                Shops ({businesses.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("provider")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: activeTab === "provider" ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
+                  color: activeTab === "provider" ? "var(--brand-700)" : "var(--ink-500)",
+                  fontWeight: activeTab === "provider" ? 700 : 500,
+                  padding: "8px 12px",
+                  fontSize: 14,
+                  cursor: "pointer",
+                  flex: 1,
+                  textAlign: "center"
+                }}
+              >
+                Providers ({providers.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("story")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: activeTab === "story" ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
+                  color: activeTab === "story" ? "var(--brand-700)" : "var(--ink-500)",
+                  fontWeight: activeTab === "story" ? 700 : 500,
+                  padding: "8px 12px",
+                  fontSize: 14,
+                  cursor: "pointer",
+                  flex: 1,
+                  textAlign: "center"
+                }}
+              >
+                Stories ({mapStories.length})
+              </button>
+            </div>
+
+            {/* Scrollable contents */}
+            <div className="grow col" style={{ overflowY: "auto", maxHeight: "50vh", paddingRight: 4 }}>
+              {activeTab === "business" && (
+                <div className="col gap-8">
+                  {businesses.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--ink-400)" }}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>🏬</div>
+                      <div className="semi small">No shops found in this radius</div>
+                    </div>
+                  ) : (
+                    businesses.map((b) => (
+                      <div
+                        key={b.id}
+                        className="card row gap-12"
+                        style={{ padding: 12, cursor: "pointer", border: "1px solid var(--line)" }}
+                        onClick={() => { nav(`/business/${b.id}`); setShowNearbyPopup(false); }}
+                      >
+                        <div style={{
+                          width: 48, height: 48, borderRadius: 12,
+                          background: `${pinColors.business}12`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 22, flexShrink: 0
+                        }}>
+                          🏬
+                        </div>
+                        <div className="grow">
+                          <div className="bold small" style={{ color: "var(--ink-900)" }}>{b.name}</div>
+                          <div className="tiny muted">{b.subCategory}</div>
+                          <div className="row gap-8" style={{ marginTop: 4 }}>
+                            <Rating value={b.ratingAvg} size={10} />
+                            {b.distanceKm != null && (
+                              <span style={{ fontSize: 11, color: "var(--ink-400)" }}>
+                                • {b.distanceKm} km
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight size={16} className="muted" />
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === "provider" && (
+                <div className="col gap-8">
+                  {providers.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--ink-400)" }}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>🛠️</div>
+                      <div className="semi small">No providers found in this radius</div>
+                    </div>
+                  ) : (
+                    providers.map((p) => (
+                      <div
+                        key={p.id}
+                        className="card row gap-12"
+                        style={{ padding: 12, cursor: "pointer", border: "1px solid var(--line)" }}
+                        onClick={() => { nav(`/provider/${p.id}`); setShowNearbyPopup(false); }}
+                      >
+                        <img
+                          src={p.avatar || "https://images.unsplash.com/photo-1521791136364-7286472b6b5c?w=100"}
+                          style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover", flexShrink: 0 }}
+                        />
+                        <div className="grow">
+                          <div className="bold small" style={{ color: "var(--ink-900)" }}>{p.displayName}</div>
+                          <div className="tiny muted">{p.categoryName} · starting {inr(p.startingPrice)}</div>
+                          <div style={{ marginTop: 4 }}><Rating value={p.ratingAvg} size={10} /></div>
+                        </div>
+                        <ChevronRight size={16} className="muted" />
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === "story" && (
+                <div className="col gap-8">
+                  {mapStories.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--ink-400)" }}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>📸</div>
+                      <div className="semi small">No stories found in this radius</div>
+                    </div>
+                  ) : (
+                    mapStories.map((s, idx) => {
+                      const seen = viewedStories.includes(s.id);
+                      return (
+                        <div
+                          key={s.id}
+                          className="card row gap-12"
+                          style={{ padding: 12, cursor: "pointer", border: "1px solid var(--line)" }}
+                          onClick={() => {
+                            setStoryViewer({ stories: mapStories, idx });
+                            setShowNearbyPopup(false);
+                          }}
+                        >
+                          <img
+                            src={s.authorAvatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100"}
+                            style={{
+                              width: 44, height: 44, borderRadius: "50%", objectFit: "cover",
+                              flexShrink: 0, border: seen ? "none" : "2.5px solid #ec4899"
+                            }}
+                          />
+                          <div className="grow">
+                            <div className="bold small" style={{ color: "var(--ink-900)" }}>{s.authorName}</div>
+                            {s.caption && (
+                              <div className="tiny text-ellipsis" style={{ color: "var(--ink-600)", marginTop: 2 }}>
+                                {s.caption}
+                              </div>
+                            )}
+                            <div className="tiny muted" style={{ marginTop: 4 }}>
+                              {s.postedAt} · {s.expiresInHrs}h left
+                            </div>
+                          </div>
+                          <ChevronRight size={16} className="muted" />
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, ChevronDown, ChevronRight, X } from "lucide-react";
+import { Search, Bell, ChevronDown, ChevronRight, X, QrCode } from "lucide-react";
 import { useApp } from "@/store";
 import { catalogService, requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
+import QrScannerSheet from "@/components/QrScannerSheet";
 
 function reorderCategories(
   all: { id: string; slug: string; name: string; icon: string; color: string }[],
@@ -26,6 +27,7 @@ export default function Home() {
 
   const theme = useAmbientTheme(user.lat, user.lng);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [scanner, setScanner] = useState(false);
 
   const { data: categories } = useQuery(() => catalogService.getCategories(), []);
   const { data: agreementsList } = useQuery(() => requestService.agreements(), []);
@@ -44,7 +46,7 @@ export default function Home() {
     { emoji: "🧭", label: "Explore", sub: "Shops & people", tint: "#e8f0ff", color: "#2563eb", onClick: () => nav("/explore") },
     { emoji: "🏘️", label: "Community", sub: "Street feed", tint: "#ffeef4", color: "#db2777", onClick: () => nav("/community-hub"), badge: chatUnread || undefined },
     { emoji: "🤝", label: "My deals", sub: activeAgreements.length > 0 ? `${activeAgreements.length} active` : "Agreements", tint: "#e7f7ee", color: "#16a34a", onClick: () => nav("/agreements"), badge: activeAgreements.length || undefined },
-    { emoji: "👛", label: "Wallet", sub: "Stamps & coupons", tint: "#fff4e6", color: "var(--accent-600)", onClick: () => nav("/wallet") },
+    { emoji: "🏆", label: "Leaderboard", sub: "Top contributors", tint: "#fff4e6", color: "var(--accent-600)", onClick: () => nav("/leaderboard") },
   ];
 
   return (
@@ -84,14 +86,27 @@ export default function Home() {
           </button>
         </div>
 
-        <button
-          className="row gap-10"
-          style={{ marginTop: 12, width: "100%", background: "#fff", borderRadius: 14, padding: "12px 14px", color: "var(--ink-500)" }}
-          onClick={() => nav("/search")}
-        >
-          <Search size={18} />
-          <span style={{ fontSize: 14 }}>Search "biryani", "plumber", "salon"…</span>
-        </button>
+        <div style={{ position: "relative", marginTop: 12 }}>
+          <button
+            className="row gap-10"
+            style={{ width: "100%", background: "#fff", borderRadius: 14, padding: "12px 14px", color: "var(--ink-500)", border: "none", textAlign: "left", cursor: "pointer" }}
+            onClick={() => nav("/search")}
+          >
+            <Search size={18} />
+            <span style={{ fontSize: 14 }}>Search "biryani", "plumber", "salon"…</span>
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setScanner(true); }}
+            style={{
+              position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+              background: "transparent", border: "none", color: "var(--brand-700)", cursor: "pointer",
+              padding: 4, display: "flex", alignItems: "center", justifyContent: "center"
+            }}
+            aria-label="Scan QR Code"
+          >
+            <QrCode size={20} />
+          </button>
+        </div>
       </div>
 
       {/* ── Ambient banner ── */}
@@ -210,6 +225,7 @@ export default function Home() {
 
         <div style={{ height: 24 }} />
       </div>
+      {scanner && <QrScannerSheet onClose={() => setScanner(false)} />}
     </div>
   );
 }

@@ -61,12 +61,47 @@ export const providerService = {
     return toCamel<Provider[]>(data ?? []);
   },
   async get(id: string): Promise<Provider | undefined> {
+    if (id === "p1" || id.startsWith("prov_mock_")) {
+      return {
+        id,
+        userId: "mock_user_2",
+        displayName: "Alex Sharma",
+        categoryId: "2",
+        categoryName: "AC Repair",
+        bio: "Certified AC technician with 8+ years of experience. Quick troubleshooting and honest pricing.",
+        avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200",
+        lat: 18.536,
+        lng: 73.893,
+        distanceKm: 0.8,
+        serviceRadiusKm: 15,
+        startingPrice: 350,
+        availabilityNote: "Mon-Sat 9 AM - 7 PM",
+        status: "ACTIVE",
+        isVerified: true,
+        ratingAvg: 4.8,
+        ratingCount: 24,
+        jobsDone: 142,
+        responseTime: "Under 15 mins",
+        isNew: false,
+        skills: ["AC installation", "Gas refilling", "Compressor repair", "General servicing"],
+        portfolio: [
+          { id: "port_1", title: "AC installation at Koregaon Park office", description: "Dual-inverter split AC installation", imageUrl: "https://images.unsplash.com/photo-1585338107529-13afc5f02586?w=500" }
+        ],
+        phone: "9876543211"
+      } as any;
+    }
     const sb = getSupabase();
     const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*)").eq("id", id).maybeSingle();
     throwIfError(error);
     return data ? toCamel<Provider>(data) : undefined;
   },
   async reviews(id: string): Promise<Review[]> {
+    if (id === "p1" || id.startsWith("prov_mock_")) {
+      return [
+        { id: "rev_1", raterName: "Daniel Craig", raterAvatar: "", rating: 5, comment: "Super fast response and very neat work.", date: "3 days ago" },
+        { id: "rev_2", raterName: "Pooja Hegde", raterAvatar: "", rating: 4, comment: "Fixed the leakage in 10 minutes. Good behavior.", date: "2 weeks ago" }
+      ];
+    }
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")

@@ -339,7 +339,7 @@ export default function ProviderDetail() {
       </div>
 
       {report && <ReportSheet targetType="PROVIDER" targetId={p.id} name={p.displayName} onClose={() => setReport(false)} />}
-      {share && <ShareCard title={p.displayName} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={`⭐ ${p.ratingAvg} • ${p.jobsDone} jobs • ${p.distanceKm} km`} onClose={() => setShare(false)} />}
+      {share && <ShareCard title={p.displayName} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={`⭐ ${p.ratingAvg} • ${p.jobsDone} jobs • ${p.distanceKm} km`} url={window.location.origin + "/provider/" + p.id} onClose={() => setShare(false)} />}
       {reviewing && (
         <ReviewSheet
           targetName={p.displayName}

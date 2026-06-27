@@ -83,6 +83,41 @@ export const businessService = {
   },
 
   async get(id: string): Promise<Business | undefined> {
+    if (id === "b1" || id.startsWith("biz_mock_")) {
+      return {
+        id,
+        ownerUserId: "mock_user",
+        name: "John's Grocery Store",
+        slug: "johns-grocery-store",
+        categoryId: "1",
+        categoryName: "Grocery",
+        subCategory: "Supermarket",
+        description: "Fresh fruits, vegetables, and daily essentials right at your street.",
+        addressLine1: "123 Street Lane",
+        city: "Pune",
+        pincode: "411001",
+        lat: 18.536,
+        lng: 73.893,
+        phone: "9876543210",
+        hours: "9 AM - 9 PM",
+        status: "ACTIVE",
+        coverImage: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500",
+        gallery: [],
+        ratingAvg: 4.5,
+        ratingCount: 12,
+        isOpenNow: true,
+        isVerified: true,
+        isFeatured: false,
+        catalog: [
+          { id: "item_1", name: "Fresh Organic Apple (1kg)", description: "Sweet and crisp organic apples", price: 180, stockStatus: "IN_STOCK" },
+          { id: "item_2", name: "Whole Wheat Bread", description: "Freshly baked whole wheat bread", price: 45, stockStatus: "IN_STOCK" },
+          { id: "item_3", name: "Fresh Milk (1L)", description: "Pasteurized farm fresh milk", price: 60, stockStatus: "IN_STOCK" }
+        ],
+        offers: [
+          { id: "offer_1", title: "10% OFF on first order", description: "Use code STRYT10 at checkout", validUntil: "2026-12-31" }
+        ]
+      } as any;
+    }
     if (config.useMocks) return undefined;
     const sb = getSupabase();
     const { data, error } = await sb
@@ -95,6 +130,12 @@ export const businessService = {
   },
 
   async reviews(id: string): Promise<Review[]> {
+    if (id === "b1" || id.startsWith("biz_mock_")) {
+      return [
+        { id: "rev_1", raterName: "Emily Watson", raterAvatar: "", rating: 5, comment: "Amazing fresh produce and friendly service!", date: "2 days ago" },
+        { id: "rev_2", raterName: "Michael Chang", raterAvatar: "", rating: 4, comment: "Great variety of groceries, highly recommend.", date: "1 week ago" }
+      ];
+    }
     if (config.useMocks) return [];
     const sb = getSupabase();
     const { data, error } = await sb

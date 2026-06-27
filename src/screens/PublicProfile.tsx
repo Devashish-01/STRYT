@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, StarRow, EmptyState, SafeImg } from "@/components/common";
-import { Phone, Shield, Award, Heart, MessageSquareText, HandshakeIcon, Star, BadgeCheck } from "lucide-react";
+import { Phone, Shield, Award, Heart, MessageSquareText, HandshakeIcon, Star, BadgeCheck, Share2 } from "lucide-react";
 import { userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
+import ShareCard from "@/components/ShareCard";
 
 const Handshake = HandshakeIcon as any;
 
@@ -17,6 +19,7 @@ const verifyLabels: Record<string, string> = {
 export default function PublicProfile() {
   const { id = "" } = useParams();
   const { data: u, loading, error, refetch } = useQuery(() => userService.publicProfile(id), [id]);
+  const [share, setShare] = useState(false);
 
   if (loading) {
     return (
@@ -51,7 +54,14 @@ export default function PublicProfile() {
 
   return (
     <div className="screen">
-      <AppBar title="Profile" />
+      <AppBar
+        title="Profile"
+        right={
+          <button className="icon-btn" onClick={() => setShare(true)} aria-label="Share QR Code">
+            <Share2 size={18} />
+          </button>
+        }
+      />
       <div className="screen-scroll">
         <div className="col center page-pad" style={{ paddingTop: 20, textAlign: "center" }}>
           <SafeImg src={u.avatar} variant="avatar" className="avatar" style={{ width: 88, height: 88, border: "3px solid var(--brand-100)" }} />
@@ -114,6 +124,15 @@ export default function PublicProfile() {
 
         <div style={{ height: 24 }} />
       </div>
+      {share && (
+        <ShareCard
+          title={u.name}
+          subtitle={`Member since ${u.memberSince} • ${u.area}`}
+          image={u.avatar}
+          url={window.location.origin + "/u/" + u.id}
+          onClose={() => setShare(false)}
+        />
+      )}
     </div>
   );
 }

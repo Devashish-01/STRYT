@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, Settings, Store, Briefcase, FileText, Star,
-  ChevronRight, Shield, HelpCircle, LogOut, Globe, Wallet,
+  ChevronRight, Shield, HelpCircle, LogOut, Globe, Share2,
   ListChecks, Trophy, Award, Users, UserCircle, Heart,
   ArrowLeftRight, MessageCircle, Handshake, Map,
 } from "lucide-react";
@@ -12,6 +12,7 @@ import AccountSwitcher from "@/components/AccountSwitcher";
 import { requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import type { Role, AgreementStatus } from "@/types";
+import ShareCard, { type ShareOption } from "@/components/ShareCard";
 
 const HandshakeIcon = Handshake as any;
 
@@ -21,7 +22,46 @@ export default function Profile() {
   const nav = useNavigate();
   const { user, roles, activeRole, setActiveRole, addRole, bookmarks, follows, signOut, ownedBusinessIds, ownedProviderId } = useApp();
   const [switcher, setSwitcher] = useState(false);
+  const [share, setShare] = useState(false);
   const manageBizId = ownedBusinessIds[0];
+
+  const getFirstName = (name: string) => name.split(" ")[0] || "My";
+
+  const shareOptions: ShareOption[] = [
+    {
+      role: "customer",
+      label: "Personal Profile",
+      url: window.location.origin + "/u/" + user.id,
+      title: user.name || "Stryt Neighbor",
+      subtitle: `Customer • ${user.area || "No location"}`,
+      image: user.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120",
+      meta: `⭐ ${user.ratingAvg ?? 0} (${user.ratingCount ?? 0})`
+    }
+  ];
+
+  if (ownedBusinessIds.length > 0) {
+    shareOptions.push({
+      role: "business_owner",
+      label: "Shop Profile",
+      url: window.location.origin + "/business/" + ownedBusinessIds[0],
+      title: `${getFirstName(user.name || "")}'s Shop`,
+      subtitle: "Local Business on Stryt",
+      image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500",
+      meta: "Shops & Deals"
+    });
+  }
+
+  if (ownedProviderId) {
+    shareOptions.push({
+      role: "provider",
+      label: "Provider Profile",
+      url: window.location.origin + "/provider/" + ownedProviderId,
+      title: user.name || "Service Provider",
+      subtitle: "Professional Provider on Stryt",
+      image: user.avatar || "https://images.unsplash.com/photo-1521791136364-7286472b6b5c?w=500",
+      meta: "Services & Work"
+    });
+  }
 
   const { data: agreementsData } = useQuery(() => requestService.agreements(), []);
   const activeAgreements = (agreementsData ?? []).filter((a) => !TERMINAL.includes(a.status));
@@ -42,6 +82,9 @@ export default function Profile() {
           <div className="row between">
             <span className="bold" style={{ fontSize: 20 }}>You</span>
             <div className="row gap-8">
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => setShare(true)} aria-label="Share QR Code">
+                <Share2 size={18} />
+              </button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => setSwitcher(true)}>
                 <ArrowLeftRight size={18} />
               </button>
@@ -118,11 +161,6 @@ export default function Profile() {
               <HandshakeIcon size={24} color="#16a34a" />
               <span className="semi" style={{ fontSize: 12 }}>Agreements</span>
               <span className="tiny muted" style={{ fontSize: 10 }}>Track jobs</span>
-            </button>
-            <button className="feature-card" onClick={() => nav("/wallet")}>
-              <Wallet size={24} color="#f26a00" />
-              <span className="semi" style={{ fontSize: 12 }}>Wallet</span>
-              <span className="tiny muted" style={{ fontSize: 10 }}>Stamps & deals</span>
             </button>
             <button className="feature-card" onClick={() => nav("/achievements")}>
               <Award size={24} color="#f59e0b" />
@@ -234,6 +272,15 @@ export default function Profile() {
       </div>
 
       {switcher && <AccountSwitcher onClose={() => setSwitcher(false)} />}
+      {share && (
+        <ShareCard
+          title={user.name || "Stryt Neighbor"}
+          subtitle={`Customer • ${user.area || "No location"}`}
+          image={user.avatar}
+          options={shareOptions}
+          onClose={() => setShare(false)}
+        />
+      )}
     </div>
   );
 }

@@ -463,7 +463,7 @@ export default function BusinessDetail() {
       )}
 
       {report && <ReportSheet targetType="BUSINESS" targetId={b.id} name={b.name} onClose={() => setReport(false)} />}
-      {share && <ShareCard title={b.name} subtitle={`${b.subCategory} • ${b.distanceKm} km`} image={b.coverImage} meta={`⭐ ${b.ratingAvg} (${b.ratingCount}) • ${b.city}`} onClose={() => setShare(false)} />}
+      {share && <ShareCard title={b.name} subtitle={`${b.subCategory} • ${b.distanceKm} km`} image={b.coverImage} meta={`⭐ ${b.ratingAvg} (${b.ratingCount}) • ${b.city}`} url={window.location.origin + "/business/" + b.id} onClose={() => setShare(false)} />}
       {addList && <AddToListSheet type="BUSINESS" id={b.id} onClose={() => setAddList(false)} />}
       {reviewing && (
         <ReviewSheet
