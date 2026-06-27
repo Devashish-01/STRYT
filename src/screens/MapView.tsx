@@ -226,14 +226,21 @@ export default function MapView() {
   const [layers, setLayers] = useState<Record<Layer, boolean>>({
     business: true, provider: true, request: true, story: false,
   });
-  const [radiusKm, setRadiusKm] = useState(5);
+  const [radiusKm, setRadiusKm] = useState(() => {
+    const saved = localStorage.getItem("stryt_map_radius_km");
+    return saved ? parseFloat(saved) : 5;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("stryt_map_radius_km", String(radiusKm));
+  }, [radiusKm]);
   const [storyViewer, setStoryViewer] = useState<{ stories: Story[]; idx: number } | null>(null);
   const [showCustom, setShowCustom] = useState(false);
   const [customVal, setCustomVal] = useState("");
   const customInputRef = useRef<HTMLInputElement>(null);
 
   const [showNearbyPopup, setShowNearbyPopup] = useState(false);
-  const [activeTab, setActiveTab] = useState<"business" | "provider" | "story">("business");
+  const [activeTab, setActiveTab] = useState<"business" | "provider" | "story" | "request">("business");
 
   const [locQuery, setLocQuery] = useState("");
   const [locResults, setLocResults] = useState<GeoPlace[]>([]);
@@ -307,10 +314,17 @@ export default function MapView() {
   const requests   = (reqPage?.data ?? []).filter((r) => r.status === "OPEN");
   const mapStories = (nearbyStories ?? []).filter((s) => s.lat && s.lng);
 
+  const nearbyRequests = requests.filter((r) => {
+    if (!r.lat || !r.lng) return false;
+    if (isWorld) return true;
+    const dist = L.latLng(centerLat, centerLng).distanceTo(L.latLng(r.lat, r.lng)) / 1000;
+    return dist <= radiusKm;
+  });
+
   const visibleCount =
     (layers.business ? businesses.length : 0) +
     (layers.provider ? providers.length : 0) +
-    (layers.request  ? requests.filter((r) => r.lat && r.lng).length : 0) +
+    (layers.request  ? nearbyRequests.length : 0) +
     (layers.story    ? mapStories.length : 0);
 
   return (
@@ -639,7 +653,7 @@ export default function MapView() {
         ))}
 
         {/* Requests */}
-        {layers.request && requests.filter((r) => r.lat && r.lng).map((r) => {
+        {layers.request && nearbyRequests.map((r) => {
           const lat = r.lat as number;
           const lng = r.lng as number;
           return (
@@ -795,6 +809,23 @@ export default function MapView() {
               >
                 Stories ({mapStories.length})
               </button>
+              <button
+                onClick={() => setActiveTab("request")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: activeTab === "request" ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
+                  color: activeTab === "request" ? "var(--brand-700)" : "var(--ink-500)",
+                  fontWeight: activeTab === "request" ? 700 : 500,
+                  padding: "8px 12px",
+                  fontSize: 14,
+                  cursor: "pointer",
+                  flex: 1,
+                  textAlign: "center"
+                }}
+              >
+                Requests ({nearbyRequests.length})
+              </button>
             </div>
 
             {/* Scrollable contents */}
@@ -914,6 +945,40 @@ export default function MapView() {
                         </div>
                       );
                     })
+                  )}
+                </div>
+              )}
+
+              {activeTab === "request" && (
+                <div className="col gap-8">
+                  {nearbyRequests.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--ink-400)" }}>
+                      <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+                      <div className="semi small">No requests found in this radius</div>
+                    </div>
+                  ) : (
+                    nearbyRequests.map((r) => (
+                      <div
+                        key={r.id}
+                        className="card row gap-12"
+                        style={{ padding: 12, cursor: "pointer", border: "1px solid var(--line)" }}
+                        onClick={() => { nav(`/request/${r.id}`); setShowNearbyPopup(false); }}
+                      >
+                        <div style={{
+                          width: 44, height: 44, borderRadius: 12,
+                          background: `${pinColors.request}12`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 20, flexShrink: 0
+                        }}>
+                          📋
+                        </div>
+                        <div className="grow">
+                          <div className="bold small" style={{ color: "var(--ink-900)" }}>{r.title}</div>
+                          <div className="tiny muted">{r.categoryName} · {r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget"}</div>
+                        </div>
+                        <ChevronRight size={16} className="muted" />
+                      </div>
+                    ))
                   )}
                 </div>
               )}
