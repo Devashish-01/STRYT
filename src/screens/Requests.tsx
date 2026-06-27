@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, MessageSquare } from "lucide-react";
 import { requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -12,7 +12,7 @@ type Tab = "nearby" | "mine";
 
 export default function Requests() {
   const nav = useNavigate();
-  const { area, user } = useApp();
+  const { area, user, chatUnread } = useApp();
   const [tab, setTab] = useState<Tab>("nearby");
   const [cat, setCat] = useState<string | null>(null);
   const [special, setSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
@@ -39,9 +39,21 @@ export default function Requests() {
             <span className="bold" style={{ fontSize: 20 }}>Request Feed</span>
             <span className="tiny muted">Open needs near {area}</span>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => nav("/ask")}>
-            <Plus size={16} /> Ask
-          </button>
+          <div className="row gap-8" style={{ alignItems: "center" }}>
+            <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats")} aria-label="Chats">
+              <MessageSquare size={20} />
+              {chatUnread > 0 && (
+                <span style={{
+                  position: "absolute", top: 6, right: 6,
+                  width: 8, height: 8, background: "#ef4444",
+                  borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)",
+                }} />
+              )}
+            </button>
+            <button className="btn btn-primary btn-sm" onClick={() => nav("/ask")}>
+              <Plus size={16} /> Ask
+            </button>
+          </div>
         </div>
 
         <div className="row" style={{ borderBottom: "1px solid var(--line)" }}>

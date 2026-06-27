@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, ChevronDown, ChevronRight, X, QrCode } from "lucide-react";
+import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "lucide-react";
 import { useApp } from "@/store";
 import { catalogService, requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -70,20 +70,37 @@ export default function Home() {
               {area} <ChevronDown size={16} />
             </span>
           </button>
-          <button
-            className="icon-btn"
-            style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }}
-            onClick={() => nav("/notifications")}
-          >
-            <Bell size={20} />
-            {unreadCount > 0 && (
-              <span style={{
-                position: "absolute", top: 6, right: 6,
-                width: 8, height: 8, background: "#ff9500",
-                borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)",
-              }} />
-            )}
-          </button>
+          <div className="row gap-8">
+            <button
+              className="icon-btn"
+              style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }}
+              onClick={() => nav("/chats")}
+              aria-label="Chats"
+            >
+              <MessageSquare size={20} />
+              {chatUnread > 0 && (
+                <span style={{
+                  position: "absolute", top: 6, right: 6,
+                  width: 8, height: 8, background: "#ef4444",
+                  borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)",
+                }} />
+              )}
+            </button>
+            <button
+              className="icon-btn"
+              style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }}
+              onClick={() => nav("/notifications")}
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span style={{
+                  position: "absolute", top: 6, right: 6,
+                  width: 8, height: 8, background: "#ff9500",
+                  borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)",
+                }} />
+              )}
+            </button>
+          </div>
         </div>
 
         <div style={{ position: "relative", marginTop: 12 }}>

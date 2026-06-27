@@ -4,7 +4,7 @@ import {
   Bell, Settings, Store, Briefcase, FileText, Star,
   ChevronRight, Shield, HelpCircle, LogOut, Globe, Share2,
   ListChecks, Trophy, Award, Users, UserCircle, Heart,
-  ArrowLeftRight, MessageCircle, Handshake, Map,
+  ArrowLeftRight, MessageCircle, Handshake, Map, MessageSquare
 } from "lucide-react";
 import { useApp } from "@/store";
 import { StarRow, SafeImg } from "@/components/common";
@@ -20,7 +20,7 @@ const TERMINAL: AgreementStatus[] = ["COMPLETED", "CANCELLED", "DISPUTED"];
 
 export default function Profile() {
   const nav = useNavigate();
-  const { user, roles, activeRole, setActiveRole, addRole, bookmarks, follows, signOut, ownedBusinessIds, ownedProviderId } = useApp();
+  const { user, roles, activeRole, setActiveRole, addRole, bookmarks, follows, signOut, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
   const [switcher, setSwitcher] = useState(false);
   const [share, setShare] = useState(false);
   const manageBizId = ownedBusinessIds[0];
@@ -87,6 +87,16 @@ export default function Profile() {
               </button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => setSwitcher(true)}>
                 <ArrowLeftRight size={18} />
+              </button>
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }} onClick={() => nav("/chats")} aria-label="Chats">
+                <MessageSquare size={18} />
+                {chatUnread > 0 && (
+                  <span style={{
+                    position: "absolute", top: 5, right: 5,
+                    width: 7, height: 7, background: "#ef4444",
+                    borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)",
+                  }} />
+                )}
               </button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/notifications")}>
                 <Bell size={18} />

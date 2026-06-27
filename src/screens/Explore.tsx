@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Map, SlidersHorizontal } from "lucide-react";
+import { Search, Map, SlidersHorizontal, MessageSquare } from "lucide-react";
 import { catalogService, discoveryService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -32,7 +32,7 @@ function roundToHalf(v: number): number {
 export default function Explore() {
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
-  const { area, user, refreshUser, showToast } = useApp();
+  const { area, user, refreshUser, showToast, chatUnread } = useApp();
   const [tab, setTab] = useState<Tab>("all");
   const [cat, setCat] = useState<string | null>(() => searchParams.get("cat"));
 
@@ -124,6 +124,16 @@ export default function Explore() {
           <div className="row gap-8">
             <button className="icon-btn" onClick={() => nav("/search")}><Search size={20} /></button>
             <button className="icon-btn" onClick={() => nav("/map")}><Map size={20} /></button>
+            <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats")} aria-label="Chats">
+              <MessageSquare size={20} />
+              {chatUnread > 0 && (
+                <span style={{
+                  position: "absolute", top: 6, right: 6,
+                  width: 8, height: 8, background: "#ef4444",
+                  borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)",
+                }} />
+              )}
+            </button>
           </div>
         </div>
 
