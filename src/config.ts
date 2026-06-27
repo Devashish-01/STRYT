@@ -5,4 +5,5 @@ export const config = {
   mapboxToken: (import.meta as any).env?.VITE_MAPBOX_TOKEN ?? "",
   appName: "STRYT",
   mockLatencyMs: 280,
+  bugReportExcelUrl: (import.meta as any).env?.VITE_BUG_REPORT_EXCEL_URL ?? "",
 };

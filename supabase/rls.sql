@@ -63,3 +63,16 @@ do $$ begin
   create policy read_agreements on public.agreements
     for select using (auth.role() = 'authenticated');
 exception when duplicate_object then null; end $$;
+
+-- Enable RLS on new support tables
+alter table public.support_tickets enable row level security;
+alter table public.bug_reports enable row level security;
+
+-- Only authenticated users can write tickets/bug reports. Read access is restricted for security.
+do $$ begin
+  create policy insert_support_tickets on public.support_tickets
+    for insert with check (auth.role() = 'authenticated');
+  create policy insert_bug_reports on public.bug_reports
+    for insert with check (auth.role() = 'authenticated');
+exception when duplicate_object then null; end $$;
+

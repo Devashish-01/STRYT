@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { AppBar } from "@/components/common";
 import { authService } from "@/services";
 import { config } from "@/config";
 import { useApp } from "@/store";
 import { returnTo } from "@/lib/returnTo";
+import { ArrowLeft, Loader } from "lucide-react";
 
 export default function OtpVerify() {
   const nav = useNavigate();
@@ -87,28 +87,128 @@ export default function OtpVerify() {
   const isEmail = phone.includes("@");
 
   return (
-    <div className="screen">
-      <AppBar />
-      <div className="screen-scroll page-pad">
-        <h1 style={{ fontSize: 26, fontWeight: 800 }}>Enter the code</h1>
-        <p className="muted" style={{ marginTop: 6, lineHeight: 1.5 }}>
-          Sent to <span className="semi" style={{ color: "var(--ink-900)" }}>{isEmail ? phone : `+91 ${phone}`}</span>.{" "}
-          <button className="semi" style={{ color: "var(--brand-700)" }} onClick={() => nav(-1)}>Change</button>
-        </p>
+    <div
+      className="screen"
+      style={{
+        background: "linear-gradient(160deg, #fdfbff 0%, #f5eefc 60%, #ece2f7 100%)",
+        color: "var(--ink-900)",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: "24px 20px 48px",
+      }}
+    >
+      {/* Soft Glow Blobs */}
+      <div
+        style={{
+          position: "absolute",
+          top: "-5%",
+          left: "-5%",
+          width: "240px",
+          height: "240px",
+          background: "rgba(139, 71, 245, 0.15)",
+          borderRadius: "50%",
+          filter: "blur(60px)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: "15%",
+          right: "-5%",
+          width: "200px",
+          height: "200px",
+          background: "rgba(255, 149, 0, 0.12)",
+          borderRadius: "50%",
+          filter: "blur(50px)",
+          pointerEvents: "none",
+        }}
+      />
 
-        <div className="row gap-8" style={{ marginTop: 32, justifyContent: "center" }}>
+      {/* Header Back Button */}
+      <div className="row" style={{ zIndex: 10 }}>
+        <button
+          onClick={() => nav(-1)}
+          style={{
+            background: "#fff",
+            border: "1px solid var(--ink-200)",
+            borderRadius: "50%",
+            width: 42,
+            height: 42,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            color: "var(--ink-700)",
+            boxShadow: "var(--shadow-sm)",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--ink-50)")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#fff")}
+        >
+          <ArrowLeft size={18} />
+        </button>
+      </div>
+
+      {/* Hero / Info Section */}
+      <div className="col center" style={{ zIndex: 10, marginTop: 24, textAlign: "center" }}>
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 18,
+            background: "linear-gradient(135deg, #8b47f5 0%, #7c3aed 100%)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 8px 24px rgba(124, 58, 237, 0.2)",
+            marginBottom: 20,
+          }}
+        >
+          <svg width="34" height="34" viewBox="0 0 64 64">
+            <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
+            <path d="M32 41 C24 35 40 24 32 17" stroke="#7c3aed" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
+          </svg>
+        </div>
+        <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: -0.5, color: "var(--ink-900)" }}>Verification Code</h1>
+        <p style={{ fontSize: 14, color: "var(--ink-600)", marginTop: 6, maxWidth: 280, lineHeight: 1.4 }}>
+          Sent to <span className="semi" style={{ color: "var(--brand-700)" }}>{isEmail ? phone : `+91 ${phone}`}</span>
+        </p>
+      </div>
+
+      {/* Card containing Digits Input */}
+      <div
+        style={{
+          zIndex: 10,
+          background: "#fff",
+          border: "1px solid var(--ink-200)",
+          borderRadius: 28,
+          padding: "32px 20px",
+          width: "100%",
+          boxShadow: "var(--shadow-lg)",
+          marginTop: 24,
+        }}
+      >
+        <div className="row gap-8" style={{ justifyContent: "center" }}>
           {digits.map((d, i) => (
             <input
               key={i}
               ref={(el) => (refs.current[i] = el)}
               className="input"
               style={{
-                width: 46,
-                height: 58,
+                width: 44,
+                height: 56,
                 textAlign: "center",
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: 800,
                 padding: 0,
+                background: "var(--ink-50)",
+                border: "1.5px solid var(--ink-200)",
+                borderRadius: 12,
+                color: "var(--ink-900)",
+                outline: "none",
               }}
               inputMode="numeric"
               maxLength={6}
@@ -123,12 +223,27 @@ export default function OtpVerify() {
           ))}
         </div>
 
-        <div className="row center" style={{ marginTop: 22 }}>
+        {/* Resend & Timer */}
+        <div className="row center" style={{ marginTop: 24 }}>
           {seconds > 0 ? (
-            <span className="muted small">Resend code in 0:{seconds.toString().padStart(2, "0")}</span>
+            <span className="muted small" style={{ color: "var(--ink-500)" }}>
+              Resend code in 0:{seconds.toString().padStart(2, "0")}
+            </span>
           ) : (
-            <button className="semi small" style={{ color: "var(--brand-700)", opacity: resending ? 0.5 : 1 }} onClick={resend} disabled={resending}>
-              {resending ? "Sending…" : "Resend code"}
+            <button
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--brand-700)",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+                textDecoration: "underline",
+              }}
+              onClick={resend}
+              disabled={resending}
+            >
+              {resending ? "Sending..." : "Resend code"}
             </button>
           )}
         </div>
@@ -136,18 +251,30 @@ export default function OtpVerify() {
         {config.useMocks && (
           <div
             className="card"
-            style={{ marginTop: 24, padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}
+            style={{
+              marginTop: 24,
+              padding: "10px 12px",
+              background: "var(--brand-50)",
+              border: "1px solid var(--brand-100)",
+              borderRadius: 12,
+            }}
           >
-            <p className="tiny" style={{ color: "var(--brand-700)", textAlign: "center" }}>
+            <p className="tiny" style={{ color: "var(--brand-700)", textAlign: "center", margin: 0 }}>
               💡 Dev build: use a Supabase test number and its fixed code
             </p>
           </div>
         )}
       </div>
 
-      <div className="page-pad">
-        <button className="btn btn-primary btn-block" disabled={!filled || verifying} onClick={verify}>
-          {verifying ? "Verifying…" : "Verify & continue"}
+      {/* Verify Button */}
+      <div className="col gap-12" style={{ width: "100%", zIndex: 10 }}>
+        <button
+          className="btn btn-primary btn-block row center gap-8"
+          disabled={!filled || verifying}
+          onClick={verify}
+          style={{ padding: 15, borderRadius: 16, fontWeight: 700, fontSize: 15 }}
+        >
+          {verifying ? <Loader className="spin" size={18} /> : "Verify & continue"}
         </button>
       </div>
     </div>

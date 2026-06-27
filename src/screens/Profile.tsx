@@ -4,7 +4,8 @@ import {
   Bell, Settings, Store, Briefcase, FileText, Star,
   ChevronRight, Shield, HelpCircle, LogOut, Globe, Share2,
   ListChecks, Trophy, Award, Users, UserCircle, Heart,
-  ArrowLeftRight, MessageCircle, Handshake, Map, MessageSquare
+  ArrowLeftRight, MessageCircle, Handshake, Map, MessageSquare,
+  Bug
 } from "lucide-react";
 import { useApp } from "@/store";
 import { StarRow, SafeImg } from "@/components/common";
@@ -280,7 +281,8 @@ export default function Profile() {
           <div className="card" style={{ overflow: "hidden" }}>
             <MenuRow icon={<Globe size={20} color="#0ea5e9" />}    label="Language"         hint="English"     onClick={() => nav("/settings")} />
             <MenuRow icon={<Shield size={20} color="#16a34a" />}   label="Privacy & safety"                    onClick={() => nav("/settings")} />
-            <MenuRow icon={<HelpCircle size={20} color="#6366f1" />} label="Help & support"                    onClick={() => {}} />
+            <MenuRow icon={<HelpCircle size={20} color="#6366f1" />} label="Help & support"                    onClick={() => nav("/support?tab=contact")} />
+            <MenuRow icon={<Bug size={20} color="#ef4444" />}      label="Report a bug"                        onClick={() => nav("/support?tab=bug")} />
             <MenuRow icon={<LogOut size={20} color="#ef4444" />}   label="Log out" last onClick={() => { signOut(); nav("/"); }} />
           </div>
         </div>

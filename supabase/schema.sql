@@ -257,3 +257,29 @@ do $$ begin
   create trigger requests_geom before insert or update on public.requests
     for each row execute function public.sync_geom();
 exception when duplicate_object then null; end $$;
+
+-- ============================================================
+-- support_tickets
+-- ============================================================
+create table if not exists public.support_tickets (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    text references public.users(id),
+  category   text not null,
+  email      text not null,
+  subject    text not null,
+  message    text not null,
+  status     text not null default 'OPEN',
+  created_at timestamptz default now()
+);
+
+-- ============================================================
+-- bug_reports
+-- ============================================================
+create table if not exists public.bug_reports (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     text references public.users(id),
+  description text not null,
+  status      text not null default 'OPEN',
+  created_at  timestamptz default now()
+);
+

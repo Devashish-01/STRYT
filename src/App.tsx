@@ -9,6 +9,7 @@ const Splash = lazy(() => import("./screens/Splash"));
 const PhoneEntry = lazy(() => import("./screens/auth/PhoneEntry"));
 const OtpVerify = lazy(() => import("./screens/auth/OtpVerify"));
 const LocationPermission = lazy(() => import("./screens/auth/LocationPermission"));
+const UserOnboard = lazy(() => import("./screens/auth/UserOnboard"));
 
 // Core tabs
 const Home = lazy(() => import("./screens/Home"));
@@ -24,6 +25,7 @@ const AllCategories = lazy(() => import("./screens/AllCategories"));
 const Notifications = lazy(() => import("./screens/Notifications"));
 const Bookmarks = lazy(() => import("./screens/Bookmarks"));
 const Settings = lazy(() => import("./screens/Settings"));
+const Support = lazy(() => import("./screens/Support"));
 
 // Detail
 const BusinessDetail = lazy(() => import("./screens/business/BusinessDetail"));
@@ -155,6 +157,12 @@ function ProtectedLayout() {
     return <Navigate to="/auth/phone" replace />;
   }
 
+  // New user with no name set: redirect to onboarding first.
+  const needsOnboard = isAuthed && user.id && (!user.name || user.name === "New user") && location.pathname !== "/auth/onboard";
+  if (needsOnboard) {
+    return <Navigate to="/auth/onboard" replace />;
+  }
+
   // New user with no location: prompt once, then let them skip freely.
   const locationSeen = localStorage.getItem("locationPromptShown") === "true";
   const needsLocation = isAuthed && user.id && !user.lat && !user.area && location.pathname === "/home" && !locationSeen;
@@ -200,6 +208,7 @@ export default function App() {
 
           {/* Protected routes */}
           <Route element={<ProtectedLayout />}>
+            <Route path="/auth/onboard" element={<UserOnboard />} />
             <Route path="/auth/location" element={<LocationPermission />} />
 
             <Route path="/home" element={<Home />} />
@@ -215,6 +224,7 @@ export default function App() {
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/bookmarks" element={<Bookmarks />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/support" element={<Support />} />
 
             <Route path="/business/:id" element={<BusinessDetail />} />
             <Route path="/provider/:id" element={<ProviderDetail />} />
