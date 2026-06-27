@@ -1,104 +1,104 @@
 import { Routes, Route, useLocation, Navigate, Outlet } from "react-router-dom";
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import BottomNav from "./components/BottomNav";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
 
 // Auth & onboarding
-import Splash from "./screens/Splash";
-import PhoneEntry from "./screens/auth/PhoneEntry";
-import OtpVerify from "./screens/auth/OtpVerify";
-import LocationPermission from "./screens/auth/LocationPermission";
+const Splash = lazy(() => import("./screens/Splash"));
+const PhoneEntry = lazy(() => import("./screens/auth/PhoneEntry"));
+const OtpVerify = lazy(() => import("./screens/auth/OtpVerify"));
+const LocationPermission = lazy(() => import("./screens/auth/LocationPermission"));
 
 // Core tabs
-import Home from "./screens/Home";
-import Explore from "./screens/Explore";
-import Requests from "./screens/Requests";
-import Profile from "./screens/Profile";
+const Home = lazy(() => import("./screens/Home"));
+const Explore = lazy(() => import("./screens/Explore"));
+const Requests = lazy(() => import("./screens/Requests"));
+const Profile = lazy(() => import("./screens/Profile"));
 
 // Discovery
-import Search from "./screens/Search";
-import MapView from "./screens/MapView";
-import CategoryListing from "./screens/CategoryListing";
-import AllCategories from "./screens/AllCategories";
-import Notifications from "./screens/Notifications";
-import Bookmarks from "./screens/Bookmarks";
-import Settings from "./screens/Settings";
+const Search = lazy(() => import("./screens/Search"));
+const MapView = lazy(() => import("./screens/MapView"));
+const CategoryListing = lazy(() => import("./screens/CategoryListing"));
+const AllCategories = lazy(() => import("./screens/AllCategories"));
+const Notifications = lazy(() => import("./screens/Notifications"));
+const Bookmarks = lazy(() => import("./screens/Bookmarks"));
+const Settings = lazy(() => import("./screens/Settings"));
 
 // Detail
-import BusinessDetail from "./screens/business/BusinessDetail";
-import ProviderDetail from "./screens/provider/ProviderDetail";
-import RequestDetail from "./screens/requests/RequestDetail";
+const BusinessDetail = lazy(() => import("./screens/business/BusinessDetail"));
+const ProviderDetail = lazy(() => import("./screens/provider/ProviderDetail"));
+const RequestDetail = lazy(() => import("./screens/requests/RequestDetail"));
 
 // Pillar C flows
-import AskCompose from "./screens/requests/AskCompose";
-import SubmitProposal from "./screens/requests/SubmitProposal";
-import AgreementScreen from "./screens/requests/AgreementScreen";
-import Agreements from "./screens/requests/Agreements";
-import RateScreen from "./screens/requests/RateScreen";
+const AskCompose = lazy(() => import("./screens/requests/AskCompose"));
+const SubmitProposal = lazy(() => import("./screens/requests/SubmitProposal"));
+const AgreementScreen = lazy(() => import("./screens/requests/AgreementScreen"));
+const Agreements = lazy(() => import("./screens/requests/Agreements"));
+const RateScreen = lazy(() => import("./screens/requests/RateScreen"));
 
 // Onboarding
-import BusinessOnboard from "./screens/business/BusinessOnboard";
-import ProviderOnboard from "./screens/provider/ProviderOnboard";
-import ManageHub from "./screens/manage/ManageHub";
+const BusinessOnboard = lazy(() => import("./screens/business/BusinessOnboard"));
+const ProviderOnboard = lazy(() => import("./screens/provider/ProviderOnboard"));
+const ManageHub = lazy(() => import("./screens/manage/ManageHub"));
 
 // Chat
-import ConversationList from "./screens/chat/ConversationList";
-import ChatThread from "./screens/chat/ChatThread";
+const ConversationList = lazy(() => import("./screens/chat/ConversationList"));
+const ChatThread = lazy(() => import("./screens/chat/ChatThread"));
 
 // Social & community
-import CommunityHub from "./screens/CommunityHub";
-import StoryCompose from "./screens/StoryCompose";
-import Community from "./screens/Community";
-import CommunityCompose from "./screens/CommunityCompose";
-import CommunityPostDetail from "./screens/CommunityPostDetail";
-import Neighborhood from "./screens/Neighborhood";
-import AvailableNow from "./screens/AvailableNow";
-import Wallet from "./screens/Wallet";
-import Lists from "./screens/Lists";
-import PublicProfile from "./screens/PublicProfile";
-import Leaderboard from "./screens/Leaderboard";
-import ProfileEdit from "./screens/ProfileEdit";
-import Achievements from "./screens/Achievements";
+const CommunityHub = lazy(() => import("./screens/CommunityHub"));
+const StoryCompose = lazy(() => import("./screens/StoryCompose"));
+const Community = lazy(() => import("./screens/Community"));
+const CommunityCompose = lazy(() => import("./screens/CommunityCompose"));
+const CommunityPostDetail = lazy(() => import("./screens/CommunityPostDetail"));
+const Neighborhood = lazy(() => import("./screens/Neighborhood"));
+const AvailableNow = lazy(() => import("./screens/AvailableNow"));
+const Wallet = lazy(() => import("./screens/Wallet"));
+const Lists = lazy(() => import("./screens/Lists"));
+const PublicProfile = lazy(() => import("./screens/PublicProfile"));
+const Leaderboard = lazy(() => import("./screens/Leaderboard"));
+const ProfileEdit = lazy(() => import("./screens/ProfileEdit"));
+const Achievements = lazy(() => import("./screens/Achievements"));
 
 // Business console
-import ManageDashboard from "./screens/business/manage/ManageDashboard";
-import CatalogManager from "./screens/business/manage/CatalogManager";
-import ProfileEditor from "./screens/business/manage/ProfileEditor";
-import HoursEditor from "./screens/business/manage/HoursEditor";
-import OffersManager from "./screens/business/manage/OffersManager";
-import PhotosManager from "./screens/business/manage/PhotosManager";
-import StoryComposer from "./screens/business/manage/StoryComposer";
-import QueueManager from "./screens/business/manage/QueueManager";
-import LoyaltySetup from "./screens/business/manage/LoyaltySetup";
-import QnaManager from "./screens/business/manage/QnaManager";
-import ReviewsManager from "./screens/business/manage/ReviewsManager";
-import Reservations from "./screens/business/manage/Reservations";
-import LeadsInbox from "./screens/business/manage/LeadsInbox";
-import Promote from "./screens/business/manage/Promote";
-import VerificationCenter from "./screens/business/manage/VerificationCenter";
-import BusinessSettings from "./screens/business/manage/BusinessSettings";
-import BusinessRequests from "./screens/business/manage/BusinessRequests";
+const ManageDashboard = lazy(() => import("./screens/business/manage/ManageDashboard"));
+const CatalogManager = lazy(() => import("./screens/business/manage/CatalogManager"));
+const ProfileEditor = lazy(() => import("./screens/business/manage/ProfileEditor"));
+const HoursEditor = lazy(() => import("./screens/business/manage/HoursEditor"));
+const OffersManager = lazy(() => import("./screens/business/manage/OffersManager"));
+const PhotosManager = lazy(() => import("./screens/business/manage/PhotosManager"));
+const StoryComposer = lazy(() => import("./screens/business/manage/StoryComposer"));
+const QueueManager = lazy(() => import("./screens/business/manage/QueueManager"));
+const LoyaltySetup = lazy(() => import("./screens/business/manage/LoyaltySetup"));
+const QnaManager = lazy(() => import("./screens/business/manage/QnaManager"));
+const ReviewsManager = lazy(() => import("./screens/business/manage/ReviewsManager"));
+const Reservations = lazy(() => import("./screens/business/manage/Reservations"));
+const LeadsInbox = lazy(() => import("./screens/business/manage/LeadsInbox"));
+const Promote = lazy(() => import("./screens/business/manage/Promote"));
+const VerificationCenter = lazy(() => import("./screens/business/manage/VerificationCenter"));
+const BusinessSettings = lazy(() => import("./screens/business/manage/BusinessSettings"));
+const BusinessRequests = lazy(() => import("./screens/business/manage/BusinessRequests"));
 
 // Provider console
-import ProviderDashboard from "./screens/provider/manage/ProviderDashboard";
-import ProviderProfileEditor from "./screens/provider/manage/ProviderProfileEditor";
-import ProviderAvailability from "./screens/provider/manage/ProviderAvailability";
-import ProviderPackages from "./screens/provider/manage/ProviderPackages";
-import ProviderPortfolio from "./screens/provider/manage/ProviderPortfolio";
-import ProviderLeads from "./screens/provider/manage/ProviderLeads";
-import ProviderSettings from "./screens/provider/manage/ProviderSettings";
+const ProviderDashboard = lazy(() => import("./screens/provider/manage/ProviderDashboard"));
+const ProviderProfileEditor = lazy(() => import("./screens/provider/manage/ProviderProfileEditor"));
+const ProviderAvailability = lazy(() => import("./screens/provider/manage/ProviderAvailability"));
+const ProviderPackages = lazy(() => import("./screens/provider/manage/ProviderPackages"));
+const ProviderPortfolio = lazy(() => import("./screens/provider/manage/ProviderPortfolio"));
+const ProviderLeads = lazy(() => import("./screens/provider/manage/ProviderLeads"));
+const ProviderSettings = lazy(() => import("./screens/provider/manage/ProviderSettings"));
 
 // Admin
-import AdminPanel from "./screens/admin/AdminPanel";
-import TrackingPage from "./screens/TrackingPage";
+const AdminPanel = lazy(() => import("./screens/admin/AdminPanel"));
+const TrackingPage = lazy(() => import("./screens/TrackingPage"));
 
 // Society / Subscriptions / Pro
-import SocietyScreen from "./screens/society/SocietyScreen";
-import SubscriptionManager from "./screens/subscriptions/SubscriptionManager";
-import SubscriptionDetail from "./screens/subscriptions/SubscriptionDetail";
-import NewSubscription from "./screens/subscriptions/NewSubscription";
-import BusinessProUpgrade from "./screens/monetization/BusinessProUpgrade";
+const SocietyScreen = lazy(() => import("./screens/society/SocietyScreen"));
+const SubscriptionManager = lazy(() => import("./screens/subscriptions/SubscriptionManager"));
+const SubscriptionDetail = lazy(() => import("./screens/subscriptions/SubscriptionDetail"));
+const NewSubscription = lazy(() => import("./screens/subscriptions/NewSubscription"));
+const BusinessProUpgrade = lazy(() => import("./screens/monetization/BusinessProUpgrade"));
 
 // Routes that show the bottom navigation bar
 const TAB_ROUTES = ["/home", "/map", "/explore", "/chats", "/requests", "/community-hub", "/community", "/profile"];
@@ -186,110 +186,112 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <Routes>
-        {/* Public only auth routes */}
-        <Route element={<PublicOnlyLayout />}>
-          <Route path="/" element={<Splash />} />
-          <Route path="/auth/phone" element={<PhoneEntry />} />
-          <Route path="/auth/otp" element={<OtpVerify />} />
-        </Route>
+      <Suspense fallback={<AuthSplash />}>
+        <Routes>
+          {/* Public only auth routes */}
+          <Route element={<PublicOnlyLayout />}>
+            <Route path="/" element={<Splash />} />
+            <Route path="/auth/phone" element={<PhoneEntry />} />
+            <Route path="/auth/otp" element={<OtpVerify />} />
+          </Route>
 
-        {/* Completely public / un-guarded routes */}
-        <Route path="/track/:token" element={<TrackingPage />} />
+          {/* Completely public / un-guarded routes */}
+          <Route path="/track/:token" element={<TrackingPage />} />
 
-        {/* Protected routes */}
-        <Route element={<ProtectedLayout />}>
-          <Route path="/auth/location" element={<LocationPermission />} />
+          {/* Protected routes */}
+          <Route element={<ProtectedLayout />}>
+            <Route path="/auth/location" element={<LocationPermission />} />
 
-          <Route path="/home" element={<Home />} />
-          <Route path="/explore" element={<Explore />} />
-          <Route path="/requests" element={<Requests />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/profile/edit" element={<ProfileEdit />} />
+            <Route path="/home" element={<Home />} />
+            <Route path="/explore" element={<Explore />} />
+            <Route path="/requests" element={<Requests />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/profile/edit" element={<ProfileEdit />} />
 
-          <Route path="/search" element={<Search />} />
-          <Route path="/map" element={<MapView />} />
-          <Route path="/categories" element={<AllCategories />} />
-          <Route path="/category/:id" element={<CategoryListing />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/bookmarks" element={<Bookmarks />} />
-          <Route path="/settings" element={<Settings />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/map" element={<MapView />} />
+            <Route path="/categories" element={<AllCategories />} />
+            <Route path="/category/:id" element={<CategoryListing />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route path="/bookmarks" element={<Bookmarks />} />
+            <Route path="/settings" element={<Settings />} />
 
-          <Route path="/business/:id" element={<BusinessDetail />} />
-          <Route path="/provider/:id" element={<ProviderDetail />} />
-          <Route path="/request/:id" element={<RequestDetail />} />
+            <Route path="/business/:id" element={<BusinessDetail />} />
+            <Route path="/provider/:id" element={<ProviderDetail />} />
+            <Route path="/request/:id" element={<RequestDetail />} />
 
-          <Route path="/ask" element={<AskCompose />} />
-          <Route path="/request/:id/propose" element={<SubmitProposal />} />
-          <Route path="/agreement/:id" element={<AgreementScreen />} />
-          <Route path="/agreements" element={<Agreements />} />
-          <Route path="/rate/:id" element={<RateScreen />} />
+            <Route path="/ask" element={<AskCompose />} />
+            <Route path="/request/:id/propose" element={<SubmitProposal />} />
+            <Route path="/agreement/:id" element={<AgreementScreen />} />
+            <Route path="/agreements" element={<Agreements />} />
+            <Route path="/rate/:id" element={<RateScreen />} />
 
-          <Route path="/onboard/business" element={<BusinessOnboard />} />
-          <Route path="/onboard/provider" element={<ProviderOnboard />} />
-          <Route path="/manage" element={<ManageHub />} />
+            <Route path="/onboard/business" element={<BusinessOnboard />} />
+            <Route path="/onboard/provider" element={<ProviderOnboard />} />
+            <Route path="/manage" element={<ManageHub />} />
 
-          {/* Business console */}
-          <Route path="/business/:id/manage" element={<ManageDashboard />} />
-          <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
-          <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
-          <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
-          <Route path="/business/:id/manage/offers" element={<OffersManager />} />
-          <Route path="/business/:id/manage/photos" element={<PhotosManager />} />
-          <Route path="/business/:id/manage/story" element={<StoryComposer />} />
-          <Route path="/business/:id/manage/queue" element={<QueueManager />} />
-          <Route path="/business/:id/manage/loyalty" element={<LoyaltySetup />} />
-          <Route path="/business/:id/manage/qna" element={<QnaManager />} />
-          <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
-          <Route path="/business/:id/manage/reservations" element={<Reservations />} />
-          <Route path="/business/:id/manage/inbox" element={<LeadsInbox />} />
-          <Route path="/business/:id/manage/promote" element={<Promote />} />
-          <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
-          <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
-          <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
+            {/* Business console */}
+            <Route path="/business/:id/manage" element={<ManageDashboard />} />
+            <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
+            <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
+            <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
+            <Route path="/business/:id/manage/offers" element={<OffersManager />} />
+            <Route path="/business/:id/manage/photos" element={<PhotosManager />} />
+            <Route path="/business/:id/manage/story" element={<StoryComposer />} />
+            <Route path="/business/:id/manage/queue" element={<QueueManager />} />
+            <Route path="/business/:id/manage/loyalty" element={<LoyaltySetup />} />
+            <Route path="/business/:id/manage/qna" element={<QnaManager />} />
+            <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
+            <Route path="/business/:id/manage/reservations" element={<Reservations />} />
+            <Route path="/business/:id/manage/inbox" element={<LeadsInbox />} />
+            <Route path="/business/:id/manage/promote" element={<Promote />} />
+            <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
+            <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
+            <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
 
-          {/* Provider console */}
-          <Route path="/provider/:id/manage" element={<ProviderDashboard />} />
-          <Route path="/provider/:id/manage/profile" element={<ProviderProfileEditor />} />
-          <Route path="/provider/:id/manage/availability" element={<ProviderAvailability />} />
-          <Route path="/provider/:id/manage/packages" element={<ProviderPackages />} />
-          <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
-          <Route path="/provider/:id/manage/leads" element={<ProviderLeads />} />
-          <Route path="/provider/:id/manage/verify" element={<ProviderSettings />} />
-          <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
+            {/* Provider console */}
+            <Route path="/provider/:id/manage" element={<ProviderDashboard />} />
+            <Route path="/provider/:id/manage/profile" element={<ProviderProfileEditor />} />
+            <Route path="/provider/:id/manage/availability" element={<ProviderAvailability />} />
+            <Route path="/provider/:id/manage/packages" element={<ProviderPackages />} />
+            <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
+            <Route path="/provider/:id/manage/leads" element={<ProviderLeads />} />
+            <Route path="/provider/:id/manage/verify" element={<ProviderSettings />} />
+            <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
 
-          {/* Chat */}
-          <Route path="/chats" element={<ConversationList />} />
-          <Route path="/chat/:id" element={<ChatThread />} />
+            {/* Chat */}
+            <Route path="/chats" element={<ConversationList />} />
+            <Route path="/chat/:id" element={<ChatThread />} />
 
-          {/* Community + social */}
-          <Route path="/story/new" element={<StoryCompose />} />
-          <Route path="/community-hub" element={<CommunityHub />} />
-          <Route path="/community" element={<Community />} />
-          <Route path="/community/new" element={<CommunityCompose />} />
-          <Route path="/community/:id" element={<CommunityPostDetail />} />
-          <Route path="/neighborhood" element={<Neighborhood />} />
-          <Route path="/available" element={<AvailableNow />} />
-          <Route path="/wallet" element={<Wallet />} />
-          <Route path="/lists" element={<Lists />} />
-          <Route path="/u/:id" element={<PublicProfile />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/achievements" element={<Achievements />} />
+            {/* Community + social */}
+            <Route path="/story/new" element={<StoryCompose />} />
+            <Route path="/community-hub" element={<CommunityHub />} />
+            <Route path="/community" element={<Community />} />
+            <Route path="/community/new" element={<CommunityCompose />} />
+            <Route path="/community/:id" element={<CommunityPostDetail />} />
+            <Route path="/neighborhood" element={<Neighborhood />} />
+            <Route path="/available" element={<AvailableNow />} />
+            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/lists" element={<Lists />} />
+            <Route path="/u/:id" element={<PublicProfile />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/achievements" element={<Achievements />} />
 
-          {/* Society / Subscriptions / Pro */}
-          <Route path="/society" element={<SocietyScreen />} />
-          <Route path="/subscriptions" element={<SubscriptionManager />} />
-          <Route path="/subscriptions/new" element={<NewSubscription />} />
-          <Route path="/subscriptions/:id" element={<SubscriptionDetail />} />
-          <Route path="/pro-upgrade/business/:id" element={<BusinessProUpgrade />} />
+            {/* Society / Subscriptions / Pro */}
+            <Route path="/society" element={<SocietyScreen />} />
+            <Route path="/subscriptions" element={<SubscriptionManager />} />
+            <Route path="/subscriptions/new" element={<NewSubscription />} />
+            <Route path="/subscriptions/:id" element={<SubscriptionDetail />} />
+            <Route path="/pro-upgrade/business/:id" element={<BusinessProUpgrade />} />
 
-          {/* Admin */}
-          <Route path="/admin" element={<AdminPanel />} />
+            {/* Admin */}
+            <Route path="/admin" element={<AdminPanel />} />
 
-          {/* Catch-all: redirect unknown paths to home */}
-          <Route path="*" element={<Navigate to="/home" replace />} />
-        </Route>
-      </Routes>
+            {/* Catch-all: redirect unknown paths to home */}
+            <Route path="*" element={<Navigate to="/home" replace />} />
+          </Route>
+        </Routes>
+      </Suspense>
 
       {showNav && <BottomNav />}
       {toast && <div className="toast">{toast}</div>}
