@@ -17,7 +17,7 @@ const types: { type: CommunityPostType; label: string; emoji: string; hint: stri
 
 export default function CommunityCompose() {
   const nav = useNavigate();
-  const { area, showToast } = useApp();
+  const { area, user, showToast } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const [type, setType] = useState<CommunityPostType | null>(null);
   const [title, setTitle] = useState("");
@@ -40,6 +40,8 @@ export default function CommunityCompose() {
         body,
         image: photoUrl ?? undefined,
         area,
+        lat: user.lat || undefined,
+        lng: user.lng || undefined,
         pollOptions: type === "POLL" ? pollOpts.filter((o) => o.trim()).map((label, i) => ({ id: `o${i}`, label, votes: 0 })) : undefined,
       });
       showToast("Posted to community 🏘️");

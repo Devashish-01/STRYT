@@ -1,20 +1,38 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Map, SlidersHorizontal } from "lucide-react";
-import { catalogService, discoveryService } from "@/services";
+import { catalogService, discoveryService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import { useApp } from "@/store";
+import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 
 type Tab = "all" | "business" | "provider";
 type Sort = "nearby" | "rating" | "new";
 
+const RADIUS_OPTIONS = [
+  { label: "500m", km: 0.5 },
+  { label: "1 km",  km: 1 },
+  { label: "2 km",  km: 2 },
+  { label: "5 km",  km: 5 },
+  { label: "10 km", km: 10 },
+  { label: "25 km", km: 25 },
+  { label: "50 km", km: 50 },
+  { label: "100 km", km: 100 },
+  { label: "🌍 World", km: 20000 },
+];
+
+function roundToHalf(v: number): number {
+  const r = Math.round(v * 2) / 2;
+  return Math.max(0.5, r);
+}
+
 export default function Explore() {
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
-  const { area } = useApp();
+  const { area, user, refreshUser, showToast } = useApp();
   const [tab, setTab] = useState<Tab>("all");
   const [cat, setCat] = useState<string | null>(() => searchParams.get("cat"));
 
@@ -23,16 +41,67 @@ export default function Explore() {
     if (initial) setCat(initial);
   }, []);
   const [sort, setSort] = useState<Sort>("nearby");
-  const [radius, setRadius] = useState(5);
+  
+  const [radius, setRadius] = useState(() => {
+    const saved = localStorage.getItem("stryt_map_radius_km");
+    return saved ? parseFloat(saved) : 5;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("stryt_map_radius_km", String(radius));
+  }, [radius]);
+
+  const [locQuery, setLocQuery] = useState("");
+  const [locResults, setLocResults] = useState<GeoPlace[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customVal, setCustomVal] = useState("");
+
+  async function searchPlaces(q: string) {
+    setLocQuery(q);
+    if (q.trim().length < 2) { setLocResults([]); return; }
+    setSearching(true);
+    try {
+      setLocResults(await forwardGeocode(q));
+    } catch {
+      // ignore
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function pickPlace(p: GeoPlace) {
+    try {
+      await userService.setLocation(p.lat, p.lng, p.area);
+      await refreshUser();
+      setLocQuery("");
+      setLocResults([]);
+      showToast(`Location set — ${p.area}`);
+    } catch {
+      showToast("Couldn't set that location");
+    }
+  }
 
   const { data: categories } = useQuery(() => catalogService.getCategories(), []);
   const { data: bizPage, loading: bizLoading, error: bizError, refetch: refetchBiz } = useQuery(
-    () => discoveryService.businesses({ category: cat ?? undefined, sort, radius }),
-    [cat, sort, radius]
+    () => discoveryService.businesses({
+      category: cat ?? undefined,
+      sort,
+      radius,
+      lat: user.lat || undefined,
+      lng: user.lng || undefined,
+    }),
+    [cat, sort, radius, user.lat, user.lng]
   );
   const { data: provPage, loading: provLoading } = useQuery(
-    () => discoveryService.providers({ category: cat ?? undefined, sort, radius }),
-    [cat, sort, radius]
+    () => discoveryService.providers({
+      category: cat ?? undefined,
+      sort,
+      radius,
+      lat: user.lat || undefined,
+      lng: user.lng || undefined,
+    }),
+    [cat, sort, radius, user.lat, user.lng]
   );
 
   const biz = bizPage?.data ?? [];
@@ -56,6 +125,65 @@ export default function Explore() {
             <button className="icon-btn" onClick={() => nav("/search")}><Search size={20} /></button>
             <button className="icon-btn" onClick={() => nav("/map")}><Map size={20} /></button>
           </div>
+        </div>
+
+        {/* Remote location setting picker */}
+        <div style={{ position: "relative", marginTop: 2, marginBottom: 2 }}>
+          <Search size={14} color="var(--ink-400)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+          <input
+            type="text"
+            className="input"
+            value={locQuery}
+            placeholder="Search address to set area..."
+            onChange={(e) => searchPlaces(e.target.value)}
+            style={{
+              width: "100%",
+              background: "var(--ink-50)",
+              border: "1.5px solid var(--ink-200)",
+              borderRadius: 12,
+              padding: "7px 12px",
+              paddingLeft: "32px",
+              paddingRight: locQuery ? "32px" : "12px",
+              fontSize: 12.5,
+              fontWeight: 500,
+              outline: "none"
+            }}
+          />
+          {locQuery && (
+            <button
+              onClick={() => { setLocQuery(""); setLocResults([]); }}
+              style={{
+                position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                border: "none", background: "transparent", color: "var(--ink-400)", cursor: "pointer",
+                fontSize: 16, fontWeight: 700
+              }}
+            >
+              &times;
+            </button>
+          )}
+
+          {locResults.length > 0 && (
+            <div style={{
+              position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4,
+              background: "#fff", borderRadius: 12, boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+              border: "1px solid var(--line)", overflow: "hidden", zIndex: 1010
+            }}>
+              {locResults.map((r, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => pickPlace(r)}
+                  style={{
+                    width: "100%", padding: "10px 12px", border: "none", background: "none",
+                    textAlign: "left", fontSize: 12, color: "var(--ink-800)", borderBottom: idx < locResults.length - 1 ? "1px solid var(--line)" : "none",
+                    cursor: "pointer", display: "block"
+                  }}
+                >
+                  <div style={{ fontWeight: 600, color: "var(--ink-900)" }}>{r.area}</div>
+                  <div style={{ fontSize: 10, color: "var(--ink-500)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.full}</div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -108,19 +236,95 @@ export default function Explore() {
           </div>
         </div>
         <div className="page-pad" style={{ paddingTop: 4 }}>
-          <div className="card" style={{ padding: "10px 14px" }}>
+          <div className="card" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
             <div className="row between small semi">
               <span className="row gap-6"><SlidersHorizontal size={14} /> Radius</span>
-              <span style={{ color: "var(--brand-700)" }}>{radius} km</span>
+              <span style={{ color: "var(--brand-700)" }}>
+                {radius >= 20000 ? "🌍 World" : radius === 0.5 ? "500m" : `${radius} km`}
+              </span>
             </div>
-            <input
-              type="range"
-              min={1}
-              max={15}
-              value={radius}
-              onChange={(e) => setRadius(Number(e.target.value))}
-              style={{ width: "100%", accentColor: "var(--brand-600)", marginTop: 8 }}
-            />
+
+            {/* Quick radius chips */}
+            <div className="row gap-6" style={{ overflowX: "auto", paddingBottom: 4, width: "100%" }}>
+              {RADIUS_OPTIONS.map((opt) => {
+                const active = radius === opt.km;
+                return (
+                  <button
+                    key={opt.km}
+                    onClick={() => { setRadius(opt.km); setShowCustom(false); }}
+                    className={`chip ${active ? "active" : ""}`}
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => {
+                  const presetKms = new Set(RADIUS_OPTIONS.map((o) => o.km));
+                  const isCustomActive = !presetKms.has(radius);
+                  setCustomVal(isCustomActive ? String(radius) : "");
+                  setShowCustom(!showCustom);
+                }}
+                className={`chip ${(!new Set(RADIUS_OPTIONS.map((o) => o.km)).has(radius)) ? "active" : ""}`}
+                style={{
+                  padding: "5px 12px",
+                  fontSize: 12,
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  borderStyle: "dashed"
+                }}
+              >
+                Custom
+              </button>
+            </div>
+
+            {/* Custom inputs */}
+            {showCustom && (
+              <div className="row gap-8" style={{ marginTop: 4, alignItems: "center" }}>
+                <input
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  value={customVal}
+                  placeholder="e.g. 3.7"
+                  onChange={(e) => setCustomVal(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const n = parseFloat(customVal);
+                      if (!isNaN(n) && n > 0) setRadius(roundToHalf(n));
+                      setShowCustom(false);
+                    }
+                  }}
+                  className="input"
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    fontSize: 14,
+                    border: "1.5px solid var(--ink-200)",
+                    borderRadius: 10,
+                    outline: "none"
+                  }}
+                />
+                <span className="small muted">km</span>
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ padding: "8px 14px", borderRadius: 10 }}
+                  onClick={() => {
+                    const n = parseFloat(customVal);
+                    if (!isNaN(n) && n > 0) setRadius(roundToHalf(n));
+                    setShowCustom(false);
+                  }}
+                >
+                  Apply
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
