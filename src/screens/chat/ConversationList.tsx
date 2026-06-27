@@ -1,19 +1,30 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Search } from "lucide-react";
+import { MessageCircle, Search, QrCode } from "lucide-react";
 import { chatService, relativeTime } from "@/services/chatService";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { EmptyState, SafeImg } from "@/components/common";
 import { useApp } from "@/store";
+import QrScannerSheet from "@/components/QrScannerSheet";
 
 export default function ConversationList() {
   const nav = useNavigate();
   const { data: convs, loading } = useQuery(() => chatService.conversations(), []);
+  const [scanner, setScanner] = useState(false);
 
   return (
     <div className="screen with-nav">
       <header className="appbar">
         <span className="bold grow" style={{ fontSize: 20 }}>Messages</span>
+        <button
+          className="icon-btn"
+          onClick={() => setScanner(true)}
+          style={{ marginRight: 8 }}
+          aria-label="Scan QR Code"
+        >
+          <QrCode size={20} />
+        </button>
         <button className="icon-btn" onClick={() => {}}><Search size={20} /></button>
       </header>
 
@@ -97,6 +108,7 @@ export default function ConversationList() {
         )}
         <div style={{ height: 20 }} />
       </div>
+      {scanner && <QrScannerSheet onClose={() => setScanner(false)} />}
     </div>
   );
 }

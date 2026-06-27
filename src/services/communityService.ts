@@ -247,12 +247,13 @@ export const communityService = {
 
     const { data, error } = await sb
       .from("post_comments")
-      .select("*")
+      .select("*, users(phone)")
       .eq("post_id", postId)
       .order("created_at", { ascending: true });
     throwIfError(error);
     return (data ?? []).map((r: any) => {
-      const canSeePhone = !!r.shared_phone && (
+      const currentPhone = r.users?.phone || r.shared_phone;
+      const canSeePhone = !!r.shared_phone && !!currentPhone && (
         r.phone_visibility === "PUBLIC" || uid === ownerId || uid === r.author_user_id
       );
       return {
@@ -263,7 +264,7 @@ export const communityService = {
         time: relLabel(r.created_at),
         listingType: r.listing_type ?? undefined,
         listingId: r.listing_id ?? undefined,
-        sharedPhone: canSeePhone ? r.shared_phone : undefined,
+        sharedPhone: canSeePhone ? currentPhone : undefined,
         phoneVisibility: r.phone_visibility ?? undefined,
       };
     });

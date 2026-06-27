@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, StarRow, EmptyState, SafeImg } from "@/components/common";
 import { Phone, Shield, Award, Heart, MessageSquareText, HandshakeIcon, Star, BadgeCheck, Share2 } from "lucide-react";
-import { userService } from "@/services";
+import { userService, chatService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import ShareCard from "@/components/ShareCard";
+import { useApp } from "@/store";
 
 const Handshake = HandshakeIcon as any;
 
@@ -18,8 +19,28 @@ const verifyLabels: Record<string, string> = {
 
 export default function PublicProfile() {
   const { id = "" } = useParams();
+  const nav = useNavigate();
+  const { showToast, user } = useApp();
   const { data: u, loading, error, refetch } = useQuery(() => userService.publicProfile(id), [id]);
   const [share, setShare] = useState(false);
+  const [chatting, setChatting] = useState(false);
+
+  async function handleStartChat() {
+    if (chatting) return;
+    if (id === user.id) {
+      showToast("You cannot message yourself");
+      return;
+    }
+    setChatting(true);
+    try {
+      const conv = await chatService.getOrCreate(id);
+      nav(`/chat/${conv.id}`);
+    } catch (err: any) {
+      showToast(err.message || "Couldn't start chat");
+    } finally {
+      setChatting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -71,6 +92,17 @@ export default function PublicProfile() {
             <span className="badge badge-amber"><Star size={11} fill="#f59e0b" strokeWidth={0} /> {u.ratingAvg} ({u.ratingCount})</span>
             {u.verifications.length > 0 && <span className="badge badge-green"><BadgeCheck size={11} /> Verified</span>}
           </div>
+          {id !== user.id && (
+            <button
+              className="btn btn-primary btn-sm row center gap-8"
+              style={{ marginTop: 14, minWidth: 160 }}
+              onClick={handleStartChat}
+              disabled={chatting}
+            >
+              <MessageSquareText size={16} />
+              {chatting ? "Opening chat..." : "Message neighbor"}
+            </button>
+          )}
         </div>
 
         {/* stats */}

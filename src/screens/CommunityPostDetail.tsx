@@ -211,7 +211,7 @@ export default function CommunityPostDetail() {
             className="chip"
             style={{ padding: "5px 11px", fontSize: 12, gap: 5, ...(sharePhone ? { background: "var(--brand-600)", borderColor: "var(--brand-600)", color: "#fff" } : {}) }}
             onClick={() => {
-              if (!user.phone) { showToast("Add your number in Settings first"); return; }
+              if (!user.phone) { showToast("Add your number in Edit Profile first"); return; }
               setSharePhone((v) => !v);
             }}
           >

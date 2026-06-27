@@ -6,13 +6,21 @@ import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
 import { AppBar, EmptyState } from "@/components/common";
+import { useApp } from "@/store";
 
 export default function CategoryListing() {
   const { id = "" } = useParams();
   const nav = useNavigate();
+  const { user } = useApp();
   const { data: cat, loading: catLoading } = useQuery(() => catalogService.get(id), [id]);
-  const { data: bizPage, loading: bizLoading } = useQuery(() => discoveryService.businesses(), []);
-  const { data: provPage, loading: provLoading } = useQuery(() => discoveryService.providers(), []);
+  const { data: bizPage, loading: bizLoading } = useQuery(
+    () => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined, radius: 20000 }),
+    [user.lat, user.lng]
+  );
+  const { data: provPage, loading: provLoading } = useQuery(
+    () => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined, radius: 20000 }),
+    [user.lat, user.lng]
+  );
   const [sub, setSub] = useState<string | null>(null);
 
   const allBiz = bizPage?.data ?? [];
