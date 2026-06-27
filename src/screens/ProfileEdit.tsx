@@ -15,6 +15,7 @@ export default function ProfileEdit() {
   const [name, setName] = useState(user.name || "");
   const [alias, setAlias] = useState(user.alias || "");
   const [avatar, setAvatar] = useState(user.avatar || "");
+  const [phone, setPhone] = useState(user.phone || "");
   const [areaInput, setAreaInput] = useState(user.area || "");
   const [lat, setLat] = useState(user.lat || 0);
   const [lng, setLng] = useState(user.lng || 0);
@@ -112,6 +113,7 @@ export default function ProfileEdit() {
       await userService.update({
         name: name.trim(),
         alias: alias.trim() || undefined,
+        phone: phone.trim() || undefined,
         avatar: avatar || undefined,
         area: areaInput.trim() || undefined,
         lat,
@@ -212,6 +214,18 @@ export default function ProfileEdit() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your full name"
+          />
+        </div>
+
+        <div className="field">
+          <label>Main Mobile Number</label>
+          <input
+            className="input"
+            placeholder="10-digit number"
+            inputMode="numeric"
+            maxLength={10}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
           />
         </div>
 
