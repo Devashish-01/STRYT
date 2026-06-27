@@ -108,6 +108,21 @@ export default function ProfileEdit() {
       showToast("Name is required");
       return;
     }
+    let resolvedLat = lat;
+    let resolvedLng = lng;
+
+    if (areaInput.trim() && areaInput.trim() !== user.area && (lat === 0 || lat === user.lat)) {
+      try {
+        const places = await forwardGeocode(areaInput.trim());
+        if (places.length > 0) {
+          resolvedLat = places[0].lat;
+          resolvedLng = places[0].lng;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     setSaving(true);
     try {
       await userService.update({
@@ -116,8 +131,8 @@ export default function ProfileEdit() {
         phone: phone.trim() || undefined,
         avatar: avatar || undefined,
         area: areaInput.trim() || undefined,
-        lat,
-        lng,
+        lat: resolvedLat,
+        lng: resolvedLng,
         emergencyContactName: ecName.trim() || undefined,
         emergencyContact: ecPhone.trim() || undefined,
       });

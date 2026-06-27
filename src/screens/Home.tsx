@@ -7,6 +7,7 @@ import { useQuery } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import QrScannerSheet from "@/components/QrScannerSheet";
+import LocationPickerSheet from "@/components/LocationPickerSheet";
 
 function reorderCategories(
   all: { id: string; slug: string; name: string; icon: string; color: string }[],
@@ -28,6 +29,7 @@ export default function Home() {
   const theme = useAmbientTheme(user.lat, user.lng);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [scanner, setScanner] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
 
   const { data: categories } = useQuery(() => catalogService.getCategories(), []);
   const { data: agreementsList } = useQuery(() => requestService.agreements(), []);
@@ -62,7 +64,7 @@ export default function Home() {
         transition: "background 0.6s ease",
       }}>
         <div className="row between">
-          <button className="col" style={{ alignItems: "flex-start", gap: 2 }} onClick={() => nav("/settings")}>
+          <button className="col" style={{ alignItems: "flex-start", gap: 2 }} onClick={() => setLocationOpen(true)}>
             <span className="tiny" style={{ opacity: 0.78, letterSpacing: 0.4 }}>
               {theme.greeting}{firstName ? `, ${firstName}` : ""}
             </span>
@@ -243,6 +245,7 @@ export default function Home() {
         <div style={{ height: 24 }} />
       </div>
       {scanner && <QrScannerSheet onClose={() => setScanner(false)} />}
+      {locationOpen && <LocationPickerSheet onClose={() => setLocationOpen(false)} />}
     </div>
   );
 }

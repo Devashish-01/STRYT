@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { MapPin, Navigation } from "lucide-react";
 import { useApp } from "@/store";
 import { userService } from "@/services";
-import { reverseGeocode } from "@/lib/geocode";
+import { reverseGeocode, forwardGeocode } from "@/lib/geocode";
 
 export default function LocationPermission() {
   const nav = useNavigate();
@@ -59,8 +59,18 @@ export default function LocationPermission() {
   async function saveManual() {
     const a = manualArea.trim();
     if (!a) { nav("/home"); return; }
+    let resolvedLat = 0;
+    let resolvedLng = 0;
     try {
-      await userService.setLocation(0, 0, a);
+      const places = await forwardGeocode(a);
+      if (places.length > 0) {
+        resolvedLat = places[0].lat;
+        resolvedLng = places[0].lng;
+      }
+    } catch { /* ignore */ }
+    try {
+      await userService.setLocation(resolvedLat, resolvedLng, a);
+      await refreshUser();
     } catch { /* ignore */ }
     setArea(a);
     showToast(`Area set to ${a}`);
