@@ -367,7 +367,7 @@ export default function ProfileEdit() {
       </div>
 
       {/* Sticky footer action button */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12, zIndex: 100 }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12, zIndex: 100 }}>
         <button
           type="button"
           className="btn btn-primary btn-block row center gap-8"

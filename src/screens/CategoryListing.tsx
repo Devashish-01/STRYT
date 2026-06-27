@@ -14,11 +14,19 @@ export default function CategoryListing() {
   const { user } = useApp();
   const { data: cat, loading: catLoading } = useQuery(() => catalogService.get(id), [id]);
   const { data: bizPage, loading: bizLoading } = useQuery(
-    () => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined, radius: 20000 }),
+    () => {
+      const saved = localStorage.getItem("settings_radius");
+      const radiusLimit = saved ? parseFloat(saved) : 5;
+      return discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined, radius: radiusLimit });
+    },
     [user.lat, user.lng]
   );
   const { data: provPage, loading: provLoading } = useQuery(
-    () => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined, radius: 20000 }),
+    () => {
+      const saved = localStorage.getItem("settings_radius");
+      const radiusLimit = saved ? parseFloat(saved) : 5;
+      return discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined, radius: radiusLimit });
+    },
     [user.lat, user.lng]
   );
   const [sub, setSub] = useState<string | null>(null);

@@ -150,9 +150,15 @@ export const providerService = {
     // filters on status='ACTIVE'. The "verified" badge is granted separately after
     // the Aadhaar document is reviewed; being listed doesn't wait on that.
     const row = { ...toSnake(cols), user_id: uid, status: "ACTIVE" } as Record<string, unknown>;
+    const { data: me } = await sb.from("users").select("name, lat, lng").eq("id", uid).maybeSingle();
     if (!row["display_name"]) {
-      const { data: me } = await sb.from("users").select("name").eq("id", uid).maybeSingle();
       row["display_name"] = (me as any)?.name || "Provider";
+    }
+    if (row["lat"] === undefined || row["lat"] === null) {
+      row["lat"] = (me as any)?.lat ?? null;
+    }
+    if (row["lng"] === undefined || row["lng"] === null) {
+      row["lng"] = (me as any)?.lng ?? null;
     }
     const { data: created, error } = await sb.from("providers").insert(row).select().maybeSingle();
     throwIfError(error);

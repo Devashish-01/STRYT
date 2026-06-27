@@ -4,6 +4,7 @@ import { ArrowLeft, Search, X } from "lucide-react";
 import { catalogService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import type { Category } from "@/types";
+import { useApp } from "@/store";
 
 function getAllIds(cat: Category): string[] {
   return [cat.id, ...(cat.children ?? []).flatMap(getAllIds)];
@@ -11,10 +12,15 @@ function getAllIds(cat: Category): string[] {
 
 export default function AllCategories() {
   const nav = useNavigate();
+  const { user } = useApp();
   const [q, setQ] = useState("");
 
   const { data: categories, loading } = useQuery(() => catalogService.getCategories(), []);
-  const { data: counts } = useQuery(() => catalogService.getCategoryCounts(), []);
+  const { data: counts } = useQuery(() => {
+    const saved = localStorage.getItem("settings_radius");
+    const radiusLimit = saved ? parseFloat(saved) : 5;
+    return catalogService.getCategoryCounts(user.lat || undefined, user.lng || undefined, radiusLimit);
+  }, [user.lat, user.lng]);
 
   const sorted = useMemo(() => {
     const all = categories ?? [];

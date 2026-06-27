@@ -10,7 +10,14 @@ import type { RequestPost } from "@/types";
 export default function BusinessRequests() {
   const { id = "b1" } = useParams();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
-  const { data, loading, error, refetch } = useQuery(() => requestService.feed({}), [id]);
+  const { data, loading, error, refetch } = useQuery(
+    () => requestService.feed({
+      lat: b?.lat ?? undefined,
+      lng: b?.lng ?? undefined,
+      radiusKm: b?.broadcastRadius ?? undefined,
+    }),
+    [b?.lat, b?.lng, b?.broadcastRadius]
+  );
 
   const items = ((data?.data ?? []) as RequestPost[]).filter((r) => r.status === "OPEN");
 

@@ -48,6 +48,8 @@ function mapPost(
     votedOptionId: userVotes[row.id] ?? null,
     recommendations: row.recommendations ?? undefined,
     resolved: row.resolved ?? false,
+    lat: row.lat ?? undefined,
+    lng: row.lng ?? undefined,
   };
 }
 
@@ -67,6 +69,9 @@ export const communityService = {
     const sb = getSupabase();
     const uid = await currentUserId();
 
+    const saved = localStorage.getItem("settings_radius");
+    const radiusLimit = opts.radiusKm ?? (saved ? parseFloat(saved) : 5);
+
     // 1. Posts — use geo RPC when user coords are available, otherwise global feed.
     let rows: any[] | null = null;
     let error: any = null;
@@ -74,7 +79,7 @@ export const communityService = {
       const res = await sb.rpc("community_posts_nearby", {
         in_lat: opts.lat,
         in_lng: opts.lng,
-        in_radius_km: opts.radiusKm ?? 10,
+        in_radius_km: radiusLimit,
         in_limit: 50,
         in_offset: 0,
       });
@@ -130,7 +135,14 @@ export const communityService = {
       });
     }
 
-    return rows.map((r: any) => mapPost(r, likedIds, userVotes, voteCounts, opts.lat, opts.lng));
+    return rows
+      .map((r: any) => mapPost(r, likedIds, userVotes, voteCounts, opts.lat, opts.lng))
+      .filter((post) => {
+        if (opts.lat && opts.lng && post.lat && post.lng) {
+          return post.distanceKm <= radiusLimit;
+        }
+        return true;
+      });
   },
 
   async get(id: string, lat?: number, lng?: number): Promise<CommunityPost | undefined> {

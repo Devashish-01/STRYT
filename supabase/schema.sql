@@ -283,3 +283,7 @@ create table if not exists public.bug_reports (
   created_at  timestamptz default now()
 );
 
+create index if not exists support_tickets_user_id_idx on public.support_tickets (user_id);
+create index if not exists bug_reports_user_id_idx on public.bug_reports (user_id);
+
+

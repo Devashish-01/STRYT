@@ -227,13 +227,16 @@ export default function MapView() {
     business: true, provider: true, request: true, story: false,
   });
   const [radiusKm, setRadiusKm] = useState(() => {
-    const saved = localStorage.getItem("stryt_map_radius_km");
-    return saved ? parseFloat(saved) : 5;
+    const saved = localStorage.getItem("settings_radius");
+    return saved ? parseFloat(saved) : (user.notificationRadiusKm || 5);
   });
 
   useEffect(() => {
-    localStorage.setItem("stryt_map_radius_km", String(radiusKm));
-  }, [radiusKm]);
+    localStorage.setItem("settings_radius", String(radiusKm));
+    if (user.id && radiusKm !== user.notificationRadiusKm) {
+      void userService.update({ notificationRadiusKm: radiusKm }).catch(() => {});
+    }
+  }, [radiusKm, user.id, user.notificationRadiusKm]);
   const [storyViewer, setStoryViewer] = useState<{ stories: Story[]; idx: number } | null>(null);
   const [showCustom, setShowCustom] = useState(false);
   const [customVal, setCustomVal] = useState("");

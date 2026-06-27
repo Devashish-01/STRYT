@@ -90,15 +90,6 @@ export const authService = {
       : await sb.auth.verifyOtp({ phone: normalizePhone(phoneOrEmail), token: otp, type: "sms" });
     if (error) throw toApiError(error);
     mirrorSession(data.session?.access_token, data.session?.refresh_token);
-    // Guarantee a public.users profile exists. The DB trigger should create it,
-    // but we self-heal here so a missing profile can never block posting /
-    // creating a business. RLS allows this because id = auth.uid().
-    await ensureProfile(
-      data.user?.id,
-      data.user?.phone ?? (isEmail ? null : normalizePhone(phoneOrEmail)),
-      data.user?.email,
-      data.user?.user_metadata?.full_name
-    );
     return {
       access_token: data.session?.access_token ?? "",
       refresh_token: data.session?.refresh_token ?? "",

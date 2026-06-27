@@ -11,7 +11,14 @@ import ProviderManageNav from "./ProviderManageNav";
 export default function ProviderLeads() {
   const { id = "p1" } = useParams();
   const { data: p } = useQuery(() => providerService.get(id), [id]);
-  const { data, loading, error, refetch } = useQuery(() => requestService.feed({}), [id]);
+  const { data, loading, error, refetch } = useQuery(
+    () => requestService.feed({
+      lat: p?.lat ?? undefined,
+      lng: p?.lng ?? undefined,
+      radiusKm: p?.serviceRadiusKm ?? undefined,
+    }),
+    [p?.lat, p?.lng, p?.serviceRadiusKm]
+  );
   const items = ((data?.data ?? []) as RequestPost[]).filter((r) => r.status === "OPEN");
 
   return (

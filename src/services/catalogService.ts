@@ -3,6 +3,7 @@ import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import { config } from "@/config";
 import type { Category, CategoryKind } from "@/types";
+import { haversineKm } from "@/lib/geocode";
 
 const MOCK_CATEGORIES: Category[] = [
   { id: "1", parentId: null, name: "Food & Drinks", slug: "food-drinks", kind: "BUSINESS", icon: "🍔", color: "#f87171" },
@@ -64,7 +65,7 @@ export const catalogService = {
     return data ? toCamel<Category>(data) : undefined;
   },
 
-  async getCategoryCounts(): Promise<{ bizCounts: Record<string, number>; provCounts: Record<string, number> }> {
+  async getCategoryCounts(lat?: number, lng?: number, radius?: number): Promise<{ bizCounts: Record<string, number>; provCounts: Record<string, number> }> {
     if (config.useMocks) {
       return {
         bizCounts: { "1": 5, "4": 12, "5": 3 },
@@ -73,15 +74,22 @@ export const catalogService = {
     }
     const sb = getSupabase();
     const [{ data: bizRows }, { data: provRows }] = await Promise.all([
-      sb.from("businesses").select("category_id").eq("status", "ACTIVE"),
-      sb.from("providers").select("category_id").eq("status", "ACTIVE"),
+      sb.from("businesses").select("category_id, lat, lng").eq("status", "ACTIVE"),
+      sb.from("providers").select("category_id, lat, lng").eq("status", "ACTIVE"),
     ]);
-    const tally = (rows: { category_id: string }[] | null) => {
+    const tally = (rows: any[] | null) => {
       const c: Record<string, number> = {};
-      for (const r of rows ?? []) if (r.category_id) c[r.category_id] = (c[r.category_id] ?? 0) + 1;
+      for (const r of rows ?? []) {
+        if (!r.category_id) continue;
+        if (lat != null && lng != null && radius != null && radius < 5000) {
+          const dist = (r.lat && r.lng) ? haversineKm(lat, lng, r.lat, r.lng) : 0;
+          if (dist > radius) continue;
+        }
+        c[r.category_id] = (c[r.category_id] ?? 0) + 1;
+      }
       return c;
     };
-    return { bizCounts: tally(bizRows as any), provCounts: tally(provRows as any) };
+    return { bizCounts: tally(bizRows), provCounts: tally(provRows) };
   },
 
   async proposeCategory(name: string, parentId: string | null, kind: string) {

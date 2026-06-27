@@ -1,20 +1,21 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, MapPin } from "lucide-react";
+import { Camera, MapPin, Pencil } from "lucide-react";
 import { AppBar } from "@/components/common";
 import { socialService, uploadService } from "@/services";
 import { useApp } from "@/store";
 import { currentUserId } from "@/lib/supabaseClient";
 
 const EXPIRY_OPTS = [1, 3, 6, 12] as const;
-type ExpiryHrs = (typeof EXPIRY_OPTS)[number];
 
 export default function StoryCompose() {
   const nav = useNavigate();
   const { user, area, showToast } = useApp();
   const [image, setImage] = useState("");
   const [caption, setCaption] = useState("");
-  const [hours, setHours] = useState<ExpiryHrs>(3);
+  const [hours, setHours] = useState<number>(3);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customVal, setCustomVal] = useState("");
   const [uploading, setUploading] = useState(false);
   const [posting, setPosting] = useState(false);
 
@@ -118,19 +119,70 @@ export default function StoryCompose() {
         </div>
 
         <div className="field">
-          <label>Visible for</label>
-          <div className="row gap-8">
-            {EXPIRY_OPTS.map((h) => (
+          <label className="row between">
+            <span>Visible for</span>
+            {hours > 0 && <span style={{ color: "var(--brand-700)", fontWeight: 600 }}>{hours} hour{hours > 1 ? "s" : ""}</span>}
+          </label>
+          {showCustom ? (
+            <div className="row gap-8">
+              <input
+                type="number"
+                min={1}
+                max={168}
+                className="input grow"
+                style={{ padding: "8px 12px", fontSize: 13, height: 36 }}
+                placeholder="Duration in hours..."
+                value={customVal}
+                onChange={(e) => setCustomVal(e.target.value)}
+                autoFocus
+              />
               <button
-                key={h}
-                className={`chip ${hours === h ? "active" : ""}`}
-                style={{ flex: 1, justifyContent: "center" }}
-                onClick={() => setHours(h)}
+                className="btn btn-primary btn-sm"
+                style={{ height: 36, padding: "0 12px" }}
+                onClick={() => {
+                  const n = parseInt(customVal);
+                  if (!isNaN(n) && n > 0) setHours(n);
+                  setShowCustom(false);
+                }}
               >
-                {h}h
+                Apply
               </button>
-            ))}
-          </div>
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ height: 36, padding: "0 12px" }}
+                onClick={() => setShowCustom(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="row gap-8">
+              {EXPIRY_OPTS.map((h) => {
+                const active = hours === h;
+                return (
+                  <button
+                    key={h}
+                    className={`chip ${active ? "active" : ""}`}
+                    style={{ flex: 1, justifyContent: "center" }}
+                    onClick={() => { setHours(h); setShowCustom(false); }}
+                  >
+                    {h}h
+                  </button>
+                );
+              })}
+              <button
+                className={`chip ${!new Set<number>(EXPIRY_OPTS).has(hours) ? "active" : ""}`}
+                style={{ flex: 1, justifyContent: "center", display: "flex", alignItems: "center", gap: 4 }}
+                onClick={() => {
+                  setCustomVal(!new Set<number>(EXPIRY_OPTS).has(hours) ? String(hours) : "");
+                  setShowCustom(true);
+                }}
+              >
+                <Pencil size={11} strokeWidth={2.5} />
+                {!new Set<number>(EXPIRY_OPTS).has(hours) ? `${hours}h` : "Custom"}
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>

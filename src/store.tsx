@@ -29,7 +29,7 @@ const seedUser: CurrentUser = {
   notificationRadiusKm: 5,
 };
 import { userService } from "@/services/userService";
-import { ensureProfile, authService } from "@/services/authService";
+import { authService } from "@/services/authService";
 import { notificationService } from "@/services/notificationService";
 import { registerPush } from "@/lib/pushNotifications";
 import { socialService } from "@/services/socialService";
@@ -165,7 +165,10 @@ const Ctx = createContext<AppState | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser>(seedUser);
   const [area, setArea] = useState("");
-  const [activeRole, setActiveRole] = useState<Role>("customer");
+  const [activeRole, setActiveRole] = useState<Role>(() => {
+    const cached = localStorage.getItem("activeRole");
+    return (cached as Role) || "customer";
+  });
   const [roles, setRoles] = useState<Role[]>(seedUser.roles);
   const [bookmarks, setBookmarks] = useState<BookmarkKey[]>([]);
   const [follows, setFollows] = useState<FollowKey[]>([]);
@@ -228,20 +231,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         clearTimeout(readyTimer);
         setAuthReady(true);
       });
-    const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
       if (session) {
         tokenStore.set(session.access_token, session.refresh_token);
-        // For Google OAuth and email magic-link, verifyOtp() is never called,
-        // so we must ensure the public.users row exists here before refreshUser()
-        // runs — otherwise every RLS-protected write fails with a missing FK.
-        if (event === "SIGNED_IN") {
-          await ensureProfile(
-            session.user.id,
-            session.user.phone,
-            session.user.email,
-            session.user.user_metadata?.full_name ?? null,
-          );
-        }
         setIsAuthed(true);
       } else if (event === "SIGNED_OUT") {
         tokenStore.clear();
@@ -258,7 +250,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // owned entities — hydrated from userService.owned() once authed.
   const [ownedBusinessIds, setOwnedBusinessIds] = useState<string[]>([]);
   const [ownedProviderId, setOwnedProviderId] = useState<string | null>(null);
-  const [activeContext, setActiveContext] = useState<ActiveContext>({ type: "customer", id: null, name: seedUser.name });
+  const [activeContext, setActiveContext] = useState<ActiveContext>(() => {
+    const cached = localStorage.getItem("activeContext");
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {
+        // ignore
+      }
+    }
+    return { type: "customer", id: null, name: seedUser.name };
+  });
 
   // ── R8: hydrate bookmarks / follows / lists / unread from Supabase ──────
   const hydratePersonalData = useCallback(async () => {
@@ -320,11 +322,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     try {
       const [me, owned] = await Promise.all([userService.me(), userService.owned()]);
       setUser(me);
+      if (me.notificationRadiusKm) {
+        localStorage.setItem("settings_radius", String(me.notificationRadiusKm));
+      }
       setArea(me.area);
       setRoles(me.roles);
       setOwnedBusinessIds(owned.businessIds);
       setOwnedProviderId(owned.providerId);
-      setActiveContext((ctx) => (ctx.type === "customer" ? { type: "customer", id: null, name: me.name } : ctx));
+      setActiveContext((ctx) => {
+        if (ctx.type === "customer") {
+          const next: ActiveContext = { type: "customer", id: null, name: me.name };
+          localStorage.setItem("activeContext", JSON.stringify(next));
+          return next;
+        }
+        return ctx;
+      });
     } catch {
       // leave seed values; a 401 will be handled by the auth layer.
     }
@@ -586,6 +598,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [lists]
   );
 
+  const setPersistedActiveRole = useCallback((role: Role) => {
+    setActiveRole(role);
+    localStorage.setItem("activeRole", role);
+  }, []);
+
+  const setPersistedContext = useCallback((ctx: ActiveContext) => {
+    setActiveContext(ctx);
+    localStorage.setItem("activeContext", JSON.stringify(ctx));
+  }, []);
+
   const value = useMemo<AppState>(
     () => ({
       user,
@@ -595,7 +617,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setArea,
       activeRole,
       roles,
-      setActiveRole,
+      setActiveRole: setPersistedActiveRole,
       addRole: (r: Role) => {
         setRoles((prev) => {
           if (prev.includes(r)) return prev;
@@ -604,10 +626,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (!config.useMocks) void userService.update({ roles: next });
           return next;
         });
-        setActiveRole(r);
+        setPersistedActiveRole(r);
       },
       activeContext,
-      setContext: setActiveContext,
+      setContext: setPersistedContext,
       ownedBusinessIds,
       ownedProviderId,
       bookmarks,
@@ -662,6 +684,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOwnedProviderId(null);
         setActiveContext({ type: "customer", id: null, name: seedUser.name });
         localStorage.removeItem("locationPromptShown");
+        localStorage.removeItem("activeContext");
+        localStorage.removeItem("activeRole");
         if (!config.useMocks) {
           void authService.logout().catch((err) => console.error("Error signing out:", err));
         }
@@ -676,6 +700,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,
+      setPersistedActiveRole, setPersistedContext
     ]
   );
 

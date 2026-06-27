@@ -132,7 +132,7 @@ const AGREEMENT_SELECT =
   "*, requester:users!requester_user_id(name, avatar), responder:users!responder_user_id(name, avatar), req:requests!request_id(area)";
 
 export const requestService = {
-  async feed(p: { category?: string; cursor?: string | null; special?: string; lat?: number; lng?: number } = {}): Promise<Page<RequestPost>> {
+  async feed(p: { category?: string; cursor?: string | null; special?: string; lat?: number; lng?: number; radiusKm?: number } = {}): Promise<Page<RequestPost>> {
     if (config.useMocks) {
       return { data: [], page: { next_cursor: null, has_more: false } };
     }
@@ -145,7 +145,14 @@ export const requestService = {
     if (p.special === "recurring") q = q.eq("is_recurring", true);
     const { data, error, count } = await q.order("created_at", { ascending: false }).range(from, to);
     throwIfError(error);
-    const rows = (data ?? []).map((r: any) => rowToRequest(r, p.lat, p.lng));
+
+    const saved = localStorage.getItem("settings_radius");
+    const radiusLimit = p.radiusKm ?? (saved ? parseFloat(saved) : 5);
+
+    let rows = (data ?? []).map((r: any) => rowToRequest(r, p.lat, p.lng));
+    if (p.lat && p.lng) {
+      rows = rows.filter((r) => r.distanceKm <= radiusLimit);
+    }
     return makePage(rows, count, from, limit);
   },
 

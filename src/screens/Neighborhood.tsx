@@ -16,7 +16,7 @@ export default function Neighborhood() {
   const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
   const { data: reqPage } = useQuery(() => requestService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
   const { data: availList } = useQuery(() => socialService.availableNow(), []);
-  const { data: posts } = useQuery(() => communityService.feed(), []);
+  const { data: posts } = useQuery(() => communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
   const { data: collectionsData } = useQuery(() => socialService.collections(), []);
 
   const businesses = bizPage?.data ?? [];

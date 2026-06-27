@@ -43,13 +43,16 @@ export default function Explore() {
   const [sort, setSort] = useState<Sort>("nearby");
   
   const [radius, setRadius] = useState(() => {
-    const saved = localStorage.getItem("stryt_map_radius_km");
-    return saved ? parseFloat(saved) : 5;
+    const saved = localStorage.getItem("settings_radius");
+    return saved ? parseFloat(saved) : (user.notificationRadiusKm || 5);
   });
 
   useEffect(() => {
-    localStorage.setItem("stryt_map_radius_km", String(radius));
-  }, [radius]);
+    localStorage.setItem("settings_radius", String(radius));
+    if (user.id && radius !== user.notificationRadiusKm) {
+      void userService.update({ notificationRadiusKm: radius }).catch(() => {});
+    }
+  }, [radius, user.id, user.notificationRadiusKm]);
 
   const [locQuery, setLocQuery] = useState("");
   const [locResults, setLocResults] = useState<GeoPlace[]>([]);

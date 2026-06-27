@@ -19,11 +19,11 @@ function relDate(iso: string): string {
 }
 
 export const userService = {
-  // The authenticated user's own profile. Backend: GET /users/me
   async me(): Promise<CurrentUser> {
     const sb = getSupabase();
-    const uid = await currentUserId();
-    if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Not signed in" }, 401);
+    const { data: { user: au } } = await sb.auth.getUser();
+    if (!au) throw toApiError({ code: "UNAUTHENTICATED", message: "Not signed in" }, 401);
+    const uid = au.id;
     const { data, error } = await sb.from("users").select("*").eq("id", uid).maybeSingle();
     throwIfError(error);
     if (data) {
@@ -31,25 +31,25 @@ export const userService = {
       // Backfill a privacy alias for older accounts created before the alias column.
       if (!u.alias) {
         const alias = generateAlias();
-        await sb.from("users").update({ alias }).eq("id", uid);
+        const { error: updErr } = await sb.from("users").update({ alias }).eq("id", uid);
+        if (updErr) console.warn("me (alias backfill):", updErr.message);
         u = { ...u, alias };
       }
       return u;
     }
-    // Row missing — happens for Google OAuth users when the DB trigger hasn't run yet.
+    // Row missing — happens for Google OAuth / phone-auth users when the DB trigger hasn't run or completed yet.
     // Upsert a seed row so FK constraints on requests / proposals don't block the user.
-    const { data: authData } = await sb.auth.getUser();
-    const au = authData?.user;
-    const name = (au?.user_metadata?.full_name as string | undefined)
-              || au?.email
-              || au?.phone
+    const name = (au.user_metadata?.full_name as string | undefined)
+              || au.email
+              || au.phone
               || "New user";
     const alias = generateAlias();
-    await sb.from("users").upsert(
-      { id: uid, name, alias, phone: au?.phone ?? null, roles: ["customer"] },
+    const { error: upsertErr } = await sb.from("users").upsert(
+      { id: uid, name, alias, phone: au.phone ?? null, roles: ["customer"] },
       { onConflict: "id", ignoreDuplicates: true }
     );
-    return toCamel<CurrentUser>({ id: uid, name, alias, phone: au?.phone ?? null, avatar: null, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5 });
+    if (upsertErr) console.warn("me (profile self-heal):", upsertErr.message);
+    return toCamel<CurrentUser>({ id: uid, name, alias, phone: au.phone ?? null, avatar: null, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5 });
   },
 
   async update(patch: Partial<CurrentUser>) {
@@ -82,8 +82,23 @@ export const userService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Not signed in" }, 401);
+    
+    // 1. Update users profile
     const { error } = await sb.from("users").update({ lat, lng, area }).eq("id", uid);
     throwIfError(error);
+
+    // 2. Sync to any businesses owned by the user
+    const { error: bizErr } = await sb.from("businesses")
+      .update({ lat, lng, address_line1: area || null })
+      .eq("owner_user_id", uid);
+    if (bizErr) console.warn("setLocation (biz sync):", bizErr.message);
+
+    // 3. Sync to any provider profiles owned by the user
+    const { error: provErr } = await sb.from("providers")
+      .update({ lat, lng })
+      .eq("user_id", uid);
+    if (provErr) console.warn("setLocation (provider sync):", provErr.message);
+
     return { ok: true };
   },
 

@@ -398,6 +398,8 @@ export interface CommunityPost {
   votedOptionId?: string | null;
   // alert
   resolved?: boolean;
+  lat?: number;
+  lng?: number;
 }
 
 export interface Comment {

@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Camera, Clock } from "lucide-react";
+import { Camera, Clock, Pencil } from "lucide-react";
 import { businessService, uploadService } from "@/services";
 import { socialService } from "@/services/socialService";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 
 const ctas = ["None", "Order now", "Reserve", "Call us", "View offer"];
+const EXPIRY_OPTS = [1, 3, 6, 12, 24] as const;
 
 export default function StoryComposer() {
   const { id = "b1" } = useParams();
@@ -17,7 +18,9 @@ export default function StoryComposer() {
   const [image, setImage] = useState("");
   const [caption, setCaption] = useState("");
   const [cta, setCta] = useState("Order now");
-  const [hours, setHours] = useState(6);
+  const [hours, setHours] = useState<number>(6);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customVal, setCustomVal] = useState("");
   const [uploading, setUploading] = useState(false);
 
   return (
@@ -63,8 +66,70 @@ export default function StoryComposer() {
         </div>
 
         <div className="field">
-          <label className="row between"><span className="row gap-4"><Clock size={14} /> Expires after</span><span style={{ color: "var(--brand-700)" }}>{hours} hours</span></label>
-          <input type="range" min={1} max={24} value={hours} onChange={(e) => setHours(Number(e.target.value))} style={{ width: "100%", accentColor: "#cc4415" }} />
+          <label className="row between">
+            <span className="row gap-4"><Clock size={14} /> Expires after</span>
+            {hours > 0 && <span style={{ color: "var(--brand-700)", fontWeight: 600 }}>{hours} hour{hours > 1 ? "s" : ""}</span>}
+          </label>
+          {showCustom ? (
+            <div className="row gap-8">
+              <input
+                type="number"
+                min={1}
+                max={168}
+                className="input grow"
+                style={{ padding: "8px 12px", fontSize: 13, height: 36 }}
+                placeholder="Duration in hours..."
+                value={customVal}
+                onChange={(e) => setCustomVal(e.target.value)}
+                autoFocus
+              />
+              <button
+                className="btn btn-primary btn-sm"
+                style={{ height: 36, padding: "0 12px" }}
+                onClick={() => {
+                  const n = parseInt(customVal);
+                  if (!isNaN(n) && n > 0) setHours(n);
+                  setShowCustom(false);
+                }}
+              >
+                Apply
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                style={{ height: 36, padding: "0 12px" }}
+                onClick={() => setShowCustom(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="row gap-8">
+              {EXPIRY_OPTS.map((h) => {
+                const active = hours === h;
+                return (
+                  <button
+                    key={h}
+                    className={`chip ${active ? "active" : ""}`}
+                    style={{ flex: 1, justifyContent: "center" }}
+                    onClick={() => { setHours(h); setShowCustom(false); }}
+                  >
+                    {h}h
+                  </button>
+                );
+              })}
+              <button
+                className={`chip ${!new Set<number>(EXPIRY_OPTS).has(hours) ? "active" : ""}`}
+                style={{ flex: 1, justifyContent: "center", display: "flex", alignItems: "center", gap: 4 }}
+                onClick={() => {
+                  setCustomVal(!new Set<number>(EXPIRY_OPTS).has(hours) ? String(hours) : "");
+                  setShowCustom(true);
+                }}
+              >
+                <Pencil size={11} strokeWidth={2.5} />
+                {!new Set<number>(EXPIRY_OPTS).has(hours) ? `${hours}h` : "Custom"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>

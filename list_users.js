@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import fs from "node:fs";
 
+// Simple manual .env parser
 const envContent = fs.readFileSync(".env", "utf8");
 const envVars = {};
 for (const line of envContent.split(/\r?\n/)) {
@@ -15,24 +16,13 @@ const anonKey = envVars.VITE_SUPABASE_ANON_KEY || "";
 
 const sb = createClient(url, anonKey);
 
-async function list() {
-  try {
-    const { data, error } = await sb.rpc("businesses_nearby", {
-      in_lng: 73.891964,
-      in_lat: 18.533094,
-      in_radius_km: 25,
-      in_category: null,
-      in_limit: 20,
-      in_offset: 0
-    });
-    if (error) {
-      console.error(error);
-    } else {
-      console.log("RPC result:", data);
-    }
-  } catch (e) {
-    console.error(e);
+async function check() {
+  const { data, error } = await sb.from("users").select("*").order("created_at", { ascending: false }).limit(5);
+  if (error) {
+    console.error("Error:", error);
+  } else {
+    console.log("Latest users in database:", data);
   }
 }
 
-list();
+check();

@@ -326,8 +326,18 @@ export const businessService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to list a business" }, 401);
+    const { data: me } = await sb.from("users").select("lat, lng, area").eq("id", uid).maybeSingle();
     const cols = pickColumns(data as Record<string, unknown>, BUSINESS_COLUMNS);
-    const row = { ...toSnake(cols), owner_user_id: uid, status: "ACTIVE" };
+    const row = { ...toSnake(cols), owner_user_id: uid, status: "ACTIVE" } as Record<string, any>;
+    if (row.lat === undefined || row.lat === null) {
+      row.lat = (me as any)?.lat ?? null;
+    }
+    if (row.lng === undefined || row.lng === null) {
+      row.lng = (me as any)?.lng ?? null;
+    }
+    if (!row.address_line1) {
+      row.address_line1 = (me as any)?.area ?? null;
+    }
     const { data: created, error } = await sb.from("businesses").insert(row).select().maybeSingle();
     throwIfError(error);
     return toCamel<Business>(created);

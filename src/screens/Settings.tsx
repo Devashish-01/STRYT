@@ -1,9 +1,18 @@
 import { useState, useEffect } from "react";
 import { AppBar } from "@/components/common";
-import { Moon, Volume2, Globe, Shield, Eye } from "lucide-react";
+import { Moon, Volume2, Globe, Shield, Eye, Pencil } from "lucide-react";
 import { useApp } from "@/store";
 import { userService } from "@/services";
 import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
+
+const RADIUS_OPTIONS = [
+  { label: "500m", km: 0.5 },
+  { label: "2 km", km: 2 },
+  { label: "5 km", km: 5 },
+  { label: "10 km", km: 10 },
+  { label: "25 km", km: 25 },
+  { label: "World", km: 5000 },
+];
 
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -49,6 +58,25 @@ export default function Settings() {
     const saved = localStorage.getItem("settings_radius");
     return saved ? Number(saved) : (user.notificationRadiusKm || 5);
   });
+
+  const [showCustom, setShowCustom] = useState(false);
+  const [customVal, setCustomVal] = useState("");
+  const presetKms = new Set<number>(RADIUS_OPTIONS.map((o) => o.km));
+  const isCustomActive = !presetKms.has(radius);
+
+  function handlePresetClick(km: number) {
+    setRadius(km);
+    setShowCustom(false);
+  }
+
+  function handleCustomApply() {
+    const n = parseFloat(customVal);
+    if (!isNaN(n) && n > 0) {
+      const rounded = Math.round(n * 10) / 10;
+      setRadius(rounded);
+    }
+    setShowCustom(false);
+  }
 
   useEffect(() => {
     localStorage.setItem("settings_silent", String(silent));
@@ -96,11 +124,97 @@ export default function Settings() {
         <div>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Notification radius</div>
           <div className="card" style={{ padding: 14 }}>
-            <div className="row between small semi">
+            <div className="row between small semi" style={{ marginBottom: 12 }}>
               <span>Radius</span>
-              <span style={{ color: "var(--brand-700)" }}>{radius} km</span>
+              <span style={{ color: "var(--brand-700)" }}>{radius >= 5000 ? "World" : `${radius} km`}</span>
             </div>
-            <input type="range" min={1} max={15} value={radius} onChange={(e) => setRadius(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--brand-600)", marginTop: 8 }} />
+
+            {showCustom ? (
+              <div className="row gap-8">
+                <input
+                  type="number"
+                  step="0.1"
+                  className="input grow"
+                  style={{ padding: "8px 12px", fontSize: 13, height: 36 }}
+                  placeholder="Radius in km..."
+                  value={customVal}
+                  onChange={(e) => setCustomVal(e.target.value)}
+                  autoFocus
+                />
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ height: 36, padding: "0 12px" }}
+                  onClick={handleCustomApply}
+                >
+                  Apply
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  style={{ height: 36, padding: "0 12px" }}
+                  onClick={() => setShowCustom(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div style={{
+                display: "flex",
+                gap: 4,
+                overflowX: "auto",
+                scrollbarWidth: "none",
+                padding: "2px 0",
+              }}>
+                {RADIUS_OPTIONS.map((opt) => {
+                  const active = radius === opt.km;
+                  return (
+                    <button
+                      key={opt.km}
+                      onClick={() => handlePresetClick(opt.km)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 16,
+                        border: "none",
+                        background: active ? "var(--brand-600)" : "var(--ink-100)",
+                        color: active ? "#fff" : "var(--ink-700)",
+                        fontWeight: active ? 700 : 500,
+                        fontSize: 12.5,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                        transition: "background 0.15s, color 0.15s",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => {
+                    setCustomVal(isCustomActive ? String(radius) : "");
+                    setShowCustom(true);
+                  }}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 16,
+                    border: "none",
+                    background: isCustomActive ? "var(--brand-600)" : "var(--ink-100)",
+                    color: isCustomActive ? "#fff" : "var(--ink-700)",
+                    fontWeight: isCustomActive ? 700 : 500,
+                    fontSize: 12.5,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    transition: "background 0.15s, color 0.15s",
+                  }}
+                >
+                  <Pencil size={11} strokeWidth={2.5} />
+                  {isCustomActive ? `${radius} km` : "Custom"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

@@ -26,12 +26,15 @@ export const discoveryService = {
     const userLat = p.lat ?? DEFAULT_LAT;
     const userLng = p.lng ?? DEFAULT_LNG;
 
+    const saved = localStorage.getItem("settings_radius");
+    const radiusLimit = p.radius ?? (saved ? parseFloat(saved) : 5);
+
     // Nearby sort uses the PostGIS RPC; rating/new use a plain ordered select.
     if (!p.sort || p.sort === "nearby") {
       const { data, error } = await sb.rpc("businesses_nearby", {
         in_lng: userLng,
         in_lat: userLat,
-        in_radius_km: p.radius ?? 2,
+        in_radius_km: radiusLimit,
         in_category: p.category ?? null,
         in_limit: limit,
         in_offset: from,
@@ -41,7 +44,7 @@ export const discoveryService = {
       page.data = page.data.map((b) => ({
         ...b,
         distanceKm: (b.lat && b.lng) ? haversineKm(userLat, userLng, b.lat, b.lng) : 0,
-      }));
+      })).filter((b) => b.distanceKm <= radiusLimit);
       return page;
     }
     let q = sb.from("businesses").select("*", { count: "exact" }).eq("status", "ACTIVE");
@@ -54,7 +57,7 @@ export const discoveryService = {
     page.data = page.data.map((b) => ({
       ...b,
       distanceKm: (b.lat && b.lng) ? haversineKm(userLat, userLng, b.lat, b.lng) : 0,
-    }));
+    })).filter((b) => b.distanceKm <= radiusLimit);
     return page;
   },
 
@@ -64,11 +67,14 @@ export const discoveryService = {
     const userLat = p.lat ?? DEFAULT_LAT;
     const userLng = p.lng ?? DEFAULT_LNG;
 
+    const saved = localStorage.getItem("settings_radius");
+    const radiusLimit = p.radius ?? (saved ? parseFloat(saved) : 5);
+
     if (!p.sort || p.sort === "nearby") {
       const { data, error } = await sb.rpc("providers_nearby", {
         in_lng: userLng,
         in_lat: userLat,
-        in_radius_km: p.radius ?? 2,
+        in_radius_km: radiusLimit,
         in_category: p.category ?? null,
         in_limit: limit,
         in_offset: from,
@@ -78,7 +84,7 @@ export const discoveryService = {
       page.data = page.data.map((prov) => ({
         ...prov,
         distanceKm: (prov.lat && prov.lng) ? haversineKm(userLat, userLng, prov.lat, prov.lng) : 0,
-      }));
+      })).filter((prov) => prov.distanceKm <= radiusLimit);
       return page;
     }
     let q = sb.from("providers").select("*", { count: "exact" }).eq("status", "ACTIVE");
@@ -91,7 +97,7 @@ export const discoveryService = {
     page.data = page.data.map((prov) => ({
       ...prov,
       distanceKm: (prov.lat && prov.lng) ? haversineKm(userLat, userLng, prov.lat, prov.lng) : 0,
-    }));
+    })).filter((prov) => prov.distanceKm <= radiusLimit);
     return page;
   },
 
