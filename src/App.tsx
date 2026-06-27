@@ -58,6 +58,7 @@ import Wallet from "./screens/Wallet";
 import Lists from "./screens/Lists";
 import PublicProfile from "./screens/PublicProfile";
 import Leaderboard from "./screens/Leaderboard";
+import ProfileEdit from "./screens/ProfileEdit";
 import Achievements from "./screens/Achievements";
 
 // Business console
@@ -204,6 +205,7 @@ export default function App() {
           <Route path="/explore" element={<Explore />} />
           <Route path="/requests" element={<Requests />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/edit" element={<ProfileEdit />} />
 
           <Route path="/search" element={<Search />} />
           <Route path="/map" element={<MapView />} />

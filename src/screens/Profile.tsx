@@ -117,13 +117,22 @@ export default function Profile() {
             </div>
           </div>
 
-          <button
-            className="btn btn-sm btn-block"
-            style={{ marginTop: 14, background: "rgba(255,255,255,0.16)", color: "#fff", border: "1px solid rgba(255,255,255,0.25)" }}
-            onClick={() => nav(`/u/${user.id}`)}
-          >
-            <UserCircle size={16} /> View public profile
-          </button>
+          <div className="row gap-8" style={{ marginTop: 14 }}>
+            <button
+              className="btn btn-sm grow"
+              style={{ background: "rgba(255,255,255,0.16)", color: "#fff", border: "1px solid rgba(255,255,255,0.25)" }}
+              onClick={() => nav("/profile/edit")}
+            >
+              Edit profile
+            </button>
+            <button
+              className="btn btn-sm grow"
+              style={{ background: "rgba(255,255,255,0.16)", color: "#fff", border: "1px solid rgba(255,255,255,0.25)" }}
+              onClick={() => nav(`/u/${user.id}`)}
+            >
+              <UserCircle size={16} /> Public profile
+            </button>
+          </div>
         </div>
 
         {/* ── Stats row ── */}
