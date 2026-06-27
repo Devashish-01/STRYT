@@ -3,6 +3,7 @@ import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import { config } from "@/config";
 import type { CommunityPost, Comment } from "@/types";
+import { haversineKm } from "@/lib/geocode";
 
 /** Safely parse poll_options whether stored as a JSONB array or (legacy) JSON string. */
 function parsePollOpts(raw: any): { id: string; label: string }[] | null {
@@ -19,7 +20,9 @@ function mapPost(
   row: Record<string, any>,
   likedIds: Set<string>,
   userVotes: Record<string, string>,
-  voteCounts: Record<string, Record<string, number>>
+  voteCounts: Record<string, Record<string, number>>,
+  userLat?: number,
+  userLng?: number
 ): CommunityPost {
   const pollOptions = parsePollOpts(row.poll_options)?.map((o) => ({
     ...o,
@@ -33,7 +36,9 @@ function mapPost(
     title: row.title,
     body: row.body ?? "",
     area: row.area ?? "",
-    distanceKm: 0.5, // static for now — geo coming later
+    distanceKm: (userLat && userLng && row.lat && row.lng)
+      ? haversineKm(userLat, userLng, row.lat, row.lng)
+      : 0.5,
     postedAt: relLabel(row.created_at),
     image: row.image ?? undefined,
     likes: row.likes_count ?? 0,
@@ -125,10 +130,10 @@ export const communityService = {
       });
     }
 
-    return rows.map((r: any) => mapPost(r, likedIds, userVotes, voteCounts));
+    return rows.map((r: any) => mapPost(r, likedIds, userVotes, voteCounts, opts.lat, opts.lng));
   },
 
-  async get(id: string): Promise<CommunityPost | undefined> {
+  async get(id: string, lat?: number, lng?: number): Promise<CommunityPost | undefined> {
     if (config.useMocks) return undefined;
     const sb = getSupabase();
     const uid = await currentUserId();
@@ -158,7 +163,7 @@ export const communityService = {
         voteCounts[id][v.option_id] = (voteCounts[id][v.option_id] ?? 0) + 1;
       });
     }
-    return mapPost(row, likedIds, userVotes, voteCounts);
+    return mapPost(row, likedIds, userVotes, voteCounts, lat, lng);
   },
 
   async create(data: Partial<CommunityPost> & { lat?: number; lng?: number }): Promise<CommunityPost> {

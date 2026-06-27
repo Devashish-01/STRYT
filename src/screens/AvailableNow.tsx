@@ -4,11 +4,13 @@ import { Clock, Zap, Phone, BadgeCheck } from "lucide-react";
 import { socialService, discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
+import { useApp } from "@/store";
 
 export default function AvailableNow() {
   const nav = useNavigate();
+  const { user } = useApp();
   const { data: availList, loading, error, refetch } = useQuery(() => socialService.availableNow(), []);
-  const { data: provPage } = useQuery(() => discoveryService.providers(), []);
+  const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
   const availableNow = availList ?? [];
   const providers = provPage?.data ?? [];
 

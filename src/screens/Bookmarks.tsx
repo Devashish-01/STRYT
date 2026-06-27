@@ -10,16 +10,16 @@ import { ListSkeleton } from "@/components/states";
 type Tab = "BUSINESS" | "PROVIDER" | "REQUEST" | "FOLLOWING";
 
 export default function Bookmarks() {
-  const { bookmarks, follows } = useApp();
+  const { bookmarks, follows, user } = useApp();
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
   const initialTab = (searchParams.get("tab")?.toUpperCase() as Tab) ?? "BUSINESS";
   const [tab, setTab] = useState<Tab>(initialTab);
 
   // Fetch live entity data so bookmarks reflect real DB content
-  const { data: bizPage, loading: bizLoading } = useQuery(() => discoveryService.businesses(), []);
-  const { data: provPage, loading: provLoading } = useQuery(() => discoveryService.providers(), []);
-  const { data: reqPage, loading: reqLoading } = useQuery(() => requestService.feed(), []);
+  const { data: bizPage, loading: bizLoading } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
+  const { data: provPage, loading: provLoading } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
+  const { data: reqPage, loading: reqLoading } = useQuery(() => requestService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
 
   const allBiz  = bizPage?.data  ?? [];
   const allProv = provPage?.data ?? [];

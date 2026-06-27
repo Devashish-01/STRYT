@@ -7,6 +7,7 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import type { Business, Provider } from "@/types";
+import { useApp } from "@/store";
 
 const trending = ["Biryani", "Plumber", "Salon", "Birthday cake", "AC repair", "Tutor"];
 const recent = ["Cappuccino", "Makeup artist", "Grocery"];
@@ -15,6 +16,7 @@ export default function Search() {
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
+  const { user } = useApp();
 
   // Debounce input so we don't hit the API on every keystroke.
   useEffect(() => {
@@ -25,8 +27,8 @@ export default function Search() {
   const query = debounced.toLowerCase();
   const { data: leaves } = useQuery(() => catalogService.leaves(), []);
   const { data: results, loading, error, refetch } = useQuery(
-    () => (query ? discoveryService.search(query) : Promise.resolve({ businesses: [] as Business[], providers: [] as Provider[] })),
-    [query]
+    () => (query ? discoveryService.search(query, user.lat || undefined, user.lng || undefined) : Promise.resolve({ businesses: [] as Business[], providers: [] as Provider[] })),
+    [query, user.lat, user.lng]
   );
 
   const bizResults = results?.businesses ?? [];

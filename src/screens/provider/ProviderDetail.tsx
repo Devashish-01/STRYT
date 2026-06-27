@@ -20,7 +20,13 @@ const Handshake = HandshakeIcon as any;
 export default function ProviderDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id), [id]);
+  const {
+    user,
+    isBookmarked, toggleBookmark, showToast,
+    isFollowing, toggleFollow, vouched, toggleVouch, endorsed, toggleEndorse,
+  } = useApp();
+
+  const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
   const { data: reviews, refetch: refetchReviews } = useQuery(() => providerService.reviews(id), [id]);
   const { data: vouches } = useQuery(() => socialService.vouches(id), [id]);
   const { data: endorsements } = useQuery(() => socialService.endorsements(id), [id]);
@@ -31,11 +37,6 @@ export default function ProviderDetail() {
   useEffect(() => {
     providerService.recordView(id).catch(() => {});
   }, [id]);
-  const {
-    user,
-    isBookmarked, toggleBookmark, showToast,
-    isFollowing, toggleFollow, vouched, toggleVouch, endorsed, toggleEndorse,
-  } = useApp();
   const [tab, setTab] = useState<"about" | "portfolio" | "reviews">("about");
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);

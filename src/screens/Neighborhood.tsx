@@ -10,11 +10,11 @@ import { useApp } from "@/store";
 
 export default function Neighborhood() {
   const nav = useNavigate();
-  const { area } = useApp();
+  const { area, user } = useApp();
 
-  const { data: bizPage } = useQuery(() => discoveryService.businesses(), []);
-  const { data: provPage } = useQuery(() => discoveryService.providers(), []);
-  const { data: reqPage } = useQuery(() => requestService.feed(), []);
+  const { data: bizPage } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
+  const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
+  const { data: reqPage } = useQuery(() => requestService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
   const { data: availList } = useQuery(() => socialService.availableNow(), []);
   const { data: posts } = useQuery(() => communityService.feed(), []);
   const { data: collectionsData } = useQuery(() => socialService.collections(), []);

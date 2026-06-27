@@ -11,14 +11,14 @@ const emojis = ["🌟", "🍽️", "🚨", "🧸", "💎", "🎁", "🏠", "💇
 
 export default function Lists() {
   const nav = useNavigate();
-  const { lists, createList, showToast } = useApp();
+  const { lists, createList, showToast, user } = useApp();
   const [open, setOpen] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🌟");
 
-  const { data: bizPage } = useQuery(() => discoveryService.businesses(), []);
-  const { data: provPage } = useQuery(() => discoveryService.providers(), []);
+  const { data: bizPage } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
+  const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
   const businesses = bizPage?.data ?? [];
   const providers = provPage?.data ?? [];
 

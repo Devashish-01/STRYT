@@ -19,17 +19,18 @@ import AddToListSheet from "@/components/AddToListSheet";
 export default function BusinessDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id), [id]);
-  const { data: reviews, refetch: refetchReviews } = useQuery(() => businessService.reviews(id), [id]);
-  const { data: queue } = useQuery(() => businessService.queue(id), [id]);
-  const { data: loyalty } = useQuery(() => businessService.loyaltyCard(id), [id]);
-  const { data: qnaList, refetch: refetchQna } = useQuery(() => businessService.qna(id), [id]);
   const {
     user,
     isBookmarked, toggleBookmark, showToast,
     isFollowing, toggleFollow, notifySubs, toggleNotify,
     queuesJoined, joinQueue,
   } = useApp();
+
+  const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
+  const { data: reviews, refetch: refetchReviews } = useQuery(() => businessService.reviews(id), [id]);
+  const { data: queue } = useQuery(() => businessService.queue(id), [id]);
+  const { data: loyalty } = useQuery(() => businessService.loyaltyCard(id), [id]);
+  const { data: qnaList, refetch: refetchQna } = useQuery(() => businessService.qna(id), [id]);
   const [tab, setTab] = useState<"catalog" | "about" | "reviews">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [report, setReport] = useState(false);

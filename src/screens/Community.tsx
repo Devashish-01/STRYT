@@ -27,8 +27,8 @@ export default function Community() {
     () => communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }),
     [user.lat, user.lng]
   );
-  const { data: bizPage } = useQuery(() => discoveryService.businesses(), []);
-  const { data: provPage } = useQuery(() => discoveryService.providers(), []);
+  const { data: bizPage } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
+  const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
 
   const posts = data ?? [];
   const businesses = bizPage?.data ?? [];

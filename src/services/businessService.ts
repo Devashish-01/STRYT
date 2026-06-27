@@ -4,6 +4,7 @@ import { toCamel, toSnake } from "@/lib/caseMap";
 import { config } from "@/config";
 import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, ReservationReq } from "@/types";
 import { leaderboardService } from "./leaderboardService";
+import { haversineKm } from "@/lib/geocode";
 
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -82,7 +83,7 @@ export const businessService = {
     return toCamel<Business[]>(data ?? []);
   },
 
-  async get(id: string): Promise<Business | undefined> {
+  async get(id: string, lat?: number, lng?: number): Promise<Business | undefined> {
     if (id === "b1" || id.startsWith("biz_mock_")) {
       return {
         id,
@@ -126,7 +127,10 @@ export const businessService = {
       .eq("id", id)
       .maybeSingle();
     throwIfError(error);
-    return data ? toCamel<Business>(data) : undefined;
+    if (!data) return undefined;
+    const b = toCamel<Business>(data);
+    b.distanceKm = (lat && lng && b.lat && b.lng) ? haversineKm(lat, lng, b.lat, b.lng) : 0;
+    return b;
   },
 
   async reviews(id: string): Promise<Review[]> {

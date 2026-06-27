@@ -23,6 +23,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Provider, PortfolioItem, Review, ProviderPackage } from "@/types";
+import { haversineKm } from "@/lib/geocode";
 
 // Columns on the providers table; everything else (portfolio, distanceKm…) stripped.
 const PROVIDER_COLUMNS = new Set([
@@ -60,7 +61,7 @@ export const providerService = {
     throwIfError(error);
     return toCamel<Provider[]>(data ?? []);
   },
-  async get(id: string): Promise<Provider | undefined> {
+  async get(id: string, lat?: number, lng?: number): Promise<Provider | undefined> {
     if (id === "p1" || id.startsWith("prov_mock_")) {
       return {
         id,
@@ -93,7 +94,10 @@ export const providerService = {
     const sb = getSupabase();
     const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*)").eq("id", id).maybeSingle();
     throwIfError(error);
-    return data ? toCamel<Provider>(data) : undefined;
+    if (!data) return undefined;
+    const prov = toCamel<Provider>(data);
+    prov.distanceKm = (lat && lng && prov.lat && prov.lng) ? haversineKm(lat, lng, prov.lat, prov.lng) : 0;
+    return prov;
   },
   async reviews(id: string): Promise<Review[]> {
     if (id === "p1" || id.startsWith("prov_mock_")) {

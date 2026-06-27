@@ -301,7 +301,7 @@ export default function MapView() {
       : discoveryService.providers({ lat: centerLat, lng: centerLng, radius: radiusKm }),
     [centerLat, centerLng, radiusKm]
   );
-  const { data: reqPage } = useQuery(() => requestService.feed(), []);
+  const { data: reqPage } = useQuery(() => requestService.feed({ lat: centerLat, lng: centerLng }), [centerLat, centerLng]);
   const { data: nearbyStories } = useQuery(
     () => layers.story
       ? socialService.storiesNearby(centerLat, centerLng, Math.min(radiusKm, 200))

@@ -15,7 +15,7 @@ export default function CommunityPostDetail() {
   const { user, likes, toggleLike, votes, votePoll, showToast } = useApp();
 
   // Use passed post for instant display; re-fetch in background for freshness.
-  const { data: fetched } = useQuery(() => communityService.get(id), [id]);
+  const { data: fetched } = useQuery(() => communityService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
   const post: CommunityPost | undefined = fetched ?? state?.post;
 
   const { data: initialComments, loading: commentsLoading } = useQuery(() => communityService.comments(id), [id]);
