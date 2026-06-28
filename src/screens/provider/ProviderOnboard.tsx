@@ -185,8 +185,8 @@ export default function ProviderOnboard() {
               <span className="tiny muted">How far you're willing to travel/serve.</span>
             </div>
             <div className="field">
-              <label>Availability note</label>
-              <input className="input" placeholder="e.g. Mon–Sat, 8 AM – 8 PM" value={availability} onChange={(e) => setAvailability(e.target.value)} />
+              <label>Availability timing (from when to when you are available)</label>
+              <input className="input" placeholder="e.g. Mon–Sat from 09:00 AM to 07:00 PM" value={availability} onChange={(e) => setAvailability(e.target.value)} />
             </div>
           </>
         )}

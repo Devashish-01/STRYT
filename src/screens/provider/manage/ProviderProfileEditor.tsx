@@ -85,7 +85,16 @@ export default function ProviderProfileEditor() {
           <input type="range" min={1} max={25} value={radius} onChange={(e) => setRadius(Number(e.target.value))} style={{ width: "100%", accentColor: "#16a34a" }} />
         </div>
 
-        <div className="field"><label>Availability note</label><input className="input" value={avail} onChange={(e) => setAvail(e.target.value)} /></div>
+        <div className="field">
+          <label>Availability timing (From when to when)</label>
+          <input
+            className="input"
+            placeholder="e.g. Mon–Sat from 09:00 AM to 07:00 PM"
+            value={avail}
+            onChange={(e) => setAvail(e.target.value)}
+          />
+          <span className="tiny muted">Specify when you are available for customer bookings.</span>
+        </div>
       </div>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
         <button className="btn btn-green btn-block" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save changes"}</button>

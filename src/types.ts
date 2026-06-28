@@ -446,7 +446,7 @@ export interface PublicUser {
   badges: string[];
   verifications: ("phone" | "id" | "address" | "business")[];
   reviewsGiven: { id: string; target: string; rating: number; comment: string; date: string }[];
-  posts?: { id: string; title?: string; body: string; type: string; area?: string; date: string; likesCount: number; commentsCount: number }[];
+  posts?: { id: string; title?: string; body: string; type: string; area?: string; date: string; likesCount: number; commentsCount: number; hiddenOnProfile?: boolean }[];
   requests?: { id: string; categoryName?: string; description: string; status: string; budget?: number; date: string }[];
   proposalsGiven?: { id: string; requestId: string; requestTitle: string; price: number; note: string; date: string }[];
   proposalsReceivedCount?: number;

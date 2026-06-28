@@ -62,6 +62,9 @@ export const discoveryService = {
   },
 
   async providers(p: FeedParams = {}): Promise<Page<Provider>> {
+    if (localStorage.getItem("settings_new_prov") === "false") {
+      return toPage<Provider>([], 0, 0, 10);
+    }
     const sb = getSupabase();
     const { from, to, limit } = cursorToRange(p.cursor);
     const userLat = p.lat ?? DEFAULT_LAT;

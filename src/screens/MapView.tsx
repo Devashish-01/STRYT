@@ -13,6 +13,7 @@ import { forwardGeocode, reverseGeocode, type GeoPlace } from "@/lib/geocode";
 import { config } from "@/config";
 import { StoryViewer } from "@/components/Stories";
 import type { Story } from "@/types";
+import { evaluateProviderAvailability } from "@/utils/availability";
 
 type Layer = "business" | "provider" | "request" | "story";
 
@@ -637,23 +638,31 @@ export default function MapView() {
         ))}
 
         {/* Providers */}
-        {layers.provider && providers.filter((p) => p.lat && p.lng).map((p) => (
-          <Marker key={p.id} position={[p.lat, p.lng]} icon={providerIcon}>
-            <Popup>
-              <div style={{ minWidth: 180 }}>
-                <strong>{p.displayName}</strong>
-                <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{p.categoryName} · from {inr(p.startingPrice)}</div>
-                <div style={{ marginTop: 4 }}><Rating value={p.ratingAvg} size={11} /></div>
-                <button
-                  onClick={() => nav(`/provider/${p.id}`)}
-                  style={{ marginTop: 8, padding: "6px 12px", background: pinColors.provider, color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
-                >
-                  View profile
-                </button>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {layers.provider && providers.filter((p) => p.lat && p.lng).map((p) => {
+          const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
+          return (
+            <Marker key={p.id} position={[p.lat, p.lng]} icon={providerIcon}>
+              <Popup>
+                <div style={{ minWidth: 180 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <strong>{p.displayName}</strong>
+                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: evalRes.isOpenNow ? "#dcfce7" : "#f3f4f6", color: evalRes.isOpenNow ? "#15803d" : "#4b5563", fontWeight: 700 }}>
+                      {evalRes.isOpenNow ? "Available" : "Offline"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{p.categoryName} · from {inr(p.startingPrice)}</div>
+                  <div style={{ marginTop: 4 }}><Rating value={p.ratingAvg} size={11} /></div>
+                  <button
+                    onClick={() => nav(`/provider/${p.id}`)}
+                    style={{ marginTop: 8, padding: "6px 12px", background: pinColors.provider, color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
+                  >
+                    View profile
+                  </button>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
 
         {/* Requests */}
         {layers.request && nearbyRequests.map((r) => {

@@ -258,7 +258,13 @@ export default function ProviderDetail() {
               </div>
             )}
             <div className="card" style={{ padding: 14 }}>
-              <div className="row gap-10 small"><Clock size={16} color="#16a34a" /><span className="semi">{p.availabilityNote}</span></div>
+              <div className="row gap-10 small center-v">
+                <Clock size={16} color="#16a34a" style={{ flexShrink: 0 }} />
+                <div>
+                  <div className="tiny semi muted" style={{ fontSize: 11, color: "var(--ink-500)" }}>Working Availability Timing</div>
+                  <div className="semi" style={{ color: "var(--ink-900)" }}>{p.availabilityNote || "Available on request"}</div>
+                </div>
+              </div>
               <div className="divider" />
               <div className="row gap-10 small"><MapPin size={16} color="#16a34a" /><span>Serves within {p.serviceRadiusKm} km • {p.distanceKm} km from you</span></div>
             </div>

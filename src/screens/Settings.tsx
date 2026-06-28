@@ -50,7 +50,7 @@ export default function Settings() {
   const [silent, setSilent] = useState(() => localStorage.getItem("settings_silent") !== "false");
   const [quiet, setQuiet] = useState(() => localStorage.getItem("settings_quiet") !== "false");
   const [newBiz, setNewBiz] = useState(() => localStorage.getItem("settings_new_biz") !== "false");
-  const [newProv, setNewProv] = useState(() => localStorage.getItem("settings_new_prov") === "true");
+  const [newProv, setNewProv] = useState(() => localStorage.getItem("settings_new_prov") !== "false");
   const [reqs, setReqs] = useState(() => localStorage.getItem("settings_reqs") !== "false");
   const [offers, setOffers] = useState(() => localStorage.getItem("settings_offers") !== "false");
   const [approx, setApprox] = useState(() => localStorage.getItem("settings_approx") !== "false");
@@ -259,7 +259,7 @@ export default function Settings() {
             <Row icon={<Volume2 size={18} color="#f59e0b" />} label="Quiet hours (10 PM–7 AM)" on={quiet} set={setQuiet} />
             <div className="divider" style={{ margin: 0 }} />
             <Row label="New businesses nearby" on={newBiz} set={setNewBiz} />
-            <Row label="New providers nearby" on={newProv} set={setNewProv} />
+            <Row label="Show nearby providers" hint="Hide providers from your discovery feeds & map (They can still see and quote your requests)" on={newProv} set={setNewProv} />
             <Row label="Nearby requests" on={reqs} set={setReqs} />
             <Row label="Offers & deals" on={offers} set={setOffers} last />
           </div>

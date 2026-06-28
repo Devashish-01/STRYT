@@ -4,6 +4,7 @@ import type { Business, Provider, RequestPost } from "@/types";
 import { Rating, inr, SafeImg } from "./common";
 import { useApp } from "@/store";
 import { requestService } from "@/services";
+import { evaluateProviderAvailability } from "@/utils/availability";
 
 /* ---------------- Business cards ---------------- */
 
@@ -129,10 +130,25 @@ export function ProviderCard({ p }: { p: Provider }) {
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark } = useApp();
   const saved = isBookmarked("PROVIDER", p.id);
+  const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
   return (
     <div className="card fade-up" style={{ padding: 12 }} onClick={() => nav(`/provider/${p.id}`)}>
       <div className="row gap-12" style={{ alignItems: "flex-start" }}>
-        <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 56, height: 56 }} />
+        <div style={{ position: "relative" }}>
+          <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 56, height: 56 }} />
+          <span
+            style={{
+              position: "absolute",
+              bottom: 2,
+              right: 2,
+              width: 14,
+              height: 14,
+              borderRadius: "50%",
+              background: evalRes.isOpenNow ? "#16a34a" : "#9ca3af",
+              border: "2px solid #fff",
+            }}
+          />
+        </div>
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="row between">
             <div className="row gap-6" style={{ minWidth: 0 }}>
@@ -150,10 +166,16 @@ export function ProviderCard({ p }: { p: Provider }) {
             </button>
           </div>
           <div className="tiny muted" style={{ marginTop: 1 }}>{p.categoryName} • {p.subCategory}</div>
-          <div className="row gap-8" style={{ marginTop: 7 }}>
+          <div className="row gap-8 center-v" style={{ marginTop: 6 }}>
             <Rating value={p.ratingAvg} size={11} />
             <span className="tiny muted">{p.jobsDone} jobs</span>
             <span className="tiny muted">• {p.distanceKm} km</span>
+            <span
+              className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`}
+              style={{ fontSize: 10, padding: "1px 6px", marginLeft: "auto" }}
+            >
+              {evalRes.isOpenNow ? "Available" : "Offline"}
+            </span>
           </div>
         </div>
       </div>

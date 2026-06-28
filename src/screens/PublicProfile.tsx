@@ -43,9 +43,27 @@ export default function PublicProfile() {
   const [share, setShare] = useState(false);
   const [chatting, setChatting] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("posts");
+  const [hiddenPosts, setHiddenPosts] = useState<string[]>(() => {
+    try {
+      const s = localStorage.getItem("stryt_hidden_posts");
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const following = isFollowing("USER", id);
   const isSelf = user.id === id;
+
+  function toggleHidePost(postId: string) {
+    const isHidden = hiddenPosts.includes(postId);
+    const updated = isHidden ? hiddenPosts.filter((x) => x !== postId) : [...hiddenPosts, postId];
+    setHiddenPosts(updated);
+    try {
+      localStorage.setItem("stryt_hidden_posts", JSON.stringify(updated));
+    } catch {}
+    showToast(isHidden ? "Post is now visible on public profile" : "Post hidden from public profile");
+  }
 
   async function handleStartChat() {
     if (chatting) return;
@@ -387,24 +405,52 @@ export default function PublicProfile() {
           <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
             {!isSelf && u.showPostsPublicly === false ? (
               <EmptyState emoji="🔒" title="Posts are private" text="This member has chosen to keep their community posts private." />
-            ) : posts.length === 0 ? (
-              <EmptyState emoji="💬" title="No posts yet" text="This member has not authored any community discussions." />
-            ) : (
-              posts.map((p) => (
-                <div key={p.id} className="card" style={{ padding: "16px", borderRadius: 18 }}>
-                  <div className="row space-between" style={{ marginBottom: 8, alignItems: "center" }}>
-                    <span className="badge badge-blue" style={{ fontSize: 11 }}>{p.type}</span>
-                    <span style={{ fontSize: 11, color: "var(--ink-400)", fontWeight: 500 }}>{p.date}</span>
+            ) : (() => {
+              const displayPosts = isSelf ? posts : posts.filter((p) => !hiddenPosts.includes(p.id));
+              if (displayPosts.length === 0) {
+                return <EmptyState emoji="💬" title="No posts visible" text="No public community posts available." />;
+              }
+              return displayPosts.map((p) => {
+                const isHidden = hiddenPosts.includes(p.id);
+                return (
+                  <div key={p.id} className="card" style={{ padding: "16px", borderRadius: 18, opacity: isHidden && isSelf ? 0.7 : 1 }}>
+                    <div className="row space-between" style={{ marginBottom: 8, alignItems: "center" }}>
+                      <div className="row gap-6 center-v">
+                        <span className="badge badge-blue" style={{ fontSize: 11 }}>{p.type}</span>
+                        {isSelf && (
+                          <button
+                            type="button"
+                            onClick={() => toggleHidePost(p.id)}
+                            className={`badge ${isHidden ? "badge-gray" : "badge-purple"}`}
+                            style={{ cursor: "pointer", fontSize: 10, padding: "2px 8px" }}
+                          >
+                            {isHidden ? <><Lock size={10} style={{ marginRight: 3 }} /> Hidden from public</> : <><Lock size={10} style={{ marginRight: 3 }} /> Public</>}
+                          </button>
+                        )}
+                      </div>
+                      <span style={{ fontSize: 11, color: "var(--ink-400)", fontWeight: 500 }}>{p.date}</span>
+                    </div>
+                    {p.title && <div className="bold small" style={{ marginBottom: 6, lineHeight: 1.35, color: "var(--ink-900)" }}>{p.title}</div>}
+                    <p className="small clamp-2" style={{ lineHeight: 1.5, color: "var(--ink-700)", margin: 0 }}>{p.body}</p>
+                    <div className="row gap-16 space-between" style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--ink-100)", fontSize: 12, color: "var(--ink-500)", fontWeight: 600 }}>
+                      <div className="row gap-16 center-v">
+                        <span className="row gap-4 center-v"><ThumbsUp size={14} color="var(--brand-600)" /> {p.likesCount} likes</span>
+                        <span className="row gap-4 center-v"><MessageCircle size={14} color="var(--brand-600)" /> {p.commentsCount} comments</span>
+                      </div>
+                      {isSelf && (
+                        <button
+                          type="button"
+                          onClick={() => toggleHidePost(p.id)}
+                          style={{ background: "none", border: "none", color: isHidden ? "var(--brand-700)" : "var(--ink-400)", cursor: "pointer", fontSize: 11, fontWeight: 700 }}
+                        >
+                          {isHidden ? "Unhide" : "Hide from profile"}
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {p.title && <div className="bold small" style={{ marginBottom: 6, lineHeight: 1.35, color: "var(--ink-900)" }}>{p.title}</div>}
-                  <p className="small clamp-2" style={{ lineHeight: 1.5, color: "var(--ink-700)", margin: 0 }}>{p.body}</p>
-                  <div className="row gap-16" style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--ink-100)", fontSize: 12, color: "var(--ink-500)", fontWeight: 600 }}>
-                    <span className="row gap-4 center-v"><ThumbsUp size={14} color="var(--brand-600)" /> {p.likesCount} likes</span>
-                    <span className="row gap-4 center-v"><MessageCircle size={14} color="var(--brand-600)" /> {p.commentsCount} comments</span>
-                  </div>
-                </div>
-              ))
-            )}
+                );
+              });
+            })()}
           </div>
         )}
 

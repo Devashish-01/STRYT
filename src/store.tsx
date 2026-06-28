@@ -171,7 +171,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   });
   const [roles, setRoles] = useState<Role[]>(seedUser.roles);
   const [bookmarks, setBookmarks] = useState<BookmarkKey[]>([]);
-  const [follows, setFollows] = useState<FollowKey[]>([]);
+  const [follows, setFollows] = useState<FollowKey[]>(() => {
+    try {
+      const s = localStorage.getItem("stryt_follows");
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  });
   const [viewedStories, setViewedStories] = useState<string[]>([]);
   const [meToos, setMeToos] = useState<string[]>([]);
   const [likes, setLikes] = useState<string[]>([]);
@@ -284,7 +291,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setBookmarks(bmRes.data.map((r) => ({ type: r.target_type as BookmarkTarget, id: r.target_id })));
     }
     if (fwRes.data) {
-      setFollows(fwRes.data.map((r) => ({ type: r.target_type as "BUSINESS" | "PROVIDER", id: r.target_id })));
+      const loaded = fwRes.data.map((r) => ({
+        type: (r.target_type as string).toUpperCase() as "BUSINESS" | "PROVIDER" | "USER",
+        id: r.target_id,
+      }));
+      setFollows(loaded);
+      try {
+        localStorage.setItem("stryt_follows", JSON.stringify(loaded));
+      } catch {}
     }
     if (lstRes.data && liRes.data) {
       setLists(
@@ -390,30 +404,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const toggleFollow = useCallback(
     (type: "BUSINESS" | "PROVIDER" | "USER", id: string, name?: string) => {
-      const exists = follows.some((f) => f.type === type && f.id === id);
-      setFollows((prev) =>
-        exists ? prev.filter((f) => !(f.type === type && f.id === id)) : [...prev, { type, id }]
-      );
+      const normType = type.toUpperCase() as "BUSINESS" | "PROVIDER" | "USER";
+      const exists = follows.some((f) => f.type.toUpperCase() === normType && f.id === id);
+      const updated = exists
+        ? follows.filter((f) => !(f.type.toUpperCase() === normType && f.id === id))
+        : [...follows, { type: normType, id }];
+      setFollows(updated);
+      try {
+        localStorage.setItem("stryt_follows", JSON.stringify(updated));
+      } catch {}
       showToast(exists ? "Unfollowed" : name ? `Following ${name}` : "Following");
       void (async () => {
         const uid = await currentUserId();
         if (!uid) return;
         const sb = getSupabase();
-        const { error } = exists
-          ? await sb.from("follows").delete().eq("follower_user_id", uid).eq("target_type", type).eq("target_id", id)
-          : await sb.from("follows").upsert({ follower_user_id: uid, target_type: type, target_id: id }, { onConflict: "follower_user_id,target_type,target_id" });
-        if (error) {
-          setFollows((prev) =>
-            exists ? [...prev, { type, id }] : prev.filter((f) => !(f.type === type && f.id === id))
-          );
-          showToast("Couldn't update — try again");
+        try {
+          // Delete both uppercase and lowercase DB entries to ensure clean state
+          await sb.from("follows").delete().eq("follower_user_id", uid).in("target_type", [normType, normType.toLowerCase()]).eq("target_id", id);
+          if (!exists) {
+            const { error } = await sb.from("follows").insert({ follower_user_id: uid, target_type: normType, target_id: id });
+            if (error) {
+              try {
+                await sb.from("follows").insert({ follower_user_id: uid, target_type: normType.toLowerCase(), target_id: id });
+              } catch {}
+            }
+          }
+        } catch (err) {
+          console.warn("toggleFollow DB sync:", err);
         }
       })();
     },
     [follows, showToast]
   );
   const isFollowing = useCallback(
-    (type: "BUSINESS" | "PROVIDER" | "USER", id: string) => follows.some((f) => f.type === type && f.id === id),
+    (type: "BUSINESS" | "PROVIDER" | "USER", id: string) =>
+      follows.some((f) => f.type.toUpperCase() === type.toUpperCase() && f.id === id),
     [follows]
   );
 
