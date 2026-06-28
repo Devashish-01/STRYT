@@ -1,14 +1,24 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppBar, StarRow, EmptyState, SafeImg, inr } from "@/components/common";
-import { Shield, Award, Heart, MessageSquareText, HandshakeIcon, Star, BadgeCheck, Share2, Tag, ThumbsUp, MessageCircle, ChevronRight } from "lucide-react";
+import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import {
+  Shield,
+  Award,
+  MessageSquareText,
+  Star,
+  BadgeCheck,
+  Share2,
+  ThumbsUp,
+  MessageCircle,
+  UserPlus,
+  UserCheck,
+  Lock,
+} from "lucide-react";
 import { userService, chatService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import ShareCard from "@/components/ShareCard";
 import { useApp } from "@/store";
-
-const Handshake = HandshakeIcon as any;
 
 const verifyLabels: Record<string, string> = {
   phone: "Phone",
@@ -17,28 +27,29 @@ const verifyLabels: Record<string, string> = {
   business: "Business",
 };
 
-type Tab = "overview" | "posts" | "asks" | "quotes" | "reviews";
+type Tab = "posts" | "asks" | "badges";
 
 const TABS: [Tab, string, string][] = [
-  ["overview", "Overview", "🏠"],
   ["posts", "Posts", "💬"],
   ["asks", "Asks", "📬"],
-  ["quotes", "Quotes", "🏷️"],
-  ["reviews", "Reviews", "⭐"],
+  ["badges", "Badges", "🏆"],
 ];
 
 export default function PublicProfile() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { showToast, user } = useApp();
+  const { showToast, user, isFollowing, toggleFollow } = useApp();
   const { data: u, loading, error, refetch } = useQuery(() => userService.publicProfile(id), [id]);
   const [share, setShare] = useState(false);
   const [chatting, setChatting] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [activeTab, setActiveTab] = useState<Tab>("posts");
+
+  const following = isFollowing("USER", id);
+  const isSelf = user.id === id;
 
   async function handleStartChat() {
     if (chatting) return;
-    if (id === user.id) {
+    if (isSelf) {
       showToast("You cannot message yourself");
       return;
     }
@@ -61,10 +72,9 @@ export default function PublicProfile() {
           <Skeleton h={96} w={96} r={48} />
           <Skeleton h={22} w="55%" />
           <Skeleton h={14} w="40%" />
-          <Skeleton h={14} w="30%" />
-          <div className="row gap-8" style={{ marginTop: 4 }}>
-            <Skeleton h={32} w={80} r={16} />
-            <Skeleton h={32} w={80} r={16} />
+          <div className="row gap-8" style={{ marginTop: 12 }}>
+            <Skeleton h={40} w={120} r={20} />
+            <Skeleton h={40} w={120} r={20} />
           </div>
         </div>
       </div>
@@ -91,20 +101,17 @@ export default function PublicProfile() {
 
   const posts = u.posts ?? [];
   const requests = u.requests ?? [];
-  const proposalsGiven = u.proposalsGiven ?? [];
 
   const tabCounts: Record<Tab, number | null> = {
-    overview: null,
     posts: posts.length,
     asks: requests.length,
-    quotes: proposalsGiven.length,
-    reviews: u.reviewsGiven.length,
+    badges: u.badges.length,
   };
 
   return (
-    <div className="screen">
+    <div className="screen" style={{ background: "var(--bg)" }}>
       <AppBar
-        title="Profile"
+        title={u.alias ? `@${u.alias}` : "Member Profile"}
         right={
           <button className="icon-btn" onClick={() => setShare(true)} aria-label="Share QR Code">
             <Share2 size={18} />
@@ -112,27 +119,29 @@ export default function PublicProfile() {
         }
       />
       <div className="screen-scroll">
-
-        {/* ── Hero Header ── */}
+        {/* ── Instagram / Snapchat Style Hero Header ── */}
         <div
           style={{
-            background: "linear-gradient(160deg, var(--brand-600) 0%, var(--brand-800) 100%)",
-            padding: "28px 20px 24px",
+            background: "linear-gradient(160deg, var(--brand-700) 0%, #290d4f 100%)",
+            padding: "24px 20px 20px",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             textAlign: "center",
+            color: "#fff",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
           }}
         >
-          {/* Avatar ring */}
+          {/* Avatar Ring */}
           <div
             style={{
-              width: 96,
-              height: 96,
+              position: "relative",
+              width: 92,
+              height: 92,
               borderRadius: "50%",
               padding: 3,
-              background: "linear-gradient(135deg, var(--accent-400), var(--brand-300))",
-              boxShadow: "0 8px 28px rgba(109,40,217,0.45)",
+              background: "linear-gradient(135deg, #f59e0b, #ec4899, #8b47f5)",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
               marginBottom: 12,
             }}
           >
@@ -140,94 +149,192 @@ export default function PublicProfile() {
               src={u.avatar}
               variant="avatar"
               style={{
-                width: 90,
-                height: 90,
+                width: 86,
+                height: 86,
                 borderRadius: "50%",
                 objectFit: "cover",
-                border: "2px solid white",
+                border: "2.5px solid #fff",
                 display: "block",
               }}
             />
           </div>
 
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: "-0.3px", margin: 0 }}>{u.name}</h1>
-          {u.alias && <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>@{u.alias}</div>}
-          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.72)", marginTop: 4 }}>
-            📍 {u.area} · Member since {u.memberSince}
-          </span>
+          <h1 style={{ fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "-0.4px", margin: 0 }}>
+            {u.name}
+          </h1>
+          {u.alias && (
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>
+              @{u.alias}
+            </div>
+          )}
 
-          <div className="row gap-8" style={{ marginTop: 10 }}>
+          <div className="row center gap-6" style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)" }}>
+            <span>📍 {u.area || "Neighborhood Member"}</span>
+            <span>•</span>
+            <span>Member since {u.memberSince}</span>
+          </div>
+
+          {/* Verification & Rating Badges */}
+          <div className="row center gap-8" style={{ marginTop: 10 }}>
             <span
               style={{
-                display: "inline-flex", alignItems: "center", gap: 5,
-                background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)",
-                borderRadius: 999, padding: "5px 11px", fontSize: 12, fontWeight: 700, color: "#fff",
-                backdropFilter: "blur(6px)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4,
+                background: "rgba(255,255,255,0.16)",
+                border: "1px solid rgba(255,255,255,0.25)",
+                borderRadius: 999,
+                padding: "4px 10px",
+                fontSize: 12,
+                fontWeight: 700,
+                color: "#fff",
               }}
             >
               <Star size={12} fill="#fbbf24" stroke="none" />
               {u.ratingAvg} <span style={{ fontWeight: 400, opacity: 0.75 }}>({u.ratingCount})</span>
             </span>
+
             {u.verifications.length > 0 && (
               <span
                 style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  background: "rgba(255,255,255,0.18)", border: "1px solid rgba(255,255,255,0.28)",
-                  borderRadius: 999, padding: "5px 11px", fontSize: 12, fontWeight: 700, color: "#fff",
-                  backdropFilter: "blur(6px)",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                  background: "rgba(34, 197, 94, 0.25)",
+                  border: "1px solid rgba(34, 197, 94, 0.4)",
+                  borderRadius: 999,
+                  padding: "4px 10px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#fff",
                 }}
               >
-                <BadgeCheck size={13} /> Verified
+                <BadgeCheck size={13} color="#4ade80" /> Verified
               </span>
             )}
           </div>
 
-          {id !== user.id && (
-            <button
-              className="btn btn-sm row center gap-8"
-              style={{
-                marginTop: 16, minWidth: 180,
-                background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)",
-                border: "1.5px solid rgba(255,255,255,0.38)", boxShadow: "none",
-                color: "#fff", borderRadius: 14, fontWeight: 700, fontSize: 14,
-              }}
-              onClick={handleStartChat}
-              disabled={chatting}
-            >
-              <MessageSquareText size={16} />
-              {chatting ? "Opening…" : "Message neighbor"}
-            </button>
+          {/* Social Action Buttons */}
+          {!isSelf && (
+            <div className="row center gap-10" style={{ marginTop: 18, width: "100%", maxWidth: 320 }}>
+              {/* Follow / Following Button */}
+              <button
+                type="button"
+                className="btn grow row center gap-6"
+                onClick={() => toggleFollow("USER", id, u.name)}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 16,
+                  fontWeight: 700,
+                  fontSize: 14,
+                  background: following ? "rgba(255,255,255,0.2)" : "#fff",
+                  color: following ? "#fff" : "var(--brand-900)",
+                  border: following ? "1.5px solid rgba(255,255,255,0.4)" : "none",
+                  boxShadow: following ? "none" : "0 4px 14px rgba(0,0,0,0.15)",
+                  transition: "all 0.2s",
+                }}
+              >
+                {following ? (
+                  <>
+                    <UserCheck size={16} /> Following
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={16} /> Follow
+                  </>
+                )}
+              </button>
+
+              {/* Message Button */}
+              <button
+                type="button"
+                className="btn grow row center gap-6"
+                onClick={handleStartChat}
+                disabled={chatting}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: 16,
+                  fontWeight: 700,
+                  fontSize: 14,
+                  background: "rgba(255,255,255,0.16)",
+                  color: "#fff",
+                  border: "1.5px solid rgba(255,255,255,0.3)",
+                }}
+              >
+                <MessageSquareText size={16} /> Message
+              </button>
+
+              {/* Share QR */}
+              <button
+                type="button"
+                onClick={() => setShare(true)}
+                style={{
+                  width: 42,
+                  height: 42,
+                  borderRadius: 16,
+                  background: "rgba(255,255,255,0.16)",
+                  color: "#fff",
+                  border: "1.5px solid rgba(255,255,255,0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+                aria-label="Share profile"
+              >
+                <Share2 size={18} />
+              </button>
+            </div>
           )}
         </div>
 
-        {/* ── Stats card ── */}
-        <div style={{ padding: "12px 16px 0" }}>
+        {/* ── Key Social Stats Row ── */}
+        <div style={{ padding: "14px 16px 0" }}>
           <div
-            className="card row"
+            className="card row space-between"
             style={{
-              padding: "14px 8px",
-              borderRadius: 18,
-              boxShadow: "0 4px 24px rgba(109,40,217,0.13)",
-              border: "1px solid var(--brand-100)",
+              padding: "14px 16px",
+              borderRadius: 20,
+              background: "#fff",
+              boxShadow: "var(--shadow-sm)",
+              border: "1px solid var(--ink-200)",
+              textAlign: "center",
             }}
           >
-            <Stat icon={<Handshake size={18} color="#16a34a" />} value={u.helpedCount} label="Helped" color="#16a34a" />
-            <Sep />
-            <Stat icon={<MessageSquareText size={18} color="#cc4415" />} value={u.requestsCount} label="Requests" color="#cc4415" />
-            <Sep />
-            <Stat icon={<Tag size={18} color="#3b82f6" />} value={proposalsGiven.length} label="Quotes" color="#3b82f6" />
-            <Sep />
-            <Stat icon={<Heart size={18} color="#ef4444" />} value={u.vouchCount} label="Vouches" color="#ef4444" />
+            <div className="col center grow">
+              <span className="bold" style={{ fontSize: 18, color: "var(--brand-700)" }}>{u.helpedCount}</span>
+              <span className="tiny semi muted" style={{ marginTop: 2 }}>Helped</span>
+            </div>
+            <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
+            <div className="col center grow">
+              <span className="bold" style={{ fontSize: 18, color: "#cc4415" }}>{requests.length}</span>
+              <span className="tiny semi muted" style={{ marginTop: 2 }}>Requests</span>
+            </div>
+            <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
+            <div className="col center grow">
+              <span className="bold" style={{ fontSize: 18, color: "#ef4444" }}>{u.vouchCount}</span>
+              <span className="tiny semi muted" style={{ marginTop: 2 }}>Vouches</span>
+            </div>
+            <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
+            <div className="col center grow">
+              <span className="bold" style={{ fontSize: 18, color: "#3b82f6" }}>{u.ratingAvg}★</span>
+              <span className="tiny semi muted" style={{ marginTop: 2 }}>Rating</span>
+            </div>
           </div>
         </div>
 
-        {/* ── Pill Tab Bar ── */}
+        {/* ── Pill Content Tabs (Only Posts, Asks, Badges) ── */}
         <div
           className="row"
           style={{
-            marginTop: 14, marginBottom: 2,
-            paddingLeft: 12, paddingRight: 12,
-            gap: 6, overflowX: "auto", scrollbarWidth: "none",
+            marginTop: 16,
+            marginBottom: 4,
+            paddingLeft: 16,
+            paddingRight: 16,
+            gap: 8,
+            overflowX: "auto",
+            scrollbarWidth: "none",
           }}
         >
           {TABS.map(([t, label, emoji]) => {
@@ -236,31 +343,35 @@ export default function PublicProfile() {
             return (
               <button
                 key={t}
+                type="button"
                 onClick={() => setActiveTab(t)}
                 style={{
-                  flexShrink: 0,
-                  padding: "7px 14px",
+                  flex: 1,
+                  padding: "8px 16px",
                   borderRadius: 999,
-                  fontSize: 12.5,
+                  fontSize: 13,
                   fontWeight: 700,
                   whiteSpace: "nowrap",
-                  transition: "all 0.18s ease",
-                  background: isActive
-                    ? "linear-gradient(135deg, var(--brand-500), var(--brand-700))"
-                    : "var(--surface)",
+                  transition: "all 0.2s ease",
+                  background: isActive ? "var(--brand-700)" : "#fff",
                   color: isActive ? "#fff" : "var(--ink-600)",
                   border: isActive ? "none" : "1.5px solid var(--ink-200)",
-                  boxShadow: isActive ? "0 4px 14px rgba(109,40,217,0.28)" : "none",
+                  boxShadow: isActive ? "0 4px 12px rgba(124, 58, 237, 0.25)" : "none",
+                  cursor: "pointer",
+                  textAlign: "center",
                 }}
               >
                 {emoji} {label}
                 {count !== null && count > 0 && (
                   <span
                     style={{
-                      marginLeft: 5, fontSize: 11,
+                      marginLeft: 6,
+                      fontSize: 11,
                       background: isActive ? "rgba(255,255,255,0.25)" : "var(--brand-100)",
                       color: isActive ? "#fff" : "var(--brand-700)",
-                      borderRadius: 999, padding: "1px 6px", fontWeight: 700,
+                      borderRadius: 999,
+                      padding: "1px 6px",
+                      fontWeight: 700,
                     }}
                   >
                     {count}
@@ -271,68 +382,25 @@ export default function PublicProfile() {
           })}
         </div>
 
-        {/* ── OVERVIEW TAB ── */}
-        {activeTab === "overview" && (
-          <div className="col gap-14 page-pad" style={{ paddingTop: 14 }}>
-            {u.verifications.length > 0 && (
-              <SectionBox title="Verified Trust" icon={<Shield size={14} color="var(--green-600)" />}>
-                <div className="row wrap gap-8">
-                  {u.verifications.map((v) => (
-                    <span key={v} className="badge badge-green" style={{ padding: "6px 12px", fontSize: 12, gap: 5 }}>
-                      <BadgeCheck size={12} /> {verifyLabels[v]}
-                    </span>
-                  ))}
-                </div>
-              </SectionBox>
-            )}
-            {u.badges.length > 0 && (
-              <SectionBox title="Badges & Achievements" icon={<Award size={14} color="var(--brand-600)" />}>
-                <div className="row wrap gap-8">
-                  {u.badges.map((b) => (
-                    <span key={b} className="badge badge-purple" style={{ padding: "7px 13px", fontSize: 12 }}>{b}</span>
-                  ))}
-                </div>
-              </SectionBox>
-            )}
-            <SectionBox title="Recent Activity" icon={null}>
-              <div className="col gap-10">
-                {posts.length > 0 && (
-                  <ActivityCard label="Community Post" labelColor="var(--brand-700)" emoji="💬"
-                    date={posts[0].date} body={posts[0].title || posts[0].body.slice(0, 60)} onClick={() => setActiveTab("posts")} />
-                )}
-                {requests.length > 0 && (
-                  <ActivityCard label="Service Request" labelColor="#cc4415" emoji="📬"
-                    date={requests[0].date} body={`${requests[0].categoryName || "Help Ask"}: ${requests[0].description.slice(0, 60)}`} onClick={() => setActiveTab("asks")} />
-                )}
-                {proposalsGiven.length > 0 && (
-                  <ActivityCard label="Submitted Quote" labelColor="#3b82f6" emoji="🏷️"
-                    date={proposalsGiven[0].date} body={`${inr(proposalsGiven[0].price)} for "${proposalsGiven[0].requestTitle}"`} onClick={() => setActiveTab("quotes")} />
-                )}
-                {posts.length === 0 && requests.length === 0 && proposalsGiven.length === 0 && (
-                  <EmptyState emoji="📜" title="No public activity yet" text="Member activity will appear here." />
-                )}
-              </div>
-            </SectionBox>
-          </div>
-        )}
-
         {/* ── POSTS TAB ── */}
         {activeTab === "posts" && (
-          <div className="page-pad col gap-10" style={{ paddingTop: 14 }}>
-            {posts.length === 0 ? (
+          <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
+            {!isSelf && u.showPostsPublicly === false ? (
+              <EmptyState emoji="🔒" title="Posts are private" text="This member has chosen to keep their community posts private." />
+            ) : posts.length === 0 ? (
               <EmptyState emoji="💬" title="No posts yet" text="This member has not authored any community discussions." />
             ) : (
               posts.map((p) => (
-                <div key={p.id} className="card" style={{ padding: "14px 16px" }}>
-                  <div className="row between" style={{ marginBottom: 8 }}>
+                <div key={p.id} className="card" style={{ padding: "16px", borderRadius: 18 }}>
+                  <div className="row space-between" style={{ marginBottom: 8, alignItems: "center" }}>
                     <span className="badge badge-blue" style={{ fontSize: 11 }}>{p.type}</span>
                     <span style={{ fontSize: 11, color: "var(--ink-400)", fontWeight: 500 }}>{p.date}</span>
                   </div>
-                  {p.title && <div className="bold small" style={{ marginBottom: 4, lineHeight: 1.35 }}>{p.title}</div>}
+                  {p.title && <div className="bold small" style={{ marginBottom: 6, lineHeight: 1.35, color: "var(--ink-900)" }}>{p.title}</div>}
                   <p className="small clamp-2" style={{ lineHeight: 1.5, color: "var(--ink-700)", margin: 0 }}>{p.body}</p>
-                  <div className="row gap-14" style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--line)", fontSize: 12, color: "var(--ink-500)" }}>
-                    <span className="row gap-4"><ThumbsUp size={13} /> {p.likesCount} likes</span>
-                    <span className="row gap-4"><MessageCircle size={13} /> {p.commentsCount} comments</span>
+                  <div className="row gap-16" style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--ink-100)", fontSize: 12, color: "var(--ink-500)", fontWeight: 600 }}>
+                    <span className="row gap-4 center-v"><ThumbsUp size={14} color="var(--brand-600)" /> {p.likesCount} likes</span>
+                    <span className="row gap-4 center-v"><MessageCircle size={14} color="var(--brand-600)" /> {p.commentsCount} comments</span>
                   </div>
                 </div>
               ))
@@ -342,19 +410,21 @@ export default function PublicProfile() {
 
         {/* ── ASKS TAB ── */}
         {activeTab === "asks" && (
-          <div className="page-pad col gap-10" style={{ paddingTop: 14 }}>
-            {requests.length === 0 ? (
+          <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
+            {!isSelf && u.showAsksPublicly === false ? (
+              <EmptyState emoji="🔒" title="Requests are private" text="This member has chosen to keep their service requests private." />
+            ) : requests.length === 0 ? (
               <EmptyState emoji="📬" title="No requests posted" text="This member has not posted any public service requests." />
             ) : (
               requests.map((r) => (
-                <div key={r.id} className="card" style={{ padding: "14px 16px", cursor: "pointer" }} onClick={() => nav(`/request/${r.id}`)}>
-                  <div className="row between" style={{ marginBottom: 6 }}>
+                <div key={r.id} className="card" style={{ padding: "16px", borderRadius: 18, cursor: "pointer" }} onClick={() => nav(`/request/${r.id}`)}>
+                  <div className="row space-between" style={{ marginBottom: 6, alignItems: "center" }}>
                     <span className="semi small" style={{ color: "var(--brand-700)" }}>{r.categoryName || "Help Needed"}</span>
                     <span className={`badge ${r.status === "OPEN" ? "badge-green" : "badge-gray"}`} style={{ fontSize: 11 }}>{r.status}</span>
                   </div>
                   <p className="small clamp-2" style={{ lineHeight: 1.45, color: "var(--ink-800)", margin: 0 }}>{r.description}</p>
-                  <div className="row between" style={{ marginTop: 10, fontSize: 12 }}>
-                    {r.budget ? <span className="semi" style={{ color: "var(--green-600)" }}>Budget: {inr(r.budget)}</span> : <span className="muted">Open budget</span>}
+                  <div className="row space-between" style={{ marginTop: 12, fontSize: 12, alignItems: "center" }}>
+                    <span className="bold" style={{ color: "var(--green-600)" }}>{r.budget ? `Budget: ₹${r.budget}` : "Open budget"}</span>
                     <span style={{ fontSize: 11, color: "var(--ink-400)" }}>{r.date}</span>
                   </div>
                 </div>
@@ -363,108 +433,61 @@ export default function PublicProfile() {
           </div>
         )}
 
-        {/* ── QUOTES TAB ── */}
-        {activeTab === "quotes" && (
-          <div className="page-pad col gap-10" style={{ paddingTop: 14 }}>
-            {proposalsGiven.length === 0 ? (
-              <EmptyState emoji="🏷️" title="No quotes given" text="This member has not submitted quotes on public requests." />
+        {/* ── BADGES TAB ── */}
+        {activeTab === "badges" && (
+          <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
+            {!isSelf && u.showBadgesPublicly === false ? (
+              <EmptyState emoji="🔒" title="Badges are private" text="This member has chosen to keep their trust badges private." />
+            ) : u.badges.length === 0 && u.verifications.length === 0 ? (
+              <EmptyState emoji="🏆" title="No badges earned" text="Member achievements will appear here." />
             ) : (
-              proposalsGiven.map((q) => (
-                <div key={q.id} className="card" style={{ padding: "14px 16px", cursor: "pointer" }} onClick={() => nav(`/request/${q.requestId}`)}>
-                  <div className="row between" style={{ marginBottom: 6 }}>
-                    <span className="semi small ellipsis" style={{ maxWidth: "65%", color: "var(--ink-800)" }}>For: {q.requestTitle}</span>
-                    <span className="bold" style={{ color: "var(--green-600)", fontSize: 15 }}>{inr(q.price)}</span>
+              <div className="col gap-14">
+                {u.verifications.length > 0 && (
+                  <div className="card" style={{ padding: 16, borderRadius: 18 }}>
+                    <div className="semi small" style={{ marginBottom: 10, color: "var(--ink-900)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <Shield size={16} color="var(--green-600)" /> Verified Trust Attributes
+                    </div>
+                    <div className="row wrap gap-8">
+                      {u.verifications.map((v) => (
+                        <span key={v} className="badge badge-green" style={{ padding: "6px 14px", fontSize: 12, gap: 5 }}>
+                          <BadgeCheck size={13} /> {verifyLabels[v]} Verified
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  {q.note && (
-                    <p className="tiny muted" style={{ margin: "6px 0 0", background: "var(--ink-50)", border: "1px solid var(--ink-100)", padding: "8px 10px", borderRadius: 10, lineHeight: 1.5, fontStyle: "italic" }}>
-                      "{q.note}"
-                    </p>
-                  )}
-                  <div className="row between" style={{ marginTop: 10, fontSize: 11, color: "var(--ink-400)" }}>
-                    <span>Submitted quote</span><span>{q.date}</span>
+                )}
+
+                {u.badges.length > 0 && (
+                  <div className="card" style={{ padding: 16, borderRadius: 18 }}>
+                    <div className="semi small" style={{ marginBottom: 10, color: "var(--ink-900)", display: "flex", alignItems: "center", gap: 6 }}>
+                      <Award size={16} color="var(--brand-600)" /> Earned Community Badges
+                    </div>
+                    <div className="row wrap gap-8">
+                      {u.badges.map((b) => (
+                        <span key={b} className="badge badge-purple" style={{ padding: "8px 14px", fontSize: 12.5, fontWeight: 700 }}>
+                          🏆 {b}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))
+                )}
+              </div>
             )}
           </div>
         )}
-
-        {/* ── REVIEWS TAB ── */}
-        {activeTab === "reviews" && (
-          <div className="page-pad col gap-10" style={{ paddingTop: 14 }}>
-            {u.reviewsGiven.length === 0 ? (
-              <EmptyState emoji="📝" title="No reviews yet" text="This member has not written reviews for local places." />
-            ) : (
-              u.reviewsGiven.map((r) => (
-                <div key={r.id} className="card" style={{ padding: "14px 16px" }}>
-                  <div className="row between" style={{ marginBottom: 4 }}>
-                    <span className="semi small">{r.target}</span>
-                    <span style={{ fontSize: 11, color: "var(--ink-400)" }}>{r.date}</span>
-                  </div>
-                  <StarRow value={r.rating} size={13} />
-                  <p className="small" style={{ marginTop: 8, lineHeight: 1.5, color: "var(--ink-800)", margin: "8px 0 0" }}>{r.comment}</p>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        <div style={{ height: 28 }} />
       </div>
 
+      {/* Share QR Modal */}
       {share && (
         <ShareCard
           title={u.name}
-          subtitle={`Member since ${u.memberSince} • ${u.area}`}
+          subtitle={u.alias ? `@${u.alias}` : "STRYT Member"}
           image={u.avatar}
+          meta={`📍 ${u.area || "Neighborhood"} • ⭐ ${u.ratingAvg}`}
           url={window.location.origin + "/u/" + u.id}
           onClose={() => setShare(false)}
         />
       )}
-    </div>
-  );
-}
-
-function Stat({ icon, value, label, color }: { icon: React.ReactNode; value: number; label: string; color: string }) {
-  return (
-    <div className="grow col center" style={{ gap: 3 }}>
-      <div style={{ width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: `${color}18`, marginBottom: 2 }}>
-        {icon}
-      </div>
-      <span style={{ fontSize: 17, fontWeight: 800, color: "var(--ink-900)", lineHeight: 1 }}>{value}</span>
-      <span style={{ fontSize: 10, color: "var(--ink-500)", fontWeight: 600, letterSpacing: "0.2px" }}>{label}</span>
-    </div>
-  );
-}
-
-function Sep() {
-  return <div style={{ width: 1, alignSelf: "stretch", background: "var(--line)", margin: "6px 0" }} />;
-}
-
-function SectionBox({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <div>
-      {title && (
-        <div className="row gap-6" style={{ marginBottom: 10, fontSize: 12, fontWeight: 700, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          {icon}{title}
-        </div>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function ActivityCard({ label, labelColor, emoji, date, body, onClick }: { label: string; labelColor: string; emoji: string; date: string; body: string; onClick: () => void }) {
-  return (
-    <div className="card" style={{ padding: "12px 14px", cursor: "pointer" }} onClick={onClick}>
-      <div className="row between" style={{ marginBottom: 5 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: labelColor }}>{emoji} {label}</span>
-        <span style={{ fontSize: 11, color: "var(--ink-400)" }}>{date}</span>
-      </div>
-      <div className="row between" style={{ gap: 8 }}>
-        <span className="small clamp-2" style={{ color: "var(--ink-800)", lineHeight: 1.4, flex: 1 }}>{body}</span>
-        <ChevronRight size={15} color="var(--ink-300)" style={{ flexShrink: 0 }} />
-      </div>
     </div>
   );
 }

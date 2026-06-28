@@ -43,7 +43,7 @@ interface BookmarkKey {
 }
 
 interface FollowKey {
-  type: "BUSINESS" | "PROVIDER";
+  type: "BUSINESS" | "PROVIDER" | "USER";
   id: string;
 }
 
@@ -95,8 +95,8 @@ interface AppState {
 
   // follows
   follows: FollowKey[];
-  toggleFollow: (type: "BUSINESS" | "PROVIDER", id: string, name?: string) => void;
-  isFollowing: (type: "BUSINESS" | "PROVIDER", id: string) => boolean;
+  toggleFollow: (type: "BUSINESS" | "PROVIDER" | "USER", id: string, name?: string) => void;
+  isFollowing: (type: "BUSINESS" | "PROVIDER" | "USER", id: string) => boolean;
 
   // stories viewed
   viewedStories: string[];
@@ -389,7 +389,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const toggleFollow = useCallback(
-    (type: "BUSINESS" | "PROVIDER", id: string, name?: string) => {
+    (type: "BUSINESS" | "PROVIDER" | "USER", id: string, name?: string) => {
       const exists = follows.some((f) => f.type === type && f.id === id);
       setFollows((prev) =>
         exists ? prev.filter((f) => !(f.type === type && f.id === id)) : [...prev, { type, id }]
@@ -413,7 +413,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [follows, showToast]
   );
   const isFollowing = useCallback(
-    (type: "BUSINESS" | "PROVIDER", id: string) => follows.some((f) => f.type === type && f.id === id),
+    (type: "BUSINESS" | "PROVIDER" | "USER", id: string) => follows.some((f) => f.type === type && f.id === id),
     [follows]
   );
 

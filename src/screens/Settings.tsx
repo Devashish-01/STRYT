@@ -46,7 +46,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 }
 
 export default function Settings() {
-  const { user, showToast } = useApp();
+  const { user, refreshUser, showToast } = useApp();
   const [silent, setSilent] = useState(() => localStorage.getItem("settings_silent") !== "false");
   const [quiet, setQuiet] = useState(() => localStorage.getItem("settings_quiet") !== "false");
   const [newBiz, setNewBiz] = useState(() => localStorage.getItem("settings_new_biz") !== "false");
@@ -54,6 +54,18 @@ export default function Settings() {
   const [reqs, setReqs] = useState(() => localStorage.getItem("settings_reqs") !== "false");
   const [offers, setOffers] = useState(() => localStorage.getItem("settings_offers") !== "false");
   const [approx, setApprox] = useState(() => localStorage.getItem("settings_approx") !== "false");
+  const [showPosts, setShowPosts] = useState(() => {
+    const saved = localStorage.getItem("settings_show_posts");
+    return saved !== null ? saved === "true" : (user.showPostsPublicly ?? true);
+  });
+  const [showAsks, setShowAsks] = useState(() => {
+    const saved = localStorage.getItem("settings_show_asks");
+    return saved !== null ? saved === "true" : (user.showAsksPublicly ?? true);
+  });
+  const [showBadges, setShowBadges] = useState(() => {
+    const saved = localStorage.getItem("settings_show_badges");
+    return saved !== null ? saved === "true" : (user.showBadgesPublicly ?? true);
+  });
   const [radius, setRadius] = useState(() => {
     const saved = localStorage.getItem("settings_radius");
     return saved ? Number(saved) : (user.notificationRadiusKm || 5);
@@ -112,6 +124,27 @@ export default function Settings() {
       void userService.update({ notificationRadiusKm: radius }).catch(() => {});
     }
   }, [radius, user.id, user.notificationRadiusKm]);
+
+  function handleTogglePosts(v: boolean) {
+    setShowPosts(v);
+    localStorage.setItem("settings_show_posts", String(v));
+    showToast(v ? "Posts are now visible on public profile" : "Posts hidden on public profile");
+    void userService.update({ showPostsPublicly: v }).catch(() => {});
+  }
+
+  function handleToggleAsks(v: boolean) {
+    setShowAsks(v);
+    localStorage.setItem("settings_show_asks", String(v));
+    showToast(v ? "Service requests visible on public profile" : "Service requests hidden on public profile");
+    void userService.update({ showAsksPublicly: v }).catch(() => {});
+  }
+
+  function handleToggleBadges(v: boolean) {
+    setShowBadges(v);
+    localStorage.setItem("settings_show_badges", String(v));
+    showToast(v ? "Badges visible on public profile" : "Badges hidden on public profile");
+    void userService.update({ showBadgesPublicly: v }).catch(() => {});
+  }
 
   const { lang, setLang } = useI18n();
   const langs = Object.entries(LANG_LABELS) as [Lang, string][];
@@ -236,7 +269,11 @@ export default function Settings() {
         <div>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Privacy & safety</div>
           <div className="card">
-            <Row icon={<Eye size={18} color="#16a34a" />} label="Show approximate location" hint="Exact only after agreement" on={approx} set={setApprox} last />
+            <Row icon={<Eye size={18} color="#16a34a" />} label="Show approximate location" hint="Exact only after agreement" on={approx} set={setApprox} />
+            <div className="divider" style={{ margin: 0 }} />
+            <Row label="Show Posts publicly" hint="Allow neighbors to see your community posts on your profile" on={showPosts} set={handleTogglePosts} />
+            <Row label="Show Service Requests publicly" hint="Allow neighbors to see your open & past asks" on={showAsks} set={handleToggleAsks} />
+            <Row label="Show Badges publicly" hint="Show trust badges & verifications on your profile" on={showBadges} set={handleToggleBadges} last />
           </div>
         </div>
 

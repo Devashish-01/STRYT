@@ -188,6 +188,9 @@ export const userService = {
       // Public profiles show the privacy alias, never the real name.
       name: ur.alias || ur.name,
       alias: ur.alias ?? undefined,
+      showPostsPublicly: ur.show_posts_publicly ?? true,
+      showAsksPublicly: ur.show_asks_publicly ?? true,
+      showBadgesPublicly: ur.show_badges_publicly ?? true,
       avatar: ur.avatar ?? "",
       area: ur.area ?? "",
       memberSince: ur.created_at ? new Date(ur.created_at).getFullYear().toString() : "—",

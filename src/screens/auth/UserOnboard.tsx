@@ -1,27 +1,60 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, Loader, LogOut, ArrowRight, User as UserIcon, ShieldAlert } from "lucide-react";
+import {
+  Camera,
+  Loader,
+  LogOut,
+  ArrowRight,
+  User as UserIcon,
+  ShieldAlert,
+  MapPin,
+  Navigation,
+  Globe,
+  Sliders,
+  X,
+} from "lucide-react";
 import { useApp } from "@/store";
 import { userService, uploadService } from "@/services";
+import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 
 const EMOJI_AVATARS = ["🦊", "🐯", "🐨", "🦉", "🎨", "🚀", "🍕", "🥑", "⚽", "🎯"];
 
+const LANGUAGES = [
+  { code: "en", label: "English" },
+  { code: "hi", label: "Hindi (हिंदी)" },
+  { code: "mr", label: "Marathi (मराठी)" },
+];
+
+const RADIUS_OPTIONS = [1, 3, 5, 10];
+
 export default function UserOnboard() {
   const nav = useNavigate();
-  const { user, refreshUser, showToast, signOut } = useApp();
+  const { user, refreshUser, setArea, showToast, signOut } = useApp();
+
+  // 1. Necessary / Required Setup Fields
   const [name, setName] = useState(
     user.name && user.name !== "New user" ? user.name : ""
   );
-  
-  // Compulsory: Alias / Username handle
-  const defaultAlias = user.alias || (user.name && user.name !== "New user" 
-    ? user.name.toLowerCase().replace(/[^a-z0-9_]/g, "") 
-    : "");
+  const defaultAlias =
+    user.alias ||
+    (user.name && user.name !== "New user"
+      ? user.name.toLowerCase().replace(/[^a-z0-9_]/g, "")
+      : "");
   const [alias, setAlias] = useState(defaultAlias);
 
-  // Optional fields
+  // Location setup
+  const [areaInput, setAreaInput] = useState(user.area || "");
+  const [lat, setLat] = useState(user.lat || 0);
+  const [lng, setLng] = useState(user.lng || 0);
+  const [locating, setLocating] = useState(false);
+  const [locQuery, setLocQuery] = useState("");
+  const [locResults, setLocResults] = useState<GeoPlace[]>([]);
+
+  // 2. Optional Settings & Preferences
   const [avatar, setAvatar] = useState(user.avatar || "");
   const [phone, setPhone] = useState(user.phone || "");
+  const [language, setLanguage] = useState(user.language || "en");
+  const [radius, setRadius] = useState(user.notificationRadiusKm || 5);
   const [emergencyName, setEmergencyName] = useState(user.emergencyContactName || "");
   const [emergencyPhone, setEmergencyPhone] = useState(user.emergencyContact || "");
 
@@ -64,6 +97,57 @@ export default function UserOnboard() {
     }
   }
 
+  async function searchPlaces(q: string) {
+    setLocQuery(q);
+    if (q.trim().length < 2) {
+      setLocResults([]);
+      return;
+    }
+    try {
+      setLocResults(await forwardGeocode(q));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function pickPlace(p: GeoPlace) {
+    setLat(p.lat);
+    setLng(p.lng);
+    setAreaInput(p.area);
+    setLocQuery("");
+    setLocResults([]);
+    showToast(`Picked location: ${p.area}`);
+  }
+
+  async function getGPSLocation() {
+    if (!navigator.geolocation) {
+      showToast("GPS not available on this device");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setLat(latitude);
+        setLng(longitude);
+        try {
+          const areaName = await reverseGeocode(latitude, longitude);
+          if (areaName) setAreaInput(areaName);
+          showToast("Location updated with GPS coords ✓");
+        } catch {
+          showToast("GPS coords set. Reverse geocoding failed.");
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => {
+        setLocating(false);
+        showToast("GPS access denied");
+      },
+      { enableHighAccuracy: false, timeout: 8000 }
+    );
+  }
+
   async function handleSave() {
     const trimmedName = name.trim();
     const trimmedAlias = alias.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
@@ -78,19 +162,42 @@ export default function UserOnboard() {
       return;
     }
 
+    let resolvedLat = lat;
+    let resolvedLng = lng;
+    if (areaInput.trim() && (lat === 0 || lng === 0)) {
+      try {
+        const places = await forwardGeocode(areaInput.trim());
+        if (places.length > 0) {
+          resolvedLat = places[0].lat;
+          resolvedLng = places[0].lng;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
     setSaving(true);
     try {
       await userService.update({
         name: trimmedName,
         alias: trimmedAlias,
+        area: areaInput.trim() || undefined,
+        lat: resolvedLat || undefined,
+        lng: resolvedLng || undefined,
         avatar: avatar || undefined,
         phone: phone || undefined,
+        language,
+        notificationRadiusKm: radius,
         emergencyContact: emergencyPhone || undefined,
         emergencyContactName: emergencyName || undefined,
       });
+
+      if (areaInput.trim()) setArea(areaInput.trim());
+      localStorage.setItem("settings_radius", String(radius));
+      localStorage.setItem("locationPromptShown", "true");
       await refreshUser();
-      showToast("Profile updated successfully!");
-      nav("/auth/location");
+      showToast("Account setup complete!");
+      nav("/home");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to update profile";
       showToast(msg);
@@ -165,28 +272,28 @@ export default function UserOnboard() {
             </svg>
           </div>
           <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, color: "var(--ink-900)" }}>
-            Complete Profile
+            Welcome to STRYT
           </h1>
-          <p style={{ marginTop: 6, fontSize: 14, color: "var(--ink-600)" }}>
-            Fill your details to start connecting with your street.
+          <p style={{ marginTop: 6, fontSize: 14, color: "var(--ink-600)", maxWidth: 300, margin: "6px auto 0" }}>
+            Let's set up your account details and local preferences.
           </p>
         </div>
 
-        {/* Compulsory Info Card */}
+        {/* ── 1. Necessary Account Setup Card (REQUIRED *) ── */}
         <div
           style={{
             width: "100%",
             background: "#fff",
-            border: "1px solid var(--ink-200)",
+            border: "1.5px solid var(--brand-300)",
             borderRadius: 24,
             padding: 24,
-            boxShadow: "var(--shadow-md)",
+            boxShadow: "0 8px 24px rgba(124, 58, 237, 0.08)",
             marginBottom: 20,
           }}
         >
-          <div className="row gap-8" style={{ marginBottom: 16 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, background: "rgba(239, 68, 68, 0.1)", color: "var(--red-500)", padding: "4px 10px", borderRadius: 8 }}>
-              COMPULSORY
+          <div className="row gap-8" style={{ marginBottom: 18, alignItems: "center" }}>
+            <span style={{ fontSize: 11, fontWeight: 900, background: "var(--brand-600)", color: "#fff", padding: "4px 10px", borderRadius: 8, letterSpacing: 0.5 }}>
+              NECESSARY SETUP *
             </span>
           </div>
 
@@ -218,7 +325,7 @@ export default function UserOnboard() {
           </div>
 
           {/* Username / Alias handle field */}
-          <div className="field">
+          <div className="field" style={{ marginBottom: 20 }}>
             <label style={{ display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
               Unique Handle / Username *
             </label>
@@ -265,9 +372,95 @@ export default function UserOnboard() {
               />
             </div>
           </div>
+
+          {/* Location Area Field */}
+          <div className="field">
+            <div className="row space-between" style={{ marginBottom: 6, alignItems: "center" }}>
+              <label style={{ fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
+                Neighborhood / Area Location
+              </label>
+              <button
+                type="button"
+                onClick={getGPSLocation}
+                disabled={locating}
+                className="row center gap-4"
+                style={{ background: "none", border: "none", color: "var(--brand-600)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+              >
+                {locating ? <Loader className="spin" size={12} /> : <Navigation size={12} />} GPS Auto
+              </button>
+            </div>
+
+            <div style={{ position: "relative" }}>
+              <input
+                type="text"
+                className="input"
+                style={{
+                  width: "100%",
+                  padding: "12px 14px 12px 38px",
+                  fontSize: 15,
+                  background: "var(--ink-50)",
+                  border: "1.5px solid var(--ink-200)",
+                  borderRadius: 14,
+                  color: "var(--ink-900)",
+                }}
+                placeholder="e.g. Amanora Park Town, Pune"
+                value={locQuery || areaInput}
+                onChange={(e) => {
+                  setAreaInput(e.target.value);
+                  void searchPlaces(e.target.value);
+                }}
+              />
+              <MapPin size={16} color="var(--brand-600)" style={{ position: "absolute", left: 12, top: 14 }} />
+              {locQuery && (
+                <button
+                  type="button"
+                  onClick={() => { setLocQuery(""); setLocResults([]); }}
+                  style={{ position: "absolute", right: 12, top: 12, background: "none", border: "none", cursor: "pointer" }}
+                >
+                  <X size={16} color="var(--ink-400)" />
+                </button>
+              )}
+            </div>
+
+            {/* Location Search Results dropdown */}
+            {locResults.length > 0 && (
+              <div
+                className="card"
+                style={{
+                  marginTop: 6,
+                  padding: 4,
+                  maxHeight: 180,
+                  overflowY: "auto",
+                  border: "1.5px solid var(--brand-300)",
+                  boxShadow: "var(--shadow-md)",
+                }}
+              >
+                {locResults.map((p, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="row gap-8 center-v"
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      textAlign: "left",
+                      background: "none",
+                      border: "none",
+                      borderRadius: 8,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => pickPlace(p)}
+                  >
+                    <MapPin size={14} color="var(--brand-600)" style={{ flexShrink: 0 }} />
+                    <span className="small bold truncate">{p.area}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Optional Info Card */}
+        {/* ── 2. Optional Settings & Preferences Card (OPTIONAL) ── */}
         <div
           style={{
             width: "100%",
@@ -279,9 +472,9 @@ export default function UserOnboard() {
             marginBottom: 32,
           }}
         >
-          <div className="row gap-8" style={{ marginBottom: 20 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, background: "var(--ink-100)", color: "var(--ink-600)", padding: "4px 10px", borderRadius: 8 }}>
-              OPTIONAL DETAILS
+          <div className="row gap-8" style={{ marginBottom: 20, alignItems: "center" }}>
+            <span style={{ fontSize: 11, fontWeight: 800, background: "var(--ink-100)", color: "var(--ink-600)", padding: "4px 10px", borderRadius: 8, letterSpacing: 0.5 }}>
+              OPTIONAL SETTINGS & PREFERENCES
             </span>
           </div>
 
@@ -353,11 +546,11 @@ export default function UserOnboard() {
                 style={{ display: "none" }}
               />
             </div>
-            <span style={{ fontSize: 12, color: "var(--ink-500)" }}>Upload a custom profile photo</span>
+            <span style={{ fontSize: 12, color: "var(--ink-500)" }}>Profile Photo (Optional)</span>
 
             {/* Emoji Quick Picker */}
-            <div className="col gap-6" style={{ width: "100%", marginTop: 12 }}>
-              <span className="tiny semi" style={{ color: "var(--ink-500)", textAlign: "center" }}>Or pick an emoji:</span>
+            <div className="col gap-6" style={{ width: "100%", marginTop: 4 }}>
+              <span className="tiny semi" style={{ color: "var(--ink-500)", textAlign: "center" }}>Or pick an avatar emoji:</span>
               <div className="row gap-6" style={{ flexWrap: "wrap", justifyContent: "center" }}>
                 {EMOJI_AVATARS.map((emoji) => (
                   <button
@@ -373,14 +566,6 @@ export default function UserOnboard() {
                       cursor: "pointer",
                       transition: "all 0.15s"
                     }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.transform = "scale(1.15)";
-                      e.currentTarget.style.borderColor = "var(--brand-500)";
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.transform = "scale(1)";
-                      e.currentTarget.style.borderColor = "var(--ink-200)";
-                    }}
                   >
                     {emoji}
                   </button>
@@ -389,7 +574,7 @@ export default function UserOnboard() {
             </div>
           </div>
 
-          {/* Optional Phone Field */}
+          {/* Optional Mobile Phone */}
           <div className="field" style={{ marginBottom: 20 }}>
             <label style={{ display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
               Mobile Phone
@@ -400,12 +585,11 @@ export default function UserOnboard() {
               style={{
                 width: "100%",
                 padding: "12px 14px",
-                fontSize: 16,
+                fontSize: 15,
                 background: "var(--ink-50)",
                 border: "1.5px solid var(--ink-200)",
                 borderRadius: 14,
                 color: "var(--ink-900)",
-                outline: "none",
               }}
               placeholder="e.g. 9876543210"
               value={phone}
@@ -415,13 +599,69 @@ export default function UserOnboard() {
             />
           </div>
 
+          {/* Language & Notification Radius preferences */}
+          <div className="row gap-12" style={{ marginBottom: 20 }}>
+            <div className="field grow">
+              <label style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
+                <Globe size={13} color="var(--brand-600)" /> Language
+              </label>
+              <select
+                className="input"
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  fontSize: 14,
+                  background: "var(--ink-50)",
+                  border: "1.5px solid var(--ink-200)",
+                  borderRadius: 14,
+                  color: "var(--ink-900)",
+                }}
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
+                {LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Notification Radius */}
+          <div className="field" style={{ marginBottom: 20 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
+              <Sliders size={13} color="var(--brand-600)" /> Alert Radius
+            </label>
+            <div className="row gap-8">
+              {RADIUS_OPTIONS.map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRadius(r)}
+                  style={{
+                    flex: 1,
+                    padding: "8px 0",
+                    borderRadius: 10,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    border: radius === r ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
+                    background: radius === r ? "var(--brand-50)" : "var(--ink-50)",
+                    color: radius === r ? "var(--brand-700)" : "var(--ink-700)",
+                    cursor: "pointer"
+                  }}
+                >
+                  {r} km
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Divider */}
           <div style={{ height: 1, background: "var(--ink-100)", margin: "20px 0" }} />
 
           {/* Emergency Contacts Section */}
           <div className="col gap-12">
             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--red-500)", display: "flex", alignItems: "center", gap: 6 }}>
-              <ShieldAlert size={14} /> Emergency Contact (Highly Recommended)
+              <ShieldAlert size={14} /> Emergency Contact (Optional / Safety)
             </span>
             
             <div className="field">
@@ -436,7 +676,6 @@ export default function UserOnboard() {
                   border: "1.5px solid var(--ink-200)",
                   borderRadius: 14,
                   color: "var(--ink-900)",
-                  outline: "none",
                 }}
                 placeholder="Contact Person's Name"
                 value={emergencyName}
@@ -457,7 +696,6 @@ export default function UserOnboard() {
                   border: "1.5px solid var(--ink-200)",
                   borderRadius: 14,
                   color: "var(--ink-900)",
-                  outline: "none",
                 }}
                 placeholder="Contact Person's Mobile"
                 value={emergencyPhone}
@@ -478,7 +716,7 @@ export default function UserOnboard() {
         >
           {saving ? (
             <>
-              <Loader className="spin" size={18} /> Saving Details...
+              <Loader className="spin" size={18} /> Saving Account Setup...
             </>
           ) : (
             <>

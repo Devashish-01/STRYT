@@ -450,6 +450,9 @@ export interface PublicUser {
   requests?: { id: string; categoryName?: string; description: string; status: string; budget?: number; date: string }[];
   proposalsGiven?: { id: string; requestId: string; requestTitle: string; price: number; note: string; date: string }[];
   proposalsReceivedCount?: number;
+  showPostsPublicly?: boolean;
+  showAsksPublicly?: boolean;
+  showBadgesPublicly?: boolean;
 }
 
 export interface LeaderEntry {
@@ -527,6 +530,9 @@ export interface CurrentUser {
   notificationRadiusKm: number;
   emergencyContact?: string;
   emergencyContactName?: string;
+  showPostsPublicly?: boolean;
+  showAsksPublicly?: boolean;
+  showBadgesPublicly?: boolean;
 }
 
 export interface QnaItem {
