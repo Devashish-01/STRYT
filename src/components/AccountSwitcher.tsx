@@ -3,6 +3,7 @@ import { Check, Store, Briefcase, User, Plus, ChevronRight } from "lucide-react"
 import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
 import { businessService, providerService } from "@/services";
+import { SafeImg } from "./common";
 
 export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
   const nav = useNavigate();
@@ -102,7 +103,7 @@ function Row({ active, avatar, icon, title, sub, color, badge, onClick }: {
   return (
     <button className="card row gap-12" style={{ padding: 12, textAlign: "left", border: active ? `2px solid ${color}` : "1px solid var(--line)" }} onClick={onClick}>
       <div style={{ position: "relative" }}>
-        <img src={avatar} className="avatar" style={{ width: 44, height: 44 }} />
+        <SafeImg src={avatar} variant="avatar" className="avatar" style={{ width: 44, height: 44 }} />
         <span style={{ position: "absolute", bottom: -2, right: -2, width: 18, height: 18, borderRadius: "50%", background: color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff" }}>{icon}</span>
       </div>
       <div className="grow">

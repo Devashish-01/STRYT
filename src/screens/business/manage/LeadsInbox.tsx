@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { AppBar, EmptyState } from "@/components/common";
+import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -47,7 +47,7 @@ export default function LeadsInbox() {
               return (
                 <div key={l.id} className="card row gap-12" style={{ padding: 12, opacity: done ? 0.6 : 1 }}>
                   <div style={{ position: "relative" }}>
-                    <img src={l.avatar} className="avatar" style={{ width: 42, height: 42 }} />
+                    <SafeImg src={l.avatar} variant="avatar" className="avatar" style={{ width: 42, height: 42 }} />
                     <span style={{ position: "absolute", bottom: -2, right: -2, width: 18, height: 18, borderRadius: "50%", background: M.color, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff" }}><Icon size={9} color="#fff" /></span>
                   </div>
                   <div className="grow">

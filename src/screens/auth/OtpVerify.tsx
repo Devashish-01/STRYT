@@ -247,23 +247,6 @@ export default function OtpVerify() {
             </button>
           )}
         </div>
-
-        {config.useMocks && (
-          <div
-            className="card"
-            style={{
-              marginTop: 24,
-              padding: "10px 12px",
-              background: "var(--brand-50)",
-              border: "1px solid var(--brand-100)",
-              borderRadius: 12,
-            }}
-          >
-            <p className="tiny" style={{ color: "var(--brand-700)", textAlign: "center", margin: 0 }}>
-              💡 Dev build: use a Supabase test number and its fixed code
-            </p>
-          </div>
-        )}
       </div>
 
       {/* Verify Button */}

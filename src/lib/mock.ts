@@ -1,7 +1,4 @@
-import { config } from "@/config";
-
-// Simulate network latency so loading/skeleton states are visible & testable.
-export function mockDelay<T>(value: T, ms = config.mockLatencyMs): Promise<T> {
+export function mockDelay<T>(value: T, ms = 280): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 

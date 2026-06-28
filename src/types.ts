@@ -328,6 +328,14 @@ export interface AvailableNow {
   availableUntil: string; // label e.g. "3:30 PM"
   minutesLeft: number;
   note: string;
+  displayName?: string;
+  avatar?: string;
+  categoryName?: string;
+  distanceKm?: number;
+  startingPrice?: number;
+  phone?: string;
+  ratingAvg?: number;
+  isVerified?: boolean;
 }
 
 export interface QueueInfo {
@@ -426,6 +434,7 @@ export interface SavedList {
 export interface PublicUser {
   id: string;
   name: string; // public-safe: the alias (real name stays private)
+  alias?: string;
   avatar: string;
   area: string;
   memberSince: string;
@@ -437,6 +446,10 @@ export interface PublicUser {
   badges: string[];
   verifications: ("phone" | "id" | "address" | "business")[];
   reviewsGiven: { id: string; target: string; rating: number; comment: string; date: string }[];
+  posts?: { id: string; title?: string; body: string; type: string; area?: string; date: string; likesCount: number; commentsCount: number }[];
+  requests?: { id: string; categoryName?: string; description: string; status: string; budget?: number; date: string }[];
+  proposalsGiven?: { id: string; requestId: string; requestTitle: string; price: number; note: string; date: string }[];
+  proposalsReceivedCount?: number;
 }
 
 export interface LeaderEntry {

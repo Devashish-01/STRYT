@@ -193,10 +193,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // and is exchanged for a session asynchronously) is never bounced back to the
   // login screen mid-callback. In mock mode there's no async auth, so it's ready
   // immediately.
-  const [authReady, setAuthReady] = useState(config.useMocks);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
-    if (config.useMocks) return;
     let sb: ReturnType<typeof getSupabase>;
     try {
       sb = getSupabase();
@@ -264,7 +263,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // ── R8: hydrate bookmarks / follows / lists / unread from Supabase ──────
   const hydratePersonalData = useCallback(async () => {
-    if (config.useMocks) return;
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
@@ -366,7 +364,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         exists ? prev.filter((b) => !(b.type === type && b.id === id)) : [...prev, { type, id }]
       );
       showToast(exists ? "Removed from saved" : "Saved");
-      if (config.useMocks) return;
       // …then persist, and REVERT if the write fails so the UI never lies.
       void (async () => {
         const uid = await currentUserId();
@@ -398,7 +395,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         exists ? prev.filter((f) => !(f.type === type && f.id === id)) : [...prev, { type, id }]
       );
       showToast(exists ? "Unfollowed" : name ? `Following ${name}` : "Following");
-      if (config.useMocks) return;
       void (async () => {
         const uid = await currentUserId();
         if (!uid) return;
@@ -453,7 +449,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const saved = savedCoupons.includes(id);
       setSavedCoupons((p) => (saved ? p.filter((x) => x !== id) : [...p, id]));
       if (!saved) showToast("Coupon saved to wallet");
-      if (config.useMocks) return;
       void (async () => {
         try {
           if (saved) await walletService.unsaveCoupon(id);
@@ -471,7 +466,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (cardId: string) => {
       setExtraStamps((p) => ({ ...p, [cardId]: (p[cardId] ?? 0) + 1 }));
       showToast("Stamp added 🎉");
-      if (config.useMocks) return;
       void (async () => {
         try {
           await walletService.addStamp(cardId);
@@ -488,7 +482,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const key = `${providerId}:${skill}`;
     const exists = endorsed.includes(key);
     setEndorsed((p) => (exists ? p.filter((x) => x !== key) : [...p, key]));
-    if (config.useMocks) return;
     void (async () => {
       try {
         if (exists) await socialService.removeEndorsement(providerId, skill);
@@ -505,7 +498,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const exists = vouched.includes(providerId);
       setVouched((p) => (exists ? p.filter((x) => x !== providerId) : [...p, providerId]));
       showToast(exists ? "Vouch removed" : "You vouched for this provider 🤝");
-      if (config.useMocks) return;
       void (async () => {
         try {
           if (exists) await socialService.removeVouch(providerId);
@@ -543,12 +535,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const createList = useCallback(
     async (name: string, emoji: string): Promise<string> => {
-      if (config.useMocks) {
-        const localId = "sl" + Math.random().toString(36).slice(2, 7);
-        setLists((p) => [...p, { id: localId, name, emoji, shared: false, items: [] }]);
-        showToast(`Created "${name}"`);
-        return localId;
-      }
       // Insert the list and WAIT for the real id before returning, so a follow-up
       // addToList() writes user_list_items against an id that actually exists
       // (otherwise the FK insert silently fails and the item is lost on refresh).
@@ -577,7 +563,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         p.map((l) => (l.id === listId ? { ...l, items: [...l.items, { type, id }] } : l))
       );
       showToast("Added to list");
-      if (config.useMocks) return;
       void (async () => {
         const { error } = await getSupabase()
           .from("user_list_items")
@@ -623,7 +608,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (prev.includes(r)) return prev;
           const next = [...prev, r];
           // Persist to DB so refreshUser() doesn't overwrite back to ['customer'].
-          if (!config.useMocks) void userService.update({ roles: next });
+          void userService.update({ roles: next });
           return next;
         });
         setPersistedActiveRole(r);
@@ -686,9 +671,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("locationPromptShown");
         localStorage.removeItem("activeContext");
         localStorage.removeItem("activeRole");
-        if (!config.useMocks) {
-          void authService.logout().catch((err) => console.error("Error signing out:", err));
-        }
+        void authService.logout().catch((err) => console.error("Error signing out:", err));
       },
     }),
     [

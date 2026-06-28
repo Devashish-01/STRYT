@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Star } from "lucide-react";
-import { useState, type ReactNode, type CSSProperties } from "react";
+import { useState, useEffect, type ReactNode, type CSSProperties } from "react";
 
 export function AppBar({
   title,
@@ -181,6 +181,11 @@ export function SafeImg({
 }) {
   const fallback = variant === "avatar" ? FALLBACK_AVATAR : FALLBACK_IMG;
   const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    setErrored(false);
+  }, [src]);
+
   return (
     <img
       src={!src || errored ? fallback : src}

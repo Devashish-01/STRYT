@@ -1,10 +1,27 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, X } from "lucide-react";
-import { catalogService } from "@/services";
+import { ArrowLeft, Search, X, SlidersHorizontal } from "lucide-react";
+import { catalogService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import type { Category } from "@/types";
 import { useApp } from "@/store";
+
+const RADIUS_OPTIONS = [
+  { label: "500m", km: 0.5 },
+  { label: "1 km",  km: 1 },
+  { label: "2 km",  km: 2 },
+  { label: "5 km",  km: 5 },
+  { label: "10 km", km: 10 },
+  { label: "25 km", km: 25 },
+  { label: "50 km", km: 50 },
+  { label: "100 km", km: 100 },
+  { label: "🌍 World", km: 20000 },
+];
+
+function roundToHalf(v: number): number {
+  const r = Math.round(v * 2) / 2;
+  return Math.max(0.5, r);
+}
 
 function getAllIds(cat: Category): string[] {
   return [cat.id, ...(cat.children ?? []).flatMap(getAllIds)];
@@ -15,12 +32,25 @@ export default function AllCategories() {
   const { user } = useApp();
   const [q, setQ] = useState("");
 
+  const [radius, setRadius] = useState(() => {
+    const saved = localStorage.getItem("settings_radius");
+    return saved ? parseFloat(saved) : (user.notificationRadiusKm || 5);
+  });
+
+  useEffect(() => {
+    localStorage.setItem("settings_radius", String(radius));
+    if (user.id && radius !== user.notificationRadiusKm) {
+      void userService.update({ notificationRadiusKm: radius }).catch(() => {});
+    }
+  }, [radius, user.id, user.notificationRadiusKm]);
+
+  const [showCustom, setShowCustom] = useState(false);
+  const [customVal, setCustomVal] = useState("");
+
   const { data: categories, loading } = useQuery(() => catalogService.getCategories(), []);
   const { data: counts } = useQuery(() => {
-    const saved = localStorage.getItem("settings_radius");
-    const radiusLimit = saved ? parseFloat(saved) : 5;
-    return catalogService.getCategoryCounts(user.lat || undefined, user.lng || undefined, radiusLimit);
-  }, [user.lat, user.lng]);
+    return catalogService.getCategoryCounts(user.lat || undefined, user.lng || undefined, radius);
+  }, [user.lat, user.lng, radius]);
 
   const sorted = useMemo(() => {
     const all = categories ?? [];
@@ -79,6 +109,100 @@ export default function AllCategories() {
       </div>
 
       <div className="screen-scroll">
+        {/* Radius selector */}
+        <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 4 }}>
+          <div className="card" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="row between small semi">
+              <span className="row gap-6"><SlidersHorizontal size={14} /> Radius</span>
+              <span style={{ color: "var(--brand-700)" }}>
+                {radius >= 20000 ? "🌍 World" : radius === 0.5 ? "500m" : `${radius} km`}
+              </span>
+            </div>
+
+            {/* Quick radius chips */}
+            <div className="row gap-6" style={{ overflowX: "auto", paddingBottom: 4, width: "100%" }}>
+              {RADIUS_OPTIONS.map((opt) => {
+                const active = radius === opt.km;
+                return (
+                  <button
+                    key={opt.km}
+                    onClick={() => { setRadius(opt.km); setShowCustom(false); }}
+                    className={`chip ${active ? "active" : ""}`}
+                    style={{
+                      padding: "5px 12px",
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => {
+                  const presetKms = new Set(RADIUS_OPTIONS.map((o) => o.km));
+                  const isCustomActive = !presetKms.has(radius);
+                  setCustomVal(isCustomActive ? String(radius) : "");
+                  setShowCustom(!showCustom);
+                }}
+                className={`chip ${(!new Set(RADIUS_OPTIONS.map((o) => o.km)).has(radius)) ? "active" : ""}`}
+                style={{
+                  padding: "5px 12px",
+                  fontSize: 12,
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  borderStyle: "dashed"
+                }}
+              >
+                Custom
+              </button>
+            </div>
+
+            {/* Custom inputs */}
+            {showCustom && (
+              <div className="row gap-8" style={{ marginTop: 4, alignItems: "center" }}>
+                <input
+                  type="number"
+                  min={0.5}
+                  step={0.5}
+                  value={customVal}
+                  placeholder="e.g. 3.7"
+                  onChange={(e) => setCustomVal(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const n = parseFloat(customVal);
+                      if (!isNaN(n) && n > 0) setRadius(roundToHalf(n));
+                      setShowCustom(false);
+                    }
+                  }}
+                  className="input"
+                  style={{
+                    flex: 1,
+                    padding: "8px 12px",
+                    fontSize: 14,
+                    border: "1.5px solid var(--ink-200)",
+                    borderRadius: 10,
+                    outline: "none"
+                  }}
+                />
+                <span className="small muted">km</span>
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ padding: "8px 14px", borderRadius: 10 }}
+                  onClick={() => {
+                    const n = parseFloat(customVal);
+                    if (!isNaN(n) && n > 0) setRadius(roundToHalf(n));
+                    setShowCustom(false);
+                  }}
+                >
+                  Apply
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {loading ? (
           <div
             className="page-pad"

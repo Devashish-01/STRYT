@@ -9,10 +9,12 @@ import { useApp } from "@/store";
 export default function AvailableNow() {
   const nav = useNavigate();
   const { user } = useApp();
-  const { data: availList, loading, error, refetch } = useQuery(() => socialService.availableNow(), []);
-  const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
+  const { data: availList, loading, error, refetch } = useQuery(() => {
+    const saved = localStorage.getItem("settings_radius");
+    const radiusLimit = saved ? parseFloat(saved) : 5;
+    return socialService.availableNow(user.lat || undefined, user.lng || undefined, radiusLimit);
+  }, [user.lat, user.lng]);
   const availableNow = availList ?? [];
-  const providers = provPage?.data ?? [];
 
   return (
     <div className="screen">
@@ -36,11 +38,9 @@ export default function AvailableNow() {
           {availableNow.length === 0 ? (
             <EmptyState emoji="😴" title="No one's free right now" text="Check back later or post a request — providers will respond." />
           ) : (
-            availableNow.map((a) => {
-              const p = providers.find((x) => x.id === a.providerId);
-              if (!p) return null;
+            availableNow.map((p) => {
               return (
-                <div key={a.providerId} className="card" style={{ padding: 14 }} onClick={() => nav(`/provider/${p.id}`)}>
+                <div key={p.providerId} className="card" style={{ padding: 14 }} onClick={() => nav(`/provider/${p.providerId}`)}>
                   <div className="row gap-12">
                     <div style={{ position: "relative" }}>
                       <SafeImg src={p.avatar} variant="avatar" className="avatar" style={{ width: 54, height: 54 }} />
@@ -53,13 +53,13 @@ export default function AvailableNow() {
                       </div>
                       <div className="tiny muted">{p.categoryName} • {p.distanceKm} km</div>
                       <div className="row gap-6" style={{ marginTop: 5 }}>
-                        <span className="badge badge-green"><Clock size={11} /> till {a.availableUntil}</span>
-                        <Rating value={p.ratingAvg} size={10} />
+                        <span className="badge badge-green"><Clock size={11} /> till {p.availableUntil}</span>
+                        <Rating value={p.ratingAvg || 0} size={10} />
                       </div>
                     </div>
                   </div>
                   <div className="card" style={{ padding: 10, marginTop: 10, background: "var(--ink-50)", border: "none" }}>
-                    <span className="tiny semi" style={{ color: "#15803d" }}>⚡ {a.note}</span>
+                    <span className="tiny semi" style={{ color: "#15803d" }}>⚡ {p.note}</span>
                   </div>
                   <div className="row gap-10" style={{ marginTop: 10 }}>
                     <div className="grow col" style={{ gap: 0 }}>

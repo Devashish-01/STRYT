@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { createClient } from "@supabase/supabase-js";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { SafeImg } from "@/components/common";
 
 const anonSb = createClient(
   (import.meta as any).env.VITE_SUPABASE_URL,
@@ -154,10 +155,7 @@ export default function TrackingPage() {
 
       {/* Provider bar */}
       <div style={{ height: 60, background: "#fff", display: "flex", alignItems: "center", gap: 12, padding: "0 16px", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
-        {providerAvatar
-          ? <img src={providerAvatar} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }} />
-          : <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#e9d5ff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--brand-700)" }}>{providerName[0]}</div>
-        }
+        <SafeImg src={providerAvatar} variant="avatar" style={{ width: 40, height: 40 }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{providerName} is {statusInfo.label.toLowerCase()}</div>
           <div style={{ fontSize: 12, color: "#6b7280" }}>Updates every 30s</div>

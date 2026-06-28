@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppBar } from "@/components/common";
+import { AppBar, SafeImg } from "@/components/common";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { UserPlus, Crown, Power, Bell } from "lucide-react";
@@ -38,7 +38,7 @@ export default function BusinessSettings() {
           <div className="card">
             {(team ?? []).map((m, i) => (
               <div key={m.id} className="row gap-12" style={{ padding: "12px 14px", borderBottom: i < (team!.length - 1) ? "1px solid var(--line)" : "none" }}>
-                <img src={m.avatar} className="avatar" style={{ width: 40, height: 40 }} />
+                <SafeImg src={m.avatar} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
                 <div className="grow"><div className="semi small">{m.name}</div><div className="tiny muted">{m.phone}</div></div>
                 <span className={`badge ${m.role === "OWNER" ? "badge-purple" : "badge-gray"}`}>{m.role === "OWNER" && <Crown size={10} />} {m.role}</span>
               </div>

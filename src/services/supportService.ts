@@ -1,6 +1,5 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
-import { config } from "@/config";
 
 export interface SupportTicket {
   id?: string;
@@ -19,9 +18,6 @@ export interface BugReport {
   createdAt?: string;
 }
 
-// Simple latency simulator matching mockLatencyMs
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export const supportService = {
   async submitTicket(ticket: {
     category: string;
@@ -29,12 +25,6 @@ export const supportService = {
     subject: string;
     message: string;
   }): Promise<{ ok: boolean }> {
-    if (config.useMocks) {
-      await delay(config.mockLatencyMs);
-      console.log("Mock support ticket submitted:", ticket);
-      return { ok: true };
-    }
-
     const sb = getSupabase();
     const uid = await currentUserId();
     
@@ -70,12 +60,6 @@ export const supportService = {
   },
 
   async submitBugReport(bug: { description: string }): Promise<{ ok: boolean }> {
-    if (config.useMocks) {
-      await delay(config.mockLatencyMs);
-      console.log("Mock bug report submitted:", bug);
-      return { ok: true };
-    }
-
     const sb = getSupabase();
     const uid = await currentUserId();
 

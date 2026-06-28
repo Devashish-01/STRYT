@@ -9,6 +9,20 @@ export interface OwnedEntities {
   providerId: string | null;
 }
 
+const USER_COLUMNS = new Set([
+  "name", "alias", "phone", "avatar", "roles", "area", "city", "lat", "lng",
+  "ratingAvg", "ratingCount", "language", "notificationRadiusKm",
+  "emergencyContact", "emergencyContactName",
+]);
+
+function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (allowed.has(k) && v !== undefined) out[k] = v;
+  }
+  return out;
+}
+
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   if (d <= 0) return "today";
@@ -44,20 +58,34 @@ export const userService = {
               || au.phone
               || "New user";
     const alias = generateAlias();
+    const avatar = (au.user_metadata?.avatar_url as string | undefined)
+                || (au.user_metadata?.picture as string | undefined)
+                || null;
     const { error: upsertErr } = await sb.from("users").upsert(
-      { id: uid, name, alias, phone: au.phone ?? null, roles: ["customer"] },
+      { id: uid, name, alias, phone: au.phone ?? null, avatar, roles: ["customer"] },
       { onConflict: "id", ignoreDuplicates: true }
     );
     if (upsertErr) console.warn("me (profile self-heal):", upsertErr.message);
-    return toCamel<CurrentUser>({ id: uid, name, alias, phone: au.phone ?? null, avatar: null, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5 });
+    return toCamel<CurrentUser>({ id: uid, name, alias, phone: au.phone ?? null, avatar, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5 });
   },
 
   async update(patch: Partial<CurrentUser>) {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Not signed in" }, 401);
-    const { data, error } = await sb.from("users").update(toSnake(patch)).eq("id", uid).select().maybeSingle();
+    const cleanPatch = pickColumns(patch as Record<string, unknown>, USER_COLUMNS);
+    const { data, error } = await sb.from("users").update(toSnake(cleanPatch)).eq("id", uid).select().maybeSingle();
     throwIfError(error);
+
+    // Sync avatar and name changes to any provider profile owned by this user
+    if (patch.avatar !== undefined || patch.name !== undefined) {
+      const provPatch: Record<string, any> = {};
+      if (patch.avatar !== undefined) provPatch.avatar = patch.avatar;
+      if (patch.name !== undefined) provPatch.display_name = patch.name;
+      const { error: provErr } = await sb.from("providers").update(provPatch).eq("user_id", uid);
+      if (provErr) console.warn("update (provider sync):", provErr.message);
+    }
+
     return toCamel<CurrentUser>(data);
   },
 
@@ -114,12 +142,29 @@ export const userService = {
     if (!u) return undefined;
     const ur = u as any;
 
-    const [helpedRes, requestsRes, vouchRes, ratingsRes] = await Promise.all([
+    const [helpedRes, requestsRes, vouchRes, ratingsRes, postsRes, userRequestsData, proposalsGivenData] = await Promise.all([
       sb.from("agreements").select("*", { count: "exact", head: true }).eq("responder_user_id", id).eq("status", "COMPLETED"),
       sb.from("requests").select("*", { count: "exact", head: true }).eq("requester_user_id", id),
       sb.from("vouches").select("*", { count: "exact", head: true }).eq("from_user_id", id),
       sb.from("ratings").select("id, rating, comment, created_at, ratee_type, ratee_id").eq("rater_user_id", id).order("created_at", { ascending: false }).limit(10),
+      sb.from("community_posts").select("id, title, body, type, area, created_at, likes_count, comments_count").eq("author_user_id", id).order("created_at", { ascending: false }).limit(20),
+      sb.from("requests").select("id, category_name, description, status, budget_max, created_at").eq("requester_user_id", id).order("created_at", { ascending: false }).limit(20),
+      sb.from("proposals").select("id, request_id, price, note, created_at").eq("responder_user_id", id).order("created_at", { ascending: false }).limit(20),
     ]);
+
+    // Resolve request titles for proposals given
+    const proposals = (proposalsGivenData.data ?? []) as any[];
+    const reqIds = Array.from(new Set(proposals.map((p) => p.request_id).filter(Boolean)));
+    const { data: reqTitlesData } = reqIds.length
+      ? await sb.from("requests").select("id, description, category_name").in("id", reqIds)
+      : { data: [] as any[] };
+    const reqTitlesMap = new Map((reqTitlesData ?? []).map((r: any) => [r.id, r.category_name || r.description?.slice(0, 30) || "Request"]));
+
+    // Count proposals received on user's requests
+    const userReqIds = (userRequestsData.data ?? []).map((r: any) => r.id);
+    const { count: propRecCount } = userReqIds.length
+      ? await sb.from("proposals").select("*", { count: "exact", head: true }).in("request_id", userReqIds)
+      : { count: 0 };
 
     // Resolve the names of whatever this user reviewed.
     const ratings = (ratingsRes.data ?? []) as any[];
@@ -142,6 +187,7 @@ export const userService = {
       id: ur.id,
       // Public profiles show the privacy alias, never the real name.
       name: ur.alias || ur.name,
+      alias: ur.alias ?? undefined,
       avatar: ur.avatar ?? "",
       area: ur.area ?? "",
       memberSince: ur.created_at ? new Date(ur.created_at).getFullYear().toString() : "—",
@@ -164,6 +210,33 @@ export const userService = {
         comment: r.comment ?? "",
         date: relDate(r.created_at),
       })),
+      posts: (postsRes.data ?? []).map((p: any) => ({
+        id: p.id,
+        title: p.title ?? undefined,
+        body: p.body ?? "",
+        type: p.type ?? "DISCUSSION",
+        area: p.area ?? undefined,
+        date: relDate(p.created_at),
+        likesCount: p.likes_count ?? 0,
+        commentsCount: p.comments_count ?? 0,
+      })),
+      requests: (userRequestsData.data ?? []).map((r: any) => ({
+        id: r.id,
+        categoryName: r.category_name ?? undefined,
+        description: r.description ?? "",
+        status: r.status ?? "OPEN",
+        budget: r.budget_max ?? undefined,
+        date: relDate(r.created_at),
+      })),
+      proposalsGiven: proposals.map((p: any) => ({
+        id: p.id,
+        requestId: p.request_id,
+        requestTitle: reqTitlesMap.get(p.request_id) || "Help Request",
+        price: p.price ?? 0,
+        note: p.note ?? "",
+        date: relDate(p.created_at),
+      })),
+      proposalsReceivedCount: propRecCount ?? 0,
     };
   },
 };

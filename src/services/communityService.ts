@@ -1,7 +1,6 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
-import { config } from "@/config";
 import type { CommunityPost, Comment } from "@/types";
 import { haversineKm } from "@/lib/geocode";
 
@@ -24,36 +23,35 @@ function mapPost(
   userLat?: number,
   userLng?: number
 ): CommunityPost {
-  const pollOptions = parsePollOpts(row.poll_options)?.map((o) => ({
-    ...o,
-    votes: voteCounts[row.id]?.[o.id] ?? 0,
-  }));
-  return {
-    id: row.id,
-    type: row.type,
-    authorName: row.author_name,
-    authorAvatar: row.author_avatar,
-    title: row.title,
-    body: row.body ?? "",
-    area: row.area ?? "",
-    distanceKm: (userLat && userLng && row.lat && row.lng)
-      ? haversineKm(userLat, userLng, row.lat, row.lng)
-      : 0.5,
-    postedAt: relLabel(row.created_at),
-    image: row.image ?? undefined,
-    likes: row.likes_count ?? 0,
-    liked: likedIds.has(row.id),
-    commentsCount: row.comments_count ?? 0,
-    pollOptions,
-    votedOptionId: userVotes[row.id] ?? null,
-    recommendations: row.recommendations ?? undefined,
-    resolved: row.resolved ?? false,
-    lat: row.lat ?? undefined,
-    lng: row.lng ?? undefined,
-  };
+  const p = toCamel<CommunityPost>(row);
+  p.liked = likedIds.has(p.id);
+
+  // Poll options & counts
+  const rawOpts = parsePollOpts((row as any).poll_options);
+  if (rawOpts) {
+    const postVoteMap = voteCounts[p.id] ?? {};
+    const totalVotes = Object.values(postVoteMap).reduce((a, b) => a + b, 0);
+    p.pollOptions = rawOpts.map((o) => {
+      const cnt = postVoteMap[o.id] ?? 0;
+      return {
+        ...o,
+        votes: cnt,
+      };
+    });
+    p.votedOptionId = userVotes[p.id] ?? null;
+  }
+
+  p.postedAt = relLabel(row.created_at);
+  if (userLat != null && userLng != null && row.lat != null && row.lng != null) {
+    p.distanceKm = Math.round(haversineKm(userLat, userLng, row.lat, row.lng) * 10) / 10;
+  } else {
+    p.distanceKm = (p as any).distance_km ?? 0.5;
+  }
+  return p;
 }
 
 function relLabel(iso: string): string {
+  if (!iso) return "recently";
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
   if (m < 1) return "just now";
@@ -65,7 +63,6 @@ function relLabel(iso: string): string {
 
 export const communityService = {
   async feed(opts: { lat?: number; lng?: number; radiusKm?: number } = {}): Promise<CommunityPost[]> {
-    if (config.useMocks) return [];
     const sb = getSupabase();
     const uid = await currentUserId();
 
@@ -146,7 +143,6 @@ export const communityService = {
   },
 
   async get(id: string, lat?: number, lng?: number): Promise<CommunityPost | undefined> {
-    if (config.useMocks) return undefined;
     const sb = getSupabase();
     const uid = await currentUserId();
     const { data: row, error } = await sb
@@ -179,23 +175,6 @@ export const communityService = {
   },
 
   async create(data: Partial<CommunityPost> & { lat?: number; lng?: number }): Promise<CommunityPost> {
-    if (config.useMocks) {
-      return {
-        id: "post_mock_" + Date.now(),
-        type: data.type ?? "ALERT",
-        authorName: data.authorName ?? "Neighbor",
-        authorAvatar: "",
-        title: data.title ?? "",
-        body: data.body ?? "",
-        area: data.area ?? "",
-        distanceKm: 0.5,
-        postedAt: "just now",
-        likes: 0,
-        liked: false,
-        commentsCount: 0,
-        resolved: false,
-      };
-    }
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
@@ -224,7 +203,6 @@ export const communityService = {
   },
 
   async like(postId: string, currentlyLiked: boolean): Promise<boolean> {
-    if (config.useMocks) return !currentlyLiked;
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return currentlyLiked;
@@ -245,7 +223,6 @@ export const communityService = {
   },
 
   async vote(postId: string, optionId: string): Promise<void> {
-    if (config.useMocks) return;
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
@@ -256,7 +233,6 @@ export const communityService = {
   },
 
   async comments(postId: string): Promise<Comment[]> {
-    if (config.useMocks) return [];
     const sb = getSupabase();
     const uid = await currentUserId();
     const { data: post } = await sb.from("community_posts").select("author_user_id").eq("id", postId).maybeSingle();
@@ -292,19 +268,6 @@ export const communityService = {
     body: string,
     opts: { listingType?: string; listingId?: string; sharedPhone?: string; phoneVisibility?: "OWNER" | "PUBLIC" } = {}
   ): Promise<Comment> {
-    if (config.useMocks) {
-      return {
-        id: "comment_mock_" + Date.now(),
-        authorName: "Neighbor",
-        authorAvatar: "",
-        body,
-        time: "just now",
-        listingType: opts.listingType as any,
-        listingId: opts.listingId,
-        sharedPhone: opts.sharedPhone,
-        phoneVisibility: opts.phoneVisibility,
-      };
-    }
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
@@ -341,7 +304,6 @@ export const communityService = {
   },
 
   async recommendListing(postId: string, listingType: "BUSINESS" | "PROVIDER", listingId: string, byName: string): Promise<void> {
-    if (config.useMocks) return;
     const sb = getSupabase();
     const { data: post } = await sb.from("community_posts").select("recommendations").eq("id", postId).maybeSingle();
     const existing = (post as any)?.recommendations ?? [];

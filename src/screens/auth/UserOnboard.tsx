@@ -41,12 +41,20 @@ export default function UserOnboard() {
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = "";
     if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("File too large — please pick a photo under 5 MB");
+      return;
+    }
 
     setUploading(true);
     try {
       const url = await uploadService.upload(file, "avatar");
       setAvatar(url);
+      await userService.update({ avatar: url });
+      await refreshUser();
       showToast("Profile picture uploaded!");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Upload failed";

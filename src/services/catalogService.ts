@@ -1,19 +1,8 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
-import { config } from "@/config";
 import type { Category, CategoryKind } from "@/types";
 import { haversineKm } from "@/lib/geocode";
-
-const MOCK_CATEGORIES: Category[] = [
-  { id: "1", parentId: null, name: "Food & Drinks", slug: "food-drinks", kind: "BUSINESS", icon: "🍔", color: "#f87171" },
-  { id: "2", parentId: null, name: "Home Services", slug: "home-services", kind: "SERVICE", icon: "🛠️", color: "#60a5fa" },
-  { id: "3", parentId: null, name: "Salons & Wellness", slug: "salons-wellness", kind: "BOTH", icon: "💇", color: "#f472b6" },
-  { id: "4", parentId: null, name: "Groceries", slug: "groceries", kind: "BUSINESS", icon: "🛒", color: "#34d399" },
-  { id: "5", parentId: "1", name: "Restaurants", slug: "restaurants", kind: "BUSINESS", icon: "🍕", color: "#f87171" },
-  { id: "6", parentId: "2", name: "Plumbers", slug: "plumbers", kind: "SERVICE", icon: "🚰", color: "#60a5fa" },
-  { id: "7", parentId: "2", name: "Electricians", slug: "electricians", kind: "SERVICE", icon: "⚡", color: "#60a5fa" },
-];
 
 // Build the nested parent -> children tree the screens expect from the
 // flat categories table.
@@ -29,9 +18,6 @@ function buildTree(flat: Category[]): Category[] {
 }
 
 async function fetchAllCategories(): Promise<Category[]> {
-  if (config.useMocks) {
-    return MOCK_CATEGORIES;
-  }
   const sb = getSupabase();
   const { data, error } = await sb.from("categories").select("*").eq("status", "ACTIVE");
   throwIfError(error);
@@ -56,9 +42,6 @@ export const catalogService = {
   },
 
   async get(id: string): Promise<Category | undefined> {
-    if (config.useMocks) {
-      return MOCK_CATEGORIES.find((c) => c.id === id);
-    }
     const sb = getSupabase();
     const { data, error } = await sb.from("categories").select("*").eq("id", id).maybeSingle();
     throwIfError(error);
@@ -66,12 +49,6 @@ export const catalogService = {
   },
 
   async getCategoryCounts(lat?: number, lng?: number, radius?: number): Promise<{ bizCounts: Record<string, number>; provCounts: Record<string, number> }> {
-    if (config.useMocks) {
-      return {
-        bizCounts: { "1": 5, "4": 12, "5": 3 },
-        provCounts: { "2": 8, "3": 4, "6": 2, "7": 3 },
-      };
-    }
     const sb = getSupabase();
     const [{ data: bizRows }, { data: provRows }] = await Promise.all([
       sb.from("businesses").select("category_id, lat, lng").eq("status", "ACTIVE"),
@@ -93,18 +70,6 @@ export const catalogService = {
   },
 
   async proposeCategory(name: string, parentId: string | null, kind: string) {
-    if (config.useMocks) {
-      return {
-        id: "cat_mock_" + Date.now(),
-        parentId,
-        name,
-        slug: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-        kind: kind as CategoryKind,
-        icon: "⚙️",
-        color: "#94a3b8",
-        status: "PROPOSED",
-      };
-    }
     const sb = getSupabase();
     const uid = await currentUserId();
     void uid;

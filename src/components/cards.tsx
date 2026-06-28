@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Heart, MapPin, Clock, BadgeCheck, Zap, Eye, Users, Flame, Repeat } from "lucide-react";
 import type { Business, Provider, RequestPost } from "@/types";
-import { Rating, inr } from "./common";
+import { Rating, inr, SafeImg } from "./common";
 import { useApp } from "@/store";
 import { requestService } from "@/services";
 
@@ -132,7 +132,7 @@ export function ProviderCard({ p }: { p: Provider }) {
   return (
     <div className="card fade-up" style={{ padding: 12 }} onClick={() => nav(`/provider/${p.id}`)}>
       <div className="row gap-12" style={{ alignItems: "flex-start" }}>
-        <img src={p.avatar} alt={p.displayName} className="avatar" style={{ width: 56, height: 56 }} loading="lazy" />
+        <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 56, height: 56 }} />
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="row between">
             <div className="row gap-6" style={{ minWidth: 0 }}>
@@ -178,7 +178,7 @@ export function ProviderCardSmall({ p }: { p: Provider }) {
   return (
     <div className="card fade-up" style={{ width: 150, flexShrink: 0, padding: 12 }} onClick={() => nav(`/provider/${p.id}`)}>
       <div className="col center" style={{ textAlign: "center", gap: 6 }}>
-        <img src={p.avatar} alt={p.displayName} className="avatar" style={{ width: 60, height: 60 }} loading="lazy" />
+        <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 60, height: 60 }} />
         <div className="bold small ellipsis" style={{ maxWidth: "100%" }}>{p.displayName}</div>
         <div className="tiny muted ellipsis" style={{ maxWidth: "100%" }}>{p.categoryName}</div>
         <Rating value={p.ratingAvg} size={11} />
@@ -200,7 +200,7 @@ export function RequestCard({ r }: { r: RequestPost }) {
   return (
     <div className="card fade-up" style={{ padding: 14, border: r.isUrgent ? "1.5px solid #fecaca" : undefined }} onClick={() => nav(`/request/${r.id}`)}>
       <div className="row gap-10" style={{ alignItems: "flex-start" }}>
-        <img src={r.requesterAvatar} alt={r.requesterName} className="avatar" style={{ width: 40, height: 40 }} loading="lazy" />
+        <SafeImg src={r.requesterAvatar} alt={r.requesterName} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="row between">
             <span className="semi small">{r.isAnonymous ? "Someone nearby" : r.requesterName}</span>

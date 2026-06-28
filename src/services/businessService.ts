@@ -1,7 +1,6 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import { config } from "@/config";
 import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, ReservationReq } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
@@ -74,7 +73,6 @@ export interface BusinessAnalytics {
 
 export const businessService = {
   async mine(): Promise<Business[]> {
-    if (config.useMocks) return [];
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
@@ -119,7 +117,6 @@ export const businessService = {
         ]
       } as any;
     }
-    if (config.useMocks) return undefined;
     const sb = getSupabase();
     const { data, error } = await sb
       .from("businesses")
@@ -140,7 +137,6 @@ export const businessService = {
         { id: "rev_2", raterName: "Michael Chang", raterAvatar: "", rating: 4, comment: "Great variety of groceries, highly recommend.", date: "1 week ago" }
       ];
     }
-    if (config.useMocks) return [];
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
@@ -161,7 +157,6 @@ export const businessService = {
   },
 
   async queue(id: string): Promise<QueueInfo | undefined> {
-    if (config.useMocks) return undefined;
     const sb = getSupabase();
     const { data: settings } = await sb
       .from("queue_settings")
@@ -189,7 +184,6 @@ export const businessService = {
     avgServiceMin: number;
     tokens: Array<{ id: string; name: string; partySize: string }>;
   }> {
-    if (config.useMocks) return { isOpen: false, avgServiceMin: 8, tokens: [] };
     const sb = getSupabase();
     const [settingsRes, tokensRes] = await Promise.all([
       sb.from("queue_settings").select("is_open, avg_service_min").eq("business_id", businessId).maybeSingle(),
@@ -211,7 +205,6 @@ export const businessService = {
   },
 
   async setQueueSettings(businessId: string, patch: { isOpen?: boolean; avgServiceMin?: number }) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const row: Record<string, unknown> = { business_id: businessId, updated_at: new Date().toISOString() };
     if (patch.isOpen !== undefined) row.is_open = patch.isOpen;
@@ -222,7 +215,6 @@ export const businessService = {
   },
 
   async callNextToken(businessId: string) {
-    if (config.useMocks) return { ok: false, message: "Queue is empty" };
     const sb = getSupabase();
     // Fetch the oldest WAITING token for this business
     const { data, error: fetchErr } = await sb
@@ -241,7 +233,6 @@ export const businessService = {
   },
 
   async serveToken(tokenId: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb.from("queue_tokens").update({ status: "SERVED" }).eq("id", tokenId);
     throwIfError(error);
@@ -249,7 +240,6 @@ export const businessService = {
   },
 
   async joinQueueToken(businessId: string, customerName: string, partySize = "1 person") {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to join the queue" }, 401);
@@ -264,7 +254,6 @@ export const businessService = {
   },
 
   async loyaltyCard(id: string): Promise<LoyaltyCard | undefined> {
-    if (config.useMocks) return undefined;
     const sb = getSupabase();
     const { data: card, error } = await sb
       .from("loyalty_cards")
@@ -285,9 +274,6 @@ export const businessService = {
   },
 
   async update(id: string, patch: Partial<Business>) {
-    if (config.useMocks) {
-      return { id, ...patch } as any;
-    }
     const sb = getSupabase();
     const cols = pickColumns(patch as Record<string, unknown>, BUSINESS_COLUMNS);
     const { data, error } = await sb.from("businesses").update(toSnake(cols)).eq("id", id).select().maybeSingle();
@@ -296,33 +282,6 @@ export const businessService = {
   },
 
   async create(data: Partial<Business>) {
-    if (config.useMocks) {
-      return {
-        id: "biz_mock_" + Date.now(),
-        ownerUserId: "mock_user",
-        name: data.name ?? "New Shop",
-        slug: data.slug ?? "new-shop",
-        categoryId: data.categoryId ?? "1",
-        categoryName: data.categoryName ?? "",
-        subCategory: data.subCategory ?? "",
-        description: data.description ?? "",
-        addressLine1: data.addressLine1 ?? "",
-        city: data.city ?? "",
-        pincode: data.pincode ?? "",
-        lat: data.lat ?? 0,
-        lng: data.lng ?? 0,
-        phone: data.phone ?? "",
-        hours: data.hours ?? "9 AM - 9 PM",
-        status: "ACTIVE",
-        coverImage: data.coverImage ?? "",
-        gallery: data.gallery ?? [],
-        ratingAvg: 0,
-        ratingCount: 0,
-        isOpenNow: true,
-        isVerified: false,
-        isFeatured: false,
-      } as any;
-    }
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to list a business" }, 401);
@@ -344,7 +303,6 @@ export const businessService = {
   },
 
   async submitForReview(id: string) {
-    if (config.useMocks) return { ok: true, status: "ACTIVE" };
     const sb = getSupabase();
     const { error } = await sb.from("businesses").update({ status: "ACTIVE" }).eq("id", id);
     throwIfError(error);
@@ -352,7 +310,6 @@ export const businessService = {
   },
 
   async submitVerification(id: string, docUrl: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb
       .from("businesses")
@@ -364,9 +321,6 @@ export const businessService = {
 
   // Catalog
   async addCatalogItem(id: string, item: Partial<CatalogItem>) {
-    if (config.useMocks) {
-      return { id: "item_mock_" + Date.now(), name: item.name ?? "", description: item.description ?? "", price: item.price ?? 0, stockStatus: "IN_STOCK" } as any;
-    }
     const sb = getSupabase();
     const row = { ...toSnake(item), business_id: id };
     const { data, error } = await sb.from("catalog_items").insert(row).select().maybeSingle();
@@ -374,16 +328,12 @@ export const businessService = {
     return toCamel<CatalogItem>(data);
   },
   async updateCatalogItem(id: string, itemId: string, patch: Partial<CatalogItem>) {
-    if (config.useMocks) {
-      return { id: itemId, ...patch } as any;
-    }
     const sb = getSupabase();
     const { data, error } = await sb.from("catalog_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
     throwIfError(error);
     return toCamel<CatalogItem>(data);
   },
   async deleteCatalogItem(id: string, itemId: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb.from("catalog_items").delete().eq("id", itemId);
     throwIfError(error);
@@ -392,9 +342,6 @@ export const businessService = {
 
   // Offers
   async addOffer(id: string, offer: Partial<Offer>) {
-    if (config.useMocks) {
-      return { id: "off_mock_" + Date.now(), title: offer.title ?? "", description: offer.description ?? "", validUntil: offer.validUntil ?? "" } as any;
-    }
     const sb = getSupabase();
     const row = { ...toSnake(offer), business_id: id };
     const { data, error } = await sb.from("offers").insert(row).select().maybeSingle();
@@ -402,7 +349,6 @@ export const businessService = {
     return toCamel<Offer>(data);
   },
   async deleteOffer(id: string, offerId: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb.from("offers").delete().eq("id", offerId);
     throwIfError(error);
@@ -411,7 +357,6 @@ export const businessService = {
 
   // Photos
   async addPhoto(id: string, url: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { data: cur, error: readErr } = await sb.from("businesses").select("gallery").eq("id", id).maybeSingle();
     throwIfError(readErr);
@@ -422,7 +367,6 @@ export const businessService = {
   },
 
   async deletePhoto(id: string, url: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { data: cur, error: readErr } = await sb.from("businesses").select("gallery, cover_image").eq("id", id).maybeSingle();
     throwIfError(readErr);
@@ -436,7 +380,6 @@ export const businessService = {
   },
 
   async setCoverPhoto(id: string, url: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb.from("businesses").update({ cover_image: url }).eq("id", id);
     throwIfError(error);
@@ -445,17 +388,6 @@ export const businessService = {
 
   // Dashboard analytics
   async analytics(id: string): Promise<BusinessAnalytics> {
-    if (config.useMocks) {
-      return {
-        views: 120,
-        calls: 8,
-        directions: 14,
-        catalogViews: 0,
-        reviews: 4,
-        viewsSeries: [10, 15, 8, 22, 19, 14, 32],
-        leadsSeries: [1, 2, 0, 1, 0, 3, 1],
-      };
-    }
     const sb = getSupabase();
     const [bizRes, viewsRes, leadsRes] = await Promise.all([
       sb.from("businesses").select("view_count, call_count, directions_count, rating_count").eq("id", id).maybeSingle(),
@@ -478,7 +410,6 @@ export const businessService = {
 
   // Q&A, reservations, leads
   async qna(id: string): Promise<import("@/types").QnaItem[]> {
-    if (config.useMocks) return [];
     const sb = getSupabase();
     const { data, error } = await sb
       .from("business_qna")
@@ -497,7 +428,6 @@ export const businessService = {
     }));
   },
   async askQuestion(id: string, question: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to ask a question" }, 401);
@@ -506,7 +436,6 @@ export const businessService = {
     return { ok: true };
   },
   async answerQuestion(qId: string, answer: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb
       .from("business_qna")
@@ -522,7 +451,6 @@ export const businessService = {
     return { ok: false };
   },
   async leads(id: string) {
-    if (config.useMocks) return [];
     const sb = getSupabase();
     const { data, error } = await sb
       .from("leads")
@@ -543,14 +471,12 @@ export const businessService = {
     }));
   },
   async markLeadHandled(leadId: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const { error } = await sb.from("leads").update({ handled: true }).eq("id", leadId);
     throwIfError(error);
     return { ok: true };
   },
   async recordInteraction(id: string, kind: "CALL" | "DIRECTIONS") {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     const uid = await currentUserId();
     await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: kind === "CALL" ? "call" : "directions" });
@@ -558,7 +484,6 @@ export const businessService = {
     return { ok: true };
   },
   async recordView(id: string) {
-    if (config.useMocks) return { ok: true };
     const sb = getSupabase();
     await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: "view" });
     return { ok: true };
@@ -568,7 +493,6 @@ export const businessService = {
   },
 
   async buyBoost(id: string, boostType: string) {
-    if (config.useMocks) return { ok: true, boostType };
     const sb = getSupabase();
     const weeklong = boostType !== "REBROADCAST";
     const endsAt = weeklong ? new Date(Date.now() + 7 * 86400 * 1000).toISOString() : null;
@@ -584,7 +508,6 @@ export const businessService = {
   },
 
   async activeBoosts(id: string): Promise<string[]> {
-    if (config.useMocks) return [];
     const sb = getSupabase();
     const nowIso = new Date().toISOString();
     const { data, error } = await sb
@@ -599,7 +522,6 @@ export const businessService = {
   },
 
   async addReview(id: string, rating: number, comment: string): Promise<void> {
-    if (config.useMocks) return Promise.resolve();
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);

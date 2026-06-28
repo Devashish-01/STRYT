@@ -116,6 +116,7 @@ export default function Profile() {
             />
             <div className="grow">
               <div className="bold" style={{ fontSize: 21 }}>{user.name || "New user"}</div>
+              {user.alias && <div className="small" style={{ opacity: 0.85, marginTop: 2, fontWeight: 600 }}>@{user.alias}</div>}
               <div className="small" style={{ opacity: 0.8, marginTop: 2 }}>{user.phone}</div>
               <div className="row gap-6" style={{ marginTop: 8 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>

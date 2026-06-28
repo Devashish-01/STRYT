@@ -234,9 +234,20 @@ export const providerService = {
     const availableUntil = availableNow && hours
       ? new Date(Date.now() + hours * 3600 * 1000).toISOString()
       : null;
+    const patch: Record<string, any> = { is_available_now: availableNow, available_until: availableUntil };
+
+    const { data: prov } = await sb.from("providers").select("user_id, lat, lng").eq("id", id).maybeSingle();
+    if (prov && (prov.lat == null || prov.lng == null) && prov.user_id) {
+      const { data: usr } = await sb.from("users").select("lat, lng").eq("id", prov.user_id).maybeSingle();
+      if (usr && usr.lat != null && usr.lng != null) {
+        patch.lat = usr.lat;
+        patch.lng = usr.lng;
+      }
+    }
+
     const { error } = await sb
       .from("providers")
-      .update({ is_available_now: availableNow, available_until: availableUntil })
+      .update(patch)
       .eq("id", id);
     throwIfError(error);
     return { ok: true, availableNow, hours };

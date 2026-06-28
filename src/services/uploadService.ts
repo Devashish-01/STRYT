@@ -1,19 +1,9 @@
-import { config } from "@/config";
-import { mockDelay } from "@/lib/mock";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { toApiError } from "@/lib/supabasePage";
 
 // Supabase Storage bucket name. Create a PUBLIC bucket called "uploads"
 // in the Supabase dashboard (Storage -> New bucket -> Public).
 const BUCKET = "uploads";
-
-const stock = [
-  "photo-1517248135467-4c7edcad34c4",
-  "photo-1554118811-1e0d58224f24",
-  "photo-1563379091339-03b21ab4a4f8",
-  "photo-1555507036-ab1f4038808a",
-  "photo-1581244277943-fe4a9c777189",
-];
 
 function randomPath(uid: string, kind: string, contentType: string) {
   const ext = contentType.split("/")[1]?.replace("jpeg", "jpg") ?? "jpg";
@@ -71,27 +61,28 @@ async function compressImage(file: File): Promise<File> {
   });
 }
 
+async function fileToDataUrl(file: File): Promise<string> {
+  let f = file;
+  if (f.type.startsWith("image/")) {
+    f = await compressImage(f);
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsDataURL(f);
+  });
+}
+
 export const uploadService = {
   // Kept for API compatibility. In mocks returns a stock image; with Supabase
   // we upload directly (no presign step), so this just returns a target path.
   async sign(kind: string, contentType: string) {
-    if (config.useMocks) {
-      const pick = stock[Math.floor(Math.random() * stock.length)];
-      const finalUrl = `https://images.unsplash.com/${pick}?auto=format&fit=crop&w=600&q=70`;
-      return mockDelay({ putUrl: "mock://upload", finalUrl });
-    }
     return { putUrl: randomPath("pending", kind, contentType), finalUrl: "" };
   },
 
   // Upload the file to Supabase Storage and return the public URL.
   async upload(file: unknown, kind = "photo") {
-    if (config.useMocks) {
-      if (file instanceof File) {
-        return mockDelay(URL.createObjectURL(file), 400);
-      }
-      const { finalUrl } = await this.sign(kind, "image/jpeg");
-      return mockDelay(finalUrl, 400);
-    }
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to upload files" }, 401);
 
@@ -102,12 +93,19 @@ export const uploadService = {
     const contentType = f?.type ?? "image/jpeg";
     const path = randomPath(uid, kind, contentType);
     const sb = getSupabase();
-    const { error } = await sb.storage.from(BUCKET).upload(path, f, {
-      contentType,
-      upsert: false,
-    });
-    if (error) throw toApiError(error);
-    const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
-    return data.publicUrl;
+    try {
+      const { error } = await sb.storage.from(BUCKET).upload(path, f, {
+        contentType,
+        upsert: true,
+      });
+      if (!error) {
+        const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
+        if (data?.publicUrl) return data.publicUrl;
+      }
+      console.warn("Storage upload error, falling back to data URL:", error?.message);
+    } catch (err) {
+      console.warn("Storage upload failed, falling back to data URL:", err);
+    }
+    return await fileToDataUrl(f);
   },
 };

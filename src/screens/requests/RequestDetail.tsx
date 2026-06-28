@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Share2, MapPin, Clock, Eye, Zap, BadgeCheck,
   Flag, CheckCircle2, Send, Users, Flame, Repeat, MessageSquare, ArrowRightLeft,
+  Edit3, Trash2, XCircle, X
 } from "lucide-react";
 import { requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -25,6 +26,17 @@ export default function RequestDetail() {
   const [counterAmt, setCounterAmt] = useState("");
   const [counterBackFor, setCounterBackFor] = useState<string | null>(null);
   const [counterBackAmt, setCounterBackAmt] = useState("");
+
+  // CRUD Edit / Delete state for owner
+  const [editing, setEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editMinBudget, setEditMinBudget] = useState("");
+  const [editMaxBudget, setEditMaxBudget] = useState("");
+  const [editUrgent, setEditUrgent] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   if (loading) {
     return (
@@ -98,6 +110,50 @@ export default function RequestDetail() {
     }
   }
 
+  function startEdit() {
+    if (!r) return;
+    setEditTitle(r.title);
+    setEditDesc(r.description);
+    setEditMinBudget(r.budgetMin ? String(r.budgetMin) : "");
+    setEditMaxBudget(r.budgetMax ? String(r.budgetMax) : "");
+    setEditUrgent(!!r.isUrgent);
+    setEditing(true);
+  }
+
+  async function handleSaveEdit() {
+    if (!r || !editTitle.trim()) return;
+    setUpdating(true);
+    try {
+      await requestService.update(r.id, {
+        title: editTitle.trim(),
+        description: editDesc.trim(),
+        budgetMin: editMinBudget ? Number(editMinBudget) : undefined,
+        budgetMax: editMaxBudget ? Number(editMaxBudget) : undefined,
+        isUrgent: editUrgent,
+      });
+      showToast("Request updated successfully");
+      setEditing(false);
+      refetch();
+    } catch {
+      showToast("Failed to update request");
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  async function handleDeleteRequest() {
+    if (!r) return;
+    setDeleting(true);
+    try {
+      await requestService.delete(r.id);
+      showToast("Request cancelled and removed");
+      nav(-1);
+    } catch {
+      showToast("Failed to delete request");
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="screen" style={{ position: "relative" }}>
       <header className="appbar">
@@ -117,6 +173,18 @@ export default function RequestDetail() {
             </div>
             {r.status !== "OPEN" && <span className="badge badge-blue">{r.status}</span>}
           </div>
+
+          {/* Owner Management Controls (CRUD) */}
+          {isMine && (
+            <div className="row gap-8" style={{ marginTop: 12, background: "var(--ink-50)", padding: 8, borderRadius: 12 }}>
+              <button className="btn btn-outline btn-sm grow row center gap-6" onClick={startEdit}>
+                <Edit3 size={14} /> Edit Request
+              </button>
+              <button className="btn btn-outline btn-sm row center gap-6" style={{ color: "#ef4444", borderColor: "#fca5a5" }} onClick={() => setShowDeleteConfirm(true)}>
+                <Trash2 size={14} /> Delete
+              </button>
+            </div>
+          )}
 
           {/* Title + meta */}
           <div className="row wrap gap-6" style={{ marginTop: 16 }}>
@@ -350,6 +418,70 @@ export default function RequestDetail() {
 
       {report && <ReportSheet targetType="REQUEST" targetId={r.id} name="this request" onClose={() => setReport(false)} />}
       {share && <ShareCard title={r.title} subtitle={`${r.categoryName} • ${budget}`} image={r.photos[0] ?? "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=600&q=70"} meta={`📍 ${r.area} • needed by ${r.deadline}`} onClose={() => setShare(false)} />}
+
+      {/* Edit Request Sheet */}
+      {editing && (
+        <div className="sheet-backdrop" onClick={() => setEditing(false)}>
+          <div className="sheet col gap-14" style={{ maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div className="row between">
+              <span className="bold" style={{ fontSize: 18 }}>Edit Request</span>
+              <button className="icon-btn" onClick={() => setEditing(false)}><X size={18} /></button>
+            </div>
+
+            <div className="col gap-10">
+              <label className="small semi muted">Title / Headline</label>
+              <input className="input" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="e.g. Need plumber for pipe leakage" />
+
+              <label className="small semi muted">Detailed Description</label>
+              <textarea className="input" style={{ minHeight: 90, resize: "vertical" }} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Explain what you need in detail..." />
+
+              <div className="row gap-10">
+                <div className="col grow">
+                  <label className="small semi muted">Min Budget (₹)</label>
+                  <input className="input" type="number" value={editMinBudget} onChange={(e) => setEditMinBudget(e.target.value)} placeholder="e.g. 500" />
+                </div>
+                <div className="col grow">
+                  <label className="small semi muted">Max Budget (₹)</label>
+                  <input className="input" type="number" value={editMaxBudget} onChange={(e) => setEditMaxBudget(e.target.value)} placeholder="e.g. 1500" />
+                </div>
+              </div>
+
+              <div className="row between card" style={{ padding: "10px 14px", marginTop: 4 }}>
+                <span className="small semi row gap-6"><Flame size={14} color="#ef4444" /> Mark as Urgent</span>
+                <input type="checkbox" checked={editUrgent} onChange={(e) => setEditUrgent(e.target.checked)} style={{ width: 18, height: 18, cursor: "pointer" }} />
+              </div>
+            </div>
+
+            <div className="row gap-10" style={{ marginTop: 10 }}>
+              <button className="btn btn-outline grow" onClick={() => setEditing(false)}>Cancel</button>
+              <button className="btn btn-primary grow" disabled={updating || !editTitle.trim()} onClick={handleSaveEdit}>
+                {updating ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Sheet */}
+      {showDeleteConfirm && (
+        <div className="sheet-backdrop" onClick={() => setShowDeleteConfirm(false)}>
+          <div className="sheet col gap-14 center" style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#fee2e2", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Trash2 size={28} />
+            </div>
+            <div>
+              <h3 className="bold" style={{ fontSize: 18 }}>Delete this request?</h3>
+              <p className="small muted" style={{ marginTop: 6, lineHeight: 1.4 }}>Are you sure you want to cancel and delete this request? This action cannot be undone.</p>
+            </div>
+            <div className="row gap-10" style={{ width: "100%", marginTop: 8 }}>
+              <button className="btn btn-outline grow" onClick={() => setShowDeleteConfirm(false)}>Keep it</button>
+              <button className="btn btn-block grow" style={{ background: "#ef4444", color: "#fff" }} disabled={deleting} onClick={handleDeleteRequest}>
+                {deleting ? "Deleting..." : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

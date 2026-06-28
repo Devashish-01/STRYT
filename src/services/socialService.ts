@@ -1,5 +1,6 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { toCamel } from "@/lib/caseMap";
+import { haversineKm } from "@/lib/geocode";
 import type {
   Story,
   AvailableNow,
@@ -158,24 +159,39 @@ export const socialService = {
   },
 
   // ── Phase 34: Available-now ───────────────────────────────────
-  async availableNow(): Promise<AvailableNow[]> {
+  async availableNow(lat?: number, lng?: number, radius?: number): Promise<AvailableNow[]> {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("providers")
-      .select("id, available_until, availability_note")
+      .select("*")
       .eq("is_available_now", true)
       .gt("available_until", new Date().toISOString())
       .eq("status", "ACTIVE");
     if (error) throw error;
-    return (data ?? []).map((r) => {
+    let list = (data ?? []).map((r) => {
       const until = new Date(r.available_until as string);
+      const dist = (lat != null && lng != null && r.lat != null && r.lng != null)
+        ? haversineKm(lat, lng, r.lat, r.lng)
+        : 0;
       return {
         providerId:     r.id,
         availableUntil: until.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
         minutesLeft:    Math.max(0, Math.round((until.getTime() - Date.now()) / 60000)),
         note:           (r.availability_note as string) ?? "Available for jobs right now",
+        displayName:    r.display_name as string,
+        avatar:         r.avatar as string,
+        categoryName:   r.category_name as string,
+        distanceKm:     parseFloat(dist.toFixed(1)),
+        startingPrice:  r.starting_price as number,
+        phone:          r.phone as string,
+        ratingAvg:      r.rating_avg as number,
+        isVerified:     r.is_verified as boolean,
       };
     });
+    if (lat != null && lng != null && radius != null && radius < 5000) {
+      list = list.filter((p) => p.distanceKm <= radius);
+    }
+    return list;
   },
 
   // Live queue has no backend table yet (V2).

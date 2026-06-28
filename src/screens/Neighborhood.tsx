@@ -15,7 +15,11 @@ export default function Neighborhood() {
   const { data: bizPage } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
   const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
   const { data: reqPage } = useQuery(() => requestService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
-  const { data: availList } = useQuery(() => socialService.availableNow(), []);
+  const { data: availList } = useQuery(() => {
+    const saved = localStorage.getItem("settings_radius");
+    const radiusLimit = saved ? parseFloat(saved) : 5;
+    return socialService.availableNow(user.lat || undefined, user.lng || undefined, radiusLimit);
+  }, [user.lat, user.lng]);
   const { data: posts } = useQuery(() => communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
   const { data: collectionsData } = useQuery(() => socialService.collections(), []);
 
@@ -102,18 +106,16 @@ export default function Neighborhood() {
         {/* Available now */}
         <Section title="⚡ Free right now" action="See all" onAction={() => nav("/available")}>
           <div className="hscroll">
-            {availableNow.map((a) => {
-              const p = providers.find((x) => x.id === a.providerId);
-              if (!p) return null;
+            {availableNow.map((p) => {
               return (
-                <button key={a.providerId} className="card col" style={{ width: 160, flexShrink: 0, padding: 12, gap: 6, alignItems: "center", textAlign: "center" }} onClick={() => nav(`/provider/${p.id}`)}>
+                <button key={p.providerId} className="card col" style={{ width: 160, flexShrink: 0, padding: 12, gap: 6, alignItems: "center", textAlign: "center" }} onClick={() => nav(`/provider/${p.providerId}`)}>
                   <div style={{ position: "relative" }}>
                     <SafeImg src={p.avatar} variant="avatar" className="avatar" style={{ width: 56, height: 56 }} />
                     <span style={{ position: "absolute", bottom: 0, right: 0, width: 16, height: 16, borderRadius: "50%", background: "#16a34a", border: "2px solid #fff" }} />
                   </div>
                   <div className="semi small ellipsis" style={{ maxWidth: "100%" }}>{p.displayName}</div>
-                  <span className="badge badge-green tiny"><Clock size={10} /> till {a.availableUntil}</span>
-                  <div className="tiny muted clamp-2">{a.note}</div>
+                  <span className="badge badge-green tiny"><Clock size={10} /> till {p.availableUntil}</span>
+                  <div className="tiny muted clamp-2">{p.note}</div>
                 </button>
               );
             })}

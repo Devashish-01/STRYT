@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useState } from "react";
-import { AppBar, EmptyState } from "@/components/common";
+import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -36,7 +36,7 @@ export default function Reservations() {
               return (
                 <div key={r.id} className="card" style={{ padding: 14 }}>
                   <div className="row gap-12">
-                    <img src={r.customerAvatar} className="avatar" style={{ width: 44, height: 44 }} />
+                    <SafeImg src={r.customerAvatar} variant="avatar" className="avatar" style={{ width: 44, height: 44 }} />
                     <div className="grow">
                       <div className="row between"><span className="semi small">{r.customerName}</span><span className="badge badge-gray">{typeLabel[r.type]}</span></div>
                       <div className="small">{r.detail}</div>
