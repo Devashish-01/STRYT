@@ -38,6 +38,7 @@ const SubmitProposal = lazy(() => import("./screens/requests/SubmitProposal"));
 const AgreementScreen = lazy(() => import("./screens/requests/AgreementScreen"));
 const Agreements = lazy(() => import("./screens/requests/Agreements"));
 const RateScreen = lazy(() => import("./screens/requests/RateScreen"));
+const MyAppointments = lazy(() => import("./screens/requests/MyAppointments"));
 
 // Onboarding
 const BusinessOnboard = lazy(() => import("./screens/business/BusinessOnboard"));
@@ -234,6 +235,7 @@ export default function App() {
             <Route path="/request/:id/propose" element={<SubmitProposal />} />
             <Route path="/agreement/:id" element={<AgreementScreen />} />
             <Route path="/agreements" element={<Agreements />} />
+            <Route path="/appointments" element={<MyAppointments />} />
             <Route path="/rate/:id" element={<RateScreen />} />
 
             <Route path="/onboard/business" element={<BusinessOnboard />} />

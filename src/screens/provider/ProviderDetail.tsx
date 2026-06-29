@@ -14,6 +14,8 @@ import { Rating, StarRow, EmptyState, SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
 import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
+import { AppointmentSheet } from "@/components/AppointmentSheet";
+import { evaluateProviderAvailability } from "@/utils/availability";
 
 const Handshake = HandshakeIcon as any;
 
@@ -41,6 +43,7 @@ export default function ProviderDetail() {
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
 
   if (loading) {
     return (
@@ -78,6 +81,7 @@ export default function ProviderDetail() {
   const hasVouched = vouched.includes(p.id);
   const endorseList = endorsements ?? [];
   const avail = (availList ?? []).find((a) => a.providerId === p.id);
+  const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
 
   return (
     <div className="screen" style={{ position: "relative" }}>
@@ -257,6 +261,19 @@ export default function ProviderDetail() {
                 </div>
               </div>
             )}
+            {!evalRes.isOpenNow && (
+              <div className="card" style={{ padding: 12, background: "#fef3c7", border: "1px solid #fde68a" }}>
+                <div className="row gap-8 center-v">
+                  <Clock size={16} color="#d97706" />
+                  <div>
+                    <div className="bold tiny" style={{ color: "#92400e" }}>Provider Currently Offline</div>
+                    <div className="tiny" style={{ color: "#b45309", marginTop: 1 }}>
+                      {evalRes.statusText}. You can chat, ask questions, or schedule an appointment for their working hours below.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="card" style={{ padding: 14 }}>
               <div className="row gap-10 small center-v">
                 <Clock size={16} color="#16a34a" style={{ flexShrink: 0 }} />
@@ -339,9 +356,15 @@ export default function ProviderDetail() {
               <MessageCircle size={17} />
             </button>
           )}
-          <button className="btn btn-green grow" onClick={() => nav("/ask")}>
-            <Briefcase size={17} /> Request a quote
-          </button>
+          {evalRes.isOpenNow ? (
+            <button className="btn btn-green grow" onClick={() => nav("/ask")}>
+              <Briefcase size={17} /> Request a quote
+            </button>
+          ) : (
+            <button className="btn btn-purple grow" onClick={() => setScheduling(true)}>
+              <Clock size={17} /> Schedule Appointment
+            </button>
+          )}
         </div>
       </div>
 
@@ -356,6 +379,15 @@ export default function ProviderDetail() {
             refetchReviews();
           }}
           onClose={() => setReviewing(false)}
+        />
+      )}
+      {scheduling && (
+        <AppointmentSheet
+          targetId={p.id}
+          targetName={p.displayName}
+          targetType="PROVIDER"
+          availabilityNote={p.availabilityNote}
+          onClose={() => setScheduling(false)}
         />
       )}
     </div>

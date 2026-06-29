@@ -60,7 +60,9 @@ function makeStoryIcon(avatarUrl: string, seen: boolean) {
 }
 
 const businessIcon = makePinIcon(pinColors.business);
+const businessOfflineIcon = makePinIcon("#9ca3af");
 const providerIcon = makePinIcon(pinColors.provider);
+const providerOfflineIcon = makePinIcon("#9ca3af");
 const requestIcon  = makePinIcon(pinColors.request);
 
 const meIcon = L.divIcon({
@@ -227,6 +229,7 @@ export default function MapView() {
   const [layers, setLayers] = useState<Record<Layer, boolean>>({
     business: true, provider: true, request: true, story: false,
   });
+  const [availOnly, setAvailOnly] = useState(false);
   const [radiusKm, setRadiusKm] = useState(() => {
     const saved = localStorage.getItem("settings_radius");
     return saved ? parseFloat(saved) : (user.notificationRadiusKm || 5);
@@ -430,6 +433,21 @@ export default function MapView() {
               </button>
             );
           })}
+          <button
+            className="chip"
+            style={{
+              background: availOnly ? "#16a34a" : "#fff",
+              color: availOnly ? "#fff" : "var(--ink-700)",
+              borderColor: availOnly ? "#16a34a" : "var(--ink-200)",
+              boxShadow: "var(--shadow-sm)",
+              fontSize: 12,
+              padding: "4px 10px",
+              fontWeight: 700,
+            }}
+            onClick={() => setAvailOnly((v) => !v)}
+          >
+            ⚡ Available Now
+          </button>
         </div>
       </div>
 
@@ -616,32 +634,42 @@ export default function MapView() {
         )}
 
         {/* Businesses */}
-        {layers.business && businesses.filter((b) => b.lat && b.lng).map((b) => (
-          <Marker key={b.id} position={[b.lat, b.lng]} icon={businessIcon}>
-            <Popup>
-              <div style={{ minWidth: 180 }}>
-                <strong>{b.name}</strong>
-                <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{b.subCategory}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-                  <Rating value={b.ratingAvg} size={11} />
-                  {b.distanceKm != null && <span style={{ fontSize: 12, color: "#888" }}>{b.distanceKm} km</span>}
+        {layers.business && businesses.filter((b) => b.lat && b.lng).map((b) => {
+          const isBizOpen = (b as any).isOpen ?? true;
+          if (availOnly && !isBizOpen) return null;
+          return (
+            <Marker key={b.id} position={[b.lat, b.lng]} icon={isBizOpen ? businessIcon : businessOfflineIcon}>
+              <Popup>
+                <div style={{ minWidth: 180 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <strong>{b.name}</strong>
+                    <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: isBizOpen ? "#dcfce7" : "#f3f4f6", color: isBizOpen ? "#15803d" : "#4b5563", fontWeight: 700 }}>
+                      {isBizOpen ? "Open" : "Closed"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{b.subCategory}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <Rating value={b.ratingAvg} size={11} />
+                    {b.distanceKm != null && <span style={{ fontSize: 12, color: "#888" }}>{b.distanceKm} km</span>}
+                  </div>
+                  <button
+                    onClick={() => nav(`/business/${b.id}`)}
+                    style={{ marginTop: 8, padding: "6px 12px", background: isBizOpen ? pinColors.business : "#6b7280", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
+                  >
+                    View shop
+                  </button>
                 </div>
-                <button
-                  onClick={() => nav(`/business/${b.id}`)}
-                  style={{ marginTop: 8, padding: "6px 12px", background: pinColors.business, color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
-                >
-                  View shop
-                </button>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+              </Popup>
+            </Marker>
+          );
+        })}
 
         {/* Providers */}
         {layers.provider && providers.filter((p) => p.lat && p.lng).map((p) => {
           const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
+          if (availOnly && !evalRes.isOpenNow) return null;
           return (
-            <Marker key={p.id} position={[p.lat, p.lng]} icon={providerIcon}>
+            <Marker key={p.id} position={[p.lat, p.lng]} icon={evalRes.isOpenNow ? providerIcon : providerOfflineIcon}>
               <Popup>
                 <div style={{ minWidth: 180 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -654,7 +682,7 @@ export default function MapView() {
                   <div style={{ marginTop: 4 }}><Rating value={p.ratingAvg} size={11} /></div>
                   <button
                     onClick={() => nav(`/provider/${p.id}`)}
-                    style={{ marginTop: 8, padding: "6px 12px", background: pinColors.provider, color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
+                    style={{ marginTop: 8, padding: "6px 12px", background: evalRes.isOpenNow ? pinColors.provider : "#6b7280", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
                   >
                     View profile
                   </button>

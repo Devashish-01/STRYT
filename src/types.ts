@@ -624,3 +624,24 @@ export interface TrackingToken {
   agreementId: string;
   expiresAt: string;
 }
+
+export type AppointmentStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "COMPLETED";
+
+export interface AppointmentRecord {
+  id: string;
+  targetId: string;
+  targetName: string;
+  targetAvatar?: string;
+  targetType: "PROVIDER" | "BUSINESS";
+  customerId: string;
+  customerName: string;
+  customerAvatar?: string;
+  scheduledForISO: string;
+  dateLabel: string;
+  timeLabel: string;
+  notes?: string;
+  photoUrl?: string;
+  status: AppointmentStatus;
+  responseNote?: string;
+  createdAtISO: string;
+}

@@ -15,6 +15,7 @@ import { useApp } from "@/store";
 import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import AddToListSheet from "@/components/AddToListSheet";
+import { AppointmentSheet } from "@/components/AppointmentSheet";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();
@@ -39,6 +40,7 @@ export default function BusinessDetail() {
   const [reviewing, setReviewing] = useState(false);
   const [question, setQuestion] = useState("");
   const [askingNow, setAskingNow] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
 
   // Count a profile view once per business open.
   useEffect(() => {
@@ -209,6 +211,13 @@ export default function BusinessDetail() {
                 onClick={() => toggleNotify(notifyKey)}
               >
                 <Bell size={16} fill={notifying ? "#f26a00" : "none"} /> {notifying ? "Alerts on" : "Notify me"}
+              </button>
+              <button
+                className="btn grow btn-sm"
+                style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
+                onClick={() => setScheduling(true)}
+              >
+                <Clock size={16} /> Schedule Slot
               </button>
             </div>
           </div>
@@ -475,6 +484,15 @@ export default function BusinessDetail() {
             refetchReviews();
           }}
           onClose={() => setReviewing(false)}
+        />
+      )}
+      {scheduling && (
+        <AppointmentSheet
+          targetId={b.id}
+          targetName={b.name}
+          targetType="BUSINESS"
+          availabilityNote={b.hours || "Mon–Sat from 09:00 AM to 07:00 PM"}
+          onClose={() => setScheduling(false)}
         />
       )}
     </div>

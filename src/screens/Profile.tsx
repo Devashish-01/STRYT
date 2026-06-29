@@ -5,7 +5,7 @@ import {
   ChevronRight, Shield, HelpCircle, LogOut, Globe, Share2,
   ListChecks, Trophy, Award, Users, UserCircle, Heart,
   ArrowLeftRight, MessageCircle, Handshake, Map, MessageSquare,
-  Bug
+  Bug, Calendar
 } from "lucide-react";
 import { useApp } from "@/store";
 import { StarRow, SafeImg } from "@/components/common";
@@ -260,6 +260,7 @@ export default function Profile() {
         <div className="page-pad" style={{ paddingTop: 4 }}>
           <div className="card" style={{ overflow: "hidden" }}>
             <MenuRow icon={<MessageCircle size={20} color="var(--brand-700)" />} label="Messages" badge={undefined} onClick={() => nav("/chats")} />
+            <MenuRow icon={<Calendar size={20} color="#8b5cf6" />} label="My appointments" onClick={() => nav("/appointments")} />
             <MenuRow icon={<HandshakeIcon size={20} color="#16a34a" />} label="My agreements" badge={activeAgreements.length || undefined} onClick={() => nav("/agreements")} />
             <MenuRow icon={<FileText size={20} color="var(--brand-700)" />}     label="My requests"    onClick={() => nav("/requests")} />
             <MenuRow icon={<Users size={20} color="#3b82f6" />}        label="Community board" onClick={() => nav("/community-hub")} />
