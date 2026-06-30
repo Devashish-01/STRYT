@@ -271,6 +271,7 @@ export function RequestCard({ r }: { r: RequestPost }) {
           <span className="tiny muted">Budget</span>
           <span className="bold" style={{ color: "#16a34a" }}>{budget}</span>
         </div>
+        {/* 
         <button
           className="row gap-4 chip"
           style={{ padding: "7px 12px", background: meTooed ? "var(--brand-800)" : "#fff", color: meTooed ? "#fff" : "var(--ink-700)", borderColor: meTooed ? "var(--brand-800)" : "var(--ink-200)" }}
@@ -282,6 +283,7 @@ export function RequestCard({ r }: { r: RequestPost }) {
         >
           <Users size={13} /> {meTooed ? "Me too ✓" : "Me too"} {meTooCount > 0 && `· ${meTooCount}`}
         </button>
+        */}
         <div className="col" style={{ gap: 2, alignItems: "flex-end" }}>
           <span className="tiny muted row gap-4"><Eye size={11} /> {r.viewCount}</span>
           <span className="semi small" style={{ color: "var(--brand-700)" }}>

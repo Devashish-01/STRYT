@@ -24,6 +24,7 @@ function mapPost(
   userLng?: number
 ): CommunityPost {
   const p = toCamel<CommunityPost>(row);
+  p.likes = Number(row.likes_count) || 0;
   p.liked = likedIds.has(p.id);
 
   // Poll options & counts
@@ -199,7 +200,10 @@ export const communityService = {
       lng,
     }).select().maybeSingle();
     throwIfError(error);
-    return toCamel<CommunityPost>(created);
+    const post = toCamel<CommunityPost>(created);
+    post.likes = Number(created?.likes_count) || 0;
+    post.liked = false;
+    return post;
   },
 
   async like(postId: string, currentlyLiked: boolean): Promise<boolean> {
