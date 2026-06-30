@@ -5,8 +5,10 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";
 
-const DEFAULT_LAT = 18.536;
-const DEFAULT_LNG = 73.893;
+import { config } from "@/config";
+
+const DEFAULT_LAT = config.defaultLocation.lat;
+const DEFAULT_LNG = config.defaultLocation.lng;
 
 interface LocationPickerProps {
   lat: number | null;

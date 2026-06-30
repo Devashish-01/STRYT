@@ -10,6 +10,7 @@ const PhoneEntry = lazy(() => import("./screens/auth/PhoneEntry"));
 const OtpVerify = lazy(() => import("./screens/auth/OtpVerify"));
 const LocationPermission = lazy(() => import("./screens/auth/LocationPermission"));
 const UserOnboard = lazy(() => import("./screens/auth/UserOnboard"));
+const DeletionPending = lazy(() => import("./screens/auth/DeletionPending"));
 
 // Core tabs
 const Home = lazy(() => import("./screens/Home"));
@@ -158,8 +159,21 @@ function ProtectedLayout() {
     return <Navigate to="/auth/phone" replace />;
   }
 
-  // New user with no name set: redirect to onboarding first.
-  const needsOnboard = isAuthed && user.id && (!user.name || user.name === "New user") && location.pathname !== "/auth/onboard";
+  // Deletion pending: redirect to warning screen
+  const isDeletionPending = isAuthed && user.id && user.deletionScheduledAt;
+  if (isDeletionPending) {
+    if (location.pathname !== "/auth/deletion-pending") {
+      return <Navigate to="/auth/deletion-pending" replace />;
+    }
+  } else {
+    if (location.pathname === "/auth/deletion-pending") {
+      return <Navigate to="/home" replace />;
+    }
+  }
+
+  // New user with no name set: redirect to onboarding first (if not skipped).
+  const hasSkippedOnboard = localStorage.getItem("onboarding_skipped") === "true";
+  const needsOnboard = isAuthed && user.id && (!user.name || user.name === "New user") && !hasSkippedOnboard && location.pathname !== "/auth/onboard";
   if (needsOnboard) {
     return <Navigate to="/auth/onboard" replace />;
   }
@@ -211,6 +225,7 @@ export default function App() {
           <Route element={<ProtectedLayout />}>
             <Route path="/auth/onboard" element={<UserOnboard />} />
             <Route path="/auth/location" element={<LocationPermission />} />
+            <Route path="/auth/deletion-pending" element={<DeletionPending />} />
 
             <Route path="/home" element={<Home />} />
             <Route path="/explore" element={<Explore />} />

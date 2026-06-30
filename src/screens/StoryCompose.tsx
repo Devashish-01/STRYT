@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, MapPin, Pencil } from "lucide-react";
-import { AppBar } from "@/components/common";
+import { Camera, MapPin, Pencil, X, Search, Check, Globe, Star, UserMinus } from "lucide-react";
+import { AppBar, SafeImg } from "@/components/common";
 import { socialService, uploadService } from "@/services";
 import { useApp } from "@/store";
 import { currentUserId } from "@/lib/supabaseClient";
@@ -11,6 +11,7 @@ const EXPIRY_OPTS = [1, 3, 6, 12] as const;
 export default function StoryCompose() {
   const nav = useNavigate();
   const { user, area, showToast } = useApp();
+  
   const [image, setImage] = useState("");
   const [caption, setCaption] = useState("");
   const [hours, setHours] = useState<number>(3);
@@ -18,6 +19,48 @@ export default function StoryCompose() {
   const [customVal, setCustomVal] = useState("");
   const [uploading, setUploading] = useState(false);
   const [posting, setPosting] = useState(false);
+
+  // Privacy States
+  const [visibility, setVisibility] = useState<"everyone" | "close_friends">("everyone");
+  const [allowedUsers, setAllowedUsers] = useState<any[]>([]); // Close friends list
+  const [hiddenUsers, setHiddenUsers] = useState<any[]>([]);   // Excluded users list
+  const [showPrivacySheet, setShowPrivacySheet] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  async function handleSearch(q: string) {
+    setSearchQuery(q);
+    if (!q.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const res = await socialService.searchNeighbors(q);
+      setSearchResults(res);
+    } catch (err) {
+      console.warn("Search neighbors failed:", err);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function toggleUserSelection(u: any) {
+    if (visibility === "close_friends") {
+      setAllowedUsers((prev) => {
+        const exists = prev.some((x) => x.id === u.id);
+        if (exists) return prev.filter((x) => x.id !== u.id);
+        return [...prev, u];
+      });
+    } else {
+      setHiddenUsers((prev) => {
+        const exists = prev.some((x) => x.id === u.id);
+        if (exists) return prev.filter((x) => x.id !== u.id);
+        return [...prev, u];
+      });
+    }
+  }
 
   async function post() {
     setPosting(true);
@@ -48,6 +91,9 @@ export default function StoryCompose() {
         expiresInHrs: hours,
         lat:          lat || undefined,
         lng:          lng || undefined,
+        visibility:   visibility,
+        allowedUserIds: allowedUsers.map((u) => u.id),
+        hiddenUserIds:  hiddenUsers.map((u) => u.id),
       });
       showToast(`Story live for ${hours}h — neighbors can see it ✨`);
       setTimeout(() => nav(-1), 600);
@@ -116,6 +162,49 @@ export default function StoryCompose() {
           {caption.length > 90 && (
             <span className="tiny muted" style={{ textAlign: "right" }}>{120 - caption.length} left</span>
           )}
+        </div>
+
+        {/* Story privacy selection block */}
+        <div className="field">
+          <label>Audience & Visibility</label>
+          <button
+            onClick={() => setShowPrivacySheet(true)}
+            className="row between align-center"
+            style={{
+              width: "100%",
+              padding: "12px 14px",
+              background: "var(--ink-50)",
+              border: "1px solid var(--ink-200)",
+              borderRadius: 14,
+              cursor: "pointer",
+              textAlign: "left"
+            }}
+          >
+            <div className="row gap-10 align-center">
+              <div style={{
+                width: 36, height: 36, borderRadius: "50%",
+                background: visibility === "everyone" ? "rgba(124,58,237,0.1)" : "rgba(34,197,94,0.1)",
+                display: "flex", alignItems: "center", justifyContent: "center"
+              }}>
+                {visibility === "everyone" ? (
+                  <Globe size={18} color="var(--brand-600)" />
+                ) : (
+                  <Star size={18} color="#22c55e" fill="#22c55e" />
+                )}
+              </div>
+              <div className="col" style={{ gap: 0 }}>
+                <span className="semi small" style={{ color: "var(--ink-900)" }}>
+                  {visibility === "everyone" ? "Everyone" : "Close Friends"}
+                </span>
+                <span className="tiny muted">
+                  {visibility === "everyone"
+                    ? (hiddenUsers.length > 0 ? `Hidden from ${hiddenUsers.length} neighbors` : "All nearby neighbors can see it")
+                    : `${allowedUsers.length} selected neighbors`}
+                </span>
+              </div>
+            </div>
+            <span className="small semi text-brand">Edit</span>
+          </button>
         </div>
 
         <div className="field">
@@ -205,6 +294,241 @@ export default function StoryCompose() {
           {posting ? "Posting…" : uploading ? "Uploading photo…" : "Share story"}
         </button>
       </div>
+
+      {/* Story Privacy Options Drawer Sheet */}
+      {showPrivacySheet && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 110,
+          display: "flex", flexDirection: "column", justifyContent: "flex-end",
+          maxWidth: "var(--maxw)", left: "50%", transform: "translateX(-50%)"
+        }}>
+          <div style={{ flex: 1 }} onClick={() => setShowPrivacySheet(false)} />
+          
+          <div style={{
+            background: "#fff",
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            maxHeight: "75%",
+            display: "flex",
+            flexDirection: "column",
+            animation: "slideUp 0.25s ease-out",
+            padding: "24px 20px 30px"
+          }}>
+            <div className="row between align-center" style={{ marginBottom: 16 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink-900)", margin: 0 }}>
+                Audience Options
+              </h2>
+              <button
+                onClick={() => { setShowPrivacySheet(false); setSearchQuery(""); setSearchResults([]); }}
+                style={{
+                  background: "var(--ink-100)",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer"
+                }}
+              >
+                <X size={18} color="var(--ink-700)" />
+              </button>
+            </div>
+
+            {/* Audience Tabs */}
+            <div className="row gap-8" style={{ marginBottom: 20 }}>
+              <button
+                onClick={() => { setVisibility("everyone"); setSearchQuery(""); setSearchResults([]); }}
+                className={`row center gap-6 grow`}
+                style={{
+                  padding: "12px 10px",
+                  borderRadius: 12,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  border: "1.5px solid",
+                  background: visibility === "everyone" ? "rgba(124,58,237,0.06)" : "#fff",
+                  borderColor: visibility === "everyone" ? "var(--brand-600)" : "var(--ink-200)",
+                  color: visibility === "everyone" ? "var(--brand-700)" : "var(--ink-700)",
+                  cursor: "pointer"
+                }}
+              >
+                <Globe size={15} /> Everyone
+              </button>
+              <button
+                onClick={() => { setVisibility("close_friends"); setSearchQuery(""); setSearchResults([]); }}
+                className={`row center gap-6 grow`}
+                style={{
+                  padding: "12px 10px",
+                  borderRadius: 12,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  border: "1.5px solid",
+                  background: visibility === "close_friends" ? "rgba(34,197,94,0.06)" : "#fff",
+                  borderColor: visibility === "close_friends" ? "#22c55e" : "var(--ink-200)",
+                  color: visibility === "close_friends" ? "#16a34a" : "var(--ink-700)",
+                  cursor: "pointer"
+                }}
+              >
+                <Star size={15} fill={visibility === "close_friends" ? "#16a34a" : "none"} /> Close Friends
+              </button>
+            </div>
+
+            <div style={{ background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+              <p className="tiny muted" style={{ lineHeight: 1.4, margin: 0 }}>
+                {visibility === "everyone"
+                  ? "Your story is visible to neighbors nearby. You can search below to select specific neighbors to hide this story from."
+                  : "Your story is only visible to neighbors on your Close Friends list. Search below to add/remove friends."}
+              </p>
+            </div>
+
+            {/* Search Input */}
+            <div className="row align-center gap-8" style={{
+              background: "var(--ink-100)",
+              border: "1px solid var(--ink-200)",
+              borderRadius: 12,
+              padding: "4px 12px",
+              marginBottom: 16
+            }}>
+              <Search size={16} color="var(--ink-500)" />
+              <input
+                className="grow"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: 13.5,
+                  padding: "8px 0",
+                  outline: "none"
+                }}
+                placeholder="Search neighbor's name or @handle..."
+                value={searchQuery}
+                onChange={(e) => void handleSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Selection list */}
+            <div style={{ overflowY: "auto", flex: 1, minHeight: 180 }} className="col gap-10">
+              {searchQuery.trim() ? (
+                // Render Search Results
+                searching ? (
+                  <div style={{ textAlign: "center", padding: "30px 0", color: "var(--ink-400)", fontSize: 13 }}>
+                    Searching...
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "30px 0", color: "var(--ink-400)", fontSize: 13 }}>
+                    No neighbors found matching "{searchQuery}"
+                  </div>
+                ) : (
+                  searchResults.map((u) => {
+                    const isSelected = visibility === "close_friends"
+                      ? allowedUsers.some((x) => x.id === u.id)
+                      : hiddenUsers.some((x) => x.id === u.id);
+
+                    return (
+                      <div
+                        key={u.id}
+                        onClick={() => toggleUserSelection(u)}
+                        className="row between align-center"
+                        style={{ padding: "6px 0", cursor: "pointer" }}
+                      >
+                        <div className="row gap-10 align-center">
+                          <SafeImg
+                            src={u.avatar}
+                            variant="avatar"
+                            style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover" }}
+                          />
+                          <div className="col" style={{ gap: 0 }}>
+                            <span className="semi" style={{ fontSize: 13.5, color: "var(--ink-900)" }}>
+                              {u.name}
+                            </span>
+                            <span className="tiny muted">@{u.alias || "neighbor"}</span>
+                          </div>
+                        </div>
+
+                        <div style={{
+                          width: 22, height: 22, borderRadius: "50%",
+                          border: isSelected ? "none" : "2px solid var(--ink-300)",
+                          background: isSelected ? (visibility === "close_friends" ? "#22c55e" : "var(--brand-600)") : "transparent",
+                          display: "flex", alignItems: "center", justifyContent: "center"
+                        }}>
+                          {isSelected && <Check size={13} color="#fff" strokeWidth={3} />}
+                        </div>
+                      </div>
+                    );
+                  })
+                )
+              ) : (
+                // Render Selected lists
+                visibility === "close_friends" ? (
+                  allowedUsers.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "40px 0", color: "var(--ink-400)", fontSize: 13.5 }}>
+                      No close friends selected. <br /> Use the search bar to select friends.
+                    </div>
+                  ) : (
+                    <div className="col gap-10">
+                      <div className="tiny muted">Close Friends ({allowedUsers.length})</div>
+                      {allowedUsers.map((u) => (
+                        <div key={u.id} className="row between align-center" style={{ padding: "6px 0" }}>
+                          <div className="row gap-10 align-center">
+                            <SafeImg src={u.avatar} variant="avatar" style={{ width: 36, height: 36, borderRadius: "50%" }} />
+                            <div className="col" style={{ gap: 0 }}>
+                              <span className="semi text-dark" style={{ fontSize: 13.5 }}>{u.name}</span>
+                              <span className="tiny muted">@{u.alias}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => toggleUserSelection(u)}
+                            style={{ background: "none", border: "none", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  hiddenUsers.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "40px 0", color: "var(--ink-400)", fontSize: 13.5 }}>
+                      Story is visible to all neighbors. <br /> Search above to hide this story from specific users.
+                    </div>
+                  ) : (
+                    <div className="col gap-10">
+                      <div className="tiny muted" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <UserMinus size={12} /> Hidden From ({hiddenUsers.length})
+                      </div>
+                      {hiddenUsers.map((u) => (
+                        <div key={u.id} className="row between align-center" style={{ padding: "6px 0" }}>
+                          <div className="row gap-10 align-center">
+                            <SafeImg src={u.avatar} variant="avatar" style={{ width: 36, height: 36, borderRadius: "50%" }} />
+                            <div className="col" style={{ gap: 0 }}>
+                              <span className="semi text-dark" style={{ fontSize: 13.5 }}>{u.name}</span>
+                              <span className="tiny muted">@{u.alias}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => toggleUserSelection(u)}
+                            style={{ background: "none", border: "none", color: "var(--brand-600)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                          >
+                            Unhide
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )
+              )}
+            </div>
+            
+            <button
+              onClick={() => { setShowPrivacySheet(false); setSearchQuery(""); setSearchResults([]); }}
+              className="btn btn-primary btn-block"
+              style={{ marginTop: 16 }}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -73,7 +73,7 @@ export async function forwardGeocode(query: string): Promise<GeoPlace[]> {
   const q = query.trim();
   if (!token || q.length < 2) return [];
   try {
-    const url = `${BASE}/${encodeURIComponent(q)}.json?access_token=${token}&types=neighborhood,locality,place,address&limit=5&language=en&country=IN`;
+    const url = `${BASE}/${encodeURIComponent(q)}.json?access_token=${token}&types=neighborhood,locality,place,address&limit=5&language=en&country=${config.defaultCountry}`;
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();

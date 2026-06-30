@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { businessService } from "@/services";
+import { businessService, profileControlService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { UserPlus, Crown, Power, Bell } from "lucide-react";
 import { useApp } from "@/store";
@@ -14,14 +14,42 @@ export default function BusinessSettings() {
   const nav = useNavigate();
   const { showToast, setContext } = useApp();
   const { data: team } = useQuery<TeamMember[]>(() => businessService.team(id) as any, [id]);
+  const { data: business, refetch: refetchBiz } = useQuery(() => businessService.get(id), [id]);
+  const [ownerEnabled, setOwnerEnabled] = useState(true);
   const [leads, setLeads] = useState(true);
   const [reviewsN, setReviewsN] = useState(true);
   const [requests, setRequests] = useState(true);
+
+  useEffect(() => {
+    if (business) {
+      setOwnerEnabled(business.ownerEnabled !== false);
+    }
+  }, [business]);
+
+  async function handleToggleVisibility(v: boolean) {
+    setOwnerEnabled(v);
+    try {
+      await profileControlService.setEnabled("BUSINESS", id, v);
+      showToast(v ? "Business is now visible publicly" : "Business is hidden from discovery");
+      void refetchBiz();
+    } catch (err: any) {
+      setOwnerEnabled(!v);
+      showToast(err.message || "Failed to update visibility");
+    }
+  }
 
   return (
     <div className="screen with-nav">
       <AppBar title="Business settings" />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 20 }}>
+        {/* Visibility */}
+        <div>
+          <div className="small semi muted" style={{ marginBottom: 8 }}>Visibility</div>
+          <div className="card">
+            <Toggle label="Show business publicly" on={ownerEnabled} set={handleToggleVisibility} last />
+          </div>
+        </div>
+
         {/* Notifications */}
         <div>
           <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><Bell size={14} /> Notifications</div>

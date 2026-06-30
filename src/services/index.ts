@@ -19,4 +19,5 @@ export { proService, PRO_PLANS, LEAD_PACKS } from "./proService";
 export { aiService } from "./aiService";
 export { supportService } from "./supportService";
 export { appointmentService } from "./appointmentService";
+export { profileControlService } from "./profileControlService";
 

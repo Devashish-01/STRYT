@@ -4,10 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { SafeImg } from "@/components/common";
+import { config } from "@/config";
 
 const anonSb = createClient(
-  (import.meta as any).env.VITE_SUPABASE_URL,
-  (import.meta as any).env.VITE_SUPABASE_ANON_KEY
+  config.supabaseUrl,
+  config.supabaseAnonKey
 );
 
 const STATUS_LABELS: Record<string, { emoji: string; label: string }> = {
@@ -75,7 +76,7 @@ export default function TrackingPage() {
     if (loading || expired || !mapRef.current || leafletMap.current) return;
     const map = L.map(mapRef.current, { zoomControl: false }).setView([20.5937, 78.9629], 14);
     L.tileLayer(
-      `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${(import.meta as any).env.VITE_MAPBOX_TOKEN}`,
+      `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${config.mapboxToken}`,
       { tileSize: 512, zoomOffset: -1, attribution: "© Mapbox" }
     ).addTo(map);
     leafletMap.current = map;

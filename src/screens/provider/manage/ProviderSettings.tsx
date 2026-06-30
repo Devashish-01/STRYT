@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { BadgeCheck, Bell, Power, Camera, Clock } from "lucide-react";
 import { useApp } from "@/store";
-import { providerService } from "@/services";
+import { providerService, profileControlService } from "@/services";
 import ProviderManageNav from "./ProviderManageNav";
 import { kycService } from "@/services/kycService";
 import type { ProviderVerification } from "@/types";
@@ -16,6 +16,7 @@ export default function ProviderSettings() {
   const [matched, setMatched] = useState(true);
   const [loading, setLoading] = useState(true);
   const [verifications, setVerifications] = useState<ProviderVerification[]>([]);
+  const [ownerEnabled, setOwnerEnabled] = useState(true);
 
   const reloadVerifications = async () => {
     if (!id) return;
@@ -33,7 +34,10 @@ export default function ProviderSettings() {
       providerService.get(id),
       kycService.getVerifications(id)
     ])
-      .then(([_, kycList]) => {
+      .then(([prov, kycList]) => {
+        if (prov) {
+          setOwnerEnabled(prov.ownerEnabled !== false);
+        }
         if (kycList) {
           setVerifications(kycList);
         }
@@ -43,6 +47,17 @@ export default function ProviderSettings() {
         setLoading(false);
       });
   }, [id]);
+
+  async function handleToggleVisibility(v: boolean) {
+    setOwnerEnabled(v);
+    try {
+      await profileControlService.setEnabled("PROVIDER", id, v);
+      showToast(v ? "Provider profile is now visible" : "Provider profile hidden from discovery");
+    } catch (err: any) {
+      setOwnerEnabled(!v);
+      showToast(err.message || "Failed to update visibility");
+    }
+  }
 
   if (loading) {
     return (
@@ -156,20 +171,12 @@ export default function ProviderSettings() {
           </div>
         </div>
 
-        {/* Profile Control */}
-        <div className="card" style={{ padding: 14 }}>
-          <button
-            className="row gap-10 semi small"
-            style={{ color: "#dc2626" }}
-            onClick={async () => {
-              try {
-                await providerService.setAvailability(id, false);
-                showToast("Profile paused — you won't show in 'available now'");
-              } catch { showToast("Couldn't update. Try again."); }
-            }}
-          >
-            <Power size={18} /> Pause my profile
-          </button>
+        {/* Visibility */}
+        <div>
+          <div className="small semi muted" style={{ marginBottom: 8 }}>Visibility</div>
+          <div className="card">
+            <Toggle label="Show provider profile publicly" on={ownerEnabled} set={handleToggleVisibility} last />
+          </div>
         </div>
 
         <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>Exit provider mode</button>

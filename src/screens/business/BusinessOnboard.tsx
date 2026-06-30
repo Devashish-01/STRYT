@@ -6,6 +6,8 @@ import { useQuery } from "@/hooks/useApi";
 import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store } from "lucide-react";
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
+import RadiusSelector from "@/components/RadiusSelector";
+
 import { reverseGeocodeFull } from "@/lib/geocode";
 
 const steps = ["Basics", "Location", "Photos", "Contact", "Verify"];
@@ -183,19 +185,13 @@ export default function BusinessOnboard() {
               </div>
             )}
             <div className="field" style={{ marginTop: 14 }}>
-              <label className="row between">
-                <span>Broadcast radius</span>
-                <span style={{ color: "var(--brand-700)" }}>{broadcastRadius} km</span>
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={25}
+              <RadiusSelector
                 value={broadcastRadius}
-                onChange={(e) => setBroadcastRadius(Number(e.target.value))}
-                style={{ width: "100%", accentColor: "var(--brand-600)" }}
+                onChange={setBroadcastRadius}
+                accentColor="var(--brand-600)"
+                label="Broadcast radius"
+                description="Specify how far you want to announce your business opening."
               />
-              <span className="tiny muted">Specify how far you want to announce your business opening.</span>
             </div>
           </>
         )}

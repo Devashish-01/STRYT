@@ -5,6 +5,8 @@ import { Skeleton } from "@/components/states";
 import { catalogService, businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import RadiusSelector from "@/components/RadiusSelector";
+
 
 export default function ProfileEditor() {
   const { id = "b1" } = useParams();
@@ -19,7 +21,9 @@ export default function ProfileEditor() {
   const [pincode, setPincode] = useState("");
   const [phone, setPhone] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [broadcastRadius, setBroadcastRadius] = useState(5);
   const [saving, setSaving] = useState(false);
+
 
   // Seed form once the business loads.
   useEffect(() => {
@@ -32,7 +36,9 @@ export default function ProfileEditor() {
     setPincode(b.pincode);
     setPhone(b.phone);
     setWhatsapp(b.whatsapp ?? "");
+    setBroadcastRadius(b.broadcastRadius ?? 5);
   }, [b]);
+
 
   const cats = categories ?? [];
   const valid = name.trim().length > 1 && city.trim().length > 0;
@@ -40,10 +46,11 @@ export default function ProfileEditor() {
   async function save() {
     if (!valid) return;
     setSaving(true);
-    await businessService.update(id, { name, description: desc, addressLine1: address, city, pincode, phone, whatsapp });
+    await businessService.update(id, { name, description: desc, addressLine1: address, city, pincode, phone, whatsapp, broadcastRadius });
     showToast("Profile saved");
     setSaving(false);
   }
+
 
   const parentCat = cats.find((c) => c.id === cat || c.children?.some((ch) => ch.id === cat));
 
@@ -90,7 +97,17 @@ export default function ProfileEditor() {
         </div>
         <div className="field"><label>Phone</label><input className="input" inputMode="numeric" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
         <div className="field"><label>WhatsApp</label><input className="input" inputMode="numeric" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} /></div>
+        <div className="field">
+          <RadiusSelector
+            value={broadcastRadius}
+            onChange={setBroadcastRadius}
+            accentColor="var(--brand-600)"
+            label="Broadcast radius"
+            description="Specify how far you want to announce your business."
+          />
+        </div>
       </div>
+
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
         <button className="btn btn-primary btn-block" disabled={saving || !valid} onClick={save}>{saving ? "Saving…" : "Save changes"}</button>
       </div>

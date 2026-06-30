@@ -4,6 +4,7 @@ import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, ReservationReq } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
+import { config } from "@/config";
 
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -95,8 +96,8 @@ export const businessService = {
         addressLine1: "123 Street Lane",
         city: "Pune",
         pincode: "411001",
-        lat: 18.536,
-        lng: 73.893,
+        lat: config.defaultLocation.lat,
+        lng: config.defaultLocation.lng,
         phone: "9876543210",
         hours: "9 AM - 9 PM",
         status: "ACTIVE",

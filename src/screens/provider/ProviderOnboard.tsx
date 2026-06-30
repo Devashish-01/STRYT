@@ -6,6 +6,8 @@ import { useQuery } from "@/hooks/useApi";
 import { Camera, CheckCircle2, IndianRupee, Plus, Briefcase } from "lucide-react";
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
+import RadiusSelector from "@/components/RadiusSelector";
+
 
 const steps = ["Skill", "Area & price", "Portfolio", "Verify"];
 
@@ -180,9 +182,13 @@ export default function ProviderOnboard() {
               </div>
             </div>
             <div className="field">
-              <label className="row between"><span>Service radius</span><span style={{ color: "var(--green-600)" }}>{radius} km</span></label>
-              <input type="range" min={1} max={25} value={radius} onChange={(e) => setRadius(Number(e.target.value))} style={{ width: "100%", accentColor: "#16a34a" }} />
-              <span className="tiny muted">How far you're willing to travel/serve.</span>
+              <RadiusSelector
+                value={radius}
+                onChange={setRadius}
+                accentColor="#16a34a"
+                label="Service radius"
+                description="How far you're willing to travel/serve."
+              />
             </div>
             <div className="field">
               <label>Availability timing (from when to when you are available)</label>

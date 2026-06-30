@@ -4,6 +4,7 @@ import { cursorToRange, toPage, throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import type { Business, Provider } from "@/types";
 import { haversineKm } from "@/lib/geocode";
+import { config } from "@/config";
 
 interface FeedParams {
   lat?: number;
@@ -14,10 +15,8 @@ interface FeedParams {
   sort?: "nearby" | "rating" | "new";
 }
 
-// Default map center (Koregaon Park, Pune) used when the device location
-// isn't available yet, so the nearby sort still has a reference point.
-const DEFAULT_LAT = 18.536;
-const DEFAULT_LNG = 73.893;
+const DEFAULT_LAT = config.defaultLocation.lat;
+const DEFAULT_LNG = config.defaultLocation.lng;
 
 export const discoveryService = {
   async businesses(p: FeedParams = {}): Promise<Page<Business>> {
@@ -47,7 +46,7 @@ export const discoveryService = {
       })).filter((b) => b.distanceKm <= radiusLimit);
       return page;
     }
-    let q = sb.from("businesses").select("*", { count: "exact" }).eq("status", "ACTIVE");
+    let q = sb.from("businesses").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
     if (p.category) q = q.eq("category_id", p.category);
     q = p.sort === "new" ? q.order("is_new", { ascending: false }).order("opening_date", { ascending: false })
                          : q.order("rating_avg", { ascending: false });
@@ -90,7 +89,7 @@ export const discoveryService = {
       })).filter((prov) => prov.distanceKm <= radiusLimit);
       return page;
     }
-    let q = sb.from("providers").select("*", { count: "exact" }).eq("status", "ACTIVE");
+    let q = sb.from("providers").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
     if (p.category) q = q.eq("category_id", p.category);
     q = p.sort === "new" ? q.order("is_new", { ascending: false })
                          : q.order("rating_avg", { ascending: false });
@@ -138,8 +137,8 @@ export const discoveryService = {
     const sb = getSupabase();
     const term = `%${q}%`;
     const [bizRes, provRes] = await Promise.all([
-      sb.from("businesses").select("*").or(`name.ilike.${term},category_name.ilike.${term}`).limit(20),
-      sb.from("providers").select("*").or(`display_name.ilike.${term},category_name.ilike.${term}`).limit(20),
+      sb.from("businesses").select("*").eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null).or(`name.ilike.${term},category_name.ilike.${term}`).limit(20),
+      sb.from("providers").select("*").eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null).or(`display_name.ilike.${term},category_name.ilike.${term}`).limit(20),
     ]);
     throwIfError(bizRes.error);
     throwIfError(provRes.error);

@@ -12,10 +12,12 @@ export default function QueueManager() {
   const { showToast } = useApp();
   const [live, setLive] = useState(false);
   const [avgTime, setAvgTime] = useState(8);
+  const [inputValue, setInputValue] = useState("8");
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
   const avgTimeRef = useRef(avgTime);
   avgTimeRef.current = avgTime;
+  const isInputFocused = useRef(false);
 
   const load = useCallback(async () => {
     if (!businessId) return;
@@ -23,6 +25,9 @@ export default function QueueManager() {
       const state = await businessService.queueOwnerState(businessId);
       setLive(state.isOpen);
       setAvgTime(state.avgServiceMin);
+      if (!isInputFocused.current) {
+        setInputValue(state.avgServiceMin.toString());
+      }
       setTokens(state.tokens);
     } catch {
       // silent — queue settings row may not exist yet (first open)
@@ -119,15 +124,66 @@ export default function QueueManager() {
 
         {live && (
           <>
-            <div className="card" style={{ padding: 14 }}>
-              <div className="row between small semi">
+            <div className="card" style={{ padding: 16 }}>
+              <div className="row between small semi" style={{ alignItems: "center" }}>
                 <span>Avg service time</span>
-                <span style={{ color: "var(--brand-700)" }}>{avgTime} min</span>
+                <div className="row gap-4" style={{ alignItems: "center" }}>
+                  <input
+                    type="number"
+                    min={1}
+                    value={inputValue}
+                    onChange={(e) => {
+                      setInputValue(e.target.value);
+                      const parsed = parseInt(e.target.value, 10);
+                      if (!isNaN(parsed) && parsed >= 1) {
+                        setAvgTime(parsed);
+                      }
+                    }}
+                    onFocus={() => {
+                      isInputFocused.current = true;
+                    }}
+                    onBlur={() => {
+                      isInputFocused.current = false;
+                      let val = parseInt(inputValue, 10);
+                      if (isNaN(val) || val < 1) {
+                        val = 8;
+                      }
+                      setInputValue(val.toString());
+                      setAvgTime(val);
+                      saveAvgTime(val);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        (e.target as HTMLInputElement).blur();
+                      }
+                    }}
+                    style={{
+                      width: 72,
+                      textAlign: "right",
+                      border: "1.5px solid var(--line)",
+                      borderRadius: "8px",
+                      padding: "6px 8px",
+                      fontSize: "14px",
+                      fontWeight: "700",
+                      background: "var(--bg)",
+                      color: "var(--brand-700)",
+                      outline: "none"
+                    }}
+                  />
+                  <span className="muted" style={{ fontSize: "14px" }}>min</span>
+                </div>
               </div>
               <input
-                type="range" min={2} max={30} value={avgTime}
-                onChange={(e) => saveAvgTime(Number(e.target.value))}
-                style={{ width: "100%", accentColor: "#cc4415", marginTop: 8 }}
+                type="range"
+                min={2}
+                max={Math.max(120, avgTime)}
+                value={avgTime}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setInputValue(val.toString());
+                  saveAvgTime(val);
+                }}
+                style={{ width: "100%", accentColor: "var(--brand-500)", marginTop: 12 }}
               />
             </div>
 

@@ -48,6 +48,9 @@ function rowToStory(row: Record<string, unknown>): Story {
       : `/u/${row.user_id}`,
     lat: (row.lat as number) ?? undefined,
     lng: (row.lng as number) ?? undefined,
+    visibility: (row.visibility as string) ?? "everyone",
+    allowedUserIds: (row.allowed_user_ids as string[]) ?? [],
+    hiddenUserIds: (row.hidden_user_ids as string[]) ?? [],
   };
 }
 
@@ -70,6 +73,19 @@ const ACHIEVEMENT_DEFS = [
   { id: "vouch_giver",    emoji: "🫶", title: "Vouch Giver",      desc: "Vouch for 3 providers",                metric: "vouches_given",         threshold: 3  },
 ] as const;
 
+async function filterStoriesByPrivacy(storiesList: Story[]): Promise<Story[]> {
+  const uid = await currentUserId();
+  if (!uid) return [];
+  return storiesList.filter((s) => {
+    if (s.userId === uid) return true;
+    if (s.hiddenUserIds && s.hiddenUserIds.includes(uid)) return false;
+    if (s.visibility === "close_friends") {
+      if (!s.allowedUserIds || !s.allowedUserIds.includes(uid)) return false;
+    }
+    return true;
+  });
+}
+
 // ── Service ───────────────────────────────────────────────────
 
 export const socialService = {
@@ -83,7 +99,8 @@ export const socialService = {
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw error;
-    return (data ?? []).map(rowToStory);
+    const mapped = (data ?? []).map(rowToStory);
+    return filterStoriesByPrivacy(mapped);
   },
 
   async storiesNearby(lat: number, lng: number, radiusKm = 5): Promise<Story[]> {
@@ -100,7 +117,7 @@ export const socialService = {
     // Client-side proximity filter using Haversine (avoids RPC overhead for small datasets)
     const R = 6371;
     const toRad = (d: number) => (d * Math.PI) / 180;
-    return (data ?? [])
+    const mapped = (data ?? [])
       .map(rowToStory)
       .filter((s) => {
         if (!s.lat || !s.lng) return false;
@@ -109,6 +126,7 @@ export const socialService = {
         const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat)) * Math.cos(toRad(s.lat)) * Math.sin(dLng / 2) ** 2;
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) <= radiusKm;
       });
+    return filterStoriesByPrivacy(mapped);
   },
 
   async myStory(): Promise<Story | null> {
@@ -138,6 +156,9 @@ export const socialService = {
     expiresInHrs: number;
     lat?: number;
     lng?: number;
+    visibility?: string;
+    allowedUserIds?: string[];
+    hiddenUserIds?: string[];
   }): Promise<void> {
     const sb = getSupabase();
     const expiresAt = new Date(Date.now() + params.expiresInHrs * 3600 * 1000).toISOString();
@@ -152,11 +173,55 @@ export const socialService = {
       caption:       params.caption,
       cta:           params.cta,
       expires_at:    expiresAt,
+      visibility:    params.visibility ?? "everyone",
+      allowed_user_ids: params.allowedUserIds ?? [],
+      hidden_user_ids:  params.hiddenUserIds ?? [],
     };
     if (params.lat != null) row.lat = params.lat;
     if (params.lng != null) row.lng = params.lng;
     const { error } = await sb.from("stories").insert(row);
     if (error) throw error;
+  },
+
+  async recordStoryView(storyId: string): Promise<void> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return;
+    
+    // Attempt insert, ignore unique conflicts
+    await sb.from("story_views").upsert(
+      { story_id: storyId, viewer_user_id: uid },
+      { onConflict: "story_id,viewer_user_id" }
+    );
+  },
+
+  async getStoryViewers(storyId: string): Promise<any[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("story_views")
+      .select("created_at, viewer:users!viewer_user_id(id, name, avatar, alias)")
+      .eq("story_id", storyId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map((v: any) => ({
+      userId: v.viewer?.id,
+      name: v.viewer?.name,
+      avatar: v.viewer?.avatar,
+      alias: v.viewer?.alias,
+      viewedAt: v.created_at,
+    }));
+  },
+
+  async searchNeighbors(queryStr: string): Promise<any[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("users")
+      .select("id, name, alias, avatar")
+      .or(`name.ilike.%${queryStr}%,alias.ilike.%${queryStr}%`)
+      .limit(10);
+    if (error) throw error;
+    return data || [];
   },
 
   // ── Phase 34: Available-now ───────────────────────────────────
@@ -168,7 +233,9 @@ export const socialService = {
     const { data, error } = await sb
       .from("providers")
       .select("*")
-      .eq("status", "ACTIVE");
+      .eq("status", "ACTIVE")
+      .eq("owner_enabled", true)
+      .is("deleted_at", null);
     if (error) throw error;
     
     // Dynamically evaluate working hours & manual override for each provider

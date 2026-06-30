@@ -190,6 +190,15 @@ interface StoryViewerProps {
   onClose: () => void;
 }
 
+function timeAgo(iso: string): string {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 1)  return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
 export function StoryViewer({
   groups: inputGroups,
   startGroupIndex,
@@ -198,7 +207,11 @@ export function StoryViewer({
   onClose,
 }: StoryViewerProps) {
   const nav = useNavigate();
-  const { markStoryViewed } = useApp();
+  const { markStoryViewed, user } = useApp();
+
+  const [viewers, setViewers] = useState<any[]>([]);
+  const [loadingViewers, setLoadingViewers] = useState(false);
+  const [showViewersSheet, setShowViewersSheet] = useState(false);
 
   // 1. Resolve groups list: either use input groups or group flat stories by author
   const groups = inputGroups || (() => {
@@ -257,18 +270,45 @@ export function StoryViewer({
   const activeGroup = groups[groupIdx];
   const story = activeGroup?.stories[storyIdx];
 
-  // Reset indices / mark as viewed when story/group changes
+  const isOwnStory = story && (story.userId === user.id || 
+                       (story.authorName === user.name && story.authorAvatar === user.avatar));
+
+  // Reset indices / mark as viewed / save view in DB
   useEffect(() => {
     if (!story) return;
     markStoryViewed(story.id);
+
+    if (!isOwnStory) {
+      socialService.recordStoryView(story.id).catch((err) => {
+        console.warn("recordStoryView failed:", err);
+      });
+    }
+
     setProgress(0);
     setImageLoaded(false); // Reset image load status to trigger transition
-  }, [groupIdx, storyIdx, story?.id]);
+    setShowViewersSheet(false);
+  }, [groupIdx, storyIdx, story?.id, isOwnStory]);
+
+  // Fetch viewers if own story
+  useEffect(() => {
+    if (!story || !isOwnStory) return;
+    setLoadingViewers(true);
+    socialService.getStoryViewers(story.id)
+      .then((data) => {
+        setViewers(data);
+      })
+      .catch((err) => {
+        console.warn("getStoryViewers failed:", err);
+      })
+      .finally(() => {
+        setLoadingViewers(false);
+      });
+  }, [story?.id, isOwnStory]);
 
   // Handle active progress bar loading (4000ms duration)
   useEffect(() => {
-    if (!story) return;
-    const start = Date.now();
+    if (!story || showViewersSheet) return;
+    const start = Date.now() - (progress * 4000);
     const duration = 4000;
     const interval = setInterval(() => {
       const p = Math.min(1, (Date.now() - start) / duration);
@@ -279,7 +319,7 @@ export function StoryViewer({
       }
     }, 40);
     return () => clearInterval(interval);
-  }, [groupIdx, storyIdx]);
+  }, [groupIdx, storyIdx, showViewersSheet, progress]);
 
   if (!activeGroup || !story) return null;
 
@@ -352,7 +392,23 @@ export function StoryViewer({
         <div className="row gap-8">
           <SafeImg src={story.authorAvatar} variant="avatar" className="avatar" style={{ width: 36, height: 36, border: "2px solid #fff" }} />
           <div className="col" style={{ gap: 0 }}>
-            <span className="semi small" style={{ color: "#fff" }}>{story.authorName}</span>
+            <div className="row align-center gap-6">
+              <span className="semi small" style={{ color: "#fff" }}>{story.authorName}</span>
+              {story.visibility === "close_friends" && (
+                <span style={{
+                  background: "#22c55e",
+                  color: "#fff",
+                  fontSize: 9,
+                  fontWeight: 800,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  letterSpacing: 0.5,
+                  textTransform: "uppercase"
+                }}>
+                  Close Friends
+                </span>
+              )}
+            </div>
             <span className="tiny" style={{ color: "rgba(255,255,255,0.8)" }}>
               {story.postedAt} · expires in {story.expiresInHrs}h
             </span>
@@ -403,7 +459,7 @@ export function StoryViewer({
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent 40%)" }} />
 
       {/* Caption + CTA Link */}
-      <div style={{ position: "absolute", bottom: 28, left: 16, right: 16, zIndex: 3 }}>
+      <div style={{ position: "absolute", bottom: isOwnStory ? 76 : 28, left: 16, right: 16, zIndex: 3 }}>
         {story.caption && (
           <div style={{
             background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
@@ -423,7 +479,7 @@ export function StoryViewer({
           </button>
         )}
         
-        {story.authorType === "user" && (
+        {story.authorType === "user" && !isOwnStory && (
           <button
             className="btn btn-block"
             style={{ background: "rgba(255,255,255,0.18)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", marginTop: 8 }}
@@ -433,6 +489,124 @@ export function StoryViewer({
           </button>
         )}
       </div>
+
+      {/* Story owner view counter button */}
+      {isOwnStory && (
+        <div style={{
+          position: "absolute", bottom: 20, left: 16, zIndex: 10,
+          display: "flex", alignItems: "center"
+        }}>
+          <button
+            onClick={() => setShowViewersSheet(true)}
+            style={{
+              background: "rgba(255, 255, 255, 0.15)",
+              backdropFilter: "blur(8px)",
+              border: "1px solid rgba(255, 255, 255, 0.3)",
+              color: "#fff",
+              padding: "8px 14px",
+              borderRadius: 20,
+              fontSize: 13,
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              cursor: "pointer"
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            {viewers.length} {viewers.length === 1 ? "view" : "views"}
+          </button>
+        </div>
+      )}
+
+      {/* Viewers list bottom sheet */}
+      {showViewersSheet && (
+        <div style={{
+          position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100,
+          display: "flex", flexDirection: "column", justifyContent: "flex-end"
+        }}>
+          <div style={{ flex: 1 }} onClick={() => setShowViewersSheet(false)} />
+          
+          <div style={{
+            background: "#18181b",
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            borderTop: "1px solid rgba(255,255,255,0.1)",
+            maxHeight: "65%",
+            display: "flex",
+            flexDirection: "column",
+            animation: "slideUp 0.25s ease-out",
+            padding: "24px 20px"
+          }}>
+            <style>{`
+              @keyframes slideUp {
+                from { transform: translateY(100%); }
+                to { transform: translateY(0); }
+              }
+            `}</style>
+
+            <div className="row between align-center" style={{ marginBottom: 20 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 800, color: "#fff", margin: 0 }}>
+                Viewers ({viewers.length})
+              </h2>
+              <button
+                onClick={() => setShowViewersSheet(false)}
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  border: "none",
+                  borderRadius: "50%",
+                  width: 32,
+                  height: 32,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer"
+                }}
+              >
+                <X size={18} color="#fff" />
+              </button>
+            </div>
+
+            <div style={{ overflowY: "auto", flex: 1 }} className="col gap-12">
+              {loadingViewers ? (
+                <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.5)" }}>
+                  Loading viewers...
+                </div>
+              ) : viewers.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
+                  No views yet.
+                </div>
+              ) : (
+                viewers.map((v) => (
+                  <div key={v.userId} className="row between align-center" style={{ padding: "6px 0" }}>
+                    <div className="row gap-12 align-center">
+                      <SafeImg
+                        src={v.avatar}
+                        variant="avatar"
+                        style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
+                      />
+                      <div className="col" style={{ gap: 0 }}>
+                        <span className="semi" style={{ color: "#fff", fontSize: 14 }}>
+                          {v.name}
+                        </span>
+                        <span className="tiny" style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>
+                          @{v.alias || "neighbor"}
+                        </span>
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                      {timeAgo(v.viewedAt)}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

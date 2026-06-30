@@ -5,6 +5,8 @@ import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, C
 import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import RadiusSelector from "@/components/RadiusSelector";
+
 
 interface Template {
   label: string;
@@ -439,11 +441,13 @@ export default function AskCompose() {
         </div>
 
         <div className="field">
-          <label className="row between">
-            <span className="row gap-4"><MapPin size={14} /> Visible within</span>
-            <span style={{ color: "var(--brand-700)" }}>{radius} km of {area}</span>
-          </label>
-          <input type="range" min={1} max={15} value={radius} onChange={(e) => setRadius(Number(e.target.value))} style={{ width: "100%", accentColor: "var(--brand-600)" }} />
+          <RadiusSelector
+            value={radius}
+            onChange={setRadius}
+            accentColor="var(--brand-600)"
+            label="Visible within"
+            description={`Visible to users/providers within the selected radius of ${area}`}
+          />
         </div>
       </div>
 

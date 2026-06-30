@@ -49,6 +49,23 @@ export const userService = {
         if (updErr) console.warn("me (alias backfill):", updErr.message);
         u = { ...u, alias };
       }
+      // Look up pending deletion requests
+      const { data: delReq } = await sb
+        .from("profile_deletion_requests")
+        .select("created_at")
+        .eq("user_id", uid)
+        .eq("target_type", "CUSTOMER")
+        .eq("status", "PENDING")
+        .maybeSingle();
+
+      if (delReq) {
+        const requestDate = new Date(delReq.created_at);
+        const scheduledDate = new Date(requestDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+        u.deletionScheduledAt = scheduledDate.toISOString();
+      } else {
+        u.deletionScheduledAt = null;
+      }
+
       return u;
     }
     // Row missing — happens for Google OAuth / phone-auth users when the DB trigger hasn't run or completed yet.
@@ -66,7 +83,7 @@ export const userService = {
       { onConflict: "id", ignoreDuplicates: true }
     );
     if (upsertErr) console.warn("me (profile self-heal):", upsertErr.message);
-    return toCamel<CurrentUser>({ id: uid, name, alias, phone: au.phone ?? null, avatar, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5 });
+    return toCamel<CurrentUser>({ id: uid, name, alias, phone: au.phone ?? null, avatar, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5, deletion_scheduled_at: null });
   },
 
   async update(patch: Partial<CurrentUser>) {
@@ -241,5 +258,17 @@ export const userService = {
       })),
       proposalsReceivedCount: propRecCount ?? 0,
     };
+  },
+  async checkAliasUnique(alias: string): Promise<boolean> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    const { data, error } = await sb
+      .from("users")
+      .select("id")
+      .eq("alias", alias.trim().toLowerCase())
+      .neq("id", uid || "")
+      .maybeSingle();
+    throwIfError(error);
+    return !data;
   },
 };

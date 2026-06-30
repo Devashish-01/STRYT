@@ -24,6 +24,7 @@ import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Provider, PortfolioItem, Review, ProviderPackage } from "@/types";
 import { haversineKm } from "@/lib/geocode";
+import { config } from "@/config";
 
 // Columns on the providers table; everything else (portfolio, distanceKm…) stripped.
 const PROVIDER_COLUMNS = new Set([
@@ -71,8 +72,8 @@ export const providerService = {
         categoryName: "AC Repair",
         bio: "Certified AC technician with 8+ years of experience. Quick troubleshooting and honest pricing.",
         avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200",
-        lat: 18.536,
-        lng: 73.893,
+        lat: config.defaultLocation.lat,
+        lng: config.defaultLocation.lng,
         distanceKm: 0.8,
         serviceRadiusKm: 15,
         startingPrice: 350,

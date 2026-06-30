@@ -62,6 +62,8 @@ export interface Business {
   priceForTwo?: number;
   deliveryTime?: string;
   offerText?: string;
+  ownerEnabled?: boolean;
+  deletedAt?: string | null;
   catalog: CatalogItem[];
   offers: Offer[];
 }
@@ -116,6 +118,8 @@ export interface Provider {
   verificationTier?: VerificationTier;
   isAvailableNow?: boolean;
   availableUntil?: string | null;
+  ownerEnabled?: boolean;
+  deletedAt?: string | null;
 }
 
 export interface PortfolioItem {
@@ -321,6 +325,9 @@ export interface Story {
   tapTarget: string;
   lat?: number;
   lng?: number;
+  visibility?: string;
+  allowedUserIds?: string[];
+  hiddenUserIds?: string[];
 }
 
 export interface AvailableNow {
@@ -533,6 +540,9 @@ export interface CurrentUser {
   showPostsPublicly?: boolean;
   showAsksPublicly?: boolean;
   showBadgesPublicly?: boolean;
+  customerEnabled?: boolean;
+  customerDeletedAt?: string | null;
+  deletionScheduledAt?: string | null;
 }
 
 export interface QnaItem {

@@ -6,6 +6,8 @@ import { providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { X, Plus } from "lucide-react";
+import RadiusSelector from "@/components/RadiusSelector";
+
 
 export default function ProviderProfileEditor() {
   const { id = "p1" } = useParams();
@@ -81,8 +83,13 @@ export default function ProviderProfileEditor() {
         </div>
 
         <div className="field">
-          <label className="row between"><span>Service radius</span><span style={{ color: "var(--green-600)" }}>{radius} km</span></label>
-          <input type="range" min={1} max={25} value={radius} onChange={(e) => setRadius(Number(e.target.value))} style={{ width: "100%", accentColor: "#16a34a" }} />
+          <RadiusSelector
+            value={radius}
+            onChange={setRadius}
+            accentColor="#16a34a"
+            label="Service radius"
+            description="How far you're willing to travel/serve."
+          />
         </div>
 
         <div className="field">

@@ -14,20 +14,11 @@ import { config } from "@/config";
 import { StoryViewer } from "@/components/Stories";
 import type { Story } from "@/types";
 import { evaluateProviderAvailability } from "@/utils/availability";
+import { RADIUS_OPTIONS } from "@/utils/constants";
 
 type Layer = "business" | "provider" | "request" | "story";
 
-const RADIUS_OPTIONS = [
-  { label: "500m", km: 0.5 },
-  { label: "1 km",  km: 1 },
-  { label: "2 km",  km: 2 },
-  { label: "5 km",  km: 5 },
-  { label: "10 km", km: 10 },
-  { label: "25 km", km: 25 },
-  { label: "50 km", km: 50 },
-  { label: "100 km", km: 100 },
-  { label: "🌍 World", km: 20000 },
-] as const;
+
 
 const pinColors: Record<Exclude<Layer, "story">, string> = {
   business: "#f26a00",
@@ -92,8 +83,8 @@ function RadiusController({ lat, lng, radiusKm }: { lat: number; lng: number; ra
 function RecenterButton({ radiusKm }: { radiusKm: number }) {
   const map = useMap();
   const { user, refreshUser, showToast } = useApp();
-  const lat = user.lat || 18.536;
-  const lng = user.lng || 73.893;
+  const lat = user.lat || config.defaultLocation.lat;
+  const lng = user.lng || config.defaultLocation.lng;
 
   const recenterMap = (targetLat: number, targetLng: number) => {
     if (radiusKm >= 5000) {
@@ -291,8 +282,8 @@ export default function MapView() {
     setShowCustom(false);
   }
 
-  const centerLat = user.lat || 18.536;
-  const centerLng = user.lng || 73.893;
+  const centerLat = user.lat || config.defaultLocation.lat;
+  const centerLng = user.lng || config.defaultLocation.lng;
   const isWorld   = radiusKm >= 5000;
 
   // For "World" use a globally-sorted (newest-first) query with no geo filter

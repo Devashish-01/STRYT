@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Camera,
@@ -16,6 +16,8 @@ import {
 import { useApp } from "@/store";
 import { userService, uploadService } from "@/services";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
+import RadiusSelector from "@/components/RadiusSelector";
+
 
 const EMOJI_AVATARS = ["🦊", "🐯", "🐨", "🦉", "🎨", "🚀", "🍕", "🥑", "⚽", "🎯"];
 
@@ -25,7 +27,7 @@ const LANGUAGES = [
   { code: "mr", label: "Marathi (मराठी)" },
 ];
 
-const RADIUS_OPTIONS = [1, 3, 5, 10];
+
 
 export default function UserOnboard() {
   const nav = useNavigate();
@@ -55,14 +57,51 @@ export default function UserOnboard() {
   const [phone, setPhone] = useState(user.phone || "");
   const [language, setLanguage] = useState(user.language || "en");
   const [radius, setRadius] = useState(user.notificationRadiusKm || 5);
-  const [showCustom, setShowCustom] = useState(false);
-  const [customVal, setCustomVal] = useState("");
   const [emergencyName, setEmergencyName] = useState(user.emergencyContactName || "");
   const [emergencyPhone, setEmergencyPhone] = useState(user.emergencyContact || "");
+
+  const [aliasAvailable, setAliasAvailable] = useState<boolean | null>(null);
+  const [checkingAlias, setCheckingAlias] = useState(false);
 
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const trimmedAlias = alias.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+    if (trimmedAlias.length < 3) {
+      setAliasAvailable(null);
+      return;
+    }
+
+    setCheckingAlias(true);
+    const timer = setTimeout(async () => {
+      try {
+        const unique = await userService.checkAliasUnique(trimmedAlias);
+        setAliasAvailable(unique);
+      } catch {
+        setAliasAvailable(null);
+      } finally {
+        setCheckingAlias(false);
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [alias]);
+
+  async function handleSkip() {
+    localStorage.setItem("onboarding_skipped", "true");
+    if (!user.name || user.name === "New user") {
+      try {
+        await userService.update({ name: "Neighbor" });
+      } catch (e) {
+        console.warn("Soft update failed", e);
+      }
+    }
+    await refreshUser();
+    nav("/home", { replace: true });
+  }
+
 
   function selectEmoji(emoji: string) {
     const bgColors = ["#f87171", "#fb923c", "#fbbf24", "#34d399", "#60a5fa", "#818cf8", "#a78bfa", "#f472b6"];
@@ -253,32 +292,98 @@ export default function UserOnboard() {
           position: "relative",
         }}
       >
-        <div style={{ textAlign: "center", marginTop: 32, marginBottom: 24, width: "100%" }}>
-          <div
+        {/* Skip Setup Header Bar */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "16px 4px 8px", zIndex: 100 }}>
+          <div style={{ fontWeight: 800, fontSize: 16, color: "var(--brand-700)", letterSpacing: -0.5 }}>STRYT</div>
+          <button 
+            type="button"
+            onClick={handleSkip} 
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: 18,
-              background: "linear-gradient(135deg, #8b47f5 0%, #7c3aed 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 8px 24px rgba(124, 58, 237, 0.2)",
-              margin: "0 auto 16px",
+              background: "rgba(255, 255, 255, 0.8)",
+              border: "1px solid var(--ink-200)",
+              borderRadius: 12,
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 700,
+              color: "var(--ink-600)",
+              cursor: "pointer",
+              backdropFilter: "blur(8px)",
+              transition: "all 0.2s"
             }}
           >
-            <svg width="34" height="34" viewBox="0 0 64 64">
-              <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
-              <path d="M32 41 C24 35 40 24 32 17" stroke="#7c3aed" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
-            </svg>
-          </div>
-          <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -1, color: "var(--ink-900)" }}>
+            Skip for now
+          </button>
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: 16, marginBottom: 20, width: "100%" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: -0.5, color: "var(--ink-900)" }}>
             Welcome to STRYT
           </h1>
-          <p style={{ marginTop: 6, fontSize: 14, color: "var(--ink-600)", maxWidth: 300, margin: "6px auto 0" }}>
-            Let's set up your account details and local preferences.
+          <p style={{ marginTop: 6, fontSize: 13.5, color: "var(--ink-600)" }}>
+            Let's customize your profile and neighbor experience.
           </p>
+        </div>
+
+        {/* Premium Live ID Card Preview */}
+        <div 
+          className="profile-preview-card"
+          style={{
+            background: "linear-gradient(135deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.45))",
+            backdropFilter: "blur(20px)",
+            borderRadius: 24,
+            border: "1px solid rgba(255, 255, 255, 0.5)",
+            padding: "24px 20px",
+            boxShadow: "0 16px 36px rgba(124, 58, 237, 0.08)",
+            width: "100%",
+            maxWidth: 320,
+            marginBottom: 24,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            textAlign: "center",
+            position: "relative",
+            overflow: "hidden"
+          }}
+        >
+          <div style={{
+            position: "absolute", top: 0, left: 0, right: 0, height: 4,
+            background: "linear-gradient(90deg, #8b47f5, #f26a00, #16a34a)"
+          }} />
+
+          {/* Avatar Display */}
+          <div style={{
+            width: 72, height: 72,
+            borderRadius: "50%",
+            background: "linear-gradient(135deg, var(--brand-100), var(--brand-200))",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 34,
+            marginBottom: 12,
+            boxShadow: "0 8px 16px rgba(124,58,237,0.12)",
+            border: "2px solid #fff"
+          }}>
+            {avatar ? (
+              avatar.startsWith("data:") || avatar.startsWith("http") ? (
+                <img src={avatar} alt="Avatar" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
+              ) : (
+                avatar
+              )
+            ) : (
+              "👋"
+            )}
+          </div>
+
+          {/* Live Name & Handle */}
+          <div style={{ fontWeight: 800, fontSize: 18, color: "var(--ink-900)", wordBreak: "break-word", maxWidth: "100%" }}>
+            {name || "Your Name"}
+          </div>
+          <div style={{ fontWeight: 600, fontSize: 13, color: "var(--brand-600)", marginTop: 2, wordBreak: "break-word", maxWidth: "100%" }}>
+            {alias ? `@${alias}` : "@handle"}
+          </div>
+
+          {/* Location / Area Info */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 12, fontSize: 10.5, fontWeight: 700, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <span>📍</span> {areaInput || "Not Set"}
+          </div>
         </div>
 
         {/* ── 1. Necessary Account Setup Card (REQUIRED *) ── */}
@@ -328,9 +433,20 @@ export default function UserOnboard() {
 
           {/* Username / Alias handle field */}
           <div className="field" style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-              Unique Handle / Username *
-            </label>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <label style={{ fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
+                Unique Handle / Username *
+              </label>
+              {checkingAlias && (
+                <span className="tiny" style={{ color: "var(--brand-600)", fontWeight: 600 }}>Checking...</span>
+              )}
+              {!checkingAlias && aliasAvailable === true && (
+                <span className="tiny" style={{ color: "#16a34a", fontWeight: 700 }}>✓ Available</span>
+              )}
+              {!checkingAlias && aliasAvailable === false && (
+                <span className="tiny" style={{ color: "#ef4444", fontWeight: 700 }}>✗ Already taken</span>
+              )}
+            </div>
             <div
               className="row"
               style={{
@@ -629,92 +745,13 @@ export default function UserOnboard() {
           </div>
 
           <div className="field" style={{ marginBottom: 20 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-              <Sliders size={13} color="var(--brand-600)" /> Alert Radius: <span style={{ color: "var(--brand-700)", marginLeft: 4 }}>{radius} km</span>
-            </label>
-            <div className="row gap-8" style={{ flexWrap: "wrap" }}>
-              {RADIUS_OPTIONS.map((r) => {
-                const active = radius === r && !showCustom;
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => { setRadius(r); setShowCustom(false); }}
-                    style={{
-                      flex: "1 0 calc(20% - 8px)",
-                      padding: "8px 0",
-                      borderRadius: 10,
-                      fontSize: 13,
-                      fontWeight: 700,
-                      border: active ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
-                      background: active ? "var(--brand-50)" : "var(--ink-50)",
-                      color: active ? "var(--brand-700)" : "var(--ink-700)",
-                      cursor: "pointer"
-                    }}
-                  >
-                    {r} km
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => {
-                  const isCustomActive = !RADIUS_OPTIONS.includes(radius);
-                  setCustomVal(isCustomActive ? String(radius) : "");
-                  setShowCustom(true);
-                }}
-                style={{
-                  flex: "1 0 calc(20% - 8px)",
-                  padding: "8px 0",
-                  borderRadius: 10,
-                  fontSize: 13,
-                  fontWeight: 700,
-                  border: showCustom || !RADIUS_OPTIONS.includes(radius) ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
-                  background: showCustom || !RADIUS_OPTIONS.includes(radius) ? "var(--brand-50)" : "var(--ink-50)",
-                  color: showCustom || !RADIUS_OPTIONS.includes(radius) ? "var(--brand-700)" : "var(--ink-700)",
-                  cursor: "pointer"
-                }}
-              >
-                Custom
-              </button>
-            </div>
-            {showCustom && (
-              <div className="row gap-8" style={{ marginTop: 10 }}>
-                <input
-                  type="number"
-                  step="0.1"
-                  className="input grow"
-                  style={{ padding: "8px 12px", fontSize: 13, height: 36 }}
-                  placeholder="Radius in km..."
-                  value={customVal}
-                  onChange={(e) => setCustomVal(e.target.value)}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  style={{ height: 36, padding: "0 12px" }}
-                  onClick={() => {
-                    const n = parseFloat(customVal);
-                    if (!isNaN(n) && n > 0) {
-                      const rounded = Math.round(n * 10) / 10;
-                      setRadius(rounded);
-                    }
-                    setShowCustom(false);
-                  }}
-                >
-                  Apply
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  style={{ height: 36, padding: "0 12px" }}
-                  onClick={() => setShowCustom(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
+            <RadiusSelector
+              value={radius}
+              onChange={setRadius}
+              accentColor="var(--brand-600)"
+              label="Alert Radius"
+              description="Receive notifications and updates within this radius."
+            />
           </div>
 
           {/* Divider */}
@@ -773,7 +810,7 @@ export default function UserOnboard() {
         <button
           className="btn btn-primary btn-block row center gap-8"
           onClick={handleSave}
-          disabled={saving || !name.trim() || !alias.trim()}
+          disabled={saving || !name.trim() || !alias.trim() || aliasAvailable === false || checkingAlias}
           style={{ padding: "16px", fontSize: 16, fontWeight: 700, borderRadius: 16, width: "100%", zIndex: 10 }}
         >
           {saving ? (

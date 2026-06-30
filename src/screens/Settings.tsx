@@ -2,17 +2,10 @@ import { useState, useEffect } from "react";
 import { AppBar } from "@/components/common";
 import { Moon, Volume2, Globe, Shield, Eye, Pencil } from "lucide-react";
 import { useApp } from "@/store";
-import { userService } from "@/services";
+import { userService, profileControlService } from "@/services";
 import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
+import RadiusSelector from "@/components/RadiusSelector";
 
-const RADIUS_OPTIONS = [
-  { label: "500m", km: 0.5 },
-  { label: "2 km", km: 2 },
-  { label: "5 km", km: 5 },
-  { label: "10 km", km: 10 },
-  { label: "25 km", km: 25 },
-  { label: "World", km: 5000 },
-];
 
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -71,24 +64,42 @@ export default function Settings() {
     return saved ? Number(saved) : (user.notificationRadiusKm || 5);
   });
 
-  const [showCustom, setShowCustom] = useState(false);
-  const [customVal, setCustomVal] = useState("");
-  const presetKms = new Set<number>(RADIUS_OPTIONS.map((o) => o.km));
-  const isCustomActive = !presetKms.has(radius);
+  const [customerEnabled, setCustomerEnabled] = useState(user.customerEnabled !== false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [submittingDelete, setSubmittingDelete] = useState(false);
 
-  function handlePresetClick(km: number) {
-    setRadius(km);
-    setShowCustom(false);
-  }
-
-  function handleCustomApply() {
-    const n = parseFloat(customVal);
-    if (!isNaN(n) && n > 0) {
-      const rounded = Math.round(n * 10) / 10;
-      setRadius(rounded);
+  async function handleToggleCustomerEnabled(v: boolean) {
+    setCustomerEnabled(v);
+    try {
+      await profileControlService.setEnabled("CUSTOMER", null, v);
+      showToast(v ? "Customer profile is now visible" : "Customer profile hidden from discovery");
+      void refreshUser();
+    } catch (err: any) {
+      setCustomerEnabled(!v);
+      showToast(err.message || "Failed to update visibility");
     }
-    setShowCustom(false);
   }
+
+  async function handleSubmitDeleteRequest() {
+    if (!deleteReason.trim()) {
+      showToast("Please provide a reason for deletion");
+      return;
+    }
+    setSubmittingDelete(true);
+    try {
+      await profileControlService.requestDeletion("CUSTOMER", null, deleteReason);
+      showToast("Deletion request submitted to administrators");
+      setShowDeleteModal(false);
+      setDeleteReason("");
+    } catch (err: any) {
+      showToast(err.message || "Failed to submit request");
+    } finally {
+      setSubmittingDelete(false);
+    }
+  }
+
+
 
   useEffect(() => {
     localStorage.setItem("settings_silent", String(silent));
@@ -155,100 +166,13 @@ export default function Settings() {
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 40 }}>
         {/* Notification Radius */}
         <div>
-          <div className="small semi muted" style={{ marginBottom: 8 }}>Notification radius</div>
-          <div className="card" style={{ padding: 14 }}>
-            <div className="row between small semi" style={{ marginBottom: 12 }}>
-              <span>Radius</span>
-              <span style={{ color: "var(--brand-700)" }}>{radius >= 5000 ? "World" : `${radius} km`}</span>
-            </div>
-
-            {showCustom ? (
-              <div className="row gap-8">
-                <input
-                  type="number"
-                  step="0.1"
-                  className="input grow"
-                  style={{ padding: "8px 12px", fontSize: 13, height: 36 }}
-                  placeholder="Radius in km..."
-                  value={customVal}
-                  onChange={(e) => setCustomVal(e.target.value)}
-                  autoFocus
-                />
-                <button
-                  className="btn btn-primary btn-sm"
-                  style={{ height: 36, padding: "0 12px" }}
-                  onClick={handleCustomApply}
-                >
-                  Apply
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  style={{ height: 36, padding: "0 12px" }}
-                  onClick={() => setShowCustom(false)}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <div style={{
-                display: "flex",
-                gap: 4,
-                overflowX: "auto",
-                scrollbarWidth: "none",
-                padding: "2px 0",
-              }}>
-                {RADIUS_OPTIONS.map((opt) => {
-                  const active = radius === opt.km;
-                  return (
-                    <button
-                      key={opt.km}
-                      onClick={() => handlePresetClick(opt.km)}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: 16,
-                        border: "none",
-                        background: active ? "var(--brand-600)" : "var(--ink-100)",
-                        color: active ? "#fff" : "var(--ink-700)",
-                        fontWeight: active ? 700 : 500,
-                        fontSize: 12.5,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        flexShrink: 0,
-                        transition: "background 0.15s, color 0.15s",
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  );
-                })}
-                <button
-                  onClick={() => {
-                    setCustomVal(isCustomActive ? String(radius) : "");
-                    setShowCustom(true);
-                  }}
-                  style={{
-                    padding: "6px 12px",
-                    borderRadius: 16,
-                    border: "none",
-                    background: isCustomActive ? "var(--brand-600)" : "var(--ink-100)",
-                    color: isCustomActive ? "#fff" : "var(--ink-700)",
-                    fontWeight: isCustomActive ? 700 : 500,
-                    fontSize: 12.5,
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    flexShrink: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 4,
-                    transition: "background 0.15s, color 0.15s",
-                  }}
-                >
-                  <Pencil size={11} strokeWidth={2.5} />
-                  {isCustomActive ? `${radius} km` : "Custom"}
-                </button>
-              </div>
-            )}
-          </div>
+          <RadiusSelector
+            value={radius}
+            onChange={setRadius}
+            accentColor="var(--brand-600)"
+            label="Notification radius"
+            description="How far away you want to receive alerts and discover things."
+          />
         </div>
 
         {/* Notifications */}
@@ -273,7 +197,8 @@ export default function Settings() {
             <div className="divider" style={{ margin: 0 }} />
             <Row label="Show Posts publicly" hint="Allow neighbors to see your community posts on your profile" on={showPosts} set={handleTogglePosts} />
             <Row label="Show Service Requests publicly" hint="Allow neighbors to see your open & past asks" on={showAsks} set={handleToggleAsks} />
-            <Row label="Show Badges publicly" hint="Show trust badges & verifications on your profile" on={showBadges} set={handleToggleBadges} last />
+            <Row label="Show Badges publicly" hint="Show trust badges & verifications on your profile" on={showBadges} set={handleToggleBadges} />
+            <Row label="Show customer profile publicly" hint="When disabled, you are hidden from search and leaderboards" on={customerEnabled} set={handleToggleCustomerEnabled} last />
           </div>
         </div>
 
@@ -294,6 +219,19 @@ export default function Settings() {
           </div>
         </div>
 
+        {/* Account Deletion */}
+        <div>
+          <div className="small semi muted" style={{ marginBottom: 8 }}>Account Actions</div>
+          <div className="card col gap-10" style={{ padding: 14 }}>
+            <span className="tiny muted">
+              Request permanent deletion of your profile and data. This requires administrator verification.
+            </span>
+            <button className="btn btn-outline btn-sm" onClick={() => setShowDeleteModal(true)} style={{ color: "var(--red-600)", borderColor: "var(--red-200)", width: "100%" }}>
+              Request Account Deletion
+            </button>
+          </div>
+        </div>
+
         <div className="card" style={{ padding: 14, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
           <div className="row gap-8 small" style={{ color: "var(--brand-700)" }}>
             <Shield size={18} />
@@ -301,6 +239,28 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {showDeleteModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div className="card col gap-12" style={{ maxWidth: 400, width: "100%", padding: 16, background: "var(--ink-50)", boxShadow: "var(--shadow-lg)" }}>
+            <h3 className="bold" style={{ fontSize: 18 }}>Request Deletion</h3>
+            <p className="tiny muted">Explain why you would like to permanently delete your customer account. An administrator will review your request shortly.</p>
+            <textarea
+              className="input"
+              placeholder="Reason for deletion request..."
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              style={{ minHeight: 80, width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--line)", background: "transparent", color: "inherit" }}
+            />
+            <div className="row gap-10" style={{ marginTop: 10 }}>
+              <button className="btn btn-outline btn-sm grow" onClick={() => setShowDeleteModal(false)} disabled={submittingDelete}>Cancel</button>
+              <button className="btn btn-red btn-sm grow" onClick={handleSubmitDeleteRequest} disabled={submittingDelete}>
+                {submittingDelete ? "Submitting..." : "Submit Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

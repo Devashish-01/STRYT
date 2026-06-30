@@ -3,6 +3,7 @@ import { X, MapPin, Navigation, Loader, Search } from "lucide-react";
 import { useApp } from "@/store";
 import { userService } from "@/services";
 import { forwardGeocode, reverseGeocode, type GeoPlace } from "@/lib/geocode";
+import { config } from "@/config";
 
 interface Props {
   onClose: () => void;
@@ -75,11 +76,7 @@ export default function LocationPickerSheet({ onClose }: Props) {
     );
   }
 
-  const presetLocations = [
-    { area: "Koregaon Park", full: "Koregaon Park, Pune, Maharashtra", lat: 18.536, lng: 73.893, emoji: "🌳" },
-    { area: "Kalyani Nagar", full: "Kalyani Nagar, Pune, Maharashtra", lat: 18.547, lng: 73.901, emoji: "🏢" },
-    { area: "Marathahalli", full: "Marathahalli, Bengaluru, Karnataka", lat: 12.956, lng: 77.701, emoji: "💻" },
-  ];
+  const presetLocations = config.presetLocations;
 
   return (
     <div className="overlay" style={{ zIndex: 1100 }} onClick={onClose}>
