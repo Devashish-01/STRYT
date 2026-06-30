@@ -31,6 +31,41 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
   }
 }
 
+export interface GeocodeResult {
+  city: string | null;
+  pincode: string | null;
+}
+
+export async function reverseGeocodeFull(lat: number, lng: number): Promise<GeocodeResult | null> {
+  const token = config.mapboxToken;
+  if (!token) return null;
+  try {
+    const url = `${BASE}/${lng},${lat}.json?access_token=${token}&types=neighborhood,locality,place,postcode,address&language=en`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const features: any[] = data?.features ?? [];
+    
+    let city: string | null = null;
+    let pincode: string | null = null;
+    
+    const byType = (t: string) => features.find((f) => (f.place_type ?? []).includes(t));
+    city = byType("place")?.text || null;
+    pincode = byType("postcode")?.text || null;
+    
+    if (features[0] && (!city || !pincode)) {
+      const context = features[0].context ?? [];
+      for (const item of context) {
+        if (item.id.startsWith("place.") && !city) city = item.text;
+        if (item.id.startsWith("postcode.") && !pincode) pincode = item.text;
+      }
+    }
+    return { city, pincode };
+  } catch {
+    return null;
+  }
+}
+
 // typed query → up to 5 candidate places (India-biased). Used by the "set a
 // different location" search so a user can browse a remote area.
 export async function forwardGeocode(query: string): Promise<GeoPlace[]> {

@@ -6,6 +6,7 @@ import { useQuery } from "@/hooks/useApi";
 import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store } from "lucide-react";
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
+import { reverseGeocodeFull } from "@/lib/geocode";
 
 const steps = ["Basics", "Location", "Photos", "Contact", "Verify"];
 
@@ -19,7 +20,7 @@ export default function BusinessOnboard() {
 
   const [name, setName] = useState("");
   const [cat, setCat] = useState<string | null>(null);
-  const [sub, setSub] = useState<string | null>(null);
+  const [sub, setSub] = useState<string[]>([]);
   const [broadcastRadius, setBroadcastRadius] = useState(5);
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("Pune");
@@ -65,10 +66,12 @@ export default function BusinessOnboard() {
         uploadService.upload(aadhaarFile as File, "kyc-business"),
         uploadService.upload(panFile as File, "kyc-business"),
       ]);
+      const subNames = sub.map(id => selectedCat?.children?.find(ch => ch.id === id)?.name || id);
       const biz = await businessService.create({
         name,
         categoryId: cat ?? undefined,
-        subCategory: sub ?? undefined,
+        subCategory: subNames.join(", ") || undefined,
+        categoryName: selectedCat?.name || undefined,
         addressLine1: address,
         city,
         pincode,
@@ -147,7 +150,7 @@ export default function BusinessOnboard() {
               <label>Category *</label>
               <div className="row wrap gap-8">
                 {cats.map((c) => (
-                  <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { setCat(c.id); setSub(null); }}>
+                  <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { setCat(c.id); setSub([]); }}>
                     {c.icon} {c.name.split(" ")[0]}
                   </button>
                 ))}
@@ -155,11 +158,27 @@ export default function BusinessOnboard() {
             </div>
             {selectedCat?.children && (
               <div className="field">
-                <label>Sub-category</label>
+                <label>Sub-categories (select all that apply)</label>
                 <div className="row wrap gap-8">
-                  {selectedCat.children.map((c) => (
-                    <button key={c.id} className={`chip ${sub === c.id ? "active" : ""}`} onClick={() => setSub(c.id)}>{c.name}</button>
-                  ))}
+                  {selectedCat.children.map((c) => {
+                    const active = sub.includes(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`chip ${active ? "active" : ""}`}
+                        onClick={() => {
+                          if (active) {
+                            setSub(sub.filter((id) => id !== c.id));
+                          } else {
+                            setSub([...sub, c.id]);
+                          }
+                        }}
+                      >
+                        {c.name}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -190,7 +209,19 @@ export default function BusinessOnboard() {
               storedLng={user.lng}
               pinColor="#f26a00"
               height={150}
-              onChange={(newLat, newLng) => { setLat(newLat); setLng(newLng); }}
+              onChange={async (newLat, newLng) => {
+                setLat(newLat);
+                setLng(newLng);
+                try {
+                  const res = await reverseGeocodeFull(newLat, newLng);
+                  if (res) {
+                    if (res.city) setCity(res.city);
+                    if (res.pincode) setPincode(res.pincode);
+                  }
+                } catch {
+                  /* ignore */
+                }
+              }}
               onError={(msg) => showToast(msg)}
             />
             <div className="field">

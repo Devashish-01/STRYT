@@ -1,13 +1,15 @@
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Eye, Phone, Navigation, Star, MessageSquare, HelpCircle,
-  ChevronRight, TrendingUp, BadgeCheck, ArrowLeftRight,
+  ChevronRight, TrendingUp, BadgeCheck, ArrowLeftRight, Share2,
 } from "lucide-react";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
+import ShareCard from "@/components/ShareCard";
 
 export default function ManageDashboard() {
   const { id = "b1" } = useParams();
@@ -15,6 +17,7 @@ export default function ManageDashboard() {
   const { setContext } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
   const { data, loading } = useQuery(() => businessService.analytics(id), [id]);
+  const [share, setShare] = useState(false);
 
   const base = `/business/${id}/manage`;
 
@@ -26,7 +29,28 @@ export default function ManageDashboard() {
           <button className="row gap-4 tiny semi" style={{ opacity: 0.9 }} onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
             <ArrowLeftRight size={13} /> Switch to customer
           </button>
-          <button className="tiny semi" style={{ opacity: 0.9 }} onClick={() => nav(`/business/${id}`)}>View public page →</button>
+          <div className="row gap-8" style={{ alignItems: "center" }}>
+            <button 
+              className="icon-btn-sm" 
+              style={{ 
+                background: "rgba(255,255,255,0.18)", 
+                color: "#fff", 
+                border: "none", 
+                borderRadius: "50%", 
+                width: 28, 
+                height: 28, 
+                display: "inline-flex", 
+                alignItems: "center", 
+                justifyContent: "center", 
+                cursor: "pointer" 
+              }} 
+              onClick={() => setShare(true)} 
+              aria-label="Share QR Code"
+            >
+              <Share2 size={14} />
+            </button>
+            <button className="tiny semi" style={{ opacity: 0.9 }} onClick={() => nav(`/business/${id}`)}>View public page →</button>
+          </div>
         </div>
         <div className="row gap-12" style={{ marginTop: 12 }}>
           <img src={b?.coverImage} className="thumb" style={{ width: 52, height: 52, borderRadius: 12, border: "2px solid rgba(255,255,255,0.4)" }} />
@@ -106,6 +130,7 @@ export default function ManageDashboard() {
             <Tile emoji="⭐" label="Reviews" onClick={() => nav(`${base}/reviews`)} />
             <Tile emoji="🙋" label="Find requests" onClick={() => nav(`${base}/requests`)} />
             <Tile emoji="🛡️" label="Verification" onClick={() => nav(`${base}/verify`)} />
+            <Tile emoji="📱" label="Share QR" onClick={() => setShare(true)} />
           </div>
         </div>
 
@@ -113,6 +138,16 @@ export default function ManageDashboard() {
       </div>
 
       <ManageNav bizId={id} />
+      {share && (
+        <ShareCard
+          title={b?.name || "Business Shop"}
+          subtitle={`${b?.subCategory || "Local Business"} • ${b?.city || "STRYT"}`}
+          image={b?.coverImage || ""}
+          meta={`⭐ ${b?.ratingAvg || 0} (${b?.ratingCount || 0})`}
+          url={window.location.origin + "/business/" + id}
+          onClose={() => setShare(false)}
+        />
+      )}
     </div>
   );
 }

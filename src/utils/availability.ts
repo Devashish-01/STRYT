@@ -33,7 +33,7 @@ export function formatMinutesToTime(totalMin: number): string {
 export function calculateNextStartTime(availabilityNote?: string, now = new Date()): { nextDate: Date; label: string } {
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   let fromMin = 9 * 60;
-  const raw = availabilityNote || "Mon–Sat from 09:00 AM to 07:00 PM";
+  const raw = availabilityNote ? availabilityNote.split("|")[0].trim() : "Mon–Sat from 09:00 AM to 07:00 PM";
 
   if (raw.includes("from ") && raw.includes(" to ")) {
     const parts = raw.split(" from ");
@@ -94,7 +94,8 @@ export function evaluateProviderAvailability(
     }
   }
 
-  const nextStart = calculateNextStartTime(availabilityNote, now);
+  const cleanNote = availabilityNote ? availabilityNote.split("|")[0].trim() : "";
+  const nextStart = calculateNextStartTime(cleanNote, now);
 
   if (!availabilityNote) {
     return {
@@ -105,7 +106,7 @@ export function evaluateProviderAvailability(
   }
 
   // Parse availabilityNote like "Mon–Sat from 09:00 AM to 07:00 PM"
-  const raw = availabilityNote;
+  const raw = cleanNote;
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const currentDayName = dayNames[now.getDay()];
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -150,8 +151,9 @@ export function calculateNextTurnoffTime(availabilityNote?: string): Date {
   target.setDate(target.getDate() + 1); // target next day
 
   let toMin = 19 * 60; // default 7 PM
-  if (availabilityNote && availabilityNote.includes(" to ")) {
-    const parts = availabilityNote.split(" to ");
+  const raw = availabilityNote ? availabilityNote.split("|")[0].trim() : "";
+  if (raw && raw.includes(" to ")) {
+    const parts = raw.split(" to ");
     if (parts[1]) toMin = parseTimeToMinutes(parts[1]);
   }
 
@@ -167,36 +169,75 @@ export interface AppointmentSlot {
   isAvailable: boolean;
 }
 
-/** Generates valid 30-minute time slots for a given target date based on working hours */
+/** Generates valid time slots for a given target date based on working hours and slot duration */
 export function generateWorkingSlots(availabilityNote?: string, targetDate = new Date()): AppointmentSlot[] {
   const slots: AppointmentSlot[] = [];
-  const raw = availabilityNote || "Mon–Sat from 09:00 AM to 07:00 PM";
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  let fromMin = 9 * 60; // 9:00 AM
-  let toMin = 19 * 60;  // 7:00 PM
-
-  if (raw.includes("from ") && raw.includes(" to ")) {
-    const parts = raw.split(" from ");
-    const times = parts[1]?.split(" to ");
-    if (times?.[0]) fromMin = parseTimeToMinutes(times[0]);
-    if (times?.[1]) toMin = parseTimeToMinutes(times[1]);
+  const note = availabilityNote || "Mon–Sat from 09:00 AM to 07:00 PM";
+  
+  const parts = note.split("|");
+  const mainPart = parts[0]?.trim() || "Mon–Sat from 09:00 AM to 07:00 PM";
+  const configPart = parts[1];
+  
+  let slotDuration = 30;
+  if (configPart && configPart.includes("duration=")) {
+    const match = configPart.match(/duration=(\d+)/);
+    if (match) slotDuration = parseInt(match[1], 10);
   }
 
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const targetDayName = dayNames[targetDate.getDay()];
+  
+  let fromMin = 9 * 60; // 9:00 AM
+  let toMin = 19 * 60;  // 7:00 PM
   let isWorkingDay = true;
-  if (raw.includes("Mon–Sat") || raw.includes("Mon-Sat")) {
-    isWorkingDay = targetDayName !== "Sun";
-  } else if (raw.includes("Mon–Fri") || raw.includes("Mon-Fri")) {
-    isWorkingDay = ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(targetDayName);
-  } else if (raw.includes("Sat–Sun") || raw.includes("Sat-Sun")) {
-    isWorkingDay = ["Sat", "Sun"].includes(targetDayName);
+
+  if (mainPart === "Open 24×7") {
+    fromMin = 9 * 60; // default active range from 9 AM to 9 PM
+    toMin = 21 * 60;
+    isWorkingDay = true;
+  } else if (mainPart.includes(", ") || mainPart.includes("Closed") || mainPart.match(/^[A-Za-z]{3}\s\d{2}:\d{2}/)) {
+    // Per-day format: e.g. "Mon 11:00–23:30, Tue Closed"
+    const chunks = mainPart.split(", ");
+    const dayChunk = chunks.find(c => c.startsWith(targetDayName));
+    if (dayChunk) {
+      if (dayChunk.includes("Closed")) {
+        isWorkingDay = false;
+      } else {
+        const timePart = dayChunk.substring(4).trim();
+        const times = timePart.split(/[–-]/);
+        if (times[0] && times[1]) {
+          fromMin = parseTimeToMinutes(times[0]);
+          toMin = parseTimeToMinutes(times[1]);
+          isWorkingDay = true;
+        } else {
+          isWorkingDay = false;
+        }
+      }
+    } else {
+      isWorkingDay = false;
+    }
+  } else {
+    // Pattern format: e.g. "Mon–Sat from 09:00 AM to 07:00 PM"
+    if (mainPart.includes("from ") && mainPart.includes(" to ")) {
+      const p = mainPart.split(" from ");
+      const times = p[1]?.split(" to ");
+      if (times?.[0]) fromMin = parseTimeToMinutes(times[0]);
+      if (times?.[1]) toMin = parseTimeToMinutes(times[1]);
+    }
+    
+    if (mainPart.includes("Mon–Sat") || mainPart.includes("Mon-Sat")) {
+      isWorkingDay = targetDayName !== "Sun";
+    } else if (mainPart.includes("Mon–Fri") || mainPart.includes("Mon-Fri")) {
+      isWorkingDay = ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(targetDayName);
+    } else if (mainPart.includes("Sat–Sun") || mainPart.includes("Sat-Sun")) {
+      isWorkingDay = ["Sat", "Sun"].includes(targetDayName);
+    }
   }
 
   if (!isWorkingDay) return [];
 
   const nowTime = Date.now();
-  for (let min = fromMin; min <= toMin - 30; min += 30) {
+  for (let min = fromMin; min <= toMin - slotDuration; min += slotDuration) {
     const slotDate = new Date(targetDate);
     slotDate.setHours(Math.floor(min / 60), min % 60, 0, 0);
 

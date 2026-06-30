@@ -15,30 +15,52 @@ interface DayHours {
 }
 
 /** Serialize the per-day UI state into a compact human-readable string stored in DB. */
-function serialize(is24x7: boolean, hours: Record<string, DayHours>): string {
-  if (is24x7) return "Open 24×7";
-  return days
-    .map((d) => {
-      const h = hours[d];
-      return h.open ? `${d} ${h.from}–${h.to}` : `${d} Closed`;
-    })
-    .join(", ");
+function serialize(is24x7: boolean, hours: Record<string, DayHours>, slotDuration: number): string {
+  let main = "";
+  if (is24x7) {
+    main = "Open 24×7";
+  } else {
+    main = days
+      .map((d) => {
+        const h = hours[d];
+        return h.open ? `${d} ${h.from}–${h.to}` : `${d} Closed`;
+      })
+      .join(", ");
+  }
+  return `${main}|duration=${slotDuration}`;
 }
 
 /** Parse a stored string back into per-day state. Falls back to defaults. */
-function parse(raw: string | undefined): { is24x7: boolean; hours: Record<string, DayHours> } {
+function parse(raw: string | undefined): { is24x7: boolean; hours: Record<string, DayHours>; slotDuration: number } {
   const defaults = Object.fromEntries(days.map((d) => [d, { open: true, from: "11:00", to: "23:30" }]));
-  if (!raw) return { is24x7: false, hours: defaults };
-  if (raw === "Open 24×7") return { is24x7: true, hours: defaults };
+  if (!raw) return { is24x7: false, hours: defaults, slotDuration: 30 };
+  
+  const parts = raw.split("|");
+  const mainPart = parts[0]?.trim() || "";
+  const configPart = parts[1];
+  
+  let slotDuration = 30;
+  if (configPart && configPart.includes("duration=")) {
+    const match = configPart.match(/duration=(\d+)/);
+    if (match) slotDuration = parseInt(match[1], 10);
+  }
+
+  if (mainPart === "Open 24×7") return { is24x7: true, hours: defaults, slotDuration };
   const result = { ...defaults };
-  for (const chunk of raw.split(", ")) {
+  for (const chunk of mainPart.split(", ")) {
     for (const d of days) {
-      if (chunk.startsWith(d + " Closed")) { result[d] = { open: false, from: "11:00", to: "23:30" }; break; }
-      const m = chunk.match(new RegExp(`^${d} (\\d{2}:\\d{2})–(\\d{2}:\\d{2})$`));
-      if (m) { result[d] = { open: true, from: m[1], to: m[2] }; break; }
+      if (chunk.startsWith(d + " Closed")) {
+        result[d] = { open: false, from: "11:00", to: "23:30" };
+        break;
+      }
+      const m = chunk.match(new RegExp(`^${d} (\\d{2}:\\d{2})[–-](\\d{2}:\\d{2})$`));
+      if (m) {
+        result[d] = { open: true, from: m[1], to: m[2] };
+        break;
+      }
     }
   }
-  return { is24x7: false, hours: result };
+  return { is24x7: false, hours: result, slotDuration };
 }
 
 export default function HoursEditor() {
@@ -50,6 +72,7 @@ export default function HoursEditor() {
   const [hours, setHours] = useState<Record<string, DayHours>>(
     Object.fromEntries(days.map((d) => [d, { open: true, from: "11:00", to: "23:30" }]))
   );
+  const [slotDuration, setSlotDuration] = useState(30);
   const [special, setSpecial] = useState<{ date: string; note: string }[]>([]);
   const [newSpecial, setNewSpecial] = useState("");
   const [saving, setSaving] = useState(false);
@@ -60,6 +83,7 @@ export default function HoursEditor() {
     const parsed = parse(b.hours);
     setIs24x7(parsed.is24x7);
     setHours(parsed.hours);
+    setSlotDuration(parsed.slotDuration);
   }, [b]);
 
   function setDay(d: string, patch: Partial<DayHours>) {
@@ -69,7 +93,7 @@ export default function HoursEditor() {
   async function save() {
     setSaving(true);
     try {
-      await businessService.update(id, { hours: serialize(is24x7, hours) });
+      await businessService.update(id, { hours: serialize(is24x7, hours, slotDuration) });
       showToast("Hours saved");
     } catch {
       showToast("Couldn't save hours. Try again.");
@@ -77,6 +101,19 @@ export default function HoursEditor() {
       setSaving(false);
     }
   }
+
+  const firstOpenDay = days.find((d) => hours[d]?.open);
+  const maxSlots = firstOpenDay
+    ? (() => {
+        const h = hours[firstOpenDay];
+        const parseTimeToMin = (t: string) => {
+          const parts = t.split(":");
+          return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        };
+        const total = parseTimeToMin(h.to) - parseTimeToMin(h.from);
+        return total > 0 ? Math.floor(total / slotDuration) : 0;
+      })()
+    : 0;
 
   return (
     <div className="screen">
@@ -120,6 +157,48 @@ export default function HoursEditor() {
             })}
           </div>
         )}
+
+        {/* Timing Slot & Capacity Settings */}
+        <div className="card col gap-12" style={{ padding: 14 }}>
+          <div className="small semi">Appointment Settings</div>
+          
+          <div className="row gap-12">
+            <div className="field grow">
+              <label className="tiny semi muted">Slot Duration</label>
+              <select
+                className="input"
+                value={slotDuration}
+                onChange={(e) => setSlotDuration(Number(e.target.value))}
+                style={{ fontSize: 13, padding: "10px 12px", width: "100%" }}
+              >
+                <option value={15}>15 minutes</option>
+                <option value={30}>30 minutes</option>
+                <option value={45}>45 minutes</option>
+                <option value={60}>60 minutes (1 hr)</option>
+                <option value={90}>90 minutes (1.5 hrs)</option>
+                <option value={120}>120 minutes (2 hrs)</option>
+              </select>
+            </div>
+            
+            <div className="field grow">
+              <label className="tiny semi muted">Max Appts / Day (Mon/Typical)</label>
+              <div 
+                className="input" 
+                style={{ 
+                  fontSize: 13.5, 
+                  padding: "10px 12px", 
+                  background: "var(--ink-50)", 
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  height: 38
+                }}
+              >
+                {is24x7 ? "Continuous" : `${maxSlots} slots`}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Special / holiday hours */}
         <div>

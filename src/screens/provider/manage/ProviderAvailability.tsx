@@ -6,7 +6,7 @@ import { providerService } from "@/services";
 import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
 import ProviderManageNav from "./ProviderManageNav";
-import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
+import { evaluateProviderAvailability, calculateNextTurnoffTime, parseTimeToMinutes } from "@/utils/availability";
 
 const DAYS_PRESETS = [
   { label: "Mon – Sat", value: "Mon–Sat" },
@@ -31,6 +31,7 @@ export default function ProviderAvailability() {
   const [fromTime, setFromTime] = useState("09:00 AM");
   const [toTime, setToTime] = useState("07:00 PM");
   const [daysPattern, setDaysPattern] = useState("Mon–Sat");
+  const [slotDuration, setSlotDuration] = useState(30);
   const [saving, setSaving] = useState(false);
 
   const evalResult = evaluateProviderAvailability(provider?.availabilityNote, now, provider?.availableUntil);
@@ -40,10 +41,19 @@ export default function ProviderAvailability() {
     setNow(provider.isAvailableNow ?? false);
     if (provider.availabilityNote) {
       const raw = provider.availabilityNote;
-      if (raw.includes("from ") && raw.includes(" to ")) {
-        const parts = raw.split(" from ");
-        if (parts[0]) setDaysPattern(parts[0].trim());
-        const times = parts[1]?.split(" to ");
+      const parts = raw.split("|");
+      const mainPart = parts[0];
+      const configPart = parts[1];
+      
+      if (configPart && configPart.includes("duration=")) {
+        const match = configPart.match(/duration=(\d+)/);
+        if (match) setSlotDuration(parseInt(match[1], 10));
+      }
+      
+      if (mainPart.includes("from ") && mainPart.includes(" to ")) {
+        const p = mainPart.split(" from ");
+        if (p[0]) setDaysPattern(p[0].trim());
+        const times = p[1]?.split(" to ");
         if (times?.[0]) setFromTime(times[0].trim());
         if (times?.[1]) setToTime(times[1].trim());
       }
@@ -73,10 +83,10 @@ export default function ProviderAvailability() {
 
   async function handleSaveHours() {
     setSaving(true);
-    const formattedNote = `${daysPattern} from ${fromTime} to ${toTime}`;
+    const formattedNote = `${daysPattern} from ${fromTime} to ${toTime}|duration=${slotDuration}`;
     try {
       await providerService.update(id, { availabilityNote: formattedNote });
-      showToast(`Saved availability: ${formattedNote}`);
+      showToast(`Saved availability: ${daysPattern} from ${fromTime} to ${toTime}`);
     } catch {
       showToast("Couldn't update availability note");
     } finally {
@@ -194,6 +204,47 @@ export default function ProviderAvailability() {
                   <option key={t} value={t}>{t}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Slot Duration & Max Appointments */}
+          <div className="row gap-12" style={{ marginTop: 4 }}>
+            <div className="field grow">
+              <label className="tiny semi muted">Appointment Slot Duration</label>
+              <select
+                className="input"
+                value={slotDuration}
+                onChange={(e) => setSlotDuration(Number(e.target.value))}
+                style={{ fontSize: 13, padding: "10px 12px" }}
+              >
+                <option value={15}>15 minutes</option>
+                <option value={30}>30 minutes</option>
+                <option value={45}>45 minutes</option>
+                <option value={60}>60 minutes (1 hr)</option>
+                <option value={90}>90 minutes (1.5 hrs)</option>
+                <option value={120}>120 minutes (2 hrs)</option>
+              </select>
+            </div>
+            
+            <div className="field grow">
+              <label className="tiny semi muted">Max Appointments / Day</label>
+              <div 
+                className="input" 
+                style={{ 
+                  fontSize: 13.5, 
+                  padding: "10px 12px", 
+                  background: "var(--ink-50)", 
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  height: 38
+                }}
+              >
+                {(() => {
+                  const total = parseTimeToMinutes(toTime) - parseTimeToMinutes(fromTime);
+                  return total > 0 ? Math.floor(total / slotDuration) : 0;
+                })()} slots
+              </div>
             </div>
           </div>
 

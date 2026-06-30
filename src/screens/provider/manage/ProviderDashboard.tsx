@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Eye, Briefcase, CheckCircle2, Wallet, Star, TrendingUp, Zap, ArrowLeftRight } from "lucide-react";
+import { Eye, Briefcase, CheckCircle2, Wallet, Star, TrendingUp, Zap, ArrowLeftRight, Share2 } from "lucide-react";
 import { providerService } from "@/services";
 import { SafeImg } from "@/components/common";
 import { useQuery } from "@/hooks/useApi";
@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/states";
 import { inr } from "@/components/common";
 import { useApp } from "@/store";
 import ProviderManageNav from "./ProviderManageNav";
+import ShareCard from "@/components/ShareCard";
 
 export default function ProviderDashboard() {
   const { id = "p1" } = useParams();
@@ -16,6 +17,7 @@ export default function ProviderDashboard() {
   const { setContext, showToast } = useApp();
   const { data, loading } = useQuery(() => providerService.analytics(id), [id]);
   const [available, setAvailable] = useState(false);
+  const [share, setShare] = useState(false);
   const base = `/provider/${id}/manage`;
 
   useEffect(() => {
@@ -42,7 +44,28 @@ export default function ProviderDashboard() {
           <button className="row gap-4 tiny semi" style={{ opacity: 0.9 }} onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
             <ArrowLeftRight size={13} /> Switch to customer
           </button>
-          <button className="tiny semi" style={{ opacity: 0.9 }} onClick={() => nav(`/provider/${id}`)}>View public →</button>
+          <div className="row gap-8" style={{ alignItems: "center" }}>
+            <button 
+              className="icon-btn-sm" 
+              style={{ 
+                background: "rgba(255,255,255,0.18)", 
+                color: "#fff", 
+                border: "none", 
+                borderRadius: "50%", 
+                width: 28, 
+                height: 28, 
+                display: "inline-flex", 
+                alignItems: "center", 
+                justifyContent: "center", 
+                cursor: "pointer" 
+              }} 
+              onClick={() => setShare(true)} 
+              aria-label="Share QR Code"
+            >
+              <Share2 size={14} />
+            </button>
+            <button className="tiny semi" style={{ opacity: 0.9 }} onClick={() => nav(`/provider/${id}`)}>View public →</button>
+          </div>
         </div>
         <div className="row gap-12" style={{ marginTop: 12 }}>
           <SafeImg src={p?.avatar} alt={p?.displayName} variant="avatar" className="avatar" style={{ width: 52, height: 52, border: "2px solid rgba(255,255,255,0.4)" }} />
@@ -116,11 +139,22 @@ export default function ProviderDashboard() {
             <Tile emoji="🖼️" label="Portfolio" onClick={() => nav(`${base}/portfolio`)} />
             <Tile emoji="🙋" label="Leads & requests" onClick={() => nav(`${base}/leads`)} />
             <Tile emoji="🛡️" label="Verification" onClick={() => nav(`${base}/verify`)} />
+            <Tile emoji="📱" label="Share QR" onClick={() => setShare(true)} />
           </div>
         </div>
         <div style={{ height: 16 }} />
       </div>
       <ProviderManageNav pid={id} />
+      {share && (
+        <ShareCard
+          title={p?.displayName || "Service Provider"}
+          subtitle={`${p?.categoryName || "Provider"} • ${p?.subCategory || "Professional"}`}
+          image={p?.avatar || ""}
+          meta={`⭐ ${p?.ratingAvg || 0} (${p?.ratingCount || 0})`}
+          url={window.location.origin + "/provider/" + id}
+          onClose={() => setShare(false)}
+        />
+      )}
     </div>
   );
 }

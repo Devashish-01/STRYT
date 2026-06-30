@@ -55,6 +55,8 @@ export default function UserOnboard() {
   const [phone, setPhone] = useState(user.phone || "");
   const [language, setLanguage] = useState(user.language || "en");
   const [radius, setRadius] = useState(user.notificationRadiusKm || 5);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customVal, setCustomVal] = useState("");
   const [emergencyName, setEmergencyName] = useState(user.emergencyContactName || "");
   const [emergencyPhone, setEmergencyPhone] = useState(user.emergencyContact || "");
 
@@ -626,33 +628,93 @@ export default function UserOnboard() {
             </div>
           </div>
 
-          {/* Notification Radius */}
           <div className="field" style={{ marginBottom: 20 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-              <Sliders size={13} color="var(--brand-600)" /> Alert Radius
+              <Sliders size={13} color="var(--brand-600)" /> Alert Radius: <span style={{ color: "var(--brand-700)", marginLeft: 4 }}>{radius} km</span>
             </label>
-            <div className="row gap-8">
-              {RADIUS_OPTIONS.map((r) => (
+            <div className="row gap-8" style={{ flexWrap: "wrap" }}>
+              {RADIUS_OPTIONS.map((r) => {
+                const active = radius === r && !showCustom;
+                return (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => { setRadius(r); setShowCustom(false); }}
+                    style={{
+                      flex: "1 0 calc(20% - 8px)",
+                      padding: "8px 0",
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      border: active ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
+                      background: active ? "var(--brand-50)" : "var(--ink-50)",
+                      color: active ? "var(--brand-700)" : "var(--ink-700)",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {r} km
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  const isCustomActive = !RADIUS_OPTIONS.includes(radius);
+                  setCustomVal(isCustomActive ? String(radius) : "");
+                  setShowCustom(true);
+                }}
+                style={{
+                  flex: "1 0 calc(20% - 8px)",
+                  padding: "8px 0",
+                  borderRadius: 10,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  border: showCustom || !RADIUS_OPTIONS.includes(radius) ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
+                  background: showCustom || !RADIUS_OPTIONS.includes(radius) ? "var(--brand-50)" : "var(--ink-50)",
+                  color: showCustom || !RADIUS_OPTIONS.includes(radius) ? "var(--brand-700)" : "var(--ink-700)",
+                  cursor: "pointer"
+                }}
+              >
+                Custom
+              </button>
+            </div>
+            {showCustom && (
+              <div className="row gap-8" style={{ marginTop: 10 }}>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="input grow"
+                  style={{ padding: "8px 12px", fontSize: 13, height: 36 }}
+                  placeholder="Radius in km..."
+                  value={customVal}
+                  onChange={(e) => setCustomVal(e.target.value)}
+                  autoFocus
+                />
                 <button
-                  key={r}
                   type="button"
-                  onClick={() => setRadius(r)}
-                  style={{
-                    flex: 1,
-                    padding: "8px 0",
-                    borderRadius: 10,
-                    fontSize: 13,
-                    fontWeight: 700,
-                    border: radius === r ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
-                    background: radius === r ? "var(--brand-50)" : "var(--ink-50)",
-                    color: radius === r ? "var(--brand-700)" : "var(--ink-700)",
-                    cursor: "pointer"
+                  className="btn btn-primary btn-sm"
+                  style={{ height: 36, padding: "0 12px" }}
+                  onClick={() => {
+                    const n = parseFloat(customVal);
+                    if (!isNaN(n) && n > 0) {
+                      const rounded = Math.round(n * 10) / 10;
+                      setRadius(rounded);
+                    }
+                    setShowCustom(false);
                   }}
                 >
-                  {r} km
+                  Apply
                 </button>
-              ))}
-            </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ height: 36, padding: "0 12px" }}
+                  onClick={() => setShowCustom(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Divider */}
