@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, ChevronRight, Plus, Camera } from "lucide-react";
+import { X, ChevronRight, Plus, Camera, Globe, Star } from "lucide-react";
 import { socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { SafeImg } from "@/components/common";
 import { useApp } from "@/store";
 import type { Story } from "@/types";
+import { getSupabase } from "@/lib/supabaseClient";
 
 interface AuthorGroup {
   authorId: string;
@@ -207,11 +208,14 @@ export function StoryViewer({
   onClose,
 }: StoryViewerProps) {
   const nav = useNavigate();
-  const { markStoryViewed, user } = useApp();
+  const { markStoryViewed, user, ownedBusinessIds, ownedProviderId } = useApp();
 
   const [viewers, setViewers] = useState<any[]>([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
   const [showViewersSheet, setShowViewersSheet] = useState(false);
+  const [sheetTab, setSheetTab] = useState<"viewers" | "privacy">("viewers");
+  const [privacyUsers, setPrivacyUsers] = useState<any[]>([]);
+  const [loadingPrivacy, setLoadingPrivacy] = useState(false);
 
   // 1. Resolve groups list: either use input groups or group flat stories by author
   const groups = inputGroups || (() => {
@@ -270,8 +274,12 @@ export function StoryViewer({
   const activeGroup = groups[groupIdx];
   const story = activeGroup?.stories[storyIdx];
 
-  const isOwnStory = story && (story.userId === user.id || 
-                       (story.authorName === user.name && story.authorAvatar === user.avatar));
+  const isOwnStory = story && (
+    story.userId === user.id ||
+    (story.businessId && ownedBusinessIds?.includes(story.businessId)) ||
+    (story.providerId && story.providerId === ownedProviderId) ||
+    (story.authorName === user.name && story.authorAvatar === user.avatar)
+  );
 
   // Reset indices / mark as viewed / save view in DB
   useEffect(() => {
@@ -304,6 +312,40 @@ export function StoryViewer({
         setLoadingViewers(false);
       });
   }, [story?.id, isOwnStory]);
+
+  // Fetch profiles of allowed/hidden users for privacy settings if they exist
+  useEffect(() => {
+    if (!story || !isOwnStory) return;
+    const ids = story.visibility === "close_friends" ? story.allowedUserIds : story.hiddenUserIds;
+    if (!ids || ids.length === 0) {
+      setPrivacyUsers([]);
+      return;
+    }
+
+    const fetchPrivacyUsers = async () => {
+      setLoadingPrivacy(true);
+      try {
+        const sb = getSupabase();
+        const { data, error } = await sb.from("users")
+          .select("id, name, avatar, alias")
+          .in("id", ids);
+        if (!error && data) {
+          setPrivacyUsers(data);
+        }
+      } catch (err: any) {
+        console.warn("Failed to fetch privacy users:", err);
+      } finally {
+        setLoadingPrivacy(false);
+      }
+    };
+
+    void fetchPrivacyUsers();
+  }, [story?.id, story?.visibility, isOwnStory]);
+
+  // Reset sheet tab when active story changes
+  useEffect(() => {
+    setSheetTab("viewers");
+  }, [story?.id]);
 
   // Handle active progress bar loading (4000ms duration)
   useEffect(() => {
@@ -354,6 +396,33 @@ export function StoryViewer({
     }
   };
 
+  const getProfilePath = () => {
+    if (!story) return "";
+    const isMe = story.userId === user.id || 
+                 (story.authorName === user.name && story.authorAvatar === user.avatar);
+    if (isMe) return "/profile";
+    if (story.tapTarget) return story.tapTarget;
+    if (story.authorType === "business" && story.businessId) {
+      return `/business/${story.businessId}`;
+    }
+    if (story.authorType === "provider" && story.providerId) {
+      return `/provider/${story.providerId}`;
+    }
+    if (story.authorType === "user" && story.userId) {
+      return `/u/${story.userId}`;
+    }
+    return "";
+  };
+
+  const profilePath = getProfilePath();
+  const handleHeaderClick = (e: any) => {
+    e.stopPropagation();
+    if (profilePath) {
+      onClose();
+      nav(profilePath);
+    }
+  };
+
   const ctaLabel = story.authorType === "business"
     ? "Visit shop"
     : story.authorType === "provider"
@@ -362,7 +431,7 @@ export function StoryViewer({
 
   return (
     <div style={{
-      position: "fixed", inset: 0, background: "#000", zIndex: 300,
+      position: "fixed", inset: 0, background: "#000", zIndex: 2000,
       maxWidth: "var(--maxw)", left: "50%", transform: "translateX(-50%)",
       display: "flex", flexDirection: "column", justifyContent: "center"
     }}>
@@ -389,11 +458,17 @@ export function StoryViewer({
 
       {/* Header (Author Avatar, Name, timestamp and Close button) */}
       <div className="row between" style={{ position: "absolute", top: 24, left: 12, right: 12, zIndex: 3 }}>
-        <div className="row gap-8">
+        <div 
+          className="row gap-8" 
+          onClick={handleHeaderClick} 
+          style={{ cursor: profilePath ? "pointer" : "default", opacity: 0.95 }}
+          onMouseEnter={(e) => { if (profilePath) e.currentTarget.style.opacity = "1"; }}
+          onMouseLeave={(e) => { if (profilePath) e.currentTarget.style.opacity = "0.95"; }}
+        >
           <SafeImg src={story.authorAvatar} variant="avatar" className="avatar" style={{ width: 36, height: 36, border: "2px solid #fff" }} />
           <div className="col" style={{ gap: 0 }}>
             <div className="row align-center gap-6">
-              <span className="semi small" style={{ color: "#fff" }}>{story.authorName}</span>
+              <span className="semi small" style={{ color: "#fff", textDecoration: profilePath ? "underline decoration-transparent hover:decoration-white transition" : "none" }}>{story.authorName}</span>
               {story.visibility === "close_friends" && (
                 <span style={{
                   background: "#22c55e",
@@ -469,7 +544,7 @@ export function StoryViewer({
           </div>
         )}
         
-        {story.cta !== "None" && story.tapTarget && (
+        {story.cta !== "None" && story.tapTarget ? (
           <button
             className="btn btn-block btn-primary"
             style={{ background: "#fff", color: "var(--brand-700)", boxShadow: "0 8px 20px rgba(0,0,0,0.15)" }}
@@ -477,16 +552,16 @@ export function StoryViewer({
           >
             {story.cta || ctaLabel} <ChevronRight size={16} />
           </button>
-        )}
-        
-        {story.authorType === "user" && !isOwnStory && (
-          <button
-            className="btn btn-block"
-            style={{ background: "rgba(255,255,255,0.18)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", marginTop: 8 }}
-            onClick={() => { onClose(); nav(story.tapTarget); }}
-          >
-            {ctaLabel} <ChevronRight size={16} />
-          </button>
+        ) : (
+          !isOwnStory && profilePath && (
+            <button
+              className="btn btn-block"
+              style={{ background: "rgba(255,255,255,0.18)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)", marginTop: 8 }}
+              onClick={() => { onClose(); nav(profilePath); }}
+            >
+              {ctaLabel} <ChevronRight size={16} />
+            </button>
+          )
         )}
       </div>
 
@@ -548,9 +623,9 @@ export function StoryViewer({
               }
             `}</style>
 
-            <div className="row between align-center" style={{ marginBottom: 20 }}>
+            <div className="row between align-center" style={{ marginBottom: 12 }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "#fff", margin: 0 }}>
-                Viewers ({viewers.length})
+                Story Details
               </h2>
               <button
                 onClick={() => setShowViewersSheet(false)}
@@ -570,40 +645,153 @@ export function StoryViewer({
               </button>
             </div>
 
-            <div style={{ overflowY: "auto", flex: 1 }} className="col gap-12">
-              {loadingViewers ? (
-                <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.5)" }}>
-                  Loading viewers...
-                </div>
-              ) : viewers.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
-                  No views yet.
-                </div>
-              ) : (
-                viewers.map((v) => (
-                  <div key={v.userId} className="row between align-center" style={{ padding: "6px 0" }}>
-                    <div className="row gap-12 align-center">
-                      <SafeImg
-                        src={v.avatar}
-                        variant="avatar"
-                        style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
-                      />
-                      <div className="col" style={{ gap: 0 }}>
-                        <span className="semi" style={{ color: "#fff", fontSize: 14 }}>
-                          {v.name}
-                        </span>
-                        <span className="tiny" style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>
-                          @{v.alias || "neighbor"}
-                        </span>
-                      </div>
-                    </div>
-                    <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
-                      {timeAgo(v.viewedAt)}
-                    </span>
-                  </div>
-                ))
-              )}
+            {/* Bottom Sheet Tabs */}
+            <div className="row gap-16" style={{ borderBottom: "1px solid rgba(255,255,255,0.1)", marginBottom: 16 }}>
+              <button
+                onClick={() => setSheetTab("viewers")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: sheetTab === "viewers" ? "2px solid #fff" : "2px solid transparent",
+                  color: sheetTab === "viewers" ? "#fff" : "rgba(255,255,255,0.5)",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  padding: "8px 4px",
+                  cursor: "pointer"
+                }}
+              >
+                Viewers ({viewers.length})
+              </button>
+              <button
+                onClick={() => setSheetTab("privacy")}
+                style={{
+                  background: "none",
+                  border: "none",
+                  borderBottom: sheetTab === "privacy" ? "2px solid #22c55e" : "2px solid transparent",
+                  color: sheetTab === "privacy" ? "#fff" : "rgba(255,255,255,0.5)",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  padding: "8px 4px",
+                  cursor: "pointer"
+                }}
+              >
+                Audience & Privacy
+              </button>
             </div>
+
+            {sheetTab === "viewers" && (
+              <div style={{ overflowY: "auto", flex: 1 }} className="col gap-12">
+                {loadingViewers ? (
+                  <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.5)" }}>
+                    Loading viewers...
+                  </div>
+                ) : viewers.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(255,255,255,0.4)", fontSize: 14 }}>
+                    No views yet.
+                  </div>
+                ) : (
+                  viewers.map((v) => (
+                    <div key={v.userId} className="row between align-center" style={{ padding: "6px 0" }}>
+                      <div className="row gap-12 align-center">
+                        <SafeImg
+                          src={v.avatar}
+                          variant="avatar"
+                          style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
+                        />
+                        <div className="col" style={{ gap: 0 }}>
+                          <span className="semi" style={{ color: "#fff", fontSize: 14 }}>
+                            {v.name}
+                          </span>
+                          <span className="tiny" style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>
+                            @{v.alias || "neighbor"}
+                          </span>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
+                        {timeAgo(v.viewedAt)}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {sheetTab === "privacy" && (
+              <div style={{ overflowY: "auto", flex: 1 }} className="col gap-16">
+                <div style={{
+                  background: "rgba(255,255,255,0.05)",
+                  borderRadius: 12,
+                  padding: 14,
+                  border: "1px solid rgba(255,255,255,0.1)"
+                }}>
+                  <div className="row gap-10 align-center">
+                    <div style={{
+                      width: 32, height: 32, borderRadius: "50%",
+                      background: story.visibility === "everyone" ? "rgba(124,58,237,0.15)" : "rgba(34,197,94,0.15)",
+                      display: "flex", alignItems: "center", justifyContent: "center"
+                    }}>
+                      {story.visibility === "everyone" ? (
+                        <Globe size={16} color="#a78bfa" />
+                      ) : (
+                        <Star size={16} color="#22c55e" fill="#22c55e" />
+                      )}
+                    </div>
+                    <div className="col" style={{ gap: 2 }}>
+                      <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>
+                        {story.visibility === "everyone" ? "Public Story" : "Close Friends Only"}
+                      </span>
+                      <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
+                        {story.visibility === "everyone"
+                          ? "Visible to all neighbors within radius."
+                          : "Only visible to selected close friends."}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col gap-8">
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                    {story.visibility === "close_friends"
+                      ? `Allowed Neighbors (${story.allowedUserIds?.length || 0})`
+                      : `Hidden From (${story.hiddenUserIds?.length || 0})`}
+                  </span>
+
+                  {loadingPrivacy ? (
+                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13, padding: "10px 0" }}>
+                      Loading lists...
+                    </div>
+                  ) : privacyUsers.length === 0 ? (
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, padding: "10px 0", fontStyle: "italic" }}>
+                      {story.visibility === "close_friends"
+                        ? "No specific close friends selected (Visible to you only)."
+                        : "Not hidden from any neighbors."}
+                    </div>
+                  ) : (
+                    <div className="col gap-10">
+                      {privacyUsers.map((u) => (
+                        <div key={u.id} className="row between align-center" style={{ padding: "4px 0" }}>
+                          <div className="row gap-10 align-center">
+                            <SafeImg
+                              src={u.avatar}
+                              variant="avatar"
+                              style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover" }}
+                            />
+                            <div className="col" style={{ gap: 0 }}>
+                              <span className="semi" style={{ color: "#fff", fontSize: 13 }}>
+                                {u.name}
+                              </span>
+                              <span className="tiny" style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
+                                @{u.alias || "neighbor"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
