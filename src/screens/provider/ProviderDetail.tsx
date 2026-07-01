@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Heart, Share2, Phone, BadgeCheck, MapPin, Clock,
-  CheckCircle2, Briefcase, MessageCircle, Flag, Star, ThumbsUp,
+  CheckCircle2, MessageCircle, Flag, Star, ThumbsUp,
   UserPlus, UserCheck, HandshakeIcon, Plus, Zap,
 } from "lucide-react";
 import { providerService, socialService } from "@/services";
@@ -356,15 +356,12 @@ export default function ProviderDetail() {
               <MessageCircle size={17} />
             </button>
           )}
-          {evalRes.isOpenNow ? (
-            <button className="btn btn-green grow" onClick={() => nav("/ask")}>
-              <Briefcase size={17} /> Request a quote
-            </button>
-          ) : (
-            <button className="btn btn-purple grow" onClick={() => setScheduling(true)}>
-              <Clock size={17} /> Schedule Appointment
-            </button>
-          )}
+          <button
+            className={`btn grow ${evalRes.isOpenNow ? "btn-green" : "btn-purple"}`}
+            onClick={() => setScheduling(true)}
+          >
+            {evalRes.isOpenNow ? <><Zap size={17} /> Book now</> : <><Clock size={17} /> Schedule Appointment</>}
+          </button>
         </div>
       </div>
 
@@ -387,6 +384,8 @@ export default function ProviderDetail() {
           targetName={p.displayName}
           targetType="PROVIDER"
           availabilityNote={p.availabilityNote}
+          availableNow={evalRes.isOpenNow}
+          packages={(packages ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }))}
           onClose={() => setScheduling(false)}
         />
       )}

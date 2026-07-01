@@ -87,7 +87,7 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
   // XOR: the store tracks session-toggles only (empty on load); DB truth is post.liked.
   const toggled = likes.includes(post.id);
   const liked = toggled ? !post.liked : post.liked;
-  const likeCount = post.likes + (liked && !post.liked ? 1 : 0) - (!liked && post.liked ? 1 : 0);
+  const likeCount = Math.max(0, post.likes + (liked && !post.liked ? 1 : 0) - (!liked && post.liked ? 1 : 0));
   const votedOption = votes[post.id] ?? post.votedOptionId;
   const totalVotes = (post.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !post.votedOptionId ? 1 : 0);
 

@@ -37,7 +37,8 @@ export const appointmentService = {
       const uid = await currentUserId();
       if (uid) {
         const sb = getSupabase();
-        const noteText = `📅 Scheduled for ${payload.dateLabel} at ${payload.timeLabel}${payload.notes ? `: ${payload.notes}` : ""}`;
+        const pkgText = payload.packageName ? ` • ${payload.packageName}${payload.packagePrice ? ` (₹${payload.packagePrice})` : ""}` : "";
+        const noteText = `📅 Scheduled for ${payload.dateLabel} at ${payload.timeLabel}${pkgText}${payload.notes ? `: ${payload.notes}` : ""}`;
         if (payload.targetType === "BUSINESS") {
           await sb.from("leads").insert({
             business_id: payload.targetId,

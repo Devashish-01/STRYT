@@ -3,9 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Heart, Share2, Phone, Navigation, Clock, MapPin,
   BadgeCheck, Star, Plus, Minus, Tag, MessageCircle, Flag,
-  Bookmark, Bell, UserPlus, UserCheck, Users, Stamp, ArrowRight, HelpCircle,
+  Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle,
 } from "lucide-react";
-import { businessService } from "@/services";
+import { businessService, communityService } from "@/services";
 import { chatService } from "@/services/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
 import { useQuery } from "@/hooks/useApi";
@@ -30,9 +30,10 @@ export default function BusinessDetail() {
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
   const { data: reviews, refetch: refetchReviews } = useQuery(() => businessService.reviews(id), [id]);
   const { data: queue } = useQuery(() => businessService.queue(id), [id]);
-  const { data: loyalty } = useQuery(() => businessService.loyaltyCard(id), [id]);
   const { data: qnaList, refetch: refetchQna } = useQuery(() => businessService.qna(id), [id]);
-  const [tab, setTab] = useState<"catalog" | "about" | "reviews">("catalog");
+  const ownerId = b?.ownerUserId;
+  const { data: bizPosts } = useQuery(() => ownerId ? communityService.byAuthor(ownerId) : Promise.resolve([]), [ownerId]);
+  const [tab, setTab] = useState<"catalog" | "posts" | "about" | "reviews">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
@@ -255,22 +256,6 @@ export default function BusinessDetail() {
           </div>
         )}
 
-        {/* Loyalty card */}
-        {loyalty && (
-          <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
-            <button className="card row gap-12" style={{ padding: 14, width: "100%", textAlign: "left" }} onClick={() => nav("/wallet")}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Stamp size={20} color="#cc4415" />
-              </div>
-              <div className="grow">
-                <div className="semi small">Loyalty card • {loyalty.stamps}/{loyalty.target} stamps</div>
-                <div className="tiny muted">{loyalty.target - loyalty.stamps} more for {loyalty.reward}</div>
-              </div>
-              <span className="see-all">Open →</span>
-            </button>
-          </div>
-        )}
-
         {/* Offer strip */}
         {b.offers.length > 0 && (
           <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
@@ -291,7 +276,7 @@ export default function BusinessDetail() {
 
         {/* Tabs */}
         <div className="row page-pad" style={{ gap: 0, paddingBottom: 0, paddingTop: 16, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
-          {([["catalog", `Menu (${b.catalog.length})`], ["about", "About"], ["reviews", `Reviews`]] as const).map(([t, label]) => (
+          {([["catalog", `Menu (${b.catalog.length})`], ["posts", `Posts (${(bizPosts ?? []).length})`], ["about", "About"], ["reviews", `Reviews`]] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
               style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>
               {label}
@@ -351,6 +336,34 @@ export default function BusinessDetail() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {tab === "posts" && (
+          <div className="page-pad col gap-12">
+            {(bizPosts ?? []).length === 0 ? (
+              <EmptyState emoji="📣" title="No posts yet" text="This business hasn't posted to the community yet." />
+            ) : (
+              (bizPosts ?? []).map((p) => (
+                <button
+                  key={p.id}
+                  className="card col gap-6"
+                  style={{ padding: 14, textAlign: "left" }}
+                  onClick={() => nav(`/community/${p.id}`, { state: { post: p } })}
+                >
+                  <div className="row between">
+                    <span className="semi small">{p.title || p.type}</span>
+                    <span className="tiny muted">{p.postedAt}</span>
+                  </div>
+                  {p.body && <p className="small muted clamp-2" style={{ lineHeight: 1.5 }}>{p.body}</p>}
+                  {p.image && <SafeImg src={p.image} style={{ width: "100%", height: 150, borderRadius: 12, objectFit: "cover" }} />}
+                  <div className="row gap-14 tiny muted" style={{ marginTop: 2 }}>
+                    <span className="row gap-4"><Heart size={13} /> {p.likes}</span>
+                    <span className="row gap-4"><MessageCircle size={13} /> {p.commentsCount}</span>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         )}
 
@@ -492,6 +505,8 @@ export default function BusinessDetail() {
           targetName={b.name}
           targetType="BUSINESS"
           availabilityNote={b.hours || "Mon–Sat from 09:00 AM to 07:00 PM"}
+          availableNow={b.isOpenNow}
+          packages={(b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price }))}
           onClose={() => setScheduling(false)}
         />
       )}

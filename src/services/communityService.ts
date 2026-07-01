@@ -175,6 +175,31 @@ export const communityService = {
     return mapPost(row, likedIds, userVotes, voteCounts, lat, lng);
   },
 
+  /** Community posts authored by a given user (e.g. a business owner). */
+  async byAuthor(userId: string): Promise<CommunityPost[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    const { data, error } = await sb
+      .from("community_posts")
+      .select("*")
+      .eq("author_user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    throwIfError(error);
+    const rows = data ?? [];
+    if (rows.length === 0) return [];
+    const likedIds = new Set<string>();
+    if (uid) {
+      const { data: likes } = await sb
+        .from("post_likes")
+        .select("post_id")
+        .eq("user_id", uid)
+        .in("post_id", rows.map((r: any) => r.id));
+      (likes ?? []).forEach((l: any) => likedIds.add(l.post_id));
+    }
+    return rows.map((r: any) => mapPost(r, likedIds, {}, {}));
+  },
+
   async create(data: Partial<CommunityPost> & { lat?: number; lng?: number }): Promise<CommunityPost> {
     const sb = getSupabase();
     const uid = await currentUserId();
@@ -211,19 +236,21 @@ export const communityService = {
     const uid = await currentUserId();
     if (!uid) return currentlyLiked;
 
-    const { data: cur } = await sb
-      .from("community_posts").select("likes_count").eq("id", postId).maybeSingle();
-    const count = (cur as any)?.likes_count ?? 0;
-
+    // Apply the toggle on the source-of-truth table first.
     if (currentlyLiked) {
       await sb.from("post_likes").delete().eq("post_id", postId).eq("user_id", uid);
-      await sb.from("community_posts").update({ likes_count: Math.max(0, count - 1) }).eq("id", postId);
-      return false;
     } else {
       try { await sb.from("post_likes").insert({ post_id: postId, user_id: uid }); } catch { /* duplicate */ }
-      await sb.from("community_posts").update({ likes_count: count + 1 }).eq("id", postId);
-      return true;
     }
+
+    // Recount from post_likes so the denormalized counter can never drift or go
+    // negative (the old read-modify-write did both under races / bad seed data).
+    const { count } = await sb
+      .from("post_likes")
+      .select("*", { count: "exact", head: true })
+      .eq("post_id", postId);
+    await sb.from("community_posts").update({ likes_count: count ?? 0 }).eq("id", postId);
+    return !currentlyLiked;
   },
 
   async vote(postId: string, optionId: string): Promise<void> {
@@ -244,13 +271,14 @@ export const communityService = {
 
     const { data, error } = await sb
       .from("post_comments")
-      .select("*, users(phone)")
+      .select("*")
       .eq("post_id", postId)
       .order("created_at", { ascending: true });
     throwIfError(error);
     return (data ?? []).map((r: any) => {
-      const currentPhone = r.users?.phone || r.shared_phone;
-      const canSeePhone = !!r.shared_phone && !!currentPhone && (
+      // The number is stored on the comment at share-time (reading another user's
+      // live phone is blocked by RLS for privacy). Show it only to those allowed.
+      const canSeePhone = !!r.shared_phone && (
         r.phone_visibility === "PUBLIC" || uid === ownerId || uid === r.author_user_id
       );
       return {
@@ -261,7 +289,7 @@ export const communityService = {
         time: relLabel(r.created_at),
         listingType: r.listing_type ?? undefined,
         listingId: r.listing_id ?? undefined,
-        sharedPhone: canSeePhone ? currentPhone : undefined,
+        sharedPhone: canSeePhone ? r.shared_phone : undefined,
         phoneVisibility: r.phone_visibility ?? undefined,
       };
     });

@@ -5,11 +5,20 @@ import { generateWorkingSlots, type AppointmentSlot } from "@/utils/availability
 import { uploadService } from "@/services/uploadService";
 import { appointmentService } from "@/services/appointmentService";
 
+export interface BookingPackage {
+  id: string;
+  name: string;
+  price: number;
+  duration?: string;
+}
+
 interface AppointmentSheetProps {
   targetId: string;
   targetName: string;
   targetType: "PROVIDER" | "BUSINESS";
   availabilityNote?: string;
+  packages?: BookingPackage[];
+  availableNow?: boolean;
   onClose: () => void;
 }
 
@@ -18,11 +27,14 @@ export function AppointmentSheet({
   targetName,
   targetType,
   availabilityNote,
+  packages = [],
+  availableNow = false,
   onClose,
 }: AppointmentSheetProps) {
   const { user, showToast } = useApp();
   const [dayOffset, setDayOffset] = useState<number>(0);
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
+  const [selectedPkg, setSelectedPkg] = useState<BookingPackage | null>(null);
   const [notes, setNotes] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -82,6 +94,9 @@ export function AppointmentSheet({
         timeLabel: selectedSlot.timeLabel,
         notes: notes.trim() || undefined,
         photoUrl: uploadedUrl,
+        packageId: selectedPkg?.id,
+        packageName: selectedPkg?.name,
+        packagePrice: selectedPkg?.price,
       });
 
       showToast(`Appointment scheduled for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`);
@@ -137,18 +152,64 @@ export function AppointmentSheet({
           </button>
         </div>
 
-        {/* Working Hours Info Card */}
-        <div className="card" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)", marginBottom: 16 }}>
-          <div className="row gap-8 center-v">
-            <Clock size={16} color="var(--brand-700)" />
-            <div>
-              <div className="tiny semi muted">Working Hours Schedule</div>
-              <div className="bold small" style={{ color: "var(--brand-800)", marginTop: 1 }}>
-                {availabilityNote || "Mon–Sat from 09:00 AM to 07:00 PM"}
+        {/* Availability info card */}
+        {availableNow ? (
+          <div className="card" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0", marginBottom: 16 }}>
+            <div className="row gap-8 center-v">
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#16a34a", boxShadow: "0 0 0 3px rgba(22,163,74,0.18)" }} />
+              <div>
+                <div className="bold small" style={{ color: "#15803d" }}>Available now</div>
+                <div className="tiny" style={{ color: "#166534", marginTop: 1 }}>Pick the earliest slot below — they can take you right away.</div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="card" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)", marginBottom: 16 }}>
+            <div className="row gap-8 center-v">
+              <Clock size={16} color="var(--brand-700)" />
+              <div>
+                <div className="tiny semi muted">Working Hours Schedule</div>
+                <div className="bold small" style={{ color: "var(--brand-800)", marginTop: 1 }}>
+                  {availabilityNote || "Mon–Sat from 09:00 AM to 07:00 PM"}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Package selector */}
+        {packages.length > 0 && (
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
+              Choose a package / service
+            </label>
+            <div className="col gap-8">
+              {packages.map((pk) => {
+                const on = selectedPkg?.id === pk.id;
+                return (
+                  <button
+                    key={pk.id}
+                    type="button"
+                    onClick={() => setSelectedPkg(on ? null : pk)}
+                    className="row gap-10"
+                    style={{
+                      padding: 12, borderRadius: 12, textAlign: "left",
+                      border: on ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
+                      background: on ? "var(--brand-50)" : "#fff",
+                    }}
+                  >
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, border: on ? "6px solid var(--brand-600)" : "2px solid var(--ink-300)" }} />
+                    <div className="grow">
+                      <div className="semi small">{pk.name}</div>
+                      {pk.duration && <div className="tiny muted">{pk.duration}</div>}
+                    </div>
+                    <div className="bold small" style={{ color: "var(--brand-700)" }}>₹{pk.price}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Date Selector Chips */}
         <div className="field" style={{ marginBottom: 16 }}>

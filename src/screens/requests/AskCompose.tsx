@@ -65,7 +65,7 @@ const SLOTS = [
 export default function AskCompose() {
   const nav = useNavigate();
   const { area, user, showToast } = useApp();
-  const { data: categories } = useQuery(() => catalogService.getCategories(), []);
+  const { data: categories, loading: catLoading, error: catError, refetch: refetchCats } = useQuery(() => catalogService.getCategories(), []);
   const [template, setTemplate] = useState<Template | null>(null);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -211,8 +211,8 @@ export default function AskCompose() {
       });
       showToast("Request posted! Notifying nearby providers…");
       setTimeout(() => nav("/requests"), 600);
-    } catch {
-      showToast("Couldn't post. Try again.");
+    } catch (e) {
+      showToast(e instanceof Error && e.message ? e.message : "Couldn't post. Try again.");
       setPosting(false);
     }
   }
@@ -293,8 +293,17 @@ export default function AskCompose() {
         {/* Category */}
         <div className="field">
           <label>Category *</label>
-          {(categories ?? []).length === 0 ? (
+          {catError ? (
+            <div className="card col gap-8" style={{ padding: 12, border: "1px solid var(--red-500)" }}>
+              <span className="tiny" style={{ color: "var(--red-600)" }}>
+                Couldn't load categories: {catError.message || "network error"}
+              </span>
+              <button className="btn btn-outline btn-sm" style={{ width: "fit-content" }} onClick={refetchCats}>Retry</button>
+            </div>
+          ) : catLoading && (categories ?? []).length === 0 ? (
             <div className="tiny muted">Loading categories…</div>
+          ) : (categories ?? []).length === 0 ? (
+            <div className="tiny muted">No categories available. <button className="semi" style={{ color: "var(--brand-700)" }} onClick={refetchCats}>Reload</button></div>
           ) : (
             <div className="row wrap gap-8">
               {(categories ?? []).map((c) => (

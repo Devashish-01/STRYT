@@ -24,6 +24,7 @@ export default function CommunityPostDetail() {
   const [sending, setSending] = useState(false);
   const [sharePhone, setSharePhone] = useState(false);
   const [phoneVis, setPhoneVis] = useState<"OWNER" | "PUBLIC">("OWNER");
+  const [phoneInput, setPhoneInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (initialComments) setComments(initialComments); }, [initialComments]);
@@ -41,7 +42,7 @@ export default function CommunityPostDetail() {
   // XOR: the store tracks session-toggles only (empty on load); DB truth is safePost.liked.
   const toggled = likes.includes(safePost.id);
   const liked = toggled ? !safePost.liked : safePost.liked;
-  const likeCount = safePost.likes + (liked && !safePost.liked ? 1 : 0) - (!liked && safePost.liked ? 1 : 0);
+  const likeCount = Math.max(0, safePost.likes + (liked && !safePost.liked ? 1 : 0) - (!liked && safePost.liked ? 1 : 0));
   const votedOption = votes[safePost.id] ?? safePost.votedOptionId;
   const totalVotes = (safePost.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !safePost.votedOptionId ? 1 : 0);
 
@@ -61,9 +62,10 @@ export default function CommunityPostDetail() {
     if (!text) return;
     setSending(true);
     setNewComment("");
+    const phoneToShare = sharePhone ? (phoneInput.trim() || user.phone) : "";
     try {
       const c = await communityService.addComment(safePost.id, text, {
-        sharedPhone: sharePhone && user.phone ? user.phone : undefined,
+        sharedPhone: phoneToShare || undefined,
         phoneVisibility: phoneVis,
       });
       setComments((prev) => [...prev, c]);
@@ -206,34 +208,45 @@ export default function CommunityPostDetail() {
       {/* Comment input */}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px" }}>
         {/* #8 share-phone controls */}
-        <div className="row gap-8" style={{ marginBottom: 8, flexWrap: "wrap" }}>
-          <button
-            className="chip"
-            style={{ padding: "5px 11px", fontSize: 12, gap: 5, ...(sharePhone ? { background: "var(--brand-600)", borderColor: "var(--brand-600)", color: "#fff" } : {}) }}
-            onClick={() => {
-              if (!user.phone) { showToast("Add your number in Edit Profile first"); return; }
-              setSharePhone((v) => !v);
-            }}
-          >
-            <Phone size={13} /> {sharePhone ? "Sharing my number" : "Share my number"}
-          </button>
+        <div className="col gap-8" style={{ marginBottom: 8 }}>
+          <div className="row gap-8" style={{ flexWrap: "wrap" }}>
+            <button
+              className="chip"
+              style={{ padding: "5px 11px", fontSize: 12, gap: 5, ...(sharePhone ? { background: "var(--brand-600)", borderColor: "var(--brand-600)", color: "#fff" } : {}) }}
+              onClick={() => {
+                setSharePhone((v) => {
+                  const next = !v;
+                  if (next && !phoneInput) setPhoneInput(user.phone || "");
+                  return next;
+                });
+              }}
+            >
+              <Phone size={13} /> {sharePhone ? "Sharing my number" : "Share my number"}
+            </button>
+            {sharePhone && (
+              <>
+                <button className={`chip ${phoneVis === "OWNER" ? "active" : ""}`} style={{ padding: "5px 11px", fontSize: 12 }} onClick={() => setPhoneVis("OWNER")}>
+                  Post owner only
+                </button>
+                <button className={`chip ${phoneVis === "PUBLIC" ? "active" : ""}`} style={{ padding: "5px 11px", fontSize: 12 }} onClick={() => setPhoneVis("PUBLIC")}>
+                  Everyone
+                </button>
+              </>
+            )}
+          </div>
           {sharePhone && (
-            <>
-              <button
-                className={`chip ${phoneVis === "OWNER" ? "active" : ""}`}
-                style={{ padding: "5px 11px", fontSize: 12 }}
-                onClick={() => setPhoneVis("OWNER")}
-              >
-                Post owner only
-              </button>
-              <button
-                className={`chip ${phoneVis === "PUBLIC" ? "active" : ""}`}
-                style={{ padding: "5px 11px", fontSize: 12 }}
-                onClick={() => setPhoneVis("PUBLIC")}
-              >
-                Everyone
-              </button>
-            </>
+            <div className="row gap-8" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff" }}>
+              <Phone size={14} color="var(--ink-400)" />
+              <input
+                className="input"
+                style={{ border: "none", padding: "9px 0", fontSize: 14 }}
+                inputMode="numeric"
+                maxLength={10}
+                placeholder="Number to share (10 digits)"
+                value={phoneInput}
+                onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ""))}
+              />
+            </div>
           )}
         </div>
 

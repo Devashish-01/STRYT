@@ -19,16 +19,21 @@ export default function BusinessRequests() {
     [b?.lat, b?.lng, b?.broadcastRadius]
   );
 
-  const items = ((data?.data ?? []) as RequestPost[]).filter((r) => r.status === "OPEN");
+  // Only show requests within the business's access range. Each request's
+  // distanceKm is measured from the business location (feed got b.lat/b.lng).
+  const range = b?.broadcastRadius ?? 5;
+  const items = ((data?.data ?? []) as RequestPost[])
+    .filter((r) => r.status === "OPEN")
+    .filter((r) => !r.lat || !r.lng || r.distanceKm <= range);
 
   return (
     <div className="screen">
-      <AppBar title="Find requests" subtitle={`Matching ${b?.categoryName ?? "your category"}`} />
+      <AppBar title="Find requests" subtitle={`Within ${range} km of ${b?.name ?? "your shop"}`} />
       <div className="screen-scroll">
         <div className="page-pad" style={{ paddingBottom: 0 }}>
           <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
             <span style={{ fontSize: 20 }}>🙋</span>
-            <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>Nearby people need things you can offer. Send a proposal as <b>{b?.name}</b> to win the job.</span>
+            <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>Requests within your <b>{range} km</b> range. Send a proposal as <b>{b?.name}</b> to win the job.</span>
           </div>
         </div>
         {loading && <ListSkeleton count={3} />}

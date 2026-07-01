@@ -17,7 +17,7 @@ const steps = ["Basics", "Location", "Photos", "Contact", "Verify"];
 export default function BusinessOnboard() {
   const nav = useNavigate();
   const { user, addRole, showToast, refreshUser } = useApp();
-  const { data: categories } = useQuery(() => catalogService.getCategories("BUSINESS"), []);
+  const { data: categories, loading: catLoading, error: catError, refetch: refetchCats } = useQuery(() => catalogService.getCategories("BUSINESS"), []);
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -152,13 +152,24 @@ export default function BusinessOnboard() {
             </div>
             <div className="field">
               <label>Category *</label>
-              <div className="row wrap gap-8">
-                {cats.map((c) => (
-                  <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { setCat(c.id); setSub([]); }}>
-                    {c.icon} {c.name.split(" ")[0]}
-                  </button>
-                ))}
-              </div>
+              {catError ? (
+                <div className="card col gap-8" style={{ padding: 12, border: "1px solid var(--red-500)" }}>
+                  <span className="tiny" style={{ color: "var(--red-600)" }}>Couldn't load categories: {catError.message || "network error"}</span>
+                  <button className="btn btn-outline btn-sm" style={{ width: "fit-content" }} onClick={refetchCats}>Retry</button>
+                </div>
+              ) : catLoading && cats.length === 0 ? (
+                <div className="tiny muted">Loading categories…</div>
+              ) : cats.length === 0 ? (
+                <div className="tiny muted">No categories available. <button className="semi" style={{ color: "var(--brand-700)" }} onClick={refetchCats}>Reload</button></div>
+              ) : (
+                <div className="row wrap gap-8">
+                  {cats.map((c) => (
+                    <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { setCat(c.id); setSub([]); }}>
+                      {c.icon} {c.name.split(" ")[0]}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {selectedCat?.children && (
               <div className="field">

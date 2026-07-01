@@ -121,17 +121,18 @@ export default function ManageDashboard() {
             <Tile emoji="📝" label="Edit profile" onClick={() => nav(`${base}/profile`)} />
             <Tile emoji="🕒" label="Hours" onClick={() => nav(`${base}/hours`)} />
             <Tile emoji="🍽️" label="Catalog" onClick={() => nav(`${base}/catalog`)} />
-            <Tile emoji="📸" label="Photos" onClick={() => nav(`${base}/photos`)} />
             <Tile emoji="🏷️" label="Offers" onClick={() => nav(`${base}/offers`)} />
-            <Tile emoji="✨" label="Post a story" onClick={() => nav(`${base}/story`)} />
+            <Tile emoji="📣" label="Post to community" onClick={() => nav("/community/new", { state: { businessId: id, businessName: b?.name } })} />
             <Tile emoji="👥" label="Live queue" onClick={() => nav(`${base}/queue`)} />
-            <Tile emoji="🎟️" label="Loyalty" onClick={() => nav(`${base}/loyalty`)} />
             <Tile emoji="💬" label="Q&A" onClick={() => nav(`${base}/qna`)} />
             <Tile emoji="⭐" label="Reviews" onClick={() => nav(`${base}/reviews`)} />
             <Tile emoji="🙋" label="Find requests" onClick={() => nav(`${base}/requests`)} />
             <Tile emoji="🛡️" label="Verification" onClick={() => nav(`${base}/verify`)} />
             <Tile emoji="📱" label="Share QR" onClick={() => setShare(true)} />
           </div>
+          <p className="tiny muted" style={{ marginTop: 8 }}>
+            Photos, Post a story & Loyalty are temporarily hidden.
+          </p>
         </div>
 
         <div style={{ height: 20 }} />

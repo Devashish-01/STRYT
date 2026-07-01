@@ -651,6 +651,9 @@ export interface AppointmentRecord {
   timeLabel: string;
   notes?: string;
   photoUrl?: string;
+  packageId?: string;
+  packageName?: string;
+  packagePrice?: number;
   status: AppointmentStatus;
   responseNote?: string;
   createdAtISO: string;

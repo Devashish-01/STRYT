@@ -530,6 +530,19 @@ export const businessService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
+    // One review per user: update the existing one instead of adding a duplicate.
+    const { data: existing } = await sb
+      .from("ratings")
+      .select("id")
+      .eq("rater_user_id", uid)
+      .eq("ratee_type", "BUSINESS")
+      .eq("ratee_id", id)
+      .maybeSingle();
+    if (existing?.id) {
+      const { error } = await sb.from("ratings").update({ rating, comment: comment || null }).eq("id", existing.id);
+      throwIfError(error);
+      return;
+    }
     const { count: existingCount } = await sb
       .from("ratings")
       .select("*", { count: "exact", head: true })
