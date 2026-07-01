@@ -7,6 +7,7 @@ import { Camera, CheckCircle2, IndianRupee, Plus, Briefcase } from "lucide-react
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
+import HoursSelector from "@/components/HoursSelector";
 
 
 const steps = ["Skill", "Area & price", "Portfolio", "Verify"];
@@ -31,7 +32,7 @@ export default function ProviderOnboard() {
   const [radius, setRadius] = useState(5);
   const [price, setPrice] = useState("");
   const [bio, setBio] = useState("");
-  const [availability, setAvailability] = useState("");
+  const [availability, setAvailability] = useState("Everyday from 09:00 AM to 09:00 PM");
   const [photos, setPhotos] = useState<{ file: File; previewUrl: string }[]>([]);
   const [aadhaarNum, setAadhaarNum] = useState("");
   const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
@@ -191,8 +192,13 @@ export default function ProviderOnboard() {
               />
             </div>
             <div className="field">
-              <label>Availability timing (from when to when you are available)</label>
-              <input className="input" placeholder="e.g. Mon–Sat from 09:00 AM to 07:00 PM" value={availability} onChange={(e) => setAvailability(e.target.value)} />
+              <HoursSelector
+                value={availability}
+                onChange={setAvailability}
+                accentColor="#16a34a"
+                label="Availability timing"
+                description="Specify when you are available for customer bookings"
+              />
             </div>
           </>
         )}

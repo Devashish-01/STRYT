@@ -68,6 +68,7 @@ export interface BusinessAnalytics {
   directions: number;
   catalogViews: number;
   reviews: number;
+  questions: number;
   viewsSeries: number[];
   leadsSeries: number[];
 }
@@ -390,13 +391,15 @@ export const businessService = {
   // Dashboard analytics
   async analytics(id: string): Promise<BusinessAnalytics> {
     const sb = getSupabase();
-    const [bizRes, viewsRes, leadsRes] = await Promise.all([
+    const [bizRes, viewsRes, leadsRes, qnaRes] = await Promise.all([
       sb.from("businesses").select("view_count, call_count, directions_count, rating_count").eq("id", id).maybeSingle(),
       sb.from("business_view_logs").select("viewed_at").eq("business_id", id).gte("viewed_at", sevenDaysAgoIso()),
       sb.from("leads").select("created_at").eq("business_id", id).gte("created_at", sevenDaysAgoIso()),
+      sb.from("business_qna").select("*", { count: "exact", head: true }).eq("business_id", id),
     ]);
     throwIfError(bizRes.error);
     throwIfError(leadsRes.error);
+    throwIfError(qnaRes.error);
     const b = (bizRes.data ?? {}) as Record<string, number>;
     return {
       views: b.view_count ?? 0,
@@ -404,6 +407,7 @@ export const businessService = {
       directions: b.directions_count ?? 0,
       catalogViews: 0,
       reviews: b.rating_count ?? 0,
+      questions: qnaRes.count ?? 0,
       viewsSeries: dailyBuckets((viewsRes.data ?? []).map((r: any) => r.viewed_at)),
       leadsSeries: dailyBuckets((leadsRes.data ?? []).map((r: any) => r.created_at)),
     };

@@ -1,9 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
-import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, ShieldAlert, Share2 } from "lucide-react";
+import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, ShieldAlert, Share2, XCircle } from "lucide-react";
 import { requestService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import type { Agreement, AgreementStatus, Proposal, RequestPost, JobLiveStatus } from "@/types";
@@ -130,9 +130,11 @@ export default function AgreementScreen() {
   const { user, showToast } = useApp();
 
   const isNew = id === "new" && !!state?.request && !!state?.proposal;
-  const { data: fetched, loading, refetch } = useQuery(
+  const { data: fetched, loading, refetch } = useQueryWithRealtime(
     () => (isNew ? Promise.resolve(undefined) : requestService.getAgreement(id)),
-    [id, isNew]
+    "agreements",
+    [id, isNew],
+    isNew ? undefined : `id=eq.${id}`
   );
 
   let agreement: Agreement | undefined;
@@ -167,6 +169,32 @@ export default function AgreementScreen() {
   const [sosCountdown, setSosCountdown] = useState<number | null>(null);
   const [sosTriggered, setSosTriggered] = useState(false);
   const liveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!agreement || agreement.status !== "PENDING" || !agreement.createdAt) return;
+    const expiresAt = new Date(agreement.createdAt).getTime() + 10 * 60 * 1000;
+    
+    const updateTime = () => {
+      const diff = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setTimeLeft(diff);
+      if (diff === 0) {
+        // Expiry reached, reload data which runs lazy cancellation
+        refetch();
+      }
+    };
+    
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
+  }, [agreement?.status, agreement?.createdAt, refetch]);
+
+  function formatTimeLeft(sec: number): string {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  }
 
   if (loading && !isNew) {
     return (
@@ -267,6 +295,26 @@ export default function AgreementScreen() {
         <div className="col center" style={{ padding: 16, gap: 6, background: "#e8f7ee", borderTop: "1px solid #bbf7d0" }}>
           <CheckCircle2 size={28} color="#16a34a" />
           <span className="semi" style={{ color: "#15803d" }}>Job complete</span>
+        </div>
+      );
+    }
+
+    if (status === "CANCELLED") {
+      return (
+        <div className="col center" style={{ padding: 16, gap: 12, background: "#fef2f2", borderTop: "1px solid #fee2e2", textAlign: "center" }}>
+          <XCircle size={28} color="#dc2626" />
+          <div>
+            <span className="semi" style={{ color: "#991b1b" }}>Agreement Cancelled</span>
+            <p className="tiny muted" style={{ marginTop: 4, maxWidth: 320, lineHeight: 1.4 }}>
+              This work order has been cancelled. Since the 10-minute confirmation window has passed, you can accept a quote again.
+            </p>
+          </div>
+          <button
+            className="btn btn-outline btn-sm btn-block"
+            onClick={() => nav(`/request/${agreement!.requestId}`)}
+          >
+            View Quotes Again
+          </button>
         </div>
       );
     }
@@ -439,7 +487,7 @@ export default function AgreementScreen() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const actionAreaHeight = status === "REVIEW" && isRequester ? 140 : 72;
+  const actionAreaHeight = status === "CANCELLED" ? 150 : (status === "REVIEW" && isRequester ? 140 : 72);
 
   return (
     <div className="screen">
@@ -448,6 +496,21 @@ export default function AgreementScreen() {
 
         {/* Progress bar */}
         <ProgressBar status={status} />
+
+        {/* Expiry Warning Banner */}
+        {status === "PENDING" && timeLeft !== null && (
+          <div className="card row gap-10" style={{ padding: 12, background: "#fffbeb", border: "1px solid #fef3c7" }}>
+            <Clock size={20} color="#d97706" style={{ flexShrink: 0 }} />
+            <div className="grow">
+              <div className="tiny semi" style={{ color: "#b45309" }}>
+                Confirmation Window: {formatTimeLeft(timeLeft)}
+              </div>
+              <div className="tiny muted">
+                Both parties must confirm within 10 minutes, or this quote acceptance will expire.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Timer row */}
         {agreement.createdAt && (

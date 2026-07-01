@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, MessageCircle, Plus, MapPin, Search as SearchIcon, CheckCircle2 } from "lucide-react";
 import { communityService, discoveryService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { useApp } from "@/store";
@@ -23,8 +23,9 @@ export default function Community() {
   const nav = useNavigate();
   const { area, user } = useApp();
   const [filter, setFilter] = useState<"ALL" | CommunityPostType>("ALL");
-  const { data, loading, error, refetch } = useQuery(
+  const { data, loading, error, refetch } = useQueryWithRealtime(
     () => communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }),
+    "community_posts",
     [user.lat, user.lng]
   );
   const { data: bizPage } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);

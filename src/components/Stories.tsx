@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, ChevronRight, Plus, Camera, Globe, Star } from "lucide-react";
 import { socialService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { SafeImg } from "@/components/common";
 import { useApp } from "@/store";
 import type { Story } from "@/types";
@@ -25,13 +25,14 @@ export function StoriesBar() {
 
   const savedRadius = localStorage.getItem("settings_radius");
   const radius = savedRadius ? parseFloat(savedRadius) : 5;
-  const { data, loading } = useQuery(
+  const { data, loading } = useQueryWithRealtime(
     () => user.lat && user.lng
       ? socialService.storiesNearby(user.lat, user.lng, radius)
       : socialService.stories(),
+    "stories",
     [user.lat, user.lng, radius]
   );
-  const { data: myStory }  = useQuery(() => socialService.myStory(), [user.id]);
+  const { data: myStory }  = useQueryWithRealtime(() => socialService.myStory(), "stories", [user.id]);
 
   const stories = data ?? [];
 

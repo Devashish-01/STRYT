@@ -6,7 +6,7 @@ import {
   Edit3, Trash2, XCircle, X
 } from "lucide-react";
 import { requestService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, EmptyState, SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
@@ -18,7 +18,7 @@ export default function RequestDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { user, showToast, meToos, toggleMeToo, isAuthed } = useApp();
-  const { data: r, loading, error, refetch } = useQuery(() => requestService.get(id, user.lat || 0, user.lng || 0), [id]);
+  const { data: r, loading, error, refetch } = useQueryWithRealtime(() => requestService.get(id, user.lat || 0, user.lng || 0), "requests", [id], `id=eq.${id}`);
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
   const [accepted, setAccepted] = useState<string | null>(null);

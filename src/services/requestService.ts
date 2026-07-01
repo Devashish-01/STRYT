@@ -133,6 +133,7 @@ const AGREEMENT_SELECT =
 export const requestService = {
   async feed(p: { category?: string; cursor?: string | null; special?: string; lat?: number; lng?: number; radiusKm?: number } = {}): Promise<Page<RequestPost>> {
     const sb = getSupabase();
+    await sb.rpc("cancel_expired_agreements");
     const { from, to, limit } = cursorToRange(p.cursor);
     let q = sb.from("requests").select(REQUEST_SELECT, { count: "exact" }).in("status", ["OPEN", "AGREED"]);
     if (p.category)              q = q.eq("category_name", p.category);
@@ -154,6 +155,7 @@ export const requestService = {
 
   async mine(userLat = 0, userLng = 0): Promise<RequestPost[]> {
     const sb = getSupabase();
+    await sb.rpc("cancel_expired_agreements");
     const uid = await currentUserId();
     if (!uid) return [];
     const { data, error } = await sb
@@ -167,6 +169,7 @@ export const requestService = {
 
   async get(id: string, userLat = 0, userLng = 0): Promise<RequestPost | undefined> {
     const sb = getSupabase();
+    await sb.rpc("cancel_expired_agreements");
     const { data, error } = await sb.from("requests").select(REQUEST_SELECT).eq("id", id).maybeSingle();
     throwIfError(error);
     return data ? rowToRequest(data as any, userLat, userLng) : undefined;
@@ -267,6 +270,7 @@ export const requestService = {
 
   async agreements(): Promise<Agreement[]> {
     const sb = getSupabase();
+    await sb.rpc("cancel_expired_agreements");
     const uid = await currentUserId();
     if (!uid) return [];
     const { data, error } = await sb
@@ -280,6 +284,7 @@ export const requestService = {
 
   async getAgreement(id: string): Promise<Agreement | undefined> {
     const sb = getSupabase();
+    await sb.rpc("cancel_expired_agreements");
     const { data, error } = await sb
       .from("agreements")
       .select(AGREEMENT_SELECT)

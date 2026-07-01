@@ -79,7 +79,7 @@ export default function ManageDashboard() {
               <div className="row gap-10" style={{ marginTop: 10 }}>
                 <Kpi icon={Eye} color="#0ea5e9" value={data!.catalogViews.toLocaleString()} label="Menu views" trend="" />
                 <Kpi icon={Star} color="#f59e0b" value={data!.reviews} label="New reviews" trend="" />
-                <Kpi icon={HelpCircle} color="#6366f1" value={0} label="Questions" trend="" />
+                <Kpi icon={HelpCircle} color="#6366f1" value={data!.questions} label="Questions" trend="" />
               </div>
             </>
           )}

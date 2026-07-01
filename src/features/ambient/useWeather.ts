@@ -38,22 +38,28 @@ const RAIN_CODES = new Set([51,53,55,56,57,61,63,65,66,67,80,81,82,85,86,95,96,9
 
 export function useWeather(lat?: number, lng?: number): Weather | null {
   const [weather, setWeather] = useState<Weather | null>(() =>
-    lat != null && lng != null ? readCache(lat, lng) : null
+    lat != null && lng != null && (lat !== 0 || lng !== 0) ? readCache(lat, lng) : null
   );
 
   useEffect(() => {
-    if (lat == null || lng == null) return;
+    if (lat == null || lng == null || (lat === 0 && lng === 0)) return;
+    const lLat = lat;
+    const lLng = lng;
 
-    const cached = readCache(lat, lng);
+    const cached = readCache(lLat, lLng);
     if (cached) { setWeather(cached); return; }
 
     const ctrl = new AbortController();
-    fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=auto`,
-      { signal: ctrl.signal }
-    )
-      .then((r) => r.json())
-      .then((j) => {
+
+    async function fetchWeather() {
+      try {
+        const res = await fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lLat}&longitude=${lLng}&current=temperature_2m,weather_code&timezone=auto`,
+          { signal: ctrl.signal }
+        );
+        if (!res.ok) return;
+        
+        const j = await res.json();
         const code: number = j?.current?.weather_code ?? 0;
         const tempC: number = j?.current?.temperature_2m ?? 28;
         const w: Weather = {
@@ -62,10 +68,14 @@ export function useWeather(lat?: number, lng?: number): Weather | null {
           isRaining: RAIN_CODES.has(code),
           isHot: tempC >= 35,
         };
-        writeCache(lat, lng, w);
+        writeCache(lLat, lLng, w);
         setWeather(w);
-      })
-      .catch(() => { /* fail silently — default Home renders without weather */ });
+      } catch (err) {
+        // fail silently — default Home renders without weather
+      }
+    }
+
+    void fetchWeather();
 
     return () => ctrl.abort();
   }, [lat, lng]);

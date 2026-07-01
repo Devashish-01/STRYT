@@ -7,6 +7,7 @@ import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { X, Plus } from "lucide-react";
 import RadiusSelector from "@/components/RadiusSelector";
+import HoursSelector from "@/components/HoursSelector";
 
 
 export default function ProviderProfileEditor() {
@@ -47,9 +48,9 @@ export default function ProviderProfileEditor() {
       <div className="screen">
         <AppBar title="Edit profile" />
         <div className="page-pad col gap-12" style={{ marginTop: 12 }}>
+          <Skeleton h={130} mb={0} />
+          <Skeleton h={44} mb={0} />
           <Skeleton h={80} mb={0} />
-          <Skeleton h={44} mb={0} />
-          <Skeleton h={44} mb={0} />
         </div>
       </div>
     );
@@ -59,7 +60,7 @@ export default function ProviderProfileEditor() {
     <div className="screen">
       <AppBar title="Edit profile" subtitle={p?.displayName} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
-        <div className="field"><label>Bio</label><textarea className="input" value={bio} onChange={(e) => setBio(e.target.value)} /></div>
+        <div className="field"><label>Short bio</label><textarea className="input" value={bio} onChange={(e) => setBio(e.target.value)} /></div>
 
         <div className="field">
           <label>Skills</label>
@@ -93,14 +94,13 @@ export default function ProviderProfileEditor() {
         </div>
 
         <div className="field">
-          <label>Availability timing (From when to when)</label>
-          <input
-            className="input"
-            placeholder="e.g. Mon–Sat from 09:00 AM to 07:00 PM"
+          <HoursSelector
             value={avail}
-            onChange={(e) => setAvail(e.target.value)}
+            onChange={setAvail}
+            accentColor="#16a34a"
+            label="Availability timing"
+            description="Specify when you are available for customer bookings"
           />
-          <span className="tiny muted">Specify when you are available for customer bookings.</span>
         </div>
       </div>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>

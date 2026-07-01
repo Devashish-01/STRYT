@@ -217,10 +217,19 @@ function roundToHalf(v: number): number {
 export default function MapView() {
   const nav = useNavigate();
   const { user, viewedStories, refreshUser, showToast } = useApp();
-  const [layers, setLayers] = useState<Record<Layer, boolean>>({
-    business: true, provider: true, request: true, story: false,
+  const [layers, setLayers] = useState<Record<Layer, boolean>>(() => {
+    const saved = localStorage.getItem("settings_map_layers");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    return { business: true, provider: true, request: true, story: false };
   });
-  const [availOnly, setAvailOnly] = useState(false);
+  const [availOnly, setAvailOnly] = useState(() => {
+    const saved = localStorage.getItem("settings_map_avail_only");
+    return saved === "true";
+  });
   const [radiusKm, setRadiusKm] = useState(() => {
     const saved = localStorage.getItem("settings_radius");
     return saved ? parseFloat(saved) : (user.notificationRadiusKm || 5);
@@ -232,6 +241,14 @@ export default function MapView() {
       void userService.update({ notificationRadiusKm: radiusKm }).catch(() => {});
     }
   }, [radiusKm, user.id, user.notificationRadiusKm]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_map_layers", JSON.stringify(layers));
+  }, [layers]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_map_avail_only", String(availOnly));
+  }, [availOnly]);
   const [storyViewer, setStoryViewer] = useState<{ stories: Story[]; idx: number } | null>(null);
   const [showCustom, setShowCustom] = useState(false);
   const [customVal, setCustomVal] = useState("");

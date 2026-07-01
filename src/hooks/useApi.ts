@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/apiClient";
+import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 
 interface QueryState<T> {
   data: T | undefined;
@@ -42,6 +43,49 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QuerySt
   }, deps);
 
   return { data, loading, error, refetch: run };
+}
+
+export function useQueryWithRealtime<T>(
+  fn: () => Promise<T>,
+  tableName: string,
+  deps: unknown[] = [],
+  filter?: string
+): QueryState<T> {
+  const state = useQuery(fn, deps);
+  const { refetch } = state;
+
+  useEffect(() => {
+    if (!hasSupabaseEnv) return;
+
+    let active = true;
+    const sb = getSupabase();
+    const uniqueId = Math.random().toString(36).slice(2, 9);
+    let channelName = `rt:${tableName}:${uniqueId}`;
+    if (filter) channelName += `:${filter}`;
+
+    const channel = sb
+      .channel(channelName)
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "*",
+          schema: "public",
+          table: tableName,
+          ...(filter ? { filter } : {}),
+        },
+        () => {
+          if (active) refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      sb.removeChannel(channel);
+    };
+  }, [tableName, filter, refetch]);
+
+  return state;
 }
 
 interface MutationState<TArgs, TResult> {

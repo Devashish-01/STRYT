@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, FileText, MessageSquare } from "lucide-react";
 import { requestService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
@@ -17,8 +17,8 @@ export default function Requests() {
   const [cat, setCat] = useState<string | null>(null);
   const [special, setSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
 
-  const { data: feedPage, loading: feedLoading, error: feedError, refetch } = useQuery(() => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }), [user.lat, user.lng]);
-  const { data: mineList, loading: mineLoading } = useQuery(() => requestService.mine(user.lat || 0, user.lng || 0), [user.lat, user.lng]);
+  const { data: feedPage, loading: feedLoading, error: feedError, refetch } = useQueryWithRealtime(() => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }), "requests", [user.lat, user.lng]);
+  const { data: mineList, loading: mineLoading } = useQueryWithRealtime(() => requestService.mine(user.lat || 0, user.lng || 0), "requests", [user.lat, user.lng]);
 
   const feed = feedPage?.data ?? [];
   const mine = mineList ?? [];

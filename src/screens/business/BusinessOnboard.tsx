@@ -8,6 +8,8 @@ import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
 
+import HoursSelector from "@/components/HoursSelector";
+
 import { reverseGeocodeFull } from "@/lib/geocode";
 
 const steps = ["Basics", "Location", "Photos", "Contact", "Verify"];
@@ -27,7 +29,7 @@ export default function BusinessOnboard() {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("Pune");
   const [pincode, setPincode] = useState("");
-  const [hours, setHours] = useState("");
+  const [hours, setHours] = useState("Everyday from 09:00 AM to 09:00 PM");
   const [photos, setPhotos] = useState<{ file: File; previewUrl: string }[]>([]);
   const [phone, setPhone] = useState("");
   const [openDate, setOpenDate] = useState("");
@@ -280,8 +282,13 @@ export default function BusinessOnboard() {
               </div>
             </div>
             <div className="field">
-              <label>Hours</label>
-              <input className="input" placeholder="11:00 AM – 11:30 PM" value={hours} onChange={(e) => setHours(e.target.value)} />
+              <HoursSelector
+                value={hours}
+                onChange={setHours}
+                accentColor="var(--brand-600)"
+                label="Hours"
+                description="Specify open and close hours"
+              />
             </div>
           </>
         )}
