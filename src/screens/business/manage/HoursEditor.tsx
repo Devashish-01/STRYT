@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Zap, Clock } from "lucide-react";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
 
 const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -76,6 +77,7 @@ export default function HoursEditor() {
   const [special, setSpecial] = useState<{ date: string; note: string }[]>([]);
   const [newSpecial, setNewSpecial] = useState("");
   const [saving, setSaving] = useState(false);
+  const [openNow, setOpenNow] = useState(false);
 
   // Seed form state from live business once loaded.
   useEffect(() => {
@@ -84,7 +86,32 @@ export default function HoursEditor() {
     setIs24x7(parsed.is24x7);
     setHours(parsed.hours);
     setSlotDuration(parsed.slotDuration);
+    setOpenNow(b.isAvailableNow ?? false);
   }, [b]);
+
+  const evalRes = evaluateProviderAvailability(b?.hours, openNow, b?.availableUntil);
+
+  // Presence toggle: "open right now" is separate from bookable slots — a
+  // customer can still book a future working-hour slot when this is off.
+  async function toggleOpenNow() {
+    const prev = openNow;
+    const next = !openNow;
+    setOpenNow(next);
+    try {
+      if (next && !evalRes.isOpenNow) {
+        // Turning ON outside working hours → auto-clear at next closing time.
+        const turnoff = calculateNextTurnoffTime(b?.hours);
+        await businessService.setAvailability(id, true, turnoff.toISOString());
+        showToast(`Open now — clears at ${turnoff.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ⚡`);
+      } else {
+        await businessService.setAvailability(id, next, null);
+        showToast(next ? "Shop marked open right now ⚡" : "Shop marked closed");
+      }
+    } catch (e: any) {
+      setOpenNow(prev);
+      showToast(e?.message ?? "Couldn't update availability");
+    }
+  }
 
   function setDay(d: string, patch: Partial<DayHours>) {
     setHours((h) => ({ ...h, [d]: { ...h[d], ...patch } }));
@@ -117,8 +144,30 @@ export default function HoursEditor() {
 
   return (
     <div className="screen">
-      <AppBar title="Hours" />
+      <AppBar title="Hours & Availability" />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+        {/* Open-right-now presence toggle (separate from bookable slots) */}
+        <div className="card" style={{ padding: 16, background: openNow ? "#e8f7ee" : "var(--ink-50)", border: "none" }}>
+          <div className="row between center-v">
+            <div className="row gap-10 center-v">
+              <Zap size={22} color={openNow ? "#16a34a" : "var(--ink-400)"} />
+              <div>
+                <div className="semi small">Open right now</div>
+                <div className="tiny muted">{openNow ? "Customers see your shop as open" : "Turn on when you're open for walk-ins"}</div>
+              </div>
+            </div>
+            <button
+              onClick={toggleOpenNow}
+              style={{ width: 48, height: 28, borderRadius: 999, background: openNow ? "var(--green-500)" : "var(--ink-200)", position: "relative", border: "none", cursor: "pointer" }}
+            >
+              <span style={{ position: "absolute", top: 3, left: openNow ? 23 : 3, width: 22, height: 22, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+            </button>
+          </div>
+          <div className="row gap-6 center-v tiny muted" style={{ marginTop: 10 }}>
+            <Clock size={12} /> Appointments can still be booked for your working hours even when this is off.
+          </div>
+        </div>
+
         <button
           className="card row between"
           style={{ padding: 14, border: is24x7 ? "2px solid var(--brand-500)" : "1px solid var(--line)" }}

@@ -43,6 +43,8 @@ export interface Business {
   whatsapp?: string;
   hours: string;
   isOpenNow: boolean;
+  isAvailableNow?: boolean;
+  availableUntil?: string | null;
   openingDate: string; // ISO
   isNew: boolean; // opened in last 7 days
   status: EntityStatus;

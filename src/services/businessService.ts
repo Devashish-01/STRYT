@@ -49,6 +49,7 @@ function dailyBuckets(isoDates: string[]): number[] {
 const BUSINESS_COLUMNS = new Set([
   "ownerUserId","name","slug","categoryId","categoryName","subCategory","description",
   "addressLine1","city","pincode","lat","lng","broadcastRadius","phone","whatsapp","hours","isOpenNow",
+  "isAvailableNow","availableUntil",
   "openingDate","isNew","status","coverImage","gallery","ratingAvg","ratingCount",
   "viewCount","isFeatured","isVerified","tags","priceForTwo","deliveryTime","offerText",
   "verificationStatus","verificationDocumentUrl","aadhaarDocUrl","panDocUrl",
@@ -449,6 +450,21 @@ export const businessService = {
     throwIfError(error);
     return { ok: true };
   },
+  /**
+   * Toggle the shop's "open right now" presence (separate from bookable
+   * working-hour slots). Mirrors providerService.setAvailability: turning ON
+   * during off-hours sets an availableUntil expiry so it auto-clears.
+   */
+  async setAvailability(id: string, availableNow: boolean, availableUntil?: string | null) {
+    const sb = getSupabase();
+    const { error } = await sb
+      .from("businesses")
+      .update({ is_available_now: availableNow, available_until: availableNow ? availableUntil ?? null : null })
+      .eq("id", id);
+    throwIfError(error);
+    return { ok: true, availableNow };
+  },
+
   async reservations(_id: string): Promise<ReservationReq[]> {
     return [];
   },

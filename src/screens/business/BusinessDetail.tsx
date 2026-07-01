@@ -16,6 +16,7 @@ import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import AddToListSheet from "@/components/AddToListSheet";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
+import { evaluateProviderAvailability } from "@/utils/availability";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();
@@ -96,6 +97,10 @@ export default function BusinessDetail() {
     );
   }
 
+  // Presence ("open right now") is driven by the owner's toggle + working
+  // hours — the same evaluator providers use. Booking is NOT gated on this.
+  const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
+  const isOwner = b.ownerUserId === user.id;
   const saved = isBookmarked("BUSINESS", b.id);
   const following = isFollowing("BUSINESS", b.id);
   const inQueue = queuesJoined.includes(b.id);
@@ -164,8 +169,8 @@ export default function BusinessDetail() {
 
             <div className="row gap-12 small" style={{ marginTop: 12, color: "var(--ink-600)" }}>
               <span className="row gap-4"><MapPin size={14} /> {b.distanceKm} km</span>
-              <span className="row gap-4"><Clock size={14} color={b.isOpenNow ? "#16a34a" : "#dc2626"} />
-                <span style={{ color: b.isOpenNow ? "#16a34a" : "#dc2626", fontWeight: 700 }}>{b.isOpenNow ? "Open now" : "Closed"}</span>
+              <span className="row gap-4"><Clock size={14} color={evalRes.isOpenNow ? "#16a34a" : "#dc2626"} />
+                <span style={{ color: evalRes.isOpenNow ? "#16a34a" : "#dc2626", fontWeight: 700 }}>{evalRes.isOpenNow ? "Open now" : "Closed"}</span>
               </span>
             </div>
             <p className="tiny muted" style={{ marginTop: 6 }}>{b.addressLine1}, {b.city} • {b.hours}</p>
@@ -213,13 +218,23 @@ export default function BusinessDetail() {
               >
                 <Bell size={16} fill={notifying ? "#f26a00" : "none"} /> {notifying ? "Alerts on" : "Notify me"}
               </button>
-              <button
-                className="btn grow btn-sm"
-                style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
-                onClick={() => setScheduling(true)}
-              >
-                <Clock size={16} /> Schedule Slot
-              </button>
+              {isOwner ? (
+                <button
+                  className="btn grow btn-sm"
+                  style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
+                  onClick={() => nav(`/business/${b.id}/manage/appointments`)}
+                >
+                  <Clock size={16} /> View appointments
+                </button>
+              ) : (
+                <button
+                  className="btn grow btn-sm"
+                  style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
+                  onClick={() => setScheduling(true)}
+                >
+                  <Clock size={16} /> Book appointment
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -505,7 +520,7 @@ export default function BusinessDetail() {
           targetName={b.name}
           targetType="BUSINESS"
           availabilityNote={b.hours || "Mon–Sat from 09:00 AM to 07:00 PM"}
-          availableNow={b.isOpenNow}
+          availableNow={evalRes.isOpenNow}
           packages={(b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price }))}
           onClose={() => setScheduling(false)}
         />
