@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2 } from "lucide-react";
 import { useApp } from "@/store";
 import { generateWorkingSlots, type AppointmentSlot } from "@/utils/availability";
 import { uploadService } from "@/services/uploadService";
 import { appointmentService } from "@/services/appointmentService";
+import type { AppointmentRecord } from "@/types";
+import { Skeleton } from "@/components/states";
 
 export interface BookingPackage {
   id: string;
@@ -46,6 +48,31 @@ export function AppointmentSheet({
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const [existingAppointments, setExistingAppointments] = useState<AppointmentRecord[]>([]);
+  const [loadingApts, setLoadingApts] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    async function loadApts() {
+      try {
+        const list = await appointmentService.listForTarget(targetId);
+        if (active) {
+          setExistingAppointments(list);
+        }
+      } catch (err) {
+        console.error("Failed to load appointments", err);
+      } finally {
+        if (active) {
+          setLoadingApts(false);
+        }
+      }
+    }
+    loadApts();
+    return () => {
+      active = false;
+    };
+  }, [targetId]);
+
   // Generate 7 upcoming day choices
   const dates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
@@ -54,7 +81,7 @@ export function AppointmentSheet({
   });
 
   const selectedDate = dates[dayOffset] || new Date();
-  const slots = generateWorkingSlots(availabilityNote, selectedDate);
+  const slots = generateWorkingSlots(availabilityNote, selectedDate, existingAppointments);
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -261,7 +288,19 @@ export function AppointmentSheet({
           <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
             Available Working Hours Slots ({slots.filter((s) => s.isAvailable).length} slots)
           </label>
-          {slots.length === 0 ? (
+          {loadingApts ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                gap: 8,
+              }}
+            >
+              <Skeleton h={38} r={12} />
+              <Skeleton h={38} r={12} />
+              <Skeleton h={38} r={12} />
+            </div>
+          ) : slots.length === 0 ? (
             <div className="card col center" style={{ padding: 20, textAlign: "center", background: "var(--ink-50)" }}>
               <span style={{ fontSize: 24, marginBottom: 4 }}>😴</span>
               <span className="semi small">Closed on this date</span>

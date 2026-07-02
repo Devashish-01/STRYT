@@ -1,3 +1,5 @@
+import type { AppointmentRecord } from "@/types";
+
 export interface AvailabilityInfo {
   isOpenNow: boolean;
   isManualOverride: boolean;
@@ -170,7 +172,11 @@ export interface AppointmentSlot {
 }
 
 /** Generates valid time slots for a given target date based on working hours and slot duration */
-export function generateWorkingSlots(availabilityNote?: string, targetDate = new Date()): AppointmentSlot[] {
+export function generateWorkingSlots(
+  availabilityNote?: string,
+  targetDate = new Date(),
+  existingAppointments: AppointmentRecord[] = []
+): AppointmentSlot[] {
   const slots: AppointmentSlot[] = [];
   const note = availabilityNote || "Mon–Sat from 09:00 AM to 07:00 PM";
   
@@ -241,7 +247,17 @@ export function generateWorkingSlots(availabilityNote?: string, targetDate = new
     const slotDate = new Date(targetDate);
     slotDate.setHours(Math.floor(min / 60), min % 60, 0, 0);
 
-    const isAvailable = slotDate.getTime() > nowTime + 15 * 60 * 1000;
+    const isBooked = existingAppointments.some(apt => {
+      if (apt.status === "CANCELLED" || apt.status === "REJECTED") return false;
+      try {
+        return new Date(apt.scheduledForISO).getTime() === slotDate.getTime();
+      } catch {
+        return false;
+      }
+    });
+
+    const isAvailable = !isBooked && slotDate.getTime() > nowTime + 5 * 60 * 1000;
+
     slots.push({
       id: slotDate.toISOString(),
       timeLabel: formatMinutesToTime(min),
