@@ -5,7 +5,7 @@ import {
   CheckCircle2, MessageCircle, Flag, Star, ThumbsUp,
   UserPlus, UserCheck, HandshakeIcon, Plus, Zap,
 } from "lucide-react";
-import { providerService, socialService } from "@/services";
+import { providerService, socialService, communityService } from "@/services";
 import { chatService } from "@/services/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
 import { useQuery } from "@/hooks/useApi";
@@ -34,12 +34,13 @@ export default function ProviderDetail() {
   const { data: endorsements } = useQuery(() => socialService.endorsements(id), [id]);
   const { data: availList } = useQuery(() => socialService.availableNow(), []);
   const { data: packages } = useQuery(() => providerService.packages(id), [id]);
+  const { data: provPosts } = useQuery(() => communityService.byAuthorRef("provider", id), [id]);
 
   // Count a profile view once per provider open.
   useEffect(() => {
     providerService.recordView(id).catch(() => {});
   }, [id]);
-  const [tab, setTab] = useState<"about" | "portfolio" | "reviews">("about");
+  const [tab, setTab] = useState<"about" | "posts" | "portfolio" | "reviews">("about");
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
   const [reviewing, setReviewing] = useState(false);
@@ -147,7 +148,7 @@ export default function ProviderDetail() {
 
         {/* Tabs */}
         <div className="row page-pad" style={{ paddingTop: 6, paddingBottom: 0, borderBottom: "1px solid var(--line)" }}>
-          {([["about", "About"], ["portfolio", `Work (${p.portfolio.length})`], ["reviews", "Reviews"]] as const).map(([t, label]) => (
+          {([["about", "About"], ["posts", `Posts (${(provPosts ?? []).length})`], ["portfolio", `Work (${p.portfolio.length})`], ["reviews", "Reviews"]] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
               style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--green-600)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--green-600)" : "2.5px solid transparent" }}>
               {label}
@@ -285,6 +286,34 @@ export default function ProviderDetail() {
               <div className="divider" />
               <div className="row gap-10 small"><MapPin size={16} color="#16a34a" /><span>Serves within {p.serviceRadiusKm} km • {p.distanceKm} km from you</span></div>
             </div>
+          </div>
+        )}
+
+        {tab === "posts" && (
+          <div className="page-pad col gap-12">
+            {(provPosts ?? []).length === 0 ? (
+              <EmptyState emoji="📣" title="No posts yet" text="This provider hasn't posted to the community yet." />
+            ) : (
+              (provPosts ?? []).map((post) => (
+                <button
+                  key={post.id}
+                  className="card col gap-6"
+                  style={{ padding: 14, textAlign: "left" }}
+                  onClick={() => nav(`/community/${post.id}`, { state: { post } })}
+                >
+                  <div className="row between">
+                    <span className="semi small">{post.title || post.type}</span>
+                    <span className="tiny muted">{post.postedAt}</span>
+                  </div>
+                  {post.body && <p className="small muted clamp-2" style={{ lineHeight: 1.5 }}>{post.body}</p>}
+                  {post.image && <SafeImg src={post.image} style={{ width: "100%", height: 150, borderRadius: 12, objectFit: "cover" }} />}
+                  <div className="row gap-14 tiny muted" style={{ marginTop: 2 }}>
+                    <span className="row gap-4"><Heart size={13} /> {post.likes}</span>
+                    <span className="row gap-4"><MessageCircle size={13} /> {post.commentsCount}</span>
+                  </div>
+                </button>
+              ))
+            )}
           </div>
         )}
 

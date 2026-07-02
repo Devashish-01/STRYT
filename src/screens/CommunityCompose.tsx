@@ -1,10 +1,27 @@
 import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { AppBar } from "@/components/common";
-import { Camera, Plus, X } from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { AppBar, SafeImg } from "@/components/common";
+import { Camera, Plus, X, Store, Wrench } from "lucide-react";
 import { communityService, uploadService } from "@/services";
 import { useApp } from "@/store";
 import type { CommunityPostType } from "@/types";
+
+interface SellerContext {
+  type: "business" | "provider";
+  id: string;
+  name: string;
+  avatar?: string;
+}
+
+/** Reads the seller identity the ManageDashboard/ProviderDashboard "Post to community"
+ *  tile passed via route state — absent for the regular customer compose entry, in
+ *  which case the post goes out under the signed-in user's own name as before. */
+function readSellerContext(state: unknown): SellerContext | null {
+  const s = (state ?? {}) as Record<string, any>;
+  if (s.businessId) return { type: "business", id: s.businessId, name: s.businessName ?? "Business", avatar: s.businessAvatar };
+  if (s.providerId) return { type: "provider", id: s.providerId, name: s.providerName ?? "Provider", avatar: s.providerAvatar };
+  return null;
+}
 
 const types: { type: CommunityPostType; label: string; emoji: string; hint: string }[] = [
   { type: "RECOMMENDATION", label: "Ask neighbors", emoji: "💬", hint: "Get recommendations for a place or service" },
@@ -17,7 +34,9 @@ const types: { type: CommunityPostType; label: string; emoji: string; hint: stri
 
 export default function CommunityCompose() {
   const nav = useNavigate();
+  const loc = useLocation();
   const { area, user, showToast } = useApp();
+  const sellerCtx = readSellerContext(loc.state);
   const fileRef = useRef<HTMLInputElement>(null);
   const [type, setType] = useState<CommunityPostType | null>(null);
   const [title, setTitle] = useState("");
@@ -43,6 +62,7 @@ export default function CommunityCompose() {
         lat: user.lat || undefined,
         lng: user.lng || undefined,
         pollOptions: type === "POLL" ? pollOpts.filter((o) => o.trim()).map((label, i) => ({ id: `o${i}`, label, votes: 0 })) : undefined,
+        ...(sellerCtx ? { authorType: sellerCtx.type, authorRefId: sellerCtx.id, authorName: sellerCtx.name, authorAvatar: sellerCtx.avatar } : {}),
       });
       showToast("Posted to community 🏘️");
       setTimeout(() => nav("/community-hub"), 500);
@@ -56,6 +76,38 @@ export default function CommunityCompose() {
     <div className="screen">
       <AppBar title="Post to community" subtitle={area} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+        {sellerCtx && (
+          <div
+            className="card row gap-10 center-v"
+            style={{
+              padding: 12,
+              background: sellerCtx.type === "business" ? "#fff7ed" : "#e8f7ee",
+              border: `1px solid ${sellerCtx.type === "business" ? "#fed7aa" : "#bbf7d0"}`,
+            }}
+          >
+            <SafeImg
+              src={sellerCtx.avatar}
+              variant={sellerCtx.type === "provider" ? "avatar" : "photo"}
+              className="thumb"
+              style={{ width: 38, height: 38, borderRadius: 8 }}
+            />
+            <div className="grow">
+              <div className="tiny muted">Posting as</div>
+              <div className="semi small">{sellerCtx.name}</div>
+            </div>
+            <span
+              className="badge row gap-4 center-v"
+              style={{
+                background: sellerCtx.type === "business" ? "#ffedd5" : "#dcfce7",
+                color: sellerCtx.type === "business" ? "#c2410c" : "#15803d",
+              }}
+            >
+              {sellerCtx.type === "business" ? <Store size={11} /> : <Wrench size={11} />}
+              {sellerCtx.type === "business" ? "Business" : "Provider"}
+            </span>
+          </div>
+        )}
+
         <div className="field">
           <label>What kind of post?</label>
           <div className="col gap-8">

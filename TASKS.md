@@ -107,11 +107,12 @@
 ---
 
 ## Group COM — universal Post-to-Community for sellers
-### BP-1 — Business & provider post to community the same, universal way
-- **Goal:** one identical posting flow for both business and provider owners; posts attributed to the seller and reliably shown on their profile Posts tab. 100% coverage (all sellers).
-- **Now:** `CommunityCompose` (`/community/new`) **ignores** the `businessId/businessName` route state ManageDashboard passes — it always posts as the individual user. Provider has no explicit community-post entry.
-- **Do:** make `CommunityCompose` accept an optional author context (seller id/name/type) from route state and stamp the post's author accordingly (verify `communityService.create` + `byAuthor` support it); add a "Post to community" entry to the **provider** dashboard/nav mirroring the business tile; ensure both profiles' Posts tabs read them.
-- **Files:** `CommunityCompose.tsx`, `communityService.ts`, `ManageDashboard.tsx` (business, exists), provider dashboard/`ProviderManageNav.tsx`, maybe `types.ts`. Possibly a `posted_as`/author column (🆕 only if attribution needs it).
+### BP-1 — Business & provider post to community the same, universal way ✅ IMPLEMENTED
+- **Goal:** one identical posting flow for both business and provider owners; posts attributed to the seller and reliably shown on their profile Posts tab. Business/provider get a distinct entry point from the regular customer compose flow, but share the same `CommunityCompose` UI — the resulting post visually differs to other users (a "🏪 Business"/"🔧 Provider" badge + colored avatar ring, vs. no badge for a regular member post).
+- **Was:** `CommunityCompose` (`/community/new`) ignored the `businessId/businessName` route state `ManageDashboard` passed — always posted as the individual user. Provider had no community-post entry at all.
+- **Fix:** `community_posts` gained `author_type` (`'user'|'business'|'provider'`) + `author_ref_id` (nullable). `author_user_id` still always holds the real signed-in user (ownership/RLS unchanged) — `author_type`/`author_ref_id` only control the displayed identity. `CommunityCompose` now reads seller context from `location.state` via `useLocation()`, shows a non-editable "Posting as {name}" chip, and passes `authorType`/`authorRefId`/`authorName`/`authorAvatar` into `communityService.create()` (which now overrides the post's displayed name/avatar with the seller's when present). New `communityService.byAuthorRef(type, refId)` powers both profile Posts tabs precisely (only posts made *as* that business/provider, not the owner's unrelated personal posts) — `BusinessDetail`'s existing Posts tab switched to it, and a **new Posts tab was added to `ProviderDetail`** (it had none before) for parity. `ProviderDashboard` got a new "📣 Post to community" tile mirroring the business one. `CommunityCard` now shows the seller badge + ring.
+- **Files:** new migration `20260704_community_seller_posts.sql`, `types.ts`, `communityService.ts`, `CommunityCompose.tsx`, `Community.tsx` (`CommunityCard`), `ManageDashboard.tsx`, `ProviderDashboard.tsx`, `BusinessDetail.tsx`, `ProviderDetail.tsx`.
+- **Migration needed:** `supabase/migrations/20260704_community_seller_posts.sql` (run manually in SQL editor)
 
 ---
 
@@ -190,7 +191,7 @@
 | APT-4 | Realtime console + auto-complete past bookings | no | ✅ |
 | APT-5 | Extras: walk-ins, recurring blocks, revenue strip, no-shows, day-summary share | 🆕 (same migration) | ✅ (slot capacity + image export not done — see notes) |
 | APT-6 | Mirror console to ProviderLeads | no | ✅ |
-| BP-1 | Universal seller post-to-community | maybe 🆕 | todo |
+| BP-1 | Universal seller post-to-community | 🆕 run 20260704_community_seller_posts.sql | ✅ |
 | CUST-1 | Remove user-id/alias; first name is identity | no | todo |
 | CUST-2 | First-login required setup form | no | todo |
 | CUST-4 | Field-level profile privacy | 🆕 | todo |

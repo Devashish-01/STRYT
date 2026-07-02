@@ -200,6 +200,32 @@ export const communityService = {
     return rows.map((r: any) => mapPost(r, likedIds, {}, {}));
   },
 
+  /** Community posts made "as" a specific business/provider — used on that seller's public Posts tab. */
+  async byAuthorRef(authorType: "business" | "provider", refId: string): Promise<CommunityPost[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    const { data, error } = await sb
+      .from("community_posts")
+      .select("*")
+      .eq("author_type", authorType)
+      .eq("author_ref_id", refId)
+      .order("created_at", { ascending: false })
+      .limit(30);
+    throwIfError(error);
+    const rows = data ?? [];
+    if (rows.length === 0) return [];
+    const likedIds = new Set<string>();
+    if (uid) {
+      const { data: likes } = await sb
+        .from("post_likes")
+        .select("post_id")
+        .eq("user_id", uid)
+        .in("post_id", rows.map((r: any) => r.id));
+      (likes ?? []).forEach((l: any) => likedIds.add(l.post_id));
+    }
+    return rows.map((r: any) => mapPost(r, likedIds, {}, {}));
+  },
+
   async create(data: Partial<CommunityPost> & { lat?: number; lng?: number }): Promise<CommunityPost> {
     const sb = getSupabase();
     const uid = await currentUserId();
@@ -211,10 +237,18 @@ export const communityService = {
 
     const pollOpts = data.pollOptions?.map((o) => ({ id: o.id, label: o.label })) ?? null;
 
+    // Posting "as" a business/provider still stamps the real signed-in user for
+    // ownership — only the displayed identity (name/avatar/type) changes.
+    const authorType = data.authorType ?? "user";
+    const authorName = data.authorName || (me as any)?.alias || (me as any)?.name || "Neighbor";
+    const authorAvatar = data.authorAvatar || (me as any)?.avatar || "";
+
     const { data: created, error } = await sb.from("community_posts").insert({
       author_user_id: uid,
-      author_name: (me as any)?.alias || (me as any)?.name || "Neighbor",
-      author_avatar: (me as any)?.avatar ?? "",
+      author_type: authorType,
+      author_ref_id: data.authorRefId ?? null,
+      author_name: authorName,
+      author_avatar: authorAvatar,
       type: data.type,
       title: data.title,
       body: data.body ?? "",

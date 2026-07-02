@@ -400,6 +400,10 @@ export interface CommunityPost {
   type: CommunityPostType;
   authorName: string;
   authorAvatar: string;
+  /** Who the post displays as. Absent/"user" = a regular member; "business"/"provider" = posted as that seller identity. */
+  authorType?: "user" | "business" | "provider";
+  /** The business/provider id when authorType isn't "user". */
+  authorRefId?: string;
   title: string;
   body: string;
   area: string;

@@ -112,10 +112,32 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
     <>
       <div className="card" style={{ padding: 14 }}>
         <button className="row gap-10" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`/community/${post.id}`, { state: { post } })}>
-          <SafeImg src={post.authorAvatar} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
+          <SafeImg
+            src={post.authorAvatar}
+            variant={post.authorType === "business" ? "photo" : "avatar"}
+            className="avatar"
+            style={{
+              width: 40, height: 40,
+              border: post.authorType === "business" ? "2px solid #f26a00" : post.authorType === "provider" ? "2px solid #16a34a" : "none",
+            }}
+          />
           <div className="grow">
             <div className="row between">
-              <span className="semi small">{post.authorName}</span>
+              <span className="row gap-6 center-v">
+                <span className="semi small">{post.authorName}</span>
+                {post.authorType && post.authorType !== "user" && (
+                  <span
+                    className="badge"
+                    style={{
+                      fontSize: 9, padding: "2px 6px",
+                      background: post.authorType === "business" ? "#ffedd5" : "#dcfce7",
+                      color: post.authorType === "business" ? "#c2410c" : "#15803d",
+                    }}
+                  >
+                    {post.authorType === "business" ? "🏪 Business" : "🔧 Provider"}
+                  </span>
+                )}
+              </span>
               <span className={`badge badge-${M.tone}`}>{M.emoji} {M.label}</span>
             </div>
             <span className="tiny muted row gap-4"><MapPin size={11} /> {post.area} • {post.postedAt}</span>

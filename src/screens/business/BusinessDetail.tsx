@@ -33,8 +33,7 @@ export default function BusinessDetail() {
   const { data: queue } = useQuery(() => businessService.queue(id), [id]);
   const { data: qnaList, refetch: refetchQna } = useQuery(() => businessService.qna(id), [id]);
   const { data: bizPackages } = useQuery(() => businessService.packages(id).catch(() => []), [id]);
-  const ownerId = b?.ownerUserId;
-  const { data: bizPosts } = useQuery(() => ownerId ? communityService.byAuthor(ownerId) : Promise.resolve([]), [ownerId]);
+  const { data: bizPosts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
   const [tab, setTab] = useState<"catalog" | "posts" | "about" | "reviews">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [report, setReport] = useState(false);

@@ -172,7 +172,7 @@ export default function ManageDashboard() {
             <Tile emoji="📦" label="Packages" onClick={() => nav(`${base}/packages`)} />
             <Tile emoji="📋" label="Catalog" onClick={() => nav(`${base}/catalog`)} />
             <Tile emoji="🏷️" label="Offers" onClick={() => nav(`${base}/offers`)} />
-            <Tile emoji="📣" label="Post to community" onClick={() => nav("/community/new", { state: { businessId: id, businessName: b?.name } })} />
+            <Tile emoji="📣" label="Post to community" onClick={() => nav("/community/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
             <Tile emoji="👥" label="Live queue" onClick={() => nav(`${base}/queue`)} />
             <Tile emoji="💬" label="Q&A" onClick={() => nav(`${base}/qna`)} />
             <Tile emoji="⭐" label="Reviews" onClick={() => nav(`${base}/reviews`)} />
