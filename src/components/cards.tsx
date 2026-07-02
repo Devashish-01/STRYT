@@ -12,6 +12,9 @@ export function BusinessCardWide({ b }: { b: Business }) {
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark } = useApp();
   const saved = isBookmarked("BUSINESS", b.id);
+  // Live open/closed from the owner's presence toggle + working hours — same
+  // evaluator BusinessDetail uses, so the card can't show a stale "Open".
+  const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   return (
     <div className="card fade-up" style={{ overflow: "hidden" }} onClick={() => nav(`/business/${b.id}`)}>
       <div style={{ position: "relative" }}>
@@ -69,8 +72,8 @@ export function BusinessCardWide({ b }: { b: Business }) {
         <div className="row gap-10 tiny muted" style={{ marginTop: 8 }}>
           <span className="row gap-4"><MapPin size={13} /> {b.distanceKm} km</span>
           {b.deliveryTime && <span className="row gap-4"><Clock size={13} /> {b.deliveryTime}</span>}
-          <span className={b.isOpenNow ? "" : ""} style={{ color: b.isOpenNow ? "#16a34a" : "#dc2626", fontWeight: 700 }}>
-            {b.isOpenNow ? "Open" : "Closed"}
+          <span style={{ color: evalRes.isOpenNow ? "#16a34a" : "#dc2626", fontWeight: 700 }}>
+            {evalRes.isOpenNow ? "Open" : "Closed"}
           </span>
         </div>
       </div>

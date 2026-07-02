@@ -142,17 +142,22 @@ export default function HoursEditor() {
       })()
     : 0;
 
+  // What customers see on the public page (same string that gets stored).
+  const previewText = is24x7
+    ? "Open 24×7"
+    : days.map((d) => (hours[d].open ? `${d} ${hours[d].from}–${hours[d].to}` : `${d} Closed`)).join(", ");
+
   return (
     <div className="screen">
       <AppBar title="Hours & Availability" />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
-        {/* Open-right-now presence toggle (separate from bookable slots) */}
+        {/* ── Instant availability banner (presence — separate from bookable slots) ── */}
         <div className="card" style={{ padding: 16, background: openNow ? "#e8f7ee" : "var(--ink-50)", border: "none" }}>
           <div className="row between center-v">
             <div className="row gap-10 center-v">
               <Zap size={22} color={openNow ? "#16a34a" : "var(--ink-400)"} />
               <div>
-                <div className="semi small">Open right now</div>
+                <div className="semi small">Shop open right now</div>
                 <div className="tiny muted">{openNow ? "Customers see your shop as open" : "Turn on when you're open for walk-ins"}</div>
               </div>
             </div>
@@ -168,52 +173,60 @@ export default function HoursEditor() {
           </div>
         </div>
 
-        <button
-          className="card row between"
-          style={{ padding: 14, border: is24x7 ? "2px solid var(--brand-500)" : "1px solid var(--line)" }}
-          onClick={() => setIs24x7((v) => !v)}
-        >
-          <span className="semi small">Open 24×7</span>
-          <span style={{ width: 44, height: 26, borderRadius: 999, background: is24x7 ? "var(--brand-600)" : "var(--ink-200)", position: "relative" }}>
-            <span style={{ position: "absolute", top: 3, left: is24x7 ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
-          </span>
-        </button>
-
-        {!is24x7 && (
-          <div className="card" style={{ overflow: "hidden" }}>
-            {days.map((d, i) => {
-              const h = hours[d];
-              return (
-                <div key={d} className="row gap-10" style={{ padding: "12px 14px", borderBottom: i < days.length - 1 ? "1px solid var(--line)" : "none" }}>
-                  <span className="semi small" style={{ width: 36 }}>{d}</span>
-                  <button
-                    onClick={() => setDay(d, { open: !h.open })}
-                    style={{ width: 40, height: 24, borderRadius: 999, background: h.open ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}
-                  >
-                    <span style={{ position: "absolute", top: 3, left: h.open ? 19 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff" }} />
-                  </button>
-                  {h.open ? (
-                    <div className="row gap-6 grow" style={{ justifyContent: "flex-end" }}>
-                      <input className="input" style={{ width: 80, padding: "8px 8px", textAlign: "center" }} type="time" value={h.from} onChange={(e) => setDay(d, { from: e.target.value })} />
-                      <span className="muted">–</span>
-                      <input className="input" style={{ width: 80, padding: "8px 8px", textAlign: "center" }} type="time" value={h.to} onChange={(e) => setDay(d, { to: e.target.value })} />
-                    </div>
-                  ) : (
-                    <span className="grow tiny muted" style={{ textAlign: "right" }}>Closed</span>
-                  )}
-                </div>
-              );
-            })}
+        {/* ── Working Hours (Availability Timing) ── */}
+        <div className="card col gap-14" style={{ padding: 16 }}>
+          <div className="bold small row gap-6 center-v" style={{ color: "var(--ink-900)" }}>
+            <Clock size={18} color="var(--brand-700)" /> Working Hours (Availability Timing)
           </div>
-        )}
 
-        {/* Timing Slot & Capacity Settings */}
-        <div className="card col gap-12" style={{ padding: 14 }}>
-          <div className="small semi">Appointment Settings</div>
-          
+          {/* Open 24×7 */}
+          <button
+            className="row between center-v"
+            style={{ padding: "10px 12px", borderRadius: 12, background: "#fff", width: "100%", border: is24x7 ? "2px solid var(--brand-500)" : "1px solid var(--line)" }}
+            onClick={() => setIs24x7((v) => !v)}
+          >
+            <span className="semi small">Open 24×7</span>
+            <span style={{ width: 44, height: 26, borderRadius: 999, background: is24x7 ? "var(--brand-600)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}>
+              <span style={{ position: "absolute", top: 3, left: is24x7 ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+            </span>
+          </button>
+
+          {/* Per-day open/close (richer than the provider's single pattern) */}
+          {!is24x7 && (
+            <div className="field">
+              <label className="tiny semi muted">Available Days & Hours</label>
+              <div className="card" style={{ overflow: "hidden", marginTop: 6 }}>
+                {days.map((d, i) => {
+                  const h = hours[d];
+                  return (
+                    <div key={d} className="row gap-10" style={{ padding: "12px 14px", borderBottom: i < days.length - 1 ? "1px solid var(--line)" : "none" }}>
+                      <span className="semi small" style={{ width: 36 }}>{d}</span>
+                      <button
+                        onClick={() => setDay(d, { open: !h.open })}
+                        style={{ width: 40, height: 24, borderRadius: 999, background: h.open ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}
+                      >
+                        <span style={{ position: "absolute", top: 3, left: h.open ? 19 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff" }} />
+                      </button>
+                      {h.open ? (
+                        <div className="row gap-6 grow" style={{ justifyContent: "flex-end" }}>
+                          <input className="input" style={{ width: 80, padding: "8px 8px", textAlign: "center" }} type="time" value={h.from} onChange={(e) => setDay(d, { from: e.target.value })} />
+                          <span className="muted">–</span>
+                          <input className="input" style={{ width: 80, padding: "8px 8px", textAlign: "center" }} type="time" value={h.to} onChange={(e) => setDay(d, { to: e.target.value })} />
+                        </div>
+                      ) : (
+                        <span className="grow tiny muted" style={{ textAlign: "right" }}>Closed</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Slot duration & max appointments */}
           <div className="row gap-12">
             <div className="field grow">
-              <label className="tiny semi muted">Slot Duration</label>
+              <label className="tiny semi muted">Appointment Slot Duration</label>
               <select
                 className="input"
                 value={slotDuration}
@@ -228,24 +241,22 @@ export default function HoursEditor() {
                 <option value={120}>120 minutes (2 hrs)</option>
               </select>
             </div>
-            
+
             <div className="field grow">
-              <label className="tiny semi muted">Max Appts / Day (Mon/Typical)</label>
-              <div 
-                className="input" 
-                style={{ 
-                  fontSize: 13.5, 
-                  padding: "10px 12px", 
-                  background: "var(--ink-50)", 
-                  fontWeight: 700,
-                  display: "flex",
-                  alignItems: "center",
-                  height: 38
-                }}
+              <label className="tiny semi muted">Max Appointments / Day</label>
+              <div
+                className="input"
+                style={{ fontSize: 13.5, padding: "10px 12px", background: "var(--ink-50)", fontWeight: 700, display: "flex", alignItems: "center", height: 38 }}
               >
                 {is24x7 ? "Continuous" : `${maxSlots} slots`}
               </div>
             </div>
+          </div>
+
+          {/* Public profile display preview */}
+          <div className="card" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
+            <div className="tiny semi muted">Public Profile Display Preview:</div>
+            <div className="bold small" style={{ color: "var(--brand-800)", marginTop: 2 }}>🕒 {previewText}</div>
           </div>
         </div>
 
@@ -271,7 +282,7 @@ export default function HoursEditor() {
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
         <button className="btn btn-primary btn-block" disabled={saving} onClick={save}>
-          {saving ? "Saving…" : "Save hours"}
+          {saving ? "Saving…" : "Save Working Timing"}
         </button>
       </div>
     </div>

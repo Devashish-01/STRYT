@@ -1,25 +1,53 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Eye, Phone, Navigation, Star, MessageSquare, HelpCircle,
-  ChevronRight, TrendingUp, BadgeCheck, ArrowLeftRight, Share2,
+  ChevronRight, TrendingUp, BadgeCheck, ArrowLeftRight, Share2, Zap,
 } from "lucide-react";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
+import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
 import ManageNav from "./ManageNav";
 import ShareCard from "@/components/ShareCard";
 
 export default function ManageDashboard() {
   const { id = "b1" } = useParams();
   const nav = useNavigate();
-  const { setContext } = useApp();
+  const { setContext, showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
   const { data, loading } = useQuery(() => businessService.analytics(id), [id]);
   const [share, setShare] = useState(false);
+  const [available, setAvailable] = useState(false);
 
   const base = `/business/${id}/manage`;
+
+  // Seed the presence toggle from the live shop record.
+  useEffect(() => { if (b) setAvailable(b.isAvailableNow ?? false); }, [b]);
+
+  // "Open right now" is a presence flag, separate from bookable working-hour
+  // slots (mirrors the provider dashboard toggle). Turning on outside working
+  // hours sets an auto-clear expiry at the next closing time.
+  const evalRes = evaluateProviderAvailability(b?.hours, available, b?.availableUntil);
+  async function toggleAvail() {
+    const prev = available;
+    const next = !available;
+    setAvailable(next);
+    try {
+      if (next && !evalRes.isOpenNow) {
+        const turnoff = calculateNextTurnoffTime(b?.hours);
+        await businessService.setAvailability(id, true, turnoff.toISOString());
+        showToast(`Open now — clears at ${turnoff.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ⚡`);
+      } else {
+        await businessService.setAvailability(id, next, null);
+        showToast(next ? "Shop marked open right now ⚡" : "Shop marked closed");
+      }
+    } catch (e: any) {
+      setAvailable(prev);
+      showToast(e?.message ?? "Couldn't update availability");
+    }
+  }
 
   return (
     <div className="screen with-nav">
@@ -64,6 +92,26 @@ export default function ManageDashboard() {
       </div>
 
       <div className="screen-scroll">
+        {/* Open-right-now presence toggle (mirrors the provider dashboard) */}
+        <div className="page-pad" style={{ paddingBottom: 0 }}>
+          <button
+            className="card row gap-12"
+            style={{ padding: 14, width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)" }}
+            onClick={toggleAvail}
+          >
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: available ? "#e8f7ee" : "var(--ink-50)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Zap size={22} color={available ? "#16a34a" : "var(--ink-400)"} />
+            </div>
+            <div className="grow">
+              <div className="semi small">{available ? "Shop is open right now" : "Mark shop open now"}</div>
+              <div className="tiny muted">{available ? "Customers see you as open" : "Turn on when you're open for walk-ins"}</div>
+            </div>
+            <span style={{ width: 44, height: 26, borderRadius: 999, background: available ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}>
+              <span style={{ position: "absolute", top: 3, left: available ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+            </span>
+          </button>
+        </div>
+
         {/* KPIs */}
         <div className="page-pad">
           <div className="small semi muted" style={{ marginBottom: 8 }}>This week</div>
@@ -121,7 +169,8 @@ export default function ManageDashboard() {
             <Tile emoji="📝" label="Edit profile" onClick={() => nav(`${base}/profile`)} />
             <Tile emoji="🕒" label="Hours" onClick={() => nav(`${base}/hours`)} />
             <Tile emoji="📅" label="Appointments" onClick={() => nav(`${base}/appointments`)} />
-            <Tile emoji="🍽️" label="Catalog" onClick={() => nav(`${base}/catalog`)} />
+            <Tile emoji="📦" label="Packages" onClick={() => nav(`${base}/packages`)} />
+            <Tile emoji="📋" label="Catalog" onClick={() => nav(`${base}/catalog`)} />
             <Tile emoji="🏷️" label="Offers" onClick={() => nav(`${base}/offers`)} />
             <Tile emoji="📣" label="Post to community" onClick={() => nav("/community/new", { state: { businessId: id, businessName: b?.name } })} />
             <Tile emoji="👥" label="Live queue" onClick={() => nav(`${base}/queue`)} />

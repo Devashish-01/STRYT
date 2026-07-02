@@ -1,7 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, ReservationReq } from "@/types";
+import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, ReservationReq, BusinessPackage } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
@@ -52,7 +52,7 @@ const BUSINESS_COLUMNS = new Set([
   "isAvailableNow","availableUntil",
   "openingDate","isNew","status","coverImage","gallery","ratingAvg","ratingCount",
   "viewCount","isFeatured","isVerified","tags","priceForTwo","deliveryTime","offerText",
-  "verificationStatus","verificationDocumentUrl","aadhaarDocUrl","panDocUrl",
+  "verificationStatus","verificationDocumentUrl","aadhaarDocUrl","panDocUrl","upiId",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
@@ -511,6 +511,38 @@ export const businessService = {
   },
   async team(_id: string): Promise<import("@/types").TeamMember[]> {
     return [];
+  },
+
+  async packages(id: string): Promise<BusinessPackage[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("business_packages")
+      .select("*")
+      .eq("business_id", id)
+      .order("created_at", { ascending: true });
+    throwIfError(error);
+    return toCamel<BusinessPackage[]>(data ?? []);
+  },
+
+  async addPackage(businessId: string, pkg: { name: string; desc: string; price: number; duration?: string; instantBook?: boolean }): Promise<BusinessPackage> {
+    const sb = getSupabase();
+    const { data, error } = await sb.from("business_packages").insert({
+      business_id: businessId,
+      name: pkg.name,
+      desc: pkg.desc,
+      price: pkg.price,
+      duration: pkg.duration ?? "",
+      instant_book: pkg.instantBook ?? false,
+    }).select().maybeSingle();
+    throwIfError(error);
+    return toCamel<BusinessPackage>(data);
+  },
+
+  async deletePackage(_businessId: string, pkgId: string) {
+    const sb = getSupabase();
+    const { error } = await sb.from("business_packages").delete().eq("id", pkgId);
+    throwIfError(error);
+    return { ok: true };
   },
 
   async buyBoost(id: string, boostType: string) {

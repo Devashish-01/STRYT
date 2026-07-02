@@ -79,8 +79,8 @@ const QnaManager = lazy(() => import("./screens/business/manage/QnaManager"));
 const ReviewsManager = lazy(() => import("./screens/business/manage/ReviewsManager"));
 const Reservations = lazy(() => import("./screens/business/manage/Reservations"));
 const BusinessAppointments = lazy(() => import("./screens/business/manage/BusinessAppointments"));
+const BusinessPackages = lazy(() => import("./screens/business/manage/BusinessPackages"));
 const LeadsInbox = lazy(() => import("./screens/business/manage/LeadsInbox"));
-const Promote = lazy(() => import("./screens/business/manage/Promote"));
 const VerificationCenter = lazy(() => import("./screens/business/manage/VerificationCenter"));
 const BusinessSettings = lazy(() => import("./screens/business/manage/BusinessSettings"));
 const BusinessRequests = lazy(() => import("./screens/business/manage/BusinessRequests"));
@@ -272,8 +272,8 @@ export default function App() {
             <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
             <Route path="/business/:id/manage/reservations" element={<Reservations />} />
             <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
+            <Route path="/business/:id/manage/packages" element={<BusinessPackages />} />
             <Route path="/business/:id/manage/inbox" element={<LeadsInbox />} />
-            <Route path="/business/:id/manage/promote" element={<Promote />} />
             <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
             <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
             <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />

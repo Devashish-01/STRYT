@@ -32,6 +32,7 @@ export default function BusinessDetail() {
   const { data: reviews, refetch: refetchReviews } = useQuery(() => businessService.reviews(id), [id]);
   const { data: queue } = useQuery(() => businessService.queue(id), [id]);
   const { data: qnaList, refetch: refetchQna } = useQuery(() => businessService.qna(id), [id]);
+  const { data: bizPackages } = useQuery(() => businessService.packages(id).catch(() => []), [id]);
   const ownerId = b?.ownerUserId;
   const { data: bizPosts } = useQuery(() => ownerId ? communityService.byAuthor(ownerId) : Promise.resolve([]), [ownerId]);
   const [tab, setTab] = useState<"catalog" | "posts" | "about" | "reviews">("catalog");
@@ -43,6 +44,7 @@ export default function BusinessDetail() {
   const [question, setQuestion] = useState("");
   const [askingNow, setAskingNow] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [schedulingPkg, setSchedulingPkg] = useState<{ id: string; name: string; price: number; duration?: string } | null>(null);
 
   // Count a profile view once per business open.
   useEffect(() => {
@@ -302,6 +304,28 @@ export default function BusinessDetail() {
         {/* Tab content */}
         {tab === "catalog" && (
           <div className="page-pad col gap-12">
+            {(bizPackages ?? []).length > 0 && (
+              <div className="col gap-8">
+                <div className="semi small" style={{ color: "var(--ink-700)" }}>Service Packages</div>
+                {(bizPackages ?? []).map((pk) => (
+                  <div key={pk.id} className="card row gap-12" style={{ padding: 14 }}>
+                    <div className="grow">
+                      <div className="semi small">{pk.name}</div>
+                      {pk.desc ? <div className="tiny muted" style={{ marginTop: 2 }}>{pk.desc}{pk.duration ? ` • ${pk.duration}` : ""}</div> : null}
+                    </div>
+                    <div className="col" style={{ alignItems: "flex-end", gap: 4 }}>
+                      <span className="bold" style={{ color: "var(--green-600)" }}>{inr(pk.price)}</span>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        style={{ fontSize: 11, padding: "4px 12px" }}
+                        onClick={() => { setSchedulingPkg({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }); setScheduling(true); }}
+                      >Book</button>
+                    </div>
+                  </div>
+                ))}
+                {b.catalog.length > 0 && <div className="divider" style={{ margin: "4px 0" }} />}
+              </div>
+            )}
             {b.catalog.map((item) => {
               const qty = cart[item.id] ?? 0;
               return (
@@ -328,6 +352,13 @@ export default function BusinessDetail() {
                       </div>
                     )}
                     {item.stockStatus === "LIMITED" && <span className="badge badge-amber" style={{ marginTop: 6 }}>Few left</span>}
+                    {!isOwner && item.stockStatus !== "OUT_OF_STOCK" && (
+                      <button
+                        className="btn btn-outline btn-sm"
+                        style={{ marginTop: 8, fontSize: 11, padding: "4px 12px", color: "var(--brand-700)", borderColor: "var(--brand-200)", width: "fit-content" }}
+                        onClick={() => { setSchedulingPkg({ id: item.id, name: item.name, price: item.salePrice ?? item.price }); setScheduling(true); }}
+                      >📅 Book appointment</button>
+                    )}
                   </div>
                   <div style={{ position: "relative", width: 110, flexShrink: 0 }}>
                     <SafeImg src={item.image} alt={item.name} className="thumb" style={{ width: 110, height: 96, borderRadius: 14 }} />
@@ -521,8 +552,13 @@ export default function BusinessDetail() {
           targetType="BUSINESS"
           availabilityNote={b.hours || "Mon–Sat from 09:00 AM to 07:00 PM"}
           availableNow={evalRes.isOpenNow}
-          packages={(b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price }))}
-          onClose={() => setScheduling(false)}
+          packages={
+            (bizPackages ?? []).length > 0
+              ? (bizPackages ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }))
+              : (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price }))
+          }
+          initialPackage={schedulingPkg}
+          onClose={() => { setScheduling(false); setSchedulingPkg(null); }}
         />
       )}
     </div>

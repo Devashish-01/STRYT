@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, UtensilsCrossed, Inbox, CalendarClock, Settings } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Inbox, CalendarClock, Settings } from "lucide-react";
 
 export default function ManageNav({ bizId }: { bizId: string }) {
   const nav = useNavigate();
@@ -7,7 +7,7 @@ export default function ManageNav({ bizId }: { bizId: string }) {
   const base = `/business/${bizId}/manage`;
   const items = [
     { to: base, label: "Home", icon: LayoutDashboard, exact: true },
-    { to: `${base}/catalog`, label: "Catalog", icon: UtensilsCrossed },
+    { to: `${base}/catalog`, label: "Catalog", icon: LayoutGrid },
     { to: `${base}/inbox`, label: "Inbox", icon: Inbox },
     // Promote temporarily hidden — re-enable later (route + Promote.tsx kept).
     { to: `${base}/appointments`, label: "Appointments", icon: CalendarClock },

@@ -66,6 +66,7 @@ export interface Business {
   offerText?: string;
   ownerEnabled?: boolean;
   deletedAt?: string | null;
+  upiId?: string;
   catalog: CatalogItem[];
   offers: Offer[];
 }
@@ -597,6 +598,16 @@ export interface ProviderPackage {
   instantBook: boolean;
 }
 
+export interface BusinessPackage {
+  id: string;
+  businessId: string;
+  name: string;
+  desc: string;
+  price: number;
+  duration?: string;
+  instantBook: boolean;
+}
+
 // ── Trust layer types ──────────────────────────────────────────
 export type VerificationTier =
   | "NONE"
@@ -637,7 +648,10 @@ export interface TrackingToken {
   expiresAt: string;
 }
 
-export type AppointmentStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "COMPLETED";
+export type AppointmentStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "COMPLETED" | "CANCELLED";
+
+export type PaymentMethod = "UPI" | "CASH";
+export type PaymentStatus = "UNPAID" | "PENDING_CONFIRM" | "PAID" | "REJECTED";
 
 export interface AppointmentRecord {
   id: string;
@@ -659,4 +673,8 @@ export interface AppointmentRecord {
   status: AppointmentStatus;
   responseNote?: string;
   createdAtISO: string;
+  paymentMethod?: PaymentMethod | null;
+  paymentStatus?: PaymentStatus;
+  paymentAmount?: number | null;
+  paymentReference?: string | null;
 }

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
 import { businessService, profileControlService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { UserPlus, Crown, Power, Bell } from "lucide-react";
+import { UserPlus, Crown, Power, Bell, QrCode } from "lucide-react";
 import { useApp } from "@/store";
 import { copyText } from "@/lib/clipboard";
 import type { TeamMember } from "@/types";
@@ -19,12 +19,28 @@ export default function BusinessSettings() {
   const [leads, setLeads] = useState(true);
   const [reviewsN, setReviewsN] = useState(true);
   const [requests, setRequests] = useState(true);
+  const [upiId, setUpiId] = useState("");
+  const [savingUpi, setSavingUpi] = useState(false);
 
   useEffect(() => {
     if (business) {
       setOwnerEnabled(business.ownerEnabled !== false);
+      setUpiId(business.upiId ?? "");
     }
   }, [business]);
+
+  async function saveUpiId() {
+    setSavingUpi(true);
+    try {
+      await businessService.update(id, { upiId: upiId.trim() || null } as any);
+      showToast("UPI ID saved");
+      void refetchBiz();
+    } catch {
+      showToast("Couldn't save UPI ID. Try again.");
+    } finally {
+      setSavingUpi(false);
+    }
+  }
 
   async function handleToggleVisibility(v: boolean) {
     setOwnerEnabled(v);
@@ -57,6 +73,31 @@ export default function BusinessSettings() {
             <Toggle label="New leads" on={leads} set={setLeads} />
             <Toggle label="New reviews" on={reviewsN} set={setReviewsN} />
             <Toggle label="Matching requests" on={requests} set={setRequests} last />
+          </div>
+        </div>
+
+        {/* Payment */}
+        <div>
+          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><QrCode size={14} /> Payment</div>
+          <div className="card col gap-10" style={{ padding: 14 }}>
+            <div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>UPI ID (VPA)</div>
+              <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>Customers pay you via UPI. Enter your UPI handle (e.g. myshop@okaxis) — a QR code is generated automatically.</div>
+              <input
+                className="input"
+                placeholder="e.g. yourname@okaxis"
+                value={upiId}
+                onChange={(e) => setUpiId(e.target.value)}
+                style={{ fontSize: 14 }}
+              />
+            </div>
+            <button
+              className="btn btn-primary btn-sm btn-block"
+              disabled={savingUpi}
+              onClick={saveUpiId}
+            >
+              {savingUpi ? "Saving…" : "Save UPI ID"}
+            </button>
           </div>
         </div>
 

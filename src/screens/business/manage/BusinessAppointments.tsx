@@ -5,7 +5,7 @@ import { appointmentService, businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
-import { Calendar, Check, X as XIcon, Image as ImageIcon } from "lucide-react";
+import { Calendar, Check, X as XIcon, Image as ImageIcon, CheckCircle2, AlertTriangle } from "lucide-react";
 import type { AppointmentRecord } from "@/types";
 import ManageNav from "./ManageNav";
 
@@ -19,18 +19,48 @@ export default function BusinessAppointments() {
   );
 
   const [activeApt, setActiveApt] = useState<AppointmentRecord | null>(null);
-  const [actionType, setActionType] = useState<"ACCEPT" | "REJECT" | null>(null);
+  const [actionType, setActionType] = useState<"ACCEPT" | "REJECT" | "CANCEL" | null>(null);
   const [responseNote, setResponseNote] = useState("");
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+  const [paymentAction, setPaymentAction] = useState<{ apt: AppointmentRecord; action: "CONFIRM" | "REJECT" } | null>(null);
+  const [processingPayment, setProcessingPayment] = useState<string | null>(null);
 
   const appointments = data ?? [];
+
+  async function handlePaymentAction(apt: AppointmentRecord, action: "CONFIRM" | "REJECT") {
+    setProcessingPayment(apt.id);
+    try {
+      if (action === "CONFIRM") {
+        await appointmentService.confirmPayment(apt.id);
+        showToast("Payment confirmed ✓");
+      } else {
+        await appointmentService.rejectPaymentClaim(apt.id);
+        showToast("Payment claim rejected — customer notified.");
+      }
+      setPaymentAction(null);
+      refetch();
+    } catch {
+      showToast("Couldn't update payment status. Try again.");
+    } finally {
+      setProcessingPayment(null);
+    }
+  }
+
+  // Count how many previous rejected UPI claims this customer has with this business.
+  function rejectedClaimsCount(customerId: string): number {
+    return appointments.filter((a) => a.customerId === customerId && a.paymentStatus === "REJECTED").length;
+  }
 
   async function handleUpdateStatus() {
     if (!activeApt || !actionType) return;
     try {
-      const newStatus = actionType === "ACCEPT" ? "ACCEPTED" : "REJECTED";
+      const newStatus = actionType === "ACCEPT" ? "ACCEPTED" : actionType === "REJECT" ? "REJECTED" : "CANCELLED";
       await appointmentService.updateStatus(activeApt.id, newStatus, responseNote.trim() || undefined);
-      showToast(actionType === "ACCEPT" ? "Appointment accepted 📅" : "Appointment declined with note.");
+      showToast(
+        actionType === "ACCEPT" ? "Appointment accepted 📅"
+        : actionType === "REJECT" ? "Appointment declined."
+        : "Appointment cancelled — customer has been notified."
+      );
       setActiveApt(null);
       setActionType(null);
       setResponseNote("");
@@ -73,14 +103,21 @@ export default function BusinessAppointments() {
                         </div>
                       </div>
                     </div>
-                    <span
-                      className={`badge ${
-                        apt.status === "ACCEPTED" ? "badge-green" : apt.status === "REJECTED" ? "badge-gray" : "badge-purple"
-                      }`}
-                      style={{ fontSize: 10, padding: "2px 8px" }}
-                    >
-                      {apt.status}
-                    </span>
+                    <div className="col gap-4" style={{ alignItems: "flex-end" }}>
+                      <span
+                        className={`badge ${
+                          apt.status === "ACCEPTED" ? "badge-green" : apt.status === "REJECTED" || apt.status === "CANCELLED" ? "badge-gray" : "badge-purple"
+                        }`}
+                        style={{ fontSize: 10, padding: "2px 8px" }}
+                      >
+                        {apt.status}
+                      </span>
+                      {apt.paymentStatus === "PAID" && (
+                        <span className="badge badge-green" style={{ fontSize: 9, padding: "2px 7px" }}>
+                          ₹ {apt.paymentMethod === "UPI" ? "UPI paid" : "Cash paid"}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {apt.packageName && (
@@ -109,28 +146,95 @@ export default function BusinessAppointments() {
                   )}
 
                   {apt.responseNote && (
-                    <div className="tiny" style={{ color: apt.status === "REJECTED" ? "#b45309" : "#15803d", fontStyle: "italic" }}>
+                    <div className="tiny" style={{ color: apt.status === "REJECTED" || apt.status === "CANCELLED" ? "#b45309" : "#15803d", fontStyle: "italic" }}>
                       Your reply: "{apt.responseNote}"
                     </div>
                   )}
 
-                  {apt.status === "PENDING" && (
+                  {/* Payment: customer claimed — awaiting your confirmation */}
+                  {apt.paymentStatus === "PENDING_CONFIRM" && (
+                    <div className="card col gap-10" style={{ padding: 12, background: "#fefce8", border: "1px solid #fef08a", borderRadius: 12, marginTop: 2 }}>
+                      <div className="row gap-8 center-v">
+                        <span style={{ fontSize: 18 }}>⏳</span>
+                        <div className="grow">
+                          <div className="tiny semi" style={{ color: "#854d0e" }}>Customer claims payment via {apt.paymentMethod}</div>
+                          <div className="tiny" style={{ color: "#78350f", marginTop: 1 }}>
+                            {apt.paymentAmount ? `Amount: ₹${apt.paymentAmount}` : "Amount not specified"}
+                            {apt.paymentReference ? ` • Ref: ${apt.paymentReference}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                      {rejectedClaimsCount(apt.customerId) > 0 && (
+                        <div className="row gap-6 center-v" style={{ background: "#fef2f2", padding: "6px 10px", borderRadius: 8 }}>
+                          <AlertTriangle size={13} color="#dc2626" />
+                          <span className="tiny" style={{ color: "#991b1b" }}>
+                            This customer has {rejectedClaimsCount(apt.customerId)} previously rejected claim{rejectedClaimsCount(apt.customerId) > 1 ? "s" : ""} at this shop.
+                          </span>
+                        </div>
+                      )}
+                      <div className="row gap-8">
+                        <button
+                          className="btn btn-green grow btn-sm"
+                          disabled={processingPayment === apt.id}
+                          onClick={() => setPaymentAction({ apt, action: "CONFIRM" })}
+                        >
+                          <CheckCircle2 size={14} /> Confirm received
+                        </button>
+                        <button
+                          className="btn btn-outline grow btn-sm"
+                          style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+                          disabled={processingPayment === apt.id}
+                          onClick={() => setPaymentAction({ apt, action: "REJECT" })}
+                        >
+                          <XIcon size={14} /> Can't verify
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Payment: confirmed */}
+                  {apt.paymentStatus === "PAID" && (
+                    <div className="row gap-8 center-v" style={{ padding: "8px 0 2px" }}>
+                      <CheckCircle2 size={15} color="#16a34a" />
+                      <span className="tiny semi" style={{ color: "#15803d" }}>
+                        Payment confirmed via {apt.paymentMethod ?? "unknown"}
+                        {apt.paymentAmount ? ` • ₹${apt.paymentAmount}` : ""}
+                        {apt.paymentReference ? ` (ref: ${apt.paymentReference})` : ""}
+                      </span>
+                    </div>
+                  )}
+
+                  {(apt.status === "PENDING" || apt.status === "ACCEPTED") && (
                     <div className="row gap-8" style={{ marginTop: 6, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
-                      <button
-                        type="button"
-                        className="btn btn-green grow btn-sm row gap-4 center"
-                        onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}
-                      >
-                        <Check size={14} /> Accept
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline grow btn-sm row gap-4 center"
-                        style={{ color: "#dc2626", borderColor: "#fca5a5" }}
-                        onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}
-                      >
-                        <XIcon size={14} /> Decline
-                      </button>
+                      {apt.status === "PENDING" && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-green grow btn-sm row gap-4 center"
+                            onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}
+                          >
+                            <Check size={14} /> Accept
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline grow btn-sm row gap-4 center"
+                            style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+                            onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}
+                          >
+                            <XIcon size={14} /> Decline
+                          </button>
+                        </>
+                      )}
+                      {apt.status === "ACCEPTED" && (
+                        <button
+                          type="button"
+                          className="btn btn-outline grow btn-sm row gap-4 center"
+                          style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+                          onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}
+                        >
+                          <XIcon size={14} /> Cancel appointment
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -146,23 +250,63 @@ export default function BusinessAppointments() {
         <div style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div className="card col gap-14" style={{ width: "100%", maxWidth: 400, padding: 20, background: "#fff" }}>
             <div className="bold large" style={{ fontSize: 16 }}>
-              {actionType === "ACCEPT" ? "Accept Appointment" : "Decline Appointment"}
+              {actionType === "ACCEPT" ? "Accept Appointment" : actionType === "REJECT" ? "Decline Appointment" : "Cancel Appointment"}
             </div>
             <div className="tiny muted">
-              Add an optional note to send back to {activeApt.customerName} (e.g. confirmation instructions or a reason).
+              {actionType === "CANCEL"
+                ? `Add a reason for cancelling ${activeApt.customerName}'s appointment (the customer will see this).`
+                : `Add an optional note to send back to ${activeApt.customerName}.`}
             </div>
             <textarea
               className="input"
               rows={3}
-              placeholder={actionType === "ACCEPT" ? "e.g. See you then! Please arrive 5 min early." : "e.g. Sorry, we're fully booked that day."}
+              placeholder={
+                actionType === "ACCEPT" ? "e.g. See you then! Please arrive 5 min early."
+                : actionType === "REJECT" ? "e.g. Sorry, we're fully booked that day."
+                : "e.g. Sorry, we need to close for a family emergency."
+              }
               value={responseNote}
               onChange={(e) => setResponseNote(e.target.value)}
               style={{ fontSize: 13, padding: 10 }}
             />
             <div className="row gap-8 end">
-              <button className="btn btn-ghost btn-sm" onClick={() => { setActiveApt(null); setActionType(null); }}>Cancel</button>
-              <button className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : "btn-primary"}`} onClick={handleUpdateStatus}>
-                Confirm {actionType === "ACCEPT" ? "Acceptance" : "Decline"}
+              <button className="btn btn-ghost btn-sm" onClick={() => { setActiveApt(null); setActionType(null); }}>Back</button>
+              <button
+                className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : "btn-primary"}`}
+                style={actionType === "CANCEL" ? { background: "#dc2626", color: "#fff" } : undefined}
+                onClick={handleUpdateStatus}
+              >
+                {actionType === "ACCEPT" ? "Confirm" : actionType === "REJECT" ? "Decline" : "Cancel appointment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment confirm/reject modal */}
+      {paymentAction && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div className="card col gap-14" style={{ width: "100%", maxWidth: 380, padding: 20, background: "#fff" }}>
+            <div className="bold" style={{ fontSize: 16 }}>
+              {paymentAction.action === "CONFIRM" ? "Confirm payment received?" : "Reject this payment claim?"}
+            </div>
+            <div className="tiny muted" style={{ lineHeight: 1.6 }}>
+              {paymentAction.action === "CONFIRM"
+                ? `This will mark ${paymentAction.apt.customerName}'s appointment as fully paid. Make sure you've checked your bank app or UPI history before confirming.`
+                : `The customer will be notified that you couldn't verify their payment. They can retry. Repeated false claims are tracked.`}
+            </div>
+            {paymentAction.action === "CONFIRM" && paymentAction.apt.paymentAmount && (
+              <div className="bold" style={{ fontSize: 22, color: "#16a34a" }}>₹{paymentAction.apt.paymentAmount}</div>
+            )}
+            <div className="row gap-8 end">
+              <button className="btn btn-ghost btn-sm" onClick={() => setPaymentAction(null)}>Back</button>
+              <button
+                className={`btn btn-sm ${paymentAction.action === "CONFIRM" ? "btn-green" : ""}`}
+                style={paymentAction.action === "REJECT" ? { background: "#dc2626", color: "#fff" } : undefined}
+                disabled={!!processingPayment}
+                onClick={() => handlePaymentAction(paymentAction.apt, paymentAction.action)}
+              >
+                {processingPayment ? "Processing…" : paymentAction.action === "CONFIRM" ? "Yes, confirm received" : "Reject claim"}
               </button>
             </div>
           </div>

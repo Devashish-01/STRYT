@@ -30,7 +30,7 @@ export default function ProviderLeads() {
   );
 
   const [activeApt, setActiveApt] = useState<AppointmentRecord | null>(null);
-  const [actionType, setActionType] = useState<"ACCEPT" | "REJECT" | null>(null);
+  const [actionType, setActionType] = useState<"ACCEPT" | "REJECT" | "CANCEL" | null>(null);
   const [responseNote, setResponseNote] = useState("");
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
@@ -40,9 +40,13 @@ export default function ProviderLeads() {
   async function handleUpdateStatus() {
     if (!activeApt || !actionType) return;
     try {
-      const newStatus = actionType === "ACCEPT" ? "ACCEPTED" : "REJECTED";
+      const newStatus = actionType === "ACCEPT" ? "ACCEPTED" : actionType === "REJECT" ? "REJECTED" : "CANCELLED";
       await appointmentService.updateStatus(activeApt.id, newStatus, responseNote.trim() || undefined);
-      showToast(actionType === "ACCEPT" ? "Appointment accepted! 📅" : "Appointment rejected with note.");
+      showToast(
+        actionType === "ACCEPT" ? "Appointment accepted! 📅"
+        : actionType === "REJECT" ? "Appointment declined."
+        : "Appointment cancelled — customer has been notified."
+      );
       setActiveApt(null);
       setActionType(null);
       setResponseNote("");
@@ -143,23 +147,37 @@ export default function ProviderLeads() {
                     </div>
                   )}
 
-                  {apt.status === "PENDING" && (
+                  {(apt.status === "PENDING" || apt.status === "ACCEPTED") && (
                     <div className="row gap-8" style={{ marginTop: 6, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
-                      <button
-                        type="button"
-                        className="btn btn-green grow btn-sm row gap-4 center"
-                        onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}
-                      >
-                        <Check size={14} /> Accept
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline grow btn-sm row gap-4 center"
-                        style={{ color: "#dc2626", borderColor: "#fca5a5" }}
-                        onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}
-                      >
-                        <XIcon size={14} /> Decline / Reject
-                      </button>
+                      {apt.status === "PENDING" && (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-green grow btn-sm row gap-4 center"
+                            onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}
+                          >
+                            <Check size={14} /> Accept
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-outline grow btn-sm row gap-4 center"
+                            style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+                            onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}
+                          >
+                            <XIcon size={14} /> Decline
+                          </button>
+                        </>
+                      )}
+                      {apt.status === "ACCEPTED" && (
+                        <button
+                          type="button"
+                          className="btn btn-outline grow btn-sm row gap-4 center"
+                          style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+                          onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}
+                        >
+                          <XIcon size={14} /> Cancel appointment
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -176,23 +194,33 @@ export default function ProviderLeads() {
         <div style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div className="card col gap-14" style={{ width: "100%", maxWidth: 400, padding: 20, background: "#fff" }}>
             <div className="bold large" style={{ fontSize: 16 }}>
-              {actionType === "ACCEPT" ? "Accept Appointment" : "Decline / Reject Appointment"}
+              {actionType === "ACCEPT" ? "Accept Appointment" : actionType === "REJECT" ? "Decline Appointment" : "Cancel Appointment"}
             </div>
             <div className="tiny muted">
-              Add an optional note to send back to {activeApt.customerName} (e.g. confirmation instructions or cancellation reason).
+              {actionType === "CANCEL"
+                ? `Add a reason for cancelling ${activeApt.customerName}'s appointment (the customer will see this).`
+                : `Add an optional note to send back to ${activeApt.customerName}.`}
             </div>
             <textarea
               className="input"
               rows={3}
-              placeholder={actionType === "ACCEPT" ? "e.g. See you then! Please keep your gate open." : "e.g. Sorry, booked for emergency repairs."}
+              placeholder={
+                actionType === "ACCEPT" ? "e.g. See you then! Please keep your gate open."
+                : actionType === "REJECT" ? "e.g. Sorry, booked for emergency repairs."
+                : "e.g. Sorry, I need to reschedule — please rebook at your convenience."
+              }
               value={responseNote}
               onChange={(e) => setResponseNote(e.target.value)}
               style={{ fontSize: 13, padding: 10 }}
             />
             <div className="row gap-8 end">
-              <button className="btn btn-ghost btn-sm" onClick={() => { setActiveApt(null); setActionType(null); }}>Cancel</button>
-              <button className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : "btn-primary"}`} onClick={handleUpdateStatus}>
-                Confirm {actionType === "ACCEPT" ? "Acceptance" : "Decline"}
+              <button className="btn btn-ghost btn-sm" onClick={() => { setActiveApt(null); setActionType(null); }}>Back</button>
+              <button
+                className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : "btn-primary"}`}
+                style={actionType === "CANCEL" ? { background: "#dc2626", color: "#fff" } : undefined}
+                onClick={handleUpdateStatus}
+              >
+                {actionType === "ACCEPT" ? "Confirm" : actionType === "REJECT" ? "Decline" : "Cancel appointment"}
               </button>
             </div>
           </div>

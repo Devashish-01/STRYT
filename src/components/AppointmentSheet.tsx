@@ -19,7 +19,10 @@ interface AppointmentSheetProps {
   availabilityNote?: string;
   packages?: BookingPackage[];
   availableNow?: boolean;
+  initialPackage?: BookingPackage | null;
   onClose: () => void;
+  /** Fired after a booking is successfully created (before the sheet closes). */
+  onBooked?: () => void;
 }
 
 export function AppointmentSheet({
@@ -29,12 +32,14 @@ export function AppointmentSheet({
   availabilityNote,
   packages = [],
   availableNow = false,
+  initialPackage,
   onClose,
+  onBooked,
 }: AppointmentSheetProps) {
   const { user, showToast } = useApp();
   const [dayOffset, setDayOffset] = useState<number>(0);
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
-  const [selectedPkg, setSelectedPkg] = useState<BookingPackage | null>(null);
+  const [selectedPkg, setSelectedPkg] = useState<BookingPackage | null>(initialPackage ?? null);
   const [notes, setNotes] = useState("");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -100,6 +105,7 @@ export function AppointmentSheet({
       });
 
       showToast(`Appointment scheduled for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`);
+      onBooked?.();
       onClose();
     } catch (err: any) {
       showToast(err?.message || "Couldn't schedule appointment. Try again.");

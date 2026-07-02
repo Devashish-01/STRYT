@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, VegDot, inr } from "@/components/common";
-import { Plus, Pencil, Trash2, Camera, Star } from "lucide-react";
+import { Plus, Pencil, Trash2, Camera, Star, Tag } from "lucide-react";
 import { businessService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
@@ -18,6 +18,7 @@ export default function CatalogManager() {
   if (loading) return <div className="screen"><AppBar title="Catalog" /><ListSkeleton count={3} /></div>;
   if (!b) return null;
 
+
   async function remove(item: CatalogItem) {
     await businessService.deleteCatalogItem(id, item.id);
     showToast("Item removed");
@@ -27,7 +28,7 @@ export default function CatalogManager() {
   async function toggleStock(item: CatalogItem) {
     const next = item.stockStatus === "OUT_OF_STOCK" ? "IN_STOCK" : "OUT_OF_STOCK";
     await businessService.updateCatalogItem(id, item.id, { stockStatus: next });
-    showToast(next === "OUT_OF_STOCK" ? "Marked out of stock" : "Back in stock");
+    showToast(next === "OUT_OF_STOCK" ? "Marked as unavailable" : "Marked as available");
     refetch();
   }
 
@@ -35,20 +36,34 @@ export default function CatalogManager() {
     <div className="screen">
       <AppBar
         title="Catalog"
-        subtitle={`${b.catalog.length} items`}
-        right={<button className="icon-btn" onClick={() => setCreating(true)}><Plus size={20} /></button>}
+        subtitle={b.catalog.length > 0 ? `${b.catalog.length} listing${b.catalog.length === 1 ? "" : "s"}` : "Products, services & items"}
+        right={b.catalog.length > 0 ? <button className="icon-btn" onClick={() => setCreating(true)}><Plus size={20} /></button> : undefined}
       />
       <div className="screen-scroll page-pad col gap-12" style={{ paddingBottom: 30 }}>
+        {b.catalog.length === 0 && (
+          <div className="col center" style={{ padding: "48px 20px", gap: 12 }}>
+            <Tag size={36} color="var(--ink-300)" />
+            <div className="semi small" style={{ color: "var(--ink-500)" }}>No listings yet</div>
+            <p className="tiny muted center" style={{ maxWidth: 240, lineHeight: 1.5 }}>
+              Add your products, services, or menu items. Customers see these on your public page.
+            </p>
+            <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>Add first listing</button>
+          </div>
+        )}
         {b.catalog.map((item) => (
           <div key={item.id} className="card row gap-12" style={{ padding: 12 }}>
-            <img src={item.image} className="thumb" style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover" }} />
+            {item.image
+              ? <img src={item.image} className="thumb" style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
+              : <div style={{ width: 64, height: 64, borderRadius: 12, background: "var(--ink-100)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Tag size={24} color="var(--ink-400)" /></div>
+            }
             <div className="grow" style={{ minWidth: 0 }}>
               <div className="row gap-6">
                 {item.isVeg != null && <VegDot veg={item.isVeg} />}
                 <span className="semi small ellipsis">{item.name}</span>
                 {item.bestSeller && <Star size={13} fill="#f59e0b" strokeWidth={0} />}
               </div>
-              <div className="row gap-6" style={{ marginTop: 2 }}>
+              {item.description && <div className="tiny muted ellipsis" style={{ marginTop: 1 }}>{item.description}</div>}
+              <div className="row gap-6" style={{ marginTop: 4 }}>
                 <span className="bold small">{inr(item.salePrice ?? item.price)}</span>
                 {item.salePrice && <span className="tiny muted" style={{ textDecoration: "line-through" }}>{inr(item.price)}</span>}
               </div>
@@ -57,7 +72,7 @@ export default function CatalogManager() {
                 style={{ color: item.stockStatus === "OUT_OF_STOCK" ? "#dc2626" : "#16a34a", marginTop: 4 }}
                 onClick={() => toggleStock(item)}
               >
-                {item.stockStatus === "OUT_OF_STOCK" ? "○ Out of stock — tap to restock" : "● In stock"}
+                {item.stockStatus === "OUT_OF_STOCK" ? "○ Unavailable — tap to mark available" : "● Available"}
               </button>
             </div>
             <div className="col gap-8">
@@ -66,9 +81,6 @@ export default function CatalogManager() {
             </div>
           </div>
         ))}
-        {b.catalog.length === 0 && (
-          <p className="muted small center" style={{ padding: 30 }}>No items yet. Tap + to add your first.</p>
-        )}
       </div>
 
       {(creating || editing) && (
@@ -98,7 +110,6 @@ function ItemEditor({
   const [price, setPrice] = useState(item?.price?.toString() ?? "");
   const [sale, setSale] = useState(item?.salePrice?.toString() ?? "");
   const [image, setImage] = useState(item?.image ?? "");
-  const [veg, setVeg] = useState(item?.isVeg ?? true);
   const [best, setBest] = useState(item?.bestSeller ?? false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -122,13 +133,12 @@ function ItemEditor({
   async function save() {
     setSaving(true);
     try {
-      const payload = {
+      const payload: Partial<CatalogItem> = {
         name,
         description: desc,
         price: Number(price),
         salePrice: sale ? Number(sale) : undefined,
-        image: image || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=70",
-        isVeg: veg,
+        image: image || undefined,
         bestSeller: best,
       };
       if (item) await businessService.updateCatalogItem(bizId, item.id, payload);
@@ -146,37 +156,39 @@ function ItemEditor({
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
-        <h3 className="bold" style={{ fontSize: 18, marginBottom: 14 }}>{item ? "Edit item" : "Add item"}</h3>
+        <h3 className="bold" style={{ fontSize: 18, marginBottom: 14 }}>{item ? "Edit listing" : "New listing"}</h3>
 
-        {/* Photo picker — real file input */}
-        <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--ink-300)", overflow: "hidden", marginBottom: 14, cursor: "pointer" }}>
+        {/* Photo picker */}
+        <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--ink-300)", overflow: "hidden", marginBottom: 14, cursor: "pointer", background: "var(--ink-50)" }}>
           {image
             ? <img src={image} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : <span className="col center muted gap-4" style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Camera size={26} /><span className="tiny">{uploading ? "Uploading…" : "Add photo"}</span>
+            : <span style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, color: "var(--ink-400)" }}>
+                <Camera size={26} /><span className="tiny">{uploading ? "Uploading…" : "Add photo (optional)"}</span>
               </span>
           }
           <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickImage} disabled={uploading} />
         </label>
 
         <div className="col gap-12">
-          <div className="field"><label>Name *</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Paneer Tikka" /></div>
-          <div className="field"><label>Description</label><input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Short description" /></div>
+          <div className="field">
+            <label>Name *</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Classic Haircut, Phone Case, Sofa Repair" />
+          </div>
+          <div className="field">
+            <label>Description</label>
+            <input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Brief description, size, variant…" />
+          </div>
           <div className="row gap-10">
             <div className="field grow"><label>Price ₹ *</label><input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} /></div>
-            <div className="field grow"><label>Sale price ₹</label><input className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} /></div>
-          </div>
-          <div className="row gap-10">
-            <button className={`chip grow center ${veg ? "active" : ""}`} onClick={() => setVeg(true)}>🟢 Veg</button>
-            <button className={`chip grow center ${!veg ? "active" : ""}`} onClick={() => setVeg(false)}>🔴 Non-veg</button>
+            <div className="field grow"><label>Offer price ₹</label><input className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} placeholder="Optional" /></div>
           </div>
           <button className={`chip ${best ? "active" : ""}`} onClick={() => setBest((v) => !v)} style={{ justifyContent: "center" }}>
-            ⭐ Mark as bestseller
+            ⭐ Mark as featured
           </button>
         </div>
 
         <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={!canSave || saving || uploading} onClick={save}>
-          {saving ? "Saving…" : item ? "Save changes" : "Add item"}
+          {saving ? "Saving…" : item ? "Save changes" : "Add listing"}
         </button>
       </div>
     </div>

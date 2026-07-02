@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "lucide-react";
 import { useApp } from "@/store";
-import { catalogService, requestService } from "@/services";
+import { catalogService, requestService, appointmentService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
@@ -33,9 +33,15 @@ export default function Home() {
 
   const { data: categories } = useQuery(() => catalogService.getCategories(), []);
   const { data: agreementsList } = useQuery(() => requestService.agreements(), []);
+  const { data: myAppointments } = useQuery(() => appointmentService.listForCustomer(user.id), [user.id]);
 
   const agreements = agreementsList ?? [];
   const activeAgreements = agreements.filter((a) => !["COMPLETED", "CANCELLED", "DISPUTED"].includes(a.status));
+
+  // Upcoming = still-live bookings scheduled in the future.
+  const upcomingCount = (myAppointments ?? []).filter(
+    (a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > Date.now()
+  ).length;
 
   const orderedCategories = (categories ?? []).length > 0
     ? reorderCategories(categories as any[], theme.boostCategories)
@@ -48,7 +54,7 @@ export default function Home() {
     { emoji: "🧭", label: "Explore", sub: "Shops & people", tint: "#e8f0ff", color: "#2563eb", onClick: () => nav("/explore") },
     { emoji: "🏘️", label: "Community", sub: "Street feed", tint: "#ffeef4", color: "#db2777", onClick: () => nav("/community-hub"), badge: chatUnread || undefined },
     { emoji: "🤝", label: "My deals", sub: activeAgreements.length > 0 ? `${activeAgreements.length} active` : "Agreements", tint: "#e7f7ee", color: "#16a34a", onClick: () => nav("/agreements"), badge: activeAgreements.length || undefined },
-    { emoji: "🏆", label: "Leaderboard", sub: "Top contributors", tint: "#fff4e6", color: "var(--accent-600)", onClick: () => nav("/leaderboard") },
+    { emoji: "📅", label: "Appointments", sub: upcomingCount > 0 ? `${upcomingCount} upcoming` : "Your bookings", tint: "#eef2ff", color: "var(--brand-600)", onClick: () => nav("/appointments"), badge: upcomingCount || undefined },
   ];
 
   return (
@@ -207,6 +213,18 @@ export default function Home() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* ── Leaderboard (moved below the grid, slim row) ── */}
+        <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
+          <button className="activity-banner" style={{ width: "100%" }} onClick={() => nav("/leaderboard")}>
+            <span style={{ fontSize: 22 }}>🏆</span>
+            <div className="grow" style={{ textAlign: "left" }}>
+              <div className="semi small">Leaderboard</div>
+              <div className="tiny muted">Top contributors on your street →</div>
+            </div>
+            <ChevronRight size={18} color="var(--ink-400)" />
+          </button>
         </div>
 
         {/* ── Active agreement banner ── */}

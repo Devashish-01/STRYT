@@ -1,5 +1,5 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
-import type { AppointmentRecord, AppointmentStatus } from "@/types";
+import type { AppointmentRecord, AppointmentStatus, PaymentMethod } from "@/types";
 
 const STORAGE_KEY = "stryt_appointments";
 
@@ -54,6 +54,10 @@ function rowToRecord(r: any): AppointmentRecord {
     status: r.status,
     responseNote: r.response_note ?? undefined,
     createdAtISO: r.created_at,
+    paymentMethod: r.payment_method ?? null,
+    paymentStatus: (r.payment_status ?? "UNPAID") as "UNPAID" | "PAID",
+    paymentAmount: r.payment_amount ?? null,
+    paymentReference: r.payment_reference ?? null,
   };
 }
 
@@ -66,6 +70,29 @@ async function resolveTargetOwner(targetType: "PROVIDER" | "BUSINESS", targetId:
   }
   const { data } = await sb.from("providers").select("user_id").eq("id", targetId).maybeSingle();
   return (data as any)?.user_id ?? null;
+}
+
+async function patchPaymentStatus(id: string, status: "PAID" | "REJECTED"): Promise<AppointmentRecord | undefined> {
+  try {
+    const sb = getSupabase();
+    const { data, error } = await sb.from("appointments").update({ payment_status: status }).eq("id", id).select().maybeSingle();
+    if (error) throw error;
+    if (data) {
+      const record = rowToRecord(data);
+      upsertLocal(record);
+      return record;
+    }
+  } catch {
+    // fall through to local update
+  }
+  const list = getLocalAppointments();
+  const idx = list.findIndex((a) => a.id === id);
+  if (idx !== -1) {
+    list[idx] = { ...list[idx], paymentStatus: status };
+    saveLocalAppointments(list);
+    return list[idx];
+  }
+  return undefined;
 }
 
 export const appointmentService = {
@@ -159,6 +186,64 @@ export const appointmentService = {
     }
     const list = getLocalAppointments();
     return list.filter((a) => a.targetId === targetId);
+  },
+
+  /**
+   * Customer claims they have paid.
+   * - UPI → PENDING_CONFIRM (business must verify in their bank app and confirm).
+   * - Cash → PAID immediately (physical handover; no digital verification needed).
+   */
+  async claimPayment(
+    id: string,
+    method: PaymentMethod,
+    amount?: number | null,
+    reference?: string | null,
+  ): Promise<AppointmentRecord | undefined> {
+    const newStatus = method === "CASH" ? "PAID" : "PENDING_CONFIRM";
+    const patch: Record<string, unknown> = {
+      payment_method: method,
+      payment_status: newStatus,
+    };
+    if (amount != null) patch.payment_amount = amount;
+    if (reference) patch.payment_reference = reference;
+
+    try {
+      const sb = getSupabase();
+      const { data, error } = await sb.from("appointments").update(patch).eq("id", id).select().maybeSingle();
+      if (error) throw error;
+      if (data) {
+        const record = rowToRecord(data);
+        upsertLocal(record);
+        return record;
+      }
+    } catch {
+      // fall through to local update
+    }
+
+    const list = getLocalAppointments();
+    const idx = list.findIndex((a) => a.id === id);
+    if (idx !== -1) {
+      list[idx] = {
+        ...list[idx],
+        paymentMethod: method,
+        paymentStatus: newStatus as "PAID" | "PENDING_CONFIRM",
+        paymentAmount: amount ?? list[idx].paymentAmount,
+        paymentReference: reference ?? list[idx].paymentReference,
+      };
+      saveLocalAppointments(list);
+      return list[idx];
+    }
+    return undefined;
+  },
+
+  /** Business confirms they received the payment → PAID. */
+  async confirmPayment(id: string): Promise<AppointmentRecord | undefined> {
+    return patchPaymentStatus(id, "PAID");
+  },
+
+  /** Business rejects the customer's claim → REJECTED; customer can try again. */
+  async rejectPaymentClaim(id: string): Promise<AppointmentRecord | undefined> {
+    return patchPaymentStatus(id, "REJECTED");
   },
 
   async updateStatus(id: string, status: AppointmentStatus, responseNote?: string): Promise<AppointmentRecord | undefined> {

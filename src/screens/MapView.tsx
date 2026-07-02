@@ -329,6 +329,20 @@ export default function MapView() {
   const requests   = (reqPage?.data ?? []).filter((r) => r.status === "OPEN");
   const mapStories = (nearbyStories ?? []).filter((s) => s.lat && s.lng);
 
+  const filteredBusinesses = businesses.filter((b) => {
+    if (!b.lat || !b.lng) return false;
+    if (!availOnly) return true;
+    const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
+    return evalRes.isOpenNow;
+  });
+
+  const filteredProviders = providers.filter((p) => {
+    if (!p.lat || !p.lng) return false;
+    if (!availOnly) return true;
+    const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
+    return evalRes.isOpenNow;
+  });
+
   const nearbyRequests = requests.filter((r) => {
     if (!r.lat || !r.lng) return false;
     if (isWorld) return true;
@@ -337,8 +351,8 @@ export default function MapView() {
   });
 
   const visibleCount =
-    (layers.business ? businesses.length : 0) +
-    (layers.provider ? providers.length : 0) +
+    (layers.business ? filteredBusinesses.length : 0) +
+    (layers.provider ? filteredProviders.length : 0) +
     (layers.request  ? nearbyRequests.length : 0) +
     (layers.story    ? mapStories.length : 0);
 
@@ -642,9 +656,9 @@ export default function MapView() {
         )}
 
         {/* Businesses */}
-        {layers.business && businesses.filter((b) => b.lat && b.lng).map((b) => {
-          const isBizOpen = (b as any).isOpen ?? true;
-          if (availOnly && !isBizOpen) return null;
+        {layers.business && filteredBusinesses.map((b) => {
+          const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
+          const isBizOpen = evalRes.isOpenNow;
           return (
             <Marker key={b.id} position={[b.lat, b.lng]} icon={isBizOpen ? businessIcon : businessOfflineIcon}>
               <Popup>
@@ -673,9 +687,8 @@ export default function MapView() {
         })}
 
         {/* Providers */}
-        {layers.provider && providers.filter((p) => p.lat && p.lng).map((p) => {
+        {layers.provider && filteredProviders.map((p) => {
           const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
-          if (availOnly && !evalRes.isOpenNow) return null;
           return (
             <Marker key={p.id} position={[p.lat, p.lng]} icon={evalRes.isOpenNow ? providerIcon : providerOfflineIcon}>
               <Popup>
@@ -821,7 +834,7 @@ export default function MapView() {
                   textAlign: "center"
                 }}
               >
-                Shops ({businesses.length})
+                Shops ({filteredBusinesses.length})
               </button>
               <button
                 onClick={() => setActiveTab("provider")}
@@ -838,7 +851,7 @@ export default function MapView() {
                   textAlign: "center"
                 }}
               >
-                Providers ({providers.length})
+                Providers ({filteredProviders.length})
               </button>
               <button
                 onClick={() => setActiveTab("story")}
@@ -880,13 +893,13 @@ export default function MapView() {
             <div className="grow col" style={{ overflowY: "auto", maxHeight: "50vh", paddingRight: 4 }}>
               {activeTab === "business" && (
                 <div className="col gap-8">
-                  {businesses.length === 0 ? (
+                  {filteredBusinesses.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--ink-400)" }}>
                       <div style={{ fontSize: 32, marginBottom: 8 }}>🏬</div>
                       <div className="semi small">No shops found in this radius</div>
                     </div>
                   ) : (
-                    businesses.map((b) => (
+                    filteredBusinesses.map((b) => (
                       <div
                         key={b.id}
                         className="card row gap-12"
@@ -922,13 +935,13 @@ export default function MapView() {
 
               {activeTab === "provider" && (
                 <div className="col gap-8">
-                  {providers.length === 0 ? (
+                  {filteredProviders.length === 0 ? (
                     <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--ink-400)" }}>
                       <div style={{ fontSize: 32, marginBottom: 8 }}>🛠️</div>
                       <div className="semi small">No providers found in this radius</div>
                     </div>
                   ) : (
-                    providers.map((p) => (
+                    filteredProviders.map((p) => (
                       <div
                         key={p.id}
                         className="card row gap-12"
