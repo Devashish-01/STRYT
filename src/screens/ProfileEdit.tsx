@@ -1,10 +1,19 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, MapPin, Navigation, Loader, Search, X, User, Phone, AlertTriangle } from "lucide-react";
+import { Camera, MapPin, Navigation, Loader, Search, X, User, Phone, AlertTriangle, Lock } from "lucide-react";
 import { useApp } from "@/store";
 import { userService, uploadService } from "@/services";
 import { AppBar } from "@/components/common";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
+
+const PRIVACY_FIELDS: { key: "showPostsPublicly" | "showAsksPublicly" | "showBadgesPublicly" | "showPhonePublicly" | "showCityPublicly" | "showRatingPublicly"; label: string; hint: string }[] = [
+  { key: "showPostsPublicly", label: "Community posts", hint: "Your posts on your public profile" },
+  { key: "showAsksPublicly", label: "Service requests", hint: "Your asks/requests on your public profile" },
+  { key: "showBadgesPublicly", label: "Trust badges", hint: "Earned badges & verifications" },
+  { key: "showPhonePublicly", label: "Phone number", hint: "Lets others call you from your public profile" },
+  { key: "showCityPublicly", label: "Neighborhood", hint: "Your area/city on your public profile" },
+  { key: "showRatingPublicly", label: "Rating", hint: "Your star rating on your public profile" },
+];
 
 export default function ProfileEdit() {
   const nav = useNavigate();
@@ -13,7 +22,6 @@ export default function ProfileEdit() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName]       = useState(user.name || "");
-  const [alias, setAlias]     = useState(user.alias || "");
   const [avatar, setAvatar]   = useState(user.avatar || "");
   const [phone, setPhone]     = useState(user.phone || "");
   const [areaInput, setAreaInput] = useState(user.area || "");
@@ -21,6 +29,15 @@ export default function ProfileEdit() {
   const [lng, setLng]         = useState(user.lng || 0);
   const [ecName, setEcName]   = useState(user.emergencyContactName || "");
   const [ecPhone, setEcPhone] = useState(user.emergencyContact || "");
+
+  const [privacy, setPrivacy] = useState({
+    showPostsPublicly: user.showPostsPublicly !== false,
+    showAsksPublicly: user.showAsksPublicly !== false,
+    showBadgesPublicly: user.showBadgesPublicly !== false,
+    showPhonePublicly: user.showPhonePublicly !== false,
+    showCityPublicly: user.showCityPublicly !== false,
+    showRatingPublicly: user.showRatingPublicly !== false,
+  });
 
   const [uploading, setUploading] = useState(false);
   const [locating, setLocating]   = useState(false);
@@ -110,11 +127,12 @@ export default function ProfileEdit() {
     setSaving(true);
     try {
       await userService.update({
-        name: name.trim(), alias: alias.trim() || undefined,
+        name: name.trim(),
         phone: phone.trim() || undefined, avatar: avatar || undefined,
         area: areaInput.trim() || undefined, lat: resolvedLat, lng: resolvedLng,
         emergencyContactName: ecName.trim() || undefined,
         emergencyContact: ecPhone.trim() || undefined,
+        ...privacy,
       });
       if (areaInput.trim()) setArea(areaInput.trim());
       await refreshUser();
@@ -242,18 +260,46 @@ export default function ProfileEdit() {
               />
             </div>
 
-            <div className="field">
-              <label>Public Handle / Alias</label>
-              <input
-                className="input"
-                value={alias}
-                onChange={(e) => setAlias(e.target.value)}
-                placeholder="e.g. SunnyResident"
-              />
-              <span style={{ fontSize: 11.5, color: "var(--ink-400)", marginTop: 5, display: "block", lineHeight: 1.5 }}>
-                Neighbors see this on your posts and requests. Your real name stays private until a deal is agreed.
-              </span>
-            </div>
+          </div>
+        </div>
+
+        {/* ── Privacy ── */}
+        <div>
+          <SectionHead icon={<Lock size={15} color="var(--brand-600)" />} title="Privacy" />
+          <div style={{
+            background: "#fff", border: "1.5px solid var(--ink-200)",
+            borderRadius: 16, overflow: "hidden",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+          }}>
+            <p className="tiny muted" style={{ padding: "12px 14px 0" }}>
+              Choose what neighbors see on your public profile. This doesn't affect what you see yourself.
+            </p>
+            {PRIVACY_FIELDS.map((f, i) => (
+              <div
+                key={f.key}
+                className="row between center-v"
+                style={{ padding: "12px 14px", borderTop: i > 0 ? "1px solid var(--line)" : "none", marginTop: i === 0 ? 10 : 0 }}
+              >
+                <div>
+                  <div className="semi small">{f.label}</div>
+                  <div className="tiny muted">{f.hint}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPrivacy((p) => ({ ...p, [f.key]: !p[f.key] }))}
+                  style={{
+                    width: 44, height: 26, borderRadius: 999, flexShrink: 0,
+                    background: privacy[f.key] ? "var(--brand-600)" : "var(--ink-200)",
+                    position: "relative", border: "none", cursor: "pointer",
+                  }}
+                >
+                  <span style={{
+                    position: "absolute", top: 3, left: privacy[f.key] ? 21 : 3,
+                    width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s",
+                  }} />
+                </button>
+              </div>
+            ))}
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import type { CommunityPost, Comment } from "@/types";
 import { haversineKm } from "@/lib/geocode";
+import { firstName } from "@/lib/publicName";
 
 /** Safely parse poll_options whether stored as a JSONB array or (legacy) JSON string. */
 function parsePollOpts(raw: any): { id: string; label: string }[] | null {
@@ -231,7 +232,7 @@ export const communityService = {
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
 
-    const { data: me } = await sb.from("users").select("name, alias, avatar, lat, lng").eq("id", uid).maybeSingle();
+    const { data: me } = await sb.from("users").select("name, avatar, lat, lng").eq("id", uid).maybeSingle();
     const lat = data.lat ?? (me as any)?.lat ?? null;
     const lng = data.lng ?? (me as any)?.lng ?? null;
 
@@ -240,7 +241,7 @@ export const communityService = {
     // Posting "as" a business/provider still stamps the real signed-in user for
     // ownership — only the displayed identity (name/avatar/type) changes.
     const authorType = data.authorType ?? "user";
-    const authorName = data.authorName || (me as any)?.alias || (me as any)?.name || "Neighbor";
+    const authorName = data.authorName || firstName((me as any)?.name);
     const authorAvatar = data.authorAvatar || (me as any)?.avatar || "";
 
     const { data: created, error } = await sb.from("community_posts").insert({
@@ -337,13 +338,13 @@ export const communityService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
-    const { data: me } = await sb.from("users").select("name, alias, avatar").eq("id", uid).maybeSingle();
+    const { data: me } = await sb.from("users").select("name, avatar").eq("id", uid).maybeSingle();
     const { listingType, listingId, sharedPhone, phoneVisibility } = opts;
 
     const { data: created, error } = await sb.from("post_comments").insert({
       post_id: postId,
       author_user_id: uid,
-      author_name: (me as any)?.alias || (me as any)?.name || "Neighbor",
+      author_name: firstName((me as any)?.name),
       author_avatar: (me as any)?.avatar ?? "",
       body,
       listing_type: listingType ?? null,

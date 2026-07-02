@@ -116,36 +116,42 @@
 
 ---
 
-## Group CUST — customer identity, onboarding, profile, privacy, followers
-*Shared files: `src/screens/Profile.tsx`, `src/screens/PublicProfile.tsx`, `src/screens/auth/UserOnboard.tsx`, `src/screens/ProfileEdit.tsx`, `src/services/userService.ts`, `src/store.tsx`, `src/lib/alias.ts`, `src/types.ts`.*
+## Group CUST — customer identity, onboarding, profile, privacy, followers ✅ IMPLEMENTED
+*Shipped session 2026-07-02. Migration: `supabase/migrations/20260705_privacy_and_followers.sql` (run manually).*
+*New: `src/lib/publicName.ts` (`firstName()` helper), `src/screens/Followers.tsx` + `/followers` route.*
 
-### CUST-1 — Remove the customer "user id"/alias; first name is the identity
-- **Goal:** drop the username/alias/user-id concept for customers; the user's **first name** is the public identity shown everywhere.
-- **Do:** remove alias input from `UserOnboard`/`ProfileEdit`; render first name (`user.name.split(" ")[0]`) wherever alias was shown (`PublicProfile`, `Profile`, community/author labels); retire `src/lib/alias.ts` usage. Check `CurrentUser` type + any `alias` DB column references.
-- **Files:** `UserOnboard.tsx`, `ProfileEdit.tsx`, `PublicProfile.tsx`, `Profile.tsx`, `alias.ts`, `types.ts`, grep `alias`. ⚠️ interacts with the existing alias/real-name privacy model — confirm nothing else depends on alias.
+### CUST-6 — "You" page (`Profile.tsx`) redesign for scannability ✅
+- **Goal:** ad-hoc follow-up request — the self-profile hub should feel easy to handle, with memorable buttons and low cognitive load.
+- **Was:** "Agreements" appeared 3× (stat pill, feature tile, menu row); "Saved"/"Following" appeared as stat pills *and* again as a "Saved & following" menu row; header had 5 icon buttons crammed together (Share, account-switch, chat, bell, settings); "Admin console" was shown to every user regardless of role; 5 stacked list-card sections meant a lot of scrolling to compare options.
+- **Fix:** removed every duplicate — stat pills are now the single source of truth for Saved/Following/Followers/Agreements. Header cut to 3 icons (Messages, Notifications, Settings) — Share moved next to the Edit/Public-profile buttons where it's contextually relevant, account-switching moved into the role-switcher card as a labeled link (its natural conceptual home). The old 3-tile "feature" row + "Activity & community" list merged into one 3×2 icon grid (Appointments, Requests, Community, Map, Badges, Heroes) — fixed spatial position across visits aids memorability more than a scrolling list does. "Admin console" now only renders for actual admins (role check mirrors `AdminPanel.tsx`'s own gate; its bypass-token entry screen is unaffected since it lives on `/admin` itself, not gated by this nav visibility). "Manage business & profile" only shows for users who actually own a business/provider.
+- **Files:** `Profile.tsx` (full rewrite, same route/behavior contracts — no destinations removed, only deduplicated and regrouped).
 
-### CUST-2 — First-time login → required setup form (rest optional)
-- **Goal:** after first OAuth/phone login, force a short "important details" form (required fields), everything else optional, before entering the app.
-- **Now:** `/auth/onboard` `UserOnboard` exists; routing redirects new users there.
-- **Do:** define required vs optional fields; block "continue" until required are filled; make optional clearly skippable; ensure the redirect only fires when required fields are missing (check `App.tsx`/guard + `userService.me`).
-- **Files:** `UserOnboard.tsx`, `App.tsx` (redirect condition), `userService.ts`.
+### CUST-1 — Remove the customer "user id"/alias; first name is the identity ✅
+- **Was:** customers had an editable `alias` shown in place of their real name across posts, comments, requests, proposals, story viewers, follow lists, and the public profile — required at onboarding with a live uniqueness check.
+- **Fix:** `alias` fully retired from the app layer — removed from `CurrentUser`/`PublicUser` types, `USER_COLUMNS`, `userService.me()`'s backfill, `authService.ensureProfile()`'s seed, and `checkAliasUnique()` deleted outright. Every "alias-or-name" display site (`communityService.create/addComment`, `requestService` requester/responder names, `socialService.searchNeighbors`) now calls a new `firstName()` helper (`src/lib/publicName.ts`) instead — first name is the public identity everywhere. `src/lib/alias.ts` (the random-alias generator) is left in place but fully unreferenced, matching the codebase's existing pattern for retired files (e.g. `Promote.tsx`). The DB `alias` column itself is untouched (non-destructive) — just unused.
+- **Also removed:** the alias-based admin-bypass-token branch in `AdminPanel.tsx` (phone + localStorage-token bypass still work).
+- **Files:** `types.ts`, `authService.ts`, `userService.ts`, `UserOnboard.tsx`, `ProfileEdit.tsx`, `Profile.tsx`, `PublicProfile.tsx`, `Bookmarks.tsx`, `Stories.tsx`, `StoryCompose.tsx`, `AdminPanel.tsx`, `communityService.ts`, `requestService.ts`, `socialService.ts`, new `publicName.ts`.
 
-### CUST-4 — Field-level privacy: hide chosen details from others 🆕
-- **Goal:** user picks which profile details others cannot see.
-- **Now:** `profileControlService` only toggles the **whole** profile on/off + deletion — no per-field control. This is new.
-- **Do:** add a `privacy` flags shape (e.g. hide phone/city/ratings/etc.) — a JSON column on `users` (🆕 migration) + `userService.update`; a picker UI in `ProfileEdit`/Settings; `PublicProfile` respects the flags.
-- **Files:** migration, `userService.ts`, `types.ts`, `ProfileEdit.tsx`, `PublicProfile.tsx`.
+### CUST-2 — First-time login → required setup form (rest optional) ✅
+- **Was:** `UserOnboard` required both Name *and* Alias to continue (with a uniqueness debounce on alias); the router guard (`App.tsx`) only checked `name`, so the two gates could disagree.
+- **Fix:** with alias gone, the required field collapsed to **Name only** — matches the router guard exactly (no more latent inconsistency). Area/neighborhood is explicitly labeled "(optional)" and stays skippable; "Skip for now" unchanged.
+- **Files:** `UserOnboard.tsx` (alias removal covers this); `App.tsx` guard verified unchanged/correct, no edit needed.
 
-### CUST-5 — Followers on the "You" page
-- **Goal:** on `Profile`, the user can see who follows them (count + list).
-- **Now:** `store.follows`/`toggleFollow` cover **who I follow**; no reverse (followers) query. DB `follows` has `follower_user_id` + `target_id`.
-- **Do:** add `socialService.followers(userId)` (query `follows` where `target_id = me && target_type = USER`, join user names); show count on `Profile` + a followers list (new small screen or sheet).
-- **Files:** `socialService.ts` (or `userService`), `Profile.tsx`, maybe new `Followers` screen + route.
+### CUST-4 — Field-level privacy: hide chosen details from others ✅
+- **Was:** `showPostsPublicly`/`showAsksPublicly`/`showBadgesPublicly` existed on the types and were read in `PublicProfile`, but `USER_COLUMNS` didn't include them — any toggle UI would have silently failed to save. No toggle UI existed anywhere. Only 3 fields, no phone/city/rating control.
+- **Fix:** extended to 6 flags (`showPostsPublicly`, `showAsksPublicly`, `showBadgesPublicly`, `showPhonePublicly`, `showCityPublicly`, `showRatingPublicly`), all added to `USER_COLUMNS` so writes actually persist. New "Privacy" section in `ProfileEdit.tsx` with 6 toggle switches (saved together with the rest of the profile form). `PublicProfile.tsx` now gates city/rating/phone display client-side (`isSelf || flag !== false`) — same pattern as the existing posts/asks/badges gates, so the profile owner always sees their own full profile regardless of their privacy settings. Phone is now actually displayed on the public profile (tappable `tel:` link) for the first time, gated by the new flag — previously not shown at all, so the toggle would've had nothing to control.
+- **Security fix bundled in:** `users` table's `update` RLS policy had no ownership check (`auth.role() = 'authenticated'` only — any signed-in user could write *any* user's row). Tightened to `id = auth.uid()::text`. Read stays public (unchanged).
+- **Files:** migration `20260705_privacy_and_followers.sql`, `types.ts`, `userService.ts`, `ProfileEdit.tsx`, `PublicProfile.tsx`.
 
-### CUST-3 / UI-pub — Enhance customer public profile UI/UX
-- **Goal:** polish `PublicProfile` visual/UX.
-- **Do:** after CUST-1/4/5 land (they change what's shown), restyle in one pass.
-- **Files:** `PublicProfile.tsx` (+ `common.tsx` if shared primitives needed).
+### CUST-5 — Followers on the "You" page ✅
+- **Was:** `follows` RLS only allowed reading rows where `follower_user_id = auth.uid()` — a "who follows me" query returned zero rows for everyone, full stop. No followers UI existed.
+- **Fix:** new additive RLS policy on `follows` allowing public read of `target_type = 'USER'` rows (matches the `users` table's existing public-read posture; the pre-existing "who do I follow" policy for BUSINESS/PROVIDER targets is untouched). New `socialService.followers(userId)` method. `Profile.tsx` gained a 4th stat pill ("Followers") linking to a new `/followers` screen (self-only list, avatar + first name, mirrors `Bookmarks.tsx`'s following-list style). `PublicProfile.tsx`'s stats row also gained a Followers count for parity.
+- **Files:** migration (same file as CUST-4), `socialService.ts`, new `Followers.tsx` + `App.tsx` route, `Profile.tsx`, `PublicProfile.tsx`.
+
+### CUST-3 — Enhance customer public profile UI/UX ✅
+- **Was:** double name/alias display in the hero (both `publicProfile()`'s alias-substituted `name` *and* a separate `@{alias}` line rendered the same text twice); title bar also showed alias.
+- **Fix:** resolved naturally by CUST-1 (single first-name header, no duplication); title bar now shows first name too. Stats row extended with Followers (CUST-5) and gated Rating (CUST-4). Phone line added to the hero, gated by privacy flag.
+- **Files:** `PublicProfile.tsx` (folded into the CUST-1/4/5 edits above — no separate restyle pass needed since those tasks already touched every visible element this polish would have).
 
 ---
 
@@ -192,11 +198,12 @@
 | APT-5 | Extras: walk-ins, recurring blocks, revenue strip, no-shows, day-summary share | 🆕 (same migration) | ✅ (slot capacity + image export not done — see notes) |
 | APT-6 | Mirror console to ProviderLeads | no | ✅ |
 | BP-1 | Universal seller post-to-community | 🆕 run 20260704_community_seller_posts.sql | ✅ |
-| CUST-1 | Remove user-id/alias; first name is identity | no | todo |
-| CUST-2 | First-login required setup form | no | todo |
-| CUST-4 | Field-level profile privacy | 🆕 | todo |
-| CUST-5 | Followers on You page | no | todo |
-| CUST-3 | Enhance customer public profile UI | no | todo |
+| CUST-1 | Remove user-id/alias; first name is identity | no | ✅ |
+| CUST-2 | First-login required setup form | no | ✅ |
+| CUST-4 | Field-level profile privacy | 🆕 run 20260705_privacy_and_followers.sql | ✅ |
+| CUST-5 | Followers on You page | 🆕 (same migration) | ✅ |
+| CUST-3 | Enhance customer public profile UI | no | ✅ |
+| CUST-6 | "You" page redesign for scannability | no | ✅ |
 | Q-1 | My Queues dashboard + history | maybe 🆕 | todo |
 | UI-1 | Enhance seller public profiles UI | no | todo |
 | GEN-1 | Fix notification reason/flow | maybe 🆕 | todo |

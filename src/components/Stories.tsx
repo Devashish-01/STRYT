@@ -328,7 +328,7 @@ export function StoryViewer({
       try {
         const sb = getSupabase();
         const { data, error } = await sb.from("users")
-          .select("id, name, avatar, alias")
+          .select("id, name, avatar")
           .in("id", ids);
         if (!error && data) {
           setPrivacyUsers(data);
@@ -703,9 +703,6 @@ export function StoryViewer({
                           <span className="semi" style={{ color: "#fff", fontSize: 14 }}>
                             {v.name}
                           </span>
-                          <span className="tiny" style={{ color: "rgba(255,255,255,0.5)", fontSize: 12 }}>
-                            @{v.alias || "neighbor"}
-                          </span>
                         </div>
                       </div>
                       <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
@@ -780,9 +777,6 @@ export function StoryViewer({
                             <div className="col" style={{ gap: 0 }}>
                               <span className="semi" style={{ color: "#fff", fontSize: 13 }}>
                                 {u.name}
-                              </span>
-                              <span className="tiny" style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>
-                                @{u.alias || "neighbor"}
                               </span>
                             </div>
                           </div>

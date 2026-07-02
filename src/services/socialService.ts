@@ -2,6 +2,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { toCamel } from "@/lib/caseMap";
 import { haversineKm } from "@/lib/geocode";
 import { evaluateProviderAvailability } from "@/utils/availability";
+import { firstName } from "@/lib/publicName";
 import type {
   Story,
   AvailableNow,
@@ -199,7 +200,7 @@ export const socialService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("story_views")
-      .select("created_at, viewer:users!viewer_user_id(id, name, avatar, alias)")
+      .select("created_at, viewer:users!viewer_user_id(id, name, avatar)")
       .eq("story_id", storyId)
       .order("created_at", { ascending: false });
 
@@ -208,7 +209,6 @@ export const socialService = {
       userId: v.viewer?.id,
       name: v.viewer?.name,
       avatar: v.viewer?.avatar,
-      alias: v.viewer?.alias,
       viewedAt: v.created_at,
     }));
   },
@@ -217,8 +217,8 @@ export const socialService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("users")
-      .select("id, name, alias, avatar")
-      .or(`name.ilike.%${queryStr}%,alias.ilike.%${queryStr}%`)
+      .select("id, name, avatar")
+      .ilike("name", `%${queryStr}%`)
       .limit(10);
     if (error) throw error;
     return data || [];
@@ -278,6 +278,23 @@ export const socialService = {
   // Live queue has no backend table yet (V2).
   async queue(_businessId: string): Promise<QueueInfo | undefined> {
     return undefined;
+  },
+
+  // ── Followers of a user (reverse of "who I follow") ─────────────
+  async followers(userId: string): Promise<{ id: string; name: string; avatar: string }[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("follows")
+      .select("follower_user_id, users!follower_user_id(name, avatar)")
+      .in("target_type", ["USER", "user"])
+      .eq("target_id", userId)
+      .limit(100);
+    if (error) throw error;
+    return (data ?? []).map((r: any) => ({
+      id: r.follower_user_id,
+      name: firstName(r.users?.name),
+      avatar: r.users?.avatar ?? "",
+    }));
   },
 
   // ── Phase 38: Vouches ─────────────────────────────────────────

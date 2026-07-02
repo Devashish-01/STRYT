@@ -447,8 +447,8 @@ export interface SavedList {
 
 export interface PublicUser {
   id: string;
-  name: string; // public-safe: the alias (real name stays private)
-  alias?: string;
+  name: string; // public identity: the user's real first name is shown as `name` at render time
+  phone?: string;
   avatar: string;
   area: string;
   memberSince: string;
@@ -467,6 +467,9 @@ export interface PublicUser {
   showPostsPublicly?: boolean;
   showAsksPublicly?: boolean;
   showBadgesPublicly?: boolean;
+  showPhonePublicly?: boolean;
+  showCityPublicly?: boolean;
+  showRatingPublicly?: boolean;
 }
 
 export interface LeaderEntry {
@@ -530,7 +533,6 @@ export type JobLiveStatus =
 export interface CurrentUser {
   id: string;
   name: string;
-  alias?: string;
   phone: string;
   avatar: string;
   roles: Role[];
@@ -547,6 +549,9 @@ export interface CurrentUser {
   showPostsPublicly?: boolean;
   showAsksPublicly?: boolean;
   showBadgesPublicly?: boolean;
+  showPhonePublicly?: boolean;
+  showCityPublicly?: boolean;
+  showRatingPublicly?: boolean;
   customerEnabled?: boolean;
   customerDeletedAt?: string | null;
   deletionScheduledAt?: string | null;

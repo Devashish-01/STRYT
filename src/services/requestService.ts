@@ -4,6 +4,7 @@ import { cursorToRange, throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { RequestPost, Proposal, Agreement, ProposalCounter } from "@/types";
 import { leaderboardService } from "./leaderboardService";
+import { firstName } from "@/lib/publicName";
 
 // Columns that exist on the requests table.
 const REQUEST_COLUMNS = new Set([
@@ -27,7 +28,7 @@ function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<str
 
 // Join requester user info, proposal responder ratings, and counter-offer history.
 const REQUEST_SELECT =
-  "*, requester:users!requester_user_id(name, alias, avatar, rating_avg), proposals:proposals(*, responder:users!responder_user_id(rating_avg), counters:proposal_counters(id, by_user_id, amount, message, created_at))";
+  "*, requester:users!requester_user_id(name, avatar, rating_avg), proposals:proposals(*, responder:users!responder_user_id(rating_avg), counters:proposal_counters(id, by_user_id, amount, message, created_at))";
 
 // ── Row mappers ───────────────────────────────────────────────────────────────
 
@@ -76,8 +77,8 @@ function rowToRequest(row: any, userLat = 0, userLng = 0): RequestPost {
   const base = toCamel<RequestPost>(rest);
   return {
     ...base,
-    // #6 privacy: show the alias publicly; "Someone nearby" if posted anonymously.
-    requesterName:   row.is_anonymous ? "Someone nearby" : (requester.alias || requester.name || "Neighbor"),
+    // #6 privacy: show the requester's first name publicly; "Someone nearby" if posted anonymously.
+    requesterName:   row.is_anonymous ? "Someone nearby" : firstName(requester.name),
     requesterAvatar: requester.avatar ?? "",
     requesterRating: Number(requester.rating_avg ?? 0),
     postedAt:        timeAgo(row.created_at),
@@ -210,13 +211,13 @@ export const requestService = {
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to send a proposal" }, 401);
     // Fetch responder's profile to denormalize name/avatar into the proposal row.
-    const { data: me } = await sb.from("users").select("name, alias, avatar").eq("id", uid).maybeSingle();
+    const { data: me } = await sb.from("users").select("name, avatar").eq("id", uid).maybeSingle();
     const cols = pickColumns(data as Record<string, unknown>, PROPOSAL_COLUMNS);
-    // #6 privacy: a normal user responds under their alias; providers/businesses
-    // operate under their real name. The real name is revealed on acceptance (#7).
+    // A normal user responds under their first name (public identity);
+    // providers/businesses operate under their real/business name.
     const responderType = (data.responderType as string) ?? "user";
     const responderName = responderType === "user"
-      ? ((me as any)?.alias || (me as any)?.name || "Responder")
+      ? firstName((me as any)?.name)
       : ((me as any)?.name ?? "Responder");
     const row = {
       ...toSnake(cols),

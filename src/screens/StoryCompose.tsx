@@ -441,7 +441,6 @@ export default function StoryCompose() {
                             <span className="semi" style={{ fontSize: 13.5, color: "var(--ink-900)" }}>
                               {u.name}
                             </span>
-                            <span className="tiny muted">@{u.alias || "neighbor"}</span>
                           </div>
                         </div>
 
@@ -473,7 +472,6 @@ export default function StoryCompose() {
                             <SafeImg src={u.avatar} variant="avatar" style={{ width: 36, height: 36, borderRadius: "50%" }} />
                             <div className="col" style={{ gap: 0 }}>
                               <span className="semi text-dark" style={{ fontSize: 13.5 }}>{u.name}</span>
-                              <span className="tiny muted">@{u.alias}</span>
                             </div>
                           </div>
                           <button
@@ -502,7 +500,6 @@ export default function StoryCompose() {
                             <SafeImg src={u.avatar} variant="avatar" style={{ width: 36, height: 36, borderRadius: "50%" }} />
                             <div className="col" style={{ gap: 0 }}>
                               <span className="semi text-dark" style={{ fontSize: 13.5 }}>{u.name}</span>
-                              <span className="tiny muted">@{u.alias}</span>
                             </div>
                           </div>
                           <button

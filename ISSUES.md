@@ -91,6 +91,14 @@
 
 ## Fixed
 
+### ISS-F05 — `users` table writable by any authenticated user (no ownership check); `follows` RLS blocked followers queries entirely ✅
+- **Status:** ✅ Fixed — session 2026-07-02
+- **Was:** `users` table's UPDATE RLS policy was `using (auth.role() = 'authenticated')` — no `id = auth.uid()` check at all, meaning any signed-in user could directly write *any other user's* row (name, phone, emergency contact, the new privacy flags — everything) via a raw Supabase client call, bypassing the app's own UI entirely. Separately, `follows` table's SELECT policy only allowed `follower_user_id = auth.uid()` — a "who follows me" query returned zero rows for every caller, permanently, since no policy ever permitted reading rows where you're the *target* rather than the follower. This wasn't a bug that could be worked around client-side — it made a followers feature structurally impossible without a schema change.
+- **Also discovered:** `alias`, `show_posts_publicly`, `show_asks_publicly`, `show_badges_publicly` columns exist live on `users` but were never captured in any tracked migration file (added out-of-band via Supabase Studio/SQL editor at some point) — the repo's migration history didn't match the real schema.
+- **Fix:** tightened `update_users` policy to `id = auth.uid()::text` (read stays public, unchanged). Added an additive `read_followers_of_user` policy on `follows` permitting public read of `target_type = 'USER'` rows (mirrors `users`' existing public-read stance; doesn't touch the existing BUSINESS/PROVIDER follow policies). Added `IF NOT EXISTS` catch-up guards for the 3 untracked `show_*_publicly` columns so the migration history is trustworthy again going forward.
+- **Files:** `supabase/migrations/20260705_privacy_and_followers.sql`
+- **Migration needed:** `supabase/migrations/20260705_privacy_and_followers.sql` (run manually in SQL editor)
+
 ### ISS-F04 — Appointment console was a flat list; no cancel attribution, no realtime, no owner scheduling control ✅
 - **Status:** ✅ Fixed — session 2026-07-02 (closes ISS-004)
 - **Was:** `CANCELLED` status was anonymous (customer, owner, and system auto-cancel all looked identical). Owner consoles used one-shot `useQuery` — new bookings didn't appear without a manual refresh. Owners had no way to block off time they couldn't take bookings, no day-by-day view, no history/cancelled separation, and no way to log a walk-in/phone booking.

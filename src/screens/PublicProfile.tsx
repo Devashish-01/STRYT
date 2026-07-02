@@ -14,11 +14,12 @@ import {
   UserCheck,
   Lock,
 } from "lucide-react";
-import { userService, chatService } from "@/services";
+import { userService, chatService, socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import ShareCard from "@/components/ShareCard";
 import { useApp } from "@/store";
+import { firstName } from "@/lib/publicName";
 
 const verifyLabels: Record<string, string> = {
   phone: "Phone",
@@ -40,6 +41,8 @@ export default function PublicProfile() {
   const nav = useNavigate();
   const { showToast, user, isFollowing, toggleFollow } = useApp();
   const { data: u, loading, error, refetch } = useQuery(() => userService.publicProfile(id), [id]);
+  const { data: followersData } = useQuery(() => id ? socialService.followers(id) : Promise.resolve([]), [id]);
+  const followersCount = followersData?.length ?? 0;
   const [share, setShare] = useState(false);
   const [chatting, setChatting] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("posts");
@@ -129,7 +132,7 @@ export default function PublicProfile() {
   return (
     <div className="screen" style={{ background: "var(--bg)" }}>
       <AppBar
-        title={u.alias ? `@${u.alias}` : "Member Profile"}
+        title={firstName(u.name)}
         right={
           <button className="icon-btn" onClick={() => setShare(true)} aria-label="Share QR Code">
             <Share2 size={18} />
@@ -178,19 +181,23 @@ export default function PublicProfile() {
           </div>
 
           <h1 style={{ fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "-0.4px", margin: 0 }}>
-            {u.name}
+            {firstName(u.name)}
           </h1>
-          {u.alias && (
-            <div style={{ fontSize: 13.5, fontWeight: 700, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>
-              @{u.alias}
-            </div>
-          )}
 
           <div className="row center gap-6" style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)" }}>
-            <span>📍 {u.area || "Neighborhood Member"}</span>
-            <span>•</span>
+            {(isSelf || u.showCityPublicly !== false) && (
+              <>
+                <span>📍 {u.area || "Neighborhood Member"}</span>
+                <span>•</span>
+              </>
+            )}
             <span>Member since {u.memberSince}</span>
           </div>
+          {u.phone && (isSelf || u.showPhonePublicly !== false) && (
+            <a href={`tel:${u.phone}`} style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: "#fff", opacity: 0.9 }}>
+              📞 {u.phone}
+            </a>
+          )}
 
           {/* Verification & Rating Badges */}
           <div className="row center gap-8" style={{ marginTop: 10 }}>
@@ -239,7 +246,7 @@ export default function PublicProfile() {
               <button
                 type="button"
                 className="btn grow row center gap-6"
-                onClick={() => toggleFollow("USER", id, u.name)}
+                onClick={() => toggleFollow("USER", id, firstName(u.name))}
                 style={{
                   padding: "10px 16px",
                   borderRadius: 16,
@@ -334,11 +341,25 @@ export default function PublicProfile() {
               <span className="bold" style={{ fontSize: 18, color: "#ef4444" }}>{u.vouchCount}</span>
               <span className="tiny semi muted" style={{ marginTop: 2 }}>Vouches</span>
             </div>
+            {(isSelf || u.showRatingPublicly !== false) && (
+              <>
+                <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
+                <div className="col center grow">
+                  <span className="bold" style={{ fontSize: 18, color: "#3b82f6" }}>{u.ratingAvg}★</span>
+                  <span className="tiny semi muted" style={{ marginTop: 2 }}>Rating</span>
+                </div>
+              </>
+            )}
             <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
-            <div className="col center grow">
-              <span className="bold" style={{ fontSize: 18, color: "#3b82f6" }}>{u.ratingAvg}★</span>
-              <span className="tiny semi muted" style={{ marginTop: 2 }}>Rating</span>
-            </div>
+            <button
+              type="button"
+              className="col center grow"
+              style={{ background: "none", border: "none", cursor: isSelf ? "pointer" : "default" }}
+              onClick={() => { if (isSelf) nav("/followers"); }}
+            >
+              <span className="bold" style={{ fontSize: 18, color: "#16a34a" }}>{followersCount}</span>
+              <span className="tiny semi muted" style={{ marginTop: 2 }}>Followers</span>
+            </button>
           </div>
         </div>
 
@@ -526,8 +547,8 @@ export default function PublicProfile() {
       {/* Share QR Modal */}
       {share && (
         <ShareCard
-          title={u.name}
-          subtitle={u.alias ? `@${u.alias}` : "STRYT Member"}
+          title={firstName(u.name)}
+          subtitle="STRYT Member"
           image={u.avatar}
           meta={`📍 ${u.area || "Neighborhood"} • ⭐ ${u.ratingAvg}`}
           url={window.location.origin + "/u/" + u.id}

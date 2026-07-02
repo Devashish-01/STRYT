@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Camera,
@@ -37,12 +37,6 @@ export default function UserOnboard() {
   const [name, setName] = useState(
     user.name && user.name !== "New user" ? user.name : ""
   );
-  const defaultAlias =
-    user.alias ||
-    (user.name && user.name !== "New user"
-      ? user.name.toLowerCase().replace(/[^a-z0-9_]/g, "")
-      : "");
-  const [alias, setAlias] = useState(defaultAlias);
 
   // Location setup
   const [areaInput, setAreaInput] = useState(user.area || "");
@@ -60,34 +54,9 @@ export default function UserOnboard() {
   const [emergencyName, setEmergencyName] = useState(user.emergencyContactName || "");
   const [emergencyPhone, setEmergencyPhone] = useState(user.emergencyContact || "");
 
-  const [aliasAvailable, setAliasAvailable] = useState<boolean | null>(null);
-  const [checkingAlias, setCheckingAlias] = useState(false);
-
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    const trimmedAlias = alias.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
-    if (trimmedAlias.length < 3) {
-      setAliasAvailable(null);
-      return;
-    }
-
-    setCheckingAlias(true);
-    const timer = setTimeout(async () => {
-      try {
-        const unique = await userService.checkAliasUnique(trimmedAlias);
-        setAliasAvailable(unique);
-      } catch {
-        setAliasAvailable(null);
-      } finally {
-        setCheckingAlias(false);
-      }
-    }, 450);
-
-    return () => clearTimeout(timer);
-  }, [alias]);
 
   async function handleSkip() {
     localStorage.setItem("onboarding_skipped", "true");
@@ -191,15 +160,9 @@ export default function UserOnboard() {
 
   async function handleSave() {
     const trimmedName = name.trim();
-    const trimmedAlias = alias.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
 
     if (!trimmedName || trimmedName === "New user") {
       showToast("Please enter your name");
-      return;
-    }
-
-    if (!trimmedAlias) {
-      showToast("Please enter a username / handle");
       return;
     }
 
@@ -221,7 +184,6 @@ export default function UserOnboard() {
     try {
       await userService.update({
         name: trimmedName,
-        alias: trimmedAlias,
         area: areaInput.trim() || undefined,
         lat: resolvedLat || undefined,
         lng: resolvedLng || undefined,
@@ -372,12 +334,9 @@ export default function UserOnboard() {
             )}
           </div>
 
-          {/* Live Name & Handle */}
+          {/* Live Name */}
           <div style={{ fontWeight: 800, fontSize: 18, color: "var(--ink-900)", wordBreak: "break-word", maxWidth: "100%" }}>
             {name || "Your Name"}
-          </div>
-          <div style={{ fontWeight: 600, fontSize: 13, color: "var(--brand-600)", marginTop: 2, wordBreak: "break-word", maxWidth: "100%" }}>
-            {alias ? `@${alias}` : "@handle"}
           </div>
 
           {/* Location / Area Info */}
@@ -431,71 +390,11 @@ export default function UserOnboard() {
             />
           </div>
 
-          {/* Username / Alias handle field */}
-          <div className="field" style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-              <label style={{ fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-                Unique Handle / Username *
-              </label>
-              {checkingAlias && (
-                <span className="tiny" style={{ color: "var(--brand-600)", fontWeight: 600 }}>Checking...</span>
-              )}
-              {!checkingAlias && aliasAvailable === true && (
-                <span className="tiny" style={{ color: "#16a34a", fontWeight: 700 }}>✓ Available</span>
-              )}
-              {!checkingAlias && aliasAvailable === false && (
-                <span className="tiny" style={{ color: "#ef4444", fontWeight: 700 }}>✗ Already taken</span>
-              )}
-            </div>
-            <div
-              className="row"
-              style={{
-                background: "var(--ink-50)",
-                border: "1.5px solid var(--ink-200)",
-                borderRadius: 14,
-                overflow: "hidden",
-                alignItems: "center",
-              }}
-            >
-              <span
-                style={{
-                  padding: "12px 14px",
-                  borderRight: "1px solid var(--ink-200)",
-                  background: "var(--ink-100)",
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: "var(--brand-700)",
-                }}
-              >
-                @
-              </span>
-              <input
-                type="text"
-                className="input"
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  flex: 1,
-                  padding: "12px 14px",
-                  fontSize: 16,
-                  color: "var(--ink-900)",
-                  outline: "none",
-                }}
-                placeholder="rahul_sharma"
-                value={alias}
-                onChange={(e) => setAlias(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
-                disabled={saving}
-                maxLength={24}
-                required
-              />
-            </div>
-          </div>
-
-          {/* Location Area Field */}
+          {/* Location Area Field (optional but recommended) */}
           <div className="field">
             <div className="row space-between" style={{ marginBottom: 6, alignItems: "center" }}>
               <label style={{ fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-                Neighborhood / Area Location
+                Neighborhood / Area Location <span style={{ color: "var(--ink-400)", fontWeight: 600 }}>(optional)</span>
               </label>
               <button
                 type="button"
@@ -810,7 +709,7 @@ export default function UserOnboard() {
         <button
           className="btn btn-primary btn-block row center gap-8"
           onClick={handleSave}
-          disabled={saving || !name.trim() || !alias.trim() || aliasAvailable === false || checkingAlias}
+          disabled={saving || !name.trim()}
           style={{ padding: "16px", fontSize: 16, fontWeight: 700, borderRadius: 16, width: "100%", zIndex: 10 }}
         >
           {saving ? (

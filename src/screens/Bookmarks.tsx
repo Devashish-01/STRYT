@@ -129,7 +129,6 @@ export default function Bookmarks() {
                         />
                         <div>
                           <div className="bold small">{u.name}</div>
-                          {u.alias && <div className="tiny muted">@{u.alias}</div>}
                           <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
                             <Star size={11} fill="#fbbf24" stroke="none" /> {u.ratingAvg} • 📍 {u.area || "Member"}
                           </div>

@@ -25,6 +25,7 @@ const CategoryListing = lazy(() => import("./screens/CategoryListing"));
 const AllCategories = lazy(() => import("./screens/AllCategories"));
 const Notifications = lazy(() => import("./screens/Notifications"));
 const Bookmarks = lazy(() => import("./screens/Bookmarks"));
+const Followers = lazy(() => import("./screens/Followers"));
 const Settings = lazy(() => import("./screens/Settings"));
 const Support = lazy(() => import("./screens/Support"));
 
@@ -240,6 +241,7 @@ export default function App() {
             <Route path="/category/:id" element={<CategoryListing />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/bookmarks" element={<Bookmarks />} />
+            <Route path="/followers" element={<Followers />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/support" element={<Support />} />
 

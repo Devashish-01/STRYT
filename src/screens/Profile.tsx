@@ -4,27 +4,26 @@ import {
   Bell, Settings, Store, Briefcase, FileText, Star,
   ChevronRight, Shield, HelpCircle, LogOut, Globe, Share2,
   ListChecks, Trophy, Award, Users, UserCircle, Heart,
-  ArrowLeftRight, MessageCircle, Handshake, Map, MessageSquare,
+  ArrowLeftRight, Map, MessageSquare,
   Bug, Calendar
 } from "lucide-react";
 import { useApp } from "@/store";
-import { StarRow, SafeImg } from "@/components/common";
+import { SafeImg } from "@/components/common";
 import AccountSwitcher from "@/components/AccountSwitcher";
-import { requestService } from "@/services";
+import { requestService, socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import type { Role, AgreementStatus } from "@/types";
 import ShareCard, { type ShareOption } from "@/components/ShareCard";
-
-const HandshakeIcon = Handshake as any;
 
 const TERMINAL: AgreementStatus[] = ["COMPLETED", "CANCELLED", "DISPUTED"];
 
 export default function Profile() {
   const nav = useNavigate();
-  const { user, roles, activeRole, setActiveRole, addRole, bookmarks, follows, signOut, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
+  const { user, roles, activeRole, setActiveRole, bookmarks, follows, signOut, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
   const [switcher, setSwitcher] = useState(false);
   const [share, setShare] = useState(false);
   const manageBizId = ownedBusinessIds[0];
+  const hasSellerProfile = ownedBusinessIds.length > 0 || !!ownedProviderId;
 
   const getFirstName = (name: string) => name.split(" ")[0] || "My";
 
@@ -65,14 +64,35 @@ export default function Profile() {
   }
 
   const { data: agreementsData } = useQuery(() => requestService.agreements(), []);
+  const { data: followersData } = useQuery(() => user.id ? socialService.followers(user.id) : Promise.resolve([]), [user.id]);
+  const followersCount = followersData?.length ?? 0;
   const activeAgreements = (agreementsData ?? []).filter((a) => !TERMINAL.includes(a.status));
   const totalAgreements  = agreementsData?.length ?? 0;
+
+  // Admin console stays reachable (own bypass-token entry screen lives at /admin
+  // itself) but only earns a spot in the nav for people who are actually admins.
+  const envBypassToken = (import.meta as any).env.VITE_ADMIN_BYPASS_TOKEN;
+  const isAdmin =
+    (user.roles as string[]).includes("admin") ||
+    (user.roles as string[]).includes("super_admin") ||
+    (!!envBypassToken && (user.phone === envBypassToken || localStorage.getItem("admin_bypass_token") === envBypassToken));
 
   const roleMeta: Record<Role, { label: string; icon: any; color: string; bg: string }> = {
     customer:       { label: "Customer",  icon: Heart,    color: "#7c3aed", bg: "#faf5ff" },
     business_owner: { label: "Business",  icon: Store,    color: "#f26a00", bg: "#fff7ed" },
     provider:       { label: "Provider",  icon: Briefcase, color: "#16a34a", bg: "#f0fdf4" },
   };
+
+  // The 6 most-used destinations, as one scannable grid instead of a tall list —
+  // spatial position becomes memorable ("appointments is always top-middle").
+  const quickActions: { icon: React.ReactNode; label: string; badge?: number; onClick: () => void }[] = [
+    { icon: <Calendar size={22} color="#8b5cf6" />, label: "Appointments", onClick: () => nav("/appointments") },
+    { icon: <FileText size={22} color="var(--brand-700)" />, label: "Requests", onClick: () => nav("/requests") },
+    { icon: <Users size={22} color="#3b82f6" />, label: "Community", onClick: () => nav("/community-hub") },
+    { icon: <Map size={22} color="#0ea5e9" />, label: "Map", onClick: () => nav("/map") },
+    { icon: <Award size={22} color="#f59e0b" />, label: "Badges", onClick: () => nav("/achievements") },
+    { icon: <Trophy size={22} color="var(--brand-700)" />, label: "Heroes", onClick: () => nav("/leaderboard") },
+  ];
 
   return (
     <div className="screen with-nav">
@@ -83,13 +103,7 @@ export default function Profile() {
           <div className="row between">
             <span className="bold" style={{ fontSize: 20 }}>You</span>
             <div className="row gap-8">
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => setShare(true)} aria-label="Share QR Code">
-                <Share2 size={18} />
-              </button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => setSwitcher(true)}>
-                <ArrowLeftRight size={18} />
-              </button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }} onClick={() => nav("/chats")} aria-label="Chats">
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }} onClick={() => nav("/chats")} aria-label="Messages">
                 <MessageSquare size={18} />
                 {chatUnread > 0 && (
                   <span style={{
@@ -99,10 +113,10 @@ export default function Profile() {
                   }} />
                 )}
               </button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/notifications")}>
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/notifications")} aria-label="Notifications">
                 <Bell size={18} />
               </button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/settings")}>
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/settings")} aria-label="Settings">
                 <Settings size={18} />
               </button>
             </div>
@@ -116,7 +130,6 @@ export default function Profile() {
             />
             <div className="grow">
               <div className="bold" style={{ fontSize: 21 }}>{user.name || "New user"}</div>
-              {user.alias && <div className="small" style={{ opacity: 0.85, marginTop: 2, fontWeight: 600 }}>@{user.alias}</div>}
               <div className="small" style={{ opacity: 0.8, marginTop: 2 }}>{user.phone}</div>
               <div className="row gap-6" style={{ marginTop: 8 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
@@ -144,10 +157,18 @@ export default function Profile() {
             >
               <UserCircle size={16} /> Public profile
             </button>
+            <button
+              className="icon-btn"
+              style={{ background: "rgba(255,255,255,0.16)", color: "#fff", flexShrink: 0 }}
+              onClick={() => setShare(true)}
+              aria-label="Share profile"
+            >
+              <Share2 size={16} />
+            </button>
           </div>
         </div>
 
-        {/* ── Stats row ── */}
+        {/* ── Stats row (single source of truth — these numbers don't repeat elsewhere) ── */}
         <div className="page-pad" style={{ marginTop: -18 }}>
           <div className="row gap-10">
             <button className="stat-pill" onClick={() => nav("/bookmarks")}>
@@ -157,6 +178,10 @@ export default function Profile() {
             <button className="stat-pill" onClick={() => nav("/bookmarks?tab=following")}>
               <span className="bold" style={{ fontSize: 22, color: "var(--brand-700)" }}>{follows.length}</span>
               <span className="tiny muted">Following</span>
+            </button>
+            <button className="stat-pill" onClick={() => nav("/followers")}>
+              <span className="bold" style={{ fontSize: 22, color: "var(--brand-700)" }}>{followersCount}</span>
+              <span className="tiny muted">Followers</span>
             </button>
             <button className="stat-pill" onClick={() => nav("/agreements")}>
               <span className="bold" style={{ fontSize: 22, color: activeAgreements.length > 0 ? "#16a34a" : "var(--brand-700)" }}>
@@ -172,27 +197,16 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* ── Feature tiles ── */}
+        {/* ── Quick actions grid — same 6 spots every time, so position becomes memory ── */}
         <div className="page-pad" style={{ paddingTop: 4 }}>
-          <div className="row gap-10">
-            <button className="feature-card" onClick={() => nav("/agreements")}>
-              {activeAgreements.length > 0 && (
-                <span className="feature-card-badge">{activeAgreements.length}</span>
-              )}
-              <HandshakeIcon size={24} color="#16a34a" />
-              <span className="semi" style={{ fontSize: 12 }}>Agreements</span>
-              <span className="tiny muted" style={{ fontSize: 10 }}>Track jobs</span>
-            </button>
-            <button className="feature-card" onClick={() => nav("/achievements")}>
-              <Award size={24} color="#f59e0b" />
-              <span className="semi" style={{ fontSize: 12 }}>Badges</span>
-              <span className="tiny muted" style={{ fontSize: 10 }}>Achievements</span>
-            </button>
-            <button className="feature-card" onClick={() => nav("/leaderboard")}>
-              <Trophy size={24} color="var(--brand-700)" />
-              <span className="semi" style={{ fontSize: 12 }}>Heroes</span>
-              <span className="tiny muted" style={{ fontSize: 10 }}>Leaderboard</span>
-            </button>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+            {quickActions.map((a) => (
+              <button key={a.label} className="feature-card" onClick={a.onClick}>
+                {a.badge ? <span className="feature-card-badge">{a.badge}</span> : null}
+                {a.icon}
+                <span className="semi" style={{ fontSize: 12 }}>{a.label}</span>
+              </button>
+            ))}
           </div>
         </div>
 
@@ -253,28 +267,23 @@ export default function Profile() {
                 Open provider dashboard →
               </button>
             )}
+            <button
+              className="row gap-6 center-v tiny semi"
+              style={{ marginTop: 10, color: "var(--ink-500)", padding: "6px 2px" }}
+              onClick={() => setSwitcher(true)}
+            >
+              <ArrowLeftRight size={13} /> Switch or add another account
+            </button>
           </div>
         </div>
 
-        {/* ── Activity & community ── */}
-        <div className="page-pad" style={{ paddingTop: 4 }}>
-          <div className="card" style={{ overflow: "hidden" }}>
-            <MenuRow icon={<MessageCircle size={20} color="var(--brand-700)" />} label="Messages" badge={undefined} onClick={() => nav("/chats")} />
-            <MenuRow icon={<Calendar size={20} color="#8b5cf6" />} label="My appointments" onClick={() => nav("/appointments")} />
-            <MenuRow icon={<HandshakeIcon size={20} color="#16a34a" />} label="My agreements" badge={activeAgreements.length || undefined} onClick={() => nav("/agreements")} />
-            <MenuRow icon={<FileText size={20} color="var(--brand-700)" />}     label="My requests"    onClick={() => nav("/requests")} />
-            <MenuRow icon={<Users size={20} color="#3b82f6" />}        label="Community board" onClick={() => nav("/community-hub")} />
-            <MenuRow icon={<Map size={20} color="#0ea5e9" />}          label="Map view"       onClick={() => nav("/map")} last />
-          </div>
-        </div>
-
-        {/* ── Manage & admin ── */}
+        {/* ── Manage (only shown to sellers / for saved lists) ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <div className="card" style={{ overflow: "hidden" }}>
-            <MenuRow icon={<Store size={20} color="#f26a00" />}    label="Manage business & profile" onClick={() => nav("/manage")} />
-            <MenuRow icon={<ListChecks size={20} color="#0ea5e9" />} label="My saved lists"         onClick={() => nav("/lists")} />
-            <MenuRow icon={<Heart size={20} color="#ef4444" />}     label="Saved & following"       onClick={() => nav("/bookmarks")} />
-            <MenuRow icon={<Shield size={20} color="#14111c" />}    label="Admin console"           onClick={() => nav("/admin")} last />
+            {hasSellerProfile && (
+              <MenuRow icon={<Store size={20} color="#f26a00" />} label="Manage business & profile" onClick={() => nav("/manage")} />
+            )}
+            <MenuRow icon={<ListChecks size={20} color="#0ea5e9" />} label="My saved lists" onClick={() => nav("/lists")} last />
           </div>
         </div>
 
@@ -285,6 +294,9 @@ export default function Profile() {
             <MenuRow icon={<Shield size={20} color="#16a34a" />}   label="Privacy & safety"                    onClick={() => nav("/settings")} />
             <MenuRow icon={<HelpCircle size={20} color="#6366f1" />} label="Help & support"                    onClick={() => nav("/support?tab=contact")} />
             <MenuRow icon={<Bug size={20} color="#ef4444" />}      label="Report a bug"                        onClick={() => nav("/support?tab=bug")} />
+            {isAdmin && (
+              <MenuRow icon={<Shield size={20} color="#14111c" />} label="Admin console" onClick={() => nav("/admin")} />
+            )}
             <MenuRow icon={<LogOut size={20} color="#ef4444" />}   label="Log out" last onClick={() => { signOut(); nav("/"); }} />
           </div>
         </div>

@@ -20,7 +20,6 @@ export default function AdminPanel() {
   const envBypassToken = (import.meta as any).env.VITE_ADMIN_BYPASS_TOKEN;
   const isBypassAuthorized = !!envBypassToken && (
     user.phone === envBypassToken ||
-    user.alias === envBypassToken ||
     localStorage.getItem("admin_bypass_token") === envBypassToken
   );
 

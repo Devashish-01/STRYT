@@ -1,7 +1,6 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import { generateAlias } from "@/lib/alias";
 import type { PublicUser, CurrentUser } from "@/types";
 
 export interface OwnedEntities {
@@ -10,9 +9,11 @@ export interface OwnedEntities {
 }
 
 const USER_COLUMNS = new Set([
-  "name", "alias", "phone", "avatar", "roles", "area", "city", "lat", "lng",
+  "name", "phone", "avatar", "roles", "area", "city", "lat", "lng",
   "ratingAvg", "ratingCount", "language", "notificationRadiusKm",
   "emergencyContact", "emergencyContactName",
+  "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
+  "showPhonePublicly", "showCityPublicly", "showRatingPublicly",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
@@ -42,13 +43,6 @@ export const userService = {
     throwIfError(error);
     if (data) {
       let u = toCamel<CurrentUser>(data);
-      // Backfill a privacy alias for older accounts created before the alias column.
-      if (!u.alias) {
-        const alias = generateAlias();
-        const { error: updErr } = await sb.from("users").update({ alias }).eq("id", uid);
-        if (updErr) console.warn("me (alias backfill):", updErr.message);
-        u = { ...u, alias };
-      }
       // Look up pending deletion requests
       const { data: delReq } = await sb
         .from("profile_deletion_requests")
@@ -74,16 +68,15 @@ export const userService = {
               || au.email
               || au.phone
               || "New user";
-    const alias = generateAlias();
     const avatar = (au.user_metadata?.avatar_url as string | undefined)
                 || (au.user_metadata?.picture as string | undefined)
                 || null;
     const { error: upsertErr } = await sb.from("users").upsert(
-      { id: uid, name, alias, phone: au.phone ?? null, avatar, roles: ["customer"] },
+      { id: uid, name, phone: au.phone ?? null, avatar, roles: ["customer"] },
       { onConflict: "id", ignoreDuplicates: true }
     );
     if (upsertErr) console.warn("me (profile self-heal):", upsertErr.message);
-    return toCamel<CurrentUser>({ id: uid, name, alias, phone: au.phone ?? null, avatar, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5, deletion_scheduled_at: null });
+    return toCamel<CurrentUser>({ id: uid, name, phone: au.phone ?? null, avatar, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5, deletion_scheduled_at: null });
   },
 
   async update(patch: Partial<CurrentUser>) {
@@ -152,7 +145,7 @@ export const userService = {
     const sb = getSupabase();
     const { data: u, error } = await sb
       .from("users")
-      .select("id, name, alias, avatar, area, rating_avg, rating_count, created_at")
+      .select("id, name, phone, avatar, area, rating_avg, rating_count, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_city_publicly, show_rating_publicly")
       .eq("id", id)
       .maybeSingle();
     throwIfError(error);
@@ -202,12 +195,14 @@ export const userService = {
 
     return {
       id: ur.id,
-      // Public profiles show the privacy alias, never the real name.
-      name: ur.alias || ur.name,
-      alias: ur.alias ?? undefined,
+      name: ur.name,
+      phone: ur.phone ?? undefined,
       showPostsPublicly: ur.show_posts_publicly ?? true,
       showAsksPublicly: ur.show_asks_publicly ?? true,
       showBadgesPublicly: ur.show_badges_publicly ?? true,
+      showPhonePublicly: ur.show_phone_publicly ?? true,
+      showCityPublicly: ur.show_city_publicly ?? true,
+      showRatingPublicly: ur.show_rating_publicly ?? true,
       avatar: ur.avatar ?? "",
       area: ur.area ?? "",
       memberSince: ur.created_at ? new Date(ur.created_at).getFullYear().toString() : "—",
@@ -258,17 +253,5 @@ export const userService = {
       })),
       proposalsReceivedCount: propRecCount ?? 0,
     };
-  },
-  async checkAliasUnique(alias: string): Promise<boolean> {
-    const sb = getSupabase();
-    const uid = await currentUserId();
-    const { data, error } = await sb
-      .from("users")
-      .select("id")
-      .eq("alias", alias.trim().toLowerCase())
-      .neq("id", uid || "")
-      .maybeSingle();
-    throwIfError(error);
-    return !data;
   },
 };
