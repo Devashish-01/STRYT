@@ -1,20 +1,47 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "@/services";
-import { Mail, Phone as PhoneIcon, ArrowLeft, ArrowRight, Loader } from "lucide-react";
+import { Mail, Phone as PhoneIcon, ArrowLeft, ArrowRight, Loader, Lock } from "lucide-react";
 import { useApp } from "@/store";
+import { returnTo } from "@/lib/returnTo";
 
 export default function PhoneEntry() {
   const nav = useNavigate();
-  const { showToast } = useApp();
+  const { showToast, signIn } = useApp();
   const [showOther, setShowOther] = useState(false);
   const [tab, setTab] = useState<"phone" | "email">("phone");
+  const [emailMode, setEmailMode] = useState<"code" | "password">("code");
+  const [authAction, setAuthAction] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
   const emailValid = email.includes("@") && email.split("@")[1]?.includes(".");
   const phoneValid = phone.replace(/\D/g, "").length === 10;
+  const passwordValid = password.length >= 6;
+
+  async function handlePasswordAuth() {
+    if (!emailValid || !passwordValid) return;
+    setLoading(true);
+    try {
+      const res = authAction === "signin"
+        ? await authService.signInWithPassword(email, password)
+        : await authService.signUpWithPassword(email, password);
+      if (res.hasSession) {
+        signIn();
+        nav(returnTo.consume(), { replace: true });
+      } else {
+        showToast("Check your email to confirm your account, then sign in.");
+        setAuthAction("signin");
+      }
+    } catch (e) {
+      const msg = e instanceof Error && e.message ? e.message : "Couldn't sign in with password.";
+      showToast(msg);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleGoogleLogin() {
     setLoading(true);
@@ -393,14 +420,76 @@ export default function PhoneEntry() {
                     autoFocus
                   />
                 </div>
+
+                {emailMode === "password" && (
+                  <div
+                    className="row"
+                    style={{
+                      background: "#fff",
+                      border: "1.5px solid var(--ink-200)",
+                      borderRadius: 16,
+                      overflow: "hidden",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span style={{ paddingLeft: 16, display: "flex", alignItems: "center", color: "var(--ink-400)" }}>
+                      <Lock size={16} />
+                    </span>
+                    <input
+                      type="password"
+                      className="input"
+                      style={{
+                        border: "none",
+                        background: "transparent",
+                        flex: 1,
+                        padding: "14px 16px",
+                        fontSize: 16,
+                        color: "var(--ink-900)",
+                        outline: "none",
+                      }}
+                      placeholder="Password (min 6 characters)"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                )}
+
                 <button
-                  onClick={handleEmailLogin}
-                  disabled={!emailValid || loading}
+                  onClick={emailMode === "code" ? handleEmailLogin : handlePasswordAuth}
+                  disabled={emailMode === "code" ? (!emailValid || loading) : (!emailValid || !passwordValid || loading)}
                   className="btn btn-primary btn-block row center gap-8"
                   style={{ padding: 15, borderRadius: 16, fontWeight: 700, fontSize: 15 }}
                 >
-                  {loading ? <Loader className="spin" size={18} /> : <>Get Verification Code <ArrowRight size={16} /></>}
+                  {loading ? (
+                    <Loader className="spin" size={18} />
+                  ) : emailMode === "code" ? (
+                    <>Get Verification Code <ArrowRight size={16} /></>
+                  ) : authAction === "signin" ? (
+                    <>Sign In <ArrowRight size={16} /></>
+                  ) : (
+                    <>Create Account <ArrowRight size={16} /></>
+                  )}
                 </button>
+
+                <div className="row between" style={{ fontSize: 12.5 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEmailMode((m) => (m === "code" ? "password" : "code"))}
+                    style={{ background: "none", border: "none", color: "var(--brand-700)", fontWeight: 600, cursor: "pointer" }}
+                  >
+                    {emailMode === "code" ? "Use password instead" : "Use verification code instead"}
+                  </button>
+                  {emailMode === "password" && (
+                    <button
+                      type="button"
+                      onClick={() => setAuthAction((a) => (a === "signin" ? "signup" : "signin"))}
+                      style={{ background: "none", border: "none", color: "var(--ink-500)", fontWeight: 600, cursor: "pointer" }}
+                    >
+                      {authAction === "signin" ? "New here? Create account" : "Have an account? Sign in"}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

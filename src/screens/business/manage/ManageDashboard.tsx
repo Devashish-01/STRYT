@@ -5,7 +5,7 @@ import {
   ChevronRight, TrendingUp, BadgeCheck, ArrowLeftRight, Share2, Zap,
 } from "lucide-react";
 import { businessService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
@@ -17,7 +17,12 @@ export default function ManageDashboard() {
   const nav = useNavigate();
   const { setContext, showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
-  const { data, loading } = useQuery(() => businessService.analytics(id), [id]);
+  const { data, loading } = useQueryWithRealtime(
+    () => businessService.analytics(id),
+    "leads",
+    [id],
+    `business_id=eq.${id}`
+  );
   const [share, setShare] = useState(false);
   const [available, setAvailable] = useState(false);
 

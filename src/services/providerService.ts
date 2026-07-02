@@ -209,6 +209,13 @@ export const providerService = {
     await sb.rpc("bump_provider_views", { p_provider_id: id });
     return { ok: true };
   },
+  /** Log a trackable interaction (call/message) so it shows up in the leads trend. */
+  async recordInteraction(id: string, kind: "CALL" | "MESSAGE") {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (uid) await sb.from("leads").insert({ provider_id: id, from_user_id: uid, kind });
+    return { ok: true };
+  },
   async addPortfolio(id: string, item: Partial<PortfolioItem>) {
     const sb = getSupabase();
     const row = { ...toSnake(item), provider_id: id };

@@ -78,20 +78,40 @@ export default function ProviderDetail() {
   }
   const saved = isBookmarked("PROVIDER", p.id);
   const following = isFollowing("PROVIDER", p.id);
+  const isOwner = p.userId === user.id;
   const vouchList = vouches ?? [];
   const hasVouched = vouched.includes(p.id);
   const endorseList = endorsements ?? [];
   const avail = (availList ?? []).find((a) => a.providerId === p.id);
   const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
+  const heroPhoto = p.portfolio[0]?.url;
 
   return (
     <div className="screen" style={{ position: "relative" }}>
       <div className="screen-scroll" style={{ paddingBottom: 90 }}>
         {/* Header */}
-        <div style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", padding: "12px 16px 24px" }}>
+        <div
+          style={{
+            background: heroPhoto
+              ? `linear-gradient(160deg, rgba(22,163,74,0.88), rgba(21,128,61,0.92)), url(${heroPhoto}) center/cover`
+              : "linear-gradient(135deg,#16a34a,#15803d)",
+            color: "#fff", padding: "12px 16px 24px",
+          }}
+        >
           <div className="row between">
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
             <div className="row gap-8">
+              {!isOwner && (
+                <a
+                  className="icon-btn"
+                  style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }}
+                  href={`tel:${p.phone}`}
+                  aria-label="Call"
+                  onClick={() => providerService.recordInteraction(p.id, "CALL").catch(() => {})}
+                >
+                  <Phone size={18} />
+                </a>
+              )}
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => toggleBookmark("PROVIDER", p.id)}>
                 <Heart size={18} fill={saved ? "#fff" : "none"} />
@@ -366,8 +386,17 @@ export default function ProviderDetail() {
             <span className="tiny muted">Starting</span>
             <span className="bold" style={{ fontSize: 18, color: "var(--green-600)" }}>{inr(p.startingPrice)}</span>
           </div>
-          <a href={`tel:${p.phone}`} className="btn btn-outline" style={{ flex: 0 }}><Phone size={17} /></a>
-          {p.userId !== user.id && (
+          {!isOwner && (
+            <a
+              href={`tel:${p.phone}`}
+              className="btn btn-outline"
+              style={{ flex: 0 }}
+              onClick={() => providerService.recordInteraction(p.id, "CALL").catch(() => {})}
+            >
+              <Phone size={17} />
+            </a>
+          )}
+          {!isOwner && (
             <button
               className="btn btn-outline"
               style={{ flex: 0, color: "var(--brand-700)", borderColor: "var(--brand-200)", background: "var(--brand-50)" }}
@@ -378,6 +407,7 @@ export default function ProviderDetail() {
                   const conv = await chatService.getOrCreate(p.userId, {
                     type: "provider", id: p.id, name: p.displayName, avatar: p.avatar, ownerUserId: p.userId,
                   });
+                  providerService.recordInteraction(p.id, "MESSAGE").catch(() => {});
                   nav(`/chat/${conv.id}`);
                 } catch (e: any) { showToast(e?.message || "Couldn't open chat. Try again."); }
               }}
@@ -385,12 +415,21 @@ export default function ProviderDetail() {
               <MessageCircle size={17} />
             </button>
           )}
-          <button
-            className={`btn grow ${evalRes.isOpenNow ? "btn-green" : "btn-purple"}`}
-            onClick={() => setScheduling(true)}
-          >
-            {evalRes.isOpenNow ? <><Zap size={17} /> Book now</> : <><Clock size={17} /> Schedule Appointment</>}
-          </button>
+          {isOwner ? (
+            <button
+              className="btn btn-green grow"
+              onClick={() => nav(`/provider/${p.id}/manage/leads`)}
+            >
+              <Clock size={17} /> View leads & appointments
+            </button>
+          ) : (
+            <button
+              className={`btn grow ${evalRes.isOpenNow ? "btn-green" : "btn-purple"}`}
+              onClick={() => setScheduling(true)}
+            >
+              {evalRes.isOpenNow ? <><Zap size={17} /> Book now</> : <><Clock size={17} /> Schedule Appointment</>}
+            </button>
+          )}
         </div>
       </div>
 

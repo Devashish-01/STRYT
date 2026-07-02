@@ -21,6 +21,15 @@ export interface AdminReport {
   time: string;
 }
 
+export interface AdminBugReport {
+  id: string;
+  description: string;
+  reporterRole: "CUSTOMER" | "BUSINESS" | "PROVIDER";
+  reporterName: string;
+  status: "OPEN" | "REVIEWING" | "RESOLVED" | "DISMISSED";
+  time: string;
+}
+
 export interface CategoryProposal {
   id: string;
   name: string;
@@ -166,6 +175,30 @@ export const adminService = {
     return { ok: true };
   },
 
+  async bugReports(): Promise<AdminBugReport[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("bug_reports")
+      .select("*, reporter:users!user_id(name)")
+      .order("created_at", { ascending: false });
+    throwIfError(error);
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      description: r.description,
+      reporterRole: (r.reporter_role ?? "CUSTOMER") as AdminBugReport["reporterRole"],
+      reporterName: r.reporter?.name || "Anonymous",
+      status: (r.status ?? "OPEN") as AdminBugReport["status"],
+      time: relDate(r.created_at),
+    }));
+  },
+
+  async resolveBugReport(id: string, status: AdminBugReport["status"]) {
+    const sb = getSupabase();
+    const { error } = await sb.from("bug_reports").update({ status }).eq("id", id);
+    throwIfError(error);
+    return { ok: true };
+  },
+
   async approve(type: string, id: string) {
     const sb = getSupabase();
     let table = "";
@@ -218,7 +251,8 @@ export const adminService = {
           ownerId,
           type === "business" ? "Business Approved ✓" : "Provider Profile Approved ✓",
           type === "business" ? "Your shop is now live!" : "Your provider profile is now live!",
-          type === "business" ? `/business/${id}/manage` : `/provider/${id}/manage`
+          type === "business" ? `/business/${id}/manage` : `/provider/${id}/manage`,
+          "SYSTEM"
         );
       } catch (err) {
         console.warn("Failed to send approval notification:", err);
@@ -247,7 +281,8 @@ export const adminService = {
             userIds,
             `New ${categoryLabel} near you`,
             `${entityName} is now open in your area`,
-            type === "business" ? `/business/${id}` : `/provider/${id}`
+            type === "business" ? `/business/${id}` : `/provider/${id}`,
+            type === "business" ? "NEW_BUSINESS" : "NEW_PROVIDER"
           );
         }
       } catch (err) {
@@ -286,7 +321,8 @@ export const adminService = {
           ownerId,
           type === "business" ? "Listing Needs Updates" : "Profile Needs Updates",
           reason ? `Reason: ${reason}` : "Please review and update your listing.",
-          type === "business" ? `/business/${id}/manage` : `/provider/${id}/manage`
+          type === "business" ? `/business/${id}/manage` : `/provider/${id}/manage`,
+          "SYSTEM"
         );
       } catch (err) {
         console.warn("Failed to send rejection notification:", err);

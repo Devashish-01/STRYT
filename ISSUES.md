@@ -60,14 +60,6 @@
 - **Fix needed:** Delete the `reservations` stub and its screen (Appointments replaced it). Treat `appointments` as the single booking source. Document `leads` vs `appointments` distinction in `CODEBASE_MAP.md`.
 - **Affects:** any screen that touches booking/scheduling
 
-### ISS-006 — Notifications: reason/source missing or broken (GEN-1)
-- **Status:** 🔴 Open
-- **Where:** `src/services/notificationService.ts`, `src/screens/Notifications.tsx`, Supabase DB triggers
-- **What:** Notifications don't clearly convey why they were sent. Some rows may be missing `type`, `reason`, or deep-link back to the source action. Users can't tell what triggered a notification or where to go.
-- **Failure scenario:** User receives a push notification → taps it → lands on a generic Notifications list with no indication of what the notification was about or which appointment/request triggered it.
-- **Fix needed:** Audit notification creation path (DB triggers + `notificationService.create`) and rendering in `Notifications.tsx`. Ensure each row has `type` + human-readable reason + deep link. See TASKS.md → GEN-1.
-- **Affects:** `Notifications.tsx`, `notificationService.ts`, possibly Supabase triggers
-
 ### ISS-007 — "Me Too" button commented out on RequestCard
 - **Status:** 🔴 Open
 - **Where:** `src/components/cards.tsx` line ~277–289 (`RequestCard`)
@@ -90,6 +82,27 @@
 ---
 
 ## Fixed
+
+### ISS-F08 — Lead trend charts always flat/empty; providers generated zero leads ever; leads/appointments not actually realtime ✅
+- **Status:** ✅ Fixed — session 2026-07-02
+- **Was:** `bump_business_metric`/`bump_provider_views` RPCs only incremented an aggregate counter column — `business_view_logs`/`provider_view_logs` (what the 7-day chart buckets) were never written to, and weren't even defined in any tracked migration. The failing view-log query's error was silently swallowed (`viewsRes.error` never checked), masking the problem. Providers had **zero** lead-recording paths at all — no `recordInteraction` equivalent existed, so a provider's "leads" trend was always zero regardless of real activity. Neither `leads` nor `appointments` were in the `supabase_realtime` publication, so `useQueryWithRealtime` subscriptions on them (including this session's earlier appointment-console realtime work) silently received no events.
+- **Fix:** RPCs now also insert a timestamped log row. New `providerService.recordInteraction()`, wired to `ProviderDetail.tsx`'s Call (header + bottom bar) and Message buttons — mirrors what `BusinessDetail.tsx` already did for Call/Directions (Message wasn't logged there either — fixed too). `leads`, `appointments`, `business_view_logs`, `provider_view_logs` added to the realtime publication. `ManageDashboard.tsx`/`ProviderDashboard.tsx` analytics switched to `useQueryWithRealtime` on `leads`, filtered per business/provider — the trend chart now updates live without a manual refresh.
+- **Files:** migration `20260708_lead_trends_live.sql`, `types.ts`, `businessService.ts`, `providerService.ts`, `BusinessDetail.tsx`, `ProviderDetail.tsx`, `ManageDashboard.tsx`, `ProviderDashboard.tsx`.
+- **Migration needed:** `supabase/migrations/20260708_lead_trends_live.sql` (run manually in SQL editor)
+
+### ISS-F07 — `bug_reports`/`support_tickets` had no SELECT policy at all — write-only tables, unreadable even by admins ✅
+- **Status:** ✅ Fixed — session 2026-07-02
+- **Was:** `rls.sql` only ever granted INSERT on both tables ("read access restricted for security") — nobody, including admins, could read a submitted bug report or support ticket back. No admin UI existed to view them either.
+- **Fix:** admin-scoped SELECT+UPDATE RLS policies (checks `users.roles @> array['admin']`). New `reporter_role` column on `bug_reports`. New AdminPanel "Bugs" tab.
+- **Files:** `supabase/migrations/20260707_bug_report_roles.sql`
+- **Migration needed:** `supabase/migrations/20260707_bug_report_roles.sql` (run manually in SQL editor)
+
+### ISS-F06 — Notifications: reason/source missing (GEN-1); nearby-request never notified anyone; My Queues dashboard didn't exist (Q-1) ✅
+- **Status:** ✅ Fixed — session 2026-07-02
+- **Was:** `adminService.ts`'s 3 calls to `notificationService.send`/`sendBulk` omitted the `type` argument — approval, rejection, and new-nearby-listing notifications all silently defaulted to generic `SYSTEM`, so new-business/new-provider alerts rendered with the gray bell icon instead of their own dedicated Store/Briefcase icons despite those types already existing. `NEARBY_REQUEST` had a declared type + icon but zero creation path — posting a service request never notified anyone nearby. The `notify_on_proposal`/`notify_on_agreement` DB triggers only existed in an untracked ad-hoc file, unknown if ever live (same drift pattern as `alias`/`show_*_publicly`). Separately, `store.queuesJoined` was local-only/in-memory — no cross-device "my queues" view, no history, no way to leave a queue.
+- **Fix:** `adminService.ts` now passes explicit notification types. New migration re-applies the proposal/agreement triggers idempotently and adds a `notify_on_request()` trigger (bounding-box nearby broadcast, capped at 200). New `businessService.myQueues()`/`leaveQueueToken()`, `MyQueues.tsx` screen (Active/History tabs, live position, leave), `queue_tokens.status` widened to accept `LEFT`.
+- **Files:** `supabase/migrations/20260706_queues_and_notifications.sql`, `adminService.ts`, `businessService.ts`, `types.ts`, new `MyQueues.tsx` + route, `Profile.tsx`.
+- **Migration needed:** `supabase/migrations/20260706_queues_and_notifications.sql` (run manually in SQL editor)
 
 ### ISS-F05 — `users` table writable by any authenticated user (no ownership check); `follows` RLS blocked followers queries entirely ✅
 - **Status:** ✅ Fixed — session 2026-07-02

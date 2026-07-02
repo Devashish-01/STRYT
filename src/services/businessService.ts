@@ -1,7 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, ReservationReq, BusinessPackage } from "@/types";
+import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, ReservationReq, BusinessPackage, MyQueueEntry } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
@@ -23,6 +23,7 @@ function leadText(kind: string, note?: string): string {
     case "QUESTION": return note ? `Asked: ${note}` : "Asked a question";
     case "OFFER_CLIP": return "Clipped one of your offers";
     case "STORY_REPLY": return "Replied to your story";
+    case "MESSAGE": return "Sent you a message";
     default: return note || "Reached out via STRYT";
   }
 }
@@ -254,6 +255,62 @@ export const businessService = {
     });
     throwIfError(error);
     return { ok: true };
+  },
+
+  async leaveQueueToken(tokenId: string) {
+    const sb = getSupabase();
+    const { error } = await sb.from("queue_tokens").update({ status: "LEFT" }).eq("id", tokenId);
+    throwIfError(error);
+    return { ok: true };
+  },
+
+  // Every queue this customer has joined, across all shops — live position for
+  // WAITING/CALLED entries, plus SERVED/LEFT as history.
+  async myQueues(): Promise<MyQueueEntry[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return [];
+    const { data, error } = await sb
+      .from("queue_tokens")
+      .select("id, business_id, status, party_size, created_at, businesses!business_id(name, cover_image)")
+      .eq("customer_user_id", uid)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    throwIfError(error);
+    const rows = (data ?? []) as any[];
+    if (rows.length === 0) return [];
+
+    const activeBizIds = Array.from(new Set(
+      rows.filter((r) => r.status === "WAITING" || r.status === "CALLED").map((r) => r.business_id)
+    ));
+    const waitingByBiz: Record<string, { id: string }[]> = {};
+    if (activeBizIds.length > 0) {
+      const { data: waitingRows } = await sb
+        .from("queue_tokens")
+        .select("id, business_id")
+        .in("business_id", activeBizIds)
+        .eq("status", "WAITING")
+        .order("created_at", { ascending: true });
+      for (const w of (waitingRows ?? []) as any[]) {
+        (waitingByBiz[w.business_id] ??= []).push(w);
+      }
+    }
+
+    return rows.map((r) => {
+      const waitingList = waitingByBiz[r.business_id] ?? [];
+      const idx = waitingList.findIndex((w) => w.id === r.id);
+      return {
+        tokenId: r.id,
+        businessId: r.business_id,
+        businessName: r.businesses?.name ?? "Shop",
+        businessImage: r.businesses?.cover_image ?? "",
+        status: r.status,
+        position: idx >= 0 ? idx + 1 : 0,
+        peopleAhead: idx >= 0 ? idx : 0,
+        partySize: r.party_size ?? "1 person",
+        joinedAtISO: r.created_at,
+      };
+    });
   },
 
   async loyaltyCard(id: string): Promise<LoyaltyCard | undefined> {
@@ -497,10 +554,12 @@ export const businessService = {
     throwIfError(error);
     return { ok: true };
   },
-  async recordInteraction(id: string, kind: "CALL" | "DIRECTIONS") {
+  async recordInteraction(id: string, kind: "CALL" | "DIRECTIONS" | "MESSAGE") {
     const sb = getSupabase();
     const uid = await currentUserId();
-    await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: kind === "CALL" ? "call" : "directions" });
+    if (kind === "CALL" || kind === "DIRECTIONS") {
+      await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: kind === "CALL" ? "call" : "directions" });
+    }
     if (uid) await sb.from("leads").insert({ business_id: id, from_user_id: uid, kind });
     return { ok: true };
   },

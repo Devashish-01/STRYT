@@ -194,6 +194,7 @@ export default function BusinessDetail() {
                       const conv = await chatService.getOrCreate(b.ownerUserId, {
                         type: "business", id: b.id, name: b.name, avatar: b.coverImage, ownerUserId: b.ownerUserId,
                       });
+                      businessService.recordInteraction(b.id, "MESSAGE").catch(() => {});
                       nav(`/chat/${conv.id}`);
                     } catch (e: any) { showToast(e?.message || "Couldn't open chat. Try again."); }
                   }}

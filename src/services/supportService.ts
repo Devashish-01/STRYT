@@ -11,10 +11,13 @@ export interface SupportTicket {
   createdAt?: string;
 }
 
+export type ReporterRole = "CUSTOMER" | "BUSINESS" | "PROVIDER";
+
 export interface BugReport {
   id?: string;
   userId?: string | null;
   description: string;
+  reporterRole?: ReporterRole;
   createdAt?: string;
 }
 
@@ -59,13 +62,14 @@ export const supportService = {
     return { ok: true };
   },
 
-  async submitBugReport(bug: { description: string }): Promise<{ ok: boolean }> {
+  async submitBugReport(bug: { description: string; reporterRole?: ReporterRole }): Promise<{ ok: boolean }> {
     const sb = getSupabase();
     const uid = await currentUserId();
 
     const { error } = await sb.from("bug_reports").insert({
       user_id: uid,
       description: bug.description,
+      reporter_role: bug.reporterRole ?? "CUSTOMER",
     });
     throwIfError(error);
 

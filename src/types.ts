@@ -355,6 +355,20 @@ export interface QueueInfo {
   isOpen: boolean;
 }
 
+export type QueueTokenStatus = "WAITING" | "CALLED" | "SERVED" | "LEFT";
+
+export interface MyQueueEntry {
+  tokenId: string;
+  businessId: string;
+  businessName: string;
+  businessImage: string;
+  status: QueueTokenStatus;
+  position: number;
+  peopleAhead: number;
+  partySize: string;
+  joinedAtISO: string;
+}
+
 export interface LoyaltyCard {
   id: string;
   businessId: string;
@@ -581,7 +595,7 @@ export interface Lead {
   id: string;
   businessId?: string;
   providerId?: string;
-  kind: "CALL" | "DIRECTIONS" | "STORY_REPLY" | "OFFER_CLIP" | "RESERVATION" | "QUESTION";
+  kind: "CALL" | "DIRECTIONS" | "STORY_REPLY" | "OFFER_CLIP" | "RESERVATION" | "QUESTION" | "MESSAGE";
   name: string;
   avatar: string;
   text: string;

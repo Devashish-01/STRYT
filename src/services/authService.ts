@@ -67,6 +67,40 @@ export const authService = {
     return { ok: true, ttl: 300 };
   },
 
+  // Email used as the username; requires Supabase Auth's email/password
+  // provider (SMTP "app password") to be configured on the project.
+  async signInWithPassword(email: string, password: string) {
+    const sb = getSupabase();
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw toApiError(error);
+    mirrorSession(data.session?.access_token, data.session?.refresh_token);
+    return {
+      access_token: data.session?.access_token ?? "",
+      refresh_token: data.session?.refresh_token ?? "",
+      user: data.user,
+      hasSession: !!data.session,
+    };
+  },
+
+  async signUpWithPassword(email: string, password: string) {
+    const sb = getSupabase();
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin + oauthReturnPath() },
+    });
+    if (error) throw toApiError(error);
+    mirrorSession(data.session?.access_token, data.session?.refresh_token);
+    return {
+      access_token: data.session?.access_token ?? "",
+      refresh_token: data.session?.refresh_token ?? "",
+      user: data.user,
+      // If email confirmation is required, Supabase returns a user but no
+      // session — the caller must tell the user to check their inbox.
+      hasSession: !!data.session,
+    };
+  },
+
   async signInWithGoogle() {
     const sb = getSupabase();
     const { error } = await sb.auth.signInWithOAuth({

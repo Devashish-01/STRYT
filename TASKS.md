@@ -7,6 +7,20 @@
 >
 > Legend: 🟡 = partly done in earlier sessions (verify + finish) · 🆕 = needs a DB migration.
 
+## Group AUTH+BUG — ad-hoc (2026-07-02) ✅ IMPLEMENTED
+### Bug reports tagged by reporter role, admin-visible ✅
+- **Was:** `bug_reports` write-only — no RLS select policy existed (`rls.sql`: "read access is restricted for security"), so even admins couldn't read submitted reports back. No role tagging.
+- **Fix:** `reporter_role` column (CUSTOMER/BUSINESS/PROVIDER, defaults from the reporter's active app role). Admin-scoped SELECT+UPDATE RLS added for `bug_reports`+`support_tickets` (same "no read policy" bug existed on both). `Support.tsx` bug tab gained a role selector. New AdminPanel "Bugs" tab: role-filter chips, dismiss/resolve actions.
+- **Files:** migration `20260707_bug_report_roles.sql`, `supportService.ts`, `Support.tsx`, `adminService.ts`, `AdminPanel.tsx`.
+- **Migration needed:** `supabase/migrations/20260707_bug_report_roles.sql` (run manually)
+
+### Email + password login ✅
+- **Was:** email tab only sent an OTP (magic-code) — no password option even though Supabase's email/password provider is now configured.
+- **Fix:** `authService.signInWithPassword`/`signUpWithPassword`. Email tab on `PhoneEntry.tsx` gained a "Use password instead" toggle (sign-in/create-account), same post-auth flow as OTP (`signIn()` + `returnTo.consume()`). Handles the email-confirmation-required case (no session yet → toast to check inbox).
+- **Files:** `authService.ts`, `PhoneEntry.tsx`. No migration (uses Supabase Auth directly).
+
+---
+
 ## Recommended order (why)
 1. **Group BP + BIZ** first — they pile onto the *same* files (`businessService`, `ManageDashboard`, `ManageNav`, `BusinessDetail`, `AppointmentSheet`, `appointmentService`). Doing them together avoids re-touching those files 5×.
 2. **Group COM** (community posting) — isolated to compose + community service.
@@ -155,29 +169,29 @@
 
 ---
 
-## Group Q — queues
-### Q-1 — "My Queues" dashboard: sortable, count, live position, history 🆕
-- **Goal:** after joining any queue, a Queue entry appears on the dashboard showing every queue the user is in — which queue, position, how many total — plus a history of completed ones.
-- **Now:** `store.queuesJoined`/`joinQueue` is local-only (business ids); `businessService` has queue token methods but no "my joined queues across shops" or history read.
-- **Do:** add `businessService.myQueues()` (join `queue_tokens` where `customer/user = me`, status WAITING/SERVED/DONE) → live position per shop; a `MyQueues` screen (sort by shop/joined-time, Active vs History tabs); a dashboard/Home/Profile entry that only appears when in ≥1 queue. May need a `user_id` on `queue_tokens` / a history status (🆕 if missing).
-- **Files:** `businessService.ts`, new `MyQueues.tsx` + route, `Home.tsx` or `Profile.tsx` entry, `store.tsx` (maybe), possibly migration.
+## Group Q — queues ✅ IMPLEMENTED
+### Q-1 — "My Queues" dashboard: sortable, count, live position, history ✅
+- **Was:** `store.queuesJoined` was local-only (in-memory, one browser, no cross-device sync); no "my queues across shops" read, no history, no leave capability. `queue_tokens` had no `LEFT` status — only WAITING/CALLED/SERVED.
+- **Fix:** `businessService.myQueues()` — DB-authoritative (not dependent on local store state), joins `businesses(name, cover_image)`, computes live position per shop from WAITING tokens ordered by join time. New `leaveQueueToken()`. New `MyQueues.tsx` screen: Active/History tabs, sort-by-name toggle on Active, per-row Leave button. Conditional banner on `Profile.tsx` (only rendered when in ≥1 active queue) + a permanent "My queues" row in the Manage section (badge shows active count) so History stays reachable at 0 active.
+- **Files:** migration `20260706_queues_and_notifications.sql`, `types.ts` (`MyQueueEntry`/`QueueTokenStatus`), `businessService.ts`, new `MyQueues.tsx` + `/queues` route, `Profile.tsx`.
+- **Migration needed:** `supabase/migrations/20260706_queues_and_notifications.sql` (run manually — also covers GEN-1 below)
 
 ---
 
-## Group UI — public profile polish (sellers)
-### UI-1 — Enhance business & provider public profile UI/UX
-- **Goal:** visual/UX upgrade of `BusinessDetail` and `ProviderDetail`.
-- **Do:** do this **last** (after BIZ/BP change what these pages render — packages, availability, appointments, posts) so you restyle once.
-- **Files:** `BusinessDetail.tsx`, `ProviderDetail.tsx` (+ `common.tsx`/`index.css` tokens as needed).
+## Group UI — public profile polish (sellers) ✅ IMPLEMENTED
+### UI-1 — Enhance business & provider public profile UI/UX ✅
+- **Was:** `ProviderDetail`'s primary bottom-bar CTA ("Book now"/"Schedule Appointment") had no owner branch at all — a provider viewing their own public profile saw a booking button targeting themselves (Message was correctly hidden for self, booking wasn't). No `isOwner` was even computed. Visually flat compared to `BusinessDetail`: no hero photo (business has a 230px cover + gallery; provider was a plain gradient), and Call was buried in the fixed bottom bar only (business surfaces Call up top, near Share/Bookmark).
+- **Fix:** added `isOwner` (`p.userId === user.id`); owners now see "View leads & appointments" → `/provider/:id/manage/leads` instead of a self-targeting booking button, and the tel:/Message buttons hide for self (matching `BusinessDetail`'s existing pattern exactly). Header background now uses the provider's first portfolio photo as a cover image (gradient overlay) when one exists, falling back to the plain gradient otherwise — closes the visual-richness gap with `BusinessDetail`'s cover. Added a Call icon button to the top icon row for parity with Business's Call/Share/Bookmark row.
+- **Files:** `ProviderDetail.tsx`. (`BusinessDetail.tsx` reviewed — already owner-aware, no bug found there; left as-is.)
 
 ---
 
-## Group GEN — general
-### GEN-1 — Notification "why am I getting this" flow is broken
-- **Goal:** every notification should clearly convey its reason/source; fix the broken context.
-- **Do:** audit where notifications are created (DB triggers/functions + `notificationService`) and what `Notifications.tsx` renders; ensure each row has a type + human reason + deep link to the source; fix missing/duplicated/mis-typed entries.
-- **Files:** `src/services/notificationService.ts`, `src/screens/Notifications.tsx`, likely a Supabase function/trigger (`supabase/*.sql`). 🆕 possible if a `reason`/`type` column is missing.
-- **Note:** needs investigation first — I'll read the notification creation path before proposing the exact fix.
+## Group GEN — general ✅ IMPLEMENTED
+### GEN-1 — Notification "why am I getting this" flow is broken ✅
+- **Investigation finding:** the notification *schema and rendering* were fine (`type`/`title`/`body`/`deep_link` all present, `Notifications.tsx` already renders a distinct icon per type). The actual bugs were in *creation*: (1) `adminService.ts`'s 3 calls to `notificationService.send`/`sendBulk` omitted the `type` argument, so approval/rejection/new-nearby-listing notifications all silently defaulted to generic `SYSTEM` — new-business/new-provider notifications rendered with the gray bell icon instead of their own dedicated Store/Briefcase icons despite those types already existing in the union. (2) `NEARBY_REQUEST` had a declared type + icon but **zero creation path anywhere** — posting a service request never notified nearby users. (3) The `notify_on_proposal`/`notify_on_agreement` DB triggers only existed in an untracked ad-hoc file (`supabase/migration_r8.sql`, not in `supabase/migrations/`) — unknown whether ever actually applied to the live DB (same schema-drift pattern as `alias`/`show_*_publicly` found earlier this project).
+- **Fix:** `adminService.ts` now passes explicit types (`NEW_BUSINESS`/`NEW_PROVIDER` for nearby-listing broadcasts, `SYSTEM` for approval/rejection — made explicit rather than implicit-default). New migration re-applies the proposal/agreement triggers idempotently (safe no-op if already live) and adds a new `notify_on_request()` trigger — mirrors the same lat/lng bounding-box "nearby" technique already used client-side in `adminService.ts`, capped at 200 recipients.
+- **Files:** migration `20260706_queues_and_notifications.sql` (same file as Q-1), `adminService.ts`.
+- **Migration needed:** `supabase/migrations/20260706_queues_and_notifications.sql` (run manually in SQL editor)
 
 ---
 
@@ -204,8 +218,8 @@
 | CUST-5 | Followers on You page | 🆕 (same migration) | ✅ |
 | CUST-3 | Enhance customer public profile UI | no | ✅ |
 | CUST-6 | "You" page redesign for scannability | no | ✅ |
-| Q-1 | My Queues dashboard + history | maybe 🆕 | todo |
-| UI-1 | Enhance seller public profiles UI | no | todo |
-| GEN-1 | Fix notification reason/flow | maybe 🆕 | todo |
+| Q-1 | My Queues dashboard + history | 🆕 run 20260706_queues_and_notifications.sql | ✅ |
+| UI-1 | Enhance seller public profiles UI | no | ✅ |
+| GEN-1 | Fix notification reason/flow | 🆕 (same migration) | ✅ |
 
-*Give me an ID to start. I'll confirm scope if a task needs a decision, otherwise implement + build + tick.*
+*Backlog cleared — all tracked tasks implemented. Give me a new ID/request to start the next one.*

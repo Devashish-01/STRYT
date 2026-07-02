@@ -4,13 +4,13 @@ import {
   Bell, Settings, Store, Briefcase, FileText, Star,
   ChevronRight, Shield, HelpCircle, LogOut, Globe, Share2,
   ListChecks, Trophy, Award, Users, UserCircle, Heart,
-  ArrowLeftRight, Map, MessageSquare,
+  ArrowLeftRight, Map, MessageSquare, UserPlus, Bookmark, Handshake,
   Bug, Calendar
 } from "lucide-react";
 import { useApp } from "@/store";
 import { SafeImg } from "@/components/common";
 import AccountSwitcher from "@/components/AccountSwitcher";
-import { requestService, socialService } from "@/services";
+import { requestService, socialService, businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import type { Role, AgreementStatus } from "@/types";
 import ShareCard, { type ShareOption } from "@/components/ShareCard";
@@ -68,6 +68,9 @@ export default function Profile() {
   const followersCount = followersData?.length ?? 0;
   const activeAgreements = (agreementsData ?? []).filter((a) => !TERMINAL.includes(a.status));
   const totalAgreements  = agreementsData?.length ?? 0;
+
+  const { data: myQueuesData } = useQuery(() => businessService.myQueues(), []);
+  const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
 
   // Admin console stays reachable (own bypass-token entry screen lives at /admin
   // itself) but only earns a spot in the nav for people who are actually admins.
@@ -170,22 +173,34 @@ export default function Profile() {
 
         {/* ── Stats row (single source of truth — these numbers don't repeat elsewhere) ── */}
         <div className="page-pad" style={{ marginTop: -18 }}>
-          <div className="row gap-10">
+          <div className="row gap-8">
             <button className="stat-pill" onClick={() => nav("/bookmarks")}>
-              <span className="bold" style={{ fontSize: 22, color: "var(--brand-700)" }}>{bookmarks.length}</span>
+              <span className="row" style={{ gap: 3 }}>
+                <Bookmark size={12} color="var(--brand-700)" />
+                <span className="bold" style={{ fontSize: 19, color: "var(--brand-700)" }}>{bookmarks.length}</span>
+              </span>
               <span className="tiny muted">Saved</span>
             </button>
             <button className="stat-pill" onClick={() => nav("/bookmarks?tab=following")}>
-              <span className="bold" style={{ fontSize: 22, color: "var(--brand-700)" }}>{follows.length}</span>
+              <span className="row" style={{ gap: 3 }}>
+                <UserPlus size={12} color="#7c3aed" />
+                <span className="bold" style={{ fontSize: 19, color: "#7c3aed" }}>{follows.length}</span>
+              </span>
               <span className="tiny muted">Following</span>
             </button>
             <button className="stat-pill" onClick={() => nav("/followers")}>
-              <span className="bold" style={{ fontSize: 22, color: "var(--brand-700)" }}>{followersCount}</span>
+              <span className="row" style={{ gap: 3 }}>
+                <Users size={12} color="#16a34a" />
+                <span className="bold" style={{ fontSize: 19, color: "#16a34a" }}>{followersCount}</span>
+              </span>
               <span className="tiny muted">Followers</span>
             </button>
             <button className="stat-pill" onClick={() => nav("/agreements")}>
-              <span className="bold" style={{ fontSize: 22, color: activeAgreements.length > 0 ? "#16a34a" : "var(--brand-700)" }}>
-                {totalAgreements}
+              <span className="row" style={{ gap: 3 }}>
+                <Handshake size={12} color={activeAgreements.length > 0 ? "#f26a00" : "var(--ink-400)"} />
+                <span className="bold" style={{ fontSize: 19, color: activeAgreements.length > 0 ? "#f26a00" : "var(--brand-700)" }}>
+                  {totalAgreements}
+                </span>
               </span>
               <span className="tiny muted">Agreements</span>
               {activeAgreements.length > 0 && (
@@ -196,6 +211,24 @@ export default function Profile() {
             </button>
           </div>
         </div>
+
+        {/* ── Live queue banner (only when in ≥1 queue) ── */}
+        {activeQueues.length > 0 && (
+          <div className="page-pad" style={{ paddingTop: 4 }}>
+            <button
+              className="card row gap-12 center-v"
+              style={{ padding: 14, width: "100%", textAlign: "left", background: "#fff7ed", border: "1px solid #fed7aa" }}
+              onClick={() => nav("/queues")}
+            >
+              <span style={{ fontSize: 22 }}>👥</span>
+              <div className="grow">
+                <div className="semi small">In {activeQueues.length} live queue{activeQueues.length > 1 ? "s" : ""}</div>
+                <div className="tiny muted">{activeQueues[0].businessName}{activeQueues.length > 1 ? ` +${activeQueues.length - 1} more` : ""} — tap to view position</div>
+              </div>
+              <ChevronRight size={18} color="var(--ink-300)" />
+            </button>
+          </div>
+        )}
 
         {/* ── Quick actions grid — same 6 spots every time, so position becomes memory ── */}
         <div className="page-pad" style={{ paddingTop: 4 }}>
@@ -283,7 +316,8 @@ export default function Profile() {
             {hasSellerProfile && (
               <MenuRow icon={<Store size={20} color="#f26a00" />} label="Manage business & profile" onClick={() => nav("/manage")} />
             )}
-            <MenuRow icon={<ListChecks size={20} color="#0ea5e9" />} label="My saved lists" onClick={() => nav("/lists")} last />
+            <MenuRow icon={<ListChecks size={20} color="#0ea5e9" />} label="My saved lists" onClick={() => nav("/lists")} />
+            <MenuRow icon={<Users size={20} color="#f59e0b" />} label="My queues" badge={activeQueues.length || undefined} onClick={() => nav("/queues")} last />
           </div>
         </div>
 

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Eye, Briefcase, CheckCircle2, Wallet, Star, TrendingUp, Zap, ArrowLeftRight, Share2 } from "lucide-react";
 import { providerService } from "@/services";
 import { SafeImg } from "@/components/common";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { inr } from "@/components/common";
 import { useApp } from "@/store";
@@ -15,7 +15,12 @@ export default function ProviderDashboard() {
   const nav = useNavigate();
   const { data: p } = useQuery(() => providerService.get(id), [id]);
   const { setContext, showToast } = useApp();
-  const { data, loading } = useQuery(() => providerService.analytics(id), [id]);
+  const { data, loading } = useQueryWithRealtime(
+    () => providerService.analytics(id),
+    "leads",
+    [id],
+    `provider_id=eq.${id}`
+  );
   const [available, setAvailable] = useState(false);
   const [share, setShare] = useState(false);
   const base = `/provider/${id}/manage`;

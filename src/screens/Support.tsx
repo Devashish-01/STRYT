@@ -3,15 +3,28 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { HelpCircle, Bug, Mail, Send, CheckCircle2, ExternalLink, MessageSquareText } from "lucide-react";
 import { AppBar } from "@/components/common";
 import { useApp } from "@/store";
-import { supportService } from "@/services/supportService";
+import { supportService, type ReporterRole } from "@/services/supportService";
 import { config } from "@/config";
 
 type Tab = "CONTACT" | "BUG";
 
+const ROLE_LABELS: Record<ReporterRole, string> = {
+  CUSTOMER: "Customer 🧑",
+  BUSINESS: "Business owner 🏪",
+  PROVIDER: "Service provider 🔧",
+};
+
+function defaultReporterRole(activeRole: string): ReporterRole {
+  if (activeRole === "business_owner") return "BUSINESS";
+  if (activeRole === "provider") return "PROVIDER";
+  return "CUSTOMER";
+}
+
 export default function Support() {
   const nav = useNavigate();
-  const { user, showToast } = useApp();
+  const { user, activeRole, showToast } = useApp();
   const [searchParams] = useSearchParams();
+  const [reporterRole, setReporterRole] = useState<ReporterRole>(() => defaultReporterRole(activeRole));
 
   // Tab state initialized from URL param if available (e.g. ?tab=bug)
   const [activeTab, setActiveTab] = useState<Tab>(() => {
@@ -74,6 +87,7 @@ export default function Support() {
     try {
       await supportService.submitBugReport({
         description: bugDescription.trim(),
+        reporterRole,
       });
       setBugSubmitted(true);
       showToast("Bug reported successfully!");
@@ -288,6 +302,23 @@ export default function Support() {
               </div>
 
               <form onSubmit={handleBugSubmit} className="col gap-14" style={{ marginTop: 4 }}>
+                <div className="field">
+                  <label>Reporting as</label>
+                  <div className="row gap-8">
+                    {(Object.keys(ROLE_LABELS) as ReporterRole[]).map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        className={`chip ${reporterRole === r ? "active" : ""}`}
+                        style={{ flex: 1 }}
+                        onClick={() => setReporterRole(r)}
+                      >
+                        {ROLE_LABELS[r]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="field">
                   <label>Describe the Bug</label>
                   <textarea
