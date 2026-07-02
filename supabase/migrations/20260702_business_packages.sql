@@ -3,9 +3,9 @@
 
 create table if not exists business_packages (
   id           uuid primary key default gen_random_uuid(),
-  business_id  uuid not null references businesses(id) on delete cascade,
+  business_id  text not null references businesses(id) on delete cascade,
   name         text not null,
-  desc         text not null default '',
+  "desc"       text not null default '',
   price        numeric(10,2) not null,
   duration     text not null default '',
   instant_book boolean not null default false,
@@ -28,13 +28,13 @@ create policy "owner can manage their packages"
     exists (
       select 1 from businesses
       where businesses.id = business_packages.business_id
-        and businesses.owner_user_id = auth.uid()
+        and businesses.owner_user_id = auth.uid()::text
     )
   )
   with check (
     exists (
       select 1 from businesses
       where businesses.id = business_packages.business_id
-        and businesses.owner_user_id = auth.uid()
+        and businesses.owner_user_id = auth.uid()::text
     )
   );

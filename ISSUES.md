@@ -4,7 +4,6 @@
 > Format: add entries under the right severity tier; update `Status` inline; never delete fixed entries (mark ✅).
 > File locations use `src/` relative paths. Link to `TASKS.md` task IDs when a bug is part of a planned task.
 
-
 ---
 
 ## Legend
@@ -49,14 +48,6 @@
 - **Fix needed:** Add a global `<ErrorBanner>` or make the high-traffic screens (`Home`, `BusinessDetail`, `ProviderDetail`, `MyAppointments`) render an `<ErrorView>` when `error` is set. Also surface Supabase env-missing errors (currently also silent).
 - **Affects:** every data-fetching screen
 
-### ISS-004 — Appointment consoles not realtime; owner must manually refresh
-- **Status:** 🔴 Open
-- **Where:** `src/screens/business/manage/BusinessAppointments.tsx`, `src/screens/provider/ProviderLeads.tsx`
-- **What:** Both owner consoles fetch appointments with plain `useQuery` (one-shot). `useQueryWithRealtime` already exists in the codebase. A new customer booking won't appear for the owner until they manually navigate away and back.
-- **Failure scenario:** Customer books at 14:03 → business owner's Appointments screen (opened at 14:00) never shows the new booking until they leave and return.
-- **Fix needed:** Switch both screens to `useQueryWithRealtime` on the `appointments` table. One-line change per screen.
-- **Affects:** `BusinessAppointments.tsx`, `ProviderLeads.tsx`
-
 ---
 
 ## Medium (UX broken or misleading)
@@ -99,6 +90,14 @@
 ---
 
 ## Fixed
+
+### ISS-F04 — Appointment console was a flat list; no cancel attribution, no realtime, no owner scheduling control ✅
+- **Status:** ✅ Fixed — session 2026-07-02 (closes ISS-004)
+- **Was:** `CANCELLED` status was anonymous (customer, owner, and system auto-cancel all looked identical). Owner consoles used one-shot `useQuery` — new bookings didn't appear without a manual refresh. Owners had no way to block off time they couldn't take bookings, no day-by-day view, no history/cancelled separation, and no way to log a walk-in/phone booking.
+- **Fix:** `cancelled_by` column (`CUSTOMER`/`OWNER`/`SYSTEM`) surfaced on both sides via a shared `CancelAttributionNote` component. Both owner consoles switched to `useQueryWithRealtime`. New `blocked_slots` table + `slotBlockService` lets owners block specific slots or whole days, one-off or weekly-recurring — enforced in `generateWorkingSlots` so blocked times vanish from the customer booking sheet. `BusinessAppointments` rebuilt with 4 tabs (Day view / Upcoming / History / Cancelled): the Day view is a real vertical timetable (`DayTimetable` + `DateStrip`) with a "now" line, tap-to-block empty slots, tap-to-add-walk-in, and a summary header (booked/pending/blocked/revenue). Past `PENDING` bookings auto-cancel (existing behavior, now attributed to `SYSTEM`) and past `ACCEPTED` bookings auto-complete. Owners can mark a `COMPLETED` booking as `NO_SHOW`; repeat no-shows and repeat rejected-payment-claims surface as a warning chip when reviewing a booking. Mirrored to `ProviderLeads`.
+- **Files:** new migration `20260703_appointment_console.sql`, new `src/components/appointments/{DateStrip,DayTimetable,BlockSlotModal,WalkInModal}.tsx`, new `src/services/slotBlockService.ts`, `types.ts`, `appointmentService.ts`, `availability.ts`, `AppointmentSheet.tsx`, `BusinessAppointments.tsx` (rewrite), `ProviderLeads.tsx` (rewrite), `MyAppointments.tsx`
+- **Migration needed:** `supabase/migrations/20260703_appointment_console.sql` (run manually in SQL editor)
+- **Deferred:** slot capacity (multi-chair parallel bookings) and image-based day-summary export — see `TASKS.md` Group APT notes.
 
 ### ISS-F03 — No UPI/payment flow for appointments ✅
 - **Status:** ✅ Fixed — session 2026-07-02

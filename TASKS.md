@@ -7,7 +7,6 @@
 >
 > Legend: 🟡 = partly done in earlier sessions (verify + finish) · 🆕 = needs a DB migration.
 
-
 ## Recommended order (why)
 1. **Group BP + BIZ** first — they pile onto the *same* files (`businessService`, `ManageDashboard`, `ManageNav`, `BusinessDetail`, `AppointmentSheet`, `appointmentService`). Doing them together avoids re-touching those files 5×.
 2. **Group COM** (community posting) — isolated to compose + community service.
@@ -56,6 +55,54 @@
 - **Now:** owners can Accept/Decline PENDING with a note (`ProviderLeads`, `BusinessAppointments`). No owner-side cancel of an ACCEPTED booking. `AppointmentStatus` already includes `CANCELLED`.
 - **Do:** add a "Cancel with note" action on ACCEPTED rows in both owner consoles → `appointmentService.updateStatus(id,"CANCELLED",note)`; show the note on the customer card in `MyAppointments` (already renders REJECTED/response notes — extend to CANCELLED).
 - **Files:** `BusinessAppointments.tsx`, `ProviderLeads.tsx`, `MyAppointments.tsx`. No migration.
+
+---
+
+## Group APT — Appointment Console 2.0 (owner timetable + cancel attribution) ✅ IMPLEMENTED
+*Shipped session 2026-07-02. Migration: `supabase/migrations/20260703_appointment_console.sql` (run manually).*
+*New shared components: `src/components/appointments/{DateStrip,DayTimetable,BlockSlotModal,WalkInModal}.tsx`. New service: `src/services/slotBlockService.ts`.*
+
+**Not implemented (deferred, noted for a future session):**
+- **Slot capacity** (multi-chair/parallel bookings per slot) — needs a real redesign of the booking-collision check in `generateWorkingSlots`, skipped to avoid destabilizing the core booking flow.
+- **Day-summary share is text, not image** — "Copy day summary" copies a WhatsApp-ready text block (📅 date + line-per-booking + revenue) via clipboard instead of rendering a shareable image, to avoid adding a canvas/html-to-image dependency for a nice-to-have.
+
+### APT-1 — "Cancelled by whom" attribution 🆕
+- **Goal:** every cancelled appointment says WHO cancelled it — customer sees "Cancelled by you" vs "Cancelled by {shop}" vs "Auto-cancelled (no response)"; owner sees "Cancelled by customer" vs "Cancelled by you".
+- **Now:** `status: CANCELLED` is anonymous. Three writers all look identical: customer cancel (`MyAppointments.cancel()`), owner cancel (owner consoles), and the new auto-cancel of stale PENDING bookings (`checkAndAutoCancelAppointments`).
+- **Do:** add `cancelled_by TEXT` column (`'CUSTOMER' | 'OWNER' | 'SYSTEM'`); `updateStatus()` gains a `cancelledBy` arg; set it at all 3 call sites (+ reschedule auto-cancel in `MyAppointments.handleBooked` = CUSTOMER); render attribution banners on both sides. Bonus: owner console shows customer-cancelled rows dimmed with "Customer cancelled" instead of the generic gray badge.
+- **Files:** migration, `types.ts`, `appointmentService.ts`, `MyAppointments.tsx`, `BusinessAppointments.tsx`, `ProviderLeads.tsx`.
+
+### APT-2 — Owner blocks time slots ("can't take bookings 2–4 PM today") 🆕
+- **Goal:** owner taps slots in their day timetable to block them; blocked slots disappear from the customer booking sheet. Whole-day block too ("closed this Sunday").
+- **Do:** new `blocked_slots` table (`business_id/target_id`, `target_type`, `date` (YYYY-MM-DD), `time_label` nullable — NULL = whole day blocked, `reason` optional, unique index). `appointmentService.blockedSlots(targetId, date?)`, `blockSlot()`, `unblockSlot()`. Extend `generateWorkingSlots` to take `blockedSlots` and mark them unavailable. `AppointmentSheet` fetches blocked slots for the target alongside existing appointments.
+- **Files:** migration (same file as APT-1), `availability.ts`, `appointmentService.ts`, `AppointmentSheet.tsx`, consumed by APT-3's timetable UI.
+
+### APT-3 — BusinessAppointments redesign: day timetable + tabs + history
+- **Goal:** turn the flat list into a real console:
+  - **Tabs:** `Today` (live day view) · `Upcoming` · `History` · `Cancelled`.
+  - **Today tab = vertical timetable:** every working-hour slot of the selected day rendered top-to-bottom; booked slots show the customer card inline (accept/decline/cancel/payment actions preserved); empty slots show "＋ tap to block"; blocked slots show 🚫 with "tap to unblock"; a "now" line marks current time.
+  - **Date strip:** horizontally scrollable 14-day chips with per-day booking-count dots, so "history of the days with appointments" is scannable at a glance.
+  - **Summary header:** "{n} booked · {n} pending · {n} blocked" for the selected day.
+  - **History tab:** past appointments grouped by day (sticky day headers), COMPLETED/served vs no-show visible.
+  - **Cancelled tab:** all cancelled/rejected with APT-1 attribution ("by customer" / "by you" / "auto").
+- **Files:** `BusinessAppointments.tsx` (major rewrite), reuses APT-2 service methods; mirror later to `ProviderLeads.tsx` (APT-6).
+
+### APT-4 — Realtime + auto-complete housekeeping
+- **Goal:** console updates live; stale states self-heal.
+- **Do:** switch `BusinessAppointments` + `ProviderLeads` to `useQueryWithRealtime` on `appointments` (closes ISS-004); auto-mark past ACCEPTED appointments as COMPLETED on load (mirror of the existing PENDING auto-cancel), so History fills itself.
+- **Files:** `BusinessAppointments.tsx`, `ProviderLeads.tsx`, `appointmentService.ts`.
+
+### APT-5 — Out-of-the-box extras (pick any)
+- **Walk-in entry:** owner adds a manual appointment from the timetable's empty slot (name + phone) — paper-diary replacement, makes the timetable the single source of truth.
+- **Recurring blocks:** "block 1–2 PM every day" (lunch) — `recurring` flag on `blocked_slots`.
+- **Day revenue strip:** sum of confirmed `payment_amount` for the day shown in the summary header.
+- **Share day sheet:** owner exports the day's timetable as an image/WhatsApp text ("Today's bookings: 10 AM Asha, 11:30 Rahul…").
+- **No-show tracking:** owner marks a COMPLETED-due appointment as NO_SHOW; repeat no-show customers get a warning chip at booking review time (pairs with the payment fraud flags).
+- **Slot capacity:** allow N parallel bookings per slot (multi-chair salon) — `capacity` in the hours config string.
+
+### APT-6 — Mirror the console to providers
+- **Goal:** `ProviderLeads` gets the same timetable/tabs treatment once APT-3 stabilizes on business.
+- **Files:** `ProviderLeads.tsx`, shared components extracted from APT-3 (e.g. `components/AppointmentTimetable.tsx`).
 
 ---
 
@@ -137,6 +184,12 @@
 | BIZ-5 | Remove Promote entirely | no | ✅ |
 | BP-2 | Owner cancel appointment w/ note; customer sees | no | ✅ |
 | UPI-1 | UPI payment flow (catalog→appt→pay→history) | 🆕 run 20260702_payment_system.sql | ✅ |
+| APT-1 | Cancel attribution (by customer/owner/system) | 🆕 run 20260703_appointment_console.sql | ✅ |
+| APT-2 | Owner blocks time slots (specific + recurring) | 🆕 (same migration) | ✅ |
+| APT-3 | Owner console: day timetable + 4 tabs + history | no | ✅ |
+| APT-4 | Realtime console + auto-complete past bookings | no | ✅ |
+| APT-5 | Extras: walk-ins, recurring blocks, revenue strip, no-shows, day-summary share | 🆕 (same migration) | ✅ (slot capacity + image export not done — see notes) |
+| APT-6 | Mirror console to ProviderLeads | no | ✅ |
 | BP-1 | Universal seller post-to-community | maybe 🆕 | todo |
 | CUST-1 | Remove user-id/alias; first name is identity | no | todo |
 | CUST-2 | First-login required setup form | no | todo |

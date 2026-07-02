@@ -4,7 +4,8 @@ import { useApp } from "@/store";
 import { generateWorkingSlots, type AppointmentSlot } from "@/utils/availability";
 import { uploadService } from "@/services/uploadService";
 import { appointmentService } from "@/services/appointmentService";
-import type { AppointmentRecord } from "@/types";
+import { slotBlockService } from "@/services/slotBlockService";
+import type { AppointmentRecord, BlockedSlot } from "@/types";
 import { Skeleton } from "@/components/states";
 
 export interface BookingPackage {
@@ -49,15 +50,23 @@ export function AppointmentSheet({
   const [submitting, setSubmitting] = useState(false);
 
   const [existingAppointments, setExistingAppointments] = useState<AppointmentRecord[]>([]);
+  const [customerAppointments, setCustomerAppointments] = useState<AppointmentRecord[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [loadingApts, setLoadingApts] = useState(true);
 
   useEffect(() => {
     let active = true;
     async function loadApts() {
       try {
-        const list = await appointmentService.listForTarget(targetId);
+        const [targetList, customerList, blocked] = await Promise.all([
+          appointmentService.listForTarget(targetId),
+          appointmentService.listForCustomer(user?.id || "guest"),
+          slotBlockService.list(targetId).catch(() => []),
+        ]);
         if (active) {
-          setExistingAppointments(list);
+          setExistingAppointments(targetList);
+          setCustomerAppointments(customerList);
+          setBlockedSlots(blocked);
         }
       } catch (err) {
         console.error("Failed to load appointments", err);
@@ -71,7 +80,7 @@ export function AppointmentSheet({
     return () => {
       active = false;
     };
-  }, [targetId]);
+  }, [targetId, user?.id]);
 
   // Generate 7 upcoming day choices
   const dates = Array.from({ length: 7 }, (_, i) => {
@@ -81,7 +90,19 @@ export function AppointmentSheet({
   });
 
   const selectedDate = dates[dayOffset] || new Date();
-  const slots = generateWorkingSlots(availabilityNote, selectedDate, existingAppointments);
+  const slots = generateWorkingSlots(availabilityNote, selectedDate, existingAppointments, blockedSlots);
+
+  const isSameDay = (d1: Date, d2: Date) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
+
+  const hasAptToday = customerAppointments.some(
+    (apt) =>
+      apt.status !== "CANCELLED" &&
+      apt.status !== "REJECTED" &&
+      isSameDay(new Date(apt.scheduledForISO), selectedDate)
+  );
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -283,6 +304,21 @@ export function AppointmentSheet({
           </div>
         </div>
 
+        {/* Daily limit warning */}
+        {hasAptToday && (
+          <div className="card" style={{ padding: 12, background: "#fef2f2", border: "1px solid #fee2e2", marginBottom: 16 }}>
+            <div className="row gap-8 center-v">
+              <span style={{ fontSize: 16 }}>⚠️</span>
+              <div>
+                <div className="bold small" style={{ color: "#991b1b" }}>Daily Appointment Limit Hit</div>
+                <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>
+                  You already have an appointment scheduled for this day. You can only book one appointment per day.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Available Time Slots Grid */}
         <div className="field" style={{ marginBottom: 16 }}>
           <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
@@ -428,13 +464,15 @@ export function AppointmentSheet({
         {/* Confirm Action Button */}
         <button
           type="button"
-          className="btn btn-green btn-block btn-lg"
-          disabled={!selectedSlot || submitting || uploading}
+          className={hasAptToday ? "btn btn-outline btn-block btn-lg" : "btn btn-green btn-block btn-lg"}
+          disabled={!selectedSlot || submitting || uploading || hasAptToday}
           onClick={handleConfirm}
           style={{ height: 48, fontSize: 15, fontWeight: 700 }}
         >
           {submitting || uploading
             ? "Booking & Uploading..."
+            : hasAptToday
+            ? "Daily Limit Exceeded"
             : selectedSlot
             ? `Confirm Booking for ${selectedSlot.timeLabel}`
             : "Select a Time Slot"}

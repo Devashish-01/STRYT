@@ -1,4 +1,17 @@
-import type { AppointmentRecord } from "@/types";
+import type { AppointmentRecord, BlockedSlot } from "@/types";
+
+/** Local YYYY-MM-DD key for a date — avoids UTC-shift bugs from toISOString(). */
+export function dateKey(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Owner-set blocks (specific date or recurring weekday) that apply to this calendar day. */
+export function matchBlockedSlotsForDate(date: Date, blockedSlots: BlockedSlot[]): BlockedSlot[] {
+  const dayKey = dateKey(date);
+  const weekday = date.getDay();
+  return blockedSlots.filter((b) => (b.recurring ? b.weekday === weekday : b.date === dayKey));
+}
 
 export interface AvailabilityInfo {
   isOpenNow: boolean;
@@ -169,13 +182,19 @@ export interface AppointmentSlot {
   dateLabel: string;
   isoTimestamp: string;
   isAvailable: boolean;
+  /** True when an owner-set block (not a booking) is why this slot is unavailable. */
+  blocked?: boolean;
+  blockReason?: string;
+  /** Set when a live appointment occupies this exact slot — lets the owner timetable render it inline. */
+  bookedAppointmentId?: string;
 }
 
 /** Generates valid time slots for a given target date based on working hours and slot duration */
 export function generateWorkingSlots(
   availabilityNote?: string,
   targetDate = new Date(),
-  existingAppointments: AppointmentRecord[] = []
+  existingAppointments: AppointmentRecord[] = [],
+  blockedSlots: BlockedSlot[] = []
 ): AppointmentSlot[] {
   const slots: AppointmentSlot[] = [];
   const note = availabilityNote || "Mon–Sat from 09:00 AM to 07:00 PM";
@@ -242,12 +261,21 @@ export function generateWorkingSlots(
 
   if (!isWorkingDay) return [];
 
+  // Owner-set blocks for this calendar day (specific date) or this weekday (recurring).
+  const matchingBlocks = matchBlockedSlotsForDate(targetDate, blockedSlots);
+  if (matchingBlocks.some((b) => !b.timeLabel)) return []; // whole day blocked
+  const blockedTimeLabels = new Map<string, string | undefined>();
+  for (const b of matchingBlocks) {
+    if (b.timeLabel) blockedTimeLabels.set(b.timeLabel, b.reason ?? undefined);
+  }
+
   const nowTime = Date.now();
   for (let min = fromMin; min <= toMin - slotDuration; min += slotDuration) {
     const slotDate = new Date(targetDate);
     slotDate.setHours(Math.floor(min / 60), min % 60, 0, 0);
+    const timeLabel = formatMinutesToTime(min);
 
-    const isBooked = existingAppointments.some(apt => {
+    const bookedApt = existingAppointments.find(apt => {
       if (apt.status === "CANCELLED" || apt.status === "REJECTED") return false;
       try {
         return new Date(apt.scheduledForISO).getTime() === slotDate.getTime();
@@ -255,15 +283,19 @@ export function generateWorkingSlots(
         return false;
       }
     });
+    const isBlocked = blockedTimeLabels.has(timeLabel);
 
-    const isAvailable = !isBooked && slotDate.getTime() > nowTime + 5 * 60 * 1000;
+    const isAvailable = !bookedApt && !isBlocked && slotDate.getTime() > nowTime + 5 * 60 * 1000;
 
     slots.push({
       id: slotDate.toISOString(),
-      timeLabel: formatMinutesToTime(min),
+      timeLabel,
       dateLabel: slotDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
       isoTimestamp: slotDate.toISOString(),
       isAvailable,
+      blocked: isBlocked || undefined,
+      blockReason: isBlocked ? blockedTimeLabels.get(timeLabel) : undefined,
+      bookedAppointmentId: bookedApt?.id,
     });
   }
 

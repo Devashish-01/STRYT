@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { appointmentService, businessService, providerService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
@@ -10,6 +10,7 @@ import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentS
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { Calendar, Image as ImageIcon, X as XIcon, AlertCircle, CheckCircle2, RotateCcw, CalendarClock, CreditCard } from "lucide-react";
 import { PaymentSheet } from "@/components/PaymentSheet";
+import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppointments";
 
 // A booking counts as "upcoming" while it is still live and in the future.
 function isUpcoming(a: AppointmentRecord): boolean {
@@ -37,9 +38,11 @@ export default function MyAppointments() {
   const [payBizUpiId, setPayBizUpiId] = useState<string | null>(null);
   const [loadingPay, setLoadingPay] = useState<string | null>(null);
 
-  const { data, loading, refetch } = useQuery<AppointmentRecord[]>(
+  const { data, loading, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForCustomer(user.id),
-    [user.id]
+    "appointments",
+    [user.id],
+    user.id ? `customer_user_id=eq.${user.id}` : undefined
   );
 
   const list = (data ?? []).filter((a) => (tab === "UPCOMING" ? isUpcoming(a) : !isUpcoming(a)));
@@ -48,7 +51,7 @@ export default function MyAppointments() {
   async function cancel(apt: AppointmentRecord) {
     setCancelling(apt.id);
     try {
-      await appointmentService.updateStatus(apt.id, "CANCELLED");
+      await appointmentService.updateStatus(apt.id, "CANCELLED", undefined, "CUSTOMER");
       showToast("Appointment cancelled");
       refetch();
     } catch {
@@ -120,7 +123,7 @@ export default function MyAppointments() {
   // On a successful reschedule, cancel the original so it isn't a duplicate.
   async function handleBooked() {
     if (rebook?.mode === "RESCHEDULE") {
-      try { await appointmentService.updateStatus(rebook.apt.id, "CANCELLED"); } catch { /* best-effort */ }
+      try { await appointmentService.updateStatus(rebook.apt.id, "CANCELLED", undefined, "CUSTOMER"); } catch { /* best-effort */ }
     }
   }
 
@@ -162,15 +165,15 @@ export default function MyAppointments() {
                       </div>
                       <span
                         className={`badge ${
-                          apt.status === "ACCEPTED"
+                          apt.status === "ACCEPTED" || apt.status === "COMPLETED"
                             ? "badge-green"
-                            : apt.status === "REJECTED" || apt.status === "CANCELLED"
+                            : apt.status === "REJECTED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW"
                             ? "badge-gray"
                             : "badge-purple"
                         }`}
                         style={{ fontSize: 10, padding: "3px 9px" }}
                       >
-                        {apt.status === "ACCEPTED" ? "CONFIRMED" : apt.status}
+                        {apt.status === "ACCEPTED" ? "CONFIRMED" : apt.status.replace("_", " ")}
                       </span>
                     </div>
 
@@ -199,19 +202,7 @@ export default function MyAppointments() {
                       </div>
                     )}
 
-                    {apt.status === "REJECTED" && (
-                      <div className="card row gap-10 center-v" style={{ padding: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10 }}>
-                        <AlertCircle size={18} color="#dc2626" style={{ flexShrink: 0 }} />
-                        <div>
-                          <div className="bold tiny" style={{ color: "#991b1b" }}>Declined by {apt.targetName}</div>
-                          {apt.responseNote ? (
-                            <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1, fontStyle: "italic" }}>Reason: "{apt.responseNote}"</div>
-                          ) : (
-                            <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>No specific reason was provided.</div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    {apt.status === "REJECTED" && <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />}
 
                     {/* Payment status */}
                     {apt.status === "ACCEPTED" && apt.paymentStatus === "PAID" && (
@@ -271,19 +262,7 @@ export default function MyAppointments() {
                       </div>
                     )}
 
-                    {apt.status === "CANCELLED" && (
-                      <div className="card row gap-10 center-v" style={{ padding: 10, background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10 }}>
-                        <AlertCircle size={18} color="#c2410c" style={{ flexShrink: 0 }} />
-                        <div>
-                          <div className="bold tiny" style={{ color: "#9a3412" }}>Cancelled by {apt.targetName}</div>
-                          {apt.responseNote ? (
-                            <div className="tiny" style={{ color: "#7c2d12", marginTop: 1, fontStyle: "italic" }}>Reason: "{apt.responseNote}"</div>
-                          ) : (
-                            <div className="tiny" style={{ color: "#7c2d12", marginTop: 1 }}>No reason was provided.</div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    {apt.status === "CANCELLED" && <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />}
 
                     {/* Actions */}
                     <div className="row gap-8" style={{ borderTop: "1px solid var(--line)", paddingTop: 10, marginTop: 2 }}>
