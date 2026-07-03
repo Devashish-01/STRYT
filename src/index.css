@@ -603,6 +603,13 @@ textarea.input {
 }
 .activity-banner:active { transform: scale(0.98); }
 
+/* Pulse animation for live queue dot */
+@keyframes pulse {
+  0%   { transform: scale(1);   opacity: 0.15; }
+  50%  { transform: scale(1.8); opacity: 0;    }
+  100% { transform: scale(1);   opacity: 0.15; }
+}
+
 /* ---------- Feature card (Profile highlights) ---------- */
 .feature-card {
   display: flex;

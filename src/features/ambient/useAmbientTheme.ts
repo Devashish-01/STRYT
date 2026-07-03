@@ -77,10 +77,25 @@ export function useAmbientTheme(lat?: number, lng?: number): AmbientTheme {
     let accent = "#8b47f5";
     let bg     = "linear-gradient(180deg, #f5f3ff 0%, #fff 100%)";
 
-    // Seasonal nudge (sets boost extension, no banner)
-    if (season === "monsoon") boost = ["plumber", "waterproofing", "umbrella-repair", ...boost];
-    if (season === "winter")  boost = ["geyser-repair", "warm-food", "home-repair", ...boost];
-    if (season === "summer")  boost = ["ac-service", "cold-drinks", "electrician", ...boost];
+    // Seasonal nudge (sets boost extension, default banner & styling)
+    if (season === "monsoon") {
+      boost = ["plumber", "waterproofing", "umbrella-repair", ...boost];
+      banner = "🌧️ Monsoon season — waterproofing & plumbers listed up top";
+      accent = "#2563eb";
+      bg     = "linear-gradient(180deg, #eff6ff 0%, #fff 100%)";
+    }
+    if (season === "winter") {
+      boost = ["geyser-repair", "warm-food", "home-repair", ...boost];
+      banner = "❄️ Winter season — geyser repair & warm food listed up top";
+      accent = "#0284c7";
+      bg     = "linear-gradient(180deg, #f0f9ff 0%, #fff 100%)";
+    }
+    if (season === "summer") {
+      boost = ["ac-service", "cold-drinks", "electrician", ...boost];
+      banner = "☀️ Summer season — AC service & cold drinks listed up top";
+      accent = "#ea580c";
+      bg     = "linear-gradient(180deg, #fff7ed 0%, #fff 100%)";
+    }
 
     // Weather override (highest priority except festival; sets banner + accent)
     if (weather?.isRaining) {

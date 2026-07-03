@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "lucide-react";
 import { useApp } from "@/store";
-import { catalogService, requestService, appointmentService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { catalogService, requestService, appointmentService, businessService } from "@/services";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import QrScannerSheet from "@/components/QrScannerSheet";
@@ -34,9 +34,11 @@ export default function Home() {
   const { data: categories, error: categoriesError, refetch: refetchCategories } = useQuery(() => catalogService.getCategories(), []);
   const { data: agreementsList } = useQuery(() => requestService.agreements(), []);
   const { data: myAppointments } = useQuery(() => appointmentService.listForCustomer(user.id), [user.id]);
+  const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
 
   const agreements = agreementsList ?? [];
   const activeAgreements = agreements.filter((a) => !["COMPLETED", "CANCELLED", "DISPUTED"].includes(a.status));
+  const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
 
   // Upcoming = still-live bookings scheduled in the future.
   const upcomingCount = (myAppointments ?? []).filter(
@@ -222,6 +224,56 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {/* ── Live Queue card — only when user is in an active queue ── */}
+        {activeQueues.length > 0 && (
+          <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
+            <button
+              className="activity-banner fade-up"
+              style={{
+                width: "100%",
+                background: "linear-gradient(135deg, #eff6ff, #dbeafe)",
+                border: "1.5px solid #93c5fd",
+                position: "relative",
+                overflow: "hidden",
+              }}
+              onClick={() => nav("/queues")}
+            >
+              {/* Pulsing live dot */}
+              <span style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, flexShrink: 0 }}>
+                <span style={{
+                  position: "absolute",
+                  width: 38, height: 38,
+                  borderRadius: "50%",
+                  background: "#3b82f6",
+                  opacity: 0.15,
+                  animation: "pulse 1.8s ease-in-out infinite",
+                }} />
+                <span style={{ fontSize: 22 }}>🎟️</span>
+              </span>
+              <div className="grow" style={{ textAlign: "left" }}>
+                <div className="row gap-6" style={{ alignItems: "center" }}>
+                  <span className="semi small" style={{ color: "#1d4ed8" }}>Live Queue</span>
+                  <span style={{
+                    background: "#ef4444",
+                    color: "#fff",
+                    borderRadius: 99,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: "1px 7px",
+                    lineHeight: "18px",
+                  }}>LIVE</span>
+                </div>
+                <div className="tiny muted" style={{ marginTop: 2 }}>
+                  {activeQueues.length === 1
+                    ? `You're in the queue at ${activeQueues[0].businessName} — tap to track`
+                    : `You're in ${activeQueues.length} queues — tap to track`}
+                </div>
+              </div>
+              <ChevronRight size={18} color="#3b82f6" />
+            </button>
+          </div>
+        )}
 
         {/* ── Leaderboard (moved below the grid, slim row) ── */}
         <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
