@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { catalogService, providerService, uploadService } from "@/services";
@@ -18,11 +18,6 @@ export default function ProviderOnboard() {
   const { user, addRole, showToast, refreshUser, ownedProviderId } = useApp();
   const { data: serviceCatsData } = useQuery(() => catalogService.byKind("SERVICE"), []);
 
-  // Guard: if the user already owns a provider, go straight to manage.
-  if (ownedProviderId) {
-    nav(`/provider/${ownedProviderId}/manage`, { replace: true });
-    return null;
-  }
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -41,6 +36,13 @@ export default function ProviderOnboard() {
   const [photoPreview, setPhotoPreview] = useState("");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
+
+  // Guard: if the user already owns a provider, go straight to manage.
+  useEffect(() => {
+    if (ownedProviderId) {
+      nav(`/provider/${ownedProviderId}/manage`, { replace: true });
+    }
+  }, [ownedProviderId, nav]);
 
   const serviceCats = (serviceCatsData ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
 
@@ -95,6 +97,9 @@ export default function ProviderOnboard() {
       setSubmitting(false);
     }
   }
+
+  // Redirect is in-flight via the effect above — render nothing this frame.
+  if (ownedProviderId) return null;
 
   if (done) {
     return (

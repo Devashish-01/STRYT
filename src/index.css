@@ -610,6 +610,12 @@ textarea.input {
   100% { transform: scale(1);   opacity: 0.15; }
 }
 
+/* Skeleton shimmer for loading states */
+@keyframes pulse-bg {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
 /* ---------- Feature card (Profile highlights) ---------- */
 .feature-card {
   display: flex;
