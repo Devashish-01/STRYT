@@ -83,6 +83,7 @@ export function BusinessCardWide({ b }: { b: Business }) {
 
 export function BusinessCardSmall({ b }: { b: Business }) {
   const nav = useNavigate();
+  const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   return (
     <div
       className="fade-up"
@@ -122,6 +123,9 @@ export function BusinessCardSmall({ b }: { b: Business }) {
           <Rating value={b.ratingAvg} size={11} />
           <span className="tiny muted ellipsis">{b.distanceKm} km</span>
         </div>
+        <span className="tiny" style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>
+          {evalRes.isOpenNow ? "Open" : "Closed"}
+        </span>
       </div>
     </div>
   );

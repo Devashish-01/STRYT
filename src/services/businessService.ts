@@ -1,7 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, ReservationReq, BusinessPackage, MyQueueEntry } from "@/types";
+import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, BusinessPackage, MyQueueEntry } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
@@ -524,12 +524,6 @@ export const businessService = {
     return { ok: true, availableNow };
   },
 
-  async reservations(_id: string): Promise<ReservationReq[]> {
-    return [];
-  },
-  async setReservation(_rId: string, _status: "ACCEPTED" | "DECLINED") {
-    return { ok: false };
-  },
   async leads(id: string) {
     const sb = getSupabase();
     const { data, error } = await sb
@@ -570,8 +564,32 @@ export const businessService = {
     await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: "view" });
     return { ok: true };
   },
-  async team(_id: string): Promise<import("@/types").TeamMember[]> {
-    return [];
+  async team(id: string): Promise<import("@/types").TeamMember[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("business_team_members")
+      .select("id, name, phone, avatar, role")
+      .eq("business_id", id)
+      .order("created_at", { ascending: true });
+    throwIfError(error);
+    return (data ?? []) as import("@/types").TeamMember[];
+  },
+  async addTeamMember(businessId: string, member: { name: string; phone: string; role: "MANAGER" | "STAFF" }) {
+    const sb = getSupabase();
+    const { error } = await sb.from("business_team_members").insert({
+      business_id: businessId,
+      name: member.name,
+      phone: member.phone,
+      role: member.role,
+    });
+    throwIfError(error);
+    return { ok: true };
+  },
+  async removeTeamMember(memberId: string) {
+    const sb = getSupabase();
+    const { error } = await sb.from("business_team_members").delete().eq("id", memberId);
+    throwIfError(error);
+    return { ok: true };
   },
 
   async packages(id: string): Promise<BusinessPackage[]> {

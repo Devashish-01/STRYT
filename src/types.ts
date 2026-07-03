@@ -565,16 +565,6 @@ export interface QnaItem {
   askedAt: string;
 }
 
-export interface ReservationReq {
-  id: string;
-  businessId: string;
-  customerName: string;
-  customerAvatar: string;
-  type: "TABLE" | "PREORDER" | "APPOINTMENT";
-  detail: string;
-  when: string;
-  status: "PENDING" | "ACCEPTED" | "DECLINED";
-}
 
 export interface Lead {
   id: string;

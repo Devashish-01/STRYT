@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { appointmentService, businessService, providerService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
@@ -38,7 +38,7 @@ export default function MyAppointments() {
   const [payBizUpiId, setPayBizUpiId] = useState<string | null>(null);
   const [loadingPay, setLoadingPay] = useState<string | null>(null);
 
-  const { data, loading, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
+  const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForCustomer(user.id),
     "appointments",
     [user.id],
@@ -143,6 +143,7 @@ export default function MyAppointments() {
 
       <div className="screen-scroll">
         {loading && <ListSkeleton count={3} />}
+        {error && <ErrorView error={error} onRetry={refetch} />}
         {data && (
           <div className="page-pad col gap-12" style={{ paddingTop: 8 }}>
             {list.length === 0 ? (

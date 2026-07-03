@@ -35,7 +35,7 @@ const FESTIVAL_CONFIG: Record<string, {
   ganesh: {
     boost:  ["decorator", "sweets", "flowers", "events"],
     banner: "🐘 Ganeshotsav! Decorators, modak & flowers nearby",
-    accent: "var(--red-600)",
+    accent: "#dc2626",
     bg:     "linear-gradient(180deg, #fef2f2 0%, #fff 100%)",
   },
   eid: {
@@ -47,7 +47,7 @@ const FESTIVAL_CONFIG: Record<string, {
   xmas: {
     boost:  ["cake", "gifts", "decorator"],
     banner: "🎄 Merry Christmas! Bakeries, decorators & gift shops nearby",
-    accent: "var(--red-600)",
+    accent: "#dc2626",
     bg:     "linear-gradient(180deg, #fef2f2 0%, #fff 100%)",
   },
 };
@@ -74,7 +74,7 @@ export function useAmbientTheme(lat?: number, lng?: number): AmbientTheme {
                                 ["pharmacy", "emergency", "home-repair"];
 
     let banner: string | null = null;
-    let accent = "var(--brand-500)";
+    let accent = "#8b47f5";
     let bg     = "linear-gradient(180deg, #f5f3ff 0%, #fff 100%)";
 
     // Seasonal nudge (sets boost extension, no banner)

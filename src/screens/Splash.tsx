@@ -25,7 +25,7 @@ export default function Splash() {
       <div style={blob("#ff9500", 240, 120, 180)} />
 
       <div className="screen-scroll" style={{ display: "flex", flexDirection: "column", position: "relative", zIndex: 2 }}>
-        <div className="page-pad" style={{ paddingTop: 64, flex: 1 }}>
+        <div className="page-pad" style={{ paddingTop: 64, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           <div
             style={{
               width: 64,
@@ -45,15 +45,15 @@ export default function Splash() {
             </svg>
           </div>
 
-          <h1 style={{ fontSize: 46, fontWeight: 800, marginTop: 28, letterSpacing: 1 }}>STRYT</h1>
-          <p style={{ fontSize: 18, opacity: 0.92, marginTop: 6, fontWeight: 500, lineHeight: 1.4 }}>
+          <h1 style={{ fontSize: 46, fontWeight: 800, marginTop: 32, letterSpacing: 1 }}>STRYT</h1>
+          <p style={{ fontSize: 18, opacity: 0.92, marginTop: 8, fontWeight: 500, lineHeight: 1.4 }}>
             Your street. Your people.
           </p>
-          <p style={{ opacity: 0.7, marginTop: 8, lineHeight: 1.5 }}>
+          <p style={{ opacity: 0.7, marginTop: 10, lineHeight: 1.6, fontSize: 15 }}>
             Discover what's on your street, offer what you do, and ask for what you need.
           </p>
 
-          <div className="col gap-12" style={{ marginTop: 40 }}>
+          <div className="col" style={{ marginTop: 56, gap: 28 }}>
             <Feature icon={<Store size={20} />} title="Discover local spots" text="See what just opened on your street" />
             <Feature icon={<Sparkles size={20} />} title="Find trusted people" text="Plumbers, tutors, makeup artists & more" />
             <Feature icon={<MapPin size={20} />} title="Ask your street" text="Post a need, get offers nearby" />

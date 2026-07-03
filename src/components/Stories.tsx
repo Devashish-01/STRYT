@@ -314,6 +314,20 @@ export function StoryViewer({
       });
   }, [story?.id, isOwnStory]);
 
+  // While the owner has the viewer sheet open, new views should appear live
+  // instead of only being visible on the next time the story is opened.
+  useEffect(() => {
+    if (!story || !isOwnStory) return;
+    const sb = getSupabase();
+    const channel = sb
+      .channel(`rt:story_views:${story.id}`)
+      .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "story_views", filter: `story_id=eq.${story.id}` }, () => {
+        socialService.getStoryViewers(story.id).then(setViewers).catch(() => {});
+      })
+      .subscribe();
+    return () => { sb.removeChannel(channel); };
+  }, [story?.id, isOwnStory]);
+
   // Fetch profiles of allowed/hidden users for privacy settings if they exist
   useEffect(() => {
     if (!story || !isOwnStory) return;

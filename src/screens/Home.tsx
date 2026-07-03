@@ -31,7 +31,7 @@ export default function Home() {
   const [scanner, setScanner] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
 
-  const { data: categories } = useQuery(() => catalogService.getCategories(), []);
+  const { data: categories, error: categoriesError, refetch: refetchCategories } = useQuery(() => catalogService.getCategories(), []);
   const { data: agreementsList } = useQuery(() => requestService.agreements(), []);
   const { data: myAppointments } = useQuery(() => appointmentService.listForCustomer(user.id), [user.id]);
 
@@ -156,6 +156,14 @@ export default function Home() {
         <StoriesBar />
 
         {/* ── Browse by category (top position) ── */}
+        {categoriesError && (
+          <div className="page-pad" style={{ paddingTop: 14 }}>
+            <button className="row between card" style={{ padding: "12px 14px", width: "100%", textAlign: "left" }} onClick={() => refetchCategories()}>
+              <span className="tiny muted">Couldn't load categories</span>
+              <span className="tiny semi" style={{ color: "var(--brand-700)" }}>Retry</span>
+            </button>
+          </div>
+        )}
         {orderedCategories.length > 0 && (
           <div style={{ paddingTop: 14 }}>
             <div className="row between page-pad" style={{ paddingBottom: 0, paddingTop: 0 }}>

@@ -59,9 +59,6 @@ const StoryCompose = lazy(() => import("./screens/StoryCompose"));
 const Community = lazy(() => import("./screens/Community"));
 const CommunityCompose = lazy(() => import("./screens/CommunityCompose"));
 const CommunityPostDetail = lazy(() => import("./screens/CommunityPostDetail"));
-const Neighborhood = lazy(() => import("./screens/Neighborhood"));
-const AvailableNow = lazy(() => import("./screens/AvailableNow"));
-const Wallet = lazy(() => import("./screens/Wallet"));
 const Lists = lazy(() => import("./screens/Lists"));
 const PublicProfile = lazy(() => import("./screens/PublicProfile"));
 const Leaderboard = lazy(() => import("./screens/Leaderboard"));
@@ -74,13 +71,9 @@ const CatalogManager = lazy(() => import("./screens/business/manage/CatalogManag
 const ProfileEditor = lazy(() => import("./screens/business/manage/ProfileEditor"));
 const HoursEditor = lazy(() => import("./screens/business/manage/HoursEditor"));
 const OffersManager = lazy(() => import("./screens/business/manage/OffersManager"));
-const PhotosManager = lazy(() => import("./screens/business/manage/PhotosManager"));
-const StoryComposer = lazy(() => import("./screens/business/manage/StoryComposer"));
 const QueueManager = lazy(() => import("./screens/business/manage/QueueManager"));
-const LoyaltySetup = lazy(() => import("./screens/business/manage/LoyaltySetup"));
 const QnaManager = lazy(() => import("./screens/business/manage/QnaManager"));
 const ReviewsManager = lazy(() => import("./screens/business/manage/ReviewsManager"));
-const Reservations = lazy(() => import("./screens/business/manage/Reservations"));
 const BusinessAppointments = lazy(() => import("./screens/business/manage/BusinessAppointments"));
 const BusinessPackages = lazy(() => import("./screens/business/manage/BusinessPackages"));
 const LeadsInbox = lazy(() => import("./screens/business/manage/LeadsInbox"));
@@ -102,12 +95,14 @@ const AdminPanel = lazy(() => import("./screens/admin/AdminPanel"));
 const AdminLogin = lazy(() => import("./screens/admin/AdminLogin"));
 const TrackingPage = lazy(() => import("./screens/TrackingPage"));
 
-// Society / Subscriptions / Pro
-const SocietyScreen = lazy(() => import("./screens/society/SocietyScreen"));
-const SubscriptionManager = lazy(() => import("./screens/subscriptions/SubscriptionManager"));
-const SubscriptionDetail = lazy(() => import("./screens/subscriptions/SubscriptionDetail"));
-const NewSubscription = lazy(() => import("./screens/subscriptions/NewSubscription"));
-const BusinessProUpgrade = lazy(() => import("./screens/monetization/BusinessProUpgrade"));
+// Society / Subscriptions / Pro / Neighborhood / Available / Wallet / Loyalty /
+// Photos / Story: all moved to screens/future-enhancement/ and unrouted —
+// none of these had any in-app nav link (found during a launch audit), so
+// they're shelved together rather than left reachable only by guessing a URL.
+// Screen files are kept; re-add a lazy import + <Route> here to bring one back.
+// BusinessProUpgrade is the one exception already unrouted for a different
+// reason (its payment flow depends on create-razorpay-order/verify-razorpay-payment
+// Edge Functions that aren't deployed) — screen file stays in screens/monetization/.
 
 // Routes that show the bottom navigation bar
 const TAB_ROUTES = ["/home", "/map", "/explore", "/chats", "/requests", "/community-hub", "/community", "/profile"];
@@ -281,13 +276,9 @@ export default function App() {
             <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
             <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
             <Route path="/business/:id/manage/offers" element={<OffersManager />} />
-            <Route path="/business/:id/manage/photos" element={<PhotosManager />} />
-            <Route path="/business/:id/manage/story" element={<StoryComposer />} />
             <Route path="/business/:id/manage/queue" element={<QueueManager />} />
-            <Route path="/business/:id/manage/loyalty" element={<LoyaltySetup />} />
             <Route path="/business/:id/manage/qna" element={<QnaManager />} />
             <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
-            <Route path="/business/:id/manage/reservations" element={<Reservations />} />
             <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
             <Route path="/business/:id/manage/packages" element={<BusinessPackages />} />
             <Route path="/business/:id/manage/inbox" element={<LeadsInbox />} />
@@ -315,20 +306,10 @@ export default function App() {
             <Route path="/community" element={<Community />} />
             <Route path="/community/new" element={<CommunityCompose />} />
             <Route path="/community/:id" element={<CommunityPostDetail />} />
-            <Route path="/neighborhood" element={<Neighborhood />} />
-            <Route path="/available" element={<AvailableNow />} />
-            <Route path="/wallet" element={<Wallet />} />
             <Route path="/lists" element={<Lists />} />
             <Route path="/u/:id" element={<PublicProfile />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/achievements" element={<Achievements />} />
-
-            {/* Society / Subscriptions / Pro */}
-            <Route path="/society" element={<SocietyScreen />} />
-            <Route path="/subscriptions" element={<SubscriptionManager />} />
-            <Route path="/subscriptions/new" element={<NewSubscription />} />
-            <Route path="/subscriptions/:id" element={<SubscriptionDetail />} />
-            <Route path="/pro-upgrade/business/:id" element={<BusinessProUpgrade />} />
 
             {/* Admin */}
             <Route path="/admin" element={<AdminPanel />} />

@@ -5,7 +5,7 @@ import { discoveryService, requestService, socialService, communityService } fro
 import { useQuery } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";
 import { BusinessCardSmall } from "@/components/cards";
-import { CommunityCard } from "./Community";
+import { CommunityCard } from "@/screens/Community";
 import { useApp } from "@/store";
 
 export default function Neighborhood() {

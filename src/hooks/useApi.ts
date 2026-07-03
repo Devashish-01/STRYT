@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/lib/apiClient";
 import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
+import { useApp } from "@/store";
 
 interface QueryState<T> {
   data: T | undefined;
@@ -15,6 +16,11 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QuerySt
   const [error, setError] = useState<ApiError | null>(null);
   const fnRef = useRef(fn);
   fnRef.current = fn;
+  // Screens are free to also render their own <ErrorView>, but a query that
+  // fails silently (no loading state left, no data, nothing on screen) was
+  // a recurring complaint — this is the one place every fetch passes through,
+  // so it's the one place a failure can never go unseen.
+  const { showToast } = useApp();
 
   const run = useCallback(() => {
     let active = true;
@@ -26,7 +32,11 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QuerySt
         if (active) setData(res);
       })
       .catch((e) => {
-        if (active) setError(e instanceof ApiError ? e : new ApiError(0, { code: "INTERNAL", message: String(e) }));
+        const err = e instanceof ApiError ? e : new ApiError(0, { code: "INTERNAL", message: String(e) });
+        if (active) {
+          setError(err);
+          showToast("Couldn't load — check your connection and try again");
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -34,6 +44,7 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QuerySt
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
