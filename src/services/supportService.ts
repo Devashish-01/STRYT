@@ -1,6 +1,6 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
-import { config } from "@/config";
+import { config, functionUrl } from "@/config";
 
 export interface SupportTicket {
   id?: string;
@@ -47,7 +47,7 @@ export const supportService = {
     try {
       const { data: { session } } = await sb.auth.getSession();
       if (session?.access_token) {
-        await fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/send-support-email`, {
+        await fetch(functionUrl("send-support-email"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -103,7 +103,7 @@ export const supportService = {
     try {
       const { data: { session } } = await sb.auth.getSession();
       if (session?.access_token) {
-        await fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/sync-bug-report`, {
+        await fetch(functionUrl("sync-bug-report"), {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

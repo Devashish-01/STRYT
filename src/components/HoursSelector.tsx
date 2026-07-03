@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Clock, Calendar } from "lucide-react";
+import { DEFAULT_START_TIME, DEFAULT_ONBOARD_END_TIME, DEFAULT_ONBOARD_DAYS_PATTERN } from "@/utils/availability";
 
 interface HoursSelectorProps {
   value: string;
@@ -28,7 +29,7 @@ for (let h = 0; h < 24; h++) {
 }
 
 export function normalizeTimeStr(tStr: string): string {
-  if (!tStr) return "09:00 AM";
+  if (!tStr) return DEFAULT_START_TIME;
   const cleaned = tStr.trim().toUpperCase();
   
   // Check if PM/AM is present, if not infer from hour
@@ -52,7 +53,7 @@ export function normalizeTimeStr(tStr: string): string {
 }
 
 export function parseAvailability(raw: string | undefined): { days: string; from: string; to: string } {
-  const defaults = { days: "Everyday", from: "09:00 AM", to: "09:00 PM" };
+  const defaults = { days: DEFAULT_ONBOARD_DAYS_PATTERN, from: DEFAULT_START_TIME, to: DEFAULT_ONBOARD_END_TIME };
   if (!raw) return defaults;
   
   let main = raw.trim();
@@ -65,29 +66,29 @@ export function parseAvailability(raw: string | undefined): { days: string; from
   
   if (main.includes("from ") && main.includes(" to ")) {
     const parts = main.split(" from ");
-    const daysPattern = parts[0]?.trim() || "Everyday";
+    const daysPattern = parts[0]?.trim() || DEFAULT_ONBOARD_DAYS_PATTERN;
     const times = parts[1]?.split(" to ");
-    const fromTime = normalizeTimeStr(times?.[0] || "09:00 AM");
-    const toTime = normalizeTimeStr(times?.[1] || "09:00 PM");
+    const fromTime = normalizeTimeStr(times?.[0] || DEFAULT_START_TIME);
+    const toTime = normalizeTimeStr(times?.[1] || DEFAULT_ONBOARD_END_TIME);
     return { days: daysPattern, from: fromTime, to: toTime };
   }
   
   if (main.includes("|")) {
     const parts = main.split("|");
-    const daysPattern = parts[0]?.trim() || "Everyday";
+    const daysPattern = parts[0]?.trim() || DEFAULT_ONBOARD_DAYS_PATTERN;
     const times = (parts[1] || "").split(/-|–/);
-    const fromTime = normalizeTimeStr(times?.[0] || "09:00 AM");
-    const toTime = normalizeTimeStr(times?.[1] || "09:00 PM");
+    const fromTime = normalizeTimeStr(times?.[0] || DEFAULT_START_TIME);
+    const toTime = normalizeTimeStr(times?.[1] || DEFAULT_ONBOARD_END_TIME);
     return { days: daysPattern, from: fromTime, to: toTime };
   }
   
   if (main.includes("-") || main.includes("–")) {
     const sep = main.includes("–") ? "–" : "-";
     const parts = main.split(sep);
-    const daysPattern = parts[0]?.trim() || "Everyday";
+    const daysPattern = parts[0]?.trim() || DEFAULT_ONBOARD_DAYS_PATTERN;
     const times = (parts[1] || "").split(/-|–/);
-    const fromTime = normalizeTimeStr(times?.[0] || "09:00 AM");
-    const toTime = normalizeTimeStr(times?.[1] || "09:00 PM");
+    const fromTime = normalizeTimeStr(times?.[0] || DEFAULT_START_TIME);
+    const toTime = normalizeTimeStr(times?.[1] || DEFAULT_ONBOARD_END_TIME);
     return { days: daysPattern, from: fromTime, to: toTime };
   }
   

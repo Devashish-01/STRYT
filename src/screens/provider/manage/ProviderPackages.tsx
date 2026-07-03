@@ -3,14 +3,23 @@ import { useParams } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
 import { providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { Plus, Zap, Trash2 } from "lucide-react";
 import { useApp } from "@/store";
 import type { ProviderPackage } from "@/types";
 
 export default function ProviderPackages() {
-  const { id = "p1" } = useParams();
+  const { id = "" } = useParams();
   const { data, loading, refetch } = useQuery<ProviderPackage[]>(() => providerService.packages(id) as any, [id]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Service packages" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const { showToast } = useApp();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -61,7 +70,7 @@ export default function ProviderPackages() {
                   <div className="tiny muted">{pk.desc} • {pk.duration}</div>
                   <div className="bold small" style={{ color: "var(--green-600)", marginTop: 4 }}>{inr(pk.price)}</div>
                 </div>
-                <button className="icon-btn" style={{ width: 32, height: 32, color: "#dc2626" }} onClick={async () => { await providerService.deletePackage(id, pk.id); showToast("Package removed"); refetch(); }}><Trash2 size={15} /></button>
+                <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} onClick={async () => { await providerService.deletePackage(id, pk.id); showToast("Package removed"); refetch(); }}><Trash2 size={15} /></button>
               </div>
             ))}
           </div>

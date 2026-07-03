@@ -75,12 +75,6 @@ async function fileToDataUrl(file: File): Promise<string> {
 }
 
 export const uploadService = {
-  // Kept for API compatibility. In mocks returns a stock image; with Supabase
-  // we upload directly (no presign step), so this just returns a target path.
-  async sign(kind: string, contentType: string) {
-    return { putUrl: randomPath("pending", kind, contentType), finalUrl: "" };
-  },
-
   // Upload the file to Supabase Storage and return the public URL.
   async upload(file: unknown, kind = "photo") {
     const uid = await currentUserId();

@@ -4,14 +4,23 @@ import { AppBar, VegDot, inr } from "@/components/common";
 import { Plus, Pencil, Trash2, Camera, Star, Tag } from "lucide-react";
 import { businessService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { CatalogItem } from "@/types";
 
 export default function CatalogManager() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const { showToast } = useApp();
   const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Catalog" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const [editing, setEditing] = useState<CatalogItem | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -60,7 +69,7 @@ export default function CatalogManager() {
               <div className="row gap-6">
                 {item.isVeg != null && <VegDot veg={item.isVeg} />}
                 <span className="semi small ellipsis">{item.name}</span>
-                {item.bestSeller && <Star size={13} fill="#f59e0b" strokeWidth={0} />}
+                {item.bestSeller && <Star size={13} fill="var(--amber-500)" strokeWidth={0} />}
               </div>
               {item.description && <div className="tiny muted ellipsis" style={{ marginTop: 1 }}>{item.description}</div>}
               <div className="row gap-6" style={{ marginTop: 4 }}>
@@ -69,7 +78,7 @@ export default function CatalogManager() {
               </div>
               <button
                 className="tiny semi"
-                style={{ color: item.stockStatus === "OUT_OF_STOCK" ? "#dc2626" : "#16a34a", marginTop: 4 }}
+                style={{ color: item.stockStatus === "OUT_OF_STOCK" ? "var(--red-600)" : "var(--green-500)", marginTop: 4 }}
                 onClick={() => toggleStock(item)}
               >
                 {item.stockStatus === "OUT_OF_STOCK" ? "○ Unavailable — tap to mark available" : "● Available"}
@@ -77,7 +86,7 @@ export default function CatalogManager() {
             </div>
             <div className="col gap-8">
               <button className="icon-btn" style={{ width: 34, height: 34 }} onClick={() => setEditing(item)}><Pencil size={15} /></button>
-              <button className="icon-btn" style={{ width: 34, height: 34, color: "#dc2626" }} onClick={() => remove(item)}><Trash2 size={15} /></button>
+              <button className="icon-btn" style={{ width: 34, height: 34, color: "var(--red-600)" }} onClick={() => remove(item)}><Trash2 size={15} /></button>
             </div>
           </div>
         ))}

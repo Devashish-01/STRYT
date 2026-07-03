@@ -77,7 +77,7 @@ export default function Wallet() {
                 </div>
                 <div className="bold" style={{ fontSize: 17, color: "#c2410c", marginTop: 4 }}>{cp.title}</div>
                 <div className="row between" style={{ marginTop: 10 }}>
-                  <button className="row gap-6 badge badge-amber" style={{ borderStyle: "dashed", border: "1px dashed #f59e0b", padding: "6px 12px" }} onClick={async () => { const ok = await copyText(cp.code); showToast(ok ? "Code copied" : "Couldn't copy code"); }}>
+                  <button className="row gap-6 badge badge-amber" style={{ borderStyle: "dashed", border: "1px dashed var(--amber-500)", padding: "6px 12px" }} onClick={async () => { const ok = await copyText(cp.code); showToast(ok ? "Code copied" : "Couldn't copy code"); }}>
                     {cp.code} <Copy size={12} />
                   </button>
                   <div className="row gap-8">
@@ -113,7 +113,7 @@ export default function Wallet() {
                   </div>
                   <div className="col" style={{ alignItems: "flex-end" }}>
                     <span className="bold">{inr(s.amount)}</span>
-                    {s.tip ? <span className="tiny" style={{ color: "#16a34a" }}>+{inr(s.tip)} tip</span> : null}
+                    {s.tip ? <span className="tiny" style={{ color: "var(--green-500)" }}>+{inr(s.tip)} tip</span> : null}
                   </div>
                 </div>
               ))

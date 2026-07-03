@@ -3,18 +3,27 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
 import { businessService, profileControlService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { UserPlus, Crown, Power, Bell, QrCode } from "lucide-react";
+import { ErrorView } from "@/components/states";
+import { Crown, Power, Bell, QrCode } from "lucide-react";
 import { useApp } from "@/store";
-import { copyText } from "@/lib/clipboard";
 import type { TeamMember } from "@/types";
 import ManageNav from "./ManageNav";
 
 export default function BusinessSettings() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast, setContext } = useApp();
   const { data: team } = useQuery<TeamMember[]>(() => businessService.team(id) as any, [id]);
   const { data: business, refetch: refetchBiz } = useQuery(() => businessService.get(id), [id]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Settings" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const [ownerEnabled, setOwnerEnabled] = useState(true);
   const [leads, setLeads] = useState(true);
   const [reviewsN, setReviewsN] = useState(true);
@@ -104,31 +113,28 @@ export default function BusinessSettings() {
         {/* Team */}
         <div>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Team</div>
-          <div className="card">
-            {(team ?? []).map((m, i) => (
-              <div key={m.id} className="row gap-12" style={{ padding: "12px 14px", borderBottom: i < (team!.length - 1) ? "1px solid var(--line)" : "none" }}>
-                <SafeImg src={m.avatar} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
-                <div className="grow"><div className="semi small">{m.name}</div><div className="tiny muted">{m.phone}</div></div>
-                <span className={`badge ${m.role === "OWNER" ? "badge-purple" : "badge-gray"}`}>{m.role === "OWNER" && <Crown size={10} />} {m.role}</span>
-              </div>
-            ))}
-          </div>
-          <button
-            className="btn btn-ghost btn-block btn-sm"
-            style={{ marginTop: 10 }}
-            onClick={async () => {
-              const link = `${window.location.origin}/business/${id}`;
-              const ok = await copyText(link);
-              showToast(ok ? "Invite link copied" : "Couldn't copy link");
-            }}
-          ><UserPlus size={16} /> Invite team member</button>
+          {(team ?? []).length > 0 ? (
+            <div className="card">
+              {(team ?? []).map((m, i) => (
+                <div key={m.id} className="row gap-12" style={{ padding: "12px 14px", borderBottom: i < (team!.length - 1) ? "1px solid var(--line)" : "none" }}>
+                  <SafeImg src={m.avatar} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
+                  <div className="grow"><div className="semi small">{m.name}</div><div className="tiny muted">{m.phone}</div></div>
+                  <span className={`badge ${m.role === "OWNER" ? "badge-purple" : "badge-gray"}`}>{m.role === "OWNER" && <Crown size={10} />} {m.role}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="card" style={{ padding: 14 }}>
+              <div className="tiny muted">Multi-staff accounts aren't available yet — you're the sole manager of this listing for now.</div>
+            </div>
+          )}
         </div>
 
         {/* Danger */}
         <div className="card" style={{ padding: 14 }}>
           <button
             className="row gap-10 semi small"
-            style={{ color: "#dc2626" }}
+            style={{ color: "var(--red-600)" }}
             onClick={async () => {
               try {
                 await businessService.update(id, { isOpenNow: false });

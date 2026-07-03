@@ -3,15 +3,24 @@ import { useParams } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { Plus, Zap, Trash2 } from "lucide-react";
 import { useApp } from "@/store";
 import type { BusinessPackage } from "@/types";
 import ManageNav from "./ManageNav";
 
 export default function BusinessPackages() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const { data, loading, refetch } = useQuery<BusinessPackage[]>(() => businessService.packages(id), [id]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Service Packages" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const { showToast } = useApp();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
@@ -86,7 +95,7 @@ export default function BusinessPackages() {
                 </div>
                 <button
                   className="icon-btn"
-                  style={{ width: 32, height: 32, color: "#dc2626" }}
+                  style={{ width: 32, height: 32, color: "var(--red-600)" }}
                   onClick={async () => { await businessService.deletePackage(id, pk.id); showToast("Package removed"); refetch(); }}
                 >
                   <Trash2 size={15} />

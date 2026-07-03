@@ -50,7 +50,7 @@ export function BusinessCardWide({ b }: { b: Business }) {
           }}
           aria-label="Save"
         >
-          <Heart size={18} fill={saved ? "#ef4444" : "none"} color={saved ? "#ef4444" : "#5c5573"} />
+          <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "#5c5573"} />
         </button>
         {b.isNew && (
           <span className="badge badge-new" style={{ position: "absolute", top: 12, left: 10 }}>
@@ -72,7 +72,7 @@ export function BusinessCardWide({ b }: { b: Business }) {
         <div className="row gap-10 tiny muted" style={{ marginTop: 8 }}>
           <span className="row gap-4"><MapPin size={13} /> {b.distanceKm} km</span>
           {b.deliveryTime && <span className="row gap-4"><Clock size={13} /> {b.deliveryTime}</span>}
-          <span style={{ color: evalRes.isOpenNow ? "#16a34a" : "#dc2626", fontWeight: 700 }}>
+          <span style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>
             {evalRes.isOpenNow ? "Open" : "Closed"}
           </span>
         </div>
@@ -147,7 +147,7 @@ export function ProviderCard({ p }: { p: Provider }) {
               width: 14,
               height: 14,
               borderRadius: "50%",
-              background: evalRes.isOpenNow ? "#16a34a" : "#9ca3af",
+              background: evalRes.isOpenNow ? "var(--green-500)" : "#9ca3af",
               border: "2px solid #fff",
             }}
           />
@@ -165,7 +165,7 @@ export function ProviderCard({ p }: { p: Provider }) {
               }}
               aria-label="Save"
             >
-              <Heart size={18} fill={saved ? "#ef4444" : "none"} color={saved ? "#ef4444" : "#a9a3bd"} />
+              <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "#a9a3bd"} />
             </button>
           </div>
           <div className="tiny muted" style={{ marginTop: 1 }}>{p.categoryName} • {p.subCategory}</div>
@@ -190,7 +190,7 @@ export function ProviderCard({ p }: { p: Provider }) {
       <div className="row between" style={{ marginTop: 11 }}>
         <div>
           <span className="tiny muted">Starts at </span>
-          <span className="bold" style={{ color: "#16a34a" }}>{inr(p.startingPrice)}</span>
+          <span className="bold" style={{ color: "var(--green-500)" }}>{inr(p.startingPrice)}</span>
         </div>
         <span className="tiny muted row gap-4"><Clock size={12} /> Responds {p.responseTime}</span>
       </div>
@@ -207,7 +207,7 @@ export function ProviderCardSmall({ p }: { p: Provider }) {
         <div className="bold small ellipsis" style={{ maxWidth: "100%" }}>{p.displayName}</div>
         <div className="tiny muted ellipsis" style={{ maxWidth: "100%" }}>{p.categoryName}</div>
         <Rating value={p.ratingAvg} size={11} />
-        <div className="tiny" style={{ color: "#16a34a", fontWeight: 700 }}>from {inr(p.startingPrice)}</div>
+        <div className="tiny" style={{ color: "var(--green-500)", fontWeight: 700 }}>from {inr(p.startingPrice)}</div>
       </div>
     </div>
   );
@@ -258,11 +258,11 @@ export function RequestCard({ r }: { r: RequestPost }) {
       {r.isGroupBuy && r.groupBuyTarget && (
         <div style={{ marginTop: 10 }}>
           <div className="row between tiny" style={{ marginBottom: 4 }}>
-            <span className="semi" style={{ color: "#16a34a" }}>{meTooCount} of {r.groupBuyTarget} joined</span>
+            <span className="semi" style={{ color: "var(--green-500)" }}>{meTooCount} of {r.groupBuyTarget} joined</span>
             <span className="muted">unlocks bulk price</span>
           </div>
           <div style={{ height: 7, borderRadius: 6, background: "var(--ink-100)", overflow: "hidden" }}>
-            <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,#16a34a,#4ade80)" }} />
+            <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),#4ade80)" }} />
           </div>
         </div>
       )}
@@ -272,7 +272,7 @@ export function RequestCard({ r }: { r: RequestPost }) {
       <div className="row between">
         <div className="col" style={{ gap: 2 }}>
           <span className="tiny muted">Budget</span>
-          <span className="bold" style={{ color: "#16a34a" }}>{budget}</span>
+          <span className="bold" style={{ color: "var(--green-500)" }}>{budget}</span>
         </div>
         <button
           className="row gap-4 chip"

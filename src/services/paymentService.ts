@@ -1,4 +1,5 @@
 import { getSupabase } from "@/lib/supabaseClient";
+import { functionUrl } from "@/config";
 
 export const paymentService = {
   async createOrder(agreementId: string, amount: number, payerUserId: string): Promise<{
@@ -6,7 +7,7 @@ export const paymentService = {
   }> {
     const sb = getSupabase();
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(`${(import.meta as any).env?.VITE_SUPABASE_URL}/functions/v1/create-razorpay-order`, {
+    const res = await fetch(functionUrl("create-razorpay-order"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
       body: JSON.stringify({ agreementId, amount, payerUserId }),
@@ -19,7 +20,7 @@ export const paymentService = {
   async verifyPayment(razorpayOrderId: string, razorpayPaymentId: string, razorpaySignature: string, agreementId: string): Promise<void> {
     const sb = getSupabase();
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(`${(import.meta as any).env?.VITE_SUPABASE_URL}/functions/v1/verify-razorpay-payment`, {
+    const res = await fetch(functionUrl("verify-razorpay-payment"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
       body: JSON.stringify({ razorpayOrderId, razorpayPaymentId, razorpaySignature, agreementId }),

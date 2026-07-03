@@ -2,6 +2,7 @@ import { useState } from "react";
 import { MessageCircle, Copy, Link2, Send, Share2 } from "lucide-react";
 import { useApp } from "@/store";
 import { copyText } from "@/lib/clipboard";
+import { PLACEHOLDER_AVATAR } from "@/lib/placeholders";
 
 export interface ShareOption {
   role: string;
@@ -71,7 +72,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
     { label: "WhatsApp", icon: MessageCircle, color: "#25D366", onClick: shareWhatsApp },
     { label: "Copy link", icon: Link2, color: "var(--brand-700)", onClick: copyLink },
     { label: "Copy card", icon: Copy, color: "#0ea5e9", onClick: copyCard },
-    { label: "More", icon: Send, color: "#f26a00", onClick: shareMore },
+    { label: "More", icon: Send, color: "var(--orange-500)", onClick: shareMore },
   ];
 
   return (
@@ -184,7 +185,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
             }}
           >
             <div style={{ position: "relative" }}>
-              <img src={currentImage || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120"} alt="" style={{ width: "100%", height: 150, objectFit: "cover" }} />
+              <img src={currentImage || PLACEHOLDER_AVATAR} alt="" style={{ width: "100%", height: 150, objectFit: "cover" }} />
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(76,29,149,0.9), transparent 60%)" }} />
             </div>
             <div style={{ padding: 16, paddingTop: 8 }}>

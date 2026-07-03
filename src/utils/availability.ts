@@ -1,5 +1,18 @@
 import type { AppointmentRecord, BlockedSlot } from "@/types";
 
+export const DEFAULT_WORKING_HOURS = "Mon–Sat from 09:00 AM to 07:00 PM";
+export const DEFAULT_ONBOARD_WORKING_HOURS = "Everyday from 09:00 AM to 09:00 PM";
+export const DEFAULT_MOCK_WORKING_HOURS = "Mon-Sat 9 AM - 7 PM";
+export const DEFAULT_SHORT_WORKING_HOURS = "9 AM - 9 PM";
+
+export const DEFAULT_DAYS_PATTERN = "Mon–Sat";
+export const DEFAULT_START_TIME = "09:00 AM";
+export const DEFAULT_END_TIME = "07:00 PM";
+
+export const DEFAULT_ONBOARD_DAYS_PATTERN = "Everyday";
+export const DEFAULT_ONBOARD_END_TIME = "09:00 PM";
+
+
 /** Local YYYY-MM-DD key for a date — avoids UTC-shift bugs from toISOString(). */
 export function dateKey(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -47,8 +60,8 @@ export function formatMinutesToTime(totalMin: number): string {
 /** Calculates the next start time when availability opens */
 export function calculateNextStartTime(availabilityNote?: string, now = new Date()): { nextDate: Date; label: string } {
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  let fromMin = 9 * 60;
-  const raw = availabilityNote ? availabilityNote.split("|")[0].trim() : "Mon–Sat from 09:00 AM to 07:00 PM";
+  let fromMin = parseTimeToMinutes(DEFAULT_START_TIME);
+  const raw = availabilityNote ? availabilityNote.split("|")[0].trim() : DEFAULT_WORKING_HOURS;
 
   if (raw.includes("from ") && raw.includes(" to ")) {
     const parts = raw.split(" from ");
@@ -135,8 +148,8 @@ export function evaluateProviderAvailability(
     isWorkingDay = ["Sat", "Sun"].includes(currentDayName);
   }
 
-  let fromMin = 9 * 60; // 9:00 AM
-  let toMin = 19 * 60; // 7:00 PM
+  let fromMin = parseTimeToMinutes(DEFAULT_START_TIME); // 9:00 AM
+  let toMin = parseTimeToMinutes(DEFAULT_END_TIME); // 7:00 PM
 
   if (raw.includes("from ") && raw.includes(" to ")) {
     const parts = raw.split(" from ");
@@ -197,10 +210,10 @@ export function generateWorkingSlots(
   blockedSlots: BlockedSlot[] = []
 ): AppointmentSlot[] {
   const slots: AppointmentSlot[] = [];
-  const note = availabilityNote || "Mon–Sat from 09:00 AM to 07:00 PM";
+  const note = availabilityNote || DEFAULT_WORKING_HOURS;
   
   const parts = note.split("|");
-  const mainPart = parts[0]?.trim() || "Mon–Sat from 09:00 AM to 07:00 PM";
+  const mainPart = parts[0]?.trim() || DEFAULT_WORKING_HOURS;
   const configPart = parts[1];
   
   let slotDuration = 30;
@@ -212,13 +225,13 @@ export function generateWorkingSlots(
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const targetDayName = dayNames[targetDate.getDay()];
   
-  let fromMin = 9 * 60; // 9:00 AM
-  let toMin = 19 * 60;  // 7:00 PM
+  let fromMin = parseTimeToMinutes(DEFAULT_START_TIME); // 9:00 AM
+  let toMin = parseTimeToMinutes(DEFAULT_END_TIME);  // 7:00 PM
   let isWorkingDay = true;
 
   if (mainPart === "Open 24×7") {
-    fromMin = 9 * 60; // default active range from 9 AM to 9 PM
-    toMin = 21 * 60;
+    fromMin = parseTimeToMinutes(DEFAULT_START_TIME); // default active range from 9 AM to 9 PM
+    toMin = parseTimeToMinutes(DEFAULT_ONBOARD_END_TIME);
     isWorkingDay = true;
   } else if (mainPart.includes(", ") || mainPart.includes("Closed") || mainPart.match(/^[A-Za-z]{3}\s\d{2}:\d{2}/)) {
     // Per-day format: e.g. "Mon 11:00–23:30, Tue Closed"

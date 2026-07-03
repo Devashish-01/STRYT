@@ -36,8 +36,8 @@ export default function Neighborhood() {
   const topAlert = communityPosts.find((p) => p.type === "ALERT");
 
   const stats = [
-    { icon: Store, label: "Just opened", value: newCount, color: "#f26a00", to: "/explore" },
-    { icon: Zap, label: "Available now", value: availCount, color: "#16a34a", to: "/available" },
+    { icon: Store, label: "Just opened", value: newCount, color: "var(--orange-500)", to: "/explore" },
+    { icon: Zap, label: "Available now", value: availCount, color: "var(--green-500)", to: "/available" },
     { icon: MessageSquareText, label: "Open requests", value: openReq, color: "var(--brand-600)", to: "/requests" },
   ];
 
@@ -111,7 +111,7 @@ export default function Neighborhood() {
                 <button key={p.providerId} className="card col" style={{ width: 160, flexShrink: 0, padding: 12, gap: 6, alignItems: "center", textAlign: "center" }} onClick={() => nav(`/provider/${p.providerId}`)}>
                   <div style={{ position: "relative" }}>
                     <SafeImg src={p.avatar} variant="avatar" className="avatar" style={{ width: 56, height: 56 }} />
-                    <span style={{ position: "absolute", bottom: 0, right: 0, width: 16, height: 16, borderRadius: "50%", background: "#16a34a", border: "2px solid #fff" }} />
+                    <span style={{ position: "absolute", bottom: 0, right: 0, width: 16, height: 16, borderRadius: "50%", background: "var(--green-500)", border: "2px solid #fff" }} />
                   </div>
                   <div className="semi small ellipsis" style={{ maxWidth: "100%" }}>{p.displayName}</div>
                   <span className="badge badge-green tiny"><Clock size={10} /> till {p.availableUntil}</span>
@@ -140,13 +140,13 @@ export default function Neighborhood() {
         <div className="page-pad" style={{ paddingTop: 6 }}>
           <button className="card row gap-12" style={{ padding: 14, width: "100%", textAlign: "left", background: "linear-gradient(120deg,#fffbeb,#fff)" }} onClick={() => nav("/leaderboard")}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Trophy size={22} color="#f59e0b" />
+              <Trophy size={22} color="var(--amber-500)" />
             </div>
             <div className="grow">
               <div className="semi small">This month's local heroes</div>
               <div className="tiny muted">Top providers & most helpful neighbors</div>
             </div>
-            <TrendingUp size={18} color="#f59e0b" />
+            <TrendingUp size={18} color="var(--amber-500)" />
           </button>
         </div>
 

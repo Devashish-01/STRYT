@@ -84,6 +84,12 @@
 
 ## Fixed
 
+### ISS-F11 — Full audit cleanup: dead code, hardcoded values, missing realtime, 2 logic bugs ✅
+- **Status:** ✅ Fixed — session 2026-07-03
+- **Was:** The full hardcoded-values/dead-code/should-be-live audit from earlier this session, worked item by item. See `TASKS.md` Group AUDIT-CLEANUP for the full breakdown (dead files/exports removed, placeholder photo URLs and badge thresholds centralized, Edge Function URLs centralized, raw hex colors swept to CSS tokens, 16 tables added to the realtime publication, a dozen one-shot screens switched to `useQueryWithRealtime`, `chatUnread` fixed to hydrate + update live, Leaderboard's hardcoded `/u/u1` nav target fixed with a real `target_id` from the RPC, Achievements' two fabricated badges replaced with a real one).
+- **Migration needed:** `supabase/migrations/20260711_realtime_publication_gaps.sql` (run manually in SQL editor)
+- **Deliberately deferred:** `Stories.tsx` per-story viewer realtime (low-value, risked destabilizing a dense effect chain). `businessService.team()`/`reservations()` stay stubs — real fixes are net-new features, not cleanup. The UI/UX "proper padding, feel more arranged" half of the request — no visual/browser tool available in this environment to verify spacing changes aren't guesses; a near-miss on the shared `.card` class (would have broken 17 intentionally-edge-to-edge list cards) confirmed this needs actual visual QA, not blind CSS edits.
+
 ### ISS-F10 — "Me too" fully disabled + backing table untracked; group-buy target was a promise nothing fulfilled; mock-target public pages looked like real bookings ✅
 - **Status:** ✅ Fixed — session 2026-07-03
 - **Was:** both "Me too" UI entry points (`cards.tsx`, `RequestDetail.tsx`) were commented out. `request_me_toos` (and its `me_too_count` sync trigger) existed only as untracked schema drift — no migration defined it, so `meToo()` would throw `relation does not exist` on a rebuilt DB. No notification ever fired to the requester when someone joined; group-buy copy promised "unlocks bulk price" at target but nothing checked or acted on the target being reached. `BusinessRequests.tsx`, `ProviderLeads.tsx`, `CommunityHub.tsx` read the live `me_too_count` column with plain `useQuery`, so it never updated without a manual refresh even though `requests` was already in the realtime publication. Separately, mock-target business/provider pages (`b1`/`p1`) rendered a normal-looking booking flow with no indication that submissions go to `localStorage` only, never a real owner.

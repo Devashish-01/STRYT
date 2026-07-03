@@ -21,6 +21,8 @@
   --red-500: #ef4444;
   --red-600: #dc2626;
   --blue-500: #3b82f6;
+  --amber-500: #f59e0b;
+  --orange-500: #f26a00;
 
   /* Neutrals — purple-tinted ink */
   --ink-900: #1a0a2e;
@@ -575,7 +577,7 @@ textarea.input {
   min-width: 16px;
   height: 16px;
   border-radius: 8px;
-  background: #ef4444;
+  background: var(--red-500);
   color: #fff;
   font-size: 10px;
   font-weight: 700;
@@ -626,7 +628,7 @@ textarea.input {
   min-width: 20px;
   height: 20px;
   border-radius: 10px;
-  background: #ef4444;
+  background: var(--red-500);
   color: #fff;
   font-size: 11px;
   font-weight: 700;

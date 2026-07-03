@@ -10,7 +10,7 @@ import {
   Share2, IndianRupee, Ban,
 } from "lucide-react";
 import type { AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
-import { dateKey } from "@/utils/availability";
+import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";
 import ManageNav from "./ManageNav";
 import DateStrip from "@/components/appointments/DateStrip";
@@ -21,7 +21,7 @@ import WalkInModal from "@/components/appointments/WalkInModal";
 type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
 export default function BusinessAppointments() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const { showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
   const { data: bizPackages } = useQuery(() => businessService.packages(id).catch(() => []), [id]);
@@ -35,6 +35,15 @@ export default function BusinessAppointments() {
     () => slotBlockService.list(id),
     [id]
   );
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Appointments" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   const [tab, setTab] = useState<ConsoleTab>("TODAY");
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -234,7 +243,7 @@ export default function BusinessAppointments() {
 
         {(repeatOffender > 0 || repeatNoShow > 0) && apt.status === "PENDING" && (
           <div className="row gap-6 center-v" style={{ background: "#fef2f2", padding: "6px 10px", borderRadius: 8 }}>
-            <AlertTriangle size={13} color="#dc2626" />
+            <AlertTriangle size={13} color="var(--red-600)" />
             <span className="tiny" style={{ color: "#991b1b" }}>
               {repeatNoShow > 0 ? `${repeatNoShow} past no-show${repeatNoShow > 1 ? "s" : ""}` : ""}
               {repeatNoShow > 0 && repeatOffender > 0 ? " • " : ""}
@@ -293,7 +302,7 @@ export default function BusinessAppointments() {
             </div>
             {repeatOffender > 0 && (
               <div className="row gap-6 center-v" style={{ background: "#fef2f2", padding: "6px 10px", borderRadius: 8 }}>
-                <AlertTriangle size={13} color="#dc2626" />
+                <AlertTriangle size={13} color="var(--red-600)" />
                 <span className="tiny" style={{ color: "#991b1b" }}>
                   This customer has {repeatOffender} previously rejected claim{repeatOffender > 1 ? "s" : ""} at this shop.
                 </span>
@@ -303,7 +312,7 @@ export default function BusinessAppointments() {
               <button className="btn btn-green grow btn-sm" disabled={processingPayment === apt.id} onClick={() => setPaymentAction({ apt, action: "CONFIRM" })}>
                 <CheckCircle2 size={14} /> Confirm received
               </button>
-              <button className="btn btn-outline grow btn-sm" style={{ color: "#dc2626", borderColor: "#fca5a5" }} disabled={processingPayment === apt.id} onClick={() => setPaymentAction({ apt, action: "REJECT" })}>
+              <button className="btn btn-outline grow btn-sm" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} disabled={processingPayment === apt.id} onClick={() => setPaymentAction({ apt, action: "REJECT" })}>
                 <XIcon size={14} /> Can't verify
               </button>
             </div>
@@ -312,7 +321,7 @@ export default function BusinessAppointments() {
 
         {apt.paymentStatus === "PAID" && (
           <div className="row gap-8 center-v" style={{ padding: "8px 0 2px" }}>
-            <CheckCircle2 size={15} color="#16a34a" />
+            <CheckCircle2 size={15} color="var(--green-500)" />
             <span className="tiny semi" style={{ color: "#15803d" }}>
               Payment confirmed via {apt.paymentMethod ?? "unknown"}
               {apt.paymentAmount ? ` • ₹${apt.paymentAmount}` : ""}
@@ -328,13 +337,13 @@ export default function BusinessAppointments() {
                 <button type="button" className="btn btn-green grow btn-sm row gap-4 center" onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}>
                   <Check size={14} /> Accept
                 </button>
-                <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "#dc2626", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
+                <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
                   <XIcon size={14} /> Decline
                 </button>
               </>
             )}
             {apt.status === "ACCEPTED" && (
-              <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "#dc2626", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
+              <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
                 <XIcon size={14} /> Cancel appointment
               </button>
             )}
@@ -345,7 +354,7 @@ export default function BusinessAppointments() {
           <button
             type="button"
             className="row gap-4 center-v tiny semi"
-            style={{ color: "#dc2626", alignSelf: "flex-start", marginTop: 2 }}
+            style={{ color: "var(--red-600)", alignSelf: "flex-start", marginTop: 2 }}
             disabled={noShowBusy === apt.id}
             onClick={() => markNoShow(apt)}
           >
@@ -411,7 +420,7 @@ export default function BusinessAppointments() {
 
             <DayTimetable
               date={selectedDate}
-              availabilityNote={b?.hours || "Mon–Sat from 09:00 AM to 07:00 PM"}
+              availabilityNote={b?.hours || DEFAULT_WORKING_HOURS}
               appointments={appointments}
               blockedSlots={blockedSlots}
               renderAppointment={renderAppointmentCard}
@@ -506,7 +515,7 @@ export default function BusinessAppointments() {
               <button className="btn btn-ghost btn-sm" onClick={() => { setActiveApt(null); setActionType(null); }}>Back</button>
               <button
                 className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : "btn-primary"}`}
-                style={actionType === "CANCEL" ? { background: "#dc2626", color: "#fff" } : undefined}
+                style={actionType === "CANCEL" ? { background: "var(--red-600)", color: "#fff" } : undefined}
                 onClick={handleUpdateStatus}
               >
                 {actionType === "ACCEPT" ? "Confirm" : actionType === "REJECT" ? "Decline" : "Cancel appointment"}
@@ -529,13 +538,13 @@ export default function BusinessAppointments() {
                 : `The customer will be notified that you couldn't verify their payment. They can retry. Repeated false claims are tracked.`}
             </div>
             {paymentAction.action === "CONFIRM" && paymentAction.apt.paymentAmount && (
-              <div className="bold" style={{ fontSize: 22, color: "#16a34a" }}>₹{paymentAction.apt.paymentAmount}</div>
+              <div className="bold" style={{ fontSize: 22, color: "var(--green-500)" }}>₹{paymentAction.apt.paymentAmount}</div>
             )}
             <div className="row gap-8 end">
               <button className="btn btn-ghost btn-sm" onClick={() => setPaymentAction(null)}>Back</button>
               <button
                 className={`btn btn-sm ${paymentAction.action === "CONFIRM" ? "btn-green" : ""}`}
-                style={paymentAction.action === "REJECT" ? { background: "#dc2626", color: "#fff" } : undefined}
+                style={paymentAction.action === "REJECT" ? { background: "var(--red-600)", color: "#fff" } : undefined}
                 disabled={!!processingPayment}
                 onClick={() => handlePaymentAction(paymentAction.apt, paymentAction.action)}
               >
@@ -608,7 +617,7 @@ export function CancelAttributionNote({ apt, viewpoint }: { apt: AppointmentReco
   if (apt.status === "REJECTED") {
     return (
       <div className="card row gap-10 center-v" style={{ padding: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10 }}>
-        <AlertTriangle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
+        <AlertTriangle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
         <div>
           <div className="bold tiny" style={{ color: "#991b1b" }}>{viewpoint === "OWNER" ? "You declined this booking" : `Declined by ${apt.targetName}`}</div>
           {apt.responseNote ? (

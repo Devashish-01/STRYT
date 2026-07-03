@@ -366,11 +366,11 @@ export default function StoryCompose() {
                   border: "1.5px solid",
                   background: visibility === "close_friends" ? "rgba(34,197,94,0.06)" : "#fff",
                   borderColor: visibility === "close_friends" ? "#22c55e" : "var(--ink-200)",
-                  color: visibility === "close_friends" ? "#16a34a" : "var(--ink-700)",
+                  color: visibility === "close_friends" ? "var(--green-500)" : "var(--ink-700)",
                   cursor: "pointer"
                 }}
               >
-                <Star size={15} fill={visibility === "close_friends" ? "#16a34a" : "none"} /> Close Friends
+                <Star size={15} fill={visibility === "close_friends" ? "var(--green-500)" : "none"} /> Close Friends
               </button>
             </div>
 
@@ -476,7 +476,7 @@ export default function StoryCompose() {
                           </div>
                           <button
                             onClick={() => toggleUserSelection(u)}
-                            style={{ background: "none", border: "none", color: "#ef4444", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                            style={{ background: "none", border: "none", color: "var(--red-500)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
                           >
                             Remove
                           </button>

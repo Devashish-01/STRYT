@@ -4,13 +4,22 @@ import { AppBar, EmptyState } from "@/components/common";
 import { Plus, Tag, Trash2, Megaphone } from "lucide-react";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { ListSkeleton } from "@/components/states";
+import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 
 export default function OffersManager() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const { showToast } = useApp();
   const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Offers" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -84,7 +93,7 @@ export default function OffersManager() {
         {b.offers.map((o) => (
           <div key={o.id} className="card row gap-12" style={{ padding: 14 }}>
             <div style={{ width: 40, height: 40, borderRadius: 10, background: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Tag size={18} color="#f26a00" />
+              <Tag size={18} color="var(--orange-500)" />
             </div>
             <div className="grow">
               <div className="semi small">{o.title}</div>
@@ -109,7 +118,7 @@ export default function OffersManager() {
               >
                 <Megaphone size={15} color="#cc4415" />
               </button>
-              <button className="icon-btn" style={{ width: 32, height: 32, color: "#dc2626" }} onClick={() => remove(o.id)}>
+              <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} onClick={() => remove(o.id)}>
                 <Trash2 size={15} />
               </button>
             </div>

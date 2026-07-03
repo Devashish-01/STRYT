@@ -44,7 +44,7 @@ export default function SubmitProposal() {
             </div>
             <p className="tiny muted clamp-2" style={{ marginTop: 4 }}>{r.description}</p>
             <div className="row gap-12 tiny" style={{ marginTop: 8 }}>
-              <span className="muted">Budget: <span className="semi" style={{ color: "#16a34a" }}>{r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open"}</span></span>
+              <span className="muted">Budget: <span className="semi" style={{ color: "var(--green-500)" }}>{r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open"}</span></span>
               <span className="muted">By: <span className="semi" style={{ color: "var(--ink-900)" }}>{r.deadline}</span></span>
             </div>
           </div>
@@ -72,17 +72,17 @@ export default function SubmitProposal() {
         <button
           type="button"
           className="card row gap-12"
-          style={{ padding: 14, border: boost ? "2px solid #f59e0b" : "1.5px solid var(--ink-200)", textAlign: "left" }}
+          style={{ padding: 14, border: boost ? "2px solid var(--amber-500)" : "1.5px solid var(--ink-200)", textAlign: "left" }}
           onClick={() => setBoost((v) => !v)}
         >
           <div style={{ width: 40, height: 40, borderRadius: 10, background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Zap size={20} color="#f59e0b" />
+            <Zap size={20} color="var(--amber-500)" />
           </div>
           <div className="grow">
             <div className="semi small">Boost this proposal — ₹49</div>
             <div className="tiny muted">Pin to the top so the requester sees you first</div>
           </div>
-          <span style={{ width: 22, height: 22, borderRadius: 6, border: boost ? "none" : "2px solid var(--ink-300)", background: boost ? "#f59e0b" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
+          <span style={{ width: 22, height: 22, borderRadius: 6, border: boost ? "none" : "2px solid var(--ink-300)", background: boost ? "var(--amber-500)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
             {boost ? "✓" : ""}
           </span>
         </button>

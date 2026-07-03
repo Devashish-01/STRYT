@@ -250,7 +250,7 @@ export default function ProfileEdit() {
           <div className="col gap-12">
             <div className="field">
               <label>
-                Display Name <span style={{ color: "#ef4444" }}>*</span>
+                Display Name <span style={{ color: "var(--red-500)" }}>*</span>
               </label>
               <input
                 className="input"
@@ -422,7 +422,7 @@ export default function ProfileEdit() {
 
         {/* ── Emergency contact ── */}
         <div>
-          <SectionHead icon={<AlertTriangle size={15} color="#ef4444" />} title="Emergency contact" />
+          <SectionHead icon={<AlertTriangle size={15} color="var(--red-500)" />} title="Emergency contact" />
           <div style={{
             background: "#fff", border: "1.5px solid #fee2e2",
             borderRadius: 16, padding: 16,

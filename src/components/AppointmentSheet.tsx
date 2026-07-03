@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2 } from "lucide-react";
 import { useApp } from "@/store";
-import { generateWorkingSlots, type AppointmentSlot } from "@/utils/availability";
+import { generateWorkingSlots, type AppointmentSlot, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { uploadService } from "@/services/uploadService";
 import { appointmentService } from "@/services/appointmentService";
 import { slotBlockService } from "@/services/slotBlockService";
@@ -213,7 +213,7 @@ export function AppointmentSheet({
         {availableNow ? (
           <div className="card" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0", marginBottom: 16 }}>
             <div className="row gap-8 center-v">
-              <span style={{ width: 9, height: 9, borderRadius: "50%", background: "#16a34a", boxShadow: "0 0 0 3px rgba(22,163,74,0.18)" }} />
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--green-500)", boxShadow: "0 0 0 3px rgba(22,163,74,0.18)" }} />
               <div>
                 <div className="bold small" style={{ color: "#15803d" }}>Available now</div>
                 <div className="tiny" style={{ color: "#166534", marginTop: 1 }}>Pick the earliest slot below — they can take you right away.</div>
@@ -227,7 +227,7 @@ export function AppointmentSheet({
               <div>
                 <div className="tiny semi muted">Working Hours Schedule</div>
                 <div className="bold small" style={{ color: "var(--brand-800)", marginTop: 1 }}>
-                  {availabilityNote || "Mon–Sat from 09:00 AM to 07:00 PM"}
+                  {availabilityNote || DEFAULT_WORKING_HOURS}
                 </div>
               </div>
             </div>

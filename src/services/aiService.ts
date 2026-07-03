@@ -1,10 +1,11 @@
 import { getSupabase } from "@/lib/supabaseClient";
+import { functionUrl } from "@/config";
 
 async function call(action: string, payload: Record<string, unknown>) {
   const sb = getSupabase();
   const { data: { session } } = await sb.auth.getSession();
   const res = await fetch(
-    `${(import.meta as any).env?.VITE_SUPABASE_URL}/functions/v1/ai-assist`,
+    functionUrl("ai-assist"),
     {
       method: "POST",
       headers: {

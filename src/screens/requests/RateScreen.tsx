@@ -70,15 +70,15 @@ export default function RateScreen() {
             <button key={i} onClick={() => setRating(i)} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(0)}>
               <Star
                 size={42}
-                fill={i <= (hover || rating) ? "#f59e0b" : "none"}
+                fill={i <= (hover || rating) ? "var(--amber-500)" : "none"}
                 strokeWidth={i <= (hover || rating) ? 0 : 1.5}
-                color={i <= (hover || rating) ? "#f59e0b" : "#cfcadd"}
+                color={i <= (hover || rating) ? "var(--amber-500)" : "#cfcadd"}
                 style={{ transition: "transform 0.1s", transform: i <= (hover || rating) ? "scale(1.08)" : "scale(1)" }}
               />
             </button>
           ))}
         </div>
-        {rating > 0 && <div className="semi" style={{ marginTop: 10, color: "#f59e0b" }}>{labels[rating]}</div>}
+        {rating > 0 && <div className="semi" style={{ marginTop: 10, color: "var(--amber-500)" }}>{labels[rating]}</div>}
 
         {/* Tags */}
         <div className="row wrap gap-8" style={{ marginTop: 22, justifyContent: "center" }}>
@@ -105,7 +105,7 @@ export default function RateScreen() {
         <div className="card" style={{ padding: 14, marginTop: 16, width: "100%" }}>
           <div className="row between" style={{ marginBottom: 10 }}>
             <span className="semi small">Add a tip? <span className="tiny muted">(paid in person)</span></span>
-            {tip > 0 && <span className="bold" style={{ color: "#16a34a" }}>+₹{tip}</span>}
+            {tip > 0 && <span className="bold" style={{ color: "var(--green-500)" }}>+₹{tip}</span>}
           </div>
           <div className="row gap-8">
             {[0, 20, 50, 100].map((t) => (

@@ -2,14 +2,23 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, EmptyState } from "@/components/common";
 import { businessService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { QnaItem } from "@/types";
 
 export default function QnaManager() {
-  const { id = "b1" } = useParams();
-  const { data, loading, error, refetch } = useQuery<QnaItem[]>(() => businessService.qna(id) as any, [id]);
+  const { id = "" } = useParams();
+  const { data, loading, error, refetch } = useQueryWithRealtime<QnaItem[]>(() => businessService.qna(id) as any, "business_qna", [id], `business_id=eq.${id}`);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Questions & Answers" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   return (
     <div className="screen">

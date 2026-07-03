@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone } from "lucide-react";
 import { notificationService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState } from "@/components/common";
 import { useApp } from "@/store";
@@ -11,14 +11,14 @@ import type { NotificationType, AppNotification } from "@/types";
 const Handshake = HandshakeIcon as any;
 
 const meta: Record<NotificationType, { icon: any; color: string; bg: string }> = {
-  NEW_BUSINESS: { icon: Store, color: "#f26a00", bg: "#fff3e8" },
-  NEW_PROVIDER: { icon: Briefcase, color: "#16a34a", bg: "#e8f7ee" },
+  NEW_BUSINESS: { icon: Store, color: "var(--orange-500)", bg: "#fff3e8" },
+  NEW_PROVIDER: { icon: Briefcase, color: "var(--green-500)", bg: "#e8f7ee" },
   NEARBY_REQUEST: { icon: MessageSquareText, color: "var(--brand-700)", bg: "var(--brand-100)" },
   PROPOSAL: { icon: FileText, color: "#0ea5e9", bg: "#e6f5fe" },
-  AGREEMENT: { icon: Handshake, color: "#16a34a", bg: "#e8f7ee" },
+  AGREEMENT: { icon: Handshake, color: "var(--green-500)", bg: "#e8f7ee" },
   OFFER: { icon: Tag, color: "#ec4899", bg: "#fdeef6" },
-  ME_TOO: { icon: Users, color: "#16a34a", bg: "#e8f7ee" },
-  GROUP_BUY_UNLOCKED: { icon: PartyPopper, color: "#f26a00", bg: "#fff3e8" },
+  ME_TOO: { icon: Users, color: "var(--green-500)", bg: "#e8f7ee" },
+  GROUP_BUY_UNLOCKED: { icon: PartyPopper, color: "var(--orange-500)", bg: "#fff3e8" },
   QUOTE_BROADCAST: { icon: Megaphone, color: "#a855f7", bg: "#f3e8ff" },
   SYSTEM: { icon: Bell, color: "#5c5573", bg: "#f1eef8" },
 };
@@ -26,7 +26,7 @@ const meta: Record<NotificationType, { icon: any; color: string; bg: string }> =
 export default function Notifications() {
   const nav = useNavigate();
   const { markAllRead, decrementUnread } = useApp();
-  const { data, loading, error, refetch } = useQuery(() => notificationService.list(), []);
+  const { data, loading, error, refetch } = useQueryWithRealtime(() => notificationService.list(), "notifications", []);
   const [items, setItems] = useState<AppNotification[]>([]);
 
   useEffect(() => {

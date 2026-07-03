@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppBar, SafeImg, EmptyState } from "@/components/common";
 import { Users, Key, Shield, Plus, ClipboardCheck, QrCode, Clock, CheckCircle2, X } from "lucide-react";
 import { societyService, type Society, type SocietyMember, type GatePass } from "@/services/societyService";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { ListSkeleton, Skeleton } from "@/components/states";
 
@@ -74,7 +74,7 @@ function SocietyHome({ society, isAdmin, showToast }: { society: Society; isAdmi
           <span className="tiny muted">Total units</span>
         </div>
         <div className="card grow col center" style={{ padding: 16, gap: 6 }}>
-          <Shield size={22} color="#16a34a" />
+          <Shield size={22} color="var(--green-500)" />
           <span className="bold" style={{ fontSize: 22 }}>{society.verified ? "Yes" : "No"}</span>
           <span className="tiny muted">Verified</span>
         </div>
@@ -93,8 +93,8 @@ function SocietyHome({ society, isAdmin, showToast }: { society: Society; isAdmi
         <div className="semi small" style={{ marginBottom: 10 }}>Quick actions</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <QuickTile icon={<Key size={20} color="var(--brand-700)" />} label="Issue Gate Pass" />
-          <QuickTile icon={<ClipboardCheck size={20} color="#16a34a" />} label="Notice Board" />
-          <QuickTile icon={<QrCode size={20} color="#f26a00" />} label="Provider Directory" />
+          <QuickTile icon={<ClipboardCheck size={20} color="var(--green-500)" />} label="Notice Board" />
+          <QuickTile icon={<QrCode size={20} color="var(--orange-500)" />} label="Provider Directory" />
           <QuickTile icon={<Users size={20} color="#0ea5e9" />} label="Maintenance Staff" />
         </div>
       </div>
@@ -145,7 +145,7 @@ function MembersList({ societyId }: { societyId: string }) {
 }
 
 function GatePasses({ societyId, isAdmin, showToast }: { societyId: string; isAdmin: boolean; showToast: (m: string) => void }) {
-  const { data, loading, refetch } = useQuery(() => societyService.getGatePasses(societyId), [societyId]);
+  const { data, loading, refetch } = useQueryWithRealtime(() => societyService.getGatePasses(societyId), "gate_passes", [societyId], `society_id=eq.${societyId}`);
   const [showForm, setShowForm] = useState(false);
   const [providerPhone, setProviderPhone] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -213,7 +213,7 @@ function GatePassCard({ pass }: { pass: GatePass }) {
 }
 
 function PendingMembers({ societyId, showToast }: { societyId: string; showToast: (m: string) => void }) {
-  const { data, loading, refetch } = useQuery(() => societyService.getPendingMembers(societyId), [societyId]);
+  const { data, loading, refetch } = useQueryWithRealtime(() => societyService.getPendingMembers(societyId), "society_members", [societyId], `society_id=eq.${societyId}`);
   if (loading) return <div className="page-pad"><ListSkeleton count={3} /></div>;
   const pending = data ?? [];
 

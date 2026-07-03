@@ -36,7 +36,7 @@ export default function LocationPicker({
   storedLat,
   storedLng,
   height = 150,
-  pinColor = "#f26a00",
+  pinColor = "var(--orange-500)",
   onError,
 }: LocationPickerProps) {
   const { loading, error, request } = useGeolocation({ storedLat, storedLng });

@@ -37,7 +37,7 @@ export function NeighborhoodTodayCard({ lat, lng, radiusM = 3000, areaName }: Pr
         <span
           className="tiny"
           style={{
-            color: "#16a34a",
+            color: "var(--green-500)",
             background: "#dcfce7",
             borderRadius: 20,
             padding: "1px 8px",
@@ -87,7 +87,7 @@ function SignalRow({ signal, onNavigate }: { signal: TodaySignal; onNavigate: (p
       <span
         className="small"
         style={{
-          color: isUrgent ? "#dc2626" : "var(--ink-700)",
+          color: isUrgent ? "var(--red-600)" : "var(--ink-700)",
           fontWeight: isUrgent ? 600 : 400,
           lineHeight: 1.4,
         }}

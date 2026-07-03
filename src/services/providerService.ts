@@ -25,6 +25,9 @@ import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Provider, PortfolioItem, Review, ProviderPackage } from "@/types";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
+import { isMockTarget } from "./appointmentService";
+import { DEFAULT_MOCK_WORKING_HOURS } from "@/utils/availability";
+import { PLACEHOLDER_PROVIDER_AVATAR, PLACEHOLDER_PORTFOLIO_IMAGE } from "@/lib/placeholders";
 
 // Columns on the providers table; everything else (portfolio, distanceKm…) stripped.
 const PROVIDER_COLUMNS = new Set([
@@ -63,7 +66,7 @@ export const providerService = {
     return toCamel<Provider[]>(data ?? []);
   },
   async get(id: string, lat?: number, lng?: number): Promise<Provider | undefined> {
-    if (id === "p1" || id.startsWith("prov_mock_")) {
+    if (isMockTarget(id)) {
       return {
         id,
         userId: "mock_user_2",
@@ -71,13 +74,13 @@ export const providerService = {
         categoryId: "2",
         categoryName: "AC Repair",
         bio: "Certified AC technician with 8+ years of experience. Quick troubleshooting and honest pricing.",
-        avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=200",
+        avatar: PLACEHOLDER_PROVIDER_AVATAR,
         lat: config.defaultLocation.lat,
         lng: config.defaultLocation.lng,
         distanceKm: 0.8,
         serviceRadiusKm: 15,
         startingPrice: 350,
-        availabilityNote: "Mon-Sat 9 AM - 7 PM",
+        availabilityNote: DEFAULT_MOCK_WORKING_HOURS,
         status: "ACTIVE",
         isVerified: true,
         ratingAvg: 4.8,
@@ -87,7 +90,7 @@ export const providerService = {
         isNew: false,
         skills: ["AC installation", "Gas refilling", "Compressor repair", "General servicing"],
         portfolio: [
-          { id: "port_1", title: "AC installation at Koregaon Park office", description: "Dual-inverter split AC installation", imageUrl: "https://images.unsplash.com/photo-1585338107529-13afc5f02586?w=500" }
+          { id: "port_1", title: "AC installation at Koregaon Park office", description: "Dual-inverter split AC installation", imageUrl: PLACEHOLDER_PORTFOLIO_IMAGE }
         ],
         phone: "9876543211"
       } as any;
@@ -101,7 +104,7 @@ export const providerService = {
     return prov;
   },
   async reviews(id: string): Promise<Review[]> {
-    if (id === "p1" || id.startsWith("prov_mock_")) {
+    if (isMockTarget(id)) {
       return [
         { id: "rev_1", raterName: "Daniel Craig", raterAvatar: "", rating: 5, comment: "Super fast response and very neat work.", date: "3 days ago" },
         { id: "rev_2", raterName: "Pooja Hegde", raterAvatar: "", rating: 4, comment: "Fixed the leakage in 10 minutes. Good behavior.", date: "2 weeks ago" }

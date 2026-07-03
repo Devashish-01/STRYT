@@ -64,7 +64,7 @@ export default function Agreements() {
                     <div className="tiny muted">with {a.responderName}</div>
                   </div>
                   <div className="col" style={{ alignItems: "flex-end" }}>
-                    <span className="bold" style={{ color: "#16a34a" }}>{inr(a.agreedPrice)}</span>
+                    <span className="bold" style={{ color: "var(--green-500)" }}>{inr(a.agreedPrice)}</span>
                     <ChevronRight size={18} color="var(--ink-300)" />
                   </div>
                 </div>

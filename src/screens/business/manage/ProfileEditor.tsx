@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Skeleton } from "@/components/states";
+import { Skeleton, ErrorView } from "@/components/states";
 import { catalogService, businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -9,10 +9,19 @@ import RadiusSelector from "@/components/RadiusSelector";
 
 
 export default function ProfileEditor() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const { data: b, loading } = useQuery(() => businessService.get(id), [id]);
   const { data: categories } = useQuery(() => catalogService.getCategories(), []);
   const { showToast } = useApp();
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Edit Profile" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [cat, setCat] = useState("");

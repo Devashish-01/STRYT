@@ -9,8 +9,17 @@ import { Check, X, CalendarClock } from "lucide-react";
 import type { ReservationReq } from "@/types";
 
 export default function Reservations() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const { data, loading, error, refetch } = useQuery(() => businessService.reservations(id), [id]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Reservations" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const { showToast } = useApp();
   const [overrides, setOverrides] = useState<Record<string, ReservationReq["status"]>>({});
 

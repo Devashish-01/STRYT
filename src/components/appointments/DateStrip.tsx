@@ -56,7 +56,7 @@ export default function DateStrip({ selectedDate, onSelect, appointments, daysBe
             <span className="bold" style={{ fontSize: 15, color: isSelected ? "var(--brand-700)" : isToday ? "var(--brand-600)" : "var(--ink-900)" }}>
               {d.getDate()}
             </span>
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: count > 0 ? (isSelected ? "var(--brand-600)" : "#16a34a") : "transparent" }} />
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: count > 0 ? (isSelected ? "var(--brand-600)" : "var(--green-500)") : "transparent" }} />
           </button>
         );
       })}

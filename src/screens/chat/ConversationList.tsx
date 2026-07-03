@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, Search, QrCode } from "lucide-react";
 import { chatService, relativeTime } from "@/services/chatService";
-import { useQuery } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { EmptyState, SafeImg } from "@/components/common";
 import { useApp } from "@/store";
@@ -10,7 +10,7 @@ import QrScannerSheet from "@/components/QrScannerSheet";
 
 export default function ConversationList() {
   const nav = useNavigate();
-  const { data: convs, loading } = useQuery(() => chatService.conversations(), []);
+  const { data: convs, loading } = useQueryWithRealtime(() => chatService.conversations(), "conversations", []);
   const [scanner, setScanner] = useState(false);
 
   return (

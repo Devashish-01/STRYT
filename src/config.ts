@@ -18,3 +18,9 @@ export const config = {
     { area: "Marathahalli", full: "Marathahalli, Bengaluru, Karnataka", lat: 12.956, lng: 77.701, emoji: "💻" },
   ],
 };
+
+// Every Edge Function call needs this same base — centralized so it isn't
+// hand-rebuilt (and occasionally mistyped) at each call site.
+export function functionUrl(name: string): string {
+  return `${config.supabaseUrl}/functions/v1/${name}`;
+}

@@ -16,7 +16,7 @@ import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import AddToListSheet from "@/components/AddToListSheet";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
-import { evaluateProviderAvailability } from "@/utils/availability";
+import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { isMockTarget } from "@/services/appointmentService";
 
 export default function BusinessDetail() {
@@ -30,11 +30,11 @@ export default function BusinessDetail() {
   } = useApp();
 
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
-  const { data: reviews, refetch: refetchReviews } = useQuery(() => businessService.reviews(id), [id]);
+  const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
   const { data: queue } = useQueryWithRealtime(() => businessService.queue(id), "queue_tokens", [id], `business_id=eq.${id}`);
-  const { data: qnaList, refetch: refetchQna } = useQuery(() => businessService.qna(id), [id]);
+  const { data: qnaList, refetch: refetchQna } = useQueryWithRealtime(() => businessService.qna(id), "business_qna", [id], `business_id=eq.${id}`);
   const { data: bizPackages } = useQuery(() => businessService.packages(id).catch(() => []), [id]);
-  const { data: bizPosts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
+  const { data: bizPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("business", id), "community_posts", [id], `author_ref_id=eq.${id}`);
   const [tab, setTab] = useState<"catalog" | "posts" | "about" | "reviews">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [report, setReport] = useState(false);
@@ -164,7 +164,7 @@ export default function BusinessDetail() {
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setAddList(true)}><Bookmark size={18} /></button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => toggleBookmark("BUSINESS", b.id)}>
-                <Heart size={18} fill={saved ? "#ef4444" : "none"} color={saved ? "#ef4444" : "#5c5573"} />
+                <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "#5c5573"} />
               </button>
             </div>
           </div>
@@ -198,8 +198,8 @@ export default function BusinessDetail() {
 
             <div className="row gap-12 small" style={{ marginTop: 12, color: "var(--ink-600)" }}>
               <span className="row gap-4"><MapPin size={14} /> {b.distanceKm} km</span>
-              <span className="row gap-4"><Clock size={14} color={evalRes.isOpenNow ? "#16a34a" : "#dc2626"} />
-                <span style={{ color: evalRes.isOpenNow ? "#16a34a" : "#dc2626", fontWeight: 700 }}>{evalRes.isOpenNow ? "Open now" : "Closed"}</span>
+              <span className="row gap-4"><Clock size={14} color={evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)"} />
+                <span style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>{evalRes.isOpenNow ? "Open now" : "Closed"}</span>
               </span>
             </div>
             <p className="tiny muted" style={{ marginTop: 6 }}>{b.addressLine1}, {b.city} • {b.hours}</p>
@@ -257,7 +257,7 @@ export default function BusinessDetail() {
                 style={{ background: notifying ? "#fff3e8" : "var(--ink-50)", color: notifying ? "var(--accent-600)" : "var(--ink-700)" }}
                 onClick={() => toggleNotify(notifyKey)}
               >
-                <Bell size={16} fill={notifying ? "#f26a00" : "none"} /> {notifying ? "Alerts on" : "Notify me"}
+                <Bell size={16} fill={notifying ? "var(--orange-500)" : "none"} /> {notifying ? "Alerts on" : "Notify me"}
               </button>
               {isOwner ? (
                 <button
@@ -285,7 +285,7 @@ export default function BusinessDetail() {
           <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
             <div className="card row gap-12" style={{ padding: 14, background: queue.peopleAhead === 0 ? "#e8f7ee" : "var(--brand-50)", border: "none" }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Users size={20} color={queue.peopleAhead === 0 ? "#16a34a" : "#cc4415"} />
+                <Users size={20} color={queue.peopleAhead === 0 ? "var(--green-500)" : "#cc4415"} />
               </div>
               <div className="grow">
                 <div className="semi small">
@@ -318,13 +318,13 @@ export default function BusinessDetail() {
             {b.offers.map((o) => (
               <div key={o.id} className="card row gap-10" style={{ padding: 12, background: "#fff7ed", border: "1px dashed #fdba74" }}>
                 <div style={{ width: 38, height: 38, borderRadius: 10, background: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Tag size={18} color="#f26a00" />
+                  <Tag size={18} color="var(--orange-500)" />
                 </div>
                 <div className="grow">
                   <div className="semi small" style={{ color: "#c2410c" }}>{o.title}</div>
                   <div className="tiny muted">{o.description}</div>
                 </div>
-                {o.code && <span className="badge badge-amber" style={{ borderStyle: "dashed", border: "1px dashed #f59e0b" }}>{o.code}</span>}
+                {o.code && <span className="badge badge-amber" style={{ borderStyle: "dashed", border: "1px dashed var(--amber-500)" }}>{o.code}</span>}
               </div>
             ))}
           </div>
@@ -467,7 +467,7 @@ export default function BusinessDetail() {
               onClick={() => nav("/map")}
             >
               <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-100%)" }}>
-                <MapPin size={36} color="#f26a00" fill="#f26a00" />
+                <MapPin size={36} color="var(--orange-500)" fill="var(--orange-500)" />
               </div>
               <span className="tiny semi" style={{ position: "absolute", bottom: 10, right: 12, background: "#fff", padding: "4px 10px", borderRadius: 8 }}>Open in map</span>
             </div>
@@ -527,9 +527,9 @@ export default function BusinessDetail() {
                   return (
                     <div key={s} className="row gap-6 tiny">
                       <span style={{ width: 8 }}>{s}</span>
-                      <Star size={10} fill="#f59e0b" strokeWidth={0} />
+                      <Star size={10} fill="var(--amber-500)" strokeWidth={0} />
                       <div style={{ flex: 1, height: 6, background: "var(--ink-100)", borderRadius: 6, overflow: "hidden" }}>
-                        <div style={{ width: `${pct}%`, height: "100%", background: "#f59e0b" }} />
+                        <div style={{ width: `${pct}%`, height: "100%", background: "var(--amber-500)" }} />
                       </div>
                     </div>
                   );
@@ -589,7 +589,7 @@ export default function BusinessDetail() {
           targetId={b.id}
           targetName={b.name}
           targetType="BUSINESS"
-          availabilityNote={b.hours || "Mon–Sat from 09:00 AM to 07:00 PM"}
+          availabilityNote={b.hours || DEFAULT_WORKING_HOURS}
           availableNow={evalRes.isOpenNow}
           packages={
             checkoutMode && schedulingPkg

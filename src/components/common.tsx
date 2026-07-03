@@ -34,7 +34,7 @@ export function AppBar({
 }
 
 export function Rating({ value, size = 13 }: { value: number; size?: number }) {
-  const color = value >= 4 ? "#16a34a" : value >= 3 ? "#f59e0b" : "#ef4444";
+  const color = value >= 4 ? "var(--green-500)" : value >= 3 ? "var(--amber-500)" : "var(--red-500)";
   return (
     <span
       className="stars"
@@ -55,14 +55,14 @@ export function Rating({ value, size = 13 }: { value: number; size?: number }) {
 
 export function StarRow({ value, size = 16 }: { value: number; size?: number }) {
   return (
-    <span className="row gap-4" style={{ color: "#f59e0b" }}>
+    <span className="row gap-4" style={{ color: "var(--amber-500)" }}>
       {[1, 2, 3, 4, 5].map((i) => (
         <Star
           key={i}
           size={size}
-          fill={i <= Math.round(value) ? "#f59e0b" : "none"}
+          fill={i <= Math.round(value) ? "var(--amber-500)" : "none"}
           strokeWidth={i <= Math.round(value) ? 0 : 1.5}
-          color={i <= Math.round(value) ? "#f59e0b" : "#cfcadd"}
+          color={i <= Math.round(value) ? "var(--amber-500)" : "#cfcadd"}
         />
       ))}
     </span>
@@ -127,7 +127,7 @@ export function VegDot({ veg }: { veg?: boolean }) {
         display: "inline-flex",
         width: 16,
         height: 16,
-        border: `2px solid ${veg ? "#16a34a" : "#dc2626"}`,
+        border: `2px solid ${veg ? "var(--green-500)" : "var(--red-600)"}`,
         borderRadius: 4,
         alignItems: "center",
         justifyContent: "center",
@@ -139,7 +139,7 @@ export function VegDot({ veg }: { veg?: boolean }) {
           width: 7,
           height: 7,
           borderRadius: "50%",
-          background: veg ? "#16a34a" : "#dc2626",
+          background: veg ? "var(--green-500)" : "var(--red-600)",
         }}
       />
     </span>

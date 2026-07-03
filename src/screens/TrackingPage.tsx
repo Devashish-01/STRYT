@@ -86,7 +86,7 @@ export default function TrackingPage() {
   useEffect(() => {
     if (!leafletMap.current || providerLat === null || providerLng === null) return;
     const icon = L.divIcon({
-      html: `<div style="width:18px;height:18px;border-radius:50%;background:#16a34a;border:3px solid #fff;box-shadow:0 0 0 6px rgba(22,163,74,0.25);animation:naya-pulse 1.5s ease-in-out infinite"></div>`,
+      html: `<div style="width:18px;height:18px;border-radius:50%;background:var(--green-500);border:3px solid #fff;box-shadow:0 0 0 6px rgba(22,163,74,0.25);animation:naya-pulse 1.5s ease-in-out infinite"></div>`,
       className: "",
       iconSize: [18, 18],
       iconAnchor: [9, 9],
@@ -145,9 +145,9 @@ export default function TrackingPage() {
       <div style={{ height: 50, background: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
         <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <svg width="22" height="22" viewBox="0 0 64 64">
-            <rect width="64" height="64" rx="16" fill="#7c3aed"/>
+            <rect width="64" height="64" rx="16" fill="var(--brand-600)"/>
             <path d="M32 13 C23 13 16 20 16 28.8 C16 39.5 32 52 32 52 C32 52 48 39.5 48 28.8 C48 20 41 13 32 13 Z" fill="#fff"/>
-            <path d="M32 39 C25 34 39 24 32 19" stroke="#7c3aed" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M32 39 C25 34 39 24 32 19" stroke="var(--brand-600)" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           <span style={{ fontWeight: 800, fontSize: 18, color: "var(--brand-700)", letterSpacing: 0.5 }}>STRYT</span>
         </span>

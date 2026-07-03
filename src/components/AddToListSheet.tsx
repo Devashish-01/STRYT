@@ -43,7 +43,7 @@ export default function AddToListSheet({
                   <div className="semi small">{l.name}</div>
                   <div className="tiny muted">{l.items.length} saved {l.shared && "• shared"}</div>
                 </div>
-                {has ? <Check size={20} color="#16a34a" /> : <Plus size={20} color="var(--ink-400)" />}
+                {has ? <Check size={20} color="var(--green-500)" /> : <Plus size={20} color="var(--ink-400)" />}
               </button>
             );
           })}

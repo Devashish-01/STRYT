@@ -56,7 +56,7 @@ export default function AdminLogin() {
         <div
           style={{
             width: 56, height: 56, borderRadius: 16,
-            background: "linear-gradient(135deg, #7c3aed, #4c1d95)",
+            background: "linear-gradient(135deg, var(--brand-600), #4c1d95)",
             display: "flex", alignItems: "center", justifyContent: "center",
             marginBottom: 16, boxShadow: "0 8px 24px rgba(124,58,237,0.35)",
           }}
@@ -107,7 +107,7 @@ export default function AdminLogin() {
           className="row center gap-8"
           style={{
             marginTop: 8, padding: 15, borderRadius: 14, border: "none",
-            background: "linear-gradient(135deg, #7c3aed, #6d28d9)", color: "#fff",
+            background: "linear-gradient(135deg, var(--brand-600), #6d28d9)", color: "#fff",
             fontWeight: 700, fontSize: 15, cursor: "pointer", opacity: (!adminId.trim() || !password) ? 0.5 : 1,
           }}
         >

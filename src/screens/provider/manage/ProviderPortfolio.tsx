@@ -4,14 +4,23 @@ import { AppBar, SafeImg } from "@/components/common";
 import { Camera, Pencil, Trash2, Check } from "lucide-react";
 import { providerService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { Skeleton } from "@/components/states";
+import { Skeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import ProviderManageNav from "./ProviderManageNav";
 
 export default function ProviderPortfolio() {
-  const { id = "p1" } = useParams();
+  const { id = "" } = useParams();
   const { data: p, loading, refetch } = useQuery(() => providerService.get(id), [id]);
   const { showToast } = useApp();
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Portfolio" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [editingCaption, setEditingCaption] = useState<string | null>(null);
@@ -100,7 +109,7 @@ export default function ProviderPortfolio() {
                   />
                   <button
                     className="icon-btn"
-                    style={{ width: 28, height: 28, background: "#16a34a", color: "#fff", flexShrink: 0 }}
+                    style={{ width: 28, height: 28, background: "var(--green-500)", color: "#fff", flexShrink: 0 }}
                     onClick={async () => {
                       await providerService.updatePortfolio?.(id, item.id, { caption: captionVal });
                       setEditingCaption(null);
@@ -128,7 +137,7 @@ export default function ProviderPortfolio() {
                     </button>
                     <button
                       className="icon-btn"
-                      style={{ width: 28, height: 28, background: "rgba(255,255,255,0.92)", color: "#dc2626" }}
+                      style={{ width: 28, height: 28, background: "rgba(255,255,255,0.92)", color: "var(--red-600)" }}
                       onClick={() => deleteItem(item.id)}
                       title="Delete"
                     >

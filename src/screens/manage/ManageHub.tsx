@@ -34,12 +34,12 @@ export default function ManageHub() {
                       <div className="row gap-6"><span className="semi">{b.name}</span></div>
                       <span className="badge badge-green" style={{ marginTop: 3 }}>● Live</span>
                     </div>
-                    <Store size={20} color="#f26a00" />
+                    <Store size={20} color="var(--orange-500)" />
                   </div>
                   <div className="row gap-12 tiny muted" style={{ marginTop: 12 }}>
                     <span className="row gap-4"><Eye size={12} /> {b.viewCount.toLocaleString()}</span>
                     <span className="row gap-4"><Phone size={12} /> 142</span>
-                    <span className="row gap-4"><Star size={12} fill="#f59e0b" strokeWidth={0} /> {b.ratingAvg}</span>
+                    <span className="row gap-4"><Star size={12} fill="var(--amber-500)" strokeWidth={0} /> {b.ratingAvg}</span>
                   </div>
                   <button
                     className="btn btn-primary btn-sm btn-block"
@@ -52,7 +52,7 @@ export default function ManageHub() {
               );
             })}
             <button className="card row gap-12 center" style={{ padding: 16, border: "1.5px dashed var(--ink-300)" }} onClick={() => nav("/onboard/business")}>
-              <Plus size={20} color="#f26a00" /> <span className="semi small">Add a business</span>
+              <Plus size={20} color="var(--orange-500)" /> <span className="semi small">Add a business</span>
             </button>
           </div>
         </div>
@@ -70,11 +70,11 @@ export default function ManageHub() {
                   <span className="semi">{provider.displayName}</span>
                   <div className="tiny muted">{provider.categoryName}</div>
                 </div>
-                <Briefcase size={20} color="#16a34a" />
+                <Briefcase size={20} color="var(--green-500)" />
               </div>
               <div className="row gap-12 tiny muted" style={{ marginTop: 12 }}>
                 <span className="row gap-4"><TrendingUp size={12} /> {provider.jobsDone} jobs</span>
-                <span className="row gap-4"><Star size={12} fill="#f59e0b" strokeWidth={0} /> {provider.ratingAvg}</span>
+                <span className="row gap-4"><Star size={12} fill="var(--amber-500)" strokeWidth={0} /> {provider.ratingAvg}</span>
               </div>
               <button
                 className="btn btn-green btn-sm btn-block"
@@ -91,7 +91,7 @@ export default function ManageHub() {
             </div>
           ) : (
             <button className="card row gap-12 center" style={{ padding: 16, border: "1.5px dashed var(--ink-300)" }} onClick={() => nav("/onboard/provider")}>
-              <Plus size={20} color="#16a34a" /> <span className="semi small">Become a provider</span>
+              <Plus size={20} color="var(--green-500)" /> <span className="semi small">Become a provider</span>
             </button>
           )}
         </div>

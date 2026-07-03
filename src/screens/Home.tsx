@@ -53,7 +53,7 @@ export default function Home() {
   const tiles = [
     { emoji: "🧭", label: "Explore", sub: "Shops & people", tint: "#e8f0ff", color: "#2563eb", onClick: () => nav("/explore") },
     { emoji: "🏘️", label: "Community", sub: "Street feed", tint: "#ffeef4", color: "#db2777", onClick: () => nav("/community-hub"), badge: chatUnread || undefined },
-    { emoji: "🤝", label: "My deals", sub: activeAgreements.length > 0 ? `${activeAgreements.length} active` : "Agreements", tint: "#e7f7ee", color: "#16a34a", onClick: () => nav("/agreements"), badge: activeAgreements.length || undefined },
+    { emoji: "🤝", label: "My deals", sub: activeAgreements.length > 0 ? `${activeAgreements.length} active` : "Agreements", tint: "#e7f7ee", color: "var(--green-500)", onClick: () => nav("/agreements"), badge: activeAgreements.length || undefined },
     { emoji: "📅", label: "Appointments", sub: upcomingCount > 0 ? `${upcomingCount} upcoming` : "Your bookings", tint: "#eef2ff", color: "var(--brand-600)", onClick: () => nav("/appointments"), badge: upcomingCount || undefined },
   ];
 
@@ -89,7 +89,7 @@ export default function Home() {
               {chatUnread > 0 && (
                 <span style={{
                   position: "absolute", top: 6, right: 6,
-                  width: 8, height: 8, background: "#ef4444",
+                  width: 8, height: 8, background: "var(--red-500)",
                   borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)",
                 }} />
               )}
@@ -238,7 +238,7 @@ export default function Home() {
                 </div>
                 <div className="tiny muted">Tap to track progress →</div>
               </div>
-              <ChevronRight size={18} color="#16a34a" />
+              <ChevronRight size={18} color="var(--green-500)" />
             </button>
           </div>
         )}

@@ -4,6 +4,7 @@ import { ArrowLeft, Navigation, Pencil, Check, Search, X, ChevronRight } from "l
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, useMapEvents } from "react-leaflet";
 import { makePinIcon } from "@/lib/leafletIcon";
+import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT } from "@/lib/placeholders";
 import "@/lib/leafletIcon";
 import { discoveryService, requestService, socialService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -21,9 +22,9 @@ type Layer = "business" | "provider" | "request" | "story";
 
 
 const pinColors: Record<Exclude<Layer, "story">, string> = {
-  business: "#f26a00",
-  provider: "#16a34a",
-  request:  "#7c3aed",
+  business: "var(--orange-500)",
+  provider: "var(--green-500)",
+  request:  "var(--brand-600)",
 };
 
 const layerLabels: Record<Layer, string> = {
@@ -36,7 +37,7 @@ const layerLabels: Record<Layer, string> = {
 function makeStoryIcon(avatarUrl: string, seen: boolean) {
   const ringStyle = seen
     ? "background:#9ca3af"
-    : "background:linear-gradient(135deg,#ff8400,#ec4899,#7c3aed)";
+    : "background:linear-gradient(135deg,#ff8400,#ec4899,var(--brand-600))";
   return L.divIcon({
     className: "",
     html: `<div style="width:44px;height:44px;border-radius:50%;${ringStyle};padding:2.5px;box-shadow:0 2px 10px rgba(0,0,0,0.35)">
@@ -58,7 +59,7 @@ const requestIcon  = makePinIcon(pinColors.request);
 
 const meIcon = L.divIcon({
   className: "",
-  html: `<div style="width:18px;height:18px;border-radius:50%;background:#8b47f5;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>`,
+  html: `<div style="width:18px;height:18px;border-radius:50%;background:var(--brand-500);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>`,
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
@@ -129,7 +130,7 @@ function RecenterButton({ radiusKm }: { radiusKm: number }) {
         );
       }}
     >
-      <Navigation size={18} color="#8b47f5" />
+      <Navigation size={18} color="var(--brand-500)" />
     </button>
   );
 }
@@ -458,9 +459,9 @@ export default function MapView() {
           <button
             className="chip"
             style={{
-              background: availOnly ? "#16a34a" : "#fff",
+              background: availOnly ? "var(--green-500)" : "#fff",
               color: availOnly ? "#fff" : "var(--ink-700)",
-              borderColor: availOnly ? "#16a34a" : "var(--ink-200)",
+              borderColor: availOnly ? "var(--green-500)" : "var(--ink-200)",
               boxShadow: "var(--shadow-sm)",
               fontSize: 12,
               padding: "4px 10px",
@@ -479,7 +480,7 @@ export default function MapView() {
           onClick={() => setShowNearbyPopup(true)}
           style={{
             position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
-            zIndex: 1000, background: "#7c3aed", color: "#fff",
+            zIndex: 1000, background: "var(--brand-600)", color: "#fff",
             borderRadius: 20, padding: "8px 16px", fontSize: 12, fontWeight: 700,
             boxShadow: "0 4px 16px rgba(107,33,204,0.35)", whiteSpace: "nowrap",
             border: "none", outline: "none", cursor: "pointer",
@@ -487,7 +488,7 @@ export default function MapView() {
             transition: "all 0.2s ease-in-out",
           }}
           onMouseEnter={(e) => e.currentTarget.style.background = "#6d28d9"}
-          onMouseLeave={(e) => e.currentTarget.style.background = "#7c3aed"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "var(--brand-600)"}
         >
           <span>
             {visibleCount} {visibleCount === 1 ? "place" : "places"}
@@ -543,7 +544,7 @@ export default function MapView() {
                 onClick={applyCustom}
                 style={{
                   width: 42, height: 42, borderRadius: 13,
-                  background: "#7c3aed", color: "#fff",
+                  background: "var(--brand-600)", color: "#fff",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   border: "none", cursor: "pointer", flexShrink: 0,
                 }}
@@ -553,7 +554,7 @@ export default function MapView() {
             </div>
             {customVal && !isNaN(parseFloat(customVal)) && parseFloat(customVal) > 0 && (
               <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: 8 }}>
-                Snaps to <strong style={{ color: "#7c3aed" }}>{roundToHalf(parseFloat(customVal))} km</strong>
+                Snaps to <strong style={{ color: "var(--brand-600)" }}>{roundToHalf(parseFloat(customVal))} km</strong>
               </div>
             )}
           </div>
@@ -584,7 +585,7 @@ export default function MapView() {
                 padding: "6px 13px",
                 borderRadius: 22,
                 border: "none",
-                background: active ? "#7c3aed" : "transparent",
+                background: active ? "var(--brand-600)" : "transparent",
                 color: active ? "#fff" : "var(--ink-600)",
                 fontWeight: active ? 700 : 500,
                 fontSize: 13,
@@ -606,7 +607,7 @@ export default function MapView() {
             padding: "6px 13px",
             borderRadius: 22,
             border: "none",
-            background: isCustomActive ? "#7c3aed" : "transparent",
+            background: isCustomActive ? "var(--brand-600)" : "transparent",
             color: isCustomActive ? "#fff" : "var(--ink-600)",
             fontWeight: isCustomActive ? 700 : 500,
             fontSize: 13,
@@ -647,9 +648,9 @@ export default function MapView() {
             center={[centerLat, centerLng]}
             radius={radiusKm * 1000}
             pathOptions={{
-              color: "#7c3aed", weight: 1.5,
+              color: "var(--brand-600)", weight: 1.5,
               dashArray: "6 5",
-              fillColor: "#7c3aed", fillOpacity: 0.05,
+              fillColor: "var(--brand-600)", fillOpacity: 0.05,
               interactive: false,
             }}
           />
@@ -721,7 +722,7 @@ export default function MapView() {
             <Marker key={r.id} position={[lat, lng]} icon={requestIcon}>
               <Popup>
                 <div style={{ minWidth: 180 }}>
-                  <span style={{ fontSize: 11, background: "#e9d5ff", color: "#7c3aed", padding: "2px 6px", borderRadius: 4 }}>{r.categoryName}</span>
+                  <span style={{ fontSize: 11, background: "#e9d5ff", color: "var(--brand-600)", padding: "2px 6px", borderRadius: 4 }}>{r.categoryName}</span>
                   <div style={{ fontWeight: 700, marginTop: 4, fontSize: 14 }}>{r.title}</div>
                   <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
                     {r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget"}
@@ -949,7 +950,7 @@ export default function MapView() {
                         onClick={() => { nav(`/provider/${p.id}`); setShowNearbyPopup(false); }}
                       >
                         <img
-                          src={p.avatar || "https://images.unsplash.com/photo-1521791136364-7286472b6b5c?w=100"}
+                          src={p.avatar || PLACEHOLDER_AVATAR_ALT}
                           style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover", flexShrink: 0 }}
                         />
                         <div className="grow">
@@ -985,7 +986,7 @@ export default function MapView() {
                           }}
                         >
                           <img
-                            src={s.authorAvatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100"}
+                            src={s.authorAvatar || PLACEHOLDER_AVATAR}
                             style={{
                               width: 44, height: 44, borderRadius: "50%", objectFit: "cover",
                               flexShrink: 0, border: seen ? "none" : "2.5px solid #ec4899"

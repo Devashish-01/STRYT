@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Share2, MapPin, Clock, Eye, Zap, BadgeCheck,
@@ -12,6 +12,8 @@ import { Rating, EmptyState, SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
 import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
+import { PLACEHOLDER_REQUEST_SHARE } from "@/lib/placeholders";
+import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import type { Proposal } from "@/types";
 
 export default function RequestDetail() {
@@ -19,6 +21,18 @@ export default function RequestDetail() {
   const nav = useNavigate();
   const { user, showToast, meToos, toggleMeToo, isAuthed } = useApp();
   const { data: r, loading, error, refetch } = useQueryWithRealtime(() => requestService.get(id, user.lat || 0, user.lng || 0), "requests", [id], `id=eq.${id}`);
+
+  // proposals is a separate table from requests, so the row-level subscription
+  // above doesn't cover a new proposal landing — subscribe to it too.
+  useEffect(() => {
+    if (!hasSupabaseEnv || !id) return;
+    const sb = getSupabase();
+    const channel = sb
+      .channel(`rt:proposals:${id}`)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "proposals", filter: `request_id=eq.${id}` }, () => refetch())
+      .subscribe();
+    return () => { sb.removeChannel(channel); };
+  }, [id]);
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
   const [accepted, setAccepted] = useState<string | null>(null);
@@ -180,7 +194,7 @@ export default function RequestDetail() {
               <button className="btn btn-outline btn-sm grow row center gap-6" onClick={startEdit}>
                 <Edit3 size={14} /> Edit Request
               </button>
-              <button className="btn btn-outline btn-sm row center gap-6" style={{ color: "#ef4444", borderColor: "#fca5a5" }} onClick={() => setShowDeleteConfirm(true)}>
+              <button className="btn btn-outline btn-sm row center gap-6" style={{ color: "var(--red-500)", borderColor: "#fca5a5" }} onClick={() => setShowDeleteConfirm(true)}>
                 <Trash2 size={14} /> Delete
               </button>
             </div>
@@ -214,7 +228,7 @@ export default function RequestDetail() {
                 <span className="muted">{r.groupBuyTarget - meTooCount} more unlocks bulk price</span>
               </div>
               <div style={{ height: 8, borderRadius: 6, background: "#fff", overflow: "hidden" }}>
-                <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,#16a34a,#4ade80)" }} />
+                <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),#4ade80)" }} />
               </div>
             </div>
           )}
@@ -241,7 +255,7 @@ export default function RequestDetail() {
 
           {/* Detail card */}
           <div className="card row" style={{ padding: 14, marginTop: 14 }}>
-            <Cell label="Budget" value={budget} color="#16a34a" />
+            <Cell label="Budget" value={budget} color="var(--green-500)" />
             <Sep />
             <Cell label="Needed by" value={r.deadline} />
             <Sep />
@@ -296,7 +310,7 @@ export default function RequestDetail() {
                     <div className="row gap-12">
                       <div className="col" style={{ gap: 0 }}>
                         <span className="tiny muted">Quote</span>
-                        <span className="bold" style={{ color: "#16a34a" }}>{inr(p.price)}</span>
+                        <span className="bold" style={{ color: "var(--green-500)" }}>{inr(p.price)}</span>
                       </div>
                       <div className="col" style={{ gap: 0 }}>
                         <span className="tiny muted">ETA</span>
@@ -417,7 +431,7 @@ export default function RequestDetail() {
       )}
 
       {report && <ReportSheet targetType="REQUEST" targetId={r.id} name="this request" onClose={() => setReport(false)} />}
-      {share && <ShareCard title={r.title} subtitle={`${r.categoryName} • ${budget}`} image={r.photos[0] ?? "https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=600&q=70"} meta={`📍 ${r.area} • needed by ${r.deadline}`} onClose={() => setShare(false)} />}
+      {share && <ShareCard title={r.title} subtitle={`${r.categoryName} • ${budget}`} image={r.photos[0] ?? PLACEHOLDER_REQUEST_SHARE} meta={`📍 ${r.area} • needed by ${r.deadline}`} onClose={() => setShare(false)} />}
 
       {/* Edit Request Sheet */}
       {editing && (
@@ -447,7 +461,7 @@ export default function RequestDetail() {
               </div>
 
               <div className="row between card" style={{ padding: "10px 14px", marginTop: 4 }}>
-                <span className="small semi row gap-6"><Flame size={14} color="#ef4444" /> Mark as Urgent</span>
+                <span className="small semi row gap-6"><Flame size={14} color="var(--red-500)" /> Mark as Urgent</span>
                 <input type="checkbox" checked={editUrgent} onChange={(e) => setEditUrgent(e.target.checked)} style={{ width: 18, height: 18, cursor: "pointer" }} />
               </div>
             </div>
@@ -466,7 +480,7 @@ export default function RequestDetail() {
       {showDeleteConfirm && (
         <div className="sheet-backdrop" onClick={() => setShowDeleteConfirm(false)}>
           <div className="sheet col gap-14 center" style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#fee2e2", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#fee2e2", color: "var(--red-500)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Trash2 size={28} />
             </div>
             <div>
@@ -475,7 +489,7 @@ export default function RequestDetail() {
             </div>
             <div className="row gap-10" style={{ width: "100%", marginTop: 8 }}>
               <button className="btn btn-outline grow" onClick={() => setShowDeleteConfirm(false)}>Keep it</button>
-              <button className="btn btn-block grow" style={{ background: "#ef4444", color: "#fff" }} disabled={deleting} onClick={handleDeleteRequest}>
+              <button className="btn btn-block grow" style={{ background: "var(--red-500)", color: "#fff" }} disabled={deleting} onClick={handleDeleteRequest}>
                 {deleting ? "Deleting..." : "Yes, Delete"}
               </button>
             </div>

@@ -5,6 +5,8 @@ import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, Rese
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
+import { isMockTarget } from "./appointmentService";
+import { PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -86,7 +88,7 @@ export const businessService = {
   },
 
   async get(id: string, lat?: number, lng?: number): Promise<Business | undefined> {
-    if (id === "b1" || id.startsWith("biz_mock_")) {
+    if (isMockTarget(id)) {
       return {
         id,
         ownerUserId: "mock_user",
@@ -104,7 +106,7 @@ export const businessService = {
         phone: "9876543210",
         hours: "9 AM - 9 PM",
         status: "ACTIVE",
-        coverImage: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500",
+        coverImage: PLACEHOLDER_BUSINESS_COVER,
         gallery: [],
         ratingAvg: 4.5,
         ratingCount: 12,
@@ -135,7 +137,7 @@ export const businessService = {
   },
 
   async reviews(id: string): Promise<Review[]> {
-    if (id === "b1" || id.startsWith("biz_mock_")) {
+    if (isMockTarget(id)) {
       return [
         { id: "rev_1", raterName: "Emily Watson", raterAvatar: "", rating: 5, comment: "Amazing fresh produce and friendly service!", date: "2 days ago" },
         { id: "rev_2", raterName: "Michael Chang", raterAvatar: "", rating: 4, comment: "Great variety of groceries, highly recommend.", date: "1 week ago" }

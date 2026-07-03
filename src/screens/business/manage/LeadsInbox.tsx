@@ -10,8 +10,8 @@ import type { Lead, AppointmentRecord } from "@/types";
 import ManageNav from "./ManageNav";
 
 const meta: Record<string, { icon: any; color: string }> = {
-  CALL: { icon: Phone, color: "#16a34a" },
-  DIRECTIONS: { icon: Navigation, color: "#f26a00" },
+  CALL: { icon: Phone, color: "var(--green-500)" },
+  DIRECTIONS: { icon: Navigation, color: "var(--orange-500)" },
   STORY_REPLY: { icon: MessageCircle, color: "#ec4899" },
   OFFER_CLIP: { icon: Tag, color: "#cc4415" },
   RESERVATION: { icon: CalendarCheck, color: "#0ea5e9" },
@@ -19,9 +19,18 @@ const meta: Record<string, { icon: any; color: string }> = {
 };
 
 export default function LeadsInbox() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const { data, loading, error, refetch } = useQuery<Lead[]>(() => businessService.leads(id) as any, [id]);
   const { data: aptsData, refetch: refetchApts } = useQuery<AppointmentRecord[]>(() => appointmentService.listForTarget(id), [id]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Inbox" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const { showToast } = useApp();
   const [handled, setHandled] = useState<string[]>([]);
   const [tab, setTab] = useState<"leads" | "appointments">("leads");
@@ -81,7 +90,7 @@ export default function LeadsInbox() {
                         <div className="tiny" style={{ color: "var(--ink-400)" }}>{l.time}</div>
                       </div>
                       {!done && (
-                        <button className="icon-btn" style={{ width: 34, height: 34, color: "#16a34a" }} onClick={async () => { setHandled((h) => [...h, l.id]); await businessService.markLeadHandled(l.id); showToast("Marked handled"); }}><Check size={16} /></button>
+                        <button className="icon-btn" style={{ width: 34, height: 34, color: "var(--green-500)" }} onClick={async () => { setHandled((h) => [...h, l.id]); await businessService.markLeadHandled(l.id); showToast("Marked handled"); }}><Check size={16} /></button>
                       )}
                     </div>
                   );
@@ -159,7 +168,7 @@ export default function LeadsInbox() {
                       <button
                         type="button"
                         className="btn btn-outline grow btn-sm row gap-4 center"
-                        style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+                        style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
                         onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}
                       >
                         <XIcon size={14} /> Decline Slot

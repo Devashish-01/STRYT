@@ -5,6 +5,7 @@ import { toCamel, toSnake } from "@/lib/caseMap";
 import type { RequestPost, Proposal, Agreement, ProposalCounter } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { firstName } from "@/lib/publicName";
+import { functionUrl } from "@/config";
 
 // Columns that exist on the requests table.
 const REQUEST_COLUMNS = new Set([
@@ -415,7 +416,7 @@ export const requestService = {
 
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(
-      `${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/sos-alert`,
+      functionUrl("sos-alert"),
       {
         method: "POST",
         headers: {

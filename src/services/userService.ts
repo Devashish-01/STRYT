@@ -2,6 +2,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { PublicUser, CurrentUser } from "@/types";
+import { PROFILE_BADGE_THRESHOLDS } from "@/lib/badges";
 
 export interface OwnedEntities {
   businessIds: string[];
@@ -214,10 +215,10 @@ export const userService = {
       requestsCount: requestsRes.count ?? 0,
       vouchCount: vouchRes.count ?? 0,
       badges: [
-        ...((helpedRes.count ?? 0) >= 1  ? ["Good Neighbor"]  : []),
-        ...((helpedRes.count ?? 0) >= 20 ? ["Top Helper"]     : []),
-        ...((requestsRes.count ?? 0) >= 3 ? ["Active Member"] : []),
-        ...((vouchRes.count ?? 0) >= 5   ? ["Trusted"]        : []),
+        ...((helpedRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.goodNeighbor ? ["Good Neighbor"] : []),
+        ...((helpedRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.topHelper    ? ["Top Helper"]     : []),
+        ...((requestsRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.activeMember ? ["Active Member"] : []),
+        ...((vouchRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.wellVouched   ? ["Well Vouched"]    : []),
       ],
       verifications: [],
       reviewsGiven: ratings.map((r) => ({

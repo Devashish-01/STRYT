@@ -106,7 +106,7 @@ export default function MyQueues() {
                   {ACTIVE.includes(q.status) && (
                     <button
                       className="icon-btn"
-                      style={{ width: 34, height: 34, color: "#dc2626", flexShrink: 0 }}
+                      style={{ width: 34, height: 34, color: "var(--red-600)", flexShrink: 0 }}
                       disabled={leaving === q.tokenId}
                       onClick={() => leave(q.tokenId)}
                       aria-label="Leave queue"

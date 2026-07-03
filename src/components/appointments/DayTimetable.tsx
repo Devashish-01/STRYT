@@ -28,7 +28,7 @@ export default function DayTimetable({
   if (wholeDayBlock) {
     return (
       <div className="card col center" style={{ padding: 28, gap: 10, background: "#fef2f2", border: "1px solid #fecaca" }}>
-        <Lock size={26} color="#dc2626" />
+        <Lock size={26} color="var(--red-600)" />
         <div className="semi small" style={{ color: "#991b1b" }}>Closed — blocked for the whole day</div>
         {wholeDayBlock.reason && <div className="tiny muted center" style={{ maxWidth: 220 }}>"{wholeDayBlock.reason}"</div>}
         <button className="btn btn-outline btn-sm" style={{ marginTop: 4 }} onClick={() => onUnblockWholeDay(wholeDayBlock)}>
@@ -55,7 +55,7 @@ export default function DayTimetable({
     <div className="col gap-6">
       <button
         className="row gap-6 center-v"
-        style={{ alignSelf: "flex-end", fontSize: 11, color: "#dc2626", fontWeight: 600, padding: "4px 8px" }}
+        style={{ alignSelf: "flex-end", fontSize: 11, color: "var(--red-600)", fontWeight: 600, padding: "4px 8px" }}
         onClick={onBlockWholeDay}
       >
         <Lock size={12} /> Block whole day
@@ -74,7 +74,7 @@ export default function DayTimetable({
             const block = dayBlocks.find((b) => b.timeLabel === s.timeLabel);
             return (
               <div key={rowKey} className="row gap-10 center-v" style={{ padding: "10px 12px", borderRadius: 12, background: "#fef2f2", border: "1px dashed #fca5a5" }}>
-                <Lock size={14} color="#dc2626" style={{ flexShrink: 0 }} />
+                <Lock size={14} color="var(--red-600)" style={{ flexShrink: 0 }} />
                 <div className="grow">
                   <div className="tiny semi" style={{ color: "#991b1b" }}>{s.timeLabel} — blocked</div>
                   {s.blockReason && <div className="tiny muted">"{s.blockReason}"</div>}
@@ -105,7 +105,7 @@ export default function DayTimetable({
               </button>
               <button
                 className="row gap-4 center-v tiny semi"
-                style={{ color: "#dc2626", background: "#fef2f2", padding: "4px 8px", borderRadius: 8 }}
+                style={{ color: "var(--red-600)", background: "#fef2f2", padding: "4px 8px", borderRadius: 8 }}
                 onClick={() => onBlockSlot(date, s.timeLabel)}
               >
                 <Lock size={11} /> Block
@@ -118,9 +118,9 @@ export default function DayTimetable({
           <div key={rowKey}>
             {i === nowLineIdx && (
               <div className="row gap-8 center-v" style={{ margin: "2px 0" }}>
-                <span style={{ flex: 1, height: 1.5, background: "#f26a00" }} />
-                <span className="tiny bold" style={{ color: "#f26a00" }}>NOW</span>
-                <span style={{ flex: 1, height: 1.5, background: "#f26a00" }} />
+                <span style={{ flex: 1, height: 1.5, background: "var(--orange-500)" }} />
+                <span className="tiny bold" style={{ color: "var(--orange-500)" }}>NOW</span>
+                <span style={{ flex: 1, height: 1.5, background: "var(--orange-500)" }} />
               </div>
             )}
             {row}

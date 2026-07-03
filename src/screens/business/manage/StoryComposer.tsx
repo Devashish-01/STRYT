@@ -5,15 +5,25 @@ import { Camera, Clock, Pencil } from "lucide-react";
 import { businessService, uploadService } from "@/services";
 import { socialService } from "@/services/socialService";
 import { useQuery } from "@/hooks/useApi";
+import { ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 
 const ctas = ["None", "Order now", "Reserve", "Call us", "View offer"];
 const EXPIRY_OPTS = [1, 3, 6, 12, 24] as const;
 
 export default function StoryComposer() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const nav = useNavigate();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Create Story" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const { showToast } = useApp();
   const [image, setImage] = useState("");
   const [caption, setCaption] = useState("");

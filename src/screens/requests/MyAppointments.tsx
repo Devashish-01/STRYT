@@ -7,7 +7,7 @@ import { ListSkeleton } from "@/components/states";
 import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
-import { evaluateProviderAvailability } from "@/utils/availability";
+import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { Calendar, Image as ImageIcon, X as XIcon, AlertCircle, CheckCircle2, RotateCcw, CalendarClock, CreditCard } from "lucide-react";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppointments";
@@ -75,7 +75,7 @@ export default function MyAppointments() {
         setRebook({
           apt,
           mode,
-          availabilityNote: b.hours || "Mon–Sat from 09:00 AM to 07:00 PM",
+          availabilityNote: b.hours || DEFAULT_WORKING_HOURS,
           packages: pkgs.length > 0
             ? pkgs.map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }))
             : (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price })),
@@ -207,7 +207,7 @@ export default function MyAppointments() {
                     {/* Payment status */}
                     {apt.status === "ACCEPTED" && apt.paymentStatus === "PAID" && (
                       <div className="card row gap-8 center-v" style={{ padding: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
-                        <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0 }} />
+                        <CheckCircle2 size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
                         <span className="tiny semi" style={{ color: "#15803d" }}>
                           Payment confirmed{apt.paymentMethod ? ` via ${apt.paymentMethod}` : ""}
                           {apt.paymentAmount ? ` • ₹${apt.paymentAmount}` : ""}
@@ -225,7 +225,7 @@ export default function MyAppointments() {
                     )}
                     {apt.status === "ACCEPTED" && apt.paymentStatus === "REJECTED" && (
                       <div className="card row gap-8 center-v" style={{ padding: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10 }}>
-                        <AlertCircle size={16} color="#dc2626" style={{ flexShrink: 0 }} />
+                        <AlertCircle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
                         <div className="grow">
                           <div className="tiny semi" style={{ color: "#991b1b" }}>Business couldn't verify payment</div>
                           <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>Please retry or contact them directly.</div>
@@ -254,7 +254,7 @@ export default function MyAppointments() {
 
                     {apt.status === "ACCEPTED" && apt.responseNote && (
                       <div className="card row gap-10 center-v" style={{ padding: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
-                        <CheckCircle2 size={18} color="#16a34a" style={{ flexShrink: 0 }} />
+                        <CheckCircle2 size={18} color="var(--green-500)" style={{ flexShrink: 0 }} />
                         <div>
                           <div className="bold tiny" style={{ color: "#166534" }}>Confirmed</div>
                           <div className="tiny" style={{ color: "#14532d", marginTop: 1, fontStyle: "italic" }}>Message: "{apt.responseNote}"</div>
@@ -271,7 +271,7 @@ export default function MyAppointments() {
                           <button
                             type="button"
                             className="btn btn-outline grow btn-sm row gap-4 center"
-                            style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+                            style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
                             disabled={busy}
                             onClick={() => cancel(apt)}
                           >

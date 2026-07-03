@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, inr } from "@/components/common";
 import { businessService } from "@/services";
+import { ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import { Zap, Check } from "lucide-react";
 import ManageNav from "./ManageNav";
@@ -15,9 +16,18 @@ const boosts = [
 ];
 
 export default function Promote() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const { showToast } = useApp();
   const [active, setActive] = useState<string[]>([]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Promote" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   useEffect(() => {
     let alive = true;
@@ -41,8 +51,8 @@ export default function Promote() {
       <AppBar title="Promote" subtitle="Grow your reach" />
       <div className="screen-scroll page-pad col gap-12" style={{ paddingBottom: 20 }}>
         <div className="card row gap-10" style={{ padding: 12, background: "#fff7ed", border: "1px dashed #fdba74" }}>
-          <Zap size={20} color="#f26a00" />
-          <span className="tiny" style={{ color: "#c2410c", lineHeight: 1.4 }}>Boosts are billed offline for now. In-app payments arrive in V3 — your boost activates immediately.</span>
+          <Zap size={20} color="var(--orange-500)" />
+          <span className="tiny" style={{ color: "#c2410c", lineHeight: 1.4 }}>Boosts are billed offline for now — your boost activates immediately, in-app payment isn't wired up yet.</span>
         </div>
 
         {boosts.map((b) => {

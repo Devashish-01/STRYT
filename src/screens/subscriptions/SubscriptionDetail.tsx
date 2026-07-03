@@ -65,11 +65,11 @@ export default function SubscriptionDetail() {
         {/* Monthly summary */}
         {summary && (
           <div className="row gap-0" style={{ background: "#fff", borderRadius: 14, overflow: "hidden", border: "1px solid var(--line)" }}>
-            <SumCard label="Present" value={summary.present} color="#16a34a" />
+            <SumCard label="Present" value={summary.present} color="var(--green-500)" />
             <div style={{ width: 1, background: "var(--line)" }} />
-            <SumCard label="Absent" value={summary.absent} color="#dc2626" />
+            <SumCard label="Absent" value={summary.absent} color="var(--red-600)" />
             <div style={{ width: 1, background: "var(--line)" }} />
-            <SumCard label="Skipped" value={summary.skipped} color="#f26a00" />
+            <SumCard label="Skipped" value={summary.skipped} color="var(--orange-500)" />
             <div style={{ width: 1, background: "var(--line)" }} />
             <SumCard label="Amount" value={`₹${summary.amount}`} color="var(--brand-700)" />
           </div>
@@ -108,9 +108,9 @@ export default function SubscriptionDetail() {
         </div>
 
         <div className="row gap-14" style={{ justifyContent: "center" }}>
-          <Legend icon={<CheckCircle2 size={14} color="#16a34a" />} label="Present" />
-          <Legend icon={<XCircle size={14} color="#dc2626" />} label="Absent" />
-          <Legend icon={<MinusCircle size={14} color="#f26a00" />} label="Skipped" />
+          <Legend icon={<CheckCircle2 size={14} color="var(--green-500)" />} label="Present" />
+          <Legend icon={<XCircle size={14} color="var(--red-600)" />} label="Absent" />
+          <Legend icon={<MinusCircle size={14} color="var(--orange-500)" />} label="Skipped" />
         </div>
       </div>
     </div>
@@ -124,7 +124,7 @@ function DayCell({ day, status, isFuture, isToday, isMarking, onMark }: {
   const [open, setOpen] = useState(false);
 
   const bg = status === "PRESENT" ? "#dcfce7" : status === "ABSENT" ? "#fee2e2" : status === "SKIPPED" ? "#fff7ed" : "#f9fafb";
-  const color = status === "PRESENT" ? "#16a34a" : status === "ABSENT" ? "#dc2626" : status === "SKIPPED" ? "#f26a00" : "var(--ink-600)";
+  const color = status === "PRESENT" ? "var(--green-500)" : status === "ABSENT" ? "var(--red-600)" : status === "SKIPPED" ? "var(--orange-500)" : "var(--ink-600)";
 
   return (
     <div style={{ position: "relative" }}>

@@ -1,5 +1,6 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import type { AppNotification, NotificationType } from "@/types";
+import { config, functionUrl } from "@/config";
 
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 60000); // minutes
@@ -88,10 +89,9 @@ export const notificationService = {
     });
     if (error) throw error;
     // Fire-and-forget web push
-    const _env = (import.meta as any).env ?? {};
-    void fetch(`${_env.VITE_SUPABASE_URL}/functions/v1/send-push`, {
+    void fetch(functionUrl("send-push"), {
       method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": _env.VITE_SUPABASE_ANON_KEY ?? "" },
+      headers: { "Content-Type": "application/json", "apikey": config.supabaseAnonKey },
       body: JSON.stringify({ userId, title, body, deepLink }),
     }).catch(() => {});
     return { ok: true };
@@ -104,11 +104,10 @@ export const notificationService = {
     const { error } = await sb.from("notifications").insert(rows);
     if (error) throw error;
     // Fire-and-forget web push for each recipient (capped at 50)
-    const _env2 = (import.meta as any).env ?? {};
     for (const userId of userIds.slice(0, 50)) {
-      void fetch(`${_env2.VITE_SUPABASE_URL}/functions/v1/send-push`, {
+      void fetch(functionUrl("send-push"), {
         method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": _env2.VITE_SUPABASE_ANON_KEY ?? "" },
+        headers: { "Content-Type": "application/json", "apikey": config.supabaseAnonKey },
         body: JSON.stringify({ userId, title, body, deepLink }),
       }).catch(() => {});
     }

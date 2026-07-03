@@ -3,6 +3,7 @@ import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import type { ProviderVerification, VerificationTier } from "@/types";
 import { uploadService } from "./uploadService";
+import { functionUrl } from "@/config";
 
 export const kycService = {
   async getVerifications(providerId: string): Promise<ProviderVerification[]> {
@@ -60,7 +61,7 @@ export const kycService = {
   async verifyPAN(providerId: string, panNumber: string): Promise<{ name: string }> {
     const sb = getSupabase();
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/verify-pan`, {
+    const res = await fetch(functionUrl("verify-pan"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
       body: JSON.stringify({ providerId, panNumber }),
@@ -73,7 +74,7 @@ export const kycService = {
   async aadhaarSendOtp(providerId: string, aadhaarNumber: string): Promise<{ clientId: string }> {
     const sb = getSupabase();
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/verify-aadhaar`, {
+    const res = await fetch(functionUrl("verify-aadhaar"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
       body: JSON.stringify({ providerId, aadhaarNumber, step: "otp" }),
@@ -86,7 +87,7 @@ export const kycService = {
   async aadhaarVerifyOtp(providerId: string, clientId: string, otp: string): Promise<{ name: string }> {
     const sb = getSupabase();
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/verify-aadhaar`, {
+    const res = await fetch(functionUrl("verify-aadhaar"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
       body: JSON.stringify({ providerId, clientId, otp, step: "verify" }),

@@ -68,7 +68,7 @@ export default function CommunityHub() {
                 {chatUnread > 0 && (
                   <span style={{
                     position: "absolute", top: 5, right: 5,
-                    width: 8, height: 8, background: "#ef4444",
+                    width: 8, height: 8, background: "var(--red-500)",
                     borderRadius: "50%", border: "2px solid #fff",
                   }} />
                 )}

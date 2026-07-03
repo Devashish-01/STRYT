@@ -123,13 +123,13 @@ function AuthSplash() {
         alignItems: "center",
         justifyContent: "center",
         gap: 18,
-        background: "linear-gradient(160deg, #8b47f5 0%, #7c3aed 55%, #4c1d95 100%)",
+        background: "linear-gradient(160deg, var(--brand-500) 0%, var(--brand-600) 55%, #4c1d95 100%)",
         color: "#fff",
       }}
     >
       <svg width="56" height="56" viewBox="0 0 64 64">
         <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
-        <path d="M32 41 C24 35 40 24 32 17" stroke="#7c3aed" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M32 41 C24 35 40 24 32 17" stroke="var(--brand-600)" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       <div
         style={{

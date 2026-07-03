@@ -3,10 +3,10 @@ import { toCamel } from "@/lib/caseMap";
 import { haversineKm } from "@/lib/geocode";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { firstName } from "@/lib/publicName";
+import { ACHIEVEMENT_THRESHOLDS } from "@/lib/badges";
 import type {
   Story,
   AvailableNow,
-  QueueInfo,
   Vouch,
   Endorsement,
   LeaderEntry,
@@ -66,12 +66,12 @@ function timeAgo(iso: string): string {
 
 // Achievement definitions (client-side; progress computed from DB)
 const ACHIEVEMENT_DEFS = [
-  { id: "first_request",  emoji: "📬", title: "First Ask",       desc: "Post your first request",              metric: "requests_posted",       threshold: 1  },
-  { id: "deal_maker",     emoji: "🤝", title: "Deal Maker",      desc: "Complete your first agreement",        metric: "agreements_completed",  threshold: 1  },
-  { id: "helper",         emoji: "⭐", title: "Helpful Neighbor", desc: "Complete 5 agreements as a responder", metric: "agreements_responded",  threshold: 5  },
-  { id: "five_star",      emoji: "🌟", title: "Five Stars",       desc: "Receive a 5-star rating",              metric: "five_star_ratings",     threshold: 1  },
-  { id: "trusted",        emoji: "🔰", title: "Trusted",          desc: "Receive 10+ ratings",                  metric: "total_ratings",         threshold: 10 },
-  { id: "vouch_giver",    emoji: "🫶", title: "Vouch Giver",      desc: "Vouch for 3 providers",                metric: "vouches_given",         threshold: 3  },
+  { id: "first_request",  emoji: "📬", title: "First Ask",       desc: "Post your first request",              metric: "requests_posted",       threshold: ACHIEVEMENT_THRESHOLDS.firstRequest },
+  { id: "deal_maker",     emoji: "🤝", title: "Deal Maker",      desc: "Complete your first agreement",        metric: "agreements_completed",  threshold: ACHIEVEMENT_THRESHOLDS.dealMaker },
+  { id: "helper",         emoji: "⭐", title: "Helpful Neighbor", desc: "Complete 5 agreements as a responder", metric: "agreements_responded",  threshold: ACHIEVEMENT_THRESHOLDS.helper },
+  { id: "five_star",      emoji: "🌟", title: "Five Stars",       desc: "Receive a 5-star rating",              metric: "five_star_ratings",     threshold: ACHIEVEMENT_THRESHOLDS.fiveStar },
+  { id: "trusted",        emoji: "🔰", title: "Trusted",          desc: "Receive 10+ ratings",                  metric: "total_ratings",         threshold: ACHIEVEMENT_THRESHOLDS.trusted },
+  { id: "vouch_giver",    emoji: "🫶", title: "Vouch Giver",      desc: "Vouch for 3 providers",                metric: "vouches_given",         threshold: ACHIEVEMENT_THRESHOLDS.vouchGiver },
 ] as const;
 
 async function filterStoriesByPrivacy(storiesList: Story[]): Promise<Story[]> {
@@ -275,11 +275,6 @@ export const socialService = {
     return list;
   },
 
-  // Live queue has no backend table yet (V2).
-  async queue(_businessId: string): Promise<QueueInfo | undefined> {
-    return undefined;
-  },
-
   // ── Followers of a user (reverse of "who I follow") ─────────────
   async followers(userId: string): Promise<{ id: string; name: string; avatar: string }[]> {
     const sb = getSupabase();
@@ -377,6 +372,7 @@ export const socialService = {
       metric:     r.metric,
       value:      r.value,
       isProvider: r.is_provider,
+      targetId:   r.target_id,
     }));
   },
 

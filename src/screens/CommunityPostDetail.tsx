@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone } from "lucide-react";
 import { communityService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
@@ -15,10 +15,10 @@ export default function CommunityPostDetail() {
   const { user, likes, toggleLike, votes, votePoll, showToast } = useApp();
 
   // Use passed post for instant display; re-fetch in background for freshness.
-  const { data: fetched } = useQuery(() => communityService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
+  const { data: fetched } = useQueryWithRealtime(() => communityService.get(id, user.lat || undefined, user.lng || undefined), "community_posts", [id, user.lat, user.lng], `id=eq.${id}`);
   const post: CommunityPost | undefined = fetched ?? state?.post;
 
-  const { data: initialComments, loading: commentsLoading } = useQuery(() => communityService.comments(id), [id]);
+  const { data: initialComments, loading: commentsLoading } = useQueryWithRealtime(() => communityService.comments(id), "post_comments", [id], `post_id=eq.${id}`);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [sending, setSending] = useState(false);
@@ -149,8 +149,8 @@ export default function CommunityPostDetail() {
 
           {/* Like row */}
           <div className="divider" style={{ margin: "14px 0" }} />
-          <button className="row gap-6 small semi" style={{ color: liked ? "#ef4444" : "var(--ink-500)" }} onClick={handleLike}>
-            <Heart size={18} fill={liked ? "#ef4444" : "none"} /> {likeCount} {likeCount === 1 ? "like" : "likes"}
+          <button className="row gap-6 small semi" style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }} onClick={handleLike}>
+            <Heart size={18} fill={liked ? "var(--red-500)" : "none"} /> {likeCount} {likeCount === 1 ? "like" : "likes"}
           </button>
         </div>
 

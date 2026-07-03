@@ -15,7 +15,7 @@ export default function Leaderboard() {
 
   const leaderboard = data ?? [];
   const list = leaderboard.filter((l) => (tab === "providers" ? l.isProvider : !l.isProvider)).sort((a, b) => a.rank - b.rank);
-  const podiumColors = ["#f59e0b", "#94a3b8", "#b45309"];
+  const podiumColors = ["var(--amber-500)", "#94a3b8", "#b45309"];
 
   return (
     <div className="screen">
@@ -46,7 +46,7 @@ export default function Leaderboard() {
                 return (
                   <div key={order} className="col center" style={{ gap: 8, flex: 1 }}>
                     <div style={{ position: "relative" }}>
-                      {isFirst && <Crown size={22} color="#f59e0b" style={{ position: "absolute", top: -20, left: "50%", transform: "translateX(-50%)" }} />}
+                      {isFirst && <Crown size={22} color="var(--amber-500)" style={{ position: "absolute", top: -20, left: "50%", transform: "translateX(-50%)" }} />}
                       <SafeImg src={e.avatar} variant="avatar" className="avatar" style={{ width: isFirst ? 64 : 52, height: isFirst ? 64 : 52, border: `3px solid ${podiumColors[order]}` }} />
                     </div>
                     <span className="semi tiny ellipsis" style={{ maxWidth: 90, textAlign: "center" }}>{e.name.split(" ")[0]}</span>
@@ -60,7 +60,7 @@ export default function Leaderboard() {
 
             <div className="page-pad col gap-10">
               {list.map((e) => (
-                <div key={e.rank + e.name} className="card row gap-12" style={{ padding: 12 }} onClick={() => nav(e.isProvider ? "/explore" : "/u/u1")}>
+                <div key={e.rank + e.name} className="card row gap-12" style={{ padding: 12 }} onClick={() => nav(e.isProvider ? `/provider/${e.targetId}` : `/u/${e.targetId}`)}>
                   <span className="bold" style={{ width: 24, textAlign: "center", color: e.rank <= 3 ? podiumColors[e.rank - 1] : "var(--ink-400)" }}>{e.rank}</span>
                   <SafeImg src={e.avatar} variant="avatar" className="avatar" style={{ width: 44, height: 44 }} />
                   <div className="grow">

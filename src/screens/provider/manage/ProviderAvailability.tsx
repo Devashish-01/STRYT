@@ -5,8 +5,9 @@ import { Zap, Clock, Calendar, CheckCircle } from "lucide-react";
 import { providerService } from "@/services";
 import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
+import { ErrorView } from "@/components/states";
 import ProviderManageNav from "./ProviderManageNav";
-import { evaluateProviderAvailability, calculateNextTurnoffTime, parseTimeToMinutes } from "@/utils/availability";
+import { evaluateProviderAvailability, calculateNextTurnoffTime, parseTimeToMinutes, DEFAULT_DAYS_PATTERN, DEFAULT_START_TIME, DEFAULT_END_TIME } from "@/utils/availability";
 
 const DAYS_PRESETS = [
   { label: "Mon – Sat", value: "Mon–Sat" },
@@ -22,15 +23,24 @@ const TIME_OPTIONS = [
 ];
 
 export default function ProviderAvailability() {
-  const { id = "p1" } = useParams();
+  const { id = "" } = useParams();
   const { showToast } = useApp();
   const { data: provider } = useQuery(() => providerService.get(id), [id]);
 
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Availability" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
+
   const [now, setNow] = useState(false);
   const [hours, setHours] = useState(3);
-  const [fromTime, setFromTime] = useState("09:00 AM");
-  const [toTime, setToTime] = useState("07:00 PM");
-  const [daysPattern, setDaysPattern] = useState("Mon–Sat");
+  const [fromTime, setFromTime] = useState(DEFAULT_START_TIME);
+  const [toTime, setToTime] = useState(DEFAULT_END_TIME);
+  const [daysPattern, setDaysPattern] = useState(DEFAULT_DAYS_PATTERN);
   const [slotDuration, setSlotDuration] = useState(30);
   const [saving, setSaving] = useState(false);
 
@@ -102,7 +112,7 @@ export default function ProviderAvailability() {
         <div className="card" style={{ padding: 16, background: now ? "#e8f7ee" : "var(--ink-50)", border: "none" }}>
           <div className="row between center-v">
             <div className="row gap-10 center-v">
-              <Zap size={22} color={now ? "#16a34a" : "var(--ink-400)"} />
+              <Zap size={22} color={now ? "var(--green-500)" : "var(--ink-400)"} />
               <div>
                 <div className="semi small">Available right now</div>
                 <div className="tiny muted">{now ? `Surfaced to nearby users for ${hours}h` : "Turn on when ready for immediate jobs"}</div>
@@ -138,7 +148,7 @@ export default function ProviderAvailability() {
             <div style={{ marginTop: 12 }}>
               <div className="row between tiny semi">
                 <span className="row gap-4 center-v"><Clock size={13} /> Active duration</span>
-                <span style={{ color: "#16a34a" }}>{hours} hours</span>
+                <span style={{ color: "var(--green-500)" }}>{hours} hours</span>
               </div>
               <input
                 type="range"
@@ -146,7 +156,7 @@ export default function ProviderAvailability() {
                 max={8}
                 value={hours}
                 onChange={(e) => setHours(Number(e.target.value))}
-                style={{ width: "100%", accentColor: "#16a34a", marginTop: 6 }}
+                style={{ width: "100%", accentColor: "var(--green-500)", marginTop: 6 }}
               />
             </div>
           )}

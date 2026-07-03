@@ -104,7 +104,7 @@ export default function LocationPermission() {
 
         <div className="card" style={{ marginTop: 28, padding: 14, textAlign: "left", width: "100%" }}>
           <div className="row gap-10 small">
-            <Navigation size={18} color="#16a34a" />
+            <Navigation size={18} color="var(--green-500)" />
             <span>We only store your <span className="semi">last location</span> — never a trail.</span>
           </div>
         </div>

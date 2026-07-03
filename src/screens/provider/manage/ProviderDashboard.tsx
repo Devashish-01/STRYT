@@ -2,16 +2,15 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Eye, Briefcase, CheckCircle2, Wallet, Star, TrendingUp, Zap, ArrowLeftRight, Share2 } from "lucide-react";
 import { providerService } from "@/services";
-import { SafeImg } from "@/components/common";
+import { SafeImg, inr, AppBar } from "@/components/common";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import { Skeleton } from "@/components/states";
-import { inr } from "@/components/common";
+import { Skeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import ProviderManageNav from "./ProviderManageNav";
 import ShareCard from "@/components/ShareCard";
 
 export default function ProviderDashboard() {
-  const { id = "p1" } = useParams();
+  const { id = "" } = useParams();
   const nav = useNavigate();
   const { data: p } = useQuery(() => providerService.get(id), [id]);
   const { setContext, showToast } = useApp();
@@ -21,6 +20,15 @@ export default function ProviderDashboard() {
     [id],
     `provider_id=eq.${id}`
   );
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Dashboard" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const [available, setAvailable] = useState(false);
   const [share, setShare] = useState(false);
   const base = `/provider/${id}/manage`;
@@ -44,7 +52,7 @@ export default function ProviderDashboard() {
 
   return (
     <div className="screen with-nav">
-      <div style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", color: "#fff", padding: "16px" }}>
+      <div style={{ background: "linear-gradient(135deg,var(--green-500),#15803d)", color: "#fff", padding: "16px" }}>
         <div className="row between">
           <button className="row gap-4 tiny semi" style={{ opacity: 0.9 }} onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
             <ArrowLeftRight size={13} /> Switch to customer
@@ -83,7 +91,7 @@ export default function ProviderDashboard() {
         <div className="page-pad">
           <button className="card row gap-12" style={{ padding: 14, width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)" }} onClick={toggleAvail}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: available ? "#e8f7ee" : "var(--ink-50)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Zap size={22} color={available ? "#16a34a" : "var(--ink-400)"} />
+              <Zap size={22} color={available ? "var(--green-500)" : "var(--ink-400)"} />
             </div>
             <div className="grow">
               <div className="semi small">{available ? "You're available now" : "Go available now"}</div>
@@ -104,14 +112,14 @@ export default function ProviderDashboard() {
               <div className="row gap-10">
                 <Kpi icon={Eye} color="#cc4415" value={(data?.views ?? 0).toLocaleString()} label="Profile views" />
                 <Kpi icon={Briefcase} color="#0ea5e9" value={data?.leads ?? 0} label="Leads" />
-                <Kpi icon={CheckCircle2} color="#16a34a" value={data?.accepted ?? 0} label="Won" />
+                <Kpi icon={CheckCircle2} color="var(--green-500)" value={data?.accepted ?? 0} label="Won" />
               </div>
               <div className="card row" style={{ padding: 14, marginTop: 10 }}>
-                <div className="grow col center" style={{ gap: 2 }}><Wallet size={18} color="#f26a00" /><span className="bold">{inr(data?.earnings ?? 0)}</span><span className="tiny muted">Earned (offline)</span></div>
+                <div className="grow col center" style={{ gap: 2 }}><Wallet size={18} color="var(--orange-500)" /><span className="bold">{inr(data?.earnings ?? 0)}</span><span className="tiny muted">Earned (offline)</span></div>
                 <div style={{ width: 1, background: "var(--line)" }} />
-                <div className="grow col center" style={{ gap: 2 }}><Briefcase size={18} color="#16a34a" /><span className="bold">{data?.jobsDone ?? 0}</span><span className="tiny muted">Jobs done</span></div>
+                <div className="grow col center" style={{ gap: 2 }}><Briefcase size={18} color="var(--green-500)" /><span className="bold">{data?.jobsDone ?? 0}</span><span className="tiny muted">Jobs done</span></div>
                 <div style={{ width: 1, background: "var(--line)" }} />
-                <div className="grow col center" style={{ gap: 2 }}><Star size={18} color="#f59e0b" /><span className="bold">{p?.ratingAvg}</span><span className="tiny muted">Rating</span></div>
+                <div className="grow col center" style={{ gap: 2 }}><Star size={18} color="var(--amber-500)" /><span className="bold">{p?.ratingAvg}</span><span className="tiny muted">Rating</span></div>
               </div>
             </>
           )}
@@ -121,11 +129,11 @@ export default function ProviderDashboard() {
         {!loading && (
           <div className="page-pad" style={{ paddingTop: 0 }}>
             <div className="card" style={{ padding: 14 }}>
-              <div className="row between" style={{ marginBottom: 12 }}><span className="semi small row gap-6"><TrendingUp size={15} color="#16a34a" /> Leads trend</span><span className="tiny muted">7 days</span></div>
+              <div className="row between" style={{ marginBottom: 12 }}><span className="semi small row gap-6"><TrendingUp size={15} color="var(--green-500)" /> Leads trend</span><span className="tiny muted">7 days</span></div>
               <div className="row gap-6" style={{ alignItems: "flex-end", height: 80 }}>
                 {(data?.leadsSeries ?? [0,0,0,0,0,0,0]).map((h: number, i: number) => (
                   <div key={i} className="grow col" style={{ alignItems: "center", gap: 4 }}>
-                    <div style={{ width: "100%", height: `${(h / 12) * 100}%`, background: i === 6 ? "#16a34a" : "#bbf7d0", borderRadius: 6 }} />
+                    <div style={{ width: "100%", height: `${(h / 12) * 100}%`, background: i === 6 ? "var(--green-500)" : "#bbf7d0", borderRadius: 6 }} />
                     <span className="tiny muted" style={{ fontSize: 9 }}>{["M", "T", "W", "T", "F", "S", "S"][i]}</span>
                   </div>
                 ))}

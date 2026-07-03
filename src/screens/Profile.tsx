@@ -12,6 +12,7 @@ import { useI18n } from "@/lib/i18n";
 import { SafeImg } from "@/components/common";
 import AccountSwitcher from "@/components/AccountSwitcher";
 import { requestService, socialService, businessService } from "@/services";
+import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import type { Role, AgreementStatus } from "@/types";
 import ShareCard, { type ShareOption } from "@/components/ShareCard";
@@ -36,7 +37,7 @@ export default function Profile() {
       url: window.location.origin + "/u/" + user.id,
       title: user.name || "Stryt Neighbor",
       subtitle: `Customer • ${user.area || "No location"}`,
-      image: user.avatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120",
+      image: user.avatar || PLACEHOLDER_AVATAR,
       meta: `⭐ ${user.ratingAvg ?? 0} (${user.ratingCount ?? 0})`
     }
   ];
@@ -48,7 +49,7 @@ export default function Profile() {
       url: window.location.origin + "/business/" + ownedBusinessIds[0],
       title: `${getFirstName(user.name || "")}'s Shop`,
       subtitle: "Local Business on Stryt",
-      image: "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500",
+      image: PLACEHOLDER_BUSINESS_COVER,
       meta: "Shops & Deals"
     });
   }
@@ -60,7 +61,7 @@ export default function Profile() {
       url: window.location.origin + "/provider/" + ownedProviderId,
       title: user.name || "Service Provider",
       subtitle: "Professional Provider on Stryt",
-      image: user.avatar || "https://images.unsplash.com/photo-1521791136364-7286472b6b5c?w=500",
+      image: user.avatar || PLACEHOLDER_AVATAR_ALT,
       meta: "Services & Work"
     });
   }
@@ -83,9 +84,9 @@ export default function Profile() {
     (!!envBypassToken && (user.phone === envBypassToken || localStorage.getItem("admin_bypass_token") === envBypassToken));
 
   const roleMeta: Record<Role, { label: string; icon: any; color: string; bg: string }> = {
-    customer:       { label: "Customer",  icon: Heart,    color: "#7c3aed", bg: "#faf5ff" },
-    business_owner: { label: "Business",  icon: Store,    color: "#f26a00", bg: "#fff7ed" },
-    provider:       { label: "Provider",  icon: Briefcase, color: "#16a34a", bg: "#f0fdf4" },
+    customer:       { label: "Customer",  icon: Heart,    color: "var(--brand-600)", bg: "#faf5ff" },
+    business_owner: { label: "Business",  icon: Store,    color: "var(--orange-500)", bg: "#fff7ed" },
+    provider:       { label: "Provider",  icon: Briefcase, color: "var(--green-500)", bg: "#f0fdf4" },
   };
 
   // The 6 most-used destinations, as one scannable grid instead of a tall list —
@@ -95,7 +96,7 @@ export default function Profile() {
     { icon: <FileText size={22} color="var(--brand-700)" />, label: t("requests"), onClick: () => nav("/requests") },
     { icon: <Users size={22} color="#3b82f6" />, label: t("community"), onClick: () => nav("/community-hub") },
     { icon: <Map size={22} color="#0ea5e9" />, label: t("map"), onClick: () => nav("/map") },
-    { icon: <Award size={22} color="#f59e0b" />, label: t("badges"), onClick: () => nav("/achievements") },
+    { icon: <Award size={22} color="var(--amber-500)" />, label: t("badges"), onClick: () => nav("/achievements") },
     { icon: <Trophy size={22} color="var(--brand-700)" />, label: t("heroes"), onClick: () => nav("/leaderboard") },
   ];
 
@@ -113,7 +114,7 @@ export default function Profile() {
                 {chatUnread > 0 && (
                   <span style={{
                     position: "absolute", top: 5, right: 5,
-                    width: 7, height: 7, background: "#ef4444",
+                    width: 7, height: 7, background: "var(--red-500)",
                     borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)",
                   }} />
                 )}
@@ -185,22 +186,22 @@ export default function Profile() {
             </button>
             <button className="stat-pill" onClick={() => nav("/bookmarks?tab=following")}>
               <span className="row" style={{ gap: 3 }}>
-                <UserPlus size={12} color="#7c3aed" />
-                <span className="bold" style={{ fontSize: 19, color: "#7c3aed" }}>{follows.length}</span>
+                <UserPlus size={12} color="var(--brand-600)" />
+                <span className="bold" style={{ fontSize: 19, color: "var(--brand-600)" }}>{follows.length}</span>
               </span>
               <span className="tiny muted">Following</span>
             </button>
             <button className="stat-pill" onClick={() => nav("/followers")}>
               <span className="row" style={{ gap: 3 }}>
-                <Users size={12} color="#16a34a" />
-                <span className="bold" style={{ fontSize: 19, color: "#16a34a" }}>{followersCount}</span>
+                <Users size={12} color="var(--green-500)" />
+                <span className="bold" style={{ fontSize: 19, color: "var(--green-500)" }}>{followersCount}</span>
               </span>
               <span className="tiny muted">Followers</span>
             </button>
             <button className="stat-pill" onClick={() => nav("/agreements")}>
               <span className="row" style={{ gap: 3 }}>
-                <Handshake size={12} color={activeAgreements.length > 0 ? "#f26a00" : "var(--ink-400)"} />
-                <span className="bold" style={{ fontSize: 19, color: activeAgreements.length > 0 ? "#f26a00" : "var(--brand-700)" }}>
+                <Handshake size={12} color={activeAgreements.length > 0 ? "var(--orange-500)" : "var(--ink-400)"} />
+                <span className="bold" style={{ fontSize: 19, color: activeAgreements.length > 0 ? "var(--orange-500)" : "var(--brand-700)" }}>
                   {totalAgreements}
                 </span>
               </span>
@@ -316,10 +317,10 @@ export default function Profile() {
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <div className="card" style={{ overflow: "hidden" }}>
             {hasSellerProfile && (
-              <MenuRow icon={<Store size={20} color="#f26a00" />} label="Manage business & profile" onClick={() => nav("/manage")} />
+              <MenuRow icon={<Store size={20} color="var(--orange-500)" />} label="Manage business & profile" onClick={() => nav("/manage")} />
             )}
             <MenuRow icon={<ListChecks size={20} color="#0ea5e9" />} label="My saved lists" onClick={() => nav("/lists")} />
-            <MenuRow icon={<Users size={20} color="#f59e0b" />} label="My queues" badge={activeQueues.length || undefined} onClick={() => nav("/queues")} last />
+            <MenuRow icon={<Users size={20} color="var(--amber-500)" />} label="My queues" badge={activeQueues.length || undefined} onClick={() => nav("/queues")} last />
           </div>
         </div>
 
@@ -327,13 +328,13 @@ export default function Profile() {
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <div className="card" style={{ overflow: "hidden" }}>
             <MenuRow icon={<Globe size={20} color="#0ea5e9" />}    label="Language"         hint="English"     onClick={() => nav("/settings")} />
-            <MenuRow icon={<Shield size={20} color="#16a34a" />}   label="Privacy & safety"                    onClick={() => nav("/settings")} />
+            <MenuRow icon={<Shield size={20} color="var(--green-500)" />}   label="Privacy & safety"                    onClick={() => nav("/settings")} />
             <MenuRow icon={<HelpCircle size={20} color="#6366f1" />} label="Help & support"                    onClick={() => nav("/support?tab=contact")} />
-            <MenuRow icon={<Bug size={20} color="#ef4444" />}      label="Report a bug"                        onClick={() => nav("/support?tab=bug")} />
+            <MenuRow icon={<Bug size={20} color="var(--red-500)" />}      label="Report a bug"                        onClick={() => nav("/support?tab=bug")} />
             {isAdmin && (
               <MenuRow icon={<Shield size={20} color="#14111c" />} label="Admin console" onClick={() => nav("/admin")} />
             )}
-            <MenuRow icon={<LogOut size={20} color="#ef4444" />}   label="Log out" last onClick={() => { signOut(); nav("/"); }} />
+            <MenuRow icon={<LogOut size={20} color="var(--red-500)" />}   label="Log out" last onClick={() => { signOut(); nav("/"); }} />
           </div>
         </div>
 

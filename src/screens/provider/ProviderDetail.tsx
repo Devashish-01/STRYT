@@ -8,7 +8,7 @@ import {
 import { providerService, socialService, communityService } from "@/services";
 import { chatService } from "@/services/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, StarRow, EmptyState, SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
@@ -17,6 +17,7 @@ import ShareCard from "@/components/ShareCard";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { isMockTarget } from "@/services/appointmentService";
+import { PROVIDER_BADGE_THRESHOLDS } from "@/lib/badges";
 
 const Handshake = HandshakeIcon as any;
 
@@ -30,12 +31,12 @@ export default function ProviderDetail() {
   } = useApp();
 
   const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
-  const { data: reviews, refetch: refetchReviews } = useQuery(() => providerService.reviews(id), [id]);
-  const { data: vouches } = useQuery(() => socialService.vouches(id), [id]);
-  const { data: endorsements } = useQuery(() => socialService.endorsements(id), [id]);
+  const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => providerService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
+  const { data: vouches } = useQueryWithRealtime(() => socialService.vouches(id), "vouches", [id], `provider_id=eq.${id}`);
+  const { data: endorsements } = useQueryWithRealtime(() => socialService.endorsements(id), "endorsements", [id], `provider_id=eq.${id}`);
   const { data: availList } = useQuery(() => socialService.availableNow(), []);
   const { data: packages } = useQuery(() => providerService.packages(id), [id]);
-  const { data: provPosts } = useQuery(() => communityService.byAuthorRef("provider", id), [id]);
+  const { data: provPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("provider", id), "community_posts", [id], `author_ref_id=eq.${id}`);
 
   // Count a profile view once per provider open.
   useEffect(() => {
@@ -50,7 +51,7 @@ export default function ProviderDetail() {
   if (loading) {
     return (
       <div className="screen">
-        <div style={{ background: "linear-gradient(135deg,#16a34a,#15803d)", padding: "12px 16px 24px" }}>
+        <div style={{ background: "linear-gradient(135deg,var(--green-500),#15803d)", padding: "12px 16px 24px" }}>
           <Skeleton h={78} w={78} r={39} />
         </div>
         <div className="page-pad col gap-12" style={{ marginTop: -14 }}>
@@ -100,7 +101,7 @@ export default function ProviderDetail() {
           style={{
             background: heroPhoto
               ? `linear-gradient(160deg, rgba(22,163,74,0.88), rgba(21,128,61,0.92)), url(${heroPhoto}) center/cover`
-              : "linear-gradient(135deg,#16a34a,#15803d)",
+              : "linear-gradient(135deg,var(--green-500),#15803d)",
             color: "#fff", padding: "12px 16px 24px",
           }}
         >
@@ -137,7 +138,7 @@ export default function ProviderDetail() {
                   <Star size={11} fill="#ffd23f" strokeWidth={0} /> {p.ratingAvg} ({p.ratingCount})
                 </span>
                 {p.isNew && <span className="badge" style={{ background: "#ff8400", color: "#fff" }}>NEW</span>}
-                {avail && <span className="badge" style={{ background: "#fff", color: "#16a34a" }}>⚡ Free till {avail.availableUntil}</span>}
+                {avail && <span className="badge" style={{ background: "#fff", color: "var(--green-500)" }}>⚡ Free till {avail.availableUntil}</span>}
               </div>
             </div>
           </div>
@@ -168,7 +169,7 @@ export default function ProviderDetail() {
             style={{ background: hasVouched ? "#e8f7ee" : "var(--ink-50)", color: hasVouched ? "#15803d" : "var(--ink-700)" }}
             onClick={() => toggleVouch(p.id)}
           >
-            <ThumbsUp size={15} fill={hasVouched ? "#16a34a" : "none"} /> {hasVouched ? "Vouched" : "Vouch"}
+            <ThumbsUp size={15} fill={hasVouched ? "var(--green-500)" : "none"} /> {hasVouched ? "Vouched" : "Vouch"}
           </button>
         </div>
 
@@ -190,11 +191,11 @@ export default function ProviderDetail() {
             {(() => {
               const responseHrs = parseInt(p.responseTime ?? "99");
               const badges: { label: string; emoji: string }[] = [
-                ...(p.isVerified                                         ? [{ label: "Verified",       emoji: "✓" }] : []),
-                ...(p.ratingAvg >= 4.5 && p.ratingCount >= 5           ? [{ label: "Top Rated",      emoji: "⭐" }] : []),
-                ...(!isNaN(responseHrs) && responseHrs <= 2             ? [{ label: "Fast Responder", emoji: "⚡" }] : []),
-                ...(p.jobsDone >= 100                                    ? [{ label: "100+ Jobs",      emoji: "💼" }] : []),
-                ...(p.isNew                                              ? [{ label: "New Provider",   emoji: "🌟" }] : []),
+                ...(p.isVerified ? [{ label: "Verified", emoji: "✓" }] : []),
+                ...(p.ratingAvg >= PROVIDER_BADGE_THRESHOLDS.topRatedMinRating && p.ratingCount >= PROVIDER_BADGE_THRESHOLDS.topRatedMinReviews ? [{ label: "Top Rated", emoji: "⭐" }] : []),
+                ...(!isNaN(responseHrs) && responseHrs <= PROVIDER_BADGE_THRESHOLDS.fastResponderMaxHrs ? [{ label: "Fast Responder", emoji: "⚡" }] : []),
+                ...(p.jobsDone >= PROVIDER_BADGE_THRESHOLDS.jobsMilestone ? [{ label: `${PROVIDER_BADGE_THRESHOLDS.jobsMilestone}+ Jobs`, emoji: "💼" }] : []),
+                ...(p.isNew ? [{ label: "New Provider", emoji: "🌟" }] : []),
               ];
               if (badges.length === 0) return null;
               return (
@@ -274,14 +275,14 @@ export default function ProviderDetail() {
             {vouchList.length > 0 && (
               <div className="card" style={{ padding: 14 }}>
                 <div className="row between" style={{ marginBottom: 10 }}>
-                  <span className="semi small row gap-6"><Handshake size={16} color="#16a34a" /> {vouchList.length + (hasVouched ? 1 : 0)} neighbors vouch for {p.displayName.split(" ")[0]}</span>
+                  <span className="semi small row gap-6"><Handshake size={16} color="var(--green-500)" /> {vouchList.length + (hasVouched ? 1 : 0)} neighbors vouch for {p.displayName.split(" ")[0]}</span>
                 </div>
                 <div className="row" style={{ marginLeft: 6 }}>
                   {vouchList.slice(0, 6).map((v) => (
                     <SafeImg key={v.byUserId} src={v.byAvatar} variant="avatar" className="avatar" style={{ width: 36, height: 36, border: "2px solid #fff", marginLeft: -6 }} />
                   ))}
                   {hasVouched && (
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#16a34a", border: "2px solid #fff", marginLeft: -6, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--green-500)", border: "2px solid #fff", marginLeft: -6, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
                       <Plus size={16} />
                     </div>
                   )}
@@ -303,14 +304,14 @@ export default function ProviderDetail() {
             )}
             <div className="card" style={{ padding: 14 }}>
               <div className="row gap-10 small center-v">
-                <Clock size={16} color="#16a34a" style={{ flexShrink: 0 }} />
+                <Clock size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
                 <div>
                   <div className="tiny semi muted" style={{ fontSize: 11, color: "var(--ink-500)" }}>Working Availability Timing</div>
                   <div className="semi" style={{ color: "var(--ink-900)" }}>{p.availabilityNote || "Available on request"}</div>
                 </div>
               </div>
               <div className="divider" />
-              <div className="row gap-10 small"><MapPin size={16} color="#16a34a" /><span>Serves within {p.serviceRadiusKm} km • {p.distanceKm} km from you</span></div>
+              <div className="row gap-10 small"><MapPin size={16} color="var(--green-500)" /><span>Serves within {p.serviceRadiusKm} km • {p.distanceKm} km from you</span></div>
             </div>
           </div>
         )}

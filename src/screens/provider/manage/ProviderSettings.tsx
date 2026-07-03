@@ -4,14 +4,24 @@ import { AppBar } from "@/components/common";
 import { BadgeCheck, Bell, Power, Camera, Clock } from "lucide-react";
 import { useApp } from "@/store";
 import { providerService, profileControlService } from "@/services";
+import { ErrorView } from "@/components/states";
 import ProviderManageNav from "./ProviderManageNav";
 import { kycService } from "@/services/kycService";
 import type { ProviderVerification } from "@/types";
 
 export default function ProviderSettings() {
-  const { id = "p1" } = useParams();
+  const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast, setContext } = useApp();
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Settings" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const [leads, setLeads] = useState(true);
   const [matched, setMatched] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -92,7 +102,7 @@ export default function ProviderSettings() {
           <div className="col gap-4">
             <span className="semi small">{type === "PAN" ? "PAN Card" : "Aadhaar Card"}</span>
             {status === "VERIFIED" && (
-              <span className="tiny semi" style={{ color: "#16a34a" }}>
+              <span className="tiny semi" style={{ color: "var(--green-500)" }}>
                 ✓ Verified {verifiedName ? `— ${verifiedName}` : ""}
               </span>
             )}
@@ -102,7 +112,7 @@ export default function ProviderSettings() {
               </span>
             )}
             {status === "REJECTED" && (
-              <span className="tiny" style={{ color: "#dc2626" }}>
+              <span className="tiny" style={{ color: "var(--red-600)" }}>
                 Rejected (please retry)
               </span>
             )}
@@ -208,7 +218,7 @@ function PanForm({ providerId, onDone }: { providerId: string; onDone: () => voi
       <input className="input" placeholder="PAN number (e.g. ABCDE1234F)" maxLength={10}
         value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())}
         style={{ letterSpacing: 2, textTransform: "uppercase" }} />
-      {error && <div className="tiny" style={{ color: "#dc2626" }}>{error}</div>}
+      {error && <div className="tiny" style={{ color: "var(--red-600)" }}>{error}</div>}
       <button className="btn btn-outline btn-sm btn-block"
         disabled={pan.length < 10 || loading} onClick={verify}>
         {loading ? "Verifying…" : "Verify PAN instantly →"}
@@ -251,7 +261,7 @@ function AadhaarForm({ providerId, onDone }: { providerId: string; onDone: () =>
         <>
           <input className="input" placeholder="12-digit Aadhaar number" inputMode="numeric" maxLength={12}
             value={aadhaar} onChange={(e) => setAadhaar(e.target.value.replace(/\D/g, ""))} />
-          {error && <div className="tiny" style={{ color: "#dc2626" }}>{error}</div>}
+          {error && <div className="tiny" style={{ color: "var(--red-600)" }}>{error}</div>}
           <button className="btn btn-outline btn-sm btn-block"
             disabled={aadhaar.length < 12 || loading} onClick={sendOtp}>
             {loading ? "Sending OTP…" : "Send OTP →"}
@@ -262,7 +272,7 @@ function AadhaarForm({ providerId, onDone }: { providerId: string; onDone: () =>
           <div className="tiny muted">OTP sent to Aadhaar-linked mobile number</div>
           <input className="input" placeholder="6-digit OTP" inputMode="numeric" maxLength={6}
             value={otp} onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))} autoFocus />
-          {error && <div className="tiny" style={{ color: "#dc2626" }}>{error}</div>}
+          {error && <div className="tiny" style={{ color: "var(--red-600)" }}>{error}</div>}
           <div className="row gap-8">
             <button className="btn btn-outline btn-sm grow"
               onClick={() => { setStep("input"); setError(""); }}>Back</button>

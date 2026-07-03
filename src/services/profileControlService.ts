@@ -1,5 +1,6 @@
 import { getSupabase } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
+import { functionUrl } from "@/config";
 
 export type ProfileTarget = "CUSTOMER" | "BUSINESS" | "PROVIDER";
 
@@ -26,7 +27,7 @@ export const profileControlService = {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error("Authentication required");
 
-    const res = await fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/profile-control`, {
+    const res = await fetch(functionUrl("profile-control"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -138,7 +139,7 @@ export const profileControlService = {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error("Authentication required");
 
-    const res = await fetch(`${(import.meta as any).env.VITE_SUPABASE_URL}/functions/v1/admin-delete-profile`, {
+    const res = await fetch(functionUrl("admin-delete-profile"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

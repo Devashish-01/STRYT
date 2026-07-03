@@ -8,6 +8,7 @@ import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
 import HoursSelector from "@/components/HoursSelector";
+import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
 
 
 const steps = ["Skill", "Area & price", "Portfolio", "Verify"];
@@ -32,7 +33,7 @@ export default function ProviderOnboard() {
   const [radius, setRadius] = useState(5);
   const [price, setPrice] = useState("");
   const [bio, setBio] = useState("");
-  const [availability, setAvailability] = useState("Everyday from 09:00 AM to 09:00 PM");
+  const [availability, setAvailability] = useState(DEFAULT_ONBOARD_WORKING_HOURS);
   const [photos, setPhotos] = useState<{ file: File; previewUrl: string }[]>([]);
   const [aadhaarNum, setAadhaarNum] = useState("");
   const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
@@ -100,7 +101,7 @@ export default function ProviderOnboard() {
       <div className="screen">
         <div className="screen-scroll col center page-pad" style={{ paddingTop: 70, textAlign: "center" }}>
           <div style={{ width: 96, height: 96, borderRadius: "50%", background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
-            <CheckCircle2 size={52} color="#16a34a" />
+            <CheckCircle2 size={52} color="var(--green-500)" />
           </div>
           <h1 className="bold" style={{ fontSize: 24, marginTop: 24 }}>You're almost live!</h1>
           <p className="muted" style={{ marginTop: 8, lineHeight: 1.5, maxWidth: 290 }}>
@@ -142,7 +143,7 @@ export default function ProviderOnboard() {
               <label>What service do you offer? *</label>
               <div className="row wrap gap-8">
                 {serviceCats.map((c) => (
-                  <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} style={cat === c.id ? { background: "#16a34a", borderColor: "#16a34a" } : undefined} onClick={() => { setCat(c.id); setNewCat(""); }}>
+                  <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} style={cat === c.id ? { background: "var(--green-500)", borderColor: "var(--green-500)" } : undefined} onClick={() => { setCat(c.id); setNewCat(""); }}>
                     {c.icon} {c.name.split(" ")[0]}
                   </button>
                 ))}
@@ -166,7 +167,7 @@ export default function ProviderOnboard() {
               lng={lng}
               storedLat={user.lat}
               storedLng={user.lng}
-              pinColor="#16a34a"
+              pinColor="var(--green-500)"
               height={120}
               onChange={(newLat, newLng) => { setLat(newLat); setLng(newLng); }}
               onError={(msg) => showToast(msg)}
@@ -186,7 +187,7 @@ export default function ProviderOnboard() {
               <RadiusSelector
                 value={radius}
                 onChange={setRadius}
-                accentColor="#16a34a"
+                accentColor="var(--green-500)"
                 label="Service radius"
                 description="How far you're willing to travel/serve."
               />
@@ -195,7 +196,7 @@ export default function ProviderOnboard() {
               <HoursSelector
                 value={availability}
                 onChange={setAvailability}
-                accentColor="#16a34a"
+                accentColor="var(--green-500)"
                 label="Availability timing"
                 description="Specify when you are available for customer bookings"
               />
@@ -232,7 +233,7 @@ export default function ProviderOnboard() {
         {step === 3 && (
           <>
             <div className="card row gap-10" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
-              <Briefcase size={20} color="#16a34a" />
+              <Briefcase size={20} color="var(--green-500)" />
               <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>
                 Providers verify with <b>Aadhaar</b> and a clear <b>photograph</b>. Kept private, used only to keep the community safe.
               </span>
@@ -259,7 +260,7 @@ export default function ProviderOnboard() {
               <input className="input" inputMode="numeric" maxLength={14} placeholder="1234 5678 9012"
                 value={aadhaarNum} onChange={(e) => setAadhaarNum(e.target.value.replace(/[^\d ]/g, ""))} />
             </div>
-            <label className="col center" style={{ width: "100%", padding: 18, borderRadius: 14, border: `2px dashed ${aadhaarFile ? "#16a34a" : "var(--ink-300)"}`, color: aadhaarFile ? "var(--green-600)" : "var(--ink-500)", gap: 6, cursor: "pointer" }}>
+            <label className="col center" style={{ width: "100%", padding: 18, borderRadius: 14, border: `2px dashed ${aadhaarFile ? "var(--green-500)" : "var(--ink-300)"}`, color: aadhaarFile ? "var(--green-600)" : "var(--ink-500)", gap: 6, cursor: "pointer" }}>
               <Camera size={24} />
               <span className="small semi">{aadhaarFile ? `✓ ${aadhaarFile.name}` : "Upload Aadhaar card photo"}</span>
               <input type="file" accept="image/*,.pdf" style={{ display: "none" }}
@@ -272,7 +273,7 @@ export default function ProviderOnboard() {
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
         <button
           className="btn btn-block"
-          style={{ background: canNext ? "#16a34a" : "var(--ink-200)", color: "#fff" }}
+          style={{ background: canNext ? "var(--green-500)" : "var(--ink-200)", color: "#fff" }}
           disabled={!canNext || submitting}
           onClick={() => (step < 3 ? setStep(step + 1) : submit())}
         >

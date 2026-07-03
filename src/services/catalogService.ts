@@ -1,7 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
-import type { Category, CategoryKind } from "@/types";
+import type { Category } from "@/types";
 import { haversineKm } from "@/lib/geocode";
 
 // Build the nested parent -> children tree the screens expect from the

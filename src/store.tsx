@@ -31,11 +31,12 @@ const seedUser: CurrentUser = {
 import { userService } from "@/services/userService";
 import { authService } from "@/services/authService";
 import { notificationService } from "@/services/notificationService";
+import { chatService } from "@/services/chatService";
 import { registerPush } from "@/lib/pushNotifications";
 import { socialService } from "@/services/socialService";
 import { walletService } from "@/services/walletService";
 import { config } from "@/config";
-import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import { getSupabase, currentUserId, hasSupabaseEnv } from "@/lib/supabaseClient";
 
 interface BookmarkKey {
   type: BookmarkTarget;
@@ -275,7 +276,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!uid) return;
 
     // run all fetches in parallel
-    const [bmRes, fwRes, lstRes, liRes, unreadCount, vcRes, enRes, cpRes, mtRes] = await Promise.all([
+    const [bmRes, fwRes, lstRes, liRes, unreadCount, vcRes, enRes, cpRes, mtRes, chatUnreadCount] = await Promise.all([
       sb.from("bookmarks").select("target_type,target_id").eq("user_id", uid),
       sb.from("follows").select("target_type,target_id").eq("follower_user_id", uid),
       sb.from("user_lists").select("id,name,emoji,shared").eq("user_id", uid).order("created_at"),
@@ -285,6 +286,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sb.from("endorsements").select("provider_id,skill").eq("from_user_id", uid),
       sb.from("user_saved_coupons").select("offer_id").eq("user_id", uid),
       sb.from("request_me_toos").select("request_id").eq("user_id", uid),
+      chatService.totalUnread(),
     ]);
 
     if (bmRes.data) {
@@ -326,6 +328,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setMeToos(mtRes.data.map((r) => r.request_id));
     }
     setUnread(unreadCount);
+    setChatUnread(chatUnreadCount);
   }, []);
 
   // Pull the real user + owned entities whenever we become authenticated.
@@ -353,6 +356,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // leave seed values; a 401 will be handled by the auth layer.
     }
   }, []);
+
+  // Live-update the two global unread badges instead of leaving them frozen
+  // at whatever they were when hydratePersonalData last ran. `notifications`
+  // and `messages` are both in the supabase_realtime publication.
+  useEffect(() => {
+    if (!isAuthed || !hasSupabaseEnv) return;
+    let active = true;
+    let channel: ReturnType<ReturnType<typeof getSupabase>["channel"]> | null = null;
+    currentUserId().then((uid) => {
+      if (!uid || !active) return;
+      const sb = getSupabase();
+      channel = sb
+        .channel(`rt:unread:${uid}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` }, () => {
+          setUnread((n) => n + 1);
+        })
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => {
+          chatService.totalUnread().then((n) => { if (active) setChatUnread(n); });
+        })
+        .subscribe();
+    });
+    return () => {
+      active = false;
+      if (channel) getSupabase().removeChannel(channel);
+    };
+  }, [isAuthed]);
 
   useEffect(() => {
     if (isAuthed) {

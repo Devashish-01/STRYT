@@ -196,7 +196,7 @@ export default function QrScannerSheet({ onClose }: Props) {
         {/* Header */}
         <div className="row space-between" style={{ marginBottom: 16, alignItems: "center" }}>
           <div className="row gap-8" style={{ alignItems: "center" }}>
-            <QrCode size={20} color="#8b47f5" />
+            <QrCode size={20} color="var(--brand-500)" />
             <h3 className="bold" style={{ fontSize: 18, color: "#fff", margin: 0 }}>Live QR Scanner</h3>
           </div>
           <button
@@ -389,7 +389,7 @@ export default function QrScannerSheet({ onClose }: Props) {
                 cursor: "pointer",
               }}
             >
-              <Upload size={32} color="#8b47f5" />
+              <Upload size={32} color="var(--brand-500)" />
               <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.8)" }}>Select QR Image</span>
             </div>
             <input

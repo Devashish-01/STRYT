@@ -2,16 +2,25 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, StarRow, SafeImg } from "@/components/common";
 import { businessService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import { Flag, Reply } from "lucide-react";
 import type { Review } from "@/types";
 
 export default function ReviewsManager() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const [filter, setFilter] = useState<number | null>(null);
-  const { data, loading, error, refetch } = useQuery(() => businessService.reviews(id), [id]);
+  const { data, loading, error, refetch } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Reviews" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   const reviews = data ?? [];
   const list = filter ? reviews.filter((r) => r.rating === filter) : reviews;

@@ -47,7 +47,7 @@ export default function BlockSlotModal({ date, timeLabel, onConfirm, onClose, su
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
           <button
             className="btn btn-sm"
-            style={{ background: "#dc2626", color: "#fff" }}
+            style={{ background: "var(--red-600)", color: "#fff" }}
             disabled={submitting}
             onClick={() => onConfirm({ recurring, reason: reason.trim() })}
           >

@@ -8,7 +8,7 @@ import type { RequestPost } from "@/types";
 
 // Business-as-responder: open requests matching the business category.
 export default function BusinessRequests() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
@@ -19,6 +19,15 @@ export default function BusinessRequests() {
     "requests",
     [b?.lat, b?.lng, b?.broadcastRadius]
   );
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Requests" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   // Only show requests within the business's access range. Each request's
   // distanceKm is measured from the business location (feed got b.lat/b.lng).

@@ -293,7 +293,7 @@ export default function AgreementScreen() {
     if (status === "COMPLETED") {
       return (
         <div className="col center" style={{ padding: 16, gap: 6, background: "#e8f7ee", borderTop: "1px solid #bbf7d0" }}>
-          <CheckCircle2 size={28} color="#16a34a" />
+          <CheckCircle2 size={28} color="var(--green-500)" />
           <span className="semi" style={{ color: "#15803d" }}>Job complete</span>
         </div>
       );
@@ -302,7 +302,7 @@ export default function AgreementScreen() {
     if (status === "CANCELLED") {
       return (
         <div className="col center" style={{ padding: 16, gap: 12, background: "#fef2f2", borderTop: "1px solid #fee2e2", textAlign: "center" }}>
-          <XCircle size={28} color="#dc2626" />
+          <XCircle size={28} color="var(--red-600)" />
           <div>
             <span className="semi" style={{ color: "#991b1b" }}>Agreement Cancelled</span>
             <p className="tiny muted" style={{ marginTop: 4, maxWidth: 320, lineHeight: 1.4 }}>
@@ -322,7 +322,7 @@ export default function AgreementScreen() {
     if (status === "DISPUTED") {
       return (
         <div className="col center" style={{ padding: 16, gap: 6, background: "#fff7ed", borderTop: "1px solid #fdba74" }}>
-          <AlertTriangle size={26} color="#f26a00" />
+          <AlertTriangle size={26} color="var(--orange-500)" />
           <span className="semi" style={{ color: "#c2410c" }}>Under dispute — our team will review</span>
         </div>
       );
@@ -383,7 +383,7 @@ export default function AgreementScreen() {
               <Wallet size={16} /> Mark paid (cash / UPI)
             </button>
             <p className="tiny muted" style={{ textAlign: "center" }}>
-              Pay the agreed amount in person. STRYT records the deal; online payments are coming soon.
+              Pay the agreed amount in person. STRYT records the deal — in-app payment isn't available yet.
             </p>
           </div>
         );
@@ -438,7 +438,7 @@ export default function AgreementScreen() {
                 </button>
                 <button
                   className="btn grow"
-                  style={{ background: "#f26a00", color: "#fff" }}
+                  style={{ background: "var(--orange-500)", color: "#fff" }}
                   disabled={busy || !disputeReason.trim()}
                   onClick={() => run(
                     () => requestService.dispute(agreement!.id, disputeReason.trim()),
@@ -465,7 +465,7 @@ export default function AgreementScreen() {
             </button>
             <button
               className="btn btn-outline btn-block"
-              style={{ color: "#f26a00", borderColor: "#fdba74" }}
+              style={{ color: "var(--orange-500)", borderColor: "#fdba74" }}
               onClick={() => setDisputeMode(true)}
             >
               <AlertTriangle size={16} /> Raise dispute
@@ -535,7 +535,7 @@ export default function AgreementScreen() {
             <div className="col" style={{ alignItems: "flex-end", gap: 4 }}>
               <div className="col" style={{ alignItems: "flex-end" }}>
                 <span className="tiny muted">Agreed price</span>
-                <span className="bold" style={{ fontSize: 20, color: "#16a34a" }}>{inr(agreement.agreedPrice)}</span>
+                <span className="bold" style={{ fontSize: 20, color: "var(--green-500)" }}>{inr(agreement.agreedPrice)}</span>
               </div>
               <span className="row gap-4 tiny" style={{ color: "var(--brand-600)" }}>
                 View profile <ExternalLink size={11} />
@@ -617,14 +617,14 @@ export default function AgreementScreen() {
           )}
           <div className="divider" />
           <div className="row gap-10 small">
-            <Wallet size={16} color="#f26a00" />
+            <Wallet size={16} color="var(--orange-500)" />
             <span>Payment: <span className="semi">{agreement.paymentMode === "ONLINE" ? "Online (Razorpay)" : "Offline (in person)"}</span></span>
           </div>
         </div>
 
         {agreement.paymentMode !== "ONLINE" && (
           <div className="card row gap-10" style={{ padding: 12, background: "#fff7ed", border: "1px dashed #fdba74" }}>
-            <Info size={20} color="#f26a00" style={{ flexShrink: 0 }} />
+            <Info size={20} color="var(--orange-500)" style={{ flexShrink: 0 }} />
             <span className="tiny" style={{ color: "#c2410c", lineHeight: 1.4 }}>
               Pay in person / via Razorpay when prompted. <span className="semi">STRYT secures online payments.</span>
             </span>
@@ -641,7 +641,7 @@ export default function AgreementScreen() {
         )}
 
         <div className="row gap-8 tiny muted">
-          <ShieldCheck size={16} color="#16a34a" style={{ flexShrink: 0 }} />
+          <ShieldCheck size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
           <span>Your exact location is shared only after both sides confirm.</span>
         </div>
 
@@ -650,21 +650,21 @@ export default function AgreementScreen() {
             <div className="tiny semi" style={{ color: "#991b1b", marginBottom: 10 }}>Safety</div>
             {sosCountdown !== null ? (
               <div className="col center" style={{ gap: 10 }}>
-                <div className="bold" style={{ fontSize: 32, color: "#dc2626" }}>{sosCountdown}</div>
+                <div className="bold" style={{ fontSize: 32, color: "var(--red-600)" }}>{sosCountdown}</div>
                 <div className="tiny muted">SOS fires in {sosCountdown}s</div>
                 <button className="btn btn-outline btn-block btn-sm" onClick={cancelSOS}>Cancel</button>
               </div>
             ) : (
               <div className="row gap-10">
                 <div className="grow tiny muted" style={{ lineHeight: 1.4 }}>Sends your location to your emergency contact immediately.</div>
-                <button className="btn btn-sm" style={{ background: "#dc2626", color: "#fff", flexShrink: 0 }} onClick={startSOS}>SOS</button>
+                <button className="btn btn-sm" style={{ background: "var(--red-600)", color: "#fff", flexShrink: 0 }} onClick={startSOS}>SOS</button>
               </div>
             )}
           </div>
         )}
         {sosTriggered && (
           <div className="card row gap-10" style={{ padding: 12, background: "#fee2e2", border: "1px solid #fca5a5" }}>
-            <ShieldAlert size={20} color="#dc2626" style={{ flexShrink: 0 }} />
+            <ShieldAlert size={20} color="var(--red-600)" style={{ flexShrink: 0 }} />
             <span className="tiny semi" style={{ color: "#991b1b" }}>SOS sent — your emergency contact and STRYT have been alerted.</span>
           </div>
         )}
@@ -681,9 +681,9 @@ export default function AgreementScreen() {
 function ConfirmRow({ label, done, last }: { label: string; done: boolean; last?: boolean }) {
   return (
     <div className="row gap-10" style={{ padding: "8px 0", borderBottom: last ? "none" : "1px solid var(--line)" }}>
-      {done ? <CheckCircle2 size={20} color="#16a34a" /> : <Circle size={20} color="var(--ink-300)" />}
+      {done ? <CheckCircle2 size={20} color="var(--green-500)" /> : <Circle size={20} color="var(--ink-300)" />}
       <span className="small semi grow">{label}</span>
-      <span className="tiny semi" style={{ color: done ? "#16a34a" : "var(--ink-400)" }}>
+      <span className="tiny semi" style={{ color: done ? "var(--green-500)" : "var(--ink-400)" }}>
         {done ? "Confirmed" : "Pending"}
       </span>
     </div>

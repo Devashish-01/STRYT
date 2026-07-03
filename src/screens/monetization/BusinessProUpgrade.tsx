@@ -8,7 +8,7 @@ import { useApp } from "@/store";
 import { Skeleton } from "@/components/states";
 
 const PLAN_ICONS = { BASIC: Zap, PRO: Star, PREMIUM: Crown };
-const PLAN_COLOR = { BASIC: "#0ea5e9", PRO: "#6d28d9", PREMIUM: "#f59e0b" };
+const PLAN_COLOR = { BASIC: "#0ea5e9", PRO: "#6d28d9", PREMIUM: "var(--amber-500)" };
 
 export default function BusinessProUpgrade() {
   const { id = "" } = useParams<{ id: string }>();
@@ -96,7 +96,7 @@ export default function BusinessProUpgrade() {
               <div className="col gap-6">
                 {plan.features.map((f) => (
                   <div key={f} className="row gap-8 tiny">
-                    <Check size={13} color="#16a34a" style={{ flexShrink: 0 }} />
+                    <Check size={13} color="var(--green-500)" style={{ flexShrink: 0 }} />
                     <span>{f}</span>
                   </div>
                 ))}
@@ -124,7 +124,7 @@ export default function BusinessProUpgrade() {
         ))}
 
         <div className="card row gap-10" style={{ padding: 12, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
-          <Check size={18} color="#16a34a" style={{ flexShrink: 0 }} />
+          <Check size={18} color="var(--green-500)" style={{ flexShrink: 0 }} />
           <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>
             <span className="semi">Zero commission.</span> STRYT never takes a cut on your jobs. Pro is purely for growth tools.
           </span>

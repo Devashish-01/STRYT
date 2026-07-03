@@ -41,7 +41,7 @@ export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
             icon={<User size={14} />}
             title={user.name}
             sub="Personal · Customer"
-            color="#7c3aed"
+            color="var(--brand-600)"
             onClick={() => pick("customer", null, user.name, "/home")}
           />
 
@@ -54,7 +54,7 @@ export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
               icon={<Store size={14} />}
               title={b.name}
               sub="Business · Live"
-              color="#f26a00"
+              color="var(--orange-500)"
               onClick={() => pick("business", b.id, b.name, `/business/${b.id}/manage`)}
             />
           ))}
@@ -67,7 +67,7 @@ export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
               icon={<Briefcase size={14} />}
               title={provider.displayName}
               sub="Provider · Active"
-              color="#16a34a"
+              color="var(--green-500)"
               onClick={() => pick("provider", provider.id, provider.displayName, `/provider/${provider.id}/manage`)}
             />
           )}
@@ -76,13 +76,13 @@ export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
         <div className="divider" />
 
         <button className="row gap-12" style={{ width: "100%", padding: "12px 4px" }} onClick={() => { onClose(); nav("/onboard/business"); }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: "#fff3e8", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={20} color="#f26a00" /></div>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: "#fff3e8", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={20} color="var(--orange-500)" /></div>
           <span className="semi small grow" style={{ textAlign: "left" }}>Add a business</span>
           <ChevronRight size={18} color="var(--ink-300)" />
         </button>
         {!provider && !roles.includes("provider") && (
           <button className="row gap-12" style={{ width: "100%", padding: "12px 4px" }} onClick={() => { onClose(); nav("/onboard/provider"); }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={20} color="#16a34a" /></div>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={20} color="var(--green-500)" /></div>
             <span className="semi small grow" style={{ textAlign: "left" }}>Become a provider</span>
             <ChevronRight size={18} color="var(--ink-300)" />
           </button>

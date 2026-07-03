@@ -8,7 +8,7 @@ import { useApp } from "@/store";
 import { ListSkeleton } from "@/components/states";
 
 const FREQ_LABEL: Record<string, string> = { DAILY: "Daily", WEEKLY: "Weekly", MONTHLY: "Monthly" };
-const FREQ_COLOR: Record<string, string> = { DAILY: "#6d28d9", WEEKLY: "#0ea5e9", MONTHLY: "#f26a00" };
+const FREQ_COLOR: Record<string, string> = { DAILY: "#6d28d9", WEEKLY: "#0ea5e9", MONTHLY: "var(--orange-500)" };
 
 export default function SubscriptionManager() {
   const nav = useNavigate();
@@ -54,7 +54,7 @@ export default function SubscriptionManager() {
                 <div className="tiny muted">{sub.providerName}</div>
               </div>
               <div className="col" style={{ alignItems: "flex-end", gap: 4 }}>
-                <span className="bold" style={{ color: "#16a34a" }}>{inr(sub.pricePerPeriod)}</span>
+                <span className="bold" style={{ color: "var(--green-500)" }}>{inr(sub.pricePerPeriod)}</span>
                 <span style={{ background: FREQ_COLOR[sub.frequency] + "18", color: FREQ_COLOR[sub.frequency], fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 12 }}>
                   {FREQ_LABEL[sub.frequency]}
                 </span>
@@ -75,7 +75,7 @@ export default function SubscriptionManager() {
             </div>
 
             {sub.status === "PAUSED" && (
-              <div className="tiny" style={{ marginTop: 8, color: "#f26a00", textAlign: "center" }}>⏸ Paused</div>
+              <div className="tiny" style={{ marginTop: 8, color: "var(--orange-500)", textAlign: "center" }}>⏸ Paused</div>
             )}
           </div>
         ))}

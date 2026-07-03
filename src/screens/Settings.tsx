@@ -180,7 +180,7 @@ export default function Settings() {
           <div className="small semi muted" style={{ marginBottom: 8 }}>Notifications</div>
           <div className="card">
             <Row icon={<Moon size={18} color="#6366f1" />} label="Silent notifications" hint="Badge only, no sound" on={silent} set={setSilent} />
-            <Row icon={<Volume2 size={18} color="#f59e0b" />} label="Quiet hours (10 PM–7 AM)" on={quiet} set={setQuiet} />
+            <Row icon={<Volume2 size={18} color="var(--amber-500)" />} label="Quiet hours (10 PM–7 AM)" on={quiet} set={setQuiet} />
             <div className="divider" style={{ margin: 0 }} />
             <Row label="New businesses nearby" on={newBiz} set={setNewBiz} />
             <Row label="Show nearby providers" hint="Hide providers from your discovery feeds & map (They can still see and quote your requests)" on={newProv} set={setNewProv} />
@@ -193,7 +193,7 @@ export default function Settings() {
         <div>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Privacy & safety</div>
           <div className="card">
-            <Row icon={<Eye size={18} color="#16a34a" />} label="Show approximate location" hint="Exact only after agreement" on={approx} set={setApprox} />
+            <Row icon={<Eye size={18} color="var(--green-500)" />} label="Show approximate location" hint="Exact only after agreement" on={approx} set={setApprox} />
             <div className="divider" style={{ margin: 0 }} />
             <Row label="Show Posts publicly" hint="Allow neighbors to see your community posts on your profile" on={showPosts} set={handleTogglePosts} />
             <Row label="Show Service Requests publicly" hint="Allow neighbors to see your open & past asks" on={showAsks} set={handleToggleAsks} />

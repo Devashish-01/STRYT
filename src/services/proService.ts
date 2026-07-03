@@ -1,5 +1,6 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
+import { functionUrl } from "@/config";
 
 export const PRO_PLANS = [
   { id: "BASIC",   label: "Basic",   price: 499,  duration: "3 months",  features: ["25 catalog items", "Priority support", "Basic analytics"] },
@@ -34,7 +35,7 @@ export const proService = {
     const plan = [...PRO_PLANS, ...LEAD_PACKS].find((p) => p.id === planId);
     if (!plan) throw new Error("Unknown plan");
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(`${(import.meta as any).env?.VITE_SUPABASE_URL}/functions/v1/create-razorpay-order`, {
+    const res = await fetch(functionUrl("create-razorpay-order"), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
       body: JSON.stringify({ agreementId: `pro_${entityId}`, amount: plan.price, payerUserId: uid }),

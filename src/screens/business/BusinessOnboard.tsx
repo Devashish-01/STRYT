@@ -7,8 +7,8 @@ import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store } from "lucide-
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
-
 import HoursSelector from "@/components/HoursSelector";
+import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
 
 import { reverseGeocodeFull } from "@/lib/geocode";
 
@@ -29,7 +29,7 @@ export default function BusinessOnboard() {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("Pune");
   const [pincode, setPincode] = useState("");
-  const [hours, setHours] = useState("Everyday from 09:00 AM to 09:00 PM");
+  const [hours, setHours] = useState(DEFAULT_ONBOARD_WORKING_HOURS);
   const [photos, setPhotos] = useState<{ file: File; previewUrl: string }[]>([]);
   const [phone, setPhone] = useState("");
   const [openDate, setOpenDate] = useState("");
@@ -114,14 +114,14 @@ export default function BusinessOnboard() {
       <div className="screen">
         <div className="screen-scroll col center page-pad" style={{ paddingTop: 70, textAlign: "center" }}>
           <div style={{ width: 96, height: 96, borderRadius: "50%", background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
-            <CheckCircle2 size={52} color="#16a34a" />
+            <CheckCircle2 size={52} color="var(--green-500)" />
           </div>
           <h1 className="bold" style={{ fontSize: 24, marginTop: 24 }}>Submitted for review</h1>
           <p className="muted" style={{ marginTop: 8, lineHeight: 1.5, maxWidth: 290 }}>
             We'll verify your business within ~24 hours. Once approved, <span className="semi" style={{ color: "var(--ink-900)" }}>3,247 nearby users</span> get a silent heads-up that you're open.
           </p>
           <div className="card" style={{ padding: 14, marginTop: 24, width: "100%", textAlign: "left" }}>
-            <div className="row gap-10"><Store size={20} color="#f26a00" /><div><div className="semi small">{name || "Your business"}</div><div className="tiny muted">{selectedCat?.name} • Under review</div></div></div>
+            <div className="row gap-10"><Store size={20} color="var(--orange-500)" /><div><div className="semi small">{name || "Your business"}</div><div className="tiny muted">{selectedCat?.name} • Under review</div></div></div>
           </div>
         </div>
         <div className="page-pad col gap-10">
@@ -216,7 +216,7 @@ export default function BusinessOnboard() {
               lng={lng}
               storedLat={user.lat}
               storedLng={user.lng}
-              pinColor="#f26a00"
+              pinColor="var(--orange-500)"
               height={150}
               onChange={async (newLat, newLng) => {
                 setLat(newLat);

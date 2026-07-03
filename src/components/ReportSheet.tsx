@@ -33,7 +33,7 @@ export default function ReportSheet({
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
         <div className="row gap-8" style={{ marginBottom: 4 }}>
-          <Flag size={20} color="#ef4444" />
+          <Flag size={20} color="var(--red-500)" />
           <h3 className="bold" style={{ fontSize: 18 }}>Report {name}</h3>
         </div>
         <p className="small muted" style={{ marginBottom: 14 }}>
@@ -75,7 +75,7 @@ export default function ReportSheet({
 
         <button
           className="btn btn-block"
-          style={{ marginTop: 14, background: reason ? "#ef4444" : "var(--ink-200)", color: "#fff" }}
+          style={{ marginTop: 14, background: reason ? "var(--red-500)" : "var(--ink-200)", color: "#fff" }}
           disabled={!reason}
           onClick={async () => {
             try {

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState } from "@/components/common";
 import { adminService, type AdminReport } from "@/services/adminService";
 import { profileControlService, type DeletionRequest } from "@/services/profileControlService";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ListSkeleton } from "@/components/states";
 import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut } from "lucide-react";
 import { useApp } from "@/store";
@@ -157,7 +157,7 @@ function AdminAccount() {
 
       <button
         className="btn btn-outline btn-block row gap-8 center"
-        style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+        style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
         onClick={() => { signOut(); nav("/admin/login"); }}
       >
         <LogOut size={16} /> Sign out of admin
@@ -171,10 +171,10 @@ function AdminDashboard() {
   if (loading) return <div className="page-pad"><Skeleton h={120} /></div>;
   const d = data!;
   const cards = [
-    { label: "Businesses", value: d.businesses, icon: Store, color: "#f26a00" },
-    { label: "Providers", value: d.providers, icon: Briefcase, color: "#16a34a" },
+    { label: "Businesses", value: d.businesses, icon: Store, color: "var(--orange-500)" },
+    { label: "Providers", value: d.providers, icon: Briefcase, color: "var(--green-500)" },
     { label: "Open requests", value: d.openRequests, icon: Users, color: "var(--brand-700)" },
-    { label: "Pending review", value: d.pendingReview, icon: Flag, color: "#ef4444" },
+    { label: "Pending review", value: d.pendingReview, icon: Flag, color: "var(--red-500)" },
   ];
   return (
     <div className="page-pad col gap-14">
@@ -198,7 +198,7 @@ function AdminDashboard() {
         <Stat label="Push delivery" value={typeof d.pushDelivery === "number" ? `${d.pushDelivery}%` : d.pushDelivery} />
       </div>
       <div className="card row gap-10" style={{ padding: 14 }}>
-        <TrendingUp size={18} color="#16a34a" />
+        <TrendingUp size={18} color="var(--green-500)" />
         <span className="small semi grow">New today</span>
         <span className="bold">{d.newToday}</span>
       </div>
@@ -208,7 +208,8 @@ function AdminDashboard() {
 
 function AdminQueue() {
   const [type, setType] = useState<QueueType>("business");
-  const { data, loading, refetch } = useQuery<any[]>(() => adminService.queue(type) as any, [type]);
+  const queueTable = type === "business" ? "businesses" : type === "provider" ? "providers" : "categories";
+  const { data, loading, refetch } = useQueryWithRealtime<any[]>(() => adminService.queue(type) as any, queueTable, [type], "status=eq.PENDING");
   const { showToast } = useApp();
   const [done, setDone] = useState<string[]>([]);
 
@@ -252,7 +253,7 @@ function AdminQueue() {
 }
 
 function AdminReports() {
-  const { data, loading } = useQuery<AdminReport[]>(() => adminService.reports() as any, []);
+  const { data, loading } = useQueryWithRealtime<AdminReport[]>(() => adminService.reports() as any, "reports", []);
   const { showToast } = useApp();
   const [resolved, setResolved] = useState<Record<string, string>>({});
 
@@ -280,7 +281,7 @@ function AdminReports() {
                 {status === "OPEN" || status === "REVIEWING" ? (
                   <div className="row gap-8" style={{ marginTop: 12 }}>
                     <button className="btn btn-outline grow btn-sm" onClick={() => resolve(r.id, "DISMISSED")}>Dismiss</button>
-                    <button className="btn btn-sm grow" style={{ background: "#ef4444", color: "#fff" }} onClick={() => resolve(r.id, "ACTION_TAKEN")}>Take action</button>
+                    <button className="btn btn-sm grow" style={{ background: "var(--red-500)", color: "#fff" }} onClick={() => resolve(r.id, "ACTION_TAKEN")}>Take action</button>
                   </div>
                 ) : (
                   <span className={`badge ${status === "ACTION_TAKEN" ? "badge-red" : "badge-gray"}`} style={{ marginTop: 10 }}>{status === "ACTION_TAKEN" ? "Action taken" : "Dismissed"}</span>
@@ -295,13 +296,13 @@ function AdminReports() {
 }
 
 const BUG_ROLE_META: Record<string, { label: string; color: string }> = {
-  CUSTOMER: { label: "Customer", color: "#7c3aed" },
-  BUSINESS: { label: "Business", color: "#f26a00" },
-  PROVIDER: { label: "Provider", color: "#16a34a" },
+  CUSTOMER: { label: "Customer", color: "var(--brand-600)" },
+  BUSINESS: { label: "Business", color: "var(--orange-500)" },
+  PROVIDER: { label: "Provider", color: "var(--green-500)" },
 };
 
 function AdminBugs() {
-  const { data, loading, refetch } = useQuery(() => adminService.bugReports(), []);
+  const { data, loading, refetch } = useQueryWithRealtime(() => adminService.bugReports(), "bug_reports", []);
   const { showToast } = useApp();
   const [roleFilter, setRoleFilter] = useState<"ALL" | "CUSTOMER" | "BUSINESS" | "PROVIDER">("ALL");
 
@@ -344,7 +345,7 @@ function AdminBugs() {
             {b.status === "OPEN" || b.status === "REVIEWING" ? (
               <div className="row gap-8" style={{ marginTop: 12 }}>
                 <button className="btn btn-outline grow btn-sm" onClick={() => resolve(b.id, "DISMISSED")}>Dismiss</button>
-                <button className="btn btn-sm grow" style={{ background: "#16a34a", color: "#fff" }} onClick={() => resolve(b.id, "RESOLVED")}>Mark resolved</button>
+                <button className="btn btn-sm grow" style={{ background: "var(--green-500)", color: "#fff" }} onClick={() => resolve(b.id, "RESOLVED")}>Mark resolved</button>
               </div>
             ) : (
               <span className={`badge ${b.status === "RESOLVED" ? "badge-green" : "badge-gray"}`} style={{ marginTop: 10 }}>
@@ -360,7 +361,7 @@ function AdminBugs() {
 
 function AdminKYC() {
   const { showToast } = useApp();
-  const { data, loading, refetch } = useQuery(() => kycService.adminGetPending(), []);
+  const { data, loading, refetch } = useQueryWithRealtime(() => kycService.adminGetPending(), "provider_verifications", []);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [selectedTier, setSelectedTier] = useState("PAN_VERIFIED");
 
@@ -399,7 +400,7 @@ function AdminKYC() {
             </div>
           ) : (
             <div className="row gap-8">
-              <button className="btn btn-outline grow btn-sm" style={{ color: "#dc2626" }} onClick={async () => {
+              <button className="btn btn-outline grow btn-sm" style={{ color: "var(--red-600)" }} onClick={async () => {
                 await kycService.adminReject(item.id);
                 showToast("Rejected"); refetch();
               }}><X size={14} /> Reject</button>
@@ -416,7 +417,7 @@ function AdminKYC() {
 
 function AdminDisputes() {
   const { showToast } = useApp();
-  const { data, loading, refetch } = useQuery<any[]>(async () => {
+  const { data, loading, refetch } = useQueryWithRealtime<any[]>(async () => {
     const sb = (await import("@/lib/supabaseClient")).getSupabase();
     const { data, error } = await sb
       .from("agreements")
@@ -425,7 +426,7 @@ function AdminDisputes() {
       .order("created_at", { ascending: false });
     if (error) throw error;
     return data ?? [];
-  }, []);
+  }, "agreements", [], "status=eq.DISPUTED");
 
   async function resolve(agreementId: string, newStatus: "COMPLETED" | "CANCELLED") {
     const sb = (await import("@/lib/supabaseClient")).getSupabase();
@@ -462,7 +463,7 @@ function AdminDisputes() {
             </div>
           )}
           <div className="row gap-8">
-            <button className="btn btn-outline grow btn-sm" style={{ color: "#dc2626" }}
+            <button className="btn btn-outline grow btn-sm" style={{ color: "var(--red-600)" }}
               onClick={() => resolve(ag.id, "CANCELLED")}>
               <X size={14} /> Cancel job
             </button>
@@ -734,7 +735,7 @@ function AdminProfiles() {
                         </span>
                         {req.status === "PENDING" && (
                           isReadyToPurge ? (
-                            <span style={{ background: "#fee2e2", color: "#dc2626", padding: "2px 6px", borderRadius: 6, fontWeight: 700, fontSize: 10.5 }}>
+                            <span style={{ background: "#fee2e2", color: "var(--red-600)", padding: "2px 6px", borderRadius: 6, fontWeight: 700, fontSize: 10.5 }}>
                               Ready to Purge
                             </span>
                           ) : (
@@ -781,8 +782,8 @@ function AdminProfiles() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div className="card col gap-12" style={{ maxWidth: 450, width: "100%", padding: 16, background: "var(--ink-50)", boxShadow: "var(--shadow-lg)" }}>
             <div className="row gap-8 text-danger align-center">
-              <AlertTriangle size={24} color="#dc2626" />
-              <h3 className="bold" style={{ fontSize: 18, color: "#dc2626" }}>Confirm Deletion</h3>
+              <AlertTriangle size={24} color="var(--red-600)" />
+              <h3 className="bold" style={{ fontSize: 18, color: "var(--red-600)" }}>Confirm Deletion</h3>
             </div>
             
             <p className="small muted">

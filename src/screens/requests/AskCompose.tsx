@@ -329,7 +329,7 @@ export default function AskCompose() {
             />
             <button
               className="icon-btn"
-              style={{ position: "absolute", bottom: 8, right: 8, background: listening ? "#fee2e2" : "var(--brand-50)", color: listening ? "#dc2626" : "var(--brand-700)" }}
+              style={{ position: "absolute", bottom: 8, right: 8, background: listening ? "#fee2e2" : "var(--brand-50)", color: listening ? "var(--red-600)" : "var(--brand-700)" }}
               onClick={toggleVoice}
             >
               <Mic size={18} />
@@ -347,7 +347,7 @@ export default function AskCompose() {
             {photos.map((url, i) => (
               <div key={url} style={{ position: "relative" }}>
                 <img src={url} className="thumb" style={{ width: 76, height: 76, borderRadius: 12 }} />
-                <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "#ef4444", color: "#fff" }} onClick={() => setPhotos((p) => p.filter((_, x) => x !== i))}>
+                <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setPhotos((p) => p.filter((_, x) => x !== i))}>
                   <X size={14} />
                 </button>
               </div>
@@ -444,7 +444,7 @@ export default function AskCompose() {
 
         {/* Toggles */}
         <div className="col gap-8">
-          <ToggleRow icon={<Flame size={18} color="#ef4444" />} label="Mark as urgent" hint="Pushes to providers faster" on={urgent} set={setUrgent} />
+          <ToggleRow icon={<Flame size={18} color="var(--red-500)" />} label="Mark as urgent" hint="Pushes to providers faster" on={urgent} set={setUrgent} />
           <ToggleRow icon={<Repeat size={18} color="#3b82f6" />} label="Recurring need" hint="e.g. every weekday / weekly" on={recurring} set={setRecurring} />
           <ToggleRow icon={<EyeOff size={18} color="var(--brand-600)" />} label="Post anonymously" hint="Name hidden until you agree" on={anon} set={setAnon} />
         </div>

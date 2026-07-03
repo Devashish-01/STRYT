@@ -309,7 +309,7 @@ export default function UserOnboard() {
         >
           <div style={{
             position: "absolute", top: 0, left: 0, right: 0, height: 4,
-            background: "linear-gradient(90deg, #8b47f5, #f26a00, #16a34a)"
+            background: "linear-gradient(90deg, var(--brand-500), var(--orange-500), var(--green-500))"
           }} />
 
           {/* Avatar Display */}

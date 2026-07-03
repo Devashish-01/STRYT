@@ -118,7 +118,7 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
             className="avatar"
             style={{
               width: 40, height: 40,
-              border: post.authorType === "business" ? "2px solid #f26a00" : post.authorType === "provider" ? "2px solid #16a34a" : "none",
+              border: post.authorType === "business" ? "2px solid var(--orange-500)" : post.authorType === "provider" ? "2px solid var(--green-500)" : "none",
             }}
           />
           <div className="grow">
@@ -203,8 +203,8 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
 
         <div className="divider" style={{ margin: "12px 0" }} />
         <div className="row gap-16">
-          <button className="row gap-6 small semi" style={{ color: liked ? "#ef4444" : "var(--ink-500)" }} onClick={handleLike}>
-            <Heart size={17} fill={liked ? "#ef4444" : "none"} /> {likeCount}
+          <button className="row gap-6 small semi" style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }} onClick={handleLike}>
+            <Heart size={17} fill={liked ? "var(--red-500)" : "none"} /> {likeCount}
           </button>
           <button className="row gap-6 small semi muted" onClick={() => nav(`/community/${post.id}`, { state: { post } })}>
             <MessageCircle size={17} /> {post.commentsCount} {post.commentsCount === 1 ? "comment" : "comments"}

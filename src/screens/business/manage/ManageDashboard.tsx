@@ -6,14 +6,15 @@ import {
 } from "lucide-react";
 import { businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import { Skeleton } from "@/components/states";
+import { Skeleton, ErrorView } from "@/components/states";
+import { AppBar } from "@/components/common";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
 import ManageNav from "./ManageNav";
 import ShareCard from "@/components/ShareCard";
 
 export default function ManageDashboard() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const nav = useNavigate();
   const { setContext, showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
@@ -23,6 +24,15 @@ export default function ManageDashboard() {
     [id],
     `business_id=eq.${id}`
   );
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Dashboard" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
   const [share, setShare] = useState(false);
   const [available, setAvailable] = useState(false);
 
@@ -57,7 +67,7 @@ export default function ManageDashboard() {
   return (
     <div className="screen with-nav">
       {/* Header */}
-      <div style={{ background: "linear-gradient(135deg,#f26a00,#c2410c)", color: "#fff", padding: "16px" }}>
+      <div style={{ background: "linear-gradient(135deg,var(--orange-500),#c2410c)", color: "#fff", padding: "16px" }}>
         <div className="row between">
           <button className="row gap-4 tiny semi" style={{ opacity: 0.9 }} onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
             <ArrowLeftRight size={13} /> Switch to customer
@@ -105,7 +115,7 @@ export default function ManageDashboard() {
             onClick={toggleAvail}
           >
             <div style={{ width: 44, height: 44, borderRadius: 12, background: available ? "#e8f7ee" : "var(--ink-50)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Zap size={22} color={available ? "#16a34a" : "var(--ink-400)"} />
+              <Zap size={22} color={available ? "var(--green-500)" : "var(--ink-400)"} />
             </div>
             <div className="grow">
               <div className="semi small">{available ? "Shop is open right now" : "Mark shop open now"}</div>
@@ -126,12 +136,12 @@ export default function ManageDashboard() {
             <>
               <div className="row gap-10">
                 <Kpi icon={Eye} color="#cc4415" value={data!.views.toLocaleString()} label="Views" trend="" />
-                <Kpi icon={Phone} color="#16a34a" value={data!.calls} label="Calls" trend="" />
-                <Kpi icon={Navigation} color="#f26a00" value={data!.directions} label="Directions" trend="" />
+                <Kpi icon={Phone} color="var(--green-500)" value={data!.calls} label="Calls" trend="" />
+                <Kpi icon={Navigation} color="var(--orange-500)" value={data!.directions} label="Directions" trend="" />
               </div>
               <div className="row gap-10" style={{ marginTop: 10 }}>
                 <Kpi icon={Eye} color="#0ea5e9" value={data!.catalogViews.toLocaleString()} label="Menu views" trend="" />
-                <Kpi icon={Star} color="#f59e0b" value={data!.reviews} label="New reviews" trend="" />
+                <Kpi icon={Star} color="var(--amber-500)" value={data!.reviews} label="New reviews" trend="" />
                 <Kpi icon={HelpCircle} color="#6366f1" value={data!.questions} label="Questions" trend="" />
               </div>
             </>
@@ -143,13 +153,13 @@ export default function ManageDashboard() {
           <div className="page-pad" style={{ paddingTop: 0 }}>
             <div className="card" style={{ padding: 14 }}>
               <div className="row between" style={{ marginBottom: 12 }}>
-                <span className="semi small row gap-6"><TrendingUp size={15} color="#f26a00" /> Lead trend</span>
+                <span className="semi small row gap-6"><TrendingUp size={15} color="var(--orange-500)" /> Lead trend</span>
                 <span className="tiny muted">7 days</span>
               </div>
               <div className="row gap-6" style={{ alignItems: "flex-end", height: 90 }}>
                 {data!.viewsSeries.map((h: number, i: number) => (
                   <div key={i} className="grow col" style={{ alignItems: "center", gap: 4 }}>
-                    <div style={{ width: "100%", height: `${h}%`, background: i === 6 ? "#f26a00" : "#fed7aa", borderRadius: 6 }} />
+                    <div style={{ width: "100%", height: `${h}%`, background: i === 6 ? "var(--orange-500)" : "#fed7aa", borderRadius: 6 }} />
                     <span className="tiny muted" style={{ fontSize: 9 }}>{["M", "T", "W", "T", "F", "S", "S"][i]}</span>
                   </div>
                 ))}
@@ -163,7 +173,7 @@ export default function ManageDashboard() {
           <div className="small semi muted" style={{ marginBottom: 8 }}>Action needed</div>
           <div className="card" style={{ overflow: "hidden" }}>
             <ActionRow icon={<HelpCircle size={18} color="#6366f1" />} label="Answer customer questions" onClick={() => nav(`${base}/qna`)} />
-            <ActionRow icon={<MessageSquare size={18} color="#f59e0b" />} label="Reply to reviews" onClick={() => nav(`${base}/reviews`)} last />
+            <ActionRow icon={<MessageSquare size={18} color="var(--amber-500)" />} label="Reply to reviews" onClick={() => nav(`${base}/reviews`)} last />
           </div>
         </div>
 
@@ -215,7 +225,7 @@ function Kpi({ icon: Icon, color, value, label, trend }: any) {
       <span className="bold" style={{ fontSize: 19 }}>{value}</span>
       <div className="row between">
         <span className="tiny muted">{label}</span>
-        <span className="tiny semi" style={{ color: "#16a34a" }}>{trend}</span>
+        <span className="tiny semi" style={{ color: "var(--green-500)" }}>{trend}</span>
       </div>
     </div>
   );

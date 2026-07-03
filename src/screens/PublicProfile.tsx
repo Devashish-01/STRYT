@@ -177,7 +177,7 @@ export default function PublicProfile() {
               height: 92,
               borderRadius: "50%",
               padding: 3,
-              background: "linear-gradient(135deg, #f59e0b, #ec4899, #8b47f5)",
+              background: "linear-gradient(135deg, var(--amber-500), #ec4899, var(--brand-500))",
               boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
               marginBottom: 12,
             }}
@@ -387,7 +387,7 @@ export default function PublicProfile() {
             </div>
             <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
             <div className="col center grow">
-              <span className="bold" style={{ fontSize: 18, color: "#ef4444" }}>{u.vouchCount}</span>
+              <span className="bold" style={{ fontSize: 18, color: "var(--red-500)" }}>{u.vouchCount}</span>
               <span className="tiny semi muted" style={{ marginTop: 2 }}>Vouches</span>
             </div>
             {(isSelf || u.showRatingPublicly !== false) && (
@@ -406,7 +406,7 @@ export default function PublicProfile() {
               style={{ background: "none", border: "none", cursor: isSelf ? "pointer" : "default" }}
               onClick={() => { if (isSelf) nav("/followers"); }}
             >
-              <span className="bold" style={{ fontSize: 18, color: "#16a34a" }}>{followersCount}</span>
+              <span className="bold" style={{ fontSize: 18, color: "var(--green-500)" }}>{followersCount}</span>
               <span className="tiny semi muted" style={{ marginTop: 2 }}>Followers</span>
             </button>
           </div>

@@ -9,7 +9,7 @@ import type { RequestPost, AppointmentRecord, BlockedSlot, CancelledBy } from "@
 import ProviderManageNav from "./ProviderManageNav";
 import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2 } from "lucide-react";
 import { useApp } from "@/store";
-import { dateKey } from "@/utils/availability";
+import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";
 import DateStrip from "@/components/appointments/DateStrip";
 import DayTimetable from "@/components/appointments/DayTimetable";
@@ -20,7 +20,7 @@ import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppoint
 type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
 export default function ProviderLeads() {
-  const { id = "p1" } = useParams();
+  const { id = "" } = useParams();
   const { showToast } = useApp();
   const [tab, setTab] = useState<"requests" | "appointments">("requests");
   const { data: p } = useQuery(() => providerService.get(id), [id]);
@@ -45,6 +45,15 @@ export default function ProviderLeads() {
     () => slotBlockService.list(id),
     [id]
   );
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Leads & Appointments" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   const [consoleTab, setConsoleTab] = useState<ConsoleTab>("TODAY");
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -243,13 +252,13 @@ export default function ProviderLeads() {
                 <button type="button" className="btn btn-green grow btn-sm row gap-4 center" onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}>
                   <Check size={14} /> Accept
                 </button>
-                <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "#dc2626", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
+                <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
                   <XIcon size={14} /> Decline
                 </button>
               </>
             )}
             {apt.status === "ACCEPTED" && (
-              <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "#dc2626", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
+              <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
                 <XIcon size={14} /> Cancel appointment
               </button>
             )}
@@ -260,7 +269,7 @@ export default function ProviderLeads() {
           <button
             type="button"
             className="row gap-4 center-v tiny semi"
-            style={{ color: "#dc2626", alignSelf: "flex-start", marginTop: 2 }}
+            style={{ color: "var(--red-600)", alignSelf: "flex-start", marginTop: 2 }}
             disabled={noShowBusy === apt.id}
             onClick={() => markNoShow(apt)}
           >
@@ -353,7 +362,7 @@ export default function ProviderLeads() {
 
                 <DayTimetable
                   date={selectedDate}
-                  availabilityNote={p?.availabilityNote || "Mon–Sat from 09:00 AM to 07:00 PM"}
+                  availabilityNote={p?.availabilityNote || DEFAULT_WORKING_HOURS}
                   appointments={appointments}
                   blockedSlots={blockedSlots}
                   renderAppointment={renderAppointmentCard}
@@ -450,7 +459,7 @@ export default function ProviderLeads() {
               <button className="btn btn-ghost btn-sm" onClick={() => { setActiveApt(null); setActionType(null); }}>Back</button>
               <button
                 className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : "btn-primary"}`}
-                style={actionType === "CANCEL" ? { background: "#dc2626", color: "#fff" } : undefined}
+                style={actionType === "CANCEL" ? { background: "var(--red-600)", color: "#fff" } : undefined}
                 onClick={handleUpdateStatus}
               >
                 {actionType === "ACCEPT" ? "Confirm" : actionType === "REJECT" ? "Decline" : "Cancel appointment"}

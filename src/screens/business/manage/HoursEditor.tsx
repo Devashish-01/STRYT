@@ -4,6 +4,7 @@ import { AppBar } from "@/components/common";
 import { Plus, X, Zap, Clock } from "lucide-react";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
+import { ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
 
@@ -65,9 +66,18 @@ function parse(raw: string | undefined): { is24x7: boolean; hours: Record<string
 }
 
 export default function HoursEditor() {
-  const { id = "b1" } = useParams();
+  const { id = "" } = useParams();
   const { showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Hours" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   const [is24x7, setIs24x7] = useState(false);
   const [hours, setHours] = useState<Record<string, DayHours>>(
@@ -155,7 +165,7 @@ export default function HoursEditor() {
         <div className="card" style={{ padding: 16, background: openNow ? "#e8f7ee" : "var(--ink-50)", border: "none" }}>
           <div className="row between center-v">
             <div className="row gap-10 center-v">
-              <Zap size={22} color={openNow ? "#16a34a" : "var(--ink-400)"} />
+              <Zap size={22} color={openNow ? "var(--green-500)" : "var(--ink-400)"} />
               <div>
                 <div className="semi small">Shop open right now</div>
                 <div className="tiny muted">{openNow ? "Customers see your shop as open" : "Turn on when you're open for walk-ins"}</div>

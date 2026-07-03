@@ -163,7 +163,7 @@ export default function CommunityCompose() {
                 {photoUrl ? (
                   <div style={{ position: "relative", width: 110 }}>
                     <img src={photoUrl} className="thumb" style={{ width: 110, height: 110, borderRadius: 12, objectFit: "cover" }} />
-                    <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "#ef4444", color: "#fff" }} onClick={() => setPhotoUrl(null)}><X size={14} /></button>
+                    <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setPhotoUrl(null)}><X size={14} /></button>
                   </div>
                 ) : (
                   <label style={{ cursor: "pointer" }}>

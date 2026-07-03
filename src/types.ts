@@ -304,13 +304,6 @@ export interface Message {
   createdAt: string;
 }
 
-export interface FeedItem {
-  kind: "business" | "provider" | "request";
-  id: string;
-  sortDate: number;
-}
-
-
 /* ============================================================
    SOCIAL + COMMUNITY LAYER (Wave additions)
    ============================================================ */
@@ -455,14 +448,6 @@ export interface Comment {
   phoneVisibility?: "OWNER" | "PUBLIC";
 }
 
-export interface SavedList {
-  id: string;
-  name: string;
-  emoji: string;
-  items: { type: BookmarkTarget; id: string }[];
-  shared: boolean;
-}
-
 export interface PublicUser {
   id: string;
   name: string; // public identity: the user's real first name is shown as `name` at render time
@@ -499,6 +484,7 @@ export interface LeaderEntry {
   metric: string;
   value: string;
   isProvider: boolean;
+  targetId: string;
 }
 
 export interface Achievement {
@@ -520,13 +506,6 @@ export interface Settlement {
   note: string;
   date: string;
   tip?: number;
-}
-
-export interface NotifySub {
-  id: string;
-  trigger: "OPENS" | "BACK_IN_STOCK" | "NEW_PROVIDER" | "PRICE_DROP";
-  label: string;
-  target: string;
 }
 
 export interface ProposalCounter {
@@ -656,25 +635,6 @@ export interface ProviderVerification {
   verifiedDob?: string;
   status: "PENDING" | "VERIFIED" | "REJECTED";
   createdAt: string;
-}
-
-export interface SosAlert {
-  id: string;
-  agreementId: string;
-  triggeredByUserId: string;
-  providerUserId: string;
-  lat?: number;
-  lng?: number;
-  emergencyContact?: string;
-  smsSent: boolean;
-  resolved: boolean;
-  createdAt: string;
-}
-
-export interface TrackingToken {
-  id: string;
-  agreementId: string;
-  expiresAt: string;
 }
 
 export type AppointmentStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "COMPLETED" | "CANCELLED" | "NO_SHOW";

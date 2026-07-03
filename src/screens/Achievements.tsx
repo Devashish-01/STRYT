@@ -3,7 +3,7 @@ import { ListSkeleton } from "@/components/states";
 import { socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
-//hii
+
 export default function Achievements() {
   const { user } = useApp();
   const { data, loading } = useQuery(() => socialService.achievements(), []);
@@ -19,10 +19,7 @@ export default function Achievements() {
           <div className="card col center" style={{ padding: 20, gap: 6, background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", border: "none" }}>
             <SafeImg src={user.avatar} variant="avatar" className="avatar" style={{ width: 60, height: 60, border: "3px solid rgba(255,255,255,0.3)" }} />
             <div className="bold" style={{ fontSize: 17, marginTop: 4 }}>{user.name}</div>
-            <div className="row gap-6">
-              <span className="badge" style={{ background: "rgba(255,255,255,0.2)", color: "#fff" }}>🔥 5-week streak</span>
-              <span className="badge" style={{ background: "rgba(255,255,255,0.2)", color: "#fff" }}>🏘️ Level 4</span>
-            </div>
+            <span className="badge" style={{ background: "rgba(255,255,255,0.2)", color: "#fff" }}>🏆 {unlocked} of {achievements.length} unlocked</span>
           </div>
         </div>
 

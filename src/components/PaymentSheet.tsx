@@ -109,7 +109,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
                 style={{
                   padding: "12px 0",
                   borderRadius: 14,
-                  border: method === m ? `2px solid ${m === "UPI" ? "var(--brand-600)" : "#16a34a"}` : "1.5px solid var(--ink-200)",
+                  border: method === m ? `2px solid ${m === "UPI" ? "var(--brand-600)" : "var(--green-500)"}` : "1.5px solid var(--ink-200)",
                   background: method === m ? (m === "UPI" ? "var(--brand-50)" : "#f0fdf4") : "#fff",
                   fontWeight: 700,
                   color: method === m ? (m === "UPI" ? "var(--brand-700)" : "#15803d") : "var(--ink-500)",
@@ -213,7 +213,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
         {method === "CASH" && (
           <div className="col gap-14">
             <div className="card col center" style={{ padding: 24, gap: 10, background: "#f0fdf4", border: "none" }}>
-              <Banknote size={40} color="#16a34a" />
+              <Banknote size={40} color="var(--green-500)" />
               <div className="semi" style={{ fontSize: 16 }}>Pay in cash at the venue</div>
               <div className="tiny muted center" style={{ maxWidth: 220, lineHeight: 1.6 }}>
                 Hand over the cash when you arrive. This logs your intent to pay so the business knows what to expect.
@@ -221,7 +221,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
             </div>
             <button
               className="btn btn-block"
-              style={{ background: "#16a34a", color: "#fff", fontWeight: 700, height: 48, fontSize: 15 }}
+              style={{ background: "var(--green-500)", color: "#fff", fontWeight: 700, height: 48, fontSize: 15 }}
               disabled={claiming}
               onClick={claim}
             >

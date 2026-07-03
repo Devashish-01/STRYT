@@ -200,7 +200,7 @@ export default function QueueManager() {
                   </div>
                   <button
                     className="icon-btn"
-                    style={{ width: 34, height: 34, color: "#16a34a" }}
+                    style={{ width: 34, height: 34, color: "var(--green-500)" }}
                     title="Mark served"
                     onClick={() => serveToken(t)}
                   >
