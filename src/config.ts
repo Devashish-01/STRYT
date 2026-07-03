@@ -4,6 +4,7 @@ export const config = {
   mapboxToken: (import.meta as any).env?.VITE_MAPBOX_TOKEN ?? "",
   appName: "STRYT",
   bugReportExcelUrl: (import.meta as any).env?.VITE_BUG_REPORT_EXCEL_URL ?? "",
+  bugReportScriptUrl: (import.meta as any).env?.VITE_BUG_REPORT_SCRIPT_URL ?? "",
   supabaseUrl: (import.meta as any).env?.VITE_SUPABASE_URL ?? "",
   supabaseAnonKey: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ?? "",
   defaultLocation: {

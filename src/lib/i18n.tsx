@@ -41,6 +41,11 @@ const strings: Record<Lang, Record<string, string>> = {
     language: "Language",
     notifications: "Notifications",
     sign_out: "Sign out",
+    map: "Map",
+    create: "Create",
+    appointments: "Appointments",
+    badges: "Badges",
+    heroes: "Heroes",
   },
   hi: {
     home: "होम",
@@ -80,6 +85,11 @@ const strings: Record<Lang, Record<string, string>> = {
     language: "भाषा",
     notifications: "सूचनाएं",
     sign_out: "साइन आउट",
+    map: "नक्शा",
+    create: "बनाएं",
+    appointments: "नियुक्तियां",
+    badges: "बैज",
+    heroes: "नायक",
   },
   mr: {
     home: "मुखपृष्ठ",
@@ -119,6 +129,11 @@ const strings: Record<Lang, Record<string, string>> = {
     language: "भाषा",
     notifications: "सूचना",
     sign_out: "साइन आउट",
+    map: "नकाशा",
+    create: "तयार करा",
+    appointments: "भेटी",
+    badges: "बॅज",
+    heroes: "हिरो",
   },
 };
 

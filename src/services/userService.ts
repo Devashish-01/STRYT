@@ -145,7 +145,7 @@ export const userService = {
     const sb = getSupabase();
     const { data: u, error } = await sb
       .from("users")
-      .select("id, name, phone, avatar, area, rating_avg, rating_count, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_city_publicly, show_rating_publicly")
+      .select("id, name, phone, avatar, area, rating_avg, rating_count, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_city_publicly, show_rating_publicly, lat, lng")
       .eq("id", id)
       .maybeSingle();
     throwIfError(error);
@@ -197,6 +197,8 @@ export const userService = {
       id: ur.id,
       name: ur.name,
       phone: ur.phone ?? undefined,
+      lat: ur.lat,
+      lng: ur.lng,
       showPostsPublicly: ur.show_posts_publicly ?? true,
       showAsksPublicly: ur.show_asks_publicly ?? true,
       showBadgesPublicly: ur.show_badges_publicly ?? true,

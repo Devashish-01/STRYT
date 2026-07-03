@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Home, Map, Plus, User, X } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 export default function BottomNav() {
   const nav = useNavigate();
   const [sheet, setSheet] = useState(false);
+  const { t } = useI18n();
 
   return (
     <>
@@ -13,7 +15,7 @@ export default function BottomNav() {
           {({ isActive }) => (
             <>
               <Home size={22} strokeWidth={isActive ? 2.6 : 2} />
-              <span>Home</span>
+              <span>{t("home")}</span>
             </>
           )}
         </NavLink>
@@ -22,7 +24,7 @@ export default function BottomNav() {
           {({ isActive }) => (
             <>
               <Map size={22} strokeWidth={isActive ? 2.6 : 2} />
-              <span>Map</span>
+              <span>{t("map")}</span>
             </>
           )}
         </NavLink>
@@ -30,14 +32,14 @@ export default function BottomNav() {
         {/* Centre FAB — opens create sheet */}
         <button className="nav-item nav-fab" onClick={() => setSheet(true)} aria-label="Create">
           <span className="fab-circle"><Plus size={26} strokeWidth={2.6} /></span>
-          <span style={{ marginTop: 2 }}>Create</span>
+          <span style={{ marginTop: 2 }}>{t("create")}</span>
         </button>
 
         <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
           {({ isActive }) => (
             <>
               <User size={22} strokeWidth={isActive ? 2.6 : 2} />
-              <span>You</span>
+              <span>{t("profile")}</span>
             </>
           )}
         </NavLink>

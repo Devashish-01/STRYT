@@ -5,28 +5,35 @@ import { adminService, type AdminReport } from "@/services/adminService";
 import { profileControlService, type DeletionRequest } from "@/services/profileControlService";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ListSkeleton } from "@/components/states";
-import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle } from "lucide-react";
+import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut } from "lucide-react";
 import { useApp } from "@/store";
 import { kycService } from "@/services/kycService";
 
-type Tab = "dashboard" | "queue" | "kyc" | "disputes" | "reports" | "bugs" | "profiles";
+type Tab = "dashboard" | "queue" | "kyc" | "disputes" | "reports" | "bugs" | "profiles" | "account";
 type QueueType = "business" | "provider" | "category";
 
 export default function AdminPanel() {
   const nav = useNavigate();
   const { user, showToast } = useApp();
   const [tab, setTab] = useState<Tab>("dashboard");
-  const [bypassToken, setBypassToken] = useState("");
-  const envBypassToken = (import.meta as any).env.VITE_ADMIN_BYPASS_TOKEN;
-  const isBypassAuthorized = !!envBypassToken && (
-    user.phone === envBypassToken ||
-    localStorage.getItem("admin_bypass_token") === envBypassToken
-  );
+  const [claiming, setClaiming] = useState(false);
 
-  const isAdmin = 
-    (user.roles as string[]).includes("admin") || 
-    (user.roles as string[]).includes("super_admin") || 
-    isBypassAuthorized;
+  const isAdmin =
+    (user.roles as string[]).includes("admin") ||
+    (user.roles as string[]).includes("super_admin");
+
+  async function claimFirstAdmin() {
+    setClaiming(true);
+    try {
+      await adminService.claimFirstAdmin("admin");
+      showToast("Admin access granted — welcome!");
+      window.location.reload();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't claim admin access.");
+    } finally {
+      setClaiming(false);
+    }
+  }
 
   if (!isAdmin) {
     return (
@@ -37,40 +44,18 @@ export default function AdminPanel() {
           </div>
           <h1 className="bold" style={{ fontSize: 24, marginTop: 20 }}>Access Denied</h1>
           <p className="muted small" style={{ marginTop: 8 }}>Only verified administrators can access this console.</p>
-          
-          {envBypassToken && (
-            <div className="col gap-8" style={{ marginTop: 24, width: "100%", maxWidth: 260 }}>
-              <input
-                type="password"
-                placeholder="Enter Admin Bypass Token"
-                className="input"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  fontSize: 14,
-                  border: "1.5px solid var(--ink-200)",
-                  borderRadius: 10,
-                  textAlign: "center"
-                }}
-                value={bypassToken}
-                onChange={(e) => setBypassToken(e.target.value)}
-              />
-              <button
-                className="btn btn-primary"
-                onClick={() => {
-                  if (bypassToken === envBypassToken) {
-                    localStorage.setItem("admin_bypass_token", bypassToken);
-                    showToast("Access granted via bypass token!");
-                    window.location.reload();
-                  } else {
-                    showToast("Invalid admin token");
-                  }
-                }}
-              >
-                Submit Token
-              </button>
-            </div>
-          )}
+
+          <div className="col gap-8" style={{ marginTop: 24, width: "100%", maxWidth: 280 }}>
+            <button className="btn btn-primary" onClick={() => nav("/admin/login")}>
+              Sign in as admin
+            </button>
+            <button className="btn btn-outline" disabled={claiming} onClick={claimFirstAdmin}>
+              {claiming ? "Claiming…" : "Claim first-admin access (one-time)"}
+            </button>
+            <p className="tiny muted" style={{ lineHeight: 1.5 }}>
+              "Claim first-admin access" only works once, on whichever account uses it first — it's rejected the moment any admin already exists.
+            </p>
+          </div>
 
           <button className="btn btn-dark" style={{ marginTop: 16, width: "100%", maxWidth: 200 }} onClick={() => nav("/home")}>Back to Home</button>
         </div>
@@ -82,7 +67,7 @@ export default function AdminPanel() {
     <div className="screen">
       <AppBar title="Admin Console" subtitle="Moderation & ops" onBack={() => nav("/profile")} />
       <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff", overflowX: "auto" }}>
-        {([["dashboard", "Overview"], ["queue", "Queue"], ["kyc", "KYC"], ["disputes", "Disputes"], ["reports", "Reports"], ["bugs", "Bugs"], ["profiles", "Profiles"]] as [Tab, string][]).map(([t, label]) => (
+        {([["dashboard", "Overview"], ["queue", "Queue"], ["kyc", "KYC"], ["disputes", "Disputes"], ["reports", "Reports"], ["bugs", "Bugs"], ["profiles", "Profiles"], ["account", "Account"]] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} className="semi" style={{ flex: "1 0 auto", padding: "12px 14px", fontSize: 13.5, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>{label}</button>
         ))}
       </div>
@@ -94,7 +79,89 @@ export default function AdminPanel() {
         {tab === "reports" && <AdminReports />}
         {tab === "bugs" && <AdminBugs />}
         {tab === "profiles" && <AdminProfiles />}
+        {tab === "account" && <AdminAccount />}
       </div>
+    </div>
+  );
+}
+
+function AdminAccount() {
+  const nav = useNavigate();
+  const { showToast, signOut } = useApp();
+  const [newId, setNewId] = useState("");
+  const [savingId, setSavingId] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  async function saveId() {
+    if (!newId.trim()) return;
+    setSavingId(true);
+    try {
+      await adminService.setAdminLoginId(newId.trim());
+      showToast("Admin ID updated");
+      setNewId("");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update admin ID.");
+    } finally {
+      setSavingId(false);
+    }
+  }
+
+  async function savePassword() {
+    if (newPassword.length < 6) { showToast("Password must be at least 6 characters."); return; }
+    if (newPassword !== confirmPassword) { showToast("Passwords don't match."); return; }
+    setSavingPassword(true);
+    try {
+      await adminService.changeAdminPassword(newPassword);
+      showToast("Password updated");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update password.");
+    } finally {
+      setSavingPassword(false);
+    }
+  }
+
+  return (
+    <div className="page-pad col gap-16">
+      <div className="card" style={{ padding: 16 }}>
+        <div className="row gap-8 center-v" style={{ marginBottom: 4 }}>
+          <KeyRound size={16} color="var(--brand-700)" />
+          <span className="semi small">Change admin ID</span>
+        </div>
+        <p className="tiny muted" style={{ marginBottom: 10 }}>This is the ID typed on the admin sign-in screen — not visible to customers.</p>
+        <div className="row gap-8">
+          <input className="input grow" placeholder="New admin ID" value={newId} onChange={(e) => setNewId(e.target.value)} />
+          <button className="btn btn-primary btn-sm" disabled={!newId.trim() || savingId} onClick={saveId}>
+            {savingId ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 16 }}>
+        <div className="row gap-8 center-v" style={{ marginBottom: 4 }}>
+          <KeyRound size={16} color="var(--brand-700)" />
+          <span className="semi small">Change password</span>
+        </div>
+        <p className="tiny muted" style={{ marginBottom: 10 }}>Minimum 6 characters.</p>
+        <div className="col gap-8">
+          <input type="password" className="input" placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          <input type="password" className="input" placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+          <button className="btn btn-primary btn-sm btn-block" disabled={!newPassword || savingPassword} onClick={savePassword}>
+            {savingPassword ? "Saving…" : "Update password"}
+          </button>
+        </div>
+      </div>
+
+      <button
+        className="btn btn-outline btn-block row gap-8 center"
+        style={{ color: "#dc2626", borderColor: "#fca5a5" }}
+        onClick={() => { signOut(); nav("/admin/login"); }}
+      >
+        <LogOut size={16} /> Sign out of admin
+      </button>
     </div>
   );
 }
@@ -124,11 +191,11 @@ function AdminDashboard() {
         })}
       </div>
       <div className="card row" style={{ padding: 14 }}>
-        <Stat label="DAU" value={d.dau.toLocaleString()} />
+        <Stat label="DAU" value={typeof d.dau === "number" ? d.dau.toLocaleString() : d.dau} />
         <Sep />
-        <Stat label="MAU" value={d.mau.toLocaleString()} />
+        <Stat label="MAU" value={typeof d.mau === "number" ? d.mau.toLocaleString() : d.mau} />
         <Sep />
-        <Stat label="Push delivery" value={`${d.pushDelivery}%`} />
+        <Stat label="Push delivery" value={typeof d.pushDelivery === "number" ? `${d.pushDelivery}%` : d.pushDelivery} />
       </div>
       <div className="card row gap-10" style={{ padding: 14 }}>
         <TrendingUp size={18} color="#16a34a" />

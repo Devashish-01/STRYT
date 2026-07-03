@@ -8,7 +8,7 @@ import {
 import { businessService, communityService } from "@/services";
 import { chatService } from "@/services/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
@@ -17,6 +17,7 @@ import ShareCard from "@/components/ShareCard";
 import AddToListSheet from "@/components/AddToListSheet";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability } from "@/utils/availability";
+import { isMockTarget } from "@/services/appointmentService";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();
@@ -30,7 +31,7 @@ export default function BusinessDetail() {
 
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
   const { data: reviews, refetch: refetchReviews } = useQuery(() => businessService.reviews(id), [id]);
-  const { data: queue } = useQuery(() => businessService.queue(id), [id]);
+  const { data: queue } = useQueryWithRealtime(() => businessService.queue(id), "queue_tokens", [id], `business_id=eq.${id}`);
   const { data: qnaList, refetch: refetchQna } = useQuery(() => businessService.qna(id), [id]);
   const { data: bizPackages } = useQuery(() => businessService.packages(id).catch(() => []), [id]);
   const { data: bizPosts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
@@ -44,6 +45,8 @@ export default function BusinessDetail() {
   const [askingNow, setAskingNow] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [schedulingPkg, setSchedulingPkg] = useState<{ id: string; name: string; price: number; duration?: string } | null>(null);
+  const [checkoutMode, setCheckoutMode] = useState(false);
+  const [checkoutNotes, setCheckoutNotes] = useState("");
 
   // Count a profile view once per business open.
   useEffect(() => {
@@ -123,9 +126,34 @@ export default function BusinessDetail() {
     });
   }
 
+  // Checkout reuses the exact same booking + UPI/Cash payment flow as "Book
+  // appointment" — the cart becomes a single locked-in package, itemized in
+  // the notes, and the customer picks a pickup/collection slot to confirm.
+  function checkout() {
+    const lines = Object.entries(cart)
+      .map(([itemId, qty]) => {
+        const item = b!.catalog.find((c) => c.id === itemId);
+        return item ? `${item.name} x${qty}` : null;
+      })
+      .filter(Boolean);
+    setCheckoutNotes(`Order: ${lines.join(", ")}`);
+    setSchedulingPkg({
+      id: "cart",
+      name: lines.length === 1 ? lines[0]! : `${cartCount} items`,
+      price: cartTotal,
+    });
+    setCheckoutMode(true);
+    setScheduling(true);
+  }
+
   return (
     <div className="screen" style={{ position: "relative" }}>
       <div className="screen-scroll" style={{ paddingBottom: cartCount ? 88 : 24 }}>
+        {isMockTarget(id) && (
+          <div style={{ padding: "8px 14px", background: "#fff3e8", borderBottom: "1px solid #ffd9b3" }}>
+            <span className="tiny" style={{ color: "#b45309", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
+          </div>
+        )}
         {/* Cover */}
         <div style={{ position: "relative" }}>
           <SafeImg src={b.coverImage} alt={b.name} style={{ width: "100%", height: 230, objectFit: "cover" }} />
@@ -182,7 +210,18 @@ export default function BusinessDetail() {
 
             <div className="row gap-10" style={{ marginTop: 14 }}>
               <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> Call</a>
-              <button className="btn btn-outline grow" onClick={() => { businessService.recordInteraction(b.id, "DIRECTIONS").catch(() => {}); showToast("Opening directions…"); }}><Navigation size={17} /> Directions</button>
+              <button
+                className="btn btn-outline grow"
+                onClick={() => {
+                  businessService.recordInteraction(b.id, "DIRECTIONS").catch(() => {});
+                  showToast("Opening Google Maps…");
+                  const origin = user.lat && user.lng ? `${user.lat},${user.lng}` : "";
+                  const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${b.lat},${b.lng}&travelmode=driving`;
+                  window.open(mapsUrl, "_blank");
+                }}
+              >
+                <Navigation size={17} /> Directions
+              </button>
               {b.ownerUserId !== user.id && (
                 <button
                   className="icon-btn"
@@ -523,10 +562,10 @@ export default function BusinessDetail() {
           <button
             className="btn btn-green btn-block row between"
             style={{ boxShadow: "var(--shadow-lg)" }}
-            onClick={() => showToast("Checkout & in-app pay arrive in V3 — call the shop to order!")}
+            onClick={checkout}
           >
             <span>{cartCount} item{cartCount > 1 ? "s" : ""} • {inr(cartTotal)}</span>
-            <span className="row gap-4">Next <ArrowLeft size={16} style={{ transform: "rotate(180deg)" }} /></span>
+            <span className="row gap-4">Checkout <ArrowLeft size={16} style={{ transform: "rotate(180deg)" }} /></span>
           </button>
         </div>
       )}
@@ -553,12 +592,16 @@ export default function BusinessDetail() {
           availabilityNote={b.hours || "Mon–Sat from 09:00 AM to 07:00 PM"}
           availableNow={evalRes.isOpenNow}
           packages={
-            (bizPackages ?? []).length > 0
+            checkoutMode && schedulingPkg
+              ? [schedulingPkg]
+              : (bizPackages ?? []).length > 0
               ? (bizPackages ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }))
               : (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price }))
           }
           initialPackage={schedulingPkg}
-          onClose={() => { setScheduling(false); setSchedulingPkg(null); }}
+          initialNotes={checkoutMode ? checkoutNotes : undefined}
+          onBooked={() => { if (checkoutMode) setCart({}); }}
+          onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); }}
         />
       )}
     </div>

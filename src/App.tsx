@@ -1,8 +1,9 @@
 import { Routes, Route, useLocation, Navigate, Outlet } from "react-router-dom";
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import BottomNav from "./components/BottomNav";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
+import { useI18n, type Lang } from "./lib/i18n";
 
 // Auth & onboarding
 const Splash = lazy(() => import("./screens/Splash"));
@@ -98,6 +99,7 @@ const ProviderSettings = lazy(() => import("./screens/provider/manage/ProviderSe
 
 // Admin
 const AdminPanel = lazy(() => import("./screens/admin/AdminPanel"));
+const AdminLogin = lazy(() => import("./screens/admin/AdminLogin"));
 const TrackingPage = lazy(() => import("./screens/TrackingPage"));
 
 // Society / Subscriptions / Pro
@@ -146,6 +148,13 @@ function AuthSplash() {
 function ProtectedLayout() {
   const { isAuthed, authReady, user } = useApp();
   const location = useLocation();
+  const { lang, setLang } = useI18n();
+
+  useEffect(() => {
+    if (isAuthed && user?.language && user.language !== lang) {
+      setLang(user.language as Lang);
+    }
+  }, [isAuthed, user?.language, lang, setLang]);
 
   // Allow Supabase OAuth / magic-link to land and parse its token before any redirect.
   const isAuthCallback =
@@ -223,6 +232,10 @@ export default function App() {
 
           {/* Completely public / un-guarded routes */}
           <Route path="/track/:token" element={<TrackingPage />} />
+          {/* Admin login is its own identity, separate from the customer/seller
+              session — unguarded either way so an already-signed-in customer can
+              still switch into the admin account here. */}
+          <Route path="/admin/login" element={<AdminLogin />} />
 
           {/* Protected routes */}
           <Route element={<ProtectedLayout />}>

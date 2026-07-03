@@ -45,9 +45,9 @@ export interface AdminOverview {
   completedAgreements: number;
   newToday: number;
   pendingReview: number;
-  pushDelivery: number;
-  dau: number;
-  mau: number;
+  pushDelivery: string | number;
+  dau: string | number;
+  mau: string | number;
 }
 
 export const adminService = {
@@ -100,10 +100,10 @@ export const adminService = {
       completedAgreements: agreeRes.count ?? 0,
       newToday,
       pendingReview,
-      // No analytics pipeline yet — these stay 0 until one is wired.
-      pushDelivery: 0,
-      dau: 0,
-      mau: 0,
+      // No analytics pipeline yet — these show "Not tracked yet" instead of misleading 0s.
+      pushDelivery: "Not tracked yet",
+      dau: "Not tracked yet",
+      mau: "Not tracked yet",
     };
   },
 
@@ -195,6 +195,34 @@ export const adminService = {
   async resolveBugReport(id: string, status: AdminBugReport["status"]) {
     const sb = getSupabase();
     const { error } = await sb.from("bug_reports").update({ status }).eq("id", id);
+    throwIfError(error);
+    return { ok: true };
+  },
+
+  // ── Admin ID/password login ──────────────────────────────────
+  // One-time bootstrap: the currently signed-in user claims the admin role.
+  // Server-side guarded (claim_first_admin) — only succeeds while zero
+  // admins exist anywhere, so it can't be replayed to mint extra admins.
+  async claimFirstAdmin(loginId: string) {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("claim_first_admin", { p_login_id: loginId.trim().toLowerCase() });
+    throwIfError(error);
+    return { ok: true };
+  },
+
+  /** Change the admin login ID (own account only — enforced server-side). */
+  async setAdminLoginId(newId: string) {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("set_admin_login_id", { p_new_id: newId.trim().toLowerCase() });
+    throwIfError(error);
+    return { ok: true };
+  },
+
+  /** Change the admin's password. Standard Supabase Auth call — the password
+   *  is hashed/stored by Supabase itself, never touches our own tables. */
+  async changeAdminPassword(newPassword: string) {
+    const sb = getSupabase();
+    const { error } = await sb.auth.updateUser({ password: newPassword });
     throwIfError(error);
     return { ok: true };
   },

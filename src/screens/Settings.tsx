@@ -210,7 +210,11 @@ export default function Settings() {
               <button
                 key={code}
                 className={`chip ${lang === code ? "active" : ""}`}
-                onClick={() => { setLang(code as Lang); showToast(`Language set to ${label}`); }}
+                onClick={() => {
+                  setLang(code as Lang);
+                  showToast(`Language set to ${label}`);
+                  void userService.update({ language: code }).catch(() => {});
+                }}
                 style={{ flex: 1, justifyContent: "center" }}
               >
                 {label}

@@ -220,7 +220,6 @@ export default function RequestDetail() {
           )}
 
           {/* Me too */}
-          {/* 
           <button
             className="btn btn-block btn-sm"
             style={{ marginTop: 14, background: meTooed ? "var(--brand-800)" : "var(--ink-50)", color: meTooed ? "#fff" : "var(--ink-700)" }}
@@ -239,7 +238,6 @@ export default function RequestDetail() {
           >
             <Users size={16} /> {meTooed ? "You're in — me too ✓" : "Me too — I need this as well"} {meTooCount > 0 && `· ${meTooCount}`}
           </button>
-          */}
 
           {/* Detail card */}
           <div className="card row" style={{ padding: 14, marginTop: 14 }}>

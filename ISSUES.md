@@ -4,6 +4,7 @@
 > Format: add entries under the right severity tier; update `Status` inline; never delete fixed entries (mark ✅).
 > File locations use `src/` relative paths. Link to `TASKS.md` task IDs when a bug is part of a planned task.
 
+
 ---
 
 ## Legend
@@ -21,7 +22,7 @@
 ## Critical (data wrong / security)
 
 ### ISS-001 — Leaked secrets in repo / env
-- **Status:** 🔴 Open
+- **Status:** ✅ Fixed (local configs scrubbed; cloud tokens rotated by user)
 - **Where:** `.env` root file + git remote URL
 - **What:** `.env` contains `SUPABASE_AT=sbp_f03b03111...` (Supabase **service/admin token** — full DB access). Git remote URL has a GitHub **PAT** embedded. Neither should be in a client-side Vite build or version-controlled at all.
 - **Risk:** If the repo or `.env` leaks (deploy logs, CI, accidental push), an attacker has full Supabase admin access and GitHub write access.
@@ -82,6 +83,21 @@
 ---
 
 ## Fixed
+
+### ISS-F10 — "Me too" fully disabled + backing table untracked; group-buy target was a promise nothing fulfilled; mock-target public pages looked like real bookings ✅
+- **Status:** ✅ Fixed — session 2026-07-03
+- **Was:** both "Me too" UI entry points (`cards.tsx`, `RequestDetail.tsx`) were commented out. `request_me_toos` (and its `me_too_count` sync trigger) existed only as untracked schema drift — no migration defined it, so `meToo()` would throw `relation does not exist` on a rebuilt DB. No notification ever fired to the requester when someone joined; group-buy copy promised "unlocks bulk price" at target but nothing checked or acted on the target being reached. `BusinessRequests.tsx`, `ProviderLeads.tsx`, `CommunityHub.tsx` read the live `me_too_count` column with plain `useQuery`, so it never updated without a manual refresh even though `requests` was already in the realtime publication. Separately, mock-target business/provider pages (`b1`/`p1`) rendered a normal-looking booking flow with no indication that submissions go to `localStorage` only, never a real owner.
+- **Fix:** new `request_me_toos` table + RLS + `sync_request_me_too()` trigger (insert/delete) captured for real; trigger notifies the requester on each new "me too" (`ME_TOO`) and fires a one-time `GROUP_BUY_UNLOCKED` notification the instant the count hits `group_buy_target`, making the "unlocks bulk price" copy true. Both UI buttons re-enabled. `BusinessRequests.tsx`, `ProviderLeads.tsx`, `CommunityHub.tsx` switched to `useQueryWithRealtime` on `requests`. `BusinessDetail.tsx`/`ProviderDetail.tsx` now show a "Demo preview — bookings here aren't saved" banner when `isMockTarget(id)`.
+- **Files:** migration `20260710_metoo_and_realtime.sql`, `types.ts`, `Notifications.tsx`, `cards.tsx`, `RequestDetail.tsx`, `CommunityHub.tsx`, `BusinessRequests.tsx`, `ProviderLeads.tsx`, `BusinessDetail.tsx`, `ProviderDetail.tsx`.
+- **Migration needed:** `supabase/migrations/20260710_metoo_and_realtime.sql` (run manually in SQL editor)
+
+### ISS-F09 — Admin console gated by a shared plaintext bypass token, not real authentication ✅
+- **Status:** ✅ Fixed — session 2026-07-02
+- **Was:** `AdminPanel.tsx` accepted `VITE_ADMIN_BYPASS_TOKEN` typed into a plaintext input, then cached the raw token in `localStorage` forever. Anyone who obtained the token (leaked env var, shared device, browser devtools) had permanent, un-revocable admin access from any device — no password hashing, no session expiry, no per-admin identity.
+- **Fix:** replaced with real Supabase Auth-backed ID/password login (`/admin/login`) — same secure password verification the rest of the app already uses. Self-service one-time bootstrap (`claim_first_admin`, server-side guarded to refuse once any admin exists). ID/password changeable only from the admin console. Bypass-token code path removed entirely from `AdminPanel.tsx`.
+- **Files:** `supabase/migrations/20260709_admin_auth.sql`, `src/lib/adminAuth.ts`, `adminService.ts`, `AdminLogin.tsx`, `AdminPanel.tsx`, `App.tsx`.
+- **Migration needed:** `supabase/migrations/20260709_admin_auth.sql` (run manually in SQL editor)
+- **Follow-up:** `VITE_ADMIN_BYPASS_TOKEN` is now unused by the app — safe to delete from `.env`/Vercel env once the new login is confirmed working.
 
 ### ISS-F08 — Lead trend charts always flat/empty; providers generated zero leads ever; leads/appointments not actually realtime ✅
 - **Status:** ✅ Fixed — session 2026-07-02

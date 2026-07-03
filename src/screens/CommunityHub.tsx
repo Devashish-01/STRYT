@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText } from "lucide-react";
 import { requestService, communityService, discoveryService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import { CommunityCard } from "@/screens/Community";
@@ -25,8 +25,9 @@ export default function CommunityHub() {
   const [postFilter, setPostFilter] = useState<"ALL" | CommunityPostType>("ALL");
   const [reqSpecial, setReqSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
 
-  const { data: feedPage, loading: reqLoading, error: reqError, refetch: refetchReq } = useQuery(
+  const { data: feedPage, loading: reqLoading, error: reqError, refetch: refetchReq } = useQueryWithRealtime(
     () => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }),
+    "requests",
     [user.lat, user.lng]
   );
   const { data: postData, loading: postsLoading, error: postsError, refetch: refetchPosts } = useQuery(

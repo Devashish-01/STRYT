@@ -1,5 +1,6 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
+import { config } from "@/config";
 
 export interface SupportTicket {
   id?: string;
@@ -72,6 +73,31 @@ export const supportService = {
       reporter_role: bug.reporterRole ?? "CUSTOMER",
     });
     throwIfError(error);
+
+    // Synchronize directly with Google Sheets Apps Script Web App if configured
+    const scriptUrl = config.bugReportScriptUrl || (config.bugReportExcelUrl?.includes("script.google.com") ? config.bugReportExcelUrl : "");
+    if (scriptUrl) {
+      try {
+        await fetch(scriptUrl, {
+          method: "POST",
+          mode: "no-cors", // Google Apps Script redirects require no-cors for client-side fetches
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            sheetName: "Bug Reports",
+            values: [
+              new Date().toISOString(),
+              uid || "Anonymous",
+              bug.reporterRole ?? "CUSTOMER",
+              bug.description
+            ]
+          })
+        });
+      } catch (err) {
+        console.warn("Failed to submit bug report to Google Sheet script:", err);
+      }
+    }
 
     // Call Supabase Edge Function to trigger any spreadsheet synchronization webhook if configured.
     try {

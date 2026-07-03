@@ -25,12 +25,13 @@ export default function ProviderLeads() {
   const [tab, setTab] = useState<"requests" | "appointments">("requests");
   const { data: p } = useQuery(() => providerService.get(id), [id]);
   const { data: pkgs } = useQuery(() => providerService.packages(id).catch(() => []), [id]);
-  const { data, loading, error, refetch } = useQuery(
+  const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
       lat: p?.lat ?? undefined,
       lng: p?.lng ?? undefined,
       radiusKm: p?.serviceRadiusKm ?? undefined,
     }),
+    "requests",
     [p?.lat, p?.lng, p?.serviceRadiusKm]
   );
 

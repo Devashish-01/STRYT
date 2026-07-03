@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { Users, Play, Check, RefreshCw } from "lucide-react";
 import { useApp } from "@/store";
 import { businessService } from "@/services";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 
 interface Token { id: string; name: string; partySize: string; }
 
@@ -14,35 +15,27 @@ export default function QueueManager() {
   const [avgTime, setAvgTime] = useState(8);
   const [inputValue, setInputValue] = useState("8");
   const [tokens, setTokens] = useState<Token[]>([]);
-  const [loading, setLoading] = useState(true);
   const avgTimeRef = useRef(avgTime);
   avgTimeRef.current = avgTime;
   const isInputFocused = useRef(false);
 
-  const load = useCallback(async () => {
-    if (!businessId) return;
-    try {
-      const state = await businessService.queueOwnerState(businessId);
-      setLive(state.isOpen);
-      setAvgTime(state.avgServiceMin);
-      if (!isInputFocused.current) {
-        setInputValue(state.avgServiceMin.toString());
-      }
-      setTokens(state.tokens);
-    } catch {
-      // silent — queue settings row may not exist yet (first open)
-    } finally {
-      setLoading(false);
-    }
-  }, [businessId]);
+  const { data, loading, refetch } = useQueryWithRealtime(
+    () => businessService.queueOwnerState(businessId),
+    "queue_tokens",
+    [businessId],
+    `business_id=eq.${businessId}`
+  );
 
-  useEffect(() => { load(); }, [load]);
-
-  // Poll every 15 s so the owner sees new arrivals without a manual refresh
   useEffect(() => {
-    const interval = setInterval(load, 15_000);
-    return () => clearInterval(interval);
-  }, [load]);
+    if (data) {
+      setLive(data.isOpen);
+      setAvgTime(data.avgServiceMin);
+      if (!isInputFocused.current) {
+        setInputValue(data.avgServiceMin.toString());
+      }
+      setTokens(data.tokens);
+    }
+  }, [data]);
 
   async function toggleLive() {
     const next = !live;
@@ -103,7 +96,7 @@ export default function QueueManager() {
   return (
     <div className="screen">
       <AppBar title="Live queue" right={
-        <button className="icon-btn" onClick={load} title="Refresh">
+        <button className="icon-btn" onClick={() => refetch()} title="Refresh">
           <RefreshCw size={17} />
         </button>
       } />

@@ -191,6 +191,7 @@ export interface Proposal {
   eta: string;
   status: ProposalStatus;
   isBoosted: boolean;
+  broadcastToMetoo?: boolean;
   postedAt: string;
   counters?: ProposalCounter[];
 }
@@ -246,6 +247,9 @@ export type NotificationType =
   | "PROPOSAL"
   | "AGREEMENT"
   | "OFFER"
+  | "ME_TOO"
+  | "GROUP_BUY_UNLOCKED"
+  | "QUOTE_BROADCAST"
   | "SYSTEM";
 
 export interface AppNotification {
@@ -465,6 +469,8 @@ export interface PublicUser {
   phone?: string;
   avatar: string;
   area: string;
+  lat?: number;
+  lng?: number;
   memberSince: string;
   ratingAvg: number;
   ratingCount: number;

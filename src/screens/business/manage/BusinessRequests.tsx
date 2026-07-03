@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import { AppBar, EmptyState } from "@/components/common";
 import { requestService, businessService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import type { RequestPost } from "@/types";
@@ -10,12 +10,13 @@ import type { RequestPost } from "@/types";
 export default function BusinessRequests() {
   const { id = "b1" } = useParams();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
-  const { data, loading, error, refetch } = useQuery(
+  const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
       lat: b?.lat ?? undefined,
       lng: b?.lng ?? undefined,
       radiusKm: b?.broadcastRadius ?? undefined,
     }),
+    "requests",
     [b?.lat, b?.lng, b?.broadcastRadius]
   );
 

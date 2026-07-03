@@ -16,6 +16,7 @@ import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability } from "@/utils/availability";
+import { isMockTarget } from "@/services/appointmentService";
 
 const Handshake = HandshakeIcon as any;
 
@@ -89,6 +90,11 @@ export default function ProviderDetail() {
   return (
     <div className="screen" style={{ position: "relative" }}>
       <div className="screen-scroll" style={{ paddingBottom: 90 }}>
+        {isMockTarget(id) && (
+          <div style={{ padding: "8px 14px", background: "#fff3e8", borderBottom: "1px solid #ffd9b3" }}>
+            <span className="tiny" style={{ color: "#b45309", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
+          </div>
+        )}
         {/* Header */}
         <div
           style={{

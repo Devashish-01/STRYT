@@ -23,6 +23,8 @@ interface AppointmentSheetProps {
   packages?: BookingPackage[];
   availableNow?: boolean;
   initialPackage?: BookingPackage | null;
+  /** Pre-fills the notes field (e.g. an itemized cart list on checkout) — still editable. */
+  initialNotes?: string;
   onClose: () => void;
   /** Fired after a booking is successfully created (before the sheet closes). */
   onBooked?: () => void;
@@ -36,6 +38,7 @@ export function AppointmentSheet({
   packages = [],
   availableNow = false,
   initialPackage,
+  initialNotes,
   onClose,
   onBooked,
 }: AppointmentSheetProps) {
@@ -43,7 +46,7 @@ export function AppointmentSheet({
   const [dayOffset, setDayOffset] = useState<number>(0);
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
   const [selectedPkg, setSelectedPkg] = useState<BookingPackage | null>(initialPackage ?? null);
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(initialNotes ?? "");
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);

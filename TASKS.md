@@ -7,6 +7,25 @@
 >
 > Legend: 🟡 = partly done in earlier sessions (verify + finish) · 🆕 = needs a DB migration.
 
+## Group ADMIN-AUTH — ad-hoc (2026-07-02) ✅ IMPLEMENTED
+### Real admin ID/password login, changeable only from the admin console ✅
+- **Was:** `AdminPanel.tsx` gated access via `user.roles.includes("admin")` OR a shared `VITE_ADMIN_BYPASS_TOKEN` env value typed into a plaintext input and cached in `localStorage` — a static shared secret, not real authentication, and anyone who learned the token got permanent access from any device.
+- **Fix:** admin identity now rides on real Supabase Auth (the same password hashing/verification already backing customer email+password login) — no custom password storage anywhere. New `/admin/login` screen takes an "Admin ID" + password; the ID resolves to the underlying auth email via `resolve_admin_email()`, a SECURITY DEFINER function that can only ever return an email for a row *already* tagged `admin` (can't be used to harvest arbitrary user emails). First-time bootstrap is self-service: `claim_first_admin()` lets the current signed-in user grant themselves the admin role, but only while zero admins exist anywhere — it permanently refuses once the first admin exists, so it can't be replayed to mint extra admins. Both the login ID and password are changeable only from a new "Account" tab inside the admin console itself (`set_admin_login_id()` is self-only + uniqueness-checked; password change is a direct `supabase.auth.updateUser()` call). The old bypass-token UI is removed from `AdminPanel.tsx`.
+- **Bootstrap steps (first login = ID "admin" / password "Admin"):** ① run the migration. ② In the app, create an account via email+password (Email tab → "Use password instead" → "Create account") using a real email you control, password `Admin`. ③ Confirm the account if your Supabase project requires email confirmation. ④ Visit `/admin` while signed into that account → "Claim first-admin access (one-time)" → sets the login ID to `admin`. From then on, sign in directly at `/admin/login` with ID `admin` / password `Admin`, and change either from the new Account tab.
+- **Note:** `VITE_ADMIN_BYPASS_TOKEN` is no longer read by the app — safe to remove from `.env`/Vercel once the new login is verified working, since it granted access with zero real authentication.
+- **Files:** migration `20260709_admin_auth.sql`, new `src/lib/adminAuth.ts`, `adminService.ts`, new `src/screens/admin/AdminLogin.tsx`, `AdminPanel.tsx`, `App.tsx` (route).
+- **Migration needed:** `supabase/migrations/20260709_admin_auth.sql` (run manually in SQL editor)
+
+---
+
+## Group CATALOG-CHECKOUT — ad-hoc (2026-07-02) ✅ IMPLEMENTED
+### Cart checkout reuses the appointment booking + payment flow ✅
+- **Was:** `BusinessDetail.tsx`'s cart "Next" button was a stub toast ("Checkout & in-app pay arrive in V3 — call the shop to order!") — no real checkout existed.
+- **Fix:** Checkout now opens the same `AppointmentSheet` used by "Book appointment" — cart contents become a single locked package (itemized list in the pre-filled, editable notes field), customer picks a pickup slot, then pays via the existing UPI/Cash `PaymentSheet` flow exactly like an appointment. Cart clears only on a successful checkout booking (not on unrelated appointment bookings). `AppointmentSheet` gained an `initialNotes` prop to support this. Providers have no cart/catalog, so their existing "Book now" already provided this same parity — no change needed there.
+- **Files:** `AppointmentSheet.tsx`, `BusinessDetail.tsx`. No migration.
+
+---
+
 ## Group AUTH+BUG — ad-hoc (2026-07-02) ✅ IMPLEMENTED
 ### Bug reports tagged by reporter role, admin-visible ✅
 - **Was:** `bug_reports` write-only — no RLS select policy existed (`rls.sql`: "read access is restricted for security"), so even admins couldn't read submitted reports back. No role tagging.

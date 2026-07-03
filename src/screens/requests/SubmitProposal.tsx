@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, inr } from "@/components/common";
 import { requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { IndianRupee, Zap, Info } from "lucide-react";
+import { IndianRupee, Zap, Info, Users } from "lucide-react";
 import { useApp } from "@/store";
 
 export default function SubmitProposal() {
@@ -15,6 +15,7 @@ export default function SubmitProposal() {
   const [eta, setEta] = useState("");
   const [message, setMessage] = useState("");
   const [boost, setBoost] = useState(false);
+  const [broadcast, setBroadcast] = useState(false);
   const [sending, setSending] = useState(false);
 
   const canSend = !!price && !!eta && message.trim().length > 5 && !sending;
@@ -22,7 +23,7 @@ export default function SubmitProposal() {
   async function send() {
     setSending(true);
     try {
-      await requestService.submitProposal(id, { price: Number(price), eta, message, isBoosted: boost });
+      await requestService.submitProposal(id, { price: Number(price), eta, message, isBoosted: boost, broadcastToMetoo: broadcast });
       showToast(boost ? "Boosted proposal sent!" : "Proposal sent!");
       setTimeout(() => nav(-1), 600);
     } catch {
@@ -69,6 +70,7 @@ export default function SubmitProposal() {
 
         {/* Boost */}
         <button
+          type="button"
           className="card row gap-12"
           style={{ padding: 14, border: boost ? "2px solid #f59e0b" : "1.5px solid var(--ink-200)", textAlign: "left" }}
           onClick={() => setBoost((v) => !v)}
@@ -84,6 +86,27 @@ export default function SubmitProposal() {
             {boost ? "✓" : ""}
           </span>
         </button>
+
+        {/* Broadcast to me-too joiners */}
+        {r?.isGroupBuy && (r.meTooCount ?? 0) > 0 && (
+          <button
+            type="button"
+            className="card row gap-12"
+            style={{ padding: 14, border: broadcast ? "2px solid var(--brand-500)" : "1.5px solid var(--ink-200)", textAlign: "left" }}
+            onClick={() => setBroadcast((v) => !v)}
+          >
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--brand-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Users size={20} color="var(--brand-700)" />
+            </div>
+            <div className="grow">
+              <div className="semi small">Send this quote to everyone who said 'me too' ({r.meTooCount} people) as well as the requester</div>
+              <div className="tiny muted">Only the requester can accept — this just lets more neighbors see your price.</div>
+            </div>
+            <span style={{ width: 22, height: 22, borderRadius: 6, border: broadcast ? "none" : "2px solid var(--ink-300)", background: broadcast ? "var(--brand-500)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
+              {broadcast ? "✓" : ""}
+            </span>
+          </button>
+        )}
 
         <div className="row gap-8 tiny muted" style={{ lineHeight: 1.4 }}>
           <Info size={16} style={{ flexShrink: 0 }} />

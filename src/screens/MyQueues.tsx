@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { ListSkeleton, ErrorView } from "@/components/states";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { businessService } from "@/services";
 import { useApp } from "@/store";
 import { ArrowUpDown, Clock, Users, X } from "lucide-react";
@@ -22,7 +22,7 @@ function timeAgo(iso: string): string {
 export default function MyQueues() {
   const nav = useNavigate();
   const { showToast } = useApp();
-  const { data, loading, error, refetch } = useQuery(() => businessService.myQueues(), []);
+  const { data, loading, error, refetch } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
   const [tab, setTab] = useState<"ACTIVE" | "HISTORY">("ACTIVE");
   const [sortByName, setSortByName] = useState(false);
   const [leaving, setLeaving] = useState<string | null>(null);

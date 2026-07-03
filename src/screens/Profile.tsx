@@ -8,10 +8,11 @@ import {
   Bug, Calendar
 } from "lucide-react";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 import { SafeImg } from "@/components/common";
 import AccountSwitcher from "@/components/AccountSwitcher";
 import { requestService, socialService, businessService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import type { Role, AgreementStatus } from "@/types";
 import ShareCard, { type ShareOption } from "@/components/ShareCard";
 
@@ -20,6 +21,7 @@ const TERMINAL: AgreementStatus[] = ["COMPLETED", "CANCELLED", "DISPUTED"];
 export default function Profile() {
   const nav = useNavigate();
   const { user, roles, activeRole, setActiveRole, bookmarks, follows, signOut, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
+  const { t } = useI18n();
   const [switcher, setSwitcher] = useState(false);
   const [share, setShare] = useState(false);
   const manageBizId = ownedBusinessIds[0];
@@ -69,7 +71,7 @@ export default function Profile() {
   const activeAgreements = (agreementsData ?? []).filter((a) => !TERMINAL.includes(a.status));
   const totalAgreements  = agreementsData?.length ?? 0;
 
-  const { data: myQueuesData } = useQuery(() => businessService.myQueues(), []);
+  const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
   const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
 
   // Admin console stays reachable (own bypass-token entry screen lives at /admin
@@ -89,12 +91,12 @@ export default function Profile() {
   // The 6 most-used destinations, as one scannable grid instead of a tall list —
   // spatial position becomes memorable ("appointments is always top-middle").
   const quickActions: { icon: React.ReactNode; label: string; badge?: number; onClick: () => void }[] = [
-    { icon: <Calendar size={22} color="#8b5cf6" />, label: "Appointments", onClick: () => nav("/appointments") },
-    { icon: <FileText size={22} color="var(--brand-700)" />, label: "Requests", onClick: () => nav("/requests") },
-    { icon: <Users size={22} color="#3b82f6" />, label: "Community", onClick: () => nav("/community-hub") },
-    { icon: <Map size={22} color="#0ea5e9" />, label: "Map", onClick: () => nav("/map") },
-    { icon: <Award size={22} color="#f59e0b" />, label: "Badges", onClick: () => nav("/achievements") },
-    { icon: <Trophy size={22} color="var(--brand-700)" />, label: "Heroes", onClick: () => nav("/leaderboard") },
+    { icon: <Calendar size={22} color="#8b5cf6" />, label: t("appointments"), onClick: () => nav("/appointments") },
+    { icon: <FileText size={22} color="var(--brand-700)" />, label: t("requests"), onClick: () => nav("/requests") },
+    { icon: <Users size={22} color="#3b82f6" />, label: t("community"), onClick: () => nav("/community-hub") },
+    { icon: <Map size={22} color="#0ea5e9" />, label: t("map"), onClick: () => nav("/map") },
+    { icon: <Award size={22} color="#f59e0b" />, label: t("badges"), onClick: () => nav("/achievements") },
+    { icon: <Trophy size={22} color="var(--brand-700)" />, label: t("heroes"), onClick: () => nav("/leaderboard") },
   ];
 
   return (
@@ -104,7 +106,7 @@ export default function Profile() {
         {/* ── Hero header ── */}
         <div style={{ background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", padding: "20px 16px 32px" }}>
           <div className="row between">
-            <span className="bold" style={{ fontSize: 20 }}>You</span>
+            <span className="bold" style={{ fontSize: 20 }}>{t("profile")}</span>
             <div className="row gap-8">
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }} onClick={() => nav("/chats")} aria-label="Messages">
                 <MessageSquare size={18} />

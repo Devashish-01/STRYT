@@ -15,7 +15,7 @@ const REQUEST_COLUMNS = new Set([
 ]);
 const PROPOSAL_COLUMNS = new Set([
   "requestId","responderUserId","responderType","responderTagline","price","message",
-  "eta","status","isBoosted",
+  "eta","status","isBoosted","broadcastToMetoo",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
