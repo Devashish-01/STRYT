@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { HelpCircle, Bug, Mail, Send, CheckCircle2, ExternalLink, MessageSquareText } from "lucide-react";
 import { AppBar } from "@/components/common";
 import { useApp } from "@/store";
-import { supportService, type ReporterRole } from "@/services/supportService";
+import { supportService, type ReporterRole } from "@/services/core/supportService";
 import { config } from "@/config";
 
 type Tab = "CONTACT" | "BUG";

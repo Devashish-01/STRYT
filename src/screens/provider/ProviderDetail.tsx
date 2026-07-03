@@ -6,7 +6,7 @@ import {
   UserPlus, UserCheck, HandshakeIcon, Plus, Zap,
 } from "lucide-react";
 import { providerService, socialService, communityService } from "@/services";
-import { chatService } from "@/services/chatService";
+import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
@@ -16,7 +16,7 @@ import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability } from "@/utils/availability";
-import { isMockTarget } from "@/services/appointmentService";
+import { isMockTarget } from "@/services/engagement/appointmentService";
 import { PROVIDER_BADGE_THRESHOLDS } from "@/lib/badges";
 
 const Handshake = HandshakeIcon as any;

@@ -1,5 +1,82 @@
 # STRYT — Change Requests (implementation backlog)
 
+## Group REORG — ad-hoc (2026-07-04) ✅ IMPLEMENTED
+### Codebase reorganization, Priorities 0–4 ✅
+Full plan in `REORGANIZATION_PLAN.md` (repo root) — implemented one priority
+tier at a time, `tsc`/`build` verified after each:
+- **P0:** untracked `tsconfig.tsbuildinfo` (build artifact, was committed);
+  moved 7 loose debug/admin scripts from the repo root into `scripts/`
+  (fixed their `.env` path resolution and `.mcp.json`'s reference to
+  `supabase_mcp_wrapper.js` accordingly); deleted 2 exact-duplicate docs and
+  1 stale duplicate (`MD_FILES/ISSUES.md`, hours out of date) sitting
+  alongside the real ones; archived 5 pre-session design docs into
+  `MD_FILES/archive/` after verifying each against the current codebase
+  (2 confirmed implemented, 2 confirmed stale/superseded by this session's
+  own audits, 1 superseded by the new reorg plan) — kept
+  `optional_onboarding_design.md` un-archived since it's genuinely still
+  open (`generateAlias()` exists with zero callers).
+- **P1:** moved 21 loose, undated `.sql` files (plus 7 coupled runner/test
+  scripts and the original setup `README.md`) into `supabase/legacy/` —
+  `supabase/migrations/` is now unambiguously the only place schema changes
+  go. This exact loose-vs-dated split was the root cause behind multiple
+  "schema drift" bugs this session, including the `society_members`
+  infinite-recursion outage (`ISS-F13`). New `supabase/README.md` explains
+  the current layout.
+- **P2:** flattened the single-file `screens/manage/` into `screens/ManageHub.tsx`
+  (was colliding, in name only, with `screens/business/manage/` and
+  `screens/provider/manage/`); moved `BusinessProUpgrade.tsx` and
+  `Promote.tsx` into `screens/future-enhancement/` to join their already-shelved
+  siblings — both were dead-but-left-behind from earlier fixes this session
+  (`ISS-F12`, `ISS-F11`).
+- **P3:** split `types.ts` (676 lines, every domain type in one file) into
+  `types/{marketplace,requests,chat,user,social,console}.ts` +
+  `types/index.ts` as a barrel (`export * from "./..."`) — every existing
+  `@/types` import in the app resolves unchanged; verified via `tsc` showing
+  zero new errors and a byte-identical build output hash.
+- **P4:** the 3 higher-risk items, done as their own pass with `tsc`/`build`
+  verified after each sub-item.
+  - **`services/` grouping (25 flat files):** grouped into `services/{core,marketplace,engagement}/`
+    (10/5/10 files) via `git mv`. Rewrote the `services/index.ts` barrel, fixed
+    4 internal cross-group relative imports that broke on the move
+    (`adminService`→`notificationService`, `requestService`→`leaderboardService`,
+    `businessService`/`providerService`→`appointmentService`), then found and
+    fixed all **28 direct (non-barrel) `@/services/xxxService` import sites**
+    across ~20 files that bypassed the barrel — not anticipated from the plan,
+    which assumed barrel-only usage based on the `types.ts` precedent.
+  - **`store.tsx` (751 lines):** kept `useApp()`/`AppState` as the single,
+    byte-identical public surface per the plan's explicit constraint — no new
+    hooks, zero consumer call-site changes (89 files import `@/store`, only
+    `useApp`/`AppProvider` are consumed externally, confirmed by grep before
+    touching anything). Internally split into `src/store/{useToast,useAuthSession,
+    useSocialSlice,useCommerceSlice,useNotificationBadges}.ts` — each a real
+    custom hook owning its own `useState`/`useCallback`s (valid, since React
+    tracks hook state by call order, not by which function textually contains
+    the `useState`). Cross-cutting logic that touches multiple slices at once
+    (`hydratePersonalData`'s single batched `Promise.all`, `refreshUser`,
+    `signOut`) stayed in `AppProvider`, calling the slices' exposed setters
+    directly — same setter identities, so no behavior change. `AppProvider`
+    now composes 5 hooks + ~90 lines of identity/context state instead of one
+    750-line body.
+  - **`MapView.tsx` (1053 lines, largest file in the app):** split into
+    `screens/MapView/{mapIcons.ts,MapControllers.tsx,SearchBar.tsx,
+    LayerToggles.tsx,RadiusStrip.tsx,MapMarkers.tsx,NearbySheet.tsx,index.tsx}`.
+    Each Leaflet-map-adjacent piece (radius fly-to, GPS recenter, long-press-to-set-location)
+    became its own controller component; the search bar, layer/avail-only
+    toggles, and the bottom radius strip (with its own custom-km input) became
+    self-contained components owning their own local state; marker rendering
+    and the "Nearby on your Street" tab sheet each became one component taking
+    the already-filtered lists as props. `MapView/index.tsx` kept only the
+    data-fetching (`useQuery` ×4), filtering, and layout composition — down
+    from 1053 lines to ~210. `App.tsx`'s `import("./screens/MapView")` resolves
+    unchanged to the new `index.tsx`.
+- **Files:** ~60 files moved/renamed (git-tracked as renames) in P0–P3; P4 adds
+  7 new `services/{core,marketplace,engagement}/` folders (no new files, pure
+  `git mv`), 5 new `src/store/*.ts` files, 8 new `src/screens/MapView/*` files
+  (replacing the 1 flat `MapView.tsx`); 7 new `types/*.ts` files, 1 deleted
+  `types.ts`, new `scripts/README`-equivalent context in `.gitignore`/`.mcp.json`,
+  new `supabase/README.md` and `MD_FILES/archive/README.md`. No migration
+  needed for any of P0–P4 — zero database changes.
+
 ## Group AUDIT-CLEANUP — ad-hoc (2026-07-03) ✅ IMPLEMENTED
 ### Full pass over the hardcoded-values / dead-code / should-be-live audit ✅
 Worked the three-category audit list one problem at a time, own judgment on scope per item:

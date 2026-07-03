@@ -57,7 +57,7 @@ export default function TrackingPage() {
       // Read via the get_tracking() RPC, not the agreements table directly.
       // The RPC returns only the safe live-location fields for a valid,
       // non-expired token, so the agreements table stays locked to participants
-      // (see supabase/migration_launch_hardening.sql).
+      // (see supabase/legacy/migration_launch_hardening.sql).
       const { data, error } = await anonSb.rpc("get_tracking", { p_token: token });
       const row = Array.isArray(data) ? data[0] : data;
       if (error || !row) { setExpired(true); setLoading(false); return; }

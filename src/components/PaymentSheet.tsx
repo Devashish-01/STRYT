@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { X, Copy, CheckCircle2, Banknote, QrCode, AlertCircle } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { appointmentService } from "@/services/appointmentService";
+import { appointmentService } from "@/services/engagement/appointmentService";
 import { useApp } from "@/store";
 import { copyText } from "@/lib/clipboard";
 import type { AppointmentRecord, PaymentMethod } from "@/types";

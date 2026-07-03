@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, SafeImg, EmptyState } from "@/components/common";
 import { Users, Key, Shield, Plus, ClipboardCheck, QrCode, Clock, CheckCircle2, X } from "lucide-react";
-import { societyService, type Society, type SocietyMember, type GatePass } from "@/services/societyService";
+import { societyService, type Society, type SocietyMember, type GatePass } from "@/services/engagement/societyService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { ListSkeleton, Skeleton } from "@/components/states";

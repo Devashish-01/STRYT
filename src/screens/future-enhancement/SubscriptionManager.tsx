@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
 import { Plus, Pause, Play, RefreshCw } from "lucide-react";
-import { subscriptionService, type Subscription } from "@/services/subscriptionService";
+import { subscriptionService, type Subscription } from "@/services/engagement/subscriptionService";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { ListSkeleton } from "@/components/states";

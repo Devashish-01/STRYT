@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2 } from "lucide-react";
 import { useApp } from "@/store";
 import { generateWorkingSlots, type AppointmentSlot, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { uploadService } from "@/services/uploadService";
-import { appointmentService } from "@/services/appointmentService";
-import { slotBlockService } from "@/services/slotBlockService";
+import { uploadService } from "@/services/core/uploadService";
+import { appointmentService } from "@/services/engagement/appointmentService";
+import { slotBlockService } from "@/services/engagement/slotBlockService";
 import type { AppointmentRecord, BlockedSlot } from "@/types";
 import { Skeleton } from "@/components/states";
 

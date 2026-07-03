@@ -15,3 +15,15 @@ test-results
 playwright-report
 playwright/.cache
 
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Editor / OS
+Thumbs.db
+*.swp
+
+# Capacitor (native Android/iOS wrapper — see CAPACITOR_ANDROID_GUIDE.md)
+android
+ios
+.capacitor
+

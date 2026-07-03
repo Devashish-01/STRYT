@@ -1,24 +1,26 @@
-export { authService } from "./authService";
-export { catalogService } from "./catalogService";
-export { discoveryService } from "./discoveryService";
-export { businessService } from "./businessService";
-export { providerService } from "./providerService";
-export { requestService } from "./requestService";
-export { uploadService } from "./uploadService";
-export { adminService } from "./adminService";
-export { socialService } from "./socialService";
-export { communityService } from "./communityService";
-export { walletService } from "./walletService";
-export { userService } from "./userService";
-export { notificationService } from "./notificationService";
-export { chatService } from "./chatService";
-export { kycService } from "./kycService";
-export { societyService } from "./societyService";
-export { subscriptionService } from "./subscriptionService";
-export { proService, PRO_PLANS, LEAD_PACKS } from "./proService";
-export { aiService } from "./aiService";
-export { supportService } from "./supportService";
-export { appointmentService } from "./appointmentService";
-export { slotBlockService } from "./slotBlockService";
-export { profileControlService } from "./profileControlService";
-
+// Barrel — every existing `@/services` import in the app keeps resolving
+// here unchanged. Grouped into core/marketplace/engagement subfolders (see
+// REORGANIZATION_PLAN.md Priority 4) purely for readability.
+export { authService } from "./core/authService";
+export { catalogService } from "./marketplace/catalogService";
+export { discoveryService } from "./marketplace/discoveryService";
+export { businessService } from "./marketplace/businessService";
+export { providerService } from "./marketplace/providerService";
+export { requestService } from "./engagement/requestService";
+export { uploadService } from "./core/uploadService";
+export { adminService } from "./core/adminService";
+export { socialService } from "./engagement/socialService";
+export { communityService } from "./engagement/communityService";
+export { walletService } from "./engagement/walletService";
+export { userService } from "./core/userService";
+export { notificationService } from "./engagement/notificationService";
+export { chatService } from "./engagement/chatService";
+export { kycService } from "./core/kycService";
+export { societyService } from "./engagement/societyService";
+export { subscriptionService } from "./engagement/subscriptionService";
+export { proService, PRO_PLANS, LEAD_PACKS } from "./core/proService";
+export { aiService } from "./core/aiService";
+export { supportService } from "./core/supportService";
+export { appointmentService } from "./engagement/appointmentService";
+export { slotBlockService } from "./engagement/slotBlockService";
+export { profileControlService } from "./core/profileControlService";

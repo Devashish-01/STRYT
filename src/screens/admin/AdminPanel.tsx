@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState } from "@/components/common";
-import { adminService, type AdminReport } from "@/services/adminService";
-import { profileControlService, type DeletionRequest } from "@/services/profileControlService";
+import { adminService, type AdminReport } from "@/services/core/adminService";
+import { profileControlService, type DeletionRequest } from "@/services/core/profileControlService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ListSkeleton } from "@/components/states";
 import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut } from "lucide-react";
 import { useApp } from "@/store";
-import { kycService } from "@/services/kycService";
+import { kycService } from "@/services/core/kycService";
 
 type Tab = "dashboard" | "queue" | "kyc" | "disputes" | "reports" | "bugs" | "profiles" | "account";
 type QueueType = "business" | "provider" | "category";
@@ -507,8 +507,41 @@ function AdminProfiles() {
   useEffect(() => {
     if (subTab === "requests") {
       void loadRequests();
+    } else if (subTab === "directory" && !searchQuery.trim()) {
+      void loadRecent();
     }
-  }, [subTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTab, searchType]);
+
+  // Directory defaults to the most recent signups so an admin can browse and
+  // spot someone (e.g. a Google sign-in with no phone on file) without
+  // already knowing a search term that matches them.
+  async function loadRecent() {
+    setLoading(true);
+    try {
+      const sb = (await import("@/lib/supabaseClient")).getSupabase();
+      if (searchType === "CUSTOMER") {
+        // admin_recent_users() is a SECURITY DEFINER RPC that checks the
+        // caller is actually an admin internally — customer PII columns
+        // aren't selectable via a plain query anymore (ISS-009).
+        const { data, error } = await sb.rpc("admin_recent_users");
+        if (error) throw error;
+        setResults(data || []);
+      } else if (searchType === "BUSINESS") {
+        const { data, error } = await sb.from("businesses").select("*").order("created_at", { ascending: false }).limit(30);
+        if (error) throw error;
+        setResults(data || []);
+      } else if (searchType === "PROVIDER") {
+        const { data, error } = await sb.from("providers").select("*").order("created_at", { ascending: false }).limit(30);
+        if (error) throw error;
+        setResults(data || []);
+      }
+    } catch (e: any) {
+      showToast("Couldn't load recent signups: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function loadRequests() {
     setLoadingRequests(true);
@@ -523,12 +556,19 @@ function AdminProfiles() {
   }
 
   async function runSearch() {
+    if (!searchQuery.trim()) {
+      void loadRecent();
+      return;
+    }
     setLoading(true);
     try {
       const sb = (await import("@/lib/supabaseClient")).getSupabase();
       const term = `%${searchQuery.trim()}%`;
       if (searchType === "CUSTOMER") {
-        const { data, error } = await sb.from("users").select("*").ilike("name", term).limit(20);
+        // admin_search_users() is a SECURITY DEFINER RPC — checks the caller
+        // is actually an admin internally, and matches name/phone/email so
+        // Google sign-ins (no phone on file) are findable (ISS-009 / ISS-F14).
+        const { data, error } = await sb.rpc("admin_search_users", { term: searchQuery.trim() });
         if (error) throw error;
         setResults(data || []);
       } else if (searchType === "BUSINESS") {
@@ -640,7 +680,7 @@ function AdminProfiles() {
               </select>
               <input
                 className="input grow"
-                placeholder="Search by name..."
+                placeholder={searchType === "CUSTOMER" ? "Name, phone, or email... (blank = recent)" : "Search by name..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && void runSearch()}
@@ -653,7 +693,7 @@ function AdminProfiles() {
           {loading ? (
             <ListSkeleton count={2} />
           ) : results.length === 0 ? (
-            <EmptyState emoji="🔍" title="No profiles found" text="Enter a name and hit search." />
+            <EmptyState emoji="🔍" title="No profiles found" text="Try a different name, phone number, or email." />
           ) : (
             <div className="col gap-10">
               {results.map((item) => {
@@ -673,6 +713,11 @@ function AdminProfiles() {
                           {!isEnabled && !isDeleted && <span className="badge badge-gray">Hidden</span>}
                         </div>
                         <div className="tiny muted" style={{ marginTop: 2 }}>ID: {item.id}</div>
+                        {searchType === "CUSTOMER" && (
+                          <div className="tiny muted" style={{ marginTop: 2 }}>
+                            {item.phone || "No phone (Google sign-in)"}{item.email ? ` · ${item.email}` : ""}
+                          </div>
+                        )}
                       </div>
                       
                       <div className="row gap-6">

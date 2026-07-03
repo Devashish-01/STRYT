@@ -1,0 +1,218 @@
+import { useEffect, useState } from "react";
+import { ChevronRight } from "lucide-react";
+import L from "leaflet";
+import { MapContainer, TileLayer, Marker, Circle } from "react-leaflet";
+import { discoveryService, requestService, socialService, userService } from "@/services";
+import { useQuery } from "@/hooks/useApi";
+import { useApp } from "@/store";
+import { config } from "@/config";
+import { StoryViewer } from "@/components/Stories";
+import type { Story } from "@/types";
+import { evaluateProviderAvailability } from "@/utils/availability";
+import { RADIUS_OPTIONS } from "@/utils/constants";
+import type { Layer } from "./mapIcons";
+import { meIcon } from "./mapIcons";
+import { RadiusController, RecenterButton, MapEventsController } from "./MapControllers";
+import { SearchBar } from "./SearchBar";
+import { LayerToggles } from "./LayerToggles";
+import { RadiusStrip } from "./RadiusStrip";
+import { MapMarkers } from "./MapMarkers";
+import { NearbySheet } from "./NearbySheet";
+
+export default function MapView() {
+  const { user } = useApp();
+  const [layers, setLayers] = useState<Record<Layer, boolean>>(() => {
+    const saved = localStorage.getItem("settings_map_layers");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    return { business: true, provider: true, request: true, story: false };
+  });
+  const [availOnly, setAvailOnly] = useState(() => {
+    const saved = localStorage.getItem("settings_map_avail_only");
+    return saved === "true";
+  });
+  const [radiusKm, setRadiusKm] = useState(() => {
+    const saved = localStorage.getItem("settings_radius");
+    return saved ? parseFloat(saved) : (user.notificationRadiusKm || 5);
+  });
+
+  useEffect(() => {
+    localStorage.setItem("settings_radius", String(radiusKm));
+    if (user.id && radiusKm !== user.notificationRadiusKm) {
+      void userService.update({ notificationRadiusKm: radiusKm }).catch(() => {});
+    }
+  }, [radiusKm, user.id, user.notificationRadiusKm]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_map_layers", JSON.stringify(layers));
+  }, [layers]);
+
+  useEffect(() => {
+    localStorage.setItem("settings_map_avail_only", String(availOnly));
+  }, [availOnly]);
+
+  const [storyViewer, setStoryViewer] = useState<{ stories: Story[]; idx: number } | null>(null);
+  const [showNearbyPopup, setShowNearbyPopup] = useState(false);
+
+  const presetKms = new Set<number>(RADIUS_OPTIONS.map((o) => o.km));
+  const isCustomActive = !presetKms.has(radiusKm);
+
+  const centerLat = user.lat || config.defaultLocation.lat;
+  const centerLng = user.lng || config.defaultLocation.lng;
+  const isWorld   = radiusKm >= 5000;
+
+  // For "World" use a globally-sorted (newest-first) query with no geo filter
+  const { data: bizPage } = useQuery(
+    () => isWorld
+      ? discoveryService.businesses({ sort: "new" })
+      : discoveryService.businesses({ lat: centerLat, lng: centerLng, radius: radiusKm }),
+    [centerLat, centerLng, radiusKm]
+  );
+  const { data: provPage } = useQuery(
+    () => isWorld
+      ? discoveryService.providers({ sort: "new" })
+      : discoveryService.providers({ lat: centerLat, lng: centerLng, radius: radiusKm }),
+    [centerLat, centerLng, radiusKm]
+  );
+  const { data: reqPage } = useQuery(() => requestService.feed({ lat: centerLat, lng: centerLng }), [centerLat, centerLng]);
+  const { data: nearbyStories } = useQuery(
+    () => layers.story
+      ? socialService.storiesNearby(centerLat, centerLng, Math.min(radiusKm, 200))
+      : Promise.resolve([]),
+    [layers.story, centerLat, centerLng, radiusKm]
+  );
+
+  const businesses = bizPage?.data ?? [];
+  const providers  = provPage?.data ?? [];
+  const requests   = (reqPage?.data ?? []).filter((r) => r.status === "OPEN");
+  const mapStories = (nearbyStories ?? []).filter((s) => s.lat && s.lng);
+
+  const filteredBusinesses = businesses.filter((b) => {
+    if (!b.lat || !b.lng) return false;
+    if (!availOnly) return true;
+    const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
+    return evalRes.isOpenNow;
+  });
+
+  const filteredProviders = providers.filter((p) => {
+    if (!p.lat || !p.lng) return false;
+    if (!availOnly) return true;
+    const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
+    return evalRes.isOpenNow;
+  });
+
+  const nearbyRequests = requests.filter((r) => {
+    if (!r.lat || !r.lng) return false;
+    if (isWorld) return true;
+    const dist = L.latLng(centerLat, centerLng).distanceTo(L.latLng(r.lat, r.lng)) / 1000;
+    return dist <= radiusKm;
+  });
+
+  const visibleCount =
+    (layers.business ? filteredBusinesses.length : 0) +
+    (layers.provider ? filteredProviders.length : 0) +
+    (layers.request  ? nearbyRequests.length : 0) +
+    (layers.story    ? mapStories.length : 0);
+
+  return (
+    <div className="screen" style={{ position: "relative" }}>
+      <SearchBar />
+
+      <LayerToggles layers={layers} setLayers={setLayers} availOnly={availOnly} setAvailOnly={setAvailOnly} />
+
+      {/* Visible-count badge (clickable button) */}
+      {visibleCount > 0 && (
+        <button
+          onClick={() => setShowNearbyPopup(true)}
+          style={{
+            position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
+            zIndex: 1000, background: "var(--brand-600)", color: "#fff",
+            borderRadius: 20, padding: "8px 16px", fontSize: 12, fontWeight: 700,
+            boxShadow: "0 4px 16px rgba(107,33,204,0.35)", whiteSpace: "nowrap",
+            border: "none", outline: "none", cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 6,
+            transition: "all 0.2s ease-in-out",
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "#6d28d9"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "var(--brand-600)"}
+        >
+          <span>
+            {visibleCount} {visibleCount === 1 ? "place" : "places"}
+            {isWorld ? " globally" : isCustomActive ? ` within ${radiusKm} km` : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
+          </span>
+          <ChevronRight size={14} style={{ opacity: 0.8 }} />
+        </button>
+      )}
+
+      <RadiusStrip radiusKm={radiusKm} setRadiusKm={setRadiusKm} />
+
+      {/* Full-screen map */}
+      <MapContainer
+        center={[centerLat, centerLng]}
+        zoom={13}
+        style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
+        zoomControl={false}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
+          url={`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}?access_token=${config.mapboxToken}`}
+        />
+
+        <RadiusController lat={centerLat} lng={centerLng} radiusKm={radiusKm} />
+        <RecenterButton   radiusKm={radiusKm} />
+        <MapEventsController />
+
+        {/* User dot */}
+        <Marker position={[centerLat, centerLng]} icon={meIcon} />
+
+        {/* Radius ring — hidden for World mode */}
+        {!isWorld && (
+          <Circle
+            center={[centerLat, centerLng]}
+            radius={radiusKm * 1000}
+            pathOptions={{
+              color: "var(--brand-600)", weight: 1.5,
+              dashArray: "6 5",
+              fillColor: "var(--brand-600)", fillOpacity: 0.05,
+              interactive: false,
+            }}
+          />
+        )}
+
+        <MapMarkers
+          layers={layers}
+          filteredBusinesses={filteredBusinesses}
+          filteredProviders={filteredProviders}
+          nearbyRequests={nearbyRequests}
+          mapStories={mapStories}
+          onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
+        />
+      </MapContainer>
+
+      {storyViewer && (
+        <StoryViewer
+          stories={storyViewer.stories}
+          startIndex={storyViewer.idx}
+          onClose={() => setStoryViewer(null)}
+        />
+      )}
+
+      {showNearbyPopup && (
+        <NearbySheet
+          visibleCount={visibleCount}
+          isWorld={isWorld}
+          radiusKm={radiusKm}
+          filteredBusinesses={filteredBusinesses}
+          filteredProviders={filteredProviders}
+          mapStories={mapStories}
+          nearbyRequests={nearbyRequests}
+          onClose={() => setShowNearbyPopup(false)}
+          onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
+        />
+      )}
+    </div>
+  );
+}

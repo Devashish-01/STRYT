@@ -13,7 +13,6 @@ import {
   UserPlus,
   UserCheck,
   Lock,
-  Navigation,
 } from "lucide-react";
 import { userService, chatService, socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -21,7 +20,6 @@ import { Skeleton, ErrorView } from "@/components/states";
 import ShareCard from "@/components/ShareCard";
 import { useApp } from "@/store";
 import { firstName } from "@/lib/publicName";
-import { haversineKm } from "@/lib/geocode";
 
 const verifyLabels: Record<string, string> = {
   phone: "Phone",
@@ -60,19 +58,12 @@ export default function PublicProfile() {
   const following = isFollowing("USER", id);
   const isSelf = user.id === id;
 
-  const hasCoordinates = !isSelf && !!(user.lat && user.lng && u?.lat && u?.lng);
-  const distance = hasCoordinates ? haversineKm(user.lat, user.lng, u!.lat!, u!.lng!) : null;
-  const distanceText = distance !== null ? `${distance.toFixed(1)} km away` : null;
-
-  function handleOpenDirections() {
-    if (!user.lat || !user.lng || !u?.lat || !u?.lng) {
-      showToast("Location details unavailable");
-      return;
-    }
-    showToast("Opening Google Maps…");
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${user.lat},${user.lng}&destination=${u.lat},${u.lng}&travelmode=driving`;
-    window.open(mapsUrl, "_blank");
-  }
+  // distanceKm is computed server-side from the viewer's own coordinates —
+  // this page never receives another user's exact coordinates, so there's
+  // no "get directions to their exact address" feature here by design (see
+  // ISS-009). A ballpark distance is consistent with how distance is shown
+  // everywhere else in the app.
+  const distanceText = !isSelf && u?.distanceKm !== undefined ? `${u.distanceKm.toFixed(1)} km away` : null;
 
   function toggleHidePost(postId: string) {
     const isHidden = hiddenPosts.includes(postId);
@@ -203,40 +194,7 @@ export default function PublicProfile() {
           <div className="row center gap-6" style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)", flexWrap: "wrap" }}>
             {(isSelf || u.showCityPublicly !== false) && (
               <>
-                {hasCoordinates ? (
-                  <button
-                    onClick={handleOpenDirections}
-                    title="Get directions on Google Maps"
-                    style={{
-                      background: "rgba(255,255,255,0.12)",
-                      border: "1px solid rgba(255,255,255,0.25)",
-                      borderRadius: 12,
-                      padding: "3px 8px",
-                      color: "#fff",
-                      fontSize: 12,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      transition: "all 0.2s",
-                      outline: "none",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.24)";
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.12)";
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)";
-                    }}
-                  >
-                    <span>📍 {u.area || "Neighborhood Member"}</span>
-                    {distanceText && <span style={{ opacity: 0.85, fontSize: 11 }}>• {distanceText}</span>}
-                    <Navigation size={10} style={{ transform: "rotate(45deg)", marginLeft: 2 }} />
-                  </button>
-                ) : (
-                  <span>📍 {u.area || "Neighborhood Member"}</span>
-                )}
+                <span>📍 {u.area || "Neighborhood Member"}{distanceText && ` • ${distanceText}`}</span>
                 <span>•</span>
               </>
             )}

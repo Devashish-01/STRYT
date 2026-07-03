@@ -6,7 +6,7 @@ import {
   Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle,
 } from "lucide-react";
 import { businessService, communityService } from "@/services";
-import { chatService } from "@/services/chatService";
+import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
@@ -17,7 +17,7 @@ import ShareCard from "@/components/ShareCard";
 import AddToListSheet from "@/components/AddToListSheet";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { isMockTarget } from "@/services/appointmentService";
+import { isMockTarget } from "@/services/engagement/appointmentService";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();

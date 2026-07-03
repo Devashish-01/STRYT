@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MessageCircle, Search, QrCode } from "lucide-react";
-import { chatService, relativeTime } from "@/services/chatService";
+import { chatService, relativeTime } from "@/services/engagement/chatService";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { EmptyState, SafeImg } from "@/components/common";

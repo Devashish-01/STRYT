@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Phone } from "lucide-react";
-import { chatService } from "@/services/chatService";
+import { chatService } from "@/services/engagement/chatService";
 import { useQuery } from "@/hooks/useApi";
 import { SafeImg } from "@/components/common";
 import { Skeleton } from "@/components/states";

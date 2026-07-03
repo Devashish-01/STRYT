@@ -47,7 +47,7 @@ const MyAppointments = lazy(() => import("./screens/requests/MyAppointments"));
 // Onboarding
 const BusinessOnboard = lazy(() => import("./screens/business/BusinessOnboard"));
 const ProviderOnboard = lazy(() => import("./screens/provider/ProviderOnboard"));
-const ManageHub = lazy(() => import("./screens/manage/ManageHub"));
+const ManageHub = lazy(() => import("./screens/ManageHub"));
 
 // Chat
 const ConversationList = lazy(() => import("./screens/chat/ConversationList"));

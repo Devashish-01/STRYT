@@ -3,7 +3,7 @@
     "supabase": {
       "command": "node",
       "args": [
-        "supabase_mcp_wrapper.js"
+        "scripts/supabase_mcp_wrapper.js"
       ]
     }
   }

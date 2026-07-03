@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Flag } from "lucide-react";
 import { useApp } from "@/store";
 import type { BookmarkTarget } from "@/types";
-import { adminService } from "@/services/adminService";
+import { adminService } from "@/services/core/adminService";
 
 const reasons = [
   ["SPAM", "Spam or misleading"],

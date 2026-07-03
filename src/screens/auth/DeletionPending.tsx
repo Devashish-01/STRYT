@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, LogOut, ArrowRight, Loader } from "lucide-react";
 import { useApp } from "@/store";
-import { profileControlService } from "@/services/profileControlService";
+import { profileControlService } from "@/services/core/profileControlService";
 
 export default function DeletionPending() {
   const nav = useNavigate();

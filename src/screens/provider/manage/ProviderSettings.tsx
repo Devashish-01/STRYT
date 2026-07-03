@@ -6,7 +6,7 @@ import { useApp } from "@/store";
 import { providerService, profileControlService } from "@/services";
 import { ErrorView } from "@/components/states";
 import ProviderManageNav from "./ProviderManageNav";
-import { kycService } from "@/services/kycService";
+import { kycService } from "@/services/core/kycService";
 import type { ProviderVerification } from "@/types";
 
 export default function ProviderSettings() {
