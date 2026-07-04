@@ -4,11 +4,12 @@ import { authService } from "@/services";
 import { Mail, Phone as PhoneIcon, ArrowLeft, ArrowRight, Loader, Lock } from "lucide-react";
 import { useApp } from "@/store";
 import { returnTo } from "@/lib/returnTo";
+import { Capacitor } from "@capacitor/core";
 
 export default function PhoneEntry() {
   const nav = useNavigate();
   const { showToast, signIn } = useApp();
-  const [showOther, setShowOther] = useState(false);
+  const [showOther, setShowOther] = useState(Capacitor.isNativePlatform());
   const [tab, setTab] = useState<"phone" | "email">("phone");
   const [emailMode, setEmailMode] = useState<"code" | "password">("code");
   const [authAction, setAuthAction] = useState<"signin" | "signup">("signin");
@@ -128,7 +129,7 @@ export default function PhoneEntry() {
       {/* Header Back Button */}
       <div className="row" style={{ zIndex: 10 }}>
         <button
-          onClick={() => (showOther ? setShowOther(false) : nav("/"))}
+          onClick={() => (showOther && !Capacitor.isNativePlatform() ? setShowOther(false) : nav("/"))}
           style={{
             background: "#fff",
             border: "1px solid var(--ink-200)",

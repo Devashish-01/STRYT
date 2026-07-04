@@ -4,6 +4,7 @@ import { useApp } from "@/store";
 import { userService } from "@/services";
 import { forwardGeocode, reverseGeocode, type GeoPlace } from "@/lib/geocode";
 import { config } from "@/config";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 interface Props {
   onClose: () => void;
@@ -18,18 +19,10 @@ export default function LocationPickerSheet({ onClose }: Props) {
 
   async function handleSearch(text: string) {
     setQ(text);
-    if (text.trim().length < 2) {
-      setResults([]);
-      return;
-    }
+    if (!text.trim()) { setResults([]); return; }
     setSearching(true);
-    try {
-      setResults(await forwardGeocode(text));
-    } catch {
-      /* ignore */
-    } finally {
-      setSearching(false);
-    }
+    try { setResults(await forwardGeocode(text)); } catch { /* ignore */ }
+    finally { setSearching(false); }
   }
 
   async function handleSelect(p: GeoPlace) {
@@ -45,12 +38,8 @@ export default function LocationPickerSheet({ onClose }: Props) {
   }
 
   function handleGPS() {
-    if (!navigator.geolocation) {
-      showToast("GPS is not available on this device");
-      return;
-    }
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    nativeGeolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         const areaName = await reverseGeocode(latitude, longitude);
@@ -72,7 +61,7 @@ export default function LocationPickerSheet({ onClose }: Props) {
         setLocating(false);
         showToast("GPS access denied");
       },
-      { enableHighAccuracy: false, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 8000 }
     );
   }
 

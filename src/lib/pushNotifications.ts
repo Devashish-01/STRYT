@@ -1,4 +1,6 @@
 import { getSupabase } from "@/lib/supabaseClient";
+import { Capacitor } from "@capacitor/core";
+import { PushNotifications } from "@capacitor/push-notifications";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -8,6 +10,53 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 }
 
 export async function registerPush(userId: string): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      let permStatus = await PushNotifications.checkPermissions();
+      if (permStatus.receive === "prompt") {
+        permStatus = await PushNotifications.requestPermissions();
+      }
+      if (permStatus.receive !== "granted") return;
+
+      await PushNotifications.register();
+
+      // Listeners must be cleared to avoid duplicates on re-logins
+      await PushNotifications.removeAllListeners();
+
+      PushNotifications.addListener("registration", async (token) => {
+        const sb = getSupabase();
+        await sb.from("fcm_tokens").upsert(
+          {
+            user_id: userId,
+            token: token.value,
+            platform: Capacitor.getPlatform() === "ios" ? "ios" : "android",
+          },
+          { onConflict: "user_id,token" }
+        );
+      });
+
+      PushNotifications.addListener("registrationError", (error) => {
+        console.warn("FCM registration error:", error);
+      });
+
+      PushNotifications.addListener("pushNotificationReceived", (notification) => {
+        console.log("FCM notification received:", notification);
+      });
+
+      PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+        console.log("FCM action performed:", action);
+        const data = action.notification.data;
+        if (data && data.url) {
+          window.location.href = data.url;
+        }
+      });
+    } catch (e) {
+      console.warn("Native push registration failed:", e);
+    }
+    return;
+  }
+
+  // Browser Web Push path
   const vapidKey = (import.meta as any).env?.VITE_VAPID_PUBLIC_KEY as string | undefined;
   if (!vapidKey || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
@@ -40,6 +89,16 @@ export async function registerPush(userId: string): Promise<void> {
 }
 
 export async function unregisterPush(userId: string): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const sb = getSupabase();
+      await sb.from("fcm_tokens").delete().eq("user_id", userId);
+    } catch (e) {
+      console.warn("Native token removal failed:", e);
+    }
+    return;
+  }
+
   try {
     const sb = getSupabase();
     if ("serviceWorker" in navigator) {

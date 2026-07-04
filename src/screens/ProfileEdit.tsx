@@ -5,14 +5,22 @@ import { useApp } from "@/store";
 import { userService, uploadService } from "@/services";
 import { AppBar } from "@/components/common";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
-const PRIVACY_FIELDS: { key: "showPostsPublicly" | "showAsksPublicly" | "showBadgesPublicly" | "showPhonePublicly" | "showCityPublicly" | "showRatingPublicly"; label: string; hint: string }[] = [
+type PrivacyKey =
+  | "showPostsPublicly" | "showAsksPublicly" | "showBadgesPublicly"
+  | "showPhonePublicly" | "showEmailPublicly" | "showCityPublicly"
+  | "showRatingPublicly" | "locationPublic";
+
+const PRIVACY_FIELDS: { key: PrivacyKey; label: string; hint: string }[] = [
   { key: "showPostsPublicly", label: "Community posts", hint: "Your posts on your public profile" },
   { key: "showAsksPublicly", label: "Service requests", hint: "Your asks/requests on your public profile" },
   { key: "showBadgesPublicly", label: "Trust badges", hint: "Earned badges & verifications" },
   { key: "showPhonePublicly", label: "Phone number", hint: "Lets others call you from your public profile" },
+  { key: "showEmailPublicly", label: "Email address", hint: "Shows your email on your public profile" },
   { key: "showCityPublicly", label: "Neighborhood", hint: "Your area/city on your public profile" },
   { key: "showRatingPublicly", label: "Rating", hint: "Your star rating on your public profile" },
+  { key: "locationPublic", label: "Exact location", hint: "OFF = others must request & you approve. ON = anyone can see it." },
 ];
 
 export default function ProfileEdit() {
@@ -30,13 +38,15 @@ export default function ProfileEdit() {
   const [ecName, setEcName]   = useState(user.emergencyContactName || "");
   const [ecPhone, setEcPhone] = useState(user.emergencyContact || "");
 
-  const [privacy, setPrivacy] = useState({
+  const [privacy, setPrivacy] = useState<Record<PrivacyKey, boolean>>({
     showPostsPublicly: user.showPostsPublicly !== false,
     showAsksPublicly: user.showAsksPublicly !== false,
     showBadgesPublicly: user.showBadgesPublicly !== false,
     showPhonePublicly: user.showPhonePublicly !== false,
+    showEmailPublicly: user.showEmailPublicly === true,   // email defaults private
     showCityPublicly: user.showCityPublicly !== false,
     showRatingPublicly: user.showRatingPublicly !== false,
+    locationPublic: user.locationPublic === true,          // exact location defaults private
   });
 
   const [uploading, setUploading] = useState(false);
@@ -64,9 +74,8 @@ export default function ProfileEdit() {
   }
 
   async function getGPSLocation() {
-    if (!navigator.geolocation) { showToast("GPS not available on this device"); return; }
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    nativeGeolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         setLat(latitude); setLng(longitude);

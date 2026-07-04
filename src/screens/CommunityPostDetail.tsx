@@ -47,14 +47,23 @@ export default function CommunityPostDetail() {
   const totalVotes = (safePost.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !safePost.votedOptionId ? 1 : 0);
 
   async function handleLike() {
-    toggleLike(safePost.id);
-    await communityService.like(safePost.id, liked);
+    toggleLike(safePost.id); // optimistic
+    try {
+      await communityService.like(safePost.id, liked);
+    } catch {
+      toggleLike(safePost.id); // revert so the UI never lies
+      showToast("Couldn't update like — try again");
+    }
   }
 
   async function handleVote(optId: string) {
     if (votedOption) return;
-    votePoll(safePost.id, optId);
-    await communityService.vote(safePost.id, optId);
+    votePoll(safePost.id, optId); // optimistic
+    try {
+      await communityService.vote(safePost.id, optId);
+    } catch {
+      showToast("Couldn't record your vote — try again");
+    }
   }
 
   async function sendComment() {

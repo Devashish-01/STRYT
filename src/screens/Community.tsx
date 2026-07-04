@@ -81,7 +81,7 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
   onRefetch?: () => void;
 }) {
   const nav = useNavigate();
-  const { likes, toggleLike, votes, votePoll, user } = useApp();
+  const { likes, toggleLike, votes, votePoll, user, showToast } = useApp();
   const [recommendOpen, setRecommendOpen] = useState(false);
   const M = typeMeta[post.type];
   // XOR: the store tracks session-toggles only (empty on load); DB truth is post.liked.
@@ -92,14 +92,19 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
   const totalVotes = (post.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !post.votedOptionId ? 1 : 0);
 
   function handleLike() {
-    toggleLike(post.id);
-    communityService.like(post.id, liked).catch(() => {});
+    toggleLike(post.id); // optimistic
+    communityService.like(post.id, liked).catch(() => {
+      toggleLike(post.id); // revert so the UI never lies
+      showToast("Couldn't update like — try again");
+    });
   }
 
   function handleVote(optId: string) {
     if (votedOption) return;
-    votePoll(post.id, optId);
-    communityService.vote(post.id, optId).catch(() => {});
+    votePoll(post.id, optId); // optimistic
+    communityService.vote(post.id, optId).catch(() => {
+      showToast("Couldn't record your vote — try again");
+    });
   }
 
   async function handleRecommend(listingType: BookmarkTarget, listingId: string) {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "lucide-react";
 import { useApp } from "@/store";
@@ -6,8 +6,11 @@ import { catalogService, requestService, appointmentService, businessService } f
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
-import QrScannerSheet from "@/components/QrScannerSheet";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
+
+// Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
+// fetched when the user actually opens the scanner, not on every Home visit.
+const QrScannerSheet = lazy(() => import("@/components/QrScannerSheet"));
 
 function reorderCategories(
   all: { id: string; slug: string; name: string; icon: string; color: string }[],
@@ -322,7 +325,11 @@ export default function Home() {
 
         <div style={{ height: 24 }} />
       </div>
-      {scanner && <QrScannerSheet onClose={() => setScanner(false)} />}
+      {scanner && (
+        <Suspense fallback={null}>
+          <QrScannerSheet onClose={() => setScanner(false)} />
+        </Suspense>
+      )}
       {locationOpen && <LocationPickerSheet onClose={() => setLocationOpen(false)} />}
     </div>
   );

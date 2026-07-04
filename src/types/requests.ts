@@ -49,6 +49,7 @@ export interface RequestPost {
   isRecurring?: boolean;
   isAnonymous?: boolean;
   expiresInHrs?: number;
+  expiresAt?: string | null; // ISO; request auto-EXPIREs past this (max 24h out)
   liveStatus?: JobLiveStatus;
 }
 

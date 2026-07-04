@@ -188,6 +188,8 @@ export default function RequestDetail() {
             {r.status !== "OPEN" && <span className="badge badge-blue">{r.status}</span>}
           </div>
 
+          {r.status === "OPEN" && r.expiresAt && <ExpiryCountdown expiresAt={r.expiresAt} />}
+
           {/* Owner Management Controls (CRUD) */}
           {isMine && (
             <div className="row gap-8" style={{ marginTop: 12, background: "var(--ink-50)", padding: 8, borderRadius: 12 }}>
@@ -506,6 +508,42 @@ function Cell({ label, value, color }: { label: string; value: string; color?: s
       <span className="tiny muted">{label}</span>
       <span className="semi small" style={{ color }}>{value}</span>
     </div>
+  );
+}
+
+// Live "expires in Xh Ym" pill for an OPEN request. Ticks each minute; turns
+// red under an hour; renders nothing once past (the server sweep flips status).
+function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  const msLeft = new Date(expiresAt).getTime() - now;
+  if (msLeft <= 0) return null;
+  const totalMin = Math.floor(msLeft / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const urgent = msLeft < 3_600_000;
+  const label = h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+  return (
+    <span
+      className="row gap-4"
+      style={{
+        alignItems: "center",
+        alignSelf: "flex-start",
+        marginTop: 8,
+        padding: "3px 10px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 700,
+        background: urgent ? "#fef2f2" : "var(--brand-50)",
+        color: urgent ? "var(--red-500)" : "var(--brand-700)",
+        border: `1px solid ${urgent ? "#fecaca" : "var(--brand-200)"}`,
+      }}
+    >
+      <Clock size={12} /> Expires in {label}
+    </span>
   );
 }
 function Sep() {

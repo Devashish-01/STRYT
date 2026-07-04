@@ -38,6 +38,10 @@ export interface Business {
   lng: number;
   distanceKm: number;
   phone: string;
+  email?: string;
+  showPhonePublicly?: boolean;
+  showEmailPublicly?: boolean;
+  locationPublic?: boolean;
   whatsapp?: string;
   hours: string;
   isOpenNow: boolean;
@@ -137,6 +141,11 @@ export interface Provider {
   skills: string[];
   portfolio: PortfolioItem[];
   phone: string;
+  email?: string;
+  upiId?: string;
+  showPhonePublicly?: boolean;
+  showEmailPublicly?: boolean;
+  locationPublic?: boolean;
   verificationTier?: VerificationTier;
   isAvailableNow?: boolean;
   availableUntil?: string | null;

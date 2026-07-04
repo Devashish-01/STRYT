@@ -4,6 +4,9 @@ import BottomNav from "./components/BottomNav";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
 import { useI18n, type Lang } from "./lib/i18n";
+import { Capacitor } from "@capacitor/core";
+import { App as CapApp } from "@capacitor/app";
+import { StatusBar, Style } from "@capacitor/status-bar";
 
 // Auth & onboarding
 const Splash = lazy(() => import("./screens/Splash"));
@@ -141,7 +144,7 @@ function AuthSplash() {
 }
 
 function ProtectedLayout() {
-  const { isAuthed, authReady, user } = useApp();
+  const { isAuthed, authReady, profileReady, user } = useApp();
   const location = useLocation();
   const { lang, setLang } = useI18n();
 
@@ -164,6 +167,14 @@ function ProtectedLayout() {
   if (!isAuthed && !isAuthCallback) {
     returnTo.remember(location.pathname + location.search);
     return <Navigate to="/auth/phone" replace />;
+  }
+
+  // We have a session but the real profile hasn't loaded yet — wait rather
+  // than mounting screens against the blank seed user (name "", avatar "",
+  // etc.), which used to flash placeholder identity data before refreshUser()
+  // resolved and replaced it.
+  if (!profileReady) {
+    return <AuthSplash />;
   }
 
   // Deletion pending: redirect to warning screen
@@ -213,6 +224,25 @@ export default function App() {
   const location = useLocation();
   const { toast } = useApp();
   const showNav = TAB_ROUTES.includes(location.pathname);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const sub = CapApp.addListener("backButton", ({ canGoBack }) => {
+        if (canGoBack) {
+          window.history.back();
+        } else {
+          void CapApp.exitApp();
+        }
+      });
+
+      void StatusBar.setBackgroundColor({ color: "#7c3aed" }).catch(() => {});
+      void StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
+
+      return () => {
+        void sub.then((s) => s.remove());
+      };
+    }
+  }, []);
 
   return (
     <div className="app-shell">

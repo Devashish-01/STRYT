@@ -10,12 +10,22 @@ import type { Business, Provider } from "@/types";
 import { useApp } from "@/store";
 
 const trending = ["Biryani", "Plumber", "Salon", "Birthday cake", "AC repair", "Tutor"];
-const recent = ["Cappuccino", "Makeup artist", "Grocery"];
+const RECENT_KEY = "stryt_recent_searches";
+
+function loadRecent(): string[] {
+  try {
+    const s = localStorage.getItem(RECENT_KEY);
+    return s ? JSON.parse(s) : [];
+  } catch {
+    return [];
+  }
+}
 
 export default function Search() {
   const nav = useNavigate();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
+  const [recent, setRecent] = useState<string[]>(loadRecent);
   const { user } = useApp();
 
   // Debounce input so we don't hit the API on every keystroke.
@@ -36,6 +46,23 @@ export default function Search() {
   const catResults = query ? (leaves ?? []).filter((c) => c.name.toLowerCase().includes(query)) : [];
   const total = bizResults.length + provResults.length;
   const searching = !!query && loading;
+
+  // Remember a search once it settles and actually returns results — that's the
+  // user's real recent history (deduped, most-recent-first, capped at 8).
+  useEffect(() => {
+    if (!debounced || loading || total === 0) return;
+    setRecent((prev) => {
+      const term = debounced.trim();
+      const next = [term, ...prev.filter((r) => r.toLowerCase() !== term.toLowerCase())].slice(0, 8);
+      try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, [debounced, loading, total]);
+
+  function clearRecent() {
+    setRecent([]);
+    try { localStorage.removeItem(RECENT_KEY); } catch {}
+  }
 
   return (
     <div className="screen">
@@ -67,16 +94,23 @@ export default function Search() {
       <div className="screen-scroll">
         {!query ? (
           <div className="page-pad">
-            <div className="small semi muted row gap-6" style={{ marginBottom: 12 }}>
-              <Clock size={15} /> Recent
-            </div>
-            <div className="row wrap gap-8">
-              {recent.map((r) => (
-                <button key={r} className="chip" onClick={() => setQ(r)}>{r}</button>
-              ))}
-            </div>
+            {recent.length > 0 && (
+              <>
+                <div className="row between" style={{ marginBottom: 12 }}>
+                  <div className="small semi muted row gap-6">
+                    <Clock size={15} /> Recent
+                  </div>
+                  <button className="tiny semi" style={{ color: "var(--brand-700)" }} onClick={clearRecent}>Clear</button>
+                </div>
+                <div className="row wrap gap-8">
+                  {recent.map((r) => (
+                    <button key={r} className="chip" onClick={() => setQ(r)}>{r}</button>
+                  ))}
+                </div>
+              </>
+            )}
 
-            <div className="small semi muted row gap-6" style={{ margin: "22px 0 12px" }}>
+            <div className="small semi muted row gap-6" style={{ margin: recent.length > 0 ? "22px 0 12px" : "0 0 12px" }}>
               <TrendingUp size={15} /> Trending near you
             </div>
             <div className="row wrap gap-8">

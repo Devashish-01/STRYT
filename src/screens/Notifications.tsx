@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone } from "lucide-react";
+import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin } from "lucide-react";
 import { notificationService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -20,6 +20,8 @@ const meta: Record<NotificationType, { icon: any; color: string; bg: string }> =
   ME_TOO: { icon: Users, color: "var(--green-500)", bg: "#e8f7ee" },
   GROUP_BUY_UNLOCKED: { icon: PartyPopper, color: "var(--orange-500)", bg: "#fff3e8" },
   QUOTE_BROADCAST: { icon: Megaphone, color: "#a855f7", bg: "#f3e8ff" },
+  LOCATION_REQUEST: { icon: MapPin, color: "var(--brand-700)", bg: "var(--brand-100)" },
+  LOCATION_APPROVED: { icon: MapPin, color: "var(--green-500)", bg: "#e8f7ee" },
   SYSTEM: { icon: Bell, color: "#5c5573", bg: "#f1eef8" },
 };
 

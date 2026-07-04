@@ -219,6 +219,17 @@ export function ProviderCardSmall({ p }: { p: Provider }) {
 
 /* ---------------- Request card ---------------- */
 
+// Lifecycle badge for a request past the OPEN stage — makes auto-archival
+// (EXPIRED) and deal progress visible instead of every card looking "live".
+const REQUEST_STATUS_BADGE: Record<string, { label: string; cls: string } | null> = {
+  OPEN: null,
+  AGREED: { label: "In progress", cls: "badge-blue" },
+  IN_PROGRESS: { label: "In progress", cls: "badge-blue" },
+  COMPLETED: { label: "Completed", cls: "badge-green" },
+  CANCELLED: { label: "Cancelled", cls: "badge-gray" },
+  EXPIRED: { label: "Expired", cls: "badge-gray" },
+};
+
 export function RequestCard({ r }: { r: RequestPost }) {
   const nav = useNavigate();
   const { meToos, toggleMeToo } = useApp();
@@ -226,8 +237,15 @@ export function RequestCard({ r }: { r: RequestPost }) {
     r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget";
   const meTooed = meToos.includes(r.id) || r.meTooed;
   const meTooCount = (r.meTooCount ?? 0) + (meTooed && !r.meTooed ? 1 : 0);
+  const isOpen = r.status === "OPEN";
+  const statusBadge = REQUEST_STATUS_BADGE[r.status] ?? null;
+  const archived = r.status === "EXPIRED" || r.status === "CANCELLED";
   return (
-    <div className="card fade-up" style={{ padding: 14, border: r.isUrgent ? "1.5px solid #fecaca" : undefined }} onClick={() => nav(`/request/${r.id}`)}>
+    <div
+      className="card fade-up"
+      style={{ padding: 14, border: r.isUrgent && isOpen ? "1.5px solid #fecaca" : undefined, opacity: archived ? 0.62 : 1 }}
+      onClick={() => nav(`/request/${r.id}`)}
+    >
       <div className="row gap-10" style={{ alignItems: "flex-start" }}>
         <SafeImg src={r.requesterAvatar} alt={r.requesterName} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
         <div className="grow" style={{ minWidth: 0 }}>
@@ -244,8 +262,9 @@ export function RequestCard({ r }: { r: RequestPost }) {
       <div className="row gap-8" style={{ marginTop: 10, alignItems: "flex-start" }}>
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="row wrap gap-6" style={{ marginBottom: 4 }}>
-            {r.isUrgent && <span className="badge badge-red"><Flame size={11} /> Urgent</span>}
-            {r.isBoosted && <span className="badge badge-amber"><Zap size={11} /> Boosted</span>}
+            {statusBadge && <span className={`badge ${statusBadge.cls}`}>{statusBadge.label}</span>}
+            {isOpen && r.isUrgent && <span className="badge badge-red"><Flame size={11} /> Urgent</span>}
+            {isOpen && r.isBoosted && <span className="badge badge-amber"><Zap size={11} /> Boosted</span>}
             {r.isGroupBuy && <span className="badge badge-green"><Users size={11} /> Group buy</span>}
             {r.isRecurring && <span className="badge badge-blue"><Repeat size={11} /> Recurring</span>}
             <span className="badge badge-purple">{r.categoryName}</span>
@@ -278,17 +297,25 @@ export function RequestCard({ r }: { r: RequestPost }) {
           <span className="tiny muted">Budget</span>
           <span className="bold" style={{ color: "var(--green-500)" }}>{budget}</span>
         </div>
-        <button
-          className="row gap-4 chip"
-          style={{ padding: "7px 12px", background: meTooed ? "var(--brand-800)" : "#fff", color: meTooed ? "#fff" : "var(--ink-700)", borderColor: meTooed ? "var(--brand-800)" : "var(--ink-200)" }}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleMeToo(r.id);
-            requestService.meToo(r.id).catch(() => toggleMeToo(r.id));
-          }}
-        >
-          <Users size={13} /> {meTooed ? "Me too ✓" : "Me too"} {meTooCount > 0 && `· ${meTooCount}`}
-        </button>
+        {isOpen ? (
+          <button
+            className="row gap-4 chip"
+            style={{ padding: "7px 12px", background: meTooed ? "var(--brand-800)" : "#fff", color: meTooed ? "#fff" : "var(--ink-700)", borderColor: meTooed ? "var(--brand-800)" : "var(--ink-200)" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMeToo(r.id);
+              requestService.meToo(r.id).catch(() => toggleMeToo(r.id));
+            }}
+          >
+            <Users size={13} /> {meTooed ? "Me too ✓" : "Me too"} {meTooCount > 0 && `· ${meTooCount}`}
+          </button>
+        ) : (
+          meTooCount > 0 && (
+            <span className="row gap-4 tiny muted" style={{ alignItems: "center" }}>
+              <Users size={13} /> {meTooCount} interested
+            </span>
+          )
+        )}
         <div className="col" style={{ gap: 2, alignItems: "flex-end" }}>
           <span className="tiny muted row gap-4"><Eye size={11} /> {r.viewCount}</span>
           <span className="semi small" style={{ color: "var(--brand-700)" }}>

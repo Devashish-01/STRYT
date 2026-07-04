@@ -4,6 +4,7 @@ import { MapPin, Navigation } from "lucide-react";
 import { useApp } from "@/store";
 import { userService } from "@/services";
 import { reverseGeocode, forwardGeocode } from "@/lib/geocode";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 export default function LocationPermission() {
   const nav = useNavigate();
@@ -19,14 +20,7 @@ export default function LocationPermission() {
 
   function allow() {
     setLocating(true);
-    if (!navigator.geolocation) {
-      void userService.setLocation(0, 0).catch(() => {});
-      setArea("your area");
-      showToast("Location set");
-      nav("/home");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
+    nativeGeolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         // Auto-name the area from the GPS fix (e.g. "Marathahalli") so the user
@@ -52,7 +46,7 @@ export default function LocationPermission() {
         showToast("Couldn't get location. Enter it manually.");
         setManualMode(true);
       },
-      { enableHighAccuracy: false, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 8000 }
     );
   }
 

@@ -7,14 +7,13 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ListSkeleton } from "@/components/states";
 import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut } from "lucide-react";
 import { useApp } from "@/store";
-import { kycService } from "@/services/core/kycService";
 
-type Tab = "dashboard" | "queue" | "kyc" | "disputes" | "reports" | "bugs" | "profiles" | "account";
+type Tab = "dashboard" | "queue" | "disputes" | "reports" | "bugs" | "profiles" | "account";
 type QueueType = "business" | "provider" | "category";
 
 export default function AdminPanel() {
   const nav = useNavigate();
-  const { user, showToast } = useApp();
+  const { user, showToast, refreshUser } = useApp();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [claiming, setClaiming] = useState(false);
 
@@ -27,7 +26,9 @@ export default function AdminPanel() {
     try {
       await adminService.claimFirstAdmin("admin");
       showToast("Admin access granted — welcome!");
-      window.location.reload();
+      // Re-fetch the profile so the new admin role flows into the store and the
+      // panel re-renders in place — no jarring full-page reload.
+      await refreshUser();
     } catch (e: any) {
       showToast(e?.message || "Couldn't claim admin access.");
     } finally {
@@ -67,14 +68,13 @@ export default function AdminPanel() {
     <div className="screen">
       <AppBar title="Admin Console" subtitle="Moderation & ops" onBack={() => nav("/profile")} />
       <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff", overflowX: "auto" }}>
-        {([["dashboard", "Overview"], ["queue", "Queue"], ["kyc", "KYC"], ["disputes", "Disputes"], ["reports", "Reports"], ["bugs", "Bugs"], ["profiles", "Profiles"], ["account", "Account"]] as [Tab, string][]).map(([t, label]) => (
+        {([["dashboard", "Overview"], ["queue", "Queue"], ["disputes", "Disputes"], ["reports", "Reports"], ["bugs", "Bugs"], ["profiles", "Profiles"], ["account", "Account"]] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} className="semi" style={{ flex: "1 0 auto", padding: "12px 14px", fontSize: 13.5, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>{label}</button>
         ))}
       </div>
       <div className="screen-scroll">
         {tab === "dashboard" && <AdminDashboard />}
         {tab === "queue" && <AdminQueue />}
-        {tab === "kyc" && <AdminKYC />}
         {tab === "disputes" && <AdminDisputes />}
         {tab === "reports" && <AdminReports />}
         {tab === "bugs" && <AdminBugs />}
@@ -355,62 +355,6 @@ function AdminBugs() {
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function AdminKYC() {
-  const { showToast } = useApp();
-  const { data, loading, refetch } = useQueryWithRealtime(() => kycService.adminGetPending(), "provider_verifications", []);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [selectedTier, setSelectedTier] = useState("PAN_VERIFIED");
-
-  if (loading) return <div className="page-pad"><ListSkeleton count={3} /></div>;
-  const items = data ?? [];
-
-  return (
-    <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
-      {items.length === 0 && <EmptyState emoji="✅" title="KYC queue clear" text="No documents pending review." />}
-      {items.map((item: any) => (
-        <div key={item.id} className="card" style={{ padding: 14 }}>
-          <div className="row between" style={{ marginBottom: 10 }}>
-            <div>
-              <div className="semi small">{item.provider?.display_name ?? "Provider"}</div>
-              <div className="tiny muted">{item.type} • submitted {new Date(item.created_at).toLocaleDateString()}</div>
-            </div>
-            <a href={item.doc_url} target="_blank" rel="noopener noreferrer"
-              className="btn btn-outline btn-sm" style={{ fontSize: 12 }}>
-              View doc
-            </a>
-          </div>
-          {approvingId === item.id ? (
-            <div className="col gap-8">
-              <select className="input" value={selectedTier} onChange={(e) => setSelectedTier(e.target.value)} style={{ fontSize: 13 }}>
-                <option value="PAN_VERIFIED">PAN Verified</option>
-                <option value="AADHAAR_VERIFIED">Aadhaar Verified</option>
-                <option value="VERIFIED_PLUS">Verified+</option>
-              </select>
-              <div className="row gap-8">
-                <button className="btn btn-outline grow btn-sm" onClick={() => setApprovingId(null)}>Cancel</button>
-                <button className="btn btn-green grow btn-sm" onClick={async () => {
-                  await kycService.adminApprove(item.id, item.provider_id, selectedTier as any);
-                  showToast("Approved ✓"); setApprovingId(null); refetch();
-                }}>Confirm</button>
-              </div>
-            </div>
-          ) : (
-            <div className="row gap-8">
-              <button className="btn btn-outline grow btn-sm" style={{ color: "var(--red-600)" }} onClick={async () => {
-                await kycService.adminReject(item.id);
-                showToast("Rejected"); refetch();
-              }}><X size={14} /> Reject</button>
-              <button className="btn btn-green grow btn-sm" onClick={() => setApprovingId(item.id)}>
-                <Check size={14} /> Approve
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
     </div>
   );
 }

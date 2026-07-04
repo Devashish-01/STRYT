@@ -55,7 +55,8 @@ const BUSINESS_COLUMNS = new Set([
   "isAvailableNow","availableUntil",
   "openingDate","isNew","status","coverImage","gallery","ratingAvg","ratingCount",
   "viewCount","isFeatured","isVerified","tags","priceForTwo","deliveryTime","offerText",
-  "verificationStatus","verificationDocumentUrl","aadhaarDocUrl","panDocUrl","upiId",
+  "verificationStatus","verificationDocumentUrl","upiId",
+  "email","showPhonePublicly","showEmailPublicly","locationPublic",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {

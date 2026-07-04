@@ -5,6 +5,7 @@ import { AppBar, SafeImg } from "@/components/common";
 import { socialService, uploadService } from "@/services";
 import { useApp } from "@/store";
 import { currentUserId } from "@/lib/supabaseClient";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 const EXPIRY_OPTS = [1, 3, 6, 12] as const;
 
@@ -70,12 +71,12 @@ export default function StoryCompose() {
 
       let lat = user.lat;
       let lng = user.lng;
-      if (!lat && !lng && navigator.geolocation) {
+      if (!lat && !lng) {
         await new Promise<void>((resolve) => {
-          navigator.geolocation.getCurrentPosition(
+          nativeGeolocation.getCurrentPosition(
             (pos) => { lat = pos.coords.latitude; lng = pos.coords.longitude; resolve(); },
             () => resolve(),
-            { timeout: 4000 }
+            { enableHighAccuracy: true, timeout: 4000 }
           );
         });
       }

@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { AppBar } from "@/components/common";
-import { Moon, Volume2, Globe, Shield, Eye, Pencil } from "lucide-react";
+import { AppBar, SafeImg } from "@/components/common";
+import { Moon, Volume2, Globe, Shield, Eye, Pencil, MapPin, Check, X } from "lucide-react";
 import { useApp } from "@/store";
-import { userService, profileControlService } from "@/services";
+import { userService, profileControlService, locationService } from "@/services";
+import { useQueryWithRealtime } from "@/hooks/useApi";
+import type { LocationGrant } from "@/services/engagement/locationService";
 import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
 import RadiusSelector from "@/components/RadiusSelector";
 
@@ -164,6 +166,9 @@ export default function Settings() {
     <div className="screen">
       <AppBar title="Settings" />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 40 }}>
+        {/* Inbound location-share requests to approve/deny */}
+        <LocationRequestsInbox />
+
         {/* Notification Radius */}
         <div>
           <RadiusSelector
@@ -278,6 +283,64 @@ function Row({ icon, label, hint, on, set, last }: { icon?: React.ReactNode; lab
         {hint && <div className="tiny muted">{hint}</div>}
       </div>
       <Toggle on={on} onChange={set} />
+    </div>
+  );
+}
+
+// Owner-side inbox: people asking to see your exact location. Approve/deny inline.
+// Live via realtime on location_share_grants; renders nothing when empty.
+function LocationRequestsInbox() {
+  const { showToast } = useApp();
+  const { data, refetch } = useQueryWithRealtime(
+    () => locationService.pendingForMe(),
+    "location_share_grants",
+    []
+  );
+  const pending: LocationGrant[] = data ?? [];
+  if (pending.length === 0) return null;
+
+  async function respond(requesterUserId: string, approve: boolean) {
+    try {
+      await locationService.respond(requesterUserId, approve);
+      showToast(approve ? "Location shared" : "Request denied");
+      refetch();
+    } catch {
+      showToast("Couldn't update — try again");
+    }
+  }
+
+  return (
+    <div>
+      <div className="small semi muted row gap-6" style={{ marginBottom: 8, alignItems: "center" }}>
+        <MapPin size={14} color="var(--brand-600)" /> Location requests
+      </div>
+      <div className="card col gap-8" style={{ padding: 12 }}>
+        {pending.map((g) => (
+          <div key={g.id} className="row gap-10" style={{ alignItems: "center" }}>
+            <SafeImg src={g.requesterAvatar} variant="avatar" className="avatar" style={{ width: 38, height: 38 }} />
+            <div className="grow">
+              <div className="semi small" style={{ color: "var(--ink-900)" }}>{g.requesterName}</div>
+              <div className="tiny muted">wants to see your exact location</div>
+            </div>
+            <button
+              className="icon-btn"
+              style={{ background: "#e8f7ee", color: "var(--green-600)", width: 34, height: 34 }}
+              onClick={() => respond(g.requesterUserId, true)}
+              aria-label="Approve"
+            >
+              <Check size={16} />
+            </button>
+            <button
+              className="icon-btn"
+              style={{ background: "var(--ink-100)", color: "var(--ink-600)", width: 34, height: 34 }}
+              onClick={() => respond(g.requesterUserId, false)}
+              aria-label="Deny"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

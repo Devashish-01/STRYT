@@ -14,7 +14,8 @@ const USER_COLUMNS = new Set([
   "ratingAvg", "ratingCount", "language", "notificationRadiusKm",
   "emergencyContact", "emergencyContactName",
   "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
-  "showPhonePublicly", "showCityPublicly", "showRatingPublicly",
+  "showPhonePublicly", "showEmailPublicly", "showCityPublicly", "showRatingPublicly",
+  "locationPublic",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
@@ -94,7 +95,7 @@ export const userService = {
     // `.select()` (which asks for `*`). Callers needing the sensitive fields
     // back should re-fetch via get_own_profile() afterward.
     const { data, error } = await sb.from("users").update(toSnake(cleanPatch)).eq("id", uid)
-      .select("id, name, avatar, roles, area, city, rating_avg, rating_count, language, notification_radius_km, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_city_publicly, show_rating_publicly, customer_enabled, customer_deleted_at")
+      .select("id, name, avatar, roles, area, city, rating_avg, rating_count, language, notification_radius_km, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_email_publicly, show_city_publicly, show_rating_publicly, location_public, customer_enabled, customer_deleted_at")
       .maybeSingle();
     throwIfError(error);
 
@@ -207,11 +208,13 @@ export const userService = {
       id: ur.id,
       name: ur.name,
       phone: ur.phone ?? undefined,
+      email: ur.email ?? undefined,
       distanceKm: ur.distance_km ?? undefined,
       showPostsPublicly: ur.show_posts_publicly ?? true,
       showAsksPublicly: ur.show_asks_publicly ?? true,
       showBadgesPublicly: ur.show_badges_publicly ?? true,
       showPhonePublicly: ur.show_phone_publicly ?? true,
+      showEmailPublicly: ur.show_email_publicly ?? false,
       showCityPublicly: ur.show_city_publicly ?? true,
       showRatingPublicly: ur.show_rating_publicly ?? true,
       avatar: ur.avatar ?? "",

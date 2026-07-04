@@ -17,6 +17,9 @@ import { useApp } from "@/store";
 import { userService, uploadService } from "@/services";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import RadiusSelector from "@/components/RadiusSelector";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
+
+// Types for onboarding steps
 
 
 const EMOJI_AVATARS = ["🦊", "🐯", "🐨", "🦉", "🎨", "🚀", "🍕", "🥑", "⚽", "🎯"];
@@ -130,12 +133,8 @@ export default function UserOnboard() {
   }
 
   async function getGPSLocation() {
-    if (!navigator.geolocation) {
-      showToast("GPS not available on this device");
-      return;
-    }
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    nativeGeolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         setLat(latitude);

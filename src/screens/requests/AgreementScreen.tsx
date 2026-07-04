@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
-import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, ShieldAlert, Share2, XCircle } from "lucide-react";
+import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, ShieldAlert, Share2, XCircle, QrCode } from "lucide-react";
 import { requestService } from "@/services";
+import DealUpiSheet from "@/components/DealUpiSheet";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import type { Agreement, AgreementStatus, Proposal, RequestPost, JobLiveStatus } from "@/types";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -165,6 +167,7 @@ export default function AgreementScreen() {
   const [disputeMode, setDisputeMode] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
 
   const [sosCountdown, setSosCountdown] = useState<number | null>(null);
   const [sosTriggered, setSosTriggered] = useState(false);
@@ -254,7 +257,7 @@ export default function AgreementScreen() {
   async function fireSOS() {
     setSosTriggered(true);
     const pos = await new Promise<GeolocationPosition>((res, rej) =>
-      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
+      nativeGeolocation.getCurrentPosition(res, rej, { timeout: 5000 })
     ).catch(() => null);
     try {
       await requestService.sosAlert(agreement!.id, pos?.coords.latitude ?? 0, pos?.coords.longitude ?? 0);
@@ -266,7 +269,7 @@ export default function AgreementScreen() {
 
   function getGPS(): Promise<{ lat: number; lng: number } | null> {
     return new Promise((res) =>
-      navigator.geolocation.getCurrentPosition(
+      nativeGeolocation.getCurrentPosition(
         (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
         () => res(null),
         { timeout: 5000 }
@@ -372,9 +375,15 @@ export default function AgreementScreen() {
       if (status === "ACTIVE") {
         return (
           <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
-            {/* Online payment (Razorpay) is disabled for v1 — settle offline.
-                Re-enable once the create-razorpay-order / verify-razorpay-payment
-                edge functions and the payments table escrow flow are live. */}
+            {/* Pay the responder over UPI (QR from their saved UPI ID), then
+                confirm settlement. Cash-in-person also supported via the same
+                confirm button. */}
+            <button
+              className="btn btn-outline btn-block"
+              onClick={() => setPayOpen(true)}
+            >
+              <QrCode size={16} /> Pay ₹{agreement!.agreedPrice} via UPI
+            </button>
             <button
               className="btn btn-primary btn-block"
               disabled={busy}
@@ -383,7 +392,7 @@ export default function AgreementScreen() {
               <Wallet size={16} /> Mark paid (cash / UPI)
             </button>
             <p className="tiny muted" style={{ textAlign: "center" }}>
-              Pay the agreed amount in person. STRYT records the deal — in-app payment isn't available yet.
+              Pay via UPI above or in person, then mark the deal paid so both sides have a record.
             </p>
           </div>
         );
@@ -674,6 +683,15 @@ export default function AgreementScreen() {
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
         <ActionArea />
       </div>
+
+      {payOpen && agreement && (
+        <DealUpiSheet
+          payeeUserId={agreement.responderUserId}
+          payeeName={agreement.responderName}
+          amount={agreement.agreedPrice}
+          onClose={() => setPayOpen(false)}
+        />
+      )}
     </div>
   );
 }

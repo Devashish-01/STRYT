@@ -152,6 +152,7 @@ export default function ProviderDashboard() {
             <Tile emoji="🖼️" label="Portfolio" onClick={() => nav(`${base}/portfolio`)} />
             <Tile emoji="🙋" label="Leads & requests" onClick={() => nav(`${base}/leads`)} />
             <Tile emoji="📣" label="Post to community" onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
+            <Tile emoji="🏘️" label="View community" onClick={() => nav("/community-hub")} />
             <Tile emoji="🛡️" label="Verification" onClick={() => nav(`${base}/verify`)} />
             <Tile emoji="📱" label="Share QR" onClick={() => setShare(true)} />
           </div>

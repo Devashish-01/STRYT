@@ -15,6 +15,8 @@ export type NotificationType =
   | "ME_TOO"
   | "GROUP_BUY_UNLOCKED"
   | "QUOTE_BROADCAST"
+  | "LOCATION_REQUEST"
+  | "LOCATION_APPROVED"
   | "SYSTEM";
 
 export interface AppNotification {
@@ -53,8 +55,12 @@ export interface PublicUser {
   showAsksPublicly?: boolean;
   showBadgesPublicly?: boolean;
   showPhonePublicly?: boolean;
+  showEmailPublicly?: boolean;
   showCityPublicly?: boolean;
   showRatingPublicly?: boolean;
+  email?: string;        // present only if the owner made it public
+  locationShared?: boolean; // viewer currently has an approved location grant
+  locationRequestStatus?: "NONE" | "PENDING" | "APPROVED" | "DENIED";
 }
 
 export interface CurrentUser {
@@ -78,8 +84,10 @@ export interface CurrentUser {
   showAsksPublicly?: boolean;
   showBadgesPublicly?: boolean;
   showPhonePublicly?: boolean;
+  showEmailPublicly?: boolean;
   showCityPublicly?: boolean;
   showRatingPublicly?: boolean;
+  locationPublic?: boolean; // global "anyone can see my exact location"
   customerEnabled?: boolean;
   customerDeletedAt?: string | null;
   deletionScheduledAt?: string | null;

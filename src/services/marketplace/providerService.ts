@@ -35,6 +35,7 @@ const PROVIDER_COLUMNS = new Set([
   "lat","lng","serviceRadiusKm","startingPrice","availabilityNote","status","isVerified",
   "ratingAvg","ratingCount","jobsDone","responseTime","isNew","skills","phone",
   "verificationStatus","verificationDocumentUrl",
+  "email","upiId","showPhonePublicly","showEmailPublicly","locationPublic",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
 import { requestService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { ChevronRight } from "lucide-react";
 import type { AgreementStatus } from "@/types";
@@ -21,7 +21,9 @@ const statusMeta: Record<AgreementStatus, { label: string; tone: string }> = {
 export default function Agreements() {
   const nav = useNavigate();
   const [tab, setTab] = useState<"active" | "completed">("active");
-  const { data, loading, error, refetch } = useQuery(() => requestService.agreements(), []);
+  // Realtime: a deal's status changes when the other party confirms / starts /
+  // completes — the list should reflect that live, like the single-deal screen.
+  const { data, loading, error, refetch } = useQueryWithRealtime(() => requestService.agreements(), "agreements", []);
 
   const agreements = data ?? [];
   const TERMINAL: AgreementStatus[] = ["COMPLETED", "CANCELLED", "DISPUTED"];

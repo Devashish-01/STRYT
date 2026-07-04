@@ -1,12 +1,17 @@
 import { useCallback, useState } from "react";
 
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
+
 export interface UseGeolocationOptions {
   /** Coords already saved on the user profile (LocationPermission / Settings). */
   storedLat?: number;
   storedLng?: number;
 }
 
-const GEO_OPTS: PositionOptions = { enableHighAccuracy: false, timeout: 10000 };
+// enableHighAccuracy asks for the GPS chip rather than cell-tower/WiFi
+// positioning — the latter can be off by hundreds of meters to kilometers,
+// which is exactly wrong for a hyperlocal app.
+const GEO_OPTS: PositionOptions = { enableHighAccuracy: true, timeout: 10000 };
 
 /**
  * Store-first geolocation (same pattern as AskCompose / StoryCompose):
@@ -27,22 +32,20 @@ export function useGeolocation(opts: UseGeolocationOptions = {}) {
     setError(null);
   }, []);
 
-  const request = useCallback(async (): Promise<{ lat: number; lng: number } | null> => {
-    if (storedLat && storedLng) {
+  // `force` bypasses the stored-coords shortcut — used by an explicit
+  // "re-detect" action, where the user is asking for a fresh GPS fix, not
+  // the same value we already have (which may be stale or was wrong).
+  const request = useCallback(async (force = false): Promise<{ lat: number; lng: number } | null> => {
+    if (!force && storedLat && storedLng) {
       setCoords(storedLat, storedLng);
       return { lat: storedLat, lng: storedLng };
-    }
-
-    if (!navigator.geolocation) {
-      setError("GPS not available on this device");
-      return null;
     }
 
     setLoading(true);
     setError(null);
 
     return new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
+      nativeGeolocation.getCurrentPosition(
         (pos) => {
           const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           setCoords(coords.lat, coords.lng);

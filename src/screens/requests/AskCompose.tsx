@@ -6,6 +6,7 @@ import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import RadiusSelector from "@/components/RadiusSelector";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 
 interface Template {
@@ -83,6 +84,7 @@ export default function AskCompose() {
   const [urgent, setUrgent] = useState(false);
   const [recurring, setRecurring] = useState(false);
   const [anon, setAnon] = useState(false);
+  const [expiryHrs, setExpiryHrs] = useState(24); // auto-expire window; capped at 24h
   const [posting, setPosting] = useState(false);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -182,12 +184,12 @@ export default function AskCompose() {
     try {
       let lat = user.lat;
       let lng = user.lng;
-      if (!lat && !lng && navigator.geolocation) {
+      if (!lat && !lng) {
         await new Promise<void>((resolve) => {
-          navigator.geolocation.getCurrentPosition(
+          nativeGeolocation.getCurrentPosition(
             (pos) => { lat = pos.coords.latitude; lng = pos.coords.longitude; resolve(); },
             () => resolve(),
-            { timeout: 4000 }
+            { enableHighAccuracy: true, timeout: 4000 }
           );
         });
       }
@@ -204,6 +206,8 @@ export default function AskCompose() {
         isUrgent: urgent,
         isRecurring: recurring,
         isAnonymous: anon,
+        expiresInHrs: expiryHrs,
+        expiresAt: new Date(Date.now() + Math.min(expiryHrs, 24) * 3600 * 1000).toISOString(),
         photos: photos.length ? photos : undefined,
         area,
         lat: lat || 0,
@@ -447,6 +451,37 @@ export default function AskCompose() {
           <ToggleRow icon={<Flame size={18} color="var(--red-500)" />} label="Mark as urgent" hint="Pushes to providers faster" on={urgent} set={setUrgent} />
           <ToggleRow icon={<Repeat size={18} color="#3b82f6" />} label="Recurring need" hint="e.g. every weekday / weekly" on={recurring} set={setRecurring} />
           <ToggleRow icon={<EyeOff size={18} color="var(--brand-600)" />} label="Post anonymously" hint="Name hidden until you agree" on={anon} set={setAnon} />
+        </div>
+
+        {/* Auto-expiry timer — capped at 24h so stale requests self-close */}
+        <div className="field">
+          <label className="row gap-8" style={{ alignItems: "center", marginBottom: 8 }}>
+            <Clock size={16} color="var(--brand-600)" />
+            <span className="semi small">Auto-expire after</span>
+          </label>
+          <div className="row gap-8" style={{ flexWrap: "wrap" }}>
+            {[3, 6, 12, 24].map((h) => (
+              <button
+                key={h}
+                type="button"
+                className="chip"
+                style={{
+                  flex: 1,
+                  minWidth: 64,
+                  background: expiryHrs === h ? "var(--brand-600)" : "#fff",
+                  color: expiryHrs === h ? "#fff" : "var(--ink-700)",
+                  borderColor: expiryHrs === h ? "var(--brand-600)" : "var(--ink-200)",
+                  fontWeight: expiryHrs === h ? 700 : 500,
+                }}
+                onClick={() => setExpiryHrs(h)}
+              >
+                {h}h
+              </button>
+            ))}
+          </div>
+          <span className="tiny muted" style={{ marginTop: 6, display: "block" }}>
+            Providers stop seeing this request after {expiryHrs} hour{expiryHrs > 1 ? "s" : ""}.
+          </span>
         </div>
 
         <div className="field">

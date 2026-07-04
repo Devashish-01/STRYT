@@ -6,6 +6,7 @@ import { useApp } from "@/store";
 import { reverseGeocode } from "@/lib/geocode";
 import { config } from "@/config";
 import { userService } from "@/services";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 // Flies/zooms the map whenever the radius changes
 export function RadiusController({ lat, lng, radiusKm }: { lat: number; lng: number; radiusKm: number }) {
@@ -20,13 +21,15 @@ export function RadiusController({ lat, lng, radiusKm }: { lat: number; lng: num
       const bounds = L.latLng(lat, lng).toBounds(radiusKm * 2000);
       map.fitBounds(bounds, { padding: [60, 80], animate: true, duration: 0.8 });
     }
-  }, [radiusKm, lat, lng, map]);
+  }, [lat, lng, radiusKm, map]);
+
   return null;
 }
 
+// Flies to the current user location and updates their DB coordinates to GPS coords on tap
 export function RecenterButton({ radiusKm }: { radiusKm: number }) {
   const map = useMap();
-  const { user, refreshUser, showToast } = useApp();
+  const { user, showToast, refreshUser } = useApp();
   const lat = user.lat || config.defaultLocation.lat;
   const lng = user.lng || config.defaultLocation.lng;
 
@@ -45,13 +48,7 @@ export function RecenterButton({ radiusKm }: { radiusKm: number }) {
       title="Re-centre"
       style={{ background: "#fff", boxShadow: "var(--shadow)", position: "absolute", bottom: 80, right: 16, zIndex: 1000 }}
       onClick={() => {
-        if (!navigator.geolocation) {
-          showToast("GPS geolocation not supported on this device.");
-          recenterMap(lat, lng);
-          return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
+        nativeGeolocation.getCurrentPosition(
           async (pos) => {
             const { latitude, longitude } = pos.coords;
             try {

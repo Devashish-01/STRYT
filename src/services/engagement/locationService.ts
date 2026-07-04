@@ -1,0 +1,88 @@
+import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import { throwIfError } from "@/lib/supabasePage";
+
+export interface LocationGrant {
+  id: string;
+  ownerUserId: string;
+  requesterUserId: string;
+  status: "PENDING" | "APPROVED" | "DENIED";
+  requesterName?: string;
+  requesterAvatar?: string;
+  createdAt?: string;
+}
+
+export const locationService = {
+  // Ask an owner to reveal their exact location. Notifies them.
+  async request(ownerUserId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("request_location_share", { p_owner: ownerUserId });
+    throwIfError(error);
+  },
+
+  // Owner approves/denies a specific requester.
+  async respond(requesterUserId: string, approve: boolean): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("respond_location_share", { p_requester: requesterUserId, p_approve: approve });
+    throwIfError(error);
+  },
+
+  // Owner revokes a previously granted / pending share.
+  async revoke(requesterUserId: string): Promise<void> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return;
+    await sb.from("location_share_grants").delete().eq("owner_user_id", uid).eq("requester_user_id", requesterUserId);
+  },
+
+  // Exact coords of a target, or null if not permitted (no approved grant).
+  async getSharedLocation(targetId: string): Promise<{ lat: number; lng: number } | null> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("get_shared_location", { p_target: targetId }).maybeSingle();
+    throwIfError(error);
+    if (!data) return null;
+    const row = data as { lat: number; lng: number };
+    if (row.lat == null || row.lng == null) return null;
+    return { lat: row.lat, lng: row.lng };
+  },
+
+  // Pending inbound requests for the signed-in owner (to approve/deny).
+  // Non-critical read: yields [] on any error (incl. table not yet migrated)
+  // so the Settings inbox degrades silently rather than error-toasting.
+  async pendingForMe(): Promise<LocationGrant[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return [];
+    const { data, error } = await sb
+      .from("location_share_grants")
+      .select("id, owner_user_id, requester_user_id, status, created_at, requester:users!requester_user_id(name, avatar)")
+      .eq("owner_user_id", uid)
+      .eq("status", "PENDING")
+      .order("created_at", { ascending: false });
+    if (error) return [];
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      ownerUserId: r.owner_user_id,
+      requesterUserId: r.requester_user_id,
+      status: r.status,
+      requesterName: r.requester?.name ?? "Someone",
+      requesterAvatar: r.requester?.avatar ?? "",
+      createdAt: r.created_at,
+    }));
+  },
+
+  // The viewer's own outbound grant status toward a given owner.
+  // Yields "NONE" on any error so the profile control degrades gracefully.
+  async myStatusToward(ownerUserId: string): Promise<"NONE" | "PENDING" | "APPROVED" | "DENIED"> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return "NONE";
+    const { data, error } = await sb
+      .from("location_share_grants")
+      .select("status")
+      .eq("owner_user_id", ownerUserId)
+      .eq("requester_user_id", uid)
+      .maybeSingle();
+    if (error) return "NONE";
+    return (data?.status as any) ?? "NONE";
+  },
+};

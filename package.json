@@ -12,9 +12,20 @@
     "audit:report": "playwright show-report",
     "audit:login": "node -e \"require('fs').rmSync('.auth/session.json',{force:true})\" && playwright test --project=setup",
     "audit:mobile": "playwright test --project=mobile",
-    "audit:desktop": "playwright test --project=desktop"
+    "audit:desktop": "playwright test --project=desktop",
+    "cap:sync": "npm run build && npx cap sync android",
+    "cap:run": "npm run build && npx cap run android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/keyboard": "^8.0.5",
+    "@capacitor/push-notifications": "^8.1.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "@types/leaflet": "^1.9.21",

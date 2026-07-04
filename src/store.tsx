@@ -126,6 +126,11 @@ interface AppState {
   markAllRead: () => void;
   decrementUnread: () => void;
 
+  // true once the first post-login refreshUser() attempt has settled (success
+  // or failure) — the route guard waits on this so screens never mount against
+  // the blank seed user and briefly show placeholder identity data.
+  profileReady: boolean;
+
   // chat unread count
   chatUnread: number;
   setChatUnread: (n: number) => void;
@@ -175,6 +180,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   } = useCommerceSlice(showToast);
 
   const { unread, setUnread, markAllRead, decrementUnread, chatUnread, setChatUnread } = useNotificationBadges(isAuthed);
+  const [profileReady, setProfileReady] = useState(false);
 
   // owned entities — hydrated from userService.owned() once authed.
   const [ownedBusinessIds, setOwnedBusinessIds] = useState<string[]>([]);
@@ -281,7 +287,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isAuthed) {
-      void refreshUser().then(() => {
+      void refreshUser().finally(() => setProfileReady(true)).then(() => {
         currentUserId().then((uid) => { if (uid) void registerPush(uid); });
       });
       void hydratePersonalData();
@@ -356,6 +362,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       unreadCount: unread,
       markAllRead,
       decrementUnread,
+      profileReady,
       chatUnread,
       setChatUnread,
       toast,
@@ -366,6 +373,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       signOut: () => {
         tokenStore.clear();
         setIsAuthed(false);
+        setProfileReady(false);
         setUser(seedUser);
         setRoles(seedUser.roles);
         setOwnedBusinessIds([]);
@@ -382,7 +390,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       area, activeRole, roles, activeContext, ownedBusinessIds, ownedProviderId,
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
-      unread, chatUnread, toast, isAuthed, authReady,
+      unread, chatUnread, toast, isAuthed, authReady, profileReady,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, MapPinPlus } from "lucide-react";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Circle } from "react-leaflet";
 import { discoveryService, requestService, socialService, userService } from "@/services";
@@ -18,9 +18,12 @@ import { LayerToggles } from "./LayerToggles";
 import { RadiusStrip } from "./RadiusStrip";
 import { MapMarkers } from "./MapMarkers";
 import { NearbySheet } from "./NearbySheet";
+import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
+import { useLocationPinDrop } from "./useLocationPinDrop";
 
 export default function MapView() {
-  const { user } = useApp();
+  const { user, refreshUser, showToast } = useApp();
+  const pin = useLocationPinDrop(refreshUser, showToast);
   const [layers, setLayers] = useState<Record<Layer, boolean>>(() => {
     const saved = localStorage.getItem("settings_map_layers");
     if (saved) {
@@ -119,35 +122,49 @@ export default function MapView() {
 
   return (
     <div className="screen" style={{ position: "relative" }}>
-      <SearchBar />
+      {!pin.pickMode && (
+        <>
+          <SearchBar />
 
-      <LayerToggles layers={layers} setLayers={setLayers} availOnly={availOnly} setAvailOnly={setAvailOnly} />
+          <LayerToggles layers={layers} setLayers={setLayers} availOnly={availOnly} setAvailOnly={setAvailOnly} />
 
-      {/* Visible-count badge (clickable button) */}
-      {visibleCount > 0 && (
-        <button
-          onClick={() => setShowNearbyPopup(true)}
-          style={{
-            position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
-            zIndex: 1000, background: "var(--brand-600)", color: "#fff",
-            borderRadius: 20, padding: "8px 16px", fontSize: 12, fontWeight: 700,
-            boxShadow: "0 4px 16px rgba(107,33,204,0.35)", whiteSpace: "nowrap",
-            border: "none", outline: "none", cursor: "pointer",
-            display: "flex", alignItems: "center", gap: 6,
-            transition: "all 0.2s ease-in-out",
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.background = "#6d28d9"}
-          onMouseLeave={(e) => e.currentTarget.style.background = "var(--brand-600)"}
-        >
-          <span>
-            {visibleCount} {visibleCount === 1 ? "place" : "places"}
-            {isWorld ? " globally" : isCustomActive ? ` within ${radiusKm} km` : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
-          </span>
-          <ChevronRight size={14} style={{ opacity: 0.8 }} />
-        </button>
+          {/* Visible-count badge (clickable button) */}
+          {visibleCount > 0 && (
+            <button
+              onClick={() => setShowNearbyPopup(true)}
+              style={{
+                position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
+                zIndex: 1000, background: "var(--brand-600)", color: "#fff",
+                borderRadius: 20, padding: "8px 16px", fontSize: 12, fontWeight: 700,
+                boxShadow: "0 4px 16px rgba(107,33,204,0.35)", whiteSpace: "nowrap",
+                border: "none", outline: "none", cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 6,
+                transition: "all 0.2s ease-in-out",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "#6d28d9"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "var(--brand-600)"}
+            >
+              <span>
+                {visibleCount} {visibleCount === 1 ? "place" : "places"}
+                {isWorld ? " globally" : isCustomActive ? ` within ${radiusKm} km` : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
+              </span>
+              <ChevronRight size={14} style={{ opacity: 0.8 }} />
+            </button>
+          )}
+
+          <RadiusStrip radiusKm={radiusKm} setRadiusKm={setRadiusKm} />
+
+          {/* Set-location-manually trigger, stacked above the recenter button */}
+          <button
+            className="icon-btn"
+            title="Set location manually"
+            onClick={pin.enterPickMode}
+            style={{ background: "#fff", boxShadow: "var(--shadow)", position: "absolute", bottom: 140, right: 16, zIndex: 1000 }}
+          >
+            <MapPinPlus size={18} color="var(--brand-600)" />
+          </button>
+        </>
       )}
-
-      <RadiusStrip radiusKm={radiusKm} setRadiusKm={setRadiusKm} />
 
       {/* Full-screen map */}
       <MapContainer
@@ -162,8 +179,9 @@ export default function MapView() {
         />
 
         <RadiusController lat={centerLat} lng={centerLng} radiusKm={radiusKm} />
-        <RecenterButton   radiusKm={radiusKm} />
-        <MapEventsController />
+        {!pin.pickMode && <RecenterButton radiusKm={radiusKm} />}
+        {!pin.pickMode && <MapEventsController />}
+        {pin.pickMode && <PickCenterTracker onCenterChange={pin.onCenterChange} />}
 
         {/* User dot */}
         <Marker position={[centerLat, centerLng]} icon={meIcon} />
@@ -191,6 +209,16 @@ export default function MapView() {
           onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
         />
       </MapContainer>
+
+      {pin.pickMode && (
+        <LocationPinDropOverlay
+          address={pin.address}
+          addressLoading={pin.addressLoading}
+          confirming={pin.confirming}
+          onConfirm={pin.confirmPickMode}
+          onCancel={pin.cancelPickMode}
+        />
+      )}
 
       {storyViewer && (
         <StoryViewer

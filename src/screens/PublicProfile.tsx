@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import {
@@ -13,8 +13,10 @@ import {
   UserPlus,
   UserCheck,
   Lock,
+  MapPin,
+  Loader,
 } from "lucide-react";
-import { userService, chatService, socialService } from "@/services";
+import { userService, chatService, socialService, locationService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import ShareCard from "@/components/ShareCard";
@@ -204,6 +206,16 @@ export default function PublicProfile() {
             <a href={`tel:${u.phone}`} style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: "#fff", opacity: 0.9 }}>
               📞 {u.phone}
             </a>
+          )}
+          {u.email && (isSelf || u.showEmailPublicly === true) && (
+            <a href={`mailto:${u.email}`} style={{ marginTop: 2, fontSize: 12.5, fontWeight: 700, color: "#fff", opacity: 0.9, display: "block" }}>
+              ✉️ {u.email}
+            </a>
+          )}
+          {!isSelf && (
+            <div>
+              <LocationShareControl targetId={u.id} />
+            </div>
           )}
 
           {/* Verification & Rating Badges */}
@@ -563,5 +575,77 @@ export default function PublicProfile() {
         />
       )}
     </div>
+  );
+}
+
+// Consent-gated exact-location control. Others must request; the owner approves
+// (elsewhere), after which "View on map" reveals coordinates. Hidden on own profile.
+function LocationShareControl({ targetId }: { targetId: string }) {
+  const { showToast } = useApp();
+  const [status, setStatus] = useState<"NONE" | "PENDING" | "APPROVED" | "DENIED" | "LOADING">("LOADING");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    locationService.myStatusToward(targetId).then((s) => { if (active) setStatus(s); });
+    return () => { active = false; };
+  }, [targetId]);
+
+  async function ask() {
+    setBusy(true);
+    try {
+      await locationService.request(targetId);
+      setStatus("PENDING");
+      showToast("Location request sent");
+    } catch {
+      showToast("Couldn't send request");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reveal() {
+    setBusy(true);
+    try {
+      const loc = await locationService.getSharedLocation(targetId);
+      if (loc) {
+        window.open(`https://www.google.com/maps?q=${loc.lat},${loc.lng}`, "_blank", "noopener");
+      } else {
+        showToast("Location no longer shared");
+        setStatus("NONE");
+      }
+    } catch {
+      showToast("Couldn't load location");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (status === "LOADING") return null;
+
+  const base: React.CSSProperties = {
+    marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6,
+    padding: "7px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 700,
+    border: "1px solid rgba(255,255,255,0.35)", cursor: "pointer",
+  };
+
+  if (status === "APPROVED") {
+    return (
+      <button onClick={reveal} disabled={busy} style={{ ...base, background: "rgba(255,255,255,0.9)", color: "var(--brand-700)" }}>
+        {busy ? <Loader size={13} className="spin" /> : <MapPin size={13} />} View exact location
+      </button>
+    );
+  }
+  if (status === "PENDING") {
+    return (
+      <span style={{ ...base, background: "rgba(255,255,255,0.16)", color: "#fff", cursor: "default" }}>
+        <Loader size={13} /> Location request pending
+      </span>
+    );
+  }
+  return (
+    <button onClick={ask} disabled={busy} style={{ ...base, background: "rgba(255,255,255,0.16)", color: "#fff" }}>
+      {busy ? <Loader size={13} className="spin" /> : <MapPin size={13} />} Request exact location
+    </button>
   );
 }

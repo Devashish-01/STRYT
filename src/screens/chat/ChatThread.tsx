@@ -72,17 +72,25 @@ export default function ChatThread() {
       {/* Header */}
       <header className="appbar" style={{ borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
         <button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
-        <SafeImg
-          src={other?.avatar}
-          variant="avatar"
-          className="avatar"
-          style={{ width: 36, height: 36, marginRight: 2 }}
-        />
-        <div className="grow" style={{ minWidth: 0 }}>
-          <div className="semi" style={{ fontSize: 15, lineHeight: 1.2 }}>{other?.name ?? "Chat"}</div>
-        </div>
+        <button
+          className="row gap-8 grow"
+          style={{ minWidth: 0, background: "none", border: "none", alignItems: "center", textAlign: "left", cursor: other ? "pointer" : "default" }}
+          onClick={() => other && nav(`/u/${other.id}`)}
+          disabled={!other}
+        >
+          <SafeImg
+            src={other?.avatar}
+            variant="avatar"
+            className="avatar"
+            style={{ width: 36, height: 36, marginRight: 2 }}
+          />
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="semi" style={{ fontSize: 15, lineHeight: 1.2 }}>{other?.name ?? "Chat"}</div>
+            {other && <div className="tiny muted" style={{ lineHeight: 1.2 }}>View profile</div>}
+          </div>
+        </button>
         {other && (
-          <button className="icon-btn">
+          <button className="icon-btn" onClick={() => nav(`/u/${other.id}`)} aria-label="View profile & contact">
             <Phone size={18} />
           </button>
         )}

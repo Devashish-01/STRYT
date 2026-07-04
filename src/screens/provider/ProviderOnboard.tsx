@@ -11,7 +11,7 @@ import HoursSelector from "@/components/HoursSelector";
 import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
 
 
-const steps = ["Skill", "Area & price", "Portfolio", "Verify"];
+const steps = ["Skill", "Area & price", "Portfolio", "Photo"];
 
 export default function ProviderOnboard() {
   const nav = useNavigate();
@@ -30,8 +30,6 @@ export default function ProviderOnboard() {
   const [bio, setBio] = useState("");
   const [availability, setAvailability] = useState(DEFAULT_ONBOARD_WORKING_HOURS);
   const [photos, setPhotos] = useState<{ file: File; previewUrl: string }[]>([]);
-  const [aadhaarNum, setAadhaarNum] = useState("");
-  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [lat, setLat] = useState<number | null>(null);
@@ -46,8 +44,8 @@ export default function ProviderOnboard() {
 
   const serviceCats = (serviceCatsData ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
 
-  // KYC: a provider must provide an Aadhaar (number + photo) and a face photograph.
-  const verifyValid = aadhaarNum.replace(/\D/g, "").length === 12 && !!aadhaarFile && !!photoFile;
+  // A clear face photograph (becomes the profile photo) is the only requirement.
+  const verifyValid = !!photoFile;
 
   const canNext = [
     (!!cat || newCat.trim().length > 2) && displayName.trim().length > 1,
@@ -60,11 +58,8 @@ export default function ProviderOnboard() {
     setSubmitting(true);
     try {
       if (newCat.trim()) await catalogService.proposeCategory(newCat.trim(), null, "SERVICE");
-      // Required KYC: Aadhaar document + a clear photograph (becomes the avatar).
-      const [aadhaarUrl, photoUrl] = await Promise.all([
-        uploadService.upload(aadhaarFile as File, "kyc-provider"),
-        uploadService.upload(photoFile as File, "provider-photo"),
-      ]);
+      // A clear photograph becomes the provider's profile photo (avatar).
+      const photoUrl = await uploadService.upload(photoFile as File, "provider-photo");
       const created = await providerService.create({
         displayName: displayName.trim(),
         categoryId: cat ?? undefined,
@@ -73,8 +68,6 @@ export default function ProviderOnboard() {
         serviceRadiusKm: radius,
         availabilityNote: availability,
         avatar: photoUrl,
-        verificationDocumentUrl: aadhaarUrl,
-        verificationStatus: "UNDER_REVIEW",
         lat: lat!,
         lng: lng!,
       });
@@ -173,7 +166,7 @@ export default function ProviderOnboard() {
               storedLat={user.lat}
               storedLng={user.lng}
               pinColor="var(--green-500)"
-              height={120}
+              height={190}
               onChange={(newLat, newLng) => { setLat(newLat); setLng(newLng); }}
               onError={(msg) => showToast(msg)}
             />
@@ -240,7 +233,7 @@ export default function ProviderOnboard() {
             <div className="card row gap-10" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
               <Briefcase size={20} color="var(--green-500)" />
               <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>
-                Providers verify with <b>Aadhaar</b> and a clear <b>photograph</b>. Kept private, used only to keep the community safe.
+                Add a clear face photo — it becomes your public profile photo so customers know who they're hiring.
               </span>
             </div>
 
@@ -258,19 +251,6 @@ export default function ProviderOnboard() {
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
               </label>
             </div>
-
-            {/* Aadhaar */}
-            <div className="field">
-              <label>Aadhaar number *</label>
-              <input className="input" inputMode="numeric" maxLength={14} placeholder="1234 5678 9012"
-                value={aadhaarNum} onChange={(e) => setAadhaarNum(e.target.value.replace(/[^\d ]/g, ""))} />
-            </div>
-            <label className="col center" style={{ width: "100%", padding: 18, borderRadius: 14, border: `2px dashed ${aadhaarFile ? "var(--green-500)" : "var(--ink-300)"}`, color: aadhaarFile ? "var(--green-600)" : "var(--ink-500)", gap: 6, cursor: "pointer" }}>
-              <Camera size={24} />
-              <span className="small semi">{aadhaarFile ? `✓ ${aadhaarFile.name}` : "Upload Aadhaar card photo"}</span>
-              <input type="file" accept="image/*,.pdf" style={{ display: "none" }}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setAadhaarFile(f); showToast("Aadhaar added"); } }} />
-            </label>
           </>
         )}
       </div>

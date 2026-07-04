@@ -63,13 +63,38 @@ export default function BusinessSettings() {
   const [requests, setRequests] = useState(true);
   const [upiId, setUpiId] = useState("");
   const [savingUpi, setSavingUpi] = useState(false);
+  const [email, setEmail] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [showPhone, setShowPhone] = useState(true);
+  const [showEmail, setShowEmail] = useState(false);
+  const [locPublic, setLocPublic] = useState(false);
 
   useEffect(() => {
     if (business) {
       setOwnerEnabled(business.ownerEnabled !== false);
       setUpiId(business.upiId ?? "");
+      setEmail(business.email ?? "");
+      setShowPhone(business.showPhonePublicly !== false);
+      setShowEmail(business.showEmailPublicly === true);
+      setLocPublic(business.locationPublic === true);
     }
   }, [business]);
+
+  function persist(patch: Record<string, unknown>) {
+    void businessService.update(id, patch as any).catch(() => showToast("Couldn't save — try again"));
+  }
+  async function saveEmail() {
+    setSavingEmail(true);
+    try {
+      await businessService.update(id, { email: email.trim() || null } as any);
+      showToast("Email saved");
+      void refetchBiz();
+    } catch {
+      showToast("Couldn't save email. Try again.");
+    } finally {
+      setSavingEmail(false);
+    }
+  }
 
   async function saveUpiId() {
     setSavingUpi(true);
@@ -143,6 +168,32 @@ export default function BusinessSettings() {
           </div>
         </div>
 
+        {/* Contact & privacy — control what customers can see */}
+        <div>
+          <div className="small semi muted" style={{ marginBottom: 8 }}>Contact & privacy</div>
+          <div className="card col gap-10" style={{ padding: 14 }}>
+            <div>
+              <div className="tiny semi" style={{ marginBottom: 6 }}>Business email</div>
+              <div className="row gap-8">
+                <input
+                  className="input grow"
+                  placeholder="e.g. hello@yourshop.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={{ fontSize: 14 }}
+                />
+                <button className="btn btn-outline btn-sm" disabled={savingEmail} onClick={saveEmail}>
+                  {savingEmail ? "…" : "Save"}
+                </button>
+              </div>
+            </div>
+            <div className="divider" style={{ margin: "2px 0" }} />
+            <Toggle label="Show phone publicly" on={showPhone} set={(v) => { setShowPhone(v); persist({ showPhonePublicly: v }); }} />
+            <Toggle label="Show email publicly" on={showEmail} set={(v) => { setShowEmail(v); persist({ showEmailPublicly: v }); }} />
+            <Toggle label="Exact location public" hint="OFF = customers must request & you approve" on={locPublic} set={(v) => { setLocPublic(v); persist({ locationPublic: v }); }} last />
+          </div>
+        </div>
+
         {/* Team */}
         <div>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Team</div>
@@ -213,11 +264,14 @@ export default function BusinessSettings() {
   );
 }
 
-function Toggle({ label, on, set, last }: { label: string; on: boolean; set: (v: boolean) => void; last?: boolean }) {
+function Toggle({ label, hint, on, set, last }: { label: string; hint?: string; on: boolean; set: (v: boolean) => void; last?: boolean }) {
   return (
-    <div className="row between" style={{ padding: "13px 14px", borderBottom: last ? "none" : "1px solid var(--line)" }}>
-      <span className="semi small">{label}</span>
-      <button onClick={() => set(!on)} style={{ width: 44, height: 26, borderRadius: 999, background: on ? "var(--brand-600)" : "var(--ink-200)", position: "relative" }}>
+    <div className="row between" style={{ padding: "13px 14px", borderBottom: last ? "none" : "1px solid var(--line)", alignItems: "center" }}>
+      <div className="col" style={{ gap: 2, paddingRight: 10 }}>
+        <span className="semi small">{label}</span>
+        {hint && <span className="tiny muted">{hint}</span>}
+      </div>
+      <button onClick={() => set(!on)} style={{ width: 44, height: 26, borderRadius: 999, background: on ? "var(--brand-600)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}>
         <span style={{ position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
       </button>
     </div>
