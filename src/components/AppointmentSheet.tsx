@@ -6,6 +6,7 @@ import { uploadService } from "@/services/core/uploadService";
 import { appointmentService } from "@/services/engagement/appointmentService";
 import { slotBlockService } from "@/services/engagement/slotBlockService";
 import type { AppointmentRecord, BlockedSlot } from "@/types";
+import { displayName as safeName } from "@/lib/publicName";
 import { Skeleton } from "@/components/states";
 
 export interface BookingPackage {
@@ -143,7 +144,7 @@ export function AppointmentSheet({
         targetName,
         targetType,
         customerId: user.id || "guest",
-        customerName: user.name || "Customer",
+        customerName: safeName(user.name, "Customer"),
         customerAvatar: user.avatar,
         scheduledForISO: selectedSlot.isoTimestamp,
         dateLabel: selectedSlot.dateLabel,

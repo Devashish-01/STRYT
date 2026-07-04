@@ -5,6 +5,8 @@ import { Rating, inr, SafeImg } from "./common";
 import { useApp } from "@/store";
 import { requestService } from "@/services";
 import { evaluateProviderAvailability } from "@/utils/availability";
+import { displayName as safeName } from "@/lib/publicName";
+import { distanceLabel } from "@/lib/format";
 
 /* ---------------- Business cards ---------------- */
 
@@ -70,7 +72,7 @@ export function BusinessCardWide({ b }: { b: Business }) {
           {b.subCategory} {b.priceForTwo ? `• ${inr(b.priceForTwo)} for two` : ""}
         </div>
         <div className="row gap-10 tiny muted" style={{ marginTop: 8 }}>
-          <span className="row gap-4"><MapPin size={13} /> {b.distanceKm} km</span>
+          <span className="row gap-4"><MapPin size={13} /> {distanceLabel(b.distanceKm)}</span>
           {b.deliveryTime && <span className="row gap-4"><Clock size={13} /> {b.deliveryTime}</span>}
           <span style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>
             {evalRes.isOpenNow ? "Open" : "Closed"}
@@ -121,7 +123,7 @@ export function BusinessCardSmall({ b }: { b: Business }) {
         </div>
         <div className="row gap-6" style={{ marginTop: 3 }}>
           <Rating value={b.ratingAvg} size={11} />
-          <span className="tiny muted ellipsis">{b.distanceKm} km</span>
+          <span className="tiny muted ellipsis">{distanceLabel(b.distanceKm)}</span>
         </div>
         <span className="tiny" style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>
           {evalRes.isOpenNow ? "Open" : "Closed"}
@@ -159,7 +161,7 @@ export function ProviderCard({ p }: { p: Provider }) {
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="row between">
             <div className="row gap-6" style={{ minWidth: 0 }}>
-              <span className="bold ellipsis" style={{ fontSize: 15 }}>{p.displayName}</span>
+              <span className="bold ellipsis" style={{ fontSize: 15 }}>{safeName(p.displayName, "Local provider")}</span>
               {p.isVerified && <BadgeCheck size={15} color="#e5521c" fill="#ffe8e2" />}
             </div>
             <button
@@ -175,8 +177,8 @@ export function ProviderCard({ p }: { p: Provider }) {
           <div className="tiny muted" style={{ marginTop: 1 }}>{p.categoryName} • {p.subCategory}</div>
           <div className="row gap-8 center-v" style={{ marginTop: 6 }}>
             <Rating value={p.ratingAvg} size={11} />
-            <span className="tiny muted">{p.jobsDone} jobs</span>
-            <span className="tiny muted">• {p.distanceKm} km</span>
+            {p.jobsDone > 0 && <span className="tiny muted">{p.jobsDone} jobs</span>}
+            <span className="tiny muted">• {distanceLabel(p.distanceKm)}</span>
             <span
               className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`}
               style={{ fontSize: 10, padding: "1px 6px", marginLeft: "auto" }}
@@ -196,7 +198,7 @@ export function ProviderCard({ p }: { p: Provider }) {
           <span className="tiny muted">Starts at </span>
           <span className="bold" style={{ color: "var(--green-500)" }}>{inr(p.startingPrice)}</span>
         </div>
-        <span className="tiny muted row gap-4"><Clock size={12} /> Responds {p.responseTime}</span>
+        {p.responseTime && <span className="tiny muted row gap-4"><Clock size={12} /> Responds {p.responseTime}</span>}
       </div>
     </div>
   );
@@ -208,7 +210,7 @@ export function ProviderCardSmall({ p }: { p: Provider }) {
     <div className="card fade-up" style={{ width: 150, flexShrink: 0, padding: 12 }} onClick={() => nav(`/provider/${p.id}`)}>
       <div className="col center" style={{ textAlign: "center", gap: 6 }}>
         <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 60, height: 60 }} />
-        <div className="bold small ellipsis" style={{ maxWidth: "100%" }}>{p.displayName}</div>
+        <div className="bold small ellipsis" style={{ maxWidth: "100%" }}>{safeName(p.displayName, "Local provider")}</div>
         <div className="tiny muted ellipsis" style={{ maxWidth: "100%" }}>{p.categoryName}</div>
         <Rating value={p.ratingAvg} size={11} />
         <div className="tiny" style={{ color: "var(--green-500)", fontWeight: 700 }}>from {inr(p.startingPrice)}</div>
@@ -254,7 +256,7 @@ export function RequestCard({ r }: { r: RequestPost }) {
             <span className="tiny muted">{r.postedAt}</span>
           </div>
           <div className="row gap-6 tiny muted">
-            <MapPin size={12} /> {r.area} • {r.distanceKm} km away
+            <MapPin size={12} /> {r.area}{r.distanceKm > 0 ? ` • ${r.distanceKm} km away` : ""}
           </div>
         </div>
       </div>

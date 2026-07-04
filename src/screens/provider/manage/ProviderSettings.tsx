@@ -20,8 +20,12 @@ export default function ProviderSettings() {
       </div>
     );
   }
-  const [leads, setLeads] = useState(true);
-  const [matched, setMatched] = useState(true);
+  // Persist notification prefs to localStorage so they stick across reloads,
+  // consistent with the customer Settings screen.
+  const [leads, setLeads] = useState(() => localStorage.getItem("prov_notif_leads") !== "false");
+  const [matched, setMatched] = useState(() => localStorage.getItem("prov_notif_matched") !== "false");
+  useEffect(() => { localStorage.setItem("prov_notif_leads", String(leads)); }, [leads]);
+  useEffect(() => { localStorage.setItem("prov_notif_matched", String(matched)); }, [matched]);
   const [loading, setLoading] = useState(true);
   const [ownerEnabled, setOwnerEnabled] = useState(true);
   const [upiId, setUpiId] = useState("");

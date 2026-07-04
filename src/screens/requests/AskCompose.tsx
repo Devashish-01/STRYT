@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock } from "lucide-react";
+import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal } from "lucide-react";
 import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -85,6 +85,7 @@ export default function AskCompose() {
   const [recurring, setRecurring] = useState(false);
   const [anon, setAnon] = useState(false);
   const [expiryHrs, setExpiryHrs] = useState(24); // auto-expire window; capped at 24h
+  const [showAdvanced, setShowAdvanced] = useState(false); // progressive disclosure of advanced options
   const [posting, setPosting] = useState(false);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -404,6 +405,24 @@ export default function AskCompose() {
           </div>
         </div>
 
+        {/* Advanced options — collapsed by default so the core stays simple.
+            Defaults (24h expiry, default radius, no scheduling/toggles) are
+            sensible, so most people can just post without opening this. */}
+        <button
+          type="button"
+          className="row between"
+          onClick={() => setShowAdvanced((v) => !v)}
+          style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: "var(--ink-50)", border: "1px solid var(--ink-200)", alignItems: "center" }}
+        >
+          <span className="semi small row gap-8" style={{ alignItems: "center", color: "var(--ink-800)" }}>
+            <SlidersHorizontal size={16} color="var(--brand-600)" /> More options
+            <span className="tiny muted" style={{ fontWeight: 400 }}>timing · urgent · radius · expiry</span>
+          </span>
+          <ChevronDown size={18} color="var(--ink-500)" style={{ transform: showAdvanced ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+        </button>
+
+        {showAdvanced && (
+        <>
         {/* ── When do you need it ── */}
         <div className="field">
           <label>When do you need it? <span className="tiny muted">(optional)</span></label>
@@ -493,6 +512,8 @@ export default function AskCompose() {
             description={`Visible to users/providers within the selected radius of ${area}`}
           />
         </div>
+        </>
+        )}
       </div>
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "8px 12px 12px" }}>

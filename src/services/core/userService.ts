@@ -69,9 +69,11 @@ export const userService = {
     }
     // Row missing — happens for Google OAuth / phone-auth users when the DB trigger hasn't run or completed yet.
     // Upsert a seed row so FK constraints on requests / proposals don't block the user.
+    // Never fall back to the phone number as a display name — a bare number
+    // reads as broken and leaks the phone everywhere the name is shown. Leaving
+    // it "New user" routes them through onboarding to pick a real name.
     const name = (au.user_metadata?.full_name as string | undefined)
-              || au.email
-              || au.phone
+              || (au.email ? au.email.split("@")[0] : undefined)
               || "New user";
     const avatar = (au.user_metadata?.avatar_url as string | undefined)
                 || (au.user_metadata?.picture as string | undefined)
@@ -126,6 +128,23 @@ export const userService = {
       businessIds: (biz.data ?? []).map((b: { id: string }) => b.id),
       providerId: prov.data?.[0]?.id ?? null,
     };
+  },
+
+  /**
+   * Silent freshness sync on app open: updates the user's own coords (and any
+   * provider profile, since providers are people who move) — but NEVER a
+   * business, whose premises don't follow the owner's phone.
+   */
+  async autoSyncLocation(lat: number, lng: number, area?: string) {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return;
+    const patch: Record<string, unknown> = { lat, lng };
+    if (area) patch.area = area;
+    const { error } = await sb.from("users").update(patch).eq("id", uid);
+    throwIfError(error);
+    const { error: provErr } = await sb.from("providers").update({ lat, lng }).eq("user_id", uid);
+    if (provErr) console.warn("autoSyncLocation (provider sync):", provErr.message);
   },
 
   async setLocation(lat: number, lng: number, area?: string) {

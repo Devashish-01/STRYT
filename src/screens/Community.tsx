@@ -7,6 +7,7 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { useApp } from "@/store";
 import type { CommunityPost, CommunityPostType, Business, Provider, BookmarkTarget } from "@/types";
+import { displayName as safeName } from "@/lib/publicName";
 
 const typeMeta: Record<CommunityPostType, { label: string; emoji: string; tone: string }> = {
   LOST_FOUND: { label: "Lost & Found", emoji: "🔍", tone: "amber" },
@@ -109,7 +110,7 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
 
   async function handleRecommend(listingType: BookmarkTarget, listingId: string) {
     setRecommendOpen(false);
-    await communityService.recommendListing(post.id, listingType as "BUSINESS" | "PROVIDER", listingId, user.name);
+    await communityService.recommendListing(post.id, listingType as "BUSINESS" | "PROVIDER", listingId, safeName(user.name, "A neighbor"));
     onRefetch?.();
   }
 
@@ -262,7 +263,7 @@ function RecommendSheet({ businesses, providers, onPick, onClose }: {
           {filteredProv.map((p) => (
             <button key={p.id} className="row gap-12" style={{ width: "100%", padding: "10px 0", borderBottom: "1px solid var(--line)", textAlign: "left" }} onClick={() => onPick("PROVIDER", p.id)}>
               <SafeImg src={p.avatar} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
-              <div className="grow"><div className="semi small">{p.displayName}</div><div className="tiny muted">{p.categoryName}</div></div>
+              <div className="grow"><div className="semi small">{safeName(p.displayName, "Local provider")}</div><div className="tiny muted">{p.categoryName}</div></div>
             </button>
           ))}
           {filteredBiz.length === 0 && filteredProv.length === 0 && (

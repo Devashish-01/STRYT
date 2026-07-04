@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -285,10 +286,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Keep the profile location fresh: once per app open, if geolocation
+  // permission is already granted (never prompt uninvited), silently re-read
+  // GPS and — when the user has moved meaningfully (>250 m) or has no location
+  // yet — sync users + any provider profile (people move; shop premises don't).
+  const autoRefreshLocation = useCallback(async () => {
+    if (sessionStorage.getItem("loc_synced") === "1") return;
+    sessionStorage.setItem("loc_synced", "1");
+    try {
+      const perm = await (navigator as any).permissions?.query?.({ name: "geolocation" });
+      if (perm && perm.state !== "granted") return;
+    } catch { /* Permissions API unavailable (native webview) — proceed */ }
+    const { nativeGeolocation } = await import("@/lib/nativeGeolocation");
+    nativeGeolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const prev = userLocRef.current;
+        const moved = !prev.lat || !prev.lng
+          ? Infinity
+          : 6371 * 2 * Math.asin(Math.sqrt(
+              Math.sin(((latitude - prev.lat) * Math.PI) / 360) ** 2 +
+              Math.cos((prev.lat * Math.PI) / 180) * Math.cos((latitude * Math.PI) / 180) *
+              Math.sin(((longitude - prev.lng) * Math.PI) / 360) ** 2
+            ));
+        if (moved < 0.25) return;
+        try {
+          const { reverseGeocode } = await import("@/lib/geocode");
+          const areaName = await reverseGeocode(latitude, longitude).catch(() => null);
+          await userService.autoSyncLocation(latitude, longitude, areaName ?? undefined);
+          setUser((u) => ({ ...u, lat: latitude, lng: longitude, area: areaName ?? u.area }));
+          if (areaName) setArea(areaName);
+        } catch { /* silent — freshness sync is best-effort */ }
+      },
+      () => { /* denied/unavailable — keep stored location */ },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, []);
+  const userLocRef = useRef({ lat: 0, lng: 0 });
+  useEffect(() => { userLocRef.current = { lat: user.lat, lng: user.lng }; }, [user.lat, user.lng]);
+
   useEffect(() => {
     if (isAuthed) {
       void refreshUser().finally(() => setProfileReady(true)).then(() => {
         currentUserId().then((uid) => { if (uid) void registerPush(uid); });
+        void autoRefreshLocation();
       });
       void hydratePersonalData();
     }

@@ -18,6 +18,8 @@ import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { isMockTarget } from "@/services/engagement/appointmentService";
 import { PROVIDER_BADGE_THRESHOLDS } from "@/lib/badges";
+import { displayName as safeName } from "@/lib/publicName";
+import MiniMap from "@/components/MiniMap";
 
 const Handshake = HandshakeIcon as any;
 
@@ -108,7 +110,7 @@ export default function ProviderDetail() {
           <div className="row between">
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
             <div className="row gap-8">
-              {!isOwner && (
+              {!isOwner && p.phone && p.showPhonePublicly !== false && (
                 <a
                   className="icon-btn"
                   style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }}
@@ -129,13 +131,13 @@ export default function ProviderDetail() {
             <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 78, height: 78, border: "3px solid rgba(255,255,255,0.4)" }} />
             <div className="grow">
               <div className="row gap-6">
-                <span className="bold" style={{ fontSize: 20 }}>{p.displayName}</span>
+                <span className="bold" style={{ fontSize: 20 }}>{safeName(p.displayName, "Local provider")}</span>
                 {p.isVerified && <BadgeCheck size={18} color="#fff" />}
               </div>
               <div className="small" style={{ opacity: 0.9 }}>{p.categoryName} • {p.subCategory}</div>
               <div className="row gap-8" style={{ marginTop: 6 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
-                  <Star size={11} fill="#ffd23f" strokeWidth={0} /> {p.ratingAvg} ({p.ratingCount})
+                  <Star size={11} fill="#ffd23f" strokeWidth={0} /> {p.ratingCount > 0 ? `${p.ratingAvg} (${p.ratingCount})` : "New"}
                 </span>
                 {p.isNew && <span className="badge" style={{ background: "#ff8400", color: "#fff" }}>NEW</span>}
                 {avail && <span className="badge" style={{ background: "#fff", color: "var(--green-500)" }}>⚡ Free till {avail.availableUntil}</span>}
@@ -311,7 +313,11 @@ export default function ProviderDetail() {
                 </div>
               </div>
               <div className="divider" />
-              <div className="row gap-10 small"><MapPin size={16} color="var(--green-500)" /><span>Serves within {p.serviceRadiusKm} km • {p.distanceKm} km from you</span></div>
+              <div className="row gap-10 small"><MapPin size={16} color="var(--green-500)" /><span>Serves within {p.serviceRadiusKm} km{p.distanceKm > 0 ? ` • ${p.distanceKm} km from you` : ""}</span></div>
+              {/* Where they're based — one tap opens directions */}
+              <div style={{ marginTop: 10 }}>
+                <MiniMap lat={p.lat} lng={p.lng} pinColor="var(--green-500)" height={150} />
+              </div>
             </div>
           </div>
         )}
@@ -393,7 +399,7 @@ export default function ProviderDetail() {
             <span className="tiny muted">Starting</span>
             <span className="bold" style={{ fontSize: 18, color: "var(--green-600)" }}>{inr(p.startingPrice)}</span>
           </div>
-          {!isOwner && (
+          {!isOwner && p.phone && p.showPhonePublicly !== false && (
             <a
               href={`tel:${p.phone}`}
               className="btn btn-outline"
@@ -441,7 +447,7 @@ export default function ProviderDetail() {
       </div>
 
       {report && <ReportSheet targetType="PROVIDER" targetId={p.id} name={p.displayName} onClose={() => setReport(false)} />}
-      {share && <ShareCard title={p.displayName} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={`⭐ ${p.ratingAvg} • ${p.jobsDone} jobs • ${p.distanceKm} km`} url={window.location.origin + "/provider/" + p.id} onClose={() => setShare(false)} />}
+      {share && <ShareCard title={safeName(p.displayName, "Local provider")} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={[p.ratingCount > 0 ? `⭐ ${p.ratingAvg}` : "", p.jobsDone > 0 ? `${p.jobsDone} jobs` : ""].filter(Boolean).join(" • ") || "New provider"} url={window.location.origin + "/provider/" + p.id} onClose={() => setShare(false)} />}
       {reviewing && (
         <ReviewSheet
           targetName={p.displayName}

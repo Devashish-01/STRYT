@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Share2, MapPin, Clock, Eye, Zap, BadgeCheck,
-  Flag, CheckCircle2, Send, Users, Flame, Repeat, MessageSquare, ArrowRightLeft,
+  Flag, CheckCircle2, Send, Users, Flame, Repeat, MessageCircle, ArrowRightLeft,
   Edit3, Trash2, XCircle, X
 } from "lucide-react";
-import { requestService } from "@/services";
+import { requestService, chatService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, EmptyState, SafeImg, inr } from "@/components/common";
@@ -36,6 +36,8 @@ export default function RequestDetail() {
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
   const [accepted, setAccepted] = useState<string | null>(null);
+  const [propSort, setPropSort] = useState<"best" | "price" | "rating">("best");
+  const [messaging, setMessaging] = useState<string | null>(null);
   const [counterFor, setCounterFor] = useState<string | null>(null);
   const [counterAmt, setCounterAmt] = useState("");
   const [counterBackFor, setCounterBackFor] = useState<string | null>(null);
@@ -82,7 +84,29 @@ export default function RequestDetail() {
 
   const isMine = r.requesterUserId === user.id;
   const budget = r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)} – ${inr(r.budgetMax)}` : "Open budget";
-  const sortedProposals = [...r.proposals].sort((a, b) => Number(b.isBoosted) - Number(a.isBoosted));
+  // Let the customer compare offers the way they think: promoted-first by
+  // default, or by lowest quote / highest-rated when weighing options.
+  const sortedProposals = [...r.proposals].sort((a, b) => {
+    if (propSort === "price") return a.price - b.price;
+    if (propSort === "rating") return (b.responderRating ?? 0) - (a.responderRating ?? 0);
+    return Number(b.isBoosted) - Number(a.isBoosted);
+  });
+
+  async function messageResponder(p: Proposal) {
+    if (!p.responderUserId) { showToast("Can't message this responder"); return; }
+    setMessaging(p.id);
+    try {
+      const subjectType = p.responderType === "business" ? "business" : p.responderType === "provider" ? "provider" : "user";
+      const conv = await chatService.getOrCreate(p.responderUserId, {
+        type: subjectType as any, id: p.responderUserId, name: p.responderName, avatar: p.responderAvatar, ownerUserId: p.responderUserId,
+      });
+      nav(`/chat/${conv.id}`);
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't open chat. Try again.");
+    } finally {
+      setMessaging(null);
+    }
+  }
   const meTooed = meToos.includes(r.id) || r.meTooed;
   const meTooCount = (r.meTooCount ?? 0) + (meTooed && !r.meTooed ? 1 : 0);
 
@@ -183,7 +207,7 @@ export default function RequestDetail() {
             <SafeImg src={r.requesterAvatar} variant="avatar" className="avatar" style={{ width: 44, height: 44 }} />
             <div className="grow">
               <div className="row gap-6"><span className="semi">{r.requesterName}</span><Rating value={r.requesterRating} size={10} /></div>
-              <span className="tiny muted row gap-4"><MapPin size={12} /> {r.area} • {r.distanceKm} km • {r.postedAt}</span>
+              <span className="tiny muted row gap-4"><MapPin size={12} /> {r.area}{r.distanceKm > 0 ? ` • ${r.distanceKm} km` : ""} • {r.postedAt}</span>
             </div>
             {r.status !== "OPEN" && <span className="badge badge-blue">{r.status}</span>}
           </div>
@@ -274,8 +298,30 @@ export default function RequestDetail() {
         {/* Proposals */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <h3 className="bold" style={{ fontSize: 17, marginBottom: 12 }}>
-            {isMine ? "Proposals received" : "Proposals"} ({r.proposals.length})
+            {isMine ? "Offers received" : "Offers"} ({r.proposals.length})
           </h3>
+
+          {/* Sort — helps the customer compare when several offers arrive */}
+          {r.proposals.length > 1 && (
+            <div className="row gap-8" style={{ marginBottom: 12 }}>
+              {([["best", "Best"], ["price", "Lowest price"], ["rating", "Top rated"]] as [typeof propSort, string][]).map(([key, label]) => (
+                <button
+                  key={key}
+                  className="chip"
+                  style={{
+                    padding: "5px 12px", fontSize: 12.5,
+                    background: propSort === key ? "var(--brand-600)" : "#fff",
+                    color: propSort === key ? "#fff" : "var(--ink-600)",
+                    borderColor: propSort === key ? "var(--brand-600)" : "var(--ink-200)",
+                    fontWeight: propSort === key ? 700 : 500,
+                  }}
+                  onClick={() => setPropSort(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {sortedProposals.length === 0 ? (
             <EmptyState
@@ -324,8 +370,11 @@ export default function RequestDetail() {
                         <span className="badge badge-green"><CheckCircle2 size={13} /> Accepted</span>
                       ) : (
                         <div className="row gap-8">
+                          <button className="btn btn-outline btn-sm icon-btn" style={{ width: 36, padding: 0 }} title="Message" onClick={() => messageResponder(p)} disabled={!!accepted || messaging === p.id}>
+                            <MessageCircle size={15} />
+                          </button>
                           <button className="btn btn-outline btn-sm" onClick={() => setCounterFor(counterFor === p.id ? null : p.id)} disabled={!!accepted}>
-                            <MessageSquare size={14} /> Counter
+                            <ArrowRightLeft size={14} /> Counter
                           </button>
                           <button className="btn btn-green btn-sm" onClick={() => acceptProposal(p)} disabled={!!accepted}>
                             Accept

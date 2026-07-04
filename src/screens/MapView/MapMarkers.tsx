@@ -11,6 +11,8 @@ import {
 } from "./mapIcons";
 import type { Business, Provider } from "@/types";
 import type { RequestPost } from "@/types";
+import { displayName as safeName } from "@/lib/publicName";
+import { distanceLabel } from "@/lib/format";
 
 export function MapMarkers({
   layers, filteredBusinesses, filteredProviders, nearbyRequests, mapStories, onStoryClick,
@@ -44,7 +46,7 @@ export function MapMarkers({
                 <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{b.subCategory}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
                   <Rating value={b.ratingAvg} size={11} />
-                  {b.distanceKm != null && <span style={{ fontSize: 12, color: "#888" }}>{b.distanceKm} km</span>}
+                  {b.distanceKm != null && <span style={{ fontSize: 12, color: "#888" }}>{distanceLabel(b.distanceKm)}</span>}
                 </div>
                 <button
                   onClick={() => nav(`/business/${b.id}`)}
@@ -66,7 +68,7 @@ export function MapMarkers({
             <Popup>
               <div style={{ minWidth: 180 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <strong>{p.displayName}</strong>
+                  <strong>{safeName(p.displayName, "Local provider")}</strong>
                   <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: evalRes.isOpenNow ? "#dcfce7" : "#f3f4f6", color: evalRes.isOpenNow ? "#15803d" : "#4b5563", fontWeight: 700 }}>
                     {evalRes.isOpenNow ? "Available" : "Offline"}
                   </span>

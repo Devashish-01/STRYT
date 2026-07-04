@@ -6,6 +6,7 @@ import { catalogService, requestService, appointmentService, businessService } f
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
+import { firstName as safeFirstName } from "@/lib/publicName";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
@@ -53,7 +54,9 @@ export default function Home() {
     : (categories ?? []);
 
   const showBanner = !!theme.banner && !bannerDismissed;
-  const firstName = user.name?.split(" ")[0] ?? "";
+  // Phone-safe: never greet someone with their raw phone number as a name.
+  const greetName = safeFirstName(user.name);
+  const firstName = greetName === "Neighbor" ? "" : greetName;
 
   const tiles = [
     { emoji: "🧭", label: "Explore", sub: "Shops & people", tint: "#e8f0ff", color: "#2563eb", onClick: () => nav("/explore") },

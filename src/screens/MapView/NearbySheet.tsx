@@ -6,6 +6,8 @@ import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT } from "@/lib/placeholders";
 import { useApp } from "@/store";
 import type { Story, Business, Provider, RequestPost } from "@/types";
 import { pinColors } from "./mapIcons";
+import { displayName as safeName } from "@/lib/publicName";
+import { distanceLabel } from "@/lib/format";
 
 export function NearbySheet({
   visibleCount, isWorld, radiusKm,
@@ -173,7 +175,7 @@ export function NearbySheet({
                         <Rating value={b.ratingAvg} size={10} />
                         {b.distanceKm != null && (
                           <span style={{ fontSize: 11, color: "var(--ink-400)" }}>
-                            • {b.distanceKm} km
+                            • {distanceLabel(b.distanceKm)}
                           </span>
                         )}
                       </div>
@@ -205,7 +207,7 @@ export function NearbySheet({
                       style={{ width: 48, height: 48, borderRadius: 12, objectFit: "cover", flexShrink: 0 }}
                     />
                     <div className="grow">
-                      <div className="bold small" style={{ color: "var(--ink-900)" }}>{p.displayName}</div>
+                      <div className="bold small" style={{ color: "var(--ink-900)" }}>{safeName(p.displayName, "Local provider")}</div>
                       <div className="tiny muted">{p.categoryName} · starting {inr(p.startingPrice)}</div>
                       <div style={{ marginTop: 4 }}><Rating value={p.ratingAvg} size={10} /></div>
                     </div>

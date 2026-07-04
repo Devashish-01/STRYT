@@ -3,6 +3,7 @@ import { ListSkeleton } from "@/components/states";
 import { socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import { displayName } from "@/lib/publicName";
 
 export default function Achievements() {
   const { user } = useApp();
@@ -18,7 +19,7 @@ export default function Achievements() {
         <div className="page-pad">
           <div className="card col center" style={{ padding: 20, gap: 6, background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", border: "none" }}>
             <SafeImg src={user.avatar} variant="avatar" className="avatar" style={{ width: 60, height: 60, border: "3px solid rgba(255,255,255,0.3)" }} />
-            <div className="bold" style={{ fontSize: 17, marginTop: 4 }}>{user.name}</div>
+            <div className="bold" style={{ fontSize: 17, marginTop: 4 }}>{displayName(user.name)}</div>
             <span className="badge" style={{ background: "rgba(255,255,255,0.2)", color: "#fff" }}>🏆 {unlocked} of {achievements.length} unlocked</span>
           </div>
         </div>

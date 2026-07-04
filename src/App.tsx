@@ -4,6 +4,7 @@ import BottomNav from "./components/BottomNav";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
 import { useI18n, type Lang } from "./lib/i18n";
+import { isPhoneName } from "./lib/publicName";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
@@ -143,6 +144,57 @@ function AuthSplash() {
   );
 }
 
+// Post-auth loading state: a shimmering silhouette of the app shell (header,
+// story row, tiles, bottom nav). Feels like the app is already open and just
+// filling in — far less jarring than a full-screen branded splash on every
+// refresh or deep-link.
+function AppShellSkeleton() {
+  const skel = (h: number, w: number | string, r = 10): React.CSSProperties => ({ height: h, width: w, borderRadius: r });
+  return (
+    <div className="screen" style={{ background: "var(--bg, #faf9fc)", display: "flex", flexDirection: "column" }}>
+      <div className="page-pad" style={{ paddingTop: 16, flex: 1 }}>
+        {/* Header: greeting + icons */}
+        <div className="row between" style={{ alignItems: "flex-start" }}>
+          <div className="col gap-8">
+            <div className="skel" style={skel(12, 90)} />
+            <div className="skel" style={skel(20, 170)} />
+          </div>
+          <div className="row gap-8">
+            <div className="skel" style={skel(38, 38, 12)} />
+            <div className="skel" style={skel(38, 38, 12)} />
+          </div>
+        </div>
+        {/* Search bar */}
+        <div className="skel" style={{ ...skel(44, "100%", 14), marginTop: 14 }} />
+        {/* Story circles */}
+        <div className="row gap-12" style={{ marginTop: 18 }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="skel" style={skel(56, 56, 28)} />
+          ))}
+        </div>
+        {/* Category chips */}
+        <div className="row gap-10" style={{ marginTop: 18 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="skel" style={skel(64, 64, 16)} />
+          ))}
+        </div>
+        {/* Banner + tiles */}
+        <div className="skel" style={{ ...skel(76, "100%", 18), marginTop: 18 }} />
+        <div className="row gap-12" style={{ marginTop: 14 }}>
+          <div className="skel grow" style={skel(108, "48%", 18)} />
+          <div className="skel grow" style={skel(108, "48%", 18)} />
+        </div>
+      </div>
+      {/* Bottom nav silhouette */}
+      <div className="row between" style={{ padding: "12px 28px 18px", borderTop: "1px solid var(--line)", background: "#fff" }}>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="skel" style={skel(i === 2 ? 46 : 30, i === 2 ? 46 : 30, i === 2 ? 23 : 10)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ProtectedLayout() {
   const { isAuthed, authReady, profileReady, user } = useApp();
   const location = useLocation();
@@ -171,10 +223,10 @@ function ProtectedLayout() {
 
   // We have a session but the real profile hasn't loaded yet — wait rather
   // than mounting screens against the blank seed user (name "", avatar "",
-  // etc.), which used to flash placeholder identity data before refreshUser()
-  // resolved and replaced it.
+  // etc.). Show a skeleton of the app shell instead of the branded splash so
+  // a refresh/deep-link feels like the app is already there, just filling in.
   if (!profileReady) {
-    return <AuthSplash />;
+    return <AppShellSkeleton />;
   }
 
   // Deletion pending: redirect to warning screen
@@ -189,9 +241,10 @@ function ProtectedLayout() {
     }
   }
 
-  // New user with no name set: redirect to onboarding first (if not skipped).
+  // User with no real name set (empty, seed placeholder, or a raw phone number
+  // from the old self-heal): route through onboarding once to pick one (skippable).
   const hasSkippedOnboard = localStorage.getItem("onboarding_skipped") === "true";
-  const needsOnboard = isAuthed && user.id && (!user.name || user.name === "New user") && !hasSkippedOnboard && location.pathname !== "/auth/onboard";
+  const needsOnboard = isAuthed && user.id && (!user.name || user.name === "New user" || isPhoneName(user.name)) && !hasSkippedOnboard && location.pathname !== "/auth/onboard";
   if (needsOnboard) {
     return <Navigate to="/auth/onboard" replace />;
   }

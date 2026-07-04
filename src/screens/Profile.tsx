@@ -10,6 +10,7 @@ import {
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { SafeImg } from "@/components/common";
+import { displayName } from "@/lib/publicName";
 import AccountSwitcher from "@/components/AccountSwitcher";
 import { requestService, socialService, businessService } from "@/services";
 import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
@@ -35,10 +36,10 @@ export default function Profile() {
       role: "customer",
       label: "Personal Profile",
       url: window.location.origin + "/u/" + user.id,
-      title: user.name || "Stryt Neighbor",
+      title: displayName(user.name),
       subtitle: `Customer • ${user.area || "No location"}`,
       image: user.avatar || PLACEHOLDER_AVATAR,
-      meta: `⭐ ${user.ratingAvg ?? 0} (${user.ratingCount ?? 0})`
+      meta: (user.ratingCount ?? 0) > 0 ? `⭐ ${user.ratingAvg} (${user.ratingCount})` : "New member"
     }
   ];
 
@@ -47,7 +48,7 @@ export default function Profile() {
       role: "business_owner",
       label: "Shop Profile",
       url: window.location.origin + "/business/" + ownedBusinessIds[0],
-      title: `${getFirstName(user.name || "")}'s Shop`,
+      title: `${getFirstName(displayName(user.name, "My"))}'s Shop`,
       subtitle: "Local Business on Stryt",
       image: PLACEHOLDER_BUSINESS_COVER,
       meta: "Shops & Deals"
@@ -59,7 +60,7 @@ export default function Profile() {
       role: "provider",
       label: "Provider Profile",
       url: window.location.origin + "/provider/" + ownedProviderId,
-      title: user.name || "Service Provider",
+      title: displayName(user.name, "Service Provider"),
       subtitle: "Professional Provider on Stryt",
       image: user.avatar || PLACEHOLDER_AVATAR_ALT,
       meta: "Services & Work"
@@ -135,11 +136,11 @@ export default function Profile() {
               onClick={() => nav(`/u/${user.id}`)}
             />
             <div className="grow">
-              <div className="bold" style={{ fontSize: 21 }}>{user.name || "New user"}</div>
+              <div className="bold" style={{ fontSize: 21 }}>{displayName(user.name)}</div>
               <div className="small" style={{ opacity: 0.8, marginTop: 2 }}>{user.phone}</div>
               <div className="row gap-6" style={{ marginTop: 8 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
-                  <Star size={11} fill="#ffd23f" strokeWidth={0} /> {user.ratingAvg ?? 0} ({user.ratingCount ?? 0})
+                  <Star size={11} fill="#ffd23f" strokeWidth={0} /> {(user.ratingCount ?? 0) > 0 ? `${user.ratingAvg} (${user.ratingCount})` : "New"}
                 </span>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }}>
                   📍 {user.area || "No location"}
@@ -346,7 +347,7 @@ export default function Profile() {
       {switcher && <AccountSwitcher onClose={() => setSwitcher(false)} />}
       {share && (
         <ShareCard
-          title={user.name || "Stryt Neighbor"}
+          title={displayName(user.name)}
           subtitle={`Customer • ${user.area || "No location"}`}
           image={user.avatar}
           options={shareOptions}

@@ -58,9 +58,14 @@ export default function BusinessSettings() {
     );
   }
   const [ownerEnabled, setOwnerEnabled] = useState(true);
-  const [leads, setLeads] = useState(true);
-  const [reviewsN, setReviewsN] = useState(true);
-  const [requests, setRequests] = useState(true);
+  // Persist notification prefs to localStorage so they stick across reloads,
+  // consistent with the customer Settings screen.
+  const [leads, setLeads] = useState(() => localStorage.getItem("biz_notif_leads") !== "false");
+  const [reviewsN, setReviewsN] = useState(() => localStorage.getItem("biz_notif_reviews") !== "false");
+  const [requests, setRequests] = useState(() => localStorage.getItem("biz_notif_requests") !== "false");
+  useEffect(() => { localStorage.setItem("biz_notif_leads", String(leads)); }, [leads]);
+  useEffect(() => { localStorage.setItem("biz_notif_reviews", String(reviewsN)); }, [reviewsN]);
+  useEffect(() => { localStorage.setItem("biz_notif_requests", String(requests)); }, [requests]);
   const [upiId, setUpiId] = useState("");
   const [savingUpi, setSavingUpi] = useState(false);
   const [email, setEmail] = useState("");

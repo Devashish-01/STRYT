@@ -235,7 +235,7 @@ export default function PublicProfile() {
               }}
             >
               <Star size={12} fill="#fbbf24" stroke="none" />
-              {u.ratingAvg} <span style={{ fontWeight: 400, opacity: 0.75 }}>({u.ratingCount})</span>
+              {u.ratingCount > 0 ? <>{u.ratingAvg} <span style={{ fontWeight: 400, opacity: 0.75 }}>({u.ratingCount})</span></> : "New"}
             </span>
 
             {u.verifications.length > 0 && (

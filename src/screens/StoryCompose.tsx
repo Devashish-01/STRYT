@@ -6,6 +6,7 @@ import { socialService, uploadService } from "@/services";
 import { useApp } from "@/store";
 import { currentUserId } from "@/lib/supabaseClient";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
+import { displayName as safeName } from "@/lib/publicName";
 
 const EXPIRY_OPTS = [1, 3, 6, 12] as const;
 
@@ -84,7 +85,7 @@ export default function StoryCompose() {
       await socialService.postStory({
         ownerType:    "user",
         userId:       uid,
-        authorName:   user.name || "Neighbor",
+        authorName:   safeName(user.name, "Neighbor"),
         authorAvatar: user.avatar || "",
         imageUrl:     image,
         caption:      caption.trim(),

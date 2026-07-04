@@ -18,6 +18,9 @@ import AddToListSheet from "@/components/AddToListSheet";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { isMockTarget } from "@/services/engagement/appointmentService";
+import { distanceLabel } from "@/lib/format";
+import { displayName as safeName } from "@/lib/publicName";
+import MiniMap from "@/components/MiniMap";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();
@@ -197,7 +200,7 @@ export default function BusinessDetail() {
             {b.isNew && <span className="badge badge-new" style={{ marginTop: 10 }}>● Opened {daysAgo(b.openingDate)}</span>}
 
             <div className="row gap-12 small" style={{ marginTop: 12, color: "var(--ink-600)" }}>
-              <span className="row gap-4"><MapPin size={14} /> {b.distanceKm} km</span>
+              <span className="row gap-4"><MapPin size={14} /> {distanceLabel(b.distanceKm)}</span>
               <span className="row gap-4"><Clock size={14} color={evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)"} />
                 <span style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>{evalRes.isOpenNow ? "Open now" : "Closed"}</span>
               </span>
@@ -209,7 +212,7 @@ export default function BusinessDetail() {
             </div>
 
             <div className="row gap-10" style={{ marginTop: 14 }}>
-              <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> Call</a>
+              {b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> Call</a>}
               <button
                 className="btn btn-outline grow"
                 onClick={() => {
@@ -300,7 +303,7 @@ export default function BusinessDetail() {
                   className="btn btn-primary btn-sm"
                   onClick={async () => {
                     try {
-                      await businessService.joinQueueToken(b.id, user.name);
+                      await businessService.joinQueueToken(b.id, safeName(user.name, "Customer"));
                       joinQueue(b.id);
                     } catch {
                       showToast("Sign in to join the queue");
@@ -462,15 +465,8 @@ export default function BusinessDetail() {
               <div className="semi small" style={{ marginBottom: 8 }}>Address</div>
               <p className="small muted">{b.addressLine1}, {b.city} – {b.pincode}</p>
             </div>
-            <div
-              style={{ height: 130, borderRadius: 16, background: "linear-gradient(120deg,#eef1f5,#e3f2fd)", position: "relative", overflow: "hidden" }}
-              onClick={() => nav("/map")}
-            >
-              <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-100%)" }}>
-                <MapPin size={36} color="var(--orange-500)" fill="var(--orange-500)" />
-              </div>
-              <span className="tiny semi" style={{ position: "absolute", bottom: 10, right: 12, background: "#fff", padding: "4px 10px", borderRadius: 8 }}>Open in map</span>
-            </div>
+            {/* Real location map — one tap opens turn-by-turn directions */}
+            <MiniMap lat={b.lat} lng={b.lng} pinColor="var(--orange-500)" label={b.addressLine1 || b.city} />
 
             {/* Q&A */}
             <div>
@@ -571,7 +567,7 @@ export default function BusinessDetail() {
       )}
 
       {report && <ReportSheet targetType="BUSINESS" targetId={b.id} name={b.name} onClose={() => setReport(false)} />}
-      {share && <ShareCard title={b.name} subtitle={`${b.subCategory} • ${b.distanceKm} km`} image={b.coverImage} meta={`⭐ ${b.ratingAvg} (${b.ratingCount}) • ${b.city}`} url={window.location.origin + "/business/" + b.id} onClose={() => setShare(false)} />}
+      {share && <ShareCard title={b.name} subtitle={b.subCategory} image={b.coverImage} meta={`${b.ratingCount > 0 ? `⭐ ${b.ratingAvg} (${b.ratingCount}) • ` : ""}${b.city}`} url={window.location.origin + "/business/" + b.id} onClose={() => setShare(false)} />}
       {addList && <AddToListSheet type="BUSINESS" id={b.id} onClose={() => setAddList(false)} />}
       {reviewing && (
         <ReviewSheet

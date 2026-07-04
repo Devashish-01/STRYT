@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useApp } from "@/store";
+import { isPhoneName } from "@/lib/publicName";
 import { userService, uploadService } from "@/services";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import RadiusSelector from "@/components/RadiusSelector";
@@ -36,9 +37,10 @@ export default function UserOnboard() {
   const nav = useNavigate();
   const { user, refreshUser, setArea, showToast, signOut } = useApp();
 
-  // 1. Necessary / Required Setup Fields
+  // 1. Necessary / Required Setup Fields — never prefill the seed placeholder
+  // or a raw phone number into the name field.
   const [name, setName] = useState(
-    user.name && user.name !== "New user" ? user.name : ""
+    user.name && user.name !== "New user" && !isPhoneName(user.name) ? user.name : ""
   );
 
   // Location setup

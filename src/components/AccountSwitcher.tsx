@@ -4,6 +4,7 @@ import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
 import { businessService, providerService } from "@/services";
 import { SafeImg } from "./common";
+import { displayName as safeName } from "@/lib/publicName";
 
 export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
   const nav = useNavigate();
@@ -39,10 +40,10 @@ export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
             active={isActive("customer", null)}
             avatar={user.avatar}
             icon={<User size={14} />}
-            title={user.name}
+            title={safeName(user.name)}
             sub="Personal · Customer"
             color="var(--brand-600)"
-            onClick={() => pick("customer", null, user.name, "/home")}
+            onClick={() => pick("customer", null, safeName(user.name), "/home")}
           />
 
           {/* Businesses */}
