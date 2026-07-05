@@ -859,149 +859,262 @@ textarea.input {
   width: 100%;
 }
 
-.desktop-brand-panel {
+.desktop-sidebar {
   display: none;
 }
 
 .app-shell-container {
   width: 100%;
   min-height: 100vh;
+  flex: 1;
+  background: var(--bg);
 }
 
+/* Hide native bottom navigations on desktop */
 @media (min-width: 768px) {
-  .desktop-layout {
-    background: linear-gradient(135deg, #f3f0ff 0%, #e8e2f8 50%, #ddd5f4 100%);
-    align-items: center;
-    justify-content: center;
-    gap: 60px;
-    padding: 40px;
-    overflow-y: auto;
+  .bottom-nav {
+    display: none !important;
   }
 
-  .desktop-brand-panel {
+  .desktop-layout {
+    background: #faf8ff;
+    flex-direction: row;
+  }
+
+  /* Fixed Desktop Sidebar */
+  .desktop-sidebar {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    max-width: 440px;
-    text-align: left;
+    width: 280px;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    border-right: 1.5px solid var(--line);
+    padding: 24px 18px;
+    z-index: 1000;
+    box-shadow: 4px 0 24px rgba(109, 40, 217, 0.03);
   }
 
-  .desktop-brand-content h2 {
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: -1px;
-    color: var(--brand-700);
-    margin: 16px 0 12px;
-    line-height: 1.2;
-  }
-
-  .desktop-brand-content p {
-    font-size: 15.5px;
-    line-height: 1.6;
-    color: var(--ink-600);
-    margin-bottom: 28px;
-  }
-
-  .desktop-logo {
+  .sidebar-brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    margin-bottom: 28px;
+    cursor: pointer;
   }
 
-  .desktop-logo .logo-text {
-    font-size: 26px;
+  .sidebar-brand .logo-text {
+    font-size: 22px;
     font-weight: 900;
-    letter-spacing: -1px;
+    letter-spacing: -0.8px;
     color: var(--ink-900);
   }
 
-  .desktop-app-features {
+  .sidebar-profile-box {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 14px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .role-switch-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: var(--brand-50);
+    color: var(--brand-700);
+    border-radius: 12px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .role-switch-btn:hover {
+    background: var(--brand-100);
+  }
+
+  .sidebar-nav {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    margin-bottom: 36px;
+    gap: 6px;
+    flex: 1;
+    overflow-y: auto;
   }
 
-  .feature-item {
+  .sidebar-nav-item {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 12px;
-  }
-
-  .feature-item span {
-    font-size: 22px;
-    background: #fff;
-    padding: 8px;
+    padding: 11px 14px;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    color: var(--ink-600);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
   }
 
-  .feature-item strong {
-    display: block;
-    font-size: 14.5px;
+  .sidebar-nav-item:hover {
+    background: var(--ink-50);
+    color: var(--ink-900);
+  }
+
+  .sidebar-nav-item.active {
+    background: var(--brand-50);
+    color: var(--brand-700);
     font-weight: 700;
-    color: var(--ink-800);
   }
 
-  .feature-item small {
-    font-size: 12.5px;
-    color: var(--ink-500);
+  .sidebar-badge {
+    background: var(--red-500);
+    color: #fff;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    line-height: 1;
   }
 
-  .desktop-download-box {
-    background: #fff;
-    border: 1px solid var(--ink-200);
-    padding: 20px;
-    border-radius: 20px;
+  .sidebar-actions {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    box-shadow: 0 10px 25px rgba(109, 40, 217, 0.05);
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    margin-bottom: 16px;
   }
 
-  .desktop-download-box span {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--ink-500);
-  }
-
-  .desktop-download-box .btn {
-    text-align: center;
+  .sidebar-create-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px;
     background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
     color: #fff;
-    padding: 12px 20px;
-    border-radius: 12px;
-    font-weight: 700;
+    border-radius: 14px;
     font-size: 14px;
-    box-shadow: 0 4px 12px rgba(124,58,237,0.25);
-    text-decoration: none;
+    font-weight: 700;
+    box-shadow: 0 4px 16px rgba(124, 58, 237, 0.2);
+    cursor: pointer;
     transition: transform 0.2s;
   }
 
-  .desktop-download-box .btn:hover {
+  .sidebar-create-btn:hover {
     transform: translateY(-2px);
   }
 
-  .app-shell-container {
-    flex-shrink: 0;
-    width: 380px;
-    height: 780px;
-    border: 10px solid #18181b;
-    border-radius: 36px;
-    box-shadow: 0 30px 60px rgba(24, 24, 27, 0.25), 0 0 0 2px rgba(24, 24, 27, 0.08);
-    overflow: hidden;
+  .sidebar-download-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px;
     background: #fff;
-    min-height: auto;
-    position: relative;
+    color: var(--brand-700);
+    border: 1.5px solid var(--brand-100);
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.2s;
   }
 
-  /* Reset the inner app-shell styles to fit the physical mock frame */
-  .app-shell-container .app-shell {
+  .sidebar-download-btn:hover {
+    background: var(--brand-50);
+  }
+
+  .sidebar-footer {
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+
+  .sidebar-logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     width: 100%;
-    height: 100%;
+    padding: 10px 14px;
+    color: var(--red-500);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: background 0.2s;
+  }
+
+  .sidebar-logout-btn:hover {
+    background: var(--red-50);
+  }
+
+  /* App container next to sidebar */
+  .app-shell-container {
+    margin-left: 280px;
+  }
+
+  .app-shell-container .app-shell {
     max-width: 100%;
-    min-height: 100%;
-    border-radius: 0;
+    min-height: 100vh;
     box-shadow: none;
+    background: transparent;
+    padding-bottom: 24px;
+  }
+
+  /* Center page contents elegantly on desktop */
+  .screen {
+    max-width: 1120px !important;
+    margin: 0 auto !important;
+    padding: 24px 32px !important;
+  }
+
+  .screen-scroll {
+    overflow-y: visible !important;
+    height: auto !important;
+  }
+
+  /* Sticky app bars adjust styling on desktop */
+  .appbar {
+    max-width: 1120px !important;
+    margin: 0 auto !important;
+    background: rgba(250, 248, 255, 0.9) !important;
+    backdrop-filter: blur(10px);
+    border-radius: 0 0 16px 16px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Grid Layout Overrides for Card Collections */
+  
+  /* 1. Explore business listings */
+  .col.gap-14.page-pad {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
+    gap: 20px !important;
+  }
+
+  /* 2. Home screen category lists */
+  .hscroll {
+    overflow-x: visible !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 14px !important;
+  }
+
+  /* 3. 2x2 home screen tiles -> 4-column horizontal strip */
+  .launch-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 16px !important;
+  }
+
+  .launch-tile {
+    min-height: 120px !important;
   }
 }
