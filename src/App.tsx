@@ -345,7 +345,7 @@ export default function App() {
       {showDesktopSidebar && <DesktopSidebar />}
 
       {/* Main app container */}
-      <div className="app-shell-container">
+      <div className={`app-shell-container ${showDesktopSidebar ? "has-sidebar" : ""}`}>
         <div className="app-shell">
           <OfflineBanner />
       <Suspense fallback={<AuthSplash />}>

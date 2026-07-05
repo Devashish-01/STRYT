@@ -1040,7 +1040,7 @@ textarea.input {
   }
 
   /* App container next to sidebar */
-  .app-shell-container {
+  .app-shell-container.has-sidebar {
     margin-left: 230px;
   }
 
