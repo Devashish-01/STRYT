@@ -2,7 +2,8 @@ import { tokenStore } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabaseClient";
 import { toApiError } from "@/lib/supabasePage";
 import { returnTo } from "@/lib/returnTo";
-import { isNativePlatform, nativeGoogleSignIn, nativeGoogleSignInViaFirebase, NATIVE_GOOGLE_SIGNIN_READY } from "@/lib/nativeAuth";
+import { isNativePlatform, nativeGoogleSignIn, nativeGoogleSignInViaFirebase, webGoogleSignInViaFirebase, NATIVE_GOOGLE_SIGNIN_READY } from "@/lib/nativeAuth";
+import { hasFirebaseWebConfig } from "@/lib/firebaseWeb";
 
 // Where an OAuth / magic-link redirect should land: the saved deep link the user
 // was trying to reach, else /home. Must be a same-origin path on the allow-list.
@@ -114,13 +115,19 @@ export const authService = {
       else await nativeGoogleSignIn();
       return;
     }
+    // Web: route through Firebase's popup (its redirect handler is pre-authorized,
+    // so no redirect_uri_mismatch and the consent screen shows Firebase, not
+    // supabase.co) then bridge the Google token into a Supabase session.
+    if (hasFirebaseWebConfig) {
+      await webGoogleSignInViaFirebase();
+      return;
+    }
+    // Last-resort fallback (Firebase web env not configured): Supabase's own
+    // OAuth redirect — requires the supabase.co callback in Google's Web client.
     const sb = getSupabase();
     const { error } = await sb.auth.signInWithOAuth({
       provider: "google",
       options: {
-        // Land back on the page the user originally tried to open (a shared deep
-        // link), or /home. The full-page OAuth round-trip wipes React state, so
-        // the destination is read from sessionStorage via returnTo.
         redirectTo: window.location.origin + oauthReturnPath(),
       }
     });

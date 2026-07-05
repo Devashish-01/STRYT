@@ -37,6 +37,32 @@ export async function nativeGoogleSignInViaFirebase(): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * WEB Google sign-in through Firebase → Supabase bridge.
+ *
+ * Fixes redirect_uri_mismatch without any Google Console change: Firebase's
+ * signInWithPopup redirects through <project>.firebaseapp.com/__/auth/handler,
+ * which Firebase already authorized on its own OAuth client. We pull the Google
+ * ID token out of the popup result and hand it to Supabase — Supabase stays the
+ * session/data backend (app runs as-is), and the consent screen shows Firebase
+ * instead of the raw supabase.co callback.
+ */
+export async function webGoogleSignInViaFirebase(): Promise<void> {
+  const { getFirebaseAuth } = await import("@/lib/firebaseWeb");
+  const { GoogleAuthProvider, signInWithPopup, signOut } = await import("firebase/auth");
+  const auth = getFirebaseAuth();
+  const provider = new GoogleAuthProvider();
+  const result = await signInWithPopup(auth, provider);
+  const cred = GoogleAuthProvider.credentialFromResult(result);
+  const idToken = cred?.idToken;
+  // We only needed the Google token — don't keep a dangling Firebase session.
+  void signOut(auth).catch(() => {});
+  if (!idToken) throw new Error("Google sign-in didn't return a token. Try again.");
+  const sb = getSupabase();
+  const { error } = await sb.auth.signInWithIdToken({ provider: "google", token: idToken });
+  if (error) throw error;
+}
+
 // The custom-scheme deep link Google/Supabase redirects back to after consent.
 // Must be registered BOTH in AndroidManifest (intent-filter) and in the
 // Supabase dashboard → Authentication → URL Configuration → Redirect URLs.
