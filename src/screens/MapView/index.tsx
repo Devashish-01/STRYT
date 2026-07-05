@@ -121,7 +121,7 @@ export default function MapView() {
     (layers.story    ? mapStories.length : 0);
 
   return (
-    <div className="screen" style={{ position: "relative" }}>
+    <div className="screen screen-canvas" style={{ position: "relative" }}>
       {!pin.pickMode && (
         <>
           <SearchBar />

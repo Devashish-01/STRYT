@@ -20,34 +20,38 @@ This document details the step-by-step interactive flow between **User A (Busine
 ## 2. Dynamic State Machine Diagram
 
 ```mermaid
-stateDiagram-v2
-    [*] --> CLOSED : Queue Default State
-    CLOSED --> OPEN : User A opens Queue
-    OPEN --> WAITING : User B joins Queue (No. of guests, notes)
+graph TD
+    %% States
+    Start([Start: Queue Closed]) -->|User A opens queue| Open[Queue Open]
+    Open -->|User B joins queue| Waiting[Waiting in Line]
     
-    state WAITING {
-        [*] --> InLine
-        InLine --> CancelledByCustomer : User B leaves queue
-        InLine --> CancelledByMerchant : User A removes User B
-    }
+    %% Waiting Actions
+    Waiting -->|User B cancels| CancelledCustomer[Cancelled by Customer]
+    Waiting -->|User A removes| CancelledMerchant[Cancelled by Merchant]
     
-    WAITING --> CALLED : User A triggers "Call Next" (Push Notification & SMS sent)
+    %% Calling Actions
+    Waiting -->|User A calls next| Called[Called in Line]
+    Called -->|User B requests time| ExtraTime[Need 5 Mins]
+    ExtraTime -->|Timeout / Expiry| NoShow[No-Show / Skipped]
+    Called -->|Timeout / Expiry| NoShow
     
-    state CALLED {
-        [*] --> CalledIn
-        CalledIn --> NoShow : User B fails to show up (Timeout / User A Skips)
-        CalledIn --> ExtraTimeRequested : User B requests "Need 5 mins"
-        CalledIn --> Arrived : User B confirms "I am here" (or User A checks in)
-    }
-
-    CALLED --> SERVING : User A starts service session
-    SERVING --> COMPLETED : User A completes service session
-    SERVING --> CANCELLED : Service aborted mid-way
+    %% Arrival & Service
+    Called -->|Confirm Arrival| Arrived[Arrived at Counter]
+    Arrived -->|Start Service| Serving[Active Service]
     
-    COMPLETED --> [*] : User B prompted for Rating & Review
-    CancelledByCustomer --> [*]
-    CancelledByMerchant --> [*]
-    NoShow --> [*]
+    %% Final States
+    Serving -->|Complete| Completed[Service Completed]
+    Serving -->|Abort| Cancelled[Service Cancelled]
+    Completed -->|Feedback| Review[Rating & Review Prompt]
+    
+    %% Style Classes
+    classDef merchant fill:#ede9fe,stroke:#8b5cf6,stroke-width:2px;
+    classDef customer fill:#fdf2f8,stroke:#ec4899,stroke-width:2px;
+    classDef system fill:#eff6ff,stroke:#3b82f6,stroke-width:2px;
+    
+    class Start,Open,CancelledMerchant,NoShow,Serving,Completed merchant;
+    class Waiting,CancelledCustomer,ExtraTime,Arrived,Review customer;
+    class Called system;
 ```
 
 ---

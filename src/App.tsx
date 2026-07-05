@@ -278,10 +278,27 @@ function PublicOnlyLayout() {
   return <Outlet />;
 }
 
+// Screens with their own dedicated full-bleed layout (auth/splash, admin login,
+// tracking share-link) — the desktop sidebar has nothing useful to navigate to
+// from here (not authenticated yet, or a standalone public page), so it's
+// hidden on exactly these, and shown EVERYWHERE else once past them. This is
+// deliberately broader than TAB_ROUTES (mobile's bottom-nav root list) — a
+// desktop sidebar nav is expected to persist across every in-app screen
+// (detail pages, chat, settings, manage consoles), not just the 4 tab roots.
+function isAuthOrPublicScreen(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/admin/login") ||
+    pathname.startsWith("/track/")
+  );
+}
+
 export default function App() {
   const location = useLocation();
   const { toast, activeContext } = useApp();
   const showNav = TAB_ROUTES.includes(location.pathname);
+  const showDesktopSidebar = !isAuthOrPublicScreen(location.pathname);
 
   const navigate = useNavigate();
 
@@ -325,7 +342,7 @@ export default function App() {
 
   return (
     <div className="desktop-layout">
-      {showNav && <DesktopSidebar />}
+      {showDesktopSidebar && <DesktopSidebar />}
 
       {/* Main app container */}
       <div className="app-shell-container">

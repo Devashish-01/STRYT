@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Eye, Phone, Navigation, Star, HelpCircle,
-  ChevronRight, BadgeCheck, ArrowLeftRight, Share2, Zap,
+  ChevronRight, BadgeCheck, Share2, Zap,
   Calendar, Users, Search, FileText, Clock, User,
   Tag, Megaphone, Globe, QrCode, MessageSquareText
 } from "@/components/Icons";
@@ -14,11 +14,12 @@ import { useApp } from "@/store";
 import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
 import ManageNav from "./ManageNav";
 import ShareCard from "@/components/ShareCard";
+import RoleSwitcher from "@/components/RoleSwitcher";
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { setContext, showToast } = useApp();
+  const { showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
   const { data, loading } = useQueryWithRealtime(
     () => businessService.analytics(id),
@@ -77,19 +78,7 @@ export default function ManageDashboard() {
       }}>
         {/* Top navigation row */}
         <div className="row between">
-          <button
-            className="row gap-6 tiny semi"
-            style={{
-              padding: "6px 12px",
-              background: "rgba(255, 255, 255, 0.15)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              borderRadius: 100,
-              color: "#fff"
-            }}
-            onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}
-          >
-            <ArrowLeftRight size={13} /> Switch to Customer
-          </button>
+          <RoleSwitcher theme="dark-pill" />
           
           <div className="row gap-8" style={{ alignItems: "center" }}>
             <button 

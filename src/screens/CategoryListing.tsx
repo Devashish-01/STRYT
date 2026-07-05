@@ -88,7 +88,7 @@ export default function CategoryListing() {
           </div>
         )}
 
-        <div className="col gap-14 page-pad">
+        <div className="col gap-14 page-pad listings-cards-grid">
           {loading ? (
             <ListSkeleton count={3} />
           ) : biz.length + prov.length === 0 ? (

@@ -15,7 +15,11 @@ const cfg = {
   appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID,
 };
 
-export const hasFirebaseWebConfig = Boolean(cfg.apiKey && cfg.authDomain && cfg.appId);
+// appId is NOT required for Auth (only analytics/messaging use it) and
+// VITE_FIREBASE_APP_ID currently holds the ANDROID app's id — there's no Web
+// app registered in this Firebase project. Don't gate on it; apiKey +
+// authDomain + projectId are all Auth's signInWithPopup actually needs.
+export const hasFirebaseWebConfig = Boolean(cfg.apiKey && cfg.authDomain && cfg.projectId);
 
 let _auth: Auth | null = null;
 export function getFirebaseAuth(): Auth {

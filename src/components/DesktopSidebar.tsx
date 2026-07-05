@@ -5,10 +5,11 @@ import { displayName } from "@/lib/publicName";
 import { PLACEHOLDER_AVATAR } from "@/lib/placeholders";
 import { SafeImg } from "@/components/common";
 import {
-  Home, Map, Plus, User, Settings, Bell, LogOut,
+  Home, Map, Plus, Settings, Bell, LogOut,
   LayoutDashboard, LayoutGrid, Inbox, CalendarClock, ImageIcon,
-  Store, Briefcase, UserCircle, ChevronRight
+  UserCircle
 } from "@/components/Icons";
+import RoleSwitcher from "@/components/RoleSwitcher";
 
 export default function DesktopSidebar() {
   const nav = useNavigate();
@@ -19,8 +20,6 @@ export default function DesktopSidebar() {
     activeContext,
     chatUnread,
     signOut,
-    setActiveRole,
-    roles,
     ownedBusinessIds,
     ownedProviderId
   } = useApp();
@@ -38,24 +37,6 @@ export default function DesktopSidebar() {
   const handleLogOut = () => {
     signOut();
     nav("/");
-  };
-
-  // Switch context helper
-  const handleRoleSwitch = () => {
-    if (isBusiness || isProvider) {
-      // Go back to customer
-      setActiveRole("customer");
-      nav("/home");
-    } else {
-      // Switch to first owned business or provider
-      if (ownedBusinessIds.length > 0) {
-        setActiveRole("business_owner");
-        nav(`/business/${ownedBusinessIds[0]}/manage`);
-      } else if (ownedProviderId) {
-        setActiveRole("provider");
-        nav(`/provider/${ownedProviderId}/manage`);
-      }
-    }
   };
 
   // Build items based on active role
@@ -117,7 +98,7 @@ export default function DesktopSidebar() {
             src={user.avatar || PLACEHOLDER_AVATAR}
             alt={user.name}
             className="sidebar-avatar"
-            style={{ width: 44, height: 44, borderRadius: "50%", border: "2px solid var(--brand-100)" }}
+            style={{ width: 36, height: 36, borderRadius: "50%", border: "2px solid var(--brand-100)" }}
           />
           <div className="col grow" style={{ minWidth: 0 }}>
             <span className="bold text-ellipsis" style={{ fontSize: 14.5, color: "var(--ink-900)" }}>
@@ -129,15 +110,12 @@ export default function DesktopSidebar() {
           </div>
         </div>
 
-        {/* Role Switcher Action */}
+        {/* Real dropdown — lists every hat (Personal + each owned business/provider),
+            not just a binary back-and-forth toggle. */}
         {hasMultipleRoles && (
-          <button className="role-switch-btn row between gap-4" onClick={handleRoleSwitch}>
-            <span className="row gap-6">
-              {isBusiness ? <Store size={14} /> : isProvider ? <Briefcase size={14} /> : <UserCircle size={14} />}
-              <span>{isBusiness || isProvider ? "Switch to Personal" : "Switch to Console"}</span>
-            </span>
-            <ChevronRight size={14} />
-          </button>
+          <div style={{ marginTop: 12 }}>
+            <RoleSwitcher />
+          </div>
         )}
       </div>
 

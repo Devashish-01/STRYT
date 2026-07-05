@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Eye, Briefcase, CheckCircle2, Wallet, Star, Zap,
-  ArrowLeftRight, Share2, Calendar, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck
+  Share2, Calendar, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck
 } from "@/components/Icons";
 import { providerService } from "@/services";
 import { SafeImg, inr, AppBar } from "@/components/common";
@@ -11,12 +11,13 @@ import { Skeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import ProviderManageNav from "./ProviderManageNav";
 import ShareCard from "@/components/ShareCard";
+import RoleSwitcher from "@/components/RoleSwitcher";
 
 export default function ProviderDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { data: p } = useQuery(() => providerService.get(id), [id]);
-  const { setContext, showToast } = useApp();
+  const { showToast } = useApp();
   const { data, loading } = useQueryWithRealtime(
     () => providerService.analytics(id),
     "leads",
@@ -66,19 +67,7 @@ export default function ProviderDashboard() {
       }}>
         {/* Top navigation row */}
         <div className="row between">
-          <button
-            className="row gap-6 tiny semi"
-            style={{
-              padding: "6px 12px",
-              background: "rgba(255, 255, 255, 0.15)",
-              border: "1px solid rgba(255, 255, 255, 0.2)",
-              borderRadius: 100,
-              color: "#fff"
-            }}
-            onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}
-          >
-            <ArrowLeftRight size={13} /> Switch to Customer
-          </button>
+          <RoleSwitcher theme="dark-pill" />
           
           <div className="row gap-8" style={{ alignItems: "center" }}>
             <button 
