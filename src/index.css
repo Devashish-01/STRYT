@@ -851,3 +851,157 @@ textarea.input {
   transition: transform 0.08s ease;
 }
 .stat-pill:active { transform: scale(0.96); }
+
+/* ---------- Desktop Responsive Layout ---------- */
+.desktop-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.desktop-brand-panel {
+  display: none;
+}
+
+.app-shell-container {
+  width: 100%;
+  min-height: 100vh;
+}
+
+@media (min-width: 768px) {
+  .desktop-layout {
+    background: linear-gradient(135deg, #f3f0ff 0%, #e8e2f8 50%, #ddd5f4 100%);
+    align-items: center;
+    justify-content: center;
+    gap: 60px;
+    padding: 40px;
+    overflow-y: auto;
+  }
+
+  .desktop-brand-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: 440px;
+    text-align: left;
+  }
+
+  .desktop-brand-content h2 {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    color: var(--brand-700);
+    margin: 16px 0 12px;
+    line-height: 1.2;
+  }
+
+  .desktop-brand-content p {
+    font-size: 15.5px;
+    line-height: 1.6;
+    color: var(--ink-600);
+    margin-bottom: 28px;
+  }
+
+  .desktop-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .desktop-logo .logo-text {
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: -1px;
+    color: var(--ink-900);
+  }
+
+  .desktop-app-features {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+
+  .feature-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .feature-item span {
+    font-size: 22px;
+    background: #fff;
+    padding: 8px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+
+  .feature-item strong {
+    display: block;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--ink-800);
+  }
+
+  .feature-item small {
+    font-size: 12.5px;
+    color: var(--ink-500);
+  }
+
+  .desktop-download-box {
+    background: #fff;
+    border: 1px solid var(--ink-200);
+    padding: 20px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 10px 25px rgba(109, 40, 217, 0.05);
+  }
+
+  .desktop-download-box span {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-500);
+  }
+
+  .desktop-download-box .btn {
+    text-align: center;
+    background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(124,58,237,0.25);
+    text-decoration: none;
+    transition: transform 0.2s;
+  }
+
+  .desktop-download-box .btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .app-shell-container {
+    flex-shrink: 0;
+    width: 380px;
+    height: 780px;
+    border: 10px solid #18181b;
+    border-radius: 36px;
+    box-shadow: 0 30px 60px rgba(24, 24, 27, 0.25), 0 0 0 2px rgba(24, 24, 27, 0.08);
+    overflow: hidden;
+    background: #fff;
+    min-height: auto;
+    position: relative;
+  }
+
+  /* Reset the inner app-shell styles to fit the physical mock frame */
+  .app-shell-container .app-shell {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    min-height: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}

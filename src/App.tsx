@@ -323,8 +323,58 @@ export default function App() {
   }, [navigate]);
 
   return (
-    <div className="app-shell">
-      <OfflineBanner />
+    <div className="desktop-layout">
+      {/* Left side brand info (Desktop only) */}
+      <div className="desktop-brand-panel">
+        <div className="desktop-brand-content">
+          <div className="desktop-logo">
+            <svg width="48" height="48" viewBox="0 0 64 64">
+              <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="var(--brand-600)" />
+              <path d="M32 41 C24 35 40 24 32 17" stroke="#fff" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="0.5 3.8" />
+            </svg>
+            <span className="logo-text">STRYT</span>
+          </div>
+          <h2>Connect with your street</h2>
+          <p>Discover local shops, request services from nearby providers, join virtual queues, and interact with your neighborhood in real time.</p>
+          
+          <div className="desktop-app-features">
+            <div className="feature-item">
+              <span>📍</span>
+              <div>
+                <strong>Hyper-local Map</strong>
+                <small>Find nearby businesses & providers</small>
+              </div>
+            </div>
+            <div className="feature-item">
+              <span>🤝</span>
+              <div>
+                <strong>Direct Quotes</strong>
+                <small>Request tasks & receive offers</small>
+              </div>
+            </div>
+            <div className="feature-item">
+              <span>👥</span>
+              <div>
+                <strong>Live Queues</strong>
+                <small>Skip physical wait lines</small>
+              </div>
+            </div>
+          </div>
+
+          <div className="desktop-download-box">
+            <span>Android user?</span>
+            <a href="/stryt.apk" download className="btn">
+              🤖 Download Android App (.apk)
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Main app framed device container */}
+      <div className="app-shell-container">
+        <div className="app-shell">
+          <OfflineBanner />
       <Suspense fallback={<AuthSplash />}>
         <Routes>
           {/* Public only auth routes */}
@@ -440,6 +490,8 @@ export default function App() {
         )
       )}
       {toast && <div className="toast">{toast}</div>}
+        </div>
+      </div>
     </div>
   );
 }
