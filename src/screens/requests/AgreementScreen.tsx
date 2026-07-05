@@ -138,6 +138,11 @@ export default function AgreementScreen() {
     [id, isNew],
     isNew ? undefined : `id=eq.${id}`
   );
+  // Money state must be visible: HELD = safely escrowed, RELEASED = paid out.
+  const { data: payment } = useQuery(
+    () => (isNew ? Promise.resolve(null) : requestService.paymentForAgreement(id)),
+    [id, isNew]
+  );
 
   let agreement: Agreement | undefined;
   if (isNew && state?.request && state?.proposal) {
@@ -309,7 +314,8 @@ export default function AgreementScreen() {
           <div>
             <span className="semi" style={{ color: "#991b1b" }}>Agreement Cancelled</span>
             <p className="tiny muted" style={{ marginTop: 4, maxWidth: 320, lineHeight: 1.4 }}>
-              This work order has been cancelled. Since the 10-minute confirmation window has passed, you can accept a quote again.
+              This work order was cancelled — either by a participant, or automatically because the
+              confirmation window passed without both sides confirming. You can accept a quote again.
             </p>
           </div>
           <button
@@ -629,6 +635,25 @@ export default function AgreementScreen() {
             <Wallet size={16} color="var(--orange-500)" />
             <span>Payment: <span className="semi">{agreement.paymentMode === "ONLINE" ? "Online (Razorpay)" : "Offline (in person)"}</span></span>
           </div>
+          {payment?.escrowStatus && (
+            <>
+              <div className="divider" />
+              <div className="row gap-10 small">
+                <span
+                  className={`badge ${payment.escrowStatus === "HELD" ? "badge-amber" : payment.escrowStatus === "RELEASED" ? "badge-green" : "badge-gray"}`}
+                >
+                  {payment.escrowStatus === "HELD" ? "🔒 Payment held in escrow" : payment.escrowStatus === "RELEASED" ? "✓ Payment released" : payment.escrowStatus}
+                </span>
+                <span className="tiny muted">
+                  {payment.escrowStatus === "HELD"
+                    ? `${inr(payment.amount)} secured by STRYT until the job completes`
+                    : payment.escrowStatus === "RELEASED"
+                    ? `${inr(payment.amount)} paid out to the responder`
+                    : ""}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {agreement.paymentMode !== "ONLINE" && (

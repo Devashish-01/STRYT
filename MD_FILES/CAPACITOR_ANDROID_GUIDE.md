@@ -409,3 +409,157 @@ here for completeness.)
 - Is Google Sign-In actually needed for Android v1, or is phone-only acceptable for launch (see 4.4)?
 - Who owns the Firebase project this gets tied to (Phase 4.3) — needs a Google account with Play Console access eventually for App Links verification too, worth using the same account.
 - Confirm `ISS-009` (column-level PII exposure — see `ISSUES.md`) is resolved before Play Store submission, since the Data Safety form is a legal declaration, not a formality.
+
+---
+
+## ✅ IMPLEMENTED — Native Google sign-in (deep-link handoff)
+
+Replaces the old full-page OAuth redirect (which opened the live website in the
+OS browser and then bounced back). The app now does the standard Capacitor +
+Supabase native flow: in-app Custom Tab → app deep link → PKCE code exchange, all
+without leaving the app.
+
+**Code (already committed):**
+- `src/lib/supabaseClient.ts` — `flowType: 'pkce'` on the auth client.
+- `src/lib/nativeAuth.ts` — `nativeGoogleSignIn()`: `signInWithOAuth({ skipBrowserRedirect })`
+  → `Browser.open()` (Custom Tab) → catches `in.stryt.app://auth/callback?code=…`
+  via `App.addListener('appUrlOpen')` → `exchangeCodeForSession(code)`.
+- `src/services/core/authService.ts` — `signInWithGoogle()` branches to the native
+  path when `Capacitor.isNativePlatform()`, else keeps the web redirect.
+- `src/lib/nativeApp.ts` + `src/main.tsx` — back button, status bar, keyboard, splash.
+- `android/app/src/main/AndroidManifest.xml` — `VIEW` intent-filter for scheme
+  `in.stryt.app` host `auth`.
+- `capacitor.config.ts` — SplashScreen/Keyboard plugin config.
+- Added dep `@capacitor/browser`; ran `npx cap sync android`.
+
+**Manual steps still required (dashboard + native — can't be done from code):**
+1. **Supabase → Authentication → URL Configuration → Redirect URLs**: add
+   `in.stryt.app://auth/callback`.
+2. **Google Cloud Console**: the existing Web OAuth client (already used by the
+   working web login) is sufficient — Supabase brokers the token, so NO separate
+   Android OAuth client or `google-services.json` is needed for this flow.
+3. Rebuild the APK: `npm run cap:run` (or `cap:sync` then build in Android Studio)
+   and test on a real device / emulator with Google Play Services.
+
+**If you later want the fully native account-picker (no Custom Tab at all):** that
+requires the `@capgo/capacitor-social-login` (or community google-auth) plugin, an
+Android OAuth client ID + SHA-1 fingerprint, `google-services.json`, and
+`supabase.auth.signInWithIdToken()`. The current Custom-Tab flow is the
+lower-config, dashboard-only option and keeps auth inside the app.
+
+---
+
+## ✅ IMPLEMENTED — App launcher icon (STRYT logo)
+
+The wrapper was shipping the default Capacitor icon. Replaced with the brand mark
+(`public/icon-512.png` / `favicon.svg` — purple pin + winding street):
+
+- **Adaptive icon (API 26+):** `res/values/ic_launcher_background.xml` → brand
+  purple `#7C3AED`; `res/drawable-v24/ic_launcher_foreground.xml` → vector of the
+  pin (resolution-independent); both `mipmap-anydpi-v26/ic_launcher*.xml` now point
+  `<foreground>` at `@drawable/ic_launcher_foreground`.
+- **Legacy icons (pre-26):** `mipmap-{mdpi…xxxhdpi}/ic_launcher.png` +
+  `ic_launcher_round.png` regenerated from the 512px logo (Pillow).
+
+**To see it:** rebuild the APK — `npm run cap:run` (or open in Android Studio and
+Run). Icons are native resources, so a JS/`cap sync` refresh alone won't update the
+home-screen icon; it needs a native rebuild + reinstall.
+
+---
+
+## 🔴 ROOT-CAUSED & FIXED — native crash on first login (any method)
+
+**Symptom:** phone OTP login "breaks the app instantly, and after that the app
+breaks completely" (crash loop on every subsequent open).
+
+**Root cause (verified in code, not guessed):**
+1. `android/app/google-services.json` does not exist.
+2. `android/app/build.gradle:47-54` only applies the `google-services` Gradle
+   plugin when that file exists — so Firebase is **never initialized** in the
+   compiled app.
+3. `node_modules/@capacitor/push-notifications/.../PushNotificationsPlugin.java:102`
+   — `register()` calls `FirebaseMessaging.getInstance()` with **no exception
+   handling**. Without Firebase init this throws `IllegalStateException`
+   *synchronously on the native side* — it never becomes a JS promise
+   rejection, so no JS `try/catch` can catch it. It crashes the whole app
+   process.
+4. `store.tsx` calls `registerPush(uid)` the instant `isAuthed` flips true —
+   right after ANY successful login (phone OTP or Google). Session persists,
+   so every future app open auto-signs-in and re-crashes. That's the
+   "breaks completely, permanently" part.
+
+**Fix applied:** `src/lib/pushNotifications.ts` — added an `FCM_READY = false`
+guard; `registerPush()` is a no-op on native until flipped. Stops the crash
+immediately; login now completes normally with no push notifications (web
+push for browser users is unaffected).
+
+**To actually enable push notifications:**
+1. Create a Firebase project, add an Android app with package `in.stryt.app`.
+2. Download `google-services.json` → place at `android/app/google-services.json`.
+3. Set `FCM_READY = true` in `src/lib/pushNotifications.ts`.
+4. `npx cap sync android`, then a full rebuild in Android Studio (Gradle only
+   reads `google-services.json` at build time — a JS-only `cap sync` is not
+   enough).
+
+## 🔴 FIXED — duplicate back-button / status-bar handlers
+
+A previous pass added `src/lib/nativeApp.ts` with its own `backButton`
+listener and `StatusBar.setStyle`/`setBackgroundColor` calls — duplicating
+logic `App.tsx` already owned. Result: every hardware back-press fired two
+listeners (double navigation-pop), and two `StatusBar.setStyle` calls
+(`Dark` vs `Light`) raced on every launch. Removed the duplication from
+`nativeApp.ts`; `App.tsx` remains the single owner of back-button + status
+bar. `nativeApp.ts` now only does Keyboard resize + Splash hide (genuinely
+new, not duplicated elsewhere).
+
+---
+
+## 🟡 READY TO ENABLE — truly native Google sign-in (Credential Manager, no browser)
+
+Code is implemented and gated behind `NATIVE_GOOGLE_SIGNIN_READY = false` in
+`src/lib/nativeAuth.ts` so Google login keeps working (via the Custom Tab
+fallback) until you finish these one-time manual steps. Uses
+`@capacitor-firebase/authentication` purely to drive the native Android
+Credential Manager account picker + get a Google ID token — `skipNativeAuth:
+true` (set in `capacitor.config.ts`) means it does NOT create a parallel
+Firebase Auth session; Supabase stays the one real backend via
+`supabase.auth.signInWithIdToken()`.
+
+**Steps:**
+1. **Firebase Console** (console.firebase.google.com) → Create project (or
+   reuse one).
+2. **Add an Android app** → package name **`in.stryt.app`** (must match
+   `capacitor.config.ts` `appId` exactly).
+3. **Get the SHA-1 fingerprint** and add it to that Android app in Firebase:
+   ```
+   cd android
+   ./gradlew signingReport
+   ```
+   (Windows: `gradlew.bat signingReport`.) Copy the `SHA1` line under the
+   `debug` variant for now (add the `release` one too once you have a
+   signing key for Play Store builds).
+4. **Download `google-services.json`** from Firebase Console → place at
+   `android/app/google-services.json`.
+5. **Firebase Console → Authentication → Sign-in method → Google → Enable.**
+   This auto-creates a "Web client (auto created by Google Service)" OAuth
+   client — needed next.
+6. **Copy that Web Client ID** (Firebase Console → Project settings → General
+   → scroll to "Your apps", or Google Cloud Console → APIs & Services →
+   Credentials — look for the OAuth 2.0 Client ID of type "Web application"
+   auto-created by Firebase).
+7. **Supabase Dashboard → Authentication → Sign In / Providers → Google →
+   "Authorized Client IDs"** → add that Web Client ID (comma-separated list;
+   keep the existing one the web login already uses). This is required —
+   without it Supabase will reject the native ID token's audience.
+8. Flip the two readiness flags:
+   - `src/lib/nativeAuth.ts` → `NATIVE_GOOGLE_SIGNIN_READY = true`
+   - `src/lib/pushNotifications.ts` → `FCM_READY = true` (same
+     `google-services.json` also fixes push notifications — see the crash
+     writeup above)
+9. `npx cap sync android`, then a **full rebuild** in Android Studio (Build →
+   Rebuild Project) and reinstall — `google-services.json` is read by Gradle
+   at build time, so a JS-only sync isn't enough.
+
+After this, tapping "Continue with Google" shows the native Android account
+picker directly (no browser tab, no leaving the app) — the Swiggy/Zomato-style
+flow.

@@ -9,8 +9,26 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
+// google-services.json is NOT present in android/app/ (Firebase project not
+// set up yet). android/app/build.gradle only applies the google-services
+// Gradle plugin when that file exists, so Firebase is never initialized in
+// the compiled app. PushNotificationsPlugin.register() calls
+// FirebaseMessaging.getInstance() with no exception handling — without
+// Firebase init that throws IllegalStateException synchronously on the
+// native side, UNCAUGHT, which crashes the whole app process (not a JS
+// promise rejection, so no try/catch here can save it). This fires the
+// instant a user signs in (store.tsx calls registerPush right after
+// isAuthed flips true), and since the session persists, EVERY subsequent
+// app open re-triggers it — a permanent crash loop.
+// Flip this to true only after: (1) creating a Firebase project, (2) adding
+// android/app/google-services.json, (3) a native rebuild (`npx cap sync
+// android` + rebuild in Android Studio — google-services.json is read at
+// Gradle build time, not by `cap sync` alone).
+const FCM_READY = true;
+
 export async function registerPush(userId: string): Promise<void> {
   if (Capacitor.isNativePlatform()) {
+    if (!FCM_READY) return; // see FCM_READY comment above — prevents a native crash
     try {
       let permStatus = await PushNotifications.checkPermissions();
       if (permStatus.receive === "prompt") {
@@ -44,10 +62,11 @@ export async function registerPush(userId: string): Promise<void> {
       });
 
       PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
-        console.log("FCM action performed:", action);
         const data = action.notification.data;
         if (data && data.url) {
-          window.location.href = data.url;
+          // SPA navigation via App.tsx listener — window.location.href here
+          // forced a full reload (splash, lost state) on every notification tap.
+          window.dispatchEvent(new CustomEvent("push-nav", { detail: data.url }));
         }
       });
     } catch (e) {

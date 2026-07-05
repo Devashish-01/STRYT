@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Eye, Briefcase, CheckCircle2, Wallet, Star, Zap,
-  ArrowLeftRight, Share2, Calendar, ShieldCheck, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck
+  ArrowLeftRight, Share2, Calendar, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck
 } from "@/components/Icons";
 import { providerService } from "@/services";
 import { SafeImg, inr, AppBar } from "@/components/common";
@@ -267,13 +267,13 @@ export default function ProviderDashboard() {
           <div className="small semi muted" style={{ marginBottom: 12, letterSpacing: 0.5 }}>Manage Options</div>
           
           <div className="col gap-16">
-            {/* Section 1: Daily Operations */}
+            {/* Section 1: Daily Operations — Edit Profile pinned first */}
             <div className="col gap-6">
-              <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Daily Operations</span>
+              <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Profile & Operations</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <TileCard icon={User} color="#db2777" bgTint="#ffeef4" label="Edit Profile" onClick={() => nav(`${base}/profile`)} />
                 <TileCard icon={Briefcase} color="var(--brand-600)" bgTint="var(--brand-50)" label="Leads & Requests" onClick={() => nav(`${base}/leads`)} />
                 <TileCard icon={Calendar} color="var(--green-500)" bgTint="#e7f7ee" label="Availability Slots" onClick={() => nav(`${base}/availability`)} />
-                <TileCard icon={ShieldCheck} color="#0ea5e9" bgTint="#e0f2fe" label="Verification" onClick={() => nav(`${base}/verify`)} />
               </div>
             </div>
 
@@ -283,7 +283,6 @@ export default function ProviderDashboard() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <TileCard icon={FileText} color="var(--brand-600)" bgTint="var(--brand-50)" label="Service Catalog" onClick={() => nav(`${base}/catalog`)} />
                 <TileCard icon={Image} color="#db2777" bgTint="#ffeef4" label="Photo Portfolio" onClick={() => nav(`${base}/portfolio`)} />
-                <TileCard icon={User} color="var(--orange-500)" bgTint="#fff2e8" label="Edit Profile" onClick={() => nav(`${base}/profile`)} />
                 <TileCard icon={QrCode} color="var(--ink-700)" bgTint="var(--ink-50)" label="Share QR" onClick={() => setShare(true)} />
               </div>
             </div>

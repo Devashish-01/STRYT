@@ -2,6 +2,7 @@ import { tokenStore } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabaseClient";
 import { toApiError } from "@/lib/supabasePage";
 import { returnTo } from "@/lib/returnTo";
+import { isNativePlatform, nativeGoogleSignIn, nativeGoogleSignInViaFirebase, NATIVE_GOOGLE_SIGNIN_READY } from "@/lib/nativeAuth";
 
 // Where an OAuth / magic-link redirect should land: the saved deep link the user
 // was trying to reach, else /home. Must be a same-origin path on the allow-list.
@@ -102,6 +103,17 @@ export const authService = {
   },
 
   async signInWithGoogle() {
+    // Native wrapper: prefer the truly-native Credential Manager account picker
+    // (no browser at all) once Firebase is set up; fall back to the in-app
+    // Custom Tab + deep-link handoff otherwise. Both bridge to a real SUPABASE
+    // session (signInWithIdToken / exchangeCodeForSession) — Supabase stays the
+    // single auth+data backend. See src/lib/nativeAuth.ts. onAuthStateChange in
+    // useAuthSession routes once the session lands.
+    if (isNativePlatform()) {
+      if (NATIVE_GOOGLE_SIGNIN_READY) await nativeGoogleSignInViaFirebase();
+      else await nativeGoogleSignIn();
+      return;
+    }
     const sb = getSupabase();
     const { error } = await sb.auth.signInWithOAuth({
       provider: "google",

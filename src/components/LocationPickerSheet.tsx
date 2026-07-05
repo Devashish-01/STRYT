@@ -44,24 +44,24 @@ export default function LocationPickerSheet({ onClose }: Props) {
         const { latitude, longitude } = pos.coords;
         const areaName = await reverseGeocode(latitude, longitude);
         try {
+          // The DB write is the source of truth for feeds (they read user.lat
+          // from the profile). If it fails, say so — a fake "✓" here left users
+          // stuck on the old location no matter how many times they re-tapped.
           await userService.setLocation(latitude, longitude, areaName ?? undefined);
           await refreshUser();
-        } catch { /* ignore */ }
-        if (areaName) {
-          setArea(areaName);
-          showToast(`Location set — ${areaName} ✓`);
+          if (areaName) setArea(areaName);
+          showToast(`Location set — ${areaName ?? "current position"} ✓`);
           onClose();
-        } else {
-          showToast("Got location coordinates!");
-          onClose();
+        } catch {
+          showToast("Got GPS fix, but couldn't save it — check connection & retry");
         }
         setLocating(false);
       },
-      () => {
+      (err) => {
         setLocating(false);
-        showToast("GPS access denied");
+        showToast(err.code === 1 ? "Location permission denied — enable it in phone settings" : "Couldn't get a GPS fix — try near a window or outdoors");
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 12000 }
     );
   }
 

@@ -293,6 +293,14 @@ export default function BusinessSettings() {
           )}
         </div>
 
+        {/* Verification — dashboard tile was removed by design; Settings is the
+            low-prominence home so the flow isn't a dead-end. */}
+        <div className="card">
+          <button className="row gap-10 semi small" onClick={() => nav(`/business/${id}/manage/verify`)}>
+            🛡️ Verification & documents
+          </button>
+        </div>
+
         {/* Danger */}
         <div className="card">
           <button

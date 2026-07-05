@@ -8,8 +8,12 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { IconContext } from "@phosphor-icons/react";
+import { initNativeApp } from "./lib/nativeApp";
 import "leaflet/dist/leaflet.css";
 import "./index.css";
+
+// Native wrapper setup (back button, status bar, splash). No-ops on web.
+void initNativeApp();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

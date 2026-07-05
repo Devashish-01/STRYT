@@ -206,11 +206,11 @@ export default function BusinessDetail() {
             </div>
             <p className="tiny muted" style={{ marginTop: 6 }}>{b.addressLine1}, {b.city} • {b.hours}</p>
 
-            <div className="row wrap gap-6" style={{ marginTop: 12 }}>
+            <div className="row wrap gap-6" style={{ marginTop: 14 }}>
               {b.tags.map((t) => <span key={t} className="badge badge-gray">{t}</span>)}
             </div>
 
-            <div className="row gap-10" style={{ marginTop: 14 }}>
+            <div className="row gap-10" style={{ marginTop: 16 }}>
               {b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> Call</a>}
               <button
                 className="btn btn-outline grow"
@@ -246,7 +246,7 @@ export default function BusinessDetail() {
             </div>
 
             {/* Follow + notify row */}
-            <div className="row gap-10" style={{ marginTop: 10 }}>
+            <div className="row gap-10" style={{ marginTop: 12 }}>
               <button
                 className="btn grow btn-sm"
                 style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
@@ -333,7 +333,7 @@ export default function BusinessDetail() {
         )}
 
         {/* Tabs */}
-        <div className="row page-pad" style={{ gap: 0, paddingBottom: 0, paddingTop: 16, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
+        <div className="row page-pad" style={{ gap: 0, paddingBottom: 0, paddingTop: 12, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
           {([["catalog", `Menu (${b.catalog.length})`], ["posts", `Posts (${(bizPosts ?? []).length})`], ["about", "About"], ["reviews", `Reviews`]] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
               style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>
@@ -344,11 +344,17 @@ export default function BusinessDetail() {
 
         {/* Tab content */}
         {tab === "catalog" && (
-          <div className="page-pad col gap-12">
+          <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
+            {b.catalog.length === 0 && (
+              <div className="col center" style={{ padding: "32px 0", gap: 8 }}>
+                <span style={{ fontSize: 32 }}>🛒</span>
+                <span className="small muted">No items listed yet.</span>
+              </div>
+            )}
             {b.catalog.map((item) => {
               const qty = cart[item.id] ?? 0;
               return (
-                <div key={item.id} className="row gap-12" style={{ alignItems: "flex-start" }}>
+                <div key={item.id} className="card row gap-12" style={{ alignItems: "flex-start", padding: "14px 14px 18px" }}>
                   <div className="grow" style={{ minWidth: 0 }}>
                     {item.isVeg != null && <VegDot veg={item.isVeg} />}
                     {item.bestSeller && <span className="badge badge-amber" style={{ marginLeft: 6 }}>⭐ Bestseller</span>}
@@ -405,7 +411,7 @@ export default function BusinessDetail() {
         )}
 
         {tab === "posts" && (
-          <div className="page-pad col gap-12">
+          <div className="page-pad col gap-12" style={{ paddingTop: 18 }}>
             {(bizPosts ?? []).length === 0 ? (
               <EmptyState emoji="📣" title="No posts yet" text="This business hasn't posted to the community yet." />
             ) : (
@@ -433,14 +439,13 @@ export default function BusinessDetail() {
         )}
 
         {tab === "about" && (
-          <div className="page-pad col gap-14">
-            <p className="small" style={{ lineHeight: 1.6 }}>{b.description}</p>
-            <div className="card">
-              <div className="semi small" style={{ marginBottom: 8 }}>Hours</div>
-              <div className="row between small"><span className="muted">Mon – Sun</span><span className="semi">{b.hours}</span></div>
-              <div className="divider" />
-              <div className="semi small" style={{ marginBottom: 8 }}>Address</div>
-              <p className="small muted">{b.addressLine1}, {b.city} – {b.pincode}</p>
+          <div className="page-pad col gap-16" style={{ paddingTop: 18 }}>
+            {b.description && <p className="small" style={{ lineHeight: 1.7, color: "var(--ink-700)" }}>{b.description}</p>}
+            <div className="card col gap-10" style={{ padding: 16 }}>
+              <div className="small semi" style={{ marginBottom: 6 }}>Hours</div>
+              <div className="row between small" style={{ padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span className="muted">Mon – Sun</span><span className="semi">{b.hours}</span></div>
+              <div className="small semi" style={{ marginTop: 10, marginBottom: 6 }}>Address</div>
+              <p className="small muted" style={{ lineHeight: 1.5 }}>{b.addressLine1}, {b.city} – {b.pincode}</p>
             </div>
             {/* Real location map — one tap opens turn-by-turn directions */}
             <MiniMap lat={b.lat} lng={b.lng} pinColor="var(--orange-500)" label={b.addressLine1 || b.city} />
@@ -482,11 +487,11 @@ export default function BusinessDetail() {
         )}
 
         {tab === "reviews" && (
-          <div className="page-pad col gap-14">
+          <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
             <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
               <Star size={16} /> Write a Review
             </button>
-            <div className="card row gap-16" style={{ padding: 16 }}>
+            <div className="card row gap-16" style={{ padding: 18 }}>
               <div className="col center">
                 <span className="bold" style={{ fontSize: 34, lineHeight: 1 }}>{b.ratingAvg}</span>
                 <StarRow value={b.ratingAvg} size={13} />
@@ -509,13 +514,16 @@ export default function BusinessDetail() {
                 })}
               </div>
             </div>
+            {(reviews ?? []).length === 0 && (
+              <EmptyState emoji="⭐" title="No reviews yet" text="Be the first to leave a review!" />
+            )}
             {(reviews ?? []).map((rv) => (
-              <div key={rv.id} className="row gap-10" style={{ alignItems: "flex-start" }}>
-                <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 38, height: 38 }} />
+              <div key={rv.id} className="card row gap-12" style={{ alignItems: "flex-start", padding: "14px 14px" }}>
+                <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
                 <div className="grow">
                   <div className="row between"><span className="semi small">{rv.raterName}</span><span className="tiny muted">{rv.date}</span></div>
                   <StarRow value={rv.rating} size={12} />
-                  <p className="small" style={{ marginTop: 4, lineHeight: 1.45 }}>{rv.comment}</p>
+                  <p className="small" style={{ marginTop: 6, lineHeight: 1.55 }}>{rv.comment}</p>
                 </div>
               </div>
             ))}

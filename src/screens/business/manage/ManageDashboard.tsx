@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   Eye, Phone, Navigation, Star, HelpCircle,
   ChevronRight, BadgeCheck, ArrowLeftRight, Share2, Zap,
-  Calendar, Users, Search, FileText, Clock, User, ShieldCheck,
+  Calendar, Users, Search, FileText, Clock, User,
   Tag, Megaphone, Globe, QrCode, MessageSquareText
 } from "@/components/Icons";
 import { businessService } from "@/services";
@@ -293,14 +293,14 @@ export default function ManageDashboard() {
           <div className="small semi muted" style={{ marginBottom: 12, letterSpacing: 0.5 }}>Store Management</div>
           
           <div className="col gap-16">
-            {/* Section 1: Daily Operations */}
+            {/* Section 1: Daily Operations — Edit Profile pinned first */}
             <div className="col gap-6">
-              <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Daily Operations</span>
+              <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Profile & Operations</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <TileCard icon={User} color="#db2777" bgTint="#ffeef4" label="Edit Profile" onClick={() => nav(`${base}/profile`)} />
                 <TileCard icon={Calendar} color="var(--brand-600)" bgTint="var(--brand-50)" label="Appointments" onClick={() => nav(`${base}/appointments`)} />
                 <TileCard icon={Users} color="var(--green-500)" bgTint="#e7f7ee" label="Live Queue" onClick={() => nav(`${base}/queue`)} />
                 <TileCard icon={Search} color="var(--orange-500)" bgTint="#fff2e8" label="Find Requests" onClick={() => nav(`${base}/requests`)} />
-                <TileCard icon={Clock} color="#0ea5e9" bgTint="#e0f2fe" label="Hours" onClick={() => nav(`${base}/hours`)} />
               </div>
             </div>
 
@@ -309,8 +309,7 @@ export default function ManageDashboard() {
               <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Storefront & Catalog</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <TileCard icon={FileText} color="var(--brand-600)" bgTint="var(--brand-50)" label="Catalog" onClick={() => nav(`${base}/catalog`)} />
-                <TileCard icon={User} color="#db2777" bgTint="#ffeef4" label="Edit Profile" onClick={() => nav(`${base}/profile`)} />
-                <TileCard icon={ShieldCheck} color="var(--green-500)" bgTint="#e7f7ee" label="Verification" onClick={() => nav(`${base}/verify`)} />
+                <TileCard icon={Clock} color="#0ea5e9" bgTint="#e0f2fe" label="Hours" onClick={() => nav(`${base}/hours`)} />
                 <TileCard icon={QrCode} color="var(--ink-700)" bgTint="var(--ink-50)" label="Share QR" onClick={() => setShare(true)} />
               </div>
             </div>

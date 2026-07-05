@@ -6,6 +6,9 @@ export function useToast() {
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
+    // Light haptic tick on every toast — feedback feels physical on device.
+    // VIBRATE permission is already in the manifest; silently no-ops on web.
+    try { navigator.vibrate?.(12); } catch { /* unsupported */ }
     if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setToast(null), 2200);
   }, []);

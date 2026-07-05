@@ -515,6 +515,30 @@ export default function PhoneEntry() {
         )}
       </div>
 
+      {/* Download app banner for web users */}
+      {!Capacitor.isNativePlatform() && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, margin: "16px 0 8px" }}>
+          <a
+            href="/stryt.apk"
+            download
+            className="row center gap-6"
+            style={{
+              background: "rgba(255, 255, 255, 0.8)",
+              border: "1.5px solid var(--brand-200)",
+              padding: "8px 16px",
+              borderRadius: 999,
+              fontSize: 13,
+              fontWeight: 700,
+              color: "var(--brand-700)",
+              textDecoration: "none",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+            }}
+          >
+            <span>🤖</span> Download Android App (.apk)
+          </a>
+        </div>
+      )}
+
       {/* Safety Policy Label */}
       <span className="tiny" style={{ textAlign: "center", color: "var(--ink-500)", zIndex: 10, lineHeight: 1.4 }}>
         Secured by STRYT Authentication.<br />By continuing, you agree to our Terms & Privacy Policy.

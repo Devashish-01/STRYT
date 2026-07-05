@@ -56,6 +56,8 @@ export interface Business {
   ratingCount: number;
   viewCount: number;
   isFeatured: boolean;
+  /** Paid placement (boosts table) — MUST be labeled "Promoted" wherever it affects ranking. */
+  isBoosted?: boolean;
   isVerified: boolean;
   broadcastRadius?: number;
   verificationStatus?: VerificationStatus;
@@ -197,6 +199,8 @@ export interface MyQueueEntry {
   peopleAhead: number;
   partySize: string;
   joinedAtISO: string;
+  /** Estimated minutes until this customer is called (peopleAhead × avg service time). */
+  estWaitMin?: number;
 }
 
 export interface LoyaltyCard {

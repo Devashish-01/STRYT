@@ -5,10 +5,11 @@ export interface LocationGrant {
   id: string;
   ownerUserId: string;
   requesterUserId: string;
-  status: "PENDING" | "APPROVED" | "DENIED";
+  status: "PENDING" | "APPROVED" | "DENIED" | "REVOKED";
   requesterName?: string;
   requesterAvatar?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export const locationService = {
@@ -31,7 +32,12 @@ export const locationService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    await sb.from("location_share_grants").delete().eq("owner_user_id", uid).eq("requester_user_id", requesterUserId);
+    const { error } = await sb
+      .from("location_share_grants")
+      .update({ status: "REVOKED", updated_at: new Date().toISOString() })
+      .eq("owner_user_id", uid)
+      .eq("requester_user_id", requesterUserId);
+    throwIfError(error);
   },
 
   // Exact coords of a target, or null if not permitted (no approved grant).
@@ -54,7 +60,7 @@ export const locationService = {
     if (!uid) return [];
     const { data, error } = await sb
       .from("location_share_grants")
-      .select("id, owner_user_id, requester_user_id, status, created_at, requester:users!requester_user_id(name, avatar)")
+      .select("id, owner_user_id, requester_user_id, status, created_at, updated_at, requester:users!requester_user_id(name, avatar)")
       .eq("owner_user_id", uid)
       .eq("status", "PENDING")
       .order("created_at", { ascending: false });
@@ -67,12 +73,62 @@ export const locationService = {
       requesterName: r.requester?.name ?? "Someone",
       requesterAvatar: r.requester?.avatar ?? "",
       createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
+  },
+
+  // Active shares currently approved by me.
+  async sharedByMe(): Promise<LocationGrant[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return [];
+    const { data, error } = await sb
+      .from("location_share_grants")
+      .select("id, owner_user_id, requester_user_id, status, created_at, updated_at, requester:users!requester_user_id(name, avatar)")
+      .eq("owner_user_id", uid)
+      .eq("status", "APPROVED")
+      .order("updated_at", { ascending: false });
+    if (error) return [];
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      ownerUserId: r.owner_user_id,
+      requesterUserId: r.requester_user_id,
+      status: r.status,
+      requesterName: r.requester?.name ?? "Someone",
+      requesterAvatar: r.requester?.avatar ?? "",
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
+  },
+
+  // Inactive history of shares revoked or denied by me.
+  async shareHistory(): Promise<LocationGrant[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return [];
+    const { data, error } = await sb
+      .from("location_share_grants")
+      .select("id, owner_user_id, requester_user_id, status, created_at, updated_at, requester:users!requester_user_id(name, avatar)")
+      .eq("owner_user_id", uid)
+      .in("status", ["REVOKED", "DENIED"])
+      .order("updated_at", { ascending: false })
+      .limit(20);
+    if (error) return [];
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      ownerUserId: r.owner_user_id,
+      requesterUserId: r.requester_user_id,
+      status: r.status,
+      requesterName: r.requester?.name ?? "Someone",
+      requesterAvatar: r.requester?.avatar ?? "",
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
     }));
   },
 
   // The viewer's own outbound grant status toward a given owner.
   // Yields "NONE" on any error so the profile control degrades gracefully.
-  async myStatusToward(ownerUserId: string): Promise<"NONE" | "PENDING" | "APPROVED" | "DENIED"> {
+  async myStatusToward(ownerUserId: string): Promise<"NONE" | "PENDING" | "APPROVED" | "DENIED" | "REVOKED"> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return "NONE";

@@ -60,6 +60,23 @@ export default function PublicProfile() {
   const following = isFollowing("USER", id);
   const isSelf = user.id === id;
 
+  const [locStatus, setLocStatus] = useState<"NONE" | "PENDING" | "APPROVED" | "DENIED" | "LOADING" | "SELF" | "REVOKED">("LOADING");
+
+  useEffect(() => {
+    if (isSelf) {
+      setLocStatus("SELF");
+      return;
+    }
+    setLocStatus("LOADING");
+    let active = true;
+    locationService.myStatusToward(id).then((s) => {
+      if (active) setLocStatus(s);
+    }).catch(() => {
+      if (active) setLocStatus("NONE");
+    });
+    return () => { active = false; };
+  }, [id, isSelf]);
+
   // distanceKm is computed server-side from the viewer's own coordinates —
   // this page never receives another user's exact coordinates, so there's
   // no "get directions to their exact address" feature here by design (see
@@ -194,9 +211,14 @@ export default function PublicProfile() {
           </h1>
 
           <div className="row center gap-6" style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)", flexWrap: "wrap" }}>
-            {(isSelf || u.showCityPublicly !== false) && (
+            {isSelf || locStatus === "APPROVED" ? (
               <>
                 <span>📍 {u.area || "Neighborhood Member"}{distanceText && ` • ${distanceText}`}</span>
+                <span>•</span>
+              </>
+            ) : (
+              <>
+                <span>📍 Location shared upon request only</span>
                 <span>•</span>
               </>
             )}
@@ -214,7 +236,7 @@ export default function PublicProfile() {
           )}
           {!isSelf && (
             <div>
-              <LocationShareControl targetId={u.id} />
+              <LocationShareControl targetId={u.id} status={locStatus} setStatus={setLocStatus} />
             </div>
           )}
 
@@ -580,16 +602,17 @@ export default function PublicProfile() {
 
 // Consent-gated exact-location control. Others must request; the owner approves
 // (elsewhere), after which "View on map" reveals coordinates. Hidden on own profile.
-function LocationShareControl({ targetId }: { targetId: string }) {
+function LocationShareControl({
+  targetId,
+  status,
+  setStatus,
+}: {
+  targetId: string;
+  status: "NONE" | "PENDING" | "APPROVED" | "DENIED" | "LOADING" | "SELF" | "REVOKED";
+  setStatus: (s: any) => void;
+}) {
   const { showToast } = useApp();
-  const [status, setStatus] = useState<"NONE" | "PENDING" | "APPROVED" | "DENIED" | "LOADING">("LOADING");
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    locationService.myStatusToward(targetId).then((s) => { if (active) setStatus(s); });
-    return () => { active = false; };
-  }, [targetId]);
 
   async function ask() {
     setBusy(true);
@@ -621,7 +644,7 @@ function LocationShareControl({ targetId }: { targetId: string }) {
     }
   }
 
-  if (status === "LOADING") return null;
+  if (status === "LOADING" || status === "SELF") return null;
 
   const base: React.CSSProperties = {
     marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6,

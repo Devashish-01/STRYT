@@ -105,8 +105,11 @@ import {
   SquaresFour,
   GridFour,
   ListChecks,
-  CircleNotch
+  CircleNotch,
+  WifiSlash
 } from "@phosphor-icons/react";
+
+export { WifiSlash as WifiOff };
 
 // Standard exports
 export {

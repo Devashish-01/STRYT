@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "@/components/Icons";
 import { useApp } from "@/store";
-import { catalogService, requestService, appointmentService, businessService } from "@/services";
+import { catalogService, requestService, appointmentService, businessService, locationService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
@@ -39,6 +39,7 @@ export default function Home() {
   const { data: agreementsList } = useQuery(() => requestService.agreements(), []);
   const { data: myAppointments } = useQuery(() => appointmentService.listForCustomer(user.id), [user.id]);
   const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
+  const { data: pendingLocReqs } = useQueryWithRealtime(() => locationService.pendingForMe(), "location_share_grants", []);
 
   const agreements = agreementsList ?? [];
   const activeAgreements = agreements.filter((a) => !["COMPLETED", "CANCELLED", "DISPUTED"].includes(a.status));
@@ -156,6 +157,30 @@ export default function Home() {
           <button onClick={() => setBannerDismissed(true)} style={{ color: theme.accent, opacity: 0.6, flexShrink: 0, padding: 2 }}>
             <X size={14} />
           </button>
+        </div>
+      )}
+
+      {/* ── Location Share Request Alert Banner ── */}
+      {pendingLocReqs && pendingLocReqs.length > 0 && (
+        <div
+          onClick={() => nav("/settings")}
+          style={{
+            background: "linear-gradient(135deg, #fef3c7, #fde68a)",
+            borderBottom: "1px solid #f59e0b",
+            padding: "10px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            cursor: "pointer",
+          }}
+        >
+          <span style={{ fontSize: 16 }}>📍</span>
+          <span className="small grow" style={{ color: "#92400e", fontWeight: 700 }}>
+            {pendingLocReqs.length} neighbor{pendingLocReqs.length > 1 ? "s want" : " wants"} to see your location
+          </span>
+          <span className="tiny semi" style={{ color: "#b45309", background: "rgba(255,255,255,0.5)", padding: "3px 8px", borderRadius: 12 }}>
+            Manage
+          </span>
         </div>
       )}
 

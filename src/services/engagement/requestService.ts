@@ -79,8 +79,10 @@ function rowToRequest(row: any, userLat = 0, userLng = 0): RequestPost {
   return {
     ...base,
     // #6 privacy: show the requester's first name publicly; "Someone nearby" if posted anonymously.
+    // Anonymous must hide the avatar too — a real face next to "Someone nearby"
+    // de-anonymises the poster to anyone who knows them.
     requesterName:   row.is_anonymous ? "Someone nearby" : firstName(requester.name),
-    requesterAvatar: requester.avatar ?? "",
+    requesterAvatar: row.is_anonymous ? "" : (requester.avatar ?? ""),
     requesterRating: Number(requester.rating_avg ?? 0),
     postedAt:        timeAgo(row.created_at),
     distanceKm:      (userLat && userLng && row.lat && row.lng)
@@ -132,11 +134,24 @@ function mapAgreement(row: any): Agreement {
 const AGREEMENT_SELECT =
   "*, requester:users!requester_user_id(name, avatar), responder:users!responder_user_id(name, avatar), req:requests!request_id(area)";
 
+// The expiry sweeps used to run as TWO serial RPCs on EVERY feed/get/mine/
+// agreements call — pure latency tax on each screen open. A ≤2-min stale
+// window is invisible to users, so throttle: first call per window pays one
+// parallel round-trip, the rest are free.
+let lastSweepAt = 0;
+async function sweepExpired(sb: ReturnType<typeof getSupabase>): Promise<void> {
+  if (Date.now() - lastSweepAt < 120_000) return;
+  lastSweepAt = Date.now();
+  await Promise.all([
+    sb.rpc("cancel_expired_agreements"),
+    sb.rpc("close_expired_requests"),
+  ]).catch(() => { lastSweepAt = 0; /* retry next call */ });
+}
+
 export const requestService = {
   async feed(p: { category?: string; cursor?: string | null; special?: string; lat?: number; lng?: number; radiusKm?: number } = {}): Promise<Page<RequestPost>> {
     const sb = getSupabase();
-    await sb.rpc("cancel_expired_agreements");
-    await sb.rpc("close_expired_requests");
+    await sweepExpired(sb);
     const { from, to, limit } = cursorToRange(p.cursor);
     let q = sb.from("requests").select(REQUEST_SELECT, { count: "exact" }).in("status", ["OPEN", "AGREED"]);
     if (p.category)              q = q.eq("category_name", p.category);
@@ -164,8 +179,7 @@ export const requestService = {
 
   async mine(userLat = 0, userLng = 0): Promise<RequestPost[]> {
     const sb = getSupabase();
-    await sb.rpc("cancel_expired_agreements");
-    await sb.rpc("close_expired_requests");
+    await sweepExpired(sb);
     const uid = await currentUserId();
     if (!uid) return [];
     const { data, error } = await sb
@@ -179,8 +193,7 @@ export const requestService = {
 
   async get(id: string, userLat = 0, userLng = 0): Promise<RequestPost | undefined> {
     const sb = getSupabase();
-    await sb.rpc("cancel_expired_agreements");
-    await sb.rpc("close_expired_requests");
+    await sweepExpired(sb);
     const { data, error } = await sb.from("requests").select(REQUEST_SELECT).eq("id", id).maybeSingle();
     throwIfError(error);
     return data ? rowToRequest(data as any, userLat, userLng) : undefined;
@@ -281,8 +294,7 @@ export const requestService = {
 
   async agreements(): Promise<Agreement[]> {
     const sb = getSupabase();
-    await sb.rpc("cancel_expired_agreements");
-    await sb.rpc("close_expired_requests");
+    await sweepExpired(sb);
     const uid = await currentUserId();
     if (!uid) return [];
     const { data, error } = await sb
@@ -296,8 +308,7 @@ export const requestService = {
 
   async getAgreement(id: string): Promise<Agreement | undefined> {
     const sb = getSupabase();
-    await sb.rpc("cancel_expired_agreements");
-    await sb.rpc("close_expired_requests");
+    await sweepExpired(sb);
     const { data, error } = await sb
       .from("agreements")
       .select(AGREEMENT_SELECT)
@@ -305,6 +316,20 @@ export const requestService = {
       .maybeSingle();
     throwIfError(error);
     return data ? mapAgreement(data) : undefined;
+  },
+
+  /** Latest payment row for an agreement — surfaces escrow state (HELD/RELEASED) in the UI. */
+  async paymentForAgreement(agreementId: string): Promise<{ escrowStatus: string; amount: number } | null> {
+    const sb = getSupabase();
+    const { data } = await sb
+      .from("payments")
+      .select("escrow_status, amount")
+      .eq("agreement_id", agreementId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!data) return null;
+    return { escrowStatus: (data as any).escrow_status ?? "", amount: Number((data as any).amount ?? 0) };
   },
 
   async confirmAgreement(id: string) {

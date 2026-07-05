@@ -233,6 +233,7 @@ export default function RequestDetail() {
             {r.isGroupBuy && <span className="badge badge-green"><Users size={11} /> Group buy</span>}
             {r.isRecurring && <span className="badge badge-blue"><Repeat size={11} /> Recurring</span>}
             <span className="badge badge-purple">{r.categoryName}</span>
+            {r.subCategory && <span className="badge badge-gray">{r.subCategory}</span>}
             {r.expiresInHrs && <span className="badge badge-gray"><Clock size={11} /> expires in {r.expiresInHrs}h</span>}
           </div>
           <h1 className="bold h1" style={{ marginTop: 8 }}>{r.title}</h1>

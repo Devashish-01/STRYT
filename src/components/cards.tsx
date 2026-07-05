@@ -59,6 +59,12 @@ export function BusinessCardWide({ b }: { b: Business }) {
             ● NEW
           </span>
         )}
+        {/* Paid-placement transparency: users must be able to tell boosted results apart. */}
+        {b.isBoosted && (
+          <span className="badge badge-amber" style={{ position: "absolute", top: b.isNew ? 38 : 12, left: 10 }}>
+            Promoted
+          </span>
+        )}
       </div>
       <div style={{ padding: 12 }}>
         <div className="row between">
@@ -114,6 +120,11 @@ export function BusinessCardSmall({ b }: { b: Business }) {
         {b.isNew && (
           <span className="badge badge-new" style={{ position: "absolute", top: 8, left: 8, fontSize: 10 }}>
             NEW
+          </span>
+        )}
+        {b.isBoosted && !b.isNew && (
+          <span className="badge badge-amber" style={{ position: "absolute", top: 8, left: 8, fontSize: 10 }}>
+            Promoted
           </span>
         )}
       </div>
@@ -232,9 +243,20 @@ const REQUEST_STATUS_BADGE: Record<string, { label: string; cls: string } | null
   EXPIRED: { label: "Expired", cls: "badge-gray" },
 };
 
+/** "Expires in 2h 10m" — poster + responders both need urgency visibility. */
+function expiryLabel(expiresAt?: string | null): string | null {
+  if (!expiresAt) return null;
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms <= 0) return null; // sweep will flip status shortly
+  const m = Math.floor(ms / 60000);
+  if (m < 60) return `Expires in ${m}m`;
+  return `Expires in ${Math.floor(m / 60)}h ${m % 60 ? `${m % 60}m` : ""}`.trim();
+}
+
 export function RequestCard({ r }: { r: RequestPost }) {
   const nav = useNavigate();
   const { meToos, toggleMeToo } = useApp();
+  const expiry = r.status === "OPEN" ? expiryLabel(r.expiresAt) : null;
   const budget =
     r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget";
   const meTooed = meToos.includes(r.id) || r.meTooed;
@@ -270,6 +292,8 @@ export function RequestCard({ r }: { r: RequestPost }) {
             {r.isGroupBuy && <span className="badge badge-green"><Users size={11} /> Group buy</span>}
             {r.isRecurring && <span className="badge badge-blue"><Repeat size={11} /> Recurring</span>}
             <span className="badge badge-purple">{r.categoryName}</span>
+            {r.subCategory && <span className="badge badge-gray">{r.subCategory}</span>}
+            {expiry && <span className="badge badge-amber">⏳ {expiry}</span>}
           </div>
           <div className="bold" style={{ fontSize: 15.5 }}>{r.title}</div>
           <p className="small muted clamp-2" style={{ marginTop: 4, lineHeight: 1.45 }}>{r.description}</p>

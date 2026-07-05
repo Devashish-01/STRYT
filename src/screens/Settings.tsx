@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppBar, SafeImg } from "@/components/common";
-import { Moon, Volume2, Globe, Shield, Eye, Pencil, MapPin, Check, X } from "@/components/Icons";
+import { Moon, Volume2, Globe, Shield, Eye, Pencil, MapPin, Check, X, FileText } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService, profileControlService, locationService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
@@ -48,7 +48,6 @@ export default function Settings() {
   const [newProv, setNewProv] = useState(() => localStorage.getItem("settings_new_prov") !== "false");
   const [reqs, setReqs] = useState(() => localStorage.getItem("settings_reqs") !== "false");
   const [offers, setOffers] = useState(() => localStorage.getItem("settings_offers") !== "false");
-  const [approx, setApprox] = useState(() => localStorage.getItem("settings_approx") !== "false");
   const [showPosts, setShowPosts] = useState(() => {
     const saved = localStorage.getItem("settings_show_posts");
     return saved !== null ? saved === "true" : (user.showPostsPublicly ?? true);
@@ -128,10 +127,6 @@ export default function Settings() {
   }, [offers]);
 
   useEffect(() => {
-    localStorage.setItem("settings_approx", String(approx));
-  }, [approx]);
-
-  useEffect(() => {
     localStorage.setItem("settings_radius", String(radius));
     if (user.id && radius !== user.notificationRadiusKm) {
       void userService.update({ notificationRadiusKm: radius }).catch(() => {});
@@ -168,6 +163,7 @@ export default function Settings() {
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 40 }}>
         {/* Inbound location-share requests to approve/deny */}
         <LocationRequestsInbox />
+        <LocationSharesManager />
 
         {/* Notification Radius */}
         <div>
@@ -198,8 +194,7 @@ export default function Settings() {
         <div>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Privacy & safety</div>
           <div className="card">
-            <Row icon={<Eye size={18} color="var(--green-500)" />} label="Show approximate location" hint="Exact only after agreement" on={approx} set={setApprox} />
-            <div className="divider" style={{ margin: 0 }} />
+
             <Row label="Show Posts publicly" hint="Allow neighbors to see your community posts on your profile" on={showPosts} set={handleTogglePosts} />
             <Row label="Show Service Requests publicly" hint="Allow neighbors to see your open & past asks" on={showAsks} set={handleToggleAsks} />
             <Row label="Show Badges publicly" hint="Show trust badges & verifications on your profile" on={showBadges} set={handleToggleBadges} />
@@ -341,6 +336,122 @@ function LocationRequestsInbox() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// Active and historical location shares. Shows durations and allows revocation.
+function LocationSharesManager() {
+  const { showToast } = useApp();
+  const { data: activeShares, refetch: refetchActive } = useQueryWithRealtime(
+    () => locationService.sharedByMe(),
+    "location_share_grants",
+    []
+  );
+  const { data: historyShares, refetch: refetchHistory } = useQueryWithRealtime(
+    () => locationService.shareHistory(),
+    "location_share_grants",
+    []
+  );
+
+  async function handleRevoke(requesterUserId: string) {
+    try {
+      await locationService.revoke(requesterUserId);
+      showToast("Access revoked successfully");
+      refetchActive();
+      refetchHistory();
+    } catch {
+      showToast("Failed to revoke access. Try again.");
+    }
+  }
+
+  const formatRel = (iso?: string) => {
+    if (!iso) return "";
+    const diff = Date.now() - new Date(iso).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  };
+
+  if ((!activeShares || activeShares.length === 0) && (!historyShares || historyShares.length === 0)) {
+    return null;
+  }
+
+  return (
+    <div className="col gap-12">
+      {/* Active Shares */}
+      {activeShares && activeShares.length > 0 && (
+        <div>
+          <div className="small semi muted row gap-6" style={{ marginBottom: 8, alignItems: "center" }}>
+            <Eye size={14} color="var(--green-500)" /> Currently sharing location with
+          </div>
+          <div className="card col gap-8" style={{ padding: 12 }}>
+            {activeShares.map((g) => (
+              <div key={g.id} className="row gap-10" style={{ alignItems: "center" }}>
+                <SafeImg src={g.requesterAvatar} variant="avatar" className="avatar" style={{ width: 34, height: 34 }} />
+                <div className="grow">
+                  <div className="semi small" style={{ color: "var(--ink-900)" }}>{g.requesterName}</div>
+                  <div className="tiny muted">Shared {formatRel(g.updatedAt)}</div>
+                </div>
+                <button
+                  className="btn"
+                  style={{
+                    padding: "4px 10px",
+                    background: "#fef2f2",
+                    color: "#dc2626",
+                    border: "1px solid #fecaca",
+                    fontSize: 11.5,
+                    borderRadius: 8,
+                    cursor: "pointer",
+                  }}
+                  onClick={() => handleRevoke(g.requesterUserId)}
+                >
+                  Revoke
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sharing History */}
+      {historyShares && historyShares.length > 0 && (
+        <div>
+          <div className="small semi muted row gap-6" style={{ marginBottom: 8, alignItems: "center" }}>
+            <FileText size={14} color="var(--ink-500)" /> Location sharing history
+          </div>
+          <div className="card col gap-8" style={{ padding: 12 }}>
+            {historyShares.map((g) => (
+              <div key={g.id} className="row gap-10" style={{ alignItems: "center" }}>
+                <SafeImg src={g.requesterAvatar} variant="avatar" className="avatar" style={{ width: 32, height: 32, opacity: 0.7 }} />
+                <div className="grow">
+                  <div className="semi small muted">{g.requesterName}</div>
+                  <div className="tiny muted">
+                    {g.status === "DENIED" ? "Request denied" : "Share revoked"}{" "}
+                    {formatRel(g.updatedAt)}
+                  </div>
+                </div>
+                <span
+                  className="tiny"
+                  style={{
+                    background: "var(--ink-100)",
+                    color: "var(--ink-600)",
+                    padding: "2px 6px",
+                    borderRadius: 4,
+                    fontSize: 10,
+                    fontWeight: 700,
+                  }}
+                >
+                  {g.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

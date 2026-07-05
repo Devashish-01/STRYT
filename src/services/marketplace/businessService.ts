@@ -185,29 +185,31 @@ export const businessService = {
     };
   },
 
-  // Owner: get queue settings + waiting token list for QueueManager
+  // Owner: get queue settings + token lists for QueueManager. Returns the
+  // WAITING line AND the currently-CALLED tokens (whoever the owner is serving
+  // right now) so calling "next" doesn't make a customer vanish from the board.
   async queueOwnerState(businessId: string): Promise<{
     isOpen: boolean;
     avgServiceMin: number;
-    tokens: Array<{ id: string; name: string; partySize: string }>;
+    waiting: Array<{ id: string; name: string; partySize: string; joinedAtISO: string }>;
+    called: Array<{ id: string; name: string; partySize: string; joinedAtISO: string }>;
   }> {
     const sb = getSupabase();
     const [settingsRes, tokensRes] = await Promise.all([
       sb.from("queue_settings").select("is_open, avg_service_min").eq("business_id", businessId).maybeSingle(),
       sb.from("queue_tokens")
-        .select("id, customer_name, party_size")
+        .select("id, customer_name, party_size, status, created_at")
         .eq("business_id", businessId)
-        .eq("status", "WAITING")
+        .in("status", ["WAITING", "CALLED"])
         .order("created_at", { ascending: true }),
     ]);
+    const rows = (tokensRes.data ?? []) as any[];
+    const map = (t: any) => ({ id: t.id, name: t.customer_name, partySize: t.party_size, joinedAtISO: t.created_at });
     return {
       isOpen: settingsRes.data?.is_open ?? false,
       avgServiceMin: settingsRes.data?.avg_service_min ?? 8,
-      tokens: (tokensRes.data ?? []).map((t: any) => ({
-        id: t.id,
-        name: t.customer_name,
-        partySize: t.party_size,
-      })),
+      waiting: rows.filter((t) => t.status === "WAITING").map(map),
+      called: rows.filter((t) => t.status === "CALLED").map(map),
     };
   },
 
@@ -287,21 +289,29 @@ export const businessService = {
       rows.filter((r) => r.status === "WAITING" || r.status === "CALLED").map((r) => r.business_id)
     ));
     const waitingByBiz: Record<string, { id: string }[]> = {};
+    const avgByBiz: Record<string, number> = {};
     if (activeBizIds.length > 0) {
-      const { data: waitingRows } = await sb
-        .from("queue_tokens")
-        .select("id, business_id")
-        .in("business_id", activeBizIds)
-        .eq("status", "WAITING")
-        .order("created_at", { ascending: true });
+      const [{ data: waitingRows }, { data: settingsRows }] = await Promise.all([
+        sb.from("queue_tokens")
+          .select("id, business_id")
+          .in("business_id", activeBizIds)
+          .eq("status", "WAITING")
+          .order("created_at", { ascending: true }),
+        sb.from("queue_settings").select("business_id, avg_service_min").in("business_id", activeBizIds),
+      ]);
       for (const w of (waitingRows ?? []) as any[]) {
         (waitingByBiz[w.business_id] ??= []).push(w);
+      }
+      for (const s of (settingsRows ?? []) as any[]) {
+        avgByBiz[s.business_id] = s.avg_service_min ?? 8;
       }
     }
 
     return rows.map((r) => {
       const waitingList = waitingByBiz[r.business_id] ?? [];
       const idx = waitingList.findIndex((w) => w.id === r.id);
+      const peopleAhead = idx >= 0 ? idx : 0;
+      const avg = avgByBiz[r.business_id] ?? 8;
       return {
         tokenId: r.id,
         businessId: r.business_id,
@@ -309,9 +319,10 @@ export const businessService = {
         businessImage: r.businesses?.cover_image ?? "",
         status: r.status,
         position: idx >= 0 ? idx + 1 : 0,
-        peopleAhead: idx >= 0 ? idx : 0,
+        peopleAhead,
         partySize: r.party_size ?? "1 person",
         joinedAtISO: r.created_at,
+        estWaitMin: r.status === "WAITING" ? peopleAhead * avg : 0,
       };
     });
   },

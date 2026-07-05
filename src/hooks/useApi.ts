@@ -35,7 +35,15 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QuerySt
         const err = e instanceof ApiError ? e : new ApiError(0, { code: "INTERNAL", message: String(e) });
         if (active) {
           setError(err);
-          showToast("Couldn't load — check your connection and try again");
+          // Distinguish "you got signed out" from generic network noise — a 401
+          // mid-session otherwise looks like a random loading failure.
+          if (err.status === 401 || err.code === "UNAUTHENTICATED") {
+            showToast("Session expired — sign in again to continue");
+          } else if (!navigator.onLine) {
+            showToast("You're offline — reconnect to load this");
+          } else {
+            showToast("Couldn't load — check your connection and try again");
+          }
         }
       })
       .finally(() => {

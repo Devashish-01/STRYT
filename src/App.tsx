@@ -1,6 +1,7 @@
-import { Routes, Route, useLocation, Navigate, Outlet } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate, Navigate, Outlet } from "react-router-dom";
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import BottomNav from "./components/BottomNav";
+import OfflineBanner from "./components/OfflineBanner";
 import ManageNav from "./screens/business/manage/ManageNav";
 import ProviderManageNav from "./screens/provider/manage/ProviderManageNav";
 import { useApp } from "./store";
@@ -281,9 +282,19 @@ export default function App() {
   const { toast, activeContext } = useApp();
   const showNav = TAB_ROUTES.includes(location.pathname);
 
+  const navigate = useNavigate();
+
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       const sub = CapApp.addListener("backButton", ({ canGoBack }) => {
+        // Sheet-first: every modal/sheet renders a .overlay whose backdrop
+        // click closes it — so hardware BACK dismisses the topmost sheet
+        // instead of popping the whole screen underneath it.
+        const overlays = document.querySelectorAll<HTMLElement>(".overlay");
+        if (overlays.length > 0) {
+          overlays[overlays.length - 1].click();
+          return;
+        }
         if (canGoBack) {
           window.history.back();
         } else {
@@ -300,8 +311,20 @@ export default function App() {
     }
   }, []);
 
+  // Push-notification taps dispatch a SPA nav event (see pushNotifications.ts)
+  // instead of window.location.href — which forced a full app reload.
+  useEffect(() => {
+    const onPushNav = (e: Event) => {
+      const url = (e as CustomEvent<string>).detail;
+      if (url && url.startsWith("/")) navigate(url);
+    };
+    window.addEventListener("push-nav", onPushNav);
+    return () => window.removeEventListener("push-nav", onPushNav);
+  }, [navigate]);
+
   return (
     <div className="app-shell">
+      <OfflineBanner />
       <Suspense fallback={<AuthSplash />}>
         <Routes>
           {/* Public only auth routes */}

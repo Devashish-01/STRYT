@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, Settings, Store, Briefcase, FileText, Star,
@@ -334,6 +335,19 @@ export default function Profile() {
             <MenuRow icon={<Bug size={20} color="var(--red-500)" />}      label="Report a bug"                        onClick={() => nav("/support?tab=bug")} />
             {isAdmin && (
               <MenuRow icon={<Shield size={20} color="#14111c" />} label="Admin console" onClick={() => nav("/admin")} />
+            )}
+            {!Capacitor.isNativePlatform() && (
+              <MenuRow
+                icon={<span style={{ fontSize: 20 }}>🤖</span>}
+                label="Download Android App"
+                hint="Get the .apk file"
+                onClick={() => {
+                  const link = document.createElement("a");
+                  link.href = "/stryt.apk";
+                  link.download = "stryt.apk";
+                  link.click();
+                }}
+              />
             )}
             <MenuRow icon={<LogOut size={20} color="var(--red-500)" />}   label="Log out" last onClick={() => { signOut(); nav("/"); }} />
           </div>

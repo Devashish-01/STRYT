@@ -10,7 +10,7 @@ import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
-import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr } from "@/components/common";
+import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, RatingBars } from "@/components/common";
 import { useApp } from "@/store";
 import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
@@ -145,8 +145,8 @@ export default function ProviderDetail() {
           </div>
         </div>
 
-        {/* Stat strip */}
-        <div className="page-pad" style={{ marginTop: -14 }}>
+        {/* Follow + Book row */}
+        <div className="page-pad" style={{ paddingTop: 0, paddingBottom: 0, marginTop: -14 }}>
           <div className="card row" style={{ padding: 14 }}>
             <Stat value={p.jobsDone.toString()} label="Jobs done" />
             <Sep />
@@ -157,7 +157,7 @@ export default function ProviderDetail() {
         </div>
 
         {/* Follow + vouch row */}
-        <div className="page-pad row gap-10" style={{ paddingTop: 0 }}>
+        <div className="page-pad row gap-10" style={{ paddingTop: 12 }}>
           <button
             className="btn grow btn-sm"
             style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
@@ -175,18 +175,18 @@ export default function ProviderDetail() {
         </div>
 
         {/* Tabs */}
-        <div className="row page-pad" style={{ paddingTop: 6, paddingBottom: 0, borderBottom: "1px solid var(--line)" }}>
+        <div className="row page-pad" style={{ paddingTop: 10, paddingBottom: 0, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
           {([["about", "About"], ["posts", `Posts (${(provPosts ?? []).length})`], ["portfolio", `Work (${p.portfolio.length})`], ["reviews", "Reviews"]] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
-              style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--green-600)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--green-600)" : "2.5px solid transparent" }}>
+          style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--green-600)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--green-600)" : "2.5px solid transparent" }}>
               {label}
             </button>
           ))}
         </div>
 
         {tab === "about" && (
-          <div className="page-pad col gap-14">
-            <p className="small" style={{ lineHeight: 1.6 }}>{p.bio}</p>
+          <div className="page-pad col gap-16" style={{ paddingTop: 18 }}>
+            {p.bio && <p className="small" style={{ lineHeight: 1.7, color: "var(--ink-700)" }}>{p.bio}</p>}
 
             {/* Computed badges from real provider data — no extra DB queries */}
             {(() => {
@@ -323,7 +323,7 @@ export default function ProviderDetail() {
         )}
 
         {tab === "posts" && (
-          <div className="page-pad col gap-12">
+          <div className="page-pad col gap-12" style={{ paddingTop: 18 }}>
             {(provPosts ?? []).length === 0 ? (
               <EmptyState emoji="📣" title="No posts yet" text="This provider hasn't posted to the community yet." />
             ) : (
@@ -351,15 +351,15 @@ export default function ProviderDetail() {
         )}
 
         {tab === "portfolio" && (
-          <div className="page-pad">
+          <div className="page-pad" style={{ paddingTop: 18 }}>
             {p.portfolio.length === 0 ? (
               <EmptyState emoji="🖼️" title="No work samples yet" text="This provider hasn't added portfolio photos." />
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 {p.portfolio.map((item) => (
                   <div key={item.id}>
-                    <SafeImg src={item.url} alt={item.caption} className="thumb" style={{ width: "100%", height: 130, borderRadius: 14 }} />
-                    <p className="tiny muted" style={{ marginTop: 4 }}>{item.caption}</p>
+                    <SafeImg src={item.url} alt={item.caption} className="thumb" style={{ width: "100%", height: 140, borderRadius: 14 }} />
+                    {item.caption && <p className="tiny muted" style={{ marginTop: 6 }}>{item.caption}</p>}
                   </div>
                 ))}
               </div>
@@ -368,17 +368,25 @@ export default function ProviderDetail() {
         )}
 
         {tab === "reviews" && (
-          <div className="page-pad col gap-14">
+          <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
             <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
               <Star size={16} /> Write a Review
             </button>
-            {(reviews ?? []).slice(0, 3).map((rv) => (
-              <div key={rv.id} className="row gap-10" style={{ alignItems: "flex-start" }}>
-                <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 38, height: 38 }} />
+            {(reviews ?? []).length === 0 && (
+              <EmptyState emoji="⭐" title="No reviews yet" text="Be the first to leave a review!" />
+            )}
+            {(reviews ?? []).length > 0 && (
+              <div className="card" style={{ padding: "12px 16px" }}>
+                <RatingBars ratings={(reviews ?? []).map((rv) => rv.rating)} />
+              </div>
+            )}
+            {(reviews ?? []).map((rv) => (
+              <div key={rv.id} className="card row gap-12" style={{ alignItems: "flex-start", padding: "14px 14px" }}>
+                <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
                 <div className="grow">
                   <div className="row between"><span className="semi small">{rv.raterName}</span><span className="tiny muted">{rv.date}</span></div>
                   <StarRow value={rv.rating} size={12} />
-                  <p className="small" style={{ marginTop: 4, lineHeight: 1.45 }}>{rv.comment}</p>
+                  <p className="small" style={{ marginTop: 6, lineHeight: 1.55 }}>{rv.comment}</p>
                 </div>
               </div>
             ))}

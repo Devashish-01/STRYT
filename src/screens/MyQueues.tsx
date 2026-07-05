@@ -19,6 +19,11 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+// Clock time `min` minutes from now, e.g. "4:35 PM".
+function etaClock(min: number): string {
+  return new Date(Date.now() + min * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function MyQueues() {
   const nav = useNavigate();
   const { showToast } = useApp();
@@ -81,41 +86,70 @@ export default function MyQueues() {
                 text={tab === "ACTIVE" ? "Join a shop's live queue and it'll show up here." : "Served and left queues appear here."}
               />
             ) : (
-              list.map((q) => (
-                <div key={q.tokenId} className="card row gap-12 center-v" style={{ padding: 14 }}>
-                  <SafeImg
-                    src={q.businessImage}
-                    className="thumb"
-                    style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover", flexShrink: 0, cursor: "pointer" }}
-                    onClick={() => nav(`/business/${q.businessId}`)}
-                  />
-                  <div className="grow" style={{ minWidth: 0 }}>
-                    <div className="bold small ellipsis">{q.businessName}</div>
-                    <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                      <Users size={11} /> {q.partySize} · <Clock size={11} /> {timeAgo(q.joinedAtISO)}
+              list.map((q) => {
+                const isCalled = q.status === "CALLED";
+                const wait = q.estWaitMin ?? 0;
+                return (
+                <div
+                  key={q.tokenId}
+                  className="card gap-12"
+                  style={{ padding: 14, border: isCalled ? "2px solid var(--green-500)" : "1px solid var(--line)", background: isCalled ? "#f0fdf4" : undefined }}
+                >
+                  <div className="row gap-12 center-v">
+                    <SafeImg
+                      src={q.businessImage}
+                      className="thumb"
+                      style={{ width: 52, height: 52, borderRadius: 12, objectFit: "cover", flexShrink: 0, cursor: "pointer" }}
+                      onClick={() => nav(`/business/${q.businessId}`)}
+                    />
+                    <div className="grow" style={{ minWidth: 0 }}>
+                      <div className="bold small ellipsis">{q.businessName}</div>
+                      <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
+                        <Users size={11} /> {q.partySize} · <Clock size={11} /> joined {timeAgo(q.joinedAtISO)}
+                      </div>
+                      <div style={{ marginTop: 6 }}>
+                        {q.status === "WAITING" && (
+                          <span className="badge badge-purple">You're #{q.position} · {q.peopleAhead} ahead</span>
+                        )}
+                        {isCalled && <span className="badge badge-green">🔔 It's your turn — head in now!</span>}
+                        {q.status === "SERVED" && <span className="badge badge-gray">✓ Served</span>}
+                        {q.status === "LEFT" && <span className="badge badge-gray">Left queue</span>}
+                      </div>
                     </div>
-                    <div style={{ marginTop: 6 }}>
-                      {q.status === "WAITING" && (
-                        <span className="badge badge-purple">You're #{q.position} · {q.peopleAhead} ahead</span>
-                      )}
-                      {q.status === "CALLED" && <span className="badge badge-green">🔔 Called — your turn!</span>}
-                      {q.status === "SERVED" && <span className="badge badge-gray">✓ Served</span>}
-                      {q.status === "LEFT" && <span className="badge badge-gray">Left queue</span>}
-                    </div>
+                    {ACTIVE.includes(q.status) && (
+                      <button
+                        className="icon-btn"
+                        style={{ width: 34, height: 34, color: "var(--red-600)", flexShrink: 0 }}
+                        disabled={leaving === q.tokenId}
+                        onClick={() => leave(q.tokenId)}
+                        aria-label="Leave queue"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
                   </div>
-                  {ACTIVE.includes(q.status) && (
-                    <button
-                      className="icon-btn"
-                      style={{ width: 34, height: 34, color: "var(--red-600)", flexShrink: 0 }}
-                      disabled={leaving === q.tokenId}
-                      onClick={() => leave(q.tokenId)}
-                      aria-label="Leave queue"
-                    >
-                      <X size={16} />
-                    </button>
+
+                  {/* Live ETA banner — only while genuinely waiting */}
+                  {q.status === "WAITING" && (
+                    <div className="row between center-v" style={{ marginTop: 12, padding: "10px 12px", borderRadius: 10, background: "var(--brand-50)" }}>
+                      <div className="row gap-8 center-v">
+                        <Clock size={16} color="var(--brand-700)" />
+                        <div>
+                          <div className="semi small" style={{ color: "var(--brand-700)" }}>
+                            {wait <= 0 ? "You're next!" : `~${wait} min wait`}
+                          </div>
+                          <div className="tiny muted">{q.peopleAhead === 0 ? "No one ahead of you" : `${q.peopleAhead} ahead`}</div>
+                        </div>
+                      </div>
+                      <div className="col" style={{ alignItems: "flex-end" }}>
+                        <span className="tiny muted">Around</span>
+                        <span className="bold small" style={{ color: "var(--brand-700)" }}>{etaClock(wait)}</span>
+                      </div>
+                    </div>
                   )}
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         )}

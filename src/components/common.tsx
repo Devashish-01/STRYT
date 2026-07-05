@@ -164,6 +164,26 @@ const FALLBACK_AVATAR =
     `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%' height='100%' fill='%23ece8f5'/><text x='50%' y='50%' font-size='48' text-anchor='middle' dominant-baseline='central' fill='%23b5add0'>👤</text></svg>`
   );
 
+/** 5→1 star distribution bars, computed from a loaded reviews array. */
+export function RatingBars({ ratings }: { ratings: number[] }) {
+  if (ratings.length === 0) return null;
+  const counts = [5, 4, 3, 2, 1].map((s) => ratings.filter((r) => Math.round(r) === s).length);
+  const max = Math.max(...counts, 1);
+  return (
+    <div className="col gap-4" style={{ margin: "10px 0" }}>
+      {counts.map((c, i) => (
+        <div key={i} className="row gap-8" style={{ alignItems: "center" }}>
+          <span className="tiny muted" style={{ width: 22, textAlign: "right" }}>{5 - i}★</span>
+          <div style={{ flex: 1, height: 6, background: "var(--ink-100)", borderRadius: 999, overflow: "hidden" }}>
+            <div style={{ width: `${(c / max) * 100}%`, height: "100%", background: "var(--amber-500)", borderRadius: 999 }} />
+          </div>
+          <span className="tiny muted" style={{ width: 24 }}>{c}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SafeImg({
   src,
   alt = "",
