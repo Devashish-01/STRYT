@@ -44,6 +44,7 @@ export default function Profile() {
     }
   ];
 
+  
   if (ownedBusinessIds.length > 0) {
     shareOptions.push({
       role: "business_owner",
