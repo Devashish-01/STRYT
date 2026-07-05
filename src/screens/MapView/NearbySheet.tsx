@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, ChevronRight } from "lucide-react";
+import { X, ChevronRight } from "@/components/Icons";
 import { Rating, inr } from "@/components/common";
 import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT } from "@/lib/placeholders";
 import { useApp } from "@/store";
@@ -47,7 +47,7 @@ export function NearbySheet({
         {/* Header */}
         <div className="row between" style={{ marginBottom: 16 }}>
           <div>
-            <h3 className="bold" style={{ fontSize: 18 }}>Nearby on your Street</h3>
+            <h3 className="bold h2">Nearby on your Street</h3>
             <span className="tiny muted">
               Showing {visibleCount} {visibleCount === 1 ? "item" : "items"}{isWorld ? " globally" : ` within ${radiusKm} km`}
             </span>

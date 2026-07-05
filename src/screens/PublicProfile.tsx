@@ -15,7 +15,7 @@ import {
   Lock,
   MapPin,
   Loader,
-} from "lucide-react";
+} from "@/components/Icons";
 import { userService, chatService, socialService, locationService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
@@ -189,7 +189,7 @@ export default function PublicProfile() {
             />
           </div>
 
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "-0.4px", margin: 0 }}>
+          <h1 className="h1" style={{ color: "#fff", letterSpacing: "-0.4px", margin: 0 }}>
             {firstName(u.name)}
           </h1>
 
@@ -453,7 +453,7 @@ export default function PublicProfile() {
               return displayPosts.map((p) => {
                 const isHidden = hiddenPosts.includes(p.id);
                 return (
-                  <div key={p.id} className="card" style={{ padding: "16px", borderRadius: 18, opacity: isHidden && isSelf ? 0.7 : 1 }}>
+                  <div key={p.id} className="card" style={{ borderRadius: 18, opacity: isHidden && isSelf ? 0.7 : 1 }}>
                     <div className="row space-between" style={{ marginBottom: 8, alignItems: "center" }}>
                       <div className="row gap-6 center-v">
                         <span className="badge badge-blue" style={{ fontSize: 11 }}>{p.type}</span>
@@ -503,7 +503,7 @@ export default function PublicProfile() {
               <EmptyState emoji="📬" title="No requests posted" text="This member has not posted any public service requests." />
             ) : (
               requests.map((r) => (
-                <div key={r.id} className="card" style={{ padding: "16px", borderRadius: 18, cursor: "pointer" }} onClick={() => nav(`/request/${r.id}`)}>
+                <div key={r.id} className="card" style={{ borderRadius: 18, cursor: "pointer" }} onClick={() => nav(`/request/${r.id}`)}>
                   <div className="row space-between" style={{ marginBottom: 6, alignItems: "center" }}>
                     <span className="semi small" style={{ color: "var(--brand-700)" }}>{r.categoryName || "Help Needed"}</span>
                     <span className={`badge ${r.status === "OPEN" ? "badge-green" : "badge-gray"}`} style={{ fontSize: 11 }}>{r.status}</span>
@@ -529,7 +529,7 @@ export default function PublicProfile() {
             ) : (
               <div className="col gap-14">
                 {u.verifications.length > 0 && (
-                  <div className="card" style={{ padding: 16, borderRadius: 18 }}>
+                  <div className="card" style={{ borderRadius: 18 }}>
                     <div className="semi small" style={{ marginBottom: 10, color: "var(--ink-900)", display: "flex", alignItems: "center", gap: 6 }}>
                       <Shield size={16} color="var(--green-600)" /> Verified Trust Attributes
                     </div>
@@ -544,7 +544,7 @@ export default function PublicProfile() {
                 )}
 
                 {u.badges.length > 0 && (
-                  <div className="card" style={{ padding: 16, borderRadius: 18 }}>
+                  <div className="card" style={{ borderRadius: 18 }}>
                     <div className="semi small" style={{ marginBottom: 10, color: "var(--ink-900)", display: "flex", alignItems: "center", gap: 6 }}>
                       <Award size={16} color="var(--brand-600)" /> Earned Community Badges
                     </div>

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "lucide-react";
+import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "@/components/Icons";
 import { useApp } from "@/store";
 import { catalogService, requestService, appointmentService, businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";

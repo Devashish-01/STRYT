@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { authService } from "@/services";
-import { Mail, Phone as PhoneIcon, ArrowLeft, ArrowRight, Loader, Lock } from "lucide-react";
+import { Mail, Phone as PhoneIcon, ArrowLeft, ArrowRight, Loader, Lock } from "@/components/Icons";
 import { useApp } from "@/store";
 import { returnTo } from "@/lib/returnTo";
 import { Capacitor } from "@capacitor/core";
@@ -172,7 +172,7 @@ export default function PhoneEntry() {
             <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
           </svg>
         </div>
-        <h1 style={{ fontSize: 34, fontWeight: 900, letterSpacing: -1, color: "var(--ink-900)" }}>
+        <h1 className="h1" style={{ letterSpacing: -1, color: "var(--ink-900)" }}>
           Welcome to STRYT
         </h1>
         <p style={{ fontSize: 15, color: "var(--ink-600)", marginTop: 6, maxWidth: 280, lineHeight: 1.4 }}>

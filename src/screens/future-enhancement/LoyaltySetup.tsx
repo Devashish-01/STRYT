@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Check, QrCode, Users } from "lucide-react";
+import { Check, QrCode, Users } from "@/components/Icons";
 import { walletService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -62,7 +62,7 @@ export default function LoyaltySetup() {
         {active && (
           <>
             {/* Card preview */}
-            <div className="card" style={{ padding: 16, background: "linear-gradient(135deg,#cc4415,#87260a)", color: "#fff", border: "none" }}>
+            <div className="card" style={{ background: "linear-gradient(135deg,#cc4415,#87260a)", color: "#fff", border: "none" }}>
               <div className="tiny" style={{ opacity: 0.8 }}>LOYALTY CARD</div>
               <div className="bold" style={{ fontSize: 17, marginBottom: 12 }}>
                 Buy {target}, get {reward.toLowerCase()}

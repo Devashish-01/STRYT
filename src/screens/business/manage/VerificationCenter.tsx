@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { BadgeCheck, ShieldCheck, Camera, Clock } from "lucide-react";
+import { BadgeCheck, ShieldCheck, Camera, Clock } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService, uploadService } from "@/services";
 import type { Business } from "@/types";

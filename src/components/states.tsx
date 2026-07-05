@@ -7,7 +7,7 @@ export function Skeleton({ h = 16, w = "100%", r = 8, mb = 0 }: { h?: number; w?
 
 export function CardSkeleton() {
   return (
-    <div className="card" style={{ padding: 12 }}>
+    <div className="card card-condensed">
       <Skeleton h={140} r={14} mb={10} />
       <Skeleton h={16} w="70%" mb={8} />
       <Skeleton h={12} w="45%" />

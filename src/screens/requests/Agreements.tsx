@@ -4,7 +4,7 @@ import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
 import { requestService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from "@/components/Icons";
 import type { AgreementStatus } from "@/types";
 
 const statusMeta: Record<AgreementStatus, { label: string; tone: string }> = {
@@ -54,7 +54,7 @@ export default function Agreements() {
           list.map((a) => {
             const M = statusMeta[a.status];
             return (
-              <button key={a.id} className="card" style={{ padding: 14, textAlign: "left" }} onClick={() => nav(`/agreement/${a.id}`)}>
+              <button key={a.id} className="card" style={{ textAlign: "left" }} onClick={() => nav(`/agreement/${a.id}`)}>
                 <div className="row between">
                   <span className={`badge badge-${M.tone}`}>{M.label}</span>
                   <span className="tiny muted">{a.scheduledFor}</span>

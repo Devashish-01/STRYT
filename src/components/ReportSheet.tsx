@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Flag } from "lucide-react";
+import { Flag } from "@/components/Icons";
 import { useApp } from "@/store";
 import type { BookmarkTarget } from "@/types";
 import { adminService } from "@/services/core/adminService";
@@ -34,7 +34,7 @@ export default function ReportSheet({
         <div className="sheet-grab" />
         <div className="row gap-8" style={{ marginBottom: 4 }}>
           <Flag size={20} color="var(--red-500)" />
-          <h3 className="bold" style={{ fontSize: 18 }}>Report {name}</h3>
+          <h3 className="bold h2">Report {name}</h3>
         </div>
         <p className="small muted" style={{ marginBottom: 14 }}>
           Your report is anonymous and goes to our moderation team.

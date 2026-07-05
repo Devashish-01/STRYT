@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { businessService, profileControlService } from "@/services";
+import { businessService, profileControlService, uploadService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
-import { Crown, Power, Bell, QrCode, UserPlus, X } from "lucide-react";
+import { Crown, Power, Bell, QrCode, UserPlus, X, Image as ImageIcon } from "@/components/Icons";
 import { useApp } from "@/store";
 import type { TeamMember } from "@/types";
 import ManageNav from "./ManageNav";
@@ -73,6 +73,30 @@ export default function BusinessSettings() {
   const [showPhone, setShowPhone] = useState(true);
   const [showEmail, setShowEmail] = useState(false);
   const [locPublic, setLocPublic] = useState(false);
+  const [customQrUrl, setCustomQrUrl] = useState(() => localStorage.getItem("stryt_upi_qr_" + id) || "");
+  const [uploadingQr, setUploadingQr] = useState(false);
+
+  async function handleQrUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingQr(true);
+    try {
+      const url = await uploadService.upload(file, "verification");
+      localStorage.setItem("stryt_upi_qr_" + id, url);
+      setCustomQrUrl(url);
+      showToast("Custom QR code uploaded!");
+    } catch {
+      showToast("Failed to upload QR code.");
+    } finally {
+      setUploadingQr(false);
+    }
+  }
+
+  function clearCustomQr() {
+    localStorage.removeItem("stryt_upi_qr_" + id);
+    setCustomQrUrl("");
+    showToast("Reverted to generated UPI QR");
+  }
 
   useEffect(() => {
     if (business) {
@@ -151,25 +175,50 @@ export default function BusinessSettings() {
         {/* Payment */}
         <div>
           <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><QrCode size={14} /> Payment</div>
-          <div className="card col gap-10" style={{ padding: 14 }}>
+          <div className="card col gap-12" style={{ padding: 14 }}>
+            {/* UPI ID */}
             <div>
               <div className="tiny semi" style={{ marginBottom: 4 }}>UPI ID (VPA)</div>
               <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>Customers pay you via UPI. Enter your UPI handle (e.g. myshop@okaxis) — a QR code is generated automatically.</div>
-              <input
-                className="input"
-                placeholder="e.g. yourname@okaxis"
-                value={upiId}
-                onChange={(e) => setUpiId(e.target.value)}
-                style={{ fontSize: 14 }}
-              />
+              <div className="row gap-8">
+                <input
+                  className="input grow"
+                  placeholder="e.g. yourname@okaxis"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  style={{ fontSize: 14 }}
+                />
+                <button className="btn btn-outline btn-sm" disabled={savingUpi} onClick={saveUpiId}>
+                  {savingUpi ? "…" : "Save"}
+                </button>
+              </div>
             </div>
-            <button
-              className="btn btn-primary btn-sm btn-block"
-              disabled={savingUpi}
-              onClick={saveUpiId}
-            >
-              {savingUpi ? "Saving…" : "Save UPI ID"}
-            </button>
+
+            <div className="divider" style={{ margin: "2px 0" }} />
+
+            {/* Custom QR upload */}
+            <div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>Custom Payment QR (optional)</div>
+              <div className="tiny muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>Upload your own QR image (bank app screenshot, GPay/PhonePe QR, etc.). This overrides the auto-generated UPI QR on your share card.</div>
+
+              {customQrUrl ? (
+                <div className="col gap-8" style={{ alignItems: "center" }}>
+                  <img src={customQrUrl} alt="Custom Payment QR" style={{ width: 140, height: 140, objectFit: "contain", borderRadius: 8, border: "1px solid var(--line)", background: "#fff", padding: 6 }} />
+                  <div className="row gap-8">
+                    <label className="btn btn-outline btn-sm row gap-6" style={{ cursor: "pointer" }}>
+                      <ImageIcon size={13} /> Change
+                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleQrUpload} />
+                    </label>
+                    <button className="btn btn-outline btn-sm row gap-6" onClick={clearCustomQr}><X size={13} /> Remove</button>
+                  </div>
+                </div>
+              ) : (
+                <label className="btn btn-outline btn-sm row gap-6" style={{ cursor: "pointer", alignSelf: "flex-start" }}>
+                  {uploadingQr ? "Uploading…" : <><ImageIcon size={13} /> Upload QR Image</>}
+                  <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleQrUpload} disabled={uploadingQr} />
+                </label>
+              )}
+            </div>
           </div>
         </div>
 
@@ -245,7 +294,7 @@ export default function BusinessSettings() {
         </div>
 
         {/* Danger */}
-        <div className="card" style={{ padding: 14 }}>
+        <div className="card">
           <button
             className="row gap-10 semi small"
             style={{ color: "var(--red-600)" }}

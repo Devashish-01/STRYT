@@ -4,7 +4,7 @@ import {
   ArrowLeft, Share2, MapPin, Clock, Eye, Zap, BadgeCheck,
   Flag, CheckCircle2, Send, Users, Flame, Repeat, MessageCircle, ArrowRightLeft,
   Edit3, Trash2, XCircle, X
-} from "lucide-react";
+} from "@/components/Icons";
 import { requestService, chatService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
@@ -235,7 +235,7 @@ export default function RequestDetail() {
             <span className="badge badge-purple">{r.categoryName}</span>
             {r.expiresInHrs && <span className="badge badge-gray"><Clock size={11} /> expires in {r.expiresInHrs}h</span>}
           </div>
-          <h1 className="bold" style={{ fontSize: 22, marginTop: 8 }}>{r.title}</h1>
+          <h1 className="bold h1" style={{ marginTop: 8 }}>{r.title}</h1>
           <p className="small" style={{ marginTop: 8, lineHeight: 1.6, color: "var(--ink-700)" }}>{r.description}</p>
 
           {r.photos.length > 0 && (
@@ -248,7 +248,7 @@ export default function RequestDetail() {
 
           {/* Group buy progress */}
           {r.isGroupBuy && r.groupBuyTarget && (
-            <div className="card" style={{ padding: 14, marginTop: 14, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
+            <div className="card" style={{ marginTop: 14, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
               <div className="row between tiny" style={{ marginBottom: 6 }}>
                 <span className="semi" style={{ color: "#15803d" }}>{meTooCount} of {r.groupBuyTarget} neighbors in</span>
                 <span className="muted">{r.groupBuyTarget - meTooCount} more unlocks bulk price</span>
@@ -297,7 +297,7 @@ export default function RequestDetail() {
 
         {/* Proposals */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
-          <h3 className="bold" style={{ fontSize: 17, marginBottom: 12 }}>
+          <h3 className="bold h2" style={{ marginBottom: 12 }}>
             {isMine ? "Offers received" : "Offers"} ({r.proposals.length})
           </h3>
 
@@ -332,11 +332,8 @@ export default function RequestDetail() {
           ) : (
             <div className="col gap-12">
               {sortedProposals.map((p) => (
-                <div
-                  key={p.id}
-                  className="card"
-                  style={{ padding: 14, border: accepted === p.id ? "2px solid var(--green-500)" : p.isBoosted ? "1.5px solid #fcd34d" : "1px solid var(--line)" }}
-                >
+                <div key={p.id}
+                  className="card" style={{ border: accepted === p.id ? "2px solid var(--green-500)" : p.isBoosted ? "1.5px solid #fcd34d" : "1px solid var(--line)" }}>
                   <div className="row gap-10">
                     <SafeImg src={p.responderAvatar} variant="avatar" className="avatar" style={{ width: 42, height: 42 }} />
                     <div className="grow" style={{ minWidth: 0 }}>
@@ -418,7 +415,7 @@ export default function RequestDetail() {
 
                   {/* Requester: send counter input */}
                   {counterFor === p.id && (
-                    <div className="card" style={{ padding: 12, marginTop: 10, background: "var(--ink-50)", border: "none" }}>
+                    <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
                       <div className="tiny semi muted" style={{ marginBottom: 8 }}>Propose a different price</div>
                       <div className="row gap-8">
                         <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff" }}>
@@ -435,7 +432,7 @@ export default function RequestDetail() {
                   {!isMine && p.responderUserId === user.id && (p.counters ?? []).length > 0 && (
                     <div style={{ marginTop: 10 }}>
                       {counterBackFor === p.id ? (
-                        <div className="card" style={{ padding: 12, background: "var(--ink-50)", border: "none" }}>
+                        <div className="card card-condensed" style={{ background: "var(--ink-50)", border: "none" }}>
                           <div className="tiny semi muted" style={{ marginBottom: 8 }}>Your counter offer</div>
                           <div className="row gap-8">
                             <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff" }}>
@@ -535,7 +532,7 @@ export default function RequestDetail() {
               <Trash2 size={28} />
             </div>
             <div>
-              <h3 className="bold" style={{ fontSize: 18 }}>Delete this request?</h3>
+              <h3 className="bold h2">Delete this request?</h3>
               <p className="small muted" style={{ marginTop: 6, lineHeight: 1.4 }}>Are you sure you want to cancel and delete this request? This action cannot be undone.</p>
             </div>
             <div className="row gap-10" style={{ width: "100%", marginTop: 8 }}>

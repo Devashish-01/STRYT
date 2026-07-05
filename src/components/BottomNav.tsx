@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Home, Map, Plus, User, X } from "lucide-react";
+import { Home, Map, Plus, User, X } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
 
 export default function BottomNav() {

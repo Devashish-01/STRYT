@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, ChevronRight, Plus, Camera, Globe, Star } from "lucide-react";
+import { X, ChevronRight, Plus, Camera, Globe, Star } from "@/components/Icons";
 import { socialService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { SafeImg } from "@/components/common";
@@ -639,7 +639,7 @@ export function StoryViewer({
             `}</style>
 
             <div className="row between align-center" style={{ marginBottom: 12 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: "#fff", margin: 0 }}>
+              <h2 className="h2" style={{ color: "#fff", margin: 0 }}>
                 Story Details
               </h2>
               <button

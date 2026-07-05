@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Zap, Clock, Calendar, CheckCircle } from "lucide-react";
+import { Zap, Clock, Calendar, CheckCircle } from "@/components/Icons";
 import { providerService } from "@/services";
 import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
@@ -136,7 +136,7 @@ export default function ProviderAvailability() {
         ) : (
           <>
             {/* Instant Availability Banner */}
-            <div className="card" style={{ padding: 16, background: effectiveNow ? "#e8f7ee" : "var(--ink-50)", border: "none" }}>
+            <div className="card" style={{ background: effectiveNow ? "#e8f7ee" : "var(--ink-50)", border: "none" }}>
               <div className="row between center-v">
                 <div className="row gap-10 center-v">
                   <Zap size={22} color={effectiveNow ? "var(--green-500)" : "var(--ink-400)"} />
@@ -276,7 +276,7 @@ export default function ProviderAvailability() {
               </div>
 
               {/* Summary Preview */}
-              <div className="card" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
+              <div className="card card-condensed" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
                 <div className="tiny semi muted">Public Profile Display Preview:</div>
                 <div className="bold small" style={{ color: "var(--brand-800)", marginTop: 2 }}>
                   🕒 {effectiveDaysPattern} from {effectiveFromTime} to {effectiveToTime}

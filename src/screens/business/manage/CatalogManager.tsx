@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, VegDot, inr } from "@/components/common";
-import { Plus, Pencil, Trash2, Camera, Star, Tag } from "lucide-react";
+import { Plus, Pencil, Trash2, Camera, Star, Tag } from "@/components/Icons";
 import { businessService, providerService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -182,7 +182,7 @@ function ItemEditor({
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
-        <h3 className="bold" style={{ fontSize: 18, marginBottom: 14 }}>{item ? "Edit listing" : "New listing"}</h3>
+        <h3 className="bold h2" style={{ marginBottom: 14 }}>{item ? "Edit listing" : "New listing"}</h3>
 
         {/* Photo picker */}
         <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--ink-300)", overflow: "hidden", marginBottom: 14, cursor: "pointer", background: "var(--ink-50)" }}>

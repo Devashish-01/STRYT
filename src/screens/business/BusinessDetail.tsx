@@ -4,7 +4,7 @@ import {
   ArrowLeft, Heart, Share2, Phone, Navigation, Clock, MapPin,
   BadgeCheck, Star, Plus, Minus, Tag, MessageCircle, Flag,
   Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle,
-} from "lucide-react";
+} from "@/components/Icons";
 import { businessService, communityService } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
@@ -181,11 +181,11 @@ export default function BusinessDetail() {
 
         {/* Info card */}
         <div className="page-pad" style={{ marginTop: -22, position: "relative" }}>
-          <div className="card" style={{ padding: 16 }}>
+          <div className="card">
             <div className="row between" style={{ alignItems: "flex-start" }}>
               <div style={{ minWidth: 0 }}>
                 <div className="row gap-6">
-                  <h1 className="bold" style={{ fontSize: 21 }}>{b.name}</h1>
+                  <h1 className="bold h2">{b.name}</h1>
                   {b.isVerified && <BadgeCheck size={18} color="#e5521c" fill="#ffe8e2" />}
                 </div>
                 <p className="small muted" style={{ marginTop: 2 }}>{b.subCategory}</p>
@@ -435,7 +435,7 @@ export default function BusinessDetail() {
         {tab === "about" && (
           <div className="page-pad col gap-14">
             <p className="small" style={{ lineHeight: 1.6 }}>{b.description}</p>
-            <div className="card" style={{ padding: 14 }}>
+            <div className="card">
               <div className="semi small" style={{ marginBottom: 8 }}>Hours</div>
               <div className="row between small"><span className="muted">Mon – Sun</span><span className="semi">{b.hours}</span></div>
               <div className="divider" />
@@ -448,7 +448,7 @@ export default function BusinessDetail() {
             {/* Q&A */}
             <div>
               <div className="semi small row gap-6" style={{ marginBottom: 8 }}><HelpCircle size={15} color="#6366f1" /> Questions & Answers</div>
-              <div className="card" style={{ padding: 12 }}>
+              <div className="card card-condensed">
                 <textarea
                   className="input"
                   placeholder="Ask the owner a question…"
@@ -463,13 +463,13 @@ export default function BusinessDetail() {
               {(qnaList ?? []).filter((q) => q.answer).length > 0 && (
                 <div className="col gap-10" style={{ marginTop: 10 }}>
                   {(qnaList ?? []).filter((q) => q.answer).map((q) => (
-                    <div key={q.id} className="card" style={{ padding: 12 }}>
+                    <div key={q.id} className="card card-condensed">
                       <div className="row between">
                         <span className="semi small">{q.askerName}</span>
                         <span className="tiny muted">{q.askedAt}</span>
                       </div>
                       <p className="small" style={{ marginTop: 4 }}>{q.question}</p>
-                      <div className="card" style={{ padding: 10, marginTop: 8, background: "var(--brand-50)", border: "none" }}>
+                      <div className="card card-condensed" style={{ marginTop: 8, background: "var(--brand-50)", border: "none" }}>
                         <div className="tiny semi" style={{ color: "var(--brand-700)", marginBottom: 2 }}>Owner</div>
                         <p className="small">{q.answer}</p>
                       </div>

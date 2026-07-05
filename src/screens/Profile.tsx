@@ -6,7 +6,7 @@ import {
   ListChecks, Trophy, Award, Users, UserCircle, Heart,
   ArrowLeftRight, Map, MessageSquare, UserPlus, Bookmark, Handshake,
   Bug, Calendar
-} from "lucide-react";
+} from "@/components/Icons";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { SafeImg } from "@/components/common";
@@ -249,7 +249,7 @@ export default function Profile() {
 
         {/* ── Role switcher ── */}
         <div className="page-pad" style={{ paddingTop: 4 }}>
-          <div className="card" style={{ padding: 14 }}>
+          <div className="card">
             <div className="small semi" style={{ color: "var(--ink-600)", marginBottom: 12 }}>I'm using STRYT as a…</div>
             <div className="row gap-8">
               {(["customer", "business_owner", "provider"] as Role[]).map((r) => {

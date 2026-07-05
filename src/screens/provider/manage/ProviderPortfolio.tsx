@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Camera, Pencil, Trash2, Check } from "lucide-react";
+import { Camera, Pencil, Trash2, Check } from "@/components/Icons";
 import { providerService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";

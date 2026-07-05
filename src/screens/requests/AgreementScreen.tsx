@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
-import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, ShieldAlert, Share2, XCircle, QrCode } from "lucide-react";
+import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, ShieldAlert, Share2, XCircle, QrCode } from "@/components/Icons";
 import { requestService } from "@/services";
 import DealUpiSheet from "@/components/DealUpiSheet";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -44,7 +44,7 @@ function ProgressBar({ status }: { status: AgreementStatus }) {
   const active = stepIndex(status);
   if (active === -1) return null;
   return (
-    <div className="card" style={{ padding: "14px 16px" }}>
+    <div className="card">
       <div className="row" style={{ justifyContent: "space-between", position: "relative" }}>
         <div style={{
           position: "absolute", top: 10, left: "10%", right: "10%", height: 3,
@@ -98,7 +98,7 @@ function ProcessGuide({ status, isRequester }: { status: AgreementStatus; isRequ
   const myAction    = isRequester ? step.requesterAction : step.responderAction;
   const otherAction = isRequester ? step.responderAction : step.requesterAction;
   return (
-    <div className="card" style={{ padding: 14, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
+    <div className="card" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
       <div className="semi small" style={{ color: "var(--brand-700)", marginBottom: 10 }}>What happens next</div>
       <div className="row gap-10" style={{ marginBottom: 8 }}>
         <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--brand-600)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -530,7 +530,7 @@ export default function AgreementScreen() {
         )}
 
         {/* Parties & price */}
-        <div className="card" style={{ padding: 14 }}>
+        <div className="card">
           <button
             className="row gap-12"
             style={{ width: "100%", textAlign: "left" }}
@@ -555,7 +555,7 @@ export default function AgreementScreen() {
 
         {/* Provider: live status strip */}
         {!isRequester && status === "IN_PROGRESS" && (
-          <div className="card" style={{ padding: 14 }}>
+          <div className="card">
             <div className="tiny semi muted" style={{ marginBottom: 10 }}>My status</div>
             <div className="row gap-8" style={{ flexWrap: "wrap" }}>
               {LIVE_STEPS.map((s) => {
@@ -600,7 +600,7 @@ export default function AgreementScreen() {
         <ProcessGuide status={status} isRequester={isRequester} />
 
         {/* Terms */}
-        <div className="card" style={{ padding: 14 }}>
+        <div className="card">
           <div className="semi small" style={{ marginBottom: 8 }}>Terms & scope</div>
           <p className="small" style={{ lineHeight: 1.55, color: "var(--ink-700)" }}>{agreement.terms}</p>
           {(agreement.requestArea || (isNew && state?.request?.area)) && (
@@ -642,7 +642,7 @@ export default function AgreementScreen() {
 
         {/* Confirmations (shown only while PENDING) */}
         {status === "PENDING" && (
-          <div className="card" style={{ padding: 14 }}>
+          <div className="card">
             <div className="semi small" style={{ marginBottom: 10 }}>Confirmations</div>
             <ConfirmRow label={`You (${isRequester ? "requester" : "responder"})`} done={myConfirmed} />
             <ConfirmRow label={otherName} done={otherConfirmed} last />
@@ -655,7 +655,7 @@ export default function AgreementScreen() {
         </div>
 
         {status === "IN_PROGRESS" && !sosTriggered && (
-          <div className="card" style={{ padding: 14, border: "1px solid #fecaca", background: "#fff5f5" }}>
+          <div className="card" style={{ border: "1px solid #fecaca", background: "#fff5f5" }}>
             <div className="tiny semi" style={{ color: "#991b1b", marginBottom: 10 }}>Safety</div>
             {sosCountdown !== null ? (
               <div className="col center" style={{ gap: 10 }}>

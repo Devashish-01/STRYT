@@ -4,7 +4,7 @@ import { AppBar, inr } from "@/components/common";
 import { businessService } from "@/services";
 import { ErrorView } from "@/components/states";
 import { useApp } from "@/store";
-import { Zap, Check } from "lucide-react";
+import { Zap, Check } from "@/components/Icons";
 import ManageNav from "@/screens/business/manage/ManageNav";
 
 const boosts = [

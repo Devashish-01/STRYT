@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { HelpCircle, Bug, Mail, Send, CheckCircle2, ExternalLink, MessageSquareText } from "lucide-react";
+import { HelpCircle, Bug, Mail, Send, CheckCircle2, ExternalLink, MessageSquareText } from "@/components/Icons";
 import { AppBar } from "@/components/common";
 import { useApp } from "@/store";
 import { supportService, type ReporterRole } from "@/services/core/supportService";
@@ -165,7 +165,7 @@ export default function Support() {
               <div style={{ color: "var(--green-500)", animation: "pop 0.3s ease" }}>
                 <CheckCircle2 size={56} />
               </div>
-              <h3 className="bold" style={{ fontSize: 20 }}>Message Sent!</h3>
+              <h3 className="bold h2">Message Sent!</h3>
               <p className="muted small" style={{ lineHeight: 1.5, maxWidth: 300 }}>
                 Thank you for contacting us. We have received your query and will reply to <strong>{email}</strong> within 24 hours.
               </p>
@@ -176,7 +176,7 @@ export default function Support() {
           ) : (
             <form onSubmit={handleContactSubmit} className="col gap-14">
               <div className="col gap-4">
-                <h3 className="bold" style={{ fontSize: 18, color: "var(--ink-800)" }}>Contact the Team</h3>
+                <h3 className="bold h2" style={{ color: "var(--ink-800)" }}>Contact the Team</h3>
                 <p className="muted small">Send us a message, complaint, or feedback about STRYT.</p>
               </div>
 
@@ -253,7 +253,7 @@ export default function Support() {
               <div style={{ color: "var(--green-500)", animation: "pop 0.3s ease" }}>
                 <CheckCircle2 size={56} />
               </div>
-              <h3 className="bold" style={{ fontSize: 20 }}>Bug Logged!</h3>
+              <h3 className="bold h2">Bug Logged!</h3>
               <p className="muted small" style={{ lineHeight: 1.5, maxWidth: 300 }}>
                 Your bug report has been received and added to our tracking list. We appreciate your help in improving STRYT.
               </p>
@@ -269,7 +269,7 @@ export default function Support() {
           ) : (
             <div className="col gap-14">
               <div className="col gap-4">
-                <h3 className="bold" style={{ fontSize: 18, color: "var(--ink-800)" }}>Report a Bug</h3>
+                <h3 className="bold h2" style={{ color: "var(--ink-800)" }}>Report a Bug</h3>
                 <p className="muted small">Help us squish bugs! You can submit the bug description below or view the team's spreadsheet tracker directly.</p>
               </div>
 

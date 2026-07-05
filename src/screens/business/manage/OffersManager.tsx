@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, EmptyState } from "@/components/common";
-import { Plus, Tag, Trash2, Megaphone } from "lucide-react";
+import { Plus, Tag, Trash2, Megaphone } from "@/components/Icons";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -74,7 +74,7 @@ export default function OffersManager() {
         )}
 
         {creating && (
-          <div className="card" style={{ padding: 14 }}>
+          <div className="card">
             <div className="field"><label>Title</label><input className="input" placeholder="e.g. 50% OFF up to ₹100" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
             <div className="field" style={{ marginTop: 10 }}><label>Description</label><input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
             <div className="row gap-10" style={{ marginTop: 10 }}>

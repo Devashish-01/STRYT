@@ -29,11 +29,13 @@ export default function BusinessRequests() {
     );
   }
 
-  // Only show requests within the business's access range. Each request's
-  // distanceKm is measured from the business location (feed got b.lat/b.lng).
+  // Show open requests that (a) match this shop's category and (b) fall within
+  // its access range. Category match is the whole point — a bakery shouldn't be
+  // shown plumbing requests. Requests with no category fall through to everyone.
   const range = b?.broadcastRadius ?? 5;
   const items = ((data?.data ?? []) as RequestPost[])
     .filter((r) => r.status === "OPEN")
+    .filter((r) => !r.categoryId || !b?.categoryId || r.categoryId === b.categoryId)
     .filter((r) => !r.lat || !r.lng || r.distanceKm <= range);
 
   return (

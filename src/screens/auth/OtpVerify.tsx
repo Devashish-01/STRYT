@@ -4,7 +4,7 @@ import { authService } from "@/services";
 import { config } from "@/config";
 import { useApp } from "@/store";
 import { returnTo } from "@/lib/returnTo";
-import { ArrowLeft, Loader } from "lucide-react";
+import { ArrowLeft, Loader } from "@/components/Icons";
 
 export default function OtpVerify() {
   const nav = useNavigate();
@@ -172,7 +172,7 @@ export default function OtpVerify() {
             <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
           </svg>
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: -0.5, color: "var(--ink-900)" }}>Verification Code</h1>
+        <h1 className="h1" style={{ letterSpacing: -0.5, color: "var(--ink-900)" }}>Verification Code</h1>
         <p style={{ fontSize: 14, color: "var(--ink-600)", marginTop: 6, maxWidth: 280, lineHeight: 1.4 }}>
           Sent to <span className="semi" style={{ color: "var(--brand-700)" }}>{isEmail ? phone : `+91 ${phone}`}</span>
         </p>

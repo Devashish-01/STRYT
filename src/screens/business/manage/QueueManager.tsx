@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Users, Play, Check, RefreshCw } from "lucide-react";
+import { Users, Play, Check, RefreshCw } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
@@ -117,7 +117,7 @@ export default function QueueManager() {
 
         {live && (
           <>
-            <div className="card" style={{ padding: 16 }}>
+            <div className="card">
               <div className="row between small semi" style={{ alignItems: "center" }}>
                 <span>Avg service time</span>
                 <div className="row gap-4" style={{ alignItems: "center" }}>

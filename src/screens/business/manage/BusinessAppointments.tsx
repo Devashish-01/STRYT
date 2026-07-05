@@ -8,7 +8,7 @@ import { useApp } from "@/store";
 import {
   Calendar, Check, X as XIcon, Image as ImageIcon, CheckCircle2, AlertTriangle,
   Share2, IndianRupee, Ban,
-} from "lucide-react";
+} from "@/components/Icons";
 import type { AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
 import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";

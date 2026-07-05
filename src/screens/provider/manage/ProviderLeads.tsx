@@ -7,7 +7,7 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import type { RequestPost, AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
 import ProviderManageNav from "./ProviderManageNav";
-import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2 } from "lucide-react";
+import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2 } from "@/components/Icons";
 import { useApp } from "@/store";
 import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";
@@ -68,7 +68,11 @@ export default function ProviderLeads() {
   const [walkInModal, setWalkInModal] = useState<{ date: Date; timeLabel: string } | null>(null);
   const [walkInSubmitting, setWalkInSubmitting] = useState(false);
 
-  const items = ((data?.data ?? []) as RequestPost[]).filter((r) => r.status === "OPEN");
+  // Category-matched open requests only — a request surfaces to the providers
+  // it's actually for (falls through when the request carries no category).
+  const items = ((data?.data ?? []) as RequestPost[])
+    .filter((r) => r.status === "OPEN")
+    .filter((r) => !r.categoryId || !p?.categoryId || r.categoryId === p.categoryId);
   const appointments = aptsData ?? [];
   const blockedSlots = blockedData ?? [];
 

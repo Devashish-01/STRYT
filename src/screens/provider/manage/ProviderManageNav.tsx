@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, Inbox, CalendarClock, ImageIcon, Settings } from "lucide-react";
+import { LayoutDashboard, Inbox, CalendarClock, ImageIcon, Settings } from "@/components/Icons";
 
 export default function ProviderManageNav({ pid }: { pid: string }) {
   const nav = useNavigate();

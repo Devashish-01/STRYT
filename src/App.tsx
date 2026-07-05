@@ -1,6 +1,8 @@
 import { Routes, Route, useLocation, Navigate, Outlet } from "react-router-dom";
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import BottomNav from "./components/BottomNav";
+import ManageNav from "./screens/business/manage/ManageNav";
+import ProviderManageNav from "./screens/provider/manage/ProviderManageNav";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
 import { useI18n, type Lang } from "./lib/i18n";
@@ -83,6 +85,7 @@ const LeadsInbox = lazy(() => import("./screens/business/manage/LeadsInbox"));
 const VerificationCenter = lazy(() => import("./screens/business/manage/VerificationCenter"));
 const BusinessSettings = lazy(() => import("./screens/business/manage/BusinessSettings"));
 const BusinessRequests = lazy(() => import("./screens/business/manage/BusinessRequests"));
+const BusinessCommunity = lazy(() => import("./screens/ProfileCommunity"));
 
 // Provider console
 const ProviderDashboard = lazy(() => import("./screens/provider/manage/ProviderDashboard"));
@@ -92,6 +95,7 @@ const ProviderCatalog = lazy(() => import("./screens/provider/manage/ProviderCat
 const ProviderPortfolio = lazy(() => import("./screens/provider/manage/ProviderPortfolio"));
 const ProviderLeads = lazy(() => import("./screens/provider/manage/ProviderLeads"));
 const ProviderSettings = lazy(() => import("./screens/provider/manage/ProviderSettings"));
+const ProviderCommunity = lazy(() => import("./screens/provider/manage/ProviderCommunity"));
 
 // Admin
 const AdminPanel = lazy(() => import("./screens/admin/AdminPanel"));
@@ -274,7 +278,7 @@ function PublicOnlyLayout() {
 
 export default function App() {
   const location = useLocation();
-  const { toast } = useApp();
+  const { toast, activeContext } = useApp();
   const showNav = TAB_ROUTES.includes(location.pathname);
 
   useEffect(() => {
@@ -366,6 +370,7 @@ export default function App() {
             <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
             <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
             <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
+            <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />
 
             {/* Provider console */}
             <Route path="/provider/:id/manage" element={<ProviderDashboard />} />
@@ -374,6 +379,7 @@ export default function App() {
             <Route path="/provider/:id/manage/catalog" element={<ProviderCatalog />} />
             <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
             <Route path="/provider/:id/manage/leads" element={<ProviderLeads />} />
+            <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
             <Route path="/provider/:id/manage/verify" element={<ProviderSettings />} />
             <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
 
@@ -401,7 +407,15 @@ export default function App() {
         </Routes>
       </Suspense>
 
-      {showNav && <BottomNav />}
+      {showNav && (
+        activeContext.type === "business" && activeContext.id ? (
+          <ManageNav bizId={activeContext.id} />
+        ) : activeContext.type === "provider" && activeContext.id ? (
+          <ProviderManageNav pid={activeContext.id} />
+        ) : (
+          <BottomNav />
+        )
+      )}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );

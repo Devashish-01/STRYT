@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
-import { Navigation } from "lucide-react";
+import { Navigation } from "@/components/Icons";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";

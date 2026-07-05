@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
-import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, MinusCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, MinusCircle } from "@/components/Icons";
 import { subscriptionService, type SubscriptionLog } from "@/services/engagement/subscriptionService";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";

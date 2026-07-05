@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, MapPinPlus } from "lucide-react";
+import { ChevronRight, MapPinPlus } from "@/components/Icons";
 import L from "leaflet";
 import { MapContainer, TileLayer, Marker, Circle } from "react-leaflet";
 import { discoveryService, requestService, socialService, userService } from "@/services";

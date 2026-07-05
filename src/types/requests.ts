@@ -26,6 +26,7 @@ export interface RequestPost {
   description: string;
   categoryId: string | null;
   categoryName: string;
+  subCategory?: string;
   budgetMin?: number;
   budgetMax?: number;
   area: string;

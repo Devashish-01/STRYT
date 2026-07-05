@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { catalogService, providerService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { Camera, CheckCircle2, IndianRupee, Plus, Briefcase } from "lucide-react";
+import { Camera, CheckCircle2, IndianRupee, Plus, Briefcase } from "@/components/Icons";
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
@@ -101,7 +101,7 @@ export default function ProviderOnboard() {
           <div style={{ width: 96, height: 96, borderRadius: "50%", background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
             <CheckCircle2 size={52} color="var(--green-500)" />
           </div>
-          <h1 className="bold" style={{ fontSize: 24, marginTop: 24 }}>You're almost live!</h1>
+          <h1 className="bold h1" style={{ marginTop: 24 }}>You're almost live!</h1>
           <p className="muted" style={{ marginTop: 8, lineHeight: 1.5, maxWidth: 290 }}>
             We'll verify your profile shortly. Once approved you'll appear in search and the feed for everyone within <span className="semi" style={{ color: "var(--ink-900)" }}>{radius} km</span>.
           </p>

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Star } from "lucide-react";
+import { ArrowLeft, Star } from "@/components/Icons";
 import { useState, useEffect, type ReactNode, type CSSProperties } from "react";
 
 export function AppBar({
@@ -83,7 +83,7 @@ export function EmptyState({
   return (
     <div className="col center fade-up" style={{ padding: "56px 28px", textAlign: "center", gap: 10 }}>
       <div style={{ fontSize: 54 }}>{emoji}</div>
-      <h3 style={{ fontSize: 18, fontWeight: 800 }}>{title}</h3>
+      <h3 className="h2">{title}</h3>
       <p className="muted small" style={{ maxWidth: 260, lineHeight: 1.5 }}>{text}</p>
       {action && <div style={{ marginTop: 8 }}>{action}</div>}
     </div>

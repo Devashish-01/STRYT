@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useMapEvents } from "react-leaflet";
-import { MapPin, X, Check, Loader } from "lucide-react";
+import { MapPin, X, Check, Loader } from "@/components/Icons";
 
 // Lives inside <MapContainer>. The pin itself is fixed on screen — this just
 // reports the map's center whenever a pan/zoom settles, so the caller can

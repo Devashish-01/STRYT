@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { MapPin, Navigation } from "lucide-react";
+import { MapPin, Navigation } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService } from "@/services";
 import { reverseGeocode, forwardGeocode } from "@/lib/geocode";
@@ -90,13 +90,13 @@ export default function LocationPermission() {
           <MapPin size={52} color="var(--brand-600)" />
         </div>
 
-        <h1 style={{ fontSize: 26, fontWeight: 800, marginTop: 32 }}>Enable location</h1>
+        <h1 className="h1" style={{ marginTop: 32 }}>Enable location</h1>
         <p className="muted" style={{ marginTop: 10, maxWidth: 300, lineHeight: 1.55 }}>
           STRYT is all about what's <span className="semi" style={{ color: "var(--ink-900)" }}>near you</span>. We use your location to show
           local businesses, providers and requests within your radius.
         </p>
 
-        <div className="card" style={{ marginTop: 28, padding: 14, textAlign: "left", width: "100%" }}>
+        <div className="card" style={{ marginTop: 28, textAlign: "left", width: "100%" }}>
           <div className="row gap-10 small">
             <Navigation size={18} color="var(--green-500)" />
             <span>We only store your <span className="semi">last location</span> — never a trail.</span>

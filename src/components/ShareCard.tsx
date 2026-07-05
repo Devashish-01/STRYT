@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MessageCircle, Copy, Link2, Send, Share2 } from "lucide-react";
+import { MessageCircle, Copy, Link2, Send, Share2, QrCode } from "@/components/Icons";
 import { useApp } from "@/store";
 import { copyText } from "@/lib/clipboard";
 import { PLACEHOLDER_AVATAR } from "@/lib/placeholders";
@@ -23,12 +23,18 @@ interface Props {
   url?: string;
   options?: ShareOption[];
   onClose: () => void;
+  /** UPI VPA e.g. shop@okaxis — used to generate a payment QR in the QR Code tab */
+  upiId?: string;
+  /** URL of a custom uploaded payment QR image; takes priority over upiId-generated QR */
+  paymentQrUrl?: string;
 }
 
-export default function ShareCard({ title, subtitle, image, meta, url, options, onClose }: Props) {
+export default function ShareCard({ title, subtitle, image, meta, url, options, onClose, upiId, paymentQrUrl }: Props) {
   const { showToast } = useApp();
   const [viewMode, setViewMode] = useState<"card" | "qr">("card");
+  const [qrMode, setQrMode] = useState<"profile" | "payment">("profile");
   const [activeOpt, setActiveOpt] = useState<ShareOption | null>(options && options.length > 0 ? options[0] : null);
+  const hasPaymentQr = !!(paymentQrUrl || upiId);
 
   const currentTitle = activeOpt ? activeOpt.title : title;
   const currentSubtitle = activeOpt ? activeOpt.subtitle : subtitle;
@@ -81,7 +87,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
         <div className="sheet-grab" />
         <div className="row gap-8" style={{ marginBottom: 14 }}>
           <Share2 size={20} color="var(--brand-700)" />
-          <h3 className="bold" style={{ fontSize: 18 }}>Share with neighbors</h3>
+          <h3 className="bold h2">Share with neighbors</h3>
         </div>
 
         {/* Option selectors for role profiles */}
@@ -148,7 +154,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
             style={{
               borderRadius: 20,
               padding: "24px 16px",
-              background: "linear-gradient(160deg, var(--brand-500), var(--brand-800))",
+              background: qrMode === "payment" ? "linear-gradient(160deg, #16a34a, #064e3b)" : "linear-gradient(160deg, var(--brand-500), var(--brand-800))",
               color: "#fff",
               boxShadow: "var(--shadow-md)",
               display: "flex",
@@ -158,20 +164,56 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
               textAlign: "center"
             }}
           >
-            <div style={{
-              background: "#fff", borderRadius: 16, padding: 12, boxShadow: "var(--shadow)",
-              display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14
-            }}>
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(shareUrl)}`}
-                alt="QR Code"
-                style={{ width: 160, height: 160, display: "block" }}
-              />
-            </div>
-            <div className="bold" style={{ fontSize: 18 }}>{currentTitle}</div>
-            <div className="small" style={{ opacity: 0.9, marginTop: 2 }}>{currentSubtitle}</div>
-            {currentMeta && <div className="tiny" style={{ opacity: 0.8, marginTop: 4 }}>{currentMeta}</div>}
-            <div className="tiny semi" style={{ marginTop: 14, opacity: 0.85, letterSpacing: 0.5 }}>SCAN TO OPEN IN STRYT</div>
+            {/* Payment / Profile toggle inside QR panel */}
+            {hasPaymentQr && (
+              <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 20, padding: 3, display: "flex", gap: 2, marginBottom: 16 }}>
+                <button
+                  onClick={() => setQrMode("profile")}
+                  style={{ border: "none", background: qrMode === "profile" ? "rgba(255,255,255,0.9)" : "transparent", color: qrMode === "profile" ? "#1e1e2e" : "rgba(255,255,255,0.8)", fontWeight: 600, padding: "5px 14px", borderRadius: 18, fontSize: 12, cursor: "pointer", transition: "all 0.2s" }}
+                >
+                  Profile
+                </button>
+                <button
+                  onClick={() => setQrMode("payment")}
+                  style={{ border: "none", background: qrMode === "payment" ? "rgba(255,255,255,0.9)" : "transparent", color: qrMode === "payment" ? "#1e1e2e" : "rgba(255,255,255,0.8)", fontWeight: 600, padding: "5px 14px", borderRadius: 18, fontSize: 12, cursor: "pointer", transition: "all 0.2s" }}
+                >
+                  <span className="row gap-4"><QrCode size={12} /> Payment</span>
+                </button>
+              </div>
+            )}
+
+            {qrMode === "payment" && hasPaymentQr ? (
+              <>
+                <div style={{ background: "#fff", borderRadius: 16, padding: 12, boxShadow: "var(--shadow)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+                  {paymentQrUrl ? (
+                    <img src={paymentQrUrl} alt="Payment QR" style={{ width: 160, height: 160, objectFit: "contain", display: "block" }} />
+                  ) : (
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=${encodeURIComponent(currentTitle)}`)}`}
+                      alt="UPI QR"
+                      style={{ width: 160, height: 160, display: "block" }}
+                    />
+                  )}
+                </div>
+                <div className="bold" style={{ fontSize: 18 }}>{currentTitle}</div>
+                <div className="small" style={{ opacity: 0.9, marginTop: 2 }}>{upiId}</div>
+                <div className="tiny semi" style={{ marginTop: 14, opacity: 0.85, letterSpacing: 0.5 }}>SCAN TO PAY</div>
+              </>
+            ) : (
+              <>
+                <div style={{ background: "#fff", borderRadius: 16, padding: 12, boxShadow: "var(--shadow)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(shareUrl)}`}
+                    alt="QR Code"
+                    style={{ width: 160, height: 160, display: "block" }}
+                  />
+                </div>
+                <div className="bold" style={{ fontSize: 18 }}>{currentTitle}</div>
+                <div className="small" style={{ opacity: 0.9, marginTop: 2 }}>{currentSubtitle}</div>
+                {currentMeta && <div className="tiny" style={{ opacity: 0.8, marginTop: 4 }}>{currentMeta}</div>}
+                <div className="tiny semi" style={{ marginTop: 14, opacity: 0.85, letterSpacing: 0.5 }}>SCAN TO OPEN IN STRYT</div>
+              </>
+            )}
           </div>
         ) : (
           /* Branded preview card */

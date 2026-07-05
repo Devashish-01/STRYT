@@ -6,7 +6,7 @@ import { useQuery } from "@/hooks/useApi";
 import { BusinessCardWide, ProviderCard, RequestCard } from "@/components/cards";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ListSkeleton } from "@/components/states";
-import { UserCheck, Star } from "lucide-react";
+import { UserCheck, Star } from "@/components/Icons";
 
 type Tab = "BUSINESS" | "PROVIDER" | "REQUEST" | "FOLLOWING";
 

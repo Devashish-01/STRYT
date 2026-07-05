@@ -338,19 +338,19 @@ export const communityService = {
   async addComment(
     postId: string,
     body: string,
-    opts: { listingType?: string; listingId?: string; sharedPhone?: string; phoneVisibility?: "OWNER" | "PUBLIC" } = {}
+    opts: { listingType?: string; listingId?: string; sharedPhone?: string; phoneVisibility?: "OWNER" | "PUBLIC"; authorName?: string; authorAvatar?: string } = {}
   ): Promise<Comment> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
     const { data: me } = await sb.from("users").select("name, avatar").eq("id", uid).maybeSingle();
-    const { listingType, listingId, sharedPhone, phoneVisibility } = opts;
+    const { listingType, listingId, sharedPhone, phoneVisibility, authorName, authorAvatar } = opts;
 
     const { data: created, error } = await sb.from("post_comments").insert({
       post_id: postId,
       author_user_id: uid,
-      author_name: firstName((me as any)?.name),
-      author_avatar: (me as any)?.avatar ?? "",
+      author_name: authorName || firstName((me as any)?.name),
+      author_avatar: authorAvatar || ((me as any)?.avatar ?? ""),
       body,
       listing_type: listingType ?? null,
       listing_id: listingId ?? null,

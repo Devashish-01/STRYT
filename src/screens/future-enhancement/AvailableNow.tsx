@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { AppBar, Rating, inr, EmptyState, SafeImg } from "@/components/common";
-import { Clock, Zap, Phone, BadgeCheck } from "lucide-react";
+import { Clock, Zap, Phone, BadgeCheck } from "@/components/Icons";
 import { socialService, discoveryService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -40,7 +40,7 @@ export default function AvailableNow() {
           ) : (
             availableNow.map((p) => {
               return (
-                <div key={p.providerId} className="card" style={{ padding: 14 }} onClick={() => nav(`/provider/${p.providerId}`)}>
+                <div key={p.providerId} className="card" onClick={() => nav(`/provider/${p.providerId}`)}>
                   <div className="row gap-12">
                     <div style={{ position: "relative" }}>
                       <SafeImg src={p.avatar} variant="avatar" className="avatar" style={{ width: 54, height: 54 }} />
@@ -58,7 +58,7 @@ export default function AvailableNow() {
                       </div>
                     </div>
                   </div>
-                  <div className="card" style={{ padding: 10, marginTop: 10, background: "var(--ink-50)", border: "none" }}>
+                  <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
                     <span className="tiny semi" style={{ color: "#15803d" }}>⚡ {p.note}</span>
                   </div>
                   <div className="row gap-10" style={{ marginTop: 10 }}>

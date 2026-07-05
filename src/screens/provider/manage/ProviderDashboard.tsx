@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Eye, Briefcase, CheckCircle2, Wallet, Star, TrendingUp, Zap, ArrowLeftRight, Share2 } from "lucide-react";
+import {
+  Eye, Briefcase, CheckCircle2, Wallet, Star, Zap,
+  ArrowLeftRight, Share2, Calendar, ShieldCheck, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck
+} from "@/components/Icons";
 import { providerService } from "@/services";
 import { SafeImg, inr, AppBar } from "@/components/common";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -52,21 +55,41 @@ export default function ProviderDashboard() {
 
   return (
     <div className="screen with-nav">
-      <div style={{ background: "linear-gradient(135deg,var(--green-500),#15803d)", color: "#fff", padding: "16px" }}>
+      {/* ── Branded Premium Header ── */}
+      <div style={{
+        background: "linear-gradient(135deg, var(--green-500), #14532d)",
+        color: "#fff",
+        padding: "20px 16px 24px",
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+        boxShadow: "0 8px 30px rgba(22, 163, 74, 0.15)"
+      }}>
+        {/* Top navigation row */}
         <div className="row between">
-          <button className="row gap-4 tiny semi" style={{ opacity: 0.9 }} onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
-            <ArrowLeftRight size={13} /> Switch to customer
+          <button
+            className="row gap-6 tiny semi"
+            style={{
+              padding: "6px 12px",
+              background: "rgba(255, 255, 255, 0.15)",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              borderRadius: 100,
+              color: "#fff"
+            }}
+            onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}
+          >
+            <ArrowLeftRight size={13} /> Switch to Customer
           </button>
+          
           <div className="row gap-8" style={{ alignItems: "center" }}>
             <button 
               className="icon-btn-sm" 
               style={{ 
-                background: "rgba(255,255,255,0.18)", 
+                background: "rgba(255, 255, 255, 0.15)", 
                 color: "#fff", 
                 border: "none", 
                 borderRadius: "50%", 
-                width: 28, 
-                height: 28, 
+                width: 32, 
+                height: 32, 
                 display: "inline-flex", 
                 alignItems: "center", 
                 justifyContent: "center", 
@@ -75,91 +98,212 @@ export default function ProviderDashboard() {
               onClick={() => setShare(true)} 
               aria-label="Share QR Code"
             >
-              <Share2 size={14} />
+              <Share2 size={15} />
             </button>
-            <button className="tiny semi" style={{ opacity: 0.9 }} onClick={() => nav(`/provider/${id}`)}>View public →</button>
+            <button
+              className="tiny semi"
+              style={{
+                padding: "6px 12px",
+                background: "rgba(255, 255, 255, 0.15)",
+                border: "1px solid rgba(255, 255, 255, 0.2)",
+                borderRadius: 100,
+                color: "#fff"
+              }}
+              onClick={() => nav(`/provider/${id}`)}
+            >
+              View Public →
+            </button>
           </div>
         </div>
-        <div className="row gap-12" style={{ marginTop: 12 }}>
-          <SafeImg src={p?.avatar} alt={p?.displayName} variant="avatar" className="avatar" style={{ width: 52, height: 52, border: "2px solid rgba(255,255,255,0.4)" }} />
-          <div className="grow"><div className="bold" style={{ fontSize: 18 }}>{p?.displayName}</div><div className="small" style={{ opacity: 0.9 }}>{p?.categoryName}</div></div>
+
+        {/* Profile info block */}
+        <div className="row gap-12" style={{ marginTop: 20, alignItems: "center" }}>
+          <div style={{ position: "relative" }}>
+            <SafeImg
+              src={p?.avatar}
+              alt={p?.displayName}
+              variant="avatar"
+              className="avatar"
+              style={{
+                width: 58,
+                height: 58,
+                borderRadius: "50%",
+                border: available ? "3px solid var(--green-400)" : "2px solid rgba(255,255,255,0.4)",
+                objectFit: "cover"
+              }}
+            />
+            {available && (
+              <span style={{
+                position: "absolute",
+                bottom: 0,
+                right: 0,
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                background: "var(--green-500)",
+                border: "2.5px solid #14532d"
+              }}>
+                <span className="fade-up" style={{
+                  position: "absolute",
+                  inset: -4,
+                  borderRadius: "50%",
+                  border: "1.5px solid var(--green-500)",
+                  animation: "pulse-ring 1.5s infinite ease-in-out"
+                }} />
+              </span>
+            )}
+          </div>
+          <div className="grow">
+            <div className="row gap-6" style={{ alignItems: "center" }}>
+              <span className="bold h1" style={{ color: "#fff" }}>{p?.displayName}</span>
+              <BadgeCheck size={18} color="#ffba2b" weight="fill" />
+            </div>
+            <div className="small" style={{ opacity: 0.9, marginTop: 2 }}>{p?.categoryName}</div>
+          </div>
         </div>
       </div>
 
       <div className="screen-scroll">
-        {/* Available now toggle */}
+        {/* ── Active Availability Zap Card ── */}
         <div className="page-pad">
-          <button className="card row gap-12" style={{ padding: 14, width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)" }} onClick={toggleAvail}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: available ? "#e8f7ee" : "var(--ink-50)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Zap size={22} color={available ? "var(--green-500)" : "var(--ink-400)"} />
+          <button
+            className="card row gap-12"
+            style={{
+              width: "100%",
+              textAlign: "left",
+              border: available ? "2px solid var(--green-500)" : "1px solid var(--line)",
+              boxShadow: available ? "0 4px 16px rgba(22, 163, 74, 0.08)" : "var(--shadow-sm)"
+            }}
+            onClick={toggleAvail}
+          >
+            <div style={{
+              width: 44,
+              height: 44,
+              borderRadius: 12,
+              background: available ? "#e8f7ee" : "var(--ink-50)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0
+            }}>
+              <Zap size={22} color={available ? "var(--green-500)" : "var(--ink-400)"} weight={available ? "fill" : "regular"} />
             </div>
             <div className="grow">
               <div className="semi small">{available ? "You're available now" : "Go available now"}</div>
               <div className="tiny muted">{available ? "Showing in the 'Free right now' rail" : "Surface to nearby customers for 3 hours"}</div>
             </div>
-            <span style={{ width: 44, height: 26, borderRadius: 999, background: available ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}>
-              <span style={{ position: "absolute", top: 3, left: available ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+            <span style={{
+              width: 44,
+              height: 26,
+              borderRadius: 999,
+              background: available ? "var(--green-500)" : "var(--ink-200)",
+              position: "relative",
+              flexShrink: 0,
+              transition: "background-color 0.2s"
+            }}>
+              <span style={{
+                position: "absolute",
+                top: 3,
+                left: available ? 21 : 3,
+                width: 20,
+                height: 20,
+                borderRadius: "50%",
+                background: "#fff",
+                transition: "left .2s",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.15)"
+              }} />
             </span>
           </button>
         </div>
 
-        {/* KPIs */}
+        {/* ── Analytics dashboard ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           {loading ? (
-            <div className="row gap-10">{[1, 2, 3].map((i) => <div key={i} className="card grow" style={{ padding: 12 }}><Skeleton h={56} /></div>)}</div>
-          ) : (
-            <>
+            <div className="col gap-10">
               <div className="row gap-10">
-                <Kpi icon={Eye} color="#cc4415" value={(data?.views ?? 0).toLocaleString()} label="Profile views" />
-                <Kpi icon={Briefcase} color="#0ea5e9" value={data?.leads ?? 0} label="Leads" />
-                <Kpi icon={CheckCircle2} color="var(--green-500)" value={data?.accepted ?? 0} label="Won" />
+                {[1, 2, 3].map((i) => <div key={i} className="card grow" style={{ padding: 12 }}><Skeleton h={56} /></div>)}
               </div>
-              <div className="card row" style={{ padding: 14, marginTop: 10 }}>
-                <div className="grow col center" style={{ gap: 2 }}><Wallet size={18} color="var(--orange-500)" /><span className="bold">{inr(data?.earnings ?? 0)}</span><span className="tiny muted">Earned (offline)</span></div>
-                <div style={{ width: 1, background: "var(--line)" }} />
-                <div className="grow col center" style={{ gap: 2 }}><Briefcase size={18} color="var(--green-500)" /><span className="bold">{data?.jobsDone ?? 0}</span><span className="tiny muted">Jobs done</span></div>
-                <div style={{ width: 1, background: "var(--line)" }} />
-                <div className="grow col center" style={{ gap: 2 }}><Star size={18} color="var(--amber-500)" /><span className="bold">{p?.ratingAvg}</span><span className="tiny muted">Rating</span></div>
+              <div className="card grow" style={{ padding: 14 }}><Skeleton h={40} /></div>
+            </div>
+          ) : (
+            <div className="col gap-10">
+              {/* Primary KPIs Row */}
+              <div className="row gap-10">
+                <KpiCard icon={Eye} color="#cc4415" value={(data?.views ?? 0).toLocaleString()} label="Profile Views" trend="+10%" bgTint="rgba(204, 68, 21, 0.05)" />
+                <KpiCard icon={Briefcase} color="#0ea5e9" value={data?.leads ?? 0} label="Leads" trend="+5%" bgTint="rgba(14, 165, 233, 0.05)" />
+                <KpiCard icon={CheckCircle2} color="var(--green-500)" value={data?.accepted ?? 0} label="Won Jobs" trend="+12%" bgTint="rgba(22, 163, 74, 0.05)" />
               </div>
-            </>
+              
+              {/* Secondary Metrics Card */}
+              <div className="card row" style={{ padding: 16, marginTop: 4, justifyContent: "space-around" }}>
+                <div className="col center" style={{ gap: 4 }}>
+                  <Wallet size={20} color="var(--orange-500)" />
+                  <span className="bold h2" style={{ color: "var(--ink-900)" }}>{inr(data?.earnings ?? 0)}</span>
+                  <span className="tiny muted">Earned (Offline)</span>
+                </div>
+                <div style={{ width: 1, height: 36, background: "var(--line)" }} />
+                <div className="col center" style={{ gap: 4 }}>
+                  <Briefcase size={20} color="var(--green-500)" />
+                  <span className="bold h2" style={{ color: "var(--ink-900)" }}>{data?.jobsDone ?? 0}</span>
+                  <span className="tiny muted">Jobs Done</span>
+                </div>
+                <div style={{ width: 1, height: 36, background: "var(--line)" }} />
+                <div className="col center" style={{ gap: 4 }}>
+                  <div className="row gap-4" style={{ alignItems: "center" }}>
+                    <Star size={20} color="var(--amber-500)" weight="fill" />
+                  </div>
+                  <span className="bold h2" style={{ color: "var(--ink-900)" }}>{p?.ratingAvg || 0}</span>
+                  <span className="tiny muted">Avg Rating</span>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Chart */}
-        {!loading && (
-          <div className="page-pad" style={{ paddingTop: 0 }}>
-            <div className="card" style={{ padding: 14 }}>
-              <div className="row between" style={{ marginBottom: 12 }}><span className="semi small row gap-6"><TrendingUp size={15} color="var(--green-500)" /> Leads trend</span><span className="tiny muted">7 days</span></div>
-              <div className="row gap-6" style={{ alignItems: "flex-end", height: 80 }}>
-                {(data?.leadsSeries ?? [0,0,0,0,0,0,0]).map((h: number, i: number) => (
-                  <div key={i} className="grow col" style={{ alignItems: "center", gap: 4 }}>
-                    <div style={{ width: "100%", height: `${(h / 12) * 100}%`, background: i === 6 ? "var(--green-500)" : "#bbf7d0", borderRadius: 6 }} />
-                    <span className="tiny muted" style={{ fontSize: 9 }}>{["M", "T", "W", "T", "F", "S", "S"][i]}</span>
-                  </div>
-                ))}
+
+
+        {/* ── Grouped Launcher Tiles (The Manage Section) ── */}
+        <div className="page-pad" style={{ paddingTop: 0 }}>
+          <div className="small semi muted" style={{ marginBottom: 12, letterSpacing: 0.5 }}>Manage Options</div>
+          
+          <div className="col gap-16">
+            {/* Section 1: Daily Operations */}
+            <div className="col gap-6">
+              <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Daily Operations</span>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <TileCard icon={Briefcase} color="var(--brand-600)" bgTint="var(--brand-50)" label="Leads & Requests" onClick={() => nav(`${base}/leads`)} />
+                <TileCard icon={Calendar} color="var(--green-500)" bgTint="#e7f7ee" label="Availability Slots" onClick={() => nav(`${base}/availability`)} />
+                <TileCard icon={ShieldCheck} color="#0ea5e9" bgTint="#e0f2fe" label="Verification" onClick={() => nav(`${base}/verify`)} />
+              </div>
+            </div>
+
+            {/* Section 2: Portfolio & Setup */}
+            <div className="col gap-6">
+              <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Portfolio & Catalog</span>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <TileCard icon={FileText} color="var(--brand-600)" bgTint="var(--brand-50)" label="Service Catalog" onClick={() => nav(`${base}/catalog`)} />
+                <TileCard icon={Image} color="#db2777" bgTint="#ffeef4" label="Photo Portfolio" onClick={() => nav(`${base}/portfolio`)} />
+                <TileCard icon={User} color="var(--orange-500)" bgTint="#fff2e8" label="Edit Profile" onClick={() => nav(`${base}/profile`)} />
+                <TileCard icon={QrCode} color="var(--ink-700)" bgTint="var(--ink-50)" label="Share QR" onClick={() => setShare(true)} />
+              </div>
+            </div>
+
+            {/* Section 3: Growth & Community */}
+            <div className="col gap-6">
+              <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Growth & Community</span>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <TileCard icon={Megaphone} color="var(--brand-600)" bgTint="var(--brand-50)" label="Post Community" onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
+                <TileCard icon={Globe} color="#0ea5e9" bgTint="#e0f2fe" label="My Community" onClick={() => nav(`${base}/community`)} />
               </div>
             </div>
           </div>
-        )}
-
-        {/* Manage tiles */}
-        <div className="page-pad" style={{ paddingTop: 0 }}>
-          <div className="small semi muted" style={{ marginBottom: 8 }}>Manage</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <Tile emoji="📝" label="Edit profile" onClick={() => nav(`${base}/profile`)} />
-            <Tile emoji="🗓️" label="Availability" onClick={() => nav(`${base}/availability`)} />
-            <Tile emoji="📋" label="Catalog" onClick={() => nav(`${base}/catalog`)} />
-            <Tile emoji="🖼️" label="Portfolio" onClick={() => nav(`${base}/portfolio`)} />
-            <Tile emoji="🙋" label="Leads & requests" onClick={() => nav(`${base}/leads`)} />
-            <Tile emoji="📣" label="Post to community" onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
-            <Tile emoji="🏘️" label="View community" onClick={() => nav("/community-hub")} />
-            <Tile emoji="🛡️" label="Verification" onClick={() => nav(`${base}/verify`)} />
-            <Tile emoji="📱" label="Share QR" onClick={() => setShare(true)} />
-          </div>
         </div>
+
         <div style={{ height: 16 }} />
       </div>
+
       <ProviderManageNav pid={id} />
+      
       {share && (
         <ShareCard
           title={p?.displayName || "Service Provider"}
@@ -167,6 +311,8 @@ export default function ProviderDashboard() {
           image={p?.avatar || ""}
           meta={`⭐ ${p?.ratingAvg || 0} (${p?.ratingCount || 0})`}
           url={window.location.origin + "/provider/" + id}
+          upiId={p?.upiId || undefined}
+          paymentQrUrl={localStorage.getItem("stryt_upi_qr_" + id) || undefined}
           onClose={() => setShare(false)}
         />
       )}
@@ -174,19 +320,75 @@ export default function ProviderDashboard() {
   );
 }
 
-function Kpi({ icon: Icon, color, value, label }: any) {
+// ── Redesigned KPI Widget Card ──
+function KpiCard({ icon: Icon, color, value, label, trend, bgTint }: { icon: any; color: string; value: string | number; label: string; trend: string; bgTint: string }) {
+  const isUp = trend.startsWith("+");
   return (
-    <div className="card grow col" style={{ padding: 12, gap: 5 }}>
-      <Icon size={18} color={color} />
-      <span className="bold" style={{ fontSize: 19 }}>{value}</span>
-      <span className="tiny muted">{label}</span>
+    <div className="card grow col" style={{ padding: 12, gap: 4, position: "relative" }}>
+      <div style={{
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        background: bgTint,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 4
+      }}>
+        <Icon size={18} color={color} />
+      </div>
+      <span className="bold h1" style={{ fontSize: 18, color: "var(--ink-900)" }}>{value}</span>
+      <span className="tiny muted ellipsis">{label}</span>
+      {trend && (
+        <span style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          fontSize: 9,
+          fontWeight: 700,
+          color: isUp ? "var(--green-500)" : "var(--ink-400)",
+          background: isUp ? "#e7f7ee" : "var(--ink-50)",
+          padding: "2px 6px",
+          borderRadius: 100
+        }}>
+          {trend}
+        </span>
+      )}
     </div>
   );
 }
-function Tile({ emoji, label, onClick }: { emoji: string; label: string; onClick: () => void }) {
+
+// ── Revamped Dashboard Launcher Tile ──
+function TileCard({ icon: Icon, color, bgTint, label, onClick }: { icon: any; color: string; bgTint: string; label: string; onClick: () => void }) {
   return (
-    <button className="card col center" style={{ padding: 16, gap: 8 }} onClick={onClick}>
-      <span style={{ fontSize: 26 }}>{emoji}</span><span className="tiny semi">{label}</span>
+    <button
+      className="card row"
+      style={{
+        padding: "12px 14px",
+        gap: 12,
+        alignItems: "center",
+        textAlign: "left",
+        width: "100%",
+        background: "var(--surface)",
+        transition: "transform 0.15s ease, box-shadow 0.15s ease",
+        cursor: "pointer"
+      }}
+      onClick={onClick}
+    >
+      <div style={{
+        width: 36,
+        height: 36,
+        borderRadius: "50%",
+        background: bgTint,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: color,
+        flexShrink: 0
+      }}>
+        <Icon size={18} weight="bold" />
+      </div>
+      <span className="tiny semi grow" style={{ color: "var(--ink-800)", lineHeight: 1.25 }}>{label}</span>
     </button>
   );
 }

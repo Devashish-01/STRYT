@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { catalogService, businessService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store } from "lucide-react";
+import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store } from "@/components/Icons";
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
@@ -98,11 +98,11 @@ export default function BusinessOnboard() {
           <div style={{ width: 96, height: 96, borderRadius: "50%", background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
             <CheckCircle2 size={52} color="var(--green-500)" />
           </div>
-          <h1 className="bold" style={{ fontSize: 24, marginTop: 24 }}>Submitted for review</h1>
+          <h1 className="bold h1" style={{ marginTop: 24 }}>Submitted for review</h1>
           <p className="muted" style={{ marginTop: 8, lineHeight: 1.5, maxWidth: 290 }}>
             We'll verify your business within ~24 hours. Once approved, <span className="semi" style={{ color: "var(--ink-900)" }}>3,247 nearby users</span> get a silent heads-up that you're open.
           </p>
-          <div className="card" style={{ padding: 14, marginTop: 24, width: "100%", textAlign: "left" }}>
+          <div className="card" style={{ marginTop: 24, width: "100%", textAlign: "left" }}>
             <div className="row gap-10"><Store size={20} color="var(--orange-500)" /><div><div className="semi small">{name || "Your business"}</div><div className="tiny muted">{selectedCat?.name} • Under review</div></div></div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, LogOut, ArrowRight, Loader } from "lucide-react";
+import { AlertTriangle, LogOut, ArrowRight, Loader } from "@/components/Icons";
 import { useApp } from "@/store";
 import { profileControlService } from "@/services/core/profileControlService";
 
@@ -92,15 +92,9 @@ export default function DeletionPending() {
             <AlertTriangle size={36} color="#fff" />
           </div>
           
-          <h1
-            style={{
-              fontSize: 26,
-              fontWeight: 900,
-              letterSpacing: -0.5,
+          <h1 className="h1" style={{ letterSpacing: -0.5,
               color: "#fff",
-              lineHeight: 1.2,
-            }}
-          >
+              lineHeight: 1.2 }}>
             Account Scheduled <br /> for Deletion
           </h1>
           

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, FileText, MessageSquare } from "lucide-react";
+import { Plus, FileText, MessageSquare } from "@/components/Icons";
 import { requestService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";

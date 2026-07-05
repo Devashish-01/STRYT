@@ -5,7 +5,7 @@ import { Skeleton, ErrorView } from "@/components/states";
 import { providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
-import { X, Plus } from "lucide-react";
+import { X, Plus } from "@/components/Icons";
 import RadiusSelector from "@/components/RadiusSelector";
 import HoursSelector from "@/components/HoursSelector";
 

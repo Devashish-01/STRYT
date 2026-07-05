@@ -5,7 +5,7 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { businessService } from "@/services";
 import { useApp } from "@/store";
-import { ArrowUpDown, Clock, Users, X } from "lucide-react";
+import { ArrowUpDown, Clock, Users, X } from "@/components/Icons";
 import type { MyQueueEntry } from "@/types";
 
 const ACTIVE: MyQueueEntry["status"][] = ["WAITING", "CALLED"];

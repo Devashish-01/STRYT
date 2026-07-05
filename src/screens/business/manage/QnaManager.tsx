@@ -51,14 +51,14 @@ function QaCard({ q }: { q: QnaItem }) {
   }
 
   return (
-    <div className="card" style={{ padding: 14 }}>
+    <div className="card">
       <div className="row between">
         <span className="semi small">{q.askerName}</span>
         <span className="tiny muted">{q.askedAt}</span>
       </div>
       <p className="small" style={{ marginTop: 6 }}>{q.question}</p>
       {answered && !editing ? (
-        <div className="card" style={{ padding: 10, marginTop: 10, background: "var(--brand-50)", border: "none" }}>
+        <div className="card card-condensed" style={{ marginTop: 10, background: "var(--brand-50)", border: "none" }}>
           <div className="tiny semi" style={{ color: "var(--brand-700)", marginBottom: 2 }}>Your answer</div>
           <p className="small">{answer}</p>
           <button className="tiny semi" style={{ color: "var(--brand-700)", marginTop: 6 }} onClick={() => setEditing(true)}>Edit</button>

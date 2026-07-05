@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, MapPin, Navigation, Loader, Search } from "lucide-react";
+import { X, MapPin, Navigation, Loader, Search } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService } from "@/services";
 import { forwardGeocode, reverseGeocode, type GeoPlace } from "@/lib/geocode";
@@ -87,7 +87,7 @@ export default function LocationPickerSheet({ onClose }: Props) {
         <div className="row between" style={{ marginBottom: 18 }}>
           <div className="row gap-8">
             <MapPin size={20} color="var(--brand-700)" />
-            <h3 className="bold" style={{ fontSize: 18, color: "var(--ink-900)" }}>Select Area</h3>
+            <h3 className="bold h2" style={{ color: "var(--ink-900)" }}>Select Area</h3>
           </div>
           <button
             onClick={onClose}

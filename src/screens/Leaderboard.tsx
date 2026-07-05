@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Trophy, Crown } from "lucide-react";
+import { Trophy, Crown } from "@/components/Icons";
 import { socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";

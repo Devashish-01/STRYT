@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, inr } from "@/components/common";
 import { requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { IndianRupee, Zap, Info, Users } from "lucide-react";
+import { IndianRupee, Zap, Info, Users } from "@/components/Icons";
 import { useApp } from "@/store";
 
 export default function SubmitProposal() {
@@ -37,7 +37,7 @@ export default function SubmitProposal() {
       <AppBar title="Send a proposal" subtitle={r?.title} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 92 }}>
         {r && (
-          <div className="card" style={{ padding: 14 }}>
+          <div className="card">
             <div className="row between">
               <span className="semi small">{r.title}</span>
               <span className="badge badge-purple">{r.categoryName}</span>

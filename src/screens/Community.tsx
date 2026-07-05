@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MessageCircle, Plus, MapPin, Search as SearchIcon, CheckCircle2 } from "lucide-react";
+import { Heart, MessageCircle, Plus, MapPin, Search as SearchIcon, CheckCircle2, ArrowLeft } from "@/components/Icons";
 import { communityService, discoveryService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -22,7 +22,7 @@ const filters: ("ALL" | CommunityPostType)[] = ["ALL", "ALERT", "LOST_FOUND", "R
 
 export default function Community() {
   const nav = useNavigate();
-  const { area, user } = useApp();
+  const { area, user, activeContext } = useApp();
   const [filter, setFilter] = useState<"ALL" | CommunityPostType>("ALL");
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }),
@@ -41,9 +41,21 @@ export default function Community() {
     <div className="screen with-nav">
       <header className="appbar" style={{ flexDirection: "column", alignItems: "stretch", gap: 12, paddingBottom: 0 }}>
         <div className="row between">
-          <div className="col" style={{ gap: 0 }}>
-            <span className="bold" style={{ fontSize: 20 }}>Community</span>
-            <span className="tiny muted row gap-4"><MapPin size={11} /> {area}</span>
+          <div className="row gap-8" style={{ alignItems: "center" }}>
+            {activeContext.type !== "customer" && (
+              <button
+                className="icon-btn-sm"
+                style={{ marginRight: 4, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                onClick={() => nav(activeContext.type === "business" ? `/business/${activeContext.id}/manage` : `/provider/${activeContext.id}/manage`)}
+                aria-label="Back to Dashboard"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+            <div className="col" style={{ gap: 0 }}>
+              <span className="bold" style={{ fontSize: 20 }}>Community</span>
+              <span className="tiny muted row gap-4"><MapPin size={11} /> {area}</span>
+            </div>
           </div>
           <div className="row gap-8">
             <button className="icon-btn" onClick={() => nav("/search")}><SearchIcon size={18} /></button>
@@ -116,7 +128,7 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
 
   return (
     <>
-      <div className="card" style={{ padding: 14 }}>
+      <div className="card">
         <button className="row gap-10" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`/community/${post.id}`, { state: { post } })}>
           <SafeImg
             src={post.authorAvatar}

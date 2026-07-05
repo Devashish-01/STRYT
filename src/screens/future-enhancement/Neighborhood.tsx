@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { AppBar, Section, SafeImg } from "@/components/common";
-import { MapPin, Zap, TrendingUp, Store, Users, MessageSquareText, Trophy, Clock } from "lucide-react";
+import { MapPin, Zap, TrendingUp, Store, Users, MessageSquareText, Trophy, Clock } from "@/components/Icons";
 import { discoveryService, requestService, socialService, communityService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";

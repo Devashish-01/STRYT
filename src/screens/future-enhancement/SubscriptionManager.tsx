@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
-import { Plus, Pause, Play, RefreshCw } from "lucide-react";
+import { Plus, Pause, Play, RefreshCw } from "@/components/Icons";
 import { subscriptionService, type Subscription } from "@/services/engagement/subscriptionService";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -47,7 +47,7 @@ export default function SubscriptionManager() {
         )}
 
         {(data ?? []).map((sub) => (
-          <div key={sub.id} className="card" style={{ padding: 14 }}>
+          <div key={sub.id} className="card">
             <div className="row between" style={{ marginBottom: 6 }}>
               <div>
                 <div className="semi small">{sub.title}</div>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
-import { Stamp, Ticket, Receipt, Check, Plus, Copy, Wallet as WalletIcon } from "lucide-react";
+import { Stamp, Ticket, Receipt, Check, Plus, Copy, Wallet as WalletIcon } from "@/components/Icons";
 import { walletService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -40,7 +40,7 @@ export default function Wallet() {
           const stamps = Math.min(c.target, c.stamps + (extraStamps[c.id] ?? 0));
           const complete = stamps >= c.target;
           return (
-            <div key={c.id} className="card" style={{ padding: 14 }}>
+            <div key={c.id} className="card">
               <div className="row gap-10">
                 <SafeImg src={c.businessImage} className="thumb" style={{ width: 44, height: 44, borderRadius: 10 }} />
                 <div className="grow">

@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, MapPin, Navigation, Loader, Search, X, User, Phone, AlertTriangle, Lock } from "lucide-react";
+import { Camera, MapPin, Navigation, Loader, Search, X, User, Phone, AlertTriangle, Lock } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService, uploadService } from "@/services";
 import { AppBar } from "@/components/common";

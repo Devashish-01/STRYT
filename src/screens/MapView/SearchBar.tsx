@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, Search } from "@/components/Icons";
 import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { userService } from "@/services";
 import { useApp } from "@/store";

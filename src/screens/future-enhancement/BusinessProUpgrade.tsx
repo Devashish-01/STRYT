@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, inr } from "@/components/common";
-import { Check, Zap, Star, Crown } from "lucide-react";
+import { Check, Zap, Star, Crown } from "@/components/Icons";
 import { proService, PRO_PLANS, LEAD_PACKS } from "@/services/core/proService";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";

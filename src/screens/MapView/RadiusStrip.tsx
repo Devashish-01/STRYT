@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Pencil, Check } from "lucide-react";
+import { Pencil, Check } from "@/components/Icons";
 import { RADIUS_OPTIONS } from "@/utils/constants";
 
 function roundToHalf(v: number): number {

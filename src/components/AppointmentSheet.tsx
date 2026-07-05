@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2 } from "lucide-react";
+import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2 } from "@/components/Icons";
 import { useApp } from "@/store";
 import { generateWorkingSlots, type AppointmentSlot, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { uploadService } from "@/services/core/uploadService";
@@ -212,7 +212,7 @@ export function AppointmentSheet({
 
         {/* Availability info card */}
         {availableNow ? (
-          <div className="card" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0", marginBottom: 16 }}>
+          <div className="card card-condensed" style={{ background: "#e8f7ee", border: "1px solid #bbf7d0", marginBottom: 16 }}>
             <div className="row gap-8 center-v">
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--green-500)", boxShadow: "0 0 0 3px rgba(22,163,74,0.18)" }} />
               <div>
@@ -222,7 +222,7 @@ export function AppointmentSheet({
             </div>
           </div>
         ) : (
-          <div className="card" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)", marginBottom: 16 }}>
+          <div className="card card-condensed" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-100)", marginBottom: 16 }}>
             <div className="row gap-8 center-v">
               <Clock size={16} color="var(--brand-700)" />
               <div>
@@ -310,7 +310,7 @@ export function AppointmentSheet({
 
         {/* Daily limit warning */}
         {hasAptToday && (
-          <div className="card" style={{ padding: 12, background: "#fef2f2", border: "1px solid #fee2e2", marginBottom: 16 }}>
+          <div className="card card-condensed" style={{ background: "#fef2f2", border: "1px solid #fee2e2", marginBottom: 16 }}>
             <div className="row gap-8 center-v">
               <span style={{ fontSize: 16 }}>⚠️</span>
               <div>

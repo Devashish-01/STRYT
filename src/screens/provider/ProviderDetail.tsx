@@ -4,7 +4,7 @@ import {
   ArrowLeft, Heart, Share2, Phone, BadgeCheck, MapPin, Clock,
   CheckCircle2, MessageCircle, Flag, Star, ThumbsUp,
   UserPlus, UserCheck, HandshakeIcon, Plus, Zap,
-} from "lucide-react";
+} from "@/components/Icons";
 import { providerService, socialService, communityService } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
@@ -56,7 +56,7 @@ export default function ProviderDetail() {
           <Skeleton h={78} w={78} r={39} />
         </div>
         <div className="page-pad col gap-12" style={{ marginTop: -14 }}>
-          <div className="card" style={{ padding: 14 }}><Skeleton h={44} mb={0} /></div>
+          <div className="card"><Skeleton h={44} mb={0} /></div>
           <Skeleton h={16} w="80%" />
           <Skeleton h={16} w="60%" />
         </div>
@@ -275,7 +275,7 @@ export default function ProviderDetail() {
 
             {/* Vouches */}
             {vouchList.length > 0 && (
-              <div className="card" style={{ padding: 14 }}>
+              <div className="card">
                 <div className="row between" style={{ marginBottom: 10 }}>
                   <span className="semi small row gap-6"><Handshake size={16} color="var(--green-500)" /> {vouchList.length + (hasVouched ? 1 : 0)} neighbors vouch for {p.displayName.split(" ")[0]}</span>
                 </div>
@@ -292,7 +292,7 @@ export default function ProviderDetail() {
               </div>
             )}
             {!evalRes.isOpenNow && (
-              <div className="card" style={{ padding: 12, background: "#fef3c7", border: "1px solid #fde68a" }}>
+              <div className="card card-condensed" style={{ background: "#fef3c7", border: "1px solid #fde68a" }}>
                 <div className="row gap-8 center-v">
                   <Clock size={16} color="#d97706" />
                   <div>
@@ -304,7 +304,7 @@ export default function ProviderDetail() {
                 </div>
               </div>
             )}
-            <div className="card" style={{ padding: 14 }}>
+            <div className="card">
               <div className="row gap-10 small center-v">
                 <Clock size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
                 <div>

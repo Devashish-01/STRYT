@@ -8,7 +8,7 @@ import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { Calendar, Image as ImageIcon, X as XIcon, AlertCircle, CheckCircle2, RotateCcw, CalendarClock, CreditCard } from "lucide-react";
+import { Calendar, Image as ImageIcon, X as XIcon, AlertCircle, CheckCircle2, RotateCcw, CalendarClock, CreditCard } from "@/components/Icons";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppointments";
 

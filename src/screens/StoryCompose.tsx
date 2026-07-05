@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, MapPin, Pencil, X, Search, Check, Globe, Star, UserMinus } from "lucide-react";
+import { Camera, MapPin, Pencil, X, Search, Check, Globe, Star, UserMinus } from "@/components/Icons";
 import { AppBar, SafeImg } from "@/components/common";
 import { socialService, uploadService } from "@/services";
 import { useApp } from "@/store";
@@ -317,7 +317,7 @@ export default function StoryCompose() {
             padding: "24px 20px 30px"
           }}>
             <div className="row between align-center" style={{ marginBottom: 16 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink-900)", margin: 0 }}>
+              <h2 className="h2" style={{ color: "var(--ink-900)", margin: 0 }}>
                 Audience Options
               </h2>
               <button

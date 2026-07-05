@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Camera, Plus, X, Store, Wrench } from "lucide-react";
-import { communityService, uploadService } from "@/services";
+import { Camera, Plus, X, Store, Wrench } from "@/components/Icons";
+import { communityService, uploadService, businessService, providerService } from "@/services";
+import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import type { CommunityPostType } from "@/types";
 
@@ -35,8 +36,31 @@ const types: { type: CommunityPostType; label: string; emoji: string; hint: stri
 export default function CommunityCompose() {
   const nav = useNavigate();
   const loc = useLocation();
-  const { area, user, showToast } = useApp();
-  const sellerCtx = readSellerContext(loc.state);
+  const { area, user, showToast, activeContext } = useApp();
+
+  const { data: activeBiz } = useQuery(
+    () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
+    [activeContext.id, activeContext.type]
+  );
+  const { data: activeProv } = useQuery(
+    () => activeContext.type === "provider" && activeContext.id ? providerService.get(activeContext.id) : Promise.resolve(null),
+    [activeContext.id, activeContext.type]
+  );
+
+  const passedCtx = readSellerContext(loc.state);
+  const sellerCtx = passedCtx || (
+    activeContext.type === "business" && activeBiz ? {
+      type: "business" as const,
+      id: activeBiz.id,
+      name: activeBiz.name,
+      avatar: activeBiz.coverImage
+    } : activeContext.type === "provider" && activeProv ? {
+      type: "provider" as const,
+      id: activeProv.id,
+      name: activeProv.displayName,
+      avatar: activeProv.avatar
+    } : null
+  );
   const fileRef = useRef<HTMLInputElement>(null);
   const [type, setType] = useState<CommunityPostType | null>(null);
   const [title, setTitle] = useState("");

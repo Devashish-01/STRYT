@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Heart, MapPin, Clock, BadgeCheck, Zap, Eye, Users, Flame, Repeat } from "lucide-react";
+import { Heart, MapPin, Clock, BadgeCheck, Zap, Eye, Users, Flame, Repeat } from "@/components/Icons";
 import type { Business, Provider, RequestPost } from "@/types";
 import { Rating, inr, SafeImg } from "./common";
 import { useApp } from "@/store";

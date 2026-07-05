@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone } from "lucide-react";
-import { communityService } from "@/services";
-import { useQueryWithRealtime } from "@/hooks/useApi";
+import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone } from "@/components/Icons";
+import { communityService, businessService, providerService } from "@/services";
+import { useQueryWithRealtime, useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
@@ -12,7 +12,16 @@ export default function CommunityPostDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { state } = useLocation() as { state?: { post?: CommunityPost } };
-  const { user, likes, toggleLike, votes, votePoll, showToast } = useApp();
+  const { user, likes, toggleLike, votes, votePoll, showToast, activeContext } = useApp();
+
+  const { data: activeBiz } = useQuery(
+    () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
+    [activeContext.id, activeContext.type]
+  );
+  const { data: activeProv } = useQuery(
+    () => activeContext.type === "provider" && activeContext.id ? providerService.get(activeContext.id) : Promise.resolve(null),
+    [activeContext.id, activeContext.type]
+  );
 
   // Use passed post for instant display; re-fetch in background for freshness.
   const { data: fetched } = useQueryWithRealtime(() => communityService.get(id, user.lat || undefined, user.lng || undefined), "community_posts", [id, user.lat, user.lng], `id=eq.${id}`);
@@ -72,10 +81,20 @@ export default function CommunityPostDetail() {
     setSending(true);
     setNewComment("");
     const phoneToShare = sharePhone ? (phoneInput.trim() || user.phone) : "";
+
+    const customAuthor = activeContext.type === "business" && activeBiz ? {
+      authorName: activeBiz.name,
+      authorAvatar: activeBiz.coverImage
+    } : activeContext.type === "provider" && activeProv ? {
+      authorName: activeProv.displayName,
+      authorAvatar: activeProv.avatar
+    } : undefined;
+
     try {
       const c = await communityService.addComment(safePost.id, text, {
         sharedPhone: phoneToShare || undefined,
         phoneVisibility: phoneVis,
+        ...customAuthor
       });
       setComments((prev) => [...prev, c]);
       setSharePhone(false);
@@ -260,7 +279,16 @@ export default function CommunityPostDetail() {
         </div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-        <SafeImg src={user.avatar} variant="avatar" className="avatar" style={{ width: 32, height: 32, flexShrink: 0 }} />
+        <SafeImg
+          src={
+            (activeContext.type === "business" && activeBiz?.coverImage) || 
+            (activeContext.type === "provider" && activeProv?.avatar) || 
+            user.avatar
+          }
+          variant={activeContext.type === "provider" ? "avatar" : "photo"}
+          className="avatar"
+          style={{ width: 32, height: 32, flexShrink: 0 }}
+        />
         <textarea
           className="input"
           placeholder="Add a comment…"

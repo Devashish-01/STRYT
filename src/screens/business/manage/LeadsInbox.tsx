@@ -4,7 +4,7 @@ import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { businessService, appointmentService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
-import { Phone, Navigation, MessageCircle, Tag, CalendarCheck, HelpCircle, Check, Calendar, X as XIcon, Image as ImageIcon } from "lucide-react";
+import { Phone, Navigation, MessageCircle, Tag, CalendarCheck, HelpCircle, Check, Calendar, X as XIcon, Image as ImageIcon } from "@/components/Icons";
 import { useApp } from "@/store";
 import type { Lead, AppointmentRecord } from "@/types";
 import ManageNav from "./ManageNav";

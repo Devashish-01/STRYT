@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search as SearchIcon, X, TrendingUp, Clock } from "lucide-react";
+import { Search as SearchIcon, X, TrendingUp, Clock } from "@/components/Icons";
 import { catalogService, discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Store, Briefcase, Plus, ChevronRight, Eye, Phone, Star, TrendingUp } from "lucide-react";
+import { Store, Briefcase, Plus, ChevronRight, Eye, Phone, Star, TrendingUp } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -27,7 +27,7 @@ export default function ManageHub() {
             {businesses.map((b) => {
               const bid = b.id;
               return (
-                <div key={bid} className="card" style={{ padding: 14 }}>
+                <div key={bid} className="card">
                   <div className="row gap-12">
                     <SafeImg src={b.coverImage} className="thumb" style={{ width: 56, height: 56, borderRadius: 12 }} />
                     <div className="grow">
@@ -63,7 +63,7 @@ export default function ManageHub() {
           {provLoading ? (
             <ListSkeleton count={1} />
           ) : ownedProviderId && roles.includes("provider") && provider ? (
-            <div className="card" style={{ padding: 14 }}>
+            <div className="card">
               <div className="row gap-12">
                 <SafeImg src={provider.avatar} variant="avatar" className="avatar" style={{ width: 56, height: 56 }} />
                 <div className="grow">

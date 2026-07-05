@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { QrCode, X, Camera, Upload, Link, AlertCircle } from "lucide-react";
+import { QrCode, X, Camera, Upload, Link, AlertCircle } from "@/components/Icons";
 import { Html5Qrcode } from "html5-qrcode";
 import { useApp } from "@/store";
 
@@ -197,7 +197,7 @@ export default function QrScannerSheet({ onClose }: Props) {
         <div className="row space-between" style={{ marginBottom: 16, alignItems: "center" }}>
           <div className="row gap-8" style={{ alignItems: "center" }}>
             <QrCode size={20} color="var(--brand-500)" />
-            <h3 className="bold" style={{ fontSize: 18, color: "#fff", margin: 0 }}>Live QR Scanner</h3>
+            <h3 className="bold h2" style={{ color: "#fff", margin: 0 }}>Live QR Scanner</h3>
           </div>
           <button
             type="button"

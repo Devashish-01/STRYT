@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Check, Store, Briefcase, User, Plus, ChevronRight } from "lucide-react";
+import { Check, Store, Briefcase, User, Plus, ChevronRight } from "@/components/Icons";
 import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
 import { businessService, providerService } from "@/services";
@@ -31,7 +31,7 @@ export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
-        <h3 className="bold" style={{ fontSize: 18, marginBottom: 4 }}>Switch account</h3>
+        <h3 className="bold h2" style={{ marginBottom: 4 }}>Switch account</h3>
         <p className="small muted" style={{ marginBottom: 14 }}>One login, all your hats. Pick what you're managing.</p>
 
         <div className="col gap-8">

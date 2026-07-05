@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Search, Map } from "lucide-react";
+import { Search, Map } from "@/components/Icons";
 import { catalogService, discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";

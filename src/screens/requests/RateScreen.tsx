@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
-import { Star } from "lucide-react";
+import { Star } from "@/components/Icons";
 import { requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
@@ -61,7 +61,7 @@ export default function RateScreen() {
       <AppBar title="Rate & review" />
       <div className="screen-scroll page-pad col" style={{ paddingBottom: 90, alignItems: "center" }}>
         <SafeImg src={a.responderAvatar} variant="avatar" className="avatar" style={{ width: 80, height: 80, marginTop: 12 }} />
-        <h2 className="bold" style={{ fontSize: 19, marginTop: 12 }}>How was {a.responderName}?</h2>
+        <h2 className="bold h2" style={{ marginTop: 12 }}>How was {a.responderName}?</h2>
         <p className="small muted" style={{ textAlign: "center" }}>{a.requestTitle}</p>
 
         {/* Stars */}
@@ -102,7 +102,7 @@ export default function RateScreen() {
         />
 
         {/* Tip (settled offline) */}
-        <div className="card" style={{ padding: 14, marginTop: 16, width: "100%" }}>
+        <div className="card" style={{ marginTop: 16, width: "100%" }}>
           <div className="row between" style={{ marginBottom: 10 }}>
             <span className="semi small">Add a tip? <span className="tiny muted">(paid in person)</span></span>
             {tip > 0 && <span className="bold" style={{ color: "var(--green-500)" }}>+₹{tip}</span>}

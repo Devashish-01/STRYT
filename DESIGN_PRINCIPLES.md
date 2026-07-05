@@ -33,17 +33,35 @@ Adding a color = adding a token first.
 - **Shadows** are violet-tinted (`--shadow-sm/-/md/lg`), used for elevation only:
   appbars, floating buttons, sheets. Cards on the page sit on `1px var(--line)`
   borders, not shadows.
-- **Spacing rhythm:** multiples of 4; sections `gap-16`, in-card `gap-8/10/12`,
-  page gutter `page-pad` (16px).
-- **Surfaces:** page `--bg`, cards `#fff`, tinted fills use the 50-shade of the
+- **Spacing rhythm (4px grid):** multiples of 4; always use spacing variables:
+  * `--space-xxs` (4px)
+  * `--space-xs` (8px)
+  * `--space-sm` (12px)
+  * `--space-md` (16px) — page gutter (`.page-pad`) & default `.card` padding
+  * `--space-lg` (24px)
+  * `--space-xl` (32px)
+- **Surfaces:** page `--bg`, cards `#fff` (defaults to `var(--space-md)` padding; use `.card-condensed` for `12px` and `.card-flat` for `0px` padding), tinted fills use the 50-shade of the
   semantic family (`--brand-50`, `#e8f7ee`, `#fef2f2`) with a matching 100/200
   border.
 
-## 3. Component idioms (use these, don't reinvent)
+## 3. Typography Standard
+
+We enforce a strict, semantic typographic hierarchy. Avoid using arbitrary font sizes or inline text style configurations. Always use the following standards (defined as tags and classes in `index.css`):
+
+| Level / Class | Font Size | Weight | Line Height | Usage |
+|---|---|---|---|---|
+| `h1` / `.h1` | 22px | 800 (ExtraBold) | 1.25 | Screen-level headings, main titles, splash title |
+| `h2` / `.h2` | 18px | 700 (Bold) | 1.30 | Section titles, bottom sheet titles |
+| `h3` / `.h3` | 15px | 600 (SemiBold) | 1.40 | Card titles, group subheadings |
+| `.body` | 14px | 400 (Regular) | 1.50 | Standard body copy, descriptions |
+| `.small` | 13px | 500 (Medium) | 1.40 | Form labels, secondary text, metadata labels |
+| `.tiny` | 11px | 600 (SemiBold) | 1.30 | Status badges, captions, small tags |
+
+## 4. Component idioms (use these, don't reinvent)
 
 | Component | Class / file | Use |
 |---|---|---|
-| Card | `.card` | Any grouped content block |
+| Card | `.card` | Any grouped content block (defaults to 16px padding. Use `.card-condensed` for 12px padding, `.card-flat` for 0 padding) |
 | Chip | `.chip` (+`.active`) | Filters, categories, selectors — active = filled brand |
 | Badge | `.badge badge-{purple,green,red,blue,amber,gray,new}` | Status & lifecycle labels |
 | Sheet | `.overlay` + `.sheet` + `.sheet-grab` | All modal actions slide up from the bottom; tap-outside closes |
@@ -51,10 +69,10 @@ Adding a color = adding a token first.
 | Toggle | Local `Toggle`/`ToggleRow` pattern | 44–46px pill, brand fill when on, thumb slides |
 | Toast | `showToast()` from `useApp()` | The only transient feedback channel — never `alert()` |
 | Empty state | `EmptyState` (emoji + title + text + optional CTA) | Every list has one; actionable ones carry a CTA button |
-| Skeletons | `Skeleton/CardSkeleton/ListSkeleton/RowSkeleton`, `AppShellSkeleton` | See §5 |
-| Icons | lucide-react only, 12–22px | No emoji as icons in chrome (emoji OK inside content/empty states) |
+| Skeletons | `Skeleton/CardSkeleton/ListSkeleton/RowSkeleton`, `AppShellSkeleton` | See §6 |
+| Icons | @phosphor-icons/react via `@/components/Icons`, 12–22px | Central wrapper layer only. Set global style in `IconContext.Provider` |
 
-## 4. Data display rules (trust & honesty)
+## 5. Data display rules (trust & honesty)
 
 These came from real audits — they are non-negotiable:
 
@@ -76,7 +94,7 @@ These came from real audits — they are non-negotiable:
    (`firstName()`); full/business names are for businesses & providers who
    opted into a public identity.
 
-## 5. Loading, speed & feedback
+## 6. Loading, speed & feedback
 
 - **Never a dead spinner on content.** Post-auth boot shows `AppShellSkeleton`
   (a shimmering silhouette of the real screen + bottom nav) — the branded
@@ -98,7 +116,7 @@ These came from real audits — they are non-negotiable:
 - **Persist preferences.** Any toggle/filter a user sets survives a reload
   (localStorage first, DB where it matters).
 
-## 6. Interaction & flow principles
+## 7. Interaction & flow principles
 
 - **Progressive disclosure.** Lead with the goal, hide power features behind
   one "More options ▾" (AskCompose is the model: title + category + post;
@@ -117,7 +135,7 @@ These came from real audits — they are non-negotiable:
 - **SPA always.** Never `window.location.reload()`; refresh state via
   `refreshUser()`/refetch.
 
-## 7. Voice & copy
+## 8. Voice & copy
 
 - **Street-warm, not corporate.** "All quiet nearby", "Tell your street what
   you need", "You're in the queue — we'll ping you".
@@ -130,7 +148,7 @@ These came from real audits — they are non-negotiable:
 - Emoji are seasoning in feedback/empty states (📭 ⚡ 🎉), never in buttons or
   navigation labels.
 
-## 8. Accessibility & quality bar
+## 9. Accessibility & quality bar
 
 - Icon-only buttons carry `aria-label`; images have `alt` (or `SafeImg`
   fallbacks).
@@ -140,9 +158,9 @@ These came from real audits — they are non-negotiable:
 - Every screen handles all four states: loading (skeleton), error
   (`ErrorView` + retry), empty (`EmptyState` + CTA), content.
 
-## 9. Definition of done — new screen/component checklist
+## 10. Definition of done — new screen/component checklist
 
-- [ ] Colors via tokens only; typography via weight/size of the one family
+- [ ] Spacing via `--space-*` tokens and standard paddings; typography via `h1`-`h3` tags or classes
 - [ ] Loading skeleton + error retry + empty state + content states
 - [ ] Names via `displayName/firstName`; distances via `distanceLabel`;
       no zero-data renders
@@ -153,7 +171,7 @@ These came from real audits — they are non-negotiable:
 - [ ] `npx tsc --noEmit` + `npm run build` clean; screen passes the Playwright
       audit (`npm run audit`)
 
-## 10. Roadmap of design debt (known, deliberate)
+## 11. Roadmap of design debt (known, deliberate)
 
 1. **Profile pages visual redesign** (business/provider) — deferred pass.
 2. **Posting/messaging micro-interactivity polish** — deferred pass.

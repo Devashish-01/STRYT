@@ -9,7 +9,7 @@ import { functionUrl } from "@/config";
 
 // Columns that exist on the requests table.
 const REQUEST_COLUMNS = new Set([
-  "requesterUserId","title","description","categoryId","categoryName","budgetMin",
+  "requesterUserId","title","description","categoryId","categoryName","subCategory","budgetMin",
   "budgetMax","area","lat","lng","radiusKm","deadline","status","isBoosted","viewCount",
   "photos","meTooCount","isGroupBuy","groupBuyTarget","isUrgent","isRecurring",
   "isAnonymous","expiresInHrs","expiresAt",
@@ -151,7 +151,13 @@ export const requestService = {
 
     let rows = (data ?? []).map((r: any) => rowToRequest(r, p.lat, p.lng));
     if (p.lat && p.lng) {
-      rows = rows.filter((r) => r.distanceKm <= radiusLimit);
+      // A request is only visible within the SMALLER of (a) the viewer's own
+      // radius preference and (b) the radius the poster chose for that post —
+      // the poster's broadcast boundary is a hard cap, not just a suggestion.
+      rows = rows.filter((r) => {
+        const postCap = r.radiusKm ? Math.min(radiusLimit, r.radiusKm) : radiusLimit;
+        return r.distanceKm <= postCap;
+      });
     }
     return makePage(rows, count, from, limit);
   },

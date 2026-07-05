@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Plus, ListPlus } from "lucide-react";
+import { Check, Plus, ListPlus } from "@/components/Icons";
 import { useApp } from "@/store";
 import type { BookmarkTarget } from "@/types";
 
@@ -25,7 +25,7 @@ export default function AddToListSheet({
         <div className="sheet-grab" />
         <div className="row gap-8" style={{ marginBottom: 14 }}>
           <ListPlus size={20} color="var(--brand-700)" />
-          <h3 className="bold" style={{ fontSize: 18 }}>Save to a list</h3>
+          <h3 className="bold h2">Save to a list</h3>
         </div>
 
         <div className="col gap-8">
@@ -54,7 +54,7 @@ export default function AddToListSheet({
             <Plus size={18} /> New list
           </button>
         ) : (
-          <div className="card" style={{ padding: 14, marginTop: 12 }}>
+          <div className="card" style={{ marginTop: 12 }}>
             <div className="row gap-8" style={{ overflowX: "auto", marginBottom: 10 }}>
               {emojis.map((e) => (
                 <button key={e} onClick={() => setEmoji(e)} style={{ fontSize: 22, opacity: emoji === e ? 1 : 0.4, transform: emoji === e ? "scale(1.2)" : "scale(1)" }}>{e}</button>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Copy, QrCode, AlertCircle, Loader } from "lucide-react";
+import { X, Copy, QrCode, AlertCircle, Loader } from "@/components/Icons";
 import { QRCodeSVG } from "qrcode.react";
 import { getSupabase } from "@/lib/supabaseClient";
 import { useApp } from "@/store";

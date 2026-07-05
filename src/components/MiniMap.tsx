@@ -1,5 +1,5 @@
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
-import { Navigation } from "lucide-react";
+import { Navigation } from "@/components/Icons";
 import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";
 import { config } from "@/config";

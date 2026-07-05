@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal } from "lucide-react";
+import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal } from "@/components/Icons";
 import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -71,6 +71,7 @@ export default function AskCompose() {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [cat, setCat] = useState<string | null>(null);
+  const [subCat, setSubCat] = useState<string | null>(null);
   const [fieldVals, setFieldVals] = useState<Record<string, string>>({});
   const [budgetMin, setBudgetMin] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
@@ -115,7 +116,7 @@ export default function AskCompose() {
         const matched = (categories ?? []).find(
           (c) => lower.includes(c.name.toLowerCase()) || lower.includes((c.slug ?? "").toLowerCase())
         );
-        if (matched) setCat(matched.id);
+        if (matched) { setCat(matched.id); setSubCat(null); }
       }
     };
     rec.onerror = () => { showToast("Voice error. Try again."); setListening(false); };
@@ -164,11 +165,15 @@ export default function AskCompose() {
   const canPost = title.trim().length > 3 && !!cat && !posting && !uploading;
   const missing = !title.trim() ? "title" : !cat ? "category" : null;
 
+  // Subcategories are the selected top-level category's children (tree from getCategories).
+  const subOptions = (categories ?? []).find((c) => c.id === cat)?.children ?? [];
+
   function applyTemplate(t: Template) {
     setTemplate(t);
     setTitle(t.title);
     const matched = (categories ?? []).find((c) => c.slug === t.catSlug);
     setCat(matched?.id ?? null);
+    setSubCat(null);
     setFieldVals({});
   }
 
@@ -200,6 +205,7 @@ export default function AskCompose() {
         description: desc,
         categoryId: cat,
         categoryName: selectedCategory?.name,
+        subCategory: subCat ?? undefined,
         budgetMin: budgetMin ? Number(budgetMin) : undefined,
         budgetMax: budgetMax ? Number(budgetMax) : undefined,
         deadline: buildDeadline(),
@@ -312,13 +318,31 @@ export default function AskCompose() {
           ) : (
             <div className="row wrap gap-8">
               {(categories ?? []).map((c) => (
-                <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => setCat(c.id)}>
+                <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { setCat(c.id); setSubCat(null); }}>
                   {c.icon} {c.name.split(" ")[0]}
                 </button>
               ))}
             </div>
           )}
         </div>
+
+        {/* Subcategory — optional, only when the chosen category has children */}
+        {subOptions.length > 0 && (
+          <div className="field">
+            <label>Subcategory <span className="tiny muted">(optional)</span></label>
+            <div className="row wrap gap-8">
+              {subOptions.map((s) => (
+                <button
+                  key={s.id}
+                  className={`chip ${subCat === s.name ? "active" : ""}`}
+                  onClick={() => setSubCat(subCat === s.name ? null : s.name)}
+                >
+                  {s.icon} {s.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Details */}
         <div className="field">

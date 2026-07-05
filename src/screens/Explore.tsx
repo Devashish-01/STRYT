@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Map, SlidersHorizontal, MessageSquare } from "lucide-react";
+import { Search, Map, SlidersHorizontal, MessageSquare } from "@/components/Icons";
 import { catalogService, discoveryService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";

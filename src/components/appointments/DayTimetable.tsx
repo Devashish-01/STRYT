@@ -1,4 +1,5 @@
-import { Lock, Plus, Unlock } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Lock, Plus, Unlock } from "@/components/Icons";
 import { generateWorkingSlots, matchBlockedSlotsForDate, dateKey } from "@/utils/availability";
 import type { AppointmentRecord, BlockedSlot } from "@/types";
 
@@ -24,6 +25,17 @@ export default function DayTimetable({
   const slots = generateWorkingSlots(availabilityNote, date, appointments, blockedSlots);
   const dayBlocks = matchBlockedSlotsForDate(date, blockedSlots);
   const wholeDayBlock = dayBlocks.find((b) => !b.timeLabel);
+
+  const nowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isTargetToday && nowRef.current) {
+      const timer = setTimeout(() => {
+        nowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [date, isTargetToday, slots.length]);
 
   if (wholeDayBlock) {
     return (
@@ -114,8 +126,12 @@ export default function DayTimetable({
           );
         })();
 
+        const isNowLine = i === nowLineIdx;
+        const isLastSlotWhenAllPast = nowLineIdx === -1 && i === slots.length - 1;
+        const shouldAttachRef = isTargetToday && (isNowLine || isLastSlotWhenAllPast);
+
         return (
-          <div key={rowKey}>
+          <div key={rowKey} ref={shouldAttachRef ? nowRef : undefined}>
             {i === nowLineIdx && (
               <div className="row gap-8 center-v" style={{ margin: "2px 0" }}>
                 <span style={{ flex: 1, height: 1.5, background: "var(--orange-500)" }} />

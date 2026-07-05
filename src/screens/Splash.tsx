@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Store, Sparkles } from "lucide-react";
+import { MapPin, Store, Sparkles } from "@/components/Icons";
 import { useApp } from "@/store";
 
 export default function Splash() {
@@ -45,7 +45,7 @@ export default function Splash() {
             </svg>
           </div>
 
-          <h1 style={{ fontSize: 46, fontWeight: 800, marginTop: 32, letterSpacing: 1 }}>STRYT</h1>
+          <h1 className="h1" style={{ marginTop: 32, letterSpacing: 1 }}>STRYT</h1>
           <p style={{ fontSize: 18, opacity: 0.92, marginTop: 8, fontWeight: 500, lineHeight: 1.4 }}>
             Your street. Your people.
           </p>

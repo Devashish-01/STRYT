@@ -12,7 +12,7 @@ import {
   Globe,
   Sliders,
   X,
-} from "lucide-react";
+} from "@/components/Icons";
 import { useApp } from "@/store";
 import { isPhoneName } from "@/lib/publicName";
 import { userService, uploadService } from "@/services";
@@ -279,7 +279,7 @@ export default function UserOnboard() {
         </div>
 
         <div style={{ textAlign: "center", marginTop: 16, marginBottom: 20, width: "100%" }}>
-          <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: -0.5, color: "var(--ink-900)" }}>
+          <h1 className="h1" style={{ letterSpacing: -0.5, color: "var(--ink-900)" }}>
             Welcome to STRYT
           </h1>
           <p style={{ marginTop: 6, fontSize: 13.5, color: "var(--ink-600)" }}>

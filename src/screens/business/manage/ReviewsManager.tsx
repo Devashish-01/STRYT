@@ -5,7 +5,7 @@ import { businessService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
-import { Flag, Reply } from "lucide-react";
+import { Flag, Reply } from "@/components/Icons";
 import type { Review } from "@/types";
 
 export default function ReviewsManager() {
@@ -55,7 +55,7 @@ function ReviewItem({ r }: { r: Review }) {
   const [replied, setReplied] = useState(false);
 
   return (
-    <div className="card" style={{ padding: 14 }}>
+    <div className="card">
       <div className="row gap-10">
         <SafeImg src={r.raterAvatar} variant="avatar" className="avatar" style={{ width: 38, height: 38 }} />
         <div className="grow">
@@ -66,7 +66,7 @@ function ReviewItem({ r }: { r: Review }) {
       <p className="small" style={{ marginTop: 8, lineHeight: 1.45 }}>{r.comment}</p>
 
       {replied ? (
-        <div className="card" style={{ padding: 10, marginTop: 10, background: "var(--ink-50)", border: "none" }}>
+        <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
           <div className="tiny semi" style={{ color: "var(--brand-700)" }}>Owner reply</div>
           <p className="small" style={{ marginTop: 2 }}>{reply}</p>
         </div>

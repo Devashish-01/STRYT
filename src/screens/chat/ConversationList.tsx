@@ -1,6 +1,6 @@
 import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MessageCircle, Search, QrCode, X } from "lucide-react";
+import { MessageCircle, Search, QrCode, X } from "@/components/Icons";
 import { chatService, relativeTime } from "@/services/engagement/chatService";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";

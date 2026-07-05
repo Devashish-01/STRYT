@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Shield, Lock, User, Loader, ArrowRight } from "lucide-react";
+import { Shield, Lock, User, Loader, ArrowRight } from "@/components/Icons";
 import { authService } from "@/services";
 import { resolveAdminEmail } from "@/lib/adminAuth";
 import { useApp } from "@/store";
@@ -63,7 +63,7 @@ export default function AdminLogin() {
         >
           <Shield size={28} color="#fff" />
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 800 }}>Admin Console</h1>
+        <h1 className="h1">Admin Console</h1>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 4 }}>Restricted access — authorized administrators only</p>
       </div>
 

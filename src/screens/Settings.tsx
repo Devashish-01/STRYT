@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { AppBar, SafeImg } from "@/components/common";
-import { Moon, Volume2, Globe, Shield, Eye, Pencil, MapPin, Check, X } from "lucide-react";
+import { Moon, Volume2, Globe, Shield, Eye, Pencil, MapPin, Check, X } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService, profileControlService, locationService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
@@ -241,7 +241,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="card" style={{ padding: 14, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
+        <div className="card" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
           <div className="row gap-8 small" style={{ color: "var(--brand-700)" }}>
             <Shield size={18} />
             <span>Your data is yours. We store only your last location, never a trail. Request deletion anytime.</span>
@@ -252,7 +252,7 @@ export default function Settings() {
       {showDeleteModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div className="card col gap-12" style={{ maxWidth: 400, width: "100%", padding: 16, background: "var(--ink-50)", boxShadow: "var(--shadow-lg)" }}>
-            <h3 className="bold" style={{ fontSize: 18 }}>Request Deletion</h3>
+            <h3 className="bold h2">Request Deletion</h3>
             <p className="tiny muted">Explain why you would like to permanently delete your customer account. An administrator will review your request shortly.</p>
             <textarea
               className="input"

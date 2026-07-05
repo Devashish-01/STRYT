@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Navigation } from "lucide-react";
+import { Navigation } from "@/components/Icons";
 import L from "leaflet";
 import { useMap } from "react-leaflet";
 import { useApp } from "@/store";

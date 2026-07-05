@@ -5,7 +5,7 @@ import { adminService, type AdminReport } from "@/services/core/adminService";
 import { profileControlService, type DeletionRequest } from "@/services/core/profileControlService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ListSkeleton } from "@/components/states";
-import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut } from "lucide-react";
+import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut } from "@/components/Icons";
 import { useApp } from "@/store";
 
 type Tab = "dashboard" | "queue" | "disputes" | "reports" | "bugs" | "profiles" | "account";
@@ -43,7 +43,7 @@ export default function AdminPanel() {
           <div style={{ width: 80, height: 80, borderRadius: 20, background: "var(--ink-200)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Shield size={40} color="var(--red-600)" />
           </div>
-          <h1 className="bold" style={{ fontSize: 24, marginTop: 20 }}>Access Denied</h1>
+          <h1 className="bold h1" style={{ marginTop: 20 }}>Access Denied</h1>
           <p className="muted small" style={{ marginTop: 8 }}>Only verified administrators can access this console.</p>
 
           <div className="col gap-8" style={{ marginTop: 24, width: "100%", maxWidth: 280 }}>
@@ -126,7 +126,7 @@ function AdminAccount() {
 
   return (
     <div className="page-pad col gap-16">
-      <div className="card" style={{ padding: 16 }}>
+      <div className="card">
         <div className="row gap-8 center-v" style={{ marginBottom: 4 }}>
           <KeyRound size={16} color="var(--brand-700)" />
           <span className="semi small">Change admin ID</span>
@@ -140,7 +140,7 @@ function AdminAccount() {
         </div>
       </div>
 
-      <div className="card" style={{ padding: 16 }}>
+      <div className="card">
         <div className="row gap-8 center-v" style={{ marginBottom: 4 }}>
           <KeyRound size={16} color="var(--brand-700)" />
           <span className="semi small">Change password</span>
@@ -234,7 +234,7 @@ function AdminQueue() {
           {data.filter((i) => !done.includes(i.id)).map((item) => {
             const Icon = type === "business" ? Store : type === "provider" ? Briefcase : Tag;
             return (
-              <div key={item.id} className="card" style={{ padding: 14 }}>
+              <div key={item.id} className="card">
                 <div className="row gap-12">
                   {item.image ? <img src={item.image} className="thumb" style={{ width: 48, height: 48, borderRadius: 12 }} /> : <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color="var(--brand-600)" /></div>}
                   <div className="grow"><div className="semi small">{item.name}</div><div className="tiny muted">{item.sub}</div></div>
@@ -271,7 +271,7 @@ function AdminReports() {
           {data.map((r) => {
             const status = resolved[r.id] ?? r.status;
             return (
-              <div key={r.id} className="card" style={{ padding: 14 }}>
+              <div key={r.id} className="card">
                 <div className="row between">
                   <span className="badge badge-red"><Flag size={11} /> {r.reason}</span>
                   <span className="tiny muted">{r.time}</span>
@@ -335,7 +335,7 @@ function AdminBugs() {
       {items.map((b) => {
         const roleMeta = BUG_ROLE_META[b.reporterRole];
         return (
-          <div key={b.id} className="card" style={{ padding: 14 }}>
+          <div key={b.id} className="card">
             <div className="row between">
               <span className="badge" style={{ background: `${roleMeta.color}1a`, color: roleMeta.color }}>{roleMeta.label}</span>
               <span className="tiny muted">{b.time}</span>
@@ -390,7 +390,7 @@ function AdminDisputes() {
     <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
       {items.length === 0 && <EmptyState emoji="⚖️" title="No active disputes" text="All disputes have been resolved." />}
       {items.map((ag: any) => (
-        <div key={ag.id} className="card" style={{ padding: 14, border: "1px solid #fca5a5" }}>
+        <div key={ag.id} className="card" style={{ border: "1px solid #fca5a5" }}>
           <div className="row between" style={{ marginBottom: 6 }}>
             <span className="badge" style={{ background: "#fee2e2", color: "#991b1b" }}>
               <Flag size={11} /> Disputed
@@ -772,7 +772,7 @@ function AdminProfiles() {
           <div className="card col gap-12" style={{ maxWidth: 450, width: "100%", padding: 16, background: "var(--ink-50)", boxShadow: "var(--shadow-lg)" }}>
             <div className="row gap-8 text-danger align-center">
               <AlertTriangle size={24} color="var(--red-600)" />
-              <h3 className="bold" style={{ fontSize: 18, color: "var(--red-600)" }}>Confirm Deletion</h3>
+              <h3 className="bold h2" style={{ color: "var(--red-600)" }}>Confirm Deletion</h3>
             </div>
             
             <p className="small muted">
