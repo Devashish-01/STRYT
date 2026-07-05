@@ -66,33 +66,25 @@ export default function MyAppointments() {
     setLoadingTarget(apt.id);
     try {
       if (apt.targetType === "BUSINESS") {
-        const [b, pkgs] = await Promise.all([
-          businessService.get(apt.targetId),
-          businessService.packages(apt.targetId).catch(() => []),
-        ]);
+        const b = await businessService.get(apt.targetId);
         if (!b) throw new Error("Shop unavailable");
         const availableNow = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil).isOpenNow;
         setRebook({
           apt,
           mode,
           availabilityNote: b.hours || DEFAULT_WORKING_HOURS,
-          packages: pkgs.length > 0
-            ? pkgs.map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }))
-            : (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price })),
+          packages: (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price })),
           availableNow,
         });
       } else {
-        const [p, pkgs] = await Promise.all([
-          providerService.get(apt.targetId),
-          providerService.packages(apt.targetId),
-        ]);
+        const p = await providerService.get(apt.targetId);
         if (!p) throw new Error("Provider unavailable");
         const availableNow = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil).isOpenNow;
         setRebook({
           apt,
           mode,
           availabilityNote: p.availabilityNote,
-          packages: (pkgs ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration })),
+          packages: (p.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price })),
           availableNow,
         });
       }

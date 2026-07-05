@@ -24,7 +24,6 @@ export default function BusinessAppointments() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
-  const { data: bizPackages } = useQuery(() => businessService.packages(id).catch(() => []), [id]);
   const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForTarget(id),
     "appointments",
@@ -387,7 +386,7 @@ export default function BusinessAppointments() {
     .filter((a) => a.status === "CANCELLED" || a.status === "REJECTED")
     .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
 
-  const packageOptions = (bizPackages ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }));
+  const packageOptions = (b?.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }));
 
   return (
     <div className="screen with-nav">

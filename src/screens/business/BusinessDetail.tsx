@@ -36,7 +36,6 @@ export default function BusinessDetail() {
   const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
   const { data: queue } = useQueryWithRealtime(() => businessService.queue(id), "queue_tokens", [id], `business_id=eq.${id}`);
   const { data: qnaList, refetch: refetchQna } = useQueryWithRealtime(() => businessService.qna(id), "business_qna", [id], `business_id=eq.${id}`);
-  const { data: bizPackages } = useQuery(() => businessService.packages(id).catch(() => []), [id]);
   const { data: bizPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("business", id), "community_posts", [id], `author_ref_id=eq.${id}`);
   const [tab, setTab] = useState<"catalog" | "posts" | "about" | "reviews">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
@@ -346,28 +345,6 @@ export default function BusinessDetail() {
         {/* Tab content */}
         {tab === "catalog" && (
           <div className="page-pad col gap-12">
-            {(bizPackages ?? []).length > 0 && (
-              <div className="col gap-8">
-                <div className="semi small" style={{ color: "var(--ink-700)" }}>Service Packages</div>
-                {(bizPackages ?? []).map((pk) => (
-                  <div key={pk.id} className="card row gap-12" style={{ padding: 14 }}>
-                    <div className="grow">
-                      <div className="semi small">{pk.name}</div>
-                      {pk.desc ? <div className="tiny muted" style={{ marginTop: 2 }}>{pk.desc}{pk.duration ? ` • ${pk.duration}` : ""}</div> : null}
-                    </div>
-                    <div className="col" style={{ alignItems: "flex-end", gap: 4 }}>
-                      <span className="bold" style={{ color: "var(--green-600)" }}>{inr(pk.price)}</span>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        style={{ fontSize: 11, padding: "4px 12px" }}
-                        onClick={() => { setSchedulingPkg({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }); setScheduling(true); }}
-                      >Book</button>
-                    </div>
-                  </div>
-                ))}
-                {b.catalog.length > 0 && <div className="divider" style={{ margin: "4px 0" }} />}
-              </div>
-            )}
             {b.catalog.map((item) => {
               const qty = cart[item.id] ?? 0;
               return (
@@ -590,8 +567,6 @@ export default function BusinessDetail() {
           packages={
             checkoutMode && schedulingPkg
               ? [schedulingPkg]
-              : (bizPackages ?? []).length > 0
-              ? (bizPackages ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }))
               : (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price }))
           }
           initialPackage={schedulingPkg}

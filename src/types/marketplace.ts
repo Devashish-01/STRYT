@@ -81,7 +81,10 @@ export interface CatalogItem {
   salePrice?: number;
   image: string;
   stockStatus: "IN_STOCK" | "OUT_OF_STOCK" | "LIMITED";
-  isVeg?: boolean;
+  /** Whether this listing is a food item at all — gates whether isVeg applies/shows. */
+  isFood?: boolean;
+  /** Only meaningful when isFood is true; nullable so a non-food edit can clear a stale value. */
+  isVeg?: boolean | null;
   bestSeller?: boolean;
 }
 
@@ -151,6 +154,7 @@ export interface Provider {
   availableUntil?: string | null;
   ownerEnabled?: boolean;
   deletedAt?: string | null;
+  catalog: CatalogItem[];
 }
 
 export interface PortfolioItem {
@@ -244,22 +248,3 @@ export interface TeamMember {
   phone: string;
 }
 
-export interface ProviderPackage {
-  id: string;
-  providerId: string;
-  name: string;
-  desc: string;
-  price: number;
-  duration: string;
-  instantBook: boolean;
-}
-
-export interface BusinessPackage {
-  id: string;
-  businessId: string;
-  name: string;
-  desc: string;
-  price: number;
-  duration?: string;
-  instantBook: boolean;
-}

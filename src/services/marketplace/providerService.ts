@@ -22,7 +22,7 @@ function providerDailyBuckets(isoDates: string[]): number[] {
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import type { Provider, PortfolioItem, Review, ProviderPackage } from "@/types";
+import type { Provider, PortfolioItem, Review, CatalogItem } from "@/types";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
 import { isMockTarget } from "@/services/engagement/appointmentService";
@@ -93,11 +93,12 @@ export const providerService = {
         portfolio: [
           { id: "port_1", title: "AC installation at Koregaon Park office", description: "Dual-inverter split AC installation", imageUrl: PLACEHOLDER_PORTFOLIO_IMAGE }
         ],
+        catalog: [],
         phone: "9876543211"
       } as any;
     }
     const sb = getSupabase();
-    const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*)").eq("id", id).maybeSingle();
+    const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*), catalog:catalog_items(*)").eq("id", id).maybeSingle();
     throwIfError(error);
     if (!data) return undefined;
     const prov = toCamel<Provider>(data);
@@ -174,41 +175,25 @@ export const providerService = {
     throwIfError(error);
     return toCamel<Provider>(created);
   },
-  async packages(id: string): Promise<ProviderPackage[]> {
+  // Catalog — same table/shape as businessService's, scoped by provider_id
+  // instead of business_id. Packages (provider_packages) were retired in
+  // favor of one catalog concept shared by both entity types.
+  async addCatalogItem(id: string, item: Partial<CatalogItem>) {
     const sb = getSupabase();
-    const { data, error } = await sb
-      .from("provider_packages")
-      .select("*")
-      .eq("provider_id", id)
-      .order("created_at", { ascending: true });
+    const row = { ...toSnake(item), provider_id: id };
+    const { data, error } = await sb.from("catalog_items").insert(row).select().maybeSingle();
     throwIfError(error);
-    return (data ?? []).map((r: any) => ({
-      id: r.id,
-      providerId: r.provider_id,
-      name: r.name,
-      desc: r.description ?? "",
-      price: r.price,
-      duration: r.duration ?? "",
-      instantBook: r.instant_book ?? false,
-    }));
+    return toCamel<CatalogItem>(data);
   },
-  async addPackage(providerId: string, pkg: { name: string; desc: string; price: number; duration?: string; instantBook?: boolean }): Promise<ProviderPackage> {
+  async updateCatalogItem(id: string, itemId: string, patch: Partial<CatalogItem>) {
     const sb = getSupabase();
-    const { data, error } = await sb.from("provider_packages").insert({
-      provider_id: providerId,
-      name: pkg.name,
-      description: pkg.desc,
-      price: pkg.price,
-      duration: pkg.duration ?? "",
-      instant_book: pkg.instantBook ?? false,
-    }).select().maybeSingle();
+    const { data, error } = await sb.from("catalog_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
     throwIfError(error);
-    const r = data as any;
-    return { id: r.id, providerId: r.provider_id, name: r.name, desc: r.description ?? "", price: r.price, duration: r.duration ?? "", instantBook: r.instant_book ?? false };
+    return toCamel<CatalogItem>(data);
   },
-  async deletePackage(_providerId: string, pkgId: string) {
+  async deleteCatalogItem(id: string, itemId: string) {
     const sb = getSupabase();
-    const { error } = await sb.from("provider_packages").delete().eq("id", pkgId);
+    const { error } = await sb.from("catalog_items").delete().eq("id", itemId);
     throwIfError(error);
     return { ok: true };
   },

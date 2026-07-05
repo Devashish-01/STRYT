@@ -79,7 +79,6 @@ const QueueManager = lazy(() => import("./screens/business/manage/QueueManager")
 const QnaManager = lazy(() => import("./screens/business/manage/QnaManager"));
 const ReviewsManager = lazy(() => import("./screens/business/manage/ReviewsManager"));
 const BusinessAppointments = lazy(() => import("./screens/business/manage/BusinessAppointments"));
-const BusinessPackages = lazy(() => import("./screens/business/manage/BusinessPackages"));
 const LeadsInbox = lazy(() => import("./screens/business/manage/LeadsInbox"));
 const VerificationCenter = lazy(() => import("./screens/business/manage/VerificationCenter"));
 const BusinessSettings = lazy(() => import("./screens/business/manage/BusinessSettings"));
@@ -89,7 +88,7 @@ const BusinessRequests = lazy(() => import("./screens/business/manage/BusinessRe
 const ProviderDashboard = lazy(() => import("./screens/provider/manage/ProviderDashboard"));
 const ProviderProfileEditor = lazy(() => import("./screens/provider/manage/ProviderProfileEditor"));
 const ProviderAvailability = lazy(() => import("./screens/provider/manage/ProviderAvailability"));
-const ProviderPackages = lazy(() => import("./screens/provider/manage/ProviderPackages"));
+const ProviderCatalog = lazy(() => import("./screens/provider/manage/ProviderCatalog"));
 const ProviderPortfolio = lazy(() => import("./screens/provider/manage/ProviderPortfolio"));
 const ProviderLeads = lazy(() => import("./screens/provider/manage/ProviderLeads"));
 const ProviderSettings = lazy(() => import("./screens/provider/manage/ProviderSettings"));
@@ -363,7 +362,6 @@ export default function App() {
             <Route path="/business/:id/manage/qna" element={<QnaManager />} />
             <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
             <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
-            <Route path="/business/:id/manage/packages" element={<BusinessPackages />} />
             <Route path="/business/:id/manage/inbox" element={<LeadsInbox />} />
             <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
             <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
@@ -373,7 +371,7 @@ export default function App() {
             <Route path="/provider/:id/manage" element={<ProviderDashboard />} />
             <Route path="/provider/:id/manage/profile" element={<ProviderProfileEditor />} />
             <Route path="/provider/:id/manage/availability" element={<ProviderAvailability />} />
-            <Route path="/provider/:id/manage/packages" element={<ProviderPackages />} />
+            <Route path="/provider/:id/manage/catalog" element={<ProviderCatalog />} />
             <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
             <Route path="/provider/:id/manage/leads" element={<ProviderLeads />} />
             <Route path="/provider/:id/manage/verify" element={<ProviderSettings />} />

@@ -148,7 +148,7 @@ export default function ProviderDashboard() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <Tile emoji="📝" label="Edit profile" onClick={() => nav(`${base}/profile`)} />
             <Tile emoji="🗓️" label="Availability" onClick={() => nav(`${base}/availability`)} />
-            <Tile emoji="📦" label="Packages" onClick={() => nav(`${base}/packages`)} />
+            <Tile emoji="📋" label="Catalog" onClick={() => nav(`${base}/catalog`)} />
             <Tile emoji="🖼️" label="Portfolio" onClick={() => nav(`${base}/portfolio`)} />
             <Tile emoji="🙋" label="Leads & requests" onClick={() => nav(`${base}/leads`)} />
             <Tile emoji="📣" label="Post to community" onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />

@@ -1,7 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, BusinessPackage, MyQueueEntry } from "@/types";
+import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, MyQueueEntry } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
@@ -594,38 +594,6 @@ export const businessService = {
   async removeTeamMember(memberId: string) {
     const sb = getSupabase();
     const { error } = await sb.from("business_team_members").delete().eq("id", memberId);
-    throwIfError(error);
-    return { ok: true };
-  },
-
-  async packages(id: string): Promise<BusinessPackage[]> {
-    const sb = getSupabase();
-    const { data, error } = await sb
-      .from("business_packages")
-      .select("*")
-      .eq("business_id", id)
-      .order("created_at", { ascending: true });
-    throwIfError(error);
-    return toCamel<BusinessPackage[]>(data ?? []);
-  },
-
-  async addPackage(businessId: string, pkg: { name: string; desc: string; price: number; duration?: string; instantBook?: boolean }): Promise<BusinessPackage> {
-    const sb = getSupabase();
-    const { data, error } = await sb.from("business_packages").insert({
-      business_id: businessId,
-      name: pkg.name,
-      desc: pkg.desc,
-      price: pkg.price,
-      duration: pkg.duration ?? "",
-      instant_book: pkg.instantBook ?? false,
-    }).select().maybeSingle();
-    throwIfError(error);
-    return toCamel<BusinessPackage>(data);
-  },
-
-  async deletePackage(_businessId: string, pkgId: string) {
-    const sb = getSupabase();
-    const { error } = await sb.from("business_packages").delete().eq("id", pkgId);
     throwIfError(error);
     return { ok: true };
   },

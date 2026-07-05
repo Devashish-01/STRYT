@@ -10,7 +10,7 @@ import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
-import { Rating, StarRow, EmptyState, SafeImg, inr } from "@/components/common";
+import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
 import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
@@ -37,7 +37,6 @@ export default function ProviderDetail() {
   const { data: vouches } = useQueryWithRealtime(() => socialService.vouches(id), "vouches", [id], `provider_id=eq.${id}`);
   const { data: endorsements } = useQueryWithRealtime(() => socialService.endorsements(id), "endorsements", [id], `provider_id=eq.${id}`);
   const { data: availList } = useQuery(() => socialService.availableNow(), []);
-  const { data: packages } = useQuery(() => providerService.packages(id), [id]);
   const { data: provPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("provider", id), "community_posts", [id], `author_ref_id=eq.${id}`);
 
   // Count a profile view once per provider open.
@@ -225,21 +224,22 @@ export default function ProviderDetail() {
               </div>
             </div>
 
-            {/* Service packages */}
-            {(packages ?? []).length > 0 && (
+            {/* Catalog */}
+            {(p.catalog ?? []).length > 0 && (
               <div>
-                <div className="semi small" style={{ marginBottom: 8 }}>Service packages</div>
+                <div className="semi small" style={{ marginBottom: 8 }}>Catalog</div>
                 <div className="col gap-8">
-                  {(packages ?? []).map((pk) => (
-                    <div key={pk.id} className="card row gap-12" style={{ padding: 12 }}>
+                  {(p.catalog ?? []).map((item) => (
+                    <div key={item.id} className="card row gap-12" style={{ padding: 12 }}>
                       <div className="grow">
                         <div className="row gap-6">
-                          <span className="semi small">{pk.name}</span>
-                          {pk.instantBook && <span className="badge badge-green"><Zap size={10} /> Instant</span>}
+                          {item.isFood && item.isVeg != null && <VegDot veg={item.isVeg} />}
+                          <span className="semi small">{item.name}</span>
+                          {item.bestSeller && <span className="badge badge-amber">⭐</span>}
                         </div>
-                        {(pk.desc || pk.duration) && <div className="tiny muted">{[pk.desc, pk.duration].filter(Boolean).join(" • ")}</div>}
+                        {item.description && <div className="tiny muted">{item.description}</div>}
                       </div>
-                      <div className="bold small" style={{ color: "var(--green-600)" }}>{inr(pk.price)}</div>
+                      <div className="bold small" style={{ color: "var(--green-600)" }}>{inr(item.salePrice ?? item.price)}</div>
                     </div>
                   ))}
                 </div>
@@ -466,7 +466,7 @@ export default function ProviderDetail() {
           targetType="PROVIDER"
           availabilityNote={p.availabilityNote}
           availableNow={evalRes.isOpenNow}
-          packages={(packages ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }))}
+          packages={(p.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }))}
           onClose={() => setScheduling(false)}
         />
       )}

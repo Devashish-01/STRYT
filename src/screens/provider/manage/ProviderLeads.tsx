@@ -24,7 +24,6 @@ export default function ProviderLeads() {
   const { showToast } = useApp();
   const [tab, setTab] = useState<"requests" | "appointments">("requests");
   const { data: p } = useQuery(() => providerService.get(id), [id]);
-  const { data: pkgs } = useQuery(() => providerService.packages(id).catch(() => []), [id]);
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
       lat: p?.lat ?? undefined,
@@ -301,7 +300,7 @@ export default function ProviderLeads() {
     .filter((a) => a.status === "CANCELLED" || a.status === "REJECTED")
     .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
 
-  const packageOptions = (pkgs ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }));
+  const packageOptions = (p?.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }));
 
   return (
     <div className="screen with-nav">
