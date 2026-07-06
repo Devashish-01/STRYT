@@ -1,4 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { displayName } from "@/lib/publicName";
@@ -149,7 +150,8 @@ export default function DesktopSidebar() {
         )}
 
         {/* Download Android APK Button */}
-        <a href="/stryt.apk" download className="sidebar-download-btn">
+        <a href={APK_DOWNLOAD_URL} download={APK_FILENAME} className="sidebar-download-btn">
+
           <span>🤖</span>
           <span>Download Android App</span>
         </a>

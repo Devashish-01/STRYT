@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "44008185482",
+    "project_id": "zetax-52843",
+    "storage_bucket": "zetax-52843.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:44008185482:android:f53a9a2d7d8338d3251773",
+        "android_client_info": {
+          "package_name": "in.stryt.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "44008185482-ei7gkaunmn4g0n0bbn4f21fvv67kepvo.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.stryt.app",
+            "certificate_hash": "5c27fd18d84aa24958c8e9aa65dad849f1511b77"
+          }
+        },
+        {
+          "client_id": "44008185482-4cb7g4dutj88n10je3afrs8kumsfo9f5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBE167r0-eT-LNvyHp3CVWQMsbuBBl88x8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "44008185482-4cb7g4dutj88n10je3afrs8kumsfo9f5.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

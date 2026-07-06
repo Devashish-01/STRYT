@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 import { Capacitor } from "@capacitor/core";
 import { useNavigate } from "react-router-dom";
 import {
@@ -344,9 +345,10 @@ export default function Profile() {
                 hint="Get the .apk file"
                 onClick={() => {
                   const link = document.createElement("a");
-                  link.href = "/stryt.apk";
-                  link.download = "stryt.apk";
+                  link.href = APK_DOWNLOAD_URL;
+                  link.download = APK_FILENAME;
                   link.click();
+
                 }}
               />
             )}
