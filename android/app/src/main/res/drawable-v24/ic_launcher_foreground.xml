@@ -24,7 +24,9 @@
         <path
             android:pathData="M32 39 C25 34 39 24 32 19"
             android:strokeColor="#FFB020"
-            android:strokeWidth="1.6"
+            android:strokeWidth="1.7"
             android:strokeLineCap="round" />
+
+
     </group>
 </vector>

@@ -22,6 +22,8 @@ export interface Story {
   visibility?: string;
   allowedUserIds?: string[];
   hiddenUserIds?: string[];
+  /** Saved past its normal expiry — surfaces in the "Highlights" reel on the author's profile. */
+  isHighlighted?: boolean;
 }
 
 export interface Vouch {
@@ -58,6 +60,8 @@ export interface CommunityPost {
   area: string;
   distanceKm: number;
   postedAt: string;
+  /** Raw timestamp behind `postedAt`'s relative label — used for engagement-decay sorting ("Trending nearby"). */
+  createdAtISO?: string;
   image?: string;
   likes: number;
   liked: boolean;

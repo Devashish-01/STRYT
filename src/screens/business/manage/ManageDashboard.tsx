@@ -4,7 +4,7 @@ import {
   Eye, Phone, Navigation, Star, HelpCircle,
   ChevronRight, BadgeCheck, Share2, Zap,
   Calendar, Users, Search, FileText, Clock, User,
-  Tag, Megaphone, Globe, QrCode, MessageSquareText
+  Tag, Megaphone, Globe, QrCode, MessageSquareText, Camera
 } from "@/components/Icons";
 import { businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -310,6 +310,7 @@ export default function ManageDashboard() {
                 <TileCard icon={Tag} color="var(--orange-500)" bgTint="#fff2e8" label="Offers" onClick={() => nav(`${base}/offers`)} />
                 <TileCard icon={Megaphone} color="var(--brand-600)" bgTint="var(--brand-50)" label="Community Post" onClick={() => nav("/community/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
                 <TileCard icon={Globe} color="#0ea5e9" bgTint="#e0f2fe" label="My Community" onClick={() => nav(`${base}/community`)} />
+                <TileCard icon={Camera} color="#ec4899" bgTint="#fdeef6" label="Post a Story" onClick={() => nav("/story/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
               </div>
             </div>
           </div>

@@ -5,9 +5,10 @@ import {
   BadgeCheck, Star, Plus, Minus, Tag, MessageCircle, Flag,
   Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle,
 } from "@/components/Icons";
-import { businessService, communityService } from "@/services";
+import { businessService, communityService, socialService } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
+import { StoryViewer } from "@/components/Stories";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr } from "@/components/common";
@@ -37,6 +38,9 @@ export default function BusinessDetail() {
   const { data: queue } = useQueryWithRealtime(() => businessService.queue(id), "queue_tokens", [id], `business_id=eq.${id}`);
   const { data: qnaList, refetch: refetchQna } = useQueryWithRealtime(() => businessService.qna(id), "business_qna", [id], `business_id=eq.${id}`);
   const { data: bizPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("business", id), "community_posts", [id], `author_ref_id=eq.${id}`);
+  const { data: highlightsData } = useQuery(() => socialService.highlightsFor("business", id), [id]);
+  const highlights = highlightsData ?? [];
+  const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
   const [tab, setTab] = useState<"catalog" | "posts" | "about" | "reviews">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [report, setReport] = useState(false);
@@ -332,6 +336,20 @@ export default function BusinessDetail() {
           </div>
         )}
 
+        {/* Highlights — stories the owner saved past their normal expiry */}
+        {highlights.length > 0 && (
+          <div className="hscroll" style={{ padding: "12px 16px 4px" }}>
+            {highlights.map((h, i) => (
+              <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
+                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,#facc15,#f59e0b)" }}>
+                  <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
+                </div>
+                <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="row page-pad" style={{ gap: 0, paddingBottom: 0, paddingTop: 12, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
           {([["catalog", `Menu (${b.catalog.length})`], ["posts", `Posts (${(bizPosts ?? []).length})`], ["about", "About"], ["reviews", `Reviews`]] as const).map(([t, label]) => (
@@ -551,6 +569,9 @@ export default function BusinessDetail() {
         </div>
       )}
 
+      {viewingHighlight !== null && (
+        <StoryViewer stories={highlights} startIndex={viewingHighlight} onClose={() => setViewingHighlight(null)} />
+      )}
       {report && <ReportSheet targetType="BUSINESS" targetId={b.id} name={b.name} onClose={() => setReport(false)} />}
       {share && <ShareCard title={b.name} subtitle={b.subCategory} image={b.coverImage} meta={`${b.ratingCount > 0 ? `⭐ ${b.ratingAvg} (${b.ratingCount}) • ` : ""}${b.city}`} url={window.location.origin + "/business/" + b.id} onClose={() => setShare(false)} />}
       {addList && <AddToListSheet type="BUSINESS" id={b.id} onClose={() => setAddList(false)} />}

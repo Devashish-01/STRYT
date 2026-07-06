@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Eye, Briefcase, CheckCircle2, Wallet, Star, Zap,
-  Share2, Calendar, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck
+  Share2, Calendar, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck, Camera
 } from "@/components/Icons";
 import { providerService } from "@/services";
 import { SafeImg, inr, AppBar } from "@/components/common";
@@ -282,6 +282,7 @@ export default function ProviderDashboard() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <TileCard icon={Megaphone} color="var(--brand-600)" bgTint="var(--brand-50)" label="Post Community" onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
                 <TileCard icon={Globe} color="#0ea5e9" bgTint="#e0f2fe" label="My Community" onClick={() => nav(`${base}/community`)} />
+                <TileCard icon={Camera} color="#ec4899" bgTint="#fdeef6" label="Post a Story" onClick={() => nav("/story/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
               </div>
             </div>
           </div>

@@ -14,6 +14,7 @@ import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, RatingBars } from "@
 import { useApp } from "@/store";
 import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
+import { StoryViewer } from "@/components/Stories";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { isMockTarget } from "@/services/engagement/appointmentService";
@@ -38,6 +39,8 @@ export default function ProviderDetail() {
   const { data: endorsements } = useQueryWithRealtime(() => socialService.endorsements(id), "endorsements", [id], `provider_id=eq.${id}`);
   const { data: availList } = useQuery(() => socialService.availableNow(), []);
   const { data: provPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("provider", id), "community_posts", [id], `author_ref_id=eq.${id}`);
+  const { data: highlightsData } = useQuery(() => socialService.highlightsFor("provider", id), [id]);
+  const highlights = highlightsData ?? [];
 
   // Count a profile view once per provider open.
   useEffect(() => {
@@ -48,6 +51,7 @@ export default function ProviderDetail() {
   const [share, setShare] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
 
   if (loading) {
     return (
@@ -173,6 +177,20 @@ export default function ProviderDetail() {
             <ThumbsUp size={15} fill={hasVouched ? "var(--green-500)" : "none"} /> {hasVouched ? "Vouched" : "Vouch"}
           </button>
         </div>
+
+        {/* Highlights — stories the provider saved past their normal expiry */}
+        {highlights.length > 0 && (
+          <div className="hscroll" style={{ padding: "12px 16px 4px" }}>
+            {highlights.map((h, i) => (
+              <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
+                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,#facc15,#f59e0b)" }}>
+                  <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
+                </div>
+                <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="row page-pad" style={{ paddingTop: 10, paddingBottom: 0, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
@@ -454,6 +472,9 @@ export default function ProviderDetail() {
         </div>
       </div>
 
+      {viewingHighlight !== null && (
+        <StoryViewer stories={highlights} startIndex={viewingHighlight} onClose={() => setViewingHighlight(null)} />
+      )}
       {report && <ReportSheet targetType="PROVIDER" targetId={p.id} name={p.displayName} onClose={() => setReport(false)} />}
       {share && <ShareCard title={safeName(p.displayName, "Local provider")} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={[p.ratingCount > 0 ? `⭐ ${p.ratingAvg}` : "", p.jobsDone > 0 ? `${p.jobsDone} jobs` : ""].filter(Boolean).join(" • ") || "New provider"} url={window.location.origin + "/provider/" + p.id} onClose={() => setShare(false)} />}
       {reviewing && (

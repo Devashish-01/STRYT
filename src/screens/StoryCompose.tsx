@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Camera, MapPin, Pencil, X, Search, Check, Globe, Star, UserMinus } from "@/components/Icons";
 import { AppBar, SafeImg } from "@/components/common";
-import { socialService, uploadService } from "@/services";
+import { socialService, uploadService, businessService, providerService } from "@/services";
+import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { currentUserId } from "@/lib/supabaseClient";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
@@ -10,10 +11,50 @@ import { displayName as safeName } from "@/lib/publicName";
 
 const EXPIRY_OPTS = [1, 3, 6, 12] as const;
 
+interface SellerContext {
+  type: "business" | "provider";
+  id: string;
+  name: string;
+  avatar?: string;
+  lat?: number;
+  lng?: number;
+}
+
+/** Reads the seller identity a manage-dashboard "Post a story" tile passed via route
+ *  state — absent for the regular customer compose entry, in which case the story
+ *  posts under the signed-in user's own name as before. Mirrors CommunityCompose.tsx. */
+function readSellerContext(state: unknown): { type: "business" | "provider"; id: string; name: string; avatar?: string } | null {
+  const s = (state ?? {}) as Record<string, any>;
+  if (s.businessId) return { type: "business", id: s.businessId, name: s.businessName ?? "Business", avatar: s.businessAvatar };
+  if (s.providerId) return { type: "provider", id: s.providerId, name: s.providerName ?? "Provider", avatar: s.providerAvatar };
+  return null;
+}
+
 export default function StoryCompose() {
   const nav = useNavigate();
-  const { user, area, showToast } = useApp();
-  
+  const loc = useLocation();
+  const { user, area, showToast, activeContext } = useApp();
+
+  const { data: activeBiz } = useQuery(
+    () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
+    [activeContext.id, activeContext.type]
+  );
+  const { data: activeProv } = useQuery(
+    () => activeContext.type === "provider" && activeContext.id ? providerService.get(activeContext.id) : Promise.resolve(null),
+    [activeContext.id, activeContext.type]
+  );
+
+  const passedCtx = readSellerContext(loc.state);
+  const sellerCtx: SellerContext | null = passedCtx || (
+    activeContext.type === "business" && activeBiz ? { type: "business" as const, id: activeBiz.id, name: activeBiz.name, avatar: activeBiz.coverImage } :
+    activeContext.type === "provider" && activeProv ? { type: "provider" as const, id: activeProv.id, name: activeProv.displayName, avatar: activeProv.avatar } :
+    null
+  );
+  // A seller's story is anchored to the business/provider's own fixed location,
+  // not wherever the owner's device happens to be standing when they post.
+  const sellerLat = sellerCtx?.type === "business" ? activeBiz?.lat : sellerCtx?.type === "provider" ? activeProv?.lat : undefined;
+  const sellerLng = sellerCtx?.type === "business" ? activeBiz?.lng : sellerCtx?.type === "provider" ? activeProv?.lng : undefined;
+
   const [image, setImage] = useState("");
   const [caption, setCaption] = useState("");
   const [hours, setHours] = useState<number>(3);
@@ -70,6 +111,28 @@ export default function StoryCompose() {
       const uid = await currentUserId();
       if (!uid) throw new Error("Not authenticated");
 
+      if (sellerCtx) {
+        // Seller story: anchored to the business/provider's own location,
+        // always public — no device geolocation, no close-friends controls.
+        await socialService.postStory({
+          ownerType:    sellerCtx.type,
+          ownerId:      sellerCtx.id,
+          userId:       uid,
+          authorName:   sellerCtx.name,
+          authorAvatar: sellerCtx.avatar || "",
+          imageUrl:     image,
+          caption:      caption.trim(),
+          cta:          "None",
+          expiresInHrs: hours,
+          lat:          sellerLat,
+          lng:          sellerLng,
+          visibility:   "everyone",
+        });
+        showToast(`Story live for ${hours}h ✨`);
+        setTimeout(() => nav(-1), 600);
+        return;
+      }
+
       let lat = user.lat;
       let lng = user.lng;
       if (!lat && !lng) {
@@ -107,7 +170,10 @@ export default function StoryCompose() {
 
   return (
     <div className="screen">
-      <AppBar title="Share a moment" subtitle="Visible to neighbors nearby" />
+      <AppBar
+        title={sellerCtx ? "Post a story" : "Share a moment"}
+        subtitle={sellerCtx ? `Posting as ${sellerCtx.name}` : "Visible to neighbors nearby"}
+      />
 
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
         {/* Photo picker — phone-story aspect ratio */}
@@ -166,48 +232,59 @@ export default function StoryCompose() {
           )}
         </div>
 
-        {/* Story privacy selection block */}
-        <div className="field">
-          <label>Audience & Visibility</label>
-          <button
-            onClick={() => setShowPrivacySheet(true)}
-            className="row between align-center"
-            style={{
-              width: "100%",
-              padding: "12px 14px",
-              background: "var(--ink-50)",
-              border: "1px solid var(--ink-200)",
-              borderRadius: 14,
-              cursor: "pointer",
-              textAlign: "left"
-            }}
-          >
-            <div className="row gap-10 align-center">
-              <div style={{
-                width: 36, height: 36, borderRadius: "50%",
-                background: visibility === "everyone" ? "rgba(124,58,237,0.1)" : "rgba(34,197,94,0.1)",
-                display: "flex", alignItems: "center", justifyContent: "center"
-              }}>
-                {visibility === "everyone" ? (
-                  <Globe size={18} color="var(--brand-600)" />
-                ) : (
-                  <Star size={18} color="#22c55e" fill="#22c55e" />
-                )}
+        {/* Story privacy selection block — seller stories are always public and
+            anchored to the business/provider's location, so there's no
+            close-friends concept to configure. */}
+        {sellerCtx ? (
+          <div className="card row gap-10 align-center" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
+            <Globe size={18} color="var(--brand-700)" />
+            <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>
+              Visible to everyone near {sellerCtx.name}'s location
+            </span>
+          </div>
+        ) : (
+          <div className="field">
+            <label>Audience & Visibility</label>
+            <button
+              onClick={() => setShowPrivacySheet(true)}
+              className="row between align-center"
+              style={{
+                width: "100%",
+                padding: "12px 14px",
+                background: "var(--ink-50)",
+                border: "1px solid var(--ink-200)",
+                borderRadius: 14,
+                cursor: "pointer",
+                textAlign: "left"
+              }}
+            >
+              <div className="row gap-10 align-center">
+                <div style={{
+                  width: 36, height: 36, borderRadius: "50%",
+                  background: visibility === "everyone" ? "rgba(124,58,237,0.1)" : "rgba(34,197,94,0.1)",
+                  display: "flex", alignItems: "center", justifyContent: "center"
+                }}>
+                  {visibility === "everyone" ? (
+                    <Globe size={18} color="var(--brand-600)" />
+                  ) : (
+                    <Star size={18} color="#22c55e" fill="#22c55e" />
+                  )}
+                </div>
+                <div className="col" style={{ gap: 0 }}>
+                  <span className="semi small" style={{ color: "var(--ink-900)" }}>
+                    {visibility === "everyone" ? "Everyone" : "Close Friends"}
+                  </span>
+                  <span className="tiny muted">
+                    {visibility === "everyone"
+                      ? (hiddenUsers.length > 0 ? `Hidden from ${hiddenUsers.length} neighbors` : "All nearby neighbors can see it")
+                      : `${allowedUsers.length} selected neighbors`}
+                  </span>
+                </div>
               </div>
-              <div className="col" style={{ gap: 0 }}>
-                <span className="semi small" style={{ color: "var(--ink-900)" }}>
-                  {visibility === "everyone" ? "Everyone" : "Close Friends"}
-                </span>
-                <span className="tiny muted">
-                  {visibility === "everyone"
-                    ? (hiddenUsers.length > 0 ? `Hidden from ${hiddenUsers.length} neighbors` : "All nearby neighbors can see it")
-                    : `${allowedUsers.length} selected neighbors`}
-                </span>
-              </div>
-            </div>
-            <span className="small semi text-brand">Edit</span>
-          </button>
-        </div>
+              <span className="small semi text-brand">Edit</span>
+            </button>
+          </div>
+        )}
 
         <div className="field">
           <label className="row between">
@@ -276,12 +353,14 @@ export default function StoryCompose() {
           )}
         </div>
 
-        <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
-          <MapPin size={18} color="var(--brand-700)" />
-          <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>
-            Visible within ~2 km of <strong>{area || "your location"}</strong> · auto-detected
-          </span>
-        </div>
+        {!sellerCtx && (
+          <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
+            <MapPin size={18} color="var(--brand-700)" />
+            <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>
+              Visible within ~2 km of <strong>{area || "your location"}</strong> · auto-detected
+            </span>
+          </div>
+        )}
       </div>
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>

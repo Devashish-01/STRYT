@@ -52,6 +52,7 @@ function rowToStory(row: Record<string, unknown>): Story {
     visibility: (row.visibility as string) ?? "everyone",
     allowedUserIds: (row.allowed_user_ids as string[]) ?? [],
     hiddenUserIds: (row.hidden_user_ids as string[]) ?? [],
+    isHighlighted: (row.is_highlighted as boolean) ?? false,
   };
 }
 
@@ -200,7 +201,7 @@ export const socialService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("story_views")
-      .select("created_at, viewer:users!viewer_user_id(id, name, avatar)")
+      .select("created_at, reaction, viewer:users!viewer_user_id(id, name, avatar)")
       .eq("story_id", storyId)
       .order("created_at", { ascending: false });
 
@@ -210,7 +211,55 @@ export const socialService = {
       name: v.viewer?.name,
       avatar: v.viewer?.avatar,
       viewedAt: v.created_at,
+      reaction: v.reaction ?? null,
     }));
+  },
+
+  /** Quick-reaction on a story — upserts onto the same story_views row recordStoryView already created. */
+  async reactToStory(storyId: string, emoji: string): Promise<void> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return;
+    await sb.from("story_views").upsert(
+      { story_id: storyId, viewer_user_id: uid, reaction: emoji },
+      { onConflict: "story_id,viewer_user_id" }
+    );
+  },
+
+  /** Save/unsave a story to the author's permanent "Highlights" reel — bypasses expires_at once set. */
+  async setStoryHighlight(storyId: string, highlighted: boolean): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.from("stories").update({ is_highlighted: highlighted }).eq("id", storyId);
+    if (error) throw error;
+  },
+
+  /** Signed-in user's own saved highlights — no expiry filter, unlike myStory(). */
+  async myHighlights(): Promise<Story[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return [];
+    const { data, error } = await sb
+      .from("stories")
+      .select("*")
+      .eq("user_id", uid)
+      .eq("is_highlighted", true)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(rowToStory);
+  },
+
+  /** A business/provider's saved highlights, shown on its public detail page. */
+  async highlightsFor(ownerType: "business" | "provider", ownerId: string): Promise<Story[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("stories")
+      .select("*")
+      .eq("owner_type", ownerType)
+      .eq("owner_id", ownerId)
+      .eq("is_highlighted", true)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(rowToStory);
   },
 
   async searchNeighbors(queryStr: string): Promise<any[]> {

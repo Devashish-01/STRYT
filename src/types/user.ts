@@ -17,6 +17,9 @@ export type NotificationType =
   | "QUOTE_BROADCAST"
   | "LOCATION_REQUEST"
   | "LOCATION_APPROVED"
+  | "COMMUNITY_COMMENT"
+  | "REPORT_RESOLVED"
+  | "STORY_REACTION"
   | "SYSTEM";
 
 export interface AppNotification {

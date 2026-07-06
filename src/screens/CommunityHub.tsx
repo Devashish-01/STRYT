@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText, ArrowLeft } from "@/components/Icons";
+import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText, ArrowLeft, ArrowUpDown } from "@/components/Icons";
 import { requestService, communityService, discoveryService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -8,6 +8,7 @@ import { RequestCard } from "@/components/cards";
 import { CommunityCard } from "@/screens/Community";
 import { EmptyState } from "@/components/common";
 import { useApp } from "@/store";
+import { trendingScore } from "@/lib/trending";
 import type { CommunityPostType } from "@/types";
 
 type HubTab = "requests" | "posts";
@@ -24,6 +25,7 @@ export default function CommunityHub() {
   const [tab, setTab] = useState<HubTab>("posts");
   const [postFilter, setPostFilter] = useState<"ALL" | CommunityPostType>("ALL");
   const [reqSpecial, setReqSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
+  const [postSort, setPostSort] = useState<"recent" | "trending">("recent");
 
   const { data: feedPage, loading: reqLoading, error: reqError, refetch: refetchReq } = useQueryWithRealtime(
     () => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }),
@@ -44,7 +46,8 @@ export default function CommunityHub() {
   if (reqSpecial === "recurring") requests = requests.filter((r) => r.isRecurring);
 
   const allPosts = postData ?? [];
-  const posts = postFilter === "ALL" ? allPosts : allPosts.filter((p) => p.type === postFilter);
+  const filteredPosts = postFilter === "ALL" ? allPosts : allPosts.filter((p) => p.type === postFilter);
+  const posts = postSort === "trending" ? [...filteredPosts].sort((a, b) => trendingScore(b) - trendingScore(a)) : filteredPosts;
 
   // A seller viewing the public hub still composes under their active identity.
   const isOwnerContext = activeContext.type !== "customer" && !!activeContext.id;
@@ -200,6 +203,13 @@ export default function CommunityHub() {
             />
           ) : (
             <div className="col gap-12 page-pad" style={{ paddingBottom: 24 }}>
+              <button
+                className="row gap-6 center-v tiny semi"
+                style={{ alignSelf: "flex-end", color: "var(--brand-700)" }}
+                onClick={() => setPostSort((s) => (s === "trending" ? "recent" : "trending"))}
+              >
+                <ArrowUpDown size={13} /> Sort: {postSort === "trending" ? "🔥 Trending nearby" : "Recent"}
+              </button>
               {posts.map((p) => (
                 <CommunityCard
                   key={p.id}

@@ -5,10 +5,18 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { businessService } from "@/services";
 import { useApp } from "@/store";
-import { ArrowUpDown, Clock, Users, X } from "@/components/Icons";
+import { ArrowUpDown, Clock, Users, X, CreditCard, CheckCircle2, AlertCircle } from "@/components/Icons";
+import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import type { MyQueueEntry } from "@/types";
 
 const ACTIVE: MyQueueEntry["status"][] = ["WAITING", "CALLED"];
+
+// Payment is claimable from the moment it's your turn, and stays claimable
+// after you've been served — must not vanish once status moves on (same
+// gap fixed for appointments in Flow 2).
+function isPayable(status: MyQueueEntry["status"]): boolean {
+  return status === "CALLED" || status === "SERVED";
+}
 
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -31,6 +39,7 @@ export default function MyQueues() {
   const [tab, setTab] = useState<"ACTIVE" | "HISTORY">("ACTIVE");
   const [sortByName, setSortByName] = useState(false);
   const [leaving, setLeaving] = useState<string | null>(null);
+  const [payingQueue, setPayingQueue] = useState<MyQueueEntry | null>(null);
 
   const all = data ?? [];
   const active = all.filter((q) => ACTIVE.includes(q.status));
@@ -107,13 +116,18 @@ export default function MyQueues() {
                       <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
                         <Users size={11} /> {q.partySize} · <Clock size={11} /> joined {timeAgo(q.joinedAtISO)}
                       </div>
-                      <div style={{ marginTop: 6 }}>
+                      <div className="row gap-6" style={{ marginTop: 6, flexWrap: "wrap" }}>
                         {q.status === "WAITING" && (
                           <span className="badge badge-purple">You're #{q.position} · {q.peopleAhead} ahead</span>
                         )}
                         {isCalled && <span className="badge badge-green">🔔 It's your turn — head in now!</span>}
                         {q.status === "SERVED" && <span className="badge badge-gray">✓ Served</span>}
                         {q.status === "LEFT" && <span className="badge badge-gray">Left queue</span>}
+                        {isPayable(q.status) && (
+                          <span className={`badge ${q.paymentStatus === "PAID" ? "badge-green" : "badge-gray"}`}>
+                            {q.paymentStatus === "PAID" ? "PAID" : "UNPAID"}
+                          </span>
+                        )}
                       </div>
                     </div>
                     {ACTIVE.includes(q.status) && (
@@ -147,6 +161,51 @@ export default function MyQueues() {
                       </div>
                     </div>
                   )}
+
+                  {/* Payment — claimable once called, stays actionable after served */}
+                  {isPayable(q.status) && q.paymentStatus === "PAID" && (
+                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
+                      <CheckCircle2 size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
+                      <span className="tiny semi" style={{ color: "#15803d" }}>
+                        Payment confirmed{q.paymentMethod ? ` via ${q.paymentMethod}` : ""}{q.paymentAmount ? ` • ₹${q.paymentAmount}` : ""}
+                      </span>
+                    </div>
+                  )}
+                  {isPayable(q.status) && q.paymentStatus === "PENDING_CONFIRM" && (
+                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "#fefce8", border: "1px solid #fef08a", borderRadius: 10 }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
+                      <div>
+                        <div className="tiny semi" style={{ color: "#854d0e" }}>Awaiting confirmation</div>
+                        <div className="tiny" style={{ color: "#78350f", marginTop: 1 }}>{q.businessName} will verify and confirm receipt.</div>
+                      </div>
+                    </div>
+                  )}
+                  {isPayable(q.status) && q.paymentStatus === "REJECTED" && (
+                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10 }}>
+                      <AlertCircle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
+                      <div className="grow">
+                        <div className="tiny semi" style={{ color: "#991b1b" }}>Business couldn't verify payment</div>
+                        <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>Please retry or contact them directly.</div>
+                      </div>
+                      <button
+                        className="btn btn-sm"
+                        style={{ fontSize: 11, padding: "4px 10px", background: "var(--brand-600)", color: "#fff", borderRadius: 8, flexShrink: 0 }}
+                        onClick={() => setPayingQueue(q)}
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+                  {isPayable(q.status) && (!q.paymentStatus || q.paymentStatus === "UNPAID") && (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm row gap-6 center"
+                      style={{ marginTop: 12, fontSize: 12, padding: "6px 14px", alignSelf: "flex-start" }}
+                      onClick={() => setPayingQueue(q)}
+                    >
+                      <CreditCard size={13} />Pay now
+                    </button>
+                  )}
                 </div>
                 );
               })
@@ -155,6 +214,16 @@ export default function MyQueues() {
         )}
         <div style={{ height: 16 }} />
       </div>
+
+      {payingQueue && (
+        <QueuePaymentSheet
+          tokenId={payingQueue.tokenId}
+          businessName={payingQueue.businessName}
+          businessUpiId={payingQueue.businessUpiId}
+          onPaid={refetch}
+          onClose={() => setPayingQueue(null)}
+        />
+      )}
     </div>
   );
 }

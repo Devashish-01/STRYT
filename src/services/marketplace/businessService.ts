@@ -1,7 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, MyQueueEntry } from "@/types";
+import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
@@ -186,31 +186,76 @@ export const businessService = {
   },
 
   // Owner: get queue settings + token lists for QueueManager. Returns the
-  // WAITING line AND the currently-CALLED tokens (whoever the owner is serving
-  // right now) so calling "next" doesn't make a customer vanish from the board.
+  // WAITING line, the currently-CALLED tokens (whoever the owner is serving
+  // right now), and recently-SERVED tokens (bounded to the last 24h) so a
+  // payment claimed after service has somewhere to be verified — the console
+  // otherwise never fetches SERVED rows at all.
   async queueOwnerState(businessId: string): Promise<{
     isOpen: boolean;
     avgServiceMin: number;
-    waiting: Array<{ id: string; name: string; partySize: string; joinedAtISO: string }>;
-    called: Array<{ id: string; name: string; partySize: string; joinedAtISO: string }>;
+    waiting: Array<QueueOwnerToken>;
+    called: Array<QueueOwnerToken>;
+    served: Array<QueueOwnerToken>;
   }> {
     const sb = getSupabase();
-    const [settingsRes, tokensRes] = await Promise.all([
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const [settingsRes, tokensRes, servedRes] = await Promise.all([
       sb.from("queue_settings").select("is_open, avg_service_min").eq("business_id", businessId).maybeSingle(),
       sb.from("queue_tokens")
-        .select("id, customer_name, party_size, status, created_at")
+        .select("id, customer_name, party_size, status, created_at, payment_status, payment_method, payment_amount, payment_reference")
         .eq("business_id", businessId)
         .in("status", ["WAITING", "CALLED"])
         .order("created_at", { ascending: true }),
+      sb.from("queue_tokens")
+        .select("id, customer_name, party_size, status, created_at, payment_status, payment_method, payment_amount, payment_reference")
+        .eq("business_id", businessId)
+        .eq("status", "SERVED")
+        .gte("created_at", since)
+        .order("created_at", { ascending: false }),
     ]);
     const rows = (tokensRes.data ?? []) as any[];
-    const map = (t: any) => ({ id: t.id, name: t.customer_name, partySize: t.party_size, joinedAtISO: t.created_at });
+    const map = (t: any): QueueOwnerToken => ({
+      id: t.id,
+      name: t.customer_name,
+      partySize: t.party_size,
+      joinedAtISO: t.created_at,
+      paymentStatus: t.payment_status ?? "UNPAID",
+      paymentMethod: t.payment_method ?? null,
+      paymentAmount: t.payment_amount ?? null,
+      paymentReference: t.payment_reference ?? null,
+    });
     return {
       isOpen: settingsRes.data?.is_open ?? false,
       avgServiceMin: settingsRes.data?.avg_service_min ?? 8,
       waiting: rows.filter((t) => t.status === "WAITING").map(map),
       called: rows.filter((t) => t.status === "CALLED").map(map),
+      served: ((servedRes.data ?? []) as any[]).map(map),
     };
+  },
+
+  /** Business verifies/rejects a queue payment claim, or a customer/owner claims one. */
+  async claimQueuePayment(tokenId: string, method: PaymentMethod, amount: number | null, reference: string | null) {
+    const sb = getSupabase();
+    const patch: Record<string, unknown> = { payment_method: method, payment_status: "PENDING_CONFIRM" };
+    if (amount != null) patch.payment_amount = amount;
+    if (reference) patch.payment_reference = reference;
+    const { error } = await sb.from("queue_tokens").update(patch).eq("id", tokenId);
+    throwIfError(error);
+    return { ok: true };
+  },
+
+  async confirmQueuePayment(tokenId: string) {
+    const sb = getSupabase();
+    const { error } = await sb.from("queue_tokens").update({ payment_status: "PAID" }).eq("id", tokenId);
+    throwIfError(error);
+    return { ok: true };
+  },
+
+  async rejectQueuePaymentClaim(tokenId: string) {
+    const sb = getSupabase();
+    const { error } = await sb.from("queue_tokens").update({ payment_status: "REJECTED" }).eq("id", tokenId);
+    throwIfError(error);
+    return { ok: true };
   },
 
   async setQueueSettings(businessId: string, patch: { isOpen?: boolean; avgServiceMin?: number }) {
@@ -277,7 +322,7 @@ export const businessService = {
     if (!uid) return [];
     const { data, error } = await sb
       .from("queue_tokens")
-      .select("id, business_id, status, party_size, created_at, businesses!business_id(name, cover_image)")
+      .select("id, business_id, status, party_size, created_at, payment_status, payment_method, payment_amount, payment_reference, businesses!business_id(name, cover_image, upi_id)")
       .eq("customer_user_id", uid)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -323,6 +368,11 @@ export const businessService = {
         partySize: r.party_size ?? "1 person",
         joinedAtISO: r.created_at,
         estWaitMin: r.status === "WAITING" ? peopleAhead * avg : 0,
+        businessUpiId: r.businesses?.upi_id ?? null,
+        paymentStatus: r.payment_status ?? "UNPAID",
+        paymentMethod: r.payment_method ?? null,
+        paymentAmount: r.payment_amount ?? null,
+        paymentReference: r.payment_reference ?? null,
       };
     });
   },

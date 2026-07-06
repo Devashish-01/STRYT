@@ -19,6 +19,7 @@ import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER 
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import type { Role, AgreementStatus } from "@/types";
 import ShareCard, { type ShareOption } from "@/components/ShareCard";
+import { StoryViewer } from "@/components/Stories";
 
 const TERMINAL: AgreementStatus[] = ["COMPLETED", "CANCELLED", "DISPUTED"];
 
@@ -28,6 +29,7 @@ export default function Profile() {
   const { t } = useI18n();
   const [switcher, setSwitcher] = useState(false);
   const [share, setShare] = useState(false);
+  const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
   const manageBizId = ownedBusinessIds[0];
   const hasSellerProfile = ownedBusinessIds.length > 0 || !!ownedProviderId;
 
@@ -78,6 +80,9 @@ export default function Profile() {
 
   const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
   const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
+
+  const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id]);
+  const highlights = highlightsData ?? [];
 
   // Admin console stays reachable (own bypass-token entry screen lives at /admin
   // itself) but only earns a spot in the nav for people who are actually admins.
@@ -237,6 +242,20 @@ export default function Profile() {
           </div>
         )}
 
+        {/* ── My Highlights — stories saved past their normal expiry ── */}
+        {highlights.length > 0 && (
+          <div className="hscroll" style={{ padding: "10px 16px" }}>
+            {highlights.map((h, i) => (
+              <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
+                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,#facc15,#f59e0b)" }}>
+                  <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
+                </div>
+                <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* ── Quick actions grid — same 6 spots every time, so position becomes memory ── */}
         <div className="page-pad" style={{ paddingTop: 4 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
@@ -361,6 +380,9 @@ export default function Profile() {
         </p>
       </div>
 
+      {viewingHighlight !== null && (
+        <StoryViewer stories={highlights} startIndex={viewingHighlight} onClose={() => setViewingHighlight(null)} />
+      )}
       {switcher && <AccountSwitcher onClose={() => setSwitcher(false)} />}
       {share && (
         <ShareCard

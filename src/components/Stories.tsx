@@ -192,6 +192,8 @@ interface StoryViewerProps {
   onClose: () => void;
 }
 
+const REACTIONS = ["❤️", "😂", "😮", "👏", "🔥"];
+
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
   if (m < 1)  return "just now";
@@ -209,7 +211,7 @@ export function StoryViewer({
   onClose,
 }: StoryViewerProps) {
   const nav = useNavigate();
-  const { markStoryViewed, user, ownedBusinessIds, ownedProviderId } = useApp();
+  const { markStoryViewed, user, ownedBusinessIds, ownedProviderId, showToast } = useApp();
 
   const [viewers, setViewers] = useState<any[]>([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
@@ -217,6 +219,9 @@ export function StoryViewer({
   const [sheetTab, setSheetTab] = useState<"viewers" | "privacy">("viewers");
   const [privacyUsers, setPrivacyUsers] = useState<any[]>([]);
   const [loadingPrivacy, setLoadingPrivacy] = useState(false);
+  const [myReaction, setMyReaction] = useState<string | null>(null);
+  const [highlighted, setHighlighted] = useState(false);
+  const [highlighting, setHighlighting] = useState(false);
 
   // 1. Resolve groups list: either use input groups or group flat stories by author
   const groups = inputGroups || (() => {
@@ -296,7 +301,35 @@ export function StoryViewer({
     setProgress(0);
     setImageLoaded(false); // Reset image load status to trigger transition
     setShowViewersSheet(false);
+    setMyReaction(null);
+    setHighlighted(story.isHighlighted ?? false);
   }, [groupIdx, storyIdx, story?.id, isOwnStory]);
+
+  async function sendReaction(emoji: string) {
+    if (!story) return;
+    setMyReaction(emoji); // optimistic — a failed reaction isn't worth interrupting the viewing flow over
+    try {
+      await socialService.reactToStory(story.id, emoji);
+    } catch {
+      showToast("Couldn't send reaction");
+    }
+  }
+
+  async function toggleHighlight() {
+    if (!story) return;
+    const next = !highlighted;
+    setHighlighted(next); // optimistic
+    setHighlighting(true);
+    try {
+      await socialService.setStoryHighlight(story.id, next);
+      showToast(next ? "Saved to Highlights" : "Removed from Highlights");
+    } catch {
+      setHighlighted(!next);
+      showToast("Couldn't update Highlights");
+    } finally {
+      setHighlighting(false);
+    }
+  }
 
   // Fetch viewers if own story
   useEffect(() => {
@@ -549,7 +582,7 @@ export function StoryViewer({
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent 40%)" }} />
 
       {/* Caption + CTA Link */}
-      <div style={{ position: "absolute", bottom: isOwnStory ? 76 : 28, left: 16, right: 16, zIndex: 3 }}>
+      <div style={{ position: "absolute", bottom: isOwnStory ? 76 : 74, left: 16, right: 16, zIndex: 3 }}>
         {story.caption && (
           <div style={{
             background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
@@ -580,11 +613,38 @@ export function StoryViewer({
         )}
       </div>
 
-      {/* Story owner view counter button */}
+      {/* Quick reactions — tap to react, tap another to change it */}
+      {!isOwnStory && (
+        <div className="row between" style={{ position: "absolute", bottom: 16, left: 16, right: 16, zIndex: 3 }}>
+          {REACTIONS.map((emoji) => {
+            const active = myReaction === emoji;
+            return (
+              <button
+                key={emoji}
+                onClick={(e) => { e.stopPropagation(); sendReaction(emoji); }}
+                aria-label={`React ${emoji}`}
+                style={{
+                  width: 42, height: 42, borderRadius: "50%", fontSize: 20,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.15)",
+                  border: active ? "2px solid #fff" : "1px solid rgba(255,255,255,0.35)",
+                  backdropFilter: "blur(6px)",
+                  transform: active ? "scale(1.12)" : "scale(1)",
+                  transition: "transform 0.15s ease, background 0.15s ease",
+                }}
+              >
+                {emoji}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Story owner view counter + save-to-highlights buttons */}
       {isOwnStory && (
         <div style={{
-          position: "absolute", bottom: 20, left: 16, zIndex: 10,
-          display: "flex", alignItems: "center"
+          position: "absolute", bottom: 20, left: 16, right: 16, zIndex: 10,
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8
         }}>
           <button
             onClick={() => setShowViewersSheet(true)}
@@ -608,6 +668,27 @@ export function StoryViewer({
               <circle cx="12" cy="12" r="3"></circle>
             </svg>
             {viewers.length} {viewers.length === 1 ? "view" : "views"}
+          </button>
+          <button
+            onClick={toggleHighlight}
+            disabled={highlighting}
+            style={{
+              background: highlighted ? "rgba(250, 204, 21, 0.25)" : "rgba(255, 255, 255, 0.15)",
+              backdropFilter: "blur(8px)",
+              border: highlighted ? "1px solid #facc15" : "1px solid rgba(255, 255, 255, 0.3)",
+              color: "#fff",
+              padding: "8px 14px",
+              borderRadius: 20,
+              fontSize: 13,
+              fontWeight: 700,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              cursor: "pointer"
+            }}
+          >
+            <Star size={15} color={highlighted ? "#facc15" : "#fff"} fill={highlighted ? "#facc15" : "none"} />
+            {highlighted ? "Saved" : "Save"}
           </button>
         </div>
       )}
@@ -718,6 +799,7 @@ export function StoryViewer({
                             {v.name}
                           </span>
                         </div>
+                        {v.reaction && <span style={{ fontSize: 16 }}>{v.reaction}</span>}
                       </div>
                       <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>
                         {timeAgo(v.viewedAt)}

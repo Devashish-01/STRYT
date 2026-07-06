@@ -1,5 +1,7 @@
 // Businesses, providers, and everything an owner manages about their listing.
 
+import type { PaymentMethod, PaymentStatus } from "./console";
+
 export type CategoryKind = "BUSINESS" | "SERVICE" | "BOTH";
 
 export interface Category {
@@ -205,6 +207,24 @@ export interface MyQueueEntry {
   joinedAtISO: string;
   /** Estimated minutes until this customer is called (peopleAhead × avg service time). */
   estWaitMin?: number;
+  /** Business's UPI ID, for the payment QR — queue tokens have no catalog price, so amount is always entered freeform. */
+  businessUpiId?: string | null;
+  paymentMethod?: PaymentMethod | null;
+  paymentStatus?: PaymentStatus;
+  paymentAmount?: number | null;
+  paymentReference?: string | null;
+}
+
+/** A queue token as seen by the business owner console (QueueManager). */
+export interface QueueOwnerToken {
+  id: string;
+  name: string;
+  partySize: string;
+  joinedAtISO: string;
+  paymentStatus?: PaymentStatus;
+  paymentMethod?: PaymentMethod | null;
+  paymentAmount?: number | null;
+  paymentReference?: string | null;
 }
 
 export interface LoyaltyCard {

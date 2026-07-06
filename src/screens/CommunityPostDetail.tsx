@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone } from "@/components/Icons";
+import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone, Flag } from "@/components/Icons";
 import { communityService, businessService, providerService } from "@/services";
 import { useQueryWithRealtime, useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
+import ReportSheet from "@/components/ReportSheet";
 import type { CommunityPost, Comment } from "@/types";
 
 export default function CommunityPostDetail() {
@@ -34,6 +35,7 @@ export default function CommunityPostDetail() {
   const [sharePhone, setSharePhone] = useState(false);
   const [phoneVis, setPhoneVis] = useState<"OWNER" | "PUBLIC">("OWNER");
   const [phoneInput, setPhoneInput] = useState("");
+  const [reporting, setReporting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (initialComments) setComments(initialComments); }, [initialComments]);
@@ -111,7 +113,10 @@ export default function CommunityPostDetail() {
       <header className="appbar" style={{ borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
         <button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
         <span className="bold grow" style={{ fontSize: 16 }}>Post</span>
-        {safePost.resolved && <span className="badge badge-green"><CheckCircle2 size={11} /> Resolved</span>}
+        {safePost.resolved && <span className="badge badge-green" style={{ marginRight: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
+        <button className="icon-btn" onClick={() => setReporting(true)} aria-label="Report post">
+          <Flag size={18} />
+        </button>
       </header>
 
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: 72 }}>
@@ -312,6 +317,10 @@ export default function CommunityPostDetail() {
         </button>
       </div>
       </div>
+
+      {reporting && (
+        <ReportSheet targetType="POST" targetId={safePost.id} name={safePost.title || "this post"} onClose={() => setReporting(false)} />
+      )}
     </div>
   );
 }

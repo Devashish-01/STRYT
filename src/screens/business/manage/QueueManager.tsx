@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Users, Play, Check, RefreshCw, Bell, Clock, X } from "@/components/Icons";
+import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
-
-interface Token { id: string; name: string; partySize: string; joinedAtISO: string; }
+import type { QueueOwnerToken as Token } from "@/types";
 
 // "12m ago" style label for how long a token has been waiting.
 function waitedLabel(iso: string): string {
@@ -15,6 +14,16 @@ function waitedLabel(iso: string): string {
   if (m < 60) return `waiting ${m}m`;
   const h = Math.floor(m / 60);
   return `waiting ${h}h ${m % 60}m`;
+}
+
+// "served 12m ago" style label — served tokens are joined-at timestamps too
+// (queue_tokens has no separate served_at column).
+function servedAgoLabel(iso: string): string {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m ago`;
 }
 
 // Clock time `min` minutes from now, e.g. "≈ 4:35 PM".
@@ -31,6 +40,8 @@ export default function QueueManager() {
   const [inputValue, setInputValue] = useState("8");
   const [waiting, setWaiting] = useState<Token[]>([]);
   const [called, setCalled] = useState<Token[]>([]);
+  const [served, setServed] = useState<Token[]>([]);
+  const [verifying, setVerifying] = useState<string | null>(null);
   const isInputFocused = useRef(false);
 
   const { data, loading, refetch } = useQueryWithRealtime(
@@ -47,8 +58,35 @@ export default function QueueManager() {
       if (!isInputFocused.current) setInputValue(data.avgServiceMin.toString());
       setWaiting(data.waiting);
       setCalled(data.called);
+      setServed(data.served);
     }
   }, [data]);
+
+  async function confirmPayment(token: Token) {
+    setVerifying(token.id);
+    try {
+      await businessService.confirmQueuePayment(token.id);
+      showToast(`✓ Payment confirmed — ${token.name}`);
+      refetch();
+    } catch {
+      showToast("Couldn't confirm — try again");
+    } finally {
+      setVerifying(null);
+    }
+  }
+
+  async function rejectPayment(token: Token) {
+    setVerifying(token.id);
+    try {
+      await businessService.rejectQueuePaymentClaim(token.id);
+      showToast(`Payment claim rejected — ${token.name}`);
+      refetch();
+    } catch {
+      showToast("Couldn't reject — try again");
+    } finally {
+      setVerifying(null);
+    }
+  }
 
   async function toggleLive() {
     const next = !live;
@@ -124,6 +162,33 @@ export default function QueueManager() {
   }
 
   const totalWait = waiting.length * avgTime;
+
+  function paymentRow(t: Token) {
+    if (t.paymentStatus === "PAID") {
+      return (
+        <span className="badge badge-green" style={{ fontSize: 9, padding: "2px 7px" }}>
+          ₹ {t.paymentMethod === "UPI" ? "UPI paid" : "Cash paid"}{t.paymentAmount ? ` · ₹${t.paymentAmount}` : ""}
+        </span>
+      );
+    }
+    if (t.paymentStatus === "PENDING_CONFIRM") {
+      return (
+        <div className="row gap-6 center-v" style={{ marginTop: 6, padding: "6px 8px", borderRadius: 8, background: "#fefce8", border: "1px solid #fef08a" }}>
+          <AlertCircle size={13} color="#854d0e" style={{ flexShrink: 0 }} />
+          <span className="tiny semi" style={{ color: "#854d0e", flex: 1 }}>
+            Claims {t.paymentMethod ?? ""} payment{t.paymentAmount ? ` · ₹${t.paymentAmount}` : ""}
+          </span>
+          <button className="btn btn-sm" style={{ fontSize: 10, padding: "3px 8px", background: "var(--green-500)", color: "#fff", borderRadius: 6 }} disabled={verifying === t.id} onClick={() => confirmPayment(t)}>
+            Confirm
+          </button>
+          <button className="btn btn-sm" style={{ fontSize: 10, padding: "3px 8px", background: "var(--red-600)", color: "#fff", borderRadius: 6 }} disabled={verifying === t.id} onClick={() => rejectPayment(t)}>
+            Reject
+          </button>
+        </div>
+      );
+    }
+    return null;
+  }
 
   return (
     <div className="screen">
@@ -211,20 +276,26 @@ export default function QueueManager() {
               <div className="col gap-8">
                 <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Now serving</span>
                 {called.map((t) => (
-                  <div key={t.id} className="card row gap-12" style={{ padding: 12, border: "2px solid var(--green-500)", background: "#f0fdf4" }}>
-                    <span style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--green-500)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <Bell size={16} />
-                    </span>
-                    <div className="grow" style={{ minWidth: 0 }}>
-                      <div className="semi small">{t.name}</div>
-                      <div className="tiny muted">{t.partySize} · called — awaiting arrival</div>
+                  <div key={t.id} className="card col gap-6" style={{ padding: 12, border: "2px solid var(--green-500)", background: "#f0fdf4" }}>
+                    <div className="row gap-12">
+                      <span style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--green-500)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <Bell size={16} />
+                      </span>
+                      <div className="grow" style={{ minWidth: 0 }}>
+                        <div className="row gap-6 center-v">
+                          <div className="semi small">{t.name}</div>
+                          {t.paymentStatus === "PAID" && paymentRow(t)}
+                        </div>
+                        <div className="tiny muted">{t.partySize} · called — awaiting arrival</div>
+                      </div>
+                      <button className="btn btn-green btn-sm" style={{ padding: "6px 12px" }} onClick={() => serveToken(t, "called")}>
+                        <Check size={15} /> Done
+                      </button>
+                      <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} title="Remove (no-show)" onClick={() => removeToken(t)}>
+                        <X size={15} />
+                      </button>
                     </div>
-                    <button className="btn btn-green btn-sm" style={{ padding: "6px 12px" }} onClick={() => serveToken(t, "called")}>
-                      <Check size={15} /> Done
-                    </button>
-                    <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} title="Remove (no-show)" onClick={() => removeToken(t)}>
-                      <X size={15} />
-                    </button>
+                    {t.paymentStatus === "PENDING_CONFIRM" && paymentRow(t)}
                   </div>
                 ))}
               </div>
@@ -263,6 +334,29 @@ export default function QueueManager() {
                 <p className="muted small center" style={{ padding: 20 }}>Queue is empty 🎉</p>
               )}
             </div>
+
+            {/* Recently served — payment verification has nowhere else to
+                surface once a token leaves the waiting/called board. */}
+            {served.length > 0 && (
+              <div className="col gap-8">
+                <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Recently served</span>
+                {served.map((t) => (
+                  <div key={t.id} className="card col gap-6" style={{ padding: 12 }}>
+                    <div className="row gap-12 center-v">
+                      <div className="grow" style={{ minWidth: 0 }}>
+                        <div className="semi small">{t.name}</div>
+                        <div className="tiny muted">{t.partySize} · served {servedAgoLabel(t.joinedAtISO)}</div>
+                      </div>
+                      {t.paymentStatus === "PAID" && paymentRow(t)}
+                      {(!t.paymentStatus || t.paymentStatus === "UNPAID" || t.paymentStatus === "REJECTED") && (
+                        <span className="tiny muted">Not paid yet</span>
+                      )}
+                    </div>
+                    {t.paymentStatus === "PENDING_CONFIRM" && paymentRow(t)}
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>

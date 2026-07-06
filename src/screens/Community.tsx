@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MessageCircle, Plus, MapPin, Search as SearchIcon, CheckCircle2, ArrowLeft } from "@/components/Icons";
+import { Heart, MessageCircle, Plus, MapPin, Search as SearchIcon, CheckCircle2, ArrowLeft, ArrowUpDown } from "@/components/Icons";
 import { communityService, discoveryService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { useApp } from "@/store";
+import { trendingScore } from "@/lib/trending";
 import type { CommunityPost, CommunityPostType, Business, Provider, BookmarkTarget } from "@/types";
 import { displayName as safeName } from "@/lib/publicName";
 
@@ -24,6 +25,7 @@ export default function Community() {
   const nav = useNavigate();
   const { area, user, activeContext } = useApp();
   const [filter, setFilter] = useState<"ALL" | CommunityPostType>("ALL");
+  const [sort, setSort] = useState<"recent" | "trending">("recent");
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }),
     "community_posts",
@@ -35,7 +37,8 @@ export default function Community() {
   const posts = data ?? [];
   const businesses = bizPage?.data ?? [];
   const providers = provPage?.data ?? [];
-  const list = posts.filter((p) => filter === "ALL" || p.type === filter);
+  const filtered = posts.filter((p) => filter === "ALL" || p.type === filter);
+  const list = sort === "trending" ? [...filtered].sort((a, b) => trendingScore(b) - trendingScore(a)) : filtered;
 
   return (
     <div className="screen with-nav">
@@ -79,7 +82,16 @@ export default function Community() {
         ) : list.length === 0 ? (
           <EmptyState emoji="🏘️" title="Nothing here yet" text="Be the first to post in this category." action={<button className="btn btn-primary btn-sm" onClick={() => nav("/community/new")}>Post something</button>} />
         ) : (
-          list.map((p) => <CommunityCard key={p.id} post={p} businesses={businesses} providers={providers} onRefetch={refetch} />)
+          <>
+            <button
+              className="row gap-6 center-v tiny semi"
+              style={{ alignSelf: "flex-end", color: "var(--brand-700)" }}
+              onClick={() => setSort((s) => (s === "trending" ? "recent" : "trending"))}
+            >
+              <ArrowUpDown size={13} /> Sort: {sort === "trending" ? "🔥 Trending nearby" : "Recent"}
+            </button>
+            {list.map((p) => <CommunityCard key={p.id} post={p} businesses={businesses} providers={providers} onRefetch={refetch} />)}
+          </>
         )}
         <div style={{ height: 12 }} />
       </div>

@@ -44,6 +44,7 @@ function mapPost(
   }
 
   p.postedAt = relLabel(row.created_at);
+  p.createdAtISO = row.created_at;
   if (userLat != null && userLng != null && row.lat != null && row.lng != null) {
     p.distanceKm = Math.round(haversineKm(userLat, userLng, row.lat, row.lng) * 10) / 10;
   } else {
