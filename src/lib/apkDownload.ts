@@ -1,9 +1,7 @@
-﻿/**
- * APK download URL — points to the latest GitHub Release asset.
- * The android-release.yml GitHub Actions workflow rebuilds and re-uploads
- * this asset automatically on every push to main.
+/**
+ * APK download URL — points directly to the stryt.apk hosted on the web domain.
+ * Vercel serves this directly from the public/ folder.
  */
-export const APK_DOWNLOAD_URL =
-  "https://github.com/devashish-01/STRYT/releases/latest/download/stryt.apk";
+export const APK_DOWNLOAD_URL = "/stryt.apk";
 
 export const APK_FILENAME = "stryt.apk";
