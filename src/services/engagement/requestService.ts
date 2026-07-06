@@ -127,6 +127,10 @@ function mapAgreement(row: any): Agreement {
     providerLng: row.provider_lng ?? undefined,
     liveStatus: (row.live_status as any) ?? undefined,
     trackingToken: row.tracking_token ?? undefined,
+    paymentMethod: row.payment_method ?? null,
+    paymentStatus: (row.payment_status as any) ?? "UNPAID",
+    paymentAmount: row.payment_amount ?? null,
+    paymentReference: row.payment_reference ?? null,
   };
 }
 
@@ -340,7 +344,7 @@ export const requestService = {
     // Determine which side the current user is on.
     const { data: ag } = await sb
       .from("agreements")
-      .select("requester_user_id, requester_confirmed, responder_confirmed")
+      .select("requester_user_id, responder_user_id, requester_confirmed, responder_confirmed")
       .eq("id", id)
       .maybeSingle();
     const isRequester = (ag as any)?.requester_user_id === uid;
@@ -358,8 +362,24 @@ export const requestService = {
     // (not the stale pre-read) so two near-simultaneous confirmations can't
     // both miss each other and leave the agreement stuck in PENDING — Postgres
     // serializes the two UPDATEs, so whichever commits second sees both = true.
-    if ((updated as any)?.requester_confirmed && (updated as any)?.responder_confirmed) {
+    const bothConfirmed = (updated as any)?.requester_confirmed && (updated as any)?.responder_confirmed;
+    if (bothConfirmed) {
       await sb.from("agreements").update({ status: "ACTIVE" }).eq("id", id);
+    } else {
+      // I confirmed first — the other side has no idea they're on a 10-minute
+      // clock until it silently auto-cancels. Nudge them now instead of
+      // leaving it to the countdown banner they may never open the app to see.
+      // notifications has no client insert policy (every other notification in
+      // this app is written by a SECURITY DEFINER trigger) — this narrow RPC
+      // does the same, scoped to only notifying the other party on this
+      // specific agreement. Best-effort: a failure here shouldn't block the
+      // confirm action itself.
+      const otherUserId = isRequester ? (ag as any)?.responder_user_id : (ag as any)?.requester_user_id;
+      if (otherUserId) {
+        await sb.rpc("notify_agreement_confirm", { p_agreement_id: id, p_recipient_user_id: otherUserId }).then(
+          ({ error: notifyErr }) => { if (notifyErr) console.warn("notify_agreement_confirm:", notifyErr.message); }
+        );
+      }
     }
     return { ok: true, isRequester };
   },
@@ -378,11 +398,56 @@ export const requestService = {
     return { ok: true, status: "COMPLETED" };
   },
 
-  async markDepositPaid(id: string) {
+  /**
+   * Requester claims they've paid the agreed price.
+   * - CASH → PAID immediately (physical handover, same as appointments).
+   * - UPI → PENDING_CONFIRM (responder must verify in their bank app and confirm)
+   *   — the agreement does NOT advance to DEPOSIT_PAID until they do. This
+   *   replaces the old one-sided `markDepositPaid`, which let the requester
+   *   flip the deal to "paid" with zero chance for the responder to dispute
+   *   a claim they never actually received.
+   */
+  async claimAgreementPayment(
+    id: string,
+    method: "UPI" | "CASH",
+    amount?: number | null,
+    reference?: string | null,
+  ) {
     const sb = getSupabase();
-    const { error } = await sb.from("agreements").update({ status: "DEPOSIT_PAID" }).eq("id", id);
+    const patch: Record<string, unknown> = { payment_method: method };
+    if (amount != null) patch.payment_amount = amount;
+    if (reference) patch.payment_reference = reference;
+    if (method === "CASH") {
+      patch.payment_status = "PAID";
+      patch.status = "DEPOSIT_PAID";
+    } else {
+      patch.payment_status = "PENDING_CONFIRM";
+    }
+    const { error } = await sb.from("agreements").update(patch).eq("id", id);
     throwIfError(error);
-    return { ok: true, status: "DEPOSIT_PAID" };
+    return { ok: true };
+  },
+
+  /** Responder confirms they received the UPI payment → PAID + DEPOSIT_PAID. */
+  async confirmAgreementPayment(id: string) {
+    const sb = getSupabase();
+    const { error } = await sb
+      .from("agreements")
+      .update({ payment_status: "PAID", status: "DEPOSIT_PAID" })
+      .eq("id", id);
+    throwIfError(error);
+    return { ok: true };
+  },
+
+  /** Responder rejects the claim → REJECTED; requester can try again. */
+  async rejectAgreementPaymentClaim(id: string) {
+    const sb = getSupabase();
+    const { error } = await sb
+      .from("agreements")
+      .update({ payment_status: "REJECTED" })
+      .eq("id", id);
+    throwIfError(error);
+    return { ok: true };
   },
 
   async startWork(id: string) {

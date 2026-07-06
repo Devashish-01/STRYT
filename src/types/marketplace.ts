@@ -71,6 +71,8 @@ export interface Business {
   ownerEnabled?: boolean;
   deletedAt?: string | null;
   upiId?: string;
+  /** When appointment payment is collected — before accept, or the current default (accept first, pay around service). */
+  paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
   catalog: CatalogItem[];
   offers: Offer[];
 }
@@ -156,6 +158,8 @@ export interface Provider {
   availableUntil?: string | null;
   ownerEnabled?: boolean;
   deletedAt?: string | null;
+  /** When appointment payment is collected — before accept, or the current default (accept first, pay around service). */
+  paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
   catalog: CatalogItem[];
 }
 

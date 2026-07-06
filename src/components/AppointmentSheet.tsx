@@ -8,6 +8,7 @@ import { slotBlockService } from "@/services/engagement/slotBlockService";
 import type { AppointmentRecord, BlockedSlot } from "@/types";
 import { displayName as safeName } from "@/lib/publicName";
 import { Skeleton } from "@/components/states";
+import { PaymentSheet } from "@/components/PaymentSheet";
 
 export interface BookingPackage {
   id: string;
@@ -26,6 +27,10 @@ interface AppointmentSheetProps {
   initialPackage?: BookingPackage | null;
   /** Pre-fills the notes field (e.g. an itemized cart list on checkout) — still editable. */
   initialNotes?: string;
+  /** When the seller collects payment. AT_BOOKING prompts payment immediately after booking, before the seller can accept. */
+  paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
+  /** Seller's UPI ID, passed through to the post-booking payment step when paymentTiming is AT_BOOKING. */
+  payeeUpiId?: string | null;
   onClose: () => void;
   /** Fired after a booking is successfully created (before the sheet closes). */
   onBooked?: () => void;
@@ -40,6 +45,8 @@ export function AppointmentSheet({
   availableNow = false,
   initialPackage,
   initialNotes,
+  paymentTiming = "AT_APPOINTMENT",
+  payeeUpiId,
   onClose,
   onBooked,
 }: AppointmentSheetProps) {
@@ -57,6 +64,7 @@ export function AppointmentSheet({
   const [customerAppointments, setCustomerAppointments] = useState<AppointmentRecord[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [loadingApts, setLoadingApts] = useState(true);
+  const [bookedAppointment, setBookedAppointment] = useState<AppointmentRecord | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -139,7 +147,7 @@ export function AppointmentSheet({
         setUploading(false);
       }
 
-      await appointmentService.create({
+      const created = await appointmentService.create({
         targetId,
         targetName,
         targetType,
@@ -157,14 +165,38 @@ export function AppointmentSheet({
       });
 
       showToast(`Appointment scheduled for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`);
-      onBooked?.();
-      onClose();
+
+      if (paymentTiming === "AT_BOOKING") {
+        // Pay now, before the seller can accept — sheet hands off to PaymentSheet below.
+        setBookedAppointment(created);
+      } else {
+        onBooked?.();
+        onClose();
+      }
     } catch (err: any) {
       showToast(err?.message || "Couldn't schedule appointment. Try again.");
     } finally {
       setUploading(false);
       setSubmitting(false);
     }
+  }
+
+  if (bookedAppointment) {
+    return (
+      <PaymentSheet
+        appointment={bookedAppointment}
+        businessUpiId={payeeUpiId}
+        businessName={targetName}
+        onPaid={() => {
+          onBooked?.();
+          onClose();
+        }}
+        onClose={() => {
+          onBooked?.();
+          onClose();
+        }}
+      />
+    );
   }
 
   return (
@@ -465,6 +497,13 @@ export function AppointmentSheet({
           )}
         </div>
 
+        {/* Pay-at-booking notice */}
+        {paymentTiming === "AT_BOOKING" && !hasAptToday && (
+          <div className="tiny muted center" style={{ marginBottom: 10 }}>
+            This seller requires payment upfront — you'll pay right after confirming.
+          </div>
+        )}
+
         {/* Confirm Action Button */}
         <button
           type="button"
@@ -478,7 +517,9 @@ export function AppointmentSheet({
             : hasAptToday
             ? "Daily Limit Exceeded"
             : selectedSlot
-            ? `Confirm Booking for ${selectedSlot.timeLabel}`
+            ? paymentTiming === "AT_BOOKING"
+              ? `Confirm & Pay for ${selectedSlot.timeLabel}`
+              : `Confirm Booking for ${selectedSlot.timeLabel}`
             : "Select a Time Slot"}
         </button>
       </div>

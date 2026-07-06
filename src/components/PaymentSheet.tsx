@@ -48,11 +48,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
     setClaiming(true);
     try {
       await appointmentService.claimPayment(appointment.id, method, numAmount, reference.trim() || null);
-      if (method === "UPI") {
-        showToast("Payment claim sent — waiting for business to confirm");
-      } else {
-        showToast("Cash payment confirmed ✓");
-      }
+      showToast("Payment claim sent — waiting for business to confirm");
       onPaid();
       onClose();
     } catch {
@@ -216,7 +212,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
               <Banknote size={40} color="var(--green-500)" />
               <div className="semi" style={{ fontSize: 16 }}>Pay in cash at the venue</div>
               <div className="tiny muted center" style={{ maxWidth: 220, lineHeight: 1.6 }}>
-                Hand over the cash when you arrive. This logs your intent to pay so the business knows what to expect.
+                Hand over the cash, then tap below. The business confirms they received it before it counts as paid.
               </div>
             </div>
             <button
@@ -225,7 +221,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
               disabled={claiming}
               onClick={claim}
             >
-              <CheckCircle2 size={18} style={{ display: "inline", marginRight: 8 }} />{claiming ? "Confirming…" : "Confirm — I'll pay in cash"}
+              <CheckCircle2 size={18} style={{ display: "inline", marginRight: 8 }} />{claiming ? "Sending…" : "I've paid in cash"}
             </button>
           </div>
         )}

@@ -204,6 +204,10 @@ export default function BusinessAppointments() {
   function renderAppointmentCard(apt: AppointmentRecord) {
     const repeatOffender = rejectedClaimsCount(apt.customerId);
     const repeatNoShow = noShowCount(apt.customerId);
+    // When this shop collects payment at booking, Accept is gated on the
+    // payment actually clearing — otherwise a customer could get accepted
+    // and seen to before ever paying, defeating the point of pay-first.
+    const requiresPaymentFirst = b?.paymentTiming === "AT_BOOKING" && apt.paymentStatus !== "PAID";
     return (
       <div key={apt.id} className="card col gap-10" style={{ padding: 14 }}>
         <div className="row between center-v">
@@ -333,9 +337,15 @@ export default function BusinessAppointments() {
           <div className="row gap-8" style={{ marginTop: 6, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
             {apt.status === "PENDING" && (
               <>
-                <button type="button" className="btn btn-green grow btn-sm row gap-4 center" onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}>
-                  <Check size={14} /> Accept
-                </button>
+                {requiresPaymentFirst ? (
+                  <div className="grow tiny muted row" style={{ alignItems: "center" }}>
+                    {apt.paymentStatus === "PENDING_CONFIRM" ? "Verify the payment claim above to accept" : "Waiting for customer to pay before you can accept"}
+                  </div>
+                ) : (
+                  <button type="button" className="btn btn-green grow btn-sm row gap-4 center" onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}>
+                    <Check size={14} /> Accept
+                  </button>
+                )}
                 <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
                   <XIcon size={14} /> Decline
                 </button>

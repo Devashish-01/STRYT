@@ -258,9 +258,11 @@ export const appointmentService = {
   },
 
   /**
-   * Customer claims they have paid.
-   * - UPI → PENDING_CONFIRM (business must verify in their bank app and confirm).
-   * - Cash → PAID immediately (physical handover; no digital verification needed).
+   * Customer claims they have paid — both CASH and UPI now require the
+   * business/provider to verify and confirm before it counts. Cash used to
+   * skip straight to PAID on the customer's say-so alone, with no chance for
+   * the seller to dispute a claim they never actually received; that's the
+   * same one-sided-claim bug already fixed for agreement/deal payments.
    */
   async claimPayment(
     id: string,
@@ -268,7 +270,7 @@ export const appointmentService = {
     amount?: number | null,
     reference?: string | null,
   ): Promise<AppointmentRecord | undefined> {
-    const newStatus = method === "CASH" ? "PAID" : "PENDING_CONFIRM";
+    const newStatus: "PENDING_CONFIRM" = "PENDING_CONFIRM";
     const patch: Record<string, unknown> = {
       payment_method: method,
       payment_status: newStatus,

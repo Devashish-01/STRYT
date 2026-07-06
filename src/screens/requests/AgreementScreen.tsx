@@ -84,11 +84,12 @@ function ProgressBar({ status }: { status: AgreementStatus }) {
 // ── Process guide ────────────────────────────────────────────────────────────
 
 const GUIDE: { status: AgreementStatus[]; requesterAction: string; responderAction: string }[] = [
-  { status: ["PENDING"],                requesterAction: "Confirm the agreement",      responderAction: "Confirm the agreement" },
-  { status: ["ACTIVE", "DEPOSIT_PAID"], requesterAction: "Wait for provider to start", responderAction: 'Tap "Mark work started"' },
-  { status: ["IN_PROGRESS"],            requesterAction: "Wait for work to finish",    responderAction: 'Tap "Submit for review"' },
-  { status: ["REVIEW"],                 requesterAction: "Approve or raise a dispute", responderAction: "Await requester approval" },
-  { status: ["COMPLETED"],              requesterAction: "Rate the provider",          responderAction: "Job complete!" },
+  { status: ["PENDING"],       requesterAction: "Confirm the agreement",       responderAction: "Confirm the agreement" },
+  { status: ["ACTIVE"],        requesterAction: "Pay via UPI or cash",         responderAction: "Wait for payment — confirm it if paid via UPI" },
+  { status: ["DEPOSIT_PAID"],  requesterAction: "Wait for provider to start",  responderAction: 'Tap "Mark work started"' },
+  { status: ["IN_PROGRESS"],   requesterAction: "Wait for work to finish",     responderAction: 'Tap "Submit for review"' },
+  { status: ["REVIEW"],        requesterAction: "Approve or raise a dispute",  responderAction: "Await requester approval" },
+  { status: ["COMPLETED"],     requesterAction: "Rate the provider",           responderAction: "Job complete!" },
 ];
 
 function ProcessGuide({ status, isRequester }: { status: AgreementStatus; isRequester: boolean }) {
@@ -364,7 +365,89 @@ export default function AgreementScreen() {
       );
     }
 
-    if (status === "DEPOSIT_PAID" || status === "ACTIVE") {
+    // ACTIVE = confirmed by both, payment not yet settled. Work cannot start
+    // yet for either side — payment must clear first (cash: instant; UPI:
+    // responder must confirm receipt), matching the intended order: approve
+    // → pay → (UPI) provider/business approves the payment → THEN work starts.
+    if (status === "ACTIVE") {
+      const pStatus = agreement!.paymentStatus ?? "UNPAID";
+
+      if (!isRequester) {
+        // Responder: the confirm/reject buttons for a pending UPI claim live
+        // in the card above (main scroll area) — the bottom bar just reflects
+        // where things stand so there's no "start work" escape hatch here.
+        return (
+          <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+            <button className="btn btn-outline btn-block" disabled>
+              {pStatus === "PENDING_CONFIRM"
+                ? "Review the payment claim above to confirm"
+                : `Waiting for ${otherName} to pay…`}
+            </button>
+          </div>
+        );
+      }
+
+      // Requester already claimed via UPI — nothing to do but wait; the
+      // responder must confirm or reject before this can move forward.
+      if (pStatus === "PENDING_CONFIRM") {
+        return (
+          <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+            <button className="btn btn-outline btn-block" disabled>
+              <Clock size={16} /> Waiting for {otherName} to confirm payment…
+            </button>
+          </div>
+        );
+      }
+
+      return (
+        <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+          {pStatus === "REJECTED" && (
+            <p className="tiny" style={{ color: "var(--red-600)", textAlign: "center", margin: 0 }}>
+              {otherName} rejected your last claim — check the amount/method and try again.
+            </p>
+          )}
+          {/* Pay the responder over UPI (QR from their saved UPI ID), then
+              claim it — the responder must confirm they actually received it
+              before the deal advances. Cash is confirmed instantly (physical
+              handover needs no remote verification), same as appointments. */}
+          <button
+            className="btn btn-outline btn-block"
+            onClick={() => setPayOpen(true)}
+          >
+            <QrCode size={16} /> Pay ₹{agreement!.agreedPrice} via UPI
+          </button>
+          <div className="row gap-8">
+            <button
+              className="btn btn-primary grow"
+              disabled={busy}
+              onClick={() => run(
+                () => requestService.claimAgreementPayment(agreement!.id, "UPI", agreement!.agreedPrice),
+                "Payment claim sent — waiting for confirmation"
+              )}
+            >
+              <Wallet size={16} /> I've paid via UPI
+            </button>
+            <button
+              className="btn btn-green grow"
+              disabled={busy}
+              onClick={() => run(
+                () => requestService.claimAgreementPayment(agreement!.id, "CASH", agreement!.agreedPrice),
+                "Cash payment confirmed ✓"
+              )}
+            >
+              I've paid in cash
+            </button>
+          </div>
+          <p className="tiny muted" style={{ textAlign: "center" }}>
+            UPI claims need {otherName}'s confirmation; cash is confirmed instantly.
+          </p>
+        </div>
+      );
+    }
+
+    // DEPOSIT_PAID = payment settled (cash confirmed instantly, or UPI
+    // confirmed by the responder) — only now can work actually start.
+    if (status === "DEPOSIT_PAID") {
       if (!isRequester) {
         return (
           <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
@@ -375,31 +458,6 @@ export default function AgreementScreen() {
             >
               Mark work started
             </button>
-          </div>
-        );
-      }
-      if (status === "ACTIVE") {
-        return (
-          <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
-            {/* Pay the responder over UPI (QR from their saved UPI ID), then
-                confirm settlement. Cash-in-person also supported via the same
-                confirm button. */}
-            <button
-              className="btn btn-outline btn-block"
-              onClick={() => setPayOpen(true)}
-            >
-              <QrCode size={16} /> Pay ₹{agreement!.agreedPrice} via UPI
-            </button>
-            <button
-              className="btn btn-primary btn-block"
-              disabled={busy}
-              onClick={() => run(() => requestService.markDepositPaid(agreement!.id), "Marked as paid ✓")}
-            >
-              <Wallet size={16} /> Mark paid (cash / UPI)
-            </button>
-            <p className="tiny muted" style={{ textAlign: "center" }}>
-              Pay via UPI above or in person, then mark the deal paid so both sides have a record.
-            </p>
           </div>
         );
       }
@@ -661,6 +719,60 @@ export default function AgreementScreen() {
             <Info size={20} color="var(--orange-500)" style={{ flexShrink: 0 }} />
             <span className="tiny" style={{ color: "#c2410c", lineHeight: 1.4 }}>
               Pay in person / via Razorpay when prompted. <span className="semi">STRYT secures online payments.</span>
+            </span>
+          </div>
+        )}
+
+        {/* Deal payment — the real, working claim→confirm cycle (separate from
+            the escrow badge above, which reflects the not-yet-live Razorpay path). */}
+        {agreement.paymentStatus === "PENDING_CONFIRM" && (
+          isRequester ? (
+            <div className="card row gap-10" style={{ padding: 12, background: "#fffbeb", border: "1px solid #fef3c7" }}>
+              <Clock size={18} color="#d97706" style={{ flexShrink: 0 }} />
+              <div className="grow">
+                <div className="tiny semi" style={{ color: "#b45309" }}>Waiting for {otherName} to confirm receipt</div>
+                <div className="tiny muted">
+                  Claimed via {agreement.paymentMethod}{agreement.paymentAmount ? ` · ${inr(agreement.paymentAmount)}` : ""}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="card col gap-10" style={{ padding: 12, background: "#fefce8", border: "1px solid #fef08a" }}>
+              <div className="row gap-8" style={{ alignItems: "center" }}>
+                <span style={{ fontSize: 18 }}>⏳</span>
+                <div className="grow">
+                  <div className="tiny semi" style={{ color: "#854d0e" }}>{agreement.requesterName} claims payment via {agreement.paymentMethod}</div>
+                  <div className="tiny" style={{ color: "#78350f", marginTop: 1 }}>
+                    {agreement.paymentAmount ? `Amount: ${inr(agreement.paymentAmount)}` : "Amount not specified"}
+                    {agreement.paymentReference ? ` • Ref: ${agreement.paymentReference}` : ""}
+                  </div>
+                </div>
+              </div>
+              <div className="row gap-8">
+                <button
+                  className="btn btn-green grow btn-sm"
+                  disabled={busy}
+                  onClick={() => run(() => requestService.confirmAgreementPayment(agreement!.id), "Payment confirmed ✓")}
+                >
+                  <CheckCircle2 size={14} /> Confirm received
+                </button>
+                <button
+                  className="btn btn-outline grow btn-sm"
+                  style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
+                  disabled={busy}
+                  onClick={() => run(() => requestService.rejectAgreementPaymentClaim(agreement!.id), "Payment claim rejected — requester notified")}
+                >
+                  Reject
+                </button>
+              </div>
+            </div>
+          )
+        )}
+        {agreement.paymentStatus === "PAID" && (
+          <div className="card row gap-8" style={{ padding: 12, alignItems: "center" }}>
+            <CheckCircle2 size={16} color="var(--green-500)" />
+            <span className="tiny semi" style={{ color: "#15803d" }}>
+              Payment confirmed{agreement.paymentAmount ? ` · ${inr(agreement.paymentAmount)}` : ""}
             </span>
           </div>
         )}

@@ -116,6 +116,14 @@ export interface Agreement {
   providerLng?: number;
   liveStatus?: JobLiveStatus;
   trackingToken?: string;
+  // Payment claim/confirm cycle — same vocabulary as AppointmentRecord's
+  // paymentMethod/paymentStatus (types/console.ts), so the requester's "I've
+  // paid" claim requires the responder's confirmation before it counts,
+  // instead of a one-sided self-report.
+  paymentMethod?: "UPI" | "CASH" | null;
+  paymentStatus?: "UNPAID" | "PENDING_CONFIRM" | "PAID" | "REJECTED";
+  paymentAmount?: number | null;
+  paymentReference?: string | null;
 }
 
 export interface Review {

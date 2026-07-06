@@ -78,7 +78,7 @@ export default function DealUpiSheet({ payeeUserId, payeeName, amount, onClose }
             <div className="card row gap-10 center-v" style={{ padding: 12, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
               <QrCode size={16} color="#15803d" style={{ flexShrink: 0 }} />
               <div className="tiny" style={{ color: "#15803d", lineHeight: 1.5 }}>
-                Scan or open your UPI app. After paying, tap <strong>Mark paid</strong> back on the deal.
+                Scan or open your UPI app. After paying, tap <strong>"I've paid via UPI"</strong> back on the deal.
               </div>
             </div>
 

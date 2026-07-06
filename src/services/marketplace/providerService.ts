@@ -34,7 +34,7 @@ const PROVIDER_COLUMNS = new Set([
   "userId","displayName","categoryId","categoryName","subCategory","bio","avatar",
   "lat","lng","serviceRadiusKm","startingPrice","availabilityNote","status","isVerified",
   "ratingAvg","ratingCount","jobsDone","responseTime","isNew","skills","phone",
-  "verificationStatus","verificationDocumentUrl",
+  "verificationStatus","verificationDocumentUrl","paymentTiming",
   "email","upiId","showPhonePublicly","showEmailPublicly","locationPublic",
 ]);
 

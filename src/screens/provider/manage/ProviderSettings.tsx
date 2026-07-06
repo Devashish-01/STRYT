@@ -38,6 +38,8 @@ export default function ProviderSettings() {
   const [locPublic, setLocPublic] = useState(false);
   const [customQrUrl, setCustomQrUrl] = useState("");
   const [uploadingQr, setUploadingQr] = useState(false);
+  const [paymentTiming, setPaymentTiming] = useState<"AT_BOOKING" | "AT_APPOINTMENT">("AT_APPOINTMENT");
+  const [savingTiming, setSavingTiming] = useState(false);
 
   async function handleQrUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -90,6 +92,7 @@ export default function ProviderSettings() {
           setShowPhone(prov.showPhonePublicly !== false);
           setShowEmail(prov.showEmailPublicly === true);
           setLocPublic(prov.locationPublic === true);
+          setPaymentTiming(prov.paymentTiming === "AT_BOOKING" ? "AT_BOOKING" : "AT_APPOINTMENT");
         }
         setLoading(false);
       })
@@ -97,6 +100,20 @@ export default function ProviderSettings() {
         setLoading(false);
       });
   }, [id]);
+
+  async function savePaymentTiming(v: "AT_BOOKING" | "AT_APPOINTMENT") {
+    const prev = paymentTiming;
+    setPaymentTiming(v);
+    setSavingTiming(true);
+    try {
+      await providerService.update(id, { paymentTiming: v } as any);
+    } catch {
+      setPaymentTiming(prev);
+      showToast("Couldn't save — try again");
+    } finally {
+      setSavingTiming(false);
+    }
+  }
 
   async function handleToggleVisibility(v: boolean) {
     setOwnerEnabled(v);
@@ -173,6 +190,37 @@ export default function ProviderSettings() {
                   <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleQrUpload} disabled={uploadingQr} />
                 </label>
               )}
+            </div>
+
+            <div className="divider" style={{ margin: "2px 0" }} />
+
+            {/* Appointment payment timing */}
+            <div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>When to collect appointment payment</div>
+              <div className="tiny muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>
+                "At booking" requires the customer to pay before you can accept their appointment. "At appointment" (default) lets you accept first — payment happens around the service, whenever suits you.
+              </div>
+              <div className="row gap-8">
+                {(["AT_APPOINTMENT", "AT_BOOKING"] as const).map((t) => (
+                  <button
+                    key={t}
+                    className="grow"
+                    disabled={savingTiming}
+                    style={{
+                      padding: "10px 0",
+                      borderRadius: 12,
+                      border: paymentTiming === t ? "2px solid var(--green-500)" : "1.5px solid var(--ink-200)",
+                      background: paymentTiming === t ? "#f0fdf4" : "#fff",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      color: paymentTiming === t ? "#15803d" : "var(--ink-500)",
+                    }}
+                    onClick={() => savePaymentTiming(t)}
+                  >
+                    {t === "AT_BOOKING" ? "At booking" : "At appointment"}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

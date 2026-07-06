@@ -18,6 +18,14 @@ function isUpcoming(a: AppointmentRecord): boolean {
   return (a.status === "PENDING" || a.status === "ACCEPTED") && future;
 }
 
+// Payment can be claimed/tracked at any of these stages: PENDING (seller may
+// require payment before accepting), ACCEPTED (the normal pay-around-service
+// case), or COMPLETED (an accepted appointment auto-completes once its slot
+// passes — the payment step must not vanish just because that ran).
+function isPayable(status: AppointmentRecord["status"]): boolean {
+  return status === "PENDING" || status === "ACCEPTED" || status === "COMPLETED";
+}
+
 interface RebookTarget {
   apt: AppointmentRecord;
   mode: "RESCHEDULE" | "AGAIN";
@@ -156,18 +164,28 @@ export default function MyAppointments() {
                           <Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}
                         </div>
                       </div>
-                      <span
-                        className={`badge ${
-                          apt.status === "ACCEPTED" || apt.status === "COMPLETED"
-                            ? "badge-green"
-                            : apt.status === "REJECTED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW"
-                            ? "badge-gray"
-                            : "badge-purple"
-                        }`}
-                        style={{ fontSize: 10, padding: "3px 9px" }}
-                      >
-                        {apt.status === "ACCEPTED" ? "CONFIRMED" : apt.status.replace("_", " ")}
-                      </span>
+                      <div className="col gap-4" style={{ alignItems: "flex-end" }}>
+                        <span
+                          className={`badge ${
+                            apt.status === "ACCEPTED" || apt.status === "COMPLETED"
+                              ? "badge-green"
+                              : apt.status === "REJECTED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW"
+                              ? "badge-gray"
+                              : "badge-purple"
+                          }`}
+                          style={{ fontSize: 10, padding: "3px 9px" }}
+                        >
+                          {apt.status === "ACCEPTED" ? "CONFIRMED" : apt.status.replace("_", " ")}
+                        </span>
+                        {isPayable(apt.status) && (
+                          <span
+                            className={`badge ${apt.paymentStatus === "PAID" ? "badge-green" : "badge-gray"}`}
+                            style={{ fontSize: 9, padding: "2px 7px" }}
+                          >
+                            {apt.paymentStatus === "PAID" ? "PAID" : "UNPAID"}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {apt.packageName && (
@@ -197,8 +215,11 @@ export default function MyAppointments() {
 
                     {apt.status === "REJECTED" && <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />}
 
-                    {/* Payment status */}
-                    {apt.status === "ACCEPTED" && apt.paymentStatus === "PAID" && (
+                    {/* Payment status — shown for PENDING too (seller may require
+                        payment before accepting) and COMPLETED too (an accepted
+                        appointment auto-completes once its slot passes; the payment
+                        step must not disappear just because that housekeeping ran). */}
+                    {isPayable(apt.status) && apt.paymentStatus === "PAID" && (
                       <div className="card row gap-8 center-v" style={{ padding: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
                         <CheckCircle2 size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
                         <span className="tiny semi" style={{ color: "#15803d" }}>
@@ -207,7 +228,7 @@ export default function MyAppointments() {
                         </span>
                       </div>
                     )}
-                    {apt.status === "ACCEPTED" && apt.paymentStatus === "PENDING_CONFIRM" && (
+                    {isPayable(apt.status) && apt.paymentStatus === "PENDING_CONFIRM" && (
                       <div className="card row gap-8 center-v" style={{ padding: 10, background: "#fefce8", border: "1px solid #fef08a", borderRadius: 10 }}>
                         <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
                         <div>
@@ -216,7 +237,7 @@ export default function MyAppointments() {
                         </div>
                       </div>
                     )}
-                    {apt.status === "ACCEPTED" && apt.paymentStatus === "REJECTED" && (
+                    {isPayable(apt.status) && apt.paymentStatus === "REJECTED" && (
                       <div className="card row gap-8 center-v" style={{ padding: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10 }}>
                         <AlertCircle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
                         <div className="grow">
@@ -233,7 +254,7 @@ export default function MyAppointments() {
                         </button>
                       </div>
                     )}
-                    {apt.status === "ACCEPTED" && (!apt.paymentStatus || apt.paymentStatus === "UNPAID") && (
+                    {isPayable(apt.status) && (!apt.paymentStatus || apt.paymentStatus === "UNPAID") && (
                       <button
                         type="button"
                         className="btn btn-primary btn-sm row gap-6 center"

@@ -475,6 +475,8 @@ export default function ProviderDetail() {
           availabilityNote={p.availabilityNote}
           availableNow={evalRes.isOpenNow}
           packages={(p.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }))}
+          paymentTiming={p.paymentTiming}
+          payeeUpiId={p.upiId}
           onClose={() => setScheduling(false)}
         />
       )}

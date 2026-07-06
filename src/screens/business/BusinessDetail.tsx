@@ -579,6 +579,8 @@ export default function BusinessDetail() {
           }
           initialPackage={schedulingPkg}
           initialNotes={checkoutMode ? checkoutNotes : undefined}
+          paymentTiming={b.paymentTiming}
+          payeeUpiId={b.upiId}
           onBooked={() => { if (checkoutMode) setCart({}); }}
           onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); }}
         />
