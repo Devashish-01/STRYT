@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2 } from "@/components/Icons";
 import { useApp } from "@/store";
-import { generateWorkingSlots, type AppointmentSlot, DEFAULT_WORKING_HOURS } from "@/utils/availability";
+import { generateWorkingSlots, isWorkingDay, type AppointmentSlot, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { uploadService } from "@/services/core/uploadService";
 import { appointmentService } from "@/services/engagement/appointmentService";
 import { slotBlockService } from "@/services/engagement/slotBlockService";
@@ -104,17 +104,28 @@ export function AppointmentSheet({
   const selectedDate = dates[dayOffset] || new Date();
   const slots = generateWorkingSlots(availabilityNote, selectedDate, existingAppointments, blockedSlots);
 
+  // Default to the first working day rather than always "Today" when today is closed.
+  useEffect(() => {
+    if (dayOffset !== 0) return;
+    if (isWorkingDay(availabilityNote, dates[0])) return;
+    const firstOpen = dates.findIndex((d) => isWorkingDay(availabilityNote, d));
+    if (firstOpen > 0) setDayOffset(firstOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availabilityNote]);
+
   const isSameDay = (d1: Date, d2: Date) =>
     d1.getFullYear() === d2.getFullYear() &&
     d1.getMonth() === d2.getMonth() &&
     d1.getDate() === d2.getDate();
 
-  const hasAptToday = customerAppointments.some(
+  const DAILY_APPOINTMENT_LIMIT = 5;
+  const aptsTodayCount = customerAppointments.filter(
     (apt) =>
       apt.status !== "CANCELLED" &&
       apt.status !== "REJECTED" &&
       isSameDay(new Date(apt.scheduledForISO), selectedDate)
-  );
+  ).length;
+  const hasAptToday = aptsTodayCount >= DAILY_APPOINTMENT_LIMIT;
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -316,10 +327,12 @@ export function AppointmentSheet({
                 ? "Tomorrow"
                 : d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
               const isSelected = dayOffset === idx;
+              const working = isWorkingDay(availabilityNote, d);
               return (
                 <button
                   key={d.toISOString()}
                   type="button"
+                  disabled={!working}
                   onClick={() => {
                     setDayOffset(idx);
                     setSelectedSlot(null);
@@ -331,6 +344,7 @@ export function AppointmentSheet({
                     borderRadius: 16,
                     fontSize: 13,
                     fontWeight: isSelected ? 700 : 500,
+                    opacity: working ? 1 : 0.4,
                   }}
                 >
                   <CalendarIcon size={13} style={{ marginRight: 4 }} /> {label}
@@ -348,7 +362,7 @@ export function AppointmentSheet({
               <div>
                 <div className="bold small" style={{ color: "#991b1b" }}>Daily Appointment Limit Hit</div>
                 <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>
-                  You already have an appointment scheduled for this day. You can only book one appointment per day.
+                  You've reached the limit of {DAILY_APPOINTMENT_LIMIT} appointments for this day. Please pick another date.
                 </div>
               </div>
             </div>

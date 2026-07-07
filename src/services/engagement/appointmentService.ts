@@ -145,10 +145,11 @@ export const appointmentService = {
     const uid = await currentUserId();
     const customerId = uid || payload.customerId || "guest";
 
-    // Enforce one appointment per day rule
+    // Enforce a daily appointment limit (across all businesses/providers)
+    const DAILY_APPOINTMENT_LIMIT = 5;
     const existing = await this.listForCustomer(customerId);
     const selectedDate = new Date(payload.scheduledForISO);
-    const hasAptToday = existing.some((apt) => {
+    const aptsTodayCount = existing.filter((apt) => {
       if (apt.status === "CANCELLED" || apt.status === "REJECTED") return false;
       const aptDate = new Date(apt.scheduledForISO);
       return (
@@ -156,11 +157,11 @@ export const appointmentService = {
         aptDate.getMonth() === selectedDate.getMonth() &&
         aptDate.getDate() === selectedDate.getDate()
       );
-    });
+    }).length;
 
-    if (hasAptToday) {
+    if (aptsTodayCount >= DAILY_APPOINTMENT_LIMIT) {
       throw new Error(
-        "You already have an appointment scheduled for this day. Only one appointment is allowed per day."
+        `You've reached the limit of ${DAILY_APPOINTMENT_LIMIT} appointments for this day. Please pick another date.`
       );
     }
 

@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
-import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import { useParams, useNavigate } from "react-router-dom";
+import { AppBar, EmptyState, SafeImg, inr } from "@/components/common";
 import { requestService, appointmentService, providerService, slotBlockService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -21,9 +21,14 @@ type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
 export default function ProviderLeads() {
   const { id = "" } = useParams();
+  const nav = useNavigate();
   const { showToast } = useApp();
-  const [tab, setTab] = useState<"requests" | "appointments">("requests");
+  const [tab, setTab] = useState<"requests" | "sent" | "appointments">("requests");
   const { data: p } = useQuery(() => providerService.get(id), [id]);
+  const { data: sentProposals, loading: sentLoading } = useQuery(
+    () => requestService.myProposals(id),
+    [id]
+  );
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
       lat: p?.lat ?? undefined,
@@ -324,6 +329,9 @@ export default function ProviderLeads() {
         <button className={`chip ${tab === "requests" ? "active" : ""}`} onClick={() => setTab("requests")}>
           🙋 Open Requests ({items.length})
         </button>
+        <button className={`chip ${tab === "sent" ? "active" : ""}`} onClick={() => setTab("sent")}>
+          📨 Sent ({sentProposals?.length ?? 0})
+        </button>
         <button className={`chip ${tab === "appointments" ? "active" : ""}`} onClick={() => setTab("appointments")}>
           📅 Booked Appointments ({appointments.length})
         </button>
@@ -348,6 +356,27 @@ export default function ProviderLeads() {
               </div>
             )}
           </>
+        )}
+
+        {tab === "sent" && (
+          <div className="page-pad col gap-10" style={{ paddingTop: 12 }}>
+            {sentLoading ? (
+              <ListSkeleton count={3} />
+            ) : (sentProposals ?? []).length === 0 ? (
+              <EmptyState emoji="📨" title="No proposals sent yet" text="Proposals you send as this provider appear here." />
+            ) : (
+              (sentProposals ?? []).map((sp) => (
+                <button key={sp.id} className="card" style={{ textAlign: "left" }} onClick={() => nav(`/request/${sp.requestId}`)}>
+                  <div className="row between">
+                    <span className="badge badge-gray">{sp.status}</span>
+                    <span className="tiny muted">{sp.postedAt}</span>
+                  </div>
+                  <div className="semi small ellipsis" style={{ marginTop: 6 }}>{sp.requestTitle}</div>
+                  <div className="tiny muted" style={{ marginTop: 2 }}>Your quote: {inr(sp.price)}</div>
+                </button>
+              ))
+            )}
+          </div>
         )}
 
         {tab === "appointments" && (

@@ -52,8 +52,8 @@ export function QueuePaymentSheet({ tokenId, businessName, businessUpiId, onPaid
       showToast("Payment claim sent — waiting for business to confirm");
       onPaid();
       onClose();
-    } catch {
-      showToast("Couldn't record payment. Try again.");
+    } catch (e: any) {
+      showToast(e?.message ? `Couldn't record payment: ${e.message}` : "Couldn't record payment. Try again.");
     } finally {
       setClaiming(false);
     }

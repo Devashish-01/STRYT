@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle } from "@/components/Icons";
+import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle, UserCheck } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
@@ -68,8 +68,8 @@ export default function QueueManager() {
       await businessService.confirmQueuePayment(token.id);
       showToast(`✓ Payment confirmed — ${token.name}`);
       refetch();
-    } catch {
-      showToast("Couldn't confirm — try again");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't confirm — try again");
     } finally {
       setVerifying(null);
     }
@@ -81,8 +81,8 @@ export default function QueueManager() {
       await businessService.rejectQueuePaymentClaim(token.id);
       showToast(`Payment claim rejected — ${token.name}`);
       refetch();
-    } catch {
-      showToast("Couldn't reject — try again");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't reject — try again");
     } finally {
       setVerifying(null);
     }
@@ -118,10 +118,10 @@ export default function QueueManager() {
     try {
       await businessService.callNextToken(businessId);
       showToast(`🔔 Called ${first.name}`);
-    } catch {
+    } catch (e: any) {
       setWaiting((t) => [first, ...t]);
       setCalled((c) => c.filter((x) => x.id !== first.id));
-      showToast("Couldn't call next — try again");
+      showToast(e?.message || "Couldn't call next — try again");
     }
   }
 
@@ -131,9 +131,19 @@ export default function QueueManager() {
     try {
       await businessService.serveToken(token.id);
       showToast(`✓ Served ${token.name}`);
-    } catch {
-      showToast("Couldn't mark as served — try again");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't mark as served — try again");
       refetch();
+    }
+  }
+
+  async function markArrived(token: Token) {
+    setCalled((c) => c.map((t) => (t.id === token.id ? { ...t, arrivedAt: new Date().toISOString() } : t)));
+    try {
+      await businessService.markArrived(token.id);
+    } catch (e: any) {
+      setCalled((c) => c.map((t) => (t.id === token.id ? { ...t, arrivedAt: null } : t)));
+      showToast(e?.message || "Couldn't mark arrived — try again");
     }
   }
 
@@ -142,8 +152,8 @@ export default function QueueManager() {
     try {
       await businessService.leaveQueueToken(token.id);
       showToast(`Removed ${token.name}`);
-    } catch {
-      showToast("Couldn't remove — try again");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't remove — try again");
       refetch();
     }
   }
@@ -286,8 +296,13 @@ export default function QueueManager() {
                           <div className="semi small">{t.name}</div>
                           {t.paymentStatus === "PAID" && paymentRow(t)}
                         </div>
-                        <div className="tiny muted">{t.partySize} · called — awaiting arrival</div>
+                        <div className="tiny muted">{t.partySize} · {t.arrivedAt ? "arrived ✓ — serving" : "called — awaiting arrival"}</div>
                       </div>
+                      {!t.arrivedAt && (
+                        <button className="btn btn-outline btn-sm" style={{ padding: "6px 10px" }} onClick={() => markArrived(t)}>
+                          <UserCheck size={15} /> Arrived
+                        </button>
+                      )}
                       <button className="btn btn-green btn-sm" style={{ padding: "6px 12px" }} onClick={() => serveToken(t, "called")}>
                         <Check size={15} /> Done
                       </button>

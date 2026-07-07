@@ -8,6 +8,8 @@ export interface Conversation {
   lastMessagePreview: string;
   hasUnreadA: boolean;
   hasUnreadB: boolean;
+  lastReadAtA?: string | null;
+  lastReadAtB?: string | null;
   createdAt: string;
   // Subject the conversation is "about" (a business/provider listing), if any.
   subjectType?: "business" | "provider" | null;
@@ -33,5 +35,6 @@ export interface Message {
   conversationId: string;
   senderId: string;
   body: string;
+  imageUrl?: string | null;
   createdAt: string;
 }

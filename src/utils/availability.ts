@@ -202,29 +202,14 @@ export interface AppointmentSlot {
   bookedAppointmentId?: string;
 }
 
-/** Generates valid time slots for a given target date based on working hours and slot duration */
-export function generateWorkingSlots(
-  availabilityNote?: string,
-  targetDate = new Date(),
-  existingAppointments: AppointmentRecord[] = [],
-  blockedSlots: BlockedSlot[] = []
-): AppointmentSlot[] {
-  const slots: AppointmentSlot[] = [];
-  const note = availabilityNote || DEFAULT_WORKING_HOURS;
-  
-  const parts = note.split("|");
-  const mainPart = parts[0]?.trim() || DEFAULT_WORKING_HOURS;
-  const configPart = parts[1];
-  
-  let slotDuration = 30;
-  if (configPart && configPart.includes("duration=")) {
-    const match = configPart.match(/duration=(\d+)/);
-    if (match) slotDuration = parseInt(match[1], 10);
-  }
+interface WorkingWindow {
+  isWorkingDay: boolean;
+  fromMin: number;
+  toMin: number;
+}
 
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const targetDayName = dayNames[targetDate.getDay()];
-  
+/** Resolves whether a day is worked and its open/close minutes from an availabilityNote's main part. */
+function resolveWorkingWindow(mainPart: string, targetDayName: string): WorkingWindow {
   let fromMin = parseTimeToMinutes(DEFAULT_START_TIME); // 9:00 AM
   let toMin = parseTimeToMinutes(DEFAULT_END_TIME);  // 7:00 PM
   let isWorkingDay = true;
@@ -262,7 +247,7 @@ export function generateWorkingSlots(
       if (times?.[0]) fromMin = parseTimeToMinutes(times[0]);
       if (times?.[1]) toMin = parseTimeToMinutes(times[1]);
     }
-    
+
     if (mainPart.includes("Mon–Sat") || mainPart.includes("Mon-Sat")) {
       isWorkingDay = targetDayName !== "Sun";
     } else if (mainPart.includes("Mon–Fri") || mainPart.includes("Mon-Fri")) {
@@ -272,7 +257,43 @@ export function generateWorkingSlots(
     }
   }
 
-  if (!isWorkingDay) return [];
+  return { isWorkingDay, fromMin, toMin };
+}
+
+/** Whether the business/provider works on this calendar day, per their availabilityNote. Used to
+ *  disable non-working date chips in the booking UI before a customer even opens the slot grid. */
+export function isWorkingDay(availabilityNote: string | undefined, targetDate: Date): boolean {
+  const note = availabilityNote || DEFAULT_WORKING_HOURS;
+  const mainPart = note.split("|")[0]?.trim() || DEFAULT_WORKING_HOURS;
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return resolveWorkingWindow(mainPart, dayNames[targetDate.getDay()]).isWorkingDay;
+}
+
+/** Generates valid time slots for a given target date based on working hours and slot duration */
+export function generateWorkingSlots(
+  availabilityNote?: string,
+  targetDate = new Date(),
+  existingAppointments: AppointmentRecord[] = [],
+  blockedSlots: BlockedSlot[] = []
+): AppointmentSlot[] {
+  const slots: AppointmentSlot[] = [];
+  const note = availabilityNote || DEFAULT_WORKING_HOURS;
+
+  const parts = note.split("|");
+  const mainPart = parts[0]?.trim() || DEFAULT_WORKING_HOURS;
+  const configPart = parts[1];
+
+  let slotDuration = 30;
+  if (configPart && configPart.includes("duration=")) {
+    const match = configPart.match(/duration=(\d+)/);
+    if (match) slotDuration = parseInt(match[1], 10);
+  }
+
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const targetDayName = dayNames[targetDate.getDay()];
+
+  const { isWorkingDay: workingToday, fromMin, toMin } = resolveWorkingWindow(mainPart, targetDayName);
+  if (!workingToday) return [];
 
   // Owner-set blocks for this calendar day (specific date) or this weekday (recurring).
   const matchingBlocks = matchBlockedSlotsForDate(targetDate, blockedSlots);

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Heart, Share2, Phone, BadgeCheck, MapPin, Clock,
   CheckCircle2, MessageCircle, Flag, Star, ThumbsUp,
-  UserPlus, UserCheck, HandshakeIcon, Plus, Zap,
+  UserPlus, UserCheck, HandshakeIcon, Plus, Zap, Wallet,
 } from "@/components/Icons";
 import { providerService, socialService, communityService } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
@@ -16,10 +16,13 @@ import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import { StoryViewer } from "@/components/Stories";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
+import { PaymentSheet } from "@/components/PaymentSheet";
 import { evaluateProviderAvailability } from "@/utils/availability";
-import { isMockTarget } from "@/services/engagement/appointmentService";
+import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
+import type { AppointmentRecord } from "@/types";
 import { PROVIDER_BADGE_THRESHOLDS } from "@/lib/badges";
 import { displayName as safeName } from "@/lib/publicName";
+import { pushRecentlyViewed } from "@/lib/recentlyViewed";
 import MiniMap from "@/components/MiniMap";
 
 const Handshake = HandshakeIcon as any;
@@ -41,17 +44,28 @@ export default function ProviderDetail() {
   const { data: provPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("provider", id), "community_posts", [id], `author_ref_id=eq.${id}`);
   const { data: highlightsData } = useQuery(() => socialService.highlightsFor("provider", id), [id]);
   const highlights = highlightsData ?? [];
+  const { data: myAppointments, refetch: refetchMyAppointments } = useQuery(
+    () => (user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([])),
+    [user.id]
+  );
 
   // Count a profile view once per provider open.
   useEffect(() => {
     providerService.recordView(id).catch(() => {});
   }, [id]);
+
+  // Track for the "recently viewed" rail on Home once details are loaded.
+  useEffect(() => {
+    if (!p) return;
+    pushRecentlyViewed({ type: "provider", id: p.id, name: p.displayName, image: p.avatar });
+  }, [p?.id]);
   const [tab, setTab] = useState<"about" | "posts" | "portfolio" | "reviews">("about");
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
+  const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
 
   if (loading) {
     return (
@@ -86,6 +100,18 @@ export default function ProviderDetail() {
   const saved = isBookmarked("PROVIDER", p.id);
   const following = isFollowing("PROVIDER", p.id);
   const isOwner = p.userId === user.id;
+  // Surface a quick-pay banner when the customer has an unsettled appointment
+  // with this exact provider, so they don't have to go find it in My Appointments.
+  const payableApt = !isOwner
+    ? (myAppointments ?? []).find(
+        (a) =>
+          a.targetId === p.id &&
+          a.targetType === "PROVIDER" &&
+          a.status !== "CANCELLED" &&
+          a.status !== "REJECTED" &&
+          (a.paymentStatus ?? "UNPAID") === "UNPAID"
+      ) ?? null
+    : null;
   const vouchList = vouches ?? [];
   const hasVouched = vouched.includes(p.id);
   const endorseList = endorsements ?? [];
@@ -403,7 +429,14 @@ export default function ProviderDetail() {
                 <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
                 <div className="grow">
                   <div className="row between"><span className="semi small">{rv.raterName}</span><span className="tiny muted">{rv.date}</span></div>
-                  <StarRow value={rv.rating} size={12} />
+                  <div className="row gap-8 align-center">
+                    <StarRow value={rv.rating} size={12} />
+                    {rv.isVerifiedBooking && (
+                      <span className="tiny semi row gap-2" style={{ color: "var(--green-600)", alignItems: "center" }}>
+                        <BadgeCheck size={11} /> Verified booking
+                      </span>
+                    )}
+                  </div>
                   <p className="small" style={{ marginTop: 6, lineHeight: 1.55 }}>{rv.comment}</p>
                 </div>
               </div>
@@ -470,7 +503,30 @@ export default function ProviderDetail() {
             </button>
           )}
         </div>
+
+        {payableApt && (
+          <button
+            className="row gap-10"
+            style={{ width: "100%", marginTop: 10, padding: "12px 14px", background: "var(--brand-50)", border: "1.5px solid var(--brand-200)", borderRadius: 14 }}
+            onClick={() => setPayingApt(payableApt)}
+          >
+            <Wallet size={18} color="var(--brand-700)" />
+            <span className="semi small grow" style={{ textAlign: "left", color: "var(--brand-700)" }}>
+              {payableApt.packagePrice ? `Pay ₹${payableApt.packagePrice} now` : "Pay for your appointment"}
+            </span>
+          </button>
+        )}
       </div>
+
+      {payingApt && (
+        <PaymentSheet
+          appointment={payingApt}
+          businessUpiId={p.upiId ?? null}
+          businessName={p.displayName}
+          onPaid={refetchMyAppointments}
+          onClose={() => setPayingApt(null)}
+        />
+      )}
 
       {viewingHighlight !== null && (
         <StoryViewer stories={highlights} startIndex={viewingHighlight} onClose={() => setViewingHighlight(null)} />

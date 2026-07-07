@@ -20,6 +20,8 @@ export type NotificationType =
   | "COMMUNITY_COMMENT"
   | "REPORT_RESOLVED"
   | "STORY_REACTION"
+  | "SAVED_SEARCH_MATCH"
+  | "VERIFICATION_DECIDED"
   | "SYSTEM";
 
 export interface AppNotification {

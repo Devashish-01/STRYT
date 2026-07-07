@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag } from "@/components/Icons";
+import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck } from "@/components/Icons";
 import { notificationService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -25,6 +25,8 @@ const meta: Record<NotificationType, { icon: any; color: string; bg: string }> =
   COMMUNITY_COMMENT: { icon: MessageCircle, color: "var(--brand-700)", bg: "var(--brand-100)" },
   REPORT_RESOLVED: { icon: Flag, color: "#5c5573", bg: "#f1eef8" },
   STORY_REACTION: { icon: PartyPopper, color: "#ec4899", bg: "#fdeef6" },
+  SAVED_SEARCH_MATCH: { icon: Search, color: "#0ea5e9", bg: "#e6f5fe" },
+  VERIFICATION_DECIDED: { icon: BadgeCheck, color: "var(--green-500)", bg: "#e8f7ee" },
   SYSTEM: { icon: Bell, color: "#5c5573", bg: "#f1eef8" },
 };
 

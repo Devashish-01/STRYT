@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { X, MapPin, Navigation, Loader, Search } from "@/components/Icons";
+import { X, MapPin, Navigation, Loader } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService } from "@/services";
-import { forwardGeocode, reverseGeocode, type GeoPlace } from "@/lib/geocode";
+import { reverseGeocode, type GeoPlace } from "@/lib/geocode";
 import { config } from "@/config";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
@@ -12,18 +12,7 @@ interface Props {
 
 export default function LocationPickerSheet({ onClose }: Props) {
   const { area, refreshUser, showToast, setArea } = useApp();
-  const [q, setQ] = useState("");
-  const [results, setResults] = useState<GeoPlace[]>([]);
-  const [searching, setSearching] = useState(false);
   const [locating, setLocating] = useState(false);
-
-  async function handleSearch(text: string) {
-    setQ(text);
-    if (!text.trim()) { setResults([]); return; }
-    setSearching(true);
-    try { setResults(await forwardGeocode(text)); } catch { /* ignore */ }
-    finally { setSearching(false); }
-  }
 
   async function handleSelect(p: GeoPlace) {
     try {
@@ -129,65 +118,26 @@ export default function LocationPickerSheet({ onClose }: Props) {
           </span>
         </button>
 
-        {/* Search Box */}
-        <div className="row gap-8" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 14, padding: "0 14px", background: "var(--ink-50)", alignItems: "center", marginBottom: 18 }}>
-          <Search size={16} color="var(--ink-400)" />
-          <input
-            className="input grow"
-            style={{ border: "none", padding: "12px 0", fontSize: 14, background: "transparent" }}
-            placeholder="Search address or area..."
-            value={q}
-            onChange={(e) => handleSearch(e.target.value)}
-          />
-          {searching && <Loader size={14} className="spin" style={{ color: "var(--ink-400)" }} />}
-          {q && (
-            <button onClick={() => { setQ(""); setResults([]); }} style={{ border: "none", background: "none", color: "var(--ink-400)", cursor: "pointer", padding: 2 }}>
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Results List */}
+        {/* Popular areas — GPS is the primary path; this is the fallback when it fails */}
         <div className="col gap-10" style={{ overflowY: "auto", flexGrow: 1, maxHeight: 280 }}>
-          {results.length > 0 ? (
-            results.map((r, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSelect(r)}
-                style={{
-                  width: "100%", padding: "10px 12px", border: "none", background: "none",
-                  textAlign: "left", fontSize: 13, color: "var(--ink-850)", borderBottom: "1px solid var(--ink-100)",
-                  cursor: "pointer", display: "block"
-                }}
-              >
-                <div className="semi" style={{ color: "var(--ink-900)" }}>{r.area}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 2 }}>{r.full}</div>
-              </button>
-            ))
-          ) : q.trim().length >= 2 ? (
-            <div className="col center muted small" style={{ padding: 20 }}>No matches found.</div>
-          ) : (
-            <>
-              <div className="tiny semi muted" style={{ letterSpacing: 0.5 }}>POPULAR SEARCHES</div>
-              {presetLocations.map((p) => (
-                <button
-                  key={p.area}
-                  onClick={() => handleSelect(p)}
-                  className="row gap-10"
-                  style={{
-                    width: "100%", padding: "12px 14px", border: "none", background: "var(--ink-50)",
-                    borderRadius: 14, textAlign: "left", cursor: "pointer"
-                  }}
-                >
-                  <span style={{ fontSize: 18 }}>{p.emoji}</span>
-                  <div className="grow">
-                    <div className="semi small" style={{ color: "var(--ink-900)" }}>{p.area}</div>
-                    <div style={{ fontSize: 10.5, color: "var(--ink-500)", marginTop: 1 }}>{p.full}</div>
-                  </div>
-                </button>
-              ))}
-            </>
-          )}
+          <div className="tiny semi muted" style={{ letterSpacing: 0.5 }}>POPULAR AREAS</div>
+          {presetLocations.map((p) => (
+            <button
+              key={p.area}
+              onClick={() => handleSelect(p)}
+              className="row gap-10"
+              style={{
+                width: "100%", padding: "12px 14px", border: "none", background: "var(--ink-50)",
+                borderRadius: 14, textAlign: "left", cursor: "pointer"
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{p.emoji}</span>
+              <div className="grow">
+                <div className="semi small" style={{ color: "var(--ink-900)" }}>{p.area}</div>
+                <div style={{ fontSize: 10.5, color: "var(--ink-500)", marginTop: 1 }}>{p.full}</div>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     </div>

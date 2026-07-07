@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Heart, Share2, Phone, Navigation, Clock, MapPin,
   BadgeCheck, Star, Plus, Minus, Tag, MessageCircle, Flag,
-  Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle,
+  Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle, ThumbsUp, Wallet,
 } from "@/components/Icons";
 import { businessService, communityService, socialService } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
@@ -17,10 +17,14 @@ import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import AddToListSheet from "@/components/AddToListSheet";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
+import { PaymentSheet } from "@/components/PaymentSheet";
+import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { isMockTarget } from "@/services/engagement/appointmentService";
+import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
+import type { AppointmentRecord } from "@/types";
 import { distanceLabel } from "@/lib/format";
 import { displayName as safeName } from "@/lib/publicName";
+import { pushRecentlyViewed } from "@/lib/recentlyViewed";
 import MiniMap from "@/components/MiniMap";
 
 export default function BusinessDetail() {
@@ -40,7 +44,17 @@ export default function BusinessDetail() {
   const { data: bizPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("business", id), "community_posts", [id], `author_ref_id=eq.${id}`);
   const { data: highlightsData } = useQuery(() => socialService.highlightsFor("business", id), [id]);
   const highlights = highlightsData ?? [];
+  const { data: myAppointments, refetch: refetchMyAppointments } = useQuery(
+    () => (user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([])),
+    [user.id]
+  );
+  const { data: myQueueEntries, refetch: refetchMyQueues } = useQuery(
+    () => (user.id ? businessService.myQueues() : Promise.resolve([])),
+    [user.id]
+  );
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
+  const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
+  const [payingQueueTokenId, setPayingQueueTokenId] = useState<string | null>(null);
   const [tab, setTab] = useState<"catalog" | "posts" | "about" | "reviews">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [report, setReport] = useState(false);
@@ -59,6 +73,12 @@ export default function BusinessDetail() {
     businessService.recordView(id).catch(() => {});
   }, [id]);
 
+  // Track for the "recently viewed" rail on Home once details are loaded.
+  useEffect(() => {
+    if (!b) return;
+    pushRecentlyViewed({ type: "business", id: b.id, name: b.name, image: b.coverImage });
+  }, [b?.id]);
+
   async function submitQuestion() {
     if (question.trim().length < 5) return;
     setAskingNow(true);
@@ -71,6 +91,16 @@ export default function BusinessDetail() {
       showToast("Couldn't send. Sign in and try again.");
     } finally {
       setAskingNow(false);
+    }
+  }
+
+  async function toggleQuestionUpvote(q: import("@/types").QnaItem) {
+    try {
+      if (q.upvoted) await businessService.removeQuestionUpvote(q.id);
+      else await businessService.upvoteQuestion(q.id);
+      refetchQna();
+    } catch {
+      showToast("Couldn't update — try again");
     }
   }
 
@@ -121,6 +151,25 @@ export default function BusinessDetail() {
     const item = b.catalog.find((c) => c.id === itemId);
     return sum + (item ? (item.salePrice ?? item.price) * qty : 0);
   }, 0);
+
+  // Surface a quick-pay banner when the customer has an unsettled appointment
+  // or queue visit with this exact business, so they don't have to go find it
+  // in My Appointments / My Queue first.
+  const payableApt = !isOwner
+    ? (myAppointments ?? []).find(
+        (a) =>
+          a.targetId === b.id &&
+          a.targetType === "BUSINESS" &&
+          a.status !== "CANCELLED" &&
+          a.status !== "REJECTED" &&
+          (a.paymentStatus ?? "UNPAID") === "UNPAID"
+      ) ?? null
+    : null;
+  const payableQueue = !isOwner && !payableApt
+    ? (myQueueEntries ?? []).find(
+        (q) => q.businessId === b.id && q.status !== "LEFT" && (q.paymentStatus ?? "UNPAID") === "UNPAID"
+      ) ?? null
+    : null;
 
   function add(itemId: string, delta: number) {
     setCart((c) => {
@@ -249,6 +298,22 @@ export default function BusinessDetail() {
               )}
             </div>
 
+            {(payableApt || payableQueue) && (
+              <button
+                className="row gap-10"
+                style={{ width: "100%", marginTop: 10, padding: "12px 14px", background: "var(--brand-50)", border: "1.5px solid var(--brand-200)", borderRadius: 14 }}
+                onClick={() => {
+                  if (payableApt) setPayingApt(payableApt);
+                  else if (payableQueue) setPayingQueueTokenId(payableQueue.tokenId);
+                }}
+              >
+                <Wallet size={18} color="var(--brand-700)" />
+                <span className="semi small grow" style={{ textAlign: "left", color: "var(--brand-700)" }}>
+                  {payableApt?.packagePrice ? `Pay ₹${payableApt.packagePrice} now` : "Pay now"}
+                </span>
+              </button>
+            )}
+
             {/* Follow + notify row */}
             <div className="row gap-10" style={{ marginTop: 12 }}>
               <button
@@ -308,8 +373,8 @@ export default function BusinessDetail() {
                     try {
                       await businessService.joinQueueToken(b.id, safeName(user.name, "Customer"));
                       joinQueue(b.id);
-                    } catch {
-                      showToast("Sign in to join the queue");
+                    } catch (e: any) {
+                      showToast(e?.message || "Sign in to join the queue");
                     }
                   }}
                 >Join queue</button>
@@ -483,8 +548,33 @@ export default function BusinessDetail() {
                   {askingNow ? "Sending…" : "Ask question"}
                 </button>
               </div>
-              {(qnaList ?? []).filter((q) => q.answer).length > 0 && (
+              {(qnaList ?? []).filter((q) => !q.answer).length > 0 && (
                 <div className="col gap-10" style={{ marginTop: 10 }}>
+                  <div className="tiny semi muted">Waiting for an answer</div>
+                  {[...(qnaList ?? [])].filter((q) => !q.answer).sort((a, b) => b.upvotes - a.upvotes).map((q) => (
+                    <div key={q.id} className="card card-condensed row gap-10">
+                      <button
+                        className="col center"
+                        style={{ gap: 2, flexShrink: 0, color: q.upvoted ? "var(--brand-700)" : "var(--ink-400)" }}
+                        onClick={() => toggleQuestionUpvote(q)}
+                        aria-label="Upvote question"
+                      >
+                        <ThumbsUp size={16} fill={q.upvoted ? "var(--brand-700)" : "none"} />
+                        <span className="tiny semi">{q.upvotes}</span>
+                      </button>
+                      <div className="grow">
+                        <div className="row between">
+                          <span className="semi small">{q.askerName}</span>
+                          <span className="tiny muted">{q.askedAt}</span>
+                        </div>
+                        <p className="small" style={{ marginTop: 4 }}>{q.question}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(qnaList ?? []).filter((q) => q.answer).length > 0 && (
+                <div className="col gap-10" style={{ marginTop: 14 }}>
                   {(qnaList ?? []).filter((q) => q.answer).map((q) => (
                     <div key={q.id} className="card card-condensed">
                       <div className="row between">
@@ -493,7 +583,9 @@ export default function BusinessDetail() {
                       </div>
                       <p className="small" style={{ marginTop: 4 }}>{q.question}</p>
                       <div className="card card-condensed" style={{ marginTop: 8, background: "var(--brand-50)", border: "none" }}>
-                        <div className="tiny semi" style={{ color: "var(--brand-700)", marginBottom: 2 }}>Owner</div>
+                        <div className="tiny semi row gap-4" style={{ color: "var(--brand-700)", marginBottom: 2, alignItems: "center" }}>
+                          <BadgeCheck size={12} /> Verified answer
+                        </div>
                         <p className="small">{q.answer}</p>
                       </div>
                     </div>
@@ -540,7 +632,14 @@ export default function BusinessDetail() {
                 <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
                 <div className="grow">
                   <div className="row between"><span className="semi small">{rv.raterName}</span><span className="tiny muted">{rv.date}</span></div>
-                  <StarRow value={rv.rating} size={12} />
+                  <div className="row gap-8 align-center">
+                    <StarRow value={rv.rating} size={12} />
+                    {rv.isVerifiedBooking && (
+                      <span className="tiny semi row gap-2" style={{ color: "var(--green-600)", alignItems: "center" }}>
+                        <BadgeCheck size={11} /> Verified booking
+                      </span>
+                    )}
+                  </div>
                   <p className="small" style={{ marginTop: 6, lineHeight: 1.55 }}>{rv.comment}</p>
                 </div>
               </div>
@@ -567,6 +666,25 @@ export default function BusinessDetail() {
             <span className="row gap-4">Checkout <ArrowLeft size={16} style={{ transform: "rotate(180deg)" }} /></span>
           </button>
         </div>
+      )}
+
+      {payingApt && (
+        <PaymentSheet
+          appointment={payingApt}
+          businessUpiId={b.upiId ?? null}
+          businessName={b.name}
+          onPaid={refetchMyAppointments}
+          onClose={() => setPayingApt(null)}
+        />
+      )}
+      {payingQueueTokenId && (
+        <QueuePaymentSheet
+          tokenId={payingQueueTokenId}
+          businessName={b.name}
+          businessUpiId={b.upiId ?? null}
+          onPaid={refetchMyQueues}
+          onClose={() => setPayingQueueTokenId(null)}
+        />
       )}
 
       {viewingHighlight !== null && (

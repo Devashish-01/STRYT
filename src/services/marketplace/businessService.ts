@@ -8,6 +8,21 @@ import { config } from "@/config";
 import { isMockTarget } from "@/services/engagement/appointmentService";
 import { PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 
+// A Postgrest UPDATE that's blocked by RLS (no row satisfies the policy) returns
+// success with zero rows affected, not an error — so throwIfError alone can't
+// tell a real write from a silently no-op'd one. Queue actions (join/leave/call/
+// serve/pay) all go through plain client updates like this, so this checks the
+// affected-row count explicitly and raises a real, user-visible error instead of
+// a false "success" toast over a database that didn't actually change.
+async function updateQueueToken(tokenId: string, patch: Record<string, unknown>): Promise<void> {
+  const sb = getSupabase();
+  const { data, error } = await sb.from("queue_tokens").update(patch).eq("id", tokenId).select("id");
+  throwIfError(error);
+  if (!data || data.length === 0) {
+    throw new Error("Couldn't update — you may not have permission, or it was already changed.");
+  }
+}
+
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   if (d === 0) return "today";
@@ -147,7 +162,7 @@ export const businessService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
-      .select("id, rating, comment, created_at, rater:users!rater_user_id(name, avatar)")
+      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, avatar)")
       .eq("ratee_type", "BUSINESS")
       .eq("ratee_id", id)
       .order("created_at", { ascending: false })
@@ -160,6 +175,7 @@ export const businessService = {
       rating: r.rating,
       comment: r.comment ?? "",
       date: relDate(r.created_at),
+      isVerifiedBooking: !!r.is_verified_booking,
     }));
   },
 
@@ -202,12 +218,12 @@ export const businessService = {
     const [settingsRes, tokensRes, servedRes] = await Promise.all([
       sb.from("queue_settings").select("is_open, avg_service_min").eq("business_id", businessId).maybeSingle(),
       sb.from("queue_tokens")
-        .select("id, customer_name, party_size, status, created_at, payment_status, payment_method, payment_amount, payment_reference")
+        .select("id, customer_name, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference")
         .eq("business_id", businessId)
         .in("status", ["WAITING", "CALLED"])
         .order("created_at", { ascending: true }),
       sb.from("queue_tokens")
-        .select("id, customer_name, party_size, status, created_at, payment_status, payment_method, payment_amount, payment_reference")
+        .select("id, customer_name, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference")
         .eq("business_id", businessId)
         .eq("status", "SERVED")
         .gte("created_at", since)
@@ -219,6 +235,7 @@ export const businessService = {
       name: t.customer_name,
       partySize: t.party_size,
       joinedAtISO: t.created_at,
+      arrivedAt: t.arrived_at ?? null,
       paymentStatus: t.payment_status ?? "UNPAID",
       paymentMethod: t.payment_method ?? null,
       paymentAmount: t.payment_amount ?? null,
@@ -235,26 +252,20 @@ export const businessService = {
 
   /** Business verifies/rejects a queue payment claim, or a customer/owner claims one. */
   async claimQueuePayment(tokenId: string, method: PaymentMethod, amount: number | null, reference: string | null) {
-    const sb = getSupabase();
     const patch: Record<string, unknown> = { payment_method: method, payment_status: "PENDING_CONFIRM" };
     if (amount != null) patch.payment_amount = amount;
     if (reference) patch.payment_reference = reference;
-    const { error } = await sb.from("queue_tokens").update(patch).eq("id", tokenId);
-    throwIfError(error);
+    await updateQueueToken(tokenId, patch);
     return { ok: true };
   },
 
   async confirmQueuePayment(tokenId: string) {
-    const sb = getSupabase();
-    const { error } = await sb.from("queue_tokens").update({ payment_status: "PAID" }).eq("id", tokenId);
-    throwIfError(error);
+    await updateQueueToken(tokenId, { payment_status: "PAID" });
     return { ok: true };
   },
 
   async rejectQueuePaymentClaim(tokenId: string) {
-    const sb = getSupabase();
-    const { error } = await sb.from("queue_tokens").update({ payment_status: "REJECTED" }).eq("id", tokenId);
-    throwIfError(error);
+    await updateQueueToken(tokenId, { payment_status: "REJECTED" });
     return { ok: true };
   },
 
@@ -281,15 +292,19 @@ export const businessService = {
       .maybeSingle();
     throwIfError(fetchErr);
     if (!data) return { ok: false, message: "Queue is empty" };
-    const { error } = await sb.from("queue_tokens").update({ status: "CALLED" }).eq("id", data.id);
-    throwIfError(error);
+    await updateQueueToken(data.id, { status: "CALLED" });
     return { ok: true };
   },
 
   async serveToken(tokenId: string) {
-    const sb = getSupabase();
-    const { error } = await sb.from("queue_tokens").update({ status: "SERVED" }).eq("id", tokenId);
-    throwIfError(error);
+    await updateQueueToken(tokenId, { status: "SERVED" });
+    return { ok: true };
+  },
+
+  /** Marks that a called customer has actually shown up — independent of "Done"
+   *  (service complete), so arrival and completion are two distinct, verifiable steps. */
+  async markArrived(tokenId: string) {
+    await updateQueueToken(tokenId, { arrived_at: new Date().toISOString() });
     return { ok: true };
   },
 
@@ -297,20 +312,21 @@ export const businessService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to join the queue" }, 401);
-    const { error } = await sb.from("queue_tokens").insert({
+    const { data, error } = await sb.from("queue_tokens").insert({
       business_id: businessId,
       customer_user_id: uid,
       customer_name: customerName,
       party_size: partySize,
-    });
+    }).select("id");
     throwIfError(error);
+    if (!data || data.length === 0) {
+      throw new Error("Couldn't join the queue — you may not have permission. Try again.");
+    }
     return { ok: true };
   },
 
   async leaveQueueToken(tokenId: string) {
-    const sb = getSupabase();
-    const { error } = await sb.from("queue_tokens").update({ status: "LEFT" }).eq("id", tokenId);
-    throwIfError(error);
+    await updateQueueToken(tokenId, { status: "LEFT" });
     return { ok: true };
   },
 
@@ -543,20 +559,35 @@ export const businessService = {
   // Q&A, reservations, leads
   async qna(id: string): Promise<import("@/types").QnaItem[]> {
     const sb = getSupabase();
+    const uid = await currentUserId();
     const { data, error } = await sb
       .from("business_qna")
-      .select("id, business_id, question, answer, created_at, asker:users!asker_user_id(name)")
+      .select("id, business_id, question, answer, upvotes, created_at, asker:users!asker_user_id(name)")
       .eq("business_id", id)
       .order("created_at", { ascending: false })
       .limit(50);
     throwIfError(error);
-    return (data ?? []).map((q: any) => ({
+    const rows = data ?? [];
+
+    let upvotedIds = new Set<string>();
+    if (uid && rows.length > 0) {
+      const { data: mine } = await sb
+        .from("qna_upvotes")
+        .select("qna_id")
+        .eq("user_id", uid)
+        .in("qna_id", rows.map((q: any) => q.id));
+      upvotedIds = new Set((mine ?? []).map((r: any) => r.qna_id));
+    }
+
+    return rows.map((q: any) => ({
       id: q.id,
       businessId: q.business_id,
       askerName: q.asker?.name ?? "Customer",
       question: q.question,
       answer: q.answer ?? undefined,
       askedAt: relDate(q.created_at),
+      upvotes: q.upvotes ?? 0,
+      upvoted: upvotedIds.has(q.id),
     }));
   },
   async askQuestion(id: string, question: string) {
@@ -574,6 +605,25 @@ export const businessService = {
       .update({ answer, answered_at: new Date().toISOString() })
       .eq("id", qId);
     throwIfError(error);
+    return { ok: true };
+  },
+  /** Upvote an unanswered question — surfaces what visitors most want the owner to answer. */
+  async upvoteQuestion(qId: string) {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to upvote" }, 401);
+    try { await sb.from("qna_upvotes").insert({ qna_id: qId, user_id: uid }); } catch { /* duplicate */ }
+    const { count } = await sb.from("qna_upvotes").select("*", { count: "exact", head: true }).eq("qna_id", qId);
+    await sb.from("business_qna").update({ upvotes: count ?? 0 }).eq("id", qId);
+    return { ok: true };
+  },
+  async removeQuestionUpvote(qId: string) {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return { ok: true };
+    await sb.from("qna_upvotes").delete().eq("qna_id", qId).eq("user_id", uid);
+    const { count } = await sb.from("qna_upvotes").select("*", { count: "exact", head: true }).eq("qna_id", qId);
+    await sb.from("business_qna").update({ upvotes: count ?? 0 }).eq("id", qId);
     return { ok: true };
   },
   /**
@@ -670,8 +720,14 @@ export const businessService = {
       ends_at: endsAt,
     });
     throwIfError(error);
-    await sb.from("businesses").update({ is_boosted: true, boosted_until: endsAt }).eq("id", id);
+    await sb.from("businesses").update({ is_boosted: true, boosted_until: endsAt, boost_reminder_sent: false }).eq("id", id);
     return { ok: true, boostType };
+  },
+
+  /** Marks the one-time "boost expires soon" reminder as shown, so it isn't repeated every dashboard visit. */
+  async markBoostReminderSent(id: string) {
+    const sb = getSupabase();
+    await sb.from("businesses").update({ boost_reminder_sent: true }).eq("id", id);
   },
 
   async activeBoosts(id: string): Promise<string[]> {
@@ -700,8 +756,17 @@ export const businessService = {
       .eq("ratee_type", "BUSINESS")
       .eq("ratee_id", id)
       .maybeSingle();
+    // A real completed appointment proves this reviewer actually booked here.
+    const { count: bookingCount } = await sb
+      .from("appointments")
+      .select("*", { count: "exact", head: true })
+      .eq("customer_user_id", uid)
+      .eq("target_type", "BUSINESS")
+      .eq("target_id", id)
+      .eq("status", "COMPLETED");
+    const isVerifiedBooking = (bookingCount ?? 0) > 0;
     if (existing?.id) {
-      const { error } = await sb.from("ratings").update({ rating, comment: comment || null }).eq("id", existing.id);
+      const { error } = await sb.from("ratings").update({ rating, comment: comment || null, is_verified_booking: isVerifiedBooking }).eq("id", existing.id);
       throwIfError(error);
       return;
     }
@@ -716,6 +781,7 @@ export const businessService = {
       ratee_id: id,
       rating,
       comment: comment || null,
+      is_verified_booking: isVerifiedBooking,
     });
     throwIfError(error);
     if ((existingCount ?? 0) === 0) {

@@ -60,6 +60,8 @@ export interface Business {
   isFeatured: boolean;
   /** Paid placement (boosts table) — MUST be labeled "Promoted" wherever it affects ranking. */
   isBoosted?: boolean;
+  boostedUntil?: string | null;
+  boostReminderSent?: boolean;
   isVerified: boolean;
   broadcastRadius?: number;
   verificationStatus?: VerificationStatus;
@@ -221,6 +223,9 @@ export interface QueueOwnerToken {
   name: string;
   partySize: string;
   joinedAtISO: string;
+  /** Set once the business confirms the customer has physically shown up — independent
+   *  of "Done" (service complete), so a no-show can be told apart from a completed visit. */
+  arrivedAt?: string | null;
   paymentStatus?: PaymentStatus;
   paymentMethod?: PaymentMethod | null;
   paymentAmount?: number | null;
@@ -254,6 +259,8 @@ export interface QnaItem {
   question: string;
   answer?: string;
   askedAt: string;
+  upvotes: number;
+  upvoted: boolean;
 }
 
 export interface Lead {

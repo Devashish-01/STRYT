@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search as SearchIcon, X, TrendingUp, Clock } from "@/components/Icons";
+import { Search as SearchIcon, X, TrendingUp, Clock, Bell } from "@/components/Icons";
 import { catalogService, discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -26,7 +26,7 @@ export default function Search() {
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [recent, setRecent] = useState<string[]>(loadRecent);
-  const { user } = useApp();
+  const { user, showToast } = useApp();
 
   // Debounce input so we don't hit the API on every keystroke.
   useEffect(() => {
@@ -40,6 +40,9 @@ export default function Search() {
     () => (query ? discoveryService.search(query, user.lat || undefined, user.lng || undefined) : Promise.resolve({ businesses: [] as Business[], providers: [] as Provider[] })),
     [query, user.lat, user.lng]
   );
+  const { data: savedSearches, refetch: refetchSaved } = useQuery(() => discoveryService.savedSearches(), []);
+  const saved = savedSearches ?? [];
+  const isSaved = saved.some((s) => s.query.toLowerCase() === query);
 
   const bizResults = results?.businesses ?? [];
   const provResults = results?.providers ?? [];
@@ -62,6 +65,23 @@ export default function Search() {
   function clearRecent() {
     setRecent([]);
     try { localStorage.removeItem(RECENT_KEY); } catch {}
+  }
+
+  async function toggleSaveSearch() {
+    if (!debounced) return;
+    try {
+      if (isSaved) {
+        const match = saved.find((s) => s.query.toLowerCase() === query);
+        if (match) await discoveryService.removeSavedSearch(match.id);
+        showToast("Alert removed");
+      } else {
+        await discoveryService.saveSearch(debounced, user.lat || undefined, user.lng || undefined);
+        showToast(`We'll notify you when a "${debounced}" joins nearby`);
+      }
+      refetchSaved();
+    } catch {
+      showToast("Couldn't update alert — try again");
+    }
   }
 
   return (
@@ -118,13 +138,40 @@ export default function Search() {
                 <button key={t} className="chip" onClick={() => setQ(t)}>🔥 {t}</button>
               ))}
             </div>
+
+            {saved.length > 0 && (
+              <>
+                <div className="small semi muted row gap-6" style={{ margin: "22px 0 12px" }}>
+                  <Bell size={15} /> Your alerts
+                </div>
+                <div className="col gap-8">
+                  {saved.map((s) => (
+                    <div key={s.id} className="row between card card-condensed" style={{ padding: "10px 12px" }}>
+                      <button className="small semi" style={{ textAlign: "left" }} onClick={() => setQ(s.query)}>{s.query}</button>
+                      <button
+                        aria-label="Remove alert"
+                        onClick={async () => { await discoveryService.removeSavedSearch(s.id); refetchSaved(); }}
+                      >
+                        <X size={15} color="var(--ink-400)" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         ) : searching ? (
           <ListSkeleton count={3} />
         ) : error ? (
           <ErrorView error={error} onRetry={refetch} />
         ) : total === 0 && catResults.length === 0 ? (
-          <EmptyState emoji="🤷" title={`No results for "${debounced}"`} text="Try a different keyword or browse categories from Explore." />
+          <div className="col center" style={{ gap: 14 }}>
+            <EmptyState emoji="🤷" title={`No results for "${debounced}"`} text="Try a different keyword or browse categories from Explore." />
+            <button className="btn btn-outline btn-sm" onClick={toggleSaveSearch}>
+              <Bell size={15} fill={isSaved ? "var(--brand-700)" : "none"} />
+              {isSaved ? "Alert on — we'll notify you" : `Notify me when a "${debounced}" joins nearby`}
+            </button>
+          </div>
         ) : (
           <div className="page-pad col gap-14">
             {catResults.length > 0 && (
@@ -136,7 +183,12 @@ export default function Search() {
                 ))}
               </div>
             )}
-            <div className="tiny muted">{total} results</div>
+            <div className="row between align-center">
+              <span className="tiny muted">{total} results</span>
+              <button className="tiny semi row gap-4" style={{ color: isSaved ? "var(--brand-700)" : "var(--ink-500)", alignItems: "center" }} onClick={toggleSaveSearch}>
+                <Bell size={13} fill={isSaved ? "var(--brand-700)" : "none"} /> {isSaved ? "Alert on" : "Get alerts"}
+              </button>
+            </div>
             {provResults.map((p) => <ProviderCard key={p.id} p={p} />)}
             {bizResults.map((b) => <BusinessCardWide key={b.id} b={b} />)}
           </div>

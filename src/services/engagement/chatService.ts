@@ -136,15 +136,15 @@ export const chatService = {
     return toCamel<Message[]>(data ?? []);
   },
 
-  /** Send a message and update conversation preview + unread flag on the other side. */
-  async send(conversationId: string, body: string, conv: Conversation): Promise<Message> {
+  /** Send a message (optionally with an image) and update conversation preview + unread flag on the other side. */
+  async send(conversationId: string, body: string, conv: Conversation, imageUrl?: string): Promise<Message> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
 
     const { data: msg, error: msgErr } = await sb
       .from("messages")
-      .insert({ conversation_id: conversationId, sender_id: uid, body })
+      .insert({ conversation_id: conversationId, sender_id: uid, body, image_url: imageUrl ?? null })
       .select()
       .maybeSingle();
     throwIfError(msgErr);
@@ -153,22 +153,40 @@ export const chatService = {
     const isA = uid === conv.participantA;
     await sb.from("conversations").update({
       last_message_at: new Date().toISOString(),
-      last_message_preview: body.slice(0, 80),
+      last_message_preview: imageUrl ? "📷 Photo" : body.slice(0, 80),
       ...(isA ? { has_unread_b: true, has_unread_a: false } : { has_unread_a: true, has_unread_b: false }),
     }).eq("id", conversationId);
 
     return toCamel<Message>(msg);
   },
 
-  /** Mark conversation as read for the current user (reset their unread flag). */
+  /** Mark conversation as read for the current user (reset their unread flag + read-receipt timestamp). */
   async markRead(conversationId: string, conv: Conversation): Promise<void> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
     const isA = uid === conv.participantA;
+    const nowIso = new Date().toISOString();
     await sb.from("conversations")
-      .update(isA ? { has_unread_a: false } : { has_unread_b: false })
+      .update(isA ? { has_unread_a: false, last_read_at_a: nowIso } : { has_unread_b: false, last_read_at_b: nowIso })
       .eq("id", conversationId);
+  },
+
+  /**
+   * One typing channel per conversation, used for both sending and receiving —
+   * broadcast sends need the channel already joined, so listen+send share the
+   * same subscribed instance rather than creating a fresh one per send.
+   */
+  connectTyping(conversationId: string, onTyping: (userId: string) => void): { send: (uid: string) => void; unsubscribe: () => void } {
+    const sb = getSupabase();
+    const channel = sb
+      .channel("typing:" + conversationId)
+      .on("broadcast", { event: "typing" }, (payload: any) => onTyping(payload.payload.userId))
+      .subscribe();
+    return {
+      send: (uid: string) => { channel.send({ type: "broadcast", event: "typing", payload: { userId: uid } }); },
+      unsubscribe: () => { sb.removeChannel(channel); },
+    };
   },
 
   /** Count of conversations with unread messages for the current user. */

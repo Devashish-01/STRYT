@@ -6,15 +6,16 @@ import {
   Calendar, Users, Search, FileText, Clock, User,
   Tag, Megaphone, Globe, QrCode, MessageSquareText, Camera
 } from "@/components/Icons";
-import { businessService } from "@/services";
+import { businessService, communityService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { AppBar } from "@/components/common";
 import { useApp } from "@/store";
-import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
+import { evaluateProviderAvailability, calculateNextTurnoffTime, DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
 import ManageNav from "./ManageNav";
 import ShareCard from "@/components/ShareCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
+import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
@@ -27,6 +28,7 @@ export default function ManageDashboard() {
     [id],
     `business_id=eq.${id}`
   );
+  const { data: bizPosts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
 
   if (!id) {
     return (
@@ -43,6 +45,28 @@ export default function ManageDashboard() {
 
   // Seed the presence toggle from the live shop record.
   useEffect(() => { if (b) setAvailable(b.isAvailableNow ?? false); }, [b]);
+
+  // One-time boost-expiry heads-up, a day before it lapses (no cron in this
+  // project — surfaced on the next dashboard visit instead, then marked sent
+  // so it doesn't repeat; buyBoost() resets the flag on a fresh purchase).
+  useEffect(() => {
+    if (!b?.boostedUntil || b.boostReminderSent) return;
+    const hoursLeft = (new Date(b.boostedUntil).getTime() - Date.now()) / 3600000;
+    if (hoursLeft > 0 && hoursLeft <= 24) {
+      showToast("Your boost expires in less than 24h — renew to keep featured placement");
+      businessService.markBoostReminderSent(id).catch(() => {});
+    }
+  }, [b?.boostedUntil, b?.boostReminderSent]);
+
+  // Guided setup checklist — shown until every step is done.
+  const checklistSteps = [
+    { label: "Add a catalog item", done: (b?.catalog?.length ?? 0) > 0, onClick: () => nav(`${base}/catalog`) },
+    { label: "Set your hours", done: !!b?.hours && b.hours !== DEFAULT_ONBOARD_WORKING_HOURS, onClick: () => nav(`${base}/hours`) },
+    { label: "Upload verification", done: !!b?.verificationStatus, onClick: () => nav(`${base}/verify`) },
+    { label: "Post your first community update", done: (bizPosts?.length ?? 0) > 0, onClick: () => nav("/community/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } }) },
+  ];
+  const checklistDone = checklistSteps.filter((s) => s.done).length;
+  const showChecklist = !!b && checklistDone < checklistSteps.length;
 
   // Availability calculation
   const evalRes = evaluateProviderAvailability(b?.hours, available, b?.availableUntil);
@@ -157,8 +181,8 @@ export default function ManageDashboard() {
               <BadgeCheck size={18} color="#ffba2b" weight="fill" />
             </div>
             <div className="row gap-6" style={{ marginTop: 4 }}>
-              <span className="badge" style={{ background: "rgba(255,255,255,0.2)", color: "#fff", fontSize: 10 }}>
-                {b?.status === "ACTIVE" ? "Live on STRYT" : "Under Review"}
+              <span className="badge" style={{ background: b?.status === "SUSPENDED" ? "var(--red-600)" : "rgba(255,255,255,0.2)", color: "#fff", fontSize: 10 }}>
+                {b?.status === "ACTIVE" ? "Live on STRYT" : b?.status === "SUSPENDED" ? "Suspended" : "Under Review"}
               </span>
               {available && (
                 <span className="badge" style={{ background: "var(--green-600)", color: "#fff", fontSize: 10 }}>
@@ -171,6 +195,40 @@ export default function ManageDashboard() {
       </div>
 
       <div className="screen-scroll">
+        <div style={{ paddingTop: 12 }}>
+          <AccountStatusBanner entityType="BUSINESS" entityId={id} status={b?.status} />
+        </div>
+        {/* ── Guided setup checklist — new sellers land on a full dashboard
+            with no ordered path otherwise. Disappears once all 4 steps are done. ── */}
+        {showChecklist && (
+          <div className="page-pad">
+            <div className="card" style={{ padding: 16 }}>
+              <div className="row between" style={{ marginBottom: 8 }}>
+                <span className="semi small">Finish setting up your shop</span>
+                <span className="tiny semi muted">{checklistDone}/{checklistSteps.length}</span>
+              </div>
+              <div style={{ height: 6, borderRadius: 3, background: "var(--ink-100)", overflow: "hidden", marginBottom: 12 }}>
+                <div style={{ height: "100%", width: `${(checklistDone / checklistSteps.length) * 100}%`, background: "var(--orange-500)", transition: "width 0.3s" }} />
+              </div>
+              <div className="col gap-8">
+                {checklistSteps.map((s) => (
+                  <button key={s.label} className="row gap-10 align-center" style={{ width: "100%", textAlign: "left" }} onClick={s.onClick} disabled={s.done}>
+                    <span style={{
+                      width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                      background: s.done ? "var(--green-500)" : "var(--ink-100)",
+                      color: s.done ? "#fff" : "var(--ink-400)",
+                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12,
+                    }}>
+                      {s.done ? "✓" : ""}
+                    </span>
+                    <span className={`small ${s.done ? "muted" : "semi"}`} style={{ textDecoration: s.done ? "line-through" : "none" }}>{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Active Availability Zap Card ── */}
         <div className="page-pad">
           <button

@@ -4,6 +4,7 @@ import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
 import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, ShieldAlert, Share2, XCircle, QrCode } from "@/components/Icons";
 import { requestService } from "@/services";
 import DealUpiSheet from "@/components/DealUpiSheet";
+import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
@@ -155,6 +156,7 @@ export default function AgreementScreen() {
       requesterUserId: state.request.requesterUserId,
       responderUserId: state.proposal.responderUserId,
       requesterName: state.request.requesterName,
+      requesterAvatar: state.request.requesterAvatar,
       responderName: state.proposal.responderName,
       responderAvatar: state.proposal.responderAvatar,
       agreedPrice: state.proposal.price,
@@ -725,57 +727,17 @@ export default function AgreementScreen() {
 
         {/* Deal payment — the real, working claim→confirm cycle (separate from
             the escrow badge above, which reflects the not-yet-live Razorpay path). */}
-        {agreement.paymentStatus === "PENDING_CONFIRM" && (
-          isRequester ? (
-            <div className="card row gap-10" style={{ padding: 12, background: "#fffbeb", border: "1px solid #fef3c7" }}>
-              <Clock size={18} color="#d97706" style={{ flexShrink: 0 }} />
-              <div className="grow">
-                <div className="tiny semi" style={{ color: "#b45309" }}>Waiting for {otherName} to confirm receipt</div>
-                <div className="tiny muted">
-                  Claimed via {agreement.paymentMethod}{agreement.paymentAmount ? ` · ${inr(agreement.paymentAmount)}` : ""}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="card col gap-10" style={{ padding: 12, background: "#fefce8", border: "1px solid #fef08a" }}>
-              <div className="row gap-8" style={{ alignItems: "center" }}>
-                <span style={{ fontSize: 18 }}>⏳</span>
-                <div className="grow">
-                  <div className="tiny semi" style={{ color: "#854d0e" }}>{agreement.requesterName} claims payment via {agreement.paymentMethod}</div>
-                  <div className="tiny" style={{ color: "#78350f", marginTop: 1 }}>
-                    {agreement.paymentAmount ? `Amount: ${inr(agreement.paymentAmount)}` : "Amount not specified"}
-                    {agreement.paymentReference ? ` • Ref: ${agreement.paymentReference}` : ""}
-                  </div>
-                </div>
-              </div>
-              <div className="row gap-8">
-                <button
-                  className="btn btn-green grow btn-sm"
-                  disabled={busy}
-                  onClick={() => run(() => requestService.confirmAgreementPayment(agreement!.id), "Payment confirmed ✓")}
-                >
-                  <CheckCircle2 size={14} /> Confirm received
-                </button>
-                <button
-                  className="btn btn-outline grow btn-sm"
-                  style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
-                  disabled={busy}
-                  onClick={() => run(() => requestService.rejectAgreementPaymentClaim(agreement!.id), "Payment claim rejected — requester notified")}
-                >
-                  Reject
-                </button>
-              </div>
-            </div>
-          )
-        )}
-        {agreement.paymentStatus === "PAID" && (
-          <div className="card row gap-8" style={{ padding: 12, alignItems: "center" }}>
-            <CheckCircle2 size={16} color="var(--green-500)" />
-            <span className="tiny semi" style={{ color: "#15803d" }}>
-              Payment confirmed{agreement.paymentAmount ? ` · ${inr(agreement.paymentAmount)}` : ""}
-            </span>
-          </div>
-        )}
+        <PaymentStatusCard
+          paymentStatus={agreement.paymentStatus}
+          paymentMethod={agreement.paymentMethod}
+          paymentAmount={agreement.paymentAmount}
+          paymentReference={agreement.paymentReference}
+          claimantName={agreement.requesterName}
+          viewerIsPayer={isRequester}
+          busy={busy}
+          onConfirm={() => run(() => requestService.confirmAgreementPayment(agreement!.id), "Payment confirmed ✓")}
+          onReject={() => run(() => requestService.rejectAgreementPaymentClaim(agreement!.id), "Payment claim rejected — requester notified")}
+        />
 
         {/* Confirmations (shown only while PENDING) */}
         {status === "PENDING" && (

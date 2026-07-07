@@ -4,7 +4,6 @@
 > Format: add entries under the right severity tier; update `Status` inline; never delete fixed entries (mark ✅).
 > File locations use `src/` relative paths. Link to `TASKS.md` task IDs when a bug is part of a planned task.
 
-
 ---
 
 ## Legend

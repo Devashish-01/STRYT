@@ -72,6 +72,8 @@ export interface Proposal {
   responderAvatar: string;
   responderRating: number;
   responderType: "provider" | "business" | "user";
+  /** The business/provider id this proposal was submitted under, when responderType isn't "user". */
+  responderEntityId?: string;
   responderTagline: string;
   price: number;
   message: string;
@@ -101,6 +103,7 @@ export interface Agreement {
   requesterUserId: string;
   responderUserId: string;
   requesterName: string;
+  requesterAvatar: string;
   responderName: string;
   responderAvatar: string;
   agreedPrice: number;
@@ -133,6 +136,7 @@ export interface Review {
   rating: number;
   comment: string;
   date: string;
+  isVerifiedBooking?: boolean;
 }
 
 export interface Settlement {

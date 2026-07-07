@@ -115,7 +115,7 @@ export const providerService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
-      .select("id, rating, comment, created_at, rater:users!rater_user_id(name, avatar)")
+      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, avatar)")
       .eq("ratee_type", "PROVIDER")
       .eq("ratee_id", id)
       .order("created_at", { ascending: false })
@@ -128,6 +128,7 @@ export const providerService = {
       rating: r.rating,
       comment: r.comment ?? "",
       date: relDate(r.created_at),
+      isVerifiedBooking: !!r.is_verified_booking,
     }));
   },
   async update(id: string, patch: Partial<Provider>) {
@@ -319,8 +320,17 @@ export const providerService = {
       .eq("ratee_type", "PROVIDER")
       .eq("ratee_id", id)
       .maybeSingle();
+    // A real completed appointment proves this reviewer actually booked here.
+    const { count: bookingCount } = await sb
+      .from("appointments")
+      .select("*", { count: "exact", head: true })
+      .eq("customer_user_id", uid)
+      .eq("target_type", "PROVIDER")
+      .eq("target_id", id)
+      .eq("status", "COMPLETED");
+    const isVerifiedBooking = (bookingCount ?? 0) > 0;
     if (existing?.id) {
-      const { error } = await sb.from("ratings").update({ rating, comment: comment || null }).eq("id", existing.id);
+      const { error } = await sb.from("ratings").update({ rating, comment: comment || null, is_verified_booking: isVerifiedBooking }).eq("id", existing.id);
       throwIfError(error);
       return;
     }
@@ -330,6 +340,7 @@ export const providerService = {
       ratee_id: id,
       rating,
       comment: comment || null,
+      is_verified_booking: isVerifiedBooking,
     });
     throwIfError(error);
   },

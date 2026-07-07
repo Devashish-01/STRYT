@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Camera, Plus, X, Store, Wrench } from "@/components/Icons";
+import { Camera, Plus, X, Store, Wrench, Image } from "@/components/Icons";
 import { communityService, uploadService, businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -62,6 +62,20 @@ export default function CommunityCompose() {
     } : null
   );
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  async function pickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadService.upload(file, "community");
+      setPhotoUrl(url);
+    } catch { /* ignore */ } finally {
+      setUploading(false);
+    }
+  }
   const [type, setType] = useState<CommunityPostType | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -190,29 +204,26 @@ export default function CommunityCompose() {
                     <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setPhotoUrl(null)}><X size={14} /></button>
                   </div>
                 ) : (
-                  <label style={{ cursor: "pointer" }}>
-                    <div className="col center" style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4 }}>
-                      <Camera size={22} /><span className="tiny">{uploading ? "Uploading…" : "Add photo"}</span>
-                    </div>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      style={{ display: "none" }}
+                  <div className="row gap-8">
+                    <button
+                      className="col center"
+                      style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, opacity: uploading ? 0.6 : 1 }}
                       disabled={uploading}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setUploading(true);
-                        try {
-                          const url = await uploadService.upload(file, "community");
-                          setPhotoUrl(url);
-                        } catch { /* ignore */ } finally {
-                          setUploading(false);
-                        }
-                      }}
-                    />
-                  </label>
+                      onClick={() => cameraRef.current?.click()}
+                    >
+                      <Camera size={22} /><span className="tiny">{uploading ? "…" : "Camera"}</span>
+                    </button>
+                    <button
+                      className="col center"
+                      style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, opacity: uploading ? 0.6 : 1 }}
+                      disabled={uploading}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <Image size={22} /><span className="tiny">{uploading ? "…" : "Gallery"}</span>
+                    </button>
+                    <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickPhoto} />
+                    <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={pickPhoto} />
+                  </div>
                 )}
               </div>
             )}

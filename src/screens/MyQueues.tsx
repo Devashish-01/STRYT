@@ -53,8 +53,8 @@ export default function MyQueues() {
       await businessService.leaveQueueToken(tokenId);
       showToast("Left the queue");
       refetch();
-    } catch {
-      showToast("Couldn't leave queue. Try again.");
+    } catch (e: any) {
+      showToast(e?.message ? `Couldn't leave queue: ${e.message}` : "Couldn't leave queue. Try again.");
     } finally {
       setLeaving(null);
     }

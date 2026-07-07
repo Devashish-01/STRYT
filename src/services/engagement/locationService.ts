@@ -10,6 +10,8 @@ export interface LocationGrant {
   requesterAvatar?: string;
   createdAt?: string;
   updatedAt?: string;
+  /** APPROVED grants lapse 24h after being given unless renewed. */
+  expiresAt?: string | null;
 }
 
 export const locationService = {
@@ -20,10 +22,18 @@ export const locationService = {
     throwIfError(error);
   },
 
-  // Owner approves/denies a specific requester.
+  // Owner approves/denies a specific requester. Approval grants 24h of access.
   async respond(requesterUserId: string, approve: boolean): Promise<void> {
     const sb = getSupabase();
     const { error } = await sb.rpc("respond_location_share", { p_requester: requesterUserId, p_approve: approve });
+    throwIfError(error);
+  },
+
+  // Owner extends an already-approved grant by another 24h, without the
+  // requester needing to ask again.
+  async renew(requesterUserId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("renew_location_share", { p_requester: requesterUserId });
     throwIfError(error);
   },
 
@@ -84,7 +94,7 @@ export const locationService = {
     if (!uid) return [];
     const { data, error } = await sb
       .from("location_share_grants")
-      .select("id, owner_user_id, requester_user_id, status, created_at, updated_at, requester:users!requester_user_id(name, avatar)")
+      .select("id, owner_user_id, requester_user_id, status, created_at, updated_at, expires_at, requester:users!requester_user_id(name, avatar)")
       .eq("owner_user_id", uid)
       .eq("status", "APPROVED")
       .order("updated_at", { ascending: false });
@@ -98,6 +108,7 @@ export const locationService = {
       requesterAvatar: r.requester?.avatar ?? "",
       createdAt: r.created_at,
       updatedAt: r.updated_at,
+      expiresAt: r.expires_at,
     }));
   },
 

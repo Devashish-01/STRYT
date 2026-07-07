@@ -365,6 +365,16 @@ function LocationSharesManager() {
     }
   }
 
+  async function handleRenew(requesterUserId: string) {
+    try {
+      await locationService.renew(requesterUserId);
+      showToast("Access renewed for 24 more hours");
+      refetchActive();
+    } catch {
+      showToast("Failed to renew access. Try again.");
+    }
+  }
+
   const formatRel = (iso?: string) => {
     if (!iso) return "";
     const diff = Date.now() - new Date(iso).getTime();
@@ -374,6 +384,16 @@ function LocationSharesManager() {
     const h = Math.floor(m / 60);
     if (h < 24) return `${h}h ago`;
     return `${Math.floor(h / 24)}d ago`;
+  };
+
+  const formatExpiry = (iso?: string | null): { label: string; expired: boolean } => {
+    if (!iso) return { label: "", expired: false };
+    const diff = new Date(iso).getTime() - Date.now();
+    if (diff <= 0) return { label: "Expired", expired: true };
+    const h = Math.floor(diff / 3600000);
+    if (h < 1) return { label: `Expires in ${Math.floor(diff / 60000)}m`, expired: false };
+    if (h < 24) return { label: `Expires in ${h}h`, expired: false };
+    return { label: `Expires in ${Math.floor(h / 24)}d`, expired: false };
   };
 
   if ((!activeShares || activeShares.length === 0) && (!historyShares || historyShares.length === 0)) {
@@ -389,30 +409,51 @@ function LocationSharesManager() {
             <Eye size={14} color="var(--green-500)" /> Currently sharing location with
           </div>
           <div className="card col gap-8" style={{ padding: 12 }}>
-            {activeShares.map((g) => (
-              <div key={g.id} className="row gap-10" style={{ alignItems: "center" }}>
-                <SafeImg src={g.requesterAvatar} variant="avatar" className="avatar" style={{ width: 34, height: 34 }} />
-                <div className="grow">
-                  <div className="semi small" style={{ color: "var(--ink-900)" }}>{g.requesterName}</div>
-                  <div className="tiny muted">Shared {formatRel(g.updatedAt)}</div>
+            {activeShares.map((g) => {
+              const expiry = formatExpiry(g.expiresAt);
+              return (
+                <div key={g.id} className="row gap-10" style={{ alignItems: "center" }}>
+                  <SafeImg src={g.requesterAvatar} variant="avatar" className="avatar" style={{ width: 34, height: 34 }} />
+                  <div className="grow">
+                    <div className="semi small" style={{ color: "var(--ink-900)" }}>{g.requesterName}</div>
+                    <div className="tiny muted row gap-6">
+                      <span>Shared {formatRel(g.updatedAt)}</span>
+                      {expiry.label && <span style={{ color: expiry.expired ? "#dc2626" : "var(--ink-400)" }}>· {expiry.label}</span>}
+                    </div>
+                  </div>
+                  <button
+                    className="btn"
+                    style={{
+                      padding: "4px 10px",
+                      background: "var(--brand-50)",
+                      color: "var(--brand-700)",
+                      border: "1px solid var(--brand-100)",
+                      fontSize: 11.5,
+                      borderRadius: 8,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => handleRenew(g.requesterUserId)}
+                  >
+                    Renew
+                  </button>
+                  <button
+                    className="btn"
+                    style={{
+                      padding: "4px 10px",
+                      background: "#fef2f2",
+                      color: "#dc2626",
+                      border: "1px solid #fecaca",
+                      fontSize: 11.5,
+                      borderRadius: 8,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => handleRevoke(g.requesterUserId)}
+                  >
+                    Revoke
+                  </button>
                 </div>
-                <button
-                  className="btn"
-                  style={{
-                    padding: "4px 10px",
-                    background: "#fef2f2",
-                    color: "#dc2626",
-                    border: "1px solid #fecaca",
-                    fontSize: 11.5,
-                    borderRadius: 8,
-                    cursor: "pointer",
-                  }}
-                  onClick={() => handleRevoke(g.requesterUserId)}
-                >
-                  Revoke
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

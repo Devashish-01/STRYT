@@ -29,7 +29,10 @@ export default function QnaManager() {
         {data && (
           <div className="page-pad col gap-12">
             {data.length === 0 && <EmptyState emoji="💬" title="No questions yet" text="Customer questions will appear here." />}
-            {data.map((q) => <QaCard key={q.id} q={q} />)}
+            {[...data].sort((a, b) => {
+              if (!!a.answer !== !!b.answer) return a.answer ? 1 : -1;
+              return b.upvotes - a.upvotes;
+            }).map((q) => <QaCard key={q.id} q={q} />)}
           </div>
         )}
       </div>
@@ -54,7 +57,14 @@ function QaCard({ q }: { q: QnaItem }) {
     <div className="card">
       <div className="row between">
         <span className="semi small">{q.askerName}</span>
-        <span className="tiny muted">{q.askedAt}</span>
+        <span className="row gap-8 align-center">
+          {q.upvotes > 0 && (
+            <span className="tiny semi row gap-4" style={{ color: "var(--brand-700)", alignItems: "center" }}>
+              👍 {q.upvotes}
+            </span>
+          )}
+          <span className="tiny muted">{q.askedAt}</span>
+        </span>
       </div>
       <p className="small" style={{ marginTop: 6 }}>{q.question}</p>
       {answered && !editing ? (

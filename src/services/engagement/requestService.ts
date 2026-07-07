@@ -15,7 +15,7 @@ const REQUEST_COLUMNS = new Set([
   "isAnonymous","expiresInHrs","expiresAt",
 ]);
 const PROPOSAL_COLUMNS = new Set([
-  "requestId","responderUserId","responderType","responderTagline","price","message",
+  "requestId","responderUserId","responderType","responderEntityId","responderTagline","price","message",
   "eta","status","isBoosted","broadcastToMetoo",
 ]);
 
@@ -112,6 +112,7 @@ function mapAgreement(row: any): Agreement {
     requesterUserId: row.requester_user_id,
     responderUserId: row.responder_user_id,
     requesterName: row.requester?.name ?? "Requester",
+    requesterAvatar: row.requester?.avatar ?? "",
     responderName: row.responder?.name ?? "Responder",
     responderAvatar: row.responder?.avatar ?? "",
     agreedPrice: row.agreed_price,
@@ -237,26 +238,79 @@ export const requestService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to send a proposal" }, 401);
-    // Fetch responder's profile to denormalize name/avatar into the proposal row.
-    const { data: me } = await sb.from("users").select("name, avatar").eq("id", uid).maybeSingle();
     const cols = pickColumns(data as Record<string, unknown>, PROPOSAL_COLUMNS);
-    // A normal user responds under their first name (public identity);
-    // providers/businesses operate under their real/business name.
-    const responderType = (data.responderType as string) ?? "user";
-    const responderName = responderType === "user"
-      ? firstName((me as any)?.name)
-      : ((me as any)?.name ?? "Responder");
+
+    // A normal user responds under their first name (public identity); a
+    // business/provider responds under its own public name/avatar. The
+    // claimed entity id is client-supplied, so ownership is verified here
+    // (not trusted at face value) before it's allowed to override the name —
+    // otherwise anyone could pass another shop's id and impersonate it.
+    let responderType = (data.responderType as string) ?? "user";
+    let responderEntityId = data.responderEntityId as string | undefined;
+    let responderName: string | undefined;
+    let responderAvatar: string | undefined;
+
+    if (responderType !== "user" && responderEntityId) {
+      const table = responderType === "business" ? "businesses" : "providers";
+      const ownerCol = responderType === "business" ? "owner_user_id" : "user_id";
+      const nameCol = responderType === "business" ? "name" : "display_name";
+      const avatarCol = responderType === "business" ? "cover_image" : "avatar";
+      const { data: entity } = await sb.from(table).select(`${ownerCol}, ${nameCol}, ${avatarCol}`).eq("id", responderEntityId).maybeSingle();
+      if (entity && (entity as any)[ownerCol] === uid) {
+        responderName = (entity as any)[nameCol] ?? undefined;
+        responderAvatar = (entity as any)[avatarCol] ?? "";
+      } else {
+        responderType = "user";
+        responderEntityId = undefined;
+      }
+    } else {
+      responderType = "user";
+      responderEntityId = undefined;
+    }
+
+    if (responderType === "user") {
+      const { data: me } = await sb.from("users").select("name, avatar").eq("id", uid).maybeSingle();
+      responderName = firstName((me as any)?.name);
+      responderAvatar = (me as any)?.avatar ?? "";
+    }
+
     const row = {
       ...toSnake(cols),
       request_id: requestId,
       responder_user_id: uid,
-      responder_name: responderName,
-      responder_avatar: (me as any)?.avatar ?? "",
+      responder_type: responderType,
+      responder_entity_id: responderEntityId ?? null,
+      responder_name: responderName ?? "Responder",
+      responder_avatar: responderAvatar ?? "",
       status: "SUBMITTED",
     };
     const { data: created, error } = await sb.from("proposals").insert(row).select().maybeSingle();
     throwIfError(error);
     return toCamel<Proposal>(created);
+  },
+
+  /** Proposals the signed-in user has sent — optionally scoped to one business/provider
+   *  entity — so a manage console can show "proposals I've sent" independent of the
+   *  generic open-request feed. */
+  async myProposals(entityId?: string): Promise<(Proposal & { requestTitle: string; requestStatus: string })[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return [];
+    let q = sb.from("proposals")
+      .select("*, request:requests!request_id(title, status)")
+      .eq("responder_user_id", uid)
+      .order("created_at", { ascending: false });
+    if (entityId) q = q.eq("responder_entity_id", entityId);
+    const { data, error } = await q;
+    throwIfError(error);
+    return (data ?? []).map((row: any) => {
+      const { request, ...rest } = row;
+      return {
+        ...rowToProposal(rest),
+        requestTitle: request?.title ?? "Request",
+        requestStatus: request?.status ?? "OPEN",
+      };
+    });
   },
 
   async acceptProposal(proposalId: string) {

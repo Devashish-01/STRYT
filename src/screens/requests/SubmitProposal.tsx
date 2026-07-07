@@ -10,7 +10,7 @@ export default function SubmitProposal() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { data: r } = useQuery(() => requestService.get(id), [id]);
-  const { showToast } = useApp();
+  const { showToast, activeContext } = useApp();
   const [price, setPrice] = useState("");
   const [eta, setEta] = useState("");
   const [message, setMessage] = useState("");
@@ -18,12 +18,27 @@ export default function SubmitProposal() {
   const [broadcast, setBroadcast] = useState(false);
   const [sending, setSending] = useState(false);
 
+  // Respond as whichever identity the user is currently switched to (see
+  // RoleSwitcher) — a plain customer, or one of their own businesses/providers.
+  // Ties the proposal to that specific entity (see requestService.submitProposal),
+  // instead of every response defaulting to a generic "user".
+  const respondingAs = activeContext.type !== "customer" && activeContext.id
+    ? { type: activeContext.type as "business" | "provider", id: activeContext.id, name: activeContext.name }
+    : null;
+
   const canSend = !!price && !!eta && message.trim().length > 5 && !sending;
 
   async function send() {
     setSending(true);
     try {
-      await requestService.submitProposal(id, { price: Number(price), eta, message, isBoosted: boost, broadcastToMetoo: broadcast });
+      await requestService.submitProposal(id, {
+        price: Number(price),
+        eta,
+        message,
+        isBoosted: boost,
+        broadcastToMetoo: broadcast,
+        ...(respondingAs ? { responderType: respondingAs.type, responderEntityId: respondingAs.id } : {}),
+      });
       showToast(boost ? "Boosted proposal sent!" : "Proposal sent!");
       setTimeout(() => nav(-1), 600);
     } catch {
@@ -36,6 +51,12 @@ export default function SubmitProposal() {
     <div className="screen">
       <AppBar title="Send a proposal" subtitle={r?.title} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 92 }}>
+        {respondingAs && (
+          <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
+            <span className="tiny muted">Responding as</span>
+            <span className="semi small" style={{ color: "var(--brand-700)" }}>{respondingAs.name}</span>
+          </div>
+        )}
         {r && (
           <div className="card">
             <div className="row between">

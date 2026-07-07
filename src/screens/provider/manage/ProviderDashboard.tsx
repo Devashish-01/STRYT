@@ -4,14 +4,16 @@ import {
   Eye, Briefcase, CheckCircle2, Wallet, Star, Zap,
   Share2, Calendar, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck, Camera
 } from "@/components/Icons";
-import { providerService } from "@/services";
+import { providerService, communityService } from "@/services";
 import { SafeImg, inr, AppBar } from "@/components/common";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
+import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
 import ProviderManageNav from "./ProviderManageNav";
 import ShareCard from "@/components/ShareCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
+import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 
 export default function ProviderDashboard() {
   const { id = "" } = useParams();
@@ -24,6 +26,7 @@ export default function ProviderDashboard() {
     [id],
     `provider_id=eq.${id}`
   );
+  const { data: provPosts } = useQuery(() => communityService.byAuthorRef("provider", id), [id]);
 
   if (!id) {
     return (
@@ -36,6 +39,16 @@ export default function ProviderDashboard() {
   const [available, setAvailable] = useState(false);
   const [share, setShare] = useState(false);
   const base = `/provider/${id}/manage`;
+
+  // Guided setup checklist — shown until every step is done.
+  const checklistSteps = [
+    { label: "Add a service to your catalog", done: (p?.catalog?.length ?? 0) > 0, onClick: () => nav(`${base}/catalog`) },
+    { label: "Set your availability", done: !!p?.availabilityNote && p.availabilityNote !== DEFAULT_ONBOARD_WORKING_HOURS, onClick: () => nav(`${base}/availability`) },
+    { label: "Upload verification", done: !!p?.verificationStatus, onClick: () => nav(`${base}/verify`) },
+    { label: "Post your first community update", done: (provPosts?.length ?? 0) > 0, onClick: () => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } }) },
+  ];
+  const checklistDone = checklistSteps.filter((s) => s.done).length;
+  const showChecklist = !!p && checklistDone < checklistSteps.length;
 
   useEffect(() => {
     if (p) setAvailable(p.isAvailableNow ?? false);
@@ -153,6 +166,40 @@ export default function ProviderDashboard() {
       </div>
 
       <div className="screen-scroll">
+        <div style={{ paddingTop: 12 }}>
+          <AccountStatusBanner entityType="PROVIDER" entityId={id} status={p?.status} />
+        </div>
+        {/* ── Guided setup checklist — new sellers land on a full dashboard
+            with no ordered path otherwise. Disappears once all 4 steps are done. ── */}
+        {showChecklist && (
+          <div className="page-pad">
+            <div className="card" style={{ padding: 16 }}>
+              <div className="row between" style={{ marginBottom: 8 }}>
+                <span className="semi small">Finish setting up your profile</span>
+                <span className="tiny semi muted">{checklistDone}/{checklistSteps.length}</span>
+              </div>
+              <div style={{ height: 6, borderRadius: 3, background: "var(--ink-100)", overflow: "hidden", marginBottom: 12 }}>
+                <div style={{ height: "100%", width: `${(checklistDone / checklistSteps.length) * 100}%`, background: "var(--green-500)", transition: "width 0.3s" }} />
+              </div>
+              <div className="col gap-8">
+                {checklistSteps.map((s) => (
+                  <button key={s.label} className="row gap-10 align-center" style={{ width: "100%", textAlign: "left" }} onClick={s.onClick} disabled={s.done}>
+                    <span style={{
+                      width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                      background: s.done ? "var(--green-500)" : "var(--ink-100)",
+                      color: s.done ? "#fff" : "var(--ink-400)",
+                      display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12,
+                    }}>
+                      {s.done ? "✓" : ""}
+                    </span>
+                    <span className={`small ${s.done ? "muted" : "semi"}`} style={{ textDecoration: s.done ? "line-through" : "none" }}>{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Active Availability Zap Card ── */}
         <div className="page-pad">
           <button

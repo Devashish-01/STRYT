@@ -8,7 +8,9 @@ import { StoriesBar } from "@/components/Stories";
 import { BusinessCardSmall, ProviderCardSmall } from "@/components/cards";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { firstName as safeFirstName } from "@/lib/publicName";
+import { getRecentlyViewed } from "@/lib/recentlyViewed";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
+import { SafeImg } from "@/components/common";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
 // fetched when the user actually opens the scanner, not on every Home visit.
@@ -42,6 +44,7 @@ export default function Home() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [scanner, setScanner] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
+  const [recentlyViewed] = useState(getRecentlyViewed);
 
   const { data: categories, error: categoriesError, refetch: refetchCategories } = useQuery(() => catalogService.getCategories(), []);
   const { data: agreementsList } = useQuery(() => requestService.agreements(), []);
@@ -507,6 +510,26 @@ export default function Home() {
                     >
                       <span style={{ fontSize: 24 }}>{c.icon}</span>
                       <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-800)" }}>{c.name.split(" ")[0]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Recently viewed — quick way back to a listing without re-searching. */}
+            {recentlyViewed.length > 0 && (
+              <div className="card" style={{ padding: 24, borderRadius: 20 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: "var(--ink-900)", margin: "0 0 16px" }}>Recently viewed</h3>
+                <div className="hscroll" style={{ padding: 0 }}>
+                  {recentlyViewed.map((r) => (
+                    <button
+                      key={`${r.type}:${r.id}`}
+                      className="col center"
+                      style={{ gap: 6, width: 72, flexShrink: 0 }}
+                      onClick={() => nav(r.type === "business" ? `/business/${r.id}` : `/provider/${r.id}`)}
+                    >
+                      <SafeImg src={r.image} variant={r.type === "provider" ? "avatar" : "photo"} style={{ width: 56, height: 56, borderRadius: r.type === "provider" ? "50%" : 12, objectFit: "cover" }} />
+                      <span className="tiny semi ellipsis" style={{ maxWidth: 68, textAlign: "center" }}>{r.name}</span>
                     </button>
                   ))}
                 </div>

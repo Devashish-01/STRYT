@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal } from "@/components/Icons";
+import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal, Image } from "@/components/Icons";
 import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -82,6 +82,7 @@ export default function AskCompose() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const [urgent, setUrgent] = useState(false);
   const [recurring, setRecurring] = useState(false);
   const [anon, setAnon] = useState(false);
@@ -382,18 +383,30 @@ export default function AskCompose() {
               </div>
             ))}
             {photos.length < 4 && (
-              <button
-                className="col center"
-                style={{ width: 76, height: 76, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 2, opacity: uploading ? 0.6 : 1 }}
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-              >
-                <Camera size={20} />
-                <span className="tiny">{uploading ? "Uploading…" : "Add"}</span>
-              </button>
+              <>
+                <button
+                  className="col center"
+                  style={{ width: 76, height: 76, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 2, opacity: uploading ? 0.6 : 1 }}
+                  onClick={() => cameraRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <Camera size={20} />
+                  <span className="tiny">{uploading ? "…" : "Camera"}</span>
+                </button>
+                <button
+                  className="col center"
+                  style={{ width: 76, height: 76, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 2, opacity: uploading ? 0.6 : 1 }}
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <Image size={20} />
+                  <span className="tiny">{uploading ? "…" : "Gallery"}</span>
+                </button>
+              </>
             )}
           </div>
           <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={handleFiles} />
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={handleFiles} />
         </div>
 
         {/* ── Payment mode + budget ── */}

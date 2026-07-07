@@ -1,10 +1,17 @@
 import { type Page } from "@/lib/apiClient";
-import { getSupabase } from "@/lib/supabaseClient";
+import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { cursorToRange, toPage, throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import type { Business, Provider } from "@/types";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
+
+export interface SavedSearch {
+  id: string;
+  query: string;
+  radiusKm: number;
+  createdAt: string;
+}
 
 interface FeedParams {
   lat?: number;
@@ -43,7 +50,7 @@ export const discoveryService = {
       page.data = page.data.map((b) => ({
         ...b,
         distanceKm: (b.lat && b.lng) ? haversineKm(userLat, userLng, b.lat, b.lng) : 0,
-      })).filter((b) => b.distanceKm <= radiusLimit);
+      })).filter((b) => b.distanceKm <= Math.min(radiusLimit, b.broadcastRadius ?? Infinity));
       return page;
     }
     let q = sb.from("businesses").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
@@ -56,7 +63,7 @@ export const discoveryService = {
     page.data = page.data.map((b) => ({
       ...b,
       distanceKm: (b.lat && b.lng) ? haversineKm(userLat, userLng, b.lat, b.lng) : 0,
-    })).filter((b) => b.distanceKm <= radiusLimit);
+    })).filter((b) => b.distanceKm <= Math.min(radiusLimit, b.broadcastRadius ?? Infinity));
     return page;
   },
 
@@ -86,7 +93,7 @@ export const discoveryService = {
       page.data = page.data.map((prov) => ({
         ...prov,
         distanceKm: (prov.lat && prov.lng) ? haversineKm(userLat, userLng, prov.lat, prov.lng) : 0,
-      })).filter((prov) => prov.distanceKm <= radiusLimit);
+      })).filter((prov) => prov.distanceKm <= Math.min(radiusLimit, prov.serviceRadiusKm ?? Infinity));
       return page;
     }
     let q = sb.from("providers").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
@@ -99,7 +106,7 @@ export const discoveryService = {
     page.data = page.data.map((prov) => ({
       ...prov,
       distanceKm: (prov.lat && prov.lng) ? haversineKm(userLat, userLng, prov.lat, prov.lng) : 0,
-    })).filter((prov) => prov.distanceKm <= radiusLimit);
+    })).filter((prov) => prov.distanceKm <= Math.min(radiusLimit, prov.serviceRadiusKm ?? Infinity));
     return page;
   },
 
@@ -156,5 +163,37 @@ export const discoveryService = {
         distanceKm: (prov.lat && prov.lng) ? haversineKm(userLat, userLng, prov.lat, prov.lng) : 0,
       })),
     };
+  },
+
+  /** Save a search term so the user is notified when a new nearby listing matches it. */
+  async saveSearch(query: string, lat?: number, lng?: number, radiusKm = 5): Promise<void> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return;
+    const { error } = await sb.from("saved_searches").upsert(
+      { user_id: uid, query: query.trim(), lat: lat ?? null, lng: lng ?? null, radius_km: radiusKm },
+      { onConflict: "user_id,query" }
+    );
+    throwIfError(error);
+  },
+
+  async savedSearches(): Promise<SavedSearch[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return [];
+    const { data, error } = await sb
+      .from("saved_searches")
+      .select("id, query, radius_km, created_at")
+      .eq("user_id", uid)
+      .order("created_at", { ascending: false });
+    if (error) return [];
+    return (data ?? []).map((r: any) => ({ id: r.id, query: r.query, radiusKm: r.radius_km, createdAt: r.created_at }));
+  },
+
+  async removeSavedSearch(id: string): Promise<void> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return;
+    await sb.from("saved_searches").delete().eq("id", id).eq("user_id", uid);
   },
 };

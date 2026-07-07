@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Camera, MapPin, Pencil, X, Search, Check, Globe, Star, UserMinus } from "@/components/Icons";
+import { Camera, MapPin, Pencil, X, Search, Check, Globe, Star, UserMinus, Image } from "@/components/Icons";
 import { AppBar, SafeImg } from "@/components/common";
 import { socialService, uploadService, businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -64,6 +64,23 @@ export default function StoryCompose() {
   const [posting, setPosting] = useState(false);
 
   // Privacy States
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  async function pickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      setImage(await uploadService.upload(file, "story"));
+    } catch {
+      showToast("Failed to upload photo");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const [visibility, setVisibility] = useState<"everyone" | "close_friends">("everyone");
   const [allowedUsers, setAllowedUsers] = useState<any[]>([]); // Close friends list
   const [hiddenUsers, setHiddenUsers] = useState<any[]>([]);   // Excluded users list
@@ -177,46 +194,53 @@ export default function StoryCompose() {
 
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
         {/* Photo picker — phone-story aspect ratio */}
-        <label style={{
-          display: "block", position: "relative", width: "100%",
+        <div style={{
+          position: "relative", width: "100%",
           aspectRatio: "9/14", maxHeight: 380, borderRadius: 18, overflow: "hidden",
-          border: "2px dashed var(--ink-300)", background: "#000", cursor: "pointer",
+          border: "2px dashed var(--ink-300)", background: "#000",
         }}>
-          <input
-            type="file" accept="image/*" style={{ display: "none" }}
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              setUploading(true);
-              try {
-                setImage(await uploadService.upload(file, "story"));
-              } catch {
-                showToast("Failed to upload photo");
-              } finally {
-                setUploading(false);
-              }
-            }}
-          />
+          <input ref={galleryRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickPhoto} />
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={pickPhoto} />
           {image ? (
             <>
-              <img src={image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.95 }} />
-              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.6), transparent 40%)" }} />
+              <img
+                src={image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.95, cursor: "pointer" }}
+                onClick={() => galleryRef.current?.click()}
+              />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.6), transparent 40%)", pointerEvents: "none" }} />
               {caption && (
                 <div style={{ position: "absolute", bottom: 16, left: 14, right: 14, color: "#fff", fontWeight: 600, fontSize: 15, textShadow: "0 1px 4px rgba(0,0,0,0.6)" }}>
                   {caption}
                 </div>
               )}
-              <div style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.45)", borderRadius: 8, padding: "4px 8px" }}>
-                <span className="tiny" style={{ color: "#fff" }}>Tap to change</span>
-              </div>
+              <button
+                className="icon-btn"
+                style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.45)", color: "#fff" }}
+                onClick={() => cameraRef.current?.click()}
+                aria-label="Retake photo"
+              >
+                <Camera size={16} />
+              </button>
             </>
           ) : (
-            <span className="col center muted gap-6" style={{ height: "100%" }}>
-              <Camera size={32} />
-              <span className="small">{uploading ? "Uploading…" : "Tap to add photo"}</span>
-            </span>
+            <div className="col center" style={{ height: "100%", gap: 14 }}>
+              {uploading ? (
+                <span className="small muted">Uploading…</span>
+              ) : (
+                <>
+                  <button className="col center muted gap-6" onClick={() => cameraRef.current?.click()}>
+                    <Camera size={32} />
+                    <span className="small">Take photo</span>
+                  </button>
+                  <button className="col center muted gap-6" onClick={() => galleryRef.current?.click()}>
+                    <Image size={28} />
+                    <span className="small">Choose from gallery</span>
+                  </button>
+                </>
+              )}
+            </div>
           )}
-        </label>
+        </div>
 
         <div className="field">
           <label>Caption <span className="tiny muted">(optional)</span></label>
