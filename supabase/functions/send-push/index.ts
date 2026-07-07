@@ -115,7 +115,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { userId, title, body, deepLink } = await req.json();
+    const { userId, title, body, deepLink, type } = await req.json();
     if (!userId) return json({ error: "userId required" }, 400);
 
     let webSent = 0;
@@ -129,7 +129,9 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", userId);
 
       if (subs && subs.length > 0) {
-        const notification = JSON.stringify({ title, body, url: deepLink || "/" });
+        // `type` lets the service worker group/tag notifications so a burst
+        // of the same kind coalesces instead of stacking dozens of banners.
+        const notification = JSON.stringify({ title, body, url: deepLink || "/", type: type || "SYSTEM" });
         await Promise.all(
           subs.map(async (s: { endpoint: string; p256dh: string; auth: string }) => {
             try {
@@ -178,7 +180,22 @@ Deno.serve(async (req: Request) => {
                       message: {
                         token: t.token,
                         notification: { title, body },
-                        data: { url: deepLink || "/" },
+                        // Android: give the notification a channel with sound +
+                        // heads-up priority so it behaves like a real app's push
+                        // (banner + sound), not a silent tray entry.
+                        android: {
+                          priority: "HIGH",
+                          notification: {
+                            sound: "default",
+                            channel_id: "stryt_default",
+                            default_sound: true,
+                            notification_priority: "PRIORITY_HIGH",
+                          },
+                        },
+                        apns: {
+                          payload: { aps: { sound: "default" } },
+                        },
+                        data: { url: deepLink || "/", type: type || "SYSTEM" },
                       },
                     }),
                   }

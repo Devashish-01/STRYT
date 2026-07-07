@@ -8,6 +8,13 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      // injectManifest (not generateSW): our own src/sw.js owns push +
+      // notificationclick AND the Workbox caching. generateSW produced a
+      // caching-only SW with no push handler, which then fought our separately
+      // registered public/sw.js — so on the built app, web push silently died.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.js",
       includeAssets: ["favicon.svg", "icon-192.png", "icon-512.png"],
       manifest: {
         name: "STRYT — Your Street Marketplace",
@@ -36,33 +43,8 @@ export default defineConfig({
         categories: ["lifestyle", "shopping", "utilities"],
         screenshots: [],
       },
-      workbox: {
-        // Cache page navigations + static assets
+      injectManifest: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-        runtimeCaching: [
-          {
-            // Supabase REST API — network-first, fall back to cache
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*/i,
-            handler: "NetworkFirst",
-            options: {
-              cacheName: "supabase-api-cache",
-              expiration: { maxEntries: 60, maxAgeSeconds: 5 * 60 },
-              networkTimeoutSeconds: 5,
-            },
-          },
-          {
-            // Google Fonts / external CDN assets
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "google-fonts-cache",
-              expiration: { maxEntries: 20, maxAgeSeconds: 365 * 24 * 60 * 60 },
-            },
-          },
-        ],
-        // Return cached shell for all navigation requests (SPA routing)
-        navigateFallback: "index.html",
-        navigateFallbackDenylist: [/^\/api\//, /^\/supabase\//],
       },
       devOptions: {
         // Enable SW in dev for easy testing (disable if it causes caching issues)

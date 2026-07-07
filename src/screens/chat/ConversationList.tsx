@@ -5,6 +5,7 @@ import { chatService, relativeTime } from "@/services/engagement/chatService";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { EmptyState, SafeImg } from "@/components/common";
+import { NoMessagesIllustration, NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
@@ -63,12 +64,13 @@ export default function ConversationList() {
           <ListSkeleton count={4} />
         ) : (convs ?? []).length === 0 ? (
           <EmptyState
+            illustration={<NoMessagesIllustration />}
             emoji="💬"
             title="No messages yet"
             text="Tap Message on a business or provider profile to start a conversation."
           />
         ) : filtered.length === 0 ? (
-          <EmptyState emoji="🔍" title="No matches" text={`No conversations match "${query}".`} />
+          <EmptyState illustration={<NoResultsIllustration />} emoji="🔍" title="No matches" text={`No conversations match "${query}".`} />
         ) : (
           <div>
             {filtered.map((c) => {

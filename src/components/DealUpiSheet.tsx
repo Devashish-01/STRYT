@@ -46,7 +46,7 @@ export default function DealUpiSheet({ payeeUserId, payeeName, amount, onClose }
       onClick={onClose}
     >
       <div
-        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
+        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + env(safe-area-inset-bottom, 0px))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="row between center-v" style={{ marginBottom: 16 }}>
@@ -65,9 +65,9 @@ export default function DealUpiSheet({ payeeUserId, payeeName, amount, onClose }
         )}
 
         {upiId === null && (
-          <div className="card row gap-10 center-v" style={{ padding: 14, background: "#fff7ed", border: "1px solid #fed7aa" }}>
-            <AlertCircle size={18} color="#c2410c" style={{ flexShrink: 0 }} />
-            <div className="tiny" style={{ color: "#c2410c", lineHeight: 1.5 }}>
+          <div className="card row gap-10 center-v" style={{ padding: 14, background: "var(--orange-50)", border: "1px solid var(--orange-100)" }}>
+            <AlertCircle size={18} color="var(--orange-500)" style={{ flexShrink: 0 }} />
+            <div className="tiny" style={{ color: "var(--orange-500)", lineHeight: 1.5 }}>
               {payeeName} hasn't set up UPI yet. Settle in person, then mark the deal paid.
             </div>
           </div>
@@ -75,9 +75,9 @@ export default function DealUpiSheet({ payeeUserId, payeeName, amount, onClose }
 
         {upiId && (
           <div className="col gap-14">
-            <div className="card row gap-10 center-v" style={{ padding: 12, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
-              <QrCode size={16} color="#15803d" style={{ flexShrink: 0 }} />
-              <div className="tiny" style={{ color: "#15803d", lineHeight: 1.5 }}>
+            <div className="card row gap-10 center-v" style={{ padding: 12, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
+              <QrCode size={16} color="var(--green-600)" style={{ flexShrink: 0 }} />
+              <div className="tiny" style={{ color: "var(--green-600)", lineHeight: 1.5 }}>
                 Scan or open your UPI app. After paying, tap <strong>"I've paid via UPI"</strong> back on the deal.
               </div>
             </div>

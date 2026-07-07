@@ -19,12 +19,12 @@ export const layerLabels: Record<Layer, string> = {
 
 export function makeStoryIcon(avatarUrl: string, seen: boolean) {
   const ringStyle = seen
-    ? "background:#9ca3af"
+    ? "background:var(--ink-400)"
     : "background:linear-gradient(135deg,#ff8400,#ec4899,var(--brand-600))";
   return L.divIcon({
     className: "",
     html: `<div style="width:44px;height:44px;border-radius:50%;${ringStyle};padding:2.5px;box-shadow:0 2px 10px rgba(0,0,0,0.35)">
-      <div style="width:100%;height:100%;border-radius:50%;background:#e5e7eb;overflow:hidden;border:2px solid #fff">
+      <div style="width:100%;height:100%;border-radius:50%;background:var(--ink-200);overflow:hidden;border:2px solid #fff">
         ${avatarUrl ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'" />` : ""}
       </div>
     </div>`,
@@ -35,9 +35,9 @@ export function makeStoryIcon(avatarUrl: string, seen: boolean) {
 }
 
 export const businessIcon = makePinIcon(pinColors.business);
-export const businessOfflineIcon = makePinIcon("#9ca3af");
+export const businessOfflineIcon = makePinIcon("var(--ink-400)");
 export const providerIcon = makePinIcon(pinColors.provider);
-export const providerOfflineIcon = makePinIcon("#9ca3af");
+export const providerOfflineIcon = makePinIcon("var(--ink-400)");
 export const requestIcon  = makePinIcon(pinColors.request);
 
 export const meIcon = L.divIcon({

@@ -85,7 +85,7 @@ export const catalogService = {
       slug,
       kind,
       icon: "⚙️",
-      color: "#94a3b8",
+      color: "var(--ink-400)",
     }).select().maybeSingle();
     if (error) {
       console.warn("proposeCategory insert failed (may need RLS policy):", error.message);

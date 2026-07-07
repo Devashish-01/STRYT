@@ -8,7 +8,7 @@ import { useApp } from "@/store";
 import { Skeleton } from "@/components/states";
 
 const PLAN_ICONS = { BASIC: Zap, PRO: Star, PREMIUM: Crown };
-const PLAN_COLOR = { BASIC: "#0ea5e9", PRO: "#6d28d9", PREMIUM: "var(--amber-500)" };
+const PLAN_COLOR = { BASIC: "var(--blue-500)", PRO: "var(--brand-700)", PREMIUM: "var(--amber-500)" };
 
 export default function BusinessProUpgrade() {
   const { id = "" } = useParams<{ id: string }>();
@@ -43,7 +43,7 @@ export default function BusinessProUpgrade() {
                 res();
               } catch { rej(new Error("Activation failed")); }
             },
-            theme: { color: "#6d28d9" },
+            theme: { color: "var(--brand-700)" },
           });
           rzp.on("payment.failed", () => rej(new Error("Payment failed")));
           rzp.open();
@@ -123,9 +123,9 @@ export default function BusinessProUpgrade() {
           </div>
         ))}
 
-        <div className="card row gap-10" style={{ padding: 12, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+        <div className="card row gap-10" style={{ padding: 12, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
           <Check size={18} color="var(--green-500)" style={{ flexShrink: 0 }} />
-          <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>
+          <span className="tiny" style={{ color: "var(--green-600)", lineHeight: 1.4 }}>
             <span className="semi">Zero commission.</span> STRYT never takes a cut on your jobs. Pro is purely for growth tools.
           </span>
         </div>

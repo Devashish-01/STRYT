@@ -160,8 +160,8 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
                     className="badge"
                     style={{
                       fontSize: 9, padding: "2px 6px",
-                      background: post.authorType === "business" ? "#ffedd5" : "#dcfce7",
-                      color: post.authorType === "business" ? "#c2410c" : "#15803d",
+                      background: post.authorType === "business" ? "var(--orange-100)" : "var(--green-100)",
+                      color: post.authorType === "business" ? "var(--orange-500)" : "var(--green-600)",
                     }}
                   >
                     {post.authorType === "business" ? "🏪 Business" : "🔧 Provider"}

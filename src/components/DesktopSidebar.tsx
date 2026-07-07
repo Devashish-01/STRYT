@@ -133,7 +133,7 @@ export default function DesktopSidebar() {
             >
               <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
               <span className="grow text-left">{item.label}</span>
-              {item.badge ? <span className="sidebar-badge">{item.badge}</span> : null}
+              {item.badge ? <span className="count-badge sidebar-badge">{item.badge}</span> : null}
             </button>
           );
         })}

@@ -5,29 +5,30 @@ import { notificationService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState } from "@/components/common";
+import { NoNotificationsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
 import type { NotificationType, AppNotification } from "@/types";
 
 const Handshake = HandshakeIcon as any;
 
 const meta: Record<NotificationType, { icon: any; color: string; bg: string }> = {
-  NEW_BUSINESS: { icon: Store, color: "var(--orange-500)", bg: "#fff3e8" },
-  NEW_PROVIDER: { icon: Briefcase, color: "var(--green-500)", bg: "#e8f7ee" },
+  NEW_BUSINESS: { icon: Store, color: "var(--orange-500)", bg: "var(--orange-50)" },
+  NEW_PROVIDER: { icon: Briefcase, color: "var(--green-500)", bg: "var(--green-100)" },
   NEARBY_REQUEST: { icon: MessageSquareText, color: "var(--brand-700)", bg: "var(--brand-100)" },
-  PROPOSAL: { icon: FileText, color: "#0ea5e9", bg: "#e6f5fe" },
-  AGREEMENT: { icon: Handshake, color: "var(--green-500)", bg: "#e8f7ee" },
-  OFFER: { icon: Tag, color: "#ec4899", bg: "#fdeef6" },
-  ME_TOO: { icon: Users, color: "var(--green-500)", bg: "#e8f7ee" },
-  GROUP_BUY_UNLOCKED: { icon: PartyPopper, color: "var(--orange-500)", bg: "#fff3e8" },
-  QUOTE_BROADCAST: { icon: Megaphone, color: "#a855f7", bg: "#f3e8ff" },
+  PROPOSAL: { icon: FileText, color: "var(--blue-500)", bg: "var(--ink-100)" },
+  AGREEMENT: { icon: Handshake, color: "var(--green-500)", bg: "var(--green-100)" },
+  OFFER: { icon: Tag, color: "#ec4899", bg: "var(--ink-50)" },
+  ME_TOO: { icon: Users, color: "var(--green-500)", bg: "var(--green-100)" },
+  GROUP_BUY_UNLOCKED: { icon: PartyPopper, color: "var(--orange-500)", bg: "var(--orange-50)" },
+  QUOTE_BROADCAST: { icon: Megaphone, color: "var(--brand-400)", bg: "var(--brand-100)" },
   LOCATION_REQUEST: { icon: MapPin, color: "var(--brand-700)", bg: "var(--brand-100)" },
-  LOCATION_APPROVED: { icon: MapPin, color: "var(--green-500)", bg: "#e8f7ee" },
+  LOCATION_APPROVED: { icon: MapPin, color: "var(--green-500)", bg: "var(--green-100)" },
   COMMUNITY_COMMENT: { icon: MessageCircle, color: "var(--brand-700)", bg: "var(--brand-100)" },
-  REPORT_RESOLVED: { icon: Flag, color: "#5c5573", bg: "#f1eef8" },
-  STORY_REACTION: { icon: PartyPopper, color: "#ec4899", bg: "#fdeef6" },
-  SAVED_SEARCH_MATCH: { icon: Search, color: "#0ea5e9", bg: "#e6f5fe" },
-  VERIFICATION_DECIDED: { icon: BadgeCheck, color: "var(--green-500)", bg: "#e8f7ee" },
-  SYSTEM: { icon: Bell, color: "#5c5573", bg: "#f1eef8" },
+  REPORT_RESOLVED: { icon: Flag, color: "var(--ink-600)", bg: "var(--ink-100)" },
+  STORY_REACTION: { icon: PartyPopper, color: "#ec4899", bg: "var(--ink-50)" },
+  SAVED_SEARCH_MATCH: { icon: Search, color: "var(--blue-500)", bg: "var(--ink-100)" },
+  VERIFICATION_DECIDED: { icon: BadgeCheck, color: "var(--green-500)", bg: "var(--green-100)" },
+  SYSTEM: { icon: Bell, color: "var(--ink-600)", bg: "var(--ink-100)" },
 };
 
 export default function Notifications() {
@@ -41,7 +42,7 @@ export default function Notifications() {
   }, [data]);
 
   return (
-    <div className="screen">
+    <div className="screen screen-boxed">
       <AppBar
         title="Notifications"
         right={
@@ -64,7 +65,7 @@ export default function Notifications() {
         ) : error ? (
           <ErrorView error={error} onRetry={refetch} />
         ) : items.length === 0 ? (
-          <EmptyState emoji="🔔" title="All caught up" text="New activity nearby will show up here." />
+          <EmptyState illustration={<NoNotificationsIllustration />} emoji="🔔" title="All caught up" text="New activity nearby will show up here." />
         ) : (
           <div className="col">
             {items.map((n) => {

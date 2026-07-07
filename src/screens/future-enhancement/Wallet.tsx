@@ -75,7 +75,7 @@ export default function Wallet() {
                   <span className="semi small">{cp.businessName}</span>
                   <span className="tiny muted">till {cp.validUntil}</span>
                 </div>
-                <div className="bold" style={{ fontSize: 17, color: "#c2410c", marginTop: 4 }}>{cp.title}</div>
+                <div className="bold" style={{ fontSize: 17, color: "var(--orange-500)", marginTop: 4 }}>{cp.title}</div>
                 <div className="row between" style={{ marginTop: 10 }}>
                   <button className="row gap-6 badge badge-amber" style={{ borderStyle: "dashed", border: "1px dashed var(--amber-500)", padding: "6px 12px" }} onClick={async () => { const ok = await copyText(cp.code); showToast(ok ? "Code copied" : "Couldn't copy code"); }}>
                     {cp.code} <Copy size={12} />

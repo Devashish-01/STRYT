@@ -25,32 +25,61 @@ interface FeedParams {
 const DEFAULT_LAT = config.defaultLocation.lat;
 const DEFAULT_LNG = config.defaultLocation.lng;
 
+// Fetch a wide candidate set, then intersect the viewer's radius with the
+// listing's own service/broadcast radius. The matching DB migration applies
+// the same rule in the nearby RPCs; this client guard keeps older databases
+// from leaking irrelevant far-away listings.
+const GLOBAL_RADIUS_KM = 20000;
+const DEFAULT_LISTING_RADIUS_KM = 5;
+
+function savedViewerRadius(): number | undefined {
+  const saved = localStorage.getItem("settings_radius");
+  if (!saved) return undefined;
+  const parsed = Number(saved);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function withDistance<T extends { lat?: number; lng?: number; distanceKm?: number }>(row: T, userLat: number, userLng: number): T {
+  return {
+    ...row,
+    distanceKm: (row.lat && row.lng) ? haversineKm(userLat, userLng, row.lat, row.lng) : 0,
+  };
+}
+
+function withinListingRadius<T extends { distanceKm?: number }>(
+  row: T,
+  listingRadius: number | undefined,
+  explicitRadius: number | undefined,
+): boolean {
+  if (row.distanceKm === undefined) return true;
+  const ownRadius = Math.max(0, Number(listingRadius ?? DEFAULT_LISTING_RADIUS_KM));
+  const radiusCap = explicitRadius === undefined ? ownRadius : Math.min(explicitRadius, ownRadius);
+  return row.distanceKm <= radiusCap;
+}
+
 export const discoveryService = {
   async businesses(p: FeedParams = {}): Promise<Page<Business>> {
     const sb = getSupabase();
     const { from, to, limit } = cursorToRange(p.cursor);
     const userLat = p.lat ?? DEFAULT_LAT;
     const userLng = p.lng ?? DEFAULT_LNG;
-
-    const saved = localStorage.getItem("settings_radius");
-    const radiusLimit = p.radius ?? (saved ? parseFloat(saved) : 5);
+    const viewerRadius = p.radius ?? savedViewerRadius();
 
     // Nearby sort uses the PostGIS RPC; rating/new use a plain ordered select.
     if (!p.sort || p.sort === "nearby") {
       const { data, error } = await sb.rpc("businesses_nearby", {
         in_lng: userLng,
         in_lat: userLat,
-        in_radius_km: radiusLimit,
+        in_radius_km: viewerRadius ?? GLOBAL_RADIUS_KM,
         in_category: p.category ?? null,
         in_limit: limit,
         in_offset: from,
       });
       throwIfError(error);
       const page = toPage<Business>(data as unknown[], null, from, limit);
-      page.data = page.data.map((b) => ({
-        ...b,
-        distanceKm: (b.lat && b.lng) ? haversineKm(userLat, userLng, b.lat, b.lng) : 0,
-      })).filter((b) => b.distanceKm <= Math.min(radiusLimit, b.broadcastRadius ?? Infinity));
+      page.data = page.data
+        .map((b) => withDistance(b, userLat, userLng))
+        .filter((b) => withinListingRadius(b, b.broadcastRadius, viewerRadius));
       return page;
     }
     let q = sb.from("businesses").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
@@ -60,10 +89,9 @@ export const discoveryService = {
     const { data, error, count } = await q.range(from, to);
     throwIfError(error);
     const page = toPage<Business>(data, count, from, limit);
-    page.data = page.data.map((b) => ({
-      ...b,
-      distanceKm: (b.lat && b.lng) ? haversineKm(userLat, userLng, b.lat, b.lng) : 0,
-    })).filter((b) => b.distanceKm <= Math.min(radiusLimit, b.broadcastRadius ?? Infinity));
+    page.data = page.data
+      .map((b) => withDistance(b, userLat, userLng))
+      .filter((b) => withinListingRadius(b, b.broadcastRadius, viewerRadius));
     return page;
   },
 
@@ -75,25 +103,22 @@ export const discoveryService = {
     const { from, to, limit } = cursorToRange(p.cursor);
     const userLat = p.lat ?? DEFAULT_LAT;
     const userLng = p.lng ?? DEFAULT_LNG;
-
-    const saved = localStorage.getItem("settings_radius");
-    const radiusLimit = p.radius ?? (saved ? parseFloat(saved) : 5);
+    const viewerRadius = p.radius ?? savedViewerRadius();
 
     if (!p.sort || p.sort === "nearby") {
       const { data, error } = await sb.rpc("providers_nearby", {
         in_lng: userLng,
         in_lat: userLat,
-        in_radius_km: radiusLimit,
+        in_radius_km: viewerRadius ?? GLOBAL_RADIUS_KM,
         in_category: p.category ?? null,
         in_limit: limit,
         in_offset: from,
       });
       throwIfError(error);
       const page = toPage<Provider>(data as unknown[], null, from, limit);
-      page.data = page.data.map((prov) => ({
-        ...prov,
-        distanceKm: (prov.lat && prov.lng) ? haversineKm(userLat, userLng, prov.lat, prov.lng) : 0,
-      })).filter((prov) => prov.distanceKm <= Math.min(radiusLimit, prov.serviceRadiusKm ?? Infinity));
+      page.data = page.data
+        .map((prov) => withDistance(prov, userLat, userLng))
+        .filter((prov) => withinListingRadius(prov, prov.serviceRadiusKm, viewerRadius));
       return page;
     }
     let q = sb.from("providers").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
@@ -103,10 +128,9 @@ export const discoveryService = {
     const { data, error, count } = await q.range(from, to);
     throwIfError(error);
     const page = toPage<Provider>(data, count, from, limit);
-    page.data = page.data.map((prov) => ({
-      ...prov,
-      distanceKm: (prov.lat && prov.lng) ? haversineKm(userLat, userLng, prov.lat, prov.lng) : 0,
-    })).filter((prov) => prov.distanceKm <= Math.min(radiusLimit, prov.serviceRadiusKm ?? Infinity));
+    page.data = page.data
+      .map((prov) => withDistance(prov, userLat, userLng))
+      .filter((prov) => withinListingRadius(prov, prov.serviceRadiusKm, viewerRadius));
     return page;
   },
 
@@ -154,14 +178,12 @@ export const discoveryService = {
     const userLng = lng ?? DEFAULT_LNG;
 
     return {
-      businesses: toCamel<Business[]>(bizRes.data ?? []).map((b) => ({
-        ...b,
-        distanceKm: (b.lat && b.lng) ? haversineKm(userLat, userLng, b.lat, b.lng) : 0,
-      })),
-      providers: toCamel<Provider[]>(provRes.data ?? []).map((prov) => ({
-        ...prov,
-        distanceKm: (prov.lat && prov.lng) ? haversineKm(userLat, userLng, prov.lat, prov.lng) : 0,
-      })),
+      businesses: toCamel<Business[]>(bizRes.data ?? [])
+        .map((b) => withDistance(b, userLat, userLng))
+        .filter((b) => withinListingRadius(b, b.broadcastRadius, undefined)),
+      providers: toCamel<Provider[]>(provRes.data ?? [])
+        .map((prov) => withDistance(prov, userLat, userLng))
+        .filter((prov) => withinListingRadius(prov, prov.serviceRadiusKm, undefined)),
     };
   },
 

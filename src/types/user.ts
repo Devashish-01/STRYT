@@ -96,4 +96,6 @@ export interface CurrentUser {
   customerEnabled?: boolean;
   customerDeletedAt?: string | null;
   deletionScheduledAt?: string | null;
+  /** Set once the user finishes or explicitly skips first-login onboarding (UserOnboard.tsx). */
+  onboardingCompletedAt?: string | null;
 }

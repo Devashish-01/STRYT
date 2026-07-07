@@ -183,7 +183,7 @@ export default function QrScannerSheet({ onClose }: Props) {
         className="sheet"
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "#14111c",
+          background: "var(--ink-900)",
           color: "#fff",
           maxHeight: "90vh",
           display: "flex",
@@ -317,8 +317,8 @@ export default function QrScannerSheet({ onClose }: Props) {
                     left: 0,
                     right: 0,
                     height: 3,
-                    background: "linear-gradient(90deg, transparent, #22c55e, transparent)",
-                    boxShadow: "0 0 12px #22c55e",
+                    background: "linear-gradient(90deg, transparent, var(--green-500), transparent)",
+                    boxShadow: "0 0 12px var(--green-500)",
                     animation: "scan-laser 2.2s linear infinite",
                     zIndex: 10,
                     pointerEvents: "none",
@@ -336,7 +336,7 @@ export default function QrScannerSheet({ onClose }: Props) {
                   background: "rgba(239, 68, 68, 0.15)",
                   border: "1px solid rgba(239, 68, 68, 0.3)",
                   borderRadius: 12,
-                  color: "#f87171",
+                  color: "var(--red-400)",
                   fontSize: 13,
                   maxWidth: 260,
                   textAlign: "center",

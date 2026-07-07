@@ -1,6 +1,5 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import type { AppNotification, NotificationType } from "@/types";
-import { config, functionUrl } from "@/config";
 
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 60000); // minutes
@@ -50,7 +49,7 @@ export const notificationService = {
       .select("*", { count: "exact", head: true })
       .eq("user_id", uid)
       .eq("is_read", false);
-    if (error) return 0;
+    if (error) throw error;
     return count ?? 0;
   },
 
@@ -78,6 +77,12 @@ export const notificationService = {
     return { ok: true };
   },
 
+  // Push is fired by a database trigger on the notifications table itself
+  // (supabase/migrations/20260731_push_on_every_notification.sql), so simply
+  // inserting the row delivers the OS-level push too — no separate fetch()
+  // here, which would double-push. That single trigger also covers every
+  // notification created by Postgres triggers (proposals, agreements, nearby
+  // requests, community, etc.), which never had a push path before.
   async send(userId: string, title: string, body: string, deepLink: string = "", type: NotificationType = "SYSTEM") {
     const sb = getSupabase();
     const { error } = await sb.from("notifications").insert({
@@ -88,12 +93,6 @@ export const notificationService = {
       type,
     });
     if (error) throw error;
-    // Fire-and-forget web push
-    void fetch(functionUrl("send-push"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "apikey": config.supabaseAnonKey },
-      body: JSON.stringify({ userId, title, body, deepLink }),
-    }).catch(() => {});
     return { ok: true };
   },
 
@@ -103,14 +102,6 @@ export const notificationService = {
     const rows = userIds.map((user_id) => ({ user_id, title, body, deep_link: deepLink, type }));
     const { error } = await sb.from("notifications").insert(rows);
     if (error) throw error;
-    // Fire-and-forget web push for each recipient (capped at 50)
-    for (const userId of userIds.slice(0, 50)) {
-      void fetch(functionUrl("send-push"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": config.supabaseAnonKey },
-        body: JSON.stringify({ userId, title, body, deepLink }),
-      }).catch(() => {});
-    }
     return { ok: true };
   },
 };

@@ -141,7 +141,7 @@ export default function MapView() {
                 display: "flex", alignItems: "center", gap: 6,
                 transition: "all 0.2s ease-in-out",
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "#6d28d9"}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--brand-700)"}
               onMouseLeave={(e) => e.currentTarget.style.background = "var(--brand-600)"}
             >
               <span>

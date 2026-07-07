@@ -158,7 +158,7 @@ export default function Settings() {
   const langs = Object.entries(LANG_LABELS) as [Lang, string][];
 
   return (
-    <div className="screen">
+    <div className="screen screen-boxed">
       <AppBar title="Settings" />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 40 }}>
         {/* Inbound location-share requests to approve/deny */}
@@ -180,7 +180,7 @@ export default function Settings() {
         <div>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Notifications</div>
           <div className="card">
-            <Row icon={<Moon size={18} color="#6366f1" />} label="Silent notifications" hint="Badge only, no sound" on={silent} set={setSilent} />
+            <Row icon={<Moon size={18} color="var(--blue-500)" />} label="Silent notifications" hint="Badge only, no sound" on={silent} set={setSilent} />
             <Row icon={<Volume2 size={18} color="var(--amber-500)" />} label="Quiet hours (10 PM–7 AM)" on={quiet} set={setQuiet} />
             <div className="divider" style={{ margin: 0 }} />
             <Row label="New businesses nearby" on={newBiz} set={setNewBiz} />
@@ -319,7 +319,7 @@ function LocationRequestsInbox() {
             </div>
             <button
               className="icon-btn"
-              style={{ background: "#e8f7ee", color: "var(--green-600)", width: 34, height: 34 }}
+              style={{ background: "var(--green-100)", color: "var(--green-600)", width: 34, height: 34 }}
               onClick={() => respond(g.requesterUserId, true)}
               aria-label="Approve"
             >
@@ -418,7 +418,7 @@ function LocationSharesManager() {
                     <div className="semi small" style={{ color: "var(--ink-900)" }}>{g.requesterName}</div>
                     <div className="tiny muted row gap-6">
                       <span>Shared {formatRel(g.updatedAt)}</span>
-                      {expiry.label && <span style={{ color: expiry.expired ? "#dc2626" : "var(--ink-400)" }}>· {expiry.label}</span>}
+                      {expiry.label && <span style={{ color: expiry.expired ? "var(--red-600)" : "var(--ink-400)" }}>· {expiry.label}</span>}
                     </div>
                   </div>
                   <button
@@ -440,9 +440,9 @@ function LocationSharesManager() {
                     className="btn"
                     style={{
                       padding: "4px 10px",
-                      background: "#fef2f2",
-                      color: "#dc2626",
-                      border: "1px solid #fecaca",
+                      background: "var(--red-50)",
+                      color: "var(--red-600)",
+                      border: "1px solid var(--red-100)",
                       fontSize: 11.5,
                       borderRadius: 8,
                       cursor: "pointer",

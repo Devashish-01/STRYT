@@ -93,24 +93,24 @@ export default function Profile() {
     (!!envBypassToken && (user.phone === envBypassToken || localStorage.getItem("admin_bypass_token") === envBypassToken));
 
   const roleMeta: Record<Role, { label: string; icon: any; color: string; bg: string }> = {
-    customer:       { label: "Customer",  icon: Heart,    color: "var(--brand-600)", bg: "#faf5ff" },
-    business_owner: { label: "Business",  icon: Store,    color: "var(--orange-500)", bg: "#fff7ed" },
-    provider:       { label: "Provider",  icon: Briefcase, color: "var(--green-500)", bg: "#f0fdf4" },
+    customer:       { label: "Customer",  icon: Heart,    color: "var(--brand-600)", bg: "var(--brand-50)" },
+    business_owner: { label: "Business",  icon: Store,    color: "var(--orange-500)", bg: "var(--orange-50)" },
+    provider:       { label: "Provider",  icon: Briefcase, color: "var(--green-500)", bg: "var(--green-100)" },
   };
 
   // The 6 most-used destinations, as one scannable grid instead of a tall list —
   // spatial position becomes memorable ("appointments is always top-middle").
   const quickActions: { icon: React.ReactNode; label: string; badge?: number; onClick: () => void }[] = [
-    { icon: <Calendar size={22} color="#8b5cf6" />, label: t("appointments"), onClick: () => nav("/appointments") },
+    { icon: <Calendar size={22} color="var(--brand-500)" />, label: t("appointments"), onClick: () => nav("/appointments") },
     { icon: <FileText size={22} color="var(--brand-700)" />, label: t("requests"), onClick: () => nav("/requests") },
-    { icon: <Users size={22} color="#3b82f6" />, label: t("community"), onClick: () => nav("/community-hub") },
-    { icon: <Map size={22} color="#0ea5e9" />, label: t("map"), onClick: () => nav("/map") },
+    { icon: <Users size={22} color="var(--blue-500)" />, label: t("community"), onClick: () => nav("/community-hub") },
+    { icon: <Map size={22} color="var(--blue-500)" />, label: t("map"), onClick: () => nav("/map") },
     { icon: <Award size={22} color="var(--amber-500)" />, label: t("badges"), onClick: () => nav("/achievements") },
     { icon: <Trophy size={22} color="var(--brand-700)" />, label: t("heroes"), onClick: () => nav("/leaderboard") },
   ];
 
   return (
-    <div className="screen with-nav">
+    <div className="screen screen-boxed with-nav">
       <div className="screen-scroll">
 
         {/* ── Hero header ── */}
@@ -148,7 +148,7 @@ export default function Profile() {
               <div className="small" style={{ opacity: 0.8, marginTop: 2 }}>{user.phone}</div>
               <div className="row gap-6" style={{ marginTop: 8 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
-                  <Star size={11} fill="#ffd23f" strokeWidth={0} /> {(user.ratingCount ?? 0) > 0 ? `${user.ratingAvg} (${user.ratingCount})` : "New"}
+                  <Star size={11} fill="var(--amber-500)" strokeWidth={0} /> {(user.ratingCount ?? 0) > 0 ? `${user.ratingAvg} (${user.ratingCount})` : "New"}
                 </span>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }}>
                   📍 {user.area || "No location"}
@@ -229,7 +229,7 @@ export default function Profile() {
           <div className="page-pad" style={{ paddingTop: 4 }}>
             <button
               className="card row gap-12 center-v"
-              style={{ padding: 14, width: "100%", textAlign: "left", background: "#fff7ed", border: "1px solid #fed7aa" }}
+              style={{ padding: 14, width: "100%", textAlign: "left", background: "var(--orange-50)", border: "1px solid var(--orange-100)" }}
               onClick={() => nav("/queues")}
             >
               <span style={{ fontSize: 22 }}>👥</span>
@@ -247,7 +247,7 @@ export default function Profile() {
           <div className="hscroll" style={{ padding: "10px 16px" }}>
             {highlights.map((h, i) => (
               <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
-                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,#facc15,#f59e0b)" }}>
+                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,var(--amber-500),var(--amber-500))" }}>
                   <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
                 </div>
                 <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
@@ -261,7 +261,7 @@ export default function Profile() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             {quickActions.map((a) => (
               <button key={a.label} className="feature-card" onClick={a.onClick}>
-                {a.badge ? <span className="feature-card-badge">{a.badge}</span> : null}
+                {a.badge ? <span className="count-badge feature-card-badge">{a.badge}</span> : null}
                 {a.icon}
                 <span className="semi" style={{ fontSize: 12 }}>{a.label}</span>
               </button>
@@ -342,7 +342,7 @@ export default function Profile() {
             {hasSellerProfile && (
               <MenuRow icon={<Store size={20} color="var(--orange-500)" />} label="Manage business & profile" onClick={() => nav("/manage")} />
             )}
-            <MenuRow icon={<ListChecks size={20} color="#0ea5e9" />} label="My saved lists" onClick={() => nav("/lists")} />
+            <MenuRow icon={<ListChecks size={20} color="var(--blue-500)" />} label="My saved lists" onClick={() => nav("/lists")} />
             <MenuRow icon={<Users size={20} color="var(--amber-500)" />} label="My queues" badge={activeQueues.length || undefined} onClick={() => nav("/queues")} last />
           </div>
         </div>
@@ -350,12 +350,12 @@ export default function Profile() {
         {/* ── Settings & support ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <div className="card" style={{ overflow: "hidden" }}>
-            <MenuRow icon={<Globe size={20} color="#0ea5e9" />}    label="Language"         hint="English"     onClick={() => nav("/settings")} />
+            <MenuRow icon={<Globe size={20} color="var(--blue-500)" />}    label="Language"         hint="English"     onClick={() => nav("/settings")} />
             <MenuRow icon={<Shield size={20} color="var(--green-500)" />}   label="Privacy & safety"                    onClick={() => nav("/settings")} />
-            <MenuRow icon={<HelpCircle size={20} color="#6366f1" />} label="Help & support"                    onClick={() => nav("/support?tab=contact")} />
+            <MenuRow icon={<HelpCircle size={20} color="var(--blue-500)" />} label="Help & support"                    onClick={() => nav("/support?tab=contact")} />
             <MenuRow icon={<Bug size={20} color="var(--red-500)" />}      label="Report a bug"                        onClick={() => nav("/support?tab=bug")} />
             {isAdmin && (
-              <MenuRow icon={<Shield size={20} color="#14111c" />} label="Admin console" onClick={() => nav("/admin")} />
+              <MenuRow icon={<Shield size={20} color="var(--ink-900)" />} label="Admin console" onClick={() => nav("/admin")} />
             )}
             {!Capacitor.isNativePlatform() && (
               <MenuRow

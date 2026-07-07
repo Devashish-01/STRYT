@@ -210,7 +210,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sb.from("follows").select("target_type,target_id").eq("follower_user_id", uid),
       sb.from("user_lists").select("id,name,emoji,shared").eq("user_id", uid).order("created_at"),
       sb.from("user_list_items").select("list_id,target_type,target_id"),
-      notificationService.getUnreadCount(),
+      notificationService.getUnreadCount().catch((err) => {
+        console.warn("Unread notification count failed; preserving existing badge count.", err);
+        return null;
+      }),
       sb.from("vouches").select("provider_id").eq("from_user_id", uid),
       sb.from("endorsements").select("provider_id,skill").eq("from_user_id", uid),
       sb.from("user_saved_coupons").select("offer_id").eq("user_id", uid),
@@ -256,7 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (mtRes.data) {
       setMeToos(mtRes.data.map((r) => r.request_id));
     }
-    setUnread(unreadCount);
+    if (unreadCount !== null) setUnread(unreadCount);
     setChatUnread(chatUnreadCount);
   }, []);
 

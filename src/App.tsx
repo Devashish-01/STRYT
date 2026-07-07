@@ -8,7 +8,6 @@ import ProviderManageNav from "./screens/provider/manage/ProviderManageNav";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
 import { useI18n, type Lang } from "./lib/i18n";
-import { isPhoneName } from "./lib/publicName";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
 import { StatusBar, Style } from "@capacitor/status-bar";
@@ -127,7 +126,7 @@ function AuthSplash() {
         alignItems: "center",
         justifyContent: "center",
         gap: 18,
-        background: "linear-gradient(160deg, var(--brand-500) 0%, var(--brand-600) 55%, #4c1d95 100%)",
+        background: "linear-gradient(160deg, var(--brand-500) 0%, var(--brand-600) 55%, var(--brand-900) 100%)",
         color: "#fff",
       }}
     >
@@ -156,7 +155,7 @@ function AuthSplash() {
 function AppShellSkeleton() {
   const skel = (h: number, w: number | string, r = 10): React.CSSProperties => ({ height: h, width: w, borderRadius: r });
   return (
-    <div className="screen" style={{ background: "var(--bg, #faf9fc)", display: "flex", flexDirection: "column" }}>
+    <div className="screen" style={{ background: "var(--bg)", display: "flex", flexDirection: "column" }}>
       <div className="page-pad" style={{ paddingTop: 16, flex: 1 }}>
         {/* Header: greeting + icons */}
         <div className="row between" style={{ alignItems: "flex-start" }}>
@@ -246,10 +245,15 @@ function ProtectedLayout() {
     }
   }
 
-  // User with no real name set (empty, seed placeholder, or a raw phone number
-  // from the old self-heal): route through onboarding once to pick one (skippable).
-  const hasSkippedOnboard = localStorage.getItem("onboarding_skipped") === "true";
-  const needsOnboard = isAuthed && user.id && (!user.name || user.name === "New user" || isPhoneName(user.name)) && !hasSkippedOnboard && location.pathname !== "/auth/onboard";
+  // First-login onboarding, gated on an explicit account-level flag rather
+  // than inferring intent from user.name. That heuristic only worked for
+  // phone-OTP signups (whose profile self-heal has nothing better than "New
+  // user" to seed the name with) — Google OAuth seeds a real name and email
+  // signups seed the email's local-part immediately, so both looked
+  // "already onboarded" and silently skipped the location/phone/emergency-
+  // contact step on their very first login. The flag is also account-level
+  // (not localStorage), so skipping on one device sticks across all of them.
+  const needsOnboard = isAuthed && user.id && user.onboardingCompletedAt === null && location.pathname !== "/auth/onboard";
   if (needsOnboard) {
     return <Navigate to="/auth/onboard" replace />;
   }
@@ -320,6 +324,7 @@ export default function App() {
         }
       });
 
+      void StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
       void StatusBar.setBackgroundColor({ color: "#7c3aed" }).catch(() => {});
       void StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
 
@@ -329,15 +334,28 @@ export default function App() {
     }
   }, []);
 
-  // Push-notification taps dispatch a SPA nav event (see pushNotifications.ts)
-  // instead of window.location.href — which forced a full app reload.
+  // Push-notification taps route into the SPA instead of forcing a full reload.
+  // Two sources feed the same navigation:
+  //  - native (Capacitor): pushNotifications.ts dispatches a "push-nav" event.
+  //  - web: the service worker (public/sw.js) postMessages { type: "NAVIGATE" }
+  //    to the focused client on notificationclick. Nothing listened for that
+  //    before, so tapping a web push did nothing — wired up here.
   useEffect(() => {
     const onPushNav = (e: Event) => {
       const url = (e as CustomEvent<string>).detail;
       if (url && url.startsWith("/")) navigate(url);
     };
+    const onSwMessage = (e: MessageEvent) => {
+      if (e.data?.type === "NAVIGATE" && typeof e.data.path === "string" && e.data.path.startsWith("/")) {
+        navigate(e.data.path);
+      }
+    };
     window.addEventListener("push-nav", onPushNav);
-    return () => window.removeEventListener("push-nav", onPushNav);
+    navigator.serviceWorker?.addEventListener("message", onSwMessage);
+    return () => {
+      window.removeEventListener("push-nav", onPushNav);
+      navigator.serviceWorker?.removeEventListener("message", onSwMessage);
+    };
   }, [navigate]);
 
   return (

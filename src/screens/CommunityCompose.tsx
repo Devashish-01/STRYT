@@ -119,8 +119,8 @@ export default function CommunityCompose() {
             className="card row gap-10 center-v"
             style={{
               padding: 12,
-              background: sellerCtx.type === "business" ? "#fff7ed" : "#e8f7ee",
-              border: `1px solid ${sellerCtx.type === "business" ? "#fed7aa" : "#bbf7d0"}`,
+              background: sellerCtx.type === "business" ? "var(--orange-50)" : "var(--green-100)",
+              border: `1px solid ${sellerCtx.type === "business" ? "var(--orange-100)" : "var(--green-500)"}`,
             }}
           >
             <SafeImg
@@ -136,8 +136,8 @@ export default function CommunityCompose() {
             <span
               className="badge row gap-4 center-v"
               style={{
-                background: sellerCtx.type === "business" ? "#ffedd5" : "#dcfce7",
-                color: sellerCtx.type === "business" ? "#c2410c" : "#15803d",
+                background: sellerCtx.type === "business" ? "var(--orange-100)" : "var(--green-100)",
+                color: sellerCtx.type === "business" ? "var(--orange-500)" : "var(--green-600)",
               }}
             >
               {sellerCtx.type === "business" ? <Store size={11} /> : <Wrench size={11} />}

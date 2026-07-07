@@ -93,7 +93,7 @@ export default function ManageDashboard() {
     <div className="screen with-nav">
       {/* ── Branded Premium Header ── */}
       <div style={{
-        background: "linear-gradient(135deg, var(--orange-500), #9a3412)",
+        background: "linear-gradient(135deg, var(--orange-500), var(--orange-500))",
         color: "#fff",
         padding: "20px 16px 24px",
         borderBottomLeftRadius: 24,
@@ -163,7 +163,7 @@ export default function ManageDashboard() {
                 height: 14,
                 borderRadius: "50%",
                 background: "var(--green-500)",
-                border: "2.5px solid #9a3412"
+                border: "2.5px solid var(--orange-500)"
               }}>
                 <span className="fade-up" style={{
                   position: "absolute",
@@ -178,7 +178,7 @@ export default function ManageDashboard() {
           <div className="grow">
             <div className="row gap-6">
               <span className="bold h1" style={{ color: "#fff" }}>{b?.name}</span>
-              <BadgeCheck size={18} color="#ffba2b" weight="fill" />
+              <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />
             </div>
             <div className="row gap-6" style={{ marginTop: 4 }}>
               <span className="badge" style={{ background: b?.status === "SUSPENDED" ? "var(--red-600)" : "rgba(255,255,255,0.2)", color: "#fff", fontSize: 10 }}>
@@ -245,7 +245,7 @@ export default function ManageDashboard() {
               width: 44,
               height: 44,
               borderRadius: 12,
-              background: available ? "#e8f7ee" : "var(--ink-50)",
+              background: available ? "var(--green-100)" : "var(--ink-50)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -300,14 +300,14 @@ export default function ManageDashboard() {
           ) : (
             <div className="col gap-10">
               <div className="row gap-10">
-                <KpiCard icon={Eye} color="#cc4415" value={data!.views.toLocaleString()} label="Views" trend="+5%" bgTint="rgba(204, 68, 21, 0.05)" />
+                <KpiCard icon={Eye} color="var(--brand-700)" value={data!.views.toLocaleString()} label="Views" trend="+5%" bgTint="rgba(204, 68, 21, 0.05)" />
                 <KpiCard icon={Phone} color="var(--green-500)" value={data!.calls} label="Calls" trend="+8%" bgTint="rgba(22, 163, 74, 0.05)" />
                 <KpiCard icon={Navigation} color="var(--orange-500)" value={data!.directions} label="Directions" trend="+12%" bgTint="rgba(242, 106, 0, 0.05)" />
               </div>
               <div className="row gap-10">
-                <KpiCard icon={FileText} color="#0ea5e9" value={data!.catalogViews.toLocaleString()} label="Menu Views" trend="+3%" bgTint="rgba(14, 165, 233, 0.05)" />
+                <KpiCard icon={FileText} color="var(--blue-500)" value={data!.catalogViews.toLocaleString()} label="Menu Views" trend="+3%" bgTint="rgba(14, 165, 233, 0.05)" />
                 <KpiCard icon={Star} color="var(--amber-500)" value={data!.reviews} label="New Reviews" trend="Steady" bgTint="rgba(245, 158, 11, 0.05)" />
-                <KpiCard icon={HelpCircle} color="#6366f1" value={data!.questions} label="Questions" trend="New" bgTint="rgba(99, 102, 241, 0.05)" />
+                <KpiCard icon={HelpCircle} color="var(--blue-500)" value={data!.questions} label="Questions" trend="New" bgTint="rgba(99, 102, 241, 0.05)" />
               </div>
             </div>
           )}
@@ -320,7 +320,7 @@ export default function ManageDashboard() {
           <div className="small semi muted" style={{ marginBottom: 8, letterSpacing: 0.5 }}>Action Needed</div>
           <div className="card" style={{ overflow: "hidden", padding: 0 }}>
             <ActionRow
-              icon={<MessageSquareText size={18} color="#6366f1" />}
+              icon={<MessageSquareText size={18} color="var(--blue-500)" />}
               label="Answer Customer Questions"
               count={data?.questions || 0}
               onClick={() => nav(`${base}/qna`)}
@@ -344,10 +344,10 @@ export default function ManageDashboard() {
             <div className="col gap-6">
               <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Profile & Operations</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <TileCard icon={User} color="#db2777" bgTint="#ffeef4" label="Edit Profile" onClick={() => nav(`${base}/profile`)} />
+                <TileCard icon={User} color="var(--pink-500)" bgTint="var(--ink-50)" label="Edit Profile" onClick={() => nav(`${base}/profile`)} />
                 <TileCard icon={Calendar} color="var(--brand-600)" bgTint="var(--brand-50)" label="Appointments" onClick={() => nav(`${base}/appointments`)} />
-                <TileCard icon={Users} color="var(--green-500)" bgTint="#e7f7ee" label="Live Queue" onClick={() => nav(`${base}/queue`)} />
-                <TileCard icon={Search} color="var(--orange-500)" bgTint="#fff2e8" label="Find Requests" onClick={() => nav(`${base}/requests`)} />
+                <TileCard icon={Users} color="var(--green-500)" bgTint="var(--green-100)" label="Live Queue" onClick={() => nav(`${base}/queue`)} />
+                <TileCard icon={Search} color="var(--orange-500)" bgTint="var(--orange-50)" label="Find Requests" onClick={() => nav(`${base}/requests`)} />
               </div>
             </div>
 
@@ -356,7 +356,7 @@ export default function ManageDashboard() {
               <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Storefront & Catalog</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <TileCard icon={FileText} color="var(--brand-600)" bgTint="var(--brand-50)" label="Catalog" onClick={() => nav(`${base}/catalog`)} />
-                <TileCard icon={Clock} color="#0ea5e9" bgTint="#e0f2fe" label="Hours" onClick={() => nav(`${base}/hours`)} />
+                <TileCard icon={Clock} color="var(--blue-500)" bgTint="var(--ink-100)" label="Hours" onClick={() => nav(`${base}/hours`)} />
                 <TileCard icon={QrCode} color="var(--ink-700)" bgTint="var(--ink-50)" label="Share QR" onClick={() => setShare(true)} />
               </div>
             </div>
@@ -365,10 +365,10 @@ export default function ManageDashboard() {
             <div className="col gap-6">
               <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Growth & Marketing</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <TileCard icon={Tag} color="var(--orange-500)" bgTint="#fff2e8" label="Offers" onClick={() => nav(`${base}/offers`)} />
+                <TileCard icon={Tag} color="var(--orange-500)" bgTint="var(--orange-50)" label="Offers" onClick={() => nav(`${base}/offers`)} />
                 <TileCard icon={Megaphone} color="var(--brand-600)" bgTint="var(--brand-50)" label="Community Post" onClick={() => nav("/community/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
-                <TileCard icon={Globe} color="#0ea5e9" bgTint="#e0f2fe" label="My Community" onClick={() => nav(`${base}/community`)} />
-                <TileCard icon={Camera} color="#ec4899" bgTint="#fdeef6" label="Post a Story" onClick={() => nav("/story/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
+                <TileCard icon={Globe} color="var(--blue-500)" bgTint="var(--ink-100)" label="My Community" onClick={() => nav(`${base}/community`)} />
+                <TileCard icon={Camera} color="#ec4899" bgTint="var(--ink-50)" label="Post a Story" onClick={() => nav("/story/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
               </div>
             </div>
           </div>
@@ -422,7 +422,7 @@ function KpiCard({ icon: Icon, color, value, label, trend, bgTint }: { icon: any
           fontSize: 9,
           fontWeight: 700,
           color: isUp ? "var(--green-500)" : "var(--ink-400)",
-          background: isUp ? "#e7f7ee" : "var(--ink-50)",
+          background: isUp ? "var(--green-100)" : "var(--ink-50)",
           padding: "2px 6px",
           borderRadius: 100
         }}>

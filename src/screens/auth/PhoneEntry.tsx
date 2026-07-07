@@ -95,7 +95,7 @@ export default function PhoneEntry() {
         className="login-hero-panel"
         style={{
           flex: "0 0 48%",
-          background: "linear-gradient(145deg, #6d28d9 0%, #4c1d95 50%, #1e0a38 100%)",
+          background: "linear-gradient(145deg, var(--brand-700) 0%, var(--brand-900) 50%, var(--ink-900) 100%)",
           position: "relative",
           overflow: "hidden",
           display: "flex",
@@ -106,8 +106,8 @@ export default function PhoneEntry() {
         }}
       >
         {/* Blobs */}
-        <div style={{ position:"absolute", top:-60, left:-60, width:280, height:280, background:"#c084fc", borderRadius:"50%", filter:"blur(90px)", opacity:0.28, pointerEvents:"none" }} />
-        <div style={{ position:"absolute", bottom:-50, right:-40, width:240, height:240, background:"#ff9500", borderRadius:"50%", filter:"blur(80px)", opacity:0.22, pointerEvents:"none" }} />
+        <div style={{ position:"absolute", top:-60, left:-60, width:280, height:280, background:"var(--brand-400)", borderRadius:"50%", filter:"blur(90px)", opacity:0.28, pointerEvents:"none" }} />
+        <div style={{ position:"absolute", bottom:-50, right:-40, width:240, height:240, background:"var(--accent-500)", borderRadius:"50%", filter:"blur(80px)", opacity:0.22, pointerEvents:"none" }} />
 
         <div style={{ position: "relative", zIndex: 2 }}>
           {/* Logo */}
@@ -120,8 +120,8 @@ export default function PhoneEntry() {
             <div style={{ width:44, height:44, borderRadius:14, background:"rgba(255,255,255,0.13)", border:"1px solid rgba(255,255,255,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
               <svg width="26" height="26" viewBox="0 0 64 64">
                 <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
-                <path d="M32 41 C24 35 40 24 32 17" stroke="#7c3aed" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
+                <path d="M32 41 C24 35 40 24 32 17" stroke="var(--brand-600)" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M32 41 C24 35 40 24 32 17" stroke="var(--accent-400)" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
               </svg>
             </div>
             <span style={{ fontSize:22, fontWeight:900, letterSpacing:-0.5 }}>STRYT</span>
@@ -170,7 +170,7 @@ export default function PhoneEntry() {
         className="login-form-panel"
         style={{
           flex: 1,
-          background: "linear-gradient(160deg, #fdfbff 0%, #f3e8ff 60%, #ede9fe 100%)",
+          background: "linear-gradient(160deg, var(--brand-50) 0%, var(--brand-100) 60%, var(--line) 100%)",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -182,8 +182,8 @@ export default function PhoneEntry() {
         }}
       >
         {/* Soft blobs */}
-        <div style={{ position:"absolute", top:-50, left:-50, width:220, height:220, background:"#c084fc", borderRadius:"50%", filter:"blur(60px)", opacity:0.17, pointerEvents:"none" }} />
-        <div style={{ position:"absolute", bottom:-30, right:-30, width:180, height:180, background:"#ff9500", borderRadius:"50%", filter:"blur(50px)", opacity:0.14, pointerEvents:"none" }} />
+        <div style={{ position:"absolute", top:-50, left:-50, width:220, height:220, background:"var(--brand-400)", borderRadius:"50%", filter:"blur(60px)", opacity:0.17, pointerEvents:"none" }} />
+        <div style={{ position:"absolute", bottom:-30, right:-30, width:180, height:180, background:"var(--accent-500)", borderRadius:"50%", filter:"blur(50px)", opacity:0.14, pointerEvents:"none" }} />
 
         {/* Mobile-only back button (hidden on desktop) */}
         <div className="login-mobile-header" style={{ position:"absolute", top:20, left:20, zIndex:10 }}>
@@ -197,11 +197,11 @@ export default function PhoneEntry() {
 
         {/* Mobile-only brand */}
         <div className="login-mobile-brand" style={{ textAlign:"center", marginBottom:28, position:"relative", zIndex:2 }}>
-          <div style={{ width:52, height:52, borderRadius:16, background:"linear-gradient(135deg, #8b47f5 0%, #6d28d9 100%)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px", boxShadow:"0 6px 20px rgba(109,40,217,0.28)" }}>
+          <div style={{ width:52, height:52, borderRadius:16, background:"linear-gradient(135deg, var(--brand-500) 0%, var(--brand-700) 100%)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px", boxShadow:"0 6px 20px rgba(109,40,217,0.28)" }}>
             <svg width="30" height="30" viewBox="0 0 64 64">
               <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
-              <path d="M32 41 C24 35 40 24 32 17" stroke="#7c3aed" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
+              <path d="M32 41 C24 35 40 24 32 17" stroke="var(--brand-600)" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M32 41 C24 35 40 24 32 17" stroke="var(--accent-400)" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
             </svg>
           </div>
           <div style={{ fontSize:22, fontWeight:900, color:"var(--ink-900)", letterSpacing:-0.5 }}>STRYT</div>
@@ -397,7 +397,7 @@ export default function PhoneEntry() {
           .login-hero-panel { display: none !important; }
           .login-desktop-back { display: none !important; }
           .login-form-panel {
-            background: linear-gradient(160deg, #8b47f5 0%, #6d28d9 55%, #2d1548 100%) !important;
+            background: linear-gradient(160deg, var(--brand-500) 0%, var(--brand-700) 55%, var(--ink-800) 100%) !important;
           }
           .login-form-panel > div[style*="background:#fff"],
           .login-form-panel > div[style*="background: #fff"] {

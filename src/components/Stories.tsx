@@ -478,10 +478,18 @@ export function StoryViewer({
     : "See profile";
 
   return (
+    // Full-viewport backdrop — same two-layer pattern as .overlay/.sheet
+    // elsewhere in the app (outer: unconstrained fixed backdrop centering via
+    // flexbox; inner: the actual phone-width column). The previous version
+    // put max-width + left:50% + transform on this SAME fixed/inset:0 element,
+    // which is over-constrained: with left, right (from inset:0), AND
+    // max-width all fighting, the box resolved to 50% of the viewport width
+    // (not min(100%, 480px)) on any screen narrower than 960px — i.e. every
+    // phone — rendering as a narrow centered strip with whatever sits behind
+    // it (map, page content) visible on both sides.
     <div style={{
       position: "fixed", inset: 0, background: "#000", zIndex: 2000,
-      maxWidth: "var(--maxw)", left: "50%", transform: "translateX(-50%)",
-      display: "flex", flexDirection: "column", justifyContent: "center"
+      display: "flex", justifyContent: "center",
     }}>
       <style>{`
         @keyframes story-spin {
@@ -489,6 +497,10 @@ export function StoryViewer({
           100% { transform: rotate(360deg); }
         }
       `}</style>
+      <div style={{
+        position: "relative", width: "100%", maxWidth: "var(--maxw)", height: "100%",
+        overflow: "hidden", display: "flex", flexDirection: "column", justifyContent: "center",
+      }}>
 
       {/* Progress Bars (Instagram style: segments show only active user's stories) */}
       <div className="row gap-4" style={{ position: "absolute", top: "calc(10px + env(safe-area-inset-top, 0px))", left: 12, right: 12, zIndex: 3 }}>
@@ -519,7 +531,7 @@ export function StoryViewer({
               <span className="semi small" style={{ color: "#fff", textDecoration: profilePath ? "underline decoration-transparent hover:decoration-white transition" : "none" }}>{story.authorName}</span>
               {story.visibility === "close_friends" && (
                 <span style={{
-                  background: "#22c55e",
+                  background: "var(--green-500)",
                   color: "#fff",
                   fontSize: 9,
                   fontWeight: 800,
@@ -556,7 +568,7 @@ export function StoryViewer({
 
       {/* Background Loading Spinner while downloading new image */}
       {!imageLoaded && (
-        <div style={{ position: "absolute", inset: 0, background: "#14111c", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
+        <div style={{ position: "absolute", inset: 0, background: "var(--ink-900)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
           <div style={{
             width: 32, height: 32,
             border: "3px solid rgba(255,255,255,0.15)",
@@ -675,7 +687,7 @@ export function StoryViewer({
             style={{
               background: highlighted ? "rgba(250, 204, 21, 0.25)" : "rgba(255, 255, 255, 0.15)",
               backdropFilter: "blur(8px)",
-              border: highlighted ? "1px solid #facc15" : "1px solid rgba(255, 255, 255, 0.3)",
+              border: highlighted ? "1px solid var(--amber-500)" : "1px solid rgba(255, 255, 255, 0.3)",
               color: "#fff",
               padding: "8px 14px",
               borderRadius: 20,
@@ -687,7 +699,7 @@ export function StoryViewer({
               cursor: "pointer"
             }}
           >
-            <Star size={15} color={highlighted ? "#facc15" : "#fff"} fill={highlighted ? "#facc15" : "none"} />
+            <Star size={15} color={highlighted ? "var(--amber-500)" : "#fff"} fill={highlighted ? "var(--amber-500)" : "none"} />
             {highlighted ? "Saved" : "Save"}
           </button>
         </div>
@@ -702,7 +714,7 @@ export function StoryViewer({
           <div style={{ flex: 1 }} onClick={() => setShowViewersSheet(false)} />
           
           <div style={{
-            background: "#18181b",
+            background: "var(--ink-900)",
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
             borderTop: "1px solid rgba(255,255,255,0.1)",
@@ -763,7 +775,7 @@ export function StoryViewer({
                 style={{
                   background: "none",
                   border: "none",
-                  borderBottom: sheetTab === "privacy" ? "2px solid #22c55e" : "2px solid transparent",
+                  borderBottom: sheetTab === "privacy" ? "2px solid var(--green-500)" : "2px solid transparent",
                   color: sheetTab === "privacy" ? "#fff" : "rgba(255,255,255,0.5)",
                   fontWeight: 700,
                   fontSize: 14,
@@ -825,9 +837,9 @@ export function StoryViewer({
                       display: "flex", alignItems: "center", justifyContent: "center"
                     }}>
                       {story.visibility === "everyone" ? (
-                        <Globe size={16} color="#a78bfa" />
+                        <Globe size={16} color="var(--brand-300)" />
                       ) : (
-                        <Star size={16} color="#22c55e" fill="#22c55e" />
+                        <Star size={16} color="var(--green-500)" fill="var(--green-500)" />
                       )}
                     </div>
                     <div className="col" style={{ gap: 2 }}>
@@ -886,6 +898,7 @@ export function StoryViewer({
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

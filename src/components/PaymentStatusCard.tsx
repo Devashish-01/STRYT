@@ -33,22 +33,22 @@ export function PaymentStatusCard({
 
   if (paymentStatus === "PENDING_CONFIRM") {
     return viewerIsPayer ? (
-      <div className="card row gap-10" style={{ padding: 12, background: "#fffbeb", border: "1px solid #fef3c7" }}>
-        <Clock size={18} color="#d97706" style={{ flexShrink: 0 }} />
+      <div className="card row gap-10" style={{ padding: 12, background: "var(--amber-50)", border: "1px solid var(--amber-100)" }}>
+        <Clock size={18} color="var(--amber-700)" style={{ flexShrink: 0 }} />
         <div className="grow">
-          <div className="tiny semi" style={{ color: "#b45309" }}>Waiting for confirmation</div>
+          <div className="tiny semi" style={{ color: "var(--amber-700)" }}>Waiting for confirmation</div>
           <div className="tiny muted">
             Claimed via {paymentMethod}{paymentAmount ? ` · ${inr(paymentAmount)}` : ""}
           </div>
         </div>
       </div>
     ) : (
-      <div className="card col gap-10" style={{ padding: 12, background: "#fefce8", border: "1px solid #fef08a" }}>
+      <div className="card col gap-10" style={{ padding: 12, background: "var(--amber-50)", border: "1px solid var(--amber-100)" }}>
         <div className="row gap-8" style={{ alignItems: "center" }}>
           <span style={{ fontSize: 18 }}>⏳</span>
           <div className="grow">
-            <div className="tiny semi" style={{ color: "#854d0e" }}>{claimantName} claims payment via {paymentMethod}</div>
-            <div className="tiny" style={{ color: "#78350f", marginTop: 1 }}>
+            <div className="tiny semi" style={{ color: "var(--amber-700)" }}>{claimantName} claims payment via {paymentMethod}</div>
+            <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1 }}>
               {paymentAmount ? `Amount: ${inr(paymentAmount)}` : "Amount not specified"}
               {paymentReference ? ` • Ref: ${paymentReference}` : ""}
             </div>
@@ -60,7 +60,7 @@ export function PaymentStatusCard({
           </button>
           <button
             className="btn btn-outline grow btn-sm"
-            style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
+            style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }}
             disabled={busy}
             onClick={onReject}
           >
@@ -75,7 +75,7 @@ export function PaymentStatusCard({
     return (
       <div className="card row gap-8" style={{ padding: 12, alignItems: "center" }}>
         <CheckCircle2 size={16} color="var(--green-500)" />
-        <span className="tiny semi" style={{ color: "#15803d" }}>
+        <span className="tiny semi" style={{ color: "var(--green-600)" }}>
           Payment confirmed{paymentAmount ? ` · ${inr(paymentAmount)}` : ""}
         </span>
       </div>

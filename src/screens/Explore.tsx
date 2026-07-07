@@ -3,9 +3,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search, Map, SlidersHorizontal, MessageSquare } from "@/components/Icons";
 import { catalogService, discoveryService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { ListSkeleton, ErrorView } from "@/components/states";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { ListSkeleton, ErrorView, ExploreSkeleton } from "@/components/states";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
-import { EmptyState } from "@/components/common";
+import { EmptyState, PullToRefreshIndicator } from "@/components/common";
+import { NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
 import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import RadiusSelector from "@/components/RadiusSelector";
@@ -82,7 +84,7 @@ export default function Explore() {
     }),
     [cat, sort, radius, user.lat, user.lng]
   );
-  const { data: provPage, loading: provLoading } = useQuery(
+  const { data: provPage, loading: provLoading, refetch: refetchProv } = useQuery(
     () => discoveryService.providers({
       category: cat ?? undefined,
       sort,
@@ -92,6 +94,11 @@ export default function Explore() {
     }),
     [cat, sort, radius, user.lat, user.lng]
   );
+
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(async () => {
+    refetchBiz();
+    refetchProv();
+  });
 
   const biz = bizPage?.data ?? [];
   const prov = provPage?.data ?? [];
@@ -103,7 +110,7 @@ export default function Explore() {
   const empty = (showBiz ? biz.length : 0) + (showProv ? prov.length : 0) === 0;
 
   return (
-    <div className="screen with-nav explore-screen-wrapper">
+    <div className="screen screen-boxed with-nav explore-screen-wrapper">
       <div className="explore-main-layout">
         
         {/* Left Side: Desktop Filter Panel (Visible only on desktop) */}
@@ -307,7 +314,8 @@ export default function Explore() {
             </div>
           </header>
 
-          <div className="explore-listings-scroll">
+          <div ref={containerRef} className="explore-listings-scroll">
+            <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
             {/* Mobile Category chips horizontal scroll & Radius Selector (mobile only) */}
             <div className="mobile-only">
               <div className="hscroll" style={{ paddingTop: 12 }}>
@@ -338,21 +346,22 @@ export default function Explore() {
 
             {/* Results */}
             {loading ? (
-              <ListSkeleton count={4} />
+              <ExploreSkeleton tab={tab} />
             ) : bizError ? (
               <ErrorView error={bizError} onRetry={refetchBiz} />
             ) : (
               <div className="listings-cards-grid">
                 {empty && (
                   <EmptyState
+                    illustration={<NoResultsIllustration />}
                     emoji="🔍"
                     title="Nothing here yet"
                     text="Try widening your radius or picking a different category."
                     action={<button className="btn btn-ghost btn-sm" onClick={() => { setCat(null); setRadius(15); }}>Reset filters</button>}
                   />
                 )}
-                {showProv && prov.map((p) => <ProviderCard key={p.id} p={p} />)}
-                {showBiz && biz.map((b) => <BusinessCardWide key={b.id} b={b} />)}
+                {showProv && prov.map((p, idx) => <ProviderCard key={p.id} p={p} style={{ animationDelay: `${idx * 35}ms` }} />)}
+                {showBiz && biz.map((b, idx) => <BusinessCardWide key={b.id} b={b} style={{ animationDelay: `${idx * 35}ms` }} />)}
               </div>
             )}
             <div style={{ height: 24 }} />

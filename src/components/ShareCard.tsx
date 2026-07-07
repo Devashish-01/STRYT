@@ -77,7 +77,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
   const channels = [
     { label: "WhatsApp", icon: MessageCircle, color: "#25D366", onClick: shareWhatsApp },
     { label: "Copy link", icon: Link2, color: "var(--brand-700)", onClick: copyLink },
-    { label: "Copy card", icon: Copy, color: "#0ea5e9", onClick: copyCard },
+    { label: "Copy card", icon: Copy, color: "var(--blue-500)", onClick: copyCard },
     { label: "More", icon: Send, color: "var(--orange-500)", onClick: shareMore },
   ];
 
@@ -154,7 +154,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
             style={{
               borderRadius: 20,
               padding: "24px 16px",
-              background: qrMode === "payment" ? "linear-gradient(160deg, #16a34a, #064e3b)" : "linear-gradient(160deg, var(--brand-500), var(--brand-800))",
+              background: qrMode === "payment" ? "linear-gradient(160deg, var(--green-500), var(--green-700))" : "linear-gradient(160deg, var(--brand-500), var(--brand-800))",
               color: "#fff",
               boxShadow: "var(--shadow-md)",
               display: "flex",
@@ -169,13 +169,13 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
               <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 20, padding: 3, display: "flex", gap: 2, marginBottom: 16 }}>
                 <button
                   onClick={() => setQrMode("profile")}
-                  style={{ border: "none", background: qrMode === "profile" ? "rgba(255,255,255,0.9)" : "transparent", color: qrMode === "profile" ? "#1e1e2e" : "rgba(255,255,255,0.8)", fontWeight: 600, padding: "5px 14px", borderRadius: 18, fontSize: 12, cursor: "pointer", transition: "all 0.2s" }}
+                  style={{ border: "none", background: qrMode === "profile" ? "rgba(255,255,255,0.9)" : "transparent", color: qrMode === "profile" ? "var(--ink-900)" : "rgba(255,255,255,0.8)", fontWeight: 600, padding: "5px 14px", borderRadius: 18, fontSize: 12, cursor: "pointer", transition: "all 0.2s" }}
                 >
                   Profile
                 </button>
                 <button
                   onClick={() => setQrMode("payment")}
-                  style={{ border: "none", background: qrMode === "payment" ? "rgba(255,255,255,0.9)" : "transparent", color: qrMode === "payment" ? "#1e1e2e" : "rgba(255,255,255,0.8)", fontWeight: 600, padding: "5px 14px", borderRadius: 18, fontSize: 12, cursor: "pointer", transition: "all 0.2s" }}
+                  style={{ border: "none", background: qrMode === "payment" ? "rgba(255,255,255,0.9)" : "transparent", color: qrMode === "payment" ? "var(--ink-900)" : "rgba(255,255,255,0.8)", fontWeight: 600, padding: "5px 14px", borderRadius: 18, fontSize: 12, cursor: "pointer", transition: "all 0.2s" }}
                 >
                   <span className="row gap-4"><QrCode size={12} /> Payment</span>
                 </button>

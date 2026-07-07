@@ -70,7 +70,7 @@ export default function ProviderDetail() {
   if (loading) {
     return (
       <div className="screen">
-        <div style={{ background: "linear-gradient(135deg,var(--green-500),#15803d)", padding: "12px 16px 24px" }}>
+        <div style={{ background: "linear-gradient(135deg,var(--green-500),var(--green-600))", padding: "12px 16px 24px" }}>
           <Skeleton h={78} w={78} r={39} />
         </div>
         <div className="page-pad col gap-12" style={{ marginTop: -14 }}>
@@ -123,8 +123,8 @@ export default function ProviderDetail() {
     <div className="screen" style={{ position: "relative" }}>
       <div className="screen-scroll" style={{ paddingBottom: 90 }}>
         {isMockTarget(id) && (
-          <div style={{ padding: "8px 14px", background: "#fff3e8", borderBottom: "1px solid #ffd9b3" }}>
-            <span className="tiny" style={{ color: "#b45309", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
+          <div style={{ padding: "8px 14px", background: "var(--orange-50)", borderBottom: "1px solid var(--orange-100)" }}>
+            <span className="tiny" style={{ color: "var(--amber-700)", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
           </div>
         )}
         {/* Header */}
@@ -132,7 +132,7 @@ export default function ProviderDetail() {
           style={{
             background: heroPhoto
               ? `linear-gradient(160deg, rgba(22,163,74,0.88), rgba(21,128,61,0.92)), url(${heroPhoto}) center/cover`
-              : "linear-gradient(135deg,var(--green-500),#15803d)",
+              : "linear-gradient(135deg,var(--green-500),var(--green-600))",
             color: "#fff", padding: "12px 16px 24px",
           }}
         >
@@ -166,7 +166,7 @@ export default function ProviderDetail() {
               <div className="small" style={{ opacity: 0.9 }}>{p.categoryName} • {p.subCategory}</div>
               <div className="row gap-8" style={{ marginTop: 6 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
-                  <Star size={11} fill="#ffd23f" strokeWidth={0} /> {p.ratingCount > 0 ? `${p.ratingAvg} (${p.ratingCount})` : "New"}
+                  <Star size={11} fill="var(--amber-500)" strokeWidth={0} /> {p.ratingCount > 0 ? `${p.ratingAvg} (${p.ratingCount})` : "New"}
                 </span>
                 {p.isNew && <span className="badge" style={{ background: "#ff8400", color: "#fff" }}>NEW</span>}
                 {avail && <span className="badge" style={{ background: "#fff", color: "var(--green-500)" }}>⚡ Free till {avail.availableUntil}</span>}
@@ -197,7 +197,7 @@ export default function ProviderDetail() {
           </button>
           <button
             className="btn grow btn-sm"
-            style={{ background: hasVouched ? "#e8f7ee" : "var(--ink-50)", color: hasVouched ? "#15803d" : "var(--ink-700)" }}
+            style={{ background: hasVouched ? "var(--green-100)" : "var(--ink-50)", color: hasVouched ? "var(--green-600)" : "var(--ink-700)" }}
             onClick={() => toggleVouch(p.id)}
           >
             <ThumbsUp size={15} fill={hasVouched ? "var(--green-500)" : "none"} /> {hasVouched ? "Vouched" : "Vouch"}
@@ -209,7 +209,7 @@ export default function ProviderDetail() {
           <div className="hscroll" style={{ padding: "12px 16px 4px" }}>
             {highlights.map((h, i) => (
               <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
-                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,#facc15,#f59e0b)" }}>
+                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,var(--amber-500),var(--amber-500))" }}>
                   <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
                 </div>
                 <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
@@ -308,7 +308,7 @@ export default function ProviderDetail() {
                           style={{ padding: "6px 12px", background: isOn ? "var(--brand-100)" : "var(--ink-50)", color: isOn ? "var(--brand-700)" : "var(--ink-700)" }}
                           onClick={() => toggleEndorse(p.id, e.skill)}
                         >
-                          <ThumbsUp size={13} fill={isOn ? "#e5521c" : "none"} /> {isOn ? "Endorsed" : "Endorse"}
+                          <ThumbsUp size={13} fill={isOn ? "var(--brand-600)" : "none"} /> {isOn ? "Endorsed" : "Endorse"}
                         </button>
                       </div>
                     );
@@ -336,12 +336,12 @@ export default function ProviderDetail() {
               </div>
             )}
             {!evalRes.isOpenNow && (
-              <div className="card card-condensed" style={{ background: "#fef3c7", border: "1px solid #fde68a" }}>
+              <div className="card card-condensed" style={{ background: "var(--amber-100)", border: "1px solid var(--amber-100)" }}>
                 <div className="row gap-8 center-v">
-                  <Clock size={16} color="#d97706" />
+                  <Clock size={16} color="var(--amber-700)" />
                   <div>
-                    <div className="bold tiny" style={{ color: "#92400e" }}>Provider Currently Offline</div>
-                    <div className="tiny" style={{ color: "#b45309", marginTop: 1 }}>
+                    <div className="bold tiny" style={{ color: "var(--amber-700)" }}>Provider Currently Offline</div>
+                    <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1 }}>
                       {evalRes.statusText}. You can chat, ask questions, or schedule an appointment for their working hours below.
                     </div>
                   </div>

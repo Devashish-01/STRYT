@@ -25,14 +25,14 @@ export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
 
         {canAddBusiness && (
           <button className="row gap-12" style={{ width: "100%", padding: "12px 4px" }} onClick={() => { onClose(); nav("/onboard/business"); }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#fff3e8", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={20} color="var(--orange-500)" /></div>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--orange-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={20} color="var(--orange-500)" /></div>
             <span className="semi small grow" style={{ textAlign: "left" }}>Add a business</span>
             <ChevronRight size={18} color="var(--ink-300)" />
           </button>
         )}
         {canBecomeProvider && (
           <button className="row gap-12" style={{ width: "100%", padding: "12px 4px" }} onClick={() => { onClose(); nav("/onboard/provider"); }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={20} color="var(--green-500)" /></div>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={20} color="var(--green-500)" /></div>
             <span className="semi small grow" style={{ textAlign: "left" }}>Become a provider</span>
             <ChevronRight size={18} color="var(--ink-300)" />
           </button>

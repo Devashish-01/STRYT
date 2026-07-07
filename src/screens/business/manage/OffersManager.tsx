@@ -92,7 +92,7 @@ export default function OffersManager() {
 
         {b.offers.map((o) => (
           <div key={o.id} className="card row gap-12" style={{ padding: 14 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--orange-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Tag size={18} color="var(--orange-500)" />
             </div>
             <div className="grow">
@@ -116,7 +116,7 @@ export default function OffersManager() {
                   }
                 }}
               >
-                <Megaphone size={15} color="#cc4415" />
+                <Megaphone size={15} color="var(--brand-700)" />
               </button>
               <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} onClick={() => remove(o.id)}>
                 <Trash2 size={15} />

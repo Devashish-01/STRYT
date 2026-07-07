@@ -90,7 +90,7 @@ export default function OtpVerify() {
     <div
       className="screen"
       style={{
-        background: "linear-gradient(160deg, #fdfbff 0%, #f5eefc 60%, #ece2f7 100%)",
+        background: "linear-gradient(160deg, var(--brand-50) 0%, var(--brand-100) 60%, var(--brand-200) 100%)",
         color: "var(--ink-900)",
         display: "flex",
         flexDirection: "column",
@@ -169,7 +169,7 @@ export default function OtpVerify() {
           <svg width="34" height="34" viewBox="0 0 64 64">
             <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
             <path d="M32 41 C24 35 40 24 32 17" stroke="var(--brand-600)" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
+            <path d="M32 41 C24 35 40 24 32 17" stroke="var(--accent-400)" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
           </svg>
         </div>
         <h1 className="h1" style={{ letterSpacing: -0.5, color: "var(--ink-900)" }}>Verification Code</h1>

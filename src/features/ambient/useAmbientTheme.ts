@@ -23,32 +23,32 @@ const FESTIVAL_CONFIG: Record<string, {
   diwali: {
     boost:  ["electrician", "sweets", "cleaning", "lights", "rangoli"],
     banner: "🪔 Happy Diwali! Electricians, sweet shops & cleaning services nearby",
-    accent: "#d97706",
-    bg:     "linear-gradient(180deg, #fffbeb 0%, #fff 100%)",
+    accent: "var(--amber-700)",
+    bg:     "linear-gradient(180deg, var(--amber-50) 0%, #fff 100%)",
   },
   holi: {
     boost:  ["sweets", "laundry", "food-beverage"],
     banner: "🎨 Happy Holi! Sweets & colour-clean laundry services nearby",
-    accent: "#db2777",
-    bg:     "linear-gradient(180deg, #fdf2f8 0%, #fff 100%)",
+    accent: "var(--pink-500)",
+    bg:     "linear-gradient(180deg, var(--red-50) 0%, #fff 100%)",
   },
   ganesh: {
     boost:  ["decorator", "sweets", "flowers", "events"],
     banner: "🐘 Ganeshotsav! Decorators, modak & flowers nearby",
-    accent: "#dc2626",
-    bg:     "linear-gradient(180deg, #fef2f2 0%, #fff 100%)",
+    accent: "var(--red-600)",
+    bg:     "linear-gradient(180deg, var(--red-50) 0%, #fff 100%)",
   },
   eid: {
     boost:  ["sweets", "tailor", "food-beverage"],
     banner: "🌙 Eid Mubarak! Sweet shops & tailors are listed up top",
-    accent: "#15803d",
-    bg:     "linear-gradient(180deg, #f0fdf4 0%, #fff 100%)",
+    accent: "var(--green-600)",
+    bg:     "linear-gradient(180deg, var(--green-100) 0%, #fff 100%)",
   },
   xmas: {
     boost:  ["cake", "gifts", "decorator"],
     banner: "🎄 Merry Christmas! Bakeries, decorators & gift shops nearby",
-    accent: "#dc2626",
-    bg:     "linear-gradient(180deg, #fef2f2 0%, #fff 100%)",
+    accent: "var(--red-600)",
+    bg:     "linear-gradient(180deg, var(--red-50) 0%, #fff 100%)",
   },
 };
 
@@ -74,40 +74,40 @@ export function useAmbientTheme(lat?: number, lng?: number): AmbientTheme {
                                 ["pharmacy", "emergency", "home-repair"];
 
     let banner: string | null = null;
-    let accent = "#8b47f5";
-    let bg     = "linear-gradient(180deg, #f5f3ff 0%, #fff 100%)";
+    let accent = "var(--brand-500)";
+    let bg     = "linear-gradient(180deg, var(--brand-100) 0%, #fff 100%)";
 
     // Seasonal nudge (sets boost extension, default banner & styling)
     if (season === "monsoon") {
       boost = ["plumber", "waterproofing", "umbrella-repair", ...boost];
       banner = "🌧️ Monsoon season — waterproofing & plumbers listed up top";
-      accent = "#2563eb";
-      bg     = "linear-gradient(180deg, #eff6ff 0%, #fff 100%)";
+      accent = "var(--blue-500)";
+      bg     = "linear-gradient(180deg, var(--ink-50) 0%, #fff 100%)";
     }
     if (season === "winter") {
       boost = ["geyser-repair", "warm-food", "home-repair", ...boost];
       banner = "❄️ Winter season — geyser repair & warm food listed up top";
-      accent = "#0284c7";
-      bg     = "linear-gradient(180deg, #f0f9ff 0%, #fff 100%)";
+      accent = "var(--blue-500)";
+      bg     = "linear-gradient(180deg, var(--ink-50) 0%, #fff 100%)";
     }
     if (season === "summer") {
       boost = ["ac-service", "cold-drinks", "electrician", ...boost];
       banner = "☀️ Summer season — AC service & cold drinks listed up top";
-      accent = "#ea580c";
-      bg     = "linear-gradient(180deg, #fff7ed 0%, #fff 100%)";
+      accent = "var(--orange-500)";
+      bg     = "linear-gradient(180deg, var(--orange-50) 0%, #fff 100%)";
     }
 
     // Weather override (highest priority except festival; sets banner + accent)
     if (weather?.isRaining) {
       boost  = ["umbrella-repair", "plumber", "waterproofing", "food-beverage", ...boost];
       banner = `🌧️ Raining nearby — umbrella repair & plumbers listed up top`;
-      accent = "#2563eb";
-      bg     = "linear-gradient(180deg, #eff6ff 0%, #fff 100%)";
+      accent = "var(--blue-500)";
+      bg     = "linear-gradient(180deg, var(--ink-50) 0%, #fff 100%)";
     } else if (weather?.isHot) {
       boost  = ["ac-service", "cold-drinks", "electrician", ...boost];
       banner = `🔥 It's ${Math.round(weather.tempC)}°C — AC service & cold drinks nearby`;
-      accent = "#ea580c";
-      bg     = "linear-gradient(180deg, #fff7ed 0%, #fff 100%)";
+      accent = "var(--orange-500)";
+      bg     = "linear-gradient(180deg, var(--orange-50) 0%, #fff 100%)";
     }
 
     // Festival override — strongest signal, overrides weather banner and accent

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { MapPin, Navigation } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService } from "@/services";
@@ -12,10 +12,14 @@ export default function LocationPermission() {
   const [locating, setLocating] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  // Mark location prompt as seen so Protected doesn't re-redirect after "Skip".
-  useEffect(() => {
+  function markLocationPromptSeen() {
     localStorage.setItem("locationPromptShown", "true");
-  }, []);
+  }
+
+  function skip() {
+    markLocationPromptSeen();
+    nav("/home");
+  }
 
   function allow() {
     setLocating(true);
@@ -30,16 +34,23 @@ export default function LocationPermission() {
         try {
           await userService.setLocation(latitude, longitude, areaName ?? undefined);
           await refreshUser();
-        } catch { /* ignore */ }
+        } catch {
+          setLocating(false);
+          setFailed(true);
+          showToast("Got your GPS location, but couldn't save it. Check connection and try again.");
+          return;
+        }
         setLocating(false);
+        markLocationPromptSeen();
         setArea(areaName ?? "your area");
         showToast(areaName ? `Location set — ${areaName} ✓` : "Location set ✓");
         nav("/home");
       },
-      () => {
+      (err) => {
         setLocating(false);
         setFailed(true);
-        showToast("Couldn't get location — check permissions and try again");
+        if (err.code === 1) markLocationPromptSeen();
+        showToast(err.code === 1 ? "Location permission denied — you can skip or enable it in phone settings" : "Couldn't get location — check permissions and try again");
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
@@ -91,7 +102,7 @@ export default function LocationPermission() {
         >
           {locating ? "Getting location…" : failed ? "Try again" : "Allow location access"}
         </button>
-        <button className="btn btn-ghost btn-block" onClick={() => nav("/home")}>
+        <button className="btn btn-ghost btn-block" onClick={skip}>
           Skip for now
         </button>
       </div>

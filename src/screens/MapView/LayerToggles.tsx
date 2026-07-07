@@ -11,7 +11,7 @@ export function LayerToggles({
   setAvailOnly: Dispatch<SetStateAction<boolean>>;
 }) {
   return (
-    <div style={{ position: "absolute", top: 74, left: 16, zIndex: 1000 }}>
+    <div style={{ position: "absolute", top: "calc(74px + env(safe-area-inset-top, 0px))", left: 16, zIndex: 1000 }}>
       <div className="row gap-8" style={{ flexWrap: "wrap", maxWidth: 220 }}>
         {(["business", "provider", "request", "story"] as Layer[]).map((l) => {
           const color = l === "story" ? "#ec4899" : pinColors[l as Exclude<Layer, "story">];

@@ -123,7 +123,7 @@ function DayCell({ day, status, isFuture, isToday, isMarking, onMark }: {
 }) {
   const [open, setOpen] = useState(false);
 
-  const bg = status === "PRESENT" ? "#dcfce7" : status === "ABSENT" ? "#fee2e2" : status === "SKIPPED" ? "#fff7ed" : "#f9fafb";
+  const bg = status === "PRESENT" ? "var(--green-100)" : status === "ABSENT" ? "var(--red-100)" : status === "SKIPPED" ? "var(--orange-50)" : "var(--ink-50)";
   const color = status === "PRESENT" ? "var(--green-500)" : status === "ABSENT" ? "var(--red-600)" : status === "SKIPPED" ? "var(--orange-500)" : "var(--ink-600)";
 
   return (
@@ -137,9 +137,9 @@ function DayCell({ day, status, isFuture, isToday, isMarking, onMark }: {
       </button>
       {open && !isFuture && (
         <div style={{ position: "absolute", top: "calc(100% + 4px)", left: "50%", transform: "translateX(-50%)", zIndex: 10, background: "#fff", border: "1px solid var(--line)", borderRadius: 10, padding: 6, display: "flex", gap: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.12)" }}>
-          <button style={{ width: 28, height: 28, borderRadius: 8, background: "#dcfce7", fontSize: 14 }} onClick={() => { onMark("PRESENT"); setOpen(false); }}>✓</button>
-          <button style={{ width: 28, height: 28, borderRadius: 8, background: "#fee2e2", fontSize: 14 }} onClick={() => { onMark("ABSENT"); setOpen(false); }}>✗</button>
-          <button style={{ width: 28, height: 28, borderRadius: 8, background: "#fff7ed", fontSize: 14 }} onClick={() => { onMark("SKIPPED"); setOpen(false); }}>–</button>
+          <button style={{ width: 28, height: 28, borderRadius: 8, background: "var(--green-100)", fontSize: 14 }} onClick={() => { onMark("PRESENT"); setOpen(false); }}>✓</button>
+          <button style={{ width: 28, height: 28, borderRadius: 8, background: "var(--red-100)", fontSize: 14 }} onClick={() => { onMark("ABSENT"); setOpen(false); }}>✗</button>
+          <button style={{ width: 28, height: 28, borderRadius: 8, background: "var(--orange-50)", fontSize: 14 }} onClick={() => { onMark("SKIPPED"); setOpen(false); }}>–</button>
         </div>
       )}
     </div>

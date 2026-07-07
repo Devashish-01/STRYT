@@ -42,7 +42,7 @@ export function RadiusStrip({
             onClick={() => setShowCustom(false)}
           />
           <div style={{
-            position: "absolute", bottom: 80, left: "50%", transform: "translateX(-50%)",
+            position: "absolute", bottom: "calc(80px + env(safe-area-inset-bottom, 0px))", left: "50%", transform: "translateX(-50%)",
             zIndex: 1200,
             background: "#fff",
             borderRadius: 20,
@@ -99,7 +99,7 @@ export function RadiusStrip({
 
       {/* Radius selector strip */}
       <div style={{
-        position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)",
+        position: "absolute", bottom: "calc(24px + env(safe-area-inset-bottom, 0px))", left: "50%", transform: "translateX(-50%)",
         zIndex: 1000,
         background: "rgba(255,255,255,0.96)",
         backdropFilter: "blur(14px)",

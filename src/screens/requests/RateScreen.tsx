@@ -72,7 +72,7 @@ export default function RateScreen() {
                 size={42}
                 fill={i <= (hover || rating) ? "var(--amber-500)" : "none"}
                 strokeWidth={i <= (hover || rating) ? 0 : 1.5}
-                color={i <= (hover || rating) ? "var(--amber-500)" : "#cfcadd"}
+                color={i <= (hover || rating) ? "var(--amber-500)" : "var(--ink-300)"}
                 style={{ transition: "transform 0.1s", transform: i <= (hover || rating) ? "scale(1.08)" : "scale(1)" }}
               />
             </button>

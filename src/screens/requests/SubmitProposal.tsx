@@ -96,7 +96,7 @@ export default function SubmitProposal() {
           style={{ padding: 14, border: boost ? "2px solid var(--amber-500)" : "1.5px solid var(--ink-200)", textAlign: "left" }}
           onClick={() => setBoost((v) => !v)}
         >
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--amber-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Zap size={20} color="var(--amber-500)" />
           </div>
           <div className="grow">

@@ -98,7 +98,7 @@ export default function ProviderOnboard() {
     return (
       <div className="screen">
         <div className="screen-scroll col center page-pad" style={{ paddingTop: 70, textAlign: "center" }}>
-          <div style={{ width: 96, height: 96, borderRadius: "50%", background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
+          <div style={{ width: 96, height: 96, borderRadius: "50%", background: "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
             <CheckCircle2 size={52} color="var(--green-500)" />
           </div>
           <h1 className="bold h1" style={{ marginTop: 24 }}>You're almost live!</h1>
@@ -230,9 +230,9 @@ export default function ProviderOnboard() {
 
         {step === 3 && (
           <>
-            <div className="card row gap-10" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
+            <div className="card row gap-10" style={{ padding: 12, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
               <Briefcase size={20} color="var(--green-500)" />
-              <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>
+              <span className="tiny" style={{ color: "var(--green-600)", lineHeight: 1.4 }}>
                 Add a clear face photo — it becomes your public profile photo so customers know who they're hiring.
               </span>
             </div>

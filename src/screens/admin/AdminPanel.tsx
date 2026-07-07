@@ -160,7 +160,7 @@ function AdminAccount() {
 
       <button
         className="btn btn-outline btn-block row gap-8 center"
-        style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
+        style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }}
         onClick={() => { signOut(); nav("/admin/login"); }}
       >
         <LogOut size={16} /> Sign out of admin
@@ -393,9 +393,9 @@ function AdminDisputes() {
     <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
       {items.length === 0 && <EmptyState emoji="⚖️" title="No active disputes" text="All disputes have been resolved." />}
       {items.map((ag: any) => (
-        <div key={ag.id} className="card" style={{ border: "1px solid #fca5a5" }}>
+        <div key={ag.id} className="card" style={{ border: "1px solid var(--red-100)" }}>
           <div className="row between" style={{ marginBottom: 6 }}>
-            <span className="badge" style={{ background: "#fee2e2", color: "#991b1b" }}>
+            <span className="badge" style={{ background: "var(--red-100)", color: "var(--red-600)" }}>
               <Flag size={11} /> Disputed
             </span>
             <span className="tiny muted">{new Date(ag.created_at).toLocaleDateString()}</span>
@@ -405,7 +405,7 @@ function AdminDisputes() {
             {ag.requester?.name ?? "?"} ↔ {ag.responder?.name ?? "?"}
           </div>
           {ag.dispute_reason && (
-            <div className="tiny" style={{ color: "#c2410c", marginBottom: 10, lineHeight: 1.4, background: "#fff5f5", padding: "6px 8px", borderRadius: 6 }}>
+            <div className="tiny" style={{ color: "var(--orange-500)", marginBottom: 10, lineHeight: 1.4, background: "var(--red-50)", padding: "6px 8px", borderRadius: 6 }}>
               "{ag.dispute_reason}"
             </div>
           )}
@@ -451,14 +451,14 @@ function AdminAppeals() {
     <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
       {items.length === 0 && <EmptyState emoji="📮" title="No pending appeals" text="Suspended businesses/providers can raise a review request from their dashboard." />}
       {items.map((a) => (
-        <div key={a.id} className="card" style={{ border: "1px solid #fecaca" }}>
+        <div key={a.id} className="card" style={{ border: "1px solid var(--red-100)" }}>
           <div className="row between" style={{ marginBottom: 6 }}>
-            <span className="badge" style={{ background: "#fee2e2", color: "#991b1b" }}>
+            <span className="badge" style={{ background: "var(--red-100)", color: "var(--red-600)" }}>
               {a.entityType === "BUSINESS" ? <Store size={11} /> : <Briefcase size={11} />} {a.entityType}
             </span>
             <span className="tiny muted">{new Date(a.createdAt).toLocaleDateString()}</span>
           </div>
-          <div className="tiny" style={{ marginBottom: 10, lineHeight: 1.4, background: "#fff5f5", padding: "6px 8px", borderRadius: 6, color: "#7f1d1d" }}>
+          <div className="tiny" style={{ marginBottom: 10, lineHeight: 1.4, background: "var(--red-50)", padding: "6px 8px", borderRadius: 6, color: "var(--red-600)" }}>
             "{a.reason}"
           </div>
           <input
@@ -808,11 +808,11 @@ function AdminProfiles() {
                         </span>
                         {req.status === "PENDING" && (
                           isReadyToPurge ? (
-                            <span style={{ background: "#fee2e2", color: "var(--red-600)", padding: "2px 6px", borderRadius: 6, fontWeight: 700, fontSize: 10.5 }}>
+                            <span style={{ background: "var(--red-100)", color: "var(--red-600)", padding: "2px 6px", borderRadius: 6, fontWeight: 700, fontSize: 10.5 }}>
                               Ready to Purge
                             </span>
                           ) : (
-                            <span style={{ background: "#fef3c7", color: "#d97706", padding: "2px 6px", borderRadius: 6, fontWeight: 700, fontSize: 10.5 }}>
+                            <span style={{ background: "var(--amber-100)", color: "var(--amber-700)", padding: "2px 6px", borderRadius: 6, fontWeight: 700, fontSize: 10.5 }}>
                               Grace Period: {daysLeft}d left
                             </span>
                           )
@@ -863,9 +863,9 @@ function AdminProfiles() {
               You are about to permanently delete <strong>{selectedProfile.name || selectedProfile.display_name || "this profile"}</strong> ({profileType}).
             </p>
 
-            <div className="col gap-6" style={{ background: "#fef2f2", border: "1px solid #fca5a5", padding: 10, borderRadius: 8 }}>
-              <span className="tiny bold" style={{ color: "#991b1b" }}>IMPACT PREVIEW:</span>
-              <ul className="tiny col gap-4" style={{ listStyleType: "disc", paddingLeft: 16, color: "#7f1d1d", lineHeight: 1.4 }}>
+            <div className="col gap-6" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", padding: 10, borderRadius: 8 }}>
+              <span className="tiny bold" style={{ color: "var(--red-600)" }}>IMPACT PREVIEW:</span>
+              <ul className="tiny col gap-4" style={{ listStyleType: "disc", paddingLeft: 16, color: "var(--red-600)", lineHeight: 1.4 }}>
                 {profileType === "BUSINESS" && (
                   <>
                     <li>Deletes all Catalog Items associated with the business.</li>

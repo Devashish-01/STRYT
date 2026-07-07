@@ -37,7 +37,7 @@ export function SearchBar() {
 
   return (
     <div style={{
-      position: "absolute", top: 12, left: 16, right: 16, zIndex: 1000,
+      position: "absolute", top: "calc(12px + env(safe-area-inset-top, 0px))", left: 16, right: 16, zIndex: 1000,
       display: "flex", gap: 10, alignItems: "center"
     }}>
       <button

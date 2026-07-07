@@ -16,6 +16,7 @@ import DayTimetable from "@/components/appointments/DayTimetable";
 import BlockSlotModal from "@/components/appointments/BlockSlotModal";
 import WalkInModal from "@/components/appointments/WalkInModal";
 import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppointments";
+import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
@@ -67,6 +68,7 @@ export default function ProviderLeads() {
   const [responseNote, setResponseNote] = useState("");
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [noShowBusy, setNoShowBusy] = useState<string | null>(null);
+  const [processingPayment, setProcessingPayment] = useState<string | null>(null);
 
   const [blockModal, setBlockModal] = useState<{ date: Date; timeLabel: string | null } | null>(null);
   const [blockSubmitting, setBlockSubmitting] = useState(false);
@@ -98,6 +100,24 @@ export default function ProviderLeads() {
       refetchApts();
     } catch {
       showToast("Couldn't update appointment");
+    }
+  }
+
+  async function handlePaymentAction(apt: AppointmentRecord, action: "CONFIRM" | "REJECT") {
+    setProcessingPayment(apt.id);
+    try {
+      if (action === "CONFIRM") {
+        await appointmentService.confirmPayment(apt.id);
+        showToast("Payment confirmed ✓");
+      } else {
+        await appointmentService.rejectPaymentClaim(apt.id);
+        showToast("Payment claim rejected — customer can resubmit.");
+      }
+      refetchApts();
+    } catch {
+      showToast("Couldn't update payment status. Try again.");
+    } finally {
+      setProcessingPayment(null);
     }
   }
 
@@ -247,7 +267,7 @@ export default function ProviderLeads() {
         )}
 
         {apt.responseNote && (
-          <div className="tiny" style={{ color: apt.status === "REJECTED" || apt.status === "CANCELLED" ? "#b45309" : "#15803d", fontStyle: "italic" }}>
+          <div className="tiny" style={{ color: apt.status === "REJECTED" || apt.status === "CANCELLED" ? "var(--amber-700)" : "var(--green-600)", fontStyle: "italic" }}>
             Response: "{apt.responseNote}"
           </div>
         )}
@@ -255,6 +275,18 @@ export default function ProviderLeads() {
         {(apt.status === "CANCELLED" || apt.status === "REJECTED") && (
           <CancelAttributionNote apt={apt} viewpoint="OWNER" />
         )}
+
+        <PaymentStatusCard
+          paymentStatus={apt.paymentStatus}
+          paymentMethod={apt.paymentMethod}
+          paymentAmount={apt.paymentAmount}
+          paymentReference={apt.paymentReference}
+          claimantName={apt.customerName}
+          viewerIsPayer={false}
+          busy={processingPayment === apt.id}
+          onConfirm={() => handlePaymentAction(apt, "CONFIRM")}
+          onReject={() => handlePaymentAction(apt, "REJECT")}
+        />
 
         {(apt.status === "PENDING" || apt.status === "ACCEPTED") && (
           <div className="row gap-8" style={{ marginTop: 6, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
@@ -269,13 +301,13 @@ export default function ProviderLeads() {
                     <Check size={14} /> Accept
                   </button>
                 )}
-                <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
+                <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
                   <XIcon size={14} /> Decline
                 </button>
               </>
             )}
             {apt.status === "ACCEPTED" && (
-              <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
+              <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
                 <XIcon size={14} /> Cancel appointment
               </button>
             )}
@@ -341,9 +373,9 @@ export default function ProviderLeads() {
         {tab === "requests" && (
           <>
             <div className="page-pad" style={{ paddingBottom: 0 }}>
-              <div className="card row gap-10" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
+              <div className="card row gap-10" style={{ padding: 12, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
                 <span style={{ fontSize: 20 }}>🙋</span>
-                <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>
+                <span className="tiny" style={{ color: "var(--green-600)", lineHeight: 1.4 }}>
                   Open requests near you. Send a proposal to win the job — itemize your quote for the best shot.
                 </span>
               </div>
@@ -390,7 +422,7 @@ export default function ProviderLeads() {
 
             {consoleTab === "TODAY" && (
               <div className="page-pad col gap-12" style={{ paddingTop: 8 }}>
-                <DateStrip selectedDate={selectedDate} onSelect={setSelectedDate} appointments={appointments} />
+                <DateStrip selectedDate={selectedDate} onSelect={setSelectedDate} appointments={appointments} daysBefore={7} daysAfter={30} />
 
                 <div className="card row gap-14" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
                   <StatBlock label="Booked" value={bookedCount} />

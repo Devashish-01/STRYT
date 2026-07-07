@@ -71,7 +71,7 @@ export default function ProviderDashboard() {
     <div className="screen with-nav">
       {/* ── Branded Premium Header ── */}
       <div style={{
-        background: "linear-gradient(135deg, var(--green-500), #14532d)",
+        background: "linear-gradient(135deg, var(--green-500), var(--green-700))",
         color: "#fff",
         padding: "20px 16px 24px",
         borderBottomLeftRadius: 24,
@@ -143,7 +143,7 @@ export default function ProviderDashboard() {
                 height: 14,
                 borderRadius: "50%",
                 background: "var(--green-500)",
-                border: "2.5px solid #14532d"
+                border: "2.5px solid var(--green-700)"
               }}>
                 <span className="fade-up" style={{
                   position: "absolute",
@@ -158,7 +158,7 @@ export default function ProviderDashboard() {
           <div className="grow">
             <div className="row gap-6" style={{ alignItems: "center" }}>
               <span className="bold h1" style={{ color: "#fff" }}>{p?.displayName}</span>
-              <BadgeCheck size={18} color="#ffba2b" weight="fill" />
+              <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />
             </div>
             <div className="small" style={{ opacity: 0.9, marginTop: 2 }}>{p?.categoryName}</div>
           </div>
@@ -216,7 +216,7 @@ export default function ProviderDashboard() {
               width: 44,
               height: 44,
               borderRadius: 12,
-              background: available ? "#e8f7ee" : "var(--ink-50)",
+              background: available ? "var(--green-100)" : "var(--ink-50)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -265,8 +265,8 @@ export default function ProviderDashboard() {
             <div className="col gap-10">
               {/* Primary KPIs Row */}
               <div className="row gap-10">
-                <KpiCard icon={Eye} color="#cc4415" value={(data?.views ?? 0).toLocaleString()} label="Profile Views" trend="+10%" bgTint="rgba(204, 68, 21, 0.05)" />
-                <KpiCard icon={Briefcase} color="#0ea5e9" value={data?.leads ?? 0} label="Leads" trend="+5%" bgTint="rgba(14, 165, 233, 0.05)" />
+                <KpiCard icon={Eye} color="var(--brand-700)" value={(data?.views ?? 0).toLocaleString()} label="Profile Views" trend="+10%" bgTint="rgba(204, 68, 21, 0.05)" />
+                <KpiCard icon={Briefcase} color="var(--blue-500)" value={data?.leads ?? 0} label="Leads" trend="+5%" bgTint="rgba(14, 165, 233, 0.05)" />
                 <KpiCard icon={CheckCircle2} color="var(--green-500)" value={data?.accepted ?? 0} label="Won Jobs" trend="+12%" bgTint="rgba(22, 163, 74, 0.05)" />
               </div>
               
@@ -307,9 +307,9 @@ export default function ProviderDashboard() {
             <div className="col gap-6">
               <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Profile & Operations</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <TileCard icon={User} color="#db2777" bgTint="#ffeef4" label="Edit Profile" onClick={() => nav(`${base}/profile`)} />
+                <TileCard icon={User} color="var(--pink-500)" bgTint="var(--brand-50)" label="Edit Profile" onClick={() => nav(`${base}/profile`)} />
                 <TileCard icon={Briefcase} color="var(--brand-600)" bgTint="var(--brand-50)" label="Leads & Requests" onClick={() => nav(`${base}/leads`)} />
-                <TileCard icon={Calendar} color="var(--green-500)" bgTint="#e7f7ee" label="Availability Slots" onClick={() => nav(`${base}/availability`)} />
+                <TileCard icon={Calendar} color="var(--green-500)" bgTint="var(--green-100)" label="Availability Slots" onClick={() => nav(`${base}/availability`)} />
               </div>
             </div>
 
@@ -318,7 +318,7 @@ export default function ProviderDashboard() {
               <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Portfolio & Catalog</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <TileCard icon={FileText} color="var(--brand-600)" bgTint="var(--brand-50)" label="Service Catalog" onClick={() => nav(`${base}/catalog`)} />
-                <TileCard icon={Image} color="#db2777" bgTint="#ffeef4" label="Photo Portfolio" onClick={() => nav(`${base}/portfolio`)} />
+                <TileCard icon={Image} color="var(--pink-500)" bgTint="var(--brand-50)" label="Photo Portfolio" onClick={() => nav(`${base}/portfolio`)} />
                 <TileCard icon={QrCode} color="var(--ink-700)" bgTint="var(--ink-50)" label="Share QR" onClick={() => setShare(true)} />
               </div>
             </div>
@@ -328,8 +328,8 @@ export default function ProviderDashboard() {
               <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Growth & Community</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <TileCard icon={Megaphone} color="var(--brand-600)" bgTint="var(--brand-50)" label="Post Community" onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
-                <TileCard icon={Globe} color="#0ea5e9" bgTint="#e0f2fe" label="My Community" onClick={() => nav(`${base}/community`)} />
-                <TileCard icon={Camera} color="#ec4899" bgTint="#fdeef6" label="Post a Story" onClick={() => nav("/story/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
+                <TileCard icon={Globe} color="var(--blue-500)" bgTint="var(--blue-500)" label="My Community" onClick={() => nav(`${base}/community`)} />
+                <TileCard icon={Camera} color="#ec4899" bgTint="var(--brand-50)" label="Post a Story" onClick={() => nav("/story/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
               </div>
             </div>
           </div>
@@ -383,7 +383,7 @@ function KpiCard({ icon: Icon, color, value, label, trend, bgTint }: { icon: any
           fontSize: 9,
           fontWeight: 700,
           color: isUp ? "var(--green-500)" : "var(--ink-400)",
-          background: isUp ? "#e7f7ee" : "var(--ink-50)",
+          background: isUp ? "var(--green-100)" : "var(--ink-50)",
           padding: "2px 6px",
           borderRadius: 100
         }}>

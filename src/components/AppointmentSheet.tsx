@@ -67,6 +67,12 @@ export function AppointmentSheet({
   const [bookedAppointment, setBookedAppointment] = useState<AppointmentRecord | null>(null);
 
   useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+    };
+  }, [photoPreview]);
+
+  useEffect(() => {
     let active = true;
     async function loadApts() {
       try {
@@ -140,7 +146,6 @@ export function AppointmentSheet({
 
   function removePhoto() {
     setPhotoFile(null);
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoPreview(null);
   }
 
@@ -231,7 +236,7 @@ export function AppointmentSheet({
           background: "#fff",
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
-          padding: 20,
+          padding: "20px 20px calc(20px + env(safe-area-inset-bottom, 0px))",
           maxHeight: "90vh",
           overflowY: "auto",
           animation: "slideUp .25s ease-out",
@@ -255,12 +260,12 @@ export function AppointmentSheet({
 
         {/* Availability info card */}
         {availableNow ? (
-          <div className="card card-condensed" style={{ background: "#e8f7ee", border: "1px solid #bbf7d0", marginBottom: 16 }}>
+          <div className="card card-condensed" style={{ background: "var(--green-100)", border: "1px solid var(--green-500)", marginBottom: 16 }}>
             <div className="row gap-8 center-v">
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--green-500)", boxShadow: "0 0 0 3px rgba(22,163,74,0.18)" }} />
               <div>
-                <div className="bold small" style={{ color: "#15803d" }}>Available now</div>
-                <div className="tiny" style={{ color: "#166534", marginTop: 1 }}>Pick the earliest slot below — they can take you right away.</div>
+                <div className="bold small" style={{ color: "var(--green-600)" }}>Available now</div>
+                <div className="tiny" style={{ color: "var(--green-700)", marginTop: 1 }}>Pick the earliest slot below — they can take you right away.</div>
               </div>
             </div>
           </div>
@@ -356,12 +361,12 @@ export function AppointmentSheet({
 
         {/* Daily limit warning */}
         {hasAptToday && (
-          <div className="card card-condensed" style={{ background: "#fef2f2", border: "1px solid #fee2e2", marginBottom: 16 }}>
+          <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
             <div className="row gap-8 center-v">
               <span style={{ fontSize: 16 }}>⚠️</span>
               <div>
-                <div className="bold small" style={{ color: "#991b1b" }}>Daily Appointment Limit Hit</div>
-                <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>
+                <div className="bold small" style={{ color: "var(--red-600)" }}>Daily Appointment Limit Hit</div>
+                <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>
                   You've reached the limit of {DAILY_APPOINTMENT_LIMIT} appointments for this day. Please pick another date.
                 </div>
               </div>

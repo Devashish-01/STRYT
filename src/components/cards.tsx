@@ -1,3 +1,4 @@
+import { type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, MapPin, Clock, BadgeCheck, Zap, Eye, Users, Flame, Repeat } from "@/components/Icons";
 import type { Business, Provider, RequestPost } from "@/types";
@@ -10,7 +11,7 @@ import { distanceLabel } from "@/lib/format";
 
 /* ---------------- Business cards ---------------- */
 
-export function BusinessCardWide({ b }: { b: Business }) {
+export function BusinessCardWide({ b, style }: { b: Business; style?: CSSProperties }) {
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark } = useApp();
   const saved = isBookmarked("BUSINESS", b.id);
@@ -18,9 +19,9 @@ export function BusinessCardWide({ b }: { b: Business }) {
   // evaluator BusinessDetail uses, so the card can't show a stale "Open".
   const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   return (
-    <div className="card fade-up" style={{ overflow: "hidden" }} onClick={() => nav(`/business/${b.id}`)}>
+    <div className="card card-interactive fade-up" style={{ overflow: "hidden", ...style }} onClick={() => nav(`/business/${b.id}`)}>
       <div style={{ position: "relative" }}>
-        <img src={b.coverImage} alt={b.name} className="thumb" style={{ width: "100%", height: 150 }} loading="lazy" />
+        <img src={b.coverImage} alt={b.name} className="thumb" style={{ width: "100%", aspectRatio: "16/10", objectFit: "cover" }} loading="lazy" />
         <div
           style={{
             position: "absolute",
@@ -52,29 +53,25 @@ export function BusinessCardWide({ b }: { b: Business }) {
           }}
           aria-label="Save"
         >
-          <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "#5c5573"} />
+          <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
         </button>
-        {b.isNew && (
-          <span className="badge badge-new" style={{ position: "absolute", top: 12, left: 10 }}>
-            ● NEW
-          </span>
-        )}
         {/* Paid-placement transparency: users must be able to tell boosted results apart. */}
-        {b.isBoosted && (
-          <span className="badge badge-amber" style={{ position: "absolute", top: b.isNew ? 38 : 12, left: 10 }}>
-            Promoted
-          </span>
+        {(b.isNew || b.isBoosted) && (
+          <div className="card-badge-stack">
+            {b.isNew && <span className="badge badge-new">● NEW</span>}
+            {b.isBoosted && <span className="badge badge-amber">Promoted</span>}
+          </div>
         )}
       </div>
       <div style={{ padding: 12 }}>
         <div className="row between">
           <div className="row gap-6" style={{ minWidth: 0 }}>
             <span className="bold ellipsis" style={{ fontSize: 16 }}>{b.name}</span>
-            {b.isVerified && <BadgeCheck size={16} color="#e5521c" fill="#ffe8e2" />}
+            {b.isVerified && <BadgeCheck size={16} color="var(--brand-600)" fill="var(--brand-100)" />}
           </div>
           <Rating value={b.ratingAvg} />
         </div>
-        <div className="tiny muted ellipsis" style={{ marginTop: 3 }}>
+        <div className="tiny muted ellipsis tabular-nums" style={{ marginTop: 3 }}>
           {b.subCategory} {b.priceForTwo ? `• ${inr(b.priceForTwo)} for two` : ""}
         </div>
         <div className="row gap-10 tiny muted" style={{ marginTop: 8 }}>
@@ -89,17 +86,17 @@ export function BusinessCardWide({ b }: { b: Business }) {
   );
 }
 
-export function BusinessCardSmall({ b }: { b: Business }) {
+export function BusinessCardSmall({ b, style }: { b: Business; style?: CSSProperties }) {
   const nav = useNavigate();
   const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   return (
     <div
-      className="fade-up"
-      style={{ width: 160, flexShrink: 0 }}
+      className="card-interactive fade-up"
+      style={{ width: 160, flexShrink: 0, ...style }}
       onClick={() => nav(`/business/${b.id}`)}
     >
       <div style={{ position: "relative" }}>
-        <img src={b.coverImage} alt={b.name} className="thumb" style={{ width: "100%", height: 110, borderRadius: 16 }} loading="lazy" />
+        <img src={b.coverImage} alt={b.name} className="thumb" style={{ width: "100%", aspectRatio: "16/11", borderRadius: 16, objectFit: "cover" }} loading="lazy" />
         {b.offerText && (
           <div
             style={{
@@ -117,15 +114,11 @@ export function BusinessCardSmall({ b }: { b: Business }) {
             {b.offerText}
           </div>
         )}
-        {b.isNew && (
-          <span className="badge badge-new" style={{ position: "absolute", top: 8, left: 8, fontSize: 10 }}>
-            NEW
-          </span>
-        )}
-        {b.isBoosted && !b.isNew && (
-          <span className="badge badge-amber" style={{ position: "absolute", top: 8, left: 8, fontSize: 10 }}>
-            Promoted
-          </span>
+        {(b.isNew || b.isBoosted) && (
+          <div className="card-badge-stack" style={{ top: 8, left: 8, gap: 4 }}>
+            {b.isNew && <span className="badge badge-new" style={{ fontSize: 10 }}>NEW</span>}
+            {b.isBoosted && <span className="badge badge-amber" style={{ fontSize: 10 }}>Promoted</span>}
+          </div>
         )}
       </div>
       <div style={{ marginTop: 7 }}>
@@ -146,13 +139,13 @@ export function BusinessCardSmall({ b }: { b: Business }) {
 
 /* ---------------- Provider card ---------------- */
 
-export function ProviderCard({ p }: { p: Provider }) {
+export function ProviderCard({ p, style }: { p: Provider; style?: CSSProperties }) {
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark } = useApp();
   const saved = isBookmarked("PROVIDER", p.id);
   const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
   return (
-    <div className="card fade-up" style={{ padding: 12 }} onClick={() => nav(`/provider/${p.id}`)}>
+    <div className="card card-interactive fade-up" style={{ padding: 12, ...style }} onClick={() => nav(`/provider/${p.id}`)}>
       <div className="row gap-12" style={{ alignItems: "flex-start" }}>
         <div style={{ position: "relative" }}>
           <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 56, height: 56 }} />
@@ -164,7 +157,7 @@ export function ProviderCard({ p }: { p: Provider }) {
               width: 14,
               height: 14,
               borderRadius: "50%",
-              background: evalRes.isOpenNow ? "var(--green-500)" : "#9ca3af",
+              background: evalRes.isOpenNow ? "var(--green-500)" : "var(--ink-400)",
               border: "2px solid #fff",
             }}
           />
@@ -173,7 +166,7 @@ export function ProviderCard({ p }: { p: Provider }) {
           <div className="row between">
             <div className="row gap-6" style={{ minWidth: 0 }}>
               <span className="bold ellipsis" style={{ fontSize: 15 }}>{safeName(p.displayName, "Local provider")}</span>
-              {p.isVerified && <BadgeCheck size={15} color="#e5521c" fill="#ffe8e2" />}
+              {p.isVerified && <BadgeCheck size={15} color="var(--brand-600)" fill="var(--brand-100)" />}
             </div>
             <button
               onClick={(e) => {
@@ -182,7 +175,7 @@ export function ProviderCard({ p }: { p: Provider }) {
               }}
               aria-label="Save"
             >
-              <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "#a9a3bd"} />
+              <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-400)"} />
             </button>
           </div>
           <div className="tiny muted" style={{ marginTop: 1 }}>{p.categoryName} • {p.subCategory}</div>
@@ -207,7 +200,7 @@ export function ProviderCard({ p }: { p: Provider }) {
       <div className="row between" style={{ marginTop: 11 }}>
         <div>
           <span className="tiny muted">Starts at </span>
-          <span className="bold" style={{ color: "var(--green-500)" }}>{inr(p.startingPrice)}</span>
+          <span className="bold tabular-nums" style={{ color: "var(--green-500)" }}>{inr(p.startingPrice)}</span>
         </div>
         {p.responseTime && <span className="tiny muted row gap-4"><Clock size={12} /> Responds {p.responseTime}</span>}
       </div>
@@ -215,16 +208,16 @@ export function ProviderCard({ p }: { p: Provider }) {
   );
 }
 
-export function ProviderCardSmall({ p }: { p: Provider }) {
+export function ProviderCardSmall({ p, style }: { p: Provider; style?: CSSProperties }) {
   const nav = useNavigate();
   return (
-    <div className="card fade-up" style={{ width: 150, flexShrink: 0, padding: 12 }} onClick={() => nav(`/provider/${p.id}`)}>
+    <div className="card card-interactive fade-up" style={{ width: 150, flexShrink: 0, padding: 12, ...style }} onClick={() => nav(`/provider/${p.id}`)}>
       <div className="col center" style={{ textAlign: "center", gap: 6 }}>
         <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 60, height: 60 }} />
         <div className="bold small ellipsis" style={{ maxWidth: "100%" }}>{safeName(p.displayName, "Local provider")}</div>
         <div className="tiny muted ellipsis" style={{ maxWidth: "100%" }}>{p.categoryName}</div>
         <Rating value={p.ratingAvg} size={11} />
-        <div className="tiny" style={{ color: "var(--green-500)", fontWeight: 700 }}>from {inr(p.startingPrice)}</div>
+        <div className="tiny tabular-nums" style={{ color: "var(--green-500)", fontWeight: 700 }}>from {inr(p.startingPrice)}</div>
       </div>
     </div>
   );
@@ -253,7 +246,7 @@ function expiryLabel(expiresAt?: string | null): string | null {
   return `Expires in ${Math.floor(m / 60)}h ${m % 60 ? `${m % 60}m` : ""}`.trim();
 }
 
-export function RequestCard({ r }: { r: RequestPost }) {
+export function RequestCard({ r, style }: { r: RequestPost; style?: CSSProperties }) {
   const nav = useNavigate();
   const { meToos, toggleMeToo } = useApp();
   const expiry = r.status === "OPEN" ? expiryLabel(r.expiresAt) : null;
@@ -266,8 +259,8 @@ export function RequestCard({ r }: { r: RequestPost }) {
   const archived = r.status === "EXPIRED" || r.status === "CANCELLED";
   return (
     <div
-      className="card fade-up"
-      style={{ padding: 14, border: r.isUrgent && isOpen ? "1.5px solid #fecaca" : undefined, opacity: archived ? 0.62 : 1 }}
+      className="card card-interactive fade-up"
+      style={{ padding: 14, border: r.isUrgent && isOpen ? "1.5px solid var(--red-100)" : undefined, opacity: archived ? 0.62 : 1, ...style }}
       onClick={() => nav(`/request/${r.id}`)}
     >
       <div className="row gap-10" style={{ alignItems: "flex-start" }}>
@@ -311,7 +304,7 @@ export function RequestCard({ r }: { r: RequestPost }) {
             <span className="muted">unlocks bulk price</span>
           </div>
           <div style={{ height: 7, borderRadius: 6, background: "var(--ink-100)", overflow: "hidden" }}>
-            <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),#4ade80)" }} />
+            <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),var(--green-500))" }} />
           </div>
         </div>
       )}
@@ -321,7 +314,7 @@ export function RequestCard({ r }: { r: RequestPost }) {
       <div className="row between">
         <div className="col" style={{ gap: 2 }}>
           <span className="tiny muted">Budget</span>
-          <span className="bold" style={{ color: "var(--green-500)" }}>{budget}</span>
+          <span className="bold tabular-nums" style={{ color: "var(--green-500)" }}>{budget}</span>
         </div>
         {isOpen ? (
           <button

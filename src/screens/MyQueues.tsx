@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { NoQueueIllustration } from "@/components/illustrations";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { businessService } from "@/services";
 import { useApp } from "@/store";
 import { ArrowUpDown, Clock, Users, X, CreditCard, CheckCircle2, AlertCircle } from "@/components/Icons";
@@ -41,19 +43,31 @@ export default function MyQueues() {
   const [leaving, setLeaving] = useState<string | null>(null);
   const [payingQueue, setPayingQueue] = useState<MyQueueEntry | null>(null);
 
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+
   const all = data ?? [];
-  const active = all.filter((q) => ACTIVE.includes(q.status));
+  const active = all.filter((q) => ACTIVE.includes(q.status) && !removedIds.has(q.tokenId));
   const history = all.filter((q) => !ACTIVE.includes(q.status));
   let list = tab === "ACTIVE" ? [...active] : [...history];
   if (tab === "ACTIVE" && sortByName) list.sort((a, b) => a.businessName.localeCompare(b.businessName));
 
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
+
   async function leave(tokenId: string) {
     setLeaving(tokenId);
+    // Optimistic: hide it immediately rather than waiting on refetch, so the
+    // tap always feels like it did something even before the write round-trips.
+    setRemovedIds((prev) => new Set(prev).add(tokenId));
     try {
       await businessService.leaveQueueToken(tokenId);
       showToast("Left the queue");
       refetch();
     } catch (e: any) {
+      setRemovedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(tokenId);
+        return next;
+      });
       showToast(e?.message ? `Couldn't leave queue: ${e.message}` : "Couldn't leave queue. Try again.");
     } finally {
       setLeaving(null);
@@ -61,7 +75,7 @@ export default function MyQueues() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen-boxed">
       <AppBar title="My Queues" subtitle={active.length > 0 ? `${active.length} active` : undefined} />
 
       <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 6 }}>
@@ -73,8 +87,9 @@ export default function MyQueues() {
         </button>
       </div>
 
-      <div className="screen-scroll">
-        {loading && <ListSkeleton count={3} />}
+      <div ref={containerRef} className="screen-scroll">
+        <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
+        {loading && <ListSkeleton count={3} type="appointment" />}
         {error && <ErrorView error={error} onRetry={refetch} />}
         {!loading && !error && (
           <div className="page-pad col gap-12" style={{ paddingTop: 8 }}>
@@ -90,6 +105,7 @@ export default function MyQueues() {
 
             {list.length === 0 ? (
               <EmptyState
+                illustration={<NoQueueIllustration />}
                 emoji="👥"
                 title={tab === "ACTIVE" ? "No active queues" : "No queue history yet"}
                 text={tab === "ACTIVE" ? "Join a shop's live queue and it'll show up here." : "Served and left queues appear here."}
@@ -102,7 +118,7 @@ export default function MyQueues() {
                 <div
                   key={q.tokenId}
                   className="card gap-12"
-                  style={{ padding: 14, border: isCalled ? "2px solid var(--green-500)" : "1px solid var(--line)", background: isCalled ? "#f0fdf4" : undefined }}
+                  style={{ padding: 14, border: isCalled ? "2px solid var(--green-500)" : "1px solid var(--line)", background: isCalled ? "var(--green-100)" : undefined }}
                 >
                   <div className="row gap-12 center-v">
                     <SafeImg
@@ -164,28 +180,28 @@ export default function MyQueues() {
 
                   {/* Payment — claimable once called, stays actionable after served */}
                   {isPayable(q.status) && q.paymentStatus === "PAID" && (
-                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
+                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)", borderRadius: 10 }}>
                       <CheckCircle2 size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
-                      <span className="tiny semi" style={{ color: "#15803d" }}>
+                      <span className="tiny semi" style={{ color: "var(--green-600)" }}>
                         Payment confirmed{q.paymentMethod ? ` via ${q.paymentMethod}` : ""}{q.paymentAmount ? ` • ₹${q.paymentAmount}` : ""}
                       </span>
                     </div>
                   )}
                   {isPayable(q.status) && q.paymentStatus === "PENDING_CONFIRM" && (
-                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "#fefce8", border: "1px solid #fef08a", borderRadius: 10 }}>
+                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "var(--amber-50)", border: "1px solid var(--amber-100)", borderRadius: 10 }}>
                       <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
                       <div>
-                        <div className="tiny semi" style={{ color: "#854d0e" }}>Awaiting confirmation</div>
-                        <div className="tiny" style={{ color: "#78350f", marginTop: 1 }}>{q.businessName} will verify and confirm receipt.</div>
+                        <div className="tiny semi" style={{ color: "var(--amber-700)" }}>Awaiting confirmation</div>
+                        <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1 }}>{q.businessName} will verify and confirm receipt.</div>
                       </div>
                     </div>
                   )}
                   {isPayable(q.status) && q.paymentStatus === "REJECTED" && (
-                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10 }}>
+                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "var(--red-50)", border: "1px solid var(--red-100)", borderRadius: 10 }}>
                       <AlertCircle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
                       <div className="grow">
-                        <div className="tiny semi" style={{ color: "#991b1b" }}>Business couldn't verify payment</div>
-                        <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>Please retry or contact them directly.</div>
+                        <div className="tiny semi" style={{ color: "var(--red-600)" }}>Business couldn't verify payment</div>
+                        <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>Please retry or contact them directly.</div>
                       </div>
                       <button
                         className="btn btn-sm"

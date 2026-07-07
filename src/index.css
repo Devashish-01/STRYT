@@ -16,12 +16,21 @@
   --accent-600: #e07800;
 
   --pink-500: #ec4899;
+  --green-100: #dcfce7;
   --green-500: #16a34a;
   --green-600: #15803d;
+  --green-700: #15803d;
+  --red-50:  #fff5f5;
+  --red-100: #fee2e2;
   --red-500: #ef4444;
   --red-600: #dc2626;
-  --blue-500: #3b82f6;
+  --amber-50: #fffbeb;
+  --amber-100: #fef3c7;
   --amber-500: #f59e0b;
+  --amber-700: #b45309;
+  --blue-500: #3b82f6;
+  --orange-50: #fff7ed;
+  --orange-100: #ffedd5;
   --orange-500: #f26a00;
 
   /* Neutrals — purple-tinted ink */
@@ -58,10 +67,14 @@
   --shadow: 0 4px 16px rgba(109, 40, 217, 0.08);
   --shadow-md: 0 8px 30px rgba(109, 40, 217, 0.12);
   --shadow-lg: 0 18px 50px rgba(109, 40, 217, 0.18);
+  --shadow-brand: 0 10px 24px rgba(139, 71, 245, 0.42);
+  --shadow-accent: 0 10px 24px rgba(242, 106, 0, 0.40);
 
   --maxw: 480px;
   --nav-h: 66px;
   --header-h: 56px;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 
   --font: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
@@ -185,6 +198,7 @@ h3, .h3 {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  animation: fadeIn 0.15s ease-out;
 }
 
 .screen-scroll {
@@ -194,7 +208,7 @@ h3, .h3 {
 }
 
 .with-nav {
-  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+  padding-bottom: calc(var(--nav-h) + var(--safe-area-bottom) + 8px);
 }
 
 .page-pad {
@@ -346,6 +360,16 @@ h3, .h3 {
 .badge-blue { background: #dbeafe; color: #1d4ed8; }
 .badge-amber { background: #fef3c7; color: #b45309; }
 
+.card-badge-stack {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
 .dot-new {
   width: 9px;
   height: 9px;
@@ -398,7 +422,7 @@ textarea.input {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: calc(12px + var(--safe-area-top)) 16px 12px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
   position: sticky;
@@ -426,8 +450,8 @@ textarea.input {
   transform: translateX(-50%);
   width: 100%;
   max-width: var(--maxw);
-  height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: calc(var(--nav-h) + var(--safe-area-bottom));
+  padding-bottom: var(--safe-area-bottom);
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--line);
@@ -493,6 +517,7 @@ textarea.input {
   100% { opacity: 0; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.7s linear infinite; }
 
 /* ---------- Sheet / modal ---------- */
 .overlay {
@@ -510,7 +535,7 @@ textarea.input {
   max-width: var(--maxw);
   background: var(--surface);
   border-radius: 24px 24px 0 0;
-  padding: 8px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 16px calc(20px + var(--safe-area-bottom));
   max-height: 88vh;
   overflow-y: auto;
   animation: sheetUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -630,24 +655,72 @@ textarea.input {
   border-bottom-color: var(--brand-700);
 }
 
-/* ---------- Bottom nav badge ---------- */
-.nav-badge {
+/* ---------- Unified count badge (chat/notif counts on icon buttons, tiles, cards) ---------- */
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--red-500);
+  color: #white;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 99px;
+  text-align: center;
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+}
+
+.count-badge.btn-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  font-size: 10.5px;
+  padding: 0 5px;
+  border: 2px solid var(--surface);
+}
+
+.count-badge.count-badge-accent {
+  background: var(--accent-500);
+}
+
+.count-badge.nav-badge {
   position: absolute;
   top: -4px;
   right: -7px;
   min-width: 16px;
   height: 16px;
-  border-radius: 8px;
-  background: var(--red-500);
-  color: #fff;
   font-size: 10px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 0 3px;
   border: 1.5px solid var(--bg);
-  line-height: 1;
+}
+
+.count-badge.launch-tile-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: 20px;
+  height: 20px;
+  font-size: 11px;
+  padding: 0 5px;
+}
+
+.count-badge.feature-card-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 20px;
+  height: 20px;
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+.count-badge.sidebar-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  min-height: 14px;
 }
 
 /* ---------- Activity banner (Home: active agreements) ---------- */
@@ -695,22 +768,7 @@ textarea.input {
   transition: transform 0.08s ease;
 }
 .feature-card:active { transform: scale(0.97); }
-.feature-card-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  min-width: 20px;
-  height: 20px;
-  border-radius: 10px;
-  background: var(--red-500);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-}
+/* feature card badge styling consolidated in unified count-badge rules */
 
 /* ---------- Improved bottom nav active state ---------- */
 .nav-item.active::before {
@@ -795,22 +853,7 @@ textarea.input {
   margin-top: 2px;
   line-height: 1.2;
 }
-.launch-tile-badge {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  min-width: 20px;
-  height: 20px;
-  border-radius: 10px;
-  background: var(--red-500);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 5px;
-}
+/* launch tile badge styling consolidated in unified count-badge rules */
 
 /* compact "on your street now" rows */
 .street-row {
@@ -954,15 +997,7 @@ textarea.input {
     font-weight: 700;
   }
 
-  .sidebar-badge {
-    background: var(--red-500);
-    color: #fff;
-    border-radius: 99px;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 1px 6px;
-    line-height: 1;
-  }
+  /* sidebar badge styling consolidated in unified count-badge rules */
 
   .sidebar-actions {
     display: flex;
@@ -1053,16 +1088,14 @@ textarea.input {
   }
 
   /* Center page contents elegantly on desktop */
-  .screen {
+  /* Center page contents elegantly on desktop via boxed class */
+  .screen-boxed {
     max-width: 1120px !important;
     margin: 0 auto !important;
     padding: 24px 32px !important;
   }
 
-  /* Full-bleed opt-out — canvases (map, camera/QR viewfinders, story viewer)
-     must fill the actual viewport next to the sidebar, not get boxed into the
-     1120px centered column above. Same selector specificity as .screen, so
-     this must stay declared AFTER it to win the cascade. */
+  /* Full-bleed canvases (map, camera/QR viewfinders, story viewer) */
   .screen.screen-canvas {
     max-width: 100% !important;
     margin: 0 !important;
@@ -1075,8 +1108,8 @@ textarea.input {
     height: auto !important;
   }
 
-  /* Sticky app bars adjust styling on desktop */
-  .appbar {
+  /* Sticky app bars adjust styling on desktop for boxed screens */
+  .screen-boxed .appbar {
     max-width: 1120px !important;
     margin: 0 auto !important;
     background: rgba(250, 248, 255, 0.9) !important;
@@ -1130,13 +1163,13 @@ textarea.input {
     gap: 28px;
     align-items: start;
   }
-  
+
   .home-main-col {
     display: flex;
     flex-direction: column;
     gap: 20px;
   }
-  
+
   .home-sidebar-col {
     display: flex;
     flex-direction: column;
@@ -1165,7 +1198,7 @@ textarea.input {
     position: relative;
     overflow: hidden;
   }
-  
+
   .desktop-welcome-card::after {
     content: '';
     position: absolute;
@@ -1416,5 +1449,79 @@ textarea.input {
   }
   .mobile-only {
     display: none !important;
+  }
+}
+
+/* ---------- Tabular numbers utility ---------- */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Page fade-in transition ---------- */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---------- Desktop Pointer Hover Styles ---------- */
+@media (hover: hover) {
+  .btn-primary:hover {
+    background: linear-gradient(135deg, var(--brand-600), var(--brand-800));
+    box-shadow: var(--shadow-brand);
+    transform: translateY(-1px);
+  }
+
+  .btn-accent:hover {
+    background: linear-gradient(135deg, var(--accent-500), var(--accent-600));
+    box-shadow: var(--shadow-accent);
+    transform: translateY(-1px);
+  }
+
+  .btn-ghost:hover {
+    background: var(--ink-200);
+  }
+
+  .btn-outline:hover {
+    border-color: var(--brand-400);
+    color: var(--brand-700);
+    background: var(--brand-50);
+  }
+
+  .card-interactive,
+  .launch-hero,
+  .launch-tile,
+  .activity-banner,
+  .chip {
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease, filter 0.2s ease;
+  }
+
+  .card-interactive:hover {
+    border-color: var(--brand-300);
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+  }
+
+  .launch-hero:hover {
+    filter: brightness(0.98);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+
+  .launch-tile:hover {
+    border-color: var(--brand-300);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-2px);
+  }
+
+  .activity-banner:hover {
+    border-color: var(--brand-300);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-2px);
+  }
+
+  .chip:hover {
+    border-color: var(--brand-500);
+    background: var(--brand-50);
+    color: var(--brand-700);
   }
 }

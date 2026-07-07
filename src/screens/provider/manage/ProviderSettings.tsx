@@ -210,10 +210,10 @@ export default function ProviderSettings() {
                       padding: "10px 0",
                       borderRadius: 12,
                       border: paymentTiming === t ? "2px solid var(--green-500)" : "1.5px solid var(--ink-200)",
-                      background: paymentTiming === t ? "#f0fdf4" : "#fff",
+                      background: paymentTiming === t ? "var(--green-100)" : "#fff",
                       fontWeight: 700,
                       fontSize: 13,
-                      color: paymentTiming === t ? "#15803d" : "var(--ink-500)",
+                      color: paymentTiming === t ? "var(--green-600)" : "var(--ink-500)",
                     }}
                     onClick={() => savePaymentTiming(t)}
                   >

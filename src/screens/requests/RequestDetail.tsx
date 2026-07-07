@@ -220,7 +220,7 @@ export default function RequestDetail() {
               <button className="btn btn-outline btn-sm grow row center gap-6" onClick={startEdit}>
                 <Edit3 size={14} /> Edit Request
               </button>
-              <button className="btn btn-outline btn-sm row center gap-6" style={{ color: "var(--red-500)", borderColor: "#fca5a5" }} onClick={() => setShowDeleteConfirm(true)}>
+              <button className="btn btn-outline btn-sm row center gap-6" style={{ color: "var(--red-500)", borderColor: "var(--red-100)" }} onClick={() => setShowDeleteConfirm(true)}>
                 <Trash2 size={14} /> Delete
               </button>
             </div>
@@ -249,13 +249,13 @@ export default function RequestDetail() {
 
           {/* Group buy progress */}
           {r.isGroupBuy && r.groupBuyTarget && (
-            <div className="card" style={{ marginTop: 14, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
+            <div className="card" style={{ marginTop: 14, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
               <div className="row between tiny" style={{ marginBottom: 6 }}>
-                <span className="semi" style={{ color: "#15803d" }}>{meTooCount} of {r.groupBuyTarget} neighbors in</span>
+                <span className="semi" style={{ color: "var(--green-600)" }}>{meTooCount} of {r.groupBuyTarget} neighbors in</span>
                 <span className="muted">{r.groupBuyTarget - meTooCount} more unlocks bulk price</span>
               </div>
-              <div style={{ height: 8, borderRadius: 6, background: "#fff", overflow: "hidden" }}>
-                <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),#4ade80)" }} />
+              <div style={{ height: 8, borderRadius: 6, background: "var(--surface)", overflow: "hidden" }}>
+                <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),var(--green-500))" }} />
               </div>
             </div>
           )}
@@ -334,13 +334,13 @@ export default function RequestDetail() {
             <div className="col gap-12">
               {sortedProposals.map((p) => (
                 <div key={p.id}
-                  className="card" style={{ border: accepted === p.id ? "2px solid var(--green-500)" : p.isBoosted ? "1.5px solid #fcd34d" : "1px solid var(--line)" }}>
+                  className="card" style={{ border: accepted === p.id ? "2px solid var(--green-500)" : p.isBoosted ? "1.5px solid var(--amber-500)" : "1px solid var(--line)" }}>
                   <div className="row gap-10">
                     <SafeImg src={p.responderAvatar} variant="avatar" className="avatar" style={{ width: 42, height: 42 }} />
                     <div className="grow" style={{ minWidth: 0 }}>
                       <div className="row gap-6">
                         <span className="semi small ellipsis">{p.responderName}</span>
-                        {p.responderType === "business" && <BadgeCheck size={14} color="#e5521c" />}
+                        {p.responderType === "business" && <BadgeCheck size={14} color="var(--brand-600)" />}
                       </div>
                       <span className="tiny muted">{p.responderTagline}</span>
                     </div>
@@ -398,12 +398,12 @@ export default function RequestDetail() {
                           }}
                         >
                           <div style={{
-                            background: c.by === "requester" ? "#ede9fe" : "#dcfce7",
+                            background: c.by === "requester" ? "var(--brand-100)" : "var(--green-100)",
                             borderRadius: 10,
                             padding: "6px 10px",
                             maxWidth: "75%",
                           }}>
-                            <div className="tiny semi" style={{ color: c.by === "requester" ? "var(--brand-700)" : "#15803d" }}>
+                            <div className="tiny semi" style={{ color: c.by === "requester" ? "var(--brand-700)" : "var(--green-600)" }}>
                               {c.by === "requester" ? "Requester" : "Provider"} counter: {inr(c.amount)}
                             </div>
                             {c.message && <div className="tiny muted" style={{ marginTop: 2 }}>{c.message}</div>}
@@ -529,7 +529,7 @@ export default function RequestDetail() {
       {showDeleteConfirm && (
         <div className="sheet-backdrop" onClick={() => setShowDeleteConfirm(false)}>
           <div className="sheet col gap-14 center" style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#fee2e2", color: "var(--red-500)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--red-100)", color: "var(--red-500)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Trash2 size={28} />
             </div>
             <div>
@@ -584,9 +584,9 @@ function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
         borderRadius: 999,
         fontSize: 12,
         fontWeight: 700,
-        background: urgent ? "#fef2f2" : "var(--brand-50)",
+        background: urgent ? "var(--red-50)" : "var(--brand-50)",
         color: urgent ? "var(--red-500)" : "var(--brand-700)",
-        border: `1px solid ${urgent ? "#fecaca" : "var(--brand-200)"}`,
+        border: `1px solid ${urgent ? "var(--red-100)" : "var(--brand-200)"}`,
       }}
     >
       <Clock size={12} /> Expires in {label}

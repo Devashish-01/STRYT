@@ -50,9 +50,9 @@ export default function Promote() {
     <div className="screen with-nav">
       <AppBar title="Promote" subtitle="Grow your reach" />
       <div className="screen-scroll page-pad col gap-12" style={{ paddingBottom: 20 }}>
-        <div className="card row gap-10" style={{ padding: 12, background: "#fff7ed", border: "1px dashed #fdba74" }}>
+        <div className="card row gap-10" style={{ padding: 12, background: "var(--orange-50)", border: "1px dashed var(--orange-100)" }}>
           <Zap size={20} color="var(--orange-500)" />
-          <span className="tiny" style={{ color: "#c2410c", lineHeight: 1.4 }}>Boosts are billed offline for now — your boost activates immediately, in-app payment isn't wired up yet.</span>
+          <span className="tiny" style={{ color: "var(--orange-500)", lineHeight: 1.4 }}>Boosts are billed offline for now — your boost activates immediately, in-app payment isn't wired up yet.</span>
         </div>
 
         {boosts.map((b) => {

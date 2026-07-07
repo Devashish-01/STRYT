@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { NoAppointmentsIllustration } from "@/components/illustrations";
 import { appointmentService, businessService, providerService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
@@ -55,6 +57,8 @@ export default function MyAppointments() {
 
   const list = (data ?? []).filter((a) => (tab === "UPCOMING" ? isUpcoming(a) : !isUpcoming(a)));
   const upcomingCount = (data ?? []).filter(isUpcoming).length;
+
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
 
   async function cancel(apt: AppointmentRecord) {
     setCancelling(apt.id);
@@ -128,7 +132,7 @@ export default function MyAppointments() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen-boxed">
       <AppBar title="My Appointments" subtitle="Track and manage your bookings" />
 
       {/* Upcoming / Past tabs */}
@@ -141,13 +145,15 @@ export default function MyAppointments() {
         </button>
       </div>
 
-      <div className="screen-scroll">
-        {loading && <ListSkeleton count={3} />}
+      <div ref={containerRef} className="screen-scroll">
+        <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
+        {loading && <ListSkeleton count={3} type="appointment" />}
         {error && <ErrorView error={error} onRetry={refetch} />}
         {data && (
           <div className="page-pad col gap-12" style={{ paddingTop: 8 }}>
             {list.length === 0 ? (
               <EmptyState
+                illustration={<NoAppointmentsIllustration />}
                 emoji="📅"
                 title={tab === "UPCOMING" ? "No upcoming appointments" : "Nothing here yet"}
                 text={tab === "UPCOMING" ? "Book a slot with a shop or provider and it'll show up here." : "Past, declined and cancelled bookings appear here."}
@@ -220,29 +226,29 @@ export default function MyAppointments() {
                         appointment auto-completes once its slot passes; the payment
                         step must not disappear just because that housekeeping ran). */}
                     {isPayable(apt.status) && apt.paymentStatus === "PAID" && (
-                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
+                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)", borderRadius: 10 }}>
                         <CheckCircle2 size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
-                        <span className="tiny semi" style={{ color: "#15803d" }}>
+                        <span className="tiny semi" style={{ color: "var(--green-600)" }}>
                           Payment confirmed{apt.paymentMethod ? ` via ${apt.paymentMethod}` : ""}
                           {apt.paymentAmount ? ` • ₹${apt.paymentAmount}` : ""}
                         </span>
                       </div>
                     )}
                     {isPayable(apt.status) && apt.paymentStatus === "PENDING_CONFIRM" && (
-                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "#fefce8", border: "1px solid #fef08a", borderRadius: 10 }}>
+                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "var(--amber-50)", border: "1px solid var(--amber-100)", borderRadius: 10 }}>
                         <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
                         <div>
-                          <div className="tiny semi" style={{ color: "#854d0e" }}>Awaiting confirmation</div>
-                          <div className="tiny" style={{ color: "#78350f", marginTop: 1 }}>{apt.targetName} will verify and confirm receipt in their app.</div>
+                          <div className="tiny semi" style={{ color: "var(--amber-700)" }}>Awaiting confirmation</div>
+                          <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1 }}>{apt.targetName} will verify and confirm receipt in their app.</div>
                         </div>
                       </div>
                     )}
                     {isPayable(apt.status) && apt.paymentStatus === "REJECTED" && (
-                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10 }}>
+                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "var(--red-50)", border: "1px solid var(--red-100)", borderRadius: 10 }}>
                         <AlertCircle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
                         <div className="grow">
-                          <div className="tiny semi" style={{ color: "#991b1b" }}>Business couldn't verify payment</div>
-                          <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>Please retry or contact them directly.</div>
+                          <div className="tiny semi" style={{ color: "var(--red-600)" }}>Business couldn't verify payment</div>
+                          <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>Please retry or contact them directly.</div>
                         </div>
                         <button
                           className="btn btn-sm"
@@ -267,11 +273,11 @@ export default function MyAppointments() {
                     )}
 
                     {apt.status === "ACCEPTED" && apt.responseNote && (
-                      <div className="card row gap-10 center-v" style={{ padding: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
+                      <div className="card row gap-10 center-v" style={{ padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)", borderRadius: 10 }}>
                         <CheckCircle2 size={18} color="var(--green-500)" style={{ flexShrink: 0 }} />
                         <div>
-                          <div className="bold tiny" style={{ color: "#166534" }}>Confirmed</div>
-                          <div className="tiny" style={{ color: "#14532d", marginTop: 1, fontStyle: "italic" }}>Message: "{apt.responseNote}"</div>
+                          <div className="bold tiny" style={{ color: "var(--green-700)" }}>Confirmed</div>
+                          <div className="tiny" style={{ color: "var(--green-600)", marginTop: 1, fontStyle: "italic" }}>Message: "{apt.responseNote}"</div>
                         </div>
                       </div>
                     )}
@@ -285,7 +291,7 @@ export default function MyAppointments() {
                           <button
                             type="button"
                             className="btn btn-outline grow btn-sm row gap-4 center"
-                            style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
+                            style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }}
                             disabled={busy}
                             onClick={() => cancel(apt)}
                           >

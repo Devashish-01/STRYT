@@ -97,7 +97,7 @@ export default function Requests() {
 
         <div className="col gap-12 page-pad">
           {loading ? (
-            <ListSkeleton count={3} />
+            <ListSkeleton count={3} type="request" />
           ) : feedError && tab === "nearby" ? (
             <ErrorView error={feedError} onRetry={refetch} />
           ) : list.length === 0 ? (

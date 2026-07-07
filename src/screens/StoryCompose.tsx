@@ -291,7 +291,7 @@ export default function StoryCompose() {
                   {visibility === "everyone" ? (
                     <Globe size={18} color="var(--brand-600)" />
                   ) : (
-                    <Star size={18} color="#22c55e" fill="#22c55e" />
+                    <Star size={18} color="var(--green-500)" fill="var(--green-500)" />
                   )}
                 </div>
                 <div className="col" style={{ gap: 0 }}>
@@ -404,12 +404,13 @@ export default function StoryCompose() {
       {showPrivacySheet && (
         <div style={{
           position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 110,
-          display: "flex", flexDirection: "column", justifyContent: "flex-end",
-          maxWidth: "var(--maxw)", left: "50%", transform: "translateX(-50%)"
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end",
         }}>
-          <div style={{ flex: 1 }} onClick={() => setShowPrivacySheet(false)} />
-          
+          <div style={{ flex: 1, width: "100%" }} onClick={() => setShowPrivacySheet(false)} />
+
           <div style={{
+            width: "100%",
+            maxWidth: "var(--maxw)",
             background: "#fff",
             borderTopLeftRadius: 24,
             borderTopRightRadius: 24,
@@ -470,7 +471,7 @@ export default function StoryCompose() {
                   fontSize: 13,
                   border: "1.5px solid",
                   background: visibility === "close_friends" ? "rgba(34,197,94,0.06)" : "#fff",
-                  borderColor: visibility === "close_friends" ? "#22c55e" : "var(--ink-200)",
+                  borderColor: visibility === "close_friends" ? "var(--green-500)" : "var(--ink-200)",
                   color: visibility === "close_friends" ? "var(--green-500)" : "var(--ink-700)",
                   cursor: "pointer"
                 }}
@@ -552,7 +553,7 @@ export default function StoryCompose() {
                         <div style={{
                           width: 22, height: 22, borderRadius: "50%",
                           border: isSelected ? "none" : "2px solid var(--ink-300)",
-                          background: isSelected ? (visibility === "close_friends" ? "#22c55e" : "var(--brand-600)") : "transparent",
+                          background: isSelected ? (visibility === "close_friends" ? "var(--green-500)" : "var(--brand-600)") : "transparent",
                           display: "flex", alignItems: "center", justifyContent: "center"
                         }}>
                           {isSelected && <Check size={13} color="#fff" strokeWidth={3} />}

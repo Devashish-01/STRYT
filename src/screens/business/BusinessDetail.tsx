@@ -55,6 +55,9 @@ export default function BusinessDetail() {
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
   const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
   const [payingQueueTokenId, setPayingQueueTokenId] = useState<string | null>(null);
+  const [joiningQueue, setJoiningQueue] = useState(false);
+  const [partySize, setPartySize] = useState(1);
+  const [queueBusy, setQueueBusy] = useState(false);
   const [tab, setTab] = useState<"catalog" | "posts" | "about" | "reviews">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [report, setReport] = useState(false);
@@ -143,7 +146,15 @@ export default function BusinessDetail() {
   const isOwner = b.ownerUserId === user.id;
   const saved = isBookmarked("BUSINESS", b.id);
   const following = isFollowing("BUSINESS", b.id);
-  const inQueue = queuesJoined.includes(b.id);
+  // Source of truth for "already in this queue" is the customer's live tokens
+  // from the DB (myQueueEntries), not the in-memory queuesJoined set — that set
+  // is wiped on reload/new session, which is exactly what let people re-join and
+  // pile up duplicate tokens. queuesJoined is kept only as an optimistic hint so
+  // the button flips instantly before the refetch lands.
+  const activeQueueEntry = (myQueueEntries ?? []).find(
+    (q) => q.businessId === b.id && (q.status === "WAITING" || q.status === "CALLED")
+  );
+  const inQueue = !!activeQueueEntry || queuesJoined.includes(b.id);
   const notifyKey = `OPENS:${b.id}`;
   const notifying = notifySubs.includes(notifyKey);
   const cartCount = Object.values(cart).reduce((a, c) => a + c, 0);
@@ -205,8 +216,8 @@ export default function BusinessDetail() {
     <div className="screen" style={{ position: "relative" }}>
       <div className="screen-scroll" style={{ paddingBottom: cartCount ? 88 : 24 }}>
         {isMockTarget(id) && (
-          <div style={{ padding: "8px 14px", background: "#fff3e8", borderBottom: "1px solid #ffd9b3" }}>
-            <span className="tiny" style={{ color: "#b45309", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
+          <div style={{ padding: "8px 14px", background: "var(--orange-50)", borderBottom: "1px solid var(--orange-100)" }}>
+            <span className="tiny" style={{ color: "var(--amber-700)", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
           </div>
         )}
         {/* Cover */}
@@ -219,7 +230,7 @@ export default function BusinessDetail() {
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setAddList(true)}><Bookmark size={18} /></button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => toggleBookmark("BUSINESS", b.id)}>
-                <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "#5c5573"} />
+                <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
               </button>
             </div>
           </div>
@@ -239,7 +250,7 @@ export default function BusinessDetail() {
               <div style={{ minWidth: 0 }}>
                 <div className="row gap-6">
                   <h1 className="bold h2">{b.name}</h1>
-                  {b.isVerified && <BadgeCheck size={18} color="#e5521c" fill="#ffe8e2" />}
+                  {b.isVerified && <BadgeCheck size={18} color="var(--brand-600)" fill="var(--brand-100)" />}
                 </div>
                 <p className="small muted" style={{ marginTop: 2 }}>{b.subCategory}</p>
               </div>
@@ -325,7 +336,7 @@ export default function BusinessDetail() {
               </button>
               <button
                 className="btn grow btn-sm"
-                style={{ background: notifying ? "#fff3e8" : "var(--ink-50)", color: notifying ? "var(--accent-600)" : "var(--ink-700)" }}
+                style={{ background: notifying ? "var(--orange-50)" : "var(--ink-50)", color: notifying ? "var(--accent-600)" : "var(--ink-700)" }}
                 onClick={() => toggleNotify(notifyKey)}
               >
                 <Bell size={16} fill={notifying ? "var(--orange-500)" : "none"} /> {notifying ? "Alerts on" : "Notify me"}
@@ -354,30 +365,84 @@ export default function BusinessDetail() {
         {/* Live queue */}
         {queue && queue.isOpen && (
           <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
-            <div className="card row gap-12" style={{ padding: 14, background: queue.peopleAhead === 0 ? "#e8f7ee" : "var(--brand-50)", border: "none" }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Users size={20} color={queue.peopleAhead === 0 ? "var(--green-500)" : "#cc4415"} />
-              </div>
-              <div className="grow">
-                <div className="semi small">
-                  {queue.peopleAhead === 0 ? "No wait right now 🎉" : `${queue.peopleAhead} people ahead`}
+            <div className="card col gap-12" style={{ padding: 14, background: queue.peopleAhead === 0 ? "var(--green-100)" : "var(--brand-50)", border: "none" }}>
+              <div className="row gap-12 center-v">
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Users size={20} color={queue.peopleAhead === 0 ? "var(--green-500)" : "var(--brand-700)"} />
                 </div>
-                <div className="tiny muted">{queue.peopleAhead === 0 ? "Walk in anytime" : `~${queue.estWaitMin} min wait`}</div>
+                <div className="grow" style={{ minWidth: 0 }}>
+                  <div className="semi small">
+                    {queue.peopleAhead === 0 ? "No wait right now 🎉" : `${queue.peopleAhead} ahead`}
+                  </div>
+                  <div className="tiny muted">{queue.peopleAhead === 0 ? "Walk in anytime" : `~${queue.estWaitMin} min wait`}</div>
+                </div>
+                {inQueue ? (
+                  <span className="badge badge-green">
+                    {activeQueueEntry?.status === "CALLED"
+                      ? "🔔 Your turn"
+                      : `You're #${activeQueueEntry?.position || queue.peopleAhead + 1}`}
+                  </span>
+                ) : !joiningQueue ? (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => { setPartySize(1); setJoiningQueue(true); }}
+                  >Join queue</button>
+                ) : null}
               </div>
-              {inQueue ? (
-                <span className="badge badge-green">You're #{queue.peopleAhead + 1}</span>
-              ) : (
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={async () => {
-                    try {
-                      await businessService.joinQueueToken(b.id, safeName(user.name, "Customer"));
-                      joinQueue(b.id);
-                    } catch (e: any) {
-                      showToast(e?.message || "Sign in to join the queue");
-                    }
-                  }}
-                >Join queue</button>
+
+              {/* Party-size picker — shown after tapping "Join queue". Party size is
+                  passed to joinQueueToken and feeds the weighted wait-time estimate. */}
+              {!inQueue && joiningQueue && (
+                <div className="col gap-10" style={{ paddingTop: 4, borderTop: "1px solid var(--brand-100)" }}>
+                  <div className="row between center-v">
+                    <div style={{ minWidth: 0 }}>
+                      <div className="semi small">How many in your party?</div>
+                      <div className="tiny muted">Helps the shop estimate the wait</div>
+                    </div>
+                    <div className="row center-v" style={{ background: "#fff", borderRadius: 10, border: "1px solid var(--brand-200)" }}>
+                      <button
+                        style={{ padding: "6px 12px", color: partySize <= 1 ? "var(--ink-300)" : "var(--brand-700)" }}
+                        disabled={partySize <= 1}
+                        onClick={() => setPartySize((n) => Math.max(1, n - 1))}
+                        aria-label="Fewer"
+                      ><Minus size={15} /></button>
+                      <span className="bold" style={{ minWidth: 24, textAlign: "center" }}>{partySize}</span>
+                      <button
+                        style={{ padding: "6px 12px", color: partySize >= 20 ? "var(--ink-300)" : "var(--brand-700)" }}
+                        disabled={partySize >= 20}
+                        onClick={() => setPartySize((n) => Math.min(20, n + 1))}
+                        aria-label="More"
+                      ><Plus size={15} /></button>
+                    </div>
+                  </div>
+                  <div className="row gap-8">
+                    <button
+                      className="btn btn-outline btn-sm grow"
+                      disabled={queueBusy}
+                      onClick={() => { setJoiningQueue(false); setPartySize(1); }}
+                    >Cancel</button>
+                    <button
+                      className="btn btn-primary btn-sm grow"
+                      disabled={queueBusy}
+                      onClick={async () => {
+                        setQueueBusy(true);
+                        try {
+                          const label = partySize === 1 ? "1 person" : `${partySize} people`;
+                          await businessService.joinQueueToken(b.id, safeName(user.name, "Customer"), label);
+                          joinQueue(b.id);
+                          setJoiningQueue(false);
+                          setPartySize(1);
+                          refetchMyQueues();
+                        } catch (e: any) {
+                          showToast(e?.message || "Sign in to join the queue");
+                        } finally {
+                          setQueueBusy(false);
+                        }
+                      }}
+                    >{queueBusy ? "Joining…" : `Join${partySize > 1 ? ` · ${partySize}` : ""}`}</button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -387,12 +452,12 @@ export default function BusinessDetail() {
         {b.offers.length > 0 && (
           <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
             {b.offers.map((o) => (
-              <div key={o.id} className="card row gap-10" style={{ padding: 12, background: "#fff7ed", border: "1px dashed #fdba74" }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div key={o.id} className="card row gap-10" style={{ padding: 12, background: "var(--orange-50)", border: "1px dashed var(--orange-100)" }}>
+                <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--orange-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <Tag size={18} color="var(--orange-500)" />
                 </div>
                 <div className="grow">
-                  <div className="semi small" style={{ color: "#c2410c" }}>{o.title}</div>
+                  <div className="semi small" style={{ color: "var(--orange-500)" }}>{o.title}</div>
                   <div className="tiny muted">{o.description}</div>
                 </div>
                 {o.code && <span className="badge badge-amber" style={{ borderStyle: "dashed", border: "1px dashed var(--amber-500)" }}>{o.code}</span>}
@@ -406,7 +471,7 @@ export default function BusinessDetail() {
           <div className="hscroll" style={{ padding: "12px 16px 4px" }}>
             {highlights.map((h, i) => (
               <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
-                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,#facc15,#f59e0b)" }}>
+                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,var(--amber-500),var(--amber-500))" }}>
                   <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
                 </div>
                 <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
@@ -535,7 +600,7 @@ export default function BusinessDetail() {
 
             {/* Q&A */}
             <div>
-              <div className="semi small row gap-6" style={{ marginBottom: 8 }}><HelpCircle size={15} color="#6366f1" /> Questions & Answers</div>
+              <div className="semi small row gap-6" style={{ marginBottom: 8 }}><HelpCircle size={15} color="var(--blue-500)" /> Questions & Answers</div>
               <div className="card card-condensed">
                 <textarea
                   className="input"

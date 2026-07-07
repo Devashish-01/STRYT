@@ -95,7 +95,7 @@ export default function BusinessOnboard() {
     return (
       <div className="screen">
         <div className="screen-scroll col center page-pad" style={{ paddingTop: 70, textAlign: "center" }}>
-          <div style={{ width: 96, height: 96, borderRadius: "50%", background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
+          <div style={{ width: 96, height: 96, borderRadius: "50%", background: "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
             <CheckCircle2 size={52} color="var(--green-500)" />
           </div>
           <h1 className="bold h1" style={{ marginTop: 24 }}>Submitted for review</h1>

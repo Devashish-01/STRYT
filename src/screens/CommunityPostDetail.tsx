@@ -168,7 +168,7 @@ export default function CommunityPostDetail() {
                   style={{ padding: 10, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
                   onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}
                 >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: rec.listingType === "BUSINESS" ? "#ffedd5" : "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: rec.listingType === "BUSINESS" ? "var(--orange-100)" : "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
                     {rec.listingType === "BUSINESS" ? "🏪" : "👤"}
                   </div>
                   <div className="grow">

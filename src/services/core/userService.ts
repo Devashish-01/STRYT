@@ -15,7 +15,7 @@ const USER_COLUMNS = new Set([
   "emergencyContact", "emergencyContactName",
   "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
   "showPhonePublicly", "showEmailPublicly", "showCityPublicly", "showRatingPublicly",
-  "locationPublic",
+  "locationPublic", "onboardingCompletedAt",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
@@ -83,7 +83,7 @@ export const userService = {
       { onConflict: "id", ignoreDuplicates: true }
     );
     if (upsertErr) console.warn("me (profile self-heal):", upsertErr.message);
-    return toCamel<CurrentUser>({ id: uid, name, phone: au.phone ?? null, email: au.email ?? null, avatar, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5, deletion_scheduled_at: null });
+    return toCamel<CurrentUser>({ id: uid, name, phone: au.phone ?? null, email: au.email ?? null, avatar, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5, deletion_scheduled_at: null, onboarding_completed_at: null });
   },
 
   async update(patch: Partial<CurrentUser>) {
@@ -97,7 +97,7 @@ export const userService = {
     // `.select()` (which asks for `*`). Callers needing the sensitive fields
     // back should re-fetch via get_own_profile() afterward.
     const { data, error } = await sb.from("users").update(toSnake(cleanPatch)).eq("id", uid)
-      .select("id, name, avatar, roles, area, city, rating_avg, rating_count, language, notification_radius_km, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_email_publicly, show_city_publicly, show_rating_publicly, location_public, customer_enabled, customer_deleted_at")
+      .select("id, name, avatar, roles, area, city, rating_avg, rating_count, language, notification_radius_km, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_email_publicly, show_city_publicly, show_rating_publicly, location_public, customer_enabled, customer_deleted_at, onboarding_completed_at")
       .maybeSingle();
     throwIfError(error);
 

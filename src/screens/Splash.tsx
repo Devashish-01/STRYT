@@ -19,7 +19,7 @@ export default function Splash() {
         className="splash-hero-panel"
         style={{
           flex: "0 0 52%",
-          background: "linear-gradient(145deg, #8b47f5 0%, #6d28d9 45%, #2d1548 100%)",
+          background: "linear-gradient(145deg, var(--brand-500) 0%, var(--brand-700) 45%, var(--ink-800) 100%)",
           position: "relative",
           overflow: "hidden",
           display: "flex",
@@ -30,16 +30,16 @@ export default function Splash() {
         }}
       >
         {/* Ambient blobs */}
-        <div style={{ position:"absolute", top:-80, left:-80, width:300, height:300, background:"#c084fc", borderRadius:"50%", filter:"blur(90px)", opacity:0.3, pointerEvents:"none" }} />
-        <div style={{ position:"absolute", bottom:-60, right:-40, width:260, height:260, background:"#ff9500", borderRadius:"50%", filter:"blur(80px)", opacity:0.25, pointerEvents:"none" }} />
+        <div style={{ position:"absolute", top:-80, left:-80, width:300, height:300, background:"var(--brand-400)", borderRadius:"50%", filter:"blur(90px)", opacity:0.3, pointerEvents:"none" }} />
+        <div style={{ position:"absolute", bottom:-60, right:-40, width:260, height:260, background:"var(--accent-500)", borderRadius:"50%", filter:"blur(80px)", opacity:0.25, pointerEvents:"none" }} />
 
         <div style={{ position: "relative", zIndex: 2 }}>
           {/* Logo */}
           <div style={{ width:72, height:72, borderRadius:22, background:"rgba(255,255,255,0.13)", border:"1.5px solid rgba(255,255,255,0.28)", display:"flex", alignItems:"center", justifyContent:"center", marginBottom:32, backdropFilter:"blur(8px)" }}>
             <svg width="44" height="44" viewBox="0 0 64 64">
               <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
-              <path d="M32 41 C24 35 40 24 32 17" stroke="#7c3aed" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
+              <path d="M32 41 C24 35 40 24 32 17" stroke="var(--brand-600)" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M32 41 C24 35 40 24 32 17" stroke="var(--accent-400)" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
             </svg>
           </div>
 
@@ -84,7 +84,7 @@ export default function Splash() {
         className="splash-cta-panel"
         style={{
           flex:1,
-          background:"linear-gradient(160deg, #fdfbff 0%, #f3e8ff 60%, #ede9fe 100%)",
+          background:"linear-gradient(160deg, var(--brand-50) 0%, var(--brand-100) 60%, var(--line) 100%)",
           display:"flex",
           flexDirection:"column",
           alignItems:"center",
@@ -96,16 +96,16 @@ export default function Splash() {
         }}
       >
         {/* Soft blobs for right side */}
-        <div style={{ position:"absolute", top:-60, left:-60, width:200, height:200, background:"#c084fc", borderRadius:"50%", filter:"blur(60px)", opacity:0.18, pointerEvents:"none" }} />
-        <div style={{ position:"absolute", bottom:-40, right:-40, width:180, height:180, background:"#ff9500", borderRadius:"50%", filter:"blur(55px)", opacity:0.14, pointerEvents:"none" }} />
+        <div style={{ position:"absolute", top:-60, left:-60, width:200, height:200, background:"var(--brand-400)", borderRadius:"50%", filter:"blur(60px)", opacity:0.18, pointerEvents:"none" }} />
+        <div style={{ position:"absolute", bottom:-40, right:-40, width:180, height:180, background:"var(--accent-500)", borderRadius:"50%", filter:"blur(55px)", opacity:0.14, pointerEvents:"none" }} />
 
         {/* Mobile-only branding (hidden on desktop) */}
         <div className="splash-mobile-brand" style={{ textAlign:"center", marginBottom:36, position:"relative", zIndex:2 }}>
-          <div style={{ width:64, height:64, borderRadius:20, background:"linear-gradient(135deg, #8b47f5 0%, #6d28d9 100%)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px", boxShadow:"0 8px 28px rgba(109,40,217,0.3)" }}>
+          <div style={{ width:64, height:64, borderRadius:20, background:"linear-gradient(135deg, var(--brand-500) 0%, var(--brand-700) 100%)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 16px", boxShadow:"0 8px 28px rgba(109,40,217,0.3)" }}>
             <svg width="38" height="38" viewBox="0 0 64 64">
               <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
-              <path d="M32 41 C24 35 40 24 32 17" stroke="#7c3aed" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
+              <path d="M32 41 C24 35 40 24 32 17" stroke="var(--brand-600)" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M32 41 C24 35 40 24 32 17" stroke="var(--accent-400)" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
             </svg>
           </div>
           <h1 className="splash-mobile-title" style={{ fontSize:34, fontWeight:900, letterSpacing:-1, color:"var(--ink-900)", marginBottom:8 }}>STRYT</h1>
@@ -137,7 +137,7 @@ export default function Splash() {
               width:"100%",
               padding:"16px",
               borderRadius:16,
-              background:"linear-gradient(135deg, #8b47f5 0%, #6d28d9 100%)",
+              background:"linear-gradient(135deg, var(--brand-500) 0%, var(--brand-700) 100%)",
               color:"#fff",
               fontWeight:800,
               fontSize:16,
@@ -197,7 +197,7 @@ export default function Splash() {
         @media (max-width: 767px) {
           .splash-hero-panel { display: none !important; }
           .splash-cta-panel {
-            background: linear-gradient(160deg, #8b47f5 0%, #6d28d9 55%, #2d1548 100%) !important;
+            background: linear-gradient(160deg, var(--brand-500) 0%, var(--brand-700) 55%, var(--ink-800) 100%) !important;
           }
           .splash-cta-panel > div[style*="background:#fff"] {
             background: rgba(255,255,255,0.96) !important;

@@ -5,6 +5,7 @@ import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle, UserCheck }
 import { useApp } from "@/store";
 import { businessService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
+import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
 import type { QueueOwnerToken as Token } from "@/types";
 
 // "12m ago" style label for how long a token has been waiting.
@@ -183,9 +184,9 @@ export default function QueueManager() {
     }
     if (t.paymentStatus === "PENDING_CONFIRM") {
       return (
-        <div className="row gap-6 center-v" style={{ marginTop: 6, padding: "6px 8px", borderRadius: 8, background: "#fefce8", border: "1px solid #fef08a" }}>
-          <AlertCircle size={13} color="#854d0e" style={{ flexShrink: 0 }} />
-          <span className="tiny semi" style={{ color: "#854d0e", flex: 1 }}>
+        <div className="row gap-6 center-v" style={{ marginTop: 6, padding: "6px 8px", borderRadius: 8, background: "var(--amber-50)", border: "1px solid var(--amber-100)" }}>
+          <AlertCircle size={13} color="var(--amber-700)" style={{ flexShrink: 0 }} />
+          <span className="tiny semi" style={{ color: "var(--amber-700)", flex: 1 }}>
             Claims {t.paymentMethod ?? ""} payment{t.paymentAmount ? ` · ₹${t.paymentAmount}` : ""}
           </span>
           <button className="btn btn-sm" style={{ fontSize: 10, padding: "3px 8px", background: "var(--green-500)", color: "#fff", borderRadius: 6 }} disabled={verifying === t.id} onClick={() => confirmPayment(t)}>
@@ -270,7 +271,7 @@ export default function QueueManager() {
             {/* Summary strip */}
             <div className="row gap-10">
               <div className="card grow col center" style={{ padding: 14, gap: 2, background: "var(--brand-50)", border: "none" }}>
-                <Users size={22} color="#cc4415" />
+                <Users size={22} color="var(--brand-700)" />
                 <span className="bold" style={{ fontSize: 22 }}>{waiting.length}</span>
                 <span className="tiny muted">waiting</span>
               </div>
@@ -286,7 +287,7 @@ export default function QueueManager() {
               <div className="col gap-8">
                 <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Now serving</span>
                 {called.map((t) => (
-                  <div key={t.id} className="card col gap-6" style={{ padding: 12, border: "2px solid var(--green-500)", background: "#f0fdf4" }}>
+                  <div key={t.id} className="card col gap-6" style={{ padding: 12, border: "2px solid var(--green-500)", background: "var(--green-100)" }}>
                     <div className="row gap-12">
                       <span style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--green-500)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         <Bell size={16} />
@@ -331,9 +332,16 @@ export default function QueueManager() {
                   <div className="grow" style={{ minWidth: 0 }}>
                     <div className="semi small">{t.name}</div>
                     <div className="tiny muted">{t.partySize} · {waitedLabel(t.joinedAtISO)}</div>
-                    <div className="tiny semi" style={{ color: "var(--brand-700)", marginTop: 2 }}>
-                      ~{i * avgTime} min · turn {etaClock(i * avgTime)}
-                    </div>
+                    {(() => {
+                      // Weighted by the party sizes of the groups ahead — matches the
+                      // customer's My Queues ETA exactly.
+                      const eta = weightedWaitMin(waiting.slice(0, i).map((w) => parsePartySize(w.partySize)), avgTime);
+                      return (
+                        <div className="tiny semi" style={{ color: "var(--brand-700)", marginTop: 2 }}>
+                          ~{eta} min · turn {etaClock(eta)}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <button
                     className="icon-btn"

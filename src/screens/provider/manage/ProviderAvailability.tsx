@@ -136,7 +136,7 @@ export default function ProviderAvailability() {
         ) : (
           <>
             {/* Instant Availability Banner */}
-            <div className="card" style={{ background: effectiveNow ? "#e8f7ee" : "var(--ink-50)", border: "none" }}>
+            <div className="card" style={{ background: effectiveNow ? "var(--green-100)" : "var(--ink-50)", border: "none" }}>
               <div className="row between center-v">
                 <div className="row gap-10 center-v">
                   <Zap size={22} color={effectiveNow ? "var(--green-500)" : "var(--ink-400)"} />

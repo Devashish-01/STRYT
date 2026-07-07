@@ -256,7 +256,7 @@ export default function PublicProfile() {
                 color: "#fff",
               }}
             >
-              <Star size={12} fill="#fbbf24" stroke="none" />
+              <Star size={12} fill="var(--amber-500)" stroke="none" />
               {u.ratingCount > 0 ? <>{u.ratingAvg} <span style={{ fontWeight: 400, opacity: 0.75 }}>({u.ratingCount})</span></> : "New"}
             </span>
 
@@ -275,7 +275,7 @@ export default function PublicProfile() {
                   color: "#fff",
                 }}
               >
-                <BadgeCheck size={13} color="#4ade80" /> Verified
+                <BadgeCheck size={13} color="var(--green-500)" /> Verified
               </span>
             )}
           </div>
@@ -374,7 +374,7 @@ export default function PublicProfile() {
             </div>
             <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
             <div className="col center grow">
-              <span className="bold" style={{ fontSize: 18, color: "#cc4415" }}>{requests.length}</span>
+              <span className="bold" style={{ fontSize: 18, color: "var(--brand-700)" }}>{requests.length}</span>
               <span className="tiny semi muted" style={{ marginTop: 2 }}>Requests</span>
             </div>
             <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
@@ -386,7 +386,7 @@ export default function PublicProfile() {
               <>
                 <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
                 <div className="col center grow">
-                  <span className="bold" style={{ fontSize: 18, color: "#3b82f6" }}>{u.ratingAvg}★</span>
+                  <span className="bold" style={{ fontSize: 18, color: "var(--blue-500)" }}>{u.ratingAvg}★</span>
                   <span className="tiny semi muted" style={{ marginTop: 2 }}>Rating</span>
                 </div>
               </>

@@ -64,13 +64,13 @@ export default function UserOnboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleSkip() {
-    localStorage.setItem("onboarding_skipped", "true");
-    if (!user.name || user.name === "New user") {
-      try {
-        await userService.update({ name: "Neighbor" });
-      } catch (e) {
-        console.warn("Soft update failed", e);
-      }
+    try {
+      await userService.update({
+        onboardingCompletedAt: new Date().toISOString(),
+        name: (!user.name || user.name === "New user") ? "Neighbor" : undefined,
+      });
+    } catch (e) {
+      console.warn("Soft update failed", e);
     }
     await refreshUser();
     nav("/home", { replace: true });
@@ -78,7 +78,7 @@ export default function UserOnboard() {
 
 
   function selectEmoji(emoji: string) {
-    const bgColors = ["#f87171", "#fb923c", "#fbbf24", "#34d399", "#60a5fa", "#818cf8", "#a78bfa", "#f472b6"];
+    const bgColors = ["var(--red-400)", "var(--accent-500)", "var(--amber-500)", "var(--green-500)", "var(--blue-500)", "var(--brand-400)", "var(--brand-300)", "var(--pink-500)"];
     const randomBg = bgColors[Math.floor(Math.random() * bgColors.length)];
     const svgString = `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%' height='100%' fill='${encodeURIComponent(
       randomBg
@@ -194,6 +194,7 @@ export default function UserOnboard() {
         notificationRadiusKm: radius,
         emergencyContact: emergencyPhone || undefined,
         emergencyContactName: emergencyName || undefined,
+        onboardingCompletedAt: new Date().toISOString(),
       });
 
       if (areaInput.trim()) setArea(areaInput.trim());
@@ -214,7 +215,7 @@ export default function UserOnboard() {
     <div
       className="screen"
       style={{
-        background: "linear-gradient(160deg, #fdfbff 0%, #f5eefc 60%, #ece2f7 100%)",
+        background: "linear-gradient(160deg, var(--brand-50) 0%, var(--brand-100) 60%, var(--brand-200) 100%)",
         color: "var(--ink-900)",
       }}
     >

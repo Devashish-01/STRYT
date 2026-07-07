@@ -45,11 +45,11 @@ export function AccountStatusBanner({ entityType, entityId, status }: AccountSta
   }
 
   return (
-    <div className="card col gap-10" style={{ padding: 14, margin: "0 16px 12px", background: "#fef2f2", border: "1px solid #fecaca" }}>
+    <div className="card col gap-10" style={{ padding: 14, margin: "0 16px 12px", background: "var(--red-50)", border: "1px solid var(--red-100)" }}>
       <div className="row gap-10" style={{ alignItems: "flex-start" }}>
         <AlertTriangle size={20} color="var(--red-600)" style={{ flexShrink: 0, marginTop: 1 }} />
         <div>
-          <div className="semi small" style={{ color: "#991b1b" }}>This account is suspended</div>
+          <div className="semi small" style={{ color: "var(--red-600)" }}>This account is suspended</div>
           <div className="tiny muted" style={{ marginTop: 2, lineHeight: 1.4 }}>
             You're hidden from search and the map. If you think this is a mistake, you can ask STRYT admin to take another look.
           </div>
@@ -57,7 +57,7 @@ export function AccountStatusBanner({ entityType, entityId, status }: AccountSta
       </div>
 
       {pending ? (
-        <div className="tiny semi" style={{ color: "#991b1b" }}>Review request sent — awaiting admin response.</div>
+        <div className="tiny semi" style={{ color: "var(--red-600)" }}>Review request sent — awaiting admin response.</div>
       ) : open ? (
         <div className="col gap-8">
           <textarea
@@ -75,7 +75,7 @@ export function AccountStatusBanner({ entityType, entityId, status }: AccountSta
           </div>
         </div>
       ) : (
-        <button className="btn btn-outline btn-sm" style={{ borderColor: "#fca5a5", color: "var(--red-600)" }} onClick={() => setOpen(true)}>
+        <button className="btn btn-outline btn-sm" style={{ borderColor: "var(--red-100)", color: "var(--red-600)" }} onClick={() => setOpen(true)}>
           Raise a review request
         </button>
       )}

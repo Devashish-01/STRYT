@@ -4,6 +4,7 @@ import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
+import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
 import { config } from "@/config";
 import { isMockTarget } from "@/services/engagement/appointmentService";
 import { PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
@@ -187,17 +188,21 @@ export const businessService = {
       .eq("business_id", id)
       .maybeSingle();
     if (!settings?.is_open) return undefined;
-    const { count } = await sb
+    // Pull party sizes (not just a count) so the pre-join estimate uses the same
+    // weighted formula as My Queues — a line with big parties reads longer.
+    const { data: waitingRows } = await sb
       .from("queue_tokens")
-      .select("*", { count: "exact", head: true })
+      .select("party_size")
       .eq("business_id", id)
-      .eq("status", "WAITING");
-    const waiting = count ?? 0;
+      .eq("status", "WAITING")
+      .order("created_at", { ascending: true });
+    const rows = (waitingRows ?? []) as any[];
+    const avg = settings.avg_service_min ?? 8;
     return {
       businessId: id,
       isOpen: true,
-      peopleAhead: waiting,
-      estWaitMin: waiting * (settings.avg_service_min ?? 8),
+      peopleAhead: rows.length,
+      estWaitMin: weightedWaitMin(rows.map((r) => parsePartySize(r.party_size)), avg),
     };
   },
 
@@ -312,12 +317,25 @@ export const businessService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to join the queue" }, 401);
+    // Re-check is_open server-round-trip-side even though the "Join queue" button
+    // is already hidden when closed — a stale page or a second tab could still
+    // fire this call after the owner turns the queue off.
+    const { data: settings } = await sb.from("queue_settings").select("is_open").eq("business_id", businessId).maybeSingle();
+    if (!settings?.is_open) {
+      throw new Error("This queue is currently closed — the shop isn't accepting new joins right now.");
+    }
     const { data, error } = await sb.from("queue_tokens").insert({
       business_id: businessId,
       customer_user_id: uid,
       customer_name: customerName,
       party_size: partySize,
     }).select("id");
+    // The partial unique index (queue_tokens_one_active_per_biz) rejects a
+    // second live token for the same shop — turn Postgres's 23505 into a
+    // human message instead of a raw constraint dump.
+    if (error && (error.code === "23505" || /duplicate key|unique/i.test(error.message ?? ""))) {
+      throw new Error("You're already in this shop's queue — check My Queues.");
+    }
     throwIfError(error);
     if (!data || data.length === 0) {
       throw new Error("Couldn't join the queue — you may not have permission. Try again.");
@@ -349,12 +367,12 @@ export const businessService = {
     const activeBizIds = Array.from(new Set(
       rows.filter((r) => r.status === "WAITING" || r.status === "CALLED").map((r) => r.business_id)
     ));
-    const waitingByBiz: Record<string, { id: string }[]> = {};
+    const waitingByBiz: Record<string, { id: string; party_size?: string }[]> = {};
     const avgByBiz: Record<string, number> = {};
     if (activeBizIds.length > 0) {
       const [{ data: waitingRows }, { data: settingsRows }] = await Promise.all([
         sb.from("queue_tokens")
-          .select("id, business_id")
+          .select("id, business_id, party_size")
           .in("business_id", activeBizIds)
           .eq("status", "WAITING")
           .order("created_at", { ascending: true }),
@@ -373,6 +391,9 @@ export const businessService = {
       const idx = waitingList.findIndex((w) => w.id === r.id);
       const peopleAhead = idx >= 0 ? idx : 0;
       const avg = avgByBiz[r.business_id] ?? 8;
+      // Weight the wait by the party sizes of the groups actually ahead of this
+      // token, not a flat count × avg — a big party ahead pushes your ETA out.
+      const sizesAhead = idx > 0 ? waitingList.slice(0, idx).map((w) => parsePartySize(w.party_size)) : [];
       return {
         tokenId: r.id,
         businessId: r.business_id,
@@ -383,7 +404,7 @@ export const businessService = {
         peopleAhead,
         partySize: r.party_size ?? "1 person",
         joinedAtISO: r.created_at,
-        estWaitMin: r.status === "WAITING" ? peopleAhead * avg : 0,
+        estWaitMin: r.status === "WAITING" ? weightedWaitMin(sizesAhead, avg) : 0,
         businessUpiId: r.businesses?.upi_id ?? null,
         paymentStatus: r.payment_status ?? "UNPAID",
         paymentMethod: r.payment_method ?? null,

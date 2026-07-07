@@ -6,6 +6,7 @@ import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
+import { NoResultsIllustration } from "@/components/illustrations";
 import type { Business, Provider } from "@/types";
 import { useApp } from "@/store";
 
@@ -85,7 +86,7 @@ export default function Search() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen-boxed">
       <header className="appbar">
         <div
           className="row gap-8 grow"
@@ -166,7 +167,7 @@ export default function Search() {
           <ErrorView error={error} onRetry={refetch} />
         ) : total === 0 && catResults.length === 0 ? (
           <div className="col center" style={{ gap: 14 }}>
-            <EmptyState emoji="🤷" title={`No results for "${debounced}"`} text="Try a different keyword or browse categories from Explore." />
+            <EmptyState illustration={<NoResultsIllustration />} emoji="🤷" title={`No results for "${debounced}"`} text="Try a different keyword or browse categories from Explore." />
             <button className="btn btn-outline btn-sm" onClick={toggleSaveSearch}>
               <Bell size={15} fill={isSaved ? "var(--brand-700)" : "none"} />
               {isSaved ? "Alert on — we'll notify you" : `Notify me when a "${debounced}" joins nearby`}

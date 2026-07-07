@@ -157,7 +157,7 @@ export default function ProfileEdit() {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <div style={{
           width: 28, height: 28, borderRadius: 8,
-          background: "var(--brand-50, #eef2ff)",
+          background: "var(--brand-50, var(--brand-50))",
           display: "flex", alignItems: "center", justifyContent: "center",
         }}>
           {icon}
@@ -176,7 +176,7 @@ export default function ProfileEdit() {
 
         {/* ── Avatar upload ── */}
         <div style={{
-          background: "linear-gradient(135deg, var(--brand-50, #eef2ff) 0%, var(--ink-50) 100%)",
+          background: "linear-gradient(135deg, var(--brand-50, var(--brand-50)) 0%, var(--ink-50) 100%)",
           borderRadius: 20, padding: "26px 16px 20px",
           display: "flex", flexDirection: "column", alignItems: "center",
           marginTop: 8, border: "1.5px solid var(--ink-100)",
@@ -433,7 +433,7 @@ export default function ProfileEdit() {
         <div>
           <SectionHead icon={<AlertTriangle size={15} color="var(--red-500)" />} title="Emergency contact" />
           <div style={{
-            background: "#fff", border: "1.5px solid #fee2e2",
+            background: "#fff", border: "1.5px solid var(--red-100)",
             borderRadius: 16, padding: 16,
             boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
           }}>
@@ -463,8 +463,8 @@ export default function ProfileEdit() {
             </div>
             <div style={{
               marginTop: 14, padding: "10px 12px",
-              background: "#fff5f5", borderRadius: 10,
-              fontSize: 11.5, color: "#b91c1c", lineHeight: 1.55,
+              background: "var(--red-50)", borderRadius: 10,
+              fontSize: 11.5, color: "var(--red-600)", lineHeight: 1.55,
             }}>
               🔒 Only used if you trigger SOS during an active agreement. Always kept completely private.
             </div>
@@ -478,7 +478,7 @@ export default function ProfileEdit() {
         background: "#fff",
         borderTop: "1px solid var(--line)",
         padding: "12px 16px",
-        paddingBottom: "max(12px, env(safe-area-inset-bottom))",
+        paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
         zIndex: 100,
         boxShadow: "0 -4px 18px rgba(0,0,0,0.06)",
       }}>

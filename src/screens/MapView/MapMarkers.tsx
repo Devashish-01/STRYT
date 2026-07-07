@@ -39,18 +39,18 @@ export function MapMarkers({
               <div style={{ minWidth: 180 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <strong>{b.name}</strong>
-                  <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: isBizOpen ? "#dcfce7" : "#f3f4f6", color: isBizOpen ? "#15803d" : "#4b5563", fontWeight: 700 }}>
+                  <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: isBizOpen ? "var(--green-100)" : "var(--ink-100)", color: isBizOpen ? "var(--green-600)" : "var(--ink-600)", fontWeight: 700 }}>
                     {isBizOpen ? "Open" : "Closed"}
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{b.subCategory}</div>
+                <div style={{ fontSize: 12, color: "var(--ink-600)", marginTop: 2 }}>{b.subCategory}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
                   <Rating value={b.ratingAvg} size={11} />
-                  {b.distanceKm != null && <span style={{ fontSize: 12, color: "#888" }}>{distanceLabel(b.distanceKm)}</span>}
+                  {b.distanceKm != null && <span style={{ fontSize: 12, color: "var(--ink-500)" }}>{distanceLabel(b.distanceKm)}</span>}
                 </div>
                 <button
                   onClick={() => nav(`/business/${b.id}`)}
-                  style={{ marginTop: 8, padding: "6px 12px", background: isBizOpen ? pinColors.business : "#6b7280", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
+                  style={{ marginTop: 8, padding: "6px 12px", background: isBizOpen ? pinColors.business : "var(--ink-500)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
                 >
                   View shop
                 </button>
@@ -69,15 +69,15 @@ export function MapMarkers({
               <div style={{ minWidth: 180 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <strong>{safeName(p.displayName, "Local provider")}</strong>
-                  <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: evalRes.isOpenNow ? "#dcfce7" : "#f3f4f6", color: evalRes.isOpenNow ? "#15803d" : "#4b5563", fontWeight: 700 }}>
+                  <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: evalRes.isOpenNow ? "var(--green-100)" : "var(--ink-100)", color: evalRes.isOpenNow ? "var(--green-600)" : "var(--ink-600)", fontWeight: 700 }}>
                     {evalRes.isOpenNow ? "Available" : "Offline"}
                   </span>
                 </div>
-                <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{p.categoryName} · from {inr(p.startingPrice)}</div>
+                <div style={{ fontSize: 12, color: "var(--ink-600)", marginTop: 2 }}>{p.categoryName} · from {inr(p.startingPrice)}</div>
                 <div style={{ marginTop: 4 }}><Rating value={p.ratingAvg} size={11} /></div>
                 <button
                   onClick={() => nav(`/provider/${p.id}`)}
-                  style={{ marginTop: 8, padding: "6px 12px", background: evalRes.isOpenNow ? pinColors.provider : "#6b7280", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
+                  style={{ marginTop: 8, padding: "6px 12px", background: evalRes.isOpenNow ? pinColors.provider : "var(--ink-500)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
                 >
                   View profile
                 </button>
@@ -95,9 +95,9 @@ export function MapMarkers({
           <Marker key={r.id} position={[lat, lng]} icon={requestIcon}>
             <Popup>
               <div style={{ minWidth: 180 }}>
-                <span style={{ fontSize: 11, background: "#e9d5ff", color: "var(--brand-600)", padding: "2px 6px", borderRadius: 4 }}>{r.categoryName}</span>
+                <span style={{ fontSize: 11, background: "var(--brand-200)", color: "var(--brand-600)", padding: "2px 6px", borderRadius: 4 }}>{r.categoryName}</span>
                 <div style={{ fontWeight: 700, marginTop: 4, fontSize: 14 }}>{r.title}</div>
-                <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: 2 }}>
                   {r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget"}
                 </div>
                 <button
@@ -125,8 +125,8 @@ export function MapMarkers({
             <Popup>
               <div style={{ minWidth: 160, textAlign: "center" }}>
                 <strong style={{ fontSize: 13 }}>{s.authorName.split(" ")[0]}</strong>
-                {s.caption && <p style={{ fontSize: 12, color: "#555", marginTop: 4, lineHeight: 1.4 }}>{s.caption}</p>}
-                <div style={{ fontSize: 11, color: "#888", marginTop: 4 }}>{s.postedAt} · {s.expiresInHrs}h left</div>
+                {s.caption && <p style={{ fontSize: 12, color: "var(--ink-700)", marginTop: 4, lineHeight: 1.4 }}>{s.caption}</p>}
+                <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 4 }}>{s.postedAt} · {s.expiresInHrs}h left</div>
                 <button
                   onClick={() => onStoryClick(mapStories, i)}
                   style={{ marginTop: 8, padding: "6px 12px", background: "linear-gradient(135deg,#ff8400,#ec4899)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
