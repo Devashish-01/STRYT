@@ -1,0 +1,3 @@
+[mcp_servers.supabase]
+command = "node"
+args = ["scripts/supabase_mcp_wrapper.js"]
