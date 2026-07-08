@@ -22,6 +22,8 @@ export type NotificationType =
   | "STORY_REACTION"
   | "SAVED_SEARCH_MATCH"
   | "VERIFICATION_DECIDED"
+  | "QUEUE_UPDATE"
+  | "APPOINTMENT"
   | "SYSTEM";
 
 export interface AppNotification {
@@ -36,7 +38,9 @@ export interface AppNotification {
 
 export interface PublicUser {
   id: string;
-  name: string; // public identity: the user's real first name is shown as `name` at render time
+  name: string; // real name — shown only where a relationship permits; prefer `alias` publicly
+  /** Unique public handle — the identity strangers should see. */
+  alias?: string | null;
   phone?: string;
   avatar: string;
   area: string;
@@ -71,6 +75,8 @@ export interface PublicUser {
 export interface CurrentUser {
   id: string;
   name: string;
+  /** Unique public handle — the only identity strangers see; real `name` is private. */
+  alias?: string | null;
   phone: string;
   email?: string;
   avatar: string;

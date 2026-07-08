@@ -2,7 +2,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { toCamel } from "@/lib/caseMap";
 import { haversineKm } from "@/lib/geocode";
 import { evaluateProviderAvailability } from "@/utils/availability";
-import { firstName } from "@/lib/publicName";
+import { aliasName } from "@/lib/publicName";
 import { ACHIEVEMENT_THRESHOLDS } from "@/lib/badges";
 import type {
   Story,
@@ -107,22 +107,24 @@ export const socialService = {
 
   async storiesNearby(lat: number, lng: number, radiusKm = 5): Promise<Story[]> {
     const sb = getSupabase();
+    // Fetch ALL active stories (including ones without coordinates) — a story
+    // posted without a location isn't tied to a spot and must stay visible to
+    // everyone. Previously the query dropped null-coord stories and the radius
+    // filter hid the rest, so the bar showed almost nothing from others.
     const { data, error } = await sb
       .from("stories")
       .select("*")
       .gt("expires_at", new Date().toISOString())
-      .not("lat", "is", null)
-      .not("lng", "is", null)
       .order("created_at", { ascending: false })
       .limit(50);
     if (error) throw error;
-    // Client-side proximity filter using Haversine (avoids RPC overhead for small datasets)
     const R = 6371;
     const toRad = (d: number) => (d * Math.PI) / 180;
     const mapped = (data ?? [])
       .map(rowToStory)
       .filter((s) => {
-        if (!s.lat || !s.lng) return false;
+        // Location-less stories are always shown; located ones only within radius.
+        if (!s.lat || !s.lng) return true;
         const dLat = toRad(s.lat - lat);
         const dLng = toRad(s.lng - lng);
         const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat)) * Math.cos(toRad(s.lat)) * Math.sin(dLng / 2) ** 2;
@@ -264,13 +266,16 @@ export const socialService = {
 
   async searchNeighbors(queryStr: string): Promise<any[]> {
     const sb = getSupabase();
+    // Privacy: users are findable ONLY by their public alias, never their real
+    // name. The alias is returned as the display `name` for the result row.
     const { data, error } = await sb
       .from("users")
-      .select("id, name, avatar")
-      .ilike("name", `%${queryStr}%`)
+      .select("id, alias, avatar")
+      .ilike("alias", `%${queryStr}%`)
+      .not("alias", "is", null)
       .limit(10);
     if (error) throw error;
-    return data || [];
+    return (data || []).map((r: any) => ({ id: r.id, name: r.alias, avatar: r.avatar }));
   },
 
   // ── Phase 34: Available-now ───────────────────────────────────
@@ -329,14 +334,14 @@ export const socialService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("follows")
-      .select("follower_user_id, users!follower_user_id(name, avatar)")
+      .select("follower_user_id, users!follower_user_id(name, alias, avatar)")
       .in("target_type", ["USER", "user"])
       .eq("target_id", userId)
       .limit(100);
     if (error) throw error;
     return (data ?? []).map((r: any) => ({
       id: r.follower_user_id,
-      name: firstName(r.users?.name),
+      name: aliasName({ alias: r.users?.alias, name: r.users?.name }),
       avatar: r.users?.avatar ?? "",
     }));
   },

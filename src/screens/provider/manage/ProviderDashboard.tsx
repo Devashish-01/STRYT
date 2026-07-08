@@ -1,10 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Eye, Briefcase, CheckCircle2, Wallet, Star, Zap,
   Share2, Calendar, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck, Camera
 } from "@/components/Icons";
-import { providerService, communityService } from "@/services";
+import { providerService, communityService, appointmentService } from "@/services";
 import { SafeImg, inr, AppBar } from "@/components/common";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
@@ -27,6 +27,17 @@ export default function ProviderDashboard() {
     `provider_id=eq.${id}`
   );
   const { data: provPosts } = useQuery(() => communityService.byAuthorRef("provider", id), [id]);
+  const { data: appts } = useQueryWithRealtime(() => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`);
+
+  // Today's live schedule — the first thing a provider opens the app to see.
+  const todayAppts = (appts ?? [])
+    .filter((a) => {
+      if (a.status !== "PENDING" && a.status !== "ACCEPTED") return false;
+      const d = new Date(a.scheduledForISO);
+      const now = new Date();
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    })
+    .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
 
   if (!id) {
     return (
@@ -252,6 +263,36 @@ export default function ProviderDashboard() {
           </button>
         </div>
 
+        {/* ── Today's appointments — horizontal rail (the day at a glance) ── */}
+        {todayAppts.length > 0 && (
+          <div style={{ paddingBottom: 4 }}>
+            <div className="row between page-pad" style={{ paddingBottom: 0 }}>
+              <span className="semi small">Today's appointments</span>
+              <button className="see-all" onClick={() => nav(`${base}/leads`)}>View all</button>
+            </div>
+            <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
+              {todayAppts.map((a, idx) => (
+                <button
+                  key={a.id}
+                  className="today-card fade-up"
+                  style={{ "--today-accent": "var(--green-600)", animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
+                  onClick={() => nav(`${base}/leads`)}
+                >
+                  <div className="today-card-head">
+                    <span className="today-card-icon">📅</span>
+                    <span className="today-card-kicker grow">{a.status === "PENDING" ? "Requested" : "Confirmed"}</span>
+                  </div>
+                  <div>
+                    <div className="today-card-title">{a.customerName || "Customer"}</div>
+                    <div className="today-card-stat" style={{ marginTop: 6 }}>{a.timeLabel}</div>
+                    {a.packageName && <div className="today-card-sub" style={{ marginTop: 2 }}>{a.packageName}</div>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Analytics dashboard ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           {loading ? (
@@ -330,6 +371,7 @@ export default function ProviderDashboard() {
                 <TileCard icon={Megaphone} color="var(--brand-600)" bgTint="var(--brand-50)" label="Post Community" onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
                 <TileCard icon={Globe} color="var(--blue-500)" bgTint="var(--blue-500)" label="My Community" onClick={() => nav(`${base}/community`)} />
                 <TileCard icon={Camera} color="#ec4899" bgTint="var(--brand-50)" label="Post a Story" onClick={() => nav("/story/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
+                <TileCard icon={Eye} color="var(--green-600)" bgTint="var(--green-100)" label="My Activity" onClick={() => nav("/my-activity")} />
               </div>
             </div>
           </div>

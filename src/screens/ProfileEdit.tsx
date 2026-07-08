@@ -4,6 +4,7 @@ import { Camera, MapPin, Navigation, Loader, Search, X, User, Phone, AlertTriang
 import { useApp } from "@/store";
 import { userService, uploadService } from "@/services";
 import { AppBar } from "@/components/common";
+import { normalizeAlias, isValidAlias } from "@/lib/publicName";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
@@ -30,6 +31,7 @@ export default function ProfileEdit() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName]       = useState(user.name || "");
+  const [alias, setAlias]     = useState(user.alias || "");
   const [avatar, setAvatar]   = useState(user.avatar || "");
   const [phone, setPhone]     = useState(user.phone || "");
   const [areaInput, setAreaInput] = useState(user.area || "");
@@ -125,6 +127,11 @@ export default function ProfileEdit() {
   async function handleSave() {
     if (saving) return;
     if (!name.trim()) { showToast("Name is required"); return; }
+    const cleanAlias = normalizeAlias(alias);
+    if (alias.trim() && !isValidAlias(alias)) {
+      showToast("Alias must be 3–20 chars: letters, numbers, . or _");
+      return;
+    }
     let resolvedLat = lat;
     let resolvedLng = lng;
     if (areaInput.trim() && areaInput.trim() !== user.area && (lat === 0 || lat === user.lat)) {
@@ -137,6 +144,7 @@ export default function ProfileEdit() {
     try {
       await userService.update({
         name: name.trim(),
+        alias: cleanAlias || undefined,
         phone: phone.trim() || undefined, avatar: avatar || undefined,
         area: areaInput.trim() || undefined, lat: resolvedLat, lng: resolvedLng,
         emergencyContactName: ecName.trim() || undefined,
@@ -147,7 +155,14 @@ export default function ProfileEdit() {
       await refreshUser();
       showToast("Profile saved ✓");
       nav("/profile");
-    } catch { showToast("Couldn't save profile changes"); }
+    } catch (e: any) {
+      // The partial unique index on lower(alias) rejects a taken handle.
+      if (e?.code === "23505" || /duplicate|unique|alias/i.test(e?.message ?? "")) {
+        showToast(`"${cleanAlias}" is already taken — try another alias`);
+      } else {
+        showToast("Couldn't save profile changes");
+      }
+    }
     finally { setSaving(false); }
   }
 
@@ -267,6 +282,28 @@ export default function ProfileEdit() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your full name"
               />
+              <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
+                Kept private. Only shared with a shop/provider once you book, join their queue, or send a proposal.
+              </p>
+            </div>
+
+            <div className="field">
+              <label>Public alias</label>
+              <div className="row center-v" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
+                <span className="semi" style={{ color: "var(--ink-400)" }}>@</span>
+                <input
+                  className="input"
+                  style={{ border: "none", padding: "10px 6px", background: "transparent", flex: 1 }}
+                  value={alias}
+                  onChange={(e) => setAlias(normalizeAlias(e.target.value))}
+                  placeholder="yourhandle"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                />
+              </div>
+              <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
+                Your unique public handle — the name neighbors see and the only way they can search for you.
+              </p>
             </div>
 
           </div>

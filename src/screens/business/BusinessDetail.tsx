@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Heart, Share2, Phone, Navigation, Clock, MapPin,
-  BadgeCheck, Star, Plus, Minus, Tag, MessageCircle, Flag,
+  BadgeCheck, Star, Plus, Minus, MessageCircle, Flag,
   Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle, ThumbsUp, Wallet,
 } from "@/components/Icons";
 import { businessService, communityService, socialService } from "@/services";
@@ -58,7 +58,7 @@ export default function BusinessDetail() {
   const [joiningQueue, setJoiningQueue] = useState(false);
   const [partySize, setPartySize] = useState(1);
   const [queueBusy, setQueueBusy] = useState(false);
-  const [tab, setTab] = useState<"catalog" | "posts" | "about" | "reviews">("catalog");
+  const [tab, setTab] = useState<"catalog" | "posts" | "work" | "about" | "reviews">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
@@ -448,24 +448,6 @@ export default function BusinessDetail() {
           </div>
         )}
 
-        {/* Offer strip */}
-        {b.offers.length > 0 && (
-          <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
-            {b.offers.map((o) => (
-              <div key={o.id} className="card row gap-10" style={{ padding: 12, background: "var(--orange-50)", border: "1px dashed var(--orange-100)" }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: "var(--orange-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Tag size={18} color="var(--orange-500)" />
-                </div>
-                <div className="grow">
-                  <div className="semi small" style={{ color: "var(--orange-500)" }}>{o.title}</div>
-                  <div className="tiny muted">{o.description}</div>
-                </div>
-                {o.code && <span className="badge badge-amber" style={{ borderStyle: "dashed", border: "1px dashed var(--amber-500)" }}>{o.code}</span>}
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Highlights — stories the owner saved past their normal expiry */}
         {highlights.length > 0 && (
           <div className="hscroll" style={{ padding: "12px 16px 4px" }}>
@@ -482,7 +464,13 @@ export default function BusinessDetail() {
 
         {/* Tabs */}
         <div className="row page-pad" style={{ gap: 0, paddingBottom: 0, paddingTop: 12, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
-          {([["catalog", `Menu (${b.catalog.length})`], ["posts", `Posts (${(bizPosts ?? []).length})`], ["about", "About"], ["reviews", `Reviews`]] as const).map(([t, label]) => (
+          {([
+            ["catalog", `Menu (${b.catalog.length})`],
+            ["posts", `Posts (${(bizPosts ?? []).length})`],
+            ...((b.portfolio ?? []).length > 0 ? [["work", `Work (${(b.portfolio ?? []).length})`]] : []),
+            ["about", "About"],
+            ["reviews", `Reviews`],
+          ] as [typeof tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
               style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>
               {label}
@@ -525,6 +513,9 @@ export default function BusinessDetail() {
                       </div>
                     )}
                     {item.stockStatus === "LIMITED" && <span className="badge badge-amber" style={{ marginTop: 6 }}>Few left</span>}
+                    {item.inventoryType === "FINITE" && item.stockStatus !== "OUT_OF_STOCK" && (item.quantity ?? 0) > 0 && (
+                      <span className="badge badge-amber" style={{ marginTop: 6 }}>{item.quantity} left</span>
+                    )}
                     {!isOwner && item.stockStatus !== "OUT_OF_STOCK" && (
                       <button
                         className="btn btn-outline btn-sm"
@@ -582,6 +573,23 @@ export default function BusinessDetail() {
                   </div>
                 </button>
               ))
+            )}
+          </div>
+        )}
+
+        {tab === "work" && (
+          <div className="page-pad" style={{ paddingTop: 18 }}>
+            {(b.portfolio ?? []).length === 0 ? (
+              <EmptyState emoji="🖼️" title="No work samples yet" text="This shop hasn't added portfolio photos." />
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {(b.portfolio ?? []).map((item) => (
+                  <div key={item.id}>
+                    <SafeImg src={item.url} alt={item.caption} className="thumb" style={{ width: "100%", height: 140, borderRadius: 14, objectFit: "cover" }} />
+                    {item.caption && <div className="tiny muted" style={{ marginTop: 4 }}>{item.caption}</div>}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

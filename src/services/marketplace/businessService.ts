@@ -1,10 +1,11 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import type { Business, CatalogItem, Offer, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken } from "@/types";
+import type { Business, CatalogItem, PortfolioItem, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
+import { aliasName } from "@/lib/publicName";
 import { config } from "@/config";
 import { isMockTarget } from "@/services/engagement/appointmentService";
 import { PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
@@ -134,16 +135,13 @@ export const businessService = {
           { id: "item_1", name: "Fresh Organic Apple (1kg)", description: "Sweet and crisp organic apples", price: 180, stockStatus: "IN_STOCK" },
           { id: "item_2", name: "Whole Wheat Bread", description: "Freshly baked whole wheat bread", price: 45, stockStatus: "IN_STOCK" },
           { id: "item_3", name: "Fresh Milk (1L)", description: "Pasteurized farm fresh milk", price: 60, stockStatus: "IN_STOCK" }
-        ],
-        offers: [
-          { id: "offer_1", title: "10% OFF on first order", description: "Use code STRYT10 at checkout", validUntil: "2026-12-31" }
         ]
       } as any;
     }
     const sb = getSupabase();
     const { data, error } = await sb
       .from("businesses")
-      .select("*, catalog:catalog_items(*), offers:offers(*)")
+      .select("*, catalog:catalog_items(*), portfolio:business_portfolio_items(*)")
       .eq("id", id)
       .maybeSingle();
     throwIfError(error);
@@ -163,7 +161,7 @@ export const businessService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
-      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, avatar)")
+      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, alias, avatar)")
       .eq("ratee_type", "BUSINESS")
       .eq("ratee_id", id)
       .order("created_at", { ascending: false })
@@ -171,7 +169,7 @@ export const businessService = {
     throwIfError(error);
     return (data ?? []).map((r: any) => ({
       id: r.id,
-      raterName: r.rater?.name ?? "Anonymous",
+      raterName: aliasName({ alias: r.rater?.alias, name: r.rater?.name }, "Anonymous"),
       raterAvatar: r.rater?.avatar ?? "",
       rating: r.rating,
       comment: r.comment ?? "",
@@ -182,6 +180,9 @@ export const businessService = {
 
   async queue(id: string): Promise<QueueInfo | undefined> {
     const sb = getSupabase();
+    // Opportunistic cleanup: sweep abandoned/stale queues before reading, so a
+    // shop whose owner walked away shows as closed rather than a frozen line.
+    void sb.rpc("close_stale_queue_tokens");
     const { data: settings } = await sb
       .from("queue_settings")
       .select("is_open, avg_service_min")
@@ -228,7 +229,7 @@ export const businessService = {
         .in("status", ["WAITING", "CALLED"])
         .order("created_at", { ascending: true }),
       sb.from("queue_tokens")
-        .select("id, customer_name, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference")
+        .select("id, customer_name, customer_user_id, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference, customer:users!customer_user_id(alias)")
         .eq("business_id", businessId)
         .eq("status", "SERVED")
         .gte("created_at", since)
@@ -251,7 +252,12 @@ export const businessService = {
       avgServiceMin: settingsRes.data?.avg_service_min ?? 8,
       waiting: rows.filter((t) => t.status === "WAITING").map(map),
       called: rows.filter((t) => t.status === "CALLED").map(map),
-      served: ((servedRes.data ?? []) as any[]).map(map),
+      // Once served, the visit is complete — the owner reverts to the customer's
+      // public alias rather than keeping their real name on the history card.
+      served: ((servedRes.data ?? []) as any[]).map((t) => ({
+        ...map(t),
+        name: aliasName({ alias: t.customer?.alias, name: t.customer_name }, "Customer"),
+      })),
     };
   },
 
@@ -276,7 +282,9 @@ export const businessService = {
 
   async setQueueSettings(businessId: string, patch: { isOpen?: boolean; avgServiceMin?: number }) {
     const sb = getSupabase();
-    const row: Record<string, unknown> = { business_id: businessId, updated_at: new Date().toISOString() };
+    // Touching settings is an owner-presence signal — bump the heartbeat so a
+    // freshly opened/updated queue isn't auto-closed for inactivity.
+    const row: Record<string, unknown> = { business_id: businessId, updated_at: new Date().toISOString(), last_activity_at: new Date().toISOString() };
     if (patch.isOpen !== undefined) row.is_open = patch.isOpen;
     if (patch.avgServiceMin !== undefined) row.avg_service_min = patch.avgServiceMin;
     const { error } = await sb.from("queue_settings").upsert(row, { onConflict: "business_id" });
@@ -354,6 +362,9 @@ export const businessService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
+    // Run the staleness sweep first (and wait for it) so this list reflects any
+    // just-closed queue immediately — a stranded token flips to EXPIRED here.
+    try { await sb.rpc("close_stale_queue_tokens"); } catch { /* cleanup is best-effort */ }
     const { data, error } = await sb
       .from("queue_tokens")
       .select("id, business_id, status, party_size, created_at, payment_status, payment_method, payment_amount, payment_reference, businesses!business_id(name, cover_image, upi_id)")
@@ -506,17 +517,23 @@ export const businessService = {
     return { ok: true };
   },
 
-  // Offers
-  async addOffer(id: string, offer: Partial<Offer>) {
+  // Portfolio (past-work gallery) — mirrors providerService's portfolio methods.
+  async addPortfolio(id: string, item: Partial<PortfolioItem>) {
     const sb = getSupabase();
-    const row = { ...toSnake(offer), business_id: id };
-    const { data, error } = await sb.from("offers").insert(row).select().maybeSingle();
+    const row = { ...toSnake(item), business_id: id };
+    const { data, error } = await sb.from("business_portfolio_items").insert(row).select().maybeSingle();
     throwIfError(error);
-    return toCamel<Offer>(data);
+    return toCamel<PortfolioItem>(data);
   },
-  async deleteOffer(id: string, offerId: string) {
+  async updatePortfolio(_id: string, itemId: string, patch: Partial<PortfolioItem>) {
     const sb = getSupabase();
-    const { error } = await sb.from("offers").delete().eq("id", offerId);
+    const { data, error } = await sb.from("business_portfolio_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
+    throwIfError(error);
+    return toCamel<PortfolioItem>(data);
+  },
+  async deletePortfolio(_id: string, itemId: string) {
+    const sb = getSupabase();
+    const { error } = await sb.from("business_portfolio_items").delete().eq("id", itemId);
     throwIfError(error);
     return { ok: true };
   },
@@ -583,7 +600,7 @@ export const businessService = {
     const uid = await currentUserId();
     const { data, error } = await sb
       .from("business_qna")
-      .select("id, business_id, question, answer, upvotes, created_at, asker:users!asker_user_id(name)")
+      .select("id, business_id, question, answer, upvotes, created_at, asker:users!asker_user_id(name, alias)")
       .eq("business_id", id)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -603,7 +620,7 @@ export const businessService = {
     return rows.map((q: any) => ({
       id: q.id,
       businessId: q.business_id,
-      askerName: q.asker?.name ?? "Customer",
+      askerName: aliasName({ alias: q.asker?.alias, name: q.asker?.name }, "Customer"),
       question: q.question,
       answer: q.answer ?? undefined,
       askedAt: relDate(q.created_at),

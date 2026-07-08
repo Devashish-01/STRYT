@@ -15,6 +15,8 @@ export interface AppointmentRecord {
   targetType: "PROVIDER" | "BUSINESS";
   customerId: string;
   customerName: string;
+  /** Customer's public alias — shown to the owner once the booking is finished (privacy model). */
+  customerAlias?: string | null;
   customerAvatar?: string;
   scheduledForISO: string;
   dateLabel: string;

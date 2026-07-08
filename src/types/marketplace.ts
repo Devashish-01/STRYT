@@ -78,7 +78,8 @@ export interface Business {
   /** When appointment payment is collected — before accept, or the current default (accept first, pay around service). */
   paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
   catalog: CatalogItem[];
-  offers: Offer[];
+  /** Past-work gallery shown on the public profile — mirrors the provider portfolio. */
+  portfolio?: PortfolioItem[];
 }
 
 export interface CatalogItem {
@@ -94,14 +95,10 @@ export interface CatalogItem {
   /** Only meaningful when isFood is true; nullable so a non-food edit can clear a stale value. */
   isVeg?: boolean | null;
   bestSeller?: boolean;
-}
-
-export interface Offer {
-  id: string;
-  title: string;
-  description: string;
-  code?: string;
-  validUntil: string;
+  /** 'INFINITE' = always available (services); 'FINITE' = tracked stock that decrements per booking and auto-hides at zero. */
+  inventoryType?: "INFINITE" | "FINITE";
+  /** Remaining units for a FINITE item (null/undefined for INFINITE). */
+  quantity?: number | null;
 }
 
 // ── Trust layer types ──────────────────────────────────────────
@@ -195,7 +192,9 @@ export interface QueueInfo {
   isOpen: boolean;
 }
 
-export type QueueTokenStatus = "WAITING" | "CALLED" | "SERVED" | "LEFT";
+// EXPIRED = ended by the shop/system (auto-close, daily rollover, stale cap);
+// LEFT = the customer cancelled themselves. Kept distinct so history reads honestly.
+export type QueueTokenStatus = "WAITING" | "CALLED" | "SERVED" | "LEFT" | "EXPIRED";
 
 export interface MyQueueEntry {
   tokenId: string;

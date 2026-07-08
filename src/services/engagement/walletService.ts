@@ -1,10 +1,25 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import { aliasName } from "@/lib/publicName";
 import type { LoyaltyCard, Coupon, Settlement } from "@/types";
 
 export interface WalletData {
   loyaltyCards: LoyaltyCard[];
   coupons: Coupon[];
   settlements: Settlement[];
+}
+
+/** A single money event across every STRYT flow, unified for the wallet ledger. */
+export interface WalletTransaction {
+  id: string;
+  source: "REQUEST" | "APPOINTMENT" | "QUEUE";
+  /** IN = money you received (earnings); OUT = money you paid. */
+  direction: "IN" | "OUT";
+  withName: string;
+  amount: number;
+  mode: string;
+  date: string;
+  ts: number;
+  note?: string;
 }
 
 function fmtDate(iso: string): string {
@@ -81,6 +96,101 @@ export const walletService = {
     }));
 
     return { loyaltyCards, coupons, settlements };
+  },
+
+  /**
+   * Unified money ledger across every flow, sourced by who the current user is
+   * in each record:
+   *   • REQUEST     — offline settlements from agreements (requests).
+   *   • APPOINTMENT — paid bookings: IN when you're the owner, OUT when you booked.
+   *   • QUEUE       — paid live-queue visits: IN when you own the shop, OUT when you paid.
+   * Each source is fetched in its own try/catch so a missing table/column can
+   * never blank the whole wallet.
+   */
+  async transactions(): Promise<WalletTransaction[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return [];
+    const out: WalletTransaction[] = [];
+
+    // Requests / agreements — the offline settlement ledger.
+    try {
+      const { data } = await sb
+        .from("settlements")
+        .select("*, users!with_user_id(name, alias, avatar)")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false });
+      for (const r of (data ?? []) as any[]) {
+        out.push({
+          id: `s_${r.id}`,
+          source: "REQUEST",
+          direction: "IN",
+          withName: aliasName({ alias: r.users?.alias, name: r.users?.name }),
+          amount: (r.amount ?? 0) + (r.tip ?? 0),
+          mode: r.mode === "CASH" ? "Cash" : "UPI",
+          date: fmtDate(r.created_at),
+          ts: new Date(r.created_at).getTime(),
+          note: r.note ?? undefined,
+        });
+      }
+    } catch { /* source unavailable — skip */ }
+
+    // Appointments — paid bookings, either as the owner (earning) or customer (spend).
+    try {
+      const { data } = await sb
+        .from("appointments")
+        .select("id, target_name, customer_name, customer_user_id, target_owner_user_id, payment_amount, payment_method, payment_status, created_at, customer:users!customer_user_id(alias)")
+        .eq("payment_status", "PAID")
+        .or(`target_owner_user_id.eq.${uid},customer_user_id.eq.${uid}`)
+        .order("created_at", { ascending: false });
+      for (const r of (data ?? []) as any[]) {
+        const isOwner = r.target_owner_user_id === uid;
+        out.push({
+          id: `a_${r.id}`,
+          source: "APPOINTMENT",
+          direction: isOwner ? "IN" : "OUT",
+          withName: isOwner
+            ? aliasName({ alias: r.customer?.alias, name: r.customer_name }, "Customer")
+            : (r.target_name ?? "Shop"),
+          amount: r.payment_amount ?? 0,
+          mode: r.payment_method ?? "—",
+          date: fmtDate(r.created_at),
+          ts: new Date(r.created_at).getTime(),
+        });
+      }
+    } catch { /* source unavailable — skip */ }
+
+    // Live queue — paid visits, as shop owner (earning) or customer (spend).
+    try {
+      const { data: ownedBiz } = await sb.from("businesses").select("id").eq("owner_user_id", uid);
+      const ownedIds = (ownedBiz ?? []).map((b: any) => b.id);
+      const filter = ownedIds.length
+        ? `business_id.in.(${ownedIds.join(",")}),customer_user_id.eq.${uid}`
+        : `customer_user_id.eq.${uid}`;
+      const { data } = await sb
+        .from("queue_tokens")
+        .select("id, business_id, customer_name, customer_user_id, payment_amount, payment_method, payment_status, created_at, businesses!business_id(name), customer:users!customer_user_id(alias)")
+        .eq("payment_status", "PAID")
+        .or(filter)
+        .order("created_at", { ascending: false });
+      for (const r of (data ?? []) as any[]) {
+        const isOwner = ownedIds.includes(r.business_id);
+        out.push({
+          id: `q_${r.id}`,
+          source: "QUEUE",
+          direction: isOwner ? "IN" : "OUT",
+          withName: isOwner
+            ? aliasName({ alias: r.customer?.alias, name: r.customer_name }, "Customer")
+            : (r.businesses?.name ?? "Shop"),
+          amount: r.payment_amount ?? 0,
+          mode: r.payment_method ?? "—",
+          date: fmtDate(r.created_at),
+          ts: new Date(r.created_at).getTime(),
+        });
+      }
+    } catch { /* source unavailable — skip */ }
+
+    return out.sort((a, b) => b.ts - a.ts);
   },
 
   // ── Phase 35: stamp ──────────────────────────────────────────

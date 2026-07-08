@@ -86,13 +86,23 @@ export function CatalogManager({ kind }: { kind: Kind }) {
                 <span className="bold small">{inr(item.salePrice ?? item.price)}</span>
                 {item.salePrice && <span className="tiny muted" style={{ textDecoration: "line-through" }}>{inr(item.price)}</span>}
               </div>
-              <button
-                className="tiny semi"
-                style={{ color: item.stockStatus === "OUT_OF_STOCK" ? "var(--red-600)" : "var(--green-500)", marginTop: 4 }}
-                onClick={() => toggleStock(item)}
-              >
-                {item.stockStatus === "OUT_OF_STOCK" ? "○ Unavailable — tap to mark available" : "● Available"}
-              </button>
+              {item.inventoryType === "FINITE" ? (
+                <button
+                  className="tiny semi"
+                  style={{ color: (item.quantity ?? 0) > 0 ? "var(--green-500)" : "var(--red-600)", marginTop: 4 }}
+                  onClick={() => setEditing(item)}
+                >
+                  {(item.quantity ?? 0) > 0 ? `● ${item.quantity} in stock` : "○ Sold out — tap to restock"}
+                </button>
+              ) : (
+                <button
+                  className="tiny semi"
+                  style={{ color: item.stockStatus === "OUT_OF_STOCK" ? "var(--red-600)" : "var(--green-500)", marginTop: 4 }}
+                  onClick={() => toggleStock(item)}
+                >
+                  {item.stockStatus === "OUT_OF_STOCK" ? "○ Unavailable — tap to mark available" : "● Available"}
+                </button>
+              )}
             </div>
             <div className="col gap-8">
               <button className="icon-btn" style={{ width: 34, height: 34 }} onClick={() => setEditing(item)}><Pencil size={15} /></button>
@@ -135,10 +145,12 @@ function ItemEditor({
   const [best, setBest] = useState(item?.bestSeller ?? false);
   const [isFood, setIsFood] = useState(item?.isFood ?? false);
   const [isVeg, setIsVeg] = useState(item?.isVeg ?? true);
+  const [invType, setInvType] = useState<"INFINITE" | "FINITE">(item?.inventoryType ?? "INFINITE");
+  const [qty, setQty] = useState(item?.quantity != null ? String(item.quantity) : "");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const canSave = name.trim().length > 1 && !!price;
+  const canSave = name.trim().length > 1 && !!price && (invType !== "FINITE" || qty !== "");
 
   async function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -157,6 +169,7 @@ function ItemEditor({
   async function save() {
     setSaving(true);
     try {
+      const finiteQty = invType === "FINITE" ? Math.max(0, Number(qty) || 0) : null;
       const payload: Partial<CatalogItem> = {
         name,
         description: desc,
@@ -166,6 +179,12 @@ function ItemEditor({
         bestSeller: best,
         isFood,
         isVeg: isFood ? isVeg : null,
+        inventoryType: invType,
+        quantity: finiteQty,
+        // Finite items track availability by count: restocking above zero makes
+        // it available again, dropping to zero hides it. Infinite items keep
+        // whatever manual availability the row already had.
+        ...(invType === "FINITE" ? { stockStatus: (finiteQty ?? 0) > 0 ? "IN_STOCK" : "OUT_OF_STOCK" } : {}),
       };
       if (item) await service.updateCatalogItem(targetId, item.id, payload);
       else await service.addCatalogItem(targetId, payload);
@@ -206,8 +225,29 @@ function ItemEditor({
           </div>
           <div className="row gap-10">
             <div className="field grow"><label>Price ₹ *</label><input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} /></div>
-            <div className="field grow"><label>Offer price ₹</label><input className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} placeholder="Optional" /></div>
+            <div className="field grow"><label>Sale price ₹</label><input className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} placeholder="Optional" /></div>
           </div>
+
+          {/* Inventory mode — countable stock vs an always-available service */}
+          <div className="field">
+            <label>Availability</label>
+            <div className="row gap-8">
+              <button className={`chip ${invType === "INFINITE" ? "active" : ""}`} onClick={() => setInvType("INFINITE")} style={{ flex: 1, justifyContent: "center" }}>Always available</button>
+              <button className={`chip ${invType === "FINITE" ? "active" : ""}`} onClick={() => setInvType("FINITE")} style={{ flex: 1, justifyContent: "center" }}>Limited stock</button>
+            </div>
+            <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
+              {invType === "FINITE"
+                ? "Each booking uses one unit. Sells out at zero — raise the count to restock."
+                : "Services like a haircut or consultation — bookable any number of times."}
+            </p>
+          </div>
+
+          {invType === "FINITE" && (
+            <div className="field">
+              <label>Quantity in stock *</label>
+              <input className="input" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder="e.g. 25" />
+            </div>
+          )}
 
           <div className="field">
             <label>Is this a food item?</label>

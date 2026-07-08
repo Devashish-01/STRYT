@@ -1,7 +1,22 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import { aliasName } from "@/lib/publicName";
 import type { AppointmentRecord, AppointmentStatus, PaymentMethod, CancelledBy } from "@/types";
 
 const STORAGE_KEY = "stryt_appointments";
+
+const TERMINAL_APPOINTMENT: AppointmentStatus[] = ["COMPLETED", "CANCELLED", "REJECTED", "NO_SHOW"];
+
+/**
+ * The customer name an OWNER (business/provider) should see for a booking:
+ * the real name during the active relationship, reverting to the customer's
+ * public alias once the visit is finished — per the privacy model.
+ */
+export function ownerVisibleCustomerName(apt: AppointmentRecord): string {
+  if (TERMINAL_APPOINTMENT.includes(apt.status)) {
+    return aliasName({ alias: apt.customerAlias, name: apt.customerName }, "Customer");
+  }
+  return apt.customerName;
+}
 
 // Mock/demo targets have owners that don't exist in the users table, so a DB
 // insert would fail the FK. Those (and signed-out guests) fall back to local.
@@ -85,6 +100,7 @@ function rowToRecord(r: any): AppointmentRecord {
     targetType: r.target_type,
     customerId: r.customer_user_id,
     customerName: r.customer_name ?? "Customer",
+    customerAlias: r.customer?.alias ?? null,
     customerAvatar: r.customer_avatar ?? undefined,
     scheduledForISO: r.scheduled_for,
     dateLabel: r.date_label ?? "",
@@ -197,6 +213,12 @@ export const appointmentService = {
         if (error) throw error;
         const record = rowToRecord(data);
         upsertLocal(record); // keep a local cache for instant reads
+        // Reserve one unit if the booked package is a FINITE catalog item.
+        // The RPC no-ops for INFINITE items, provider packages, and cart
+        // bundles, so it's always safe to call best-effort.
+        if (payload.targetType === "BUSINESS" && payload.packageId) {
+          try { await sb.rpc("reserve_catalog_item", { p_item_id: payload.packageId }); } catch { /* stock reserve is best-effort */ }
+        }
         return record;
       } catch (err: any) {
         // Surface the real reason instead of silently succeeding.
@@ -244,7 +266,7 @@ export const appointmentService = {
         const sb = getSupabase();
         const { data, error } = await sb
           .from("appointments")
-          .select("*")
+          .select("*, customer:users!customer_user_id(alias)")
           .eq("target_id", targetId)
           .order("scheduled_for", { ascending: false });
         if (error) throw error;

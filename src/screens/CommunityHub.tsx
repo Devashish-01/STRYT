@@ -66,7 +66,7 @@ export default function CommunityHub() {
     <div className="screen with-nav">
       {/* Sticky header */}
       <header style={{ background: "#fff", position: "sticky", top: 0, zIndex: 20, borderBottom: "1px solid var(--line)" }}>
-        <div style={{ padding: "14px 16px 0" }}>
+        <div style={{ padding: "calc(14px + var(--safe-area-top)) 16px 0" }}>
           {/* Title row */}
           <div className="row between" style={{ marginBottom: 12 }}>
             <div className="row gap-8" style={{ alignItems: "center" }}>

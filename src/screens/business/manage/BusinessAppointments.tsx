@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { appointmentService, businessService, slotBlockService } from "@/services";
+import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
@@ -215,7 +216,7 @@ export default function BusinessAppointments() {
             <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 42, height: 42 }} />
             <div>
               <div className="row gap-6 center-v">
-                <div className="bold small">{apt.customerName}</div>
+                <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
                 {apt.isWalkIn && <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>Walk-in</span>}
               </div>
               <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
@@ -478,7 +479,7 @@ export default function BusinessAppointments() {
                     <div className="row gap-10 center-v">
                       <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 38, height: 38 }} />
                       <div>
-                        <div className="bold small">{apt.customerName}</div>
+                        <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
                         <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
                           <Calendar size={12} /> {apt.dateLabel} at {apt.timeLabel}
                         </div>

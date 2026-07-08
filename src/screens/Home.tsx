@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "@/components/Icons";
 import { useApp } from "@/store";
@@ -16,6 +16,31 @@ import { SafeImg, PullToRefreshIndicator } from "@/components/common";
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
 // fetched when the user actually opens the scanner, not on every Home visit.
 const QrScannerSheet = lazy(() => import("@/components/QrScannerSheet"));
+
+// Friendly day word for an upcoming time — "Today" / "Tomorrow" / weekday /
+// short date. Keeps the "Your day" cards scannable without a full timestamp.
+function apptDayLabel(iso: string): string {
+  const d = new Date(iso);
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const diff = Math.floor((d.getTime() - startOfToday.getTime()) / 86400000);
+  if (diff <= 0) return "Today";
+  if (diff === 1) return "Tomorrow";
+  if (diff < 7) return d.toLocaleDateString([], { weekday: "long" });
+  return d.toLocaleDateString([], { day: "numeric", month: "short" });
+}
+
+type TodayItem = {
+  key: string;
+  accent: string;
+  icon: string;
+  kicker: string;
+  live?: boolean;
+  title: string;
+  stat: string;
+  sub?: string;
+  onClick: () => void;
+};
 
 function reorderCategories(
   all: { id: string; slug: string; name: string; icon: string; color: string }[],
@@ -77,9 +102,56 @@ export default function Home() {
   const nearbyProv = (nearbyProvPage?.data ?? []).slice(0, 8);
 
   // Upcoming = still-live bookings scheduled in the future.
-  const upcomingCount = (myAppointments ?? []).filter(
-    (a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > Date.now()
-  ).length;
+  const upcomingAppointments = (myAppointments ?? [])
+    .filter((a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > Date.now())
+    .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
+  const upcomingCount = upcomingAppointments.length;
+  const nextAppointment = upcomingAppointments[0];
+
+  // "Your day" — every live customer state, consolidated into one glanceable
+  // rail (queues → next visit → active deals). Renders nothing when idle, so
+  // the dashboard never carries empty banners.
+  const todayItems: TodayItem[] = [];
+  for (const q of activeQueues) {
+    todayItems.push({
+      key: `q:${q.tokenId}`,
+      accent: "var(--blue-500)",
+      icon: "🎟️",
+      kicker: "Live queue",
+      live: true,
+      title: q.businessName,
+      stat: q.status === "CALLED" ? "It's your turn" : `You're #${q.position}`,
+      sub: q.status === "CALLED"
+        ? "Head in now 🔔"
+        : q.estWaitMin ? `~${q.estWaitMin} min wait` : q.peopleAhead > 0 ? `${q.peopleAhead} ahead` : "No one ahead",
+      onClick: () => nav("/queues"),
+    });
+  }
+  if (nextAppointment) {
+    todayItems.push({
+      key: `a:${nextAppointment.id}`,
+      accent: "var(--brand-600)",
+      icon: "📅",
+      kicker: "Next visit",
+      title: nextAppointment.targetName,
+      stat: `${apptDayLabel(nextAppointment.scheduledForISO)}, ${nextAppointment.timeLabel}`,
+      sub: nextAppointment.status === "PENDING" ? "Awaiting confirmation" : "Confirmed ✓",
+      onClick: () => nav("/appointments"),
+    });
+  }
+  if (activeAgreements.length > 0) {
+    const deal = activeAgreements[0];
+    todayItems.push({
+      key: `d:${deal.id}`,
+      accent: "var(--green-500)",
+      icon: "🤝",
+      kicker: activeAgreements.length > 1 ? `${activeAgreements.length} active deals` : "Active deal",
+      title: deal.requestTitle || "Your deal",
+      stat: "In progress",
+      sub: "Tap to track →",
+      onClick: () => nav("/agreements"),
+    });
+  }
 
   const orderedCategories = (categories ?? []).length > 0
     ? reorderCategories(categories as any[], theme.boostCategories)
@@ -108,7 +180,7 @@ export default function Home() {
         <div style={{
           background: `linear-gradient(135deg, ${theme.accent}, ${theme.accent}cc)`,
           color: "#fff",
-          padding: "14px 16px 16px",
+          padding: "calc(14px + var(--safe-area-top)) 16px 16px",
           position: "sticky",
           top: 0,
           zIndex: 20,
@@ -225,6 +297,37 @@ export default function Home() {
           {/* Stories */}
           <StoriesBar />
 
+          {/* ── Your day — consolidated live activity rail ── */}
+          {todayItems.length > 0 && (
+            <div style={{ paddingTop: 14 }}>
+              <div className="row between page-pad" style={{ paddingBottom: 0, paddingTop: 0 }}>
+                <span className="semi" style={{ fontSize: 15 }}>Your day</span>
+                {activeQueues.length > 0 && <button className="see-all" onClick={() => nav("/queues")}>My queues</button>}
+              </div>
+              <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
+                {todayItems.map((t, idx) => (
+                  <button
+                    key={t.key}
+                    className="today-card fade-up"
+                    style={{ "--today-accent": t.accent, animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
+                    onClick={t.onClick}
+                  >
+                    <div className="today-card-head">
+                      <span className="today-card-icon">{t.icon}</span>
+                      <span className="today-card-kicker grow">{t.kicker}</span>
+                      {t.live && <span className="today-live">LIVE</span>}
+                    </div>
+                    <div>
+                      <div className="today-card-title">{t.title}</div>
+                      <div className="today-card-stat" style={{ marginTop: 6 }}>{t.stat}</div>
+                      {t.sub && <div className="today-card-sub" style={{ marginTop: 2 }}>{t.sub}</div>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Browse Categories */}
           {categoriesError && (
             <div className="page-pad" style={{ paddingTop: 14 }}>
@@ -293,53 +396,17 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Live Queue Ticket */}
-          {activeQueues.length > 0 && (
-            <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
-              <button
-                className="activity-banner fade-up"
-                style={{
-                  width: "100%",
-                  background: "linear-gradient(135deg, var(--ink-50), var(--ink-100))",
-                  border: "1.5px solid var(--ink-300)",
-                  position: "relative",
-                  overflow: "hidden",
-                  cursor: "pointer",
-                }}
-                onClick={() => nav("/queues")}
-              >
-                <span style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, flexShrink: 0 }}>
-                  <span style={{
-                    position: "absolute",
-                    width: 38, height: 38,
-                    borderRadius: "50%",
-                    background: "var(--blue-500)",
-                    opacity: 0.15,
-                    animation: "pulse 1.8s ease-in-out infinite",
-                  }} />
-                  <span style={{ fontSize: 22 }}>🎟️</span>
-                </span>
-                <div className="grow" style={{ textAlign: "left" }}>
-                  <div className="row gap-6" style={{ alignItems: "center" }}>
-                    <span className="semi small" style={{ color: "var(--blue-500)" }}>Live Queue</span>
-                    <span style={{
-                      background: "var(--red-500)",
-                      color: "#fff",
-                      borderRadius: 99,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      padding: "1px 7px",
-                      lineHeight: "18px",
-                    }}>LIVE</span>
-                  </div>
-                  <div className="tiny muted" style={{ marginTop: 2 }}>
-                    {activeQueues.length === 1
-                      ? `You're in the queue at ${activeQueues[0].businessName} — tap to track`
-                      : `You're in ${activeQueues.length} queues — tap to track`}
-                  </div>
-                </div>
-                <ChevronRight size={18} color="var(--blue-500)" />
-              </button>
+          {/* Nearby on your street — real discovery content, brought to mobile */}
+          {(nearbyBiz.length > 0 || nearbyProv.length > 0) && (
+            <div style={{ paddingTop: 16 }}>
+              <div className="row between page-pad" style={{ paddingBottom: 0, paddingTop: 0 }}>
+                <span className="semi" style={{ fontSize: 15 }}>Nearby on your street</span>
+                <button className="see-all" onClick={() => nav("/explore")}>Explore all</button>
+              </div>
+              <div className="hscroll" style={{ paddingTop: 10 }}>
+                {nearbyBiz.slice(0, 6).map((b, idx) => <BusinessCardSmall key={b.id} b={b} style={{ animationDelay: `${idx * 35}ms` }} />)}
+                {nearbyProv.slice(0, 6).map((p, idx) => <ProviderCardSmall key={p.id} p={p} style={{ animationDelay: `${idx * 35}ms` }} />)}
+              </div>
             </div>
           )}
 
@@ -354,22 +421,6 @@ export default function Home() {
               <ChevronRight size={18} color="var(--ink-400)" />
             </button>
           </div>
-
-          {/* Active agreements */}
-          {activeAgreements.length > 0 && (
-            <div className="page-pad" style={{ paddingTop: 14, paddingBottom: 0 }}>
-              <button className="activity-banner" style={{ width: "100%", border: "none", cursor: "pointer" }} onClick={() => nav("/agreements")}>
-                <span style={{ fontSize: 22 }}>🤝</span>
-                <div className="grow" style={{ textAlign: "left" }}>
-                  <div className="semi small" style={{ color: "var(--green-600)" }}>
-                    {activeAgreements.length} active {activeAgreements.length === 1 ? "deal" : "deals"}
-                  </div>
-                  <div className="tiny muted">Tap to track progress →</div>
-                </div>
-                <ChevronRight size={18} color="var(--green-500)" />
-              </button>
-            </div>
-          )}
 
           {/* Empty street CTA */}
           {agreements.length === 0 && (categories ?? []).length === 0 && (
@@ -464,6 +515,37 @@ export default function Home() {
 
           {/* ── Main column — the Launchpad ── */}
           <div className="home-main-col">
+
+            {/* Your day — same consolidated live rail as mobile, leading the column */}
+            {todayItems.length > 0 && (
+              <div>
+                <div className="row between" style={{ marginBottom: 12 }}>
+                  <span className="semi" style={{ fontSize: 15 }}>Your day</span>
+                  {activeQueues.length > 0 && <button className="see-all" style={{ border: "none", background: "none", cursor: "pointer" }} onClick={() => nav("/queues")}>My queues</button>}
+                </div>
+                <div className="hscroll today-rail" style={{ padding: 0 }}>
+                  {todayItems.map((t, idx) => (
+                    <button
+                      key={t.key}
+                      className="today-card fade-up"
+                      style={{ "--today-accent": t.accent, animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
+                      onClick={t.onClick}
+                    >
+                      <div className="today-card-head">
+                        <span className="today-card-icon">{t.icon}</span>
+                        <span className="today-card-kicker grow">{t.kicker}</span>
+                        {t.live && <span className="today-live">LIVE</span>}
+                      </div>
+                      <div>
+                        <div className="today-card-title">{t.title}</div>
+                        <div className="today-card-stat" style={{ marginTop: 6 }}>{t.stat}</div>
+                        {t.sub && <div className="today-card-sub" style={{ marginTop: 2 }}>{t.sub}</div>}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* "Need something?" hero — identical to mobile */}
             <button className="launch-hero" onClick={() => nav("/ask")} style={{ border: "none", cursor: "pointer" }}>
@@ -562,48 +644,9 @@ export default function Home() {
             )}
           </div>
 
-          {/* ── Sidebar — the mobile "live" banners as sticky cards ── */}
+          {/* ── Sidebar — quick-access entries (live activity now lives in the
+                "Your day" rail in the main column) ── */}
           <div className="home-sidebar-col">
-
-            {/* Live queue — same content as mobile's live-queue ticket */}
-            {activeQueues.length > 0 && (
-              <button
-                className="activity-banner"
-                style={{ width: "100%", background: "linear-gradient(135deg, var(--ink-50), var(--ink-100))", border: "1.5px solid var(--ink-300)", cursor: "pointer" }}
-                onClick={() => nav("/queues")}
-              >
-                <span style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", width: 38, height: 38, flexShrink: 0 }}>
-                  <span style={{ position: "absolute", width: 38, height: 38, borderRadius: "50%", background: "var(--blue-500)", opacity: 0.15, animation: "pulse 1.8s ease-in-out infinite" }} />
-                  <span style={{ fontSize: 22 }}>🎟️</span>
-                </span>
-                <div className="grow" style={{ textAlign: "left" }}>
-                  <div className="row gap-6" style={{ alignItems: "center" }}>
-                    <span className="semi small" style={{ color: "var(--blue-500)" }}>Live Queue</span>
-                    <span style={{ background: "var(--red-500)", color: "#fff", borderRadius: 99, fontSize: 11, fontWeight: 700, padding: "1px 7px", lineHeight: "18px" }}>LIVE</span>
-                  </div>
-                  <div className="tiny muted" style={{ marginTop: 2 }}>
-                    {activeQueues.length === 1
-                      ? `${activeQueues[0].businessName} · position #${activeQueues[0].position} — tap to track`
-                      : `You're in ${activeQueues.length} queues — tap to track`}
-                  </div>
-                </div>
-                <ChevronRight size={18} color="var(--blue-500)" />
-              </button>
-            )}
-
-            {/* Active deals — same as mobile's active-agreements banner */}
-            {activeAgreements.length > 0 && (
-              <button className="activity-banner" style={{ width: "100%", border: "none", cursor: "pointer" }} onClick={() => nav("/agreements")}>
-                <span style={{ fontSize: 22 }}>🤝</span>
-                <div className="grow" style={{ textAlign: "left" }}>
-                  <div className="semi small" style={{ color: "var(--green-600)" }}>
-                    {activeAgreements.length} active {activeAgreements.length === 1 ? "deal" : "deals"}
-                  </div>
-                  <div className="tiny muted">Tap to track progress →</div>
-                </div>
-                <ChevronRight size={18} color="var(--green-500)" />
-              </button>
-            )}
 
             {/* Leaderboard — same entry point as mobile */}
             <button className="activity-banner" style={{ width: "100%", border: "none", cursor: "pointer" }} onClick={() => nav("/leaderboard")}>

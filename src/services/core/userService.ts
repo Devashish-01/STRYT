@@ -10,7 +10,7 @@ export interface OwnedEntities {
 }
 
 const USER_COLUMNS = new Set([
-  "name", "phone", "avatar", "roles", "area", "city", "lat", "lng",
+  "name", "alias", "phone", "avatar", "roles", "area", "city", "lat", "lng",
   "ratingAvg", "ratingCount", "language", "notificationRadiusKm",
   "emergencyContact", "emergencyContactName",
   "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
@@ -48,6 +48,12 @@ export const userService = {
     throwIfError(error);
     if (data) {
       let u = toCamel<CurrentUser>(data);
+      // alias isn't a sensitive field, but get_own_profile() may predate it —
+      // merge it from a plain select so the user's own handle always loads.
+      if (u.alias === undefined) {
+        const { data: aliasRow } = await sb.from("users").select("alias").eq("id", uid).maybeSingle();
+        if (aliasRow) u.alias = (aliasRow as { alias?: string | null }).alias ?? null;
+      }
       // Look up pending deletion requests
       const { data: delReq } = await sb
         .from("profile_deletion_requests")
@@ -97,7 +103,7 @@ export const userService = {
     // `.select()` (which asks for `*`). Callers needing the sensitive fields
     // back should re-fetch via get_own_profile() afterward.
     const { data, error } = await sb.from("users").update(toSnake(cleanPatch)).eq("id", uid)
-      .select("id, name, avatar, roles, area, city, rating_avg, rating_count, language, notification_radius_km, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_email_publicly, show_city_publicly, show_rating_publicly, location_public, customer_enabled, customer_deleted_at, onboarding_completed_at")
+      .select("id, name, alias, avatar, roles, area, city, rating_avg, rating_count, language, notification_radius_km, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_email_publicly, show_city_publicly, show_rating_publicly, location_public, customer_enabled, customer_deleted_at, onboarding_completed_at")
       .maybeSingle();
     throwIfError(error);
 
@@ -226,6 +232,7 @@ export const userService = {
     return {
       id: ur.id,
       name: ur.name,
+      alias: ur.alias ?? null,
       phone: ur.phone ?? undefined,
       email: ur.email ?? undefined,
       distanceKm: ur.distance_km ?? undefined,

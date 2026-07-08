@@ -140,7 +140,7 @@ export const discoveryService = {
     // then reshape to the nested Business type the screens expect.
     const { data, error } = await sb
       .from("businesses")
-      .select("*, catalog:catalog_items(*), offers:offers(*)")
+      .select("*, catalog:catalog_items(*), portfolio:business_portfolio_items(*)")
       .eq("id", id)
       .maybeSingle();
     throwIfError(error);

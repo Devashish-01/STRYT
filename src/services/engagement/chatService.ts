@@ -1,6 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
+import { aliasName } from "@/lib/publicName";
 import type { Conversation, Message, ChatSubject } from "@/types";
 
 /**
@@ -58,11 +59,14 @@ export const chatService = {
     const otherIds = convs.map((c) => (c.participantA === uid ? c.participantB : c.participantA));
     const { data: users } = await sb
       .from("users")
-      .select("id, name, avatar")
+      .select("id, name, alias, avatar")
       .in("id", [...new Set(otherIds)]);
 
+    // Chat is a pre-relationship context — show the other person's public alias,
+    // not their real name (the real name is revealed only on booking/queue/proposal).
     const userMap = Object.fromEntries(
-      (users ?? []).map((u: { id: string; name: string; avatar: string }) => [u.id, u])
+      (users ?? []).map((u: { id: string; name: string; alias?: string | null; avatar: string }) =>
+        [u.id, { id: u.id, name: aliasName(u), avatar: u.avatar ?? "" }])
     );
 
     return convs.map((c) => ({
@@ -99,8 +103,9 @@ export const chatService = {
 
     if (existing) {
       const conv = toCamel<Conversation>(existing);
-      const { data: user } = await sb.from("users").select("id, name, avatar").eq("id", otherUserId).maybeSingle();
-      return { ...conv, otherUser: resolveOther(conv, uid, user ?? undefined) };
+      const { data: user } = await sb.from("users").select("id, name, alias, avatar").eq("id", otherUserId).maybeSingle();
+      const aliased = user ? { id: user.id, name: aliasName(user as any), avatar: (user as any).avatar ?? "" } : undefined;
+      return { ...conv, otherUser: resolveOther(conv, uid, aliased) };
     }
 
     // Create new conversation, carrying the subject context if present.
@@ -120,8 +125,9 @@ export const chatService = {
     throwIfError(error);
 
     const conv = toCamel<Conversation>(created);
-    const { data: user } = await sb.from("users").select("id, name, avatar").eq("id", otherUserId).maybeSingle();
-    return { ...conv, otherUser: resolveOther(conv, uid, user ?? undefined) };
+    const { data: user } = await sb.from("users").select("id, name, alias, avatar").eq("id", otherUserId).maybeSingle();
+    const aliased = user ? { id: user.id, name: aliasName(user as any), avatar: (user as any).avatar ?? "" } : undefined;
+    return { ...conv, otherUser: resolveOther(conv, uid, aliased) };
   },
 
   /** All messages in a conversation, oldest first. */

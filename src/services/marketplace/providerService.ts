@@ -23,6 +23,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Provider, PortfolioItem, Review, CatalogItem } from "@/types";
+import { aliasName } from "@/lib/publicName";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
 import { isMockTarget } from "@/services/engagement/appointmentService";
@@ -115,7 +116,7 @@ export const providerService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
-      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, avatar)")
+      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, alias, avatar)")
       .eq("ratee_type", "PROVIDER")
       .eq("ratee_id", id)
       .order("created_at", { ascending: false })
@@ -123,7 +124,7 @@ export const providerService = {
     throwIfError(error);
     return (data ?? []).map((r: any) => ({
       id: r.id,
-      raterName: r.rater?.name ?? "Anonymous",
+      raterName: aliasName({ alias: r.rater?.alias, name: r.rater?.name }, "Anonymous"),
       raterAvatar: r.rater?.avatar ?? "",
       rating: r.rating,
       comment: r.comment ?? "",

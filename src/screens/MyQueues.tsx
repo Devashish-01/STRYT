@@ -20,6 +20,16 @@ function isPayable(status: MyQueueEntry["status"]): boolean {
   return status === "CALLED" || status === "SERVED";
 }
 
+// A customer can back out any time until money is in motion — while waiting,
+// after being called (their turn), even after being served — as long as they
+// haven't started paying. Once a payment is claimed (PENDING_CONFIRM) or
+// confirmed (PAID), cancelling is off (enforced server-side too).
+function isCancellable(q: MyQueueEntry): boolean {
+  const paid = q.paymentStatus ?? "UNPAID";
+  const openState = q.status === "WAITING" || q.status === "CALLED" || q.status === "SERVED";
+  return openState && (paid === "UNPAID" || paid === "REJECTED");
+}
+
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
   if (m < 1) return "just now";
@@ -42,6 +52,7 @@ export default function MyQueues() {
   const [sortByName, setSortByName] = useState(false);
   const [leaving, setLeaving] = useState<string | null>(null);
   const [payingQueue, setPayingQueue] = useState<MyQueueEntry | null>(null);
+  const [confirmCancel, setConfirmCancel] = useState<MyQueueEntry | null>(null);
 
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
 
@@ -52,6 +63,14 @@ export default function MyQueues() {
   if (tab === "ACTIVE" && sortByName) list.sort((a, b) => a.businessName.localeCompare(b.businessName));
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
+
+  // Leaving a waiting line is low-stakes (direct); cancelling after your turn
+  // has come or after being served is higher-stakes, so it routes through a
+  // confirm sheet first.
+  function requestCancel(q: MyQueueEntry) {
+    if (q.status === "WAITING") leave(q.tokenId);
+    else setConfirmCancel(q);
+  }
 
   async function leave(tokenId: string) {
     setLeaving(tokenId);
@@ -138,7 +157,8 @@ export default function MyQueues() {
                         )}
                         {isCalled && <span className="badge badge-green">🔔 It's your turn — head in now!</span>}
                         {q.status === "SERVED" && <span className="badge badge-gray">✓ Served</span>}
-                        {q.status === "LEFT" && <span className="badge badge-gray">Left queue</span>}
+                        {q.status === "LEFT" && <span className="badge badge-gray">You cancelled</span>}
+                        {q.status === "EXPIRED" && <span className="badge badge-gray">Queue closed by shop</span>}
                         {isPayable(q.status) && (
                           <span className={`badge ${q.paymentStatus === "PAID" ? "badge-green" : "badge-gray"}`}>
                             {q.paymentStatus === "PAID" ? "PAID" : "UNPAID"}
@@ -146,13 +166,13 @@ export default function MyQueues() {
                         )}
                       </div>
                     </div>
-                    {ACTIVE.includes(q.status) && (
+                    {isCancellable(q) && (
                       <button
                         className="icon-btn"
                         style={{ width: 34, height: 34, color: "var(--red-600)", flexShrink: 0 }}
                         disabled={leaving === q.tokenId}
-                        onClick={() => leave(q.tokenId)}
-                        aria-label="Leave queue"
+                        onClick={() => requestCancel(q)}
+                        aria-label={q.status === "WAITING" ? "Leave queue" : "Cancel visit"}
                       >
                         <X size={16} />
                       </button>
@@ -239,6 +259,29 @@ export default function MyQueues() {
           onPaid={refetch}
           onClose={() => setPayingQueue(null)}
         />
+      )}
+
+      {confirmCancel && (
+        <div className="overlay" onClick={() => setConfirmCancel(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h2 className="h2" style={{ marginBottom: 6 }}>Cancel this visit?</h2>
+            <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
+              You'll give up your spot at {confirmCancel.businessName}. You can rejoin later, but you'll start at the back of the line.
+            </p>
+            <div className="col gap-8">
+              <button
+                className="btn btn-block"
+                style={{ background: "var(--red-500)", color: "#fff" }}
+                disabled={leaving === confirmCancel.tokenId}
+                onClick={() => { const t = confirmCancel; setConfirmCancel(null); leave(t.tokenId); }}
+              >
+                Yes, cancel
+              </button>
+              <button className="btn btn-ghost btn-block" onClick={() => setConfirmCancel(null)}>Keep my spot</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

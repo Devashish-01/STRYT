@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type CSSProperties } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Eye, Phone, Navigation, Star, HelpCircle,
   ChevronRight, BadgeCheck, Share2, Zap,
   Calendar, Users, Search, FileText, Clock, User,
-  Tag, Megaphone, Globe, QrCode, MessageSquareText, Camera
+  Megaphone, Globe, QrCode, MessageSquareText, Camera, Image
 } from "@/components/Icons";
-import { businessService, communityService } from "@/services";
+import { businessService, communityService, appointmentService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { AppBar } from "@/components/common";
@@ -29,6 +29,8 @@ export default function ManageDashboard() {
     `business_id=eq.${id}`
   );
   const { data: bizPosts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
+  const { data: queueState } = useQueryWithRealtime(() => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`);
+  const { data: appts } = useQueryWithRealtime(() => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`);
 
   if (!id) {
     return (
@@ -42,6 +44,21 @@ export default function ManageDashboard() {
   const [available, setAvailable] = useState(false);
 
   const base = `/business/${id}/manage`;
+
+  // Live queue (now serving first, then the line) + today's appointments — the
+  // two things a shop owner needs at a glance the moment they open the console.
+  const queuePeople = [
+    ...(queueState?.called ?? []).map((t) => ({ t, label: "Now serving", serving: true })),
+    ...(queueState?.waiting ?? []).map((t, i) => ({ t, label: `#${i + 1} in line`, serving: false })),
+  ];
+  const todayAppts = (appts ?? [])
+    .filter((a) => {
+      if (a.status !== "PENDING" && a.status !== "ACCEPTED") return false;
+      const d = new Date(a.scheduledForISO);
+      const now = new Date();
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    })
+    .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
 
   // Seed the presence toggle from the live shop record.
   useEffect(() => { if (b) setAvailable(b.isAvailableNow ?? false); }, [b]);
@@ -281,6 +298,67 @@ export default function ManageDashboard() {
           </button>
         </div>
 
+        {/* ── Live queue — horizontal rail of who's in line right now ── */}
+        {queueState?.isOpen && queuePeople.length > 0 && (
+          <div style={{ paddingBottom: 4 }}>
+            <div className="row between page-pad" style={{ paddingBottom: 0 }}>
+              <span className="semi small">In the queue now</span>
+              <button className="see-all" onClick={() => nav(`${base}/queue`)}>Manage</button>
+            </div>
+            <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
+              {queuePeople.map(({ t, label, serving }, idx) => (
+                <button
+                  key={t.id}
+                  className="today-card fade-up"
+                  style={{ "--today-accent": "var(--blue-500)", animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
+                  onClick={() => nav(`${base}/queue`)}
+                >
+                  <div className="today-card-head">
+                    <span className="today-card-icon">🎟️</span>
+                    <span className="today-card-kicker grow">Live queue</span>
+                    {serving && <span className="today-live">NOW</span>}
+                  </div>
+                  <div>
+                    <div className="today-card-title">{t.name || "Customer"}</div>
+                    <div className="today-card-stat" style={{ marginTop: 6 }}>{label}</div>
+                    <div className="today-card-sub" style={{ marginTop: 2 }}>{t.partySize}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Today's appointments — horizontal rail ── */}
+        {todayAppts.length > 0 && (
+          <div style={{ paddingBottom: 4 }}>
+            <div className="row between page-pad" style={{ paddingBottom: 0 }}>
+              <span className="semi small">Today's appointments</span>
+              <button className="see-all" onClick={() => nav(`${base}/appointments`)}>View all</button>
+            </div>
+            <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
+              {todayAppts.map((a, idx) => (
+                <button
+                  key={a.id}
+                  className="today-card fade-up"
+                  style={{ "--today-accent": "var(--brand-600)", animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
+                  onClick={() => nav(`${base}/appointments`)}
+                >
+                  <div className="today-card-head">
+                    <span className="today-card-icon">📅</span>
+                    <span className="today-card-kicker grow">{a.status === "PENDING" ? "Requested" : "Confirmed"}</span>
+                  </div>
+                  <div>
+                    <div className="today-card-title">{a.customerName || "Customer"}</div>
+                    <div className="today-card-stat" style={{ marginTop: 6 }}>{a.timeLabel}</div>
+                    {a.packageName && <div className="today-card-sub" style={{ marginTop: 2 }}>{a.packageName}</div>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Analytics dashboard ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <div className="row between" style={{ marginBottom: 10 }}>
@@ -356,6 +434,7 @@ export default function ManageDashboard() {
               <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Storefront & Catalog</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <TileCard icon={FileText} color="var(--brand-600)" bgTint="var(--brand-50)" label="Catalog" onClick={() => nav(`${base}/catalog`)} />
+                <TileCard icon={Image} color="#ec4899" bgTint="var(--ink-50)" label="Portfolio" onClick={() => nav(`${base}/portfolio`)} />
                 <TileCard icon={Clock} color="var(--blue-500)" bgTint="var(--ink-100)" label="Hours" onClick={() => nav(`${base}/hours`)} />
                 <TileCard icon={QrCode} color="var(--ink-700)" bgTint="var(--ink-50)" label="Share QR" onClick={() => setShare(true)} />
               </div>
@@ -365,10 +444,10 @@ export default function ManageDashboard() {
             <div className="col gap-6">
               <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Growth & Marketing</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <TileCard icon={Tag} color="var(--orange-500)" bgTint="var(--orange-50)" label="Offers" onClick={() => nav(`${base}/offers`)} />
                 <TileCard icon={Megaphone} color="var(--brand-600)" bgTint="var(--brand-50)" label="Community Post" onClick={() => nav("/community/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
                 <TileCard icon={Globe} color="var(--blue-500)" bgTint="var(--ink-100)" label="My Community" onClick={() => nav(`${base}/community`)} />
                 <TileCard icon={Camera} color="#ec4899" bgTint="var(--ink-50)" label="Post a Story" onClick={() => nav("/story/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
+                <TileCard icon={Eye} color="var(--brand-600)" bgTint="var(--brand-50)" label="My Activity" onClick={() => nav("/my-activity")} />
               </div>
             </div>
           </div>

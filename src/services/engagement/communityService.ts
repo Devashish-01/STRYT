@@ -3,7 +3,7 @@ import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import type { CommunityPost, Comment } from "@/types";
 import { haversineKm } from "@/lib/geocode";
-import { firstName } from "@/lib/publicName";
+import { aliasName } from "@/lib/publicName";
 
 /** Safely parse poll_options whether stored as a JSONB array or (legacy) JSON string. */
 function parsePollOpts(raw: any): { id: string; label: string }[] | null {
@@ -236,7 +236,7 @@ export const communityService = {
     // lat/lng aren't selectable via a plain query anymore (ISS-009) —
     // get_own_coords() is a SECURITY DEFINER RPC scoped to auth.uid().
     const [{ data: me }, { data: coords }] = await Promise.all([
-      sb.from("users").select("name, avatar").eq("id", uid).maybeSingle(),
+      sb.from("users").select("name, alias, avatar").eq("id", uid).maybeSingle(),
       sb.rpc("get_own_coords").maybeSingle(),
     ]);
     const lat = data.lat ?? (coords as any)?.lat ?? null;
@@ -247,7 +247,9 @@ export const communityService = {
     // Posting "as" a business/provider still stamps the real signed-in user for
     // ownership — only the displayed identity (name/avatar/type) changes.
     const authorType = data.authorType ?? "user";
-    const authorName = data.authorName || firstName((me as any)?.name);
+    // Posting as a business/provider uses their real public name (passed in);
+    // a plain user's fallback identity is their alias, never their real name.
+    const authorName = data.authorName || aliasName({ alias: (me as any)?.alias, name: (me as any)?.name });
     const authorAvatar = data.authorAvatar || (me as any)?.avatar || "";
 
     const { data: created, error } = await sb.from("community_posts").insert({
@@ -328,6 +330,7 @@ export const communityService = {
         authorAvatar: r.author_avatar,
         body: r.body,
         time: relLabel(r.created_at),
+        parentId: r.parent_id ?? null,
         listingType: r.listing_type ?? undefined,
         listingId: r.listing_id ?? undefined,
         sharedPhone: canSeePhone ? r.shared_phone : undefined,
@@ -339,20 +342,21 @@ export const communityService = {
   async addComment(
     postId: string,
     body: string,
-    opts: { listingType?: string; listingId?: string; sharedPhone?: string; phoneVisibility?: "OWNER" | "PUBLIC"; authorName?: string; authorAvatar?: string } = {}
+    opts: { listingType?: string; listingId?: string; sharedPhone?: string; phoneVisibility?: "OWNER" | "PUBLIC"; authorName?: string; authorAvatar?: string; parentId?: string | null } = {}
   ): Promise<Comment> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
-    const { data: me } = await sb.from("users").select("name, avatar").eq("id", uid).maybeSingle();
-    const { listingType, listingId, sharedPhone, phoneVisibility, authorName, authorAvatar } = opts;
+    const { data: me } = await sb.from("users").select("name, alias, avatar").eq("id", uid).maybeSingle();
+    const { listingType, listingId, sharedPhone, phoneVisibility, authorName, authorAvatar, parentId } = opts;
 
     const { data: created, error } = await sb.from("post_comments").insert({
       post_id: postId,
       author_user_id: uid,
-      author_name: authorName || firstName((me as any)?.name),
+      author_name: authorName || aliasName({ alias: (me as any)?.alias, name: (me as any)?.name }),
       author_avatar: authorAvatar || ((me as any)?.avatar ?? ""),
       body,
+      parent_id: parentId ?? null,
       listing_type: listingType ?? null,
       listing_id: listingId ?? null,
       shared_phone: sharedPhone || null,
@@ -369,6 +373,7 @@ export const communityService = {
       authorAvatar: (created as any).author_avatar,
       body: (created as any).body,
       time: "just now",
+      parentId: parentId ?? null,
       listingType: listingType as any,
       listingId,
       sharedPhone: sharedPhone || undefined,

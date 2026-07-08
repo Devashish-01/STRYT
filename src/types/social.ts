@@ -83,6 +83,8 @@ export interface Comment {
   authorAvatar: string;
   body: string;
   time: string;
+  /** Set when this comment is a reply to another comment (nested threads). */
+  parentId?: string | null;
   listingType?: BookmarkTarget;
   listingId?: string;
   // #8 optional shared phone, surfaced only when the viewer is allowed to see it

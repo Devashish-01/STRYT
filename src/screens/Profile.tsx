@@ -6,8 +6,8 @@ import {
   Bell, Settings, Store, Briefcase, FileText, Star,
   ChevronRight, Shield, HelpCircle, LogOut, Globe, Share2,
   ListChecks, Trophy, Award, Users, UserCircle, Heart,
-  ArrowLeftRight, Map, MessageSquare, UserPlus, Bookmark, Handshake,
-  Bug, Calendar
+  ArrowLeftRight, Map, MessageSquare,
+  Bug, Calendar, Wallet
 } from "@/components/Icons";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
@@ -181,46 +181,29 @@ export default function Profile() {
               <Share2 size={16} />
             </button>
           </div>
-        </div>
 
-        {/* ── Stats row (single source of truth — these numbers don't repeat elsewhere) ── */}
-        <div className="page-pad" style={{ marginTop: -18 }}>
-          <div className="row gap-8">
-            <button className="stat-pill" onClick={() => nav("/bookmarks")}>
-              <span className="row" style={{ gap: 3 }}>
-                <Bookmark size={12} color="var(--brand-700)" />
-                <span className="bold" style={{ fontSize: 19, color: "var(--brand-700)" }}>{bookmarks.length}</span>
-              </span>
-              <span className="tiny muted">Saved</span>
-            </button>
-            <button className="stat-pill" onClick={() => nav("/bookmarks?tab=following")}>
-              <span className="row" style={{ gap: 3 }}>
-                <UserPlus size={12} color="var(--brand-600)" />
-                <span className="bold" style={{ fontSize: 19, color: "var(--brand-600)" }}>{follows.length}</span>
-              </span>
-              <span className="tiny muted">Following</span>
-            </button>
-            <button className="stat-pill" onClick={() => nav("/followers")}>
-              <span className="row" style={{ gap: 3 }}>
-                <Users size={12} color="var(--green-500)" />
-                <span className="bold" style={{ fontSize: 19, color: "var(--green-500)" }}>{followersCount}</span>
-              </span>
-              <span className="tiny muted">Followers</span>
-            </button>
-            <button className="stat-pill" onClick={() => nav("/agreements")}>
-              <span className="row" style={{ gap: 3 }}>
-                <Handshake size={12} color={activeAgreements.length > 0 ? "var(--orange-500)" : "var(--ink-400)"} />
-                <span className="bold" style={{ fontSize: 19, color: activeAgreements.length > 0 ? "var(--orange-500)" : "var(--brand-700)" }}>
-                  {totalAgreements}
-                </span>
-              </span>
-              <span className="tiny muted">Agreements</span>
-              {activeAgreements.length > 0 && (
-                <span className="badge badge-green" style={{ fontSize: 9, padding: "2px 6px" }}>
-                  {activeAgreements.length} active
-                </span>
-              )}
-            </button>
+          {/* ── Integrated stats strip — one premium identity block instead of a
+              second stacked row of pills below the hero ── */}
+          <div className="row" style={{ marginTop: 18, background: "rgba(255,255,255,0.12)", borderRadius: 16, padding: "10px 0", backdropFilter: "blur(2px)" }}>
+            {([
+              { n: bookmarks.length, l: "Saved", onClick: () => nav("/bookmarks") },
+              { n: follows.length, l: "Following", onClick: () => nav("/bookmarks?tab=following") },
+              { n: followersCount, l: "Followers", onClick: () => nav("/followers") },
+              { n: totalAgreements, l: "Deals", onClick: () => nav("/agreements"), active: activeAgreements.length },
+            ] as const).map((s, i) => (
+              <button
+                key={s.l}
+                onClick={s.onClick}
+                className="col center grow"
+                style={{ gap: 2, color: "#fff", borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.18)" : "none", position: "relative" }}
+              >
+                <span className="bold" style={{ fontSize: 19, lineHeight: 1.1 }}>{s.n}</span>
+                <span className="tiny" style={{ opacity: 0.82 }}>{s.l}</span>
+                {"active" in s && s.active > 0 && (
+                  <span style={{ position: "absolute", top: -2, right: "50%", transform: "translateX(22px)", width: 7, height: 7, borderRadius: "50%", background: "var(--green-400)" }} />
+                )}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -342,6 +325,8 @@ export default function Profile() {
             {hasSellerProfile && (
               <MenuRow icon={<Store size={20} color="var(--orange-500)" />} label="Manage business & profile" onClick={() => nav("/manage")} />
             )}
+            <MenuRow icon={<Wallet size={20} color="var(--green-600)" />} label="Wallet" hint="Earnings & ledger" onClick={() => nav("/wallet")} />
+            <MenuRow icon={<Award size={20} color="var(--pink-500)" />} label="My activity" hint="Stories & posts" onClick={() => nav("/my-activity")} />
             <MenuRow icon={<ListChecks size={20} color="var(--blue-500)" />} label="My saved lists" onClick={() => nav("/lists")} />
             <MenuRow icon={<Users size={20} color="var(--amber-500)" />} label="My queues" badge={activeQueues.length || undefined} onClick={() => nav("/queues")} last />
           </div>

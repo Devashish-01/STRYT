@@ -75,9 +75,9 @@ const Achievements = lazy(() => import("./screens/Achievements"));
 // Business console
 const ManageDashboard = lazy(() => import("./screens/business/manage/ManageDashboard"));
 const CatalogManager = lazy(() => import("./screens/business/manage/CatalogManager"));
+const BusinessPortfolio = lazy(() => import("./screens/business/manage/BusinessPortfolio"));
 const ProfileEditor = lazy(() => import("./screens/business/manage/ProfileEditor"));
 const HoursEditor = lazy(() => import("./screens/business/manage/HoursEditor"));
-const OffersManager = lazy(() => import("./screens/business/manage/OffersManager"));
 const QueueManager = lazy(() => import("./screens/business/manage/QueueManager"));
 const QnaManager = lazy(() => import("./screens/business/manage/QnaManager"));
 const ReviewsManager = lazy(() => import("./screens/business/manage/ReviewsManager"));
@@ -102,6 +102,8 @@ const ProviderCommunity = lazy(() => import("./screens/provider/manage/ProviderC
 const AdminPanel = lazy(() => import("./screens/admin/AdminPanel"));
 const AdminLogin = lazy(() => import("./screens/admin/AdminLogin"));
 const TrackingPage = lazy(() => import("./screens/TrackingPage"));
+const Wallet = lazy(() => import("./screens/future-enhancement/Wallet"));
+const MyActivity = lazy(() => import("./screens/MyActivity"));
 
 // Society / Subscriptions / Pro / Neighborhood / Available / Wallet / Loyalty /
 // Photos / Story: all moved to screens/future-enhancement/ and unrouted —
@@ -324,15 +326,27 @@ export default function App() {
         }
       });
 
-      void StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
-      void StatusBar.setBackgroundColor({ color: "#7c3aed" }).catch(() => {});
-      void StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
+      // Draw the app edge-to-edge under the status bar / notch and let CSS
+      // safe-area insets (--safe-area-top/-bottom) pad content. Android 15+
+      // forces edge-to-edge regardless, so owning it here — rather than relying
+      // on an opaque status bar that the OS ignores — is the reliable fix for
+      // content hiding under the notch. Icon contrast is set per-route below.
+      void StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
 
       return () => {
         void sub.then((s) => s.remove());
       };
     }
   }, []);
+
+  // Status-bar icon contrast follows the top of the current screen: light icons
+  // over the dark gradient surfaces (splash, Home header), dark icons over the
+  // white AppBar everywhere else. (Style.Dark = light icons for dark backgrounds.)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const darkTop = location.pathname === "/" || location.pathname === "/home";
+    void StatusBar.setStyle({ style: darkTop ? Style.Dark : Style.Light }).catch(() => {});
+  }, [location.pathname]);
 
   // Push-notification taps route into the SPA instead of forcing a full reload.
   // Two sources feed the same navigation:
@@ -402,6 +416,8 @@ export default function App() {
             <Route path="/bookmarks" element={<Bookmarks />} />
             <Route path="/followers" element={<Followers />} />
             <Route path="/queues" element={<MyQueues />} />
+            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/my-activity" element={<MyActivity />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/support" element={<Support />} />
 
@@ -423,9 +439,9 @@ export default function App() {
             {/* Business console */}
             <Route path="/business/:id/manage" element={<ManageDashboard />} />
             <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
+            <Route path="/business/:id/manage/portfolio" element={<BusinessPortfolio />} />
             <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
             <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
-            <Route path="/business/:id/manage/offers" element={<OffersManager />} />
             <Route path="/business/:id/manage/queue" element={<QueueManager />} />
             <Route path="/business/:id/manage/qna" element={<QnaManager />} />
             <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />

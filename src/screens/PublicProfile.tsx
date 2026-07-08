@@ -21,7 +21,7 @@ import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import ShareCard from "@/components/ShareCard";
 import { useApp } from "@/store";
-import { firstName } from "@/lib/publicName";
+import { aliasName } from "@/lib/publicName";
 
 const verifyLabels: Record<string, string> = {
   phone: "Phone",
@@ -158,7 +158,7 @@ export default function PublicProfile() {
   return (
     <div className="screen" style={{ background: "var(--bg)" }}>
       <AppBar
-        title={firstName(u.name)}
+        title={aliasName(u)}
         right={
           <button className="icon-btn" onClick={() => setShare(true)} aria-label="Share QR Code">
             <Share2 size={18} />
@@ -207,7 +207,7 @@ export default function PublicProfile() {
           </div>
 
           <h1 className="h1" style={{ color: "#fff", letterSpacing: "-0.4px", margin: 0 }}>
-            {firstName(u.name)}
+            {aliasName(u)}
           </h1>
 
           <div className="row center gap-6" style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)", flexWrap: "wrap" }}>
@@ -287,7 +287,7 @@ export default function PublicProfile() {
               <button
                 type="button"
                 className="btn grow row center gap-6"
-                onClick={() => toggleFollow("USER", id, firstName(u.name))}
+                onClick={() => toggleFollow("USER", id, aliasName(u))}
                 style={{
                   padding: "10px 16px",
                   borderRadius: 16,
@@ -588,7 +588,7 @@ export default function PublicProfile() {
       {/* Share QR Modal */}
       {share && (
         <ShareCard
-          title={firstName(u.name)}
+          title={aliasName(u)}
           subtitle="STRYT Member"
           image={u.avatar}
           meta={`📍 ${u.area || "Neighborhood"} • ⭐ ${u.ratingAvg}`}

@@ -4,7 +4,7 @@ import { cursorToRange, throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { RequestPost, Proposal, Agreement, ProposalCounter } from "@/types";
 import { leaderboardService } from "@/services/marketplace/leaderboardService";
-import { firstName } from "@/lib/publicName";
+import { firstName, aliasName } from "@/lib/publicName";
 import { functionUrl } from "@/config";
 
 // Columns that exist on the requests table.
@@ -29,7 +29,7 @@ function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<str
 
 // Join requester user info, proposal responder ratings, and counter-offer history.
 const REQUEST_SELECT =
-  "*, requester:users!requester_user_id(name, avatar, rating_avg), proposals:proposals(*, responder:users!responder_user_id(rating_avg), counters:proposal_counters(id, by_user_id, amount, message, created_at))";
+  "*, requester:users!requester_user_id(name, alias, avatar, rating_avg), proposals:proposals(*, responder:users!responder_user_id(rating_avg), counters:proposal_counters(id, by_user_id, amount, message, created_at))";
 
 // ── Row mappers ───────────────────────────────────────────────────────────────
 
@@ -81,7 +81,7 @@ function rowToRequest(row: any, userLat = 0, userLng = 0): RequestPost {
     // #6 privacy: show the requester's first name publicly; "Someone nearby" if posted anonymously.
     // Anonymous must hide the avatar too — a real face next to "Someone nearby"
     // de-anonymises the poster to anyone who knows them.
-    requesterName:   row.is_anonymous ? "Someone nearby" : firstName(requester.name),
+    requesterName:   row.is_anonymous ? "Someone nearby" : aliasName({ alias: requester.alias, name: requester.name }),
     requesterAvatar: row.is_anonymous ? "" : (requester.avatar ?? ""),
     requesterRating: Number(requester.rating_avg ?? 0),
     postedAt:        timeAgo(row.created_at),
