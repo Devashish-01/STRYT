@@ -15,6 +15,10 @@ import { Capacitor } from "@capacitor/core";
 export async function initNativeApp(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
 
+  // Enables the native safe-area floor in index.css so headers never sit under
+  // the status bar / notch even when the WebView reports a zero inset.
+  document.documentElement.classList.add("native-safe");
+
   // ── Keyboard: resize the web view so inputs aren't hidden behind it ──────
   try {
     const { Keyboard, KeyboardResize } = await import("@capacitor/keyboard");

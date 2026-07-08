@@ -79,6 +79,17 @@
   --font: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Native safe-area floor. Android WebViews (esp. with edge-to-edge on SDK 35)
+   frequently report env(safe-area-inset-top) as 0 even though content is drawn
+   under the status bar / camera cutout — which clipped our headers. On native
+   we clamp to a sensible minimum so there is ALWAYS a gap; when the OS does
+   report a real inset (iOS notch, modern Android cutout) the larger value wins.
+   The `.native-safe` class is added to <html> at boot by initNativeApp(). */
+:root.native-safe {
+  --safe-area-top: max(env(safe-area-inset-top, 0px), 32px);
+  --safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
+}
+
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;

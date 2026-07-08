@@ -104,6 +104,8 @@ const AdminLogin = lazy(() => import("./screens/admin/AdminLogin"));
 const TrackingPage = lazy(() => import("./screens/TrackingPage"));
 const Wallet = lazy(() => import("./screens/future-enhancement/Wallet"));
 const MyActivity = lazy(() => import("./screens/MyActivity"));
+const AccountSettings = lazy(() => import("./screens/AccountSettings"));
+const BusinessAccess = lazy(() => import("./screens/BusinessAccess"));
 
 // Society / Subscriptions / Pro / Neighborhood / Available / Wallet / Loyalty /
 // Photos / Story: all moved to screens/future-enhancement/ and unrouted —
@@ -418,6 +420,8 @@ export default function App() {
             <Route path="/queues" element={<MyQueues />} />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/my-activity" element={<MyActivity />} />
+            <Route path="/account" element={<AccountSettings />} />
+            <Route path="/account/business-access" element={<BusinessAccess />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/support" element={<Support />} />
 

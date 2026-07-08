@@ -11,6 +11,7 @@ import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { firstName as safeFirstName } from "@/lib/publicName";
 import { getRecentlyViewed } from "@/lib/recentlyViewed";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
+import BrandHome from "@/components/BrandHome";
 import { SafeImg, PullToRefreshIndicator } from "@/components/common";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
@@ -178,7 +179,10 @@ export default function Home() {
       <div className="mobile-only" style={{ display: "flex", flexDirection: "column", minHeight: "100vh", width: "100%" }}>
         {/* ── Sticky gradient header ── */}
         <div style={{
-          background: `linear-gradient(135deg, ${theme.accent}, ${theme.accent}cc)`,
+          // theme.accent is a CSS var (e.g. var(--blue-500)); appending "cc" to it
+          // produced invalid CSS and voided the whole gradient, leaving the header
+          // light and its white text invisible. Darken the second stop with color-mix.
+          background: `linear-gradient(135deg, ${theme.accent}, color-mix(in srgb, ${theme.accent} 78%, #000))`,
           color: "#fff",
           padding: "calc(14px + var(--safe-area-top)) 16px 16px",
           position: "sticky",
@@ -186,15 +190,8 @@ export default function Home() {
           zIndex: 20,
           transition: "background 0.6s ease",
         }}>
-          <div className="row between">
-            <button className="col" style={{ alignItems: "flex-start", gap: 2, background: "none", border: "none", color: "#fff", textAlign: "left", cursor: "pointer", padding: 0 }} onClick={() => setLocationOpen(true)}>
-              <span className="tiny" style={{ opacity: 0.78, letterSpacing: 0.4 }}>
-                {theme.greeting}{firstName ? `, ${firstName}` : ""}
-              </span>
-              <span className="row gap-4 bold" style={{ fontSize: 17 }}>
-                {area} <ChevronDown size={16} />
-              </span>
-            </button>
+          <div className="row between center-v" style={{ marginBottom: 12 }}>
+            <BrandHome color="#fff" />
             <div className="row gap-8">
               <button
                 className="icon-btn"
@@ -215,6 +212,7 @@ export default function Home() {
                 className="icon-btn"
                 style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }}
                 onClick={() => nav("/notifications")}
+                aria-label="Notifications"
               >
                 <Bell size={20} />
                 {unreadCount > 0 && (
@@ -227,6 +225,15 @@ export default function Home() {
               </button>
             </div>
           </div>
+
+          <button className="col" style={{ alignItems: "flex-start", gap: 2, background: "none", border: "none", color: "#fff", textAlign: "left", cursor: "pointer", padding: 0 }} onClick={() => setLocationOpen(true)}>
+            <span className="tiny" style={{ color: "#fff", opacity: 0.85, letterSpacing: 0.4 }}>
+              {theme.greeting}{firstName ? `, ${firstName}` : ""}
+            </span>
+            <span className="row gap-4 bold" style={{ fontSize: 17, color: "#fff" }}>
+              {area} <ChevronDown size={16} />
+            </span>
+          </button>
 
           <div style={{ position: "relative", marginTop: 12 }}>
             <button

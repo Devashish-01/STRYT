@@ -13,6 +13,7 @@ import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
 import ProviderManageNav from "./ProviderManageNav";
 import ShareCard from "@/components/ShareCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
+import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 
 export default function ProviderDashboard() {
@@ -84,11 +85,14 @@ export default function ProviderDashboard() {
       <div style={{
         background: "linear-gradient(135deg, var(--green-500), var(--green-700))",
         color: "#fff",
-        padding: "20px 16px 24px",
+        padding: "calc(20px + var(--safe-area-top)) 16px 24px",
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
         boxShadow: "0 8px 30px rgba(22, 163, 74, 0.15)"
       }}>
+        <div className="row" style={{ marginBottom: 12 }}>
+          <BrandHome color="#fff" />
+        </div>
         {/* Top navigation row */}
         <div className="row between">
           <RoleSwitcher theme="dark-pill" />
@@ -171,7 +175,7 @@ export default function ProviderDashboard() {
               <span className="bold h1" style={{ color: "#fff" }}>{p?.displayName}</span>
               <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />
             </div>
-            <div className="small" style={{ opacity: 0.9, marginTop: 2 }}>{p?.categoryName}</div>
+            <div className="small" style={{ color: "#fff", opacity: 0.9, marginTop: 2 }}>{p?.categoryName}</div>
           </div>
         </div>
       </div>

@@ -15,6 +15,7 @@ import { evaluateProviderAvailability, calculateNextTurnoffTime, DEFAULT_ONBOARD
 import ManageNav from "./ManageNav";
 import ShareCard from "@/components/ShareCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
+import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 
 export default function ManageDashboard() {
@@ -112,11 +113,14 @@ export default function ManageDashboard() {
       <div style={{
         background: "linear-gradient(135deg, var(--orange-500), var(--orange-500))",
         color: "#fff",
-        padding: "20px 16px 24px",
+        padding: "calc(20px + var(--safe-area-top)) 16px 24px",
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
         boxShadow: "0 8px 30px rgba(194, 65, 12, 0.15)"
       }}>
+        <div className="row" style={{ marginBottom: 12 }}>
+          <BrandHome color="#fff" />
+        </div>
         {/* Top navigation row */}
         <div className="row between">
           <RoleSwitcher theme="dark-pill" />

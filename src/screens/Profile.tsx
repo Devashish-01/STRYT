@@ -1,13 +1,11 @@
 import { useState } from "react";
-import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
-import { Capacitor } from "@capacitor/core";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, Settings, Store, Briefcase, FileText, Star,
-  ChevronRight, Shield, HelpCircle, LogOut, Globe, Share2,
-  ListChecks, Trophy, Award, Users, UserCircle, Heart,
+  ChevronRight, LogOut, Share2,
+  Trophy, Award, Users, UserCircle, Heart,
   ArrowLeftRight, Map, MessageSquare,
-  Bug, Calendar, Wallet
+  Calendar, Wallet
 } from "@/components/Icons";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
@@ -84,14 +82,6 @@ export default function Profile() {
   const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id]);
   const highlights = highlightsData ?? [];
 
-  // Admin console stays reachable (own bypass-token entry screen lives at /admin
-  // itself) but only earns a spot in the nav for people who are actually admins.
-  const envBypassToken = (import.meta as any).env.VITE_ADMIN_BYPASS_TOKEN;
-  const isAdmin =
-    (user.roles as string[]).includes("admin") ||
-    (user.roles as string[]).includes("super_admin") ||
-    (!!envBypassToken && (user.phone === envBypassToken || localStorage.getItem("admin_bypass_token") === envBypassToken));
-
   const roleMeta: Record<Role, { label: string; icon: any; color: string; bg: string }> = {
     customer:       { label: "Customer",  icon: Heart,    color: "var(--brand-600)", bg: "var(--brand-50)" },
     business_owner: { label: "Business",  icon: Store,    color: "var(--orange-500)", bg: "var(--orange-50)" },
@@ -114,7 +104,7 @@ export default function Profile() {
       <div className="screen-scroll">
 
         {/* ── Hero header ── */}
-        <div style={{ background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", padding: "20px 16px 32px" }}>
+        <div style={{ background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", padding: "calc(20px + var(--safe-area-top)) 16px 32px" }}>
           <div className="row between">
             <span className="bold" style={{ fontSize: 20 }}>{t("profile")}</span>
             <div className="row gap-8">
@@ -131,6 +121,9 @@ export default function Profile() {
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/notifications")} aria-label="Notifications">
                 <Bell size={18} />
               </button>
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => setSwitcher(true)} aria-label="Switch account">
+                <ArrowLeftRight size={18} />
+              </button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/settings")} aria-label="Settings">
                 <Settings size={18} />
               </button>
@@ -144,8 +137,8 @@ export default function Profile() {
               onClick={() => nav(`/u/${user.id}`)}
             />
             <div className="grow">
-              <div className="bold" style={{ fontSize: 21 }}>{displayName(user.name)}</div>
-              <div className="small" style={{ opacity: 0.8, marginTop: 2 }}>{user.phone}</div>
+              <div className="bold" style={{ fontSize: 21, color: "#fff" }}>{displayName(user.name)}</div>
+              <div className="small" style={{ color: "#fff", opacity: 0.85, marginTop: 2 }}>{user.phone}</div>
               <div className="row gap-6" style={{ marginTop: 8 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
                   <Star size={11} fill="var(--amber-500)" strokeWidth={0} /> {(user.ratingCount ?? 0) > 0 ? `${user.ratingAvg} (${user.ratingCount})` : "New"}
@@ -197,8 +190,8 @@ export default function Profile() {
                 className="col center grow"
                 style={{ gap: 2, color: "#fff", borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.18)" : "none", position: "relative" }}
               >
-                <span className="bold" style={{ fontSize: 19, lineHeight: 1.1 }}>{s.n}</span>
-                <span className="tiny" style={{ opacity: 0.82 }}>{s.l}</span>
+                <span className="bold" style={{ fontSize: 19, lineHeight: 1.1, color: "#fff" }}>{s.n}</span>
+                <span className="tiny" style={{ color: "#fff", opacity: 0.85 }}>{s.l}</span>
                 {"active" in s && s.active > 0 && (
                   <span style={{ position: "absolute", top: -2, right: "50%", transform: "translateX(22px)", width: 7, height: 7, borderRadius: "50%", background: "var(--green-400)" }} />
                 )}
@@ -327,36 +320,15 @@ export default function Profile() {
             )}
             <MenuRow icon={<Wallet size={20} color="var(--green-600)" />} label="Wallet" hint="Earnings & ledger" onClick={() => nav("/wallet")} />
             <MenuRow icon={<Award size={20} color="var(--pink-500)" />} label="My activity" hint="Stories & posts" onClick={() => nav("/my-activity")} />
-            <MenuRow icon={<ListChecks size={20} color="var(--blue-500)" />} label="My saved lists" onClick={() => nav("/lists")} />
             <MenuRow icon={<Users size={20} color="var(--amber-500)" />} label="My queues" badge={activeQueues.length || undefined} onClick={() => nav("/queues")} last />
           </div>
         </div>
 
-        {/* ── Settings & support ── */}
+        {/* ── Settings & more — the infrequent stuff lives on its own page ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <div className="card" style={{ overflow: "hidden" }}>
-            <MenuRow icon={<Globe size={20} color="var(--blue-500)" />}    label="Language"         hint="English"     onClick={() => nav("/settings")} />
-            <MenuRow icon={<Shield size={20} color="var(--green-500)" />}   label="Privacy & safety"                    onClick={() => nav("/settings")} />
-            <MenuRow icon={<HelpCircle size={20} color="var(--blue-500)" />} label="Help & support"                    onClick={() => nav("/support?tab=contact")} />
-            <MenuRow icon={<Bug size={20} color="var(--red-500)" />}      label="Report a bug"                        onClick={() => nav("/support?tab=bug")} />
-            {isAdmin && (
-              <MenuRow icon={<Shield size={20} color="var(--ink-900)" />} label="Admin console" onClick={() => nav("/admin")} />
-            )}
-            {!Capacitor.isNativePlatform() && (
-              <MenuRow
-                icon={<span style={{ fontSize: 20 }}>🤖</span>}
-                label="Download Android App"
-                hint="Get the .apk file"
-                onClick={() => {
-                  const link = document.createElement("a");
-                  link.href = APK_DOWNLOAD_URL;
-                  link.download = APK_FILENAME;
-                  link.click();
-
-                }}
-              />
-            )}
-            <MenuRow icon={<LogOut size={20} color="var(--red-500)" />}   label="Log out" last onClick={() => { signOut(); nav("/"); }} />
+            <MenuRow icon={<Settings size={20} color="var(--ink-600)" />} label="Settings & more" hint="Preferences, support, log out" onClick={() => nav("/account")} />
+            <MenuRow icon={<LogOut size={20} color="var(--red-500)" />} label="Log out" last onClick={() => { signOut(); nav("/"); }} />
           </div>
         </div>
 

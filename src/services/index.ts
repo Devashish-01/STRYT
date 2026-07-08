@@ -5,6 +5,7 @@ export { authService } from "./core/authService";
 export { catalogService } from "./marketplace/catalogService";
 export { discoveryService } from "./marketplace/discoveryService";
 export { businessService } from "./marketplace/businessService";
+export { businessAccessService } from "./marketplace/businessAccessService";
 export { providerService } from "./marketplace/providerService";
 export { requestService } from "./engagement/requestService";
 export { uploadService } from "./core/uploadService";

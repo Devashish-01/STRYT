@@ -130,8 +130,16 @@ export const userService = {
     ]);
     throwIfError(biz.error);
     throwIfError(prov.error);
+    const ownedIds = (biz.data ?? []).map((b: { id: string }) => b.id);
+    // Also include businesses this user can manage via an active delegated-login
+    // session (business remote login). Best-effort — skips silently pre-migration.
+    let delegatedIds: string[] = [];
+    try {
+      const { data: del } = await sb.rpc("my_delegated_businesses");
+      if (Array.isArray(del)) delegatedIds = del.map((r: any) => (typeof r === "string" ? r : r?.my_delegated_businesses)).filter(Boolean);
+    } catch { /* table/rpc not present yet */ }
     return {
-      businessIds: (biz.data ?? []).map((b: { id: string }) => b.id),
+      businessIds: Array.from(new Set([...ownedIds, ...delegatedIds])),
       providerId: prov.data?.[0]?.id ?? null,
     };
   },
