@@ -12,7 +12,7 @@
 Four **separate** problems got lumped under "reorganize the codebase" by the
 time this was written. They have very different risk profiles — a plan that
 treats them the same will spend the same care budget on renaming a folder as
-on splitting `store.tsx`, which is backwards.
+on splitting `store.tsx`, which is backwards. 
 
 | # | Problem | Risk to fix | Value |
 |---|---|---|---|
