@@ -11,7 +11,8 @@
         "apply_migration",
         "list_edge_functions",
         "get_logs",
-        "list_tables"
+        "list_tables",
+        "list_projects"
       ]
     }
   }
