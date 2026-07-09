@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock } from "@/components/Icons";
 import { notificationService } from "@/services";
+import type { NotifScope } from "@/services/engagement/notificationService";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState } from "@/components/common";
@@ -30,13 +31,29 @@ const meta: Record<NotificationType, { icon: any; color: string; bg: string }> =
   VERIFICATION_DECIDED: { icon: BadgeCheck, color: "var(--green-500)", bg: "var(--green-100)" },
   QUEUE_UPDATE: { icon: Users, color: "var(--blue-500)", bg: "var(--ink-100)" },
   APPOINTMENT: { icon: Clock, color: "var(--brand-600)", bg: "var(--brand-50)" },
+  BUSINESS_ACCESS: { icon: Users, color: "var(--orange-500)", bg: "var(--orange-50)" },
   SYSTEM: { icon: Bell, color: "var(--ink-600)", bg: "var(--ink-100)" },
 };
 
 export default function Notifications() {
   const nav = useNavigate();
   const { markAllRead, decrementUnread } = useApp();
-  const { data, loading, error, refetch } = useQueryWithRealtime(() => notificationService.list(), "notifications", []);
+  const [params] = useSearchParams();
+
+  // Scope the feed to the context that opened it: a specific business, a
+  // specific provider, or the customer's personal + system notifications.
+  const rawScope = params.get("scope");
+  const scope: NotifScope | undefined =
+    rawScope === "BUSINESS" ? { scope: "BUSINESS", id: params.get("id") ?? "" }
+    : rawScope === "PROVIDER" ? { scope: "PROVIDER", id: params.get("id") ?? "" }
+    : rawScope === "CUSTOMER" ? { scope: "CUSTOMER" }
+    : undefined;
+  const scopeKey = `${rawScope ?? "all"}:${params.get("id") ?? ""}`;
+  const subtitle = scope?.scope === "BUSINESS" ? "For this business"
+    : scope?.scope === "PROVIDER" ? "For this service"
+    : scope?.scope === "CUSTOMER" ? "Personal" : undefined;
+
+  const { data, loading, error, refetch } = useQueryWithRealtime(() => notificationService.list(scope), "notifications", [scopeKey]);
   const [items, setItems] = useState<AppNotification[]>([]);
 
   useEffect(() => {
@@ -47,6 +64,7 @@ export default function Notifications() {
     <div className="screen screen-boxed">
       <AppBar
         title="Notifications"
+        subtitle={subtitle}
         right={
           <button
             className="tiny semi"
@@ -54,7 +72,7 @@ export default function Notifications() {
             onClick={() => {
               setItems((p) => p.map((n) => ({ ...n, isRead: true })));
               markAllRead();
-              void notificationService.markAllRead();
+              void notificationService.markAllRead(scope);
             }}
           >
             Mark all read
@@ -71,7 +89,7 @@ export default function Notifications() {
         ) : (
           <div className="col">
             {items.map((n) => {
-              const M = meta[n.type];
+              const M = meta[n.type] ?? meta.SYSTEM;
               const Icon = M.icon;
               return (
                 <button

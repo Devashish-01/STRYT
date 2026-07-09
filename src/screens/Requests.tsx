@@ -40,7 +40,7 @@ export default function Requests() {
             <span className="tiny muted">Open needs near {area}</span>
           </div>
           <div className="row gap-8" style={{ alignItems: "center" }}>
-            <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats")} aria-label="Chats">
+            <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
               <MessageSquare size={20} />
               {chatUnread > 0 && (
                 <span style={{

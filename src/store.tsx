@@ -218,7 +218,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sb.from("endorsements").select("provider_id,skill").eq("from_user_id", uid),
       sb.from("user_saved_coupons").select("offer_id").eq("user_id", uid),
       sb.from("request_me_toos").select("request_id").eq("user_id", uid),
-      chatService.totalUnread(),
+      chatService.totalUnread({ scope: "CUSTOMER" }),
     ]);
 
     if (bmRes.data) {

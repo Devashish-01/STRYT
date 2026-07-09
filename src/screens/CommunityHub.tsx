@@ -89,7 +89,7 @@ export default function CommunityHub() {
               <button
                 className="icon-btn"
                 style={{ position: "relative" }}
-                onClick={() => nav("/chats")}
+                onClick={() => nav("/chats?scope=CUSTOMER")}
                 aria-label="Messages"
               >
                 <MessageCircle size={20} />

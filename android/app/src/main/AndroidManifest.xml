@@ -34,6 +34,12 @@
 
         </activity>
 
+        <!-- Fallback channel for FCM messages that omit or mismatch a channel.
+             Complements the stryt_default channel created in MainActivity. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="stryt_default" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

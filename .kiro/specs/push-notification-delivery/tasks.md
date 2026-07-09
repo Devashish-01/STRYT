@@ -1,0 +1,159 @@
+# Implementation Plan
+
+## Overview
+
+This plan fixes the push-notification OS-banner delivery bug on both the native Android (Capacitor + FCM) and web (PWA Web Push) paths using the bug condition methodology. It follows an exploratory sequence: first write bug-condition exploration checks that fail on the unfixed code, then preservation property tests that pass on the unfixed code, then apply the five concrete fixes (Android channel, manifest fallback, web VAPID key, backend GUCs, edge secrets), and finally re-run both check sets to confirm the fix works (Property 1) without regressions (Property 2).
+
+## Tasks
+
+- [x] 1. Write bug condition exploration tests (BEFORE implementing the fix)
+  - **Property 1: Bug Condition** - Displayable Push Produces an OS Banner
+  - **CRITICAL**: These checks MUST FAIL on the unfixed code/config - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: These checks encode the expected behavior (Property 1) - they will validate the fix when they pass after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug on both delivery paths and confirm/refute the root cause analysis
+  - **Scoped PBT Approach**: Model `deliverPush` over the input domain `{platform, hasValidToken, appState, backendConfigured}` and scope the property to concrete failing cases (android+backendConfigured+hasValidToken; web+backendConfigured) so the counterexamples are reproducible
+  - Android missing-channel test: with a valid FCM token, backend configured, app closed, insert a notification and assert a heads-up banner appears (from Bug Condition `isBugCondition(X)` android branch in design)
+  - Web missing-subscription test: with `VITE_VAPID_PUBLIC_KEY` empty, log in and call `registerPush(userId)`; assert a `push_subscriptions` row exists (web branch of `isBugCondition`)
+  - Web no-delivery test: insert a notification for a web user with no subscription; assert `send-push` reports `webSent > 0`
+  - Backend prerequisite test (edge case): with GUCs unset, insert a notification and assert `send-push` was invoked
+  - Property assertion (Fix Checking): FOR ALL X WHERE `isBugCondition(X)` → `deliverPush'(X).osBannerDisplayed = true`
+  - Run checks on UNFIXED code/config
+  - **EXPECTED OUTCOME**: Checks FAIL (this is correct - it proves the bug exists)
+  - Document counterexamples found: (a) Android FCM v1 accepts the message but OS drops it because channel `stryt_default` does not exist on-device; (b) Web `registerPush` returns at the empty-VAPID guard, no `push_subscriptions` row, `send-push` `webSent === 0`
+  - Mark task complete when checks are written, run, and failures are documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6_
+
+- [ ] 2. Write preservation property tests (BEFORE implementing the fix)
+  - **Property 2: Preservation** - Non-Buggy Delivery Behavior Unchanged
+  - **IMPORTANT**: Follow observation-first methodology - observe behavior on UNFIXED code, then encode it
+  - Observe on UNFIXED code and record actual outputs for inputs where `isBugCondition(X)` is false:
+    - In-app row: a notification insert always writes/renders the in-app row regardless of push outcome (req 3.1)
+    - Non-blocking insert: a failing/erroring `send-push` never rolls back or errors the insert (req 3.2)
+    - Stale-credential cleanup: web 404/410 deletes the `push_subscriptions` row; FCM `UNREGISTERED`/`INVALID_ARGUMENT` deletes the `fcm_tokens` row (req 3.3)
+    - Deep-link routing: native dispatches `push-nav` CustomEvent; web SW posts `{ type: "NAVIGATE", path }` (req 3.4)
+    - Type coalescing: web SW groups by `tag: data.type`; FCM `data.type` payload preserved (req 3.5)
+    - Per-platform independence: a one-platform-only user still delivers on that path (req 3.6)
+  - Write property-based tests: generate `NotificationDelivery` inputs across `{platform, hasValidToken, appState, backendConfigured}`; for all X WHERE NOT `isBugCondition(X)`, assert `deliverPush(X) = deliverPush'(X)` for the observed invariants above
+  - Generate mixed valid/stale credential sets and assert stale entries are deleted and valid ones delivered
+  - Generate bursts of same-`type` notifications and assert web `tag` and FCM `data.type` coalescing metadata is stable
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [ ] 3. Fix push notification OS-banner delivery (native channel, web VAPID, backend prerequisites)
+
+  - [x] 3.1 Create the Android `stryt_default` notification channel (native path)
+    - File: `android/app/src/main/java/in/stryt/app/MainActivity.java`
+    - Override `onCreate` in `MainActivity` (keep extending `BridgeActivity`) to create the channel before any push can arrive
+    - Channel id `"stryt_default"` (must match `channel_id` in `supabase/functions/send-push/index.ts`), `NotificationManager.IMPORTANCE_HIGH`, default sound and vibration
+    - Guard with `Build.VERSION.SDK_INT >= Build.VERSION_CODES.O`; register via `getSystemService(NotificationManager.class).createNotificationChannel(...)` (idempotent no-op on repeat launches)
+    - _Bug_Condition: isBugCondition(X) where X.platform = 'android' AND X.backendConfigured AND X.hasValidToken_
+    - _Expected_Behavior: Property 1 - deliverPush'(X).osBannerDisplayed = true (Android message targets an existing channel)_
+    - _Preservation: Preservation Requirements from design (row write, non-blocking insert, cleanup, routing, coalescing unchanged)_
+    - _Requirements: 2.1, 2.2_
+
+  - [x] 3.2 Declare the default channel fallback meta-data (native path, defense in depth)
+    - File: `android/app/src/main/AndroidManifest.xml`
+    - Add `<meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="stryt_default" />` inside `<application>`
+    - Complements Change 1 so FCM messages that omit or mismatch a channel still land on a guaranteed channel
+    - _Bug_Condition: isBugCondition(X) android branch_
+    - _Expected_Behavior: Property 1 - OS displays banner instead of dropping it_
+    - _Requirements: 2.2_
+
+  - [x] 3.3 Populate the web VAPID public key (web path) — set VITE_VAPID_PUBLIC_KEY in local .env and documented in .env.example. NOTE: must also be added to Vercel env vars for the deployed web app.
+    - File: `.env` (and document the key in `.env.example`)
+    - Set `VITE_VAPID_PUBLIC_KEY` to the public key paired with the edge function's `VAPID_PRIVATE_KEY`, lifting the early return in `registerPush()` so `pushManager.subscribe` runs and a `push_subscriptions` row is upserted
+    - No code change to `src/lib/pushNotifications.ts` - the guard is correct; only the value was missing
+    - Keep `.env.example` documenting the key (generated via `npx web-push generate-vapid-keys`) without committing the real value
+    - _Bug_Condition: isBugCondition(X) where X.platform = 'web' AND X.backendConfigured_
+    - _Expected_Behavior: Property 1 - registerPush creates a push_subscriptions row so send-push delivers a Web Push the SW displays_
+    - _Requirements: 2.3, 2.4_
+
+  - [x] 3.4 Set and verify backend GUCs (both paths, setup requirement) — implemented via Supabase Vault (hosted role can't ALTER DATABASE); trigger reads functions_url + service_role_key from vault.decrypted_secrets. Verified: trigger fires, send-push returns 200.
+    - Operational (Supabase SQL editor); document in the migration header of `supabase/migrations/20260731_push_on_every_notification.sql`
+    - Run once with project values: `alter database postgres set app.settings.functions_url = 'https://<project-ref>.functions.supabase.co';` and `alter database postgres set app.settings.service_role_key = '<service_role_key>';`
+    - Verify via `select current_setting('app.settings.functions_url', true);` returning a non-empty value
+    - _Bug_Condition: isBugCondition(X) - X.backendConfigured must hold for a push to be displayable_
+    - _Expected_Behavior: Property 1 - trigger invokes send-push on every notification insert_
+    - _Requirements: 2.5_
+
+  - [~] 3.5 Set and verify edge function secrets (per path, setup requirement) — FIREBASE_SERVICE_ACCOUNT verified working (OAuth token obtained, FCM accepts messages). VAPID_PRIVATE_KEY + VAPID_SUBJECT set. STILL MISSING: VAPID_PUBLIC_KEY must be added in Supabase Edge Function Secrets (web push is skipped without it). Also redeployed send-push to the correct repo version (was a stale web-only build).
+    - Operational (`supabase secrets set`)
+    - Native: `FIREBASE_SERVICE_ACCOUNT` (full service account JSON)
+    - Web: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (public key must match `VITE_VAPID_PUBLIC_KEY` from task 3.3)
+    - Verify by observing `send-push` logs report a non-zero `fcmSent`/`webSent` on a test insert
+    - _Bug_Condition: isBugCondition(X) - X.backendConfigured must hold per platform_
+    - _Expected_Behavior: Property 1 - send-push attempts delivery on the corresponding path rather than skipping it_
+    - _Requirements: 2.6_
+
+  - [ ] 3.6 Verify bug condition exploration tests now pass (Fix Checking)
+    - **Property 1: Expected Behavior** - Displayable Push Produces an OS Banner
+    - **IMPORTANT**: Re-run the SAME checks from task 1 - do NOT write new tests
+    - The checks from task 1 encode the expected behavior; when they pass they confirm the expected behavior is satisfied
+    - Android: message targets an existing `stryt_default` channel → OS shows heads-up banner with sound
+    - Web: `registerPush` created a `push_subscriptions` row → `send-push` delivers → SW `showNotification` displays the banner
+    - **EXPECTED OUTCOME**: Checks PASS (confirms the bug is fixed)
+    - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
+
+  - [ ] 3.7 Verify preservation property tests still pass (Preservation Checking)
+    - **Property 2: Preservation** - Non-Buggy Delivery Behavior Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Confirm FOR ALL X WHERE NOT `isBugCondition(X)`, `deliverPush(X) = deliverPush'(X)` still holds
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions to in-app row, non-blocking insert, cleanup, routing, coalescing)
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [ ] 4. Checkpoint - Ensure all tests pass
+  - Run the full test suite: bug condition exploration checks (now passing), preservation property tests (still passing), unit tests, and property-based tests from the design's Testing Strategy
+  - Run integration checks where feasible: full native flow (closed-app insert → trigger → pg_net → send-push → FCM v1 → device banner on `stryt_default` → tap routes via `push-nav`) and full web flow (login → registerPush subscribes/upserts → insert → Web Push → SW showNotification → tap posts `NAVIGATE`)
+  - Confirm context/config independence: a one-platform user receives on that path; unset GUCs/secrets degrade gracefully (no push, in-app row still written, insert still succeeds)
+  - Ensure all tests pass; ask the user if questions arise
+
+## Task Dependency Graph
+
+```json
+{
+  "waves": [
+    { "wave": 1, "tasks": ["1", "2"], "description": "Exploration checks (must fail) and preservation property tests (must pass) on unfixed code; independent of each other." },
+    { "wave": 2, "tasks": ["3.1", "3.2", "3.3", "3.4", "3.5"], "description": "Apply the five fixes: Android channel, manifest fallback, web VAPID key, backend GUCs, edge secrets. Depends on wave 1.", "dependsOn": ["1", "2"] },
+    { "wave": 3, "tasks": ["3.6", "3.7"], "description": "Re-run Task 1 checks (Fix Checking, now pass) and Task 2 tests (Preservation, still pass).", "dependsOn": ["3.1", "3.2", "3.3", "3.4", "3.5"] },
+    { "wave": 4, "tasks": ["4"], "description": "Checkpoint - full suite plus integration checks pass.", "dependsOn": ["3.6", "3.7"] }
+  ]
+}
+```
+
+```
+Task 1 (Bug Condition Exploration Tests)  ─┐
+                                            ├─► Task 3 (Fix)
+Task 2 (Preservation Property Tests)      ─┘
+        │                                        │
+        │   3.1 Android channel (MainActivity.java) ──┐
+        │   3.2 Manifest default_notification_channel_id ├─ native path
+        │   3.3 Web VAPID_PUBLIC_KEY (.env) ─────────────── web path
+        │   3.4 Backend GUCs (functions_url, service_role_key) ─┐
+        │   3.5 Edge secrets (FIREBASE_SERVICE_ACCOUNT, VAPID_*) ├─ prerequisites (both paths)
+        │                                        │
+        │                                        ▼
+        │                        3.6 Verify Property 1 (Fix Checking) ── re-runs Task 1
+        └──────────────────────► 3.7 Verify Property 2 (Preservation) ── re-runs Task 2
+                                                 │
+                                                 ▼
+                                        Task 4 (Checkpoint - all tests pass)
+```
+
+**Dependency notes:**
+- Tasks 1 and 2 are independent of each other and MUST both complete (and their expected outcomes documented) BEFORE any implementation in Task 3 begins.
+- Task 1 checks MUST fail and Task 2 tests MUST pass on the unfixed code/config before proceeding.
+- Within Task 3, the native subtasks (3.1, 3.2), the web subtask (3.3), and the backend prerequisite subtasks (3.4, 3.5) are independent and can be done in any order; 3.1 must precede 3.2 conceptually (the meta-data fallback relies on the channel existing).
+- 3.6 depends on all fix subtasks (3.1–3.5); it re-runs the Task 1 checks.
+- 3.7 depends on the fix being applied; it re-runs the Task 2 tests.
+- Task 4 depends on 3.6 and 3.7 both passing.
+
+## Notes
+
+- **Property references**: Property 1 (Bug Condition / Fix Checking) and Property 2 (Preservation) are defined in the design's Correctness Properties section. Task 1 encodes Property 1, Task 2 encodes Property 2; tasks 3.6/3.7 re-run those exact checks.
+- **Test ordering is mandatory**: Do not begin Task 3 until Task 1 checks are confirmed failing and Task 2 tests are confirmed passing on the unfixed code/config.
+- **Setup vs code changes**: Tasks 3.1–3.3 are code/config changes in the repo; tasks 3.4–3.5 are operational setup requirements (DB GUCs and edge secrets) that cannot be verified from the repository and must be validated live per the design.
+- **Device/integration coverage**: Some Property 1 checks (native heads-up banner, web SW banner) require device/integration testing; the delivery-chain contracts (channel targeting, subscription creation, cleanup, coalescing) are covered by unit and property-based tests around the observable logic.
+- **No changes to preserved paths**: The notification-row write path, the trigger's non-blocking fire-and-forget contract, stale-credential cleanup, deep-link tap routing, and type coalescing must remain unchanged (Property 2).

@@ -28,17 +28,20 @@
 -- on a slow/erroring edge function.
 --
 -- ── One-time setup you MUST do (values can't be hardcoded in git) ─────────
--- Run these two once in the SQL editor, substituting your project's values
--- (Project Settings → API). They persist at the database level:
+-- Supabase's hosted `postgres` role can't run `ALTER DATABASE ... SET` (it
+-- errors with "permission denied to set parameter"), so we store the two
+-- values in Supabase Vault instead. Run these once in the SQL editor,
+-- substituting your project values (Project Settings → API):
 --
---   alter database postgres set app.settings.functions_url =
---     'https://YOUR_PROJECT_REF.functions.supabase.co';
---   alter database postgres set app.settings.service_role_key =
---     'YOUR_SERVICE_ROLE_KEY';
+--   select vault.create_secret(
+--     'https://YOUR_PROJECT_REF.functions.supabase.co', 'functions_url');
+--   select vault.create_secret(
+--     'YOUR_SERVICE_ROLE_KEY', 'service_role_key');
 --
--- (The service role key is safe here — it lives only in the database config,
--- never ships to any client. It's what lets the trigger's call to send-push
--- pass Supabase's function gateway auth.)
+-- To update an existing secret later, use vault.update_secret(id, new_value).
+-- The service role key stays server-side in the encrypted Vault — it never
+-- ships to any client. It's what lets the trigger's call to send-push pass
+-- Supabase's function gateway auth.
 -- ============================================================
 
 create extension if not exists pg_net;
@@ -50,12 +53,16 @@ security definer
 set search_path = public
 as $$
 declare
-  v_url text := current_setting('app.settings.functions_url', true);
-  v_key text := current_setting('app.settings.service_role_key', true);
+  v_url text;
+  v_key text;
 begin
-  -- If setup GUCs aren't configured yet, do nothing (the in-app notification
-  -- row is already written — we just skip the push rather than erroring the
-  -- insert). Fill in the two `alter database` settings above to switch push on.
+  -- Read the endpoint + auth from Vault. If either secret isn't set yet, do
+  -- nothing (the in-app notification row is already written — we just skip the
+  -- push rather than erroring the insert). Create the two vault secrets above
+  -- to switch push on.
+  select decrypted_secret into v_url from vault.decrypted_secrets where name = 'functions_url';
+  select decrypted_secret into v_key from vault.decrypted_secrets where name = 'service_role_key';
+
   if v_url is null or v_url = '' or v_key is null or v_key = '' then
     return new;
   end if;

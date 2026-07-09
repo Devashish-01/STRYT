@@ -24,6 +24,7 @@ export type NotificationType =
   | "VERIFICATION_DECIDED"
   | "QUEUE_UPDATE"
   | "APPOINTMENT"
+  | "BUSINESS_ACCESS"
   | "SYSTEM";
 
 export interface AppNotification {

@@ -2,7 +2,7 @@ import { lazy, Suspense, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "@/components/Icons";
 import { useApp } from "@/store";
-import { catalogService, requestService, appointmentService, businessService, locationService, discoveryService } from "@/services";
+import { catalogService, requestService, appointmentService, businessService, locationService, discoveryService, notificationService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { StoriesBar } from "@/components/Stories";
@@ -57,7 +57,7 @@ function reorderCategories(
 
 export default function Home() {
   const nav = useNavigate();
-  const { area: rawArea, unreadCount, chatUnread, user } = useApp();
+  const { area: rawArea, chatUnread, user } = useApp();
   const area = rawArea || "your area";
 
   const theme = useAmbientTheme(user.lat, user.lng);
@@ -81,6 +81,7 @@ export default function Home() {
   const { data: myAppointments, refetch: refetchAppointments } = useQuery(() => appointmentService.listForCustomer(user.id), [user.id]);
   const { data: myQueuesData, refetch: refetchQueues } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
   const { data: pendingLocReqs, refetch: refetchPendingLoc } = useQueryWithRealtime(() => locationService.pendingForMe(), "location_share_grants", []);
+  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", []);
 
   const handleRefresh = async () => {
     await Promise.allSettled([
@@ -196,7 +197,7 @@ export default function Home() {
               <button
                 className="icon-btn"
                 style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }}
-                onClick={() => nav("/chats")}
+                onClick={() => nav("/chats?scope=CUSTOMER")}
                 aria-label="Chats"
               >
                 <MessageSquare size={20} />
@@ -211,11 +212,11 @@ export default function Home() {
               <button
                 className="icon-btn"
                 style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }}
-                onClick={() => nav("/notifications")}
+                onClick={() => nav("/notifications?scope=CUSTOMER")}
                 aria-label="Notifications"
               >
                 <Bell size={20} />
-                {unreadCount > 0 && (
+                {(custUnread ?? 0) > 0 && (
                   <span style={{
                     position: "absolute", top: 6, right: 6,
                     width: 8, height: 8, background: "var(--accent-500)",
@@ -481,13 +482,13 @@ export default function Home() {
               <Search size={16} />
               <span>Search "biryani", "plumber"…</span>
             </button>
-            <button className="icon-btn" style={{ background: "#fff", border: "1px solid var(--line)", position: "relative" }} onClick={() => nav("/chats")} aria-label="Chats">
+            <button className="icon-btn" style={{ background: "#fff", border: "1px solid var(--line)", position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
               <MessageSquare size={18} />
               {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
             </button>
-            <button className="icon-btn" style={{ background: "#fff", border: "1px solid var(--line)", position: "relative" }} onClick={() => nav("/notifications")} aria-label="Notifications">
+            <button className="icon-btn" style={{ background: "#fff", border: "1px solid var(--line)", position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
               <Bell size={18} />
-              {unreadCount > 0 && <span className="count-badge btn-badge count-badge-accent">{unreadCount > 9 ? "9+" : unreadCount}</span>}
+              {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
             </button>
             <button className="icon-btn" style={{ background: "var(--brand-600)", color: "#fff" }} onClick={() => setScanner(true)} aria-label="Scan QR">
               <QrCode size={18} />

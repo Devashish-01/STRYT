@@ -2,9 +2,10 @@ import { useState, useEffect, type CSSProperties } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Eye, Briefcase, CheckCircle2, Wallet, Star, Zap,
-  Share2, Calendar, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck, Camera
+  Share2, Bell, Calendar, FileText, Image, User, QrCode, Megaphone, Globe, BadgeCheck, Camera, MessageSquareText
 } from "@/components/Icons";
-import { providerService, communityService, appointmentService } from "@/services";
+import { providerService, communityService, appointmentService, notificationService } from "@/services";
+import { chatService } from "@/services/engagement/chatService";
 import { SafeImg, inr, AppBar } from "@/components/common";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
@@ -29,6 +30,8 @@ export default function ProviderDashboard() {
   );
   const { data: provPosts } = useQuery(() => communityService.byAuthorRef("provider", id), [id]);
   const { data: appts } = useQueryWithRealtime(() => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`);
+  const { data: notifUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "PROVIDER", id }), "notifications", [id]);
+  const { data: chatUnread } = useQueryWithRealtime(() => chatService.totalUnread({ scope: "PROVIDER", id }), "conversations", [id]);
 
   // Today's live schedule — the first thing a provider opens the app to see.
   const todayAppts = (appts ?? [])
@@ -98,6 +101,30 @@ export default function ProviderDashboard() {
           <RoleSwitcher theme="dark-pill" />
           
           <div className="row gap-8" style={{ alignItems: "center" }}>
+            {/* Notifications */}
+            <button
+              className="icon-btn-sm"
+              style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
+              onClick={() => nav(`/notifications?scope=PROVIDER&id=${id}`)}
+              aria-label="Notifications"
+            >
+              <Bell size={15} />
+              {(notifUnread ?? 0) > 0 && (
+                <span style={{ position: "absolute", top: 3, right: 3, width: 8, height: 8, background: "var(--red-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
+              )}
+            </button>
+            {/* Messages (provider inbox) */}
+            <button
+              className="icon-btn-sm"
+              style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
+              onClick={() => nav(`/chats?scope=PROVIDER&id=${id}`)}
+              aria-label="Messages"
+            >
+              <MessageSquareText size={15} />
+              {(chatUnread ?? 0) > 0 && (
+                <span style={{ position: "absolute", top: 3, right: 3, width: 8, height: 8, background: "var(--red-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
+              )}
+            </button>
             <button 
               className="icon-btn-sm" 
               style={{ 

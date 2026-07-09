@@ -108,7 +108,7 @@ export default function Profile() {
           <div className="row between">
             <span className="bold" style={{ fontSize: 20 }}>{t("profile")}</span>
             <div className="row gap-8">
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }} onClick={() => nav("/chats")} aria-label="Messages">
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Messages">
                 <MessageSquare size={18} />
                 {chatUnread > 0 && (
                   <span style={{
@@ -118,7 +118,7 @@ export default function Profile() {
                   }} />
                 )}
               </button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/notifications")} aria-label="Notifications">
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
                 <Bell size={18} />
               </button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => setSwitcher(true)} aria-label="Switch account">

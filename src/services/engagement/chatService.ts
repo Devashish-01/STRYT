@@ -27,6 +27,36 @@ function sortedPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
 }
 
+/**
+ * Which "inbox" a conversation belongs to, from the current user's point of view.
+ *  - CUSTOMER: my personal chats + any chat where I'm NOT the listing owner
+ *    (i.e. I'm the customer messaging a business/provider).
+ *  - BUSINESS/PROVIDER: chats about a listing I own, of that type + id — these
+ *    are the messages a business/provider owner receives from customers.
+ * Omit the scope entirely for the unified "everything" view.
+ */
+export type ChatScope = { scope: "CUSTOMER" | "BUSINESS" | "PROVIDER"; id?: string };
+
+/**
+ * Push the inbox partition down to Postgres so we transfer only matching rows
+ * (or just a count) instead of pulling every conversation and filtering in JS.
+ *  - CUSTOMER: I'm not the listing owner — personal chats (no owner) OR chats
+ *    whose subject_owner_id isn't me.
+ *  - BUSINESS/PROVIDER: chats about a listing I own, of that type (+ id).
+ */
+function applyChatScope<T>(q: T, uid: string, scope?: ChatScope): T {
+  if (!scope) return q;
+  const b = q as any;
+  if (scope.scope === "CUSTOMER") {
+    // `neq` excludes NULLs in PostgREST, so OR in the null case explicitly.
+    return b.or(`subject_owner_id.is.null,subject_owner_id.neq.${uid}`);
+  }
+  const wantType = scope.scope === "BUSINESS" ? "business" : "provider";
+  let r = b.eq("subject_owner_id", uid).eq("subject_type", wantType);
+  if (scope.id) r = r.eq("subject_id", scope.id);
+  return r;
+}
+
 /** Format a timestamp into a human-readable short label ("just now", "5m", "2h", "Mon"). */
 export function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -40,16 +70,17 @@ export function relativeTime(iso: string): string {
 
 export const chatService = {
   /** All conversations for the current user, enriched with the other person's profile. */
-  async conversations(): Promise<Conversation[]> {
+  async conversations(scope?: ChatScope): Promise<Conversation[]> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
 
-    const { data, error } = await sb
+    let listQ = sb
       .from("conversations")
       .select("*")
-      .or(`participant_a.eq.${uid},participant_b.eq.${uid}`)
-      .order("last_message_at", { ascending: false });
+      .or(`participant_a.eq.${uid},participant_b.eq.${uid}`);
+    listQ = applyChatScope(listQ, uid, scope);
+    const { data, error } = await listQ.order("last_message_at", { ascending: false });
     throwIfError(error);
 
     const convs = toCamel<Conversation[]>(data ?? []);
@@ -195,20 +226,33 @@ export const chatService = {
     };
   },
 
-  /** Count of conversations with unread messages for the current user. */
-  async totalUnread(): Promise<number> {
+  /**
+   * Count of conversations with unread messages for the current user, in a scope.
+   * Whether the unread flag is has_unread_a or _b depends on which participant
+   * slot is mine, so this runs as two server-side head-counts (no rows pulled)
+   * and sums them — the pair is mutually exclusive, so there's no double count.
+   */
+  async totalUnread(scope?: ChatScope): Promise<number> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return 0;
-    // Fetch all, determine which field is "ours", count unread.
-    const { data } = await sb
-      .from("conversations")
-      .select("participant_a, has_unread_a, has_unread_b")
-      .or(`participant_a.eq.${uid},participant_b.eq.${uid}`);
-    if (!data) return 0;
-    return (data as any[]).filter((c) =>
-      c.participant_a === uid ? c.has_unread_a : c.has_unread_b
-    ).length;
+
+    const countAs = async (participantCol: string, unreadCol: string): Promise<number> => {
+      let q = sb
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .eq(participantCol, uid)
+        .eq(unreadCol, true);
+      q = applyChatScope(q, uid, scope);
+      const { count } = await q;
+      return count ?? 0;
+    };
+
+    const [a, b] = await Promise.all([
+      countAs("participant_a", "has_unread_a"),
+      countAs("participant_b", "has_unread_b"),
+    ]);
+    return a + b;
   },
 
   /**

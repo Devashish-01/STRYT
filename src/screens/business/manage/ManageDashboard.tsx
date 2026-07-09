@@ -2,11 +2,12 @@ import { useState, useEffect, type CSSProperties } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Eye, Phone, Navigation, Star, HelpCircle,
-  ChevronRight, BadgeCheck, Share2, Zap,
+  ChevronRight, BadgeCheck, Share2, Bell, Zap,
   Calendar, Users, Search, FileText, Clock, User,
   Megaphone, Globe, QrCode, MessageSquareText, Camera, Image
 } from "@/components/Icons";
-import { businessService, communityService, appointmentService } from "@/services";
+import { businessService, communityService, appointmentService, notificationService } from "@/services";
+import { chatService } from "@/services/engagement/chatService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { AppBar } from "@/components/common";
@@ -32,6 +33,8 @@ export default function ManageDashboard() {
   const { data: bizPosts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
   const { data: queueState } = useQueryWithRealtime(() => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`);
   const { data: appts } = useQueryWithRealtime(() => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`);
+  const { data: notifUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "BUSINESS", id }), "notifications", [id]);
+  const { data: chatUnread } = useQueryWithRealtime(() => chatService.totalUnread({ scope: "BUSINESS", id }), "conversations", [id]);
 
   if (!id) {
     return (
@@ -126,6 +129,30 @@ export default function ManageDashboard() {
           <RoleSwitcher theme="dark-pill" />
           
           <div className="row gap-8" style={{ alignItems: "center" }}>
+            {/* Notifications */}
+            <button
+              className="icon-btn-sm"
+              style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
+              onClick={() => nav(`/notifications?scope=BUSINESS&id=${id}`)}
+              aria-label="Notifications"
+            >
+              <Bell size={15} />
+              {(notifUnread ?? 0) > 0 && (
+                <span style={{ position: "absolute", top: 3, right: 3, width: 8, height: 8, background: "var(--red-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
+              )}
+            </button>
+            {/* Messages (business inbox) */}
+            <button
+              className="icon-btn-sm"
+              style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
+              onClick={() => nav(`/chats?scope=BUSINESS&id=${id}`)}
+              aria-label="Messages"
+            >
+              <MessageSquareText size={15} />
+              {(chatUnread ?? 0) > 0 && (
+                <span style={{ position: "absolute", top: 3, right: 3, width: 8, height: 8, background: "var(--red-500)", borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)" }} />
+              )}
+            </button>
             <button 
               className="icon-btn-sm" 
               style={{ 

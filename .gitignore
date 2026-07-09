@@ -36,3 +36,8 @@ ios
 # APK binary — served from GitHub Releases, not stored in git
 public/stryt.apk
 
+
+# Firebase service account private keys — NEVER commit these
+*firebase-adminsdk*.json
+google-services.json
+android/app/google-services.json

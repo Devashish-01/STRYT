@@ -23,7 +23,8 @@ export function useNotificationBadges(isAuthed: boolean) {
           setUnread((n) => n + 1);
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => {
-          chatService.totalUnread().then((n) => { if (active) setChatUnread(n); });
+          // Global badge lives on customer surfaces only — count the customer inbox.
+          chatService.totalUnread({ scope: "CUSTOMER" }).then((n) => { if (active) setChatUnread(n); });
         })
         .subscribe();
     });

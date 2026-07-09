@@ -221,7 +221,7 @@ export default function Explore() {
               <div className="row gap-8">
                 <button className="icon-btn" onClick={() => nav("/search")}><Search size={20} /></button>
                 <button className="icon-btn" onClick={() => nav("/map")}><Map size={20} /></button>
-                <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats")} aria-label="Chats">
+                <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
                   <MessageSquare size={20} />
                   {chatUnread > 0 && (
                     <span style={{

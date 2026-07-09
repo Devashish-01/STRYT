@@ -2,106 +2,92 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
-import { Store, Key, Check, X, Clock, ChevronRight } from "@/components/Icons";
+import { Store, Key, ChevronRight, UserPlus } from "@/components/Icons";
 import { businessService, businessAccessService } from "@/services";
 import type { Business } from "@/types";
-import type { AccessSession, BusinessLoginConfig } from "@/services/marketplace/businessAccessService";
-import { useQuery } from "@/hooks/useApi";
+import type { AccessSession } from "@/services/marketplace/businessAccessService";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 
 export default function BusinessAccess() {
   const nav = useNavigate();
-  const { setContext, showToast, refreshUser } = useApp();
-
-  const [loginId, setLoginId] = useState("");
-  const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [manage, setManage] = useState<Business | null>(null);
+  const { user, activeContext, setContext, showToast } = useApp();
 
   const { data: myBiz, loading: bizLoading } = useQuery(() => businessService.mine(), []);
-  const { data: mySessions, refetch: refetchMine } = useQuery(() => businessAccessService.mySessions(), []);
+  const { data: mySessions, refetch: refetchMySessions } = useQueryWithRealtime(
+    () => businessAccessService.mySessions(),
+    "business_access_sessions",
+    [user.id],
+    `grantee_user_id=eq.${user.id}`,
+  );
+  const [manage, setManage] = useState<Business | null>(null);
+  const [leaving, setLeaving] = useState<string | null>(null);
 
   const activeGrants = (mySessions ?? []).filter((s) => s.status === "ACTIVE");
-  const pendingGrants = (mySessions ?? []).filter((s) => s.status === "PENDING");
-
-  async function doLogin() {
-    if (!loginId.trim() || !password) return;
-    setBusy(true);
-    try {
-      const res = await businessAccessService.login(loginId.trim(), password);
-      setPassword("");
-      if (res.status === "ACTIVE") {
-        await refreshUser();
-        setContext({ type: "business", id: res.businessId, name: res.businessName });
-        showToast(`Logged in to ${res.businessName}`);
-        nav(`/business/${res.businessId}/manage`);
-      } else {
-        showToast("Request sent — waiting for the owner to approve.");
-        setLoginId("");
-        refetchMine();
-      }
-    } catch (e: any) {
-      showToast(e?.message || "Login failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   function openDelegated(s: AccessSession) {
     setContext({ type: "business", id: s.businessId, name: s.businessName || "Business" });
     nav(`/business/${s.businessId}/manage`);
   }
 
+  // Grantee revokes their own access. If they're currently "wearing" this
+  // business, drop back to the customer context immediately instead of
+  // leaving activeContext pointed at a business they can no longer manage.
+  async function leaveAccess(s: AccessSession) {
+    setLeaving(s.id);
+    try {
+      await businessAccessService.revoke(s.id);
+      if (activeContext.type === "business" && activeContext.id === s.businessId) {
+        setContext({ type: "customer", id: null, name: user.name });
+      }
+      showToast("Access removed");
+      refetchMySessions();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't remove access");
+    } finally {
+      setLeaving(null);
+    }
+  }
+
   return (
     <div className="screen screen-boxed">
-      <AppBar title="Business access" subtitle="Remote login & session control" />
+      <AppBar title="Business access" subtitle="Grant staff access & manage sessions" />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingTop: 14, paddingBottom: 30 }}>
 
-        {/* ── Log into a business ── */}
-        <div className="card col gap-10" style={{ padding: 16 }}>
-          <div className="row gap-8 center-v"><Key size={18} color="var(--brand-600)" /><span className="semi small">Log in to a business</span></div>
-          <p className="tiny muted" style={{ lineHeight: 1.4 }}>Enter the login id & password the owner gave you to manage their business from your account.</p>
-          <input className="input" placeholder="Business login id" value={loginId} autoCapitalize="none" autoCorrect="off" onChange={(e) => setLoginId(e.target.value)} />
-          <input className="input" type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <button className="btn btn-primary btn-block" disabled={busy || !loginId.trim() || !password} onClick={doLogin}>
-            {busy ? "Checking…" : "Log in"}
-          </button>
-        </div>
-
-        {/* ── Businesses I can access ── */}
-        {(activeGrants.length > 0 || pendingGrants.length > 0) && (
+        {/* ── Businesses granted to me ── */}
+        {activeGrants.length > 0 && (
           <div className="col gap-6">
             <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Businesses you can access</span>
             <div className="col gap-8">
               {activeGrants.map((s) => (
-                <button key={s.id} className="card row gap-12 center-v" style={{ padding: 12, textAlign: "left" }} onClick={() => openDelegated(s)}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--orange-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Store size={20} color="var(--orange-500)" /></div>
-                  <div className="grow">
-                    <div className="semi small">{s.businessName}</div>
-                    <div className="tiny" style={{ color: "var(--green-600)" }}>Active{s.expiresAt ? ` · until ${new Date(s.expiresAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}` : ""}</div>
-                  </div>
-                  <ChevronRight size={18} color="var(--ink-300)" />
-                </button>
-              ))}
-              {pendingGrants.map((s) => (
                 <div key={s.id} className="card row gap-12 center-v" style={{ padding: 12 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--amber-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Clock size={20} color="var(--amber-700)" /></div>
-                  <div className="grow">
-                    <div className="semi small">{s.businessName}</div>
-                    <div className="tiny muted">Waiting for owner approval…</div>
-                  </div>
-                  <button className="tiny semi" style={{ color: "var(--red-600)" }} onClick={async () => { await businessAccessService.revoke(s.id); refetchMine(); }}>Cancel</button>
+                  <button className="row gap-12 center-v grow" style={{ textAlign: "left" }} onClick={() => openDelegated(s)}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--orange-50)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Store size={20} color="var(--orange-500)" /></div>
+                    <div className="grow">
+                      <div className="semi small">{s.businessName}</div>
+                      <div className="tiny" style={{ color: "var(--green-600)" }}>You can manage this business</div>
+                    </div>
+                    <ChevronRight size={18} color="var(--ink-300)" />
+                  </button>
+                  <button
+                    className="tiny semi"
+                    style={{ color: "var(--red-600)", flexShrink: 0, padding: "4px 6px" }}
+                    disabled={leaving === s.id}
+                    onClick={() => leaveAccess(s)}
+                  >
+                    {leaving === s.id ? "…" : "Remove"}
+                  </button>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── Your businesses' access (owner) ── */}
+        {/* ── My businesses — grant access to others ── */}
         <div className="col gap-6">
-          <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Your businesses' login</span>
+          <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Your businesses</span>
           {bizLoading ? <ListSkeleton count={2} /> : (myBiz ?? []).length === 0 ? (
-            <EmptyState emoji="🏪" title="No businesses yet" text="List a business to create a shareable login for it." />
+            <EmptyState emoji="🏪" title="No businesses yet" text="List a business to give staff access to it." />
           ) : (
             <div className="col gap-8">
               {(myBiz ?? []).map((b) => (
@@ -109,7 +95,7 @@ export default function BusinessAccess() {
                   <SafeImg src={b.coverImage} className="thumb" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />
                   <div className="grow">
                     <div className="semi small">{b.name}</div>
-                    <div className="tiny muted">Set login id, approval & session time</div>
+                    <div className="tiny muted">Grant or revoke staff access</div>
                   </div>
                   <Key size={17} color="var(--ink-400)" />
                 </button>
@@ -126,57 +112,36 @@ export default function BusinessAccess() {
 
 function ManageSheet({ business, onClose }: { business: Business; onClose: () => void }) {
   const { showToast } = useApp();
-  const { data: config, refetch: refetchConfig } = useQuery<BusinessLoginConfig | null>(() => businessAccessService.getConfig(business.id), [business.id]);
-  const { data: sessions, refetch: refetchSessions } = useQuery(() => businessAccessService.ownerSessions(business.id), [business.id]);
+  const { data: sessions, refetch: refetchSessions } = useQueryWithRealtime(
+    () => businessAccessService.ownerSessions(business.id),
+    "business_access_sessions",
+    [business.id],
+    `business_id=eq.${business.id}`,
+  );
 
-  const [loginId, setLoginId] = useState("");
-  const [password, setPassword] = useState("");
-  const [requireApproval, setRequireApproval] = useState(true);
-  const [hours, setHours] = useState("8");
-  const [enabled, setEnabled] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [seeded, setSeeded] = useState(false);
+  const [identifier, setIdentifier] = useState("");
+  const [adding, setAdding] = useState(false);
 
-  // Seed the form from the saved config once it loads.
-  if (config && !seeded) {
-    setLoginId(config.loginId);
-    setRequireApproval(config.requireApproval);
-    setHours(String(config.sessionHours));
-    setEnabled(config.isEnabled);
-    setSeeded(true);
-  }
-
-  const pending = (sessions ?? []).filter((s) => s.status === "PENDING");
   const active = (sessions ?? []).filter((s) => s.status === "ACTIVE");
+  const history = (sessions ?? []).filter((s) => ["REVOKED", "EXPIRED", "DENIED"].includes(s.status)).slice(0, 30);
 
-  async function save() {
-    if (!loginId.trim()) { showToast("Set a login id"); return; }
-    if (!config && !password) { showToast("Set a password"); return; }
-    setSaving(true);
+  async function addGrant() {
+    if (!identifier.trim()) { showToast("Enter a mobile number or email"); return; }
+    setAdding(true);
     try {
-      await businessAccessService.setLogin(business.id, {
-        loginId: loginId.trim(),
-        password,
-        requireApproval,
-        sessionHours: Math.max(1, Number(hours) || 8),
-        enabled,
-      });
-      setPassword("");
-      showToast("Login saved");
-      refetchConfig();
+      const res = await businessAccessService.grantByIdentifier(business.id, identifier.trim());
+      showToast(`Access granted to ${res.name}`);
+      setIdentifier("");
+      refetchSessions();
     } catch (e: any) {
-      showToast(e?.message || "Couldn't save");
+      showToast(e?.message || "Couldn't grant access");
     } finally {
-      setSaving(false);
+      setAdding(false);
     }
   }
 
-  async function decide(id: string, approve: boolean) {
-    try { await businessAccessService.decide(id, approve); refetchSessions(); showToast(approve ? "Access approved" : "Request denied"); }
-    catch (e: any) { showToast(e?.message || "Couldn't update"); }
-  }
   async function revoke(id: string) {
-    try { await businessAccessService.revoke(id); refetchSessions(); showToast("Session revoked"); }
+    try { await businessAccessService.revoke(id); refetchSessions(); showToast("Access revoked"); }
     catch (e: any) { showToast(e?.message || "Couldn't revoke"); }
   }
 
@@ -184,62 +149,64 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
-        <h3 className="bold h2" style={{ marginBottom: 4 }}>{business.name} — login</h3>
-        <p className="small muted" style={{ marginBottom: 14 }}>Share this id & password to let someone manage this business from their own STRYT account.</p>
+        <h3 className="bold h2" style={{ marginBottom: 4 }}>{business.name} — access</h3>
+        <p className="small muted" style={{ marginBottom: 14 }}>Add a customer by their STRYT mobile number, email, or username to let them manage this business from their own account.</p>
 
-        <div className="col gap-12">
-          <div className="field">
-            <label>Login id</label>
-            <input className="input" value={loginId} autoCapitalize="none" autoCorrect="off" onChange={(e) => setLoginId(e.target.value)} placeholder="e.g. johns-store" />
+        {/* Grant form */}
+        <div className="field">
+          <label>Customer's mobile number, email, or username</label>
+          <div className="row gap-8">
+            <input
+              className="input grow"
+              value={identifier}
+              autoCapitalize="none"
+              autoCorrect="off"
+              placeholder="e.g. 98765 43210, name@email.com, or @username"
+              onChange={(e) => setIdentifier(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") addGrant(); }}
+            />
+            <button className="btn btn-primary" disabled={adding || !identifier.trim()} onClick={addGrant}>
+              <UserPlus size={16} /> {adding ? "…" : "Add"}
+            </button>
           </div>
-          <div className="field">
-            <label>{config ? "New password (leave blank to keep)" : "Password"}</label>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-          </div>
-          <div className="row between center-v">
-            <div><div className="semi small">Approve before access</div><div className="tiny muted">You confirm each login before it works</div></div>
-            <button className={`chip ${requireApproval ? "active" : ""}`} style={{ minWidth: 56, justifyContent: "center" }} onClick={() => setRequireApproval((v) => !v)}>{requireApproval ? "On" : "Off"}</button>
-          </div>
-          <div className="field">
-            <label>Session length (hours)</label>
-            <input className="input" inputMode="numeric" value={hours} onChange={(e) => setHours(e.target.value.replace(/\D/g, ""))} placeholder="8" />
-          </div>
-          <div className="row between center-v">
-            <div><div className="semi small">Login enabled</div><div className="tiny muted">Turn off to block all remote logins</div></div>
-            <button className={`chip ${enabled ? "active" : ""}`} style={{ minWidth: 56, justifyContent: "center" }} onClick={() => setEnabled((v) => !v)}>{enabled ? "On" : "Off"}</button>
-          </div>
-          <button className="btn btn-primary btn-block" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save login"}</button>
+          <div className="tiny muted" style={{ marginTop: 4 }}>They must already have a STRYT account. Access lasts until you revoke it.</div>
         </div>
 
-        {/* Pending requests */}
-        {pending.length > 0 && (
-          <div className="col gap-8" style={{ marginTop: 18 }}>
-            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Access requests</span>
-            {pending.map((s) => (
-              <div key={s.id} className="card row gap-10 center-v" style={{ padding: 10 }}>
-                <SafeImg src={s.granteeAvatar} variant="avatar" style={{ width: 34, height: 34 }} />
-                <div className="grow"><div className="semi small">{s.granteeName}</div><div className="tiny muted">wants access</div></div>
-                <button className="icon-btn" style={{ width: 34, height: 34, background: "var(--green-100)", color: "var(--green-600)" }} onClick={() => decide(s.id, true)}><Check size={16} /></button>
-                <button className="icon-btn" style={{ width: 34, height: 34, background: "var(--red-50)", color: "var(--red-600)" }} onClick={() => decide(s.id, false)}><X size={16} /></button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Active sessions */}
+        {/* People with access */}
         {active.length > 0 && (
           <div className="col gap-8" style={{ marginTop: 18 }}>
-            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Active sessions</span>
+            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>People with access</span>
             {active.map((s) => (
               <div key={s.id} className="card row gap-10 center-v" style={{ padding: 10 }}>
                 <SafeImg src={s.granteeAvatar} variant="avatar" style={{ width: 34, height: 34 }} />
                 <div className="grow">
                   <div className="semi small">{s.granteeName}</div>
-                  <div className="tiny muted">{s.expiresAt ? `until ${new Date(s.expiresAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })}` : "active"}</div>
+                  <div className="tiny" style={{ color: "var(--green-600)" }}>Can manage this business</div>
                 </div>
                 <button className="tiny semi" style={{ color: "var(--red-600)" }} onClick={() => revoke(s.id)}>Revoke</button>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* History */}
+        {history.length > 0 && (
+          <div className="col gap-8" style={{ marginTop: 18 }}>
+            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Access history</span>
+            {history.map((s) => {
+              const label = s.status === "DENIED" ? "Denied" : s.status === "REVOKED" ? "Revoked" : "Expired";
+              const when = new Date(s.requestedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });
+              return (
+                <div key={s.id} className="card row gap-10 center-v" style={{ padding: 10, opacity: 0.7 }}>
+                  <SafeImg src={s.granteeAvatar} variant="avatar" style={{ width: 32, height: 32 }} />
+                  <div className="grow">
+                    <div className="semi small">{s.granteeName}</div>
+                    <div className="tiny muted">{label} · {when}</div>
+                  </div>
+                  <span className="tiny semi" style={{ color: s.status === "DENIED" ? "var(--red-600)" : "var(--ink-400)" }}>{label}</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

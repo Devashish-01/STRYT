@@ -25,30 +25,38 @@ function toNotif(row: Record<string, unknown>): AppNotification {
   };
 }
 
+/** Which context's notifications to show. CUSTOMER also includes legacy/system
+ *  rows that have no scope. Omit entirely for the unfiltered "everything" view. */
+export type NotifScope = { scope: "CUSTOMER" | "BUSINESS" | "PROVIDER"; id?: string };
+
+function applyScope(q: any, scope?: NotifScope) {
+  if (!scope) return q;
+  if (scope.scope === "BUSINESS" || scope.scope === "PROVIDER") {
+    return q.eq("entity_type", scope.scope).eq("entity_id", scope.id ?? "");
+  }
+  // CUSTOMER: personal + legacy rows that predate scoping.
+  return q.or("entity_type.is.null,entity_type.eq.CUSTOMER");
+}
+
 export const notificationService = {
-  async list(): Promise<AppNotification[]> {
+  async list(scope?: NotifScope): Promise<AppNotification[]> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
-    const { data, error } = await sb
-      .from("notifications")
-      .select("*")
-      .eq("user_id", uid)
-      .order("created_at", { ascending: false })
-      .limit(50);
+    let q = sb.from("notifications").select("*").eq("user_id", uid);
+    q = applyScope(q, scope);
+    const { data, error } = await q.order("created_at", { ascending: false }).limit(50);
     if (error) throw error;
     return (data ?? []).map(toNotif);
   },
 
-  async getUnreadCount(): Promise<number> {
+  async getUnreadCount(scope?: NotifScope): Promise<number> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return 0;
-    const { count, error } = await sb
-      .from("notifications")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", uid)
-      .eq("is_read", false);
+    let q = sb.from("notifications").select("*", { count: "exact", head: true }).eq("user_id", uid).eq("is_read", false);
+    q = applyScope(q, scope);
+    const { count, error } = await q;
     if (error) throw error;
     return count ?? 0;
   },
@@ -65,15 +73,13 @@ export const notificationService = {
     return { ok: true };
   },
 
-  async markAllRead() {
+  async markAllRead(scope?: NotifScope) {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return { ok: true };
-    await sb
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("user_id", uid)
-      .eq("is_read", false);
+    let q = sb.from("notifications").update({ is_read: true }).eq("user_id", uid).eq("is_read", false);
+    q = applyScope(q, scope);
+    await q;
     return { ok: true };
   },
 

@@ -5,6 +5,7 @@ import OfflineBanner from "./components/OfflineBanner";
 import DesktopSidebar from "./components/DesktopSidebar";
 import ManageNav from "./screens/business/manage/ManageNav";
 import ProviderManageNav from "./screens/provider/manage/ProviderManageNav";
+import BusinessAccessGuard from "./components/BusinessAccessGuard";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
 import { useI18n, type Lang } from "./lib/i18n";
@@ -440,21 +441,25 @@ export default function App() {
             <Route path="/onboard/provider" element={<ProviderOnboard />} />
             <Route path="/manage" element={<ManageHub />} />
 
-            {/* Business console */}
-            <Route path="/business/:id/manage" element={<ManageDashboard />} />
-            <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
-            <Route path="/business/:id/manage/portfolio" element={<BusinessPortfolio />} />
-            <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
-            <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
-            <Route path="/business/:id/manage/queue" element={<QueueManager />} />
-            <Route path="/business/:id/manage/qna" element={<QnaManager />} />
-            <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
-            <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
-            <Route path="/business/:id/manage/inbox" element={<LeadsInbox />} />
-            <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
-            <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
-            <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
-            <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />
+            {/* Business console — gated behind BusinessAccessGuard so a
+                revoked delegate is bounced out of every manage screen for
+                this business, not just blocked on individual writes by RLS. */}
+            <Route element={<BusinessAccessGuard />}>
+              <Route path="/business/:id/manage" element={<ManageDashboard />} />
+              <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
+              <Route path="/business/:id/manage/portfolio" element={<BusinessPortfolio />} />
+              <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
+              <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
+              <Route path="/business/:id/manage/queue" element={<QueueManager />} />
+              <Route path="/business/:id/manage/qna" element={<QnaManager />} />
+              <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
+              <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
+              <Route path="/business/:id/manage/inbox" element={<LeadsInbox />} />
+              <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
+              <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
+              <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
+              <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />
+            </Route>
 
             {/* Provider console */}
             <Route path="/provider/:id/manage" element={<ProviderDashboard />} />

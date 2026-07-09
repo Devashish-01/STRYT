@@ -1,7 +1,7 @@
 import { lazy, Suspense, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { MessageCircle, Search, QrCode, X } from "@/components/Icons";
-import { chatService, relativeTime } from "@/services/engagement/chatService";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { MessageCircle, Search, QrCode, X, ArrowLeft } from "@/components/Icons";
+import { chatService, relativeTime, type ChatScope } from "@/services/engagement/chatService";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { EmptyState, SafeImg } from "@/components/common";
@@ -12,9 +12,27 @@ import { useApp } from "@/store";
 // fetched when the user actually opens the scanner, not on every visit.
 const QrScannerSheet = lazy(() => import("@/components/QrScannerSheet"));
 
+const SCOPE_LABEL: Record<string, string> = {
+  BUSINESS: "Business inbox",
+  PROVIDER: "Provider inbox",
+  CUSTOMER: "Personal inbox",
+};
+
 export default function ConversationList() {
   const nav = useNavigate();
-  const { data: convs, loading } = useQueryWithRealtime(() => chatService.conversations(), "conversations", []);
+  const [params] = useSearchParams();
+  const rawScope = params.get("scope");
+  const scopeId = params.get("id") ?? undefined;
+  const scope: ChatScope | undefined =
+    rawScope === "BUSINESS" || rawScope === "PROVIDER" || rawScope === "CUSTOMER"
+      ? { scope: rawScope, id: scopeId }
+      : undefined;
+  const scopeKey = `${rawScope ?? ""}:${scopeId ?? ""}`;
+  const { data: convs, loading } = useQueryWithRealtime(
+    () => chatService.conversations(scope),
+    "conversations",
+    [scopeKey]
+  );
   const [scanner, setScanner] = useState(false);
   const [searching, setSearching] = useState(false);
   const [query, setQuery] = useState("");
@@ -30,6 +48,16 @@ export default function ConversationList() {
   return (
     <div className="screen with-nav">
       <header className="appbar">
+        {!searching && (
+          <button
+            className="icon-btn"
+            onClick={() => nav(-1)}
+            style={{ marginRight: 4 }}
+            aria-label="Go back"
+          >
+            <ArrowLeft size={20} />
+          </button>
+        )}
         {searching ? (
           <input
             autoFocus
@@ -40,7 +68,12 @@ export default function ConversationList() {
             style={{ marginRight: 8, height: 38, borderRadius: 10 }}
           />
         ) : (
-          <span className="bold grow" style={{ fontSize: 20 }}>Messages</span>
+          <div className="grow" style={{ minWidth: 0 }}>
+            <span className="bold" style={{ fontSize: 20, display: "block", lineHeight: 1.1 }}>Messages</span>
+            {scope && (
+              <span className="tiny muted" style={{ display: "block" }}>{SCOPE_LABEL[scope.scope]}</span>
+            )}
+          </div>
         )}
         <button
           className="icon-btn"
