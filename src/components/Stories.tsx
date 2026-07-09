@@ -503,7 +503,7 @@ export function StoryViewer({
       }}>
 
       {/* Progress Bars (Instagram style: segments show only active user's stories) */}
-      <div className="row gap-4" style={{ position: "absolute", top: "calc(10px + env(safe-area-inset-top, 0px))", left: 12, right: 12, zIndex: 3 }}>
+      <div className="row gap-4" style={{ position: "absolute", top: "calc(10px + var(--safe-area-top))", left: 12, right: 12, zIndex: 3 }}>
         {activeGroup.stories.map((_, i) => (
           <div key={i} style={{ flex: 1, height: 3, borderRadius: 3, background: "rgba(255,255,255,0.3)", overflow: "hidden" }}>
             <div style={{
@@ -517,7 +517,7 @@ export function StoryViewer({
       </div>
 
       {/* Header (Author Avatar, Name, timestamp and Close button) */}
-      <div className="row between" style={{ position: "absolute", top: "calc(24px + env(safe-area-inset-top, 0px))", left: 12, right: 12, zIndex: 3 }}>
+      <div className="row between" style={{ position: "absolute", top: "calc(24px + var(--safe-area-top))", left: 12, right: 12, zIndex: 3 }}>
         <div 
           className="row gap-8" 
           onClick={handleHeaderClick} 
@@ -594,7 +594,7 @@ export function StoryViewer({
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent 40%)" }} />
 
       {/* Caption + CTA Link */}
-      <div style={{ position: "absolute", bottom: `calc(${isOwnStory ? 76 : 74}px + env(safe-area-inset-bottom, 0px))`, left: 16, right: 16, zIndex: 3 }}>
+      <div style={{ position: "absolute", bottom: `calc(${isOwnStory ? 76 : 74}px + var(--safe-area-bottom))`, left: 16, right: 16, zIndex: 3 }}>
         {story.caption && (
           <div style={{
             background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
@@ -627,7 +627,7 @@ export function StoryViewer({
 
       {/* Quick reactions — tap to react, tap another to change it */}
       {!isOwnStory && (
-        <div className="row between" style={{ position: "absolute", bottom: "calc(16px + env(safe-area-inset-bottom, 0px))", left: 16, right: 16, zIndex: 3 }}>
+        <div className="row between" style={{ position: "absolute", bottom: "calc(16px + var(--safe-area-bottom))", left: 16, right: 16, zIndex: 3 }}>
           {REACTIONS.map((emoji) => {
             const active = myReaction === emoji;
             return (
@@ -655,7 +655,7 @@ export function StoryViewer({
       {/* Story owner view counter + save-to-highlights buttons */}
       {isOwnStory && (
         <div style={{
-          position: "absolute", bottom: "calc(20px + env(safe-area-inset-bottom, 0px))", left: 16, right: 16, zIndex: 10,
+          position: "absolute", bottom: "calc(20px + var(--safe-area-bottom))", left: 16, right: 16, zIndex: 10,
           display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8
         }}>
           <button
@@ -722,7 +722,7 @@ export function StoryViewer({
             display: "flex",
             flexDirection: "column",
             animation: "slideUp 0.25s ease-out",
-            padding: "24px 20px calc(24px + env(safe-area-inset-bottom, 0px))"
+            padding: "24px 20px calc(24px + var(--safe-area-bottom))"
           }}>
             <style>{`
               @keyframes slideUp {

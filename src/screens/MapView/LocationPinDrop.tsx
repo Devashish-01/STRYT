@@ -37,7 +37,7 @@ export function LocationPinDropOverlay({
       {/* Top instruction bar */}
       <div
         style={{
-          position: "absolute", top: 12, left: 16, right: 16, zIndex: 1000,
+          position: "absolute", top: "calc(12px + var(--safe-area-top))", left: 16, right: 16, zIndex: 1000,
           display: "flex", alignItems: "center", gap: 10,
           background: "#fff", borderRadius: 30, padding: "10px 10px 10px 18px",
           boxShadow: "var(--shadow)",
@@ -82,7 +82,7 @@ export function LocationPinDropOverlay({
       {/* Bottom confirm card */}
       <div
         style={{
-          position: "absolute", bottom: 24, left: 16, right: 16, zIndex: 1000,
+          position: "absolute", bottom: "calc(24px + var(--safe-area-bottom))", left: 16, right: 16, zIndex: 1000,
           background: "#fff", borderRadius: 20, padding: 16,
           boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
         }}

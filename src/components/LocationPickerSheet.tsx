@@ -67,7 +67,7 @@ export default function LocationPickerSheet({ onClose }: Props) {
           display: "flex",
           flexDirection: "column",
           borderRadius: "24px 24px 0 0",
-          padding: "20px 16px calc(32px + env(safe-area-inset-bottom, 0px))",
+          padding: "20px 16px calc(32px + var(--safe-area-bottom))",
         }}
       >
         <div className="sheet-grab" style={{ background: "var(--ink-200)" }} />

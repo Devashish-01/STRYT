@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, Settings, Store, Briefcase, FileText, Star,
-  ChevronRight, LogOut, Share2,
+  ChevronRight, Share2,
   Trophy, Award, Users, UserCircle, Heart,
-  ArrowLeftRight, Map, MessageSquare,
+  ArrowLeftRight, MessageSquare, Image, ListChecks, Clock,
   Calendar, Wallet
 } from "@/components/Icons";
 import { useApp } from "@/store";
@@ -12,7 +12,7 @@ import { useI18n } from "@/lib/i18n";
 import { SafeImg } from "@/components/common";
 import { displayName } from "@/lib/publicName";
 import AccountSwitcher from "@/components/AccountSwitcher";
-import { requestService, socialService, businessService } from "@/services";
+import { requestService, socialService, businessService, notificationService } from "@/services";
 import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import type { Role, AgreementStatus } from "@/types";
@@ -23,7 +23,7 @@ const TERMINAL: AgreementStatus[] = ["COMPLETED", "CANCELLED", "DISPUTED"];
 
 export default function Profile() {
   const nav = useNavigate();
-  const { user, roles, activeRole, setActiveRole, bookmarks, follows, signOut, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
+  const { user, roles, activeRole, setActiveRole, bookmarks, follows, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
   const { t } = useI18n();
   const [switcher, setSwitcher] = useState(false);
   const [share, setShare] = useState(false);
@@ -79,6 +79,8 @@ export default function Profile() {
   const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
   const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
 
+  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", []);
+
   const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id]);
   const highlights = highlightsData ?? [];
 
@@ -89,21 +91,26 @@ export default function Profile() {
   };
 
   // The 6 most-used destinations, as one scannable grid instead of a tall list —
-  // spatial position becomes memorable ("appointments is always top-middle").
+  // spatial position becomes memorable ("Wallet is always top-middle-right").
+  // Map is deliberately excluded — it already lives in the bottom nav, so
+  // repeating it here would just be the same destination in two places.
   const quickActions: { icon: React.ReactNode; label: string; badge?: number; onClick: () => void }[] = [
     { icon: <Calendar size={22} color="var(--brand-500)" />, label: t("appointments"), onClick: () => nav("/appointments") },
     { icon: <FileText size={22} color="var(--brand-700)" />, label: t("requests"), onClick: () => nav("/requests") },
+    { icon: <Wallet size={22} color="var(--green-600)" />, label: "Wallet", onClick: () => nav("/wallet") },
+    { icon: <Clock size={22} color="var(--amber-500)" />, label: "Queues", badge: activeQueues.length || undefined, onClick: () => nav("/queues") },
     { icon: <Users size={22} color="var(--blue-500)" />, label: t("community"), onClick: () => nav("/community-hub") },
-    { icon: <Map size={22} color="var(--blue-500)" />, label: t("map"), onClick: () => nav("/map") },
     { icon: <Award size={22} color="var(--amber-500)" />, label: t("badges"), onClick: () => nav("/achievements") },
-    { icon: <Trophy size={22} color="var(--brand-700)" />, label: t("heroes"), onClick: () => nav("/leaderboard") },
   ];
 
   return (
     <div className="screen screen-boxed with-nav">
       <div className="screen-scroll">
 
-        {/* ── Hero header ── */}
+        {/* ── Hero header — only the two things people check constantly
+            (messages, notifications) get an icon slot. Switching accounts and
+            settings both have a home further down, so they don't need to
+            compete for space up here too. ── */}
         <div style={{ background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", padding: "calc(20px + var(--safe-area-top)) 16px 32px" }}>
           <div className="row between">
             <span className="bold" style={{ fontSize: 20 }}>{t("profile")}</span>
@@ -118,14 +125,15 @@ export default function Profile() {
                   }} />
                 )}
               </button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
                 <Bell size={18} />
-              </button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => setSwitcher(true)} aria-label="Switch account">
-                <ArrowLeftRight size={18} />
-              </button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/settings")} aria-label="Settings">
-                <Settings size={18} />
+                {(custUnread ?? 0) > 0 && (
+                  <span style={{
+                    position: "absolute", top: 5, right: 5,
+                    width: 7, height: 7, background: "var(--red-500)",
+                    borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)",
+                  }} />
+                )}
               </button>
             </div>
           </div>
@@ -232,7 +240,9 @@ export default function Profile() {
           </div>
         )}
 
-        {/* ── Quick actions grid — same 6 spots every time, so position becomes memory ── */}
+        {/* ── Quick actions grid — same 6 spots every time, so position becomes
+            memory. Wallet & Queues live here (frequent, money/live-status),
+            Map is deliberately left out (it's already a bottom-nav tab) ── */}
         <div className="page-pad" style={{ paddingTop: 4 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             {quickActions.map((a) => (
@@ -312,23 +322,28 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* ── Manage (only shown to sellers / for saved lists) ── */}
+        {/* ── More for you — content & management shortcuts that don't need
+            daily front-row space: seller console (if any), your saved lists
+            (moved here from Settings since it's content, not a preference),
+            your posts, and the neighborhood leaderboard. ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
+          <div className="small semi muted" style={{ margin: "0 2px 8px" }}>More for you</div>
           <div className="card" style={{ overflow: "hidden" }}>
             {hasSellerProfile && (
               <MenuRow icon={<Store size={20} color="var(--orange-500)" />} label="Manage business & profile" onClick={() => nav("/manage")} />
             )}
-            <MenuRow icon={<Wallet size={20} color="var(--green-600)" />} label="Wallet" hint="Earnings & ledger" onClick={() => nav("/wallet")} />
-            <MenuRow icon={<Award size={20} color="var(--pink-500)" />} label="My activity" hint="Stories & posts" onClick={() => nav("/my-activity")} />
-            <MenuRow icon={<Users size={20} color="var(--amber-500)" />} label="My queues" badge={activeQueues.length || undefined} onClick={() => nav("/queues")} last />
+            <MenuRow icon={<ListChecks size={20} color="var(--blue-500)" />} label="My saved lists" onClick={() => nav("/lists")} />
+            <MenuRow icon={<Image size={20} color="var(--pink-500)" />} label="My activity" hint="Stories & posts" onClick={() => nav("/my-activity")} />
+            <MenuRow icon={<Trophy size={20} color="var(--brand-700)" />} label="Neighborhood heroes" hint="Leaderboard" onClick={() => nav("/leaderboard")} last />
           </div>
         </div>
 
-        {/* ── Settings & more — the infrequent stuff lives on its own page ── */}
+        {/* ── Settings & more — the infrequent stuff (including sign-out)
+            lives on its own page, so it's never one accidental tap away
+            from the screen people open constantly ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <div className="card" style={{ overflow: "hidden" }}>
-            <MenuRow icon={<Settings size={20} color="var(--ink-600)" />} label="Settings & more" hint="Preferences, support, log out" onClick={() => nav("/account")} />
-            <MenuRow icon={<LogOut size={20} color="var(--red-500)" />} label="Log out" last onClick={() => { signOut(); nav("/"); }} />
+            <MenuRow icon={<Settings size={20} color="var(--ink-600)" />} label="Settings & more" hint="Preferences, support, log out" onClick={() => nav("/account")} last />
           </div>
         </div>
 

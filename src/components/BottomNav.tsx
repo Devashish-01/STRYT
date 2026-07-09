@@ -88,7 +88,7 @@ export default function BottomNav() {
             left: "50%", transform: "translateX(-50%)",
             width: "100%", maxWidth: "var(--maxw)",
             background: "#fff", borderRadius: "22px 22px 0 0",
-            padding: "8px 16px calc(32px + env(safe-area-inset-bottom, 0px))",
+            padding: "8px 16px calc(32px + var(--safe-area-bottom))",
             zIndex: 201,
             boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
           }}>

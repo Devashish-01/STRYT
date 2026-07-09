@@ -133,7 +133,7 @@ export default function ProviderDetail() {
             background: heroPhoto
               ? `linear-gradient(160deg, rgba(22,163,74,0.88), rgba(21,128,61,0.92)), url(${heroPhoto}) center/cover`
               : "linear-gradient(135deg,var(--green-500),var(--green-600))",
-            color: "#fff", padding: "12px 16px 24px",
+            color: "#fff", padding: "calc(12px + var(--safe-area-top)) 16px 24px",
           }}
         >
           <div className="row between">

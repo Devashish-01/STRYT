@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { AppBar } from "@/components/common";
-import { Globe, Shield, HelpCircle, Bug, LogOut, ListChecks, ChevronRight, UserCircle, Key } from "@/components/Icons";
+import { Globe, Shield, HelpCircle, Bug, LogOut, ChevronRight, UserCircle, Key } from "@/components/Icons";
 import { useApp } from "@/store";
 import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 
@@ -27,8 +27,7 @@ export default function AccountSettings() {
 
         <Section title="Account">
           <MenuRow icon={<UserCircle size={20} color="var(--brand-600)" />} label="Public profile" hint="How others see you" onClick={() => nav(`/u/${user.id}`)} />
-          <MenuRow icon={<Key size={20} color="var(--orange-500)" />} label="Business access" hint="Remote login & sessions" onClick={() => nav("/account/business-access")} />
-          <MenuRow icon={<ListChecks size={20} color="var(--blue-500)" />} label="My saved lists" onClick={() => nav("/lists")} last />
+          <MenuRow icon={<Key size={20} color="var(--orange-500)" />} label="Business access" hint="Remote login & sessions" onClick={() => nav("/account/business-access")} last />
         </Section>
 
         <Section title="Preferences">

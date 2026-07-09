@@ -224,7 +224,7 @@ export default function BusinessDetail() {
         <div style={{ position: "relative" }}>
           <SafeImg src={b.coverImage} alt={b.name} style={{ width: "100%", height: 230, objectFit: "cover" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 35%, transparent 70%, rgba(0,0,0,0.25))" }} />
-          <div className="row between" style={{ position: "absolute", top: 12, left: 12, right: 12 }}>
+          <div className="row between" style={{ position: "absolute", top: "calc(12px + var(--safe-area-top))", left: 12, right: 12 }}>
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
             <div className="row gap-8">
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setShare(true)}><Share2 size={18} /></button>

@@ -65,7 +65,7 @@ export function QueuePaymentSheet({ tokenId, businessName, businessUpiId, onPaid
       onClick={onClose}
     >
       <div
-        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + env(safe-area-inset-bottom, 0px))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
+        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

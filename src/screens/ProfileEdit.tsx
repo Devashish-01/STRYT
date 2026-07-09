@@ -515,7 +515,7 @@ export default function ProfileEdit() {
         background: "#fff",
         borderTop: "1px solid var(--line)",
         padding: "12px 16px",
-        paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
+        paddingBottom: "max(12px, var(--safe-area-bottom))",
         zIndex: 100,
         boxShadow: "0 -4px 18px rgba(0,0,0,0.06)",
       }}>
