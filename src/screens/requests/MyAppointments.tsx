@@ -344,6 +344,7 @@ export default function MyAppointments() {
           availabilityNote={rebook.availabilityNote}
           packages={rebook.packages}
           availableNow={rebook.availableNow}
+          rescheduledFromId={rebook.mode === "RESCHEDULE" ? rebook.apt.id : undefined}
           onBooked={handleBooked}
           onClose={() => { setRebook(null); refetch(); }}
         />

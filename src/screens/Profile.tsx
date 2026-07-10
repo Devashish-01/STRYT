@@ -12,6 +12,7 @@ import { useI18n } from "@/lib/i18n";
 import { SafeImg } from "@/components/common";
 import { displayName } from "@/lib/publicName";
 import AccountSwitcher from "@/components/AccountSwitcher";
+import AppUpdateButton from "@/components/AppUpdateButton";
 import { requestService, socialService, businessService, notificationService } from "@/services";
 import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -345,6 +346,10 @@ export default function Profile() {
           <div className="card" style={{ overflow: "hidden" }}>
             <MenuRow icon={<Settings size={20} color="var(--ink-600)" />} label="Settings & more" hint="Preferences, support, log out" onClick={() => nav("/account")} last />
           </div>
+        </div>
+
+        <div className="page-pad" style={{ paddingTop: 0 }}>
+          <AppUpdateButton />
         </div>
 
         <p className="tiny muted" style={{ textAlign: "center", padding: "8px 0 28px" }}>

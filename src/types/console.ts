@@ -35,6 +35,8 @@ export interface AppointmentRecord {
   paymentReference?: string | null;
   cancelledBy?: CancelledBy | null;
   isWalkIn?: boolean;
+  /** Id of the appointment this one replaced, when created via the reschedule flow. */
+  rescheduledFrom?: string | null;
 }
 
 export interface BlockedSlot {

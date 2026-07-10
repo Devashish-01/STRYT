@@ -6,6 +6,7 @@ import { useApp } from "@/store";
 import { providerService, profileControlService, uploadService } from "@/services";
 import { ErrorView } from "@/components/states";
 import ProviderManageNav from "./ProviderManageNav";
+import AppUpdateButton from "@/components/AppUpdateButton";
 
 export default function ProviderSettings() {
   const { id = "" } = useParams();
@@ -250,6 +251,8 @@ export default function ProviderSettings() {
             <Toggle label="Show provider profile publicly" on={ownerEnabled} set={handleToggleVisibility} last />
           </div>
         </div>
+
+        <AppUpdateButton />
 
         <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>Exit provider mode</button>
       </div>

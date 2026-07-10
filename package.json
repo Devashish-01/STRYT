@@ -16,7 +16,8 @@
     "audit:mobile": "playwright test --project=mobile",
     "audit:desktop": "playwright test --project=desktop",
     "cap:sync": "npm run build && npx cap sync android",
-    "cap:run": "npm run build && npx cap run android"
+    "cap:run": "npm run build && npx cap run android",
+    "ota:publish": "npm run build && node scripts/publish-ota-update.mjs"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.3.0",
@@ -30,6 +31,7 @@
     "@capacitor/push-notifications": "^8.1.1",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
+    "@capgo/capacitor-updater": "^8.50.2",
     "@phosphor-icons/react": "^2.1.10",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
@@ -51,6 +53,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "archiver": "^7.0.1",
     "fast-check": "^3.23.2",
     "pg": "^8.21.0",
     "typescript": "^5.6.3",

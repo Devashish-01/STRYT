@@ -31,6 +31,8 @@ interface AppointmentSheetProps {
   paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
   /** Seller's UPI ID, passed through to the post-booking payment step when paymentTiming is AT_BOOKING. */
   payeeUpiId?: string | null;
+  /** Id of the appointment being replaced, when this sheet is opened from the reschedule flow. */
+  rescheduledFromId?: string;
   onClose: () => void;
   /** Fired after a booking is successfully created (before the sheet closes). */
   onBooked?: () => void;
@@ -47,6 +49,7 @@ export function AppointmentSheet({
   initialNotes,
   paymentTiming = "AT_APPOINTMENT",
   payeeUpiId,
+  rescheduledFromId,
   onClose,
   onBooked,
 }: AppointmentSheetProps) {
@@ -178,6 +181,7 @@ export function AppointmentSheet({
         packageId: selectedPkg?.id,
         packageName: selectedPkg?.name,
         packagePrice: selectedPkg?.price,
+        rescheduledFrom: rescheduledFromId ?? null,
       });
 
       showToast(`Appointment scheduled for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`);

@@ -119,6 +119,7 @@ function rowToRecord(r: any): AppointmentRecord {
     paymentReference: r.payment_reference ?? null,
     cancelledBy: r.cancelled_by ?? null,
     isWalkIn: r.is_walk_in ?? false,
+    rescheduledFrom: r.rescheduled_from ?? null,
   };
 }
 
@@ -207,6 +208,7 @@ export const appointmentService = {
             package_id: payload.packageId ?? null,
             package_name: payload.packageName ?? null,
             package_price: payload.packagePrice ?? null,
+            rescheduled_from: payload.rescheduledFrom ?? null,
           })
           .select()
           .maybeSingle();
