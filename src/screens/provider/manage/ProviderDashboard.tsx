@@ -16,12 +16,15 @@ import ShareCard from "@/components/ShareCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
+import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
+import AmbientSky from "@/features/ambient/AmbientSky";
 
 export default function ProviderDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { data: p } = useQuery(() => providerService.get(id), [id]);
   const { showToast } = useApp();
+  const ambient = useAmbientTheme();
   const { data, loading } = useQueryWithRealtime(
     () => providerService.analytics(id),
     "leads",
@@ -84,17 +87,21 @@ export default function ProviderDashboard() {
 
   return (
     <div className="screen with-nav">
-      {/* ── Branded Premium Header ── */}
+      {/* ── Branded Premium Header — Living Street Light ── */}
       <div style={{
         background: "linear-gradient(135deg, var(--green-500), var(--green-700))",
         color: "#fff",
         padding: "calc(20px + var(--safe-area-top)) 16px 24px",
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
-        boxShadow: "0 8px 30px rgba(22, 163, 74, 0.15)"
+        boxShadow: "0 8px 30px rgba(22, 163, 74, 0.15)",
+        position: "relative",
+        overflow: "hidden",
       }}>
+        <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
+        <div style={{ position: "relative", zIndex: 1 }}>
         <div className="row" style={{ marginBottom: 12 }}>
-          <BrandHome color="#fff" />
+          <BrandHome color="#fff" glow={ambient.lampGlow} />
         </div>
         {/* Top navigation row */}
         <div className="row between">
@@ -204,6 +211,7 @@ export default function ProviderDashboard() {
             </div>
             <div className="small" style={{ color: "#fff", opacity: 0.9, marginTop: 2 }}>{p?.categoryName}</div>
           </div>
+        </div>
         </div>
       </div>
 
@@ -401,7 +409,7 @@ export default function ProviderDashboard() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <TileCard icon={Megaphone} color="var(--brand-600)" bgTint="var(--brand-50)" label="Post Community" onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
                 <TileCard icon={Globe} color="var(--blue-500)" bgTint="var(--blue-500)" label="My Community" onClick={() => nav(`${base}/community`)} />
-                <TileCard icon={Camera} color="#ec4899" bgTint="var(--brand-50)" label="Post a Story" onClick={() => nav("/story/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
+                <TileCard icon={Camera} color="var(--pink-500)" bgTint="var(--brand-50)" label="Post a Story" onClick={() => nav("/story/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
                 <TileCard icon={Eye} color="var(--green-600)" bgTint="var(--green-100)" label="My Activity" onClick={() => nav("/my-activity")} />
               </div>
             </div>

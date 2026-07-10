@@ -187,7 +187,7 @@ export default function PublicProfile() {
               height: 92,
               borderRadius: "50%",
               padding: 3,
-              background: "linear-gradient(135deg, var(--amber-500), #ec4899, var(--brand-500))",
+              background: "linear-gradient(135deg, var(--amber-500), var(--pink-500), var(--brand-500))",
               boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
               marginBottom: 12,
             }}
@@ -436,7 +436,7 @@ export default function PublicProfile() {
                   background: isActive ? "var(--brand-700)" : "#fff",
                   color: isActive ? "#fff" : "var(--ink-600)",
                   border: isActive ? "none" : "1.5px solid var(--ink-200)",
-                  boxShadow: isActive ? "0 4px 12px rgba(124, 58, 237, 0.25)" : "none",
+                  boxShadow: isActive ? "0 4px 12px rgba(160, 32, 224, 0.25)" : "none",
                   cursor: "pointer",
                   textAlign: "center",
                 }}

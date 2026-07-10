@@ -129,7 +129,7 @@ export function MapMarkers({
                 <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 4 }}>{s.postedAt} · {s.expiresInHrs}h left</div>
                 <button
                   onClick={() => onStoryClick(mapStories, i)}
-                  style={{ marginTop: 8, padding: "6px 12px", background: "linear-gradient(135deg,#ff8400,#ec4899)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
+                  style={{ marginTop: 8, padding: "6px 12px", background: "linear-gradient(135deg,#ff8400,var(--pink-500))", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
                 >
                   View story
                 </button>

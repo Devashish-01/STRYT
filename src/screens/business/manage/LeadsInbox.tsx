@@ -12,7 +12,7 @@ import ManageNav from "./ManageNav";
 const meta: Record<string, { icon: any; color: string }> = {
   CALL: { icon: Phone, color: "var(--green-500)" },
   DIRECTIONS: { icon: Navigation, color: "var(--orange-500)" },
-  STORY_REPLY: { icon: MessageCircle, color: "#ec4899" },
+  STORY_REPLY: { icon: MessageCircle, color: "var(--pink-500)" },
   OFFER_CLIP: { icon: Tag, color: "var(--brand-700)" },
   RESERVATION: { icon: CalendarCheck, color: "var(--blue-500)" },
   QUESTION: { icon: HelpCircle, color: "var(--blue-500)" },

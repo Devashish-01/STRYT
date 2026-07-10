@@ -8,10 +8,12 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { StoriesBar } from "@/components/Stories";
 import { BusinessCardSmall, ProviderCardSmall } from "@/components/cards";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
+import AmbientSky from "@/features/ambient/AmbientSky";
 import { firstName as safeFirstName } from "@/lib/publicName";
 import { getRecentlyViewed } from "@/lib/recentlyViewed";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
 import BrandHome from "@/components/BrandHome";
+import BrandLockup from "@/components/BrandLockup";
 import { SafeImg, PullToRefreshIndicator } from "@/components/common";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
@@ -178,7 +180,7 @@ export default function Home() {
           MOBILE-ONLY HOME VIEW (Matches original mobile flow)
          ========================================================== */}
       <div className="mobile-only" style={{ display: "flex", flexDirection: "column", minHeight: "100vh", width: "100%" }}>
-        {/* ── Sticky gradient header ── */}
+        {/* ── Sticky gradient header — the "Living Street Light" sky ── */}
         <div style={{
           // theme.accent is a CSS var (e.g. var(--blue-500)); appending "cc" to it
           // produced invalid CSS and voided the whole gradient, leaving the header
@@ -190,9 +192,12 @@ export default function Home() {
           top: 0,
           zIndex: 20,
           transition: "background 0.6s ease",
+          overflow: "hidden",
         }}>
+          <AmbientSky dayPart={theme.dayPartKey} effect={theme.seasonEffect} glow={theme.lampGlow} />
+          <div style={{ position: "relative", zIndex: 1 }}>
           <div className="row between center-v" style={{ marginBottom: 12 }}>
-            <BrandHome color="#fff" />
+            <BrandHome color="#fff" glow={theme.lampGlow} />
             <div className="row gap-8">
               <button
                 className="icon-btn"
@@ -256,6 +261,7 @@ export default function Home() {
             >
               <QrCode size={20} />
             </button>
+          </div>
           </div>
         </div>
 
@@ -460,39 +466,55 @@ export default function Home() {
          ========================================================== */}
       <div className="desktop-only" style={{ display: "flex", flexDirection: "column", minHeight: "100vh", width: "100%", padding: "24px 32px", boxSizing: "border-box", background: theme.bgGradient }}>
 
-        {/* Header — mirrors the mobile header actions (location, chat, bell, search, QR) */}
-        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, marginBottom: 22 }}>
+        {/* Header — dark "Living Street Light" sky band so the lamp glow + season
+            (rain/snow/petals/haze) are visible on desktop just like mobile. */}
+        <header style={{
+          position: "relative",
+          overflow: "hidden",
+          borderRadius: 20,
+          padding: "20px 24px",
+          marginBottom: 22,
+          color: "#fff",
+          background: `linear-gradient(135deg, ${theme.accent}, color-mix(in srgb, ${theme.accent} 72%, #000))`,
+          transition: "background 0.6s ease",
+        }}>
+          <AmbientSky dayPart={theme.dayPartKey} effect={theme.seasonEffect} glow={theme.lampGlow} />
+          <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20 }}>
           <div>
-            <span className="tiny" style={{ color: "var(--ink-500)", fontWeight: 600 }}>
+            <span style={{ color: "#fff", display: "inline-flex", marginBottom: 6 }}>
+              <BrandLockup glow={theme.lampGlow} size={19} onClick={() => nav("/home")} />
+            </span>
+            <span className="tiny" style={{ color: "#fff", opacity: 0.82, fontWeight: 600, display: "block" }}>
               {theme.greeting}{firstName ? `, ${firstName}` : ""}
             </span>
             <button
               onClick={() => setLocationOpen(true)}
-              style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, marginTop: 2, cursor: "pointer", color: "var(--ink-900)", fontSize: 20, fontWeight: 800 }}
+              style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, marginTop: 2, cursor: "pointer", color: "#fff", fontSize: 20, fontWeight: 800 }}
             >
               <span>{area}</span>
-              <ChevronDown size={18} color="var(--brand-600)" />
+              <ChevronDown size={18} color="#fff" />
             </button>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
             <button
               onClick={() => nav("/search")}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderRadius: 12, border: "1px solid var(--line)", background: "#fff", cursor: "pointer", fontSize: 13, color: "var(--ink-500)", minWidth: 240, textAlign: "left" }}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 16px", borderRadius: 12, border: "none", background: "#fff", cursor: "pointer", fontSize: 13, color: "var(--ink-500)", minWidth: 240, textAlign: "left" }}
             >
               <Search size={16} />
               <span>Search "biryani", "plumber"…</span>
             </button>
-            <button className="icon-btn" style={{ background: "#fff", border: "1px solid var(--line)", position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
+            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", border: "none", position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
               <MessageSquare size={18} />
               {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
             </button>
-            <button className="icon-btn" style={{ background: "#fff", border: "1px solid var(--line)", position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
+            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", border: "none", position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
               <Bell size={18} />
               {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
             </button>
-            <button className="icon-btn" style={{ background: "var(--brand-600)", color: "#fff" }} onClick={() => setScanner(true)} aria-label="Scan QR">
+            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.22)", color: "#fff", border: "none" }} onClick={() => setScanner(true)} aria-label="Scan QR">
               <QrCode size={18} />
             </button>
+          </div>
           </div>
         </header>
 

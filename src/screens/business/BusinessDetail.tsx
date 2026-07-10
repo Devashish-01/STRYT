@@ -18,6 +18,7 @@ import ShareCard from "@/components/ShareCard";
 import AddToListSheet from "@/components/AddToListSheet";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { PaymentSheet } from "@/components/PaymentSheet";
+import LivePulseDot from "@/components/LivePulseDot";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
@@ -266,6 +267,7 @@ export default function BusinessDetail() {
               <span className="row gap-4"><MapPin size={14} /> {distanceLabel(b.distanceKm)}</span>
               <span className="row gap-4"><Clock size={14} color={evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)"} />
                 <span style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>{evalRes.isOpenNow ? "Open now" : "Closed"}</span>
+                {evalRes.isOpenNow && <LivePulseDot style={{ marginLeft: 2 }} />}
               </span>
             </div>
             <p className="tiny muted" style={{ marginTop: 6 }}>{b.addressLine1}, {b.city} • {b.hours}</p>

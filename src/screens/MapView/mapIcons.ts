@@ -20,7 +20,7 @@ export const layerLabels: Record<Layer, string> = {
 export function makeStoryIcon(avatarUrl: string, seen: boolean) {
   const ringStyle = seen
     ? "background:var(--ink-400)"
-    : "background:linear-gradient(135deg,#ff8400,#ec4899,var(--brand-600))";
+    : "background:linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))";
   return L.divIcon({
     className: "",
     html: `<div style="width:44px;height:44px;border-radius:50%;${ringStyle};padding:2.5px;box-shadow:0 2px 10px rgba(0,0,0,0.35)">

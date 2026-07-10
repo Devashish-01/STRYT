@@ -58,7 +58,7 @@ export default function AdminLogin() {
             width: 56, height: 56, borderRadius: 16,
             background: "linear-gradient(135deg, var(--brand-600), var(--brand-900))",
             display: "flex", alignItems: "center", justifyContent: "center",
-            marginBottom: 16, boxShadow: "0 8px 24px rgba(124,58,237,0.35)",
+            marginBottom: 16, boxShadow: "0 8px 24px rgba(160,32,224,0.35)",
           }}
         >
           <Shield size={28} color="#fff" />

@@ -302,7 +302,7 @@ export default function QrScannerSheet({ onClose }: Props) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 0 30px rgba(139, 71, 245, 0.25)",
+                boxShadow: "0 0 30px rgba(187, 71, 245, 0.25)",
                 border: "2px solid rgba(255, 255, 255, 0.3)",
               }}
             >

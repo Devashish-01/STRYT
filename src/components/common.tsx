@@ -38,6 +38,19 @@ export function PullToRefreshIndicator({
   );
 }
 
+/** Drop-in replacement for a button's label while a submit is `pending` —
+ * 3 dots pulsing in sequence instead of a spinner ring. Inherits `currentColor`
+ * so it works inside btn-primary/btn-pink/btn-green/btn-outline alike. */
+export function ButtonSpinner() {
+  return (
+    <span className="btn-spinner" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+}
+
 export function AppBar({
   title,
   subtitle,

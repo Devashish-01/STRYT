@@ -1,21 +1,32 @@
 :root {
-  /* Brand — STRYT "Vivid Street": warm violet primary + golden amber accent */
-  --brand-50: #faf5ff;
-  --brand-100: #f3e8ff;
-  --brand-200: #e9d5ff;
-  --brand-300: #d8b4fe;
-  --brand-400: #c084fc;
-  --brand-500: #8b47f5;
-  --brand-600: #7c3aed;
-  --brand-700: #6d28d9;
-  --brand-800: #5b21b6;
-  --brand-900: #4c1d95;
+  /* Brand — "Street Light": vivid purple primary + live-pink accent + golden amber warmth */
+  --brand-50: #faf3ff;
+  --brand-100: #f2e0ff;
+  --brand-200: #e6c4fe;
+  --brand-300: #d59efb;
+  --brand-400: #c975f8;
+  --brand-500: #bb47f5;
+  --brand-600: #a020e0;
+  --brand-700: #841bb8;
+  --brand-800: #661690;
+  --brand-900: #4a1068;
 
   --accent-400: #ffba2b;
   --accent-500: #ff9500;
   --accent-600: #e07800;
 
-  --pink-500: #ec4899;
+  /* Live/social accent — Live Pulse dot, story ring, queue-live, "Join queue" */
+  --pink-50: #fff1f9;
+  --pink-100: #ffe0f1;
+  --pink-200: #ffc0e3;
+  --pink-300: #ff97cf;
+  --pink-400: #ff79c2;
+  --pink-500: #ff5dba;
+  --pink-600: #e83ea0;
+  --pink-700: #c22a82;
+  --pink-800: #971f64;
+  --pink-900: #6b1546;
+
   --green-100: #dcfce7;
   --green-500: #16a34a;
   --green-600: #15803d;
@@ -33,22 +44,22 @@
   --orange-100: #ffedd5;
   --orange-500: #f26a00;
 
-  /* Neutrals — purple-tinted ink */
-  --ink-900: #1a0a2e;
-  --ink-800: #2d1548;
-  --ink-700: #472367;
-  --ink-600: #6b4188;
-  --ink-500: #9266aa;
-  --ink-400: #b89fc7;
-  --ink-300: #d5c4e3;
-  --ink-200: #e8dff5;
-  --ink-100: #f4f0fb;
-  --ink-50: #faf8ff;
+  /* Neutrals — Deep Ink, purple-tinted */
+  --ink-900: #1a1530;
+  --ink-800: #2c2447;
+  --ink-700: #453a68;
+  --ink-600: #655583;
+  --ink-500: #8a78a3;
+  --ink-400: #b0a3c4;
+  --ink-300: #d0c5de;
+  --ink-200: #e8e1f0;
+  --ink-100: #f5f1fa;
+  --ink-50: #fbf9fd;
   --white: #ffffff;
 
-  --bg: #faf5ff;
+  --bg: #fbf6fc;
   --surface: #ffffff;
-  --line: #ede9fe;
+  --line: #f0e6f7;
 
   /* Spacing system */
   --space-xxs: 4px;
@@ -63,11 +74,12 @@
   --radius-lg: 22px;
   --radius-xl: 28px;
 
-  --shadow-sm: 0 1px 2px rgba(88, 28, 160, 0.06), 0 1px 3px rgba(88, 28, 160, 0.04);
-  --shadow: 0 4px 16px rgba(109, 40, 217, 0.08);
-  --shadow-md: 0 8px 30px rgba(109, 40, 217, 0.12);
-  --shadow-lg: 0 18px 50px rgba(109, 40, 217, 0.18);
-  --shadow-brand: 0 10px 24px rgba(139, 71, 245, 0.42);
+  --shadow-sm: 0 1px 2px rgba(102, 22, 144, 0.06), 0 1px 3px rgba(102, 22, 144, 0.04);
+  --shadow: 0 4px 16px rgba(132, 27, 184, 0.08);
+  --shadow-md: 0 8px 30px rgba(132, 27, 184, 0.12);
+  --shadow-lg: 0 18px 50px rgba(132, 27, 184, 0.18);
+  --shadow-brand: 0 10px 24px rgba(187, 71, 245, 0.42);
+  --shadow-pink: 0 10px 24px rgba(255, 93, 186, 0.40);
   --shadow-accent: 0 10px 24px rgba(242, 106, 0, 0.40);
 
   --maxw: 480px;
@@ -76,7 +88,7 @@
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 
-  --font: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 /* Native safe-area floor. Android WebViews (esp. with edge-to-edge on SDK 35)
@@ -100,7 +112,7 @@ body {
   margin: 0;
   padding: 0;
   font-family: var(--font);
-  background: #ece5f8;
+  background: #efe1f7;
   color: var(--ink-900);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -201,7 +213,7 @@ h3, .h3 {
   margin: 0 auto;
   min-height: 100vh;
   background: var(--bg);
-  box-shadow: 0 0 60px rgba(44, 15, 90, 0.18);
+  box-shadow: 0 0 60px rgba(74, 16, 104, 0.18);
   overflow: hidden;
 }
 
@@ -281,7 +293,7 @@ h3, .h3 {
 .btn-primary {
   background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
   color: #fff;
-  box-shadow: 0 8px 22px rgba(139, 71, 245, 0.32);
+  box-shadow: 0 8px 22px rgba(187, 71, 245, 0.32);
 }
 .btn-accent {
   background: linear-gradient(135deg, var(--accent-500), var(--accent-600));
@@ -310,9 +322,38 @@ h3, .h3 {
   background: var(--green-500);
   color: #fff;
 }
+.btn-pink {
+  background: linear-gradient(135deg, var(--pink-500), var(--pink-700));
+  color: #fff;
+  box-shadow: var(--shadow-pink);
+}
 .btn:disabled {
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* Button loading state — 3 dots pulsing brand -> pink -> amber, replaces the
+   label while a submit is in flight. Pair with a `pending` boolean; render
+   <ButtonSpinner/> in place of the label text. */
+.btn-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-spinner span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+  animation: btnDot 1s ease-in-out infinite;
+}
+.btn-spinner span:nth-child(1) { animation-delay: 0s; }
+.btn-spinner span:nth-child(2) { animation-delay: 0.15s; }
+.btn-spinner span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes btnDot {
+  0%, 80%, 100% { opacity: 0.35; transform: scale(0.85); }
+  40% { opacity: 1; transform: scale(1); }
 }
 
 /* ---------- Cards ---------- */
@@ -366,6 +407,7 @@ h3, .h3 {
 .badge-new { background: #ffe9d6; color: var(--accent-600); }
 .badge-green { background: #dcfce7; color: var(--green-600); }
 .badge-purple { background: var(--brand-100); color: var(--brand-700); }
+.badge-pink { background: var(--pink-100); color: var(--pink-700); }
 .badge-red { background: #fee2e2; color: var(--red-600); }
 .badge-gray { background: var(--ink-100); color: var(--ink-600); }
 .badge-blue { background: #dbeafe; color: #1d4ed8; }
@@ -534,16 +576,67 @@ textarea.input {
   border: 2px solid var(--surface);
 }
 
-/* ---------- Skeleton / shimmer ---------- */
+/* ---------- Skeleton / shimmer — "Street Light" sweep ---------- */
+/* A light passing over a surface, not a flat gray pulse: base ink tint with a
+   brand -> pink tinted highlight sweeping through at low opacity. */
 @keyframes shimmer {
   0% { background-position: -400px 0; }
   100% { background-position: 400px 0; }
 }
 .skel {
-  background: linear-gradient(90deg, #eee 25%, #f6f6f6 37%, #eee 63%);
+  background: linear-gradient(
+    90deg,
+    var(--ink-100) 25%,
+    var(--ink-100) 37%,
+    var(--ink-100) 63%
+  );
+  background-image: linear-gradient(
+    90deg,
+    var(--ink-100) 20%,
+    var(--brand-100) 42%,
+    var(--pink-100) 50%,
+    var(--brand-100) 58%,
+    var(--ink-100) 80%
+  );
   background-size: 800px 100%;
   animation: shimmer 1.4s infinite linear;
   border-radius: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: pulse-bg 1.8s ease-in-out infinite; background-image: none; background: var(--ink-100); }
+}
+
+/* ---------- Live Pulse dot ---------- */
+/* The one recurring "this can change without you" indicator — queue counts,
+   available-now, unread badges, starts-soon chips. Amber core (matches the
+   sheet's warm accent), soft pink glow ring (the live/social accent). */
+.live-pulse {
+  position: relative;
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+.live-pulse::before,
+.live-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+.live-pulse::before {
+  background: var(--accent-500);
+}
+.live-pulse::after {
+  border: 1.5px solid var(--pink-400);
+  animation: livePulseRing 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-pulse::after { animation: none; opacity: 0.5; }
+}
+@keyframes livePulseRing {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.4); opacity: 0; }
 }
 
 /* ---------- Animations ---------- */
@@ -564,6 +657,217 @@ textarea.input {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.7s linear infinite; }
+
+/* ============================================================
+   "Living Street Light" — brand lockup + ambient seasonal sky
+   ============================================================ */
+
+/* ---- Brand lockup: solid lamp silhouette beside a bold beam, the "S" sitting
+   inside it ---- Matches the brand sheet's primary logo exactly: a dark
+   shepherd's-crook street lamp (always ink-colored, not currentColor — it's a
+   fixed print mark, same on every background) next to a solid amber→pink→
+   purple triangle, with the plain white "S" placed on top of that triangle
+   (not gradient text) — the "S hidden within the composition" idea. */
+.brand-lockup {
+  --lamp-glow: 0.5;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: calc(var(--lockup-size) * 0.15);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  position: relative;
+}
+.brand-lockup-lamp {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 calc(6px * var(--lamp-glow)) rgba(255, 179, 71, calc(0.9 * var(--lamp-glow))));
+}
+.brand-lockup-bulb {
+  fill: #fff3d6;
+  opacity: calc(0.6 + 0.4 * var(--lamp-glow));
+  animation: lampFlicker 4.5s ease-in-out infinite;
+}
+.brand-lockup-halo {
+  fill: #ffb347;
+  opacity: calc(0.4 * var(--lamp-glow));
+  filter: blur(3px);
+  animation: lampFlicker 4.5s ease-in-out infinite;
+}
+.brand-lockup-word {
+  font-weight: 700; /* Outfit Bold, per the brand sheet's type spec */
+  font-size: var(--lockup-size, 20px);
+  letter-spacing: -0.2px;
+  line-height: 1;
+  color: inherit;
+  display: inline-flex;
+  align-items: baseline;
+}
+/* the S sits on a little stage so the beam behind it is sized to the glyph,
+   not the whole button — and stays plain white/currentColor like the rest
+   of the wordmark, exactly as in the sheet. */
+.brand-lockup-s-wrap {
+  position: relative;
+  display: inline-block;
+}
+.brand-lockup-cone {
+  opacity: calc(0.6 + 0.4 * var(--lamp-glow));
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+}
+.brand-lockup-s {
+  position: relative;
+  color: inherit;
+}
+@keyframes lampFlicker {
+  0%, 100% { opacity: calc(0.6 + 0.4 * var(--lamp-glow)); }
+  48%      { opacity: calc(0.45 + 0.4 * var(--lamp-glow)); }
+  52%      { opacity: calc(0.68 + 0.34 * var(--lamp-glow)); }
+}
+
+/* ---- Ambient sky: fills a position:relative header, sits behind content ---- */
+.ambient-sky {
+  --sky-glow: 0.5;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+/* time-of-day light wash layered over the header's own gradient */
+.ambient-sky-wash {
+  position: absolute;
+  inset: 0;
+  transition: background 0.8s ease;
+}
+.ambient-sky.day-morning .ambient-sky-wash {
+  background: radial-gradient(120% 90% at 88% -20%, rgba(255, 205, 130, 0.45) 0%, rgba(255, 205, 130, 0) 55%);
+}
+.ambient-sky.day-afternoon .ambient-sky-wash {
+  background: radial-gradient(120% 90% at 50% -30%, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 60%);
+}
+.ambient-sky.day-evening .ambient-sky-wash {
+  background:
+    radial-gradient(90% 70% at 12% 10%, rgba(255, 179, 71, calc(0.34 * var(--sky-glow) + 0.12)) 0%, rgba(255, 179, 71, 0) 46%),
+    linear-gradient(180deg, rgba(255, 93, 186, 0) 40%, rgba(255, 93, 186, 0.22) 100%);
+}
+.ambient-sky.day-night .ambient-sky-wash {
+  background:
+    radial-gradient(80% 60% at 12% 8%, rgba(255, 179, 71, calc(0.3 * var(--sky-glow))) 0%, rgba(255, 179, 71, 0) 42%),
+    linear-gradient(180deg, rgba(10, 4, 24, 0.35) 0%, rgba(10, 4, 24, 0) 60%);
+}
+
+/* ---- Seasonal particle field ---- */
+.ambient-sky-field {
+  position: absolute;
+  inset: 0;
+}
+/* Vertical travel is driven by `top` (relative to the header) — NOT translateY,
+   which is relative to the tiny particle itself. transform carries only the
+   horizontal drift + rotation. */
+.sky-particle {
+  position: absolute;
+  top: -10%;
+  will-change: top, transform, opacity;
+}
+/* Monsoon — thin diagonal rain streaks */
+.fx-rain .sky-particle {
+  width: 1.5px;
+  height: 16px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(213, 229, 255, 0.6) 100%);
+  animation-name: skyRain;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes skyRain {
+  0%   { top: -12%; transform: translateX(0) rotate(14deg); opacity: 0; }
+  10%  { opacity: 0.85; }
+  90%  { opacity: 0.85; }
+  100% { top: 112%; transform: translateX(-30px) rotate(14deg); opacity: 0; }
+}
+/* Winter — slow drifting snow */
+.fx-snow .sky-particle {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 5px rgba(255,255,255,0.8);
+  animation-name: skySnow;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes skySnow {
+  0%   { top: -8%; transform: translateX(0); opacity: 0; }
+  15%  { opacity: 1; }
+  50%  { transform: translateX(12px); }
+  85%  { opacity: 1; }
+  100% { top: 110%; transform: translateX(-6px); opacity: 0; }
+}
+/* Spring — petals falling with a sway + tumble */
+.fx-petals .sky-particle {
+  width: 10px;
+  height: 10px;
+  border-radius: 80% 10% 80% 10%;
+  background: linear-gradient(135deg, #ffb3dc, #ff5dba);
+  box-shadow: 0 0 5px rgba(255, 93, 186, 0.5);
+  opacity: 0.95;
+  animation-name: skyPetals;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes skyPetals {
+  0%   { top: -8%; transform: translateX(0) rotate(0deg); opacity: 0; }
+  15%  { opacity: 0.95; }
+  50%  { transform: translateX(22px) rotate(180deg); }
+  85%  { opacity: 0.95; }
+  100% { top: 112%; transform: translateX(-12px) rotate(360deg); opacity: 0; }
+}
+/* Summer — warm haze motes rising + shimmering */
+.fx-haze .sky-particle {
+  top: 110%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 210, 122, 0.6) 0%, rgba(255, 210, 122, 0) 68%);
+  animation-name: skyHaze;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes skyHaze {
+  0%   { top: 108%; transform: translateX(0); opacity: 0; }
+  40%  { opacity: 0.85; }
+  100% { top: -18%; transform: translateX(14px); opacity: 0; }
+}
+
+/* ---- Street scene: lit windows twinkle, lamp heads glow (auth/hero panels) ---- */
+.street-window {
+  opacity: 0.9;
+  animation: streetTwinkle 4.5s ease-in-out infinite;
+}
+.street-lamp-glow {
+  animation: streetLampGlow 5.5s ease-in-out infinite;
+}
+@keyframes streetTwinkle {
+  0%, 100% { opacity: 0.9; }
+  50%      { opacity: 0.35; }
+}
+@keyframes streetLampGlow {
+  0%, 100% { opacity: 0.24; }
+  50%      { opacity: 0.34; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-lockup-bulb,
+  .brand-lockup-halo { animation: none; }
+  .ambient-sky-field { display: none; }
+  .street-window,
+  .street-lamp-glow { animation: none; }
+}
 
 /* ---------- Sheet / modal ---------- */
 .overlay {
@@ -840,7 +1144,7 @@ textarea.input {
   border-radius: var(--radius-lg);
   background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
   color: #fff;
-  box-shadow: 0 12px 28px rgba(139, 71, 245, 0.28);
+  box-shadow: 0 12px 28px rgba(187, 71, 245, 0.28);
   transition: transform 0.08s ease;
 }
 .launch-hero:active { transform: scale(0.98); }
@@ -1044,7 +1348,7 @@ textarea.input {
   }
 
   .desktop-layout {
-    background: #faf8ff;
+    background: #fbf9fd;
     flex-direction: row;
   }
 
@@ -1062,7 +1366,7 @@ textarea.input {
     border-right: 1.5px solid var(--line);
     padding: 20px 12px;
     z-index: 1000;
-    box-shadow: 4px 0 24px rgba(109, 40, 217, 0.03);
+    box-shadow: 4px 0 24px rgba(132, 27, 184, 0.03);
   }
 
   .sidebar-brand {
@@ -1144,7 +1448,7 @@ textarea.input {
     border-radius: 10px;
     font-size: 13px;
     font-weight: 700;
-    box-shadow: 0 4px 16px rgba(124, 58, 237, 0.2);
+    box-shadow: 0 4px 16px rgba(160, 32, 224, 0.2);
     cursor: pointer;
     transition: transform 0.2s;
   }
@@ -1313,8 +1617,8 @@ textarea.input {
 
   /* Desktop-specific welcome card styling */
   .desktop-welcome-card {
-    background: linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, rgba(236, 72, 153, 0.04) 100%);
-    border: 1px solid rgba(124, 58, 237, 0.15);
+    background: linear-gradient(135deg, rgba(160, 32, 224, 0.08) 0%, rgba(255, 93, 186, 0.05) 100%);
+    border: 1px solid rgba(160, 32, 224, 0.15);
     border-radius: 20px;
     padding: 24px;
     margin-bottom: 8px;
@@ -1330,7 +1634,7 @@ textarea.input {
     right: -50px;
     width: 150px;
     height: 150px;
-    background: radial-gradient(circle, rgba(124, 58, 237, 0.15) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(160, 32, 224, 0.15) 0%, transparent 70%);
     border-radius: 50%;
     pointer-events: none;
   }
@@ -1583,8 +1887,12 @@ textarea.input {
 
 /* ---------- Page fade-in transition ---------- */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen { animation: none; }
+  .fade-up { animation: none; }
 }
 
 /* ---------- Desktop Pointer Hover Styles ---------- */
@@ -1656,3 +1964,4 @@ textarea.input {
     color: var(--brand-700);
   }
 }
+

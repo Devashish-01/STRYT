@@ -18,11 +18,14 @@ import ShareCard from "@/components/ShareCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
+import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
+import AmbientSky from "@/features/ambient/AmbientSky";
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast } = useApp();
+  const ambient = useAmbientTheme();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
   const { data, loading } = useQueryWithRealtime(
     () => businessService.analytics(id),
@@ -112,17 +115,21 @@ export default function ManageDashboard() {
 
   return (
     <div className="screen with-nav">
-      {/* ── Branded Premium Header ── */}
+      {/* ── Branded Premium Header — Living Street Light ── */}
       <div style={{
-        background: "linear-gradient(135deg, var(--orange-500), var(--orange-500))",
+        background: "linear-gradient(135deg, var(--orange-500), var(--accent-600))",
         color: "#fff",
         padding: "calc(20px + var(--safe-area-top)) 16px 24px",
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
-        boxShadow: "0 8px 30px rgba(194, 65, 12, 0.15)"
+        boxShadow: "0 8px 30px rgba(194, 65, 12, 0.15)",
+        position: "relative",
+        overflow: "hidden",
       }}>
+        <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
+        <div style={{ position: "relative", zIndex: 1 }}>
         <div className="row" style={{ marginBottom: 12 }}>
-          <BrandHome color="#fff" />
+          <BrandHome color="#fff" glow={ambient.lampGlow} />
         </div>
         {/* Top navigation row */}
         <div className="row between">
@@ -239,6 +246,7 @@ export default function ManageDashboard() {
               )}
             </div>
           </div>
+        </div>
         </div>
       </div>
 
@@ -465,7 +473,7 @@ export default function ManageDashboard() {
               <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Storefront & Catalog</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <TileCard icon={FileText} color="var(--brand-600)" bgTint="var(--brand-50)" label="Catalog" onClick={() => nav(`${base}/catalog`)} />
-                <TileCard icon={Image} color="#ec4899" bgTint="var(--ink-50)" label="Portfolio" onClick={() => nav(`${base}/portfolio`)} />
+                <TileCard icon={Image} color="var(--pink-500)" bgTint="var(--ink-50)" label="Portfolio" onClick={() => nav(`${base}/portfolio`)} />
                 <TileCard icon={Clock} color="var(--blue-500)" bgTint="var(--ink-100)" label="Hours" onClick={() => nav(`${base}/hours`)} />
                 <TileCard icon={QrCode} color="var(--ink-700)" bgTint="var(--ink-50)" label="Share QR" onClick={() => setShare(true)} />
               </div>
@@ -477,7 +485,7 @@ export default function ManageDashboard() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <TileCard icon={Megaphone} color="var(--brand-600)" bgTint="var(--brand-50)" label="Community Post" onClick={() => nav("/community/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
                 <TileCard icon={Globe} color="var(--blue-500)" bgTint="var(--ink-100)" label="My Community" onClick={() => nav(`${base}/community`)} />
-                <TileCard icon={Camera} color="#ec4899" bgTint="var(--ink-50)" label="Post a Story" onClick={() => nav("/story/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
+                <TileCard icon={Camera} color="var(--pink-500)" bgTint="var(--ink-50)" label="Post a Story" onClick={() => nav("/story/new", { state: { businessId: id, businessName: b?.name, businessAvatar: b?.coverImage } })} />
                 <TileCard icon={Eye} color="var(--brand-600)" bgTint="var(--brand-50)" label="My Activity" onClick={() => nav("/my-activity")} />
               </div>
             </div>

@@ -97,7 +97,7 @@ export function StoriesBar() {
               // Active story - show avatar with gradient ring
               <div style={{
                 width: 64, height: 64, borderRadius: "50%", padding: 2.5,
-                background: "linear-gradient(135deg,#ff8400,#ec4899,var(--brand-600))"
+                background: "linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))"
               }}>
                 <SafeImg
                   src={user.avatar}
@@ -152,7 +152,7 @@ export function StoriesBar() {
                 >
                   <div style={{
                     width: 64, height: 64, borderRadius: "50%", padding: 2.5,
-                    background: seen ? "var(--ink-200)" : "linear-gradient(135deg,#ff8400,#ec4899,var(--brand-600))",
+                    background: seen ? "var(--ink-200)" : "linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))",
                   }}>
                     <SafeImg
                       src={g.authorAvatar}
@@ -833,7 +833,7 @@ export function StoryViewer({
                   <div className="row gap-10 align-center">
                     <div style={{
                       width: 32, height: 32, borderRadius: "50%",
-                      background: story.visibility === "everyone" ? "rgba(124,58,237,0.15)" : "rgba(34,197,94,0.15)",
+                      background: story.visibility === "everyone" ? "rgba(160,32,224,0.15)" : "rgba(34,197,94,0.15)",
                       display: "flex", alignItems: "center", justifyContent: "center"
                     }}>
                       {story.visibility === "everyone" ? (

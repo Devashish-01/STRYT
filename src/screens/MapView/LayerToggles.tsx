@@ -14,7 +14,7 @@ export function LayerToggles({
     <div style={{ position: "absolute", top: "calc(74px + var(--safe-area-top))", left: 16, zIndex: 1000 }}>
       <div className="row gap-8" style={{ flexWrap: "wrap", maxWidth: 220 }}>
         {(["business", "provider", "request", "story"] as Layer[]).map((l) => {
-          const color = l === "story" ? "#ec4899" : pinColors[l as Exclude<Layer, "story">];
+          const color = l === "story" ? "var(--pink-500)" : pinColors[l as Exclude<Layer, "story">];
           return (
             <button
               key={l}

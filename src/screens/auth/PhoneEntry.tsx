@@ -7,6 +7,13 @@ import { Mail, Phone as PhoneIcon, ArrowLeft, ArrowRight, Loader, Lock } from "@
 import { useApp } from "@/store";
 import { returnTo } from "@/lib/returnTo";
 import { Capacitor } from "@capacitor/core";
+import StreetScene from "@/components/StreetScene";
+import BrandLockup from "@/components/BrandLockup";
+import AppMark from "@/components/AppMark";
+
+// Pre-auth (no location) → the lamp burns at a fixed "dusk street" glow rather
+// than pretending to know the local time/weather.
+const LOGIN_GLOW = 0.85;
 
 export default function PhoneEntry() {
   const nav = useNavigate();
@@ -109,25 +116,15 @@ export default function PhoneEntry() {
         <div style={{ position:"absolute", top:-60, left:-60, width:280, height:280, background:"var(--brand-400)", borderRadius:"50%", filter:"blur(90px)", opacity:0.28, pointerEvents:"none" }} />
         <div style={{ position:"absolute", bottom:-50, right:-40, width:240, height:240, background:"var(--accent-500)", borderRadius:"50%", filter:"blur(80px)", opacity:0.22, pointerEvents:"none" }} />
 
+        {/* Quiet dusk-street skyline — brand ambience, no weather claim */}
+        <StreetScene />
+
         <div style={{ position: "relative", zIndex: 2 }}>
-          {/* Logo */}
-          <div
-            style={{ display:"flex", alignItems:"center", gap:14, marginBottom:48, cursor:"pointer" }}
-            onClick={() => nav("/")}
-            role="button"
-            tabIndex={0}
-          >
-            <div style={{ width:44, height:44, borderRadius:14, background:"rgba(255,255,255,0.13)", border:"1px solid rgba(255,255,255,0.25)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <svg width="26" height="26" viewBox="0 0 64 64">
-                <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
-                <path d="M32 41 C24 35 40 24 32 17" stroke="var(--brand-600)" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M32 41 C24 35 40 24 32 17" stroke="var(--accent-400)" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
-              </svg>
-            </div>
-            <span style={{ fontSize:22, fontWeight:900, letterSpacing:-0.5 }}>STRYT</span>
+          <div style={{ marginBottom: 48 }}>
+            <BrandLockup glow={LOGIN_GLOW} size={26} onClick={() => nav("/")} />
           </div>
 
-          <h2 style={{ fontSize:36, fontWeight:900, letterSpacing:-1.5, lineHeight:1.1, marginBottom:16 }}>
+          <h2 style={{ fontSize:36, fontWeight:900, letterSpacing:-1.5, lineHeight:1.1, marginBottom:16, color:"#fff" }}>
             Welcome back<br />to your street
           </h2>
           <p style={{ fontSize:15, opacity:0.65, lineHeight:1.7, maxWidth:340, marginBottom:52 }}>
@@ -185,6 +182,12 @@ export default function PhoneEntry() {
         <div style={{ position:"absolute", top:-50, left:-50, width:220, height:220, background:"var(--brand-400)", borderRadius:"50%", filter:"blur(60px)", opacity:0.17, pointerEvents:"none" }} />
         <div style={{ position:"absolute", bottom:-30, right:-30, width:180, height:180, background:"var(--accent-500)", borderRadius:"50%", filter:"blur(50px)", opacity:0.14, pointerEvents:"none" }} />
 
+        {/* Mobile-only street scene — this panel turns coloured on small
+            screens (see .login-form-panel override below). */}
+        <span className="login-street-mobile">
+          <StreetScene />
+        </span>
+
         {/* Mobile-only back button (hidden on desktop) */}
         <div className="login-mobile-header" style={{ position:"absolute", top:20, left:20, zIndex:10 }}>
           <button
@@ -196,15 +199,8 @@ export default function PhoneEntry() {
         </div>
 
         {/* Mobile-only brand */}
-        <div className="login-mobile-brand" style={{ textAlign:"center", marginBottom:28, position:"relative", zIndex:2 }}>
-          <div style={{ width:52, height:52, borderRadius:16, background:"linear-gradient(135deg, var(--brand-500) 0%, var(--brand-700) 100%)", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px", boxShadow:"0 6px 20px rgba(109,40,217,0.28)" }}>
-            <svg width="30" height="30" viewBox="0 0 64 64">
-              <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
-              <path d="M32 41 C24 35 40 24 32 17" stroke="var(--brand-600)" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M32 41 C24 35 40 24 32 17" stroke="var(--accent-400)" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
-            </svg>
-          </div>
-          <div style={{ fontSize:22, fontWeight:900, color:"var(--ink-900)", letterSpacing:-0.5 }}>STRYT</div>
+        <div className="login-mobile-brand" style={{ textAlign:"center", marginBottom:28, position:"relative", zIndex:2, display: "inline-flex", color: "#fff" }}>
+          <BrandLockup glow={LOGIN_GLOW} size={24} onClick={() => nav("/")} />
         </div>
 
         {/* Main auth card */}
@@ -229,6 +225,7 @@ export default function PhoneEntry() {
             >
               <ArrowLeft size={16} />
             </button>
+            <AppMark size={38} radius={11} shadow={false} />
             <div>
               <div style={{ fontWeight:800, fontSize:17, color:"var(--ink-900)" }}>Sign in to STRYT</div>
               <div style={{ fontSize:12, color:"var(--ink-500)", marginTop:1 }}>Choose your sign-in method</div>
@@ -387,6 +384,7 @@ export default function PhoneEntry() {
       </div>
 
       <style>{`
+        .login-street-mobile { display: none; }
         @media (min-width: 768px) {
           .login-hero-panel { display: flex !important; }
           .login-mobile-brand { display: none !important; }
@@ -396,6 +394,7 @@ export default function PhoneEntry() {
         @media (max-width: 767px) {
           .login-hero-panel { display: none !important; }
           .login-desktop-back { display: none !important; }
+          .login-street-mobile { display: block; }
           .login-form-panel {
             background: linear-gradient(160deg, var(--brand-500) 0%, var(--brand-700) 55%, var(--ink-800) 100%) !important;
           }

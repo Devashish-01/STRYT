@@ -1,6 +1,9 @@
 import { useMemo } from "react";
 import { useWeather } from "./useWeather";
-import { getDayPart, getSeason, getActiveFestival } from "./context";
+import { getDayPart, getSeason, getActiveFestival, type DayPart, type Season } from "./context";
+
+/** The atmospheric particle drifting through the lamp light in a header. */
+export type SeasonEffect = "rain" | "snow" | "petals" | "haze";
 
 export interface AmbientTheme {
   dayPart: string;
@@ -15,6 +18,16 @@ export interface AmbientTheme {
   boostCategories: string[];
   /** one contextual banner line, or null — festival > weather > null */
   banner: string | null;
+
+  // ── "Living Street Light" ambient layer (drives <AmbientSky/> + <BrandLockup/>) ──
+  /** typed day part for the sky wash + lamp glow */
+  dayPartKey: DayPart;
+  /** typed season for the particle layer */
+  seasonKey: Season;
+  /** which atmosphere drifts through the header — weather can override the season */
+  seasonEffect: SeasonEffect;
+  /** street-lamp glow strength 0→1: faint at noon, brightest at night */
+  lampGlow: number;
 }
 
 const FESTIVAL_CONFIG: Record<string, {
@@ -77,23 +90,28 @@ export function useAmbientTheme(lat?: number, lng?: number): AmbientTheme {
     let accent = "var(--brand-500)";
     let bg     = "linear-gradient(180deg, var(--brand-100) 0%, #fff 100%)";
 
-    // Seasonal nudge (sets boost extension, default banner & styling)
+    // Seasonal nudge (sets boost extension, default banner & styling).
+    // Accent STAYS inside the brand ramp (purple/amber) — the season itself is
+    // told through the AmbientSky particle layer (rain/snow/petals/haze), not
+    // by swapping the header to an off-brand color like blue. A blue header
+    // clashes with the lamp lockup's pink/amber beam; every weather state
+    // still needs to look like STRYT.
     if (season === "monsoon") {
       boost = ["plumber", "waterproofing", "umbrella-repair", ...boost];
       banner = "🌧️ Monsoon season — waterproofing & plumbers listed up top";
-      accent = "var(--blue-500)";
+      accent = "var(--brand-500)";
       bg     = "linear-gradient(180deg, var(--ink-50) 0%, #fff 100%)";
     }
     if (season === "winter") {
       boost = ["geyser-repair", "warm-food", "home-repair", ...boost];
       banner = "❄️ Winter season — geyser repair & warm food listed up top";
-      accent = "var(--blue-500)";
+      accent = "var(--brand-700)";
       bg     = "linear-gradient(180deg, var(--ink-50) 0%, #fff 100%)";
     }
     if (season === "summer") {
       boost = ["ac-service", "cold-drinks", "electrician", ...boost];
       banner = "☀️ Summer season — AC service & cold drinks listed up top";
-      accent = "var(--orange-500)";
+      accent = "var(--accent-500)";
       bg     = "linear-gradient(180deg, var(--orange-50) 0%, #fff 100%)";
     }
 
@@ -101,12 +119,12 @@ export function useAmbientTheme(lat?: number, lng?: number): AmbientTheme {
     if (weather?.isRaining) {
       boost  = ["umbrella-repair", "plumber", "waterproofing", "food-beverage", ...boost];
       banner = `🌧️ Raining nearby — umbrella repair & plumbers listed up top`;
-      accent = "var(--blue-500)";
+      accent = "var(--brand-500)";
       bg     = "linear-gradient(180deg, var(--ink-50) 0%, #fff 100%)";
     } else if (weather?.isHot) {
       boost  = ["ac-service", "cold-drinks", "electrician", ...boost];
       banner = `🔥 It's ${Math.round(weather.tempC)}°C — AC service & cold drinks nearby`;
-      accent = "var(--orange-500)";
+      accent = "var(--accent-500)";
       bg     = "linear-gradient(180deg, var(--orange-50) 0%, #fff 100%)";
     }
 
@@ -125,6 +143,24 @@ export function useAmbientTheme(lat?: number, lng?: number): AmbientTheme {
     const seen = new Set<string>();
     const boostCategories = boost.filter((c) => (seen.has(c) ? false : (seen.add(c), true)));
 
+    // ── Ambient sky layer ──
+    // Lamp glow tracks the day: barely-on at noon, full at night — so the
+    // header literally lights up as the street would.
+    const lampGlow =
+      dayPart === "night"   ? 1.0 :
+      dayPart === "evening" ? 0.72 :
+      dayPart === "morning" ? 0.24 :
+                              0.08; // afternoon
+
+    // Season decides the drifting particle; live rain overrides it (if it's
+    // pouring in July, show rain even though the calendar says monsoon anyway).
+    let seasonEffect: SeasonEffect =
+      season === "monsoon" ? "rain"   :
+      season === "winter"  ? "snow"   :
+      season === "spring"  ? "petals" :
+                             "haze";   // summer
+    if (weather?.isRaining) seasonEffect = "rain";
+
     return {
       dayPart,
       season,
@@ -134,6 +170,10 @@ export function useAmbientTheme(lat?: number, lng?: number): AmbientTheme {
       bgGradient: bg,
       boostCategories,
       banner,
+      dayPartKey: dayPart,
+      seasonKey: season,
+      seasonEffect,
+      lampGlow,
     };
   }, [weather]);
 }

@@ -285,7 +285,7 @@ export default function StoryCompose() {
               <div className="row gap-10 align-center">
                 <div style={{
                   width: 36, height: 36, borderRadius: "50%",
-                  background: visibility === "everyone" ? "rgba(124,58,237,0.1)" : "rgba(34,197,94,0.1)",
+                  background: visibility === "everyone" ? "rgba(160,32,224,0.1)" : "rgba(34,197,94,0.1)",
                   display: "flex", alignItems: "center", justifyContent: "center"
                 }}>
                   {visibility === "everyone" ? (
@@ -453,7 +453,7 @@ export default function StoryCompose() {
                   fontWeight: 700,
                   fontSize: 13,
                   border: "1.5px solid",
-                  background: visibility === "everyone" ? "rgba(124,58,237,0.06)" : "#fff",
+                  background: visibility === "everyone" ? "rgba(160,32,224,0.06)" : "#fff",
                   borderColor: visibility === "everyone" ? "var(--brand-600)" : "var(--ink-200)",
                   color: visibility === "everyone" ? "var(--brand-700)" : "var(--ink-700)",
                   cursor: "pointer"

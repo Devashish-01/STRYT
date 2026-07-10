@@ -11,6 +11,8 @@ import {
   UserCircle
 } from "@/components/Icons";
 import RoleSwitcher from "@/components/RoleSwitcher";
+import BrandLockup from "@/components/BrandLockup";
+import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 
 export default function DesktopSidebar() {
   const nav = useNavigate();
@@ -24,10 +26,24 @@ export default function DesktopSidebar() {
     ownedBusinessIds,
     ownedProviderId
   } = useApp();
+  const ambient = useAmbientTheme();
 
   const isBusiness = activeContext.type === "business";
   const isProvider = activeContext.type === "provider";
   const hasMultipleRoles = ownedBusinessIds.length > 0 || !!ownedProviderId;
+
+  // The sidebar's own "home" is whatever context the user is currently in —
+  // the business/provider dashboard while in that hat, customer Home otherwise.
+  // Used to previously hardcode nav("/home") here regardless of context, which
+  // bounced business/provider owners out to the customer app when they clicked
+  // the brand mark (and left a stray customer-Home entry in browser history for
+  // the back button to land on). Mirrors BrandHome's goHome() — same rule, one
+  // place each type of header gets it from.
+  function goHome() {
+    if (isBusiness && activeContext.id) nav(`/business/${activeContext.id}/manage`);
+    else if (isProvider && activeContext.id) nav(`/provider/${activeContext.id}/manage`);
+    else nav("/home");
+  }
 
   // Custom action sheet toggle or navigate to ask
   const handleCreateAction = () => {
@@ -83,13 +99,10 @@ export default function DesktopSidebar() {
 
   return (
     <aside className="desktop-sidebar">
-      {/* Brand Header */}
-      <div className="sidebar-brand" onClick={() => nav("/home")}>
-        <svg width="34" height="34" viewBox="0 0 64 64" style={{ flexShrink: 0 }}>
-          <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="var(--brand-600)" />
-          <path d="M32 41 C24 35 40 24 32 17" stroke="#fff" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <span className="logo-text">STRYT</span>
+      {/* Brand Header — context-aware: business/provider tap goes to that
+          console's own dashboard, not the customer app (see goHome() above). */}
+      <div className="sidebar-brand" style={{ color: "var(--brand-600)" }}>
+        <BrandLockup glow={ambient.lampGlow} size={19} onClick={goHome} />
       </div>
 
       {/* User Profile Card & Switcher */}

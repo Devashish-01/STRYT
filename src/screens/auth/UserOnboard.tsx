@@ -227,7 +227,7 @@ export default function UserOnboard() {
           left: "-10%",
           width: "250px",
           height: "250px",
-          background: "rgba(139, 71, 245, 0.15)",
+          background: "rgba(187, 71, 245, 0.15)",
           borderRadius: "50%",
           filter: "blur(70px)",
           pointerEvents: "none",
@@ -297,7 +297,7 @@ export default function UserOnboard() {
             borderRadius: 24,
             border: "1px solid rgba(255, 255, 255, 0.5)",
             padding: "24px 20px",
-            boxShadow: "0 16px 36px rgba(124, 58, 237, 0.08)",
+            boxShadow: "0 16px 36px rgba(160, 32, 224, 0.08)",
             width: "100%",
             maxWidth: 320,
             marginBottom: 24,
@@ -322,7 +322,7 @@ export default function UserOnboard() {
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 34,
             marginBottom: 12,
-            boxShadow: "0 8px 16px rgba(124,58,237,0.12)",
+            boxShadow: "0 8px 16px rgba(160,32,224,0.12)",
             border: "2px solid #fff"
           }}>
             {avatar ? (
@@ -355,7 +355,7 @@ export default function UserOnboard() {
             border: "1.5px solid var(--brand-300)",
             borderRadius: 24,
             padding: 24,
-            boxShadow: "0 8px 24px rgba(124, 58, 237, 0.08)",
+            boxShadow: "0 8px 24px rgba(160, 32, 224, 0.08)",
             marginBottom: 20,
           }}
         >

@@ -6,6 +6,7 @@ import { providerService } from "@/services";
 import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
+import LivePulseDot from "@/components/LivePulseDot";
 import ProviderManageNav from "./ProviderManageNav";
 import { evaluateProviderAvailability, calculateNextTurnoffTime, parseTimeToMinutes, DEFAULT_DAYS_PATTERN, DEFAULT_START_TIME, DEFAULT_END_TIME } from "@/utils/availability";
 
@@ -141,7 +142,10 @@ export default function ProviderAvailability() {
                 <div className="row gap-10 center-v">
                   <Zap size={22} color={effectiveNow ? "var(--green-500)" : "var(--ink-400)"} />
                   <div>
-                    <div className="semi small">Available right now</div>
+                    <div className="row gap-6" style={{ alignItems: "center" }}>
+                      <span className="semi small">Available right now</span>
+                      {effectiveNow && <LivePulseDot />}
+                    </div>
                     <div className="tiny muted">{effectiveNow ? `Surfaced to nearby users for ${hours}h` : "Turn on when ready for immediate jobs"}</div>
                   </div>
                 </div>

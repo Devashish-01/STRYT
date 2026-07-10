@@ -242,7 +242,7 @@ export function NearbySheet({
                         src={s.authorAvatar || PLACEHOLDER_AVATAR}
                         style={{
                           width: 44, height: 44, borderRadius: "50%", objectFit: "cover",
-                          flexShrink: 0, border: seen ? "none" : "2.5px solid #ec4899"
+                          flexShrink: 0, border: seen ? "none" : "2.5px solid var(--pink-500)"
                         }}
                       />
                       <div className="grow">

@@ -13,12 +13,12 @@ warm, trustworthy, fast, and never corporate.
 
 | Element | Value | Rule |
 |---|---|---|
-| Identity mark | Pin-with-winding-street SVG | Same mark everywhere: splash, login, favicon, PWA icons, share cards. Never introduce a second logo. |
-| Primary | Violet `--brand-500 #8b47f5` → `--brand-900` | The "street at dusk" brand color. Gradients go 500→600→900. |
-| Accent | Golden amber `--accent-500 #ff9500` | One accent, spent deliberately: the Create (+) FAB, celebration moments, "NEW" energy. Never as a second primary. |
-| Semantic | `--green-500` success/available · `--red-500` danger/urgent · `--amber-500` warning · `--pink-500` stories/social | Semantic colors are not decoration — each maps to one meaning app-wide. |
-| Neutrals | Purple-tinted ink scale `--ink-900 #1a0a2e` → `--ink-100` on `--bg #faf5ff` | Never pure gray/black; neutrals carry the brand hue. |
-| Typeface | Plus Jakarta Sans (400/500/600/700/800) | One family. Hierarchy comes from weight + size, never from a second font. |
+| Identity mark | Pin-with-winding-street SVG ("App Icon") | Same mark everywhere as an *icon*: favicon, PWA icons, compact badges, share cards. A second element — an illustrated street-lamp — appears **only** as decorative hero art (`Splash.tsx` left panel), never as a substitute icon; see [`STREETLIGHT_REDESIGN.md`](MD_FILES/STREETLIGHT_REDESIGN.md) §9.3. |
+| Primary | Purple `--brand-500 #bb47f5` → `--brand-900` | The "street at dusk" brand color. Gradients go 500→600→900. (Was violet `#8b47f5` pre-2026-07 refresh — see [`STREETLIGHT_REDESIGN.md`](MD_FILES/STREETLIGHT_REDESIGN.md).) |
+| Accent | Golden amber `--accent-500 #ff9500` | One accent, spent deliberately: the Create (+) FAB, celebration moments, "NEW" energy. Never as a second primary. Unchanged across the 2026-07 refresh. |
+| Semantic | `--green-500` success/available · `--red-500` danger/urgent · `--amber-500` warning · `--pink-500 #ff5dba` live/social (full ramp — queue-live, story ring, "Join queue", `LivePulseDot`) | Semantic colors are not decoration — each maps to one meaning app-wide. |
+| Neutrals | Purple-tinted ink scale `--ink-900 #1a1530` → `--ink-100` on `--bg #fbf6fc` | Never pure gray/black; neutrals carry the brand hue. |
+| Typeface | Outfit (400/500/600/700/800) | One family. Hierarchy comes from weight + size, never from a second font. (Was Plus Jakarta Sans pre-2026-07 refresh.) |
 
 **Hard rule:** no raw hex values in components. Every color is a `var(--token)`.
 Adding a color = adding a token first.
@@ -63,13 +63,15 @@ We enforce a strict, semantic typographic hierarchy. Avoid using arbitrary font 
 |---|---|---|
 | Card | `.card` | Any grouped content block (defaults to 16px padding. Use `.card-condensed` for 12px padding, `.card-flat` for 0 padding) |
 | Chip | `.chip` (+`.active`) | Filters, categories, selectors — active = filled brand |
-| Badge | `.badge badge-{purple,green,red,blue,amber,gray,new}` | Status & lifecycle labels |
+| Badge | `.badge badge-{purple,pink,green,red,blue,amber,gray,new}` | Status & lifecycle labels — `badge-pink` is for live/social status, distinct from `badge-amber` ("new") |
 | Sheet | `.overlay` + `.sheet` + `.sheet-grab` | All modal actions slide up from the bottom; tap-outside closes |
-| Buttons | `.btn btn-{primary,green,outline,ghost,block,sm}` | One primary action per screen region |
+| Buttons | `.btn btn-{primary,pink,green,outline,ghost,block,sm}` | One primary action per screen region — `btn-pink` for live/social CTAs (join queue, story reply) |
 | Toggle | Local `Toggle`/`ToggleRow` pattern | 44–46px pill, brand fill when on, thumb slides |
 | Toast | `showToast()` from `useApp()` | The only transient feedback channel — never `alert()` |
 | Empty state | `EmptyState` (emoji + title + text + optional CTA) | Every list has one; actionable ones carry a CTA button |
 | Skeletons | `Skeleton/CardSkeleton/ListSkeleton/RowSkeleton`, `AppShellSkeleton` | See §6 |
+| Live indicator | `LivePulseDot` (`src/components/LivePulseDot.tsx`) | Amber-core/pink-ring breathing dot for state that changes without the user acting — queue live, available-now, open-now |
+| Button loading | `ButtonSpinner` (`src/components/common.tsx`) | 3-dot pulse replacing a button's label while `pending`; drop-in for any `.btn` variant |
 | Icons | @phosphor-icons/react via `@/components/Icons`, 12–22px | Central wrapper layer only. Set global style in `IconContext.Provider` |
 
 ## 5. Data display rules (trust & honesty)

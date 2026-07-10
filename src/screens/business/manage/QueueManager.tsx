@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
+import LivePulseDot from "@/components/LivePulseDot";
 import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle, UserCheck } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService } from "@/services";
@@ -215,7 +216,10 @@ export default function QueueManager() {
           onClick={toggleLive}
         >
           <div>
-            <div className="semi small">Queue is {live ? "ON" : "OFF"}</div>
+            <div className="row gap-6" style={{ alignItems: "center" }}>
+              <span className="semi small">Queue is {live ? "ON" : "OFF"}</span>
+              {live && <LivePulseDot />}
+            </div>
             <div className="tiny muted">Customers can join from your page</div>
           </div>
           <span style={{ width: 44, height: 26, borderRadius: 999, background: live ? "var(--green-500)" : "var(--ink-200)", position: "relative" }}>
