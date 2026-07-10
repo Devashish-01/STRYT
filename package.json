@@ -15,8 +15,8 @@
     "audit:login": "node -e \"require('fs').rmSync('.auth/session.json',{force:true})\" && playwright test --project=setup",
     "audit:mobile": "playwright test --project=mobile",
     "audit:desktop": "playwright test --project=desktop",
-    "cap:sync": "npm run build && npx cap sync android",
-    "cap:run": "npm run build && npx cap run android",
+    "cap:sync": "npm run build && node scripts/delete-apk.js && npx cap sync android",
+    "cap:run": "npm run build && node scripts/delete-apk.js && npx cap run android",
     "ota:publish": "npm run build && node scripts/publish-ota-update.mjs"
   },
   "dependencies": {
