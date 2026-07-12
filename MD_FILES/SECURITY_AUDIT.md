@@ -241,30 +241,27 @@ too late.
    wired to a live SMS provider. *(H-5 — revisit in the SOS pass)*
 10. **Rate-limit `ai-assist`.** *(H-1, downgraded to Medium — `send-push` no longer needs
     this, it's not client-reachable)*
-11. **Redeploy the web app (Vercel).** All Supabase-side work (migrations, edge functions)
-    is live. The **client-side** fixes — M-1 (bypass token removal), M-2 (search
-    sanitization), M-7 (security headers) — are committed to git but the frontend has not
-    been redeployed, so they aren't live yet. Push the branch / trigger the Vercel deploy.
-12. **Manual dashboard cleanup:** delete the orphaned `verify-pan` and `verify-aadhaar`
-    edge functions (removed from the repo, still live — no MCP tool exists to delete an
-    edge function, this is dashboard-only).
+11. ~~Redeploy the web app (Vercel)~~ — done 2026-07-13, branch pushed to `origin`, client
+    fixes (M-1, M-2, M-7) now live.
+12. ~~Delete orphaned `verify-pan` / `verify-aadhaar`~~ — done 2026-07-13, confirmed absent
+    from `list_edge_functions`.
 13. **Optional follow-up:** the wider `SECURITY DEFINER`/`PUBLIC` sweep (58 remaining
     lower-risk functions per Security Advisor — see M-6).
 14. **Ops/dashboard, no code:** min-password-length + leaked-password protection; MFA for
     admins; anomaly alerting; rotate the management token; Android `allowBackup` review.
     *(L-1, M-4, L-2, M-8 — plan section F)*
 
-### Bottom line (post go-live-hardening pass, shipped)
+### Bottom line (2026-07-13 — fully shipped)
 The original "not launch-ready — catastrophic RLS" verdict **was wrong** — it undercounted
 the 23 policy migrations that already lock PII and owner-scope writes, and the KYC blockers
 have since been closed (private bucket + deleted third-party endpoints + unforgeable badge
-trigger). The go-live hardening pass then closed every remaining non-SOS finding **in code,
-applied, and deployed**: the `roles` privesc trigger, `send-push` auth, the DEFINER-RPC
-grant sweep (including a default-privilege gap caught during live verification), the
-admin-bypass token, search-injection sanitization, CORS allowlisting, security headers, and
-`config.toml`. Everything on the **Supabase side is live and verified**. What's left: **push
-to redeploy the web app** (client-side fixes aren't live until then), delete two orphaned
-edge functions from the dashboard, and the deliberately-deferred SOS suite (H-5).
+trigger). The go-live hardening pass closed every remaining non-SOS finding **in code,
+applied, deployed, and confirmed live** — DB migrations, all 7 edge functions, and the web
+app redeploy are done, and the two orphaned KYC functions are deleted. **STRYT is launch-ready
+for everything except the deliberately-deferred SOS suite (H-5).** What remains is genuinely
+optional/ops work, not launch blockers: `ai-assist` rate limiting (H-1, Medium), the wider
+low-risk `SECURITY DEFINER` sweep (M-6 residual), and the dashboard-only checklist (MFA,
+password policy, anomaly alerting, key rotation, Android backup flag).
 
 ---
 
