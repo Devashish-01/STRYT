@@ -1,7 +1,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6.9.10";
-import { corsHeaders } from "../_shared/cors.ts";
+// CORS allowlist — reflects only known app origins, never "*" (Security
+// Audit M-3). Inlined (not a shared import) so this function deploys
+// standalone via the Supabase dashboard.
+const ALLOWED_ORIGINS = new Set([
+  "https://stryt.in",
+  "https://www.stryt.in",
+  "https://localhost", // Capacitor Android/iOS WebView (androidScheme: 'https')
+  "http://localhost:5173", // Vite dev
+  "http://localhost:4173", // Vite preview
+]);
+
+function corsHeaders(req: Request, extraHeaders = "authorization, x-client-info, apikey, content-type"): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "";
+  const allow = ALLOWED_ORIGINS.has(origin) ? origin : "https://stryt.in";
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": extraHeaders,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+    "Vary": "Origin",
+  };
+}
 
 const SMTP_USER = Deno.env.get("SMTP_USER") || "stryt.assistance@gmail.com";
 const SMTP_PASS = Deno.env.get("SMTP_PASS");

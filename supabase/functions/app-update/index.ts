@@ -13,7 +13,28 @@
 // has been published yet, we return a benign "no update" body the plugin no-ops
 // on, rather than an error.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { corsHeaders } from "../_shared/cors.ts";
+// CORS allowlist — reflects only known app origins, never "*" (Security
+// Audit M-3). Inlined (not a shared import) so this function deploys
+// standalone via the Supabase dashboard.
+const ALLOWED_ORIGINS = new Set([
+  "https://stryt.in",
+  "https://www.stryt.in",
+  "https://localhost", // Capacitor Android/iOS WebView (androidScheme: 'https')
+  "http://localhost:5173", // Vite dev
+  "http://localhost:4173", // Vite preview
+]);
+
+function corsHeaders(req: Request, extraHeaders = "authorization, x-client-info, apikey, content-type"): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "";
+  const allow = ALLOWED_ORIGINS.has(origin) ? origin : "https://stryt.in";
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": extraHeaders,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+    "Vary": "Origin",
+  };
+}
 
 function json(body: unknown, status = 200, cors: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
