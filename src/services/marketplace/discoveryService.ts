@@ -166,7 +166,13 @@ export const discoveryService = {
 
   async search(q: string, lat?: number, lng?: number): Promise<{ businesses: Business[]; providers: Provider[] }> {
     const sb = getSupabase();
-    const term = `%${q}%`;
+    // PostgREST .or() takes a `,`-delimited list of `column.op.value`
+    // conditions — a raw `,` `(` or `)` in user input could inject an extra
+    // condition (e.g. break the status=ACTIVE/deleted_at-is-null intent) or
+    // surface suspended/deleted listings (Security Audit M-2). Strip the
+    // filter metacharacters before building the %term% pattern.
+    const safeQ = q.replace(/[,()]/g, "").trim();
+    const term = `%${safeQ}%`;
     const [bizRes, provRes] = await Promise.all([
       sb.from("businesses").select("*").eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null).or(`name.ilike.${term},category_name.ilike.${term}`).limit(20),
       sb.from("providers").select("*").eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null).or(`display_name.ilike.${term},category_name.ilike.${term}`).limit(20),

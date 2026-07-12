@@ -14,11 +14,13 @@ export default function AccountSettings() {
   const nav = useNavigate();
   const { user, signOut } = useApp();
 
-  const envBypassToken = (import.meta as any).env.VITE_ADMIN_BYPASS_TOKEN;
+  // The admin-console entry point is gated on the real DB `roles` claim only
+  // (Security Audit M-1) — a client-side env/localStorage bypass would be
+  // readable/settable by anyone, and every real admin action is already
+  // re-checked server-side (role + audit log) regardless of this UI gate.
   const isAdmin =
     (user.roles as string[]).includes("admin") ||
-    (user.roles as string[]).includes("super_admin") ||
-    (!!envBypassToken && (user.phone === envBypassToken || localStorage.getItem("admin_bypass_token") === envBypassToken));
+    (user.roles as string[]).includes("super_admin");
 
   return (
     <div className="screen screen-boxed">

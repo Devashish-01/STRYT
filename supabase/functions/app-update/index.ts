@@ -13,14 +13,9 @@
 // has been published yet, we return a benign "no update" body the plugin no-ops
 // on, rather than an error.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { corsHeaders } from "../_shared/cors.ts";
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-};
-
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, cors: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...cors, "Content-Type": "application/json" },
@@ -33,18 +28,19 @@ const admin = createClient(
 );
 
 Deno.serve(async (req: Request) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
     const { data, error } = await admin.storage.from("app-updates").download("latest.json");
     if (error || !data) {
       // No bundle published yet — tell the plugin there's nothing to do.
-      return json({ message: "no update available" });
+      return json({ message: "no update available" }, 200, cors);
     }
 
     const manifest = JSON.parse(await data.text());
     if (!manifest?.version || !manifest?.url) {
-      return json({ message: "no update available" });
+      return json({ message: "no update available" }, 200, cors);
     }
 
     // Exactly the fields the plugin reads; extra keys are ignored.
@@ -52,10 +48,10 @@ Deno.serve(async (req: Request) => {
       version: manifest.version,
       url: manifest.url,
       checksum: manifest.checksum ?? "",
-    });
+    }, 200, cors);
   } catch (e) {
     // Never 500 the updater — a bad check should just mean "no update", not a
     // crash loop on the client.
-    return json({ message: "no update available", error: String(e) });
+    return json({ message: "no update available", error: String(e) }, 200, cors);
   }
 });

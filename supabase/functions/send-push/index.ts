@@ -11,14 +11,9 @@
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  (auto-injected)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "https://esm.sh/web-push@3.6.7";
+import { corsHeaders } from "../_shared/cors.ts";
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, cors: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...cors, "Content-Type": "application/json" },
@@ -112,11 +107,27 @@ async function getFcmAccessToken(serviceAccountJson: string): Promise<string> {
 }
 
 Deno.serve(async (req: Request) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+
+  // Internal-only: this function exists to be called exclusively by the
+  // push_on_notification_insert DB trigger
+  // (supabase/migrations/20260731_push_on_every_notification.sql), which
+  // authenticates by sending the raw service_role key as its Bearer token.
+  // Without this check, any signed-in user could push arbitrary
+  // title/body/deepLink to ANY userId (push-phishing) — the platform's
+  // verify_jwt gate accepts any validly-signed JWT (a normal user's access
+  // token included), not just service-role ones, so this in-handler check
+  // is the real boundary, not the gateway.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!serviceKey || authHeader !== `Bearer ${serviceKey}`) {
+    return json({ error: "Forbidden: internal use only" }, 403, cors);
+  }
 
   try {
     const { userId, title, body, deepLink, type } = await req.json();
-    if (!userId) return json({ error: "userId required" }, 400);
+    if (!userId) return json({ error: "userId required" }, 400, cors);
 
     let webSent = 0;
     let fcmSent = 0;
@@ -222,8 +233,8 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return json({ ok: true, webSent, fcmSent });
+    return json({ ok: true, webSent, fcmSent }, 200, cors);
   } catch (e) {
-    return json({ error: String(e) }, 500);
+    return json({ error: String(e) }, 500, cors);
   }
 });

@@ -46,10 +46,9 @@ export default function Splash() {
 
         <div style={{ position: "relative", zIndex: 2 }}>
           <div style={{ marginBottom: 28 }}>
-            <BrandLockup glow={LOGIN_GLOW} size={40} ariaLabel="STRYT" />
+            <BrandLockup glow={LOGIN_GLOW} size={40} withTagline ariaLabel="STRYT" />
           </div>
 
-          <p style={{ fontSize:21, fontWeight:600, opacity:0.88, marginBottom:10, lineHeight:1.3 }}>Your street. Your people.</p>
           <p style={{ fontSize:14.5, opacity:0.62, lineHeight:1.75, maxWidth:360, marginBottom:52 }}>
             Discover what's on your street, offer what you do, and ask for what you need — all in one app.
           </p>
@@ -114,9 +113,8 @@ export default function Splash() {
         {/* Mobile-only branding (hidden on desktop) */}
         <div className="splash-mobile-brand" style={{ textAlign:"center", marginBottom:36, position:"relative", zIndex:2 }}>
           <div style={{ display: "inline-block", marginBottom: 10, color: "#fff" }}>
-            <BrandLockup glow={LOGIN_GLOW} size={30} ariaLabel="STRYT" />
+            <BrandLockup glow={LOGIN_GLOW} size={30} withTagline ariaLabel="STRYT" />
           </div>
-          <p className="splash-mobile-sub" style={{ fontSize:14.5, color:"var(--ink-600)", lineHeight:1.5, marginTop: 6 }}>Your street. Your people.</p>
         </div>
 
         {/* CTA card */}
@@ -214,7 +212,6 @@ export default function Splash() {
           .splash-cta-panel > div[style*="background:#fff"] {
             background: rgba(255,255,255,0.96) !important;
           }
-          .splash-mobile-sub { color: rgba(255,255,255,0.75) !important; }
         }
       `}</style>
     </div>

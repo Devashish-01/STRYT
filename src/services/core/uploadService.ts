@@ -74,6 +74,13 @@ async function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
+// Private bucket for verification documents (government ID, business docs).
+// NEVER public — no getPublicUrl, no anon/authenticated SELECT policy. Only
+// the verification-review Edge Function (service_role) can read these back,
+// via short-lived createSignedUrl(). See
+// supabase/migrations/20260815_manual_verification.sql.
+const PRIVATE_BUCKET = "verification-docs";
+
 export const uploadService = {
   // Upload the file to Supabase Storage and return the public URL.
   async upload(file: unknown, kind = "photo") {
@@ -101,5 +108,31 @@ export const uploadService = {
       console.warn("Storage upload failed, falling back to data URL:", err);
     }
     return await fileToDataUrl(f);
+  },
+
+  /**
+   * Upload a verification document (ID / business proof) to the PRIVATE
+   * bucket and return its storage path — not a URL. Only reviewers can ever
+   * see the file, via a signed URL minted server-side. No data-URL fallback
+   * here on purpose: a doc that didn't really land in private storage must
+   * fail loudly, never silently degrade to something else.
+   */
+  async uploadPrivate(file: File, kind = "verification"): Promise<string> {
+    const uid = await currentUserId();
+    if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Sign in to upload files" }, 401);
+
+    let f = file;
+    if (f.type.startsWith("image/")) {
+      f = await compressImage(f);
+    }
+    const contentType = f?.type ?? "image/jpeg";
+    const path = randomPath(uid, kind, contentType);
+    const sb = getSupabase();
+    const { error } = await sb.storage.from(PRIVATE_BUCKET).upload(path, f, {
+      contentType,
+      upsert: true,
+    });
+    if (error) throw toApiError({ code: "UPLOAD_FAILED", message: error.message || "Couldn't upload document" }, 500);
+    return path;
   },
 };
