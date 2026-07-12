@@ -97,6 +97,7 @@ const ProviderCatalog = lazy(() => import("./screens/provider/manage/ProviderCat
 const ProviderPortfolio = lazy(() => import("./screens/provider/manage/ProviderPortfolio"));
 const ProviderLeads = lazy(() => import("./screens/provider/manage/ProviderLeads"));
 const ProviderSettings = lazy(() => import("./screens/provider/manage/ProviderSettings"));
+const ProviderVerification = lazy(() => import("./screens/provider/manage/ProviderVerification"));
 const ProviderCommunity = lazy(() => import("./screens/provider/manage/ProviderCommunity"));
 
 // Admin
@@ -469,7 +470,7 @@ export default function App() {
             <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
             <Route path="/provider/:id/manage/leads" element={<ProviderLeads />} />
             <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
-            <Route path="/provider/:id/manage/verify" element={<ProviderSettings />} />
+            <Route path="/provider/:id/manage/verify" element={<ProviderVerification />} />
             <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
 
             {/* Chat */}

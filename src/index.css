@@ -1,15 +1,15 @@
 :root {
-  /* Brand — "Street Light": vivid purple primary + live-pink accent + golden amber warmth */
-  --brand-50: #faf3ff;
-  --brand-100: #f2e0ff;
-  --brand-200: #e6c4fe;
-  --brand-300: #d59efb;
-  --brand-400: #c975f8;
-  --brand-500: #bb47f5;
-  --brand-600: #a020e0;
-  --brand-700: #841bb8;
-  --brand-800: #661690;
-  --brand-900: #4a1068;
+  /* Brand — "Viridian Odyssey" (DE1925) Slate-Teal Ramps */
+  --brand-50:  #f0f4f5;
+  --brand-100: #dbe4e6;
+  --brand-200: #b7c9cc;
+  --brand-300: #8da9ae;
+  --brand-400: #5e848b;
+  --brand-500: #2e484f;  /* Base Viridian Odyssey */
+  --brand-600: #263c42;
+  --brand-700: #1e2f34;
+  --brand-800: #162226;
+  --brand-900: #0e1518;
 
   --accent-400: #ffba2b;
   --accent-500: #ff9500;
@@ -57,9 +57,9 @@
   --ink-50: #fbf9fd;
   --white: #ffffff;
 
-  --bg: #fbf6fc;
+  --bg: #f6f6fa; /* Soft cool-gray background from brand sheet */
   --surface: #ffffff;
-  --line: #f0e6f7;
+  --line: #e2eaec; /* Clean, soft slate-teal border */
 
   /* Spacing system */
   --space-xxs: 4px;
@@ -74,11 +74,11 @@
   --radius-lg: 22px;
   --radius-xl: 28px;
 
-  --shadow-sm: 0 1px 2px rgba(102, 22, 144, 0.06), 0 1px 3px rgba(102, 22, 144, 0.04);
-  --shadow: 0 4px 16px rgba(132, 27, 184, 0.08);
-  --shadow-md: 0 8px 30px rgba(132, 27, 184, 0.12);
-  --shadow-lg: 0 18px 50px rgba(132, 27, 184, 0.18);
-  --shadow-brand: 0 10px 24px rgba(187, 71, 245, 0.42);
+  --shadow-sm: 0 1px 2px rgba(22, 34, 38, 0.06), 0 1px 3px rgba(22, 34, 38, 0.04);
+  --shadow: 0 4px 16px rgba(30, 47, 52, 0.08);
+  --shadow-md: 0 8px 30px rgba(30, 47, 52, 0.12);
+  --shadow-lg: 0 18px 50px rgba(30, 47, 52, 0.18);
+  --shadow-brand: 0 10px 24px rgba(46, 72, 79, 0.42);
   --shadow-pink: 0 10px 24px rgba(255, 93, 186, 0.40);
   --shadow-accent: 0 10px 24px rgba(242, 106, 0, 0.40);
 
@@ -672,7 +672,9 @@ textarea.input {
   --lamp-glow: 0.5;
   display: inline-flex;
   align-items: flex-end;
-  gap: calc(var(--lockup-size) * 0.15);
+  /* The lamp/beam deliberately intrudes into the S — it is one lockup, not
+     an icon placed next to text. */
+  gap: calc(var(--lockup-size) * -0.42);
   background: none;
   border: none;
   padding: 0;
@@ -680,11 +682,12 @@ textarea.input {
   color: inherit;
   position: relative;
 }
-.brand-lockup-lamp {
+.brand-lockup-mark {
   position: relative;
   display: inline-flex;
   align-items: flex-end;
   flex-shrink: 0;
+  z-index: 1;
   filter: drop-shadow(0 0 calc(6px * var(--lamp-glow)) rgba(255, 179, 71, calc(0.9 * var(--lamp-glow))));
 }
 .brand-lockup-bulb {
@@ -699,20 +702,25 @@ textarea.input {
   animation: lampFlicker 4.5s ease-in-out infinite;
 }
 .brand-lockup-word {
-  font-weight: 700; /* Outfit Bold, per the brand sheet's type spec */
-  font-size: var(--lockup-size, 20px);
-  letter-spacing: -0.2px;
-  line-height: 1;
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-weight: 900;
+  font-size: calc(var(--lockup-size, 20px) * 1.25);
+  letter-spacing: calc(var(--lockup-size, 20px) * -0.075);
+  line-height: 0.84;
   color: inherit;
   display: inline-flex;
-  align-items: baseline;
+  align-items: flex-end;
+  transform: scaleX(0.88);
+  transform-origin: left bottom;
 }
-/* the S sits on a little stage so the beam behind it is sized to the glyph,
-   not the whole button — and stays plain white/currentColor like the rest
-   of the wordmark, exactly as in the sheet. */
-.brand-lockup-s-wrap {
+.brand-lockup-type {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: calc(var(--lockup-size) * 0.13);
+  padding-bottom: calc(var(--lockup-size) * 0.04);
   position: relative;
-  display: inline-block;
+  z-index: 2;
 }
 .brand-lockup-cone {
   opacity: calc(0.6 + 0.4 * var(--lamp-glow));
@@ -720,8 +728,20 @@ textarea.input {
   pointer-events: none;
 }
 .brand-lockup-s {
-  position: relative;
+  display: inline-block;
   color: inherit;
+  margin-right: calc(var(--lockup-size) * -0.035);
+}
+.brand-lockup-tagline {
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+  font-size: calc(var(--lockup-size) * 0.31);
+  font-weight: 900;
+  letter-spacing: calc(var(--lockup-size) * 0.02);
+  line-height: 1;
+  white-space: nowrap;
+  color: inherit;
+  /* Start under the lamp foot, like the supplied primary lockup. */
+  transform: translateX(calc(var(--lockup-size) * -0.76));
 }
 @keyframes lampFlicker {
   0%, 100% { opacity: calc(0.6 + 0.4 * var(--lamp-glow)); }
@@ -1964,4 +1984,3 @@ textarea.input {
     color: var(--brand-700);
   }
 }
-

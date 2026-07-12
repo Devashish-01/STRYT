@@ -25,7 +25,7 @@ export default function Splash() {
       <div
         className="splash-hero-panel"
         style={{
-          flex: "0 0 52%",
+          flex: "0 0 50%",
           background: "linear-gradient(145deg, var(--brand-500) 0%, var(--brand-700) 45%, var(--ink-800) 100%)",
           position: "relative",
           overflow: "hidden",
@@ -212,6 +212,7 @@ export default function Splash() {
           .splash-cta-panel > div[style*="background:#fff"] {
             background: rgba(255,255,255,0.96) !important;
           }
+          .splash-mobile-sub { color: rgba(255,255,255,0.75) !important; }
         }
       `}</style>
     </div>

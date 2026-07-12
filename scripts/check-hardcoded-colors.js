@@ -39,8 +39,8 @@ const WHITELISTED_HEX = new Set([
   "0f0d17", "1a1625", "180c02", "1e1104", "100600", "290d4f", "1e0a38",
 
   // Native bridge APIs cannot consume CSS variables; Capacitor StatusBar
-  // needs the resolved brand-600 color as an actual platform color string.
-  "7c3aed",
+  // needs the resolved brand colors as actual platform color strings.
+  "2e484f", "263c42", "1e2f34",
 ]);
 
 // Helper to recursively list files in directory

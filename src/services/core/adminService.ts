@@ -1,6 +1,43 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { notificationService } from "@/services/engagement/notificationService";
+import { functionUrl } from "@/config";
+
+export type VerificationTargetType = "BUSINESS" | "PROVIDER";
+export type VerificationDecision = "APPROVE" | "REJECT" | "SUSPEND";
+
+export interface VerificationQueueItem {
+  targetType: VerificationTargetType;
+  targetId: string;
+  name: string;
+  ownerName: string;
+  documentCount: number;
+  submittedAt: string;
+}
+
+/** Calls the verification-review Edge Function — the only path that can move
+ *  a verification decision to APPROVED/REJECTED (a DB trigger blocks anyone
+ *  else, so this can't be spoofed by a direct table write). */
+async function callVerificationReview<T = any>(payload: Record<string, unknown>): Promise<T> {
+  const sb = getSupabase();
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) throw new Error("Authentication required");
+
+  const res = await fetch(functionUrl("verification-review"), {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const json = await res.json();
+  if (!res.ok || !json.ok) {
+    throw new Error(json.message || "Verification review request failed");
+  }
+  return json;
+}
 
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -352,6 +389,21 @@ export const adminService = {
     }
 
     return { ok: true };
+  },
+
+  // ── Manual verification review (server-side, badge-forgery-proof) ──────
+  async verificationQueue(): Promise<VerificationQueueItem[]> {
+    const { items } = await callVerificationReview<{ items: VerificationQueueItem[] }>({ action: "list" });
+    return items;
+  },
+
+  async viewVerificationDocs(targetType: VerificationTargetType, targetId: string): Promise<string[]> {
+    const { urls } = await callVerificationReview<{ urls: string[] }>({ action: "view", targetType, targetId });
+    return urls;
+  },
+
+  async reviewVerification(targetType: VerificationTargetType, targetId: string, decision: VerificationDecision, reason?: string): Promise<void> {
+    await callVerificationReview({ action: "decide", targetType, targetId, decision, reason });
   },
 
   async submitReport(report: { targetType: string; targetId: string; targetName: string; reason: string; details?: string }) {

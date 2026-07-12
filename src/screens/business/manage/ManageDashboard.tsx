@@ -233,7 +233,7 @@ export default function ManageDashboard() {
           <div className="grow">
             <div className="row gap-6">
               <span className="bold h1" style={{ color: "#fff" }}>{b?.name}</span>
-              <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />
+              {b?.isVerified && <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />}
             </div>
             <div className="row gap-6" style={{ marginTop: 4 }}>
               <span className="badge" style={{ background: b?.status === "SUSPENDED" ? "var(--red-600)" : "rgba(255,255,255,0.2)", color: "#fff", fontSize: 10 }}>

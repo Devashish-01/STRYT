@@ -1,67 +1,54 @@
 import type { CSSProperties } from "react";
 
 /**
- * The STRYT brand lockup: a solid street-lamp silhouette standing beside a bold
- * amber→pink→purple beam, with the "S" of the wordmark sitting inside that beam
- * — the exact construction from the brand sheet's primary logo. Used as the
- * tappable home link in every header.
- *
- * The lamp is a real light source: `glow` (0→1, from `useAmbientTheme().lampGlow`)
- * drives the bulb's brightness and the beam's opacity — faint at noon, vivid at
- * night. Purely presentational; the caller wires `onClick`.
+ * Shared STRYT wordmark. Its first letter is lit by the street-lamp beam from
+ * the supplied logo; colours deliberately stay in the app's existing tokens.
  */
 export default function BrandLockup({
   glow = 0.5,
   onClick,
   size = 20,
+  withTagline = false,
   ariaLabel = "STRYT home",
 }: {
   glow?: number;
   onClick?: () => void;
   size?: number;
+  /** Use on spacious brand moments, such as the sign-in splash. */
+  withTagline?: boolean;
   ariaLabel?: string;
 }) {
   const style = { "--lamp-glow": glow, "--lockup-size": `${size}px` } as CSSProperties;
+
   return (
-    <button className="brand-lockup" onClick={onClick} aria-label={ariaLabel} style={style}>
-      <span className="brand-lockup-lamp" aria-hidden="true">
-        <svg viewBox="0 0 34 50" width={size * 0.72} height={size * 1.06} style={{ overflow: "visible" }}>
+    <button className={`brand-lockup${withTagline ? " has-tagline" : ""}`} onClick={onClick} aria-label={ariaLabel} style={style}>
+      <span className="brand-lockup-mark" aria-hidden="true">
+        <svg viewBox="0 0 62 74" width={size * 1.42} height={size * 1.72} style={{ overflow: "visible" }}>
           <defs>
-            <linearGradient id="beam-gradient" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="var(--accent-400)" />
-              <stop offset="52%" stopColor="var(--pink-500)" />
-              <stop offset="100%" stopColor="var(--brand-500)" />
+            <linearGradient id="brand-lockup-beam" x1="0" y1="0" x2="1" y2="0.9">
+              <stop offset="0%" stopColor="var(--pink-500)" />
+              <stop offset="42%" stopColor="var(--accent-400)" />
+              <stop offset="100%" stopColor="var(--accent-500)" />
             </linearGradient>
+            <filter id="brand-lockup-light" x="-20%" y="-20%" width="160%" height="150%">
+              <feGaussianBlur stdDeviation="2.1" />
+            </filter>
           </defs>
-          {/* the beam — sits behind the lamp silhouette and the "S" */}
-          <polygon
-            points="19.5,14 24.5,14 72.5,48.5 37,48.5"
-            fill="url(#beam-gradient)"
-            className="brand-lockup-cone"
-          />
-          {/* foot */}
-          <path d="M3 48.5 L11 48.5" stroke="var(--ink-900)" strokeWidth="2.4" strokeLinecap="round" />
-          {/* post rising, curling into a shepherd's-crook hook at the top */}
-          <path
-            d="M7 48 L7 12 C7 4 15 2 21 7"
-            fill="none"
-            stroke="var(--ink-900)"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-          />
-          {/* halo behind the shade */}
-          <circle className="brand-lockup-halo" cx="23" cy="10" r="8" />
-          {/* lamp shade */}
-          <path d="M16 6.5 L28 6.5 L24.5 14 L19.5 14 Z" fill="var(--ink-900)" />
-          {/* bulb / light strip */}
-          <rect className="brand-lockup-bulb" x="19.5" y="12.2" width="5" height="2" rx="1" />
+          {/* Soft spill sits below the sharp cone so the graphic feels lit, not pasted on. */}
+          <polygon points="33,28 43,28 158,72 3,72" fill="var(--accent-400)" opacity="0.26" filter="url(#brand-lockup-light)" />
+          <polygon points="33,28 43,28 153,72 3,72" fill="url(#brand-lockup-beam)" className="brand-lockup-cone" />
+          <path d="M8 70 L20 70" stroke="var(--ink-900)" strokeWidth="3.3" strokeLinecap="round" />
+          {/* Tall shepherd's-crook post and a downward-facing, suspended shade. */}
+          <path d="M14 69 L14 15 C14 2 34 2 38 15 L38 18" fill="none" stroke="var(--ink-900)" strokeWidth="3.3" strokeLinecap="round" />
+          <circle className="brand-lockup-halo" cx="39" cy="24" r="11" />
+          <path d="M34 17 L44 17 L49 27 L29 27 Z" fill="var(--ink-900)" />
+          <path d="M36 15 L42 15 L44 18 L34 18 Z" fill="var(--ink-900)" />
+          <rect className="brand-lockup-bulb" x="33" y="26" width="12" height="3.4" rx="1.7" />
         </svg>
       </span>
-      <span className="brand-lockup-word">
-        <span className="brand-lockup-s-wrap">
-          <span className="brand-lockup-s">S</span>
-        </span>
-        TRYT
+      <span className="brand-lockup-type">
+        <span className="brand-lockup-word" aria-hidden="true"><span className="brand-lockup-s">S</span><span>TRYT</span></span>
+        {withTagline && <span className="brand-lockup-tagline">YOUR STREET. YOUR PEOPLE.</span>}
       </span>
     </button>
   );

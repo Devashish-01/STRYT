@@ -101,14 +101,14 @@ export default function PhoneEntry() {
       <div
         className="login-hero-panel"
         style={{
-          flex: "0 0 48%",
+          flex: "0 0 50%",
           background: "linear-gradient(145deg, var(--brand-700) 0%, var(--brand-900) 50%, var(--ink-900) 100%)",
           position: "relative",
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          padding: "64px 52px",
+          padding: "64px 56px",
           color: "#fff",
         }}
       >
@@ -174,7 +174,7 @@ export default function PhoneEntry() {
           justifyContent: "center",
           position: "relative",
           overflow: "hidden",
-          padding: "32px 24px",
+          padding: "48px 32px",
           minHeight: "100vh",
         }}
       >

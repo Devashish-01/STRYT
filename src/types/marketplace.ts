@@ -66,8 +66,12 @@ export interface Business {
   broadcastRadius?: number;
   verificationStatus?: VerificationStatus;
   verificationDocumentUrl?: string;
-  aadhaarDocUrl?: string;
-  panDocUrl?: string;
+  /** Private-bucket storage paths for all submitted verification docs (manual review only). */
+  verificationDocuments?: string[];
+  /** Reviewer's note — set on REJECTED, shown to the owner so they know what to fix. */
+  verificationReason?: string;
+  verificationReviewedAt?: string | null;
+  verificationReviewedBy?: string | null;
   tags: string[];
   priceForTwo?: number;
   deliveryTime?: string;
@@ -101,27 +105,6 @@ export interface CatalogItem {
   quantity?: number | null;
 }
 
-// ── Trust layer types ──────────────────────────────────────────
-export type VerificationTier =
-  | "NONE"
-  | "DOCS_SUBMITTED"
-  | "PAN_VERIFIED"
-  | "AADHAAR_VERIFIED"
-  | "VERIFIED_PLUS";
-
-export type VerificationDocType = "PAN" | "AADHAAR" | "BACKGROUND";
-
-export interface ProviderVerification {
-  id: string;
-  providerId: string;
-  type: VerificationDocType;
-  docUrl?: string;
-  verifiedName?: string;
-  verifiedDob?: string;
-  status: "PENDING" | "VERIFIED" | "REJECTED";
-  createdAt: string;
-}
-
 export interface Provider {
   id: string;
   userId: string;
@@ -141,6 +124,12 @@ export interface Provider {
   isVerified: boolean;
   verificationStatus?: VerificationStatus;
   verificationDocumentUrl?: string;
+  /** Private-bucket storage paths for all submitted verification docs (manual review only). */
+  verificationDocuments?: string[];
+  /** Reviewer's note — set on REJECTED, shown to the owner so they know what to fix. */
+  verificationReason?: string;
+  verificationReviewedAt?: string | null;
+  verificationReviewedBy?: string | null;
   ratingAvg: number;
   ratingCount: number;
   jobsDone: number;
@@ -154,7 +143,6 @@ export interface Provider {
   showPhonePublicly?: boolean;
   showEmailPublicly?: boolean;
   locationPublic?: boolean;
-  verificationTier?: VerificationTier;
   isAvailableNow?: boolean;
   availableUntil?: string | null;
   ownerEnabled?: boolean;

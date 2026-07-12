@@ -207,7 +207,7 @@ export default function ProviderDashboard() {
           <div className="grow">
             <div className="row gap-6" style={{ alignItems: "center" }}>
               <span className="bold h1" style={{ color: "#fff" }}>{p?.displayName}</span>
-              <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />
+              {p?.isVerified && <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />}
             </div>
             <div className="small" style={{ color: "#fff", opacity: 0.9, marginTop: 2 }}>{p?.categoryName}</div>
           </div>

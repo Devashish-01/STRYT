@@ -29,6 +29,7 @@ import { config } from "@/config";
 import { isMockTarget } from "@/services/engagement/appointmentService";
 import { DEFAULT_MOCK_WORKING_HOURS } from "@/utils/availability";
 import { PLACEHOLDER_PROVIDER_AVATAR, PLACEHOLDER_PORTFOLIO_IMAGE } from "@/lib/placeholders";
+import { uploadService } from "@/services/core/uploadService";
 
 // Columns on the providers table; everything else (portfolio, distanceKm…) stripped.
 const PROVIDER_COLUMNS = new Set([
@@ -139,11 +140,26 @@ export const providerService = {
     throwIfError(error);
     return toCamel<Provider>(data);
   },
-  async submitVerification(id: string, docUrl: string) {
+  /**
+   * Submit (or resubmit, after a REJECTED decision) documents for manual
+   * STRYT verification. Files go to the private verification-docs bucket
+   * (never the public "uploads" bucket) — only a reviewer's signed URL can
+   * read them back. Moving to APPROVED/REJECTED can only ever be done by the
+   * verification-review Edge Function (enforced by a DB trigger), so this
+   * write can only ever land on UNDER_REVIEW.
+   */
+  async submitVerification(id: string, files: File[]) {
+    if (files.length === 0) throw toApiError({ code: "VALIDATION", message: "Add at least one document" }, 400);
+    const paths = await Promise.all(files.map((f) => uploadService.uploadPrivate(f, "verification")));
     const sb = getSupabase();
     const { error } = await sb
       .from("providers")
-      .update({ verification_status: "UNDER_REVIEW", verification_document_url: docUrl })
+      .update({
+        verification_status: "UNDER_REVIEW",
+        verification_documents: paths,
+        verification_document_url: paths[0],
+        verification_reason: null,
+      })
       .eq("id", id);
     throwIfError(error);
     return { ok: true };
