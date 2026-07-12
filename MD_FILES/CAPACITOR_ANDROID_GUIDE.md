@@ -1,6 +1,5 @@
 # STRYT → Android App via Capacitor — Planning Guide
 
-
 > Status: **planning only** — nothing below has been installed or run. This is the
 > roadmap for a future implementation pass. Written against the codebase as of
 > 2026-07-04 (Vite 5 + React 18 + React Router 6 + Supabase, `BrowserRouter`,
@@ -18,6 +17,7 @@ the shape of app Capacitor is designed for. No rewrite, no separate native
 codebase: same `src/`, same components, same Supabase calls.
 
 The work is almost entirely in three buckets:
+
 1. **Wrapping/config** — one-time setup, low risk.
 2. **Bridging web APIs that behave differently (or not at all) in a native
    WebView** — geolocation, push, camera, OAuth redirect, hardware back button.
@@ -44,6 +44,7 @@ npx cap init
 ```
 
 `cap init` will ask for:
+
 - **App name**: `STRYT` (matches `index.html`'s `<title>` and `appName` in `src/config.ts`)
 - **App ID**: reverse-domain, e.g. `app.stryt.mobile` or `in.stryt.app` — this becomes the Android package name and **cannot be changed later** without a new Play Store listing. Pick deliberately.
 - **Web asset directory**: `dist` (matches the existing `vite build` output — confirmed in `vite.config.ts`, no `outDir` override so it defaults to `dist`).
@@ -51,12 +52,12 @@ npx cap init
 This generates `capacitor.config.ts` at the repo root. Key fields to set:
 
 ```ts
-import { CapacitorConfig } from '@capacitor/cli';
+import { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: 'in.stryt.app',
-  appName: 'STRYT',
-  webDir: 'dist',
+  appId: "in.stryt.app",
+  appName: "STRYT",
+  webDir: "dist",
   server: {
     // Only for local dev — lets the native shell load from the Vite dev
     // server (localhost:5173) instead of the bundled dist/, so changes
@@ -67,7 +68,7 @@ const config: CapacitorConfig = {
   },
   android: {
     // Splash background should match index.html's theme-color (#7c3aed)
-    backgroundColor: '#7c3aed',
+    backgroundColor: "#7c3aed",
   },
 };
 
@@ -98,6 +99,7 @@ npx cap run android    # builds + installs + launches on a connected device/emul
 ```
 
 Worth adding to `package.json`:
+
 ```json
 "cap:sync": "npm run build && npx cap sync android",
 "cap:run": "npm run build && npx cap run android"
@@ -108,6 +110,7 @@ Worth adding to `package.json`:
 ## Phase 3 — Things that need zero changes
 
 Confirmed low-risk, should work as-is inside the Capacitor WebView:
+
 - All Supabase calls (`@supabase/supabase-js`) — plain HTTPS/WebSocket, no browser-only API involved.
 - Leaflet maps (`MapView.tsx`, `LocationPicker.tsx`, `LocationMapPicker.tsx`) — OSM/Mapbox tiles are just HTTP image requests.
 - React Router's `BrowserRouter` — Capacitor serves `index.html` at a stable origin (`https://localhost` on Android by default), so client-side route changes behave like a normal SPA. (Hardware back button is a separate concern — see 4.1.)
@@ -136,15 +139,17 @@ Add near the root of `App.tsx` (inside the component that already has access
 to a `useNavigate()`-capable context, or a new small hook):
 
 ```ts
-import { App as CapApp } from '@capacitor/app';
-import { useNavigate } from 'react-router-dom';
+import { App as CapApp } from "@capacitor/app";
+import { useNavigate } from "react-router-dom";
 
 useEffect(() => {
-  const sub = CapApp.addListener('backButton', ({ canGoBack }) => {
+  const sub = CapApp.addListener("backButton", ({ canGoBack }) => {
     if (canGoBack) window.history.back();
     else CapApp.exitApp(); // only exit when there's truly nothing to go back to
   });
-  return () => { sub.remove(); };
+  return () => {
+    sub.remove();
+  };
 }, []);
 ```
 
@@ -165,7 +170,7 @@ and the initial center), `ProfileEdit.tsx`, `AgreementScreen.tsx` (×2),
 `AskCompose.tsx`, `StoryCompose.tsx`, plus the shared `useGeolocation.ts` hook
 used by `LocationPicker.tsx` (business/provider onboarding).
 
-The raw Web Geolocation API *does* work inside a Capacitor WebView, but Android
+The raw Web Geolocation API _does_ work inside a Capacitor WebView, but Android
 permission prompts and background/foreground behavior are more reliable through
 the dedicated plugin:
 
@@ -174,7 +179,7 @@ npm install @capacitor/geolocation
 ```
 
 ```ts
-import { Geolocation } from '@capacitor/geolocation';
+import { Geolocation } from "@capacitor/geolocation";
 const pos = await Geolocation.getCurrentPosition();
 // pos.coords.latitude / pos.coords.longitude — same shape as the Web API
 ```
@@ -188,6 +193,7 @@ in each of the 10 files. This keeps the web build's behavior byte-identical
 and only changes behavior inside the native wrapper.
 
 Also add to `android/app/src/main/AndroidManifest.xml`:
+
 ```xml
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -202,16 +208,17 @@ This does not work in a native Android app — native Android push goes through
 (device tokens, not `PushSubscription` objects with p256dh/auth keys).
 
 Plan:
+
 1. Create a Firebase project, add an Android app to it (package name = the
    `appId` from Phase 1), download `google-services.json` into
    `android/app/`.
 2. `npm install @capacitor/push-notifications`
 3. Request permission + get an FCM token natively:
    ```ts
-   import { PushNotifications } from '@capacitor/push-notifications';
+   import { PushNotifications } from "@capacitor/push-notifications";
    await PushNotifications.requestPermissions();
    await PushNotifications.register();
-   PushNotifications.addListener('registration', (token) => {
+   PushNotifications.addListener("registration", (token) => {
      // token.value is the FCM device token — save it, see step 4
    });
    ```
@@ -242,6 +249,7 @@ Inside a Capacitor app there is no meaningful "origin" for Google to redirect
 to after consent.
 
 Two viable approaches:
+
 - **Simplest**: use `@capacitor/browser`'s in-app browser (`Browser.open()`)
   to run the OAuth flow, register a **custom URL scheme** (e.g.
   `in.stryt.app://auth-callback`) in `AndroidManifest.xml` as an intent
@@ -278,6 +286,7 @@ library) — but don't pre-emptively replace it; test the existing
 implementation first since it may just work.
 
 Add to `AndroidManifest.xml` regardless (needed either way):
+
 ```xml
 <uses-permission android:name="android.permission.CAMERA" />
 <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -293,9 +302,10 @@ isn't automatically themed by `theme-color` the way some browsers do it):
 ```bash
 npm install @capacitor/status-bar
 ```
+
 ```ts
-import { StatusBar, Style } from '@capacitor/status-bar';
-await StatusBar.setBackgroundColor({ color: '#7c3aed' });
+import { StatusBar, Style } from "@capacitor/status-bar";
+await StatusBar.setBackgroundColor({ color: "#7c3aed" });
 await StatusBar.setStyle({ style: Style.Dark }); // light icons on the purple bar
 ```
 
@@ -304,10 +314,12 @@ await StatusBar.setStyle({ style: Style.Dark }); // light icons on the purple ba
 ```bash
 npm install @capacitor/splash-screen
 ```
+
 Generate Android splash assets (adaptive icon + splash image at the required
 densities — `mdpi` through `xxxhdpi`) from the existing brand mark used in
 `Splash.tsx`'s inline SVG pin logo. `@capacitor/assets` (a separate CLI tool)
 can generate the full Android icon/splash set from one source PNG/SVG:
+
 ```bash
 npm install -D @capacitor/assets
 npx capacitor-assets generate --android
@@ -319,6 +331,7 @@ Long forms (`ProfileEdit.tsx`, `UserOnboard.tsx`, `BusinessOnboard.tsx`,
 `AskCompose.tsx`, chat input) should be checked against the on-screen keyboard
 covering inputs. `@capacitor/keyboard` can resize the webview or adjust
 scroll behavior on focus:
+
 ```bash
 npm install @capacitor/keyboard
 ```
@@ -350,6 +363,7 @@ npm install @capacitor/keyboard
 <uses-permission android:name="android.permission.VIBRATE" />
 <uses-permission android:name="android.permission.POST_NOTIFICATIONS" /> <!-- Android 13+ -->
 ```
+
 (`INTERNET` is included by default in a Capacitor-generated manifest — listed
 here for completeness.)
 
@@ -378,7 +392,7 @@ here for completeness.)
      photos, emergency contacts — the Data Safety form will need to disclose
      all of these categories accurately; cross-reference `ISS-009` in
      `ISSUES.md` — the column-level PII exposure gap should be resolved
-     *before* this app is in wide release, not just before this checklist
+     _before_ this app is in wide release, not just before this checklist
      item).
    - App icon (512×512), feature graphic (1024×500), at least 2 phone
      screenshots.
@@ -420,6 +434,7 @@ Supabase native flow: in-app Custom Tab → app deep link → PKCE code exchange
 without leaving the app.
 
 **Code (already committed):**
+
 - `src/lib/supabaseClient.ts` — `flowType: 'pkce'` on the auth client.
 - `src/lib/nativeAuth.ts` — `nativeGoogleSignIn()`: `signInWithOAuth({ skipBrowserRedirect })`
   → `Browser.open()` (Custom Tab) → catches `in.stryt.app://auth/callback?code=…`
@@ -433,6 +448,7 @@ without leaving the app.
 - Added dep `@capacitor/browser`; ran `npx cap sync android`.
 
 **Manual steps still required (dashboard + native — can't be done from code):**
+
 1. **Supabase → Authentication → URL Configuration → Redirect URLs**: add
    `in.stryt.app://auth/callback`.
 2. **Google Cloud Console**: the existing Web OAuth client (already used by the
@@ -473,6 +489,7 @@ home-screen icon; it needs a native rebuild + reinstall.
 breaks completely" (crash loop on every subsequent open).
 
 **Root cause (verified in code, not guessed):**
+
 1. `android/app/google-services.json` does not exist.
 2. `android/app/build.gradle:47-54` only applies the `google-services` Gradle
    plugin when that file exists — so Firebase is **never initialized** in the
@@ -480,7 +497,7 @@ breaks completely" (crash loop on every subsequent open).
 3. `node_modules/@capacitor/push-notifications/.../PushNotificationsPlugin.java:102`
    — `register()` calls `FirebaseMessaging.getInstance()` with **no exception
    handling**. Without Firebase init this throws `IllegalStateException`
-   *synchronously on the native side* — it never becomes a JS promise
+   _synchronously on the native side_ — it never becomes a JS promise
    rejection, so no JS `try/catch` can catch it. It crashes the whole app
    process.
 4. `store.tsx` calls `registerPush(uid)` the instant `isAuthed` flips true —
@@ -494,6 +511,7 @@ immediately; login now completes normally with no push notifications (web
 push for browser users is unaffected).
 
 **To actually enable push notifications:**
+
 1. Create a Firebase project, add an Android app with package `in.stryt.app`.
 2. Download `google-services.json` → place at `android/app/google-services.json`.
 3. Set `FCM_READY = true` in `src/lib/pushNotifications.ts`.
@@ -526,6 +544,7 @@ Firebase Auth session; Supabase stays the one real backend via
 `supabase.auth.signInWithIdToken()`.
 
 **Steps:**
+
 1. **Firebase Console** (console.firebase.google.com) → Create project (or
    reuse one).
 2. **Add an Android app** → package name **`in.stryt.app`** (must match
