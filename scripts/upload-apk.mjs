@@ -28,8 +28,8 @@ async function run() {
 
   // Find APK file
   const pathsToTry = [
-    path.join(__dirname, "..", "public", "stryt.apk"),
-    path.join(__dirname, "..", "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk")
+    path.join(__dirname, "..", "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk"),
+    path.join(__dirname, "..", "public", "stryt.apk")
   ];
 
   let apkPath = null;
