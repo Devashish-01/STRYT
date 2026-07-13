@@ -7,6 +7,7 @@ import { useQuery } from "@/hooks/useApi";
 import { SafeImg } from "@/components/common";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
+import LiveLocationCard from "@/features/live-share/LiveLocationCard";
 import type { Message, Conversation } from "@/types";
 
 const TYPING_THROTTLE_MS = 2000;
@@ -165,6 +166,9 @@ export default function ChatThread() {
         {messages.map((msg, i) => {
           const isMe = msg.senderId === user.id;
           const isLastMine = isMe && i === lastMineIdx;
+          const shareId = msg.kind === "LIVE_LOCATION"
+            ? (msg.meta?.share_id ?? msg.meta?.shareId)
+            : null;
           return (
             <div
               key={msg.id}
@@ -174,6 +178,10 @@ export default function ChatThread() {
                 alignItems: isMe ? "flex-end" : "flex-start",
               }}
             >
+              {shareId ? (
+                <LiveLocationCard shareId={shareId} endedHint={(msg.meta?.status) === "ENDED"} />
+              ) : (
+                <>
               {msg.imageUrl && (
                 <img
                   src={msg.imageUrl}
@@ -197,6 +205,8 @@ export default function ChatThread() {
                 >
                   {msg.body}
                 </div>
+              )}
+                </>
               )}
               <span className="tiny muted row gap-4" style={{ marginTop: 3, paddingInline: 4, alignItems: "center" }}>
                 {new Date(msg.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}

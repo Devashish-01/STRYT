@@ -5,7 +5,6 @@ import { toCamel, toSnake } from "@/lib/caseMap";
 import type { RequestPost, Proposal, Agreement, ProposalCounter } from "@/types";
 import { leaderboardService } from "@/services/marketplace/leaderboardService";
 import { firstName, aliasName } from "@/lib/publicName";
-import { functionUrl } from "@/config";
 
 // Columns that exist on the requests table.
 const REQUEST_COLUMNS = new Set([
@@ -555,42 +554,6 @@ export const requestService = {
       tip: tip ?? null,
     });
     throwIfError(error);
-    return { ok: true };
-  },
-
-  async sosAlert(agreementId: string, lat: number, lng: number): Promise<{ ok: boolean }> {
-    const sb = getSupabase();
-    const uid = await currentUserId();
-    if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
-
-    const { data: ag } = await sb.from("agreements")
-      .select("responder_user_id").eq("id", agreementId).maybeSingle();
-
-    // Not selectable via a plain query anymore (ISS-009) —
-    // get_own_emergency_contact() is a SECURITY DEFINER RPC scoped to auth.uid().
-    const { data: me } = await sb.rpc("get_own_emergency_contact").maybeSingle();
-
-    const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(
-      functionUrl("sos-alert"),
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token}`,
-        },
-        body: JSON.stringify({
-          agreementId,
-          triggeredByUserId: uid,
-          providerUserId: (ag as any)?.responder_user_id ?? "",
-          lat,
-          lng,
-          emergencyContact: (me as any)?.emergency_contact ?? "",
-          emergencyContactName: (me as any)?.emergency_contact_name ?? "",
-        }),
-      }
-    );
-    if (!res.ok) throw new Error("SOS failed");
     return { ok: true };
   },
 

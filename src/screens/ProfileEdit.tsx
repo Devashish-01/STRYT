@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, MapPin, Navigation, Loader, Search, X, User, Phone, AlertTriangle, Lock } from "@/components/Icons";
+import { Camera, MapPin, Navigation, Loader, Search, X, User, Phone, Lock } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService, uploadService } from "@/services";
 import { AppBar } from "@/components/common";
@@ -37,8 +37,6 @@ export default function ProfileEdit() {
   const [areaInput, setAreaInput] = useState(user.area || "");
   const [lat, setLat]         = useState(user.lat || 0);
   const [lng, setLng]         = useState(user.lng || 0);
-  const [ecName, setEcName]   = useState(user.emergencyContactName || "");
-  const [ecPhone, setEcPhone] = useState(user.emergencyContact || "");
 
   const [privacy, setPrivacy] = useState<Record<PrivacyKey, boolean>>({
     showPostsPublicly: user.showPostsPublicly !== false,
@@ -147,8 +145,6 @@ export default function ProfileEdit() {
         alias: cleanAlias || undefined,
         phone: phone.trim() || undefined, avatar: avatar || undefined,
         area: areaInput.trim() || undefined, lat: resolvedLat, lng: resolvedLng,
-        emergencyContactName: ecName.trim() || undefined,
-        emergencyContact: ecPhone.trim() || undefined,
         ...privacy,
       });
       if (areaInput.trim()) setArea(areaInput.trim());
@@ -466,47 +462,6 @@ export default function ProfileEdit() {
           </div>
         </div>
 
-        {/* ── Emergency contact ── */}
-        <div>
-          <SectionHead icon={<AlertTriangle size={15} color="var(--red-500)" />} title="Emergency contact" />
-          <div style={{
-            background: "#fff", border: "1.5px solid var(--red-100)",
-            borderRadius: 16, padding: 16,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
-          }}>
-            <div className="col gap-12">
-              <div className="field">
-                <label style={{ fontSize: 12.5, color: "var(--ink-500)" }}>Contact person name</label>
-                <input
-                  className="input"
-                  placeholder="e.g. Spouse, Partner, Parent"
-                  value={ecName}
-                  onChange={(e) => setEcName(e.target.value)}
-                  style={{ marginTop: 4 }}
-                />
-              </div>
-              <div className="field">
-                <label style={{ fontSize: 12.5, color: "var(--ink-500)" }}>Mobile number</label>
-                <input
-                  className="input"
-                  placeholder="10-digit number"
-                  inputMode="numeric"
-                  maxLength={10}
-                  value={ecPhone}
-                  onChange={(e) => setEcPhone(e.target.value.replace(/\D/g, ""))}
-                  style={{ marginTop: 4 }}
-                />
-              </div>
-            </div>
-            <div style={{
-              marginTop: 14, padding: "10px 12px",
-              background: "var(--red-50)", borderRadius: 10,
-              fontSize: 11.5, color: "var(--red-600)", lineHeight: 1.55,
-            }}>
-              🔒 Only used if you trigger SOS during an active agreement. Always kept completely private.
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* ── Sticky save footer ── */}

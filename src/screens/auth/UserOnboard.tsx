@@ -6,7 +6,6 @@ import {
   LogOut,
   ArrowRight,
   User as UserIcon,
-  ShieldAlert,
   MapPin,
   Navigation,
   Globe,
@@ -56,8 +55,6 @@ export default function UserOnboard() {
   const [phone, setPhone] = useState(user.phone || "");
   const [language, setLanguage] = useState(user.language || "en");
   const [radius, setRadius] = useState(user.notificationRadiusKm || 5);
-  const [emergencyName, setEmergencyName] = useState(user.emergencyContactName || "");
-  const [emergencyPhone, setEmergencyPhone] = useState(user.emergencyContact || "");
 
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -192,8 +189,6 @@ export default function UserOnboard() {
         phone: phone || undefined,
         language,
         notificationRadiusKm: radius,
-        emergencyContact: emergencyPhone || undefined,
-        emergencyContactName: emergencyName || undefined,
         onboardingCompletedAt: new Date().toISOString(),
       });
 
@@ -655,56 +650,6 @@ export default function UserOnboard() {
             />
           </div>
 
-          {/* Divider */}
-          <div style={{ height: 1, background: "var(--ink-100)", margin: "20px 0" }} />
-
-          {/* Emergency Contacts Section */}
-          <div className="col gap-12">
-            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--red-500)", display: "flex", alignItems: "center", gap: 6 }}>
-              <ShieldAlert size={14} /> Emergency Contact (Optional / Safety)
-            </span>
-            
-            <div className="field">
-              <input
-                type="text"
-                className="input"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  fontSize: 15,
-                  background: "var(--ink-50)",
-                  border: "1.5px solid var(--ink-200)",
-                  borderRadius: 14,
-                  color: "var(--ink-900)",
-                }}
-                placeholder="Contact Person's Name"
-                value={emergencyName}
-                onChange={(e) => setEmergencyName(e.target.value)}
-                disabled={saving}
-              />
-            </div>
-
-            <div className="field">
-              <input
-                type="tel"
-                className="input"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  fontSize: 15,
-                  background: "var(--ink-50)",
-                  border: "1.5px solid var(--ink-200)",
-                  borderRadius: 14,
-                  color: "var(--ink-900)",
-                }}
-                placeholder="Contact Person's Mobile"
-                value={emergencyPhone}
-                onChange={(e) => setEmergencyPhone(e.target.value.replace(/\D/g, ""))}
-                maxLength={10}
-                disabled={saving}
-              />
-            </div>
-          </div>
         </div>
 
         {/* Action Button */}

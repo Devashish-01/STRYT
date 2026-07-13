@@ -15,6 +15,7 @@ import LocationPickerSheet from "@/components/LocationPickerSheet";
 import BrandHome from "@/components/BrandHome";
 import BrandLockup from "@/components/BrandLockup";
 import { SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
 // fetched when the user actually opens the scanner, not on every Home visit.
@@ -55,6 +56,33 @@ function reorderCategories(
     const rb = rank.has(b.slug) ? rank.get(b.slug)! : Infinity;
     return ra - rb;
   });
+}
+
+function renderWeatherIcon(code: number) {
+  const size = 15;
+  if (code === 0) return <Sun size={size} weight="fill" />;
+  if (code >= 1 && code <= 3) return <Cloud size={size} weight="fill" />;
+  if (code === 45 || code === 48) return <CloudFog size={size} weight="fill" />;
+  if (code >= 51 && code <= 57) return <CloudRain size={size} weight="fill" />;
+  if (code >= 61 && code <= 67) return <CloudRain size={size} weight="fill" />;
+  if (code >= 71 && code <= 77) return <CloudSnow size={size} weight="fill" />;
+  if (code >= 80 && code <= 82) return <CloudRain size={size} weight="fill" />;
+  if (code >= 85 && code <= 86) return <CloudSnow size={size} weight="fill" />;
+  if (code >= 95 && code <= 99) return <CloudLightning size={size} weight="fill" />;
+  return <Sun size={size} weight="fill" />;
+}
+
+function getWeatherText(code: number): string {
+  if (code === 0) return "Sunny";
+  if (code >= 1 && code <= 3) return "Partly Cloudy";
+  if (code === 45 || code === 48) return "Foggy";
+  if (code >= 51 && code <= 57) return "Drizzle";
+  if (code >= 61 && code <= 67) return "Rainy";
+  if (code >= 71 && code <= 77) return "Snowy";
+  if (code >= 80 && code <= 82) return "Rain Showers";
+  if (code >= 85 && code <= 86) return "Snow Showers";
+  if (code >= 95 && code <= 99) return "Thunderstorm";
+  return "Clear";
 }
 
 export default function Home() {
@@ -171,6 +199,7 @@ export default function Home() {
     { emoji: "🏘️", label: "Community", sub: "Street feed", tint: "var(--ink-50)", color: "var(--pink-500)", onClick: () => nav("/community-hub"), badge: chatUnread || undefined },
     { emoji: "🤝", label: "My deals", sub: activeAgreements.length > 0 ? `${activeAgreements.length} active` : "Agreements", tint: "var(--green-100)", color: "var(--green-500)", onClick: () => nav("/agreements"), badge: activeAgreements.length || undefined },
     { emoji: "📅", label: "Appointments", sub: upcomingCount > 0 ? `${upcomingCount} upcoming` : "Your bookings", tint: "var(--brand-50)", color: "var(--brand-600)", onClick: () => nav("/appointments"), badge: upcomingCount || undefined },
+    { emoji: "🛡️", label: "Safety", sub: "Share live location", tint: "var(--accent-50)", color: "var(--accent-600)", onClick: () => nav("/safety") },
   ];
 
   return (
@@ -487,13 +516,36 @@ export default function Home() {
             <span className="tiny" style={{ color: "#fff", opacity: 0.82, fontWeight: 600, display: "block" }}>
               {theme.greeting}{firstName ? `, ${firstName}` : ""}
             </span>
-            <button
-              onClick={() => setLocationOpen(true)}
-              style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, marginTop: 2, cursor: "pointer", color: "#fff", fontSize: 20, fontWeight: 800 }}
-            >
-              <span>{area}</span>
-              <ChevronDown size={18} color="#fff" />
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
+              <button
+                onClick={() => setLocationOpen(true)}
+                style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, cursor: "pointer", color: "#fff", fontSize: 20, fontWeight: 800 }}
+              >
+                <span>{area}</span>
+                <ChevronDown size={18} color="#fff" />
+              </button>
+
+              {theme.weather && (
+                <div style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  background: "rgba(255, 255, 255, 0.16)",
+                  backdropFilter: "blur(8px)",
+                  padding: "4px 10px",
+                  borderRadius: 20,
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  border: "1px solid rgba(255, 255, 255, 0.08)",
+                  boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)"
+                }}>
+                  {renderWeatherIcon(theme.weather.code)}
+                  <span>{Math.round(theme.weather.tempC)}°C</span>
+                  <span style={{ opacity: 0.82, fontWeight: 500 }}>{getWeatherText(theme.weather.code)}</span>
+                </div>
+              )}
+            </div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
             <button

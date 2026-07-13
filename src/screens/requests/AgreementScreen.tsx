@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
-import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, ShieldAlert, Share2, XCircle, QrCode } from "@/components/Icons";
+import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, Share2, XCircle, QrCode } from "@/components/Icons";
 import { requestService } from "@/services";
 import DealUpiSheet from "@/components/DealUpiSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
@@ -177,8 +177,6 @@ export default function AgreementScreen() {
   const [busy, setBusy] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
 
-  const [sosCountdown, setSosCountdown] = useState<number | null>(null);
-  const [sosTriggered, setSosTriggered] = useState(false);
   const liveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -247,31 +245,6 @@ export default function AgreementScreen() {
       showToast("Something went wrong. Try again.");
     } finally {
       setBusy(false);
-    }
-  }
-
-  function startSOS() {
-    setSosCountdown(5);
-    const t = setInterval(() => {
-      setSosCountdown((n) => {
-        if (n === null || n <= 1) { clearInterval(t); if (n === 1) void fireSOS(); return null; }
-        return n - 1;
-      });
-    }, 1000);
-  }
-
-  function cancelSOS() { setSosCountdown(null); }
-
-  async function fireSOS() {
-    setSosTriggered(true);
-    const pos = await new Promise<GeolocationPosition>((res, rej) =>
-      nativeGeolocation.getCurrentPosition(res, rej, { timeout: 5000 })
-    ).catch(() => null);
-    try {
-      await requestService.sosAlert(agreement!.id, pos?.coords.latitude ?? 0, pos?.coords.longitude ?? 0);
-      showToast("SOS sent — emergency contact and STRYT team alerted");
-    } catch {
-      showToast("SOS recorded. Call your contact directly if SMS failed.");
     }
   }
 
@@ -753,29 +726,6 @@ export default function AgreementScreen() {
           <span>Your exact location is shared only after both sides confirm.</span>
         </div>
 
-        {status === "IN_PROGRESS" && !sosTriggered && (
-          <div className="card" style={{ border: "1px solid var(--red-100)", background: "var(--red-50)" }}>
-            <div className="tiny semi" style={{ color: "var(--red-600)", marginBottom: 10 }}>Safety</div>
-            {sosCountdown !== null ? (
-              <div className="col center" style={{ gap: 10 }}>
-                <div className="bold" style={{ fontSize: 32, color: "var(--red-600)" }}>{sosCountdown}</div>
-                <div className="tiny muted">SOS fires in {sosCountdown}s</div>
-                <button className="btn btn-outline btn-block btn-sm" onClick={cancelSOS}>Cancel</button>
-              </div>
-            ) : (
-              <div className="row gap-10">
-                <div className="grow tiny muted" style={{ lineHeight: 1.4 }}>Sends your location to your emergency contact immediately.</div>
-                <button className="btn btn-sm" style={{ background: "var(--red-600)", color: "#fff", flexShrink: 0 }} onClick={startSOS}>SOS</button>
-              </div>
-            )}
-          </div>
-        )}
-        {sosTriggered && (
-          <div className="card row gap-10" style={{ padding: 12, background: "var(--red-100)", border: "1px solid var(--red-100)" }}>
-            <ShieldAlert size={20} color="var(--red-600)" style={{ flexShrink: 0 }} />
-            <span className="tiny semi" style={{ color: "var(--red-600)" }}>SOS sent — your emergency contact and STRYT have been alerted.</span>
-          </div>
-        )}
       </div>
 
       {/* Bottom action bar */}

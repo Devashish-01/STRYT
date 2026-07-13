@@ -2,6 +2,8 @@ import { Routes, Route, useLocation, useNavigate, Navigate, Outlet } from "react
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import BottomNav from "./components/BottomNav";
 import OfflineBanner from "./components/OfflineBanner";
+import { LiveShareProvider } from "./features/live-share/useLiveShare";
+import LiveShareBanner from "./features/live-share/LiveShareBanner";
 import DesktopSidebar from "./components/DesktopSidebar";
 import ManageNav from "./screens/business/manage/ManageNav";
 import ProviderManageNav from "./screens/provider/manage/ProviderManageNav";
@@ -104,6 +106,8 @@ const ProviderCommunity = lazy(() => import("./screens/provider/manage/ProviderC
 const AdminPanel = lazy(() => import("./screens/admin/AdminPanel"));
 const AdminLogin = lazy(() => import("./screens/admin/AdminLogin"));
 const TrackingPage = lazy(() => import("./screens/TrackingPage"));
+const SafetyHub = lazy(() => import("./screens/safety/SafetyHub"));
+const EmergencyContacts = lazy(() => import("./screens/safety/EmergencyContacts"));
 const Wallet = lazy(() => import("./screens/future-enhancement/Wallet"));
 const MyActivity = lazy(() => import("./screens/MyActivity"));
 const AccountSettings = lazy(() => import("./screens/AccountSettings"));
@@ -383,7 +387,9 @@ export default function App() {
       {/* Main app container */}
       <div className={`app-shell-container ${showDesktopSidebar ? "has-sidebar" : ""}`}>
         <div className="app-shell">
+          <LiveShareProvider>
           <OfflineBanner />
+          <LiveShareBanner />
       <Suspense fallback={<AuthSplash />}>
         <Routes>
           {/* Public only auth routes */}
@@ -473,6 +479,10 @@ export default function App() {
             <Route path="/provider/:id/manage/verify" element={<ProviderVerification />} />
             <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
 
+            {/* Safety — live location sharing */}
+            <Route path="/safety" element={<SafetyHub />} />
+            <Route path="/safety/contacts" element={<EmergencyContacts />} />
+
             {/* Chat */}
             <Route path="/chats" element={<ConversationList />} />
             <Route path="/chat/:id" element={<ChatThread />} />
@@ -507,6 +517,7 @@ export default function App() {
         )
       )}
       {toast && <div className="toast">{toast}</div>}
+          </LiveShareProvider>
         </div>
       </div>
     </div>

@@ -90,8 +90,6 @@ export interface CurrentUser {
   ratingCount: number;
   language: string;
   notificationRadiusKm: number;
-  emergencyContact?: string;
-  emergencyContactName?: string;
   showPostsPublicly?: boolean;
   showAsksPublicly?: boolean;
   showBadgesPublicly?: boolean;

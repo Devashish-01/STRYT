@@ -24,4 +24,5 @@ export { supportService } from "./core/supportService";
 export { appointmentService } from "./engagement/appointmentService";
 export { slotBlockService } from "./engagement/slotBlockService";
 export { locationService } from "./engagement/locationService";
+export { emergencyService } from "./engagement/emergencyService";
 export { profileControlService } from "./core/profileControlService";

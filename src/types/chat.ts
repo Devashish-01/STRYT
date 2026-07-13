@@ -37,4 +37,8 @@ export interface Message {
   body: string;
   imageUrl?: string | null;
   createdAt: string;
+  /** 'TEXT' (default) or 'LIVE_LOCATION' for a live-location share card. */
+  kind?: string | null;
+  /** Structured payload for non-text kinds — e.g. { share_id, status } for LIVE_LOCATION. */
+  meta?: Record<string, any> | null;
 }
