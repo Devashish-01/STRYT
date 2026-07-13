@@ -8,8 +8,10 @@ import { emergencyService, type ContactUser } from "@/services/engagement/emerge
 import { MapPin, ChevronRight, Users } from "@/components/Icons";
 
 /**
- * Safety hub — start/stop sharing your live location with your emergency
- * contacts, and jump to managing them. Reached from Home and the account menu.
+ * My People — start/stop sharing your live location with your emergency
+ * contacts, and jump to managing them. The primary entry point is now the
+ * header toggle on Home (tap = instant share/stop, long-press = here); this
+ * page is the fallback control + hub, also reached from the account menu.
  */
 export default function SafetyHub() {
   const nav = useNavigate();
@@ -25,7 +27,7 @@ export default function SafetyHub() {
   async function onStart() {
     if (list.length === 0) { nav("/safety/contacts"); return; }
     const id = await start();
-    showToast(id ? "Live location shared with your contacts" : "Couldn't start sharing");
+    showToast(id ? "Live location shared with My People" : "Couldn't start sharing");
   }
 
   async function onStop() {
@@ -35,7 +37,7 @@ export default function SafetyHub() {
 
   return (
     <div className="screen">
-      <AppBar title="Safety" onBack={() => nav(-1)} />
+      <AppBar title="My People" onBack={() => nav(-1)} />
 
       <div style={{ padding: "16px", display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Hero: the big share control */}
@@ -60,8 +62,8 @@ export default function SafetyHub() {
           </div>
           <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.5, marginBottom: 18 }}>
             {sharing
-              ? "Your contacts can follow you on the map in their chat with you, until you stop."
-              : "Your emergency contacts can follow you on the map in real time, until you turn it off."}
+              ? "My People can follow you on the map in their chat with you, until you stop."
+              : "Tip: tap the My People icon on Home to share instantly — hold it to come back here."}
           </div>
           <button
             onClick={() => void (sharing ? onStop() : onStart())}

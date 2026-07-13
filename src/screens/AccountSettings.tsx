@@ -32,8 +32,8 @@ export default function AccountSettings() {
           <MenuRow icon={<Key size={20} color="var(--orange-500)" />} label="Business access" hint="Remote login & sessions" onClick={() => nav("/account/business-access")} last />
         </Section>
 
-        <Section title="Safety">
-          <MenuRow icon={<MapPin size={20} color="var(--accent-600)" />} label="Live location & contacts" hint="Share your location with people you trust" onClick={() => nav("/safety")} last />
+        <Section title="My People">
+          <MenuRow icon={<MapPin size={20} color="var(--accent-600)" />} label="My People" hint="Share your live location instantly" onClick={() => nav("/safety")} last />
         </Section>
 
         <Section title="Preferences">

@@ -48,7 +48,7 @@ export default function RoleSwitcher({ theme = "light" }: { theme?: "light" | "d
         <span style={{ width: 22, height: 22, borderRadius: "50%", background: curColor, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <CurIcon size={12} />
         </span>
-        <span className="tiny semi" style={{ maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span className="tiny semi" style={{ color: "inherit", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {current?.name ?? "Personal"}
         </span>
         <ChevronDown size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }} />

@@ -1,11 +1,4 @@
 {
-  "redirects": [
-    {
-      "source": "/stryt.apk",
-      "destination": "https://github.com/devashish-01/STRYT/releases/download/android-latest/stryt.apk",
-      "permanent": false
-    }
-  ],
   "headers": [
     {
       "source": "/sw.js",

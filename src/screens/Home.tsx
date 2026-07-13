@@ -14,6 +14,7 @@ import { getRecentlyViewed } from "@/lib/recentlyViewed";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
 import BrandHome from "@/components/BrandHome";
 import BrandLockup from "@/components/BrandLockup";
+import MyPeopleToggle from "@/features/live-share/MyPeopleToggle";
 import { SafeImg, PullToRefreshIndicator } from "@/components/common";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
 
@@ -199,7 +200,6 @@ export default function Home() {
     { emoji: "🏘️", label: "Community", sub: "Street feed", tint: "var(--ink-50)", color: "var(--pink-500)", onClick: () => nav("/community-hub"), badge: chatUnread || undefined },
     { emoji: "🤝", label: "My deals", sub: activeAgreements.length > 0 ? `${activeAgreements.length} active` : "Agreements", tint: "var(--green-100)", color: "var(--green-500)", onClick: () => nav("/agreements"), badge: activeAgreements.length || undefined },
     { emoji: "📅", label: "Appointments", sub: upcomingCount > 0 ? `${upcomingCount} upcoming` : "Your bookings", tint: "var(--brand-50)", color: "var(--brand-600)", onClick: () => nav("/appointments"), badge: upcomingCount || undefined },
-    { emoji: "🛡️", label: "Safety", sub: "Share live location", tint: "var(--accent-50)", color: "var(--accent-600)", onClick: () => nav("/safety") },
   ];
 
   return (
@@ -258,6 +258,7 @@ export default function Home() {
                   }} />
                 )}
               </button>
+              <MyPeopleToggle size={20} />
             </div>
           </div>
 
@@ -563,6 +564,7 @@ export default function Home() {
               <Bell size={18} />
               {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
             </button>
+            <MyPeopleToggle size={18} />
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.22)", color: "#fff", border: "none" }} onClick={() => setScanner(true)} aria-label="Scan QR">
               <QrCode size={18} />
             </button>
