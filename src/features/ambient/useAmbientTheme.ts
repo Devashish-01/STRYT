@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useWeather } from "./useWeather";
+import { useWeather, type Weather } from "./useWeather";
 import { getDayPart, getSeason, getActiveFestival, type DayPart, type Season } from "./context";
 
 /** The atmospheric particle drifting through the lamp light in a header. */
@@ -28,6 +28,8 @@ export interface AmbientTheme {
   seasonEffect: SeasonEffect;
   /** street-lamp glow strength 0→1: faint at noon, brightest at night */
   lampGlow: number;
+  /** live weather details */
+  weather: Weather | null;
 }
 
 const FESTIVAL_CONFIG: Record<string, {
@@ -152,14 +154,21 @@ export function useAmbientTheme(lat?: number, lng?: number): AmbientTheme {
       dayPart === "morning" ? 0.24 :
                               0.08; // afternoon
 
-    // Season decides the drifting particle; live rain overrides it (if it's
-    // pouring in July, show rain even though the calendar says monsoon anyway).
+    // Season decides the drifting particle; live weather overrides it.
     let seasonEffect: SeasonEffect =
-      season === "monsoon" ? "rain"   :
+      season === "monsoon" ? "haze"   : // default to haze (sunny/cloudy) during monsoon unless actively raining
       season === "winter"  ? "snow"   :
       season === "spring"  ? "petals" :
                              "haze";   // summer
-    if (weather?.isRaining) seasonEffect = "rain";
+
+    if (weather) {
+      if (weather.isRaining) {
+        seasonEffect = "rain";
+      } else if (weather.code >= 71 && weather.code <= 86) {
+        // WMO codes 71-86 indicate snowfall or snow showers
+        seasonEffect = "snow";
+      }
+    }
 
     return {
       dayPart,
@@ -174,6 +183,7 @@ export function useAmbientTheme(lat?: number, lng?: number): AmbientTheme {
       seasonKey: season,
       seasonEffect,
       lampGlow,
+      weather,
     };
   }, [weather]);
 }

@@ -20,7 +20,7 @@ functions deployed, verified live against the DB — see Addendum II).
 
 ---
 
-## 🟢 Verdict: launch-ready except SOS (deferred by choice)
+## 🟢 Verdict: launch-ready — every security finding closed (SOS removed 2026-07-13)
 
 The app is **functionally complete**, the **edge-function layer is well-built** (admin
 functions do real role/ownership checks, secrets are server-side, XSS surface is clean,
@@ -236,9 +236,14 @@ too late.
    every deployed function. *(H-2)*
 
 **Still open:**
-9. **Deferred by explicit decision — not this pass:** authorize **`sos-alert`** (verify
-   bearer token + agreement membership; derive IDs server-side) or disable it before it's
-   wired to a live SMS provider. *(H-5 — revisit in the SOS pass)*
+9. ~~Authorize/disable `sos-alert`~~ — **RESOLVED 2026-07-13 by removing SOS entirely.**
+   The `sos-alert` function, `sos_alerts` table, and free-text `emergency_contact` columns
+   are dropped (migrations 20260818/20260819, applied + verified live). Replaced by live
+   location sharing to app-user emergency contacts, delivered through chat, backed by
+   `authenticated`-only SECURITY DEFINER RPCs (`start/update/stop/get_live_share`, revoked
+   from public+anon — verified). No SMS, no third party, no open endpoint. *(H-5 closed.)*
+   Residual manual step: delete the now-orphaned `sos-alert` function + `MSG91_*` secrets
+   from the dashboard (no MCP delete-function tool).
 10. **Rate-limit `ai-assist`.** *(H-1, downgraded to Medium — `send-push` no longer needs
     this, it's not client-reachable)*
 11. ~~Redeploy the web app (Vercel)~~ — done 2026-07-13, branch pushed to `origin`, client
@@ -257,11 +262,14 @@ the 23 policy migrations that already lock PII and owner-scope writes, and the K
 have since been closed (private bucket + deleted third-party endpoints + unforgeable badge
 trigger). The go-live hardening pass closed every remaining non-SOS finding **in code,
 applied, deployed, and confirmed live** — DB migrations, all 7 edge functions, and the web
-app redeploy are done, and the two orphaned KYC functions are deleted. **STRYT is launch-ready
-for everything except the deliberately-deferred SOS suite (H-5).** What remains is genuinely
-optional/ops work, not launch blockers: `ai-assist` rate limiting (H-1, Medium), the wider
-low-risk `SECURITY DEFINER` sweep (M-6 residual), and the dashboard-only checklist (MFA,
-password policy, anomaly alerting, key rotation, Android backup flag).
+app redeploy are done, and the two orphaned KYC functions are deleted. The one remaining
+residual — the SOS/`sos-alert` endpoint (H-5) — was **removed outright on 2026-07-13** and
+replaced with authenticated live-location sharing, so **there are no open security findings
+left that block launch.** What remains is genuinely optional/ops work, not blockers:
+`ai-assist` rate limiting (H-1, Medium), the wider low-risk `SECURITY DEFINER` sweep (M-6
+residual), deleting the orphaned `sos-alert` function from the dashboard, and the
+dashboard-only checklist (MFA, password policy, anomaly alerting, key rotation, Android
+backup flag).
 
 ---
 

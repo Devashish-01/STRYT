@@ -1,13 +1,12 @@
 {
-  "headers": [
+  "redirects": [
     {
       "source": "/stryt.apk",
-      "headers": [
-        { "key": "Content-Type", "value": "application/vnd.android.package-archive" },
-        { "key": "Content-Disposition", "value": "attachment; filename=\"stryt.apk\"" },
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
-      ]
-    },
+      "destination": "https://github.com/devashish-01/STRYT/releases/download/android-latest/stryt.apk",
+      "permanent": false
+    }
+  ],
+  "headers": [
     {
       "source": "/sw.js",
       "headers": [

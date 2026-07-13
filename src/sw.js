@@ -12,12 +12,24 @@ import { ExpirationPlugin } from "workbox-expiration";
 // ── Precache (self.__WB_MANIFEST is injected at build time) ──────────────────
 precacheAndRoute(self.__WB_MANIFEST || []);
 
-// SPA navigation fallback → cached index.html
+// SPA navigation fallback → Network-First with cached index.html fallback
 registerRoute(
   new NavigationRoute(
     async ({ event }) => {
-      const cache = await caches.match("/index.html");
-      return cache || fetch(event.request);
+      try {
+        // Try network first to get the latest index.html from Vercel
+        const networkPromise = fetch(event.request);
+        // Timeout after 3 seconds to avoid hanging on slow/flaky networks
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), 3000)
+        );
+        return await Promise.race([networkPromise, timeoutPromise]);
+      } catch (error) {
+        // Fall back to the cached index.html if offline/network fails
+        const cache = await caches.match("/index.html");
+        if (cache) return cache;
+        throw error;
+      }
     },
     { denylist: [/^\/api\//, /^\/supabase\//] }
   )

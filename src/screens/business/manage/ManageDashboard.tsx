@@ -20,12 +20,40 @@ import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
+import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
+
+function renderWeatherIcon(code: number) {
+  const size = 15;
+  if (code === 0) return <Sun size={size} weight="fill" />;
+  if (code >= 1 && code <= 3) return <Cloud size={size} weight="fill" />;
+  if (code === 45 || code === 48) return <CloudFog size={size} weight="fill" />;
+  if (code >= 51 && code <= 57) return <CloudRain size={size} weight="fill" />;
+  if (code >= 61 && code <= 67) return <CloudRain size={size} weight="fill" />;
+  if (code >= 71 && code <= 77) return <CloudSnow size={size} weight="fill" />;
+  if (code >= 80 && code <= 82) return <CloudRain size={size} weight="fill" />;
+  if (code >= 85 && code <= 86) return <CloudSnow size={size} weight="fill" />;
+  if (code >= 95 && code <= 99) return <CloudLightning size={size} weight="fill" />;
+  return <Sun size={size} weight="fill" />;
+}
+
+function getWeatherText(code: number): string {
+  if (code === 0) return "Sunny";
+  if (code >= 1 && code <= 3) return "Partly Cloudy";
+  if (code === 45 || code === 48) return "Foggy";
+  if (code >= 51 && code <= 57) return "Drizzle";
+  if (code >= 61 && code <= 67) return "Rainy";
+  if (code >= 71 && code <= 77) return "Snowy";
+  if (code >= 80 && code <= 82) return "Rain Showers";
+  if (code >= 85 && code <= 86) return "Snow Showers";
+  if (code >= 95 && code <= 99) return "Thunderstorm";
+  return "Clear";
+}
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { showToast } = useApp();
-  const ambient = useAmbientTheme();
+  const { showToast, user } = useApp();
+  const ambient = useAmbientTheme(user.lat, user.lng);
   const { data: b } = useQuery(() => businessService.get(id), [id]);
   const { data, loading } = useQueryWithRealtime(
     () => businessService.analytics(id),
@@ -128,8 +156,29 @@ export default function ManageDashboard() {
       }}>
         <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
         <div style={{ position: "relative", zIndex: 1 }}>
-        <div className="row" style={{ marginBottom: 12 }}>
+        <div className="row between" style={{ marginBottom: 12, alignItems: "center" }}>
           <BrandHome color="#fff" glow={ambient.lampGlow} />
+
+          {ambient.weather && (
+            <div style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: "rgba(255, 255, 255, 0.16)",
+              backdropFilter: "blur(8px)",
+              padding: "4px 10px",
+              borderRadius: 20,
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: 600,
+              border: "1px solid rgba(255, 255, 255, 0.08)",
+              boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)"
+            }}>
+              {renderWeatherIcon(ambient.weather.code)}
+              <span>{Math.round(ambient.weather.tempC)}°C</span>
+              <span style={{ opacity: 0.82, fontWeight: 500 }}>{getWeatherText(ambient.weather.code)}</span>
+            </div>
+          )}
         </div>
         {/* Top navigation row */}
         <div className="row between">

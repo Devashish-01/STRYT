@@ -8,7 +8,7 @@ import { SafeImg } from "@/components/common";
 import {
   Home, Map, Plus, Settings, Bell, LogOut,
   LayoutDashboard, LayoutGrid, Inbox, CalendarClock, ImageIcon,
-  UserCircle
+  UserCircle, User
 } from "@/components/Icons";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandLockup from "@/components/BrandLockup";
@@ -91,6 +91,7 @@ export default function DesktopSidebar() {
       { to: "/community-hub", label: "Community", icon: ImageIcon },
       { to: "/notifications", label: "Notifications", icon: Bell, badge: chatUnread || undefined },
       { to: "/queues", label: "My Queues", icon: Plus },
+      { to: "/profile", label: t("profile") || "Profile", icon: User },
       { to: "/settings", label: "Settings", icon: Settings },
     ];
   };

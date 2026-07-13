@@ -1,15 +1,15 @@
 :root {
-  /* Brand — "Viridian Odyssey" (DE1925) Slate-Teal Ramps */
-  --brand-50:  #f0f4f5;
-  --brand-100: #dbe4e6;
-  --brand-200: #b7c9cc;
-  --brand-300: #8da9ae;
-  --brand-400: #5e848b;
-  --brand-500: #2e484f;  /* Base Viridian Odyssey */
-  --brand-600: #263c42;
-  --brand-700: #1e2f34;
-  --brand-800: #162226;
-  --brand-900: #0e1518;
+  /* Brand — Royal Purple Ramps */
+  --brand-50:  #FAF2FF;
+  --brand-100: #F4E2FF;
+  --brand-200: #E9C4FF;
+  --brand-300: #DB9EFF;
+  --brand-400: #CE74FF;
+  --brand-500: #C04CFA;  /* Base Royal Purple */
+  --brand-600: #A134D9;
+  --brand-700: #8120AB;
+  --brand-800: #5F1180;
+  --brand-900: #3D0754;
 
   --accent-400: #ffba2b;
   --accent-500: #ff9500;
@@ -59,7 +59,7 @@
 
   --bg: #f6f6fa; /* Soft cool-gray background from brand sheet */
   --surface: #ffffff;
-  --line: #e2eaec; /* Clean, soft slate-teal border */
+  --line: #e2e1f0; /* Clean, soft purple-tinted border */
 
   /* Spacing system */
   --space-xxs: 4px;
@@ -78,7 +78,7 @@
   --shadow: 0 4px 16px rgba(30, 47, 52, 0.08);
   --shadow-md: 0 8px 30px rgba(30, 47, 52, 0.12);
   --shadow-lg: 0 18px 50px rgba(30, 47, 52, 0.18);
-  --shadow-brand: 0 10px 24px rgba(46, 72, 79, 0.42);
+  --shadow-brand: 0 10px 24px rgba(192, 76, 250, 0.42);
   --shadow-pink: 0 10px 24px rgba(255, 93, 186, 0.40);
   --shadow-accent: 0 10px 24px rgba(242, 106, 0, 0.40);
 
@@ -662,19 +662,15 @@ textarea.input {
    "Living Street Light" — brand lockup + ambient seasonal sky
    ============================================================ */
 
-/* ---- Brand lockup: solid lamp silhouette beside a bold beam, the "S" sitting
-   inside it ---- Matches the brand sheet's primary logo exactly: a dark
-   shepherd's-crook street lamp (always ink-colored, not currentColor — it's a
-   fixed print mark, same on every background) next to a solid amber→pink→
-   purple triangle, with the plain white "S" placed on top of that triangle
-   (not gradient text) — the "S hidden within the composition" idea. */
+/* ---- Brand lockup: one self-contained SVG — a dark shepherd's-crook street
+   lamp whose head hangs directly above the "S", casting an amber→pink beam
+   onto it, next to the bold white "STRYT" wordmark. The lamp, beam and text
+   share one coordinate space (see BrandLockup.tsx) so the head is always
+   pinned above the S. These classes only carry colour/glow/animation. */
 .brand-lockup {
   --lamp-glow: 0.5;
   display: inline-flex;
-  align-items: flex-end;
-  /* The lamp/beam deliberately intrudes into the S — it is one lockup, not
-     an icon placed next to text. */
-  gap: calc(var(--lockup-size) * -0.42);
+  align-items: center;
   background: none;
   border: none;
   padding: 0;
@@ -682,12 +678,13 @@ textarea.input {
   color: inherit;
   position: relative;
 }
-.brand-lockup-mark {
-  position: relative;
-  display: inline-flex;
-  align-items: flex-end;
-  flex-shrink: 0;
-  z-index: 1;
+.brand-lockup-svg {
+  display: block;
+  overflow: visible;
+}
+.brand-lockup-lamp {
+  /* Warm halo spilling off the lit lamp, scaled by the glow prop. Applied to
+     the lamp group ONLY so the wordmark and tagline never pick up the glow. */
   filter: drop-shadow(0 0 calc(6px * var(--lamp-glow)) rgba(255, 179, 71, calc(0.9 * var(--lamp-glow))));
 }
 .brand-lockup-bulb {
@@ -701,52 +698,32 @@ textarea.input {
   filter: blur(3px);
   animation: lampFlicker 4.5s ease-in-out infinite;
 }
-.brand-lockup-word {
-  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
-  font-weight: 900;
-  font-size: calc(var(--lockup-size, 20px) * 1.25);
-  letter-spacing: calc(var(--lockup-size, 20px) * -0.075);
-  line-height: 0.84;
-  color: inherit;
-  display: inline-flex;
-  align-items: flex-end;
-  transform: scaleX(0.88);
-  transform-origin: left bottom;
-}
-.brand-lockup-type {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: calc(var(--lockup-size) * 0.13);
-  padding-bottom: calc(var(--lockup-size) * 0.04);
-  position: relative;
-  z-index: 2;
-}
-.brand-lockup-cone {
-  opacity: calc(0.6 + 0.4 * var(--lamp-glow));
+.brand-lockup-spill {
+  opacity: calc(0.24 * var(--lamp-glow));
   transition: opacity 0.6s ease;
   pointer-events: none;
+  animation: beamSpillFlicker 4.5s ease-in-out infinite;
 }
-.brand-lockup-s {
-  display: inline-block;
-  color: inherit;
-  margin-right: calc(var(--lockup-size) * -0.035);
-}
-.brand-lockup-tagline {
-  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
-  font-size: calc(var(--lockup-size) * 0.31);
-  font-weight: 900;
-  letter-spacing: calc(var(--lockup-size) * 0.02);
-  line-height: 1;
-  white-space: nowrap;
-  color: inherit;
-  /* Start under the lamp foot, like the supplied primary lockup. */
-  transform: translateX(calc(var(--lockup-size) * -0.76));
+.brand-lockup-cone {
+  opacity: calc(0.8 * (0.6 + 0.4 * var(--lamp-glow)));
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+  animation: beamConeFlicker 4.5s ease-in-out infinite;
 }
 @keyframes lampFlicker {
   0%, 100% { opacity: calc(0.6 + 0.4 * var(--lamp-glow)); }
   48%      { opacity: calc(0.45 + 0.4 * var(--lamp-glow)); }
   52%      { opacity: calc(0.68 + 0.34 * var(--lamp-glow)); }
+}
+@keyframes beamConeFlicker {
+  0%, 100% { opacity: calc(0.8 * (0.6 + 0.4 * var(--lamp-glow))); }
+  48%      { opacity: calc(0.5 * (0.6 + 0.4 * var(--lamp-glow))); }
+  52%      { opacity: calc(0.95 * (0.6 + 0.4 * var(--lamp-glow))); }
+}
+@keyframes beamSpillFlicker {
+  0%, 100% { opacity: calc(0.24 * var(--lamp-glow)); }
+  48%      { opacity: calc(0.15 * var(--lamp-glow)); }
+  52%      { opacity: calc(0.28 * var(--lamp-glow)); }
 }
 
 /* ---- Ambient sky: fills a position:relative header, sits behind content ---- */
@@ -883,7 +860,9 @@ textarea.input {
 
 @media (prefers-reduced-motion: reduce) {
   .brand-lockup-bulb,
-  .brand-lockup-halo { animation: none; }
+  .brand-lockup-halo,
+  .brand-lockup-cone,
+  .brand-lockup-spill { animation: none; }
   .ambient-sky-field { display: none; }
   .street-window,
   .street-lamp-glow { animation: none; }

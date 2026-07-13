@@ -1,8 +1,19 @@
 import type { CSSProperties } from "react";
 
 /**
- * Shared STRYT wordmark. Its first letter is lit by the street-lamp beam from
- * the supplied logo; colours deliberately stay in the app's existing tokens.
+ * STRYT horizontal lockup — a shepherd's-crook street lamp whose head hangs
+ * directly above the "S", casting an amber→pink beam that lights the S, with
+ * the bold white "STRYT" wordmark to its right. Matches the brand sheet
+ * (WhatsApp Image 2026-07-09) exactly.
+ *
+ * The entire lockup — lamp, beam, wordmark and tagline — is ONE SVG in a
+ * fixed coordinate space. The lamp head is pinned at x≈58 and the wordmark
+ * starts at x=46 via `textLength`, so the head always sits directly above the
+ * S and the three pieces can never drift out of alignment regardless of
+ * `size` or platform font metrics.
+ *
+ * Only the lamp (in `.brand-lockup-lamp`) carries the warm glow — the wordmark
+ * and tagline stay crisp, never lit.
  */
 export default function BrandLockup({
   glow = 0.5,
@@ -18,38 +29,79 @@ export default function BrandLockup({
   withTagline?: boolean;
   ariaLabel?: string;
 }) {
-  const style = { "--lamp-glow": glow, "--lockup-size": `${size}px` } as CSSProperties;
+  const vbW = 250;
+  // Headroom above y=0 so the tall pole and high-hanging head aren't clipped —
+  // the lamp head sits well above the wordmark, leaving the S fully visible.
+  const vbTop = 30;
+  const vbH = (withTagline ? 150 : 116) + vbTop;
+  // Height chosen so the wordmark's cap-height ≈ 0.9·size on both variants,
+  // preserving the sizing contract every call site relies on.
+  const height = (vbH * size) / 60;
+  const style = { "--lamp-glow": glow } as CSSProperties;
+  const FONT = 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif';
 
   return (
-    <button className={`brand-lockup${withTagline ? " has-tagline" : ""}`} onClick={onClick} aria-label={ariaLabel} style={style}>
-      <span className="brand-lockup-mark" aria-hidden="true">
-        <svg viewBox="0 0 62 74" width={size * 1.42} height={size * 1.72} style={{ overflow: "visible" }}>
-          <defs>
-            <linearGradient id="brand-lockup-beam" x1="0" y1="0" x2="1" y2="0.9">
-              <stop offset="0%" stopColor="var(--pink-500)" />
-              <stop offset="42%" stopColor="var(--accent-400)" />
-              <stop offset="100%" stopColor="var(--accent-500)" />
-            </linearGradient>
-            <filter id="brand-lockup-light" x="-20%" y="-20%" width="160%" height="150%">
-              <feGaussianBlur stdDeviation="2.1" />
-            </filter>
-          </defs>
-          {/* Soft spill sits below the sharp cone so the graphic feels lit, not pasted on. */}
-          <polygon points="33,28 43,28 158,72 3,72" fill="var(--accent-400)" opacity="0.26" filter="url(#brand-lockup-light)" />
-          <polygon points="33,28 43,28 153,72 3,72" fill="url(#brand-lockup-beam)" className="brand-lockup-cone" />
-          <path d="M8 70 L20 70" stroke="var(--ink-900)" strokeWidth="3.3" strokeLinecap="round" />
-          {/* Tall shepherd's-crook post and a downward-facing, suspended shade. */}
-          <path d="M14 69 L14 15 C14 2 34 2 38 15 L38 18" fill="none" stroke="var(--ink-900)" strokeWidth="3.3" strokeLinecap="round" />
-          <circle className="brand-lockup-halo" cx="39" cy="24" r="11" />
-          <path d="M34 17 L44 17 L49 27 L29 27 Z" fill="var(--ink-900)" />
-          <path d="M36 15 L42 15 L44 18 L34 18 Z" fill="var(--ink-900)" />
-          <rect className="brand-lockup-bulb" x="33" y="26" width="12" height="3.4" rx="1.7" />
-        </svg>
-      </span>
-      <span className="brand-lockup-type">
-        <span className="brand-lockup-word" aria-hidden="true"><span className="brand-lockup-s">S</span><span>TRYT</span></span>
-        {withTagline && <span className="brand-lockup-tagline">YOUR STREET. YOUR PEOPLE.</span>}
-      </span>
+    <button className="brand-lockup" onClick={onClick} aria-label={ariaLabel} style={style}>
+      <svg
+        className="brand-lockup-svg"
+        viewBox={`0 ${-vbTop} ${vbW} ${vbH}`}
+        height={height}
+        role="img"
+        aria-label="STRYT"
+        style={{ overflow: "visible" }}
+      >
+        <defs>
+          {/* Amber at the lamp, deepening to pink at the foot of the beam. */}
+          <linearGradient id="brand-lockup-beam" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent-400)" />
+            <stop offset="52%" stopColor="var(--accent-500)" />
+            <stop offset="100%" stopColor="var(--pink-500)" />
+          </linearGradient>
+          <filter id="brand-lockup-spill" x="-30%" y="-20%" width="160%" height="150%">
+            <feGaussianBlur stdDeviation="4" />
+          </filter>
+        </defs>
+
+        {/* Light beam — a soft blurred spill under a sharp gradient cone, its
+            apex at the lamp head (x≈66, centred over the S) and its base
+            falling across the S. Drawn behind the text so the "S" is fully visible and clear. */}
+        <polygon className="brand-lockup-spill" points="48,8 84,8 118,110 20,110" fill="var(--accent-400)" filter="url(#brand-lockup-spill)" />
+        <polygon className="brand-lockup-cone" points="50,8 82,8 110,110 30,110" fill="url(#brand-lockup-beam)" />
+
+        {/* Wordmark. S is the first glyph, so a fixed textLength pins where it
+            starts (x=46) — directly under the lamp head. Never glows.
+            Baseline moved to y=110 to align with the bottom of the lamp base. */}
+        <text
+          x="46" y="110" textLength="196" lengthAdjust="spacingAndGlyphs"
+          fontFamily={FONT} fontWeight={900} fontSize="76" fill="currentColor"
+          style={{ letterSpacing: "-2px" }}
+        >
+          STRYT
+        </text>
+
+        {withTagline && (
+          <text
+            x="47" y="144" textLength="194" lengthAdjust="spacingAndGlyphs"
+            fontFamily={FONT} fontWeight={900} fontSize="20.5" fill="currentColor"
+            style={{ letterSpacing: "0.5px" }}
+          >
+            YOUR STREET. YOUR PEOPLE.
+          </text>
+        )}
+
+        {/* Street lamp — dark silhouette drawn on top, head hanging above the S.
+            This group alone carries the warm glow (see .brand-lockup-lamp). */}
+        <g className="brand-lockup-lamp">
+          {/* Tapered base column for the lamp post as seen in the reference image */}
+          <polygon points="14,110 34,110 28,60 20,60" fill="var(--ink-900)" />
+          {/* Vertical pole starting from the top of the tapered base */}
+          <path d="M24 60 L24 -8 C24 -26 66 -26 66 -12" fill="none" stroke="var(--ink-900)" strokeWidth="4.2" strokeLinecap="round" />
+          <circle className="brand-lockup-halo" cx="66" cy="11" r="17" />
+          <path d="M56 -6 L76 -6 L82 8 L50 8 Z" fill="var(--ink-900)" />
+          <path d="M59 -12 L73 -12 L76 -6 L56 -6 Z" fill="var(--ink-900)" />
+          <rect className="brand-lockup-bulb" x="54" y="6.5" width="24" height="4.4" rx="2.2" />
+        </g>
+      </svg>
     </button>
   );
 }
