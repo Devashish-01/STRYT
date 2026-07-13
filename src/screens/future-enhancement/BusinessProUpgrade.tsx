@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { AppBar, inr } from "@/components/common";
 import { Check, Zap, Star, Crown } from "@/components/Icons";
 import { proService, PRO_PLANS, LEAD_PACKS } from "@/services/core/proService";
@@ -12,46 +11,14 @@ const PLAN_COLOR = { BASIC: "var(--blue-500)", PRO: "var(--brand-700)", PREMIUM:
 
 export default function BusinessProUpgrade() {
   const { id = "" } = useParams<{ id: string }>();
-  const nav = useNavigate();
   const { showToast } = useApp();
   const { data: proStatus, loading } = useQuery(() => proService.getBusinessProStatus(id), [id]);
-  const [busy, setBusy] = useState<string | null>(null);
 
-  async function purchase(planId: string) {
-    setBusy(planId);
-    try {
-      const { orderId, amount, keyId } = await proService.purchasePlan("BUSINESS", id, planId);
-
-      await new Promise<void>((res, rej) => {
-        const loadRazorpay = () => new Promise<void>((r) => {
-          if ((window as any).Razorpay) { r(); return; }
-          const s = document.createElement("script");
-          s.src = "https://checkout.razorpay.com/v1/checkout.js";
-          s.onload = () => r();
-          document.head.appendChild(s);
-        });
-        loadRazorpay().then(() => {
-          const rzp = new (window as any).Razorpay({
-            key: keyId, amount, currency: "INR", name: "STRYT",
-            description: `STRYT ${planId} Plan`,
-            order_id: orderId,
-            handler: async (response: any) => {
-              try {
-                await proService.activatePlan("BUSINESS", id, planId, orderId);
-                showToast("Plan activated ✓");
-                nav(-1);
-                res();
-              } catch { rej(new Error("Activation failed")); }
-            },
-            theme: { color: "var(--brand-700)" },
-          });
-          rzp.on("payment.failed", () => rej(new Error("Payment failed")));
-          rzp.open();
-        });
-      });
-    } catch (e: any) {
-      showToast(e.message || "Payment failed");
-    } finally { setBusy(null); }
+  // Paid upgrades aren't wired to a payment provider yet — the old Razorpay
+  // checkout was removed (STRYT uses UPI-deeplink payments only). This screen
+  // is unrouted until a UPI-based Pro purchase flow is built.
+  function purchase(_planId: string) {
+    showToast("Pro plans aren't available for purchase yet — coming soon");
   }
 
   if (loading) return <div className="screen"><AppBar title="Upgrade" /><div className="page-pad"><Skeleton h={200} /></div></div>;
@@ -101,10 +68,10 @@ export default function BusinessProUpgrade() {
                   </div>
                 ))}
               </div>
-              <button className="btn btn-block" disabled={busy === plan.id}
+              <button className="btn btn-block"
                 style={{ background: color, color: "#fff" }}
                 onClick={() => purchase(plan.id)}>
-                {busy === plan.id ? "Opening payment…" : `Get ${plan.label}`}
+                {`Get ${plan.label}`}
               </button>
             </div>
           );
@@ -117,7 +84,7 @@ export default function BusinessProUpgrade() {
               <div className="semi small">{pack.label}</div>
               <div className="tiny muted">Unlock {pack.credits} priority leads</div>
             </div>
-            <button className="btn btn-outline btn-sm" disabled={busy === pack.id} onClick={() => purchase(pack.id)}>
+            <button className="btn btn-outline btn-sm" onClick={() => purchase(pack.id)}>
               {inr(pack.price)}
             </button>
           </div>

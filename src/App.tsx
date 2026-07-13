@@ -119,8 +119,8 @@ const BusinessAccess = lazy(() => import("./screens/BusinessAccess"));
 // they're shelved together rather than left reachable only by guessing a URL.
 // Screen files are kept; re-add a lazy import + <Route> here to bring one back.
 // BusinessProUpgrade is the one exception already unrouted for a different
-// reason (its payment flow depends on create-razorpay-order/verify-razorpay-payment
-// Edge Functions that aren't deployed) — screen file stays in screens/monetization/.
+// reason (its paid-upgrade flow has no payment provider — STRYT uses
+// UPI-deeplink payments only) — screen file stays in future-enhancement/.
 
 // Routes that show the bottom navigation bar
 const TAB_ROUTES = ["/home", "/map", "/explore", "/chats", "/requests", "/community-hub", "/community", "/profile"];

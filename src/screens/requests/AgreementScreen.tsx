@@ -666,7 +666,7 @@ export default function AgreementScreen() {
           <div className="divider" />
           <div className="row gap-10 small">
             <Wallet size={16} color="var(--orange-500)" />
-            <span>Payment: <span className="semi">{agreement.paymentMode === "ONLINE" ? "Online (Razorpay)" : "Offline (in person)"}</span></span>
+            <span>Payment: <span className="semi">{agreement.paymentMode === "ONLINE" ? "Online (UPI)" : "Offline (in person)"}</span></span>
           </div>
           {payment?.escrowStatus && (
             <>
@@ -693,13 +693,13 @@ export default function AgreementScreen() {
           <div className="card row gap-10" style={{ padding: 12, background: "var(--orange-50)", border: "1px dashed var(--orange-100)" }}>
             <Info size={20} color="var(--orange-500)" style={{ flexShrink: 0 }} />
             <span className="tiny" style={{ color: "var(--orange-500)", lineHeight: 1.4 }}>
-              Pay in person / via Razorpay when prompted. <span className="semi">STRYT secures online payments.</span>
+              Pay in person or via UPI when prompted.
             </span>
           </div>
         )}
 
-        {/* Deal payment — the real, working claim→confirm cycle (separate from
-            the escrow badge above, which reflects the not-yet-live Razorpay path). */}
+        {/* Deal payment — the real, working claim→confirm cycle over UPI
+            deeplink (see PaymentStatusCard / the UPI sheets). */}
         <PaymentStatusCard
           paymentStatus={agreement.paymentStatus}
           paymentMethod={agreement.paymentMethod}
