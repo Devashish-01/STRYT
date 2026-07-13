@@ -20,6 +20,13 @@
       ]
     }
   ],
+  "redirects": [
+    {
+      "source": "/stryt.apk",
+      "destination": "https://gnswxlfmcwyhmzlfipql.supabase.co/storage/v1/object/public/uploads/stryt.apk?download=stryt.apk",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!stryt\\.apk|sw\\.js|workbox-.*|favicon\\.svg|icon-.*\\.png|manifest\\.webmanifest|assets/.*).*)",

@@ -27,20 +27,20 @@ Navigate to the `android` folder and use the Gradle wrapper script to compile th
 .\gradlew.bat assembleDebug
 ```
 
-## Step 4: Copy the APK to Public Directory
+## Step 4: Upload the APK to Supabase Storage
 
-Copy the compiled APK to the project's `public` directory as `stryt.apk` (overwriting the existing one) to make it downloadable/accessible:
+Run the upload script to securely upload the newly compiled APK to Supabase Storage:
 
-```powershell
+```bash
 # Run from stryt directory
-Copy-Item -Path "android/app/build/outputs/apk/debug/app-debug.apk" -Destination "public/stryt.apk" -Force
+node scripts/upload-apk.mjs
 ```
 
 ## Step 5: Stage and Commit the Code Changes
 
-Stage the modified files, newly added scripts, migrations, and the compiled APK, and then commit them:
+Stage the modified files, newly added scripts, migrations, and then commit them:
 
 ```bash
-git add src/ scripts/ supabase/migrations/ public/stryt.apk package.json package-lock.json vite.config.ts public/sw.js supabase/functions/send-push/index.ts
-git commit -m "build: compile android debug apk and update assets"
+git add src/ scripts/ supabase/migrations/ package.json package-lock.json vite.config.ts public/sw.js supabase/functions/send-push/index.ts
+git commit -m "build: compile android debug apk and upload to supabase storage"
 ```

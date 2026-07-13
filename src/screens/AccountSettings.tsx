@@ -59,7 +59,9 @@ export default function AccountSettings() {
                 const link = document.createElement("a");
                 link.href = APK_DOWNLOAD_URL;
                 link.download = APK_FILENAME;
+                document.body.appendChild(link);
                 link.click();
+                document.body.removeChild(link);
               }}
               last
             />
