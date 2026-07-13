@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, LogOut, ArrowRight, Loader } from "lucide-react";
+import { AlertTriangle, LogOut, ArrowRight, Loader } from "@/components/Icons";
 import { useApp } from "@/store";
-import { profileControlService } from "@/services/profileControlService";
+import { profileControlService } from "@/services/core/profileControlService";
 
 export default function DeletionPending() {
   const nav = useNavigate();
@@ -81,7 +81,7 @@ export default function DeletionPending() {
               width: 72,
               height: 72,
               borderRadius: 24,
-              background: "linear-gradient(135deg, var(--amber-500) 0%, #d97706 100%)",
+              background: "linear-gradient(135deg, var(--amber-500) 0%, var(--amber-700) 100%)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -92,15 +92,9 @@ export default function DeletionPending() {
             <AlertTriangle size={36} color="#fff" />
           </div>
           
-          <h1
-            style={{
-              fontSize: 26,
-              fontWeight: 900,
-              letterSpacing: -0.5,
+          <h1 className="h1" style={{ letterSpacing: -0.5,
               color: "#fff",
-              lineHeight: 1.2,
-            }}
-          >
+              lineHeight: 1.2 }}>
             Account Scheduled <br /> for Deletion
           </h1>
           
@@ -137,7 +131,7 @@ export default function DeletionPending() {
               fontSize: 11,
               fontWeight: 900,
               background: "rgba(245, 158, 11, 0.15)",
-              color: "#fbbf24",
+              color: "var(--amber-500)",
               padding: "5px 12px",
               borderRadius: 8,
               letterSpacing: 1,
@@ -151,7 +145,7 @@ export default function DeletionPending() {
 
           <div style={{ fontSize: 13, color: "rgba(255, 255, 255, 0.8)", lineHeight: 1.6 }}>
             Your account will be permanently purged on <br />
-            <strong style={{ color: "#fbbf24", fontSize: 15 }}>{deletionDateStr}</strong>
+            <strong style={{ color: "var(--amber-500)", fontSize: 15 }}>{deletionDateStr}</strong>
             <span style={{ display: "block", marginTop: 8, fontSize: 13, color: "rgba(255, 255, 255, 0.5)" }}>
               ({daysRemaining} {daysRemaining === 1 ? "day" : "days"} remaining)
             </span>
@@ -182,7 +176,7 @@ export default function DeletionPending() {
               fontWeight: 700,
               borderRadius: 16,
               width: "100%",
-              background: "linear-gradient(135deg, #fbbf24 0%, var(--amber-500) 100%)",
+              background: "linear-gradient(135deg, var(--amber-500) 0%, var(--amber-500) 100%)",
               border: "none",
               color: "#180c02",
               boxShadow: "0 8px 24px rgba(245, 158, 11, 0.2)",

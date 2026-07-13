@@ -8,14 +8,30 @@
 //   SUPABASE_URL
 //   SUPABASE_SERVICE_ROLE_KEY
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// CORS allowlist — reflects only known app origins, never "*" (Security
+// Audit M-3). Inlined (not a shared import) so this function deploys
+// standalone via the Supabase dashboard.
+const ALLOWED_ORIGINS = new Set([
+  "https://stryt.in",
+  "https://www.stryt.in",
+  "https://localhost", // Capacitor Android/iOS WebView (androidScheme: 'https')
+  "http://localhost:5173", // Vite dev
+  "http://localhost:4173", // Vite preview
+]);
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+function corsHeaders(req: Request, extraHeaders = "authorization, x-client-info, apikey, content-type"): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "";
+  const allow = ALLOWED_ORIGINS.has(origin) ? origin : "https://stryt.in";
+  return {
+    "Access-Control-Allow-Origin": allow,
+    "Access-Control-Allow-Headers": extraHeaders,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+    "Vary": "Origin",
+  };
+}
 
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, cors: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...cors, "Content-Type": "application/json" },
@@ -56,12 +72,13 @@ async function suggestPrice(categoryId?: string, _area?: string) {
 }
 
 Deno.serve(async (req: Request) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const { action, payload } = await req.json();
-    if (action === "suggest_price") return json(await suggestPrice(payload?.categoryId, payload?.area));
-    return json({ error: "unknown_action" }, 400);
+    if (action === "suggest_price") return json(await suggestPrice(payload?.categoryId, payload?.area), 200, cors);
+    return json({ error: "unknown_action" }, 400, cors);
   } catch (e) {
-    return json({ error: String(e) }, 500);
+    return json({ error: String(e) }, 500, cors);
   }
 });

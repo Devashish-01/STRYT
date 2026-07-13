@@ -1,18 +1,64 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone } from "lucide-react";
-import { communityService } from "@/services";
-import { useQueryWithRealtime } from "@/hooks/useApi";
+import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone, Flag } from "@/components/Icons";
+import { communityService, businessService, providerService } from "@/services";
+import { useQueryWithRealtime, useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
+import ReportSheet from "@/components/ReportSheet";
 import type { CommunityPost, Comment } from "@/types";
+
+function CommentRow({ c, nav, onReply, compact }: { c: Comment; nav: (to: string) => void; onReply: () => void; compact?: boolean }) {
+  const size = compact ? 30 : 36;
+  return (
+    <div className="row gap-10" style={{ alignItems: "flex-start" }}>
+      <SafeImg src={c.authorAvatar} variant="avatar" className="avatar" style={{ width: size, height: size, flexShrink: 0 }} />
+      <div className="grow">
+        <div className="row between">
+          <span className="semi small">{c.authorName}</span>
+          <span className="tiny muted">{c.time}</span>
+        </div>
+        <p className="small" style={{ marginTop: 3, lineHeight: 1.45 }}>{c.body}</p>
+        {c.sharedPhone && (
+          <a
+            href={`tel:${c.sharedPhone}`}
+            className="tiny semi row gap-4"
+            style={{ color: "var(--brand-700)", marginTop: 5, background: "var(--brand-50)", border: "1px solid var(--brand-100)", borderRadius: 8, padding: "4px 8px", width: "fit-content" }}
+          >
+            <Phone size={12} /> {c.sharedPhone}
+            {c.phoneVisibility === "OWNER" && <span className="muted" style={{ fontWeight: 500 }}>· shared with you</span>}
+          </a>
+        )}
+        {c.listingId && (
+          <button
+            className="tiny semi"
+            style={{ color: "var(--brand-700)", marginTop: 4 }}
+            onClick={() => nav(c.listingType === "BUSINESS" ? `/business/${c.listingId}` : `/provider/${c.listingId}`)}
+          >
+            → View listing
+          </button>
+        )}
+        <button className="tiny semi" style={{ color: "var(--ink-500)", marginTop: 4 }} onClick={onReply}>Reply</button>
+      </div>
+    </div>
+  );
+}
 
 export default function CommunityPostDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { state } = useLocation() as { state?: { post?: CommunityPost } };
-  const { user, likes, toggleLike, votes, votePoll, showToast } = useApp();
+  const { user, likes, toggleLike, votes, votePoll, showToast, activeContext } = useApp();
+
+  const { data: activeBiz } = useQuery(
+    () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
+    [activeContext.id, activeContext.type]
+  );
+  const { data: activeProv } = useQuery(
+    () => activeContext.type === "provider" && activeContext.id ? providerService.get(activeContext.id) : Promise.resolve(null),
+    [activeContext.id, activeContext.type]
+  );
 
   // Use passed post for instant display; re-fetch in background for freshness.
   const { data: fetched } = useQueryWithRealtime(() => communityService.get(id, user.lat || undefined, user.lng || undefined), "community_posts", [id, user.lat, user.lng], `id=eq.${id}`);
@@ -21,10 +67,12 @@ export default function CommunityPostDetail() {
   const { data: initialComments, loading: commentsLoading } = useQueryWithRealtime(() => communityService.comments(id), "post_comments", [id], `post_id=eq.${id}`);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
   const [sending, setSending] = useState(false);
   const [sharePhone, setSharePhone] = useState(false);
   const [phoneVis, setPhoneVis] = useState<"OWNER" | "PUBLIC">("OWNER");
   const [phoneInput, setPhoneInput] = useState("");
+  const [reporting, setReporting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { if (initialComments) setComments(initialComments); }, [initialComments]);
@@ -47,14 +95,23 @@ export default function CommunityPostDetail() {
   const totalVotes = (safePost.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !safePost.votedOptionId ? 1 : 0);
 
   async function handleLike() {
-    toggleLike(safePost.id);
-    await communityService.like(safePost.id, liked);
+    toggleLike(safePost.id); // optimistic
+    try {
+      await communityService.like(safePost.id, liked);
+    } catch {
+      toggleLike(safePost.id); // revert so the UI never lies
+      showToast("Couldn't update like — try again");
+    }
   }
 
   async function handleVote(optId: string) {
     if (votedOption) return;
-    votePoll(safePost.id, optId);
-    await communityService.vote(safePost.id, optId);
+    votePoll(safePost.id, optId); // optimistic
+    try {
+      await communityService.vote(safePost.id, optId);
+    } catch {
+      showToast("Couldn't record your vote — try again");
+    }
   }
 
   async function sendComment() {
@@ -63,13 +120,29 @@ export default function CommunityPostDetail() {
     setSending(true);
     setNewComment("");
     const phoneToShare = sharePhone ? (phoneInput.trim() || user.phone) : "";
+
+    const customAuthor = activeContext.type === "business" && activeBiz ? {
+      authorName: activeBiz.name,
+      authorAvatar: activeBiz.coverImage
+    } : activeContext.type === "provider" && activeProv ? {
+      authorName: activeProv.displayName,
+      authorAvatar: activeProv.avatar
+    } : undefined;
+
+    // A reply to a reply attaches to the same top-level comment, keeping threads
+    // a clean two levels deep (Instagram-style).
+    const parentId = replyingTo ? (replyingTo.parentId || replyingTo.id) : undefined;
+
     try {
       const c = await communityService.addComment(safePost.id, text, {
         sharedPhone: phoneToShare || undefined,
         phoneVisibility: phoneVis,
+        parentId,
+        ...customAuthor
       });
       setComments((prev) => [...prev, c]);
       setSharePhone(false);
+      setReplyingTo(null);
     } catch {
       showToast("Couldn't send. Try again.");
       setNewComment(text);
@@ -78,12 +151,21 @@ export default function CommunityPostDetail() {
     }
   }
 
+  function startReply(c: Comment) {
+    setReplyingTo(c);
+    // Focus the composer.
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+  }
+
   return (
     <div className="screen" style={{ display: "flex", flexDirection: "column" }}>
       <header className="appbar" style={{ borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
         <button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
         <span className="bold grow" style={{ fontSize: 16 }}>Post</span>
-        {safePost.resolved && <span className="badge badge-green"><CheckCircle2 size={11} /> Resolved</span>}
+        {safePost.resolved && <span className="badge badge-green" style={{ marginRight: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
+        <button className="icon-btn" onClick={() => setReporting(true)} aria-label="Report post">
+          <Flag size={18} />
+        </button>
       </header>
 
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: 72 }}>
@@ -135,7 +217,7 @@ export default function CommunityPostDetail() {
                   style={{ padding: 10, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
                   onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}
                 >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: rec.listingType === "BUSINESS" ? "#ffedd5" : "#dcfce7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: rec.listingType === "BUSINESS" ? "var(--orange-100)" : "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
                     {rec.listingType === "BUSINESS" ? "🏪" : "👤"}
                   </div>
                   <div className="grow">
@@ -165,37 +247,21 @@ export default function CommunityPostDetail() {
             <ListSkeleton count={2} />
           ) : (
             <div className="col gap-16">
-              {comments.map((c) => (
-                <div key={c.id} className="row gap-10" style={{ alignItems: "flex-start" }}>
-                  <SafeImg src={c.authorAvatar} variant="avatar" className="avatar" style={{ width: 36, height: 36, flexShrink: 0 }} />
-                  <div className="grow">
-                    <div className="row between">
-                      <span className="semi small">{c.authorName}</span>
-                      <span className="tiny muted">{c.time}</span>
-                    </div>
-                    <p className="small" style={{ marginTop: 3, lineHeight: 1.45 }}>{c.body}</p>
-                    {c.sharedPhone && (
-                      <a
-                        href={`tel:${c.sharedPhone}`}
-                        className="tiny semi row gap-4"
-                        style={{ color: "var(--brand-700)", marginTop: 5, background: "var(--brand-50)", border: "1px solid var(--brand-100)", borderRadius: 8, padding: "4px 8px", width: "fit-content" }}
-                      >
-                        <Phone size={12} /> {c.sharedPhone}
-                        {c.phoneVisibility === "OWNER" && <span className="muted" style={{ fontWeight: 500 }}>· shared with you</span>}
-                      </a>
-                    )}
-                    {c.listingId && (
-                      <button
-                        className="tiny semi"
-                        style={{ color: "var(--brand-700)", marginTop: 4 }}
-                        onClick={() => nav(c.listingType === "BUSINESS" ? `/business/${c.listingId}` : `/provider/${c.listingId}`)}
-                      >
-                        → View listing
-                      </button>
+              {comments.filter((c) => !c.parentId).map((c) => {
+                const replies = comments.filter((r) => r.parentId === c.id);
+                return (
+                  <div key={c.id} className="col gap-12">
+                    <CommentRow c={c} nav={nav} onReply={() => startReply(c)} />
+                    {replies.length > 0 && (
+                      <div className="col gap-12" style={{ marginLeft: 46, paddingLeft: 10, borderLeft: "2px solid var(--line)" }}>
+                        {replies.map((r) => (
+                          <CommentRow key={r.id} c={r} nav={nav} onReply={() => startReply(r)} compact />
+                        ))}
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {comments.length === 0 && (
                 <p className="small muted center" style={{ padding: "20px 0" }}>No comments yet. Be the first!</p>
               )}
@@ -207,6 +273,12 @@ export default function CommunityPostDetail() {
 
       {/* Comment input */}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px" }}>
+        {replyingTo && (
+          <div className="row between center-v" style={{ marginBottom: 8, padding: "6px 10px", background: "var(--brand-50)", borderRadius: 10 }}>
+            <span className="tiny" style={{ color: "var(--brand-700)" }}>Replying to <span className="semi">{replyingTo.authorName}</span></span>
+            <button className="tiny semi" style={{ color: "var(--ink-500)" }} onClick={() => setReplyingTo(null)}>Cancel</button>
+          </div>
+        )}
         {/* #8 share-phone controls */}
         <div className="col gap-8" style={{ marginBottom: 8 }}>
           <div className="row gap-8" style={{ flexWrap: "wrap" }}>
@@ -251,10 +323,19 @@ export default function CommunityPostDetail() {
         </div>
 
       <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-        <SafeImg src={user.avatar} variant="avatar" className="avatar" style={{ width: 32, height: 32, flexShrink: 0 }} />
+        <SafeImg
+          src={
+            (activeContext.type === "business" && activeBiz?.coverImage) || 
+            (activeContext.type === "provider" && activeProv?.avatar) || 
+            user.avatar
+          }
+          variant={activeContext.type === "provider" ? "avatar" : "photo"}
+          className="avatar"
+          style={{ width: 32, height: 32, flexShrink: 0 }}
+        />
         <textarea
           className="input"
-          placeholder="Add a comment…"
+          placeholder={replyingTo ? "Write a reply…" : "Add a comment…"}
           value={newComment}
           rows={1}
           style={{ flex: 1, resize: "none", maxHeight: 80, overflowY: "auto", padding: "8px 12px", borderRadius: 20, lineHeight: 1.4, fontSize: 14 }}
@@ -275,6 +356,10 @@ export default function CommunityPostDetail() {
         </button>
       </div>
       </div>
+
+      {reporting && (
+        <ReportSheet targetType="POST" targetId={safePost.id} name={safePost.title || "this post"} onClose={() => setReporting(false)} />
+      )}
     </div>
   );
 }

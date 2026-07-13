@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { RADIUS_OPTIONS } from "@/utils/constants";
-import { Pencil } from "lucide-react";
+import { Pencil } from "@/components/Icons";
 
 interface RadiusSelectorProps {
   value: number;
@@ -49,7 +49,7 @@ export default function RadiusSelector({
   };
 
   return (
-    <div className="card" style={{ padding: 14 }}>
+    <div className="card">
       <div className="row between small semi" style={{ marginBottom: 12 }}>
         <span>{label}</span>
         <span style={{ color: accentColor, fontWeight: 700 }}>

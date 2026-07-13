@@ -1,0 +1,41 @@
+# STRYT Supabase project config.
+#
+# Purpose of this file (Security Audit H-2): each Edge Function's JWT-gateway
+# check was previously a dashboard-only toggle — invisible to code review and
+# indistinguishable from drift. Declaring verify_jwt here makes the intended
+# posture explicit and version-controlled; `supabase functions deploy` reads
+# it, and the dashboard becomes the *output* of this file, not the source of
+# truth.
+#
+# Every function is auth-gated (verify_jwt = true) EXCEPT app-update, which
+# is the public self-hosted OTA check the app polls on every foreground
+# before a session may exist — see supabase/functions/app-update/index.ts.
+#
+# Note: admin-profile-management/ and sync-bug-report/ are empty directories
+# in this repo (no index.ts) — nothing to declare until they have real code.
+
+project_id = "gnswxlfmcwyhmzlfipql"
+
+[functions.admin-delete-profile]
+verify_jwt = true
+
+[functions.ai-assist]
+verify_jwt = true
+
+[functions.app-update]
+verify_jwt = false
+
+[functions.profile-control]
+verify_jwt = true
+
+[functions.send-push]
+verify_jwt = true
+
+[functions.send-support-email]
+verify_jwt = true
+
+[functions.sos-alert]
+verify_jwt = true
+
+[functions.verification-review]
+verify_jwt = true

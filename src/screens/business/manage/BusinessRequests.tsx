@@ -1,14 +1,19 @@
-import { useParams } from "react-router-dom";
-import { AppBar, EmptyState } from "@/components/common";
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { AppBar, EmptyState, inr } from "@/components/common";
 import { requestService, businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import type { RequestPost } from "@/types";
 
-// Business-as-responder: open requests matching the business category.
+// Business-as-responder: open requests matching the business category, plus
+// a "Sent" tab tracking this business's own submitted proposals independently
+// of the generic open-request feed.
 export default function BusinessRequests() {
   const { id = "" } = useParams();
+  const nav = useNavigate();
+  const [tab, setTab] = useState<"find" | "sent">("find");
   const { data: b } = useQuery(() => businessService.get(id), [id]);
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
@@ -18,6 +23,10 @@ export default function BusinessRequests() {
     }),
     "requests",
     [b?.lat, b?.lng, b?.broadcastRadius]
+  );
+  const { data: sentProposals, loading: sentLoading } = useQuery(
+    () => requestService.myProposals(id),
+    [id]
   );
 
   if (!id) {
@@ -29,31 +38,64 @@ export default function BusinessRequests() {
     );
   }
 
-  // Only show requests within the business's access range. Each request's
-  // distanceKm is measured from the business location (feed got b.lat/b.lng).
+  // Show open requests that (a) match this shop's category and (b) fall within
+  // its access range. Category match is the whole point — a bakery shouldn't be
+  // shown plumbing requests. Requests with no category fall through to everyone.
   const range = b?.broadcastRadius ?? 5;
   const items = ((data?.data ?? []) as RequestPost[])
     .filter((r) => r.status === "OPEN")
+    .filter((r) => !r.categoryId || !b?.categoryId || r.categoryId === b.categoryId)
     .filter((r) => !r.lat || !r.lng || r.distanceKm <= range);
 
   return (
     <div className="screen">
-      <AppBar title="Find requests" subtitle={`Within ${range} km of ${b?.name ?? "your shop"}`} />
+      <AppBar title="Requests" subtitle={`Within ${range} km of ${b?.name ?? "your shop"}`} />
+      <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff" }}>
+        {([["find", "Find requests"], ["sent", `Sent (${sentProposals?.length ?? 0})`]] as const).map(([t, label]) => (
+          <button key={t} onClick={() => setTab(t)} className="semi"
+            style={{ flex: 1, padding: "12px 0", fontSize: 14, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>
+            {label}
+          </button>
+        ))}
+      </div>
       <div className="screen-scroll">
-        <div className="page-pad" style={{ paddingBottom: 0 }}>
-          <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
-            <span style={{ fontSize: 20 }}>🙋</span>
-            <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>Requests within your <b>{range} km</b> range. Send a proposal as <b>{b?.name}</b> to win the job.</span>
-          </div>
-        </div>
-        {loading && <ListSkeleton count={3} />}
-        {error && <ErrorView error={error} onRetry={refetch} />}
-        {data && (
-          <div className="page-pad col gap-12">
-            {items.length === 0 ? (
-              <EmptyState emoji="🌙" title="No open requests" text="Check back soon — new requests appear here." />
+        {tab === "find" ? (
+          <>
+            <div className="page-pad" style={{ paddingBottom: 0 }}>
+              <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
+                <span style={{ fontSize: 20 }}>🙋</span>
+                <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>Requests within your <b>{range} km</b> range. Send a proposal as <b>{b?.name}</b> to win the job.</span>
+              </div>
+            </div>
+            {loading && <ListSkeleton count={3} />}
+            {error && <ErrorView error={error} onRetry={refetch} />}
+            {data && (
+              <div className="page-pad col gap-12">
+                {items.length === 0 ? (
+                  <EmptyState emoji="🌙" title="No open requests" text="Check back soon — new requests appear here." />
+                ) : (
+                  items.map((r) => <RequestCard key={r.id} r={r} />)
+                )}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="page-pad col gap-10">
+            {sentLoading ? (
+              <ListSkeleton count={3} />
+            ) : (sentProposals ?? []).length === 0 ? (
+              <EmptyState emoji="📨" title="No proposals sent yet" text="Proposals you send as this business appear here." />
             ) : (
-              items.map((r) => <RequestCard key={r.id} r={r} />)
+              (sentProposals ?? []).map((p) => (
+                <button key={p.id} className="card" style={{ textAlign: "left" }} onClick={() => nav(`/request/${p.requestId}`)}>
+                  <div className="row between">
+                    <span className="badge badge-gray">{p.status}</span>
+                    <span className="tiny muted">{p.postedAt}</span>
+                  </div>
+                  <div className="semi small ellipsis" style={{ marginTop: 6 }}>{p.requestTitle}</div>
+                  <div className="tiny muted" style={{ marginTop: 2 }}>Your quote: {inr(p.price)}</div>
+                </button>
+              ))
             )}
           </div>
         )}

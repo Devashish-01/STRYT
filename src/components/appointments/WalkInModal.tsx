@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { UserPlus, X } from "lucide-react";
+import { UserPlus, X } from "@/components/Icons";
 
 export interface WalkInPackageOption {
   id: string;

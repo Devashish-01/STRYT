@@ -2,12 +2,13 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Heart, Share2, Phone, Navigation, Clock, MapPin,
-  BadgeCheck, Star, Plus, Minus, Tag, MessageCircle, Flag,
-  Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle,
-} from "lucide-react";
-import { businessService, communityService } from "@/services";
-import { chatService } from "@/services/chatService";
+  BadgeCheck, Star, Plus, Minus, MessageCircle, Flag,
+  Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle, ThumbsUp, Wallet,
+} from "@/components/Icons";
+import { businessService, communityService, socialService } from "@/services";
+import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
+import { StoryViewer } from "@/components/Stories";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr } from "@/components/common";
@@ -16,8 +17,16 @@ import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import AddToListSheet from "@/components/AddToListSheet";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
+import { PaymentSheet } from "@/components/PaymentSheet";
+import LivePulseDot from "@/components/LivePulseDot";
+import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { isMockTarget } from "@/services/appointmentService";
+import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
+import type { AppointmentRecord } from "@/types";
+import { distanceLabel } from "@/lib/format";
+import { displayName as safeName } from "@/lib/publicName";
+import { pushRecentlyViewed } from "@/lib/recentlyViewed";
+import MiniMap from "@/components/MiniMap";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();
@@ -33,9 +42,24 @@ export default function BusinessDetail() {
   const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
   const { data: queue } = useQueryWithRealtime(() => businessService.queue(id), "queue_tokens", [id], `business_id=eq.${id}`);
   const { data: qnaList, refetch: refetchQna } = useQueryWithRealtime(() => businessService.qna(id), "business_qna", [id], `business_id=eq.${id}`);
-  const { data: bizPackages } = useQuery(() => businessService.packages(id).catch(() => []), [id]);
   const { data: bizPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("business", id), "community_posts", [id], `author_ref_id=eq.${id}`);
-  const [tab, setTab] = useState<"catalog" | "posts" | "about" | "reviews">("catalog");
+  const { data: highlightsData } = useQuery(() => socialService.highlightsFor("business", id), [id]);
+  const highlights = highlightsData ?? [];
+  const { data: myAppointments, refetch: refetchMyAppointments } = useQuery(
+    () => (user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([])),
+    [user.id]
+  );
+  const { data: myQueueEntries, refetch: refetchMyQueues } = useQuery(
+    () => (user.id ? businessService.myQueues() : Promise.resolve([])),
+    [user.id]
+  );
+  const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
+  const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
+  const [payingQueueTokenId, setPayingQueueTokenId] = useState<string | null>(null);
+  const [joiningQueue, setJoiningQueue] = useState(false);
+  const [partySize, setPartySize] = useState(1);
+  const [queueBusy, setQueueBusy] = useState(false);
+  const [tab, setTab] = useState<"catalog" | "posts" | "work" | "about" | "reviews">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
@@ -53,6 +77,12 @@ export default function BusinessDetail() {
     businessService.recordView(id).catch(() => {});
   }, [id]);
 
+  // Track for the "recently viewed" rail on Home once details are loaded.
+  useEffect(() => {
+    if (!b) return;
+    pushRecentlyViewed({ type: "business", id: b.id, name: b.name, image: b.coverImage });
+  }, [b?.id]);
+
   async function submitQuestion() {
     if (question.trim().length < 5) return;
     setAskingNow(true);
@@ -65,6 +95,16 @@ export default function BusinessDetail() {
       showToast("Couldn't send. Sign in and try again.");
     } finally {
       setAskingNow(false);
+    }
+  }
+
+  async function toggleQuestionUpvote(q: import("@/types").QnaItem) {
+    try {
+      if (q.upvoted) await businessService.removeQuestionUpvote(q.id);
+      else await businessService.upvoteQuestion(q.id);
+      refetchQna();
+    } catch {
+      showToast("Couldn't update — try again");
     }
   }
 
@@ -107,7 +147,15 @@ export default function BusinessDetail() {
   const isOwner = b.ownerUserId === user.id;
   const saved = isBookmarked("BUSINESS", b.id);
   const following = isFollowing("BUSINESS", b.id);
-  const inQueue = queuesJoined.includes(b.id);
+  // Source of truth for "already in this queue" is the customer's live tokens
+  // from the DB (myQueueEntries), not the in-memory queuesJoined set — that set
+  // is wiped on reload/new session, which is exactly what let people re-join and
+  // pile up duplicate tokens. queuesJoined is kept only as an optimistic hint so
+  // the button flips instantly before the refetch lands.
+  const activeQueueEntry = (myQueueEntries ?? []).find(
+    (q) => q.businessId === b.id && (q.status === "WAITING" || q.status === "CALLED")
+  );
+  const inQueue = !!activeQueueEntry || queuesJoined.includes(b.id);
   const notifyKey = `OPENS:${b.id}`;
   const notifying = notifySubs.includes(notifyKey);
   const cartCount = Object.values(cart).reduce((a, c) => a + c, 0);
@@ -115,6 +163,25 @@ export default function BusinessDetail() {
     const item = b.catalog.find((c) => c.id === itemId);
     return sum + (item ? (item.salePrice ?? item.price) * qty : 0);
   }, 0);
+
+  // Surface a quick-pay banner when the customer has an unsettled appointment
+  // or queue visit with this exact business, so they don't have to go find it
+  // in My Appointments / My Queue first.
+  const payableApt = !isOwner
+    ? (myAppointments ?? []).find(
+        (a) =>
+          a.targetId === b.id &&
+          a.targetType === "BUSINESS" &&
+          a.status !== "CANCELLED" &&
+          a.status !== "REJECTED" &&
+          (a.paymentStatus ?? "UNPAID") === "UNPAID"
+      ) ?? null
+    : null;
+  const payableQueue = !isOwner && !payableApt
+    ? (myQueueEntries ?? []).find(
+        (q) => q.businessId === b.id && q.status !== "LEFT" && (q.paymentStatus ?? "UNPAID") === "UNPAID"
+      ) ?? null
+    : null;
 
   function add(itemId: string, delta: number) {
     setCart((c) => {
@@ -150,21 +217,21 @@ export default function BusinessDetail() {
     <div className="screen" style={{ position: "relative" }}>
       <div className="screen-scroll" style={{ paddingBottom: cartCount ? 88 : 24 }}>
         {isMockTarget(id) && (
-          <div style={{ padding: "8px 14px", background: "#fff3e8", borderBottom: "1px solid #ffd9b3" }}>
-            <span className="tiny" style={{ color: "#b45309", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
+          <div style={{ padding: "8px 14px", background: "var(--orange-50)", borderBottom: "1px solid var(--orange-100)" }}>
+            <span className="tiny" style={{ color: "var(--amber-700)", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
           </div>
         )}
         {/* Cover */}
         <div style={{ position: "relative" }}>
           <SafeImg src={b.coverImage} alt={b.name} style={{ width: "100%", height: 230, objectFit: "cover" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 35%, transparent 70%, rgba(0,0,0,0.25))" }} />
-          <div className="row between" style={{ position: "absolute", top: 12, left: 12, right: 12 }}>
+          <div className="row between" style={{ position: "absolute", top: "calc(12px + var(--safe-area-top))", left: 12, right: 12 }}>
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
             <div className="row gap-8">
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setAddList(true)}><Bookmark size={18} /></button>
               <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => toggleBookmark("BUSINESS", b.id)}>
-                <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "#5c5573"} />
+                <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
               </button>
             </div>
           </div>
@@ -179,12 +246,12 @@ export default function BusinessDetail() {
 
         {/* Info card */}
         <div className="page-pad" style={{ marginTop: -22, position: "relative" }}>
-          <div className="card" style={{ padding: 16 }}>
+          <div className="card">
             <div className="row between" style={{ alignItems: "flex-start" }}>
               <div style={{ minWidth: 0 }}>
                 <div className="row gap-6">
-                  <h1 className="bold" style={{ fontSize: 21 }}>{b.name}</h1>
-                  {b.isVerified && <BadgeCheck size={18} color="#e5521c" fill="#ffe8e2" />}
+                  <h1 className="bold h2">{b.name}</h1>
+                  {b.isVerified && <BadgeCheck size={18} color="var(--brand-600)" fill="var(--brand-100)" />}
                 </div>
                 <p className="small muted" style={{ marginTop: 2 }}>{b.subCategory}</p>
               </div>
@@ -197,19 +264,20 @@ export default function BusinessDetail() {
             {b.isNew && <span className="badge badge-new" style={{ marginTop: 10 }}>● Opened {daysAgo(b.openingDate)}</span>}
 
             <div className="row gap-12 small" style={{ marginTop: 12, color: "var(--ink-600)" }}>
-              <span className="row gap-4"><MapPin size={14} /> {b.distanceKm} km</span>
+              <span className="row gap-4"><MapPin size={14} /> {distanceLabel(b.distanceKm)}</span>
               <span className="row gap-4"><Clock size={14} color={evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)"} />
                 <span style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>{evalRes.isOpenNow ? "Open now" : "Closed"}</span>
+                {evalRes.isOpenNow && <LivePulseDot style={{ marginLeft: 2 }} />}
               </span>
             </div>
             <p className="tiny muted" style={{ marginTop: 6 }}>{b.addressLine1}, {b.city} • {b.hours}</p>
 
-            <div className="row wrap gap-6" style={{ marginTop: 12 }}>
+            <div className="row wrap gap-6" style={{ marginTop: 14 }}>
               {b.tags.map((t) => <span key={t} className="badge badge-gray">{t}</span>)}
             </div>
 
-            <div className="row gap-10" style={{ marginTop: 14 }}>
-              <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> Call</a>
+            <div className="row gap-10" style={{ marginTop: 16 }}>
+              {b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> Call</a>}
               <button
                 className="btn btn-outline grow"
                 onClick={() => {
@@ -243,8 +311,24 @@ export default function BusinessDetail() {
               )}
             </div>
 
+            {(payableApt || payableQueue) && (
+              <button
+                className="row gap-10"
+                style={{ width: "100%", marginTop: 10, padding: "12px 14px", background: "var(--brand-50)", border: "1.5px solid var(--brand-200)", borderRadius: 14 }}
+                onClick={() => {
+                  if (payableApt) setPayingApt(payableApt);
+                  else if (payableQueue) setPayingQueueTokenId(payableQueue.tokenId);
+                }}
+              >
+                <Wallet size={18} color="var(--brand-700)" />
+                <span className="semi small grow" style={{ textAlign: "left", color: "var(--brand-700)" }}>
+                  {payableApt?.packagePrice ? `Pay ₹${payableApt.packagePrice} now` : "Pay now"}
+                </span>
+              </button>
+            )}
+
             {/* Follow + notify row */}
-            <div className="row gap-10" style={{ marginTop: 10 }}>
+            <div className="row gap-10" style={{ marginTop: 12 }}>
               <button
                 className="btn grow btn-sm"
                 style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
@@ -254,7 +338,7 @@ export default function BusinessDetail() {
               </button>
               <button
                 className="btn grow btn-sm"
-                style={{ background: notifying ? "#fff3e8" : "var(--ink-50)", color: notifying ? "var(--accent-600)" : "var(--ink-700)" }}
+                style={{ background: notifying ? "var(--orange-50)" : "var(--ink-50)", color: notifying ? "var(--accent-600)" : "var(--ink-700)" }}
                 onClick={() => toggleNotify(notifyKey)}
               >
                 <Bell size={16} fill={notifying ? "var(--orange-500)" : "none"} /> {notifying ? "Alerts on" : "Notify me"}
@@ -283,56 +367,112 @@ export default function BusinessDetail() {
         {/* Live queue */}
         {queue && queue.isOpen && (
           <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
-            <div className="card row gap-12" style={{ padding: 14, background: queue.peopleAhead === 0 ? "#e8f7ee" : "var(--brand-50)", border: "none" }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Users size={20} color={queue.peopleAhead === 0 ? "var(--green-500)" : "#cc4415"} />
-              </div>
-              <div className="grow">
-                <div className="semi small">
-                  {queue.peopleAhead === 0 ? "No wait right now 🎉" : `${queue.peopleAhead} people ahead`}
+            <div className="card col gap-12" style={{ padding: 14, background: queue.peopleAhead === 0 ? "var(--green-100)" : "var(--brand-50)", border: "none" }}>
+              <div className="row gap-12 center-v">
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Users size={20} color={queue.peopleAhead === 0 ? "var(--green-500)" : "var(--brand-700)"} />
                 </div>
-                <div className="tiny muted">{queue.peopleAhead === 0 ? "Walk in anytime" : `~${queue.estWaitMin} min wait`}</div>
+                <div className="grow" style={{ minWidth: 0 }}>
+                  <div className="semi small">
+                    {queue.peopleAhead === 0 ? "No wait right now 🎉" : `${queue.peopleAhead} ahead`}
+                  </div>
+                  <div className="tiny muted">{queue.peopleAhead === 0 ? "Walk in anytime" : `~${queue.estWaitMin} min wait`}</div>
+                </div>
+                {inQueue ? (
+                  <span className="badge badge-green">
+                    {activeQueueEntry?.status === "CALLED"
+                      ? "🔔 Your turn"
+                      : `You're #${activeQueueEntry?.position || queue.peopleAhead + 1}`}
+                  </span>
+                ) : !joiningQueue ? (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => { setPartySize(1); setJoiningQueue(true); }}
+                  >Join queue</button>
+                ) : null}
               </div>
-              {inQueue ? (
-                <span className="badge badge-green">You're #{queue.peopleAhead + 1}</span>
-              ) : (
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={async () => {
-                    try {
-                      await businessService.joinQueueToken(b.id, user.name);
-                      joinQueue(b.id);
-                    } catch {
-                      showToast("Sign in to join the queue");
-                    }
-                  }}
-                >Join queue</button>
+
+              {/* Party-size picker — shown after tapping "Join queue". Party size is
+                  passed to joinQueueToken and feeds the weighted wait-time estimate. */}
+              {!inQueue && joiningQueue && (
+                <div className="col gap-10" style={{ paddingTop: 4, borderTop: "1px solid var(--brand-100)" }}>
+                  <div className="row between center-v">
+                    <div style={{ minWidth: 0 }}>
+                      <div className="semi small">How many in your party?</div>
+                      <div className="tiny muted">Helps the shop estimate the wait</div>
+                    </div>
+                    <div className="row center-v" style={{ background: "#fff", borderRadius: 10, border: "1px solid var(--brand-200)" }}>
+                      <button
+                        style={{ padding: "6px 12px", color: partySize <= 1 ? "var(--ink-300)" : "var(--brand-700)" }}
+                        disabled={partySize <= 1}
+                        onClick={() => setPartySize((n) => Math.max(1, n - 1))}
+                        aria-label="Fewer"
+                      ><Minus size={15} /></button>
+                      <span className="bold" style={{ minWidth: 24, textAlign: "center" }}>{partySize}</span>
+                      <button
+                        style={{ padding: "6px 12px", color: partySize >= 20 ? "var(--ink-300)" : "var(--brand-700)" }}
+                        disabled={partySize >= 20}
+                        onClick={() => setPartySize((n) => Math.min(20, n + 1))}
+                        aria-label="More"
+                      ><Plus size={15} /></button>
+                    </div>
+                  </div>
+                  <div className="row gap-8">
+                    <button
+                      className="btn btn-outline btn-sm grow"
+                      disabled={queueBusy}
+                      onClick={() => { setJoiningQueue(false); setPartySize(1); }}
+                    >Cancel</button>
+                    <button
+                      className="btn btn-primary btn-sm grow"
+                      disabled={queueBusy}
+                      onClick={async () => {
+                        setQueueBusy(true);
+                        try {
+                          const label = partySize === 1 ? "1 person" : `${partySize} people`;
+                          await businessService.joinQueueToken(b.id, safeName(user.name, "Customer"), label);
+                          joinQueue(b.id);
+                          setJoiningQueue(false);
+                          setPartySize(1);
+                          refetchMyQueues();
+                        } catch (e: any) {
+                          showToast(e?.message || "Sign in to join the queue");
+                        } finally {
+                          setQueueBusy(false);
+                        }
+                      }}
+                    >{queueBusy ? "Joining…" : `Join${partySize > 1 ? ` · ${partySize}` : ""}`}</button>
+                  </div>
+                </div>
               )}
             </div>
           </div>
         )}
 
-        {/* Offer strip */}
-        {b.offers.length > 0 && (
-          <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
-            {b.offers.map((o) => (
-              <div key={o.id} className="card row gap-10" style={{ padding: 12, background: "#fff7ed", border: "1px dashed #fdba74" }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: "#ffedd5", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Tag size={18} color="var(--orange-500)" />
+        {/* Highlights — stories the owner saved past their normal expiry */}
+        {highlights.length > 0 && (
+          <div className="hscroll" style={{ padding: "12px 16px 4px" }}>
+            {highlights.map((h, i) => (
+              <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
+                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,var(--amber-500),var(--amber-500))" }}>
+                  <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
                 </div>
-                <div className="grow">
-                  <div className="semi small" style={{ color: "#c2410c" }}>{o.title}</div>
-                  <div className="tiny muted">{o.description}</div>
-                </div>
-                {o.code && <span className="badge badge-amber" style={{ borderStyle: "dashed", border: "1px dashed var(--amber-500)" }}>{o.code}</span>}
-              </div>
+                <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
+              </button>
             ))}
           </div>
         )}
 
         {/* Tabs */}
-        <div className="row page-pad" style={{ gap: 0, paddingBottom: 0, paddingTop: 16, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
-          {([["catalog", `Menu (${b.catalog.length})`], ["posts", `Posts (${(bizPosts ?? []).length})`], ["about", "About"], ["reviews", `Reviews`]] as const).map(([t, label]) => (
+        <div className="row page-pad" style={{ gap: 0, paddingBottom: 0, paddingTop: 12, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
+          {([
+            ["catalog", `Menu (${b.catalog.length})`],
+            ["posts", `Posts (${(bizPosts ?? []).length})`],
+            ...((b.portfolio ?? []).length > 0 ? [["work", `Work (${(b.portfolio ?? []).length})`]] : []),
+            ["about", "About"],
+            ["reviews", `Reviews`],
+          ] as [typeof tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
               style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>
               {label}
@@ -342,33 +482,17 @@ export default function BusinessDetail() {
 
         {/* Tab content */}
         {tab === "catalog" && (
-          <div className="page-pad col gap-12">
-            {(bizPackages ?? []).length > 0 && (
-              <div className="col gap-8">
-                <div className="semi small" style={{ color: "var(--ink-700)" }}>Service Packages</div>
-                {(bizPackages ?? []).map((pk) => (
-                  <div key={pk.id} className="card row gap-12" style={{ padding: 14 }}>
-                    <div className="grow">
-                      <div className="semi small">{pk.name}</div>
-                      {pk.desc ? <div className="tiny muted" style={{ marginTop: 2 }}>{pk.desc}{pk.duration ? ` • ${pk.duration}` : ""}</div> : null}
-                    </div>
-                    <div className="col" style={{ alignItems: "flex-end", gap: 4 }}>
-                      <span className="bold" style={{ color: "var(--green-600)" }}>{inr(pk.price)}</span>
-                      <button
-                        className="btn btn-primary btn-sm"
-                        style={{ fontSize: 11, padding: "4px 12px" }}
-                        onClick={() => { setSchedulingPkg({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }); setScheduling(true); }}
-                      >Book</button>
-                    </div>
-                  </div>
-                ))}
-                {b.catalog.length > 0 && <div className="divider" style={{ margin: "4px 0" }} />}
+          <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
+            {b.catalog.length === 0 && (
+              <div className="col center" style={{ padding: "32px 0", gap: 8 }}>
+                <span style={{ fontSize: 32 }}>🛒</span>
+                <span className="small muted">No items listed yet.</span>
               </div>
             )}
             {b.catalog.map((item) => {
               const qty = cart[item.id] ?? 0;
               return (
-                <div key={item.id} className="row gap-12" style={{ alignItems: "flex-start" }}>
+                <div key={item.id} className="card row gap-12" style={{ alignItems: "flex-start", padding: "14px 14px 18px" }}>
                   <div className="grow" style={{ minWidth: 0 }}>
                     {item.isVeg != null && <VegDot veg={item.isVeg} />}
                     {item.bestSeller && <span className="badge badge-amber" style={{ marginLeft: 6 }}>⭐ Bestseller</span>}
@@ -391,6 +515,9 @@ export default function BusinessDetail() {
                       </div>
                     )}
                     {item.stockStatus === "LIMITED" && <span className="badge badge-amber" style={{ marginTop: 6 }}>Few left</span>}
+                    {item.inventoryType === "FINITE" && item.stockStatus !== "OUT_OF_STOCK" && (item.quantity ?? 0) > 0 && (
+                      <span className="badge badge-amber" style={{ marginTop: 6 }}>{item.quantity} left</span>
+                    )}
                     {!isOwner && item.stockStatus !== "OUT_OF_STOCK" && (
                       <button
                         className="btn btn-outline btn-sm"
@@ -425,7 +552,7 @@ export default function BusinessDetail() {
         )}
 
         {tab === "posts" && (
-          <div className="page-pad col gap-12">
+          <div className="page-pad col gap-12" style={{ paddingTop: 18 }}>
             {(bizPosts ?? []).length === 0 ? (
               <EmptyState emoji="📣" title="No posts yet" text="This business hasn't posted to the community yet." />
             ) : (
@@ -452,30 +579,39 @@ export default function BusinessDetail() {
           </div>
         )}
 
-        {tab === "about" && (
-          <div className="page-pad col gap-14">
-            <p className="small" style={{ lineHeight: 1.6 }}>{b.description}</p>
-            <div className="card" style={{ padding: 14 }}>
-              <div className="semi small" style={{ marginBottom: 8 }}>Hours</div>
-              <div className="row between small"><span className="muted">Mon – Sun</span><span className="semi">{b.hours}</span></div>
-              <div className="divider" />
-              <div className="semi small" style={{ marginBottom: 8 }}>Address</div>
-              <p className="small muted">{b.addressLine1}, {b.city} – {b.pincode}</p>
-            </div>
-            <div
-              style={{ height: 130, borderRadius: 16, background: "linear-gradient(120deg,#eef1f5,#e3f2fd)", position: "relative", overflow: "hidden" }}
-              onClick={() => nav("/map")}
-            >
-              <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-100%)" }}>
-                <MapPin size={36} color="var(--orange-500)" fill="var(--orange-500)" />
+        {tab === "work" && (
+          <div className="page-pad" style={{ paddingTop: 18 }}>
+            {(b.portfolio ?? []).length === 0 ? (
+              <EmptyState emoji="🖼️" title="No work samples yet" text="This shop hasn't added portfolio photos." />
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {(b.portfolio ?? []).map((item) => (
+                  <div key={item.id}>
+                    <SafeImg src={item.url} alt={item.caption} className="thumb" style={{ width: "100%", height: 140, borderRadius: 14, objectFit: "cover" }} />
+                    {item.caption && <div className="tiny muted" style={{ marginTop: 4 }}>{item.caption}</div>}
+                  </div>
+                ))}
               </div>
-              <span className="tiny semi" style={{ position: "absolute", bottom: 10, right: 12, background: "#fff", padding: "4px 10px", borderRadius: 8 }}>Open in map</span>
+            )}
+          </div>
+        )}
+
+        {tab === "about" && (
+          <div className="page-pad col gap-16" style={{ paddingTop: 18 }}>
+            {b.description && <p className="small" style={{ lineHeight: 1.7, color: "var(--ink-700)" }}>{b.description}</p>}
+            <div className="card col gap-10" style={{ padding: 16 }}>
+              <div className="small semi" style={{ marginBottom: 6 }}>Hours</div>
+              <div className="row between small" style={{ padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span className="muted">Mon – Sun</span><span className="semi">{b.hours}</span></div>
+              <div className="small semi" style={{ marginTop: 10, marginBottom: 6 }}>Address</div>
+              <p className="small muted" style={{ lineHeight: 1.5 }}>{b.addressLine1}, {b.city} – {b.pincode}</p>
             </div>
+            {/* Real location map — one tap opens turn-by-turn directions */}
+            <MiniMap lat={b.lat} lng={b.lng} pinColor="var(--orange-500)" label={b.addressLine1 || b.city} />
 
             {/* Q&A */}
             <div>
-              <div className="semi small row gap-6" style={{ marginBottom: 8 }}><HelpCircle size={15} color="#6366f1" /> Questions & Answers</div>
-              <div className="card" style={{ padding: 12 }}>
+              <div className="semi small row gap-6" style={{ marginBottom: 8 }}><HelpCircle size={15} color="var(--blue-500)" /> Questions & Answers</div>
+              <div className="card card-condensed">
                 <textarea
                   className="input"
                   placeholder="Ask the owner a question…"
@@ -487,17 +623,44 @@ export default function BusinessDetail() {
                   {askingNow ? "Sending…" : "Ask question"}
                 </button>
               </div>
-              {(qnaList ?? []).filter((q) => q.answer).length > 0 && (
+              {(qnaList ?? []).filter((q) => !q.answer).length > 0 && (
                 <div className="col gap-10" style={{ marginTop: 10 }}>
+                  <div className="tiny semi muted">Waiting for an answer</div>
+                  {[...(qnaList ?? [])].filter((q) => !q.answer).sort((a, b) => b.upvotes - a.upvotes).map((q) => (
+                    <div key={q.id} className="card card-condensed row gap-10">
+                      <button
+                        className="col center"
+                        style={{ gap: 2, flexShrink: 0, color: q.upvoted ? "var(--brand-700)" : "var(--ink-400)" }}
+                        onClick={() => toggleQuestionUpvote(q)}
+                        aria-label="Upvote question"
+                      >
+                        <ThumbsUp size={16} fill={q.upvoted ? "var(--brand-700)" : "none"} />
+                        <span className="tiny semi">{q.upvotes}</span>
+                      </button>
+                      <div className="grow">
+                        <div className="row between">
+                          <span className="semi small">{q.askerName}</span>
+                          <span className="tiny muted">{q.askedAt}</span>
+                        </div>
+                        <p className="small" style={{ marginTop: 4 }}>{q.question}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {(qnaList ?? []).filter((q) => q.answer).length > 0 && (
+                <div className="col gap-10" style={{ marginTop: 14 }}>
                   {(qnaList ?? []).filter((q) => q.answer).map((q) => (
-                    <div key={q.id} className="card" style={{ padding: 12 }}>
+                    <div key={q.id} className="card card-condensed">
                       <div className="row between">
                         <span className="semi small">{q.askerName}</span>
                         <span className="tiny muted">{q.askedAt}</span>
                       </div>
                       <p className="small" style={{ marginTop: 4 }}>{q.question}</p>
-                      <div className="card" style={{ padding: 10, marginTop: 8, background: "var(--brand-50)", border: "none" }}>
-                        <div className="tiny semi" style={{ color: "var(--brand-700)", marginBottom: 2 }}>Owner</div>
+                      <div className="card card-condensed" style={{ marginTop: 8, background: "var(--brand-50)", border: "none" }}>
+                        <div className="tiny semi row gap-4" style={{ color: "var(--brand-700)", marginBottom: 2, alignItems: "center" }}>
+                          <BadgeCheck size={12} /> Verified answer
+                        </div>
                         <p className="small">{q.answer}</p>
                       </div>
                     </div>
@@ -509,11 +672,11 @@ export default function BusinessDetail() {
         )}
 
         {tab === "reviews" && (
-          <div className="page-pad col gap-14">
+          <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
             <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
               <Star size={16} /> Write a Review
             </button>
-            <div className="card row gap-16" style={{ padding: 16 }}>
+            <div className="card row gap-16" style={{ padding: 18 }}>
               <div className="col center">
                 <span className="bold" style={{ fontSize: 34, lineHeight: 1 }}>{b.ratingAvg}</span>
                 <StarRow value={b.ratingAvg} size={13} />
@@ -536,13 +699,23 @@ export default function BusinessDetail() {
                 })}
               </div>
             </div>
+            {(reviews ?? []).length === 0 && (
+              <EmptyState emoji="⭐" title="No reviews yet" text="Be the first to leave a review!" />
+            )}
             {(reviews ?? []).map((rv) => (
-              <div key={rv.id} className="row gap-10" style={{ alignItems: "flex-start" }}>
-                <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 38, height: 38 }} />
+              <div key={rv.id} className="card row gap-12" style={{ alignItems: "flex-start", padding: "14px 14px" }}>
+                <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
                 <div className="grow">
                   <div className="row between"><span className="semi small">{rv.raterName}</span><span className="tiny muted">{rv.date}</span></div>
-                  <StarRow value={rv.rating} size={12} />
-                  <p className="small" style={{ marginTop: 4, lineHeight: 1.45 }}>{rv.comment}</p>
+                  <div className="row gap-8 align-center">
+                    <StarRow value={rv.rating} size={12} />
+                    {rv.isVerifiedBooking && (
+                      <span className="tiny semi row gap-2" style={{ color: "var(--green-600)", alignItems: "center" }}>
+                        <BadgeCheck size={11} /> Verified booking
+                      </span>
+                    )}
+                  </div>
+                  <p className="small" style={{ marginTop: 6, lineHeight: 1.55 }}>{rv.comment}</p>
                 </div>
               </div>
             ))}
@@ -570,8 +743,30 @@ export default function BusinessDetail() {
         </div>
       )}
 
+      {payingApt && (
+        <PaymentSheet
+          appointment={payingApt}
+          businessUpiId={b.upiId ?? null}
+          businessName={b.name}
+          onPaid={refetchMyAppointments}
+          onClose={() => setPayingApt(null)}
+        />
+      )}
+      {payingQueueTokenId && (
+        <QueuePaymentSheet
+          tokenId={payingQueueTokenId}
+          businessName={b.name}
+          businessUpiId={b.upiId ?? null}
+          onPaid={refetchMyQueues}
+          onClose={() => setPayingQueueTokenId(null)}
+        />
+      )}
+
+      {viewingHighlight !== null && (
+        <StoryViewer stories={highlights} startIndex={viewingHighlight} onClose={() => setViewingHighlight(null)} />
+      )}
       {report && <ReportSheet targetType="BUSINESS" targetId={b.id} name={b.name} onClose={() => setReport(false)} />}
-      {share && <ShareCard title={b.name} subtitle={`${b.subCategory} • ${b.distanceKm} km`} image={b.coverImage} meta={`⭐ ${b.ratingAvg} (${b.ratingCount}) • ${b.city}`} url={window.location.origin + "/business/" + b.id} onClose={() => setShare(false)} />}
+      {share && <ShareCard title={b.name} subtitle={b.subCategory} image={b.coverImage} meta={`${b.ratingCount > 0 ? `⭐ ${b.ratingAvg} (${b.ratingCount}) • ` : ""}${b.city}`} url={window.location.origin + "/business/" + b.id} onClose={() => setShare(false)} />}
       {addList && <AddToListSheet type="BUSINESS" id={b.id} onClose={() => setAddList(false)} />}
       {reviewing && (
         <ReviewSheet
@@ -594,12 +789,12 @@ export default function BusinessDetail() {
           packages={
             checkoutMode && schedulingPkg
               ? [schedulingPkg]
-              : (bizPackages ?? []).length > 0
-              ? (bizPackages ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }))
               : (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price }))
           }
           initialPackage={schedulingPkg}
           initialNotes={checkoutMode ? checkoutNotes : undefined}
+          paymentTiming={b.paymentTiming}
+          payeeUpiId={b.upiId}
           onBooked={() => { if (checkoutMode) setCart({}); }}
           onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); }}
         />

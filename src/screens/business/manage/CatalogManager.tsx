@@ -1,17 +1,27 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, VegDot, inr } from "@/components/common";
-import { Plus, Pencil, Trash2, Camera, Star, Tag } from "lucide-react";
-import { businessService, uploadService } from "@/services";
+import { Plus, Pencil, Trash2, Camera, Star, Tag } from "@/components/Icons";
+import { businessService, providerService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { CatalogItem } from "@/types";
 
-export default function CatalogManager() {
+type Kind = "business" | "provider";
+
+function serviceFor(kind: Kind) {
+  return kind === "business" ? businessService : providerService;
+}
+
+export function CatalogManager({ kind }: { kind: Kind }) {
   const { id = "" } = useParams();
   const { showToast } = useApp();
-  const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id]);
+  const service = serviceFor(kind);
+  const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[] } | undefined>(
+    () => (kind === "business" ? businessService.get(id) : providerService.get(id)),
+    [id]
+  );
 
   if (!id) {
     return (
@@ -25,18 +35,18 @@ export default function CatalogManager() {
   const [creating, setCreating] = useState(false);
 
   if (loading) return <div className="screen"><AppBar title="Catalog" /><ListSkeleton count={3} /></div>;
-  if (!b) return null;
-
+  if (!entity) return null;
+  const catalog: CatalogItem[] = entity.catalog ?? [];
 
   async function remove(item: CatalogItem) {
-    await businessService.deleteCatalogItem(id, item.id);
+    await service.deleteCatalogItem(id, item.id);
     showToast("Item removed");
     refetch();
   }
 
   async function toggleStock(item: CatalogItem) {
     const next = item.stockStatus === "OUT_OF_STOCK" ? "IN_STOCK" : "OUT_OF_STOCK";
-    await businessService.updateCatalogItem(id, item.id, { stockStatus: next });
+    await service.updateCatalogItem(id, item.id, { stockStatus: next });
     showToast(next === "OUT_OF_STOCK" ? "Marked as unavailable" : "Marked as available");
     refetch();
   }
@@ -45,11 +55,11 @@ export default function CatalogManager() {
     <div className="screen">
       <AppBar
         title="Catalog"
-        subtitle={b.catalog.length > 0 ? `${b.catalog.length} listing${b.catalog.length === 1 ? "" : "s"}` : "Products, services & items"}
-        right={b.catalog.length > 0 ? <button className="icon-btn" onClick={() => setCreating(true)}><Plus size={20} /></button> : undefined}
+        subtitle={catalog.length > 0 ? `${catalog.length} listing${catalog.length === 1 ? "" : "s"}` : "Products, services & items"}
+        right={catalog.length > 0 ? <button className="icon-btn" onClick={() => setCreating(true)}><Plus size={20} /></button> : undefined}
       />
       <div className="screen-scroll page-pad col gap-12" style={{ paddingBottom: 30 }}>
-        {b.catalog.length === 0 && (
+        {catalog.length === 0 && (
           <div className="col center" style={{ padding: "48px 20px", gap: 12 }}>
             <Tag size={36} color="var(--ink-300)" />
             <div className="semi small" style={{ color: "var(--ink-500)" }}>No listings yet</div>
@@ -59,7 +69,7 @@ export default function CatalogManager() {
             <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>Add first listing</button>
           </div>
         )}
-        {b.catalog.map((item) => (
+        {catalog.map((item) => (
           <div key={item.id} className="card row gap-12" style={{ padding: 12 }}>
             {item.image
               ? <img src={item.image} className="thumb" style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
@@ -67,7 +77,7 @@ export default function CatalogManager() {
             }
             <div className="grow" style={{ minWidth: 0 }}>
               <div className="row gap-6">
-                {item.isVeg != null && <VegDot veg={item.isVeg} />}
+                {item.isFood && item.isVeg != null && <VegDot veg={item.isVeg} />}
                 <span className="semi small ellipsis">{item.name}</span>
                 {item.bestSeller && <Star size={13} fill="var(--amber-500)" strokeWidth={0} />}
               </div>
@@ -76,13 +86,23 @@ export default function CatalogManager() {
                 <span className="bold small">{inr(item.salePrice ?? item.price)}</span>
                 {item.salePrice && <span className="tiny muted" style={{ textDecoration: "line-through" }}>{inr(item.price)}</span>}
               </div>
-              <button
-                className="tiny semi"
-                style={{ color: item.stockStatus === "OUT_OF_STOCK" ? "var(--red-600)" : "var(--green-500)", marginTop: 4 }}
-                onClick={() => toggleStock(item)}
-              >
-                {item.stockStatus === "OUT_OF_STOCK" ? "○ Unavailable — tap to mark available" : "● Available"}
-              </button>
+              {item.inventoryType === "FINITE" ? (
+                <button
+                  className="tiny semi"
+                  style={{ color: (item.quantity ?? 0) > 0 ? "var(--green-500)" : "var(--red-600)", marginTop: 4 }}
+                  onClick={() => setEditing(item)}
+                >
+                  {(item.quantity ?? 0) > 0 ? `● ${item.quantity} in stock` : "○ Sold out — tap to restock"}
+                </button>
+              ) : (
+                <button
+                  className="tiny semi"
+                  style={{ color: item.stockStatus === "OUT_OF_STOCK" ? "var(--red-600)" : "var(--green-500)", marginTop: 4 }}
+                  onClick={() => toggleStock(item)}
+                >
+                  {item.stockStatus === "OUT_OF_STOCK" ? "○ Unavailable — tap to mark available" : "● Available"}
+                </button>
+              )}
             </div>
             <div className="col gap-8">
               <button className="icon-btn" style={{ width: 34, height: 34 }} onClick={() => setEditing(item)}><Pencil size={15} /></button>
@@ -94,7 +114,8 @@ export default function CatalogManager() {
 
       {(creating || editing) && (
         <ItemEditor
-          bizId={id}
+          kind={kind}
+          targetId={id}
           item={editing}
           onClose={() => { setCreating(false); setEditing(null); }}
           onSaved={() => { setCreating(false); setEditing(null); refetch(); }}
@@ -105,14 +126,16 @@ export default function CatalogManager() {
 }
 
 function ItemEditor({
-  bizId, item, onClose, onSaved,
+  kind, targetId, item, onClose, onSaved,
 }: {
-  bizId: string;
+  kind: Kind;
+  targetId: string;
   item: CatalogItem | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { showToast } = useApp();
+  const service = serviceFor(kind);
   const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(item?.name ?? "");
   const [desc, setDesc] = useState(item?.description ?? "");
@@ -120,10 +143,14 @@ function ItemEditor({
   const [sale, setSale] = useState(item?.salePrice?.toString() ?? "");
   const [image, setImage] = useState(item?.image ?? "");
   const [best, setBest] = useState(item?.bestSeller ?? false);
+  const [isFood, setIsFood] = useState(item?.isFood ?? false);
+  const [isVeg, setIsVeg] = useState(item?.isVeg ?? true);
+  const [invType, setInvType] = useState<"INFINITE" | "FINITE">(item?.inventoryType ?? "INFINITE");
+  const [qty, setQty] = useState(item?.quantity != null ? String(item.quantity) : "");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const canSave = name.trim().length > 1 && !!price;
+  const canSave = name.trim().length > 1 && !!price && (invType !== "FINITE" || qty !== "");
 
   async function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -142,6 +169,7 @@ function ItemEditor({
   async function save() {
     setSaving(true);
     try {
+      const finiteQty = invType === "FINITE" ? Math.max(0, Number(qty) || 0) : null;
       const payload: Partial<CatalogItem> = {
         name,
         description: desc,
@@ -149,9 +177,17 @@ function ItemEditor({
         salePrice: sale ? Number(sale) : undefined,
         image: image || undefined,
         bestSeller: best,
+        isFood,
+        isVeg: isFood ? isVeg : null,
+        inventoryType: invType,
+        quantity: finiteQty,
+        // Finite items track availability by count: restocking above zero makes
+        // it available again, dropping to zero hides it. Infinite items keep
+        // whatever manual availability the row already had.
+        ...(invType === "FINITE" ? { stockStatus: (finiteQty ?? 0) > 0 ? "IN_STOCK" : "OUT_OF_STOCK" } : {}),
       };
-      if (item) await businessService.updateCatalogItem(bizId, item.id, payload);
-      else await businessService.addCatalogItem(bizId, payload);
+      if (item) await service.updateCatalogItem(targetId, item.id, payload);
+      else await service.addCatalogItem(targetId, payload);
       showToast(item ? "Item updated" : "Item added");
       onSaved();
     } catch {
@@ -165,7 +201,7 @@ function ItemEditor({
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
-        <h3 className="bold" style={{ fontSize: 18, marginBottom: 14 }}>{item ? "Edit listing" : "New listing"}</h3>
+        <h3 className="bold h2" style={{ marginBottom: 14 }}>{item ? "Edit listing" : "New listing"}</h3>
 
         {/* Photo picker */}
         <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--ink-300)", overflow: "hidden", marginBottom: 14, cursor: "pointer", background: "var(--ink-50)" }}>
@@ -189,8 +225,52 @@ function ItemEditor({
           </div>
           <div className="row gap-10">
             <div className="field grow"><label>Price ₹ *</label><input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} /></div>
-            <div className="field grow"><label>Offer price ₹</label><input className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} placeholder="Optional" /></div>
+            <div className="field grow"><label>Sale price ₹</label><input className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} placeholder="Optional" /></div>
           </div>
+
+          {/* Inventory mode — countable stock vs an always-available service */}
+          <div className="field">
+            <label>Availability</label>
+            <div className="row gap-8">
+              <button className={`chip ${invType === "INFINITE" ? "active" : ""}`} onClick={() => setInvType("INFINITE")} style={{ flex: 1, justifyContent: "center" }}>Always available</button>
+              <button className={`chip ${invType === "FINITE" ? "active" : ""}`} onClick={() => setInvType("FINITE")} style={{ flex: 1, justifyContent: "center" }}>Limited stock</button>
+            </div>
+            <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
+              {invType === "FINITE"
+                ? "Each booking uses one unit. Sells out at zero — raise the count to restock."
+                : "Services like a haircut or consultation — bookable any number of times."}
+            </p>
+          </div>
+
+          {invType === "FINITE" && (
+            <div className="field">
+              <label>Quantity in stock *</label>
+              <input className="input" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder="e.g. 25" />
+            </div>
+          )}
+
+          <div className="field">
+            <label>Is this a food item?</label>
+            <div className="row gap-8">
+              <button className={`chip ${isFood ? "active" : ""}`} onClick={() => setIsFood(true)} style={{ flex: 1, justifyContent: "center" }}>Food item</button>
+              <button className={`chip ${!isFood ? "active" : ""}`} onClick={() => setIsFood(false)} style={{ flex: 1, justifyContent: "center" }}>Not a food item</button>
+            </div>
+          </div>
+
+          {isFood && (
+            <div className="field">
+              <label>Veg / Non-veg</label>
+              <div className="row gap-8">
+                <button className={`chip ${isVeg ? "active" : ""}`} onClick={() => setIsVeg(true)} style={{ flex: 1, justifyContent: "center" }}>
+                  <VegDot veg /> Veg
+                </button>
+                <button className={`chip ${!isVeg ? "active" : ""}`} onClick={() => setIsVeg(false)} style={{ flex: 1, justifyContent: "center" }}>
+                  <VegDot veg={false} /> Non-veg
+                </button>
+              </div>
+            </div>
+          )}
+
           <button className={`chip ${best ? "active" : ""}`} onClick={() => setBest((v) => !v)} style={{ justifyContent: "center" }}>
             ⭐ Mark as featured
           </button>
@@ -202,4 +282,8 @@ function ItemEditor({
       </div>
     </div>
   );
+}
+
+export default function BusinessCatalogManager() {
+  return <CatalogManager kind="business" />;
 }

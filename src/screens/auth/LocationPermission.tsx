@@ -1,80 +1,59 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { MapPin, Navigation } from "lucide-react";
+import { useState } from "react";
+import { MapPin, Navigation } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService } from "@/services";
-import { reverseGeocode, forwardGeocode } from "@/lib/geocode";
+import { reverseGeocode } from "@/lib/geocode";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 export default function LocationPermission() {
   const nav = useNavigate();
   const { showToast, setArea, refreshUser } = useApp();
   const [locating, setLocating] = useState(false);
-  const [manualMode, setManualMode] = useState(false);
-  const [manualArea, setManualArea] = useState("");
+  const [failed, setFailed] = useState(false);
 
-  // Mark location prompt as seen so Protected doesn't re-redirect after "Skip".
-  useEffect(() => {
+  function markLocationPromptSeen() {
     localStorage.setItem("locationPromptShown", "true");
-  }, []);
+  }
+
+  function skip() {
+    markLocationPromptSeen();
+    nav("/home");
+  }
 
   function allow() {
     setLocating(true);
-    if (!navigator.geolocation) {
-      void userService.setLocation(0, 0).catch(() => {});
-      setArea("your area");
-      showToast("Location set");
-      nav("/home");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
+    setFailed(false);
+    nativeGeolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
-        // Auto-name the area from the GPS fix (e.g. "Marathahalli") so the user
-        // doesn't type it. Only fall back to manual entry when it can't be named.
+        // Auto-name the area from the GPS fix (e.g. "Marathahalli"). If it can't
+        // be named, still save the coordinates — feeds work off lat/lng, the
+        // label is just cosmetic — rather than making the user type it.
         const areaName = await reverseGeocode(latitude, longitude);
         try {
           await userService.setLocation(latitude, longitude, areaName ?? undefined);
           await refreshUser();
-        } catch { /* ignore */ }
-        if (areaName) {
-          setArea(areaName);
-          showToast(`Location set — ${areaName} ✓`);
-          nav("/home");
-        } else {
-          // Coordinates saved, but the area isn't on the map — let them name it.
+        } catch {
           setLocating(false);
-          showToast("Got your location — name your area");
-          setManualMode(true);
+          setFailed(true);
+          showToast("Got your GPS location, but couldn't save it. Check connection and try again.");
+          return;
         }
-      },
-      () => {
         setLocating(false);
-        showToast("Couldn't get location. Enter it manually.");
-        setManualMode(true);
+        markLocationPromptSeen();
+        setArea(areaName ?? "your area");
+        showToast(areaName ? `Location set — ${areaName} ✓` : "Location set ✓");
+        nav("/home");
       },
-      { enableHighAccuracy: false, timeout: 8000 }
+      (err) => {
+        setLocating(false);
+        setFailed(true);
+        if (err.code === 1) markLocationPromptSeen();
+        showToast(err.code === 1 ? "Location permission denied — you can skip or enable it in phone settings" : "Couldn't get location — check permissions and try again");
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
     );
-  }
-
-  async function saveManual() {
-    const a = manualArea.trim();
-    if (!a) { nav("/home"); return; }
-    let resolvedLat = 0;
-    let resolvedLng = 0;
-    try {
-      const places = await forwardGeocode(a);
-      if (places.length > 0) {
-        resolvedLat = places[0].lat;
-        resolvedLng = places[0].lng;
-      }
-    } catch { /* ignore */ }
-    try {
-      await userService.setLocation(resolvedLat, resolvedLng, a);
-      await refreshUser();
-    } catch { /* ignore */ }
-    setArea(a);
-    showToast(`Area set to ${a}`);
-    nav("/home");
   }
 
   return (
@@ -96,13 +75,13 @@ export default function LocationPermission() {
           <MapPin size={52} color="var(--brand-600)" />
         </div>
 
-        <h1 style={{ fontSize: 26, fontWeight: 800, marginTop: 32 }}>Enable location</h1>
+        <h1 className="h1" style={{ marginTop: 32 }}>Enable location</h1>
         <p className="muted" style={{ marginTop: 10, maxWidth: 300, lineHeight: 1.55 }}>
           STRYT is all about what's <span className="semi" style={{ color: "var(--ink-900)" }}>near you</span>. We use your location to show
           local businesses, providers and requests within your radius.
         </p>
 
-        <div className="card" style={{ marginTop: 28, padding: 14, textAlign: "left", width: "100%" }}>
+        <div className="card" style={{ marginTop: 28, textAlign: "left", width: "100%" }}>
           <div className="row gap-10 small">
             <Navigation size={18} color="var(--green-500)" />
             <span>We only store your <span className="semi">last location</span> — never a trail.</span>
@@ -111,43 +90,21 @@ export default function LocationPermission() {
       </div>
 
       <div className="page-pad col gap-10">
-        {manualMode ? (
-          <>
-            <div className="field">
-              <label className="small semi">Your neighbourhood / area</label>
-              <input
-                className="input"
-                placeholder="e.g. Koregaon Park, Pune"
-                value={manualArea}
-                onChange={(e) => setManualArea(e.target.value)}
-                autoFocus
-              />
-            </div>
-            <button
-              className="btn btn-primary btn-block"
-              disabled={!manualArea.trim()}
-              onClick={() => void saveManual()}
-            >
-              Save & continue
-            </button>
-            <button className="btn btn-ghost btn-block" onClick={() => nav("/home")}>
-              Skip for now
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              className="btn btn-primary btn-block"
-              disabled={locating}
-              onClick={allow}
-            >
-              {locating ? "Getting location…" : "Allow location access"}
-            </button>
-            <button className="btn btn-ghost btn-block" onClick={() => setManualMode(true)}>
-              Enter manually
-            </button>
-          </>
+        {failed && (
+          <p className="small" style={{ color: "var(--red-600)", textAlign: "center", marginBottom: 2 }}>
+            Couldn't get your location. Check that location access is allowed for STRYT, then try again.
+          </p>
         )}
+        <button
+          className="btn btn-primary btn-block"
+          disabled={locating}
+          onClick={allow}
+        >
+          {locating ? "Getting location…" : failed ? "Try again" : "Allow location access"}
+        </button>
+        <button className="btn btn-ghost btn-block" onClick={skip}>
+          Skip for now
+        </button>
       </div>
     </div>
   );

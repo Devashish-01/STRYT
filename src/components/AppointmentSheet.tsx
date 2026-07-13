@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
-import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2 } from "lucide-react";
+import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2 } from "@/components/Icons";
 import { useApp } from "@/store";
-import { generateWorkingSlots, type AppointmentSlot, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { uploadService } from "@/services/uploadService";
-import { appointmentService } from "@/services/appointmentService";
-import { slotBlockService } from "@/services/slotBlockService";
+import { generateWorkingSlots, isWorkingDay, type AppointmentSlot, DEFAULT_WORKING_HOURS } from "@/utils/availability";
+import { uploadService } from "@/services/core/uploadService";
+import { appointmentService } from "@/services/engagement/appointmentService";
+import { slotBlockService } from "@/services/engagement/slotBlockService";
 import type { AppointmentRecord, BlockedSlot } from "@/types";
+import { displayName as safeName } from "@/lib/publicName";
 import { Skeleton } from "@/components/states";
+import { PaymentSheet } from "@/components/PaymentSheet";
 
 export interface BookingPackage {
   id: string;
@@ -25,6 +27,12 @@ interface AppointmentSheetProps {
   initialPackage?: BookingPackage | null;
   /** Pre-fills the notes field (e.g. an itemized cart list on checkout) — still editable. */
   initialNotes?: string;
+  /** When the seller collects payment. AT_BOOKING prompts payment immediately after booking, before the seller can accept. */
+  paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
+  /** Seller's UPI ID, passed through to the post-booking payment step when paymentTiming is AT_BOOKING. */
+  payeeUpiId?: string | null;
+  /** Id of the appointment being replaced, when this sheet is opened from the reschedule flow. */
+  rescheduledFromId?: string;
   onClose: () => void;
   /** Fired after a booking is successfully created (before the sheet closes). */
   onBooked?: () => void;
@@ -39,6 +47,9 @@ export function AppointmentSheet({
   availableNow = false,
   initialPackage,
   initialNotes,
+  paymentTiming = "AT_APPOINTMENT",
+  payeeUpiId,
+  rescheduledFromId,
   onClose,
   onBooked,
 }: AppointmentSheetProps) {
@@ -56,6 +67,13 @@ export function AppointmentSheet({
   const [customerAppointments, setCustomerAppointments] = useState<AppointmentRecord[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [loadingApts, setLoadingApts] = useState(true);
+  const [bookedAppointment, setBookedAppointment] = useState<AppointmentRecord | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+    };
+  }, [photoPreview]);
 
   useEffect(() => {
     let active = true;
@@ -95,17 +113,28 @@ export function AppointmentSheet({
   const selectedDate = dates[dayOffset] || new Date();
   const slots = generateWorkingSlots(availabilityNote, selectedDate, existingAppointments, blockedSlots);
 
+  // Default to the first working day rather than always "Today" when today is closed.
+  useEffect(() => {
+    if (dayOffset !== 0) return;
+    if (isWorkingDay(availabilityNote, dates[0])) return;
+    const firstOpen = dates.findIndex((d) => isWorkingDay(availabilityNote, d));
+    if (firstOpen > 0) setDayOffset(firstOpen);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availabilityNote]);
+
   const isSameDay = (d1: Date, d2: Date) =>
     d1.getFullYear() === d2.getFullYear() &&
     d1.getMonth() === d2.getMonth() &&
     d1.getDate() === d2.getDate();
 
-  const hasAptToday = customerAppointments.some(
+  const DAILY_APPOINTMENT_LIMIT = 5;
+  const aptsTodayCount = customerAppointments.filter(
     (apt) =>
       apt.status !== "CANCELLED" &&
       apt.status !== "REJECTED" &&
       isSameDay(new Date(apt.scheduledForISO), selectedDate)
-  );
+  ).length;
+  const hasAptToday = aptsTodayCount >= DAILY_APPOINTMENT_LIMIT;
 
   function handlePhotoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -120,7 +149,6 @@ export function AppointmentSheet({
 
   function removePhoto() {
     setPhotoFile(null);
-    if (photoPreview) URL.revokeObjectURL(photoPreview);
     setPhotoPreview(null);
   }
 
@@ -138,12 +166,12 @@ export function AppointmentSheet({
         setUploading(false);
       }
 
-      await appointmentService.create({
+      const created = await appointmentService.create({
         targetId,
         targetName,
         targetType,
         customerId: user.id || "guest",
-        customerName: user.name || "Customer",
+        customerName: safeName(user.name, "Customer"),
         customerAvatar: user.avatar,
         scheduledForISO: selectedSlot.isoTimestamp,
         dateLabel: selectedSlot.dateLabel,
@@ -153,17 +181,42 @@ export function AppointmentSheet({
         packageId: selectedPkg?.id,
         packageName: selectedPkg?.name,
         packagePrice: selectedPkg?.price,
+        rescheduledFrom: rescheduledFromId ?? null,
       });
 
       showToast(`Appointment scheduled for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`);
-      onBooked?.();
-      onClose();
+
+      if (paymentTiming === "AT_BOOKING") {
+        // Pay now, before the seller can accept — sheet hands off to PaymentSheet below.
+        setBookedAppointment(created);
+      } else {
+        onBooked?.();
+        onClose();
+      }
     } catch (err: any) {
       showToast(err?.message || "Couldn't schedule appointment. Try again.");
     } finally {
       setUploading(false);
       setSubmitting(false);
     }
+  }
+
+  if (bookedAppointment) {
+    return (
+      <PaymentSheet
+        appointment={bookedAppointment}
+        businessUpiId={payeeUpiId}
+        businessName={targetName}
+        onPaid={() => {
+          onBooked?.();
+          onClose();
+        }}
+        onClose={() => {
+          onBooked?.();
+          onClose();
+        }}
+      />
+    );
   }
 
   return (
@@ -187,7 +240,7 @@ export function AppointmentSheet({
           background: "#fff",
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
-          padding: 20,
+          padding: "20px 20px calc(20px + var(--safe-area-bottom))",
           maxHeight: "90vh",
           overflowY: "auto",
           animation: "slideUp .25s ease-out",
@@ -211,17 +264,17 @@ export function AppointmentSheet({
 
         {/* Availability info card */}
         {availableNow ? (
-          <div className="card" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0", marginBottom: 16 }}>
+          <div className="card card-condensed" style={{ background: "var(--green-100)", border: "1px solid var(--green-500)", marginBottom: 16 }}>
             <div className="row gap-8 center-v">
               <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--green-500)", boxShadow: "0 0 0 3px rgba(22,163,74,0.18)" }} />
               <div>
-                <div className="bold small" style={{ color: "#15803d" }}>Available now</div>
-                <div className="tiny" style={{ color: "#166534", marginTop: 1 }}>Pick the earliest slot below — they can take you right away.</div>
+                <div className="bold small" style={{ color: "var(--green-600)" }}>Available now</div>
+                <div className="tiny" style={{ color: "var(--green-700)", marginTop: 1 }}>Pick the earliest slot below — they can take you right away.</div>
               </div>
             </div>
           </div>
         ) : (
-          <div className="card" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)", marginBottom: 16 }}>
+          <div className="card card-condensed" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-100)", marginBottom: 16 }}>
             <div className="row gap-8 center-v">
               <Clock size={16} color="var(--brand-700)" />
               <div>
@@ -283,10 +336,12 @@ export function AppointmentSheet({
                 ? "Tomorrow"
                 : d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
               const isSelected = dayOffset === idx;
+              const working = isWorkingDay(availabilityNote, d);
               return (
                 <button
                   key={d.toISOString()}
                   type="button"
+                  disabled={!working}
                   onClick={() => {
                     setDayOffset(idx);
                     setSelectedSlot(null);
@@ -298,6 +353,7 @@ export function AppointmentSheet({
                     borderRadius: 16,
                     fontSize: 13,
                     fontWeight: isSelected ? 700 : 500,
+                    opacity: working ? 1 : 0.4,
                   }}
                 >
                   <CalendarIcon size={13} style={{ marginRight: 4 }} /> {label}
@@ -309,13 +365,13 @@ export function AppointmentSheet({
 
         {/* Daily limit warning */}
         {hasAptToday && (
-          <div className="card" style={{ padding: 12, background: "#fef2f2", border: "1px solid #fee2e2", marginBottom: 16 }}>
+          <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
             <div className="row gap-8 center-v">
               <span style={{ fontSize: 16 }}>⚠️</span>
               <div>
-                <div className="bold small" style={{ color: "#991b1b" }}>Daily Appointment Limit Hit</div>
-                <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>
-                  You already have an appointment scheduled for this day. You can only book one appointment per day.
+                <div className="bold small" style={{ color: "var(--red-600)" }}>Daily Appointment Limit Hit</div>
+                <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>
+                  You've reached the limit of {DAILY_APPOINTMENT_LIMIT} appointments for this day. Please pick another date.
                 </div>
               </div>
             </div>
@@ -464,6 +520,13 @@ export function AppointmentSheet({
           )}
         </div>
 
+        {/* Pay-at-booking notice */}
+        {paymentTiming === "AT_BOOKING" && !hasAptToday && (
+          <div className="tiny muted center" style={{ marginBottom: 10 }}>
+            This seller requires payment upfront — you'll pay right after confirming.
+          </div>
+        )}
+
         {/* Confirm Action Button */}
         <button
           type="button"
@@ -477,7 +540,9 @@ export function AppointmentSheet({
             : hasAptToday
             ? "Daily Limit Exceeded"
             : selectedSlot
-            ? `Confirm Booking for ${selectedSlot.timeLabel}`
+            ? paymentTiming === "AT_BOOKING"
+              ? `Confirm & Pay for ${selectedSlot.timeLabel}`
+              : `Confirm Booking for ${selectedSlot.timeLabel}`
             : "Select a Time Slot"}
         </button>
       </div>

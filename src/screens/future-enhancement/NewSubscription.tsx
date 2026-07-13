@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { subscriptionService } from "@/services/subscriptionService";
+import { subscriptionService } from "@/services/engagement/subscriptionService";
 import { useApp } from "@/store";
 
 const FREQ_OPTIONS = [

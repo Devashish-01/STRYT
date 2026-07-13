@@ -1,0 +1,98 @@
+﻿name: Build & Release Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Create .env file
+        run: |
+          cat > .env << 'EOF'
+          VITE_USE_MOCKS=false
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=zetax-52843.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID=zetax-52843
+          VITE_FIREBASE_STORAGE_BUCKET=zetax-52843.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID=44008185482
+          VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_MAPBOX_TOKEN=${{ secrets.VITE_MAPBOX_TOKEN }}
+          VITE_API_URL=https://stryt.in
+          VITE_APP_URL=https://stryt.in
+          EOF
+
+      - name: Build Vite web app
+        run: npm run build
+
+      - name: Sync Capacitor to Android
+        run: npx cap sync android
+
+      - name: Decode and write release keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/stryt-release.keystore
+
+      - name: Build signed release APK
+        working-directory: android
+        run: |
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$(pwd)/app/stryt-release.keystore \
+            -Pandroid.injected.signing.store.password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.ANDROID_KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Collect APK
+        run: |
+          mkdir -p release-artifacts
+          cp android/app/build/outputs/apk/release/app-release.apk release-artifacts/stryt.apk
+
+      - name: Get commit info
+        id: info
+        run: |
+          echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: "STRYT Android - Latest (${{ steps.info.outputs.date }})"
+          body: |
+            ## STRYT Android App
+
+            **Build:** `${{ steps.info.outputs.sha }}` built on ${{ steps.info.outputs.date }}
+
+            ### Install instructions
+            1. Download `stryt.apk` below
+            2. On Android, open the downloaded file
+            3. Allow "Install unknown apps" if prompted
+            4. Tap Install
+
+            > Direct APK download. Play Store listing coming soon.
+          files: release-artifacts/stryt.apk
+          make_latest: true

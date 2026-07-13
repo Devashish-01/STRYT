@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
-import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import { useParams, useNavigate } from "react-router-dom";
+import { AppBar, EmptyState, SafeImg, inr } from "@/components/common";
 import { requestService, appointmentService, providerService, slotBlockService } from "@/services";
+import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import type { RequestPost, AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
 import ProviderManageNav from "./ProviderManageNav";
-import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2 } from "lucide-react";
+import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2 } from "@/components/Icons";
 import { useApp } from "@/store";
 import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";
@@ -16,15 +17,20 @@ import DayTimetable from "@/components/appointments/DayTimetable";
 import BlockSlotModal from "@/components/appointments/BlockSlotModal";
 import WalkInModal from "@/components/appointments/WalkInModal";
 import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppointments";
+import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
 export default function ProviderLeads() {
   const { id = "" } = useParams();
+  const nav = useNavigate();
   const { showToast } = useApp();
-  const [tab, setTab] = useState<"requests" | "appointments">("requests");
+  const [tab, setTab] = useState<"requests" | "sent" | "appointments">("requests");
   const { data: p } = useQuery(() => providerService.get(id), [id]);
-  const { data: pkgs } = useQuery(() => providerService.packages(id).catch(() => []), [id]);
+  const { data: sentProposals, loading: sentLoading } = useQuery(
+    () => requestService.myProposals(id),
+    [id]
+  );
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
       lat: p?.lat ?? undefined,
@@ -63,13 +69,18 @@ export default function ProviderLeads() {
   const [responseNote, setResponseNote] = useState("");
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [noShowBusy, setNoShowBusy] = useState<string | null>(null);
+  const [processingPayment, setProcessingPayment] = useState<string | null>(null);
 
   const [blockModal, setBlockModal] = useState<{ date: Date; timeLabel: string | null } | null>(null);
   const [blockSubmitting, setBlockSubmitting] = useState(false);
   const [walkInModal, setWalkInModal] = useState<{ date: Date; timeLabel: string } | null>(null);
   const [walkInSubmitting, setWalkInSubmitting] = useState(false);
 
-  const items = ((data?.data ?? []) as RequestPost[]).filter((r) => r.status === "OPEN");
+  // Category-matched open requests only — a request surfaces to the providers
+  // it's actually for (falls through when the request carries no category).
+  const items = ((data?.data ?? []) as RequestPost[])
+    .filter((r) => r.status === "OPEN")
+    .filter((r) => !r.categoryId || !p?.categoryId || r.categoryId === p.categoryId);
   const appointments = aptsData ?? [];
   const blockedSlots = blockedData ?? [];
 
@@ -90,6 +101,24 @@ export default function ProviderLeads() {
       refetchApts();
     } catch {
       showToast("Couldn't update appointment");
+    }
+  }
+
+  async function handlePaymentAction(apt: AppointmentRecord, action: "CONFIRM" | "REJECT") {
+    setProcessingPayment(apt.id);
+    try {
+      if (action === "CONFIRM") {
+        await appointmentService.confirmPayment(apt.id);
+        showToast("Payment confirmed ✓");
+      } else {
+        await appointmentService.rejectPaymentClaim(apt.id);
+        showToast("Payment claim rejected — customer can resubmit.");
+      }
+      refetchApts();
+    } catch {
+      showToast("Couldn't update payment status. Try again.");
+    } finally {
+      setProcessingPayment(null);
     }
   }
 
@@ -183,6 +212,9 @@ export default function ProviderLeads() {
   }
 
   function renderAppointmentCard(apt: AppointmentRecord) {
+    // When this provider collects payment at booking, Accept is gated on the
+    // payment actually clearing.
+    const requiresPaymentFirst = p?.paymentTiming === "AT_BOOKING" && apt.paymentStatus !== "PAID";
     return (
       <div key={apt.id} className="card col gap-10" style={{ padding: 14 }}>
         <div className="row between center-v">
@@ -190,7 +222,7 @@ export default function ProviderLeads() {
             <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 42, height: 42 }} />
             <div>
               <div className="row gap-6 center-v">
-                <div className="bold small">{apt.customerName}</div>
+                <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
                 {apt.isWalkIn && <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>Walk-in</span>}
               </div>
               <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
@@ -236,7 +268,7 @@ export default function ProviderLeads() {
         )}
 
         {apt.responseNote && (
-          <div className="tiny" style={{ color: apt.status === "REJECTED" || apt.status === "CANCELLED" ? "#b45309" : "#15803d", fontStyle: "italic" }}>
+          <div className="tiny" style={{ color: apt.status === "REJECTED" || apt.status === "CANCELLED" ? "var(--amber-700)" : "var(--green-600)", fontStyle: "italic" }}>
             Response: "{apt.responseNote}"
           </div>
         )}
@@ -245,20 +277,38 @@ export default function ProviderLeads() {
           <CancelAttributionNote apt={apt} viewpoint="OWNER" />
         )}
 
+        <PaymentStatusCard
+          paymentStatus={apt.paymentStatus}
+          paymentMethod={apt.paymentMethod}
+          paymentAmount={apt.paymentAmount}
+          paymentReference={apt.paymentReference}
+          claimantName={apt.customerName}
+          viewerIsPayer={false}
+          busy={processingPayment === apt.id}
+          onConfirm={() => handlePaymentAction(apt, "CONFIRM")}
+          onReject={() => handlePaymentAction(apt, "REJECT")}
+        />
+
         {(apt.status === "PENDING" || apt.status === "ACCEPTED") && (
           <div className="row gap-8" style={{ marginTop: 6, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
             {apt.status === "PENDING" && (
               <>
-                <button type="button" className="btn btn-green grow btn-sm row gap-4 center" onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}>
-                  <Check size={14} /> Accept
-                </button>
-                <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
+                {requiresPaymentFirst ? (
+                  <div className="grow tiny muted row" style={{ alignItems: "center" }}>
+                    {apt.paymentStatus === "PENDING_CONFIRM" ? "Verify the payment claim above to accept" : "Waiting for customer to pay before you can accept"}
+                  </div>
+                ) : (
+                  <button type="button" className="btn btn-green grow btn-sm row gap-4 center" onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}>
+                    <Check size={14} /> Accept
+                  </button>
+                )}
+                <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
                   <XIcon size={14} /> Decline
                 </button>
               </>
             )}
             {apt.status === "ACCEPTED" && (
-              <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
+              <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
                 <XIcon size={14} /> Cancel appointment
               </button>
             )}
@@ -301,7 +351,7 @@ export default function ProviderLeads() {
     .filter((a) => a.status === "CANCELLED" || a.status === "REJECTED")
     .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
 
-  const packageOptions = (pkgs ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }));
+  const packageOptions = (p?.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }));
 
   return (
     <div className="screen with-nav">
@@ -312,6 +362,9 @@ export default function ProviderLeads() {
         <button className={`chip ${tab === "requests" ? "active" : ""}`} onClick={() => setTab("requests")}>
           🙋 Open Requests ({items.length})
         </button>
+        <button className={`chip ${tab === "sent" ? "active" : ""}`} onClick={() => setTab("sent")}>
+          📨 Sent ({sentProposals?.length ?? 0})
+        </button>
         <button className={`chip ${tab === "appointments" ? "active" : ""}`} onClick={() => setTab("appointments")}>
           📅 Booked Appointments ({appointments.length})
         </button>
@@ -321,9 +374,9 @@ export default function ProviderLeads() {
         {tab === "requests" && (
           <>
             <div className="page-pad" style={{ paddingBottom: 0 }}>
-              <div className="card row gap-10" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
+              <div className="card row gap-10" style={{ padding: 12, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
                 <span style={{ fontSize: 20 }}>🙋</span>
-                <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>
+                <span className="tiny" style={{ color: "var(--green-600)", lineHeight: 1.4 }}>
                   Open requests near you. Send a proposal to win the job — itemize your quote for the best shot.
                 </span>
               </div>
@@ -338,6 +391,27 @@ export default function ProviderLeads() {
           </>
         )}
 
+        {tab === "sent" && (
+          <div className="page-pad col gap-10" style={{ paddingTop: 12 }}>
+            {sentLoading ? (
+              <ListSkeleton count={3} />
+            ) : (sentProposals ?? []).length === 0 ? (
+              <EmptyState emoji="📨" title="No proposals sent yet" text="Proposals you send as this provider appear here." />
+            ) : (
+              (sentProposals ?? []).map((sp) => (
+                <button key={sp.id} className="card" style={{ textAlign: "left" }} onClick={() => nav(`/request/${sp.requestId}`)}>
+                  <div className="row between">
+                    <span className="badge badge-gray">{sp.status}</span>
+                    <span className="tiny muted">{sp.postedAt}</span>
+                  </div>
+                  <div className="semi small ellipsis" style={{ marginTop: 6 }}>{sp.requestTitle}</div>
+                  <div className="tiny muted" style={{ marginTop: 2 }}>Your quote: {inr(sp.price)}</div>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
         {tab === "appointments" && (
           <>
             {/* Inner console tabs */}
@@ -349,7 +423,7 @@ export default function ProviderLeads() {
 
             {consoleTab === "TODAY" && (
               <div className="page-pad col gap-12" style={{ paddingTop: 8 }}>
-                <DateStrip selectedDate={selectedDate} onSelect={setSelectedDate} appointments={appointments} />
+                <DateStrip selectedDate={selectedDate} onSelect={setSelectedDate} appointments={appointments} daysBefore={7} daysAfter={30} />
 
                 <div className="card row gap-14" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
                   <StatBlock label="Booked" value={bookedCount} />
@@ -411,7 +485,7 @@ export default function ProviderLeads() {
                         <div className="row gap-10 center-v">
                           <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 38, height: 38 }} />
                           <div>
-                            <div className="bold small">{apt.customerName}</div>
+                            <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
                             <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
                               <Calendar size={12} /> {apt.dateLabel} at {apt.timeLabel}
                             </div>

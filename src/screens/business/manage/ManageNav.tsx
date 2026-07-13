@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, LayoutGrid, Inbox, CalendarClock, Settings } from "lucide-react";
+import { LayoutDashboard, LayoutGrid, Inbox, CalendarClock, Settings } from "@/components/Icons";
 
 export default function ManageNav({ bizId }: { bizId: string }) {
   const nav = useNavigate();

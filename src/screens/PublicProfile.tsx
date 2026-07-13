@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import {
@@ -13,15 +13,15 @@ import {
   UserPlus,
   UserCheck,
   Lock,
-  Navigation,
-} from "lucide-react";
-import { userService, chatService, socialService } from "@/services";
+  MapPin,
+  Loader,
+} from "@/components/Icons";
+import { userService, chatService, socialService, locationService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import ShareCard from "@/components/ShareCard";
 import { useApp } from "@/store";
-import { firstName } from "@/lib/publicName";
-import { haversineKm } from "@/lib/geocode";
+import { aliasName } from "@/lib/publicName";
 
 const verifyLabels: Record<string, string> = {
   phone: "Phone",
@@ -60,19 +60,29 @@ export default function PublicProfile() {
   const following = isFollowing("USER", id);
   const isSelf = user.id === id;
 
-  const hasCoordinates = !isSelf && !!(user.lat && user.lng && u?.lat && u?.lng);
-  const distance = hasCoordinates ? haversineKm(user.lat, user.lng, u!.lat!, u!.lng!) : null;
-  const distanceText = distance !== null ? `${distance.toFixed(1)} km away` : null;
+  const [locStatus, setLocStatus] = useState<"NONE" | "PENDING" | "APPROVED" | "DENIED" | "LOADING" | "SELF" | "REVOKED">("LOADING");
 
-  function handleOpenDirections() {
-    if (!user.lat || !user.lng || !u?.lat || !u?.lng) {
-      showToast("Location details unavailable");
+  useEffect(() => {
+    if (isSelf) {
+      setLocStatus("SELF");
       return;
     }
-    showToast("Opening Google Maps…");
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${user.lat},${user.lng}&destination=${u.lat},${u.lng}&travelmode=driving`;
-    window.open(mapsUrl, "_blank");
-  }
+    setLocStatus("LOADING");
+    let active = true;
+    locationService.myStatusToward(id).then((s) => {
+      if (active) setLocStatus(s);
+    }).catch(() => {
+      if (active) setLocStatus("NONE");
+    });
+    return () => { active = false; };
+  }, [id, isSelf]);
+
+  // distanceKm is computed server-side from the viewer's own coordinates —
+  // this page never receives another user's exact coordinates, so there's
+  // no "get directions to their exact address" feature here by design (see
+  // ISS-009). A ballpark distance is consistent with how distance is shown
+  // everywhere else in the app.
+  const distanceText = !isSelf && u?.distanceKm !== undefined ? `${u.distanceKm.toFixed(1)} km away` : null;
 
   function toggleHidePost(postId: string) {
     const isHidden = hiddenPosts.includes(postId);
@@ -148,7 +158,7 @@ export default function PublicProfile() {
   return (
     <div className="screen" style={{ background: "var(--bg)" }}>
       <AppBar
-        title={firstName(u.name)}
+        title={aliasName(u)}
         right={
           <button className="icon-btn" onClick={() => setShare(true)} aria-label="Share QR Code">
             <Share2 size={18} />
@@ -177,7 +187,7 @@ export default function PublicProfile() {
               height: 92,
               borderRadius: "50%",
               padding: 3,
-              background: "linear-gradient(135deg, var(--amber-500), #ec4899, var(--brand-500))",
+              background: "linear-gradient(135deg, var(--amber-500), var(--pink-500), var(--brand-500))",
               boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
               marginBottom: 12,
             }}
@@ -196,47 +206,19 @@ export default function PublicProfile() {
             />
           </div>
 
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "-0.4px", margin: 0 }}>
-            {firstName(u.name)}
+          <h1 className="h1" style={{ color: "#fff", letterSpacing: "-0.4px", margin: 0 }}>
+            {aliasName(u)}
           </h1>
 
           <div className="row center gap-6" style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)", flexWrap: "wrap" }}>
-            {(isSelf || u.showCityPublicly !== false) && (
+            {isSelf || locStatus === "APPROVED" ? (
               <>
-                {hasCoordinates ? (
-                  <button
-                    onClick={handleOpenDirections}
-                    title="Get directions on Google Maps"
-                    style={{
-                      background: "rgba(255,255,255,0.12)",
-                      border: "1px solid rgba(255,255,255,0.25)",
-                      borderRadius: 12,
-                      padding: "3px 8px",
-                      color: "#fff",
-                      fontSize: 12,
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                      transition: "all 0.2s",
-                      outline: "none",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.24)";
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.12)";
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)";
-                    }}
-                  >
-                    <span>📍 {u.area || "Neighborhood Member"}</span>
-                    {distanceText && <span style={{ opacity: 0.85, fontSize: 11 }}>• {distanceText}</span>}
-                    <Navigation size={10} style={{ transform: "rotate(45deg)", marginLeft: 2 }} />
-                  </button>
-                ) : (
-                  <span>📍 {u.area || "Neighborhood Member"}</span>
-                )}
+                <span>📍 {u.area || "Neighborhood Member"}{distanceText && ` • ${distanceText}`}</span>
+                <span>•</span>
+              </>
+            ) : (
+              <>
+                <span>📍 Location shared upon request only</span>
                 <span>•</span>
               </>
             )}
@@ -246,6 +228,16 @@ export default function PublicProfile() {
             <a href={`tel:${u.phone}`} style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: "#fff", opacity: 0.9 }}>
               📞 {u.phone}
             </a>
+          )}
+          {u.email && (isSelf || u.showEmailPublicly === true) && (
+            <a href={`mailto:${u.email}`} style={{ marginTop: 2, fontSize: 12.5, fontWeight: 700, color: "#fff", opacity: 0.9, display: "block" }}>
+              ✉️ {u.email}
+            </a>
+          )}
+          {!isSelf && (
+            <div>
+              <LocationShareControl targetId={u.id} status={locStatus} setStatus={setLocStatus} />
+            </div>
           )}
 
           {/* Verification & Rating Badges */}
@@ -264,8 +256,8 @@ export default function PublicProfile() {
                 color: "#fff",
               }}
             >
-              <Star size={12} fill="#fbbf24" stroke="none" />
-              {u.ratingAvg} <span style={{ fontWeight: 400, opacity: 0.75 }}>({u.ratingCount})</span>
+              <Star size={12} fill="var(--amber-500)" stroke="none" />
+              {u.ratingCount > 0 ? <>{u.ratingAvg} <span style={{ fontWeight: 400, opacity: 0.75 }}>({u.ratingCount})</span></> : "New"}
             </span>
 
             {u.verifications.length > 0 && (
@@ -283,7 +275,7 @@ export default function PublicProfile() {
                   color: "#fff",
                 }}
               >
-                <BadgeCheck size={13} color="#4ade80" /> Verified
+                <BadgeCheck size={13} color="var(--green-500)" /> Verified
               </span>
             )}
           </div>
@@ -295,7 +287,7 @@ export default function PublicProfile() {
               <button
                 type="button"
                 className="btn grow row center gap-6"
-                onClick={() => toggleFollow("USER", id, firstName(u.name))}
+                onClick={() => toggleFollow("USER", id, aliasName(u))}
                 style={{
                   padding: "10px 16px",
                   borderRadius: 16,
@@ -382,7 +374,7 @@ export default function PublicProfile() {
             </div>
             <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
             <div className="col center grow">
-              <span className="bold" style={{ fontSize: 18, color: "#cc4415" }}>{requests.length}</span>
+              <span className="bold" style={{ fontSize: 18, color: "var(--brand-700)" }}>{requests.length}</span>
               <span className="tiny semi muted" style={{ marginTop: 2 }}>Requests</span>
             </div>
             <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
@@ -394,7 +386,7 @@ export default function PublicProfile() {
               <>
                 <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
                 <div className="col center grow">
-                  <span className="bold" style={{ fontSize: 18, color: "#3b82f6" }}>{u.ratingAvg}★</span>
+                  <span className="bold" style={{ fontSize: 18, color: "var(--blue-500)" }}>{u.ratingAvg}★</span>
                   <span className="tiny semi muted" style={{ marginTop: 2 }}>Rating</span>
                 </div>
               </>
@@ -444,7 +436,7 @@ export default function PublicProfile() {
                   background: isActive ? "var(--brand-700)" : "#fff",
                   color: isActive ? "#fff" : "var(--ink-600)",
                   border: isActive ? "none" : "1.5px solid var(--ink-200)",
-                  boxShadow: isActive ? "0 4px 12px rgba(124, 58, 237, 0.25)" : "none",
+                  boxShadow: isActive ? "0 4px 12px rgba(160, 32, 224, 0.25)" : "none",
                   cursor: "pointer",
                   textAlign: "center",
                 }}
@@ -483,7 +475,7 @@ export default function PublicProfile() {
               return displayPosts.map((p) => {
                 const isHidden = hiddenPosts.includes(p.id);
                 return (
-                  <div key={p.id} className="card" style={{ padding: "16px", borderRadius: 18, opacity: isHidden && isSelf ? 0.7 : 1 }}>
+                  <div key={p.id} className="card" style={{ borderRadius: 18, opacity: isHidden && isSelf ? 0.7 : 1 }}>
                     <div className="row space-between" style={{ marginBottom: 8, alignItems: "center" }}>
                       <div className="row gap-6 center-v">
                         <span className="badge badge-blue" style={{ fontSize: 11 }}>{p.type}</span>
@@ -533,7 +525,7 @@ export default function PublicProfile() {
               <EmptyState emoji="📬" title="No requests posted" text="This member has not posted any public service requests." />
             ) : (
               requests.map((r) => (
-                <div key={r.id} className="card" style={{ padding: "16px", borderRadius: 18, cursor: "pointer" }} onClick={() => nav(`/request/${r.id}`)}>
+                <div key={r.id} className="card" style={{ borderRadius: 18, cursor: "pointer" }} onClick={() => nav(`/request/${r.id}`)}>
                   <div className="row space-between" style={{ marginBottom: 6, alignItems: "center" }}>
                     <span className="semi small" style={{ color: "var(--brand-700)" }}>{r.categoryName || "Help Needed"}</span>
                     <span className={`badge ${r.status === "OPEN" ? "badge-green" : "badge-gray"}`} style={{ fontSize: 11 }}>{r.status}</span>
@@ -559,7 +551,7 @@ export default function PublicProfile() {
             ) : (
               <div className="col gap-14">
                 {u.verifications.length > 0 && (
-                  <div className="card" style={{ padding: 16, borderRadius: 18 }}>
+                  <div className="card" style={{ borderRadius: 18 }}>
                     <div className="semi small" style={{ marginBottom: 10, color: "var(--ink-900)", display: "flex", alignItems: "center", gap: 6 }}>
                       <Shield size={16} color="var(--green-600)" /> Verified Trust Attributes
                     </div>
@@ -574,7 +566,7 @@ export default function PublicProfile() {
                 )}
 
                 {u.badges.length > 0 && (
-                  <div className="card" style={{ padding: 16, borderRadius: 18 }}>
+                  <div className="card" style={{ borderRadius: 18 }}>
                     <div className="semi small" style={{ marginBottom: 10, color: "var(--ink-900)", display: "flex", alignItems: "center", gap: 6 }}>
                       <Award size={16} color="var(--brand-600)" /> Earned Community Badges
                     </div>
@@ -596,7 +588,7 @@ export default function PublicProfile() {
       {/* Share QR Modal */}
       {share && (
         <ShareCard
-          title={firstName(u.name)}
+          title={aliasName(u)}
           subtitle="STRYT Member"
           image={u.avatar}
           meta={`📍 ${u.area || "Neighborhood"} • ⭐ ${u.ratingAvg}`}
@@ -605,5 +597,78 @@ export default function PublicProfile() {
         />
       )}
     </div>
+  );
+}
+
+// Consent-gated exact-location control. Others must request; the owner approves
+// (elsewhere), after which "View on map" reveals coordinates. Hidden on own profile.
+function LocationShareControl({
+  targetId,
+  status,
+  setStatus,
+}: {
+  targetId: string;
+  status: "NONE" | "PENDING" | "APPROVED" | "DENIED" | "LOADING" | "SELF" | "REVOKED";
+  setStatus: (s: any) => void;
+}) {
+  const { showToast } = useApp();
+  const [busy, setBusy] = useState(false);
+
+  async function ask() {
+    setBusy(true);
+    try {
+      await locationService.request(targetId);
+      setStatus("PENDING");
+      showToast("Location request sent");
+    } catch {
+      showToast("Couldn't send request");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reveal() {
+    setBusy(true);
+    try {
+      const loc = await locationService.getSharedLocation(targetId);
+      if (loc) {
+        window.open(`https://www.google.com/maps?q=${loc.lat},${loc.lng}`, "_blank", "noopener");
+      } else {
+        showToast("Location no longer shared");
+        setStatus("NONE");
+      }
+    } catch {
+      showToast("Couldn't load location");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (status === "LOADING" || status === "SELF") return null;
+
+  const base: React.CSSProperties = {
+    marginTop: 10, display: "inline-flex", alignItems: "center", gap: 6,
+    padding: "7px 14px", borderRadius: 999, fontSize: 12.5, fontWeight: 700,
+    border: "1px solid rgba(255,255,255,0.35)", cursor: "pointer",
+  };
+
+  if (status === "APPROVED") {
+    return (
+      <button onClick={reveal} disabled={busy} style={{ ...base, background: "rgba(255,255,255,0.9)", color: "var(--brand-700)" }}>
+        {busy ? <Loader size={13} className="spin" /> : <MapPin size={13} />} View exact location
+      </button>
+    );
+  }
+  if (status === "PENDING") {
+    return (
+      <span style={{ ...base, background: "rgba(255,255,255,0.16)", color: "#fff", cursor: "default" }}>
+        <Loader size={13} /> Location request pending
+      </span>
+    );
+  }
+  return (
+    <button onClick={ask} disabled={busy} style={{ ...base, background: "rgba(255,255,255,0.16)", color: "#fff" }}>
+      {busy ? <Loader size={13} className="spin" /> : <MapPin size={13} />} Request exact location
+    </button>
   );
 }

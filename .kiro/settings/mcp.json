@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "node",
+      "args": [
+        "scripts/supabase_mcp_wrapper.js"
+      ],
+      "disabled": false,
+      "autoApprove": [
+        "execute_sql",
+        "apply_migration",
+        "list_edge_functions",
+        "get_logs",
+        "list_tables",
+        "list_projects"
+      ]
+    }
+  }
+}

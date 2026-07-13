@@ -57,7 +57,7 @@ export default function TrackingPage() {
       // Read via the get_tracking() RPC, not the agreements table directly.
       // The RPC returns only the safe live-location fields for a valid,
       // non-expired token, so the agreements table stays locked to participants
-      // (see supabase/migration_launch_hardening.sql).
+      // (see supabase/legacy/migration_launch_hardening.sql).
       const { data, error } = await anonSb.rpc("get_tracking", { p_token: token });
       const row = Array.isArray(data) ? data[0] : data;
       if (error || !row) { setExpired(true); setLoading(false); return; }
@@ -132,7 +132,7 @@ export default function TrackingPage() {
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", gap: 12 }}>
         <div style={{ fontSize: 40 }}>🔗</div>
         <div style={{ fontWeight: 700, fontSize: 18 }}>Tracking link has expired</div>
-        <div style={{ color: "#6b7280", fontSize: 14 }}>Ask the requester to share a new link.</div>
+        <div style={{ color: "var(--ink-500)", fontSize: 14 }}>Ask the requester to share a new link.</div>
       </div>
     );
   }
@@ -142,7 +142,7 @@ export default function TrackingPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       {/* Top bar */}
-      <div style={{ height: 50, background: "#fff", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
+      <div style={{ height: 50, background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
         <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <svg width="22" height="22" viewBox="0 0 64 64">
             <rect width="64" height="64" rx="16" fill="var(--brand-600)"/>
@@ -151,26 +151,26 @@ export default function TrackingPage() {
           </svg>
           <span style={{ fontWeight: 800, fontSize: 18, color: "var(--brand-700)", letterSpacing: 0.5 }}>STRYT</span>
         </span>
-        <span style={{ fontSize: 12, color: "#9ca3af" }}>Live tracking</span>
+        <span style={{ fontSize: 12, color: "var(--ink-400)" }}>Live tracking</span>
       </div>
 
       {/* Provider bar */}
-      <div style={{ height: 60, background: "#fff", display: "flex", alignItems: "center", gap: 12, padding: "0 16px", borderBottom: "1px solid #e5e7eb", flexShrink: 0 }}>
+      <div style={{ height: 60, background: "var(--surface)", display: "flex", alignItems: "center", gap: 12, padding: "0 16px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
         <SafeImg src={providerAvatar} variant="avatar" style={{ width: 40, height: 40 }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{providerName} is {statusInfo.label.toLowerCase()}</div>
-          <div style={{ fontSize: 12, color: "#6b7280" }}>Updates every 30s</div>
+          <div style={{ fontSize: 12, color: "var(--ink-500)" }}>Updates every 30s</div>
         </div>
-        <span style={{ background: "#dcfce7", color: "#15803d", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 20 }}>{statusInfo.emoji} {statusInfo.label}</span>
+        <span style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 20 }}>{statusInfo.emoji} {statusInfo.label}</span>
       </div>
 
       {/* Map */}
       <div ref={mapRef} style={{ flex: 1 }} />
 
       {/* Footer */}
-      <div style={{ height: 50, background: "#fff", borderTop: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", flexShrink: 0 }}>
-        <span style={{ background: "#dcfce7", color: "#15803d", fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 20 }}>{eta}</span>
-        <span style={{ fontSize: 11, color: "#9ca3af" }}>Powered by STRYT</span>
+      <div style={{ height: 50, background: "var(--surface)", borderTop: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", flexShrink: 0 }}>
+        <span style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 20 }}>{eta}</span>
+        <span style={{ fontSize: 11, color: "var(--ink-400)" }}>Powered by STRYT</span>
       </div>
     </div>
   );

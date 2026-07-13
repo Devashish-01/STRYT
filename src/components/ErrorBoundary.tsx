@@ -31,7 +31,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="col center" style={{ minHeight: "100vh", padding: 28, textAlign: "center", gap: 12 }}>
           <div style={{ fontSize: 54 }}>😵</div>
-          <h2 style={{ fontSize: 20, fontWeight: 800 }}>Something broke</h2>
+          <h2 className="h2">Something broke</h2>
           <p className="muted small" style={{ maxWidth: 300, lineHeight: 1.5 }}>
             An unexpected error stopped this screen. You can reload and keep going.
           </p>

@@ -1,0 +1,170 @@
+import { tokenStore } from "@/lib/auth";
+import { getSupabase } from "@/lib/supabaseClient";
+import { toApiError } from "@/lib/supabasePage";
+import { returnTo } from "@/lib/returnTo";
+import { isNativePlatform, nativeGoogleSignIn, nativeGoogleSignInViaFirebase, webGoogleSignInViaFirebase, NATIVE_GOOGLE_SIGNIN_READY } from "@/lib/nativeAuth";
+import { hasFirebaseWebConfig } from "@/lib/firebaseWeb";
+
+// Where an OAuth / magic-link redirect should land: the saved deep link the user
+// was trying to reach, else /home. Must be a same-origin path on the allow-list.
+function oauthReturnPath(): string {
+  return returnTo.peek() ?? "/home";
+}
+
+// Supabase manages its own session + auto-refresh, so the custom tokenStore
+// refresh path is unused when live. We still mirror the access token into
+// tokenStore so the existing isAuthed guard keeps working unchanged.
+function mirrorSession(accessToken?: string | null, refreshToken?: string | null) {
+  if (accessToken && refreshToken) tokenStore.set(accessToken, refreshToken);
+}
+
+// Supabase/Twilio expect E.164 (+91XXXXXXXXXX). The UI collects raw digits.
+// We normalize here so real numbers reach the SMS provider. The Supabase
+// "test phone numbers" are keyed to the raw 10-digit string, so we leave a
+// plain 10-digit number untouched ONLY when it matches a known test number.
+function normalizePhone(input: string): string {
+  const digits = (input || "").replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) return "+" + digits;
+  if (digits.length === 10) return "+91" + digits;
+  return input.startsWith("+") ? input : "+" + digits;
+}
+
+// Self-healing profile creation: make sure a public.users row exists for the
+// signed-in auth user. Idempotent (upsert), and RLS-safe because the row id
+// equals auth.uid(). Without this, foreign keys on requests/businesses/
+// providers reject every insert ("Key is not present in table users").
+// Exported so store.tsx can call it for OAuth / magic-link sign-ins that
+// bypass verifyOtp().
+export async function ensureProfile(userId?: string, phone?: string | null, email?: string | null, fullName?: string | null) {
+  if (!userId) return;
+  const sb = getSupabase();
+  const name = fullName || email || phone || "New user";
+  const { error } = await sb
+    .from("users")
+    .upsert(
+      { id: userId, name, phone: phone ?? null, email: email ?? null, roles: ["customer"] },
+      { onConflict: "id", ignoreDuplicates: true }
+    );
+  // Don't block login on a profile write hiccup; me() also self-heals on read.
+  if (error) console.warn("ensureProfile:", error.message);
+}
+
+export const authService = {
+  async sendOtp(phone: string) {
+    const sb = getSupabase();
+    const { error } = await sb.auth.signInWithOtp({ phone: normalizePhone(phone) });
+    if (error) throw toApiError(error);
+    return { ok: true, ttl: 300 };
+  },
+
+  async sendEmailOtp(email: string) {
+    const sb = getSupabase();
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin + oauthReturnPath(),
+      }
+    });
+    if (error) throw toApiError(error);
+    return { ok: true, ttl: 300 };
+  },
+
+  // Email used as the username; requires Supabase Auth's email/password
+  // provider (SMTP "app password") to be configured on the project.
+  async signInWithPassword(email: string, password: string) {
+    const sb = getSupabase();
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw toApiError(error);
+    mirrorSession(data.session?.access_token, data.session?.refresh_token);
+    return {
+      access_token: data.session?.access_token ?? "",
+      refresh_token: data.session?.refresh_token ?? "",
+      user: data.user,
+      hasSession: !!data.session,
+    };
+  },
+
+  async signUpWithPassword(email: string, password: string) {
+    const sb = getSupabase();
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin + oauthReturnPath() },
+    });
+    if (error) throw toApiError(error);
+    mirrorSession(data.session?.access_token, data.session?.refresh_token);
+    return {
+      access_token: data.session?.access_token ?? "",
+      refresh_token: data.session?.refresh_token ?? "",
+      user: data.user,
+      // If email confirmation is required, Supabase returns a user but no
+      // session — the caller must tell the user to check their inbox.
+      hasSession: !!data.session,
+    };
+  },
+
+  async signInWithGoogle() {
+    // Native wrapper: prefer the truly-native Credential Manager account picker
+    // (no browser at all) once Firebase is set up; fall back to the in-app
+    // Custom Tab + deep-link handoff otherwise. Both bridge to a real SUPABASE
+    // session (signInWithIdToken / exchangeCodeForSession) — Supabase stays the
+    // single auth+data backend. See src/lib/nativeAuth.ts. onAuthStateChange in
+    // useAuthSession routes once the session lands.
+    if (isNativePlatform()) {
+      if (NATIVE_GOOGLE_SIGNIN_READY) await nativeGoogleSignInViaFirebase();
+      else await nativeGoogleSignIn();
+      return;
+    }
+    // Web: route through Firebase's popup (its redirect handler is pre-authorized,
+    // so no redirect_uri_mismatch and the consent screen shows Firebase, not
+    // supabase.co) then bridge the Google token into a Supabase session.
+    if (hasFirebaseWebConfig) {
+      await webGoogleSignInViaFirebase();
+      return;
+    }
+    // Last-resort fallback (Firebase web env not configured): Supabase's own
+    // OAuth redirect — requires the supabase.co callback in Google's Web client.
+    const sb = getSupabase();
+    const { error } = await sb.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin + oauthReturnPath(),
+      }
+    });
+    if (error) throw toApiError(error);
+  },
+
+  async verifyOtp(phoneOrEmail: string, otp: string) {
+    const isEmail = phoneOrEmail.includes("@");
+    const sb = getSupabase();
+    const { data, error } = isEmail
+      ? await sb.auth.verifyOtp({ email: phoneOrEmail, token: otp, type: "email" })
+      : await sb.auth.verifyOtp({ phone: normalizePhone(phoneOrEmail), token: otp, type: "sms" });
+    if (error) throw toApiError(error);
+    mirrorSession(data.session?.access_token, data.session?.refresh_token);
+    return {
+      access_token: data.session?.access_token ?? "",
+      refresh_token: data.session?.refresh_token ?? "",
+      user: data.user,
+    };
+  },
+
+  async logout() {
+    const sb = getSupabase();
+    await sb.auth.signOut();
+    tokenStore.clear();
+    return { ok: true };
+  },
+
+  // Supabase auto-refreshes; this stays for API compatibility with callers.
+  async refresh(): Promise<boolean> {
+    const sb = getSupabase();
+    const { data, error } = await sb.auth.refreshSession();
+    if (error || !data.session) {
+      tokenStore.clear();
+      return false;
+    }
+    mirrorSession(data.session.access_token, data.session.refresh_token);
+    return true;
+  },
+};

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { X, Copy, CheckCircle2, Banknote, QrCode, AlertCircle } from "lucide-react";
+import { X, Copy, CheckCircle2, Banknote, QrCode, AlertCircle } from "@/components/Icons";
 import { QRCodeSVG } from "qrcode.react";
-import { appointmentService } from "@/services/appointmentService";
+import { appointmentService } from "@/services/engagement/appointmentService";
 import { useApp } from "@/store";
 import { copyText } from "@/lib/clipboard";
 import type { AppointmentRecord, PaymentMethod } from "@/types";
@@ -48,11 +48,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
     setClaiming(true);
     try {
       await appointmentService.claimPayment(appointment.id, method, numAmount, reference.trim() || null);
-      if (method === "UPI") {
-        showToast("Payment claim sent — waiting for business to confirm");
-      } else {
-        showToast("Cash payment confirmed ✓");
-      }
+      showToast("Payment claim sent — waiting for business to confirm");
       onPaid();
       onClose();
     } catch {
@@ -68,7 +64,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
       onClick={onClose}
     >
       <div
-        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
+        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -110,9 +106,9 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
                   padding: "12px 0",
                   borderRadius: 14,
                   border: method === m ? `2px solid ${m === "UPI" ? "var(--brand-600)" : "var(--green-500)"}` : "1.5px solid var(--ink-200)",
-                  background: method === m ? (m === "UPI" ? "var(--brand-50)" : "#f0fdf4") : "#fff",
+                  background: method === m ? (m === "UPI" ? "var(--brand-50)" : "var(--green-100)") : "#fff",
                   fontWeight: 700,
-                  color: method === m ? (m === "UPI" ? "var(--brand-700)" : "#15803d") : "var(--ink-500)",
+                  color: method === m ? (m === "UPI" ? "var(--brand-700)" : "var(--green-600)") : "var(--ink-500)",
                   fontSize: 14,
                   display: "flex",
                   alignItems: "center",
@@ -131,9 +127,9 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
         {method === "UPI" && hasUpi && (
           <div className="col gap-14">
             {/* Two-way verification info banner */}
-            <div className="card row gap-10 center-v" style={{ padding: 12, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
-              <AlertCircle size={16} color="#15803d" style={{ flexShrink: 0 }} />
-              <div className="tiny" style={{ color: "#15803d", lineHeight: 1.5 }}>
+            <div className="card row gap-10 center-v" style={{ padding: 12, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
+              <AlertCircle size={16} color="var(--green-600)" style={{ flexShrink: 0 }} />
+              <div className="tiny" style={{ color: "var(--green-600)", lineHeight: 1.5 }}>
                 After you pay, tap <strong>"I have paid"</strong>. The business will verify and confirm receipt. You'll see a ✓ once confirmed.
               </div>
             </div>
@@ -212,11 +208,11 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
         {/* Cash flow */}
         {method === "CASH" && (
           <div className="col gap-14">
-            <div className="card col center" style={{ padding: 24, gap: 10, background: "#f0fdf4", border: "none" }}>
+            <div className="card col center" style={{ padding: 24, gap: 10, background: "var(--green-100)", border: "none" }}>
               <Banknote size={40} color="var(--green-500)" />
               <div className="semi" style={{ fontSize: 16 }}>Pay in cash at the venue</div>
               <div className="tiny muted center" style={{ maxWidth: 220, lineHeight: 1.6 }}>
-                Hand over the cash when you arrive. This logs your intent to pay so the business knows what to expect.
+                Hand over the cash, then tap below. The business confirms they received it before it counts as paid.
               </div>
             </div>
             <button
@@ -225,7 +221,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
               disabled={claiming}
               onClick={claim}
             >
-              <CheckCircle2 size={18} style={{ display: "inline", marginRight: 8 }} />{claiming ? "Confirming…" : "Confirm — I'll pay in cash"}
+              <CheckCircle2 size={18} style={{ display: "inline", marginRight: 8 }} />{claiming ? "Sending…" : "I've paid in cash"}
             </button>
           </div>
         )}

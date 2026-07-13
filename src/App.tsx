@@ -1,9 +1,19 @@
-import { Routes, Route, useLocation, Navigate, Outlet } from "react-router-dom";
+import { Routes, Route, useLocation, useNavigate, Navigate, Outlet } from "react-router-dom";
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import BottomNav from "./components/BottomNav";
+import OfflineBanner from "./components/OfflineBanner";
+import { LiveShareProvider } from "./features/live-share/useLiveShare";
+import LiveShareBanner from "./features/live-share/LiveShareBanner";
+import DesktopSidebar from "./components/DesktopSidebar";
+import ManageNav from "./screens/business/manage/ManageNav";
+import ProviderManageNav from "./screens/provider/manage/ProviderManageNav";
+import BusinessAccessGuard from "./components/BusinessAccessGuard";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
 import { useI18n, type Lang } from "./lib/i18n";
+import { Capacitor } from "@capacitor/core";
+import { App as CapApp } from "@capacitor/app";
+import { StatusBar, Style } from "@capacitor/status-bar";
 
 // Auth & onboarding
 const Splash = lazy(() => import("./screens/Splash"));
@@ -47,7 +57,7 @@ const MyAppointments = lazy(() => import("./screens/requests/MyAppointments"));
 // Onboarding
 const BusinessOnboard = lazy(() => import("./screens/business/BusinessOnboard"));
 const ProviderOnboard = lazy(() => import("./screens/provider/ProviderOnboard"));
-const ManageHub = lazy(() => import("./screens/manage/ManageHub"));
+const ManageHub = lazy(() => import("./screens/ManageHub"));
 
 // Chat
 const ConversationList = lazy(() => import("./screens/chat/ConversationList"));
@@ -68,32 +78,40 @@ const Achievements = lazy(() => import("./screens/Achievements"));
 // Business console
 const ManageDashboard = lazy(() => import("./screens/business/manage/ManageDashboard"));
 const CatalogManager = lazy(() => import("./screens/business/manage/CatalogManager"));
+const BusinessPortfolio = lazy(() => import("./screens/business/manage/BusinessPortfolio"));
 const ProfileEditor = lazy(() => import("./screens/business/manage/ProfileEditor"));
 const HoursEditor = lazy(() => import("./screens/business/manage/HoursEditor"));
-const OffersManager = lazy(() => import("./screens/business/manage/OffersManager"));
 const QueueManager = lazy(() => import("./screens/business/manage/QueueManager"));
 const QnaManager = lazy(() => import("./screens/business/manage/QnaManager"));
 const ReviewsManager = lazy(() => import("./screens/business/manage/ReviewsManager"));
 const BusinessAppointments = lazy(() => import("./screens/business/manage/BusinessAppointments"));
-const BusinessPackages = lazy(() => import("./screens/business/manage/BusinessPackages"));
 const LeadsInbox = lazy(() => import("./screens/business/manage/LeadsInbox"));
 const VerificationCenter = lazy(() => import("./screens/business/manage/VerificationCenter"));
 const BusinessSettings = lazy(() => import("./screens/business/manage/BusinessSettings"));
 const BusinessRequests = lazy(() => import("./screens/business/manage/BusinessRequests"));
+const BusinessCommunity = lazy(() => import("./screens/ProfileCommunity"));
 
 // Provider console
 const ProviderDashboard = lazy(() => import("./screens/provider/manage/ProviderDashboard"));
 const ProviderProfileEditor = lazy(() => import("./screens/provider/manage/ProviderProfileEditor"));
 const ProviderAvailability = lazy(() => import("./screens/provider/manage/ProviderAvailability"));
-const ProviderPackages = lazy(() => import("./screens/provider/manage/ProviderPackages"));
+const ProviderCatalog = lazy(() => import("./screens/provider/manage/ProviderCatalog"));
 const ProviderPortfolio = lazy(() => import("./screens/provider/manage/ProviderPortfolio"));
 const ProviderLeads = lazy(() => import("./screens/provider/manage/ProviderLeads"));
 const ProviderSettings = lazy(() => import("./screens/provider/manage/ProviderSettings"));
+const ProviderVerification = lazy(() => import("./screens/provider/manage/ProviderVerification"));
+const ProviderCommunity = lazy(() => import("./screens/provider/manage/ProviderCommunity"));
 
 // Admin
 const AdminPanel = lazy(() => import("./screens/admin/AdminPanel"));
 const AdminLogin = lazy(() => import("./screens/admin/AdminLogin"));
 const TrackingPage = lazy(() => import("./screens/TrackingPage"));
+const SafetyHub = lazy(() => import("./screens/safety/SafetyHub"));
+const EmergencyContacts = lazy(() => import("./screens/safety/EmergencyContacts"));
+const Wallet = lazy(() => import("./screens/future-enhancement/Wallet"));
+const MyActivity = lazy(() => import("./screens/MyActivity"));
+const AccountSettings = lazy(() => import("./screens/AccountSettings"));
+const BusinessAccess = lazy(() => import("./screens/BusinessAccess"));
 
 // Society / Subscriptions / Pro / Neighborhood / Available / Wallet / Loyalty /
 // Photos / Story: all moved to screens/future-enhancement/ and unrouted —
@@ -118,7 +136,7 @@ function AuthSplash() {
         alignItems: "center",
         justifyContent: "center",
         gap: 18,
-        background: "linear-gradient(160deg, var(--brand-500) 0%, var(--brand-600) 55%, #4c1d95 100%)",
+        background: "linear-gradient(160deg, var(--brand-500) 0%, var(--brand-600) 55%, var(--brand-900) 100%)",
         color: "#fff",
       }}
     >
@@ -140,8 +158,59 @@ function AuthSplash() {
   );
 }
 
+// Post-auth loading state: a shimmering silhouette of the app shell (header,
+// story row, tiles, bottom nav). Feels like the app is already open and just
+// filling in — far less jarring than a full-screen branded splash on every
+// refresh or deep-link.
+function AppShellSkeleton() {
+  const skel = (h: number, w: number | string, r = 10): React.CSSProperties => ({ height: h, width: w, borderRadius: r });
+  return (
+    <div className="screen" style={{ background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+      <div className="page-pad" style={{ paddingTop: 16, flex: 1 }}>
+        {/* Header: greeting + icons */}
+        <div className="row between" style={{ alignItems: "flex-start" }}>
+          <div className="col gap-8">
+            <div className="skel" style={skel(12, 90)} />
+            <div className="skel" style={skel(20, 170)} />
+          </div>
+          <div className="row gap-8">
+            <div className="skel" style={skel(38, 38, 12)} />
+            <div className="skel" style={skel(38, 38, 12)} />
+          </div>
+        </div>
+        {/* Search bar */}
+        <div className="skel" style={{ ...skel(44, "100%", 14), marginTop: 14 }} />
+        {/* Story circles */}
+        <div className="row gap-12" style={{ marginTop: 18 }}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="skel" style={skel(56, 56, 28)} />
+          ))}
+        </div>
+        {/* Category chips */}
+        <div className="row gap-10" style={{ marginTop: 18 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="skel" style={skel(64, 64, 16)} />
+          ))}
+        </div>
+        {/* Banner + tiles */}
+        <div className="skel" style={{ ...skel(76, "100%", 18), marginTop: 18 }} />
+        <div className="row gap-12" style={{ marginTop: 14 }}>
+          <div className="skel grow" style={skel(108, "48%", 18)} />
+          <div className="skel grow" style={skel(108, "48%", 18)} />
+        </div>
+      </div>
+      {/* Bottom nav silhouette */}
+      <div className="row between" style={{ padding: "12px 28px 18px", borderTop: "1px solid var(--line)", background: "#fff" }}>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="skel" style={skel(i === 2 ? 46 : 30, i === 2 ? 46 : 30, i === 2 ? 23 : 10)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ProtectedLayout() {
-  const { isAuthed, authReady, user } = useApp();
+  const { isAuthed, authReady, profileReady, user } = useApp();
   const location = useLocation();
   const { lang, setLang } = useI18n();
 
@@ -166,6 +235,14 @@ function ProtectedLayout() {
     return <Navigate to="/auth/phone" replace />;
   }
 
+  // We have a session but the real profile hasn't loaded yet — wait rather
+  // than mounting screens against the blank seed user (name "", avatar "",
+  // etc.). Show a skeleton of the app shell instead of the branded splash so
+  // a refresh/deep-link feels like the app is already there, just filling in.
+  if (!profileReady) {
+    return <AppShellSkeleton />;
+  }
+
   // Deletion pending: redirect to warning screen
   const isDeletionPending = isAuthed && user.id && user.deletionScheduledAt;
   if (isDeletionPending) {
@@ -178,9 +255,15 @@ function ProtectedLayout() {
     }
   }
 
-  // New user with no name set: redirect to onboarding first (if not skipped).
-  const hasSkippedOnboard = localStorage.getItem("onboarding_skipped") === "true";
-  const needsOnboard = isAuthed && user.id && (!user.name || user.name === "New user") && !hasSkippedOnboard && location.pathname !== "/auth/onboard";
+  // First-login onboarding, gated on an explicit account-level flag rather
+  // than inferring intent from user.name. That heuristic only worked for
+  // phone-OTP signups (whose profile self-heal has nothing better than "New
+  // user" to seed the name with) — Google OAuth seeds a real name and email
+  // signups seed the email's local-part immediately, so both looked
+  // "already onboarded" and silently skipped the location/phone/emergency-
+  // contact step on their very first login. The flag is also account-level
+  // (not localStorage), so skipping on one device sticks across all of them.
+  const needsOnboard = isAuthed && user.id && user.onboardingCompletedAt === null && location.pathname !== "/auth/onboard";
   if (needsOnboard) {
     return <Navigate to="/auth/onboard" replace />;
   }
@@ -209,13 +292,104 @@ function PublicOnlyLayout() {
   return <Outlet />;
 }
 
+// Screens with their own dedicated full-bleed layout (auth/splash, admin login,
+// tracking share-link) — the desktop sidebar has nothing useful to navigate to
+// from here (not authenticated yet, or a standalone public page), so it's
+// hidden on exactly these, and shown EVERYWHERE else once past them. This is
+// deliberately broader than TAB_ROUTES (mobile's bottom-nav root list) — a
+// desktop sidebar nav is expected to persist across every in-app screen
+// (detail pages, chat, settings, manage consoles), not just the 4 tab roots.
+function isAuthOrPublicScreen(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/admin/login") ||
+    pathname.startsWith("/track/")
+  );
+}
+
 export default function App() {
   const location = useLocation();
-  const { toast } = useApp();
+  const { toast, activeContext } = useApp();
   const showNav = TAB_ROUTES.includes(location.pathname);
+  const showDesktopSidebar = !isAuthOrPublicScreen(location.pathname);
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      const sub = CapApp.addListener("backButton", ({ canGoBack }) => {
+        // Sheet-first: every modal/sheet renders a .overlay whose backdrop
+        // click closes it — so hardware BACK dismisses the topmost sheet
+        // instead of popping the whole screen underneath it.
+        const overlays = document.querySelectorAll<HTMLElement>(".overlay");
+        if (overlays.length > 0) {
+          overlays[overlays.length - 1].click();
+          return;
+        }
+        if (canGoBack) {
+          window.history.back();
+        } else {
+          void CapApp.exitApp();
+        }
+      });
+
+      // Draw the app edge-to-edge under the status bar / notch and let CSS
+      // safe-area insets (--safe-area-top/-bottom) pad content. Android 15+
+      // forces edge-to-edge regardless, so owning it here — rather than relying
+      // on an opaque status bar that the OS ignores — is the reliable fix for
+      // content hiding under the notch. Icon contrast is set per-route below.
+      void StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
+
+      return () => {
+        void sub.then((s) => s.remove());
+      };
+    }
+  }, []);
+
+  // Status-bar icon contrast follows the top of the current screen: light icons
+  // over the dark gradient surfaces (splash, Home header), dark icons over the
+  // white AppBar everywhere else. (Style.Dark = light icons for dark backgrounds.)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const darkTop = location.pathname === "/" || location.pathname === "/home";
+    void StatusBar.setStyle({ style: darkTop ? Style.Dark : Style.Light }).catch(() => {});
+  }, [location.pathname]);
+
+  // Push-notification taps route into the SPA instead of forcing a full reload.
+  // Two sources feed the same navigation:
+  //  - native (Capacitor): pushNotifications.ts dispatches a "push-nav" event.
+  //  - web: the service worker (public/sw.js) postMessages { type: "NAVIGATE" }
+  //    to the focused client on notificationclick. Nothing listened for that
+  //    before, so tapping a web push did nothing — wired up here.
+  useEffect(() => {
+    const onPushNav = (e: Event) => {
+      const url = (e as CustomEvent<string>).detail;
+      if (url && url.startsWith("/")) navigate(url);
+    };
+    const onSwMessage = (e: MessageEvent) => {
+      if (e.data?.type === "NAVIGATE" && typeof e.data.path === "string" && e.data.path.startsWith("/")) {
+        navigate(e.data.path);
+      }
+    };
+    window.addEventListener("push-nav", onPushNav);
+    navigator.serviceWorker?.addEventListener("message", onSwMessage);
+    return () => {
+      window.removeEventListener("push-nav", onPushNav);
+      navigator.serviceWorker?.removeEventListener("message", onSwMessage);
+    };
+  }, [navigate]);
 
   return (
-    <div className="app-shell">
+    <div className="desktop-layout">
+      {showDesktopSidebar && <DesktopSidebar />}
+
+      {/* Main app container */}
+      <div className={`app-shell-container ${showDesktopSidebar ? "has-sidebar" : ""}`}>
+        <div className="app-shell">
+          <LiveShareProvider>
+          <OfflineBanner />
+          <LiveShareBanner />
       <Suspense fallback={<AuthSplash />}>
         <Routes>
           {/* Public only auth routes */}
@@ -252,6 +426,10 @@ export default function App() {
             <Route path="/bookmarks" element={<Bookmarks />} />
             <Route path="/followers" element={<Followers />} />
             <Route path="/queues" element={<MyQueues />} />
+            <Route path="/wallet" element={<Wallet />} />
+            <Route path="/my-activity" element={<MyActivity />} />
+            <Route path="/account" element={<AccountSettings />} />
+            <Route path="/account/business-access" element={<BusinessAccess />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/support" element={<Support />} />
 
@@ -270,31 +448,40 @@ export default function App() {
             <Route path="/onboard/provider" element={<ProviderOnboard />} />
             <Route path="/manage" element={<ManageHub />} />
 
-            {/* Business console */}
-            <Route path="/business/:id/manage" element={<ManageDashboard />} />
-            <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
-            <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
-            <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
-            <Route path="/business/:id/manage/offers" element={<OffersManager />} />
-            <Route path="/business/:id/manage/queue" element={<QueueManager />} />
-            <Route path="/business/:id/manage/qna" element={<QnaManager />} />
-            <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
-            <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
-            <Route path="/business/:id/manage/packages" element={<BusinessPackages />} />
-            <Route path="/business/:id/manage/inbox" element={<LeadsInbox />} />
-            <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
-            <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
-            <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
+            {/* Business console — gated behind BusinessAccessGuard so a
+                revoked delegate is bounced out of every manage screen for
+                this business, not just blocked on individual writes by RLS. */}
+            <Route element={<BusinessAccessGuard />}>
+              <Route path="/business/:id/manage" element={<ManageDashboard />} />
+              <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
+              <Route path="/business/:id/manage/portfolio" element={<BusinessPortfolio />} />
+              <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
+              <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
+              <Route path="/business/:id/manage/queue" element={<QueueManager />} />
+              <Route path="/business/:id/manage/qna" element={<QnaManager />} />
+              <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
+              <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
+              <Route path="/business/:id/manage/inbox" element={<LeadsInbox />} />
+              <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
+              <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
+              <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
+              <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />
+            </Route>
 
             {/* Provider console */}
             <Route path="/provider/:id/manage" element={<ProviderDashboard />} />
             <Route path="/provider/:id/manage/profile" element={<ProviderProfileEditor />} />
             <Route path="/provider/:id/manage/availability" element={<ProviderAvailability />} />
-            <Route path="/provider/:id/manage/packages" element={<ProviderPackages />} />
+            <Route path="/provider/:id/manage/catalog" element={<ProviderCatalog />} />
             <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
             <Route path="/provider/:id/manage/leads" element={<ProviderLeads />} />
-            <Route path="/provider/:id/manage/verify" element={<ProviderSettings />} />
+            <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
+            <Route path="/provider/:id/manage/verify" element={<ProviderVerification />} />
             <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
+
+            {/* Safety — live location sharing */}
+            <Route path="/safety" element={<SafetyHub />} />
+            <Route path="/safety/contacts" element={<EmergencyContacts />} />
 
             {/* Chat */}
             <Route path="/chats" element={<ConversationList />} />
@@ -320,8 +507,19 @@ export default function App() {
         </Routes>
       </Suspense>
 
-      {showNav && <BottomNav />}
+      {showNav && (
+        activeContext.type === "business" && activeContext.id ? (
+          <ManageNav bizId={activeContext.id} />
+        ) : activeContext.type === "provider" && activeContext.id ? (
+          <ProviderManageNav pid={activeContext.id} />
+        ) : (
+          <BottomNav />
+        )
+      )}
       {toast && <div className="toast">{toast}</div>}
+          </LiveShareProvider>
+        </div>
+      </div>
     </div>
   );
 }

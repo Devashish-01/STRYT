@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, SafeImg, EmptyState } from "@/components/common";
-import { Users, Key, Shield, Plus, ClipboardCheck, QrCode, Clock, CheckCircle2, X } from "lucide-react";
-import { societyService, type Society, type SocietyMember, type GatePass } from "@/services/societyService";
+import { Users, Key, Shield, Plus, ClipboardCheck, QrCode, Clock, CheckCircle2, X } from "@/components/Icons";
+import { societyService, type Society, type SocietyMember, type GatePass } from "@/services/engagement/societyService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { ListSkeleton, Skeleton } from "@/components/states";
@@ -80,7 +80,7 @@ function SocietyHome({ society, isAdmin, showToast }: { society: Society; isAdmi
         </div>
       </div>
 
-      <div className="card" style={{ padding: 14 }}>
+      <div className="card">
         <div className="semi small" style={{ marginBottom: 10 }}>Society join code</div>
         <div className="row gap-12 center">
           <span style={{ fontFamily: "monospace", fontSize: 28, fontWeight: 800, letterSpacing: 6, color: "var(--brand-700)" }}>{society.joinCode}</span>
@@ -89,13 +89,13 @@ function SocietyHome({ society, isAdmin, showToast }: { society: Society; isAdmi
         <div className="tiny muted" style={{ marginTop: 8, textAlign: "center" }}>Share this with neighbours to let them join</div>
       </div>
 
-      <div className="card" style={{ padding: 14 }}>
+      <div className="card">
         <div className="semi small" style={{ marginBottom: 10 }}>Quick actions</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <QuickTile icon={<Key size={20} color="var(--brand-700)" />} label="Issue Gate Pass" />
           <QuickTile icon={<ClipboardCheck size={20} color="var(--green-500)" />} label="Notice Board" />
           <QuickTile icon={<QrCode size={20} color="var(--orange-500)" />} label="Provider Directory" />
-          <QuickTile icon={<Users size={20} color="#0ea5e9" />} label="Maintenance Staff" />
+          <QuickTile icon={<Users size={20} color="var(--blue-500)" />} label="Maintenance Staff" />
         </div>
       </div>
 
@@ -135,7 +135,7 @@ function MembersList({ societyId }: { societyId: string }) {
             <div className="semi small">{m.userName}</div>
             <div className="tiny muted">Unit {m.unitNumber}</div>
           </div>
-          <span className="badge" style={{ background: m.role === "ADMIN" ? "var(--brand-50)" : "#f0fdf4", color: m.role === "ADMIN" ? "var(--brand-700)" : "#15803d" }}>
+          <span className="badge" style={{ background: m.role === "ADMIN" ? "var(--brand-50)" : "var(--green-100)", color: m.role === "ADMIN" ? "var(--brand-700)" : "var(--green-600)" }}>
             {m.role}
           </span>
         </div>
@@ -199,10 +199,10 @@ function GatePassCard({ pass }: { pass: GatePass }) {
   const expiry = new Date(pass.validUntil);
   const isExpired = expiry < new Date();
   return (
-    <div className="card" style={{ padding: 14, opacity: isExpired ? 0.6 : 1 }}>
+    <div className="card" style={{ opacity: isExpired ? 0.6 : 1 }}>
       <div className="row between" style={{ marginBottom: 8 }}>
         <span className="semi small">{pass.providerName || "Provider"}</span>
-        <span className="badge" style={{ background: isExpired ? "#f3f4f6" : "#dcfce7", color: isExpired ? "#6b7280" : "#15803d" }}>
+        <span className="badge" style={{ background: isExpired ? "var(--ink-100)" : "var(--green-100)", color: isExpired ? "var(--ink-500)" : "var(--green-600)" }}>
           {isExpired ? "Expired" : "Active"}
         </span>
       </div>
@@ -232,7 +232,7 @@ function PendingMembers({ societyId, showToast }: { societyId: string; showToast
     <div className="page-pad col gap-12" style={{ paddingTop: 16 }}>
       {pending.length === 0 && <EmptyState emoji="✅" title="All clear" text="No pending membership requests." />}
       {pending.map((m) => (
-        <div key={m.id} className="card" style={{ padding: 14 }}>
+        <div key={m.id} className="card">
           <div className="row gap-12" style={{ marginBottom: 10 }}>
             <SafeImg src={m.userAvatar} variant="avatar" style={{ width: 42, height: 42, borderRadius: "50%" }} />
             <div className="grow">

@@ -1,12 +1,35 @@
-import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
-import { Home, Map, Plus, User, X } from "lucide-react";
+import { useState, useRef } from "react";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import { Home, Map, Plus, User, X } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
+import AccountSwitcher from "./AccountSwitcher";
 
 export default function BottomNav() {
   const nav = useNavigate();
+  const loc = useLocation();
   const [sheet, setSheet] = useState(false);
+  const [switcher, setSwitcher] = useState(false);
   const { t } = useI18n();
+
+  // Long-press (or right-click) the Profile tab to jump straight to the account
+  // switcher; a normal tap opens the profile as usual.
+  const pressTimer = useRef<number | undefined>(undefined);
+  const wasLongPress = useRef(false);
+  function pressStart() {
+    wasLongPress.current = false;
+    pressTimer.current = window.setTimeout(() => {
+      wasLongPress.current = true;
+      setSwitcher(true);
+    }, 450);
+  }
+  function pressEnd() {
+    if (pressTimer.current) window.clearTimeout(pressTimer.current);
+  }
+  function profileTap() {
+    if (wasLongPress.current) { wasLongPress.current = false; return; }
+    nav("/profile");
+  }
+  const profileActive = loc.pathname === "/profile";
 
   return (
     <>
@@ -35,15 +58,23 @@ export default function BottomNav() {
           <span style={{ marginTop: 2 }}>{t("create")}</span>
         </button>
 
-        <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
-          {({ isActive }) => (
-            <>
-              <User size={22} strokeWidth={isActive ? 2.6 : 2} />
-              <span>{t("profile")}</span>
-            </>
-          )}
-        </NavLink>
+        <button
+          className={`nav-item ${profileActive ? "active" : ""}`}
+          onClick={profileTap}
+          onTouchStart={pressStart}
+          onTouchEnd={pressEnd}
+          onMouseDown={pressStart}
+          onMouseUp={pressEnd}
+          onMouseLeave={pressEnd}
+          onContextMenu={(e) => { e.preventDefault(); setSwitcher(true); }}
+          aria-label={`${t("profile")} — long-press to switch account`}
+        >
+          <User size={22} strokeWidth={profileActive ? 2.6 : 2} />
+          <span>{t("profile")}</span>
+        </button>
       </nav>
+
+      {switcher && <AccountSwitcher onClose={() => setSwitcher(false)} />}
 
       {/* Create action sheet */}
       {sheet && (
@@ -57,7 +88,7 @@ export default function BottomNav() {
             left: "50%", transform: "translateX(-50%)",
             width: "100%", maxWidth: "var(--maxw)",
             background: "#fff", borderRadius: "22px 22px 0 0",
-            padding: "8px 16px 32px",
+            padding: "8px 16px calc(32px + var(--safe-area-bottom))",
             zIndex: 201,
             boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
           }}>

@@ -3,21 +3,27 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Heart, Share2, Phone, BadgeCheck, MapPin, Clock,
   CheckCircle2, MessageCircle, Flag, Star, ThumbsUp,
-  UserPlus, UserCheck, HandshakeIcon, Plus, Zap,
-} from "lucide-react";
+  UserPlus, UserCheck, HandshakeIcon, Plus, Zap, Wallet,
+} from "@/components/Icons";
 import { providerService, socialService, communityService } from "@/services";
-import { chatService } from "@/services/chatService";
+import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
-import { Rating, StarRow, EmptyState, SafeImg, inr } from "@/components/common";
+import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, RatingBars } from "@/components/common";
 import { useApp } from "@/store";
 import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
+import { StoryViewer } from "@/components/Stories";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
+import { PaymentSheet } from "@/components/PaymentSheet";
 import { evaluateProviderAvailability } from "@/utils/availability";
-import { isMockTarget } from "@/services/appointmentService";
+import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
+import type { AppointmentRecord } from "@/types";
 import { PROVIDER_BADGE_THRESHOLDS } from "@/lib/badges";
+import { displayName as safeName } from "@/lib/publicName";
+import { pushRecentlyViewed } from "@/lib/recentlyViewed";
+import MiniMap from "@/components/MiniMap";
 
 const Handshake = HandshakeIcon as any;
 
@@ -35,27 +41,40 @@ export default function ProviderDetail() {
   const { data: vouches } = useQueryWithRealtime(() => socialService.vouches(id), "vouches", [id], `provider_id=eq.${id}`);
   const { data: endorsements } = useQueryWithRealtime(() => socialService.endorsements(id), "endorsements", [id], `provider_id=eq.${id}`);
   const { data: availList } = useQuery(() => socialService.availableNow(), []);
-  const { data: packages } = useQuery(() => providerService.packages(id), [id]);
   const { data: provPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("provider", id), "community_posts", [id], `author_ref_id=eq.${id}`);
+  const { data: highlightsData } = useQuery(() => socialService.highlightsFor("provider", id), [id]);
+  const highlights = highlightsData ?? [];
+  const { data: myAppointments, refetch: refetchMyAppointments } = useQuery(
+    () => (user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([])),
+    [user.id]
+  );
 
   // Count a profile view once per provider open.
   useEffect(() => {
     providerService.recordView(id).catch(() => {});
   }, [id]);
+
+  // Track for the "recently viewed" rail on Home once details are loaded.
+  useEffect(() => {
+    if (!p) return;
+    pushRecentlyViewed({ type: "provider", id: p.id, name: p.displayName, image: p.avatar });
+  }, [p?.id]);
   const [tab, setTab] = useState<"about" | "posts" | "portfolio" | "reviews">("about");
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
+  const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
 
   if (loading) {
     return (
       <div className="screen">
-        <div style={{ background: "linear-gradient(135deg,var(--green-500),#15803d)", padding: "12px 16px 24px" }}>
+        <div style={{ background: "linear-gradient(135deg,var(--green-500),var(--green-600))", padding: "12px 16px 24px" }}>
           <Skeleton h={78} w={78} r={39} />
         </div>
         <div className="page-pad col gap-12" style={{ marginTop: -14 }}>
-          <div className="card" style={{ padding: 14 }}><Skeleton h={44} mb={0} /></div>
+          <div className="card"><Skeleton h={44} mb={0} /></div>
           <Skeleton h={16} w="80%" />
           <Skeleton h={16} w="60%" />
         </div>
@@ -81,6 +100,18 @@ export default function ProviderDetail() {
   const saved = isBookmarked("PROVIDER", p.id);
   const following = isFollowing("PROVIDER", p.id);
   const isOwner = p.userId === user.id;
+  // Surface a quick-pay banner when the customer has an unsettled appointment
+  // with this exact provider, so they don't have to go find it in My Appointments.
+  const payableApt = !isOwner
+    ? (myAppointments ?? []).find(
+        (a) =>
+          a.targetId === p.id &&
+          a.targetType === "PROVIDER" &&
+          a.status !== "CANCELLED" &&
+          a.status !== "REJECTED" &&
+          (a.paymentStatus ?? "UNPAID") === "UNPAID"
+      ) ?? null
+    : null;
   const vouchList = vouches ?? [];
   const hasVouched = vouched.includes(p.id);
   const endorseList = endorsements ?? [];
@@ -92,8 +123,8 @@ export default function ProviderDetail() {
     <div className="screen" style={{ position: "relative" }}>
       <div className="screen-scroll" style={{ paddingBottom: 90 }}>
         {isMockTarget(id) && (
-          <div style={{ padding: "8px 14px", background: "#fff3e8", borderBottom: "1px solid #ffd9b3" }}>
-            <span className="tiny" style={{ color: "#b45309", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
+          <div style={{ padding: "8px 14px", background: "var(--orange-50)", borderBottom: "1px solid var(--orange-100)" }}>
+            <span className="tiny" style={{ color: "var(--amber-700)", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
           </div>
         )}
         {/* Header */}
@@ -101,14 +132,14 @@ export default function ProviderDetail() {
           style={{
             background: heroPhoto
               ? `linear-gradient(160deg, rgba(22,163,74,0.88), rgba(21,128,61,0.92)), url(${heroPhoto}) center/cover`
-              : "linear-gradient(135deg,var(--green-500),#15803d)",
-            color: "#fff", padding: "12px 16px 24px",
+              : "linear-gradient(135deg,var(--green-500),var(--green-600))",
+            color: "#fff", padding: "calc(12px + var(--safe-area-top)) 16px 24px",
           }}
         >
           <div className="row between">
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
             <div className="row gap-8">
-              {!isOwner && (
+              {!isOwner && p.phone && p.showPhonePublicly !== false && (
                 <a
                   className="icon-btn"
                   style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }}
@@ -129,13 +160,13 @@ export default function ProviderDetail() {
             <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 78, height: 78, border: "3px solid rgba(255,255,255,0.4)" }} />
             <div className="grow">
               <div className="row gap-6">
-                <span className="bold" style={{ fontSize: 20 }}>{p.displayName}</span>
+                <span className="bold" style={{ fontSize: 20 }}>{safeName(p.displayName, "Local provider")}</span>
                 {p.isVerified && <BadgeCheck size={18} color="#fff" />}
               </div>
               <div className="small" style={{ opacity: 0.9 }}>{p.categoryName} • {p.subCategory}</div>
               <div className="row gap-8" style={{ marginTop: 6 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
-                  <Star size={11} fill="#ffd23f" strokeWidth={0} /> {p.ratingAvg} ({p.ratingCount})
+                  <Star size={11} fill="var(--amber-500)" strokeWidth={0} /> {p.ratingCount > 0 ? `${p.ratingAvg} (${p.ratingCount})` : "New"}
                 </span>
                 {p.isNew && <span className="badge" style={{ background: "#ff8400", color: "#fff" }}>NEW</span>}
                 {avail && <span className="badge" style={{ background: "#fff", color: "var(--green-500)" }}>⚡ Free till {avail.availableUntil}</span>}
@@ -144,8 +175,8 @@ export default function ProviderDetail() {
           </div>
         </div>
 
-        {/* Stat strip */}
-        <div className="page-pad" style={{ marginTop: -14 }}>
+        {/* Follow + Book row */}
+        <div className="page-pad" style={{ paddingTop: 0, paddingBottom: 0, marginTop: -14 }}>
           <div className="card row" style={{ padding: 14 }}>
             <Stat value={p.jobsDone.toString()} label="Jobs done" />
             <Sep />
@@ -156,7 +187,7 @@ export default function ProviderDetail() {
         </div>
 
         {/* Follow + vouch row */}
-        <div className="page-pad row gap-10" style={{ paddingTop: 0 }}>
+        <div className="page-pad row gap-10" style={{ paddingTop: 12 }}>
           <button
             className="btn grow btn-sm"
             style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
@@ -166,26 +197,40 @@ export default function ProviderDetail() {
           </button>
           <button
             className="btn grow btn-sm"
-            style={{ background: hasVouched ? "#e8f7ee" : "var(--ink-50)", color: hasVouched ? "#15803d" : "var(--ink-700)" }}
+            style={{ background: hasVouched ? "var(--green-100)" : "var(--ink-50)", color: hasVouched ? "var(--green-600)" : "var(--ink-700)" }}
             onClick={() => toggleVouch(p.id)}
           >
             <ThumbsUp size={15} fill={hasVouched ? "var(--green-500)" : "none"} /> {hasVouched ? "Vouched" : "Vouch"}
           </button>
         </div>
 
+        {/* Highlights — stories the provider saved past their normal expiry */}
+        {highlights.length > 0 && (
+          <div className="hscroll" style={{ padding: "12px 16px 4px" }}>
+            {highlights.map((h, i) => (
+              <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
+                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,var(--amber-500),var(--amber-500))" }}>
+                  <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
+                </div>
+                <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Tabs */}
-        <div className="row page-pad" style={{ paddingTop: 6, paddingBottom: 0, borderBottom: "1px solid var(--line)" }}>
+        <div className="row page-pad" style={{ paddingTop: 10, paddingBottom: 0, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
           {([["about", "About"], ["posts", `Posts (${(provPosts ?? []).length})`], ["portfolio", `Work (${p.portfolio.length})`], ["reviews", "Reviews"]] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
-              style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--green-600)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--green-600)" : "2.5px solid transparent" }}>
+          style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--green-600)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--green-600)" : "2.5px solid transparent" }}>
               {label}
             </button>
           ))}
         </div>
 
         {tab === "about" && (
-          <div className="page-pad col gap-14">
-            <p className="small" style={{ lineHeight: 1.6 }}>{p.bio}</p>
+          <div className="page-pad col gap-16" style={{ paddingTop: 18 }}>
+            {p.bio && <p className="small" style={{ lineHeight: 1.7, color: "var(--ink-700)" }}>{p.bio}</p>}
 
             {/* Computed badges from real provider data — no extra DB queries */}
             {(() => {
@@ -223,21 +268,22 @@ export default function ProviderDetail() {
               </div>
             </div>
 
-            {/* Service packages */}
-            {(packages ?? []).length > 0 && (
+            {/* Catalog */}
+            {(p.catalog ?? []).length > 0 && (
               <div>
-                <div className="semi small" style={{ marginBottom: 8 }}>Service packages</div>
+                <div className="semi small" style={{ marginBottom: 8 }}>Catalog</div>
                 <div className="col gap-8">
-                  {(packages ?? []).map((pk) => (
-                    <div key={pk.id} className="card row gap-12" style={{ padding: 12 }}>
+                  {(p.catalog ?? []).map((item) => (
+                    <div key={item.id} className="card row gap-12" style={{ padding: 12 }}>
                       <div className="grow">
                         <div className="row gap-6">
-                          <span className="semi small">{pk.name}</span>
-                          {pk.instantBook && <span className="badge badge-green"><Zap size={10} /> Instant</span>}
+                          {item.isFood && item.isVeg != null && <VegDot veg={item.isVeg} />}
+                          <span className="semi small">{item.name}</span>
+                          {item.bestSeller && <span className="badge badge-amber">⭐</span>}
                         </div>
-                        {(pk.desc || pk.duration) && <div className="tiny muted">{[pk.desc, pk.duration].filter(Boolean).join(" • ")}</div>}
+                        {item.description && <div className="tiny muted">{item.description}</div>}
                       </div>
-                      <div className="bold small" style={{ color: "var(--green-600)" }}>{inr(pk.price)}</div>
+                      <div className="bold small" style={{ color: "var(--green-600)" }}>{inr(item.salePrice ?? item.price)}</div>
                     </div>
                   ))}
                 </div>
@@ -262,7 +308,7 @@ export default function ProviderDetail() {
                           style={{ padding: "6px 12px", background: isOn ? "var(--brand-100)" : "var(--ink-50)", color: isOn ? "var(--brand-700)" : "var(--ink-700)" }}
                           onClick={() => toggleEndorse(p.id, e.skill)}
                         >
-                          <ThumbsUp size={13} fill={isOn ? "#e5521c" : "none"} /> {isOn ? "Endorsed" : "Endorse"}
+                          <ThumbsUp size={13} fill={isOn ? "var(--brand-600)" : "none"} /> {isOn ? "Endorsed" : "Endorse"}
                         </button>
                       </div>
                     );
@@ -273,7 +319,7 @@ export default function ProviderDetail() {
 
             {/* Vouches */}
             {vouchList.length > 0 && (
-              <div className="card" style={{ padding: 14 }}>
+              <div className="card">
                 <div className="row between" style={{ marginBottom: 10 }}>
                   <span className="semi small row gap-6"><Handshake size={16} color="var(--green-500)" /> {vouchList.length + (hasVouched ? 1 : 0)} neighbors vouch for {p.displayName.split(" ")[0]}</span>
                 </div>
@@ -290,19 +336,19 @@ export default function ProviderDetail() {
               </div>
             )}
             {!evalRes.isOpenNow && (
-              <div className="card" style={{ padding: 12, background: "#fef3c7", border: "1px solid #fde68a" }}>
+              <div className="card card-condensed" style={{ background: "var(--amber-100)", border: "1px solid var(--amber-100)" }}>
                 <div className="row gap-8 center-v">
-                  <Clock size={16} color="#d97706" />
+                  <Clock size={16} color="var(--amber-700)" />
                   <div>
-                    <div className="bold tiny" style={{ color: "#92400e" }}>Provider Currently Offline</div>
-                    <div className="tiny" style={{ color: "#b45309", marginTop: 1 }}>
+                    <div className="bold tiny" style={{ color: "var(--amber-700)" }}>Provider Currently Offline</div>
+                    <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1 }}>
                       {evalRes.statusText}. You can chat, ask questions, or schedule an appointment for their working hours below.
                     </div>
                   </div>
                 </div>
               </div>
             )}
-            <div className="card" style={{ padding: 14 }}>
+            <div className="card">
               <div className="row gap-10 small center-v">
                 <Clock size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
                 <div>
@@ -311,13 +357,17 @@ export default function ProviderDetail() {
                 </div>
               </div>
               <div className="divider" />
-              <div className="row gap-10 small"><MapPin size={16} color="var(--green-500)" /><span>Serves within {p.serviceRadiusKm} km • {p.distanceKm} km from you</span></div>
+              <div className="row gap-10 small"><MapPin size={16} color="var(--green-500)" /><span>Serves within {p.serviceRadiusKm} km{p.distanceKm > 0 ? ` • ${p.distanceKm} km from you` : ""}</span></div>
+              {/* Where they're based — one tap opens directions */}
+              <div style={{ marginTop: 10 }}>
+                <MiniMap lat={p.lat} lng={p.lng} pinColor="var(--green-500)" height={150} />
+              </div>
             </div>
           </div>
         )}
 
         {tab === "posts" && (
-          <div className="page-pad col gap-12">
+          <div className="page-pad col gap-12" style={{ paddingTop: 18 }}>
             {(provPosts ?? []).length === 0 ? (
               <EmptyState emoji="📣" title="No posts yet" text="This provider hasn't posted to the community yet." />
             ) : (
@@ -345,15 +395,15 @@ export default function ProviderDetail() {
         )}
 
         {tab === "portfolio" && (
-          <div className="page-pad">
+          <div className="page-pad" style={{ paddingTop: 18 }}>
             {p.portfolio.length === 0 ? (
               <EmptyState emoji="🖼️" title="No work samples yet" text="This provider hasn't added portfolio photos." />
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 {p.portfolio.map((item) => (
                   <div key={item.id}>
-                    <SafeImg src={item.url} alt={item.caption} className="thumb" style={{ width: "100%", height: 130, borderRadius: 14 }} />
-                    <p className="tiny muted" style={{ marginTop: 4 }}>{item.caption}</p>
+                    <SafeImg src={item.url} alt={item.caption} className="thumb" style={{ width: "100%", height: 140, borderRadius: 14 }} />
+                    {item.caption && <p className="tiny muted" style={{ marginTop: 6 }}>{item.caption}</p>}
                   </div>
                 ))}
               </div>
@@ -362,17 +412,32 @@ export default function ProviderDetail() {
         )}
 
         {tab === "reviews" && (
-          <div className="page-pad col gap-14">
+          <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
             <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
               <Star size={16} /> Write a Review
             </button>
-            {(reviews ?? []).slice(0, 3).map((rv) => (
-              <div key={rv.id} className="row gap-10" style={{ alignItems: "flex-start" }}>
-                <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 38, height: 38 }} />
+            {(reviews ?? []).length === 0 && (
+              <EmptyState emoji="⭐" title="No reviews yet" text="Be the first to leave a review!" />
+            )}
+            {(reviews ?? []).length > 0 && (
+              <div className="card" style={{ padding: "12px 16px" }}>
+                <RatingBars ratings={(reviews ?? []).map((rv) => rv.rating)} />
+              </div>
+            )}
+            {(reviews ?? []).map((rv) => (
+              <div key={rv.id} className="card row gap-12" style={{ alignItems: "flex-start", padding: "14px 14px" }}>
+                <SafeImg src={rv.raterAvatar} variant="avatar" className="avatar" style={{ width: 40, height: 40, flexShrink: 0 }} />
                 <div className="grow">
                   <div className="row between"><span className="semi small">{rv.raterName}</span><span className="tiny muted">{rv.date}</span></div>
-                  <StarRow value={rv.rating} size={12} />
-                  <p className="small" style={{ marginTop: 4, lineHeight: 1.45 }}>{rv.comment}</p>
+                  <div className="row gap-8 align-center">
+                    <StarRow value={rv.rating} size={12} />
+                    {rv.isVerifiedBooking && (
+                      <span className="tiny semi row gap-2" style={{ color: "var(--green-600)", alignItems: "center" }}>
+                        <BadgeCheck size={11} /> Verified booking
+                      </span>
+                    )}
+                  </div>
+                  <p className="small" style={{ marginTop: 6, lineHeight: 1.55 }}>{rv.comment}</p>
                 </div>
               </div>
             ))}
@@ -393,7 +458,7 @@ export default function ProviderDetail() {
             <span className="tiny muted">Starting</span>
             <span className="bold" style={{ fontSize: 18, color: "var(--green-600)" }}>{inr(p.startingPrice)}</span>
           </div>
-          {!isOwner && (
+          {!isOwner && p.phone && p.showPhonePublicly !== false && (
             <a
               href={`tel:${p.phone}`}
               className="btn btn-outline"
@@ -438,10 +503,36 @@ export default function ProviderDetail() {
             </button>
           )}
         </div>
+
+        {payableApt && (
+          <button
+            className="row gap-10"
+            style={{ width: "100%", marginTop: 10, padding: "12px 14px", background: "var(--brand-50)", border: "1.5px solid var(--brand-200)", borderRadius: 14 }}
+            onClick={() => setPayingApt(payableApt)}
+          >
+            <Wallet size={18} color="var(--brand-700)" />
+            <span className="semi small grow" style={{ textAlign: "left", color: "var(--brand-700)" }}>
+              {payableApt.packagePrice ? `Pay ₹${payableApt.packagePrice} now` : "Pay for your appointment"}
+            </span>
+          </button>
+        )}
       </div>
 
+      {payingApt && (
+        <PaymentSheet
+          appointment={payingApt}
+          businessUpiId={p.upiId ?? null}
+          businessName={p.displayName}
+          onPaid={refetchMyAppointments}
+          onClose={() => setPayingApt(null)}
+        />
+      )}
+
+      {viewingHighlight !== null && (
+        <StoryViewer stories={highlights} startIndex={viewingHighlight} onClose={() => setViewingHighlight(null)} />
+      )}
       {report && <ReportSheet targetType="PROVIDER" targetId={p.id} name={p.displayName} onClose={() => setReport(false)} />}
-      {share && <ShareCard title={p.displayName} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={`⭐ ${p.ratingAvg} • ${p.jobsDone} jobs • ${p.distanceKm} km`} url={window.location.origin + "/provider/" + p.id} onClose={() => setShare(false)} />}
+      {share && <ShareCard title={safeName(p.displayName, "Local provider")} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={[p.ratingCount > 0 ? `⭐ ${p.ratingAvg}` : "", p.jobsDone > 0 ? `${p.jobsDone} jobs` : ""].filter(Boolean).join(" • ") || "New provider"} url={window.location.origin + "/provider/" + p.id} onClose={() => setShare(false)} />}
       {reviewing && (
         <ReviewSheet
           targetName={p.displayName}
@@ -460,7 +551,9 @@ export default function ProviderDetail() {
           targetType="PROVIDER"
           availabilityNote={p.availabilityNote}
           availableNow={evalRes.isOpenNow}
-          packages={(packages ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }))}
+          packages={(p.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }))}
+          paymentTiming={p.paymentTiming}
+          payeeUpiId={p.upiId}
           onClose={() => setScheduling(false)}
         />
       )}

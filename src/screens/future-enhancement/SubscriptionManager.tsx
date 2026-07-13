@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
-import { Plus, Pause, Play, RefreshCw } from "lucide-react";
-import { subscriptionService, type Subscription } from "@/services/subscriptionService";
+import { Plus, Pause, Play, RefreshCw } from "@/components/Icons";
+import { subscriptionService, type Subscription } from "@/services/engagement/subscriptionService";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { ListSkeleton } from "@/components/states";
 
 const FREQ_LABEL: Record<string, string> = { DAILY: "Daily", WEEKLY: "Weekly", MONTHLY: "Monthly" };
-const FREQ_COLOR: Record<string, string> = { DAILY: "#6d28d9", WEEKLY: "#0ea5e9", MONTHLY: "var(--orange-500)" };
+const FREQ_COLOR: Record<string, string> = { DAILY: "var(--brand-700)", WEEKLY: "var(--blue-500)", MONTHLY: "var(--orange-500)" };
 
 export default function SubscriptionManager() {
   const nav = useNavigate();
@@ -47,7 +47,7 @@ export default function SubscriptionManager() {
         )}
 
         {(data ?? []).map((sub) => (
-          <div key={sub.id} className="card" style={{ padding: 14 }}>
+          <div key={sub.id} className="card">
             <div className="row between" style={{ marginBottom: 6 }}>
               <div>
                 <div className="semi small">{sub.title}</div>

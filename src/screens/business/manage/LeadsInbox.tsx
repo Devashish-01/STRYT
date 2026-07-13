@@ -4,7 +4,7 @@ import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { businessService, appointmentService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
-import { Phone, Navigation, MessageCircle, Tag, CalendarCheck, HelpCircle, Check, Calendar, X as XIcon, Image as ImageIcon } from "lucide-react";
+import { Phone, Navigation, MessageCircle, Tag, CalendarCheck, HelpCircle, Check, Calendar, X as XIcon, Image as ImageIcon } from "@/components/Icons";
 import { useApp } from "@/store";
 import type { Lead, AppointmentRecord } from "@/types";
 import ManageNav from "./ManageNav";
@@ -12,10 +12,10 @@ import ManageNav from "./ManageNav";
 const meta: Record<string, { icon: any; color: string }> = {
   CALL: { icon: Phone, color: "var(--green-500)" },
   DIRECTIONS: { icon: Navigation, color: "var(--orange-500)" },
-  STORY_REPLY: { icon: MessageCircle, color: "#ec4899" },
-  OFFER_CLIP: { icon: Tag, color: "#cc4415" },
-  RESERVATION: { icon: CalendarCheck, color: "#0ea5e9" },
-  QUESTION: { icon: HelpCircle, color: "#6366f1" },
+  STORY_REPLY: { icon: MessageCircle, color: "var(--pink-500)" },
+  OFFER_CLIP: { icon: Tag, color: "var(--brand-700)" },
+  RESERVATION: { icon: CalendarCheck, color: "var(--blue-500)" },
+  QUESTION: { icon: HelpCircle, color: "var(--blue-500)" },
 };
 
 export default function LeadsInbox() {
@@ -151,7 +151,7 @@ export default function LeadsInbox() {
                   )}
 
                   {apt.responseNote && (
-                    <div className="tiny" style={{ color: apt.status === "REJECTED" ? "#b45309" : "#15803d", fontStyle: "italic" }}>
+                    <div className="tiny" style={{ color: apt.status === "REJECTED" ? "var(--amber-700)" : "var(--green-600)", fontStyle: "italic" }}>
                       Response: "{apt.responseNote}"
                     </div>
                   )}
@@ -168,7 +168,7 @@ export default function LeadsInbox() {
                       <button
                         type="button"
                         className="btn btn-outline grow btn-sm row gap-4 center"
-                        style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
+                        style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }}
                         onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}
                       >
                         <XIcon size={14} /> Decline Slot

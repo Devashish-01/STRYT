@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Share2, MapPin, Clock, Eye, Zap, BadgeCheck,
-  Flag, CheckCircle2, Send, Users, Flame, Repeat, MessageSquare, ArrowRightLeft,
+  Flag, CheckCircle2, Send, Users, Flame, Repeat, MessageCircle, ArrowRightLeft,
   Edit3, Trash2, XCircle, X
-} from "lucide-react";
-import { requestService } from "@/services";
+} from "@/components/Icons";
+import { requestService, chatService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, EmptyState, SafeImg, inr } from "@/components/common";
@@ -36,6 +36,8 @@ export default function RequestDetail() {
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
   const [accepted, setAccepted] = useState<string | null>(null);
+  const [propSort, setPropSort] = useState<"best" | "price" | "rating">("best");
+  const [messaging, setMessaging] = useState<string | null>(null);
   const [counterFor, setCounterFor] = useState<string | null>(null);
   const [counterAmt, setCounterAmt] = useState("");
   const [counterBackFor, setCounterBackFor] = useState<string | null>(null);
@@ -82,7 +84,29 @@ export default function RequestDetail() {
 
   const isMine = r.requesterUserId === user.id;
   const budget = r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)} – ${inr(r.budgetMax)}` : "Open budget";
-  const sortedProposals = [...r.proposals].sort((a, b) => Number(b.isBoosted) - Number(a.isBoosted));
+  // Let the customer compare offers the way they think: promoted-first by
+  // default, or by lowest quote / highest-rated when weighing options.
+  const sortedProposals = [...r.proposals].sort((a, b) => {
+    if (propSort === "price") return a.price - b.price;
+    if (propSort === "rating") return (b.responderRating ?? 0) - (a.responderRating ?? 0);
+    return Number(b.isBoosted) - Number(a.isBoosted);
+  });
+
+  async function messageResponder(p: Proposal) {
+    if (!p.responderUserId) { showToast("Can't message this responder"); return; }
+    setMessaging(p.id);
+    try {
+      const subjectType = p.responderType === "business" ? "business" : p.responderType === "provider" ? "provider" : "user";
+      const conv = await chatService.getOrCreate(p.responderUserId, {
+        type: subjectType as any, id: p.responderUserId, name: p.responderName, avatar: p.responderAvatar, ownerUserId: p.responderUserId,
+      });
+      nav(`/chat/${conv.id}`);
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't open chat. Try again.");
+    } finally {
+      setMessaging(null);
+    }
+  }
   const meTooed = meToos.includes(r.id) || r.meTooed;
   const meTooCount = (r.meTooCount ?? 0) + (meTooed && !r.meTooed ? 1 : 0);
 
@@ -183,10 +207,12 @@ export default function RequestDetail() {
             <SafeImg src={r.requesterAvatar} variant="avatar" className="avatar" style={{ width: 44, height: 44 }} />
             <div className="grow">
               <div className="row gap-6"><span className="semi">{r.requesterName}</span><Rating value={r.requesterRating} size={10} /></div>
-              <span className="tiny muted row gap-4"><MapPin size={12} /> {r.area} • {r.distanceKm} km • {r.postedAt}</span>
+              <span className="tiny muted row gap-4"><MapPin size={12} /> {r.area}{r.distanceKm > 0 ? ` • ${r.distanceKm} km` : ""} • {r.postedAt}</span>
             </div>
             {r.status !== "OPEN" && <span className="badge badge-blue">{r.status}</span>}
           </div>
+
+          {r.status === "OPEN" && r.expiresAt && <ExpiryCountdown expiresAt={r.expiresAt} />}
 
           {/* Owner Management Controls (CRUD) */}
           {isMine && (
@@ -194,7 +220,7 @@ export default function RequestDetail() {
               <button className="btn btn-outline btn-sm grow row center gap-6" onClick={startEdit}>
                 <Edit3 size={14} /> Edit Request
               </button>
-              <button className="btn btn-outline btn-sm row center gap-6" style={{ color: "var(--red-500)", borderColor: "#fca5a5" }} onClick={() => setShowDeleteConfirm(true)}>
+              <button className="btn btn-outline btn-sm row center gap-6" style={{ color: "var(--red-500)", borderColor: "var(--red-100)" }} onClick={() => setShowDeleteConfirm(true)}>
                 <Trash2 size={14} /> Delete
               </button>
             </div>
@@ -207,9 +233,10 @@ export default function RequestDetail() {
             {r.isGroupBuy && <span className="badge badge-green"><Users size={11} /> Group buy</span>}
             {r.isRecurring && <span className="badge badge-blue"><Repeat size={11} /> Recurring</span>}
             <span className="badge badge-purple">{r.categoryName}</span>
+            {r.subCategory && <span className="badge badge-gray">{r.subCategory}</span>}
             {r.expiresInHrs && <span className="badge badge-gray"><Clock size={11} /> expires in {r.expiresInHrs}h</span>}
           </div>
-          <h1 className="bold" style={{ fontSize: 22, marginTop: 8 }}>{r.title}</h1>
+          <h1 className="bold h1" style={{ marginTop: 8 }}>{r.title}</h1>
           <p className="small" style={{ marginTop: 8, lineHeight: 1.6, color: "var(--ink-700)" }}>{r.description}</p>
 
           {r.photos.length > 0 && (
@@ -222,13 +249,13 @@ export default function RequestDetail() {
 
           {/* Group buy progress */}
           {r.isGroupBuy && r.groupBuyTarget && (
-            <div className="card" style={{ padding: 14, marginTop: 14, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
+            <div className="card" style={{ marginTop: 14, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
               <div className="row between tiny" style={{ marginBottom: 6 }}>
-                <span className="semi" style={{ color: "#15803d" }}>{meTooCount} of {r.groupBuyTarget} neighbors in</span>
+                <span className="semi" style={{ color: "var(--green-600)" }}>{meTooCount} of {r.groupBuyTarget} neighbors in</span>
                 <span className="muted">{r.groupBuyTarget - meTooCount} more unlocks bulk price</span>
               </div>
-              <div style={{ height: 8, borderRadius: 6, background: "#fff", overflow: "hidden" }}>
-                <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),#4ade80)" }} />
+              <div style={{ height: 8, borderRadius: 6, background: "var(--surface)", overflow: "hidden" }}>
+                <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),var(--green-500))" }} />
               </div>
             </div>
           )}
@@ -271,9 +298,31 @@ export default function RequestDetail() {
 
         {/* Proposals */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
-          <h3 className="bold" style={{ fontSize: 17, marginBottom: 12 }}>
-            {isMine ? "Proposals received" : "Proposals"} ({r.proposals.length})
+          <h3 className="bold h2" style={{ marginBottom: 12 }}>
+            {isMine ? "Offers received" : "Offers"} ({r.proposals.length})
           </h3>
+
+          {/* Sort — helps the customer compare when several offers arrive */}
+          {r.proposals.length > 1 && (
+            <div className="row gap-8" style={{ marginBottom: 12 }}>
+              {([["best", "Best"], ["price", "Lowest price"], ["rating", "Top rated"]] as [typeof propSort, string][]).map(([key, label]) => (
+                <button
+                  key={key}
+                  className="chip"
+                  style={{
+                    padding: "5px 12px", fontSize: 12.5,
+                    background: propSort === key ? "var(--brand-600)" : "#fff",
+                    color: propSort === key ? "#fff" : "var(--ink-600)",
+                    borderColor: propSort === key ? "var(--brand-600)" : "var(--ink-200)",
+                    fontWeight: propSort === key ? 700 : 500,
+                  }}
+                  onClick={() => setPropSort(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {sortedProposals.length === 0 ? (
             <EmptyState
@@ -284,17 +333,14 @@ export default function RequestDetail() {
           ) : (
             <div className="col gap-12">
               {sortedProposals.map((p) => (
-                <div
-                  key={p.id}
-                  className="card"
-                  style={{ padding: 14, border: accepted === p.id ? "2px solid var(--green-500)" : p.isBoosted ? "1.5px solid #fcd34d" : "1px solid var(--line)" }}
-                >
+                <div key={p.id}
+                  className="card" style={{ border: accepted === p.id ? "2px solid var(--green-500)" : p.isBoosted ? "1.5px solid var(--amber-500)" : "1px solid var(--line)" }}>
                   <div className="row gap-10">
                     <SafeImg src={p.responderAvatar} variant="avatar" className="avatar" style={{ width: 42, height: 42 }} />
                     <div className="grow" style={{ minWidth: 0 }}>
                       <div className="row gap-6">
                         <span className="semi small ellipsis">{p.responderName}</span>
-                        {p.responderType === "business" && <BadgeCheck size={14} color="#e5521c" />}
+                        {p.responderType === "business" && <BadgeCheck size={14} color="var(--brand-600)" />}
                       </div>
                       <span className="tiny muted">{p.responderTagline}</span>
                     </div>
@@ -322,8 +368,11 @@ export default function RequestDetail() {
                         <span className="badge badge-green"><CheckCircle2 size={13} /> Accepted</span>
                       ) : (
                         <div className="row gap-8">
+                          <button className="btn btn-outline btn-sm icon-btn" style={{ width: 36, padding: 0 }} title="Message" onClick={() => messageResponder(p)} disabled={!!accepted || messaging === p.id}>
+                            <MessageCircle size={15} />
+                          </button>
                           <button className="btn btn-outline btn-sm" onClick={() => setCounterFor(counterFor === p.id ? null : p.id)} disabled={!!accepted}>
-                            <MessageSquare size={14} /> Counter
+                            <ArrowRightLeft size={14} /> Counter
                           </button>
                           <button className="btn btn-green btn-sm" onClick={() => acceptProposal(p)} disabled={!!accepted}>
                             Accept
@@ -349,12 +398,12 @@ export default function RequestDetail() {
                           }}
                         >
                           <div style={{
-                            background: c.by === "requester" ? "#ede9fe" : "#dcfce7",
+                            background: c.by === "requester" ? "var(--brand-100)" : "var(--green-100)",
                             borderRadius: 10,
                             padding: "6px 10px",
                             maxWidth: "75%",
                           }}>
-                            <div className="tiny semi" style={{ color: c.by === "requester" ? "var(--brand-700)" : "#15803d" }}>
+                            <div className="tiny semi" style={{ color: c.by === "requester" ? "var(--brand-700)" : "var(--green-600)" }}>
                               {c.by === "requester" ? "Requester" : "Provider"} counter: {inr(c.amount)}
                             </div>
                             {c.message && <div className="tiny muted" style={{ marginTop: 2 }}>{c.message}</div>}
@@ -367,7 +416,7 @@ export default function RequestDetail() {
 
                   {/* Requester: send counter input */}
                   {counterFor === p.id && (
-                    <div className="card" style={{ padding: 12, marginTop: 10, background: "var(--ink-50)", border: "none" }}>
+                    <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
                       <div className="tiny semi muted" style={{ marginBottom: 8 }}>Propose a different price</div>
                       <div className="row gap-8">
                         <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff" }}>
@@ -384,7 +433,7 @@ export default function RequestDetail() {
                   {!isMine && p.responderUserId === user.id && (p.counters ?? []).length > 0 && (
                     <div style={{ marginTop: 10 }}>
                       {counterBackFor === p.id ? (
-                        <div className="card" style={{ padding: 12, background: "var(--ink-50)", border: "none" }}>
+                        <div className="card card-condensed" style={{ background: "var(--ink-50)", border: "none" }}>
                           <div className="tiny semi muted" style={{ marginBottom: 8 }}>Your counter offer</div>
                           <div className="row gap-8">
                             <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff" }}>
@@ -480,11 +529,11 @@ export default function RequestDetail() {
       {showDeleteConfirm && (
         <div className="sheet-backdrop" onClick={() => setShowDeleteConfirm(false)}>
           <div className="sheet col gap-14 center" style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#fee2e2", color: "var(--red-500)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--red-100)", color: "var(--red-500)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Trash2 size={28} />
             </div>
             <div>
-              <h3 className="bold" style={{ fontSize: 18 }}>Delete this request?</h3>
+              <h3 className="bold h2">Delete this request?</h3>
               <p className="small muted" style={{ marginTop: 6, lineHeight: 1.4 }}>Are you sure you want to cancel and delete this request? This action cannot be undone.</p>
             </div>
             <div className="row gap-10" style={{ width: "100%", marginTop: 8 }}>
@@ -506,6 +555,42 @@ function Cell({ label, value, color }: { label: string; value: string; color?: s
       <span className="tiny muted">{label}</span>
       <span className="semi small" style={{ color }}>{value}</span>
     </div>
+  );
+}
+
+// Live "expires in Xh Ym" pill for an OPEN request. Ticks each minute; turns
+// red under an hour; renders nothing once past (the server sweep flips status).
+function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  const msLeft = new Date(expiresAt).getTime() - now;
+  if (msLeft <= 0) return null;
+  const totalMin = Math.floor(msLeft / 60_000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const urgent = msLeft < 3_600_000;
+  const label = h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+  return (
+    <span
+      className="row gap-4"
+      style={{
+        alignItems: "center",
+        alignSelf: "flex-start",
+        marginTop: 8,
+        padding: "3px 10px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 700,
+        background: urgent ? "var(--red-50)" : "var(--brand-50)",
+        color: urgent ? "var(--red-500)" : "var(--brand-700)",
+        border: `1px solid ${urgent ? "var(--red-100)" : "var(--brand-200)"}`,
+      }}
+    >
+      <Clock size={12} /> Expires in {label}
+    </span>
   );
 }
 function Sep() {

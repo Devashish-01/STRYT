@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Camera, Plus, X, Store, Wrench } from "lucide-react";
-import { communityService, uploadService } from "@/services";
+import { Camera, Plus, X, Store, Wrench, Image } from "@/components/Icons";
+import { communityService, uploadService, businessService, providerService } from "@/services";
+import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import type { CommunityPostType } from "@/types";
 
@@ -35,9 +36,46 @@ const types: { type: CommunityPostType; label: string; emoji: string; hint: stri
 export default function CommunityCompose() {
   const nav = useNavigate();
   const loc = useLocation();
-  const { area, user, showToast } = useApp();
-  const sellerCtx = readSellerContext(loc.state);
+  const { area, user, showToast, activeContext } = useApp();
+
+  const { data: activeBiz } = useQuery(
+    () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
+    [activeContext.id, activeContext.type]
+  );
+  const { data: activeProv } = useQuery(
+    () => activeContext.type === "provider" && activeContext.id ? providerService.get(activeContext.id) : Promise.resolve(null),
+    [activeContext.id, activeContext.type]
+  );
+
+  const passedCtx = readSellerContext(loc.state);
+  const sellerCtx = passedCtx || (
+    activeContext.type === "business" && activeBiz ? {
+      type: "business" as const,
+      id: activeBiz.id,
+      name: activeBiz.name,
+      avatar: activeBiz.coverImage
+    } : activeContext.type === "provider" && activeProv ? {
+      type: "provider" as const,
+      id: activeProv.id,
+      name: activeProv.displayName,
+      avatar: activeProv.avatar
+    } : null
+  );
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+
+  async function pickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await uploadService.upload(file, "community");
+      setPhotoUrl(url);
+    } catch { /* ignore */ } finally {
+      setUploading(false);
+    }
+  }
   const [type, setType] = useState<CommunityPostType | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -81,8 +119,8 @@ export default function CommunityCompose() {
             className="card row gap-10 center-v"
             style={{
               padding: 12,
-              background: sellerCtx.type === "business" ? "#fff7ed" : "#e8f7ee",
-              border: `1px solid ${sellerCtx.type === "business" ? "#fed7aa" : "#bbf7d0"}`,
+              background: sellerCtx.type === "business" ? "var(--orange-50)" : "var(--green-100)",
+              border: `1px solid ${sellerCtx.type === "business" ? "var(--orange-100)" : "var(--green-500)"}`,
             }}
           >
             <SafeImg
@@ -98,8 +136,8 @@ export default function CommunityCompose() {
             <span
               className="badge row gap-4 center-v"
               style={{
-                background: sellerCtx.type === "business" ? "#ffedd5" : "#dcfce7",
-                color: sellerCtx.type === "business" ? "#c2410c" : "#15803d",
+                background: sellerCtx.type === "business" ? "var(--orange-100)" : "var(--green-100)",
+                color: sellerCtx.type === "business" ? "var(--orange-500)" : "var(--green-600)",
               }}
             >
               {sellerCtx.type === "business" ? <Store size={11} /> : <Wrench size={11} />}
@@ -166,29 +204,26 @@ export default function CommunityCompose() {
                     <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setPhotoUrl(null)}><X size={14} /></button>
                   </div>
                 ) : (
-                  <label style={{ cursor: "pointer" }}>
-                    <div className="col center" style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4 }}>
-                      <Camera size={22} /><span className="tiny">{uploading ? "Uploading…" : "Add photo"}</span>
-                    </div>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      style={{ display: "none" }}
+                  <div className="row gap-8">
+                    <button
+                      className="col center"
+                      style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, opacity: uploading ? 0.6 : 1 }}
                       disabled={uploading}
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setUploading(true);
-                        try {
-                          const url = await uploadService.upload(file, "community");
-                          setPhotoUrl(url);
-                        } catch { /* ignore */ } finally {
-                          setUploading(false);
-                        }
-                      }}
-                    />
-                  </label>
+                      onClick={() => cameraRef.current?.click()}
+                    >
+                      <Camera size={22} /><span className="tiny">{uploading ? "…" : "Camera"}</span>
+                    </button>
+                    <button
+                      className="col center"
+                      style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, opacity: uploading ? 0.6 : 1 }}
+                      disabled={uploading}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <Image size={22} /><span className="tiny">{uploading ? "…" : "Gallery"}</span>
+                    </button>
+                    <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickPhoto} />
+                    <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={pickPhoto} />
+                  </div>
                 )}
               </div>
             )}

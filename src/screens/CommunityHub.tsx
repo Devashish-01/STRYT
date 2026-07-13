@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText } from "lucide-react";
+import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText, ArrowLeft, ArrowUpDown } from "@/components/Icons";
 import { requestService, communityService, discoveryService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -8,6 +8,7 @@ import { RequestCard } from "@/components/cards";
 import { CommunityCard } from "@/screens/Community";
 import { EmptyState } from "@/components/common";
 import { useApp } from "@/store";
+import { trendingScore } from "@/lib/trending";
 import type { CommunityPostType } from "@/types";
 
 type HubTab = "requests" | "posts";
@@ -20,10 +21,11 @@ const POST_LABELS: Record<"ALL" | CommunityPostType, string> = {
 
 export default function CommunityHub() {
   const nav = useNavigate();
-  const { area, user, chatUnread } = useApp();
+  const { area, user, chatUnread, activeContext } = useApp();
   const [tab, setTab] = useState<HubTab>("posts");
   const [postFilter, setPostFilter] = useState<"ALL" | CommunityPostType>("ALL");
   const [reqSpecial, setReqSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
+  const [postSort, setPostSort] = useState<"recent" | "trending">("recent");
 
   const { data: feedPage, loading: reqLoading, error: reqError, refetch: refetchReq } = useQueryWithRealtime(
     () => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }),
@@ -44,24 +46,50 @@ export default function CommunityHub() {
   if (reqSpecial === "recurring") requests = requests.filter((r) => r.isRecurring);
 
   const allPosts = postData ?? [];
-  const posts = postFilter === "ALL" ? allPosts : allPosts.filter((p) => p.type === postFilter);
+  const filteredPosts = postFilter === "ALL" ? allPosts : allPosts.filter((p) => p.type === postFilter);
+  const posts = postSort === "trending" ? [...filteredPosts].sort((a, b) => trendingScore(b) - trendingScore(a)) : filteredPosts;
+
+  // A seller viewing the public hub still composes under their active identity.
+  const isOwnerContext = activeContext.type !== "customer" && !!activeContext.id;
+  function goToCompose() {
+    nav(
+      "/community/new",
+      isOwnerContext
+        ? { state: activeContext.type === "business"
+            ? { businessId: activeContext.id, businessName: activeContext.name }
+            : { providerId: activeContext.id, providerName: activeContext.name } }
+        : undefined
+    );
+  }
 
   return (
     <div className="screen with-nav">
       {/* Sticky header */}
       <header style={{ background: "#fff", position: "sticky", top: 0, zIndex: 20, borderBottom: "1px solid var(--line)" }}>
-        <div style={{ padding: "14px 16px 0" }}>
+        <div style={{ padding: "calc(14px + var(--safe-area-top)) 16px 0" }}>
           {/* Title row */}
           <div className="row between" style={{ marginBottom: 12 }}>
-            <div>
-              <div className="bold" style={{ fontSize: 20 }}>Community</div>
-              <div className="tiny muted row gap-4"><MapPin size={11} /> {area}</div>
+            <div className="row gap-8" style={{ alignItems: "center" }}>
+              {activeContext.type !== "customer" && (
+                <button
+                  className="icon-btn-sm"
+                  style={{ marginRight: 4, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                  onClick={() => nav(activeContext.type === "business" ? `/business/${activeContext.id}/manage` : `/provider/${activeContext.id}/manage`)}
+                  aria-label="Back to Dashboard"
+                >
+                  <ArrowLeft size={18} />
+                </button>
+              )}
+              <div>
+                <div className="bold" style={{ fontSize: 20 }}>Community</div>
+                <div className="tiny muted row gap-4"><MapPin size={11} /> {area}</div>
+              </div>
             </div>
             <div className="row gap-6">
               <button
                 className="icon-btn"
                 style={{ position: "relative" }}
-                onClick={() => nav("/chats")}
+                onClick={() => nav("/chats?scope=CUSTOMER")}
                 aria-label="Messages"
               >
                 <MessageCircle size={20} />
@@ -78,7 +106,7 @@ export default function CommunityHub() {
               </button>
               <button
                 className="btn btn-primary btn-sm"
-                onClick={() => nav("/community/new")}
+                onClick={goToCompose}
               >
                 <Plus size={14} /> Post
               </button>
@@ -168,13 +196,20 @@ export default function CommunityHub() {
               title="Nothing posted yet"
               text="Be the first to share something with your street."
               action={
-                <button className="btn btn-primary btn-sm" onClick={() => nav("/community/new")}>
+                <button className="btn btn-primary btn-sm" onClick={goToCompose}>
                   <Plus size={15} /> Post something
                 </button>
               }
             />
           ) : (
             <div className="col gap-12 page-pad" style={{ paddingBottom: 24 }}>
+              <button
+                className="row gap-6 center-v tiny semi"
+                style={{ alignSelf: "flex-end", color: "var(--brand-700)" }}
+                onClick={() => setPostSort((s) => (s === "trending" ? "recent" : "trending"))}
+              >
+                <ArrowUpDown size={13} /> Sort: {postSort === "trending" ? "🔥 Trending nearby" : "Recent"}
+              </button>
               {posts.map((p) => (
                 <CommunityCard
                   key={p.id}

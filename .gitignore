@@ -15,3 +15,33 @@ test-results
 playwright-report
 playwright/.cache
 
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
+
+# Editor / OS
+Thumbs.db
+*.swp
+
+# Capacitor (native wrapper — committed so GitHub Actions can build the APK)
+# Only ignore build outputs and local secrets
+android/.gradle
+android/app/build
+android/build
+android/local.properties
+android/app/stryt-release.keystore
+android/.idea
+ios
+.capacitor
+
+# APK binary — served from GitHub Releases, not stored in git
+public/stryt.apk
+
+
+# Firebase service account private keys — NEVER commit these
+*firebase-adminsdk*.json
+google-services.json
+android/app/google-services.json
+
+/skills
+.agents
+.claude

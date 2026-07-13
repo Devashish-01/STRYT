@@ -38,7 +38,7 @@ export function NeighborhoodTodayCard({ lat, lng, radiusM = 3000, areaName }: Pr
           className="tiny"
           style={{
             color: "var(--green-500)",
-            background: "#dcfce7",
+            background: "var(--green-100)",
             borderRadius: 20,
             padding: "1px 8px",
             fontWeight: 600,

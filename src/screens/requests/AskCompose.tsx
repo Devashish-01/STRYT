@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock } from "lucide-react";
+import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal, Image } from "@/components/Icons";
 import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import RadiusSelector from "@/components/RadiusSelector";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 
 interface Template {
@@ -70,6 +71,7 @@ export default function AskCompose() {
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [cat, setCat] = useState<string | null>(null);
+  const [subCat, setSubCat] = useState<string | null>(null);
   const [fieldVals, setFieldVals] = useState<Record<string, string>>({});
   const [budgetMin, setBudgetMin] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
@@ -80,9 +82,12 @@ export default function AskCompose() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const [urgent, setUrgent] = useState(false);
   const [recurring, setRecurring] = useState(false);
   const [anon, setAnon] = useState(false);
+  const [expiryHrs, setExpiryHrs] = useState(24); // auto-expire window; capped at 24h
+  const [showAdvanced, setShowAdvanced] = useState(false); // progressive disclosure of advanced options
   const [posting, setPosting] = useState(false);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -112,7 +117,7 @@ export default function AskCompose() {
         const matched = (categories ?? []).find(
           (c) => lower.includes(c.name.toLowerCase()) || lower.includes((c.slug ?? "").toLowerCase())
         );
-        if (matched) setCat(matched.id);
+        if (matched) { setCat(matched.id); setSubCat(null); }
       }
     };
     rec.onerror = () => { showToast("Voice error. Try again."); setListening(false); };
@@ -161,11 +166,15 @@ export default function AskCompose() {
   const canPost = title.trim().length > 3 && !!cat && !posting && !uploading;
   const missing = !title.trim() ? "title" : !cat ? "category" : null;
 
+  // Subcategories are the selected top-level category's children (tree from getCategories).
+  const subOptions = (categories ?? []).find((c) => c.id === cat)?.children ?? [];
+
   function applyTemplate(t: Template) {
     setTemplate(t);
     setTitle(t.title);
     const matched = (categories ?? []).find((c) => c.slug === t.catSlug);
     setCat(matched?.id ?? null);
+    setSubCat(null);
     setFieldVals({});
   }
 
@@ -182,12 +191,12 @@ export default function AskCompose() {
     try {
       let lat = user.lat;
       let lng = user.lng;
-      if (!lat && !lng && navigator.geolocation) {
+      if (!lat && !lng) {
         await new Promise<void>((resolve) => {
-          navigator.geolocation.getCurrentPosition(
+          nativeGeolocation.getCurrentPosition(
             (pos) => { lat = pos.coords.latitude; lng = pos.coords.longitude; resolve(); },
             () => resolve(),
-            { timeout: 4000 }
+            { enableHighAccuracy: true, timeout: 4000 }
           );
         });
       }
@@ -197,6 +206,7 @@ export default function AskCompose() {
         description: desc,
         categoryId: cat,
         categoryName: selectedCategory?.name,
+        subCategory: subCat ?? undefined,
         budgetMin: budgetMin ? Number(budgetMin) : undefined,
         budgetMax: budgetMax ? Number(budgetMax) : undefined,
         deadline: buildDeadline(),
@@ -204,6 +214,8 @@ export default function AskCompose() {
         isUrgent: urgent,
         isRecurring: recurring,
         isAnonymous: anon,
+        expiresInHrs: expiryHrs,
+        expiresAt: new Date(Date.now() + Math.min(expiryHrs, 24) * 3600 * 1000).toISOString(),
         photos: photos.length ? photos : undefined,
         area,
         lat: lat || 0,
@@ -307,13 +319,31 @@ export default function AskCompose() {
           ) : (
             <div className="row wrap gap-8">
               {(categories ?? []).map((c) => (
-                <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => setCat(c.id)}>
+                <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { setCat(c.id); setSubCat(null); }}>
                   {c.icon} {c.name.split(" ")[0]}
                 </button>
               ))}
             </div>
           )}
         </div>
+
+        {/* Subcategory — optional, only when the chosen category has children */}
+        {subOptions.length > 0 && (
+          <div className="field">
+            <label>Subcategory <span className="tiny muted">(optional)</span></label>
+            <div className="row wrap gap-8">
+              {subOptions.map((s) => (
+                <button
+                  key={s.id}
+                  className={`chip ${subCat === s.name ? "active" : ""}`}
+                  onClick={() => setSubCat(subCat === s.name ? null : s.name)}
+                >
+                  {s.icon} {s.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Details */}
         <div className="field">
@@ -329,7 +359,7 @@ export default function AskCompose() {
             />
             <button
               className="icon-btn"
-              style={{ position: "absolute", bottom: 8, right: 8, background: listening ? "#fee2e2" : "var(--brand-50)", color: listening ? "var(--red-600)" : "var(--brand-700)" }}
+              style={{ position: "absolute", bottom: 8, right: 8, background: listening ? "var(--red-100)" : "var(--brand-50)", color: listening ? "var(--red-600)" : "var(--brand-700)" }}
               onClick={toggleVoice}
             >
               <Mic size={18} />
@@ -353,18 +383,30 @@ export default function AskCompose() {
               </div>
             ))}
             {photos.length < 4 && (
-              <button
-                className="col center"
-                style={{ width: 76, height: 76, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 2, opacity: uploading ? 0.6 : 1 }}
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-              >
-                <Camera size={20} />
-                <span className="tiny">{uploading ? "Uploading…" : "Add"}</span>
-              </button>
+              <>
+                <button
+                  className="col center"
+                  style={{ width: 76, height: 76, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 2, opacity: uploading ? 0.6 : 1 }}
+                  onClick={() => cameraRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <Camera size={20} />
+                  <span className="tiny">{uploading ? "…" : "Camera"}</span>
+                </button>
+                <button
+                  className="col center"
+                  style={{ width: 76, height: 76, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 2, opacity: uploading ? 0.6 : 1 }}
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                >
+                  <Image size={20} />
+                  <span className="tiny">{uploading ? "…" : "Gallery"}</span>
+                </button>
+              </>
             )}
           </div>
           <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={handleFiles} />
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={handleFiles} />
         </div>
 
         {/* ── Payment mode + budget ── */}
@@ -400,6 +442,24 @@ export default function AskCompose() {
           </div>
         </div>
 
+        {/* Advanced options — collapsed by default so the core stays simple.
+            Defaults (24h expiry, default radius, no scheduling/toggles) are
+            sensible, so most people can just post without opening this. */}
+        <button
+          type="button"
+          className="row between"
+          onClick={() => setShowAdvanced((v) => !v)}
+          style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: "var(--ink-50)", border: "1px solid var(--ink-200)", alignItems: "center" }}
+        >
+          <span className="semi small row gap-8" style={{ alignItems: "center", color: "var(--ink-800)" }}>
+            <SlidersHorizontal size={16} color="var(--brand-600)" /> More options
+            <span className="tiny muted" style={{ fontWeight: 400 }}>timing · urgent · radius · expiry</span>
+          </span>
+          <ChevronDown size={18} color="var(--ink-500)" style={{ transform: showAdvanced ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+        </button>
+
+        {showAdvanced && (
+        <>
         {/* ── When do you need it ── */}
         <div className="field">
           <label>When do you need it? <span className="tiny muted">(optional)</span></label>
@@ -445,8 +505,39 @@ export default function AskCompose() {
         {/* Toggles */}
         <div className="col gap-8">
           <ToggleRow icon={<Flame size={18} color="var(--red-500)" />} label="Mark as urgent" hint="Pushes to providers faster" on={urgent} set={setUrgent} />
-          <ToggleRow icon={<Repeat size={18} color="#3b82f6" />} label="Recurring need" hint="e.g. every weekday / weekly" on={recurring} set={setRecurring} />
+          <ToggleRow icon={<Repeat size={18} color="var(--blue-500)" />} label="Recurring need" hint="e.g. every weekday / weekly" on={recurring} set={setRecurring} />
           <ToggleRow icon={<EyeOff size={18} color="var(--brand-600)" />} label="Post anonymously" hint="Name hidden until you agree" on={anon} set={setAnon} />
+        </div>
+
+        {/* Auto-expiry timer — capped at 24h so stale requests self-close */}
+        <div className="field">
+          <label className="row gap-8" style={{ alignItems: "center", marginBottom: 8 }}>
+            <Clock size={16} color="var(--brand-600)" />
+            <span className="semi small">Auto-expire after</span>
+          </label>
+          <div className="row gap-8" style={{ flexWrap: "wrap" }}>
+            {[3, 6, 12, 24].map((h) => (
+              <button
+                key={h}
+                type="button"
+                className="chip"
+                style={{
+                  flex: 1,
+                  minWidth: 64,
+                  background: expiryHrs === h ? "var(--brand-600)" : "#fff",
+                  color: expiryHrs === h ? "#fff" : "var(--ink-700)",
+                  borderColor: expiryHrs === h ? "var(--brand-600)" : "var(--ink-200)",
+                  fontWeight: expiryHrs === h ? 700 : 500,
+                }}
+                onClick={() => setExpiryHrs(h)}
+              >
+                {h}h
+              </button>
+            ))}
+          </div>
+          <span className="tiny muted" style={{ marginTop: 6, display: "block" }}>
+            Providers stop seeing this request after {expiryHrs} hour{expiryHrs > 1 ? "s" : ""}.
+          </span>
         </div>
 
         <div className="field">
@@ -458,6 +549,8 @@ export default function AskCompose() {
             description={`Visible to users/providers within the selected radius of ${area}`}
           />
         </div>
+        </>
+        )}
       </div>
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "8px 12px 12px" }}>

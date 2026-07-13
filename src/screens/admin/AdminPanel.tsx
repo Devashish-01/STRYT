@@ -1,20 +1,21 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState } from "@/components/common";
-import { adminService, type AdminReport } from "@/services/adminService";
-import { profileControlService, type DeletionRequest } from "@/services/profileControlService";
+import { adminService, type AdminReport, type VerificationQueueItem } from "@/services/core/adminService";
+import { profileControlService, type DeletionRequest } from "@/services/core/profileControlService";
+import { notificationService } from "@/services/engagement/notificationService";
+import { appealService, type AccountAppeal } from "@/services/core/appealService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ListSkeleton } from "@/components/states";
-import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut } from "lucide-react";
+import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut, Eye, ExternalLink } from "@/components/Icons";
 import { useApp } from "@/store";
-import { kycService } from "@/services/kycService";
 
-type Tab = "dashboard" | "queue" | "kyc" | "disputes" | "reports" | "bugs" | "profiles" | "account";
+type Tab = "dashboard" | "queue" | "verification" | "disputes" | "appeals" | "reports" | "bugs" | "profiles" | "account";
 type QueueType = "business" | "provider" | "category";
 
 export default function AdminPanel() {
   const nav = useNavigate();
-  const { user, showToast } = useApp();
+  const { user, showToast, refreshUser } = useApp();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [claiming, setClaiming] = useState(false);
 
@@ -27,7 +28,9 @@ export default function AdminPanel() {
     try {
       await adminService.claimFirstAdmin("admin");
       showToast("Admin access granted — welcome!");
-      window.location.reload();
+      // Re-fetch the profile so the new admin role flows into the store and the
+      // panel re-renders in place — no jarring full-page reload.
+      await refreshUser();
     } catch (e: any) {
       showToast(e?.message || "Couldn't claim admin access.");
     } finally {
@@ -42,7 +45,7 @@ export default function AdminPanel() {
           <div style={{ width: 80, height: 80, borderRadius: 20, background: "var(--ink-200)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Shield size={40} color="var(--red-600)" />
           </div>
-          <h1 className="bold" style={{ fontSize: 24, marginTop: 20 }}>Access Denied</h1>
+          <h1 className="bold h1" style={{ marginTop: 20 }}>Access Denied</h1>
           <p className="muted small" style={{ marginTop: 8 }}>Only verified administrators can access this console.</p>
 
           <div className="col gap-8" style={{ marginTop: 24, width: "100%", maxWidth: 280 }}>
@@ -67,15 +70,16 @@ export default function AdminPanel() {
     <div className="screen">
       <AppBar title="Admin Console" subtitle="Moderation & ops" onBack={() => nav("/profile")} />
       <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff", overflowX: "auto" }}>
-        {([["dashboard", "Overview"], ["queue", "Queue"], ["kyc", "KYC"], ["disputes", "Disputes"], ["reports", "Reports"], ["bugs", "Bugs"], ["profiles", "Profiles"], ["account", "Account"]] as [Tab, string][]).map(([t, label]) => (
+        {([["dashboard", "Overview"], ["queue", "Queue"], ["verification", "Verification"], ["disputes", "Disputes"], ["appeals", "Appeals"], ["reports", "Reports"], ["bugs", "Bugs"], ["profiles", "Profiles"], ["account", "Account"]] as [Tab, string][]).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} className="semi" style={{ flex: "1 0 auto", padding: "12px 14px", fontSize: 13.5, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>{label}</button>
         ))}
       </div>
       <div className="screen-scroll">
         {tab === "dashboard" && <AdminDashboard />}
         {tab === "queue" && <AdminQueue />}
-        {tab === "kyc" && <AdminKYC />}
+        {tab === "verification" && <AdminVerificationQueue />}
         {tab === "disputes" && <AdminDisputes />}
+        {tab === "appeals" && <AdminAppeals />}
         {tab === "reports" && <AdminReports />}
         {tab === "bugs" && <AdminBugs />}
         {tab === "profiles" && <AdminProfiles />}
@@ -126,7 +130,7 @@ function AdminAccount() {
 
   return (
     <div className="page-pad col gap-16">
-      <div className="card" style={{ padding: 16 }}>
+      <div className="card">
         <div className="row gap-8 center-v" style={{ marginBottom: 4 }}>
           <KeyRound size={16} color="var(--brand-700)" />
           <span className="semi small">Change admin ID</span>
@@ -140,7 +144,7 @@ function AdminAccount() {
         </div>
       </div>
 
-      <div className="card" style={{ padding: 16 }}>
+      <div className="card">
         <div className="row gap-8 center-v" style={{ marginBottom: 4 }}>
           <KeyRound size={16} color="var(--brand-700)" />
           <span className="semi small">Change password</span>
@@ -157,7 +161,7 @@ function AdminAccount() {
 
       <button
         className="btn btn-outline btn-block row gap-8 center"
-        style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
+        style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }}
         onClick={() => { signOut(); nav("/admin/login"); }}
       >
         <LogOut size={16} /> Sign out of admin
@@ -234,7 +238,7 @@ function AdminQueue() {
           {data.filter((i) => !done.includes(i.id)).map((item) => {
             const Icon = type === "business" ? Store : type === "provider" ? Briefcase : Tag;
             return (
-              <div key={item.id} className="card" style={{ padding: 14 }}>
+              <div key={item.id} className="card">
                 <div className="row gap-12">
                   {item.image ? <img src={item.image} className="thumb" style={{ width: 48, height: 48, borderRadius: 12 }} /> : <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color="var(--brand-600)" /></div>}
                   <div className="grow"><div className="semi small">{item.name}</div><div className="tiny muted">{item.sub}</div></div>
@@ -249,6 +253,119 @@ function AdminQueue() {
         </div>
       )}
     </>
+  );
+}
+
+// Manual STRYT Verified review queue. Approve/reject/suspend all go through
+// adminService.reviewVerification -> the verification-review Edge Function —
+// no code path here can grant the badge directly; a DB trigger blocks any
+// write that isn't from that service, so this UI only ever *requests* a
+// decision, it never makes one client-side.
+function AdminVerificationQueue() {
+  const { showToast } = useApp();
+  const { data, loading, refetch } = useQuery(() => adminService.verificationQueue(), []);
+  const [reasonById, setReasonById] = useState<Record<string, string>>({});
+  const [docsById, setDocsById] = useState<Record<string, string[]>>({});
+  const [loadingDocsKey, setLoadingDocsKey] = useState<string | null>(null);
+  const [actingKey, setActingKey] = useState<string | null>(null);
+
+  function keyOf(item: VerificationQueueItem) {
+    return `${item.targetType}:${item.targetId}`;
+  }
+
+  async function loadDocs(item: VerificationQueueItem) {
+    const key = keyOf(item);
+    if (docsById[key]) return;
+    setLoadingDocsKey(key);
+    try {
+      const urls = await adminService.viewVerificationDocs(item.targetType, item.targetId);
+      setDocsById((m) => ({ ...m, [key]: urls }));
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't load documents");
+    } finally {
+      setLoadingDocsKey(null);
+    }
+  }
+
+  async function decide(item: VerificationQueueItem, decision: "APPROVE" | "REJECT" | "SUSPEND") {
+    const key = keyOf(item);
+    const reason = (reasonById[key] ?? "").trim();
+    if (decision !== "APPROVE" && !reason) {
+      showToast("Add a reason before rejecting or suspending");
+      return;
+    }
+    setActingKey(key);
+    try {
+      await adminService.reviewVerification(item.targetType, item.targetId, decision, reason || undefined);
+      showToast(decision === "APPROVE" ? "Approved ✓" : decision === "REJECT" ? "Rejected" : "Suspended");
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't submit decision");
+    } finally {
+      setActingKey(null);
+    }
+  }
+
+  if (loading) return <div className="page-pad"><ListSkeleton count={3} /></div>;
+  const items = data ?? [];
+
+  return (
+    <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
+      {items.length === 0 && <EmptyState emoji="🛡️" title="Nothing pending" text="No businesses or providers are waiting on manual verification." />}
+      {items.map((item) => {
+        const key = keyOf(item);
+        const docs = docsById[key];
+        const busy = actingKey === key;
+        return (
+          <div key={key} className="card">
+            <div className="row between" style={{ marginBottom: 6 }}>
+              <span className="badge badge-purple">
+                {item.targetType === "BUSINESS" ? <Store size={11} /> : <Briefcase size={11} />} {item.targetType}
+              </span>
+              <span className="tiny muted">{new Date(item.submittedAt).toLocaleDateString()}</span>
+            </div>
+            <div className="semi small">{item.name}</div>
+            <div className="tiny muted" style={{ marginBottom: 10 }}>
+              Owner: {item.ownerName} • {item.documentCount} document{item.documentCount === 1 ? "" : "s"}
+            </div>
+
+            {docs ? (
+              <div className="row wrap gap-8" style={{ marginBottom: 10 }}>
+                {docs.length === 0 && <span className="tiny muted">No documents found.</span>}
+                {docs.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="chip">
+                    <ExternalLink size={12} /> Document {i + 1}
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <button className="btn btn-outline btn-sm" style={{ marginBottom: 10 }} disabled={loadingDocsKey === key} onClick={() => loadDocs(item)}>
+                <Eye size={14} /> {loadingDocsKey === key ? "Loading..." : "View documents"}
+              </button>
+            )}
+
+            <input
+              className="input"
+              placeholder="Reason (required to reject/suspend)"
+              style={{ fontSize: 12.5, marginBottom: 8 }}
+              value={reasonById[key] ?? ""}
+              onChange={(e) => setReasonById((m) => ({ ...m, [key]: e.target.value }))}
+            />
+            <div className="row gap-8">
+              <button className="btn btn-outline grow btn-sm" style={{ color: "var(--red-600)" }} disabled={busy} onClick={() => decide(item, "REJECT")}>
+                <X size={14} /> Reject
+              </button>
+              <button className="btn btn-sm grow" style={{ background: "var(--red-700)", color: "#fff" }} disabled={busy} onClick={() => decide(item, "SUSPEND")}>
+                <AlertTriangle size={14} /> Suspend
+              </button>
+              <button className="btn btn-green grow btn-sm" disabled={busy} onClick={() => decide(item, "APPROVE")}>
+                <Check size={14} /> Approve
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -271,7 +388,7 @@ function AdminReports() {
           {data.map((r) => {
             const status = resolved[r.id] ?? r.status;
             return (
-              <div key={r.id} className="card" style={{ padding: 14 }}>
+              <div key={r.id} className="card">
                 <div className="row between">
                   <span className="badge badge-red"><Flag size={11} /> {r.reason}</span>
                   <span className="tiny muted">{r.time}</span>
@@ -335,7 +452,7 @@ function AdminBugs() {
       {items.map((b) => {
         const roleMeta = BUG_ROLE_META[b.reporterRole];
         return (
-          <div key={b.id} className="card" style={{ padding: 14 }}>
+          <div key={b.id} className="card">
             <div className="row between">
               <span className="badge" style={{ background: `${roleMeta.color}1a`, color: roleMeta.color }}>{roleMeta.label}</span>
               <span className="tiny muted">{b.time}</span>
@@ -355,62 +472,6 @@ function AdminBugs() {
           </div>
         );
       })}
-    </div>
-  );
-}
-
-function AdminKYC() {
-  const { showToast } = useApp();
-  const { data, loading, refetch } = useQueryWithRealtime(() => kycService.adminGetPending(), "provider_verifications", []);
-  const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [selectedTier, setSelectedTier] = useState("PAN_VERIFIED");
-
-  if (loading) return <div className="page-pad"><ListSkeleton count={3} /></div>;
-  const items = data ?? [];
-
-  return (
-    <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
-      {items.length === 0 && <EmptyState emoji="✅" title="KYC queue clear" text="No documents pending review." />}
-      {items.map((item: any) => (
-        <div key={item.id} className="card" style={{ padding: 14 }}>
-          <div className="row between" style={{ marginBottom: 10 }}>
-            <div>
-              <div className="semi small">{item.provider?.display_name ?? "Provider"}</div>
-              <div className="tiny muted">{item.type} • submitted {new Date(item.created_at).toLocaleDateString()}</div>
-            </div>
-            <a href={item.doc_url} target="_blank" rel="noopener noreferrer"
-              className="btn btn-outline btn-sm" style={{ fontSize: 12 }}>
-              View doc
-            </a>
-          </div>
-          {approvingId === item.id ? (
-            <div className="col gap-8">
-              <select className="input" value={selectedTier} onChange={(e) => setSelectedTier(e.target.value)} style={{ fontSize: 13 }}>
-                <option value="PAN_VERIFIED">PAN Verified</option>
-                <option value="AADHAAR_VERIFIED">Aadhaar Verified</option>
-                <option value="VERIFIED_PLUS">Verified+</option>
-              </select>
-              <div className="row gap-8">
-                <button className="btn btn-outline grow btn-sm" onClick={() => setApprovingId(null)}>Cancel</button>
-                <button className="btn btn-green grow btn-sm" onClick={async () => {
-                  await kycService.adminApprove(item.id, item.provider_id, selectedTier as any);
-                  showToast("Approved ✓"); setApprovingId(null); refetch();
-                }}>Confirm</button>
-              </div>
-            </div>
-          ) : (
-            <div className="row gap-8">
-              <button className="btn btn-outline grow btn-sm" style={{ color: "var(--red-600)" }} onClick={async () => {
-                await kycService.adminReject(item.id);
-                showToast("Rejected"); refetch();
-              }}><X size={14} /> Reject</button>
-              <button className="btn btn-green grow btn-sm" onClick={() => setApprovingId(item.id)}>
-                <Check size={14} /> Approve
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
     </div>
   );
 }
@@ -446,9 +507,9 @@ function AdminDisputes() {
     <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
       {items.length === 0 && <EmptyState emoji="⚖️" title="No active disputes" text="All disputes have been resolved." />}
       {items.map((ag: any) => (
-        <div key={ag.id} className="card" style={{ padding: 14, border: "1px solid #fca5a5" }}>
+        <div key={ag.id} className="card" style={{ border: "1px solid var(--red-100)" }}>
           <div className="row between" style={{ marginBottom: 6 }}>
-            <span className="badge" style={{ background: "#fee2e2", color: "#991b1b" }}>
+            <span className="badge" style={{ background: "var(--red-100)", color: "var(--red-600)" }}>
               <Flag size={11} /> Disputed
             </span>
             <span className="tiny muted">{new Date(ag.created_at).toLocaleDateString()}</span>
@@ -458,7 +519,7 @@ function AdminDisputes() {
             {ag.requester?.name ?? "?"} ↔ {ag.responder?.name ?? "?"}
           </div>
           {ag.dispute_reason && (
-            <div className="tiny" style={{ color: "#c2410c", marginBottom: 10, lineHeight: 1.4, background: "#fff5f5", padding: "6px 8px", borderRadius: 6 }}>
+            <div className="tiny" style={{ color: "var(--orange-500)", marginBottom: 10, lineHeight: 1.4, background: "var(--red-50)", padding: "6px 8px", borderRadius: 6 }}>
               "{ag.dispute_reason}"
             </div>
           )}
@@ -470,6 +531,72 @@ function AdminDisputes() {
             <button className="btn btn-green grow btn-sm"
               onClick={() => resolve(ag.id, "COMPLETED")}>
               <Check size={14} /> Mark complete
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AdminAppeals() {
+  const { showToast } = useApp();
+  const { data, loading, refetch } = useQuery(() => appealService.pending(), []);
+  const [noteById, setNoteById] = useState<Record<string, string>>({});
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+
+  async function resolve(appeal: AccountAppeal, approve: boolean) {
+    setResolvingId(appeal.id);
+    try {
+      await appealService.resolve(appeal, approve, noteById[appeal.id] ?? "");
+      showToast(approve ? "Appeal approved — account reactivated" : "Appeal rejected");
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't resolve appeal.");
+    } finally {
+      setResolvingId(null);
+    }
+  }
+
+  if (loading) return <div className="page-pad"><ListSkeleton count={3} /></div>;
+  const items = data ?? [];
+
+  return (
+    <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
+      {items.length === 0 && <EmptyState emoji="📮" title="No pending appeals" text="Suspended businesses/providers can raise a review request from their dashboard." />}
+      {items.map((a) => (
+        <div key={a.id} className="card" style={{ border: "1px solid var(--red-100)" }}>
+          <div className="row between" style={{ marginBottom: 6 }}>
+            <span className="badge" style={{ background: "var(--red-100)", color: "var(--red-600)" }}>
+              {a.entityType === "BUSINESS" ? <Store size={11} /> : <Briefcase size={11} />} {a.entityType}
+            </span>
+            <span className="tiny muted">{new Date(a.createdAt).toLocaleDateString()}</span>
+          </div>
+          <div className="tiny" style={{ marginBottom: 10, lineHeight: 1.4, background: "var(--red-50)", padding: "6px 8px", borderRadius: 6, color: "var(--red-600)" }}>
+            "{a.reason}"
+          </div>
+          <input
+            className="input"
+            placeholder="Admin note (optional)"
+            style={{ fontSize: 12.5, marginBottom: 8 }}
+            value={noteById[a.id] ?? ""}
+            onChange={(e) => setNoteById((m) => ({ ...m, [a.id]: e.target.value }))}
+          />
+          <div className="row gap-8">
+            <button
+              className="btn btn-outline grow btn-sm"
+              style={{ color: "var(--red-600)" }}
+              disabled={resolvingId === a.id}
+              onClick={() => resolve(a, false)}
+            >
+              <X size={14} /> Reject
+            </button>
+            <button
+              className="btn btn-green grow btn-sm"
+              disabled={resolvingId === a.id}
+              onClick={() => resolve(a, true)}
+            >
+              <Check size={14} /> Approve & reactivate
             </button>
           </div>
         </div>
@@ -507,8 +634,41 @@ function AdminProfiles() {
   useEffect(() => {
     if (subTab === "requests") {
       void loadRequests();
+    } else if (subTab === "directory" && !searchQuery.trim()) {
+      void loadRecent();
     }
-  }, [subTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subTab, searchType]);
+
+  // Directory defaults to the most recent signups so an admin can browse and
+  // spot someone (e.g. a Google sign-in with no phone on file) without
+  // already knowing a search term that matches them.
+  async function loadRecent() {
+    setLoading(true);
+    try {
+      const sb = (await import("@/lib/supabaseClient")).getSupabase();
+      if (searchType === "CUSTOMER") {
+        // admin_recent_users() is a SECURITY DEFINER RPC that checks the
+        // caller is actually an admin internally — customer PII columns
+        // aren't selectable via a plain query anymore (ISS-009).
+        const { data, error } = await sb.rpc("admin_recent_users");
+        if (error) throw error;
+        setResults(data || []);
+      } else if (searchType === "BUSINESS") {
+        const { data, error } = await sb.from("businesses").select("*").order("created_at", { ascending: false }).limit(30);
+        if (error) throw error;
+        setResults(data || []);
+      } else if (searchType === "PROVIDER") {
+        const { data, error } = await sb.from("providers").select("*").order("created_at", { ascending: false }).limit(30);
+        if (error) throw error;
+        setResults(data || []);
+      }
+    } catch (e: any) {
+      showToast("Couldn't load recent signups: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function loadRequests() {
     setLoadingRequests(true);
@@ -523,12 +683,19 @@ function AdminProfiles() {
   }
 
   async function runSearch() {
+    if (!searchQuery.trim()) {
+      void loadRecent();
+      return;
+    }
     setLoading(true);
     try {
       const sb = (await import("@/lib/supabaseClient")).getSupabase();
       const term = `%${searchQuery.trim()}%`;
       if (searchType === "CUSTOMER") {
-        const { data, error } = await sb.from("users").select("*").ilike("name", term).limit(20);
+        // admin_search_users() is a SECURITY DEFINER RPC — checks the caller
+        // is actually an admin internally, and matches name/phone/email so
+        // Google sign-ins (no phone on file) are findable (ISS-009 / ISS-F14).
+        const { data, error } = await sb.rpc("admin_search_users", { term: searchQuery.trim() });
         if (error) throw error;
         setResults(data || []);
       } else if (searchType === "BUSINESS") {
@@ -555,6 +722,21 @@ function AdminProfiles() {
       const { error } = await sb.from(table).update({ status: newStatus }).eq("id", item.id);
       if (error) throw error;
       showToast(isSuspended ? "Profile suspended" : "Profile activated");
+
+      const ownerId = item.owner_user_id as string | undefined;
+      const entityName = item.name || item.display_name || "Your listing";
+      if (ownerId) {
+        const manageLink = searchType === "BUSINESS" ? `/business/${item.id}/manage` : `/provider/${item.id}/manage`;
+        void notificationService.send(
+          ownerId,
+          isSuspended ? "Account suspended" : "Account reactivated",
+          isSuspended
+            ? `${entityName} has been suspended by STRYT admin. You can raise a review request from your dashboard.`
+            : `${entityName} is active again — you're back on STRYT.`,
+          manageLink,
+          "SYSTEM"
+        );
+      }
       void runSearch();
     } catch (e: any) {
       showToast("Failed to update status: " + e.message);
@@ -640,7 +822,7 @@ function AdminProfiles() {
               </select>
               <input
                 className="input grow"
-                placeholder="Search by name..."
+                placeholder={searchType === "CUSTOMER" ? "Name, phone, or email... (blank = recent)" : "Search by name..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && void runSearch()}
@@ -653,7 +835,7 @@ function AdminProfiles() {
           {loading ? (
             <ListSkeleton count={2} />
           ) : results.length === 0 ? (
-            <EmptyState emoji="🔍" title="No profiles found" text="Enter a name and hit search." />
+            <EmptyState emoji="🔍" title="No profiles found" text="Try a different name, phone number, or email." />
           ) : (
             <div className="col gap-10">
               {results.map((item) => {
@@ -673,6 +855,11 @@ function AdminProfiles() {
                           {!isEnabled && !isDeleted && <span className="badge badge-gray">Hidden</span>}
                         </div>
                         <div className="tiny muted" style={{ marginTop: 2 }}>ID: {item.id}</div>
+                        {searchType === "CUSTOMER" && (
+                          <div className="tiny muted" style={{ marginTop: 2 }}>
+                            {item.phone || "No phone (Google sign-in)"}{item.email ? ` · ${item.email}` : ""}
+                          </div>
+                        )}
                       </div>
                       
                       <div className="row gap-6">
@@ -735,11 +922,11 @@ function AdminProfiles() {
                         </span>
                         {req.status === "PENDING" && (
                           isReadyToPurge ? (
-                            <span style={{ background: "#fee2e2", color: "var(--red-600)", padding: "2px 6px", borderRadius: 6, fontWeight: 700, fontSize: 10.5 }}>
+                            <span style={{ background: "var(--red-100)", color: "var(--red-600)", padding: "2px 6px", borderRadius: 6, fontWeight: 700, fontSize: 10.5 }}>
                               Ready to Purge
                             </span>
                           ) : (
-                            <span style={{ background: "#fef3c7", color: "#d97706", padding: "2px 6px", borderRadius: 6, fontWeight: 700, fontSize: 10.5 }}>
+                            <span style={{ background: "var(--amber-100)", color: "var(--amber-700)", padding: "2px 6px", borderRadius: 6, fontWeight: 700, fontSize: 10.5 }}>
                               Grace Period: {daysLeft}d left
                             </span>
                           )
@@ -783,16 +970,16 @@ function AdminProfiles() {
           <div className="card col gap-12" style={{ maxWidth: 450, width: "100%", padding: 16, background: "var(--ink-50)", boxShadow: "var(--shadow-lg)" }}>
             <div className="row gap-8 text-danger align-center">
               <AlertTriangle size={24} color="var(--red-600)" />
-              <h3 className="bold" style={{ fontSize: 18, color: "var(--red-600)" }}>Confirm Deletion</h3>
+              <h3 className="bold h2" style={{ color: "var(--red-600)" }}>Confirm Deletion</h3>
             </div>
             
             <p className="small muted">
               You are about to permanently delete <strong>{selectedProfile.name || selectedProfile.display_name || "this profile"}</strong> ({profileType}).
             </p>
 
-            <div className="col gap-6" style={{ background: "#fef2f2", border: "1px solid #fca5a5", padding: 10, borderRadius: 8 }}>
-              <span className="tiny bold" style={{ color: "#991b1b" }}>IMPACT PREVIEW:</span>
-              <ul className="tiny col gap-4" style={{ listStyleType: "disc", paddingLeft: 16, color: "#7f1d1d", lineHeight: 1.4 }}>
+            <div className="col gap-6" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", padding: 10, borderRadius: 8 }}>
+              <span className="tiny bold" style={{ color: "var(--red-600)" }}>IMPACT PREVIEW:</span>
+              <ul className="tiny col gap-4" style={{ listStyleType: "disc", paddingLeft: 16, color: "var(--red-600)", lineHeight: 1.4 }}>
                 {profileType === "BUSINESS" && (
                   <>
                     <li>Deletes all Catalog Items associated with the business.</li>

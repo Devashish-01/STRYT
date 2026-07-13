@@ -54,7 +54,7 @@ so an unused import fails the build.
 
 **Tab/customer core:** `/home` `Home` · `/explore` `Explore` · `/map` `MapView` · `/profile` `Profile` ·
 `/search` `Search` · `/categories` `AllCategories` · `/category/:id` `CategoryListing` ·
-`/notifications` · `/bookmarks` · `/settings` · `/support`
+`/notifications` · `/bookmarks` · `/settings` · `/support` · `/wallet` `Wallet` (routed; earnings/ledger) · `/my-activity` `MyActivity` (stories + posts archive)
 
 **Auth:** `/` `Splash` · `/auth/phone` · `/auth/otp` · `/auth/onboard` `UserOnboard` · `/auth/location` · `/auth/deletion-pending`
 
@@ -65,9 +65,10 @@ so an unused import fails the build.
 
 **Onboarding:** `/onboard/business` `BusinessOnboard` · `/onboard/provider` `ProviderOnboard` · `/manage` `ManageHub`
 
-**Business console** (`/business/:id/manage/*`): `` (Dashboard) · `catalog` · `profile` · `hours` · `offers` ·
+**Business console** (`/business/:id/manage/*`): `` (Dashboard) · `catalog` · `portfolio` · `profile` · `hours` ·
 `photos` · `story` · `queue` · `loyalty` · `qna` · `reviews` · `reservations` · **`appointments`** · `inbox` ·
 `promote` · `verify` · `settings` · `requests`
+_(The Offers feature was removed; the `offers` table remains only as the backing store for Wallet coupons. Businesses now have a `portfolio` (past-work gallery) mirroring providers, and catalog items support FINITE/INFINITE inventory.)_
 
 **Provider console** (`/provider/:id/manage/*`): `` (Dashboard) · `profile` · `availability` · `packages` ·
 `portfolio` · `leads` (leads + appointments) · `settings`
@@ -137,7 +138,7 @@ handy for local dev without a backend. Real ids hit Supabase.
 | `userService` | Current user profile + owned entities | `me()`, `owned()`, `update()` | `users`, `businesses`, `providers` |
 | `catalogService` | Category taxonomy | `getCategories(kind?)` | `categories` |
 | `discoveryService` | Search/feed of businesses+providers | feed/search | `businesses`, `providers` |
-| `businessService` | **Business CRUD + storefront** (catalog, offers, photos, queue, loyalty, Q&A, analytics, boosts, availability, reviews) | see §7 | `businesses`, `catalog_items`, `offers`, `queue_*`, `ratings`, `leads` |
+| `businessService` | **Business CRUD + storefront** (catalog, photos, queue, loyalty, Q&A, analytics, boosts, availability, reviews) | see §7 | `businesses`, `catalog_items`, `queue_*`, `ratings`, `leads` |
 | `providerService` | **Provider CRUD + service funnel** (packages, portfolio, availability, leads, analytics, reviews) | see §7 | `providers`, `provider_packages`, `portfolio_items`, `ratings`, `leads` |
 | `appointmentService` | **Bookings** (create/list/updateStatus) — Supabase table + localStorage fallback | `create`, `listForCustomer`, `listForTarget`, `updateStatus` | `appointments` |
 | `requestService` | Requests, proposals, agreements feed | `feed`, `agreements`, propose | `requests`, `proposals`, `agreements` |
@@ -169,7 +170,7 @@ The most-edited area. Both follow the same service+screen shape.
 **Shared method names (both services):** `mine` · `get` · `reviews` · `update` · `create` ·
 `submitVerification` · `recordView` · `leads` · `analytics` · `addReview` · `setAvailability`.
 
-**`businessService` only:** catalog (`addCatalogItem`/`update`/`delete`), offers (`addOffer`/`deleteOffer`),
+**`businessService` only:** catalog (`addCatalogItem`/`update`/`delete`), portfolio (`addPortfolio`/`updatePortfolio`/`deletePortfolio`),
 photos (`addPhoto`/`deletePhoto`/`setCoverPhoto`), queue (`queue`/`queueOwnerState`/`setQueueSettings`/
 `callNextToken`/`serveToken`/`joinQueueToken`), `loyaltyCard`, Q&A (`qna`/`askQuestion`/`answerQuestion`),
 `buyBoost`/`activeBoosts`, `recordInteraction`, `submitForReview`, `team`, `reservations`/`setReservation`.
@@ -216,7 +217,7 @@ A good template for an end-to-end flow.
 `RateScreen`, `MyAppointments`.
 
 **business/** `BusinessDetail`, `BusinessOnboard`; **business/manage/** `ManageDashboard`, `ManageNav`,
-`ProfileEditor`, `HoursEditor`, `CatalogManager`, `OffersManager`, `PhotosManager`, `StoryComposer`,
+`ProfileEditor`, `HoursEditor`, `CatalogManager`, `PhotosManager`, `StoryComposer`,
 `QueueManager`, `LoyaltySetup`, `QnaManager`, `ReviewsManager`, `Reservations`, `BusinessAppointments`,
 `LeadsInbox`, `Promote`, `VerificationCenter`, `BusinessSettings`, `BusinessRequests`.
 
@@ -252,9 +253,10 @@ A good template for an end-to-end flow.
 
 ## 11. Types & lib
 
-- **`src/types.ts`** — the single source of domain types: `CurrentUser`, `Role`, `Business`, `CatalogItem`,
-  `Offer`, `Provider`, `ProviderPackage`, `PortfolioItem`, `RequestPost`, `Review`, `AppointmentRecord`,
+- **`src/types.ts`** — the single source of domain types: `CurrentUser` (+ `alias`), `Role`, `Business`, `CatalogItem` (+ inventory),
+  `Provider`, `ProviderPackage`, `PortfolioItem`, `RequestPost`, `Review`, `AppointmentRecord`,
   `AppointmentStatus`, `ReservationReq`, `QnaItem`, `BookmarkTarget`, etc. **Add new domain shapes here.**
+  Public identity uses `aliasName()` in `src/lib/publicName.ts` (alias-first; real name only in active relationships).
 - **`src/lib/`** — `supabaseClient.ts`, `caseMap.ts`, `supabasePage.ts`, `apiClient.ts` (`ApiError`, `Page`),
   `auth.ts` (`tokenStore`), `geocode.ts` (`haversineKm`, reverse geocode), `alias.ts` (privacy alias),
   `i18n.tsx`, `clipboard.ts`, `returnTo.ts`, `pushNotifications.ts`, `leafletIcon.ts`, `mock.ts`.
@@ -322,5 +324,7 @@ For a typical new capability, touch these in order:
 
 ---
 
-*Last mapped: 2026-07 (appointments subsystem, business availability parity, Home appointments tile).* 
+*Last mapped: 2026-07 — offers removed; catalog inventory; business portfolio; alias/privacy model;
+wallet sourcing + routing; community replies; story-visibility fix; appointment/queue notifications;
+My Activity archive; native safe-area. Migrations 20260802–20260808 must be run in the SQL editor.*
 *When you change structure, update the section above and bump this line.*

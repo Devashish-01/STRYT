@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
-import { Navigation } from "lucide-react";
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet";
+import { Navigation } from "@/components/Icons";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";
@@ -26,6 +26,16 @@ function MapRecenter({ lat, lng }: { lat: number; lng: number }) {
   useEffect(() => {
     map.setView([lat, lng], map.getZoom());
   }, [lat, lng, map]);
+  return null;
+}
+
+// Precisely dragging a pin inside a ~150px box is fiddly on a touchscreen —
+// tapping anywhere on the map to place the pin there is a much easier
+// primary interaction, with drag left available for fine adjustment.
+function MapClickToPlace({ onPlace }: { onPlace: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click: (e) => onPlace(e.latlng.lat, e.latlng.lng),
+  });
   return null;
 }
 
@@ -60,7 +70,9 @@ export default function LocationPicker({
   const hasPin = lat !== null && lng !== null;
 
   async function detect() {
-    const coords = await request();
+    // force=true: this is an explicit user tap asking for a fresh GPS fix,
+    // not the auto-detect-on-mount call — never just re-serve stored coords.
+    const coords = await request(true);
     if (coords) onChange(coords.lat, coords.lng);
   }
 
@@ -75,9 +87,10 @@ export default function LocationPicker({
           zoomControl={false}
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
+            url={`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}?access_token=${config.mapboxToken}`}
           />
+          <MapClickToPlace onPlace={onChange} />
           {hasPin && (
             <>
               <MapRecenter lat={lat} lng={lng} />
@@ -125,7 +138,7 @@ export default function LocationPicker({
       </button>
       {hasPin && (
         <span className="tiny muted" style={{ textAlign: "center" }}>
-          Drag the pin to fine-tune your exact location
+          Tap the map or drag the pin to fine-tune your exact location
         </span>
       )}
     </div>

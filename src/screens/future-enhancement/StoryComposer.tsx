@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Camera, Clock, Pencil } from "lucide-react";
+import { Camera, Clock, Pencil } from "@/components/Icons";
 import { businessService, uploadService } from "@/services";
-import { socialService } from "@/services/socialService";
+import { socialService } from "@/services/engagement/socialService";
 import { useQuery } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
 import { useApp } from "@/store";

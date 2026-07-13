@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Search, Map } from "lucide-react";
+import { Search, Map } from "@/components/Icons";
 import { catalogService, discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
@@ -88,7 +88,7 @@ export default function CategoryListing() {
           </div>
         )}
 
-        <div className="col gap-14 page-pad">
+        <div className="col gap-14 page-pad listings-cards-grid">
           {loading ? (
             <ListSkeleton count={3} />
           ) : biz.length + prov.length === 0 ? (

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Check, QrCode, Users } from "lucide-react";
+import { Check, QrCode, Users } from "@/components/Icons";
 import { walletService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -62,7 +62,7 @@ export default function LoyaltySetup() {
         {active && (
           <>
             {/* Card preview */}
-            <div className="card" style={{ padding: 16, background: "linear-gradient(135deg,#cc4415,#87260a)", color: "#fff", border: "none" }}>
+            <div className="card" style={{ background: "linear-gradient(135deg,var(--brand-700),var(--orange-500))", color: "#fff", border: "none" }}>
               <div className="tiny" style={{ opacity: 0.8 }}>LOYALTY CARD</div>
               <div className="bold" style={{ fontSize: 17, marginBottom: 12 }}>
                 Buy {target}, get {reward.toLowerCase()}
@@ -70,7 +70,7 @@ export default function LoyaltySetup() {
               <div className="row wrap gap-6">
                 {Array.from({ length: target }).map((_, i) => (
                   <div key={i} style={{ width: 24, height: 24, borderRadius: "50%", background: i < 3 ? "#fff" : "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {i < 3 && <Check size={13} color="#cc4415" />}
+                    {i < 3 && <Check size={13} color="var(--brand-700)" />}
                   </div>
                 ))}
               </div>
@@ -84,7 +84,7 @@ export default function LoyaltySetup() {
               <input
                 type="range" min={4} max={15} value={target}
                 onChange={(e) => setTarget(Number(e.target.value))}
-                style={{ width: "100%", accentColor: "#cc4415" }}
+                style={{ width: "100%", accentColor: "var(--brand-700)" }}
               />
             </div>
 
@@ -102,7 +102,7 @@ export default function LoyaltySetup() {
               style={{ padding: 14 }}
               onClick={() => showToast("Show QR to add a stamp")}
             >
-              <QrCode size={20} color="#cc4415" />
+              <QrCode size={20} color="var(--brand-700)" />
               <span className="semi small">Add stamp via customer QR</span>
             </button>
 

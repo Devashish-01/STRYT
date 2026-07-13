@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { NoAppointmentsIllustration } from "@/components/illustrations";
 import { appointmentService, businessService, providerService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { Calendar, Image as ImageIcon, X as XIcon, AlertCircle, CheckCircle2, RotateCcw, CalendarClock, CreditCard } from "lucide-react";
+import { Calendar, Image as ImageIcon, X as XIcon, AlertCircle, CheckCircle2, RotateCcw, CalendarClock, CreditCard } from "@/components/Icons";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppointments";
 
@@ -16,6 +18,14 @@ import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppoint
 function isUpcoming(a: AppointmentRecord): boolean {
   const future = new Date(a.scheduledForISO).getTime() > Date.now();
   return (a.status === "PENDING" || a.status === "ACCEPTED") && future;
+}
+
+// Payment can be claimed/tracked at any of these stages: PENDING (seller may
+// require payment before accepting), ACCEPTED (the normal pay-around-service
+// case), or COMPLETED (an accepted appointment auto-completes once its slot
+// passes — the payment step must not vanish just because that ran).
+function isPayable(status: AppointmentRecord["status"]): boolean {
+  return status === "PENDING" || status === "ACCEPTED" || status === "COMPLETED";
 }
 
 interface RebookTarget {
@@ -48,6 +58,8 @@ export default function MyAppointments() {
   const list = (data ?? []).filter((a) => (tab === "UPCOMING" ? isUpcoming(a) : !isUpcoming(a)));
   const upcomingCount = (data ?? []).filter(isUpcoming).length;
 
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
+
   async function cancel(apt: AppointmentRecord) {
     setCancelling(apt.id);
     try {
@@ -66,33 +78,25 @@ export default function MyAppointments() {
     setLoadingTarget(apt.id);
     try {
       if (apt.targetType === "BUSINESS") {
-        const [b, pkgs] = await Promise.all([
-          businessService.get(apt.targetId),
-          businessService.packages(apt.targetId).catch(() => []),
-        ]);
+        const b = await businessService.get(apt.targetId);
         if (!b) throw new Error("Shop unavailable");
         const availableNow = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil).isOpenNow;
         setRebook({
           apt,
           mode,
           availabilityNote: b.hours || DEFAULT_WORKING_HOURS,
-          packages: pkgs.length > 0
-            ? pkgs.map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }))
-            : (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price })),
+          packages: (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price })),
           availableNow,
         });
       } else {
-        const [p, pkgs] = await Promise.all([
-          providerService.get(apt.targetId),
-          providerService.packages(apt.targetId),
-        ]);
+        const p = await providerService.get(apt.targetId);
         if (!p) throw new Error("Provider unavailable");
         const availableNow = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil).isOpenNow;
         setRebook({
           apt,
           mode,
           availabilityNote: p.availabilityNote,
-          packages: (pkgs ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration })),
+          packages: (p.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price })),
           availableNow,
         });
       }
@@ -128,7 +132,7 @@ export default function MyAppointments() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen screen-boxed">
       <AppBar title="My Appointments" subtitle="Track and manage your bookings" />
 
       {/* Upcoming / Past tabs */}
@@ -141,13 +145,15 @@ export default function MyAppointments() {
         </button>
       </div>
 
-      <div className="screen-scroll">
-        {loading && <ListSkeleton count={3} />}
+      <div ref={containerRef} className="screen-scroll">
+        <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
+        {loading && <ListSkeleton count={3} type="appointment" />}
         {error && <ErrorView error={error} onRetry={refetch} />}
         {data && (
           <div className="page-pad col gap-12" style={{ paddingTop: 8 }}>
             {list.length === 0 ? (
               <EmptyState
+                illustration={<NoAppointmentsIllustration />}
                 emoji="📅"
                 title={tab === "UPCOMING" ? "No upcoming appointments" : "Nothing here yet"}
                 text={tab === "UPCOMING" ? "Book a slot with a shop or provider and it'll show up here." : "Past, declined and cancelled bookings appear here."}
@@ -164,18 +170,28 @@ export default function MyAppointments() {
                           <Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}
                         </div>
                       </div>
-                      <span
-                        className={`badge ${
-                          apt.status === "ACCEPTED" || apt.status === "COMPLETED"
-                            ? "badge-green"
-                            : apt.status === "REJECTED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW"
-                            ? "badge-gray"
-                            : "badge-purple"
-                        }`}
-                        style={{ fontSize: 10, padding: "3px 9px" }}
-                      >
-                        {apt.status === "ACCEPTED" ? "CONFIRMED" : apt.status.replace("_", " ")}
-                      </span>
+                      <div className="col gap-4" style={{ alignItems: "flex-end" }}>
+                        <span
+                          className={`badge ${
+                            apt.status === "ACCEPTED" || apt.status === "COMPLETED"
+                              ? "badge-green"
+                              : apt.status === "REJECTED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW"
+                              ? "badge-gray"
+                              : "badge-purple"
+                          }`}
+                          style={{ fontSize: 10, padding: "3px 9px" }}
+                        >
+                          {apt.status === "ACCEPTED" ? "CONFIRMED" : apt.status.replace("_", " ")}
+                        </span>
+                        {isPayable(apt.status) && (
+                          <span
+                            className={`badge ${apt.paymentStatus === "PAID" ? "badge-green" : "badge-gray"}`}
+                            style={{ fontSize: 9, padding: "2px 7px" }}
+                          >
+                            {apt.paymentStatus === "PAID" ? "PAID" : "UNPAID"}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {apt.packageName && (
@@ -205,31 +221,34 @@ export default function MyAppointments() {
 
                     {apt.status === "REJECTED" && <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />}
 
-                    {/* Payment status */}
-                    {apt.status === "ACCEPTED" && apt.paymentStatus === "PAID" && (
-                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
+                    {/* Payment status — shown for PENDING too (seller may require
+                        payment before accepting) and COMPLETED too (an accepted
+                        appointment auto-completes once its slot passes; the payment
+                        step must not disappear just because that housekeeping ran). */}
+                    {isPayable(apt.status) && apt.paymentStatus === "PAID" && (
+                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)", borderRadius: 10 }}>
                         <CheckCircle2 size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
-                        <span className="tiny semi" style={{ color: "#15803d" }}>
+                        <span className="tiny semi" style={{ color: "var(--green-600)" }}>
                           Payment confirmed{apt.paymentMethod ? ` via ${apt.paymentMethod}` : ""}
                           {apt.paymentAmount ? ` • ₹${apt.paymentAmount}` : ""}
                         </span>
                       </div>
                     )}
-                    {apt.status === "ACCEPTED" && apt.paymentStatus === "PENDING_CONFIRM" && (
-                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "#fefce8", border: "1px solid #fef08a", borderRadius: 10 }}>
+                    {isPayable(apt.status) && apt.paymentStatus === "PENDING_CONFIRM" && (
+                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "var(--amber-50)", border: "1px solid var(--amber-100)", borderRadius: 10 }}>
                         <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
                         <div>
-                          <div className="tiny semi" style={{ color: "#854d0e" }}>Awaiting confirmation</div>
-                          <div className="tiny" style={{ color: "#78350f", marginTop: 1 }}>{apt.targetName} will verify and confirm receipt in their app.</div>
+                          <div className="tiny semi" style={{ color: "var(--amber-700)" }}>Awaiting confirmation</div>
+                          <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1 }}>{apt.targetName} will verify and confirm receipt in their app.</div>
                         </div>
                       </div>
                     )}
-                    {apt.status === "ACCEPTED" && apt.paymentStatus === "REJECTED" && (
-                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10 }}>
+                    {isPayable(apt.status) && apt.paymentStatus === "REJECTED" && (
+                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "var(--red-50)", border: "1px solid var(--red-100)", borderRadius: 10 }}>
                         <AlertCircle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
                         <div className="grow">
-                          <div className="tiny semi" style={{ color: "#991b1b" }}>Business couldn't verify payment</div>
-                          <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>Please retry or contact them directly.</div>
+                          <div className="tiny semi" style={{ color: "var(--red-600)" }}>Business couldn't verify payment</div>
+                          <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>Please retry or contact them directly.</div>
                         </div>
                         <button
                           className="btn btn-sm"
@@ -241,7 +260,7 @@ export default function MyAppointments() {
                         </button>
                       </div>
                     )}
-                    {apt.status === "ACCEPTED" && (!apt.paymentStatus || apt.paymentStatus === "UNPAID") && (
+                    {isPayable(apt.status) && (!apt.paymentStatus || apt.paymentStatus === "UNPAID") && (
                       <button
                         type="button"
                         className="btn btn-primary btn-sm row gap-6 center"
@@ -254,11 +273,11 @@ export default function MyAppointments() {
                     )}
 
                     {apt.status === "ACCEPTED" && apt.responseNote && (
-                      <div className="card row gap-10 center-v" style={{ padding: 10, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10 }}>
+                      <div className="card row gap-10 center-v" style={{ padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)", borderRadius: 10 }}>
                         <CheckCircle2 size={18} color="var(--green-500)" style={{ flexShrink: 0 }} />
                         <div>
-                          <div className="bold tiny" style={{ color: "#166534" }}>Confirmed</div>
-                          <div className="tiny" style={{ color: "#14532d", marginTop: 1, fontStyle: "italic" }}>Message: "{apt.responseNote}"</div>
+                          <div className="bold tiny" style={{ color: "var(--green-700)" }}>Confirmed</div>
+                          <div className="tiny" style={{ color: "var(--green-600)", marginTop: 1, fontStyle: "italic" }}>Message: "{apt.responseNote}"</div>
                         </div>
                       </div>
                     )}
@@ -272,7 +291,7 @@ export default function MyAppointments() {
                           <button
                             type="button"
                             className="btn btn-outline grow btn-sm row gap-4 center"
-                            style={{ color: "var(--red-600)", borderColor: "#fca5a5" }}
+                            style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }}
                             disabled={busy}
                             onClick={() => cancel(apt)}
                           >
@@ -325,6 +344,7 @@ export default function MyAppointments() {
           availabilityNote={rebook.availabilityNote}
           packages={rebook.packages}
           availableNow={rebook.availableNow}
+          rescheduledFromId={rebook.mode === "RESCHEDULE" ? rebook.apt.id : undefined}
           onBooked={handleBooked}
           onClose={() => { setRebook(null); refetch(); }}
         />

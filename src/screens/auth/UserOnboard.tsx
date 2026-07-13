@@ -6,17 +6,20 @@ import {
   LogOut,
   ArrowRight,
   User as UserIcon,
-  ShieldAlert,
   MapPin,
   Navigation,
   Globe,
   Sliders,
   X,
-} from "lucide-react";
+} from "@/components/Icons";
 import { useApp } from "@/store";
+import { isPhoneName } from "@/lib/publicName";
 import { userService, uploadService } from "@/services";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import RadiusSelector from "@/components/RadiusSelector";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
+
+// Types for onboarding steps
 
 
 const EMOJI_AVATARS = ["🦊", "🐯", "🐨", "🦉", "🎨", "🚀", "🍕", "🥑", "⚽", "🎯"];
@@ -33,9 +36,10 @@ export default function UserOnboard() {
   const nav = useNavigate();
   const { user, refreshUser, setArea, showToast, signOut } = useApp();
 
-  // 1. Necessary / Required Setup Fields
+  // 1. Necessary / Required Setup Fields — never prefill the seed placeholder
+  // or a raw phone number into the name field.
   const [name, setName] = useState(
-    user.name && user.name !== "New user" ? user.name : ""
+    user.name && user.name !== "New user" && !isPhoneName(user.name) ? user.name : ""
   );
 
   // Location setup
@@ -51,21 +55,19 @@ export default function UserOnboard() {
   const [phone, setPhone] = useState(user.phone || "");
   const [language, setLanguage] = useState(user.language || "en");
   const [radius, setRadius] = useState(user.notificationRadiusKm || 5);
-  const [emergencyName, setEmergencyName] = useState(user.emergencyContactName || "");
-  const [emergencyPhone, setEmergencyPhone] = useState(user.emergencyContact || "");
 
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleSkip() {
-    localStorage.setItem("onboarding_skipped", "true");
-    if (!user.name || user.name === "New user") {
-      try {
-        await userService.update({ name: "Neighbor" });
-      } catch (e) {
-        console.warn("Soft update failed", e);
-      }
+    try {
+      await userService.update({
+        onboardingCompletedAt: new Date().toISOString(),
+        name: (!user.name || user.name === "New user") ? "Neighbor" : undefined,
+      });
+    } catch (e) {
+      console.warn("Soft update failed", e);
     }
     await refreshUser();
     nav("/home", { replace: true });
@@ -73,7 +75,7 @@ export default function UserOnboard() {
 
 
   function selectEmoji(emoji: string) {
-    const bgColors = ["#f87171", "#fb923c", "#fbbf24", "#34d399", "#60a5fa", "#818cf8", "#a78bfa", "#f472b6"];
+    const bgColors = ["var(--red-400)", "var(--accent-500)", "var(--amber-500)", "var(--green-500)", "var(--blue-500)", "var(--brand-400)", "var(--brand-300)", "var(--pink-500)"];
     const randomBg = bgColors[Math.floor(Math.random() * bgColors.length)];
     const svgString = `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%' height='100%' fill='${encodeURIComponent(
       randomBg
@@ -130,12 +132,8 @@ export default function UserOnboard() {
   }
 
   async function getGPSLocation() {
-    if (!navigator.geolocation) {
-      showToast("GPS not available on this device");
-      return;
-    }
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    nativeGeolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         setLat(latitude);
@@ -191,8 +189,7 @@ export default function UserOnboard() {
         phone: phone || undefined,
         language,
         notificationRadiusKm: radius,
-        emergencyContact: emergencyPhone || undefined,
-        emergencyContactName: emergencyName || undefined,
+        onboardingCompletedAt: new Date().toISOString(),
       });
 
       if (areaInput.trim()) setArea(areaInput.trim());
@@ -213,7 +210,7 @@ export default function UserOnboard() {
     <div
       className="screen"
       style={{
-        background: "linear-gradient(160deg, #fdfbff 0%, #f5eefc 60%, #ece2f7 100%)",
+        background: "linear-gradient(160deg, var(--brand-50) 0%, var(--brand-100) 60%, var(--brand-200) 100%)",
         color: "var(--ink-900)",
       }}
     >
@@ -225,7 +222,7 @@ export default function UserOnboard() {
           left: "-10%",
           width: "250px",
           height: "250px",
-          background: "rgba(139, 71, 245, 0.15)",
+          background: "rgba(187, 71, 245, 0.15)",
           borderRadius: "50%",
           filter: "blur(70px)",
           pointerEvents: "none",
@@ -278,7 +275,7 @@ export default function UserOnboard() {
         </div>
 
         <div style={{ textAlign: "center", marginTop: 16, marginBottom: 20, width: "100%" }}>
-          <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: -0.5, color: "var(--ink-900)" }}>
+          <h1 className="h1" style={{ letterSpacing: -0.5, color: "var(--ink-900)" }}>
             Welcome to STRYT
           </h1>
           <p style={{ marginTop: 6, fontSize: 13.5, color: "var(--ink-600)" }}>
@@ -295,7 +292,7 @@ export default function UserOnboard() {
             borderRadius: 24,
             border: "1px solid rgba(255, 255, 255, 0.5)",
             padding: "24px 20px",
-            boxShadow: "0 16px 36px rgba(124, 58, 237, 0.08)",
+            boxShadow: "0 16px 36px rgba(160, 32, 224, 0.08)",
             width: "100%",
             maxWidth: 320,
             marginBottom: 24,
@@ -320,7 +317,7 @@ export default function UserOnboard() {
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 34,
             marginBottom: 12,
-            boxShadow: "0 8px 16px rgba(124,58,237,0.12)",
+            boxShadow: "0 8px 16px rgba(160,32,224,0.12)",
             border: "2px solid #fff"
           }}>
             {avatar ? (
@@ -353,7 +350,7 @@ export default function UserOnboard() {
             border: "1.5px solid var(--brand-300)",
             borderRadius: 24,
             padding: 24,
-            boxShadow: "0 8px 24px rgba(124, 58, 237, 0.08)",
+            boxShadow: "0 8px 24px rgba(160, 32, 224, 0.08)",
             marginBottom: 20,
           }}
         >
@@ -653,56 +650,6 @@ export default function UserOnboard() {
             />
           </div>
 
-          {/* Divider */}
-          <div style={{ height: 1, background: "var(--ink-100)", margin: "20px 0" }} />
-
-          {/* Emergency Contacts Section */}
-          <div className="col gap-12">
-            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--red-500)", display: "flex", alignItems: "center", gap: 6 }}>
-              <ShieldAlert size={14} /> Emergency Contact (Optional / Safety)
-            </span>
-            
-            <div className="field">
-              <input
-                type="text"
-                className="input"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  fontSize: 15,
-                  background: "var(--ink-50)",
-                  border: "1.5px solid var(--ink-200)",
-                  borderRadius: 14,
-                  color: "var(--ink-900)",
-                }}
-                placeholder="Contact Person's Name"
-                value={emergencyName}
-                onChange={(e) => setEmergencyName(e.target.value)}
-                disabled={saving}
-              />
-            </div>
-
-            <div className="field">
-              <input
-                type="tel"
-                className="input"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px",
-                  fontSize: 15,
-                  background: "var(--ink-50)",
-                  border: "1.5px solid var(--ink-200)",
-                  borderRadius: 14,
-                  color: "var(--ink-900)",
-                }}
-                placeholder="Contact Person's Mobile"
-                value={emergencyPhone}
-                onChange={(e) => setEmergencyPhone(e.target.value.replace(/\D/g, ""))}
-                maxLength={10}
-                disabled={saving}
-              />
-            </div>
-          </div>
         </div>
 
         {/* Action Button */}

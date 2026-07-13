@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Lock, X } from "lucide-react";
+import { Lock, X } from "@/components/Icons";
 
 interface BlockSlotModalProps {
   date: Date;

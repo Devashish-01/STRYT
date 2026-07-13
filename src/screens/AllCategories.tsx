@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, X, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Search, X, SlidersHorizontal } from "@/components/Icons";
 import { catalogService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import type { Category } from "@/types";

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { QrCode, X, Camera, Upload, Link, AlertCircle } from "lucide-react";
+import { QrCode, X, Camera, Upload, Link, AlertCircle } from "@/components/Icons";
 import { Html5Qrcode } from "html5-qrcode";
 import { useApp } from "@/store";
 
@@ -183,7 +183,7 @@ export default function QrScannerSheet({ onClose }: Props) {
         className="sheet"
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "#14111c",
+          background: "var(--ink-900)",
           color: "#fff",
           maxHeight: "90vh",
           display: "flex",
@@ -197,7 +197,7 @@ export default function QrScannerSheet({ onClose }: Props) {
         <div className="row space-between" style={{ marginBottom: 16, alignItems: "center" }}>
           <div className="row gap-8" style={{ alignItems: "center" }}>
             <QrCode size={20} color="var(--brand-500)" />
-            <h3 className="bold" style={{ fontSize: 18, color: "#fff", margin: 0 }}>Live QR Scanner</h3>
+            <h3 className="bold h2" style={{ color: "#fff", margin: 0 }}>Live QR Scanner</h3>
           </div>
           <button
             type="button"
@@ -302,7 +302,7 @@ export default function QrScannerSheet({ onClose }: Props) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 0 30px rgba(139, 71, 245, 0.25)",
+                boxShadow: "0 0 30px rgba(187, 71, 245, 0.25)",
                 border: "2px solid rgba(255, 255, 255, 0.3)",
               }}
             >
@@ -317,8 +317,8 @@ export default function QrScannerSheet({ onClose }: Props) {
                     left: 0,
                     right: 0,
                     height: 3,
-                    background: "linear-gradient(90deg, transparent, #22c55e, transparent)",
-                    boxShadow: "0 0 12px #22c55e",
+                    background: "linear-gradient(90deg, transparent, var(--green-500), transparent)",
+                    boxShadow: "0 0 12px var(--green-500)",
                     animation: "scan-laser 2.2s linear infinite",
                     zIndex: 10,
                     pointerEvents: "none",
@@ -336,7 +336,7 @@ export default function QrScannerSheet({ onClose }: Props) {
                   background: "rgba(239, 68, 68, 0.15)",
                   border: "1px solid rgba(239, 68, 68, 0.3)",
                   borderRadius: 12,
-                  color: "#f87171",
+                  color: "var(--red-400)",
                   fontSize: 13,
                   maxWidth: 260,
                   textAlign: "center",

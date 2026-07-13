@@ -4,7 +4,6 @@
 > Format: add entries under the right severity tier; update `Status` inline; never delete fixed entries (mark ✅).
 > File locations use `src/` relative paths. Link to `TASKS.md` task IDs when a bug is part of a planned task.
 
-
 ---
 
 ## Legend
@@ -21,13 +20,7 @@
 
 ## Critical (data wrong / security)
 
-### ISS-009 — Column-level PII (phone, exact location, emergency contacts) not privacy-gated for authenticated users ⚠️
-- **Status:** 🔴 Open — partially mitigated by ISS-F13, not resolved
-- **Where:** `public.users` RLS policy (`supabase/migrations/20260713_critical_security_fixes.sql`) + every frontend call site that does `.from("users").select(...)` for a user other than the caller.
-- **What:** Postgres RLS is row-level, not column-level. The `users` table's privacy toggles (`show_phone_publicly`, `show_city_publicly`, etc.) are only ever respected by frontend rendering logic — the database itself always returns the real `phone`/`emergency_contact`/exact `lat`/`lng` to any caller the row-level policy permits, regardless of that user's own privacy settings. ISS-F13 closed the "zero-authentication" version of this (anon/logged-out scraping via the public API key), but any authenticated user can still pull another user's phone number by querying the table directly, bypassing whatever the UI shows.
-- **Failure scenario:** A signed-in user opens dev tools, calls the Supabase REST API directly for another user's row, and gets their real phone number even though that user set "Show phone publicly" to off.
-- **Fix needed:** A privacy-aware view (e.g. `public.users_public`) that projects `CASE WHEN show_phone_publicly THEN phone ELSE NULL END` per column, tighten `users` SELECT to self/admin-only for the raw table, and audit every frontend `.from("users")` call that reads *other* users' data to go through the view (or the existing `publicProfile()`-style RPC pattern) instead. This needs a full call-site audit before it can ship safely — not attempted this pass, flagging instead of guessing.
-- **Affects:** any screen that renders another user's profile fields (PublicProfile, business/provider owner display, request/proposal author info, etc.)
+_None currently open._
 
 ### ISS-001 — Leaked secrets in repo / env
 - **Status:** ✅ Fixed (local configs scrubbed; cloud tokens rotated by user)
@@ -58,6 +51,25 @@ _None currently open._
 ---
 
 ## Fixed
+
+### ISS-F15 — ISS-009 fully resolved: column-level PII masking for phone/email/exact location/emergency contacts ✅
+- **Status:** ✅ Fixed — session 2026-07-04
+- **Was:** Postgres RLS is row-level, not column-level — `users`' privacy toggles (`show_phone_publicly` etc.) were only ever enforced by frontend rendering, never by the database. Traced all 24 frontend call sites that read `public.users` before touching anything (most only ever request `name`/`avatar` for other users and needed no change). Two real leaks found:
+  1. Raw REST/devtools access could request `phone`/`emergency_contact`/exact `lat`,`lng`/`email`/`admin_login_id` for any row the row-level policy let through, regardless of privacy settings.
+  2. Worse: `userService.publicProfile()` — the app's *own* "view someone else's profile" code path — was already pulling the target's raw phone and **exact home coordinates** into the client on every profile view, with only the UI's rendering choice standing between that data and the screen. Anyone with devtools open while viewing any public profile could read another user's exact coordinates and phone number regardless of what that user opted to share.
+- **Fix:** `REVOKE SELECT` on the six sensitive columns from `authenticated`/`anon` on the raw `users` table. Every legitimate need for them now goes through a `SECURITY DEFINER` function that enforces self/admin/consent *inside the database*, so it can no longer be bypassed by constructing a different query: `get_own_profile()` (self, full row — `userService.me()`), `get_own_coords()` / `get_own_emergency_contact()` (small self-only helpers for the few places that needed just those), `get_public_profile()` (masks phone by `show_phone_publicly`, and — this is the actual fix for the worst finding — never returns another user's exact coordinates at all, only a **server-computed distance**; turn-by-turn directions to a private individual's exact address isn't a feature this app should have, independent of RLS, so it's removed from `PublicProfile.tsx` rather than reworked), `admin_search_users()` / `admin_recent_users()` (full columns, admin-checked internally — since "admin" is an app-level flag in `roles`, not a real Postgres role, the admin panel needed the same treatment as everyone else), and `get_nearby_user_ids()` (the new-listing broadcast notification filters by lat/lng, which needs the same bypass even though it never returns coordinates to the caller).
+- **Files:** `userService.ts`, `businessService.ts`, `communityService.ts`, `providerService.ts`, `requestService.ts`, `adminService.ts`, `AdminPanel.tsx`, `PublicProfile.tsx`, `types.ts`.
+- **Migration needed:** `supabase/migrations/20260715_pii_column_masking.sql` (run manually in SQL editor, after `20260714_google_oauth_admin_visibility.sql`)
+
+### ISS-F14 — Google OAuth customers invisible in the admin directory ✅
+- **Status:** ✅ Fixed — session 2026-07-04
+- **Was:** admin reported Google sign-in users never showed up when searching the customer directory. Traced two real, compounding causes:
+  1. `public.users` had no `email` column at all — the signup trigger and the client-side self-heal (`userService.me()`) only ever put email into the `name` field, and only as a last resort when Google didn't return a full name. For most Google users `name` became their real name, and their email was never persisted anywhere queryable.
+  2. `AdminPanel.tsx`'s customer search only matched `name ILIKE`, with no way to search by phone and no way to browse a list without typing a search term first. Google accounts have `phone = NULL` (Google doesn't provide one), so an admin searching the way they search everyone else — by phone number, the dominant signup method — could never find them, and had no fallback way to just scroll and look.
+- **Fix:** `users.email` column added + backfilled from `auth.users` + captured going forward by both the signup trigger and the client self-heal. Admin customer search now matches `name OR phone OR email`, and the directory defaults to the 30 most recent signups (ordered by `created_at`) when the search box is empty, so an admin can browse instead of only guessing search terms. Each result row now shows phone (or "No phone (Google sign-in)") and email so this class of user is visually obvious, not just findable.
+- **Also found, not wired up:** `authService.ensureProfile()` — a documented client-side self-heal for OAuth/magic-link sign-ins — was exported but never actually called anywhere in the codebase. `userService.me()`'s own self-heal covers the same role in practice (confirmed it fires correctly), so this wasn't the cause of the bug, but it's dead code with a misleading comment claiming it's in use. Left as-is (fixed its email field for consistency) rather than wiring up a second self-heal path that would duplicate `me()`'s job.
+- **Files:** `types.ts`, `userService.ts`, `authService.ts`, `AdminPanel.tsx`.
+- **Migration needed:** `supabase/migrations/20260714_google_oauth_admin_visibility.sql` (run manually in SQL editor)
 
 ### ISS-F13 — Live-DB verification pass: society_members RLS infinite recursion (feature 100% broken), PII readable with zero authentication, corrected wrong claim about Razorpay Edge Functions ✅
 - **Status:** ✅ Fixed — session 2026-07-03, migration pending

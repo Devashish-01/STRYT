@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Trophy, Crown } from "lucide-react";
+import { Trophy, Crown } from "@/components/Icons";
 import { socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -15,7 +15,7 @@ export default function Leaderboard() {
 
   const leaderboard = data ?? [];
   const list = leaderboard.filter((l) => (tab === "providers" ? l.isProvider : !l.isProvider)).sort((a, b) => a.rank - b.rank);
-  const podiumColors = ["var(--amber-500)", "#94a3b8", "#b45309"];
+  const podiumColors = ["var(--amber-500)", "var(--ink-400)", "var(--amber-700)"];
 
   return (
     <div className="screen">

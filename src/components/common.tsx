@@ -1,6 +1,55 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Star } from "lucide-react";
+import { ArrowLeft, Star, RefreshCw } from "@/components/Icons";
 import { useState, useEffect, type ReactNode, type CSSProperties } from "react";
+
+/** Visual for `usePullToRefresh` — a self-sizing box that grows with the
+ * pull gesture and naturally pushes the content below it down, so no
+ * screen needs to transform its own content to make room. */
+export function PullToRefreshIndicator({
+  pullDistance,
+  refreshing,
+  threshold = 70,
+}: {
+  pullDistance: number;
+  refreshing: boolean;
+  threshold?: number;
+}) {
+  const height = refreshing ? 52 : pullDistance;
+  if (height <= 0) return null;
+  const ready = pullDistance >= threshold || refreshing;
+  return (
+    <div
+      style={{
+        height,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+        transition: refreshing ? "height 0.15s ease" : pullDistance === 0 ? "height 0.25s cubic-bezier(0.34,1.56,0.64,1)" : "none",
+      }}
+    >
+      <RefreshCw
+        size={20}
+        color={ready ? "var(--brand-600)" : "var(--ink-400)"}
+        className={refreshing ? "spin" : undefined}
+        style={refreshing ? undefined : { transform: `rotate(${Math.min(pullDistance / threshold, 1) * 180}deg)` }}
+      />
+    </div>
+  );
+}
+
+/** Drop-in replacement for a button's label while a submit is `pending` —
+ * 3 dots pulsing in sequence instead of a spinner ring. Inherits `currentColor`
+ * so it works inside btn-primary/btn-pink/btn-green/btn-outline alike. */
+export function ButtonSpinner() {
+  return (
+    <span className="btn-spinner" aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+}
 
 export function AppBar({
   title,
@@ -62,7 +111,7 @@ export function StarRow({ value, size = 16 }: { value: number; size?: number }) 
           size={size}
           fill={i <= Math.round(value) ? "var(--amber-500)" : "none"}
           strokeWidth={i <= Math.round(value) ? 0 : 1.5}
-          color={i <= Math.round(value) ? "var(--amber-500)" : "#cfcadd"}
+          color={i <= Math.round(value) ? "var(--amber-500)" : "var(--ink-300)"}
         />
       ))}
     </span>
@@ -71,19 +120,24 @@ export function StarRow({ value, size = 16 }: { value: number; size?: number }) 
 
 export function EmptyState({
   emoji,
+  illustration,
   title,
   text,
   action,
 }: {
   emoji: string;
+  /** Optional on-brand SVG illustration (see src/components/illustrations.tsx) — when
+   *  present it replaces the emoji. Kept optional so the long tail of rare/low-traffic
+   *  empty states can keep using emoji without every call site needing an update. */
+  illustration?: ReactNode;
   title: string;
   text: string;
   action?: ReactNode;
 }) {
   return (
     <div className="col center fade-up" style={{ padding: "56px 28px", textAlign: "center", gap: 10 }}>
-      <div style={{ fontSize: 54 }}>{emoji}</div>
-      <h3 style={{ fontSize: 18, fontWeight: 800 }}>{title}</h3>
+      {illustration ?? <div style={{ fontSize: 54 }}>{emoji}</div>}
+      <h3 className="h2">{title}</h3>
       <p className="muted small" style={{ maxWidth: 260, lineHeight: 1.5 }}>{text}</p>
       {action && <div style={{ marginTop: 8 }}>{action}</div>}
     </div>
@@ -163,6 +217,26 @@ const FALLBACK_AVATAR =
   encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%' height='100%' fill='%23ece8f5'/><text x='50%' y='50%' font-size='48' text-anchor='middle' dominant-baseline='central' fill='%23b5add0'>👤</text></svg>`
   );
+
+/** 5→1 star distribution bars, computed from a loaded reviews array. */
+export function RatingBars({ ratings }: { ratings: number[] }) {
+  if (ratings.length === 0) return null;
+  const counts = [5, 4, 3, 2, 1].map((s) => ratings.filter((r) => Math.round(r) === s).length);
+  const max = Math.max(...counts, 1);
+  return (
+    <div className="col gap-4" style={{ margin: "10px 0" }}>
+      {counts.map((c, i) => (
+        <div key={i} className="row gap-8" style={{ alignItems: "center" }}>
+          <span className="tiny muted" style={{ width: 22, textAlign: "right" }}>{5 - i}★</span>
+          <div style={{ flex: 1, height: 6, background: "var(--ink-100)", borderRadius: 999, overflow: "hidden" }}>
+            <div style={{ width: `${(c / max) * 100}%`, height: "100%", background: "var(--amber-500)", borderRadius: 999 }} />
+          </div>
+          <span className="tiny muted" style={{ width: 24 }}>{c}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function SafeImg({
   src,

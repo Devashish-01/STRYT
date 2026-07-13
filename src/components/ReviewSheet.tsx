@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star } from "lucide-react";
+import { Star } from "@/components/Icons";
 import { useApp } from "@/store";
 
 interface Props {

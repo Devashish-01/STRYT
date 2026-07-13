@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { AppBar, Section, SafeImg } from "@/components/common";
-import { MapPin, Zap, TrendingUp, Store, Users, MessageSquareText, Trophy, Clock } from "lucide-react";
+import { MapPin, Zap, TrendingUp, Store, Users, MessageSquareText, Trophy, Clock } from "@/components/Icons";
 import { discoveryService, requestService, socialService, communityService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";
@@ -56,7 +56,7 @@ export default function Neighborhood() {
         {/* Live pulse header */}
         <div style={{ background: "linear-gradient(135deg,var(--brand-500),var(--brand-700))", color: "#fff", padding: "16px", margin: "12px 16px 0", borderRadius: 20 }}>
           <div className="row gap-6" style={{ marginBottom: 10 }}>
-            <span className="dot-new" style={{ background: "#4ade80", boxShadow: "0 0 0 3px rgba(74,222,128,0.3)" }} />
+            <span className="dot-new" style={{ background: "var(--green-500)", boxShadow: "0 0 0 3px rgba(74,222,128,0.3)" }} />
             <span className="tiny semi" style={{ letterSpacing: 0.5 }}>LIVE IN YOUR AREA</span>
           </div>
           <div className="row gap-10">
@@ -80,10 +80,10 @@ export default function Neighborhood() {
         {/* Alert banner */}
         {topAlert && (
           <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
-            <button className="card row gap-10" style={{ padding: 12, background: "#fef2f2", border: "1px solid #fecaca", width: "100%", textAlign: "left" }} onClick={() => nav("/community")}>
+            <button className="card row gap-10" style={{ padding: 12, background: "var(--red-50)", border: "1px solid var(--red-100)", width: "100%", textAlign: "left" }} onClick={() => nav("/community")}>
               <span style={{ fontSize: 22 }}>📢</span>
               <div className="grow">
-                <div className="semi small" style={{ color: "#b91c1c" }}>{topAlert.title}</div>
+                <div className="semi small" style={{ color: "var(--red-600)" }}>{topAlert.title}</div>
                 <div className="tiny muted">{topAlert.postedAt} • tap for details</div>
               </div>
             </button>
@@ -138,8 +138,8 @@ export default function Neighborhood() {
 
         {/* Leaderboard teaser */}
         <div className="page-pad" style={{ paddingTop: 6 }}>
-          <button className="card row gap-12" style={{ padding: 14, width: "100%", textAlign: "left", background: "linear-gradient(120deg,#fffbeb,#fff)" }} onClick={() => nav("/leaderboard")}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <button className="card row gap-12" style={{ padding: 14, width: "100%", textAlign: "left", background: "linear-gradient(120deg,var(--amber-50),#fff)" }} onClick={() => nav("/leaderboard")}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--amber-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Trophy size={22} color="var(--amber-500)" />
             </div>
             <div className="grow">

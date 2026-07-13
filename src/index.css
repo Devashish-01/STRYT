@@ -1,61 +1,105 @@
 :root {
-  /* Brand — STRYT "Vivid Street": warm violet primary + golden amber accent */
-  --brand-50: #faf5ff;
-  --brand-100: #f3e8ff;
-  --brand-200: #e9d5ff;
-  --brand-300: #d8b4fe;
-  --brand-400: #c084fc;
-  --brand-500: #8b47f5;
-  --brand-600: #7c3aed;
-  --brand-700: #6d28d9;
-  --brand-800: #5b21b6;
-  --brand-900: #4c1d95;
+  /* Brand — Royal Purple Ramps */
+  --brand-50:  #FAF2FF;
+  --brand-100: #F4E2FF;
+  --brand-200: #E9C4FF;
+  --brand-300: #DB9EFF;
+  --brand-400: #CE74FF;
+  --brand-500: #C04CFA;  /* Base Royal Purple */
+  --brand-600: #A134D9;
+  --brand-700: #8120AB;
+  --brand-800: #5F1180;
+  --brand-900: #3D0754;
 
   --accent-400: #ffba2b;
   --accent-500: #ff9500;
   --accent-600: #e07800;
 
-  --pink-500: #ec4899;
+  /* Live/social accent — Live Pulse dot, story ring, queue-live, "Join queue" */
+  --pink-50: #fff1f9;
+  --pink-100: #ffe0f1;
+  --pink-200: #ffc0e3;
+  --pink-300: #ff97cf;
+  --pink-400: #ff79c2;
+  --pink-500: #ff5dba;
+  --pink-600: #e83ea0;
+  --pink-700: #c22a82;
+  --pink-800: #971f64;
+  --pink-900: #6b1546;
+
+  --green-100: #dcfce7;
   --green-500: #16a34a;
   --green-600: #15803d;
+  --green-700: #15803d;
+  --red-50:  #fff5f5;
+  --red-100: #fee2e2;
   --red-500: #ef4444;
   --red-600: #dc2626;
-  --blue-500: #3b82f6;
+  --amber-50: #fffbeb;
+  --amber-100: #fef3c7;
   --amber-500: #f59e0b;
+  --amber-700: #b45309;
+  --blue-500: #3b82f6;
+  --orange-50: #fff7ed;
+  --orange-100: #ffedd5;
   --orange-500: #f26a00;
 
-  /* Neutrals — purple-tinted ink */
-  --ink-900: #1a0a2e;
-  --ink-800: #2d1548;
-  --ink-700: #472367;
-  --ink-600: #6b4188;
-  --ink-500: #9266aa;
-  --ink-400: #b89fc7;
-  --ink-300: #d5c4e3;
-  --ink-200: #e8dff5;
-  --ink-100: #f4f0fb;
-  --ink-50: #faf8ff;
+  /* Neutrals — Deep Ink, purple-tinted */
+  --ink-900: #1a1530;
+  --ink-800: #2c2447;
+  --ink-700: #453a68;
+  --ink-600: #655583;
+  --ink-500: #8a78a3;
+  --ink-400: #b0a3c4;
+  --ink-300: #d0c5de;
+  --ink-200: #e8e1f0;
+  --ink-100: #f5f1fa;
+  --ink-50: #fbf9fd;
   --white: #ffffff;
 
-  --bg: #faf5ff;
+  --bg: #f6f6fa; /* Soft cool-gray background from brand sheet */
   --surface: #ffffff;
-  --line: #ede9fe;
+  --line: #e2e1f0; /* Clean, soft purple-tinted border */
+
+  /* Spacing system */
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
 
   --radius-sm: 10px;
   --radius: 16px;
   --radius-lg: 22px;
   --radius-xl: 28px;
 
-  --shadow-sm: 0 1px 2px rgba(88, 28, 160, 0.06), 0 1px 3px rgba(88, 28, 160, 0.04);
-  --shadow: 0 4px 16px rgba(109, 40, 217, 0.08);
-  --shadow-md: 0 8px 30px rgba(109, 40, 217, 0.12);
-  --shadow-lg: 0 18px 50px rgba(109, 40, 217, 0.18);
+  --shadow-sm: 0 1px 2px rgba(22, 34, 38, 0.06), 0 1px 3px rgba(22, 34, 38, 0.04);
+  --shadow: 0 4px 16px rgba(30, 47, 52, 0.08);
+  --shadow-md: 0 8px 30px rgba(30, 47, 52, 0.12);
+  --shadow-lg: 0 18px 50px rgba(30, 47, 52, 0.18);
+  --shadow-brand: 0 10px 24px rgba(192, 76, 250, 0.42);
+  --shadow-pink: 0 10px 24px rgba(255, 93, 186, 0.40);
+  --shadow-accent: 0 10px 24px rgba(242, 106, 0, 0.40);
 
   --maxw: 480px;
   --nav-h: 66px;
   --header-h: 56px;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
 
-  --font: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Native safe-area floor. Android WebViews (esp. with edge-to-edge on SDK 35)
+   frequently report env(safe-area-inset-top) as 0 even though content is drawn
+   under the status bar / camera cutout — which clipped our headers. On native
+   we clamp to a sensible minimum so there is ALWAYS a gap; when the OS does
+   report a real inset (iOS notch, modern Android cutout) the larger value wins.
+   The `.native-safe` class is added to <html> at boot by initNativeApp(). */
+:root.native-safe {
+  --safe-area-top: max(env(safe-area-inset-top, 0px), 32px);
+  --safe-area-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
 }
 
 * {
@@ -68,7 +112,7 @@ body {
   margin: 0;
   padding: 0;
   font-family: var(--font);
-  background: #ece5f8;
+  background: #efe1f7;
   color: var(--ink-900);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -113,6 +157,50 @@ h1, h2, h3, h4, h5, p {
   margin: 0;
 }
 
+h1, .h1 {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: -0.4px;
+  color: var(--ink-900);
+}
+
+h2, .h2 {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.2px;
+  color: var(--ink-900);
+}
+
+h3, .h3 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink-800);
+}
+
+.body {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--ink-700);
+}
+
+.small {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ink-600);
+}
+
+.tiny {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink-500);
+}
+
 ::-webkit-scrollbar {
   width: 0;
   height: 0;
@@ -125,7 +213,7 @@ h1, h2, h3, h4, h5, p {
   margin: 0 auto;
   min-height: 100vh;
   background: var(--bg);
-  box-shadow: 0 0 60px rgba(44, 15, 90, 0.18);
+  box-shadow: 0 0 60px rgba(74, 16, 104, 0.18);
   overflow: hidden;
 }
 
@@ -133,6 +221,7 @@ h1, h2, h3, h4, h5, p {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  animation: fadeIn 0.15s ease-out;
 }
 
 .screen-scroll {
@@ -142,7 +231,7 @@ h1, h2, h3, h4, h5, p {
 }
 
 .with-nav {
-  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 8px);
+  padding-bottom: calc(var(--nav-h) + var(--safe-area-bottom) + 8px);
 }
 
 .page-pad {
@@ -204,7 +293,7 @@ h1, h2, h3, h4, h5, p {
 .btn-primary {
   background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
   color: #fff;
-  box-shadow: 0 8px 22px rgba(139, 71, 245, 0.32);
+  box-shadow: 0 8px 22px rgba(187, 71, 245, 0.32);
 }
 .btn-accent {
   background: linear-gradient(135deg, var(--accent-500), var(--accent-600));
@@ -233,9 +322,38 @@ h1, h2, h3, h4, h5, p {
   background: var(--green-500);
   color: #fff;
 }
+.btn-pink {
+  background: linear-gradient(135deg, var(--pink-500), var(--pink-700));
+  color: #fff;
+  box-shadow: var(--shadow-pink);
+}
 .btn:disabled {
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* Button loading state — 3 dots pulsing brand -> pink -> amber, replaces the
+   label while a submit is in flight. Pair with a `pending` boolean; render
+   <ButtonSpinner/> in place of the label text. */
+.btn-spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-spinner span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.5;
+  animation: btnDot 1s ease-in-out infinite;
+}
+.btn-spinner span:nth-child(1) { animation-delay: 0s; }
+.btn-spinner span:nth-child(2) { animation-delay: 0.15s; }
+.btn-spinner span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes btnDot {
+  0%, 80%, 100% { opacity: 0.35; transform: scale(0.85); }
+  40% { opacity: 1; transform: scale(1); }
 }
 
 /* ---------- Cards ---------- */
@@ -244,6 +362,15 @@ h1, h2, h3, h4, h5, p {
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--line);
+  padding: var(--space-md);
+}
+
+.card-condensed {
+  padding: var(--space-sm);
+}
+
+.card-flat {
+  padding: 0;
 }
 
 /* ---------- Chips / pills ---------- */
@@ -280,10 +407,21 @@ h1, h2, h3, h4, h5, p {
 .badge-new { background: #ffe9d6; color: var(--accent-600); }
 .badge-green { background: #dcfce7; color: var(--green-600); }
 .badge-purple { background: var(--brand-100); color: var(--brand-700); }
+.badge-pink { background: var(--pink-100); color: var(--pink-700); }
 .badge-red { background: #fee2e2; color: var(--red-600); }
 .badge-gray { background: var(--ink-100); color: var(--ink-600); }
 .badge-blue { background: #dbeafe; color: #1d4ed8; }
 .badge-amber { background: #fef3c7; color: #b45309; }
+
+.card-badge-stack {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
 
 .dot-new {
   width: 9px;
@@ -337,7 +475,7 @@ textarea.input {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
+  padding: calc(12px + var(--safe-area-top)) 16px 12px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
   position: sticky;
@@ -365,8 +503,8 @@ textarea.input {
   transform: translateX(-50%);
   width: 100%;
   max-width: var(--maxw);
-  height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: calc(var(--nav-h) + var(--safe-area-bottom));
+  padding-bottom: var(--safe-area-bottom);
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--line);
@@ -403,16 +541,102 @@ textarea.input {
   border: 4px solid var(--surface);
 }
 
-/* ---------- Skeleton / shimmer ---------- */
+/* ---------- Provider console footer (role-specific) ---------- */
+/* Green pill active-state, larger tap targets, and a leads badge — the
+   provider console's own footer identity, distinct from the customer nav. */
+.provider-nav .nav-item { gap: 4px; }
+.provider-nav .nav-item.active { color: var(--green-600); }
+.provider-nav .nav-item.active::before { display: none; } /* replace brand top-bar with the green pill */
+.provider-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 30px;
+  border-radius: 999px;
+  position: relative;
+  transition: background 0.18s ease, transform 0.12s ease;
+}
+.provider-nav .nav-item.active .provider-nav-icon { background: var(--green-100); }
+.provider-nav .nav-item:active .provider-nav-icon { transform: scale(0.9); }
+.provider-nav-badge {
+  position: absolute;
+  top: -5px;
+  right: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--red-500);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  border: 2px solid var(--surface);
+}
+
+/* ---------- Skeleton / shimmer — "Street Light" sweep ---------- */
+/* A light passing over a surface, not a flat gray pulse: base ink tint with a
+   brand -> pink tinted highlight sweeping through at low opacity. */
 @keyframes shimmer {
   0% { background-position: -400px 0; }
   100% { background-position: 400px 0; }
 }
 .skel {
-  background: linear-gradient(90deg, #eee 25%, #f6f6f6 37%, #eee 63%);
+  background: linear-gradient(
+    90deg,
+    var(--ink-100) 25%,
+    var(--ink-100) 37%,
+    var(--ink-100) 63%
+  );
+  background-image: linear-gradient(
+    90deg,
+    var(--ink-100) 20%,
+    var(--brand-100) 42%,
+    var(--pink-100) 50%,
+    var(--brand-100) 58%,
+    var(--ink-100) 80%
+  );
   background-size: 800px 100%;
   animation: shimmer 1.4s infinite linear;
   border-radius: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel { animation: pulse-bg 1.8s ease-in-out infinite; background-image: none; background: var(--ink-100); }
+}
+
+/* ---------- Live Pulse dot ---------- */
+/* The one recurring "this can change without you" indicator — queue counts,
+   available-now, unread badges, starts-soon chips. Amber core (matches the
+   sheet's warm accent), soft pink glow ring (the live/social accent). */
+.live-pulse {
+  position: relative;
+  display: inline-flex;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+}
+.live-pulse::before,
+.live-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+.live-pulse::before {
+  background: var(--accent-500);
+}
+.live-pulse::after {
+  border: 1.5px solid var(--pink-400);
+  animation: livePulseRing 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-pulse::after { animation: none; opacity: 0.5; }
+}
+@keyframes livePulseRing {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.4); opacity: 0; }
 }
 
 /* ---------- Animations ---------- */
@@ -432,6 +656,217 @@ textarea.input {
   100% { opacity: 0; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 0.7s linear infinite; }
+
+/* ============================================================
+   "Living Street Light" — brand lockup + ambient seasonal sky
+   ============================================================ */
+
+/* ---- Brand lockup: one self-contained SVG — a dark shepherd's-crook street
+   lamp whose head hangs directly above the "S", casting an amber→pink beam
+   onto it, next to the bold white "STRYT" wordmark. The lamp, beam and text
+   share one coordinate space (see BrandLockup.tsx) so the head is always
+   pinned above the S. These classes only carry colour/glow/animation. */
+.brand-lockup {
+  --lamp-glow: 0.5;
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  position: relative;
+}
+.brand-lockup-svg {
+  display: block;
+  overflow: visible;
+}
+.brand-lockup-lamp {
+  /* Warm halo spilling off the lit lamp, scaled by the glow prop. Applied to
+     the lamp group ONLY so the wordmark and tagline never pick up the glow. */
+  filter: drop-shadow(0 0 calc(6px * var(--lamp-glow)) rgba(255, 179, 71, calc(0.9 * var(--lamp-glow))));
+}
+.brand-lockup-bulb {
+  fill: #fff3d6;
+  opacity: calc(0.6 + 0.4 * var(--lamp-glow));
+  animation: lampFlicker 4.5s ease-in-out infinite;
+}
+.brand-lockup-halo {
+  fill: #ffb347;
+  opacity: calc(0.4 * var(--lamp-glow));
+  filter: blur(3px);
+  animation: lampFlicker 4.5s ease-in-out infinite;
+}
+.brand-lockup-spill {
+  opacity: calc(0.24 * var(--lamp-glow));
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+  animation: beamSpillFlicker 4.5s ease-in-out infinite;
+}
+.brand-lockup-cone {
+  opacity: calc(0.8 * (0.6 + 0.4 * var(--lamp-glow)));
+  transition: opacity 0.6s ease;
+  pointer-events: none;
+  animation: beamConeFlicker 4.5s ease-in-out infinite;
+}
+@keyframes lampFlicker {
+  0%, 100% { opacity: calc(0.6 + 0.4 * var(--lamp-glow)); }
+  48%      { opacity: calc(0.45 + 0.4 * var(--lamp-glow)); }
+  52%      { opacity: calc(0.68 + 0.34 * var(--lamp-glow)); }
+}
+@keyframes beamConeFlicker {
+  0%, 100% { opacity: calc(0.8 * (0.6 + 0.4 * var(--lamp-glow))); }
+  48%      { opacity: calc(0.5 * (0.6 + 0.4 * var(--lamp-glow))); }
+  52%      { opacity: calc(0.95 * (0.6 + 0.4 * var(--lamp-glow))); }
+}
+@keyframes beamSpillFlicker {
+  0%, 100% { opacity: calc(0.24 * var(--lamp-glow)); }
+  48%      { opacity: calc(0.15 * var(--lamp-glow)); }
+  52%      { opacity: calc(0.28 * var(--lamp-glow)); }
+}
+
+/* ---- Ambient sky: fills a position:relative header, sits behind content ---- */
+.ambient-sky {
+  --sky-glow: 0.5;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+/* time-of-day light wash layered over the header's own gradient */
+.ambient-sky-wash {
+  position: absolute;
+  inset: 0;
+  transition: background 0.8s ease;
+}
+.ambient-sky.day-morning .ambient-sky-wash {
+  background: radial-gradient(120% 90% at 88% -20%, rgba(255, 205, 130, 0.45) 0%, rgba(255, 205, 130, 0) 55%);
+}
+.ambient-sky.day-afternoon .ambient-sky-wash {
+  background: radial-gradient(120% 90% at 50% -30%, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 60%);
+}
+.ambient-sky.day-evening .ambient-sky-wash {
+  background:
+    radial-gradient(90% 70% at 12% 10%, rgba(255, 179, 71, calc(0.34 * var(--sky-glow) + 0.12)) 0%, rgba(255, 179, 71, 0) 46%),
+    linear-gradient(180deg, rgba(255, 93, 186, 0) 40%, rgba(255, 93, 186, 0.22) 100%);
+}
+.ambient-sky.day-night .ambient-sky-wash {
+  background:
+    radial-gradient(80% 60% at 12% 8%, rgba(255, 179, 71, calc(0.3 * var(--sky-glow))) 0%, rgba(255, 179, 71, 0) 42%),
+    linear-gradient(180deg, rgba(10, 4, 24, 0.35) 0%, rgba(10, 4, 24, 0) 60%);
+}
+
+/* ---- Seasonal particle field ---- */
+.ambient-sky-field {
+  position: absolute;
+  inset: 0;
+}
+/* Vertical travel is driven by `top` (relative to the header) — NOT translateY,
+   which is relative to the tiny particle itself. transform carries only the
+   horizontal drift + rotation. */
+.sky-particle {
+  position: absolute;
+  top: -10%;
+  will-change: top, transform, opacity;
+}
+/* Monsoon — thin diagonal rain streaks */
+.fx-rain .sky-particle {
+  width: 1.5px;
+  height: 16px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(213, 229, 255, 0.6) 100%);
+  animation-name: skyRain;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes skyRain {
+  0%   { top: -12%; transform: translateX(0) rotate(14deg); opacity: 0; }
+  10%  { opacity: 0.85; }
+  90%  { opacity: 0.85; }
+  100% { top: 112%; transform: translateX(-30px) rotate(14deg); opacity: 0; }
+}
+/* Winter — slow drifting snow */
+.fx-snow .sky-particle {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 5px rgba(255,255,255,0.8);
+  animation-name: skySnow;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes skySnow {
+  0%   { top: -8%; transform: translateX(0); opacity: 0; }
+  15%  { opacity: 1; }
+  50%  { transform: translateX(12px); }
+  85%  { opacity: 1; }
+  100% { top: 110%; transform: translateX(-6px); opacity: 0; }
+}
+/* Spring — petals falling with a sway + tumble */
+.fx-petals .sky-particle {
+  width: 10px;
+  height: 10px;
+  border-radius: 80% 10% 80% 10%;
+  background: linear-gradient(135deg, #ffb3dc, #ff5dba);
+  box-shadow: 0 0 5px rgba(255, 93, 186, 0.5);
+  opacity: 0.95;
+  animation-name: skyPetals;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes skyPetals {
+  0%   { top: -8%; transform: translateX(0) rotate(0deg); opacity: 0; }
+  15%  { opacity: 0.95; }
+  50%  { transform: translateX(22px) rotate(180deg); }
+  85%  { opacity: 0.95; }
+  100% { top: 112%; transform: translateX(-12px) rotate(360deg); opacity: 0; }
+}
+/* Summer — warm haze motes rising + shimmering */
+.fx-haze .sky-particle {
+  top: 110%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 210, 122, 0.6) 0%, rgba(255, 210, 122, 0) 68%);
+  animation-name: skyHaze;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes skyHaze {
+  0%   { top: 108%; transform: translateX(0); opacity: 0; }
+  40%  { opacity: 0.85; }
+  100% { top: -18%; transform: translateX(14px); opacity: 0; }
+}
+
+/* ---- Street scene: lit windows twinkle, lamp heads glow (auth/hero panels) ---- */
+.street-window {
+  opacity: 0.9;
+  animation: streetTwinkle 4.5s ease-in-out infinite;
+}
+.street-lamp-glow {
+  animation: streetLampGlow 5.5s ease-in-out infinite;
+}
+@keyframes streetTwinkle {
+  0%, 100% { opacity: 0.9; }
+  50%      { opacity: 0.35; }
+}
+@keyframes streetLampGlow {
+  0%, 100% { opacity: 0.24; }
+  50%      { opacity: 0.34; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-lockup-bulb,
+  .brand-lockup-halo,
+  .brand-lockup-cone,
+  .brand-lockup-spill { animation: none; }
+  .ambient-sky-field { display: none; }
+  .street-window,
+  .street-lamp-glow { animation: none; }
+}
 
 /* ---------- Sheet / modal ---------- */
 .overlay {
@@ -449,7 +884,7 @@ textarea.input {
   max-width: var(--maxw);
   background: var(--surface);
   border-radius: 24px 24px 0 0;
-  padding: 8px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  padding: 8px 16px calc(20px + var(--safe-area-bottom));
   max-height: 88vh;
   overflow-y: auto;
   animation: sheetUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -569,24 +1004,72 @@ textarea.input {
   border-bottom-color: var(--brand-700);
 }
 
-/* ---------- Bottom nav badge ---------- */
-.nav-badge {
+/* ---------- Unified count badge (chat/notif counts on icon buttons, tiles, cards) ---------- */
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--red-500);
+  color: #white;
+  color: #fff;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 99px;
+  text-align: center;
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+}
+
+.count-badge.btn-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  font-size: 10.5px;
+  padding: 0 5px;
+  border: 2px solid var(--surface);
+}
+
+.count-badge.count-badge-accent {
+  background: var(--accent-500);
+}
+
+.count-badge.nav-badge {
   position: absolute;
   top: -4px;
   right: -7px;
   min-width: 16px;
   height: 16px;
-  border-radius: 8px;
-  background: var(--red-500);
-  color: #fff;
   font-size: 10px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 0 3px;
   border: 1.5px solid var(--bg);
-  line-height: 1;
+}
+
+.count-badge.launch-tile-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  min-width: 20px;
+  height: 20px;
+  font-size: 11px;
+  padding: 0 5px;
+}
+
+.count-badge.feature-card-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 20px;
+  height: 20px;
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+.count-badge.sidebar-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  min-height: 14px;
 }
 
 /* ---------- Activity banner (Home: active agreements) ---------- */
@@ -610,6 +1093,12 @@ textarea.input {
   100% { transform: scale(1);   opacity: 0.15; }
 }
 
+/* Skeleton shimmer for loading states */
+@keyframes pulse-bg {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
 /* ---------- Feature card (Profile highlights) ---------- */
 .feature-card {
   display: flex;
@@ -628,22 +1117,7 @@ textarea.input {
   transition: transform 0.08s ease;
 }
 .feature-card:active { transform: scale(0.97); }
-.feature-card-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  min-width: 20px;
-  height: 20px;
-  border-radius: 10px;
-  background: var(--red-500);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 4px;
-}
+/* feature card badge styling consolidated in unified count-badge rules */
 
 /* ---------- Improved bottom nav active state ---------- */
 .nav-item.active::before {
@@ -669,7 +1143,7 @@ textarea.input {
   border-radius: var(--radius-lg);
   background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
   color: #fff;
-  box-shadow: 0 12px 28px rgba(139, 71, 245, 0.28);
+  box-shadow: 0 12px 28px rgba(187, 71, 245, 0.28);
   transition: transform 0.08s ease;
 }
 .launch-hero:active { transform: scale(0.98); }
@@ -728,21 +1202,84 @@ textarea.input {
   margin-top: 2px;
   line-height: 1.2;
 }
-.launch-tile-badge {
+/* launch tile badge styling consolidated in unified count-badge rules */
+
+/* ---------- "Your day" activity rail (Home) ---------- */
+/* One glanceable rail that consolidates every live customer state — queue
+   position, next appointment, active deals — into ticket-style cards with a
+   colored identity spine, instead of a vertical stack of full-width banners.
+   The accent is passed per-card via the --today-accent custom property. */
+.today-rail { scroll-snap-type: x mandatory; }
+.today-card {
+  position: relative;
+  flex-shrink: 0;
+  width: 226px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 14px 14px 18px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  text-align: left;
+  overflow: hidden;
+  transition: transform 0.08s ease, box-shadow 0.12s ease;
+}
+.today-card:active { transform: scale(0.97); }
+.today-card::before {
+  content: "";
   position: absolute;
-  top: 12px;
-  right: 12px;
-  min-width: 20px;
-  height: 20px;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: var(--today-accent, var(--brand-500));
+}
+.today-card-head { display: flex; align-items: center; gap: 8px; }
+.today-card-icon {
+  width: 34px; height: 34px;
   border-radius: 10px;
-  background: var(--red-500);
-  color: #fff;
+  background: var(--ink-50);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.today-card-kicker {
   font-size: 11px;
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 5px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--today-accent, var(--brand-600));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink-900);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.today-card-stat {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink-900);
+  line-height: 1.15;
+}
+.today-card-sub { font-size: 12px; color: var(--ink-500); font-weight: 500; }
+.today-live {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: #fff;
+  background: var(--red-500);
+  border-radius: 999px;
+  padding: 1px 7px;
+  line-height: 16px;
+  flex-shrink: 0;
 }
 
 /* compact "on your street now" rows */
@@ -784,3 +1321,645 @@ textarea.input {
   transition: transform 0.08s ease;
 }
 .stat-pill:active { transform: scale(0.96); }
+
+/* ---------- Desktop Responsive Layout ---------- */
+.desktop-layout {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.desktop-sidebar {
+  display: none;
+}
+
+.app-shell-container {
+  width: 100%;
+  min-height: 100vh;
+  flex: 1;
+  background: var(--bg);
+}
+
+/* Hide native bottom navigations on desktop */
+@media (min-width: 768px) {
+  .bottom-nav {
+    display: none !important;
+  }
+
+  .desktop-layout {
+    background: #fbf9fd;
+    flex-direction: row;
+  }
+
+  /* Fixed Desktop Sidebar */
+  .desktop-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 230px;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px);
+    border-right: 1.5px solid var(--line);
+    padding: 20px 12px;
+    z-index: 1000;
+    box-shadow: 4px 0 24px rgba(132, 27, 184, 0.03);
+  }
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+    cursor: pointer;
+  }
+
+  .sidebar-brand .logo-text {
+    font-size: 19px;
+    font-weight: 900;
+    letter-spacing: -0.8px;
+    color: var(--ink-900);
+  }
+
+  .sidebar-profile-box {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .sidebar-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    color: var(--ink-600);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .sidebar-nav-item:hover {
+    background: var(--ink-50);
+    color: var(--ink-900);
+  }
+
+  .sidebar-nav-item.active {
+    background: var(--brand-50);
+    color: var(--brand-700);
+    font-weight: 700;
+  }
+
+  /* sidebar badge styling consolidated in unified count-badge rules */
+
+  .sidebar-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    margin-bottom: 12px;
+  }
+
+  .sidebar-create-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
+    color: #fff;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 4px 16px rgba(160, 32, 224, 0.2);
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .sidebar-create-btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .sidebar-download-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 8px;
+    background: #fff;
+    color: var(--brand-700);
+    border: 1.5px solid var(--brand-100);
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+    transition: background 0.2s;
+  }
+
+  .sidebar-download-btn:hover {
+    background: var(--brand-50);
+  }
+
+  .sidebar-footer {
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+
+  .sidebar-logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    color: var(--red-500);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: background 0.2s;
+  }
+
+  .sidebar-logout-btn:hover {
+    background: var(--red-50);
+  }
+
+  /* App container next to sidebar */
+  .app-shell-container.has-sidebar {
+    margin-left: 230px;
+  }
+
+  .app-shell-container .app-shell {
+    max-width: 100%;
+    min-height: 100vh;
+    box-shadow: none;
+    background: transparent;
+    padding-bottom: 24px;
+  }
+
+  /* Center page contents elegantly on desktop */
+  /* Center page contents elegantly on desktop via boxed class */
+  .screen-boxed {
+    max-width: 1120px !important;
+    margin: 0 auto !important;
+    padding: 24px 32px !important;
+  }
+
+  /* Full-bleed canvases (map, camera/QR viewfinders, story viewer) */
+  .screen.screen-canvas {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100vh !important;
+  }
+
+  .screen-scroll {
+    overflow-y: visible !important;
+    height: auto !important;
+  }
+
+  /* Sticky app bars adjust styling on desktop for boxed screens */
+  .screen-boxed .appbar {
+    max-width: 1120px !important;
+    margin: 0 auto !important;
+    background: rgba(250, 248, 255, 0.9) !important;
+    backdrop-filter: blur(10px);
+    border-radius: 0 0 16px 16px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Grid Layout Overrides for Card Collections */
+
+  /* 1. Default card grid (CategoryListing and anywhere else that doesn't sit
+     next to a filter sidebar). NOT !important — the more specific
+     .explore-listings-feed .listings-cards-grid rule further down
+     (narrower 280px columns, correct for the space left next to Explore's
+     240px filter panel) must win there via specificity alone. Both need the
+     same selector-weight family so cascade order (not !important tug-of-war)
+     decides the winner; making this one !important was silently defeating
+     that rule and giving Explore's listing grid the wrong column width. */
+  .listings-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  /* 2. Home screen category lists */
+  .hscroll {
+    overflow-x: visible !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 14px !important;
+  }
+
+  /* 3. 2x2 home screen tiles -> 4-column horizontal strip */
+  .launch-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 16px !important;
+  }
+
+  .launch-tile {
+    min-height: 120px !important;
+  }
+
+  /* --- Home Screen Dashboard Grid --- */
+  /* No padding here — Home's root is a plain .screen (not .screen-canvas), so
+     it already carries the standard 24px/32px desktop gutter. Adding more
+     here stacked to 48px, making Home's edges wider than every other desktop
+     screen (Explore etc.) for no reason. */
+  .home-dashboard-grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+
+  .home-main-col {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .home-sidebar-col {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: sticky;
+    top: 24px;
+  }
+
+  /* Home's desktop dashboard cards are flush inside .home-main-col already —
+     the "Nearby on Your Street" rail's .hscroll carries its own built-in 16px
+     horizontal padding (meant for mobile), which would misalign its cards
+     against the surrounding .card's own padding. Neutralize just that. */
+  .home-main-col .hscroll {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Desktop-specific welcome card styling */
+  .desktop-welcome-card {
+    background: linear-gradient(135deg, rgba(160, 32, 224, 0.08) 0%, rgba(255, 93, 186, 0.05) 100%);
+    border: 1px solid rgba(160, 32, 224, 0.15);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 8px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .desktop-welcome-card::after {
+    content: '';
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, rgba(160, 32, 224, 0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  
+  .desktop-welcome-card h1 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--ink-900);
+    margin: 0 0 6px 0;
+    letter-spacing: -0.5px;
+  }
+
+  .desktop-welcome-card p {
+    font-size: 14px;
+    color: var(--ink-600);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* --- Explore Screen Dashboard Split --- */
+  .explore-main-layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+
+  .explore-desktop-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    position: sticky;
+    top: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .explore-desktop-filters .filters-header {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 12px;
+  }
+
+  .explore-desktop-filters .filters-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--ink-900);
+  }
+
+  .explore-desktop-filters .filter-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .explore-desktop-filters .filter-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ink-500);
+  }
+
+  .explore-desktop-filters .desktop-tabs {
+    display: flex;
+    background: var(--ink-50);
+    border: 1px solid var(--ink-200);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .explore-desktop-filters .tab-btn {
+    flex: 1;
+    padding: 6px 0;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--ink-600);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .explore-desktop-filters .tab-btn.active {
+    background: #fff;
+    color: var(--brand-700);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .explore-desktop-filters .desktop-categories-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .explore-desktop-filters .category-item-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--ink-700);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+  }
+
+  .explore-desktop-filters .category-item-btn:hover {
+    background: var(--ink-50);
+    color: var(--ink-900);
+  }
+
+  .explore-desktop-filters .category-item-btn.active {
+    background: var(--brand-50);
+    color: var(--brand-700);
+    font-weight: 700;
+  }
+
+  .explore-desktop-filters .clear-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--ink-400);
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .explore-desktop-filters .search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+    z-index: 100;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .explore-desktop-filters .dropdown-item {
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    border-bottom: 1px solid var(--line);
+    transition: background 0.15s;
+  }
+
+  .explore-desktop-filters .dropdown-item:hover {
+    background: var(--ink-50);
+  }
+
+  .explore-desktop-filters .dropdown-item .bold {
+    font-size: 12px;
+    color: var(--ink-900);
+    font-weight: 700;
+  }
+
+  .explore-desktop-filters .dropdown-item .tiny {
+    font-size: 10px;
+    color: var(--ink-500);
+  }
+
+  .explore-listings-feed .listings-grid-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 16px;
+    border-bottom: 1.5px solid var(--line);
+    padding-bottom: 10px;
+  }
+
+  .explore-listings-feed .listings-grid-header h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--ink-900);
+  }
+
+  .explore-listings-feed .listings-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+
+  .desktop-hero-stat-card {
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(10px);
+    padding: 10px 16px;
+    border-radius: 16px;
+    text-align: center;
+    min-width: 100px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .desktop-hero-stat-card:hover {
+    background: rgba(255, 255, 255, 0.22);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* Helper classes for responsive toggling */
+.desktop-only {
+  display: none !important;
+}
+.mobile-only {
+  display: block !important;
+}
+
+@media (min-width: 768px) {
+  .desktop-only {
+    display: block !important;
+  }
+  div.desktop-only {
+    display: block !important;
+  }
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* ---------- Tabular numbers utility ---------- */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Page fade-in transition ---------- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .screen { animation: none; }
+  .fade-up { animation: none; }
+}
+
+/* ---------- Desktop Pointer Hover Styles ---------- */
+@media (hover: hover) {
+  .btn-primary:hover {
+    background: linear-gradient(135deg, var(--brand-600), var(--brand-800));
+    box-shadow: var(--shadow-brand);
+    transform: translateY(-1px);
+  }
+
+  .btn-accent:hover {
+    background: linear-gradient(135deg, var(--accent-500), var(--accent-600));
+    box-shadow: var(--shadow-accent);
+    transform: translateY(-1px);
+  }
+
+  .btn-ghost:hover {
+    background: var(--ink-200);
+  }
+
+  .btn-outline:hover {
+    border-color: var(--brand-400);
+    color: var(--brand-700);
+    background: var(--brand-50);
+  }
+
+  .card-interactive,
+  .launch-hero,
+  .launch-tile,
+  .activity-banner,
+  .today-card,
+  .chip {
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease, filter 0.2s ease;
+  }
+
+  .today-card:hover {
+    border-color: var(--brand-300);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-2px);
+  }
+
+  .card-interactive:hover {
+    border-color: var(--brand-300);
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+  }
+
+  .launch-hero:hover {
+    filter: brightness(0.98);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+
+  .launch-tile:hover {
+    border-color: var(--brand-300);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-2px);
+  }
+
+  .activity-banner:hover {
+    border-color: var(--brand-300);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-2px);
+  }
+
+  .chip:hover {
+    border-color: var(--brand-500);
+    background: var(--brand-50);
+    color: var(--brand-700);
+  }
+}

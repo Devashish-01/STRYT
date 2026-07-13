@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { X, MapPin, Navigation, Loader, Search } from "lucide-react";
+import { X, MapPin, Navigation, Loader } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService } from "@/services";
-import { forwardGeocode, reverseGeocode, type GeoPlace } from "@/lib/geocode";
+import { reverseGeocode, type GeoPlace } from "@/lib/geocode";
 import { config } from "@/config";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 interface Props {
   onClose: () => void;
@@ -11,26 +12,7 @@ interface Props {
 
 export default function LocationPickerSheet({ onClose }: Props) {
   const { area, refreshUser, showToast, setArea } = useApp();
-  const [q, setQ] = useState("");
-  const [results, setResults] = useState<GeoPlace[]>([]);
-  const [searching, setSearching] = useState(false);
   const [locating, setLocating] = useState(false);
-
-  async function handleSearch(text: string) {
-    setQ(text);
-    if (text.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    setSearching(true);
-    try {
-      setResults(await forwardGeocode(text));
-    } catch {
-      /* ignore */
-    } finally {
-      setSearching(false);
-    }
-  }
 
   async function handleSelect(p: GeoPlace) {
     try {
@@ -45,34 +27,30 @@ export default function LocationPickerSheet({ onClose }: Props) {
   }
 
   function handleGPS() {
-    if (!navigator.geolocation) {
-      showToast("GPS is not available on this device");
-      return;
-    }
     setLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    nativeGeolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         const areaName = await reverseGeocode(latitude, longitude);
         try {
+          // The DB write is the source of truth for feeds (they read user.lat
+          // from the profile). If it fails, say so — a fake "✓" here left users
+          // stuck on the old location no matter how many times they re-tapped.
           await userService.setLocation(latitude, longitude, areaName ?? undefined);
           await refreshUser();
-        } catch { /* ignore */ }
-        if (areaName) {
-          setArea(areaName);
-          showToast(`Location set — ${areaName} ✓`);
+          if (areaName) setArea(areaName);
+          showToast(`Location set — ${areaName ?? "current position"} ✓`);
           onClose();
-        } else {
-          showToast("Got location coordinates!");
-          onClose();
+        } catch {
+          showToast("Got GPS fix, but couldn't save it — check connection & retry");
         }
         setLocating(false);
       },
-      () => {
+      (err) => {
         setLocating(false);
-        showToast("GPS access denied");
+        showToast(err.code === 1 ? "Location permission denied — enable it in phone settings" : "Couldn't get a GPS fix — try near a window or outdoors");
       },
-      { enableHighAccuracy: false, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 12000 }
     );
   }
 
@@ -89,7 +67,7 @@ export default function LocationPickerSheet({ onClose }: Props) {
           display: "flex",
           flexDirection: "column",
           borderRadius: "24px 24px 0 0",
-          padding: "20px 16px 32px",
+          padding: "20px 16px calc(32px + var(--safe-area-bottom))",
         }}
       >
         <div className="sheet-grab" style={{ background: "var(--ink-200)" }} />
@@ -98,7 +76,7 @@ export default function LocationPickerSheet({ onClose }: Props) {
         <div className="row between" style={{ marginBottom: 18 }}>
           <div className="row gap-8">
             <MapPin size={20} color="var(--brand-700)" />
-            <h3 className="bold" style={{ fontSize: 18, color: "var(--ink-900)" }}>Select Area</h3>
+            <h3 className="bold h2" style={{ color: "var(--ink-900)" }}>Select Area</h3>
           </div>
           <button
             onClick={onClose}
@@ -140,65 +118,26 @@ export default function LocationPickerSheet({ onClose }: Props) {
           </span>
         </button>
 
-        {/* Search Box */}
-        <div className="row gap-8" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 14, padding: "0 14px", background: "var(--ink-50)", alignItems: "center", marginBottom: 18 }}>
-          <Search size={16} color="var(--ink-400)" />
-          <input
-            className="input grow"
-            style={{ border: "none", padding: "12px 0", fontSize: 14, background: "transparent" }}
-            placeholder="Search address or area..."
-            value={q}
-            onChange={(e) => handleSearch(e.target.value)}
-          />
-          {searching && <Loader size={14} className="spin" style={{ color: "var(--ink-400)" }} />}
-          {q && (
-            <button onClick={() => { setQ(""); setResults([]); }} style={{ border: "none", background: "none", color: "var(--ink-400)", cursor: "pointer", padding: 2 }}>
-              <X size={14} />
-            </button>
-          )}
-        </div>
-
-        {/* Results List */}
+        {/* Popular areas — GPS is the primary path; this is the fallback when it fails */}
         <div className="col gap-10" style={{ overflowY: "auto", flexGrow: 1, maxHeight: 280 }}>
-          {results.length > 0 ? (
-            results.map((r, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSelect(r)}
-                style={{
-                  width: "100%", padding: "10px 12px", border: "none", background: "none",
-                  textAlign: "left", fontSize: 13, color: "var(--ink-850)", borderBottom: "1px solid var(--ink-100)",
-                  cursor: "pointer", display: "block"
-                }}
-              >
-                <div className="semi" style={{ color: "var(--ink-900)" }}>{r.area}</div>
-                <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 2 }}>{r.full}</div>
-              </button>
-            ))
-          ) : q.trim().length >= 2 ? (
-            <div className="col center muted small" style={{ padding: 20 }}>No matches found.</div>
-          ) : (
-            <>
-              <div className="tiny semi muted" style={{ letterSpacing: 0.5 }}>POPULAR SEARCHES</div>
-              {presetLocations.map((p) => (
-                <button
-                  key={p.area}
-                  onClick={() => handleSelect(p)}
-                  className="row gap-10"
-                  style={{
-                    width: "100%", padding: "12px 14px", border: "none", background: "var(--ink-50)",
-                    borderRadius: 14, textAlign: "left", cursor: "pointer"
-                  }}
-                >
-                  <span style={{ fontSize: 18 }}>{p.emoji}</span>
-                  <div className="grow">
-                    <div className="semi small" style={{ color: "var(--ink-900)" }}>{p.area}</div>
-                    <div style={{ fontSize: 10.5, color: "var(--ink-500)", marginTop: 1 }}>{p.full}</div>
-                  </div>
-                </button>
-              ))}
-            </>
-          )}
+          <div className="tiny semi muted" style={{ letterSpacing: 0.5 }}>POPULAR AREAS</div>
+          {presetLocations.map((p) => (
+            <button
+              key={p.area}
+              onClick={() => handleSelect(p)}
+              className="row gap-10"
+              style={{
+                width: "100%", padding: "12px 14px", border: "none", background: "var(--ink-50)",
+                borderRadius: 14, textAlign: "left", cursor: "pointer"
+              }}
+            >
+              <span style={{ fontSize: 18 }}>{p.emoji}</span>
+              <div className="grow">
+                <div className="semi small" style={{ color: "var(--ink-900)" }}>{p.area}</div>
+                <div style={{ fontSize: 10.5, color: "var(--ink-500)", marginTop: 1 }}>{p.full}</div>
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     </div>

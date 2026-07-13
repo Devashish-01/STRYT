@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
-import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, ShieldAlert, Share2, XCircle } from "lucide-react";
+import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, Share2, XCircle, QrCode } from "@/components/Icons";
 import { requestService } from "@/services";
+import DealUpiSheet from "@/components/DealUpiSheet";
+import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import type { Agreement, AgreementStatus, Proposal, RequestPost, JobLiveStatus } from "@/types";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -42,7 +45,7 @@ function ProgressBar({ status }: { status: AgreementStatus }) {
   const active = stepIndex(status);
   if (active === -1) return null;
   return (
-    <div className="card" style={{ padding: "14px 16px" }}>
+    <div className="card">
       <div className="row" style={{ justifyContent: "space-between", position: "relative" }}>
         <div style={{
           position: "absolute", top: 10, left: "10%", right: "10%", height: 3,
@@ -82,11 +85,12 @@ function ProgressBar({ status }: { status: AgreementStatus }) {
 // ── Process guide ────────────────────────────────────────────────────────────
 
 const GUIDE: { status: AgreementStatus[]; requesterAction: string; responderAction: string }[] = [
-  { status: ["PENDING"],                requesterAction: "Confirm the agreement",      responderAction: "Confirm the agreement" },
-  { status: ["ACTIVE", "DEPOSIT_PAID"], requesterAction: "Wait for provider to start", responderAction: 'Tap "Mark work started"' },
-  { status: ["IN_PROGRESS"],            requesterAction: "Wait for work to finish",    responderAction: 'Tap "Submit for review"' },
-  { status: ["REVIEW"],                 requesterAction: "Approve or raise a dispute", responderAction: "Await requester approval" },
-  { status: ["COMPLETED"],              requesterAction: "Rate the provider",          responderAction: "Job complete!" },
+  { status: ["PENDING"],       requesterAction: "Confirm the agreement",       responderAction: "Confirm the agreement" },
+  { status: ["ACTIVE"],        requesterAction: "Pay via UPI or cash",         responderAction: "Wait for payment — confirm it if paid via UPI" },
+  { status: ["DEPOSIT_PAID"],  requesterAction: "Wait for provider to start",  responderAction: 'Tap "Mark work started"' },
+  { status: ["IN_PROGRESS"],   requesterAction: "Wait for work to finish",     responderAction: 'Tap "Submit for review"' },
+  { status: ["REVIEW"],        requesterAction: "Approve or raise a dispute",  responderAction: "Await requester approval" },
+  { status: ["COMPLETED"],     requesterAction: "Rate the provider",           responderAction: "Job complete!" },
 ];
 
 function ProcessGuide({ status, isRequester }: { status: AgreementStatus; isRequester: boolean }) {
@@ -96,7 +100,7 @@ function ProcessGuide({ status, isRequester }: { status: AgreementStatus; isRequ
   const myAction    = isRequester ? step.requesterAction : step.responderAction;
   const otherAction = isRequester ? step.responderAction : step.requesterAction;
   return (
-    <div className="card" style={{ padding: 14, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
+    <div className="card" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
       <div className="semi small" style={{ color: "var(--brand-700)", marginBottom: 10 }}>What happens next</div>
       <div className="row gap-10" style={{ marginBottom: 8 }}>
         <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--brand-600)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -136,6 +140,11 @@ export default function AgreementScreen() {
     [id, isNew],
     isNew ? undefined : `id=eq.${id}`
   );
+  // Money state must be visible: HELD = safely escrowed, RELEASED = paid out.
+  const { data: payment } = useQuery(
+    () => (isNew ? Promise.resolve(null) : requestService.paymentForAgreement(id)),
+    [id, isNew]
+  );
 
   let agreement: Agreement | undefined;
   if (isNew && state?.request && state?.proposal) {
@@ -147,6 +156,7 @@ export default function AgreementScreen() {
       requesterUserId: state.request.requesterUserId,
       responderUserId: state.proposal.responderUserId,
       requesterName: state.request.requesterName,
+      requesterAvatar: state.request.requesterAvatar,
       responderName: state.proposal.responderName,
       responderAvatar: state.proposal.responderAvatar,
       agreedPrice: state.proposal.price,
@@ -165,9 +175,8 @@ export default function AgreementScreen() {
   const [disputeMode, setDisputeMode] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
 
-  const [sosCountdown, setSosCountdown] = useState<number | null>(null);
-  const [sosTriggered, setSosTriggered] = useState(false);
   const liveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -239,34 +248,9 @@ export default function AgreementScreen() {
     }
   }
 
-  function startSOS() {
-    setSosCountdown(5);
-    const t = setInterval(() => {
-      setSosCountdown((n) => {
-        if (n === null || n <= 1) { clearInterval(t); if (n === 1) void fireSOS(); return null; }
-        return n - 1;
-      });
-    }, 1000);
-  }
-
-  function cancelSOS() { setSosCountdown(null); }
-
-  async function fireSOS() {
-    setSosTriggered(true);
-    const pos = await new Promise<GeolocationPosition>((res, rej) =>
-      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 })
-    ).catch(() => null);
-    try {
-      await requestService.sosAlert(agreement!.id, pos?.coords.latitude ?? 0, pos?.coords.longitude ?? 0);
-      showToast("SOS sent — emergency contact and STRYT team alerted");
-    } catch {
-      showToast("SOS recorded. Call your contact directly if SMS failed.");
-    }
-  }
-
   function getGPS(): Promise<{ lat: number; lng: number } | null> {
     return new Promise((res) =>
-      navigator.geolocation.getCurrentPosition(
+      nativeGeolocation.getCurrentPosition(
         (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
         () => res(null),
         { timeout: 5000 }
@@ -292,21 +276,22 @@ export default function AgreementScreen() {
   function ActionArea() {
     if (status === "COMPLETED") {
       return (
-        <div className="col center" style={{ padding: 16, gap: 6, background: "#e8f7ee", borderTop: "1px solid #bbf7d0" }}>
+        <div className="col center" style={{ padding: 16, gap: 6, background: "var(--green-100)", borderTop: "1px solid var(--green-500)" }}>
           <CheckCircle2 size={28} color="var(--green-500)" />
-          <span className="semi" style={{ color: "#15803d" }}>Job complete</span>
+          <span className="semi" style={{ color: "var(--green-600)" }}>Job complete</span>
         </div>
       );
     }
 
     if (status === "CANCELLED") {
       return (
-        <div className="col center" style={{ padding: 16, gap: 12, background: "#fef2f2", borderTop: "1px solid #fee2e2", textAlign: "center" }}>
+        <div className="col center" style={{ padding: 16, gap: 12, background: "var(--red-50)", borderTop: "1px solid var(--red-100)", textAlign: "center" }}>
           <XCircle size={28} color="var(--red-600)" />
           <div>
-            <span className="semi" style={{ color: "#991b1b" }}>Agreement Cancelled</span>
+            <span className="semi" style={{ color: "var(--red-600)" }}>Agreement Cancelled</span>
             <p className="tiny muted" style={{ marginTop: 4, maxWidth: 320, lineHeight: 1.4 }}>
-              This work order has been cancelled. Since the 10-minute confirmation window has passed, you can accept a quote again.
+              This work order was cancelled — either by a participant, or automatically because the
+              confirmation window passed without both sides confirming. You can accept a quote again.
             </p>
           </div>
           <button
@@ -321,9 +306,9 @@ export default function AgreementScreen() {
 
     if (status === "DISPUTED") {
       return (
-        <div className="col center" style={{ padding: 16, gap: 6, background: "#fff7ed", borderTop: "1px solid #fdba74" }}>
+        <div className="col center" style={{ padding: 16, gap: 6, background: "var(--orange-50)", borderTop: "1px solid var(--orange-100)" }}>
           <AlertTriangle size={26} color="var(--orange-500)" />
-          <span className="semi" style={{ color: "#c2410c" }}>Under dispute — our team will review</span>
+          <span className="semi" style={{ color: "var(--orange-500)" }}>Under dispute — our team will review</span>
         </div>
       );
     }
@@ -355,7 +340,89 @@ export default function AgreementScreen() {
       );
     }
 
-    if (status === "DEPOSIT_PAID" || status === "ACTIVE") {
+    // ACTIVE = confirmed by both, payment not yet settled. Work cannot start
+    // yet for either side — payment must clear first (cash: instant; UPI:
+    // responder must confirm receipt), matching the intended order: approve
+    // → pay → (UPI) provider/business approves the payment → THEN work starts.
+    if (status === "ACTIVE") {
+      const pStatus = agreement!.paymentStatus ?? "UNPAID";
+
+      if (!isRequester) {
+        // Responder: the confirm/reject buttons for a pending UPI claim live
+        // in the card above (main scroll area) — the bottom bar just reflects
+        // where things stand so there's no "start work" escape hatch here.
+        return (
+          <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+            <button className="btn btn-outline btn-block" disabled>
+              {pStatus === "PENDING_CONFIRM"
+                ? "Review the payment claim above to confirm"
+                : `Waiting for ${otherName} to pay…`}
+            </button>
+          </div>
+        );
+      }
+
+      // Requester already claimed via UPI — nothing to do but wait; the
+      // responder must confirm or reject before this can move forward.
+      if (pStatus === "PENDING_CONFIRM") {
+        return (
+          <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+            <button className="btn btn-outline btn-block" disabled>
+              <Clock size={16} /> Waiting for {otherName} to confirm payment…
+            </button>
+          </div>
+        );
+      }
+
+      return (
+        <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+          {pStatus === "REJECTED" && (
+            <p className="tiny" style={{ color: "var(--red-600)", textAlign: "center", margin: 0 }}>
+              {otherName} rejected your last claim — check the amount/method and try again.
+            </p>
+          )}
+          {/* Pay the responder over UPI (QR from their saved UPI ID), then
+              claim it — the responder must confirm they actually received it
+              before the deal advances. Cash is confirmed instantly (physical
+              handover needs no remote verification), same as appointments. */}
+          <button
+            className="btn btn-outline btn-block"
+            onClick={() => setPayOpen(true)}
+          >
+            <QrCode size={16} /> Pay ₹{agreement!.agreedPrice} via UPI
+          </button>
+          <div className="row gap-8">
+            <button
+              className="btn btn-primary grow"
+              disabled={busy}
+              onClick={() => run(
+                () => requestService.claimAgreementPayment(agreement!.id, "UPI", agreement!.agreedPrice),
+                "Payment claim sent — waiting for confirmation"
+              )}
+            >
+              <Wallet size={16} /> I've paid via UPI
+            </button>
+            <button
+              className="btn btn-green grow"
+              disabled={busy}
+              onClick={() => run(
+                () => requestService.claimAgreementPayment(agreement!.id, "CASH", agreement!.agreedPrice),
+                "Cash payment confirmed ✓"
+              )}
+            >
+              I've paid in cash
+            </button>
+          </div>
+          <p className="tiny muted" style={{ textAlign: "center" }}>
+            UPI claims need {otherName}'s confirmation; cash is confirmed instantly.
+          </p>
+        </div>
+      );
+    }
+
+    // DEPOSIT_PAID = payment settled (cash confirmed instantly, or UPI
+    // confirmed by the responder) — only now can work actually start.
+    if (status === "DEPOSIT_PAID") {
       if (!isRequester) {
         return (
           <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
@@ -366,25 +433,6 @@ export default function AgreementScreen() {
             >
               Mark work started
             </button>
-          </div>
-        );
-      }
-      if (status === "ACTIVE") {
-        return (
-          <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
-            {/* Online payment (Razorpay) is disabled for v1 — settle offline.
-                Re-enable once the create-razorpay-order / verify-razorpay-payment
-                edge functions and the payments table escrow flow are live. */}
-            <button
-              className="btn btn-primary btn-block"
-              disabled={busy}
-              onClick={() => run(() => requestService.markDepositPaid(agreement!.id), "Marked as paid ✓")}
-            >
-              <Wallet size={16} /> Mark paid (cash / UPI)
-            </button>
-            <p className="tiny muted" style={{ textAlign: "center" }}>
-              Pay the agreed amount in person. STRYT records the deal — in-app payment isn't available yet.
-            </p>
           </div>
         );
       }
@@ -465,7 +513,7 @@ export default function AgreementScreen() {
             </button>
             <button
               className="btn btn-outline btn-block"
-              style={{ color: "var(--orange-500)", borderColor: "#fdba74" }}
+              style={{ color: "var(--orange-500)", borderColor: "var(--orange-100)" }}
               onClick={() => setDisputeMode(true)}
             >
               <AlertTriangle size={16} /> Raise dispute
@@ -499,10 +547,10 @@ export default function AgreementScreen() {
 
         {/* Expiry Warning Banner */}
         {status === "PENDING" && timeLeft !== null && (
-          <div className="card row gap-10" style={{ padding: 12, background: "#fffbeb", border: "1px solid #fef3c7" }}>
-            <Clock size={20} color="#d97706" style={{ flexShrink: 0 }} />
+          <div className="card row gap-10" style={{ padding: 12, background: "var(--amber-50)", border: "1px solid var(--amber-100)" }}>
+            <Clock size={20} color="var(--amber-700)" style={{ flexShrink: 0 }} />
             <div className="grow">
-              <div className="tiny semi" style={{ color: "#b45309" }}>
+              <div className="tiny semi" style={{ color: "var(--amber-700)" }}>
                 Confirmation Window: {formatTimeLeft(timeLeft)}
               </div>
               <div className="tiny muted">
@@ -521,7 +569,7 @@ export default function AgreementScreen() {
         )}
 
         {/* Parties & price */}
-        <div className="card" style={{ padding: 14 }}>
+        <div className="card">
           <button
             className="row gap-12"
             style={{ width: "100%", textAlign: "left" }}
@@ -546,7 +594,7 @@ export default function AgreementScreen() {
 
         {/* Provider: live status strip */}
         {!isRequester && status === "IN_PROGRESS" && (
-          <div className="card" style={{ padding: 14 }}>
+          <div className="card">
             <div className="tiny semi muted" style={{ marginBottom: 10 }}>My status</div>
             <div className="row gap-8" style={{ flexWrap: "wrap" }}>
               {LIVE_STEPS.map((s) => {
@@ -564,10 +612,10 @@ export default function AgreementScreen() {
 
         {/* Requester: see provider's live status */}
         {isRequester && agreement.liveStatus && agreement.liveStatus !== "CONFIRMED" && (
-          <div className="card row gap-10" style={{ padding: 12, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+          <div className="card row gap-10" style={{ padding: 12, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
             <span style={{ fontSize: 20 }}>{LIVE_STEPS.find((s) => s.key === agreement.liveStatus)?.emoji ?? ""}</span>
             <div className="grow">
-              <div className="tiny semi" style={{ color: "#15803d" }}>{LIVE_STEPS.find((s) => s.key === agreement.liveStatus)?.label ?? agreement.liveStatus}</div>
+              <div className="tiny semi" style={{ color: "var(--green-600)" }}>{LIVE_STEPS.find((s) => s.key === agreement.liveStatus)?.label ?? agreement.liveStatus}</div>
               <div className="tiny muted">Provider is on the move</div>
             </div>
           </div>
@@ -591,14 +639,14 @@ export default function AgreementScreen() {
         <ProcessGuide status={status} isRequester={isRequester} />
 
         {/* Terms */}
-        <div className="card" style={{ padding: 14 }}>
+        <div className="card">
           <div className="semi small" style={{ marginBottom: 8 }}>Terms & scope</div>
           <p className="small" style={{ lineHeight: 1.55, color: "var(--ink-700)" }}>{agreement.terms}</p>
           {(agreement.requestArea || (isNew && state?.request?.area)) && (
             <>
               <div className="divider" />
               <div className="row gap-10 small">
-                <MapPin size={16} color="#3b82f6" style={{ flexShrink: 0 }} />
+                <MapPin size={16} color="var(--blue-500)" style={{ flexShrink: 0 }} />
                 <div>
                   <span className="tiny muted">Location</span>
                   <div className="semi small">{agreement.requestArea || state?.request?.area}</div>
@@ -620,20 +668,53 @@ export default function AgreementScreen() {
             <Wallet size={16} color="var(--orange-500)" />
             <span>Payment: <span className="semi">{agreement.paymentMode === "ONLINE" ? "Online (Razorpay)" : "Offline (in person)"}</span></span>
           </div>
+          {payment?.escrowStatus && (
+            <>
+              <div className="divider" />
+              <div className="row gap-10 small">
+                <span
+                  className={`badge ${payment.escrowStatus === "HELD" ? "badge-amber" : payment.escrowStatus === "RELEASED" ? "badge-green" : "badge-gray"}`}
+                >
+                  {payment.escrowStatus === "HELD" ? "🔒 Payment held in escrow" : payment.escrowStatus === "RELEASED" ? "✓ Payment released" : payment.escrowStatus}
+                </span>
+                <span className="tiny muted">
+                  {payment.escrowStatus === "HELD"
+                    ? `${inr(payment.amount)} secured by STRYT until the job completes`
+                    : payment.escrowStatus === "RELEASED"
+                    ? `${inr(payment.amount)} paid out to the responder`
+                    : ""}
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {agreement.paymentMode !== "ONLINE" && (
-          <div className="card row gap-10" style={{ padding: 12, background: "#fff7ed", border: "1px dashed #fdba74" }}>
+          <div className="card row gap-10" style={{ padding: 12, background: "var(--orange-50)", border: "1px dashed var(--orange-100)" }}>
             <Info size={20} color="var(--orange-500)" style={{ flexShrink: 0 }} />
-            <span className="tiny" style={{ color: "#c2410c", lineHeight: 1.4 }}>
+            <span className="tiny" style={{ color: "var(--orange-500)", lineHeight: 1.4 }}>
               Pay in person / via Razorpay when prompted. <span className="semi">STRYT secures online payments.</span>
             </span>
           </div>
         )}
 
+        {/* Deal payment — the real, working claim→confirm cycle (separate from
+            the escrow badge above, which reflects the not-yet-live Razorpay path). */}
+        <PaymentStatusCard
+          paymentStatus={agreement.paymentStatus}
+          paymentMethod={agreement.paymentMethod}
+          paymentAmount={agreement.paymentAmount}
+          paymentReference={agreement.paymentReference}
+          claimantName={agreement.requesterName}
+          viewerIsPayer={isRequester}
+          busy={busy}
+          onConfirm={() => run(() => requestService.confirmAgreementPayment(agreement!.id), "Payment confirmed ✓")}
+          onReject={() => run(() => requestService.rejectAgreementPaymentClaim(agreement!.id), "Payment claim rejected — requester notified")}
+        />
+
         {/* Confirmations (shown only while PENDING) */}
         {status === "PENDING" && (
-          <div className="card" style={{ padding: 14 }}>
+          <div className="card">
             <div className="semi small" style={{ marginBottom: 10 }}>Confirmations</div>
             <ConfirmRow label={`You (${isRequester ? "requester" : "responder"})`} done={myConfirmed} />
             <ConfirmRow label={otherName} done={otherConfirmed} last />
@@ -645,35 +726,21 @@ export default function AgreementScreen() {
           <span>Your exact location is shared only after both sides confirm.</span>
         </div>
 
-        {status === "IN_PROGRESS" && !sosTriggered && (
-          <div className="card" style={{ padding: 14, border: "1px solid #fecaca", background: "#fff5f5" }}>
-            <div className="tiny semi" style={{ color: "#991b1b", marginBottom: 10 }}>Safety</div>
-            {sosCountdown !== null ? (
-              <div className="col center" style={{ gap: 10 }}>
-                <div className="bold" style={{ fontSize: 32, color: "var(--red-600)" }}>{sosCountdown}</div>
-                <div className="tiny muted">SOS fires in {sosCountdown}s</div>
-                <button className="btn btn-outline btn-block btn-sm" onClick={cancelSOS}>Cancel</button>
-              </div>
-            ) : (
-              <div className="row gap-10">
-                <div className="grow tiny muted" style={{ lineHeight: 1.4 }}>Sends your location to your emergency contact immediately.</div>
-                <button className="btn btn-sm" style={{ background: "var(--red-600)", color: "#fff", flexShrink: 0 }} onClick={startSOS}>SOS</button>
-              </div>
-            )}
-          </div>
-        )}
-        {sosTriggered && (
-          <div className="card row gap-10" style={{ padding: 12, background: "#fee2e2", border: "1px solid #fca5a5" }}>
-            <ShieldAlert size={20} color="var(--red-600)" style={{ flexShrink: 0 }} />
-            <span className="tiny semi" style={{ color: "#991b1b" }}>SOS sent — your emergency contact and STRYT have been alerted.</span>
-          </div>
-        )}
       </div>
 
       {/* Bottom action bar */}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0 }}>
         <ActionArea />
       </div>
+
+      {payOpen && agreement && (
+        <DealUpiSheet
+          payeeUserId={agreement.responderUserId}
+          payeeName={agreement.responderName}
+          amount={agreement.agreedPrice}
+          onClose={() => setPayOpen(false)}
+        />
+      )}
     </div>
   );
 }

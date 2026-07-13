@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
-import { Plus, Share2, ChevronRight, Users } from "lucide-react";
+import { Plus, Share2, ChevronRight, Users } from "@/components/Icons";
 import { useApp } from "@/store";
 import { copyText } from "@/lib/clipboard";
 import { discoveryService } from "@/services";
@@ -65,7 +65,7 @@ export default function Lists() {
       <AppBar title="My lists" right={<button className="icon-btn" onClick={() => setCreating(true)}><Plus size={20} /></button>} />
       <div className="screen-scroll page-pad col gap-12">
         {creating && (
-          <div className="card" style={{ padding: 14 }}>
+          <div className="card">
             <div className="row gap-8" style={{ overflowX: "auto", marginBottom: 10 }}>
               {emojis.map((e) => (
                 <button key={e} onClick={() => setEmoji(e)} style={{ fontSize: 22, opacity: emoji === e ? 1 : 0.4, transform: emoji === e ? "scale(1.2)" : "scale(1)" }}>{e}</button>

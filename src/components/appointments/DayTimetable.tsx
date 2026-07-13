@@ -1,4 +1,5 @@
-import { Lock, Plus, Unlock } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { Lock, Plus, Unlock } from "@/components/Icons";
 import { generateWorkingSlots, matchBlockedSlotsForDate, dateKey } from "@/utils/availability";
 import type { AppointmentRecord, BlockedSlot } from "@/types";
 
@@ -25,11 +26,22 @@ export default function DayTimetable({
   const dayBlocks = matchBlockedSlotsForDate(date, blockedSlots);
   const wholeDayBlock = dayBlocks.find((b) => !b.timeLabel);
 
+  const nowRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isTargetToday && nowRef.current) {
+      const timer = setTimeout(() => {
+        nowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [date, isTargetToday, slots.length]);
+
   if (wholeDayBlock) {
     return (
-      <div className="card col center" style={{ padding: 28, gap: 10, background: "#fef2f2", border: "1px solid #fecaca" }}>
+      <div className="card col center" style={{ padding: 28, gap: 10, background: "var(--red-50)", border: "1px solid var(--red-100)" }}>
         <Lock size={26} color="var(--red-600)" />
-        <div className="semi small" style={{ color: "#991b1b" }}>Closed — blocked for the whole day</div>
+        <div className="semi small" style={{ color: "var(--red-600)" }}>Closed — blocked for the whole day</div>
         {wholeDayBlock.reason && <div className="tiny muted center" style={{ maxWidth: 220 }}>"{wholeDayBlock.reason}"</div>}
         <button className="btn btn-outline btn-sm" style={{ marginTop: 4 }} onClick={() => onUnblockWholeDay(wholeDayBlock)}>
           <Unlock size={13} /> Unblock this day
@@ -73,10 +85,10 @@ export default function DayTimetable({
           if (s.blocked) {
             const block = dayBlocks.find((b) => b.timeLabel === s.timeLabel);
             return (
-              <div key={rowKey} className="row gap-10 center-v" style={{ padding: "10px 12px", borderRadius: 12, background: "#fef2f2", border: "1px dashed #fca5a5" }}>
+              <div key={rowKey} className="row gap-10 center-v" style={{ padding: "10px 12px", borderRadius: 12, background: "var(--red-50)", border: "1px dashed var(--red-100)" }}>
                 <Lock size={14} color="var(--red-600)" style={{ flexShrink: 0 }} />
                 <div className="grow">
-                  <div className="tiny semi" style={{ color: "#991b1b" }}>{s.timeLabel} — blocked</div>
+                  <div className="tiny semi" style={{ color: "var(--red-600)" }}>{s.timeLabel} — blocked</div>
                   {s.blockReason && <div className="tiny muted">"{s.blockReason}"</div>}
                 </div>
                 {block && (
@@ -105,7 +117,7 @@ export default function DayTimetable({
               </button>
               <button
                 className="row gap-4 center-v tiny semi"
-                style={{ color: "var(--red-600)", background: "#fef2f2", padding: "4px 8px", borderRadius: 8 }}
+                style={{ color: "var(--red-600)", background: "var(--red-50)", padding: "4px 8px", borderRadius: 8 }}
                 onClick={() => onBlockSlot(date, s.timeLabel)}
               >
                 <Lock size={11} /> Block
@@ -114,8 +126,12 @@ export default function DayTimetable({
           );
         })();
 
+        const isNowLine = i === nowLineIdx;
+        const isLastSlotWhenAllPast = nowLineIdx === -1 && i === slots.length - 1;
+        const shouldAttachRef = isTargetToday && (isNowLine || isLastSlotWhenAllPast);
+
         return (
-          <div key={rowKey}>
+          <div key={rowKey} ref={shouldAttachRef ? nowRef : undefined}>
             {i === nowLineIdx && (
               <div className="row gap-8 center-v" style={{ margin: "2px 0" }}>
                 <span style={{ flex: 1, height: 1.5, background: "var(--orange-500)" }} />

@@ -22,6 +22,10 @@ export function getSupabase(): SupabaseClient {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        // PKCE returns an authorization `code` (not a URL fragment) — required
+        // for the native deep-link OAuth handoff in nativeAuth.ts, and the
+        // modern default on web too (works with detectSessionInUrl).
+        flowType: "pkce",
       },
     });
   }

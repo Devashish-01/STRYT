@@ -2,13 +2,14 @@ import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { appointmentService, businessService, slotBlockService } from "@/services";
+import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import {
   Calendar, Check, X as XIcon, Image as ImageIcon, CheckCircle2, AlertTriangle,
   Share2, IndianRupee, Ban,
-} from "lucide-react";
+} from "@/components/Icons";
 import type { AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
 import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";
@@ -24,7 +25,6 @@ export default function BusinessAppointments() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
-  const { data: bizPackages } = useQuery(() => businessService.packages(id).catch(() => []), [id]);
   const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForTarget(id),
     "appointments",
@@ -205,6 +205,10 @@ export default function BusinessAppointments() {
   function renderAppointmentCard(apt: AppointmentRecord) {
     const repeatOffender = rejectedClaimsCount(apt.customerId);
     const repeatNoShow = noShowCount(apt.customerId);
+    // When this shop collects payment at booking, Accept is gated on the
+    // payment actually clearing — otherwise a customer could get accepted
+    // and seen to before ever paying, defeating the point of pay-first.
+    const requiresPaymentFirst = b?.paymentTiming === "AT_BOOKING" && apt.paymentStatus !== "PAID";
     return (
       <div key={apt.id} className="card col gap-10" style={{ padding: 14 }}>
         <div className="row between center-v">
@@ -212,7 +216,7 @@ export default function BusinessAppointments() {
             <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 42, height: 42 }} />
             <div>
               <div className="row gap-6 center-v">
-                <div className="bold small">{apt.customerName}</div>
+                <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
                 {apt.isWalkIn && <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>Walk-in</span>}
               </div>
               <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
@@ -242,9 +246,9 @@ export default function BusinessAppointments() {
         </div>
 
         {(repeatOffender > 0 || repeatNoShow > 0) && apt.status === "PENDING" && (
-          <div className="row gap-6 center-v" style={{ background: "#fef2f2", padding: "6px 10px", borderRadius: 8 }}>
+          <div className="row gap-6 center-v" style={{ background: "var(--red-50)", padding: "6px 10px", borderRadius: 8 }}>
             <AlertTriangle size={13} color="var(--red-600)" />
-            <span className="tiny" style={{ color: "#991b1b" }}>
+            <span className="tiny" style={{ color: "var(--red-600)" }}>
               {repeatNoShow > 0 ? `${repeatNoShow} past no-show${repeatNoShow > 1 ? "s" : ""}` : ""}
               {repeatNoShow > 0 && repeatOffender > 0 ? " • " : ""}
               {repeatOffender > 0 ? `${repeatOffender} rejected payment claim${repeatOffender > 1 ? "s" : ""}` : ""}
@@ -278,7 +282,7 @@ export default function BusinessAppointments() {
         )}
 
         {apt.responseNote && (
-          <div className="tiny" style={{ color: apt.status === "REJECTED" || apt.status === "CANCELLED" ? "#b45309" : "#15803d", fontStyle: "italic" }}>
+          <div className="tiny" style={{ color: apt.status === "REJECTED" || apt.status === "CANCELLED" ? "var(--amber-700)" : "var(--green-600)", fontStyle: "italic" }}>
             Your reply: "{apt.responseNote}"
           </div>
         )}
@@ -289,21 +293,21 @@ export default function BusinessAppointments() {
 
         {/* Payment: customer claimed — awaiting your confirmation */}
         {apt.paymentStatus === "PENDING_CONFIRM" && (
-          <div className="card col gap-10" style={{ padding: 12, background: "#fefce8", border: "1px solid #fef08a", borderRadius: 12, marginTop: 2 }}>
+          <div className="card col gap-10" style={{ padding: 12, background: "var(--amber-50)", border: "1px solid var(--amber-100)", borderRadius: 12, marginTop: 2 }}>
             <div className="row gap-8 center-v">
               <span style={{ fontSize: 18 }}>⏳</span>
               <div className="grow">
-                <div className="tiny semi" style={{ color: "#854d0e" }}>Customer claims payment via {apt.paymentMethod}</div>
-                <div className="tiny" style={{ color: "#78350f", marginTop: 1 }}>
+                <div className="tiny semi" style={{ color: "var(--amber-700)" }}>Customer claims payment via {apt.paymentMethod}</div>
+                <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1 }}>
                   {apt.paymentAmount ? `Amount: ₹${apt.paymentAmount}` : "Amount not specified"}
                   {apt.paymentReference ? ` • Ref: ${apt.paymentReference}` : ""}
                 </div>
               </div>
             </div>
             {repeatOffender > 0 && (
-              <div className="row gap-6 center-v" style={{ background: "#fef2f2", padding: "6px 10px", borderRadius: 8 }}>
+              <div className="row gap-6 center-v" style={{ background: "var(--red-50)", padding: "6px 10px", borderRadius: 8 }}>
                 <AlertTriangle size={13} color="var(--red-600)" />
-                <span className="tiny" style={{ color: "#991b1b" }}>
+                <span className="tiny" style={{ color: "var(--red-600)" }}>
                   This customer has {repeatOffender} previously rejected claim{repeatOffender > 1 ? "s" : ""} at this shop.
                 </span>
               </div>
@@ -312,7 +316,7 @@ export default function BusinessAppointments() {
               <button className="btn btn-green grow btn-sm" disabled={processingPayment === apt.id} onClick={() => setPaymentAction({ apt, action: "CONFIRM" })}>
                 <CheckCircle2 size={14} /> Confirm received
               </button>
-              <button className="btn btn-outline grow btn-sm" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} disabled={processingPayment === apt.id} onClick={() => setPaymentAction({ apt, action: "REJECT" })}>
+              <button className="btn btn-outline grow btn-sm" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} disabled={processingPayment === apt.id} onClick={() => setPaymentAction({ apt, action: "REJECT" })}>
                 <XIcon size={14} /> Can't verify
               </button>
             </div>
@@ -322,7 +326,7 @@ export default function BusinessAppointments() {
         {apt.paymentStatus === "PAID" && (
           <div className="row gap-8 center-v" style={{ padding: "8px 0 2px" }}>
             <CheckCircle2 size={15} color="var(--green-500)" />
-            <span className="tiny semi" style={{ color: "#15803d" }}>
+            <span className="tiny semi" style={{ color: "var(--green-600)" }}>
               Payment confirmed via {apt.paymentMethod ?? "unknown"}
               {apt.paymentAmount ? ` • ₹${apt.paymentAmount}` : ""}
               {apt.paymentReference ? ` (ref: ${apt.paymentReference})` : ""}
@@ -334,16 +338,22 @@ export default function BusinessAppointments() {
           <div className="row gap-8" style={{ marginTop: 6, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
             {apt.status === "PENDING" && (
               <>
-                <button type="button" className="btn btn-green grow btn-sm row gap-4 center" onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}>
-                  <Check size={14} /> Accept
-                </button>
-                <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
+                {requiresPaymentFirst ? (
+                  <div className="grow tiny muted row" style={{ alignItems: "center" }}>
+                    {apt.paymentStatus === "PENDING_CONFIRM" ? "Verify the payment claim above to accept" : "Waiting for customer to pay before you can accept"}
+                  </div>
+                ) : (
+                  <button type="button" className="btn btn-green grow btn-sm row gap-4 center" onClick={() => { setActiveApt(apt); setActionType("ACCEPT"); setResponseNote(""); }}>
+                    <Check size={14} /> Accept
+                  </button>
+                )}
+                <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} onClick={() => { setActiveApt(apt); setActionType("REJECT"); setResponseNote(""); }}>
                   <XIcon size={14} /> Decline
                 </button>
               </>
             )}
             {apt.status === "ACCEPTED" && (
-              <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "#fca5a5" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
+              <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
                 <XIcon size={14} /> Cancel appointment
               </button>
             )}
@@ -387,7 +397,7 @@ export default function BusinessAppointments() {
     .filter((a) => a.status === "CANCELLED" || a.status === "REJECTED")
     .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
 
-  const packageOptions = (bizPackages ?? []).map((pk) => ({ id: pk.id, name: pk.name, price: pk.price, duration: pk.duration }));
+  const packageOptions = (b?.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }));
 
   return (
     <div className="screen with-nav">
@@ -406,7 +416,7 @@ export default function BusinessAppointments() {
 
         {!loading && !error && tab === "TODAY" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 8 }}>
-            <DateStrip selectedDate={selectedDate} onSelect={setSelectedDate} appointments={appointments} />
+            <DateStrip selectedDate={selectedDate} onSelect={setSelectedDate} appointments={appointments} daysBefore={7} daysAfter={30} />
 
             <div className="card row gap-14" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
               <SummaryStat label="Booked" value={bookedCount} />
@@ -469,7 +479,7 @@ export default function BusinessAppointments() {
                     <div className="row gap-10 center-v">
                       <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 38, height: 38 }} />
                       <div>
-                        <div className="bold small">{apt.customerName}</div>
+                        <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
                         <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
                           <Calendar size={12} /> {apt.dateLabel} at {apt.timeLabel}
                         </div>
@@ -616,14 +626,14 @@ function groupByDay(list: AppointmentRecord[]): [string, AppointmentRecord[]][] 
 export function CancelAttributionNote({ apt, viewpoint }: { apt: AppointmentRecord; viewpoint: "OWNER" | "CUSTOMER" }) {
   if (apt.status === "REJECTED") {
     return (
-      <div className="card row gap-10 center-v" style={{ padding: 10, background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10 }}>
+      <div className="card row gap-10 center-v" style={{ padding: 10, background: "var(--red-50)", border: "1px solid var(--red-100)", borderRadius: 10 }}>
         <AlertTriangle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
         <div>
-          <div className="bold tiny" style={{ color: "#991b1b" }}>{viewpoint === "OWNER" ? "You declined this booking" : `Declined by ${apt.targetName}`}</div>
+          <div className="bold tiny" style={{ color: "var(--red-600)" }}>{viewpoint === "OWNER" ? "You declined this booking" : `Declined by ${apt.targetName}`}</div>
           {apt.responseNote ? (
-            <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1, fontStyle: "italic" }}>Reason: "{apt.responseNote}"</div>
+            <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1, fontStyle: "italic" }}>Reason: "{apt.responseNote}"</div>
           ) : (
-            <div className="tiny" style={{ color: "#7f1d1d", marginTop: 1 }}>No specific reason was provided.</div>
+            <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>No specific reason was provided.</div>
           )}
         </div>
       </div>
@@ -637,14 +647,14 @@ export function CancelAttributionNote({ apt, viewpoint }: { apt: AppointmentReco
     : (who === "CUSTOMER" ? "Cancelled by you" : who === "SYSTEM" ? `Auto-cancelled — ${apt.targetName} didn't respond in time` : `Cancelled by ${apt.targetName}`);
 
   return (
-    <div className="card row gap-10 center-v" style={{ padding: 10, background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10 }}>
-      <AlertTriangle size={16} color="#c2410c" style={{ flexShrink: 0 }} />
+    <div className="card row gap-10 center-v" style={{ padding: 10, background: "var(--orange-50)", border: "1px solid var(--orange-100)", borderRadius: 10 }}>
+      <AlertTriangle size={16} color="var(--orange-500)" style={{ flexShrink: 0 }} />
       <div>
-        <div className="bold tiny" style={{ color: "#9a3412" }}>{title}</div>
+        <div className="bold tiny" style={{ color: "var(--orange-500)" }}>{title}</div>
         {apt.responseNote ? (
-          <div className="tiny" style={{ color: "#7c2d12", marginTop: 1, fontStyle: "italic" }}>Reason: "{apt.responseNote}"</div>
+          <div className="tiny" style={{ color: "var(--orange-500)", marginTop: 1, fontStyle: "italic" }}>Reason: "{apt.responseNote}"</div>
         ) : (
-          <div className="tiny" style={{ color: "#7c2d12", marginTop: 1 }}>No reason was provided.</div>
+          <div className="tiny" style={{ color: "var(--orange-500)", marginTop: 1 }}>No reason was provided.</div>
         )}
       </div>
     </div>

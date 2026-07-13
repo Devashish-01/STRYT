@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, FileText, MessageSquare } from "lucide-react";
+import { Plus, FileText, MessageSquare } from "@/components/Icons";
 import { requestService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -40,7 +40,7 @@ export default function Requests() {
             <span className="tiny muted">Open needs near {area}</span>
           </div>
           <div className="row gap-8" style={{ alignItems: "center" }}>
-            <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats")} aria-label="Chats">
+            <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
               <MessageSquare size={20} />
               {chatUnread > 0 && (
                 <span style={{
@@ -97,7 +97,7 @@ export default function Requests() {
 
         <div className="col gap-12 page-pad">
           {loading ? (
-            <ListSkeleton count={3} />
+            <ListSkeleton count={3} type="request" />
           ) : feedError && tab === "nearby" ? (
             <ErrorView error={feedError} onRetry={refetch} />
           ) : list.length === 0 ? (

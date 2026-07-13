@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { catalogService, businessService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store } from "lucide-react";
+import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store } from "@/components/Icons";
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
@@ -12,7 +12,7 @@ import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
 
 import { reverseGeocodeFull } from "@/lib/geocode";
 
-const steps = ["Basics", "Location", "Photos", "Contact", "Verify"];
+const steps = ["Basics", "Location", "Photos", "Contact"];
 
 export default function BusinessOnboard() {
   const nav = useNavigate();
@@ -34,26 +34,17 @@ export default function BusinessOnboard() {
   const [phone, setPhone] = useState("");
   const [openDate, setOpenDate] = useState("");
   const [offer, setOffer] = useState("");
-  const [aadhaarNum, setAadhaarNum] = useState("");
-  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
-  const [panNum, setPanNum] = useState("");
-  const [panFile, setPanFile] = useState<File | null>(null);
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
 
   const cats = (categories ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
   const selectedCat = cats.find((c) => c.id === cat);
 
-  // KYC: a business must provide BOTH Aadhaar and PAN (number + document photo).
-  const aadhaarValid = aadhaarNum.replace(/\D/g, "").length === 12 && !!aadhaarFile;
-  const panValid = /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(panNum.trim().toUpperCase()) && !!panFile;
-
   const canNext = [
     name.trim().length > 1 && !!cat,
     address.trim().length > 4 && lat !== null && lng !== null,
     true,
     phone.replace(/\D/g, "").length === 10,
-    aadhaarValid && panValid,
   ][step];
 
   async function submit() {
@@ -65,11 +56,6 @@ export default function BusinessOnboard() {
           photos.map((p) => uploadService.upload(p.file, "business-photo"))
         );
       }
-      // Required KYC documents (Aadhaar + PAN).
-      const [aadhaarUrl, panUrl] = await Promise.all([
-        uploadService.upload(aadhaarFile as File, "kyc-business"),
-        uploadService.upload(panFile as File, "kyc-business"),
-      ]);
       const subNames = sub.map(id => selectedCat?.children?.find(ch => ch.id === id)?.name || id);
       const biz = await businessService.create({
         name,
@@ -86,10 +72,6 @@ export default function BusinessOnboard() {
         coverImage: uploadedUrls[0] || undefined,
         gallery: uploadedUrls.length > 0 ? uploadedUrls : undefined,
         broadcastRadius,
-        aadhaarDocUrl: aadhaarUrl,
-        panDocUrl: panUrl,
-        verificationDocumentUrl: aadhaarUrl,
-        verificationStatus: "UNDER_REVIEW",
         lat: lat!,
         lng: lng!,
       });
@@ -113,14 +95,14 @@ export default function BusinessOnboard() {
     return (
       <div className="screen">
         <div className="screen-scroll col center page-pad" style={{ paddingTop: 70, textAlign: "center" }}>
-          <div style={{ width: 96, height: 96, borderRadius: "50%", background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
+          <div style={{ width: 96, height: 96, borderRadius: "50%", background: "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
             <CheckCircle2 size={52} color="var(--green-500)" />
           </div>
-          <h1 className="bold" style={{ fontSize: 24, marginTop: 24 }}>Submitted for review</h1>
+          <h1 className="bold h1" style={{ marginTop: 24 }}>Submitted for review</h1>
           <p className="muted" style={{ marginTop: 8, lineHeight: 1.5, maxWidth: 290 }}>
             We'll verify your business within ~24 hours. Once approved, <span className="semi" style={{ color: "var(--ink-900)" }}>3,247 nearby users</span> get a silent heads-up that you're open.
           </p>
-          <div className="card" style={{ padding: 14, marginTop: 24, width: "100%", textAlign: "left" }}>
+          <div className="card" style={{ marginTop: 24, width: "100%", textAlign: "left" }}>
             <div className="row gap-10"><Store size={20} color="var(--orange-500)" /><div><div className="semi small">{name || "Your business"}</div><div className="tiny muted">{selectedCat?.name} • Under review</div></div></div>
           </div>
         </div>
@@ -134,7 +116,7 @@ export default function BusinessOnboard() {
 
   return (
     <div className="screen">
-      <AppBar title="List your business" subtitle={`Step ${step + 1} of 5 • ${steps[step]}`} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
+      <AppBar title="List your business" subtitle={`Step ${step + 1} of 4 • ${steps[step]}`} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
 
       {/* Progress */}
       <div className="row gap-4 page-pad" style={{ paddingTop: 12, paddingBottom: 4 }}>
@@ -217,7 +199,7 @@ export default function BusinessOnboard() {
               storedLat={user.lat}
               storedLng={user.lng}
               pinColor="var(--orange-500)"
-              height={150}
+              height={190}
               onChange={async (newLat, newLng) => {
                 setLat(newLat);
                 setLng(newLng);
@@ -304,63 +286,15 @@ export default function BusinessOnboard() {
           </>
         )}
 
-        {step === 4 && (
-          <>
-            <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
-              <FileCheck size={20} color="var(--brand-600)" />
-              <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>
-                A business must verify with <b>Aadhaar</b> and <b>PAN</b>. Documents are private, used only for verification.
-              </span>
-            </div>
-
-            {/* Aadhaar */}
-            <div className="field">
-              <label>Aadhaar number *</label>
-              <input
-                className="input"
-                inputMode="numeric"
-                maxLength={14}
-                placeholder="1234 5678 9012"
-                value={aadhaarNum}
-                onChange={(e) => setAadhaarNum(e.target.value.replace(/[^\d ]/g, ""))}
-              />
-            </div>
-            <label className="col center" style={{ width: "100%", padding: 18, borderRadius: 14, border: `2px dashed ${aadhaarFile ? "var(--green-500)" : "var(--ink-300)"}`, color: aadhaarFile ? "var(--green-600)" : "var(--ink-500)", gap: 6, cursor: "pointer", marginTop: -6 }}>
-              <Camera size={24} />
-              <span className="small semi">{aadhaarFile ? `✓ ${aadhaarFile.name}` : "Upload Aadhaar card photo"}</span>
-              <input type="file" accept="image/*,.pdf" style={{ display: "none" }}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setAadhaarFile(f); showToast("Aadhaar added"); } }} />
-            </label>
-
-            {/* PAN */}
-            <div className="field" style={{ marginTop: 4 }}>
-              <label>PAN number *</label>
-              <input
-                className="input"
-                style={{ textTransform: "uppercase" }}
-                maxLength={10}
-                placeholder="ABCDE1234F"
-                value={panNum}
-                onChange={(e) => setPanNum(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-              />
-            </div>
-            <label className="col center" style={{ width: "100%", padding: 18, borderRadius: 14, border: `2px dashed ${panFile ? "var(--green-500)" : "var(--ink-300)"}`, color: panFile ? "var(--green-600)" : "var(--ink-500)", gap: 6, cursor: "pointer", marginTop: -6 }}>
-              <Camera size={24} />
-              <span className="small semi">{panFile ? `✓ ${panFile.name}` : "Upload PAN card photo"}</span>
-              <input type="file" accept="image/*,.pdf" style={{ display: "none" }}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setPanFile(f); showToast("PAN added"); } }} />
-            </label>
-          </>
-        )}
       </div>
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
         <button
           className="btn btn-primary btn-block"
           disabled={!canNext || submitting}
-          onClick={() => (step < 4 ? setStep(step + 1) : submit())}
+          onClick={() => (step < 3 ? setStep(step + 1) : submit())}
         >
-          {step < 4 ? "Continue" : submitting ? "Submitting…" : "Submit for review"}
+          {step < 3 ? "Continue" : submitting ? "Submitting…" : "Submit for review"}
         </button>
       </div>
     </div>

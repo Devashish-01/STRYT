@@ -4,7 +4,11 @@ import { authService } from "@/services";
 import { config } from "@/config";
 import { useApp } from "@/store";
 import { returnTo } from "@/lib/returnTo";
-import { ArrowLeft, Loader } from "lucide-react";
+import { ArrowLeft, Loader } from "@/components/Icons";
+import BrandLockup from "@/components/BrandLockup";
+
+// Pre-auth (no location) → fixed "dusk street" lamp glow, no weather guessing.
+const LOGIN_GLOW = 0.85;
 
 export default function OtpVerify() {
   const nav = useNavigate();
@@ -90,7 +94,7 @@ export default function OtpVerify() {
     <div
       className="screen"
       style={{
-        background: "linear-gradient(160deg, #fdfbff 0%, #f5eefc 60%, #ece2f7 100%)",
+        background: "linear-gradient(160deg, var(--brand-50) 0%, var(--brand-100) 60%, var(--brand-200) 100%)",
         color: "var(--ink-900)",
         display: "flex",
         flexDirection: "column",
@@ -106,7 +110,7 @@ export default function OtpVerify() {
           left: "-5%",
           width: "240px",
           height: "240px",
-          background: "rgba(139, 71, 245, 0.15)",
+          background: "rgba(187, 71, 245, 0.15)",
           borderRadius: "50%",
           filter: "blur(60px)",
           pointerEvents: "none",
@@ -153,26 +157,10 @@ export default function OtpVerify() {
 
       {/* Hero / Info Section */}
       <div className="col center" style={{ zIndex: 10, marginTop: 24, textAlign: "center" }}>
-        <div
-          style={{
-            width: 56,
-            height: 56,
-            borderRadius: 18,
-            background: "linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: "0 8px 24px rgba(124, 58, 237, 0.2)",
-            marginBottom: 20,
-          }}
-        >
-          <svg width="34" height="34" viewBox="0 0 64 64">
-            <path d="M32 11 C21.5 11 13 19.5 13 30 C13 43 32 56 32 56 C32 56 51 43 51 30 C51 19.5 42.5 11 32 11 Z" fill="#fff" />
-            <path d="M32 41 C24 35 40 24 32 17" stroke="var(--brand-600)" strokeWidth="5.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M32 41 C24 35 40 24 32 17" stroke="#ffb020" strokeWidth="1.9" fill="none" strokeLinecap="round" strokeDasharray="0.5 3.8" />
-          </svg>
+        <div style={{ color: "var(--ink-900)", marginBottom: 20 }}>
+          <BrandLockup glow={LOGIN_GLOW} size={26} ariaLabel="STRYT" />
         </div>
-        <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: -0.5, color: "var(--ink-900)" }}>Verification Code</h1>
+        <h1 className="h1" style={{ letterSpacing: -0.5, color: "var(--ink-900)" }}>Verification Code</h1>
         <p style={{ fontSize: 14, color: "var(--ink-600)", marginTop: 6, maxWidth: 280, lineHeight: 1.4 }}>
           Sent to <span className="semi" style={{ color: "var(--brand-700)" }}>{isEmail ? phone : `+91 ${phone}`}</span>
         </p>

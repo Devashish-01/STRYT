@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MessageCircle, Plus, MapPin, Search as SearchIcon, CheckCircle2 } from "lucide-react";
+import { Heart, MessageCircle, Plus, MapPin, Search as SearchIcon, CheckCircle2, ArrowLeft, ArrowUpDown } from "@/components/Icons";
 import { communityService, discoveryService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { useApp } from "@/store";
+import { trendingScore } from "@/lib/trending";
 import type { CommunityPost, CommunityPostType, Business, Provider, BookmarkTarget } from "@/types";
+import { displayName as safeName } from "@/lib/publicName";
 
 const typeMeta: Record<CommunityPostType, { label: string; emoji: string; tone: string }> = {
   LOST_FOUND: { label: "Lost & Found", emoji: "🔍", tone: "amber" },
@@ -21,8 +23,9 @@ const filters: ("ALL" | CommunityPostType)[] = ["ALL", "ALERT", "LOST_FOUND", "R
 
 export default function Community() {
   const nav = useNavigate();
-  const { area, user } = useApp();
+  const { area, user, activeContext } = useApp();
   const [filter, setFilter] = useState<"ALL" | CommunityPostType>("ALL");
+  const [sort, setSort] = useState<"recent" | "trending">("recent");
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }),
     "community_posts",
@@ -34,15 +37,28 @@ export default function Community() {
   const posts = data ?? [];
   const businesses = bizPage?.data ?? [];
   const providers = provPage?.data ?? [];
-  const list = posts.filter((p) => filter === "ALL" || p.type === filter);
+  const filtered = posts.filter((p) => filter === "ALL" || p.type === filter);
+  const list = sort === "trending" ? [...filtered].sort((a, b) => trendingScore(b) - trendingScore(a)) : filtered;
 
   return (
     <div className="screen with-nav">
       <header className="appbar" style={{ flexDirection: "column", alignItems: "stretch", gap: 12, paddingBottom: 0 }}>
         <div className="row between">
-          <div className="col" style={{ gap: 0 }}>
-            <span className="bold" style={{ fontSize: 20 }}>Community</span>
-            <span className="tiny muted row gap-4"><MapPin size={11} /> {area}</span>
+          <div className="row gap-8" style={{ alignItems: "center" }}>
+            {activeContext.type !== "customer" && (
+              <button
+                className="icon-btn-sm"
+                style={{ marginRight: 4, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                onClick={() => nav(activeContext.type === "business" ? `/business/${activeContext.id}/manage` : `/provider/${activeContext.id}/manage`)}
+                aria-label="Back to Dashboard"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+            <div className="col" style={{ gap: 0 }}>
+              <span className="bold" style={{ fontSize: 20 }}>Community</span>
+              <span className="tiny muted row gap-4"><MapPin size={11} /> {area}</span>
+            </div>
           </div>
           <div className="row gap-8">
             <button className="icon-btn" onClick={() => nav("/search")}><SearchIcon size={18} /></button>
@@ -66,7 +82,16 @@ export default function Community() {
         ) : list.length === 0 ? (
           <EmptyState emoji="🏘️" title="Nothing here yet" text="Be the first to post in this category." action={<button className="btn btn-primary btn-sm" onClick={() => nav("/community/new")}>Post something</button>} />
         ) : (
-          list.map((p) => <CommunityCard key={p.id} post={p} businesses={businesses} providers={providers} onRefetch={refetch} />)
+          <>
+            <button
+              className="row gap-6 center-v tiny semi"
+              style={{ alignSelf: "flex-end", color: "var(--brand-700)" }}
+              onClick={() => setSort((s) => (s === "trending" ? "recent" : "trending"))}
+            >
+              <ArrowUpDown size={13} /> Sort: {sort === "trending" ? "🔥 Trending nearby" : "Recent"}
+            </button>
+            {list.map((p) => <CommunityCard key={p.id} post={p} businesses={businesses} providers={providers} onRefetch={refetch} />)}
+          </>
         )}
         <div style={{ height: 12 }} />
       </div>
@@ -81,7 +106,7 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
   onRefetch?: () => void;
 }) {
   const nav = useNavigate();
-  const { likes, toggleLike, votes, votePoll, user } = useApp();
+  const { likes, toggleLike, votes, votePoll, user, showToast } = useApp();
   const [recommendOpen, setRecommendOpen] = useState(false);
   const M = typeMeta[post.type];
   // XOR: the store tracks session-toggles only (empty on load); DB truth is post.liked.
@@ -92,25 +117,30 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
   const totalVotes = (post.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !post.votedOptionId ? 1 : 0);
 
   function handleLike() {
-    toggleLike(post.id);
-    communityService.like(post.id, liked).catch(() => {});
+    toggleLike(post.id); // optimistic
+    communityService.like(post.id, liked).catch(() => {
+      toggleLike(post.id); // revert so the UI never lies
+      showToast("Couldn't update like — try again");
+    });
   }
 
   function handleVote(optId: string) {
     if (votedOption) return;
-    votePoll(post.id, optId);
-    communityService.vote(post.id, optId).catch(() => {});
+    votePoll(post.id, optId); // optimistic
+    communityService.vote(post.id, optId).catch(() => {
+      showToast("Couldn't record your vote — try again");
+    });
   }
 
   async function handleRecommend(listingType: BookmarkTarget, listingId: string) {
     setRecommendOpen(false);
-    await communityService.recommendListing(post.id, listingType as "BUSINESS" | "PROVIDER", listingId, user.name);
+    await communityService.recommendListing(post.id, listingType as "BUSINESS" | "PROVIDER", listingId, safeName(user.name, "A neighbor"));
     onRefetch?.();
   }
 
   return (
     <>
-      <div className="card" style={{ padding: 14 }}>
+      <div className="card">
         <button className="row gap-10" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`/community/${post.id}`, { state: { post } })}>
           <SafeImg
             src={post.authorAvatar}
@@ -130,8 +160,8 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
                     className="badge"
                     style={{
                       fontSize: 9, padding: "2px 6px",
-                      background: post.authorType === "business" ? "#ffedd5" : "#dcfce7",
-                      color: post.authorType === "business" ? "#c2410c" : "#15803d",
+                      background: post.authorType === "business" ? "var(--orange-100)" : "var(--green-100)",
+                      color: post.authorType === "business" ? "var(--orange-500)" : "var(--green-600)",
                     }}
                   >
                     {post.authorType === "business" ? "🏪 Business" : "🔧 Provider"}
@@ -257,7 +287,7 @@ function RecommendSheet({ businesses, providers, onPick, onClose }: {
           {filteredProv.map((p) => (
             <button key={p.id} className="row gap-12" style={{ width: "100%", padding: "10px 0", borderBottom: "1px solid var(--line)", textAlign: "left" }} onClick={() => onPick("PROVIDER", p.id)}>
               <SafeImg src={p.avatar} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
-              <div className="grow"><div className="semi small">{p.displayName}</div><div className="tiny muted">{p.categoryName}</div></div>
+              <div className="grow"><div className="semi small">{safeName(p.displayName, "Local provider")}</div><div className="tiny muted">{p.categoryName}</div></div>
             </button>
           ))}
           {filteredBiz.length === 0 && filteredProv.length === 0 && (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Clock, Calendar } from "lucide-react";
+import { Clock, Calendar } from "@/components/Icons";
 import { DEFAULT_START_TIME, DEFAULT_ONBOARD_END_TIME, DEFAULT_ONBOARD_DAYS_PATTERN } from "@/utils/availability";
 
 interface HoursSelectorProps {

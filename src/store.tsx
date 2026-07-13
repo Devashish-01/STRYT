@@ -28,43 +28,24 @@ const seedUser: CurrentUser = {
   language: "en",
   notificationRadiusKm: 5,
 };
-import { userService } from "@/services/userService";
-import { authService } from "@/services/authService";
-import { notificationService } from "@/services/notificationService";
-import { chatService } from "@/services/chatService";
+import { userService } from "@/services/core/userService";
+import { authService } from "@/services/core/authService";
+import { notificationService } from "@/services/engagement/notificationService";
+import { chatService } from "@/services/engagement/chatService";
 import { registerPush } from "@/lib/pushNotifications";
-import { socialService } from "@/services/socialService";
-import { walletService } from "@/services/walletService";
-import { config } from "@/config";
-import { getSupabase, currentUserId, hasSupabaseEnv } from "@/lib/supabaseClient";
-
-interface BookmarkKey {
-  type: BookmarkTarget;
-  id: string;
-}
-
-interface FollowKey {
-  type: "BUSINESS" | "PROVIDER" | "USER";
-  id: string;
-}
+import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import type { BookmarkKey, FollowKey, UserList } from "@/store/sliceTypes";
+import { useToast } from "@/store/useToast";
+import { useAuthSession } from "@/store/useAuthSession";
+import { useSocialSlice } from "@/store/useSocialSlice";
+import { useCommerceSlice } from "@/store/useCommerceSlice";
+import { useNotificationBadges } from "@/store/useNotificationBadges";
 
 export type ContextType = "customer" | "business" | "provider";
 export interface ActiveContext {
   type: ContextType;
   id: string | null; // business/provider id, null for customer
   name: string;
-}
-
-interface ListItem {
-  type: BookmarkTarget;
-  id: string;
-}
-interface UserList {
-  id: string;
-  name: string;
-  emoji: string;
-  shared: boolean;
-  items: ListItem[];
 }
 
 interface AppState {
@@ -146,6 +127,11 @@ interface AppState {
   markAllRead: () => void;
   decrementUnread: () => void;
 
+  // true once the first post-login refreshUser() attempt has settled (success
+  // or failure) — the route guard waits on this so screens never mount against
+  // the blank seed user and briefly show placeholder identity data.
+  profileReady: boolean;
+
   // chat unread count
   chatUnread: number;
   setChatUnread: (n: number) => void;
@@ -171,88 +157,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return (cached as Role) || "customer";
   });
   const [roles, setRoles] = useState<Role[]>(seedUser.roles);
-  const [bookmarks, setBookmarks] = useState<BookmarkKey[]>([]);
-  const [follows, setFollows] = useState<FollowKey[]>(() => {
-    try {
-      const s = localStorage.getItem("stryt_follows");
-      return s ? JSON.parse(s) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [viewedStories, setViewedStories] = useState<string[]>([]);
-  const [meToos, setMeToos] = useState<string[]>([]);
-  const [likes, setLikes] = useState<string[]>([]);
-  const [votes, setVotes] = useState<Record<string, string>>({});
-  const [savedCoupons, setSavedCoupons] = useState<string[]>([]);
-  const [extraStamps, setExtraStamps] = useState<Record<string, number>>({});
-  const [endorsed, setEndorsed] = useState<string[]>([]);
-  const [vouched, setVouched] = useState<string[]>([]);
-  const [notifySubs, setNotifySubs] = useState<string[]>([]);
-  const [queuesJoined, setQueuesJoined] = useState<string[]>([]);
-  const [lists, setLists] = useState<UserList[]>([]);
-  const [unread, setUnread] = useState(0);
-  const [chatUnread, setChatUnread] = useState(0);
-  const [toast, setToast] = useState<string | null>(null);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [isAuthed, setIsAuthed] = useState(tokenStore.isAuthed);
-  // False until the first Supabase session check resolves. The route guard waits
-  // on this so an OAuth / magic-link redirect (which carries ?code= / #access_token
-  // and is exchanged for a session asynchronously) is never bounced back to the
-  // login screen mid-callback. In mock mode there's no async auth, so it's ready
-  // immediately.
-  const [authReady, setAuthReady] = useState(false);
 
-  useEffect(() => {
-    let sb: ReturnType<typeof getSupabase>;
-    try {
-      sb = getSupabase();
-    } catch (e) {
-      // Missing/invalid Supabase env (e.g. unset on the host). Don't hang the app
-      // on the loading splash forever — fall through to the login screen.
-      console.error("Supabase init failed:", e);
-      setAuthReady(true);
-      return;
-    }
-    // Safety net: if getSession() stalls (flaky network), never trap the user on
-    // the splash — mark auth ready after a few seconds so routing can proceed.
-    const readyTimer = setTimeout(() => setAuthReady(true), 6000);
-    // Resolve the initial session on mount. With detectSessionInUrl enabled, a
-    // Google/email redirect lands here and getSession() awaits the code→session
-    // exchange before resolving — so by the time this runs we have a definitive
-    // answer. The live session is the source of truth; tokenStore is only a cache.
-    void sb.auth.getSession()
-      .then(({ data }) => {
-        if (data.session) {
-          tokenStore.set(data.session.access_token, data.session.refresh_token);
-          setIsAuthed(true);
-        } else {
-          tokenStore.clear();
-          setIsAuthed(false);
-        }
-      })
-      .catch((e) => {
-        console.error("getSession failed:", e);
-      })
-      .finally(() => {
-        clearTimeout(readyTimer);
-        setAuthReady(true);
-      });
-    const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        tokenStore.set(session.access_token, session.refresh_token);
-        setIsAuthed(true);
-      } else if (event === "SIGNED_OUT") {
-        tokenStore.clear();
-        setIsAuthed(false);
-      }
-      setAuthReady(true);
-    });
-    return () => {
-      clearTimeout(readyTimer);
-      subscription.unsubscribe();
-    };
-  }, []);
+  const { isAuthed, setIsAuthed, authReady } = useAuthSession();
+  const { toast, showToast } = useToast();
+
+  const {
+    bookmarks, setBookmarks, toggleBookmark, isBookmarked,
+    follows, setFollows, toggleFollow, isFollowing,
+    viewedStories, markStoryViewed,
+    meToos, setMeToos, toggleMeToo,
+    likes, toggleLike,
+    votes, votePoll,
+    endorsed, setEndorsed, toggleEndorse,
+    vouched, setVouched, toggleVouch,
+    notifySubs, toggleNotify,
+  } = useSocialSlice(showToast);
+
+  const {
+    savedCoupons, setSavedCoupons, toggleCoupon,
+    extraStamps, addStamp,
+    queuesJoined, joinQueue,
+    lists, setLists, createList, addToList, isInAnyList,
+  } = useCommerceSlice(showToast);
+
+  const { unread, setUnread, markAllRead, decrementUnread, chatUnread, setChatUnread } = useNotificationBadges(isAuthed);
+  const [profileReady, setProfileReady] = useState(false);
 
   // owned entities — hydrated from userService.owned() once authed.
   const [ownedBusinessIds, setOwnedBusinessIds] = useState<string[]>([]);
@@ -281,12 +210,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sb.from("follows").select("target_type,target_id").eq("follower_user_id", uid),
       sb.from("user_lists").select("id,name,emoji,shared").eq("user_id", uid).order("created_at"),
       sb.from("user_list_items").select("list_id,target_type,target_id"),
-      notificationService.getUnreadCount(),
+      notificationService.getUnreadCount().catch((err) => {
+        console.warn("Unread notification count failed; preserving existing badge count.", err);
+        return null;
+      }),
       sb.from("vouches").select("provider_id").eq("from_user_id", uid),
       sb.from("endorsements").select("provider_id,skill").eq("from_user_id", uid),
       sb.from("user_saved_coupons").select("offer_id").eq("user_id", uid),
       sb.from("request_me_toos").select("request_id").eq("user_id", uid),
-      chatService.totalUnread(),
+      chatService.totalUnread({ scope: "CUSTOMER" }),
     ]);
 
     if (bmRes.data) {
@@ -327,7 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (mtRes.data) {
       setMeToos(mtRes.data.map((r) => r.request_id));
     }
-    setUnread(unreadCount);
+    if (unreadCount !== null) setUnread(unreadCount);
     setChatUnread(chatUnreadCount);
   }, []);
 
@@ -357,285 +289,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Live-update the two global unread badges instead of leaving them frozen
-  // at whatever they were when hydratePersonalData last ran. `notifications`
-  // and `messages` are both in the supabase_realtime publication.
-  useEffect(() => {
-    if (!isAuthed || !hasSupabaseEnv) return;
-    let active = true;
-    let channel: ReturnType<ReturnType<typeof getSupabase>["channel"]> | null = null;
-    currentUserId().then((uid) => {
-      if (!uid || !active) return;
-      const sb = getSupabase();
-      channel = sb
-        .channel(`rt:unread:${uid}`)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` }, () => {
-          setUnread((n) => n + 1);
-        })
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => {
-          chatService.totalUnread().then((n) => { if (active) setChatUnread(n); });
-        })
-        .subscribe();
-    });
-    return () => {
-      active = false;
-      if (channel) getSupabase().removeChannel(channel);
-    };
-  }, [isAuthed]);
+  // Keep the profile location fresh: once per app open, if geolocation
+  // permission is already granted (never prompt uninvited), silently re-read
+  // GPS and — when the user has moved meaningfully (>250 m) or has no location
+  // yet — sync users + any provider profile (people move; shop premises don't).
+  const autoRefreshLocation = useCallback(async () => {
+    if (sessionStorage.getItem("loc_synced") === "1") return;
+    sessionStorage.setItem("loc_synced", "1");
+    try {
+      const perm = await (navigator as any).permissions?.query?.({ name: "geolocation" });
+      if (perm && perm.state !== "granted") return;
+    } catch { /* Permissions API unavailable (native webview) — proceed */ }
+    const { nativeGeolocation } = await import("@/lib/nativeGeolocation");
+    nativeGeolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const prev = userLocRef.current;
+        const moved = !prev.lat || !prev.lng
+          ? Infinity
+          : 6371 * 2 * Math.asin(Math.sqrt(
+              Math.sin(((latitude - prev.lat) * Math.PI) / 360) ** 2 +
+              Math.cos((prev.lat * Math.PI) / 180) * Math.cos((latitude * Math.PI) / 180) *
+              Math.sin(((longitude - prev.lng) * Math.PI) / 360) ** 2
+            ));
+        if (moved < 0.25) return;
+        try {
+          const { reverseGeocode } = await import("@/lib/geocode");
+          const areaName = await reverseGeocode(latitude, longitude).catch(() => null);
+          await userService.autoSyncLocation(latitude, longitude, areaName ?? undefined);
+          setUser((u) => ({ ...u, lat: latitude, lng: longitude, area: areaName ?? u.area }));
+          if (areaName) setArea(areaName);
+        } catch { /* silent — freshness sync is best-effort */ }
+      },
+      () => { /* denied/unavailable — keep stored location */ },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, []);
+  const userLocRef = useRef({ lat: 0, lng: 0 });
+  useEffect(() => { userLocRef.current = { lat: user.lat, lng: user.lng }; }, [user.lat, user.lng]);
 
   useEffect(() => {
     if (isAuthed) {
-      void refreshUser().then(() => {
+      void refreshUser().finally(() => setProfileReady(true)).then(() => {
         currentUserId().then((uid) => { if (uid) void registerPush(uid); });
+        void autoRefreshLocation();
       });
       void hydratePersonalData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthed]);
-
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
-    if (toastTimerRef.current !== null) clearTimeout(toastTimerRef.current);
-    toastTimerRef.current = setTimeout(() => setToast(null), 2200);
-  }, []);
-
-  const toggleBookmark = useCallback(
-    (type: BookmarkTarget, id: string) => {
-      const exists = bookmarks.some((b) => b.type === type && b.id === id);
-      // Optimistic update first…
-      setBookmarks((prev) =>
-        exists ? prev.filter((b) => !(b.type === type && b.id === id)) : [...prev, { type, id }]
-      );
-      showToast(exists ? "Removed from saved" : "Saved");
-      // …then persist, and REVERT if the write fails so the UI never lies.
-      void (async () => {
-        const uid = await currentUserId();
-        if (!uid) return;
-        const sb = getSupabase();
-        const { error } = exists
-          ? await sb.from("bookmarks").delete().eq("user_id", uid).eq("target_type", type).eq("target_id", id)
-          : await sb.from("bookmarks").upsert({ user_id: uid, target_type: type, target_id: id }, { onConflict: "user_id,target_type,target_id" });
-        if (error) {
-          setBookmarks((prev) =>
-            exists ? [...prev, { type, id }] : prev.filter((b) => !(b.type === type && b.id === id))
-          );
-          showToast("Couldn't save — try again");
-        }
-      })();
-    },
-    [bookmarks, showToast]
-  );
-
-  const isBookmarked = useCallback(
-    (type: BookmarkTarget, id: string) => bookmarks.some((b) => b.type === type && b.id === id),
-    [bookmarks]
-  );
-
-  const toggleFollow = useCallback(
-    (type: "BUSINESS" | "PROVIDER" | "USER", id: string, name?: string) => {
-      const normType = type.toUpperCase() as "BUSINESS" | "PROVIDER" | "USER";
-      const exists = follows.some((f) => f.type.toUpperCase() === normType && f.id === id);
-      const updated = exists
-        ? follows.filter((f) => !(f.type.toUpperCase() === normType && f.id === id))
-        : [...follows, { type: normType, id }];
-      setFollows(updated);
-      try {
-        localStorage.setItem("stryt_follows", JSON.stringify(updated));
-      } catch {}
-      showToast(exists ? "Unfollowed" : name ? `Following ${name}` : "Following");
-      void (async () => {
-        const uid = await currentUserId();
-        if (!uid) return;
-        const sb = getSupabase();
-        try {
-          // Delete both uppercase and lowercase DB entries to ensure clean state
-          await sb.from("follows").delete().eq("follower_user_id", uid).in("target_type", [normType, normType.toLowerCase()]).eq("target_id", id);
-          if (!exists) {
-            const { error } = await sb.from("follows").insert({ follower_user_id: uid, target_type: normType, target_id: id });
-            if (error) {
-              try {
-                await sb.from("follows").insert({ follower_user_id: uid, target_type: normType.toLowerCase(), target_id: id });
-              } catch {}
-            }
-          }
-        } catch (err) {
-          console.warn("toggleFollow DB sync:", err);
-        }
-      })();
-    },
-    [follows, showToast]
-  );
-  const isFollowing = useCallback(
-    (type: "BUSINESS" | "PROVIDER" | "USER", id: string) =>
-      follows.some((f) => f.type.toUpperCase() === type.toUpperCase() && f.id === id),
-    [follows]
-  );
-
-  const markStoryViewed = useCallback((id: string) => {
-    setViewedStories((p) => (p.includes(id) ? p : [...p, id]));
-  }, []);
-
-  const toggleMeToo = useCallback(
-    (requestId: string) => {
-      setMeToos((p) => {
-        if (p.includes(requestId)) return p.filter((x) => x !== requestId);
-        showToast("Added — you'll be notified of offers too");
-        return [...p, requestId];
-      });
-    },
-    [showToast]
-  );
-
-  const toggleLike = useCallback((postId: string) => {
-    setLikes((p) => (p.includes(postId) ? p.filter((x) => x !== postId) : [...p, postId]));
-  }, []);
-
-  const votePoll = useCallback(
-    (postId: string, optionId: string) => {
-      setVotes((p) => ({ ...p, [postId]: optionId }));
-      showToast("Vote counted");
-    },
-    [showToast]
-  );
-
-  const toggleCoupon = useCallback(
-    (id: string) => {
-      const saved = savedCoupons.includes(id);
-      setSavedCoupons((p) => (saved ? p.filter((x) => x !== id) : [...p, id]));
-      if (!saved) showToast("Coupon saved to wallet");
-      void (async () => {
-        try {
-          if (saved) await walletService.unsaveCoupon(id);
-          else await walletService.saveCoupon(id);
-        } catch {
-          setSavedCoupons((p) => (saved ? [...p, id] : p.filter((x) => x !== id)));
-          showToast("Couldn't update wallet — try again");
-        }
-      })();
-    },
-    [savedCoupons, showToast]
-  );
-
-  const addStamp = useCallback(
-    (cardId: string) => {
-      setExtraStamps((p) => ({ ...p, [cardId]: (p[cardId] ?? 0) + 1 }));
-      showToast("Stamp added 🎉");
-      void (async () => {
-        try {
-          await walletService.addStamp(cardId);
-        } catch {
-          setExtraStamps((p) => ({ ...p, [cardId]: Math.max(0, (p[cardId] ?? 1) - 1) }));
-          showToast("Couldn't add stamp — try again");
-        }
-      })();
-    },
-    [showToast]
-  );
-
-  const toggleEndorse = useCallback((providerId: string, skill: string) => {
-    const key = `${providerId}:${skill}`;
-    const exists = endorsed.includes(key);
-    setEndorsed((p) => (exists ? p.filter((x) => x !== key) : [...p, key]));
-    void (async () => {
-      try {
-        if (exists) await socialService.removeEndorsement(providerId, skill);
-        else await socialService.addEndorsement(providerId, skill);
-      } catch {
-        setEndorsed((p) => (exists ? [...p, key] : p.filter((x) => x !== key)));
-        showToast("Couldn't update — try again");
-      }
-    })();
-  }, [endorsed, showToast]);
-
-  const toggleVouch = useCallback(
-    (providerId: string) => {
-      const exists = vouched.includes(providerId);
-      setVouched((p) => (exists ? p.filter((x) => x !== providerId) : [...p, providerId]));
-      showToast(exists ? "Vouch removed" : "You vouched for this provider 🤝");
-      void (async () => {
-        try {
-          if (exists) await socialService.removeVouch(providerId);
-          else await socialService.addVouch(providerId);
-        } catch {
-          setVouched((p) => (exists ? [...p, providerId] : p.filter((x) => x !== providerId)));
-          showToast("Couldn't update — try again");
-        }
-      })();
-    },
-    [vouched, showToast]
-  );
-
-  const toggleNotify = useCallback(
-    (key: string) => {
-      setNotifySubs((p) => {
-        if (p.includes(key)) {
-          showToast("Alert removed");
-          return p.filter((x) => x !== key);
-        }
-        showToast("We'll notify you 🔔");
-        return [...p, key];
-      });
-    },
-    [showToast]
-  );
-
-  const joinQueue = useCallback(
-    (businessId: string) => {
-      setQueuesJoined((p) => (p.includes(businessId) ? p : [...p, businessId]));
-      showToast("You're in the queue — we'll ping you");
-    },
-    [showToast]
-  );
-
-  const createList = useCallback(
-    async (name: string, emoji: string): Promise<string> => {
-      // Insert the list and WAIT for the real id before returning, so a follow-up
-      // addToList() writes user_list_items against an id that actually exists
-      // (otherwise the FK insert silently fails and the item is lost on refresh).
-      const uid = await currentUserId();
-      let realId = "sl" + Math.random().toString(36).slice(2, 7);
-      if (uid) {
-        const { data } = await getSupabase()
-          .from("user_lists")
-          .insert({ user_id: uid, name, emoji })
-          .select("id")
-          .single();
-        if (data?.id) realId = data.id;
-      }
-      setLists((p) => [...p, { id: realId, name, emoji, shared: false, items: [] }]);
-      showToast(`Created "${name}"`);
-      return realId;
-    },
-    [showToast]
-  );
-
-  const addToList = useCallback(
-    (listId: string, type: BookmarkTarget, id: string) => {
-      const already = lists.find((l) => l.id === listId)?.items.some((it) => it.type === type && it.id === id);
-      if (already) { showToast("Already in list"); return; }
-      setLists((p) =>
-        p.map((l) => (l.id === listId ? { ...l, items: [...l.items, { type, id }] } : l))
-      );
-      showToast("Added to list");
-      void (async () => {
-        const { error } = await getSupabase()
-          .from("user_list_items")
-          .upsert({ list_id: listId, target_type: type, target_id: id }, { onConflict: "list_id,target_type,target_id" });
-        if (error) {
-          setLists((p) =>
-            p.map((l) => (l.id === listId ? { ...l, items: l.items.filter((it) => !(it.type === type && it.id === id)) } : l))
-          );
-          showToast("Couldn't add to list — try again");
-        }
-      })();
-    },
-    [lists, showToast]
-  );
-
-  const isInAnyList = useCallback(
-    (type: BookmarkTarget, id: string) => lists.some((l) => l.items.some((it) => it.type === type && it.id === id)),
-    [lists]
-  );
 
   const setPersistedActiveRole = useCallback((role: Role) => {
     setActiveRole(role);
@@ -702,11 +404,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addToList,
       isInAnyList,
       unreadCount: unread,
-      markAllRead: () => {
-        setUnread(0);
-        void notificationService.markAllRead();
-      },
-      decrementUnread: () => setUnread((n) => Math.max(0, n - 1)),
+      markAllRead,
+      decrementUnread,
+      profileReady,
       chatUnread,
       setChatUnread,
       toast,
@@ -717,6 +417,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       signOut: () => {
         tokenStore.clear();
         setIsAuthed(false);
+        setProfileReady(false);
         setUser(seedUser);
         setRoles(seedUser.roles);
         setOwnedBusinessIds([]);
@@ -733,11 +434,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       area, activeRole, roles, activeContext, ownedBusinessIds, ownedProviderId,
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
-      unread, chatUnread, toast, isAuthed, authReady,
+      unread, chatUnread, toast, isAuthed, authReady, profileReady,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,
-      setPersistedActiveRole, setPersistedContext
+      setPersistedActiveRole, setPersistedContext, markAllRead, decrementUnread, setChatUnread, setIsAuthed,
     ]
   );
 

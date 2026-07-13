@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Map, SlidersHorizontal, MessageSquare } from "lucide-react";
+import { Search, Map, SlidersHorizontal, MessageSquare } from "@/components/Icons";
 import { catalogService, discoveryService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { ListSkeleton, ErrorView } from "@/components/states";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { ListSkeleton, ErrorView, ExploreSkeleton } from "@/components/states";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
-import { EmptyState } from "@/components/common";
+import { EmptyState, PullToRefreshIndicator } from "@/components/common";
+import { NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
 import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import RadiusSelector from "@/components/RadiusSelector";
@@ -82,7 +84,7 @@ export default function Explore() {
     }),
     [cat, sort, radius, user.lat, user.lng]
   );
-  const { data: provPage, loading: provLoading } = useQuery(
+  const { data: provPage, loading: provLoading, refetch: refetchProv } = useQuery(
     () => discoveryService.providers({
       category: cat ?? undefined,
       sort,
@@ -92,6 +94,11 @@ export default function Explore() {
     }),
     [cat, sort, radius, user.lat, user.lng]
   );
+
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(async () => {
+    refetchBiz();
+    refetchProv();
+  });
 
   const biz = bizPage?.data ?? [];
   const prov = provPage?.data ?? [];
@@ -103,166 +110,263 @@ export default function Explore() {
   const empty = (showBiz ? biz.length : 0) + (showProv ? prov.length : 0) === 0;
 
   return (
-    <div className="screen with-nav">
-      <header className="appbar" style={{ flexDirection: "column", alignItems: "stretch", gap: 12, paddingBottom: 0 }}>
-        <div className="row between">
-          <div className="col" style={{ gap: 0 }}>
-            <span className="bold" style={{ fontSize: 20 }}>Explore</span>
+    <div className="screen screen-boxed with-nav explore-screen-wrapper">
+      <div className="explore-main-layout">
+        
+        {/* Left Side: Desktop Filter Panel (Visible only on desktop) */}
+        <div className="explore-desktop-filters desktop-only">
+          <div className="filters-header">
+            <h3>Filters</h3>
             <span className="tiny muted">Near {area}</span>
           </div>
-          <div className="row gap-8">
-            <button className="icon-btn" onClick={() => nav("/search")}><Search size={20} /></button>
-            <button className="icon-btn" onClick={() => nav("/map")}><Map size={20} /></button>
-            <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats")} aria-label="Chats">
-              <MessageSquare size={20} />
-              {chatUnread > 0 && (
-                <span style={{
-                  position: "absolute", top: 6, right: 6,
-                  width: 8, height: 8, background: "var(--red-500)",
-                  borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)",
-                }} />
-              )}
-            </button>
-          </div>
-        </div>
 
-        {/* Remote location setting picker */}
-        <div style={{ position: "relative", marginTop: 2, marginBottom: 2 }}>
-          <Search size={14} color="var(--ink-400)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-          <input
-            type="text"
-            className="input"
-            value={locQuery}
-            placeholder="Search address to set area..."
-            onChange={(e) => searchPlaces(e.target.value)}
-            style={{
-              width: "100%",
-              background: "var(--ink-50)",
-              border: "1.5px solid var(--ink-200)",
-              borderRadius: 12,
-              padding: "7px 12px",
-              paddingLeft: "32px",
-              paddingRight: locQuery ? "32px" : "12px",
-              fontSize: 12.5,
-              fontWeight: 500,
-              outline: "none"
-            }}
-          />
-          {locQuery && (
-            <button
-              onClick={() => { setLocQuery(""); setLocResults([]); }}
-              style={{
-                position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-                border: "none", background: "transparent", color: "var(--ink-400)", cursor: "pointer",
-                fontSize: 16, fontWeight: 700
-              }}
-            >
-              &times;
-            </button>
-          )}
-
-          {locResults.length > 0 && (
-            <div style={{
-              position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4,
-              background: "#fff", borderRadius: 12, boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-              border: "1px solid var(--line)", overflow: "hidden", zIndex: 1010
-            }}>
-              {locResults.map((r, idx) => (
+          {/* Location search input */}
+          <div className="filter-section">
+            <label className="filter-label">Change Location</label>
+            <div style={{ position: "relative" }}>
+              <Search size={14} color="var(--ink-400)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+              <input
+                type="text"
+                className="input"
+                value={locQuery}
+                placeholder="Search address..."
+                onChange={(e) => searchPlaces(e.target.value)}
+                style={{ width: "100%", paddingLeft: "32px", fontSize: 13, borderRadius: 10, background: "var(--ink-50)", border: "1.5px solid var(--ink-200)" }}
+              />
+              {locQuery && (
                 <button
-                  key={idx}
-                  onClick={() => pickPlace(r)}
+                  onClick={() => { setLocQuery(""); setLocResults([]); }}
                   style={{
-                    width: "100%", padding: "10px 12px", border: "none", background: "none",
-                    textAlign: "left", fontSize: 12, color: "var(--ink-800)", borderBottom: idx < locResults.length - 1 ? "1px solid var(--line)" : "none",
-                    cursor: "pointer", display: "block"
+                    position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                    border: "none", background: "transparent", color: "var(--ink-400)", cursor: "pointer",
+                    fontSize: 16, fontWeight: 700
                   }}
                 >
-                  <div style={{ fontWeight: 600, color: "var(--ink-900)" }}>{r.area}</div>
-                  <div style={{ fontSize: 10, color: "var(--ink-500)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.full}</div>
+                  &times;
+                </button>
+              )}
+              {locResults.length > 0 && (
+                <div className="search-dropdown">
+                  {locResults.map((r, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => pickPlace(r)}
+                      className="dropdown-item"
+                    >
+                      <div className="bold">{r.area}</div>
+                      <div className="tiny muted text-ellipsis">{r.full}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* View Tab Selector */}
+          <div className="filter-section">
+            <label className="filter-label">Browse Type</label>
+            <div className="desktop-tabs">
+              {([["all", "All"], ["business", "Shops"], ["provider", "Helpers"]] as [Tab, string][]).map(([t, label]) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={`tab-btn ${tab === t ? "active" : ""}`}
+                >
+                  {label}
                 </button>
               ))}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Tabs */}
-        <div className="row" style={{ borderBottom: "1px solid var(--line)" }}>
-          {([["all", "All"], ["business", "Businesses"], ["provider", "Providers"]] as [Tab, string][]).map(([t, label]) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className="semi"
-              style={{
-                flex: 1,
-                padding: "12px 0",
-                fontSize: 14,
-                color: tab === t ? "var(--brand-700)" : "var(--ink-500)",
-                borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </header>
+          {/* Radius selector */}
+          <div className="filter-section">
+            <RadiusSelector
+              value={radius}
+              onChange={setRadius}
+              accentColor="var(--brand-600)"
+              label="Search Radius"
+            />
+          </div>
 
-      <div className="screen-scroll">
-        {/* Category chips */}
-        <div className="hscroll" style={{ paddingTop: 12 }}>
-          <button className={`chip ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>All</button>
-          {catTree.map((c) => (
-            <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => setCat(cat === c.id ? null : c.id)}>
-              {c.icon} {c.name.split(" ")[0]}
-            </button>
-          ))}
-          <button
-            className="chip"
-            style={{ borderStyle: "dashed", color: "var(--brand-700)", borderColor: "var(--brand-400)", flexShrink: 0 }}
-            onClick={() => nav("/categories")}
-          >
-            Browse all →
-          </button>
-        </div>
-
-        {/* Sort + radius */}
-        <div className="row between page-pad" style={{ paddingTop: 12, paddingBottom: 4 }}>
-          <div className="row gap-8">
-            {([["nearby", "Nearby"], ["rating", "Top rated"], ["new", "Newest"]] as [Sort, string][]).map(([s, label]) => (
-              <button key={s} className={`chip ${sort === s ? "active" : ""}`} onClick={() => setSort(s)} style={{ padding: "6px 12px", fontSize: 12.5 }}>
-                {label}
+          {/* Categories Sidebar List */}
+          <div className="filter-section">
+            <label className="filter-label">Categories</label>
+            <div className="desktop-categories-list">
+              <button className={`category-item-btn ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>
+                <span>✨ Show All</span>
               </button>
-            ))}
+              {catTree.map((c) => (
+                <button
+                  key={c.id}
+                  className={`category-item-btn ${cat === c.id ? "active" : ""}`}
+                  onClick={() => setCat(cat === c.id ? null : c.id)}
+                >
+                  <span style={{ marginRight: 6 }}>{c.icon}</span>
+                  <span>{c.name}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="page-pad" style={{ paddingTop: 4 }}>
-          <RadiusSelector
-            value={radius}
-            onChange={setRadius}
-            accentColor="var(--brand-600)"
-            label="Radius"
-          />
         </div>
 
-        {/* Results */}
-        {loading ? (
-          <ListSkeleton count={4} />
-        ) : bizError ? (
-          <ErrorView error={bizError} onRetry={refetchBiz} />
-        ) : (
-          <div className="col gap-14 page-pad">
-            {empty && (
-              <EmptyState
-                emoji="🔍"
-                title="Nothing here yet"
-                text="Try widening your radius or picking a different category."
-                action={<button className="btn btn-ghost btn-sm" onClick={() => { setCat(null); setRadius(15); }}>Reset filters</button>}
+        {/* Right Side: Main explore listings */}
+        <div className="explore-listings-feed">
+          {/* Mobile-only app bar (hidden on desktop) */}
+          <header className="appbar mobile-only" style={{ flexDirection: "column", alignItems: "stretch", gap: 12, paddingBottom: 0, background: "transparent", borderBottom: "none", boxShadow: "none", padding: 0 }}>
+            <div className="row between">
+              <div className="col" style={{ gap: 0 }}>
+                <span className="bold" style={{ fontSize: 20 }}>Explore</span>
+                <span className="tiny muted">Near {area}</span>
+              </div>
+              <div className="row gap-8">
+                <button className="icon-btn" onClick={() => nav("/search")}><Search size={20} /></button>
+                <button className="icon-btn" onClick={() => nav("/map")}><Map size={20} /></button>
+                <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
+                  <MessageSquare size={20} />
+                  {chatUnread > 0 && (
+                    <span style={{
+                      position: "absolute", top: 6, right: 6,
+                      width: 8, height: 8, background: "var(--red-500)",
+                      borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)",
+                    }} />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Remote location setting picker (mobile only) */}
+            <div style={{ position: "relative", marginTop: 2, marginBottom: 2 }}>
+              <Search size={14} color="var(--ink-400)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+              <input
+                type="text"
+                className="input"
+                value={locQuery}
+                placeholder="Search address to set area..."
+                onChange={(e) => searchPlaces(e.target.value)}
+                style={{
+                  width: "100%",
+                  background: "var(--ink-50)",
+                  border: "1.5px solid var(--ink-200)",
+                  borderRadius: 12,
+                  padding: "7px 12px",
+                  paddingLeft: "32px",
+                  paddingRight: locQuery ? "32px" : "12px",
+                  fontSize: 12.5,
+                  fontWeight: 500,
+                  outline: "none"
+                }}
               />
+              {locQuery && (
+                <button
+                  onClick={() => { setLocQuery(""); setLocResults([]); }}
+                  style={{
+                    position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+                    border: "none", background: "transparent", color: "var(--ink-400)", cursor: "pointer",
+                    fontSize: 16, fontWeight: 700
+                  }}
+                >
+                  &times;
+                </button>
+              )}
+
+              {locResults.length > 0 && (
+                <div style={{
+                  position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4,
+                  background: "#fff", borderRadius: 12, boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+                  border: "1px solid var(--line)", overflow: "hidden", zIndex: 1010
+                }}>
+                  {locResults.map((r, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => pickPlace(r)}
+                      style={{
+                        width: "100%", padding: "10px 12px", border: "none", background: "none",
+                        textAlign: "left", fontSize: 12, color: "var(--ink-800)", borderBottom: idx < locResults.length - 1 ? "1px solid var(--line)" : "none",
+                        cursor: "pointer", display: "block"
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, color: "var(--ink-900)" }}>{r.area}</div>
+                      <div style={{ fontSize: 10, color: "var(--ink-500)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.full}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Tabs (mobile only) */}
+            <div className="row" style={{ borderBottom: "1px solid var(--line)" }}>
+              {([["all", "All"], ["business", "Businesses"], ["provider", "Providers"]] as [Tab, string][]).map(([t, label]) => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className="semi"
+                  style={{
+                    flex: 1,
+                    padding: "12px 0",
+                    fontSize: 14,
+                    color: tab === t ? "var(--brand-700)" : "var(--ink-500)",
+                    borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          <div ref={containerRef} className="explore-listings-scroll">
+            <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
+            {/* Mobile Category chips horizontal scroll & Radius Selector (mobile only) */}
+            <div className="mobile-only">
+              <div className="hscroll" style={{ paddingTop: 12 }}>
+                <button className={`chip ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>All</button>
+                {catTree.map((c) => (
+                  <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => setCat(cat === c.id ? null : c.id)}>
+                    {c.icon} {c.name.split(" ")[0]}
+                  </button>
+                ))}
+              </div>
+              <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
+                <RadiusSelector
+                  value={radius}
+                  onChange={setRadius}
+                  accentColor="var(--brand-600)"
+                  label="Radius"
+                />
+              </div>
+            </div>
+
+            {/* Results Grid Title & Count */}
+            <div className="listings-grid-header desktop-only">
+              <h2>{tab === "all" ? "Explore Near You" : tab === "business" ? "Shops & Businesses" : "Service Providers"}</h2>
+              <span className="results-count muted small">
+                {loading ? "Searching..." : `${(showBiz ? biz.length : 0) + (showProv ? prov.length : 0)} matches found`}
+              </span>
+            </div>
+
+            {/* Results */}
+            {loading ? (
+              <ExploreSkeleton tab={tab} />
+            ) : bizError ? (
+              <ErrorView error={bizError} onRetry={refetchBiz} />
+            ) : (
+              <div className="listings-cards-grid">
+                {empty && (
+                  <EmptyState
+                    illustration={<NoResultsIllustration />}
+                    emoji="🔍"
+                    title="Nothing here yet"
+                    text="Try widening your radius or picking a different category."
+                    action={<button className="btn btn-ghost btn-sm" onClick={() => { setCat(null); setRadius(15); }}>Reset filters</button>}
+                  />
+                )}
+                {showProv && prov.map((p, idx) => <ProviderCard key={p.id} p={p} style={{ animationDelay: `${idx * 35}ms` }} />)}
+                {showBiz && biz.map((b, idx) => <BusinessCardWide key={b.id} b={b} style={{ animationDelay: `${idx * 35}ms` }} />)}
+              </div>
             )}
-            {showProv && prov.map((p) => <ProviderCard key={p.id} p={p} />)}
-            {showBiz && biz.map((b) => <BusinessCardWide key={b.id} b={b} />)}
+            <div style={{ height: 24 }} />
           </div>
-        )}
-        <div style={{ height: 24 }} />
+        </div>
       </div>
     </div>
   );

@@ -2,29 +2,33 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell, Settings, Store, Briefcase, FileText, Star,
-  ChevronRight, Shield, HelpCircle, LogOut, Globe, Share2,
-  ListChecks, Trophy, Award, Users, UserCircle, Heart,
-  ArrowLeftRight, Map, MessageSquare, UserPlus, Bookmark, Handshake,
-  Bug, Calendar
-} from "lucide-react";
+  ChevronRight, Share2,
+  Trophy, Award, Users, UserCircle, Heart,
+  ArrowLeftRight, MessageSquare, Image, ListChecks, Clock,
+  Calendar, Wallet
+} from "@/components/Icons";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { SafeImg } from "@/components/common";
+import { displayName } from "@/lib/publicName";
 import AccountSwitcher from "@/components/AccountSwitcher";
-import { requestService, socialService, businessService } from "@/services";
+import AppUpdateButton from "@/components/AppUpdateButton";
+import { requestService, socialService, businessService, notificationService } from "@/services";
 import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import type { Role, AgreementStatus } from "@/types";
 import ShareCard, { type ShareOption } from "@/components/ShareCard";
+import { StoryViewer } from "@/components/Stories";
 
 const TERMINAL: AgreementStatus[] = ["COMPLETED", "CANCELLED", "DISPUTED"];
 
 export default function Profile() {
   const nav = useNavigate();
-  const { user, roles, activeRole, setActiveRole, bookmarks, follows, signOut, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
+  const { user, roles, activeRole, setActiveRole, bookmarks, follows, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
   const { t } = useI18n();
   const [switcher, setSwitcher] = useState(false);
   const [share, setShare] = useState(false);
+  const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
   const manageBizId = ownedBusinessIds[0];
   const hasSellerProfile = ownedBusinessIds.length > 0 || !!ownedProviderId;
 
@@ -35,19 +39,20 @@ export default function Profile() {
       role: "customer",
       label: "Personal Profile",
       url: window.location.origin + "/u/" + user.id,
-      title: user.name || "Stryt Neighbor",
+      title: displayName(user.name),
       subtitle: `Customer • ${user.area || "No location"}`,
       image: user.avatar || PLACEHOLDER_AVATAR,
-      meta: `⭐ ${user.ratingAvg ?? 0} (${user.ratingCount ?? 0})`
+      meta: (user.ratingCount ?? 0) > 0 ? `⭐ ${user.ratingAvg} (${user.ratingCount})` : "New member"
     }
   ];
 
+  
   if (ownedBusinessIds.length > 0) {
     shareOptions.push({
       role: "business_owner",
       label: "Shop Profile",
       url: window.location.origin + "/business/" + ownedBusinessIds[0],
-      title: `${getFirstName(user.name || "")}'s Shop`,
+      title: `${getFirstName(displayName(user.name, "My"))}'s Shop`,
       subtitle: "Local Business on Stryt",
       image: PLACEHOLDER_BUSINESS_COVER,
       meta: "Shops & Deals"
@@ -59,7 +64,7 @@ export default function Profile() {
       role: "provider",
       label: "Provider Profile",
       url: window.location.origin + "/provider/" + ownedProviderId,
-      title: user.name || "Service Provider",
+      title: displayName(user.name, "Service Provider"),
       subtitle: "Professional Provider on Stryt",
       image: user.avatar || PLACEHOLDER_AVATAR_ALT,
       meta: "Services & Work"
@@ -75,41 +80,43 @@ export default function Profile() {
   const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
   const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
 
-  // Admin console stays reachable (own bypass-token entry screen lives at /admin
-  // itself) but only earns a spot in the nav for people who are actually admins.
-  const envBypassToken = (import.meta as any).env.VITE_ADMIN_BYPASS_TOKEN;
-  const isAdmin =
-    (user.roles as string[]).includes("admin") ||
-    (user.roles as string[]).includes("super_admin") ||
-    (!!envBypassToken && (user.phone === envBypassToken || localStorage.getItem("admin_bypass_token") === envBypassToken));
+  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", []);
+
+  const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id]);
+  const highlights = highlightsData ?? [];
 
   const roleMeta: Record<Role, { label: string; icon: any; color: string; bg: string }> = {
-    customer:       { label: "Customer",  icon: Heart,    color: "var(--brand-600)", bg: "#faf5ff" },
-    business_owner: { label: "Business",  icon: Store,    color: "var(--orange-500)", bg: "#fff7ed" },
-    provider:       { label: "Provider",  icon: Briefcase, color: "var(--green-500)", bg: "#f0fdf4" },
+    customer:       { label: "Customer",  icon: Heart,    color: "var(--brand-600)", bg: "var(--brand-50)" },
+    business_owner: { label: "Business",  icon: Store,    color: "var(--orange-500)", bg: "var(--orange-50)" },
+    provider:       { label: "Provider",  icon: Briefcase, color: "var(--green-500)", bg: "var(--green-100)" },
   };
 
   // The 6 most-used destinations, as one scannable grid instead of a tall list —
-  // spatial position becomes memorable ("appointments is always top-middle").
+  // spatial position becomes memorable ("Wallet is always top-middle-right").
+  // Map is deliberately excluded — it already lives in the bottom nav, so
+  // repeating it here would just be the same destination in two places.
   const quickActions: { icon: React.ReactNode; label: string; badge?: number; onClick: () => void }[] = [
-    { icon: <Calendar size={22} color="#8b5cf6" />, label: t("appointments"), onClick: () => nav("/appointments") },
+    { icon: <Calendar size={22} color="var(--brand-500)" />, label: t("appointments"), onClick: () => nav("/appointments") },
     { icon: <FileText size={22} color="var(--brand-700)" />, label: t("requests"), onClick: () => nav("/requests") },
-    { icon: <Users size={22} color="#3b82f6" />, label: t("community"), onClick: () => nav("/community-hub") },
-    { icon: <Map size={22} color="#0ea5e9" />, label: t("map"), onClick: () => nav("/map") },
+    { icon: <Wallet size={22} color="var(--green-600)" />, label: "Wallet", onClick: () => nav("/wallet") },
+    { icon: <Clock size={22} color="var(--amber-500)" />, label: "Queues", badge: activeQueues.length || undefined, onClick: () => nav("/queues") },
+    { icon: <Users size={22} color="var(--blue-500)" />, label: t("community"), onClick: () => nav("/community-hub") },
     { icon: <Award size={22} color="var(--amber-500)" />, label: t("badges"), onClick: () => nav("/achievements") },
-    { icon: <Trophy size={22} color="var(--brand-700)" />, label: t("heroes"), onClick: () => nav("/leaderboard") },
   ];
 
   return (
-    <div className="screen with-nav">
+    <div className="screen screen-boxed with-nav">
       <div className="screen-scroll">
 
-        {/* ── Hero header ── */}
-        <div style={{ background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", padding: "20px 16px 32px" }}>
+        {/* ── Hero header — only the two things people check constantly
+            (messages, notifications) get an icon slot. Switching accounts and
+            settings both have a home further down, so they don't need to
+            compete for space up here too. ── */}
+        <div style={{ background: "linear-gradient(135deg, var(--brand-500), var(--brand-700))", color: "#fff", padding: "calc(20px + var(--safe-area-top)) 16px 32px" }}>
           <div className="row between">
             <span className="bold" style={{ fontSize: 20 }}>{t("profile")}</span>
             <div className="row gap-8">
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }} onClick={() => nav("/chats")} aria-label="Messages">
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Messages">
                 <MessageSquare size={18} />
                 {chatUnread > 0 && (
                   <span style={{
@@ -119,11 +126,15 @@ export default function Profile() {
                   }} />
                 )}
               </button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/notifications")} aria-label="Notifications">
+              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
                 <Bell size={18} />
-              </button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }} onClick={() => nav("/settings")} aria-label="Settings">
-                <Settings size={18} />
+                {(custUnread ?? 0) > 0 && (
+                  <span style={{
+                    position: "absolute", top: 5, right: 5,
+                    width: 7, height: 7, background: "var(--red-500)",
+                    borderRadius: "50%", border: "1.5px solid rgba(0,0,0,0.2)",
+                  }} />
+                )}
               </button>
             </div>
           </div>
@@ -135,11 +146,11 @@ export default function Profile() {
               onClick={() => nav(`/u/${user.id}`)}
             />
             <div className="grow">
-              <div className="bold" style={{ fontSize: 21 }}>{user.name || "New user"}</div>
-              <div className="small" style={{ opacity: 0.8, marginTop: 2 }}>{user.phone}</div>
+              <div className="bold" style={{ fontSize: 21, color: "#fff" }}>{displayName(user.name)}</div>
+              <div className="small" style={{ color: "#fff", opacity: 0.85, marginTop: 2 }}>{user.phone}</div>
               <div className="row gap-6" style={{ marginTop: 8 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
-                  <Star size={11} fill="#ffd23f" strokeWidth={0} /> {user.ratingAvg ?? 0} ({user.ratingCount ?? 0})
+                  <Star size={11} fill="var(--amber-500)" strokeWidth={0} /> {(user.ratingCount ?? 0) > 0 ? `${user.ratingAvg} (${user.ratingCount})` : "New"}
                 </span>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.16)", color: "#fff" }}>
                   📍 {user.area || "No location"}
@@ -172,46 +183,29 @@ export default function Profile() {
               <Share2 size={16} />
             </button>
           </div>
-        </div>
 
-        {/* ── Stats row (single source of truth — these numbers don't repeat elsewhere) ── */}
-        <div className="page-pad" style={{ marginTop: -18 }}>
-          <div className="row gap-8">
-            <button className="stat-pill" onClick={() => nav("/bookmarks")}>
-              <span className="row" style={{ gap: 3 }}>
-                <Bookmark size={12} color="var(--brand-700)" />
-                <span className="bold" style={{ fontSize: 19, color: "var(--brand-700)" }}>{bookmarks.length}</span>
-              </span>
-              <span className="tiny muted">Saved</span>
-            </button>
-            <button className="stat-pill" onClick={() => nav("/bookmarks?tab=following")}>
-              <span className="row" style={{ gap: 3 }}>
-                <UserPlus size={12} color="var(--brand-600)" />
-                <span className="bold" style={{ fontSize: 19, color: "var(--brand-600)" }}>{follows.length}</span>
-              </span>
-              <span className="tiny muted">Following</span>
-            </button>
-            <button className="stat-pill" onClick={() => nav("/followers")}>
-              <span className="row" style={{ gap: 3 }}>
-                <Users size={12} color="var(--green-500)" />
-                <span className="bold" style={{ fontSize: 19, color: "var(--green-500)" }}>{followersCount}</span>
-              </span>
-              <span className="tiny muted">Followers</span>
-            </button>
-            <button className="stat-pill" onClick={() => nav("/agreements")}>
-              <span className="row" style={{ gap: 3 }}>
-                <Handshake size={12} color={activeAgreements.length > 0 ? "var(--orange-500)" : "var(--ink-400)"} />
-                <span className="bold" style={{ fontSize: 19, color: activeAgreements.length > 0 ? "var(--orange-500)" : "var(--brand-700)" }}>
-                  {totalAgreements}
-                </span>
-              </span>
-              <span className="tiny muted">Agreements</span>
-              {activeAgreements.length > 0 && (
-                <span className="badge badge-green" style={{ fontSize: 9, padding: "2px 6px" }}>
-                  {activeAgreements.length} active
-                </span>
-              )}
-            </button>
+          {/* ── Integrated stats strip — one premium identity block instead of a
+              second stacked row of pills below the hero ── */}
+          <div className="row" style={{ marginTop: 18, background: "rgba(255,255,255,0.12)", borderRadius: 16, padding: "10px 0", backdropFilter: "blur(2px)" }}>
+            {([
+              { n: bookmarks.length, l: "Saved", onClick: () => nav("/bookmarks") },
+              { n: follows.length, l: "Following", onClick: () => nav("/bookmarks?tab=following") },
+              { n: followersCount, l: "Followers", onClick: () => nav("/followers") },
+              { n: totalAgreements, l: "Deals", onClick: () => nav("/agreements"), active: activeAgreements.length },
+            ] as const).map((s, i) => (
+              <button
+                key={s.l}
+                onClick={s.onClick}
+                className="col center grow"
+                style={{ gap: 2, color: "#fff", borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.18)" : "none", position: "relative" }}
+              >
+                <span className="bold" style={{ fontSize: 19, lineHeight: 1.1, color: "#fff" }}>{s.n}</span>
+                <span className="tiny" style={{ color: "#fff", opacity: 0.85 }}>{s.l}</span>
+                {"active" in s && s.active > 0 && (
+                  <span style={{ position: "absolute", top: -2, right: "50%", transform: "translateX(22px)", width: 7, height: 7, borderRadius: "50%", background: "var(--green-400)" }} />
+                )}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -220,7 +214,7 @@ export default function Profile() {
           <div className="page-pad" style={{ paddingTop: 4 }}>
             <button
               className="card row gap-12 center-v"
-              style={{ padding: 14, width: "100%", textAlign: "left", background: "#fff7ed", border: "1px solid #fed7aa" }}
+              style={{ padding: 14, width: "100%", textAlign: "left", background: "var(--orange-50)", border: "1px solid var(--orange-100)" }}
               onClick={() => nav("/queues")}
             >
               <span style={{ fontSize: 22 }}>👥</span>
@@ -233,12 +227,28 @@ export default function Profile() {
           </div>
         )}
 
-        {/* ── Quick actions grid — same 6 spots every time, so position becomes memory ── */}
+        {/* ── My Highlights — stories saved past their normal expiry ── */}
+        {highlights.length > 0 && (
+          <div className="hscroll" style={{ padding: "10px 16px" }}>
+            {highlights.map((h, i) => (
+              <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
+                <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,var(--amber-500),var(--amber-500))" }}>
+                  <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
+                </div>
+                <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* ── Quick actions grid — same 6 spots every time, so position becomes
+            memory. Wallet & Queues live here (frequent, money/live-status),
+            Map is deliberately left out (it's already a bottom-nav tab) ── */}
         <div className="page-pad" style={{ paddingTop: 4 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
             {quickActions.map((a) => (
               <button key={a.label} className="feature-card" onClick={a.onClick}>
-                {a.badge ? <span className="feature-card-badge">{a.badge}</span> : null}
+                {a.badge ? <span className="count-badge feature-card-badge">{a.badge}</span> : null}
                 {a.icon}
                 <span className="semi" style={{ fontSize: 12 }}>{a.label}</span>
               </button>
@@ -248,7 +258,7 @@ export default function Profile() {
 
         {/* ── Role switcher ── */}
         <div className="page-pad" style={{ paddingTop: 4 }}>
-          <div className="card" style={{ padding: 14 }}>
+          <div className="card">
             <div className="small semi" style={{ color: "var(--ink-600)", marginBottom: 12 }}>I'm using STRYT as a…</div>
             <div className="row gap-8">
               {(["customer", "business_owner", "provider"] as Role[]).map((r) => {
@@ -313,29 +323,33 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* ── Manage (only shown to sellers / for saved lists) ── */}
+        {/* ── More for you — content & management shortcuts that don't need
+            daily front-row space: seller console (if any), your saved lists
+            (moved here from Settings since it's content, not a preference),
+            your posts, and the neighborhood leaderboard. ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
+          <div className="small semi muted" style={{ margin: "0 2px 8px" }}>More for you</div>
           <div className="card" style={{ overflow: "hidden" }}>
             {hasSellerProfile && (
               <MenuRow icon={<Store size={20} color="var(--orange-500)" />} label="Manage business & profile" onClick={() => nav("/manage")} />
             )}
-            <MenuRow icon={<ListChecks size={20} color="#0ea5e9" />} label="My saved lists" onClick={() => nav("/lists")} />
-            <MenuRow icon={<Users size={20} color="var(--amber-500)" />} label="My queues" badge={activeQueues.length || undefined} onClick={() => nav("/queues")} last />
+            <MenuRow icon={<ListChecks size={20} color="var(--blue-500)" />} label="My saved lists" onClick={() => nav("/lists")} />
+            <MenuRow icon={<Image size={20} color="var(--pink-500)" />} label="My activity" hint="Stories & posts" onClick={() => nav("/my-activity")} />
+            <MenuRow icon={<Trophy size={20} color="var(--brand-700)" />} label="Neighborhood heroes" hint="Leaderboard" onClick={() => nav("/leaderboard")} last />
           </div>
         </div>
 
-        {/* ── Settings & support ── */}
+        {/* ── Settings & more — the infrequent stuff (including sign-out)
+            lives on its own page, so it's never one accidental tap away
+            from the screen people open constantly ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <div className="card" style={{ overflow: "hidden" }}>
-            <MenuRow icon={<Globe size={20} color="#0ea5e9" />}    label="Language"         hint="English"     onClick={() => nav("/settings")} />
-            <MenuRow icon={<Shield size={20} color="var(--green-500)" />}   label="Privacy & safety"                    onClick={() => nav("/settings")} />
-            <MenuRow icon={<HelpCircle size={20} color="#6366f1" />} label="Help & support"                    onClick={() => nav("/support?tab=contact")} />
-            <MenuRow icon={<Bug size={20} color="var(--red-500)" />}      label="Report a bug"                        onClick={() => nav("/support?tab=bug")} />
-            {isAdmin && (
-              <MenuRow icon={<Shield size={20} color="#14111c" />} label="Admin console" onClick={() => nav("/admin")} />
-            )}
-            <MenuRow icon={<LogOut size={20} color="var(--red-500)" />}   label="Log out" last onClick={() => { signOut(); nav("/"); }} />
+            <MenuRow icon={<Settings size={20} color="var(--ink-600)" />} label="Settings & more" hint="Preferences, support, log out" onClick={() => nav("/account")} last />
           </div>
+        </div>
+
+        <div className="page-pad" style={{ paddingTop: 0 }}>
+          <AppUpdateButton />
         </div>
 
         <p className="tiny muted" style={{ textAlign: "center", padding: "8px 0 28px" }}>
@@ -343,10 +357,13 @@ export default function Profile() {
         </p>
       </div>
 
+      {viewingHighlight !== null && (
+        <StoryViewer stories={highlights} startIndex={viewingHighlight} onClose={() => setViewingHighlight(null)} />
+      )}
       {switcher && <AccountSwitcher onClose={() => setSwitcher(false)} />}
       {share && (
         <ShareCard
-          title={user.name || "Stryt Neighbor"}
+          title={displayName(user.name)}
           subtitle={`Customer • ${user.area || "No location"}`}
           image={user.avatar}
           options={shareOptions}

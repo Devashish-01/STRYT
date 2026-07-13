@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { catalogService, providerService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { Camera, CheckCircle2, IndianRupee, Plus, Briefcase } from "lucide-react";
+import { Camera, CheckCircle2, IndianRupee, Plus, Briefcase } from "@/components/Icons";
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
@@ -11,18 +11,13 @@ import HoursSelector from "@/components/HoursSelector";
 import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
 
 
-const steps = ["Skill", "Area & price", "Portfolio", "Verify"];
+const steps = ["Skill", "Area & price", "Portfolio", "Photo"];
 
 export default function ProviderOnboard() {
   const nav = useNavigate();
   const { user, addRole, showToast, refreshUser, ownedProviderId } = useApp();
   const { data: serviceCatsData } = useQuery(() => catalogService.byKind("SERVICE"), []);
 
-  // Guard: if the user already owns a provider, go straight to manage.
-  if (ownedProviderId) {
-    nav(`/provider/${ownedProviderId}/manage`, { replace: true });
-    return null;
-  }
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -35,17 +30,22 @@ export default function ProviderOnboard() {
   const [bio, setBio] = useState("");
   const [availability, setAvailability] = useState(DEFAULT_ONBOARD_WORKING_HOURS);
   const [photos, setPhotos] = useState<{ file: File; previewUrl: string }[]>([]);
-  const [aadhaarNum, setAadhaarNum] = useState("");
-  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
 
+  // Guard: if the user already owns a provider, go straight to manage.
+  useEffect(() => {
+    if (ownedProviderId) {
+      nav(`/provider/${ownedProviderId}/manage`, { replace: true });
+    }
+  }, [ownedProviderId, nav]);
+
   const serviceCats = (serviceCatsData ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
 
-  // KYC: a provider must provide an Aadhaar (number + photo) and a face photograph.
-  const verifyValid = aadhaarNum.replace(/\D/g, "").length === 12 && !!aadhaarFile && !!photoFile;
+  // A clear face photograph (becomes the profile photo) is the only requirement.
+  const verifyValid = !!photoFile;
 
   const canNext = [
     (!!cat || newCat.trim().length > 2) && displayName.trim().length > 1,
@@ -58,11 +58,8 @@ export default function ProviderOnboard() {
     setSubmitting(true);
     try {
       if (newCat.trim()) await catalogService.proposeCategory(newCat.trim(), null, "SERVICE");
-      // Required KYC: Aadhaar document + a clear photograph (becomes the avatar).
-      const [aadhaarUrl, photoUrl] = await Promise.all([
-        uploadService.upload(aadhaarFile as File, "kyc-provider"),
-        uploadService.upload(photoFile as File, "provider-photo"),
-      ]);
+      // A clear photograph becomes the provider's profile photo (avatar).
+      const photoUrl = await uploadService.upload(photoFile as File, "provider-photo");
       const created = await providerService.create({
         displayName: displayName.trim(),
         categoryId: cat ?? undefined,
@@ -71,8 +68,6 @@ export default function ProviderOnboard() {
         serviceRadiusKm: radius,
         availabilityNote: availability,
         avatar: photoUrl,
-        verificationDocumentUrl: aadhaarUrl,
-        verificationStatus: "UNDER_REVIEW",
         lat: lat!,
         lng: lng!,
       });
@@ -96,14 +91,17 @@ export default function ProviderOnboard() {
     }
   }
 
+  // Redirect is in-flight via the effect above — render nothing this frame.
+  if (ownedProviderId) return null;
+
   if (done) {
     return (
       <div className="screen">
         <div className="screen-scroll col center page-pad" style={{ paddingTop: 70, textAlign: "center" }}>
-          <div style={{ width: 96, height: 96, borderRadius: "50%", background: "#e8f7ee", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
+          <div style={{ width: 96, height: 96, borderRadius: "50%", background: "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
             <CheckCircle2 size={52} color="var(--green-500)" />
           </div>
-          <h1 className="bold" style={{ fontSize: 24, marginTop: 24 }}>You're almost live!</h1>
+          <h1 className="bold h1" style={{ marginTop: 24 }}>You're almost live!</h1>
           <p className="muted" style={{ marginTop: 8, lineHeight: 1.5, maxWidth: 290 }}>
             We'll verify your profile shortly. Once approved you'll appear in search and the feed for everyone within <span className="semi" style={{ color: "var(--ink-900)" }}>{radius} km</span>.
           </p>
@@ -168,7 +166,7 @@ export default function ProviderOnboard() {
               storedLat={user.lat}
               storedLng={user.lng}
               pinColor="var(--green-500)"
-              height={120}
+              height={190}
               onChange={(newLat, newLng) => { setLat(newLat); setLng(newLng); }}
               onError={(msg) => showToast(msg)}
             />
@@ -232,10 +230,10 @@ export default function ProviderOnboard() {
 
         {step === 3 && (
           <>
-            <div className="card row gap-10" style={{ padding: 12, background: "#e8f7ee", border: "1px solid #bbf7d0" }}>
+            <div className="card row gap-10" style={{ padding: 12, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
               <Briefcase size={20} color="var(--green-500)" />
-              <span className="tiny" style={{ color: "#15803d", lineHeight: 1.4 }}>
-                Providers verify with <b>Aadhaar</b> and a clear <b>photograph</b>. Kept private, used only to keep the community safe.
+              <span className="tiny" style={{ color: "var(--green-600)", lineHeight: 1.4 }}>
+                Add a clear face photo — it becomes your public profile photo so customers know who they're hiring.
               </span>
             </div>
 
@@ -253,19 +251,6 @@ export default function ProviderOnboard() {
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
               </label>
             </div>
-
-            {/* Aadhaar */}
-            <div className="field">
-              <label>Aadhaar number *</label>
-              <input className="input" inputMode="numeric" maxLength={14} placeholder="1234 5678 9012"
-                value={aadhaarNum} onChange={(e) => setAadhaarNum(e.target.value.replace(/[^\d ]/g, ""))} />
-            </div>
-            <label className="col center" style={{ width: "100%", padding: 18, borderRadius: 14, border: `2px dashed ${aadhaarFile ? "var(--green-500)" : "var(--ink-300)"}`, color: aadhaarFile ? "var(--green-600)" : "var(--ink-500)", gap: 6, cursor: "pointer" }}>
-              <Camera size={24} />
-              <span className="small semi">{aadhaarFile ? `✓ ${aadhaarFile.name}` : "Upload Aadhaar card photo"}</span>
-              <input type="file" accept="image/*,.pdf" style={{ display: "none" }}
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) { setAadhaarFile(f); showToast("Aadhaar added"); } }} />
-            </label>
           </>
         )}
       </div>

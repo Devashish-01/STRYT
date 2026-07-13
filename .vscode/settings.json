@@ -4,5 +4,7 @@
     "supabase/functions"
   ],
   "deno.lint": true,
-  "deno.unstable": true
+  "deno.unstable": true,
+  "java.configuration.updateBuildConfiguration": "interactive",
+  "typescript.autoClosingTags": false
 }
