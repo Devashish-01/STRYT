@@ -217,7 +217,7 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
               const image = b?.coverImage ?? p?.avatar ?? "";
               const sub = b?.subCategory ?? p?.categoryName ?? "";
               return (
-                <button key={i} className="row gap-10" style={{ padding: 8, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
+                <button key={rec.listingId} className="row gap-10" style={{ padding: 8, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
                   onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}>
                   <SafeImg src={image} variant={rec.listingType === "PROVIDER" ? "avatar" : "photo"} className="thumb" style={{ width: 44, height: 44, borderRadius: 10 }} />
                   <div className="grow">

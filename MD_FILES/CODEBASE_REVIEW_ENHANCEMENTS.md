@@ -17,22 +17,36 @@ single biggest source of latent bugs and the reason so much code casts.
 **Fix:** generate types (`supabase gen types typescript` / the MCP `generate_typescript_types`)
 into `src/types/db.ts`, type the client `createClient<Database>(…)`, and delete casts
 incrementally. Highest long-term ROI of anything in this doc.
+**Status — deliberately NOT one-shotted:** flipping the global client to typed cascades
+hundreds of latent type errors (strict `.insert()` shape checks against the real schema) and
+would break the build. Correct execution is a dedicated pass: generate types → adopt file-by-
+file → verify build at each step. Not safe as a single "no mistakes" change.
 
-### C-2 · **44 `key={index}` in lists**
-Array-index keys cause subtle bugs on insert/reorder/delete — wrong row keeps another row's
-local state (open menus, inputs, animations mid-flight). Feeds, chat, and notifications are
-exactly the lists that reorder.
-**Fix:** key by a stable id (`key={item.id}`) everywhere. Mechanical, low-risk, ~44 spots.
+### C-2 · `key={index}` audit — ✅ **DONE (2026-07-14)**
+Audited all 44 sites. **41 were already correct** — skeleton placeholders, decorative SVG,
+fixed-count UI (progress bars, OTP boxes, star pickers), geocode dropdowns, and display-only
+image/filename rows where index is the right key; changing them would be churn with nonzero
+risk. **Fixed the 3 genuine ones** (real domain lists with stable ids): `Lists.tsx`
+(`it.id`), `Community.tsx` + `CommunityPostDetail.tsx` (`rec.listingId`). tsc + build clean.
+*(One residual: editable poll-option `string[]` in CommunityCompose would need a state-shape
+refactor to key stably — left as a small follow-up, low impact at max 4 options.)*
 
 ### C-3 · A few very large files
 `AdminPanel.tsx` (978), `Stories.tsx` (842), `businessService.ts` (802), `BusinessDetail.tsx`
 (775), `Home.tsx` (723). Not broken, but hard to change safely.
 **Fix:** split the god-screens into sub-components/hooks as you touch them (no big-bang refactor).
+**Status — deliberately NOT one-shotted:** a behavior-preserving split of 978-line files with
+no test coverage to verify against is exactly where silent regressions hide. Do it incrementally
+when touching each screen, not as a risky bulk refactor.
 
-### C-4 · Main JS chunk is **844 kB** (build warns)
-Route-level `lazy()` is already used (good), but the main bundle is still large.
-**Fix:** `manualChunks` to split vendor (leaflet, firebase, supabase, phosphor) from app code;
-lazy-load leaflet/QR only on the screens that use them (QR already is).
+### C-4 · Main JS chunk 844 kB → **197 kB** — ✅ **DONE (2026-07-14)**
+Added a `manualChunks` (function form) in `vite.config.ts` splitting react / supabase /
+leaflet / firebase / icons into independently-cached vendor chunks. The main app chunk (which
+changes on every deploy) dropped **844 → 197 kB (–77%)**; heavy vendors (icons 328, firebase
+223, supabase 212, react 170, map 155 kB) now cache across deploys, so a code change no longer
+re-downloads them. Build clean, chunk-size warning gone. *(Further win available: `vendor-icons`
+is 328 kB from shipping BOTH `@phosphor-icons/react` and `lucide-react` — consolidating to one
+icon library would cut it substantially.)*
 
 ---
 

@@ -210,9 +210,9 @@ export default function CommunityPostDetail() {
           {/* Recommendations */}
           {safePost.recommendations && safePost.recommendations.length > 0 && (
             <div className="col gap-8" style={{ marginTop: 12 }}>
-              {safePost.recommendations.map((rec, i) => (
+              {safePost.recommendations.map((rec) => (
                 <button
-                  key={i}
+                  key={rec.listingId}
                   className="row gap-10"
                   style={{ padding: 10, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
                   onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}
