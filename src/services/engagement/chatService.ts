@@ -96,7 +96,7 @@ export const chatService = {
     // Chat is a pre-relationship context — show the other person's public alias,
     // not their real name (the real name is revealed only on booking/queue/proposal).
     const userMap = Object.fromEntries(
-      (users ?? []).map((u: { id: string; name: string; alias?: string | null; avatar: string }) =>
+      (users ?? []).map((u: { id: string; name: string; alias: string | null; avatar: string | null }) =>
         [u.id, { id: u.id, name: aliasName(u), avatar: u.avatar ?? "" }])
     );
 

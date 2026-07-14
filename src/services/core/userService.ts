@@ -1,6 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
+import type { TablesUpdate } from "@/lib/dbTypes";
 import type { PublicUser, CurrentUser } from "@/types";
 import { PROFILE_BADGE_THRESHOLDS } from "@/lib/badges";
 
@@ -108,7 +109,7 @@ export const userService = {
 
     // Sync avatar and name changes to any provider profile owned by this user
     if (patch.avatar !== undefined || patch.name !== undefined) {
-      const provPatch: Record<string, any> = {};
+      const provPatch: TablesUpdate<"providers"> = {};
       if (patch.avatar !== undefined) provPatch.avatar = patch.avatar;
       if (patch.name !== undefined) provPatch.display_name = patch.name;
       const { error: provErr } = await sb.from("providers").update(provPatch).eq("user_id", uid);
@@ -152,7 +153,7 @@ export const userService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    const patch: Record<string, unknown> = { lat, lng };
+    const patch: TablesUpdate<"users"> = { lat, lng };
     if (area) patch.area = area;
     const { error } = await sb.from("users").update(patch).eq("id", uid);
     throwIfError(error);

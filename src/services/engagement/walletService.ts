@@ -250,7 +250,7 @@ export const walletService = {
       .eq("business_id", businessId)
       .maybeSingle();
     if (!data) return null;
-    return { target: data.target, reward: data.reward, isActive: data.is_active };
+    return { target: data.target, reward: data.reward, isActive: data.is_active ?? false };
   },
 
   async getLoyaltyCardHolders(businessId: string): Promise<{ name: string; avatar: string; stamps: number }[]> {

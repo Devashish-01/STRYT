@@ -1,4 +1,5 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import type { TablesUpdate } from "@/lib/dbTypes";
 import { aliasName } from "@/lib/publicName";
 import type { AppointmentRecord, AppointmentStatus, PaymentMethod, CancelledBy } from "@/types";
 
@@ -305,7 +306,7 @@ export const appointmentService = {
 
     try {
       const sb = getSupabase();
-      const { data, error } = await sb.from("appointments").update(patch).eq("id", id).select().maybeSingle();
+      const { data, error } = await sb.from("appointments").update(patch as TablesUpdate<"appointments">).eq("id", id).select().maybeSingle();
       if (error) throw error;
       if (data) {
         const record = rowToRecord(data);
@@ -354,7 +355,7 @@ export const appointmentService = {
       const patch: Record<string, unknown> = { status };
       if (responseNote !== undefined) patch.response_note = responseNote;
       if (status === "CANCELLED" && cancelledBy) patch.cancelled_by = cancelledBy;
-      const { data, error } = await sb.from("appointments").update(patch).eq("id", id).select().maybeSingle();
+      const { data, error } = await sb.from("appointments").update(patch as TablesUpdate<"appointments">).eq("id", id).select().maybeSingle();
       if (error) throw error;
       if (data) {
         const record = rowToRecord(data);

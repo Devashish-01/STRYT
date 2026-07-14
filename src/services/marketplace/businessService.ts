@@ -1,4 +1,5 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import type { TablesInsert, TablesUpdate } from "@/lib/dbTypes";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Business, CatalogItem, PortfolioItem, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken } from "@/types";
@@ -19,7 +20,7 @@ import { uploadService } from "@/services/core/uploadService";
 // a false "success" toast over a database that didn't actually change.
 async function updateQueueToken(tokenId: string, patch: Record<string, unknown>): Promise<void> {
   const sb = getSupabase();
-  const { data, error } = await sb.from("queue_tokens").update(patch).eq("id", tokenId).select("id");
+  const { data, error } = await sb.from("queue_tokens").update(patch as TablesUpdate<"queue_tokens">).eq("id", tokenId).select("id");
   throwIfError(error);
   if (!data || data.length === 0) {
     throw new Error("Couldn't update — you may not have permission, or it was already changed.");
@@ -288,7 +289,7 @@ export const businessService = {
     const row: Record<string, unknown> = { business_id: businessId, updated_at: new Date().toISOString(), last_activity_at: new Date().toISOString() };
     if (patch.isOpen !== undefined) row.is_open = patch.isOpen;
     if (patch.avgServiceMin !== undefined) row.avg_service_min = patch.avgServiceMin;
-    const { error } = await sb.from("queue_settings").upsert(row, { onConflict: "business_id" });
+    const { error } = await sb.from("queue_settings").upsert(row as TablesInsert<"queue_settings">, { onConflict: "business_id" });
     throwIfError(error);
     return { ok: true };
   },
@@ -573,7 +574,7 @@ export const businessService = {
     const gallery = (row?.gallery ?? []).filter((u: string) => u !== url);
     const patch: Record<string, unknown> = { gallery };
     if (row?.cover_image === url) patch.cover_image = gallery[0] ?? null;
-    const { error } = await sb.from("businesses").update(patch).eq("id", id);
+    const { error } = await sb.from("businesses").update(patch as TablesUpdate<"businesses">).eq("id", id);
     throwIfError(error);
     return { ok: true };
   },

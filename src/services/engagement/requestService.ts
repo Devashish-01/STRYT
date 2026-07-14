@@ -1,4 +1,5 @@
 import type { Page } from "@/lib/apiClient";
+import type { TablesUpdate } from "@/lib/dbTypes";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { cursorToRange, throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
@@ -476,7 +477,7 @@ export const requestService = {
     } else {
       patch.payment_status = "PENDING_CONFIRM";
     }
-    const { error } = await sb.from("agreements").update(patch).eq("id", id);
+    const { error } = await sb.from("agreements").update(patch as TablesUpdate<"agreements">).eq("id", id);
     throwIfError(error);
     return { ok: true };
   },
@@ -567,7 +568,7 @@ export const requestService = {
     const patch: Record<string, unknown> = { live_status: status };
     if (lat !== undefined) patch.provider_lat = lat;
     if (lng !== undefined) patch.provider_lng = lng;
-    const { error } = await sb.from("agreements").update(patch).eq("id", agreementId);
+    const { error } = await sb.from("agreements").update(patch as TablesUpdate<"agreements">).eq("id", agreementId);
     throwIfError(error);
   },
 

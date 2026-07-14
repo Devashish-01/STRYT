@@ -82,7 +82,7 @@ export const businessAccessService = {
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw new Error("Login failed.");
     return {
-      status: row.status,
+      status: row.status as AccessStatus,
       businessId: row.business_id,
       sessionId: row.session_id,
       businessName: row.business_name ?? "Business",
@@ -177,7 +177,9 @@ export const businessAccessService = {
   /** Does the current user still have access (owner OR active session) to this business? */
   async checkAccess(businessId: string): Promise<boolean> {
     const sb = getSupabase();
-    const { data, error } = await sb.rpc("my_business_access_status", { p_business_id: businessId });
+    // Cast: my_business_access_status isn't in the generated schema types (a
+    // typegen gap for this SECURITY DEFINER helper), so the name is asserted.
+    const { data, error } = await (sb.rpc as any)("my_business_access_status", { p_business_id: businessId });
     if (error) return false; // fail closed — treat an unreachable check as no access
     return !!data;
   },

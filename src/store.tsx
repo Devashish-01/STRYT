@@ -240,7 +240,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           id: l.id,
           name: l.name,
           emoji: l.emoji,
-          shared: l.shared,
+          shared: l.shared ?? false,
           items: liRes.data
             .filter((it) => it.list_id === l.id)
             .map((it) => ({ type: it.target_type as BookmarkTarget, id: it.target_id })),

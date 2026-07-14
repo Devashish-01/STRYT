@@ -20,6 +20,7 @@ function providerDailyBuckets(isoDates: string[]): number[] {
 }
 
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import type { TablesInsert, TablesUpdate } from "@/lib/dbTypes";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Provider, PortfolioItem, Review, CatalogItem } from "@/types";
@@ -189,7 +190,7 @@ export const providerService = {
     if (row["lng"] === undefined || row["lng"] === null) {
       row["lng"] = (coords as any)?.lng ?? null;
     }
-    const { data: created, error } = await sb.from("providers").insert(row).select().maybeSingle();
+    const { data: created, error } = await sb.from("providers").insert(row as TablesInsert<"providers">).select().maybeSingle();
     throwIfError(error);
     return toCamel<Provider>(created);
   },
@@ -270,7 +271,7 @@ export const providerService = {
 
     const { error } = await sb
       .from("providers")
-      .update(patch)
+      .update(patch as TablesUpdate<"providers">)
       .eq("id", id);
     throwIfError(error);
     return { ok: true, availableNow, hours };

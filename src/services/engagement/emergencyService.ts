@@ -104,7 +104,7 @@ export const emergencyService = {
     const sb = getSupabase();
     const { error } = await sb.rpc("update_live_share", {
       p_lat: lat, p_lng: lng,
-      p_accuracy: accuracy ?? null, p_heading: heading ?? null,
+      p_accuracy: accuracy, p_heading: heading,
     });
     throwIfError(error);
   },

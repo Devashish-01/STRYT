@@ -14,13 +14,22 @@ Signals gathered across 229 source files, the live DB advisors, and the build.
 ### C-1 · No generated Supabase types → **159 `as any` casts**
 Queries return `any`, so the compiler can't catch a renamed column or a wrong field. It's the
 single biggest source of latent bugs and the reason so much code casts.
-**Fix:** generate types (`supabase gen types typescript` / the MCP `generate_typescript_types`)
-into `src/types/db.ts`, type the client `createClient<Database>(…)`, and delete casts
-incrementally. Highest long-term ROI of anything in this doc.
-**Status — deliberately NOT one-shotted:** flipping the global client to typed cascades
-hundreds of latent type errors (strict `.insert()` shape checks against the real schema) and
-would break the build. Correct execution is a dedicated pass: generate types → adopt file-by-
-file → verify build at each step. Not safe as a single "no mistakes" change.
+### C-1 · Typed Supabase client — ✅ **DONE (2026-07-14)**
+The feared "hundreds of errors" was actually **36** — the runtime queries were already correct,
+so typing them surfaced a small, concentrated set. Done properly:
+- **`src/types/database.types.ts`** — generated from the live schema (regenerate after any
+  migration; command in the file header). **`src/lib/dbTypes.ts`** — `Tables<>` / `TablesInsert<>`
+  / `TablesUpdate<>` helpers.
+- **`getSupabase()` now returns `SupabaseClient<Database>`** — every `.from()/.select()/.insert()/
+  .update()/.rpc()` in the app is type-checked against the real schema. New column typos/renames
+  now fail at **compile time**, not silently at runtime.
+- Fixed all 36 cascaded errors, and several were **real latent bugs the typing caught** — nullable
+  DB columns (`shared`, `is_active`, owner ids, etc.) the code had assumed non-null, now handled
+  with `?? false`/`?? undefined`. Dynamic write-patches are cast to their typed `TablesUpdate<…>`
+  shape; a couple of enum-ish `text` columns to their unions; one typegen-gap RPC left a scoped,
+  commented escape hatch.
+- tsc + build clean. This replaces the broad `as any` habit going forward (the file-wide cast
+  cleanup can now proceed safely, one service at a time, with the compiler as a guardrail).
 
 ### C-2 · `key={index}` audit — ✅ **DONE (2026-07-14)**
 Audited all 44 sites. **41 were already correct** — skeleton placeholders, decorative SVG,

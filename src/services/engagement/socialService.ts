@@ -1,4 +1,5 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import type { TablesInsert } from "@/lib/dbTypes";
 import { toCamel } from "@/lib/caseMap";
 import { haversineKm } from "@/lib/geocode";
 import { evaluateProviderAvailability } from "@/utils/availability";
@@ -183,7 +184,7 @@ export const socialService = {
     };
     if (params.lat != null) row.lat = params.lat;
     if (params.lng != null) row.lng = params.lng;
-    const { error } = await sb.from("stories").insert(row);
+    const { error } = await sb.from("stories").insert(row as TablesInsert<"stories">);
     if (error) throw error;
   },
 

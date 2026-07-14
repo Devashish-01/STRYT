@@ -83,7 +83,7 @@ export const catalogService = {
       parent_id: parentId,
       name,
       slug,
-      kind,
+      kind: kind as "BUSINESS" | "SERVICE" | "BOTH",
       icon: "⚙️",
       color: "var(--ink-400)",
     }).select().maybeSingle();

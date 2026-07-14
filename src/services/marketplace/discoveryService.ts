@@ -71,7 +71,7 @@ export const discoveryService = {
         in_lng: userLng,
         in_lat: userLat,
         in_radius_km: viewerRadius ?? GLOBAL_RADIUS_KM,
-        in_category: p.category ?? null,
+        in_category: p.category ?? undefined,
         in_limit: limit,
         in_offset: from,
       });
@@ -110,7 +110,7 @@ export const discoveryService = {
         in_lng: userLng,
         in_lat: userLat,
         in_radius_km: viewerRadius ?? GLOBAL_RADIUS_KM,
-        in_category: p.category ?? null,
+        in_category: p.category ?? undefined,
         in_limit: limit,
         in_offset: from,
       });

@@ -281,7 +281,7 @@ export const adminService = {
         .select("owner_user_id, lat, lng, broadcast_radius, category_name, name")
         .eq("id", id)
         .maybeSingle();
-      ownerId = data?.owner_user_id;
+      ownerId = data?.owner_user_id ?? undefined;
       entityLat = data?.lat ?? null;
       entityLng = data?.lng ?? null;
       broadcastKm = data?.broadcast_radius ?? 5;
@@ -294,7 +294,7 @@ export const adminService = {
         .select("user_id, lat, lng, service_radius_km, category_name, display_name")
         .eq("id", id)
         .maybeSingle();
-      ownerId = data?.user_id;
+      ownerId = data?.user_id ?? undefined;
       entityLat = data?.lat ?? null;
       entityLng = data?.lng ?? null;
       broadcastKm = data?.service_radius_km ?? 5;
@@ -306,7 +306,9 @@ export const adminService = {
       throw new Error(`Unknown type ${type}`);
     }
 
-    const { error } = await sb.from(table).update({ status: "ACTIVE" }).eq("id", id);
+    // `table` is a runtime-chosen table name; cast so the typed client accepts
+    // the dynamic .from() (the update shape is valid on every branch's table).
+    const { error } = await sb.from(table as "businesses").update({ status: "ACTIVE" }).eq("id", id);
     throwIfError(error);
 
     // Notify the owner that their listing is live.
@@ -360,18 +362,18 @@ export const adminService = {
     if (type === "business") {
       table = "businesses";
       const { data } = await sb.from("businesses").select("owner_user_id").eq("id", id).maybeSingle();
-      ownerId = data?.owner_user_id;
+      ownerId = data?.owner_user_id ?? undefined;
     } else if (type === "provider") {
       table = "providers";
       const { data } = await sb.from("providers").select("user_id").eq("id", id).maybeSingle();
-      ownerId = data?.user_id;
+      ownerId = data?.user_id ?? undefined;
     } else if (type === "category") {
       table = "categories";
     } else {
       throw new Error(`Unknown type ${type}`);
     }
 
-    const { error } = await sb.from(table).update({ status: "REJECTED", rejection_reason: reason }).eq("id", id);
+    const { error } = await sb.from(table as "businesses").update({ status: "REJECTED", rejection_reason: reason }).eq("id", id);
     throwIfError(error);
 
     if (ownerId) {
