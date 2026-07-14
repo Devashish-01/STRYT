@@ -18,6 +18,7 @@ import { userService, uploadService } from "@/services";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import RadiusSelector from "@/components/RadiusSelector";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
+import { useI18n, type Lang } from "@/lib/i18n";
 
 // Types for onboarding steps
 
@@ -35,6 +36,7 @@ const LANGUAGES = [
 export default function UserOnboard() {
   const nav = useNavigate();
   const { user, refreshUser, setArea, showToast, signOut } = useApp();
+  const { t, setLang } = useI18n();
 
   // 1. Necessary / Required Setup Fields — never prefill the seed placeholder
   // or a raw phone number into the name field.
@@ -90,7 +92,7 @@ export default function UserOnboard() {
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      showToast("File too large — please pick a photo under 5 MB");
+      showToast(t("photo_too_large"));
       return;
     }
 
@@ -100,7 +102,7 @@ export default function UserOnboard() {
       setAvatar(url);
       await userService.update({ avatar: url });
       await refreshUser();
-      showToast("Profile picture uploaded!");
+      showToast(t("upload_success"));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Upload failed";
       showToast(msg);
@@ -128,7 +130,7 @@ export default function UserOnboard() {
     setAreaInput(p.area);
     setLocQuery("");
     setLocResults([]);
-    showToast(`Picked location: ${p.area}`);
+    showToast(t("picked_location_prefix") + p.area);
   }
 
   async function getGPSLocation() {
@@ -141,16 +143,16 @@ export default function UserOnboard() {
         try {
           const areaName = await reverseGeocode(latitude, longitude);
           if (areaName) setAreaInput(areaName);
-          showToast("Location updated with GPS coords ✓");
+          showToast(t("gps_updated"));
         } catch {
-          showToast("GPS coords set. Reverse geocoding failed.");
+          showToast(t("gps_failed"));
         } finally {
           setLocating(false);
         }
       },
       () => {
         setLocating(false);
-        showToast("GPS access denied");
+        showToast(t("gps_denied"));
       },
       { enableHighAccuracy: false, timeout: 8000 }
     );
@@ -160,7 +162,7 @@ export default function UserOnboard() {
     const trimmedName = name.trim();
 
     if (!trimmedName || trimmedName === "New user") {
-      showToast("Please enter your name");
+      showToast(t("enter_name_warning"));
       return;
     }
 
@@ -196,7 +198,7 @@ export default function UserOnboard() {
       localStorage.setItem("settings_radius", String(radius));
       localStorage.setItem("locationPromptShown", "true");
       await refreshUser();
-      showToast("Account setup complete!");
+      showToast(t("account_setup_complete"));
       nav("/home");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to update profile";
@@ -248,7 +250,6 @@ export default function UserOnboard() {
           paddingBottom: 48,
           alignItems: "center",
           zIndex: 10,
-          position: "relative",
         }}
       >
         {/* Skip Setup Header Bar */}
@@ -270,16 +271,16 @@ export default function UserOnboard() {
               transition: "all 0.2s"
             }}
           >
-            Skip for now
+            {t("skip_for_now")}
           </button>
         </div>
 
         <div style={{ textAlign: "center", marginTop: 16, marginBottom: 20, width: "100%" }}>
           <h1 className="h1" style={{ letterSpacing: -0.5, color: "var(--ink-900)" }}>
-            Welcome to STRYT
+            {t("welcome_to_stryt")}
           </h1>
           <p style={{ marginTop: 6, fontSize: 13.5, color: "var(--ink-600)" }}>
-            Let's customize your profile and neighbor experience.
+            {t("customize_profile_desc")}
           </p>
         </div>
 
@@ -333,7 +334,7 @@ export default function UserOnboard() {
 
           {/* Live Name */}
           <div style={{ fontWeight: 800, fontSize: 18, color: "var(--ink-900)", wordBreak: "break-word", maxWidth: "100%" }}>
-            {name || "Your Name"}
+            {name || t("full_name")}
           </div>
 
           {/* Location / Area Info */}
@@ -356,14 +357,14 @@ export default function UserOnboard() {
         >
           <div className="row gap-8" style={{ marginBottom: 18, alignItems: "center" }}>
             <span style={{ fontSize: 11, fontWeight: 900, background: "var(--brand-600)", color: "#fff", padding: "4px 10px", borderRadius: 8, letterSpacing: 0.5 }}>
-              NECESSARY SETUP *
+              {t("necessary_setup")}
             </span>
           </div>
 
           {/* Name Field */}
           <div className="field" style={{ marginBottom: 20 }}>
             <label style={{ display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-              Full Name *
+              {t("full_name")} *
             </label>
             <input
               type="text"
@@ -378,7 +379,7 @@ export default function UserOnboard() {
                 color: "var(--ink-900)",
                 outline: "none",
               }}
-              placeholder="e.g. Rahul Sharma"
+              placeholder={t("full_name_placeholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={saving}
@@ -391,7 +392,7 @@ export default function UserOnboard() {
           <div className="field">
             <div className="row space-between" style={{ marginBottom: 6, alignItems: "center" }}>
               <label style={{ fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-                Neighborhood / Area Location <span style={{ color: "var(--ink-400)", fontWeight: 600 }}>(optional)</span>
+                {t("neighborhood_location")} <span style={{ color: "var(--ink-400)", fontWeight: 600 }}>{t("optional_bracket")}</span>
               </label>
               <button
                 type="button"
@@ -400,7 +401,7 @@ export default function UserOnboard() {
                 className="row center gap-4"
                 style={{ background: "none", border: "none", color: "var(--brand-600)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
               >
-                {locating ? <Loader className="spin" size={12} /> : <Navigation size={12} />} GPS Auto
+                {locating ? <Loader className="spin" size={12} /> : <Navigation size={12} />} {t("gps_auto")}
               </button>
             </div>
 
@@ -417,7 +418,7 @@ export default function UserOnboard() {
                   borderRadius: 14,
                   color: "var(--ink-900)",
                 }}
-                placeholder="e.g. Amanora Park Town, Pune"
+                placeholder={t("neighborhood_placeholder")}
                 value={locQuery || areaInput}
                 onChange={(e) => {
                   setAreaInput(e.target.value);
@@ -488,7 +489,7 @@ export default function UserOnboard() {
         >
           <div className="row gap-8" style={{ marginBottom: 20, alignItems: "center" }}>
             <span style={{ fontSize: 11, fontWeight: 800, background: "var(--ink-100)", color: "var(--ink-600)", padding: "4px 10px", borderRadius: 8, letterSpacing: 0.5 }}>
-              OPTIONAL SETTINGS & PREFERENCES
+              {t("optional_settings_title")}
             </span>
           </div>
 
@@ -560,11 +561,11 @@ export default function UserOnboard() {
                 style={{ display: "none" }}
               />
             </div>
-            <span style={{ fontSize: 12, color: "var(--ink-500)" }}>Profile Photo (Optional)</span>
+            <span style={{ fontSize: 12, color: "var(--ink-500)" }}>{t("profile_photo")} {t("optional_bracket")}</span>
 
             {/* Emoji Quick Picker */}
             <div className="col gap-6" style={{ width: "100%", marginTop: 4 }}>
-              <span className="tiny semi" style={{ color: "var(--ink-500)", textAlign: "center" }}>Or pick an avatar emoji:</span>
+              <span className="tiny semi" style={{ color: "var(--ink-500)", textAlign: "center" }}>{t("or_pick_emoji")}</span>
               <div className="row gap-6" style={{ flexWrap: "wrap", justifyContent: "center" }}>
                 {EMOJI_AVATARS.map((emoji) => (
                   <button
@@ -591,7 +592,7 @@ export default function UserOnboard() {
           {/* Optional Mobile Phone */}
           <div className="field" style={{ marginBottom: 20 }}>
             <label style={{ display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-              Mobile Phone
+              {t("mobile_phone")}
             </label>
             <input
               type="tel"
@@ -605,7 +606,7 @@ export default function UserOnboard() {
                 borderRadius: 14,
                 color: "var(--ink-900)",
               }}
-              placeholder="e.g. 9876543210"
+              placeholder={t("mobile_phone_placeholder")}
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
               disabled={saving}
@@ -617,7 +618,7 @@ export default function UserOnboard() {
           <div className="row gap-12" style={{ marginBottom: 20 }}>
             <div className="field grow">
               <label style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-                <Globe size={13} color="var(--brand-600)" /> Language
+                <Globe size={13} color="var(--brand-600)" /> {t("language")}
               </label>
               <select
                 className="input"
@@ -631,7 +632,11 @@ export default function UserOnboard() {
                   color: "var(--ink-900)",
                 }}
                 value={language}
-                onChange={(e) => setLanguage(e.target.value)}
+                onChange={(e) => {
+                  const newLang = e.target.value as Lang;
+                  setLanguage(newLang);
+                  setLang(newLang);
+                }}
               >
                 {LANGUAGES.map((l) => (
                   <option key={l.code} value={l.code}>{l.label}</option>
@@ -645,8 +650,8 @@ export default function UserOnboard() {
               value={radius}
               onChange={setRadius}
               accentColor="var(--brand-600)"
-              label="Alert Radius"
-              description="Receive notifications and updates within this radius."
+              label={t("alert_radius")}
+              description={t("alert_radius_desc")}
             />
           </div>
 
@@ -661,11 +666,11 @@ export default function UserOnboard() {
         >
           {saving ? (
             <>
-              <Loader className="spin" size={18} /> Saving Account Setup...
+              <Loader className="spin" size={18} /> {t("saving_setup")}
             </>
           ) : (
             <>
-              Save & Get Started <ArrowRight size={18} />
+              {t("save_get_started")} <ArrowRight size={18} />
             </>
           )}
         </button>
@@ -688,7 +693,7 @@ export default function UserOnboard() {
             zIndex: 10
           }}
         >
-          <LogOut size={16} /> Sign out
+          <LogOut size={16} /> {t("sign_out")}
         </button>
 
       </div>

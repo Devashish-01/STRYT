@@ -7,12 +7,14 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 
 type Tab = "nearby" | "mine";
 
 export default function Requests() {
   const nav = useNavigate();
   const { area, user, chatUnread } = useApp();
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("nearby");
   const [cat, setCat] = useState<string | null>(null);
   const [special, setSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
@@ -36,8 +38,8 @@ export default function Requests() {
       <header className="appbar" style={{ flexDirection: "column", alignItems: "stretch", gap: 12, paddingBottom: 0 }}>
         <div className="row between">
           <div className="col" style={{ gap: 0 }}>
-            <span className="bold" style={{ fontSize: 20 }}>Request Feed</span>
-            <span className="tiny muted">Open needs near {area}</span>
+            <span className="bold" style={{ fontSize: 20 }}>{t("request_feed")}</span>
+            <span className="tiny muted">{t("open_needs_near")} {area}</span>
           </div>
           <div className="row gap-8" style={{ alignItems: "center" }}>
             <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
@@ -51,23 +53,23 @@ export default function Requests() {
               )}
             </button>
             <button className="btn btn-primary btn-sm" onClick={() => nav("/ask")}>
-              <Plus size={16} /> Ask
+              <Plus size={16} /> {t("ask")}
             </button>
           </div>
         </div>
 
         <div className="row" style={{ borderBottom: "1px solid var(--line)" }}>
-          {([["nearby", "Nearby"], ["mine", "My requests"]] as [Tab, string][]).map(([t, label]) => (
+          {([["nearby", t("nearby_label")], ["mine", t("my_requests_label")]] as [Tab, string][]).map(([tTab, label]) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={tTab}
+              onClick={() => setTab(tTab)}
               className="semi"
               style={{
                 flex: 1,
                 padding: "12px 0",
                 fontSize: 14,
-                color: tab === t ? "var(--brand-700)" : "var(--ink-500)",
-                borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
+                color: tab === tTab ? "var(--brand-700)" : "var(--ink-500)",
+                borderBottom: tab === tTab ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
               }}
             >
               {label}
@@ -80,12 +82,12 @@ export default function Requests() {
         {tab === "nearby" && (
           <>
             <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 0 }}>
-              {([["all", "All"], ["urgent", "🔥 Urgent"], ["group", "👥 Group buys"], ["recurring", "🔁 Recurring"]] as const).map(([s, label]) => (
+              {([["all", t("all")], ["urgent", t("urgent_label")], ["group", t("group_buys")], ["recurring", t("recurring_label")]] as const).map(([s, label]) => (
                 <button key={s} className={`chip ${special === s ? "active" : ""}`} onClick={() => setSpecial(s)}>{label}</button>
               ))}
             </div>
             <div className="hscroll" style={{ paddingTop: 8 }}>
-              <button className={`chip ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>All categories</button>
+              <button className={`chip ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>{t("all_categories")}</button>
               {cats.map((c) => (
                 <button key={c} className={`chip ${cat === c ? "active" : ""}`} onClick={() => setCat(cat === c ? null : c)}>
                   {c}
@@ -103,11 +105,11 @@ export default function Requests() {
           ) : list.length === 0 ? (
             <EmptyState
               emoji="📭"
-              title={tab === "mine" ? "No requests yet" : "All quiet nearby"}
-              text={tab === "mine" ? "Post your first request and watch the offers roll in." : "No open requests in this filter. Check back soon."}
+              title={tab === "mine" ? t("no_requests_yet") : t("all_quiet_nearby")}
+              text={tab === "mine" ? t("post_first_request_desc") : t("no_open_requests_desc")}
               action={
                 <button className="btn btn-primary btn-sm" onClick={() => nav("/ask")}>
-                  <FileText size={16} /> Post a request
+                  <FileText size={16} /> {t("post_request")}
                 </button>
               }
             />

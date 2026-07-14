@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /$
+Allow: /favicon.svg
+Allow: /icon-192.png
+Allow: /icon-512.png
+Disallow: /auth/
+Disallow: /admin/
+Disallow: /track/
+Disallow: /home
+Disallow: /explore
+Disallow: /requests
+Disallow: /profile
+Disallow: /search
+Disallow: /map
+Disallow: /categories
+Disallow: /notifications
+Disallow: /bookmarks
+Disallow: /wallet
+Disallow: /settings
+Disallow: /manage
+
+Sitemap: https://stryt.in/sitemap.xml

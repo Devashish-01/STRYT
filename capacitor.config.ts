@@ -20,7 +20,7 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   android: {
-    backgroundColor: '#C04CFA',
+    backgroundColor: '#8b47f5',
     // Smoother scrolling / fewer paint glitches in the web view.
     webContentsDebuggingEnabled: false,
   },
@@ -30,7 +30,7 @@ const config: CapacitorConfig = {
       // native splash linger or flash white underneath.
       launchShowDuration: 0,
       launchAutoHide: false,
-      backgroundColor: '#C04CFA',
+      backgroundColor: '#8b47f5',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
     },

@@ -17,13 +17,13 @@
             android:fillColor="#FFFFFF" />
         <path
             android:pathData="M32 39 C25 34 39 24 32 19"
-            android:strokeColor="#3D0754"
+            android:strokeColor="#7c2fe8"
             android:strokeWidth="5"
             android:strokeLineCap="round"
             android:strokeLineJoin="round" />
         <path
             android:pathData="M32 39 C25 34 39 24 32 19"
-            android:strokeColor="#FFB020"
+            android:strokeColor="#ff8400"
             android:strokeWidth="1.7"
             android:strokeLineCap="round" />
 

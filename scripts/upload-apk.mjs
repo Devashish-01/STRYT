@@ -26,8 +26,9 @@ async function run() {
     return;
   }
 
-  // Find APK file
   const pathsToTry = [
+    path.join(__dirname, "..", "release-artifacts", "stryt.apk"),
+    path.join(__dirname, "..", "android", "app", "build", "outputs", "apk", "release", "app-release.apk"),
     path.join(__dirname, "..", "android", "app", "build", "outputs", "apk", "debug", "app-debug.apk"),
     path.join(__dirname, "..", "public", "stryt.apk")
   ];

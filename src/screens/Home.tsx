@@ -17,6 +17,7 @@ import BrandLockup from "@/components/BrandLockup";
 import MyPeopleToggle from "@/features/live-share/MyPeopleToggle";
 import { SafeImg, PullToRefreshIndicator } from "@/components/common";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
+import { useI18n } from "@/lib/i18n";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
 // fetched when the user actually opens the scanner, not on every Home visit.
@@ -88,8 +89,9 @@ function getWeatherText(code: number): string {
 
 export default function Home() {
   const nav = useNavigate();
+  const { t } = useI18n();
   const { area: rawArea, chatUnread, user } = useApp();
-  const area = rawArea || "your area";
+  const area = rawArea || t("neighborhood_placeholder");
 
   const theme = useAmbientTheme(user.lat, user.lng);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -150,13 +152,13 @@ export default function Home() {
       key: `q:${q.tokenId}`,
       accent: "var(--blue-500)",
       icon: "🎟️",
-      kicker: "Live queue",
+      kicker: t("live_queue"),
       live: true,
       title: q.businessName,
-      stat: q.status === "CALLED" ? "It's your turn" : `You're #${q.position}`,
+      stat: q.status === "CALLED" ? t("its_your_turn") : `${t("you_are_number")}${q.position}`,
       sub: q.status === "CALLED"
-        ? "Head in now 🔔"
-        : q.estWaitMin ? `~${q.estWaitMin} min wait` : q.peopleAhead > 0 ? `${q.peopleAhead} ahead` : "No one ahead",
+        ? t("head_in_now")
+        : q.estWaitMin ? `~${q.estWaitMin}${t("wait_suffix")}` : q.peopleAhead > 0 ? `${q.peopleAhead}${t("ahead_suffix")}` : t("no_one_ahead"),
       onClick: () => nav("/queues"),
     });
   }
@@ -165,10 +167,10 @@ export default function Home() {
       key: `a:${nextAppointment.id}`,
       accent: "var(--brand-600)",
       icon: "📅",
-      kicker: "Next visit",
+      kicker: t("next_visit"),
       title: nextAppointment.targetName,
       stat: `${apptDayLabel(nextAppointment.scheduledForISO)}, ${nextAppointment.timeLabel}`,
-      sub: nextAppointment.status === "PENDING" ? "Awaiting confirmation" : "Confirmed ✓",
+      sub: nextAppointment.status === "PENDING" ? t("awaiting_confirmation") : t("confirmed_check"),
       onClick: () => nav("/appointments"),
     });
   }
@@ -178,10 +180,10 @@ export default function Home() {
       key: `d:${deal.id}`,
       accent: "var(--green-500)",
       icon: "🤝",
-      kicker: activeAgreements.length > 1 ? `${activeAgreements.length} active deals` : "Active deal",
-      title: deal.requestTitle || "Your deal",
-      stat: "In progress",
-      sub: "Tap to track →",
+      kicker: activeAgreements.length > 1 ? `${activeAgreements.length} ${t("active_deals")}` : t("active_deal"),
+      title: deal.requestTitle || t("your_deal"),
+      stat: t("in_progress"),
+      sub: t("tap_to_track"),
       onClick: () => nav("/agreements"),
     });
   }
@@ -196,10 +198,10 @@ export default function Home() {
   const firstName = greetName === "Neighbor" ? "" : greetName;
 
   const tiles = [
-    { emoji: "🧭", label: "Explore", sub: "Shops & people", tint: "var(--brand-100)", color: "var(--blue-500)", onClick: () => nav("/explore") },
-    { emoji: "🏘️", label: "Community", sub: "Street feed", tint: "var(--ink-50)", color: "var(--pink-500)", onClick: () => nav("/community-hub"), badge: chatUnread || undefined },
-    { emoji: "🤝", label: "My deals", sub: activeAgreements.length > 0 ? `${activeAgreements.length} active` : "Agreements", tint: "var(--green-100)", color: "var(--green-500)", onClick: () => nav("/agreements"), badge: activeAgreements.length || undefined },
-    { emoji: "📅", label: "Appointments", sub: upcomingCount > 0 ? `${upcomingCount} upcoming` : "Your bookings", tint: "var(--brand-50)", color: "var(--brand-600)", onClick: () => nav("/appointments"), badge: upcomingCount || undefined },
+    { emoji: "🧭", label: t("explore"), sub: t("shops_people"), tint: "var(--brand-100)", color: "var(--blue-500)", onClick: () => nav("/explore") },
+    { emoji: "🏘️", label: t("community"), sub: t("street_feed"), tint: "var(--ink-50)", color: "var(--pink-500)", onClick: () => nav("/community-hub"), badge: chatUnread || undefined },
+    { emoji: "🤝", label: t("my_deals"), sub: activeAgreements.length > 0 ? `${activeAgreements.length}${t("active_suffix")}` : t("requests"), tint: "var(--green-100)", color: "var(--green-500)", onClick: () => nav("/agreements"), badge: activeAgreements.length || undefined },
+    { emoji: "📅", label: t("appointments"), sub: upcomingCount > 0 ? `${upcomingCount}${t("upcoming_suffix")}` : t("your_bookings"), tint: "var(--brand-50)", color: "var(--brand-600)", onClick: () => nav("/appointments"), badge: upcomingCount || undefined },
   ];
 
   return (
@@ -278,7 +280,7 @@ export default function Home() {
               onClick={() => nav("/search")}
             >
               <Search size={18} />
-              <span style={{ fontSize: 14 }}>Search "biryani", "plumber", "salon"…</span>
+              <span style={{ fontSize: 14 }}>{t("search_placeholder")}</span>
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); setScanner(true); }}
@@ -328,10 +330,10 @@ export default function Home() {
           >
             <span style={{ fontSize: 16 }}>📍</span>
             <span className="small grow" style={{ color: "var(--amber-700)", fontWeight: 700 }}>
-              {pendingLocReqs.length} neighbor{pendingLocReqs.length > 1 ? "s want" : " wants"} to see your location
+              {pendingLocReqs.length === 1 ? `1 ${t("neighbors_want_location")}` : `${pendingLocReqs.length} ${t("neighbors_want_location_plural")}`}
             </span>
             <span className="tiny semi" style={{ color: "var(--amber-700)", background: "rgba(255,255,255,0.5)", padding: "3px 8px", borderRadius: 12 }}>
-              Manage
+              {t("manage")}
             </span>
           </div>
         )}
@@ -345,8 +347,8 @@ export default function Home() {
           {todayItems.length > 0 && (
             <div style={{ paddingTop: 14 }}>
               <div className="row between page-pad" style={{ paddingBottom: 0, paddingTop: 0 }}>
-                <span className="semi" style={{ fontSize: 15 }}>Your day</span>
-                {activeQueues.length > 0 && <button className="see-all" onClick={() => nav("/queues")}>My queues</button>}
+                <span className="semi" style={{ fontSize: 15 }}>{t("your_day")}</span>
+                {activeQueues.length > 0 && <button className="see-all" onClick={() => nav("/queues")}>{t("my_queues")}</button>}
               </div>
               <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
                 {todayItems.map((t, idx) => (
@@ -376,16 +378,16 @@ export default function Home() {
           {categoriesError && (
             <div className="page-pad" style={{ paddingTop: 14 }}>
               <button className="row between card" style={{ padding: "12px 14px", width: "100%", textAlign: "left" }} onClick={() => refetchCategories()}>
-                <span className="tiny muted">Couldn't load categories</span>
-                <span className="tiny semi" style={{ color: "var(--brand-700)" }}>Retry</span>
+                <span className="tiny muted">{t("could_not_load_cats")}</span>
+                <span className="tiny semi" style={{ color: "var(--brand-700)" }}>{t("retry")}</span>
               </button>
             </div>
           )}
           {orderedCategories.length > 0 && (
             <div style={{ paddingTop: 14 }}>
               <div className="row between page-pad" style={{ paddingBottom: 0, paddingTop: 0 }}>
-                <span className="semi" style={{ fontSize: 15 }}>Browse</span>
-                <button className="see-all" onClick={() => nav("/categories")}>All categories</button>
+                <span className="semi" style={{ fontSize: 15 }}>{t("browse")}</span>
+                <button className="see-all" onClick={() => nav("/categories")}>{t("all_categories")}</button>
               </div>
               <div className="hscroll" style={{ paddingTop: 8 }}>
                 {orderedCategories.map((c, idx) => (
@@ -417,8 +419,8 @@ export default function Home() {
             <button className="launch-hero fade-up" onClick={() => nav("/ask")} style={{ width: "100%", border: "none", cursor: "pointer" }}>
               <span className="launch-hero-icon">📋</span>
               <div className="grow" style={{ textAlign: "left" }}>
-                <div style={{ fontSize: 17, fontWeight: 800 }}>Need something?</div>
-                <div style={{ fontSize: 13, opacity: 0.92, marginTop: 2 }}>Ask your street — get offers from nearby</div>
+                <div style={{ fontSize: 17, fontWeight: 800 }}>{t("need_something")}</div>
+                <div style={{ fontSize: 13, opacity: 0.92, marginTop: 2 }}>{t("ask_street_desc")}</div>
               </div>
               <ChevronRight size={22} style={{ opacity: 0.9, flexShrink: 0 }} />
             </button>
@@ -427,13 +429,13 @@ export default function Home() {
           {/* 2x2 Launch Grid */}
           <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
             <div className="launch-grid">
-              {tiles.map((t, idx) => (
-                <button key={t.label} className="launch-tile fade-up" onClick={t.onClick} style={{ border: "none", cursor: "pointer", animationDelay: `${idx * 35}ms` }}>
-                  {t.badge ? <span className="count-badge launch-tile-badge">{t.badge > 9 ? "9+" : t.badge}</span> : null}
-                  <span className="launch-tile-icon" style={{ background: t.tint, color: t.color }}>{t.emoji}</span>
+              {tiles.map((tTile, idx) => (
+                <button key={tTile.label} className="launch-tile fade-up" onClick={tTile.onClick} style={{ border: "none", cursor: "pointer", animationDelay: `${idx * 35}ms` }}>
+                  {tTile.badge ? <span className="count-badge launch-tile-badge">{tTile.badge > 9 ? "9+" : tTile.badge}</span> : null}
+                  <span className="launch-tile-icon" style={{ background: tTile.tint, color: tTile.color }}>{tTile.emoji}</span>
                   <div style={{ textAlign: "left" }}>
-                    <div className="launch-tile-label">{t.label}</div>
-                    <div className="launch-tile-sub">{t.sub}</div>
+                    <div className="launch-tile-label">{tTile.label}</div>
+                    <div className="launch-tile-sub">{tTile.sub}</div>
                   </div>
                 </button>
               ))}
@@ -444,8 +446,8 @@ export default function Home() {
           {(nearbyBiz.length > 0 || nearbyProv.length > 0) && (
             <div style={{ paddingTop: 16 }}>
               <div className="row between page-pad" style={{ paddingBottom: 0, paddingTop: 0 }}>
-                <span className="semi" style={{ fontSize: 15 }}>Nearby on your street</span>
-                <button className="see-all" onClick={() => nav("/explore")}>Explore all</button>
+                <span className="semi" style={{ fontSize: 15 }}>{t("nearby_on_street")}</span>
+                <button className="see-all" onClick={() => nav("/explore")}>{t("explore_all")}</button>
               </div>
               <div className="hscroll" style={{ paddingTop: 10 }}>
                 {nearbyBiz.slice(0, 6).map((b, idx) => <BusinessCardSmall key={b.id} b={b} style={{ animationDelay: `${idx * 35}ms` }} />)}
@@ -459,8 +461,8 @@ export default function Home() {
             <button className="activity-banner" style={{ width: "100%", border: "none", cursor: "pointer" }} onClick={() => nav("/leaderboard")}>
               <span style={{ fontSize: 22 }}>🏆</span>
               <div className="grow" style={{ textAlign: "left" }}>
-                <div className="semi small">Leaderboard</div>
-                <div className="tiny muted">Top contributors on your street →</div>
+                <div className="semi small">{t("leaderboard")}</div>
+                <div className="tiny muted">{t("top_contributors")}</div>
               </div>
               <ChevronRight size={18} color="var(--ink-400)" />
             </button>
@@ -471,13 +473,13 @@ export default function Home() {
             <div className="page-pad col gap-12" style={{ paddingTop: 20 }}>
               <div className="card col center" style={{ padding: 28, gap: 12, textAlign: "center", background: "linear-gradient(135deg, var(--brand-50), #fff)" }}>
                 <span style={{ fontSize: 52 }}>🏘️</span>
-                <div className="bold" style={{ fontSize: 18 }}>Your street is just getting started</div>
+                <div className="bold" style={{ fontSize: 18 }}>{t("street_getting_started")}</div>
                 <p className="small muted" style={{ maxWidth: 280, lineHeight: 1.5 }}>
-                  Be among the first to list a spot, offer a service, or post a request.
+                  {t("first_to_list_desc")}
                 </p>
                 <div className="row gap-10" style={{ marginTop: 4 }}>
-                  <button className="btn btn-primary btn-sm" onClick={() => nav("/onboard/business")}>List a spot</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => nav("/ask")}>Post a request</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => nav("/onboard/business")}>{t("list_spot")}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => nav("/ask")}>{t("post_request")}</button>
                 </div>
               </div>
             </div>
@@ -554,7 +556,7 @@ export default function Home() {
               style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 16px", borderRadius: 12, border: "none", background: "#fff", cursor: "pointer", fontSize: 13, color: "var(--ink-500)", minWidth: 240, textAlign: "left" }}
             >
               <Search size={16} />
-              <span>Search "biryani", "plumber"…</span>
+              <span>{t("search_placeholder")}</span>
             </button>
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", border: "none", position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
               <MessageSquare size={18} />
@@ -589,9 +591,9 @@ export default function Home() {
           >
             <span style={{ fontSize: 16 }}>📍</span>
             <span className="small grow" style={{ color: "var(--amber-700)", fontWeight: 700 }}>
-              {pendingLocReqs.length} neighbor{pendingLocReqs.length > 1 ? "s want" : " wants"} to see your location
+              {pendingLocReqs.length === 1 ? `1 ${t("neighbors_want_location")}` : `${pendingLocReqs.length} ${t("neighbors_want_location_plural")}`}
             </span>
-            <span className="tiny semi" style={{ color: "var(--amber-700)", background: "rgba(255,255,255,0.5)", padding: "3px 10px", borderRadius: 12 }}>Manage</span>
+            <span className="tiny semi" style={{ color: "var(--amber-700)", background: "rgba(255,255,255,0.5)", padding: "3px 10px", borderRadius: 12 }}>{t("manage")}</span>
           </button>
         )}
 
@@ -604,26 +606,26 @@ export default function Home() {
             {todayItems.length > 0 && (
               <div>
                 <div className="row between" style={{ marginBottom: 12 }}>
-                  <span className="semi" style={{ fontSize: 15 }}>Your day</span>
-                  {activeQueues.length > 0 && <button className="see-all" style={{ border: "none", background: "none", cursor: "pointer" }} onClick={() => nav("/queues")}>My queues</button>}
+                  <span className="semi" style={{ fontSize: 15 }}>{t("your_day")}</span>
+                  {activeQueues.length > 0 && <button className="see-all" style={{ border: "none", background: "none", cursor: "pointer" }} onClick={() => nav("/queues")}>{t("my_queues")}</button>}
                 </div>
                 <div className="hscroll today-rail" style={{ padding: 0 }}>
-                  {todayItems.map((t, idx) => (
+                  {todayItems.map((tItem, idx) => (
                     <button
-                      key={t.key}
+                      key={tItem.key}
                       className="today-card fade-up"
-                      style={{ "--today-accent": t.accent, animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
-                      onClick={t.onClick}
+                      style={{ "--today-accent": tItem.accent, animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
+                      onClick={tItem.onClick}
                     >
                       <div className="today-card-head">
-                        <span className="today-card-icon">{t.icon}</span>
-                        <span className="today-card-kicker grow">{t.kicker}</span>
-                        {t.live && <span className="today-live">LIVE</span>}
+                        <span className="today-card-icon">{tItem.icon}</span>
+                        <span className="today-card-kicker grow">{tItem.kicker}</span>
+                        {tItem.live && <span className="today-live">LIVE</span>}
                       </div>
                       <div>
-                        <div className="today-card-title">{t.title}</div>
-                        <div className="today-card-stat" style={{ marginTop: 6 }}>{t.stat}</div>
-                        {t.sub && <div className="today-card-sub" style={{ marginTop: 2 }}>{t.sub}</div>}
+                        <div className="today-card-title">{tItem.title}</div>
+                        <div className="today-card-stat" style={{ marginTop: 6 }}>{tItem.stat}</div>
+                        {tItem.sub && <div className="today-card-sub" style={{ marginTop: 2 }}>{tItem.sub}</div>}
                       </div>
                     </button>
                   ))}
@@ -635,8 +637,8 @@ export default function Home() {
             <button className="launch-hero" onClick={() => nav("/ask")} style={{ border: "none", cursor: "pointer" }}>
               <span className="launch-hero-icon">📋</span>
               <div className="grow" style={{ textAlign: "left" }}>
-                <div style={{ fontSize: 18, fontWeight: 800 }}>Need something?</div>
-                <div style={{ fontSize: 13.5, opacity: 0.92, marginTop: 2 }}>Ask your street — get offers from nearby people, shops & providers</div>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{t("need_something")}</div>
+                <div style={{ fontSize: 13.5, opacity: 0.92, marginTop: 2 }}>{t("ask_street_desc")}</div>
               </div>
               <ChevronRight size={22} style={{ opacity: 0.9, flexShrink: 0 }} />
             </button>
@@ -659,8 +661,8 @@ export default function Home() {
             {orderedCategories.length > 0 && (
               <div className="card" style={{ padding: 20 }}>
                 <div className="row between" style={{ marginBottom: 14 }}>
-                  <span className="semi" style={{ fontSize: 15 }}>Browse</span>
-                  <button className="see-all" style={{ border: "none", background: "none", cursor: "pointer" }} onClick={() => nav("/categories")}>All categories</button>
+                  <span className="semi" style={{ fontSize: 15 }}>{t("browse")}</span>
+                  <button className="see-all" style={{ border: "none", background: "none", cursor: "pointer" }} onClick={() => nav("/categories")}>{t("all_categories")}</button>
                 </div>
                 <div className="hscroll" style={{ padding: 0 }}>
                   {orderedCategories.map((c, idx) => (
@@ -684,8 +686,8 @@ export default function Home() {
             {(nearbyBiz.length > 0 || nearbyProv.length > 0) && (
               <div className="card" style={{ padding: 20 }}>
                 <div className="row between" style={{ marginBottom: 14 }}>
-                  <span className="semi" style={{ fontSize: 15 }}>Nearby on your street</span>
-                  <button className="see-all" style={{ border: "none", background: "none", cursor: "pointer" }} onClick={() => nav("/explore")}>Explore all</button>
+                  <span className="semi" style={{ fontSize: 15 }}>{t("nearby_on_street")}</span>
+                  <button className="see-all" style={{ border: "none", background: "none", cursor: "pointer" }} onClick={() => nav("/explore")}>{t("explore_all")}</button>
                 </div>
                 <div className="hscroll" style={{ padding: 0 }}>
                   {nearbyBiz.slice(0, 6).map((b, idx) => <BusinessCardSmall key={b.id} b={b} style={{ animationDelay: `${idx * 35}ms` }} />)}
@@ -697,7 +699,7 @@ export default function Home() {
             {/* Recently viewed */}
             {recentlyViewed.length > 0 && (
               <div className="card" style={{ padding: 20 }}>
-                <span className="semi" style={{ fontSize: 15, display: "block", marginBottom: 14 }}>Recently viewed</span>
+                <span className="semi" style={{ fontSize: 15, display: "block", marginBottom: 14 }}>{t("recently_viewed")}</span>
                 <div className="hscroll" style={{ padding: 0 }}>
                   {recentlyViewed.map((r) => (
                     <button
@@ -718,11 +720,11 @@ export default function Home() {
             {agreements.length === 0 && (categories ?? []).length === 0 && nearbyBiz.length === 0 && nearbyProv.length === 0 && (
               <div className="card col center" style={{ padding: 40, gap: 12, textAlign: "center", background: "linear-gradient(135deg, var(--brand-50), #fff)" }}>
                 <span style={{ fontSize: 52 }}>🏘️</span>
-                <div className="bold" style={{ fontSize: 18 }}>Your street is just getting started</div>
-                <p className="small muted" style={{ maxWidth: 320, lineHeight: 1.5 }}>Be among the first to list a spot, offer a service, or post a request.</p>
+                <div className="bold" style={{ fontSize: 18 }}>{t("street_getting_started")}</div>
+                <p className="small muted" style={{ maxWidth: 320, lineHeight: 1.5 }}>{t("first_to_list_desc")}</p>
                 <div className="row gap-10" style={{ marginTop: 4 }}>
-                  <button className="btn btn-primary btn-sm" onClick={() => nav("/onboard/business")}>List a spot</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => nav("/ask")}>Post a request</button>
+                  <button className="btn btn-primary btn-sm" onClick={() => nav("/onboard/business")}>{t("list_spot")}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => nav("/ask")}>{t("post_request")}</button>
                 </div>
               </div>
             )}
@@ -736,8 +738,8 @@ export default function Home() {
             <button className="activity-banner" style={{ width: "100%", border: "none", cursor: "pointer" }} onClick={() => nav("/leaderboard")}>
               <span style={{ fontSize: 22 }}>🏆</span>
               <div className="grow" style={{ textAlign: "left" }}>
-                <div className="semi small">Leaderboard</div>
-                <div className="tiny muted">Top contributors on your street →</div>
+                <div className="semi small">{t("leaderboard")}</div>
+                <div className="tiny muted">{t("top_contributors")}</div>
               </div>
               <ChevronRight size={18} color="var(--ink-400)" />
             </button>
@@ -746,11 +748,11 @@ export default function Home() {
             <button className="activity-banner" style={{ width: "100%", border: "none", cursor: "pointer" }} onClick={() => nav("/settings")}>
               <span style={{ fontSize: 22 }}>📍</span>
               <div className="grow" style={{ textAlign: "left" }}>
-                <div className="semi small">Location privacy</div>
+                <div className="semi small">{t("location_privacy")}</div>
                 <div className="tiny muted">
                   {pendingLocReqs && pendingLocReqs.length > 0
-                    ? `${pendingLocReqs.length} request${pendingLocReqs.length > 1 ? "s" : ""} to review →`
-                    : "Who can see your pins →"}
+                    ? `${pendingLocReqs.length} ${t("requests")} →`
+                    : t("who_can_see_pins")}
                 </div>
               </div>
               <ChevronRight size={18} color="var(--ink-400)" />
