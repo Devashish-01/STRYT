@@ -1,4 +1,5 @@
-import { Component, type ReactNode } from "react";
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { captureException } from "@/lib/monitoring";
 
 interface Props {
   children: ReactNode;
@@ -17,9 +18,9 @@ export default class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, message: error instanceof Error ? error.message : String(error) };
   }
 
-  componentDidCatch(error: unknown) {
-    // Hook for Sentry/PostHog later.
-    console.error("Uncaught render error:", error);
+  componentDidCatch(error: unknown, info: ErrorInfo) {
+    // Report the render crash (with the React component stack) to the sink.
+    captureException(error, "REACT", { componentStack: info?.componentStack });
   }
 
   reset = () => {
