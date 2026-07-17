@@ -4,16 +4,16 @@ import { Heart, MapPin, Clock, BadgeCheck, Zap, Eye, Users, Flame, Repeat } from
 import type { Business, Provider, RequestPost } from "@/types";
 import { Rating, inr, SafeImg } from "./common";
 import { useApp } from "@/store";
-import { requestService } from "@/services";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { displayName as safeName } from "@/lib/publicName";
 import { distanceLabel } from "@/lib/format";
+import { openProfile } from "@/lib/profileSheet";
 
 /* ---------------- Business cards ---------------- */
 
 export function BusinessCardWide({ b, style }: { b: Business; style?: CSSProperties }) {
   const nav = useNavigate();
-  const { isBookmarked, toggleBookmark } = useApp();
+  const { isBookmarked, toggleBookmark, isGuest } = useApp();
   const saved = isBookmarked("BUSINESS", b.id);
   // Live open/closed from the owner's presence toggle + working hours — same
   // evaluator BusinessDetail uses, so the card can't show a stale "Open".
@@ -44,17 +44,20 @@ export function BusinessCardWide({ b, style }: { b: Business; style?: CSSPropert
             {b.offerText}
           </div>
         )}
-        <button
-          className="icon-btn"
-          style={{ position: "absolute", top: 10, right: 10, background: "rgba(255,255,255,0.92)" }}
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleBookmark("BUSINESS", b.id);
-          }}
-          aria-label="Save"
-        >
-          <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
-        </button>
+        {/* Saving needs an account to save to — guests view only. */}
+        {!isGuest && (
+          <button
+            className="icon-btn"
+            style={{ position: "absolute", top: 10, right: 10, background: "rgba(255,255,255,0.92)" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleBookmark("BUSINESS", b.id);
+            }}
+            aria-label="Save"
+          >
+            <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
+          </button>
+        )}
         {/* Paid-placement transparency: users must be able to tell boosted results apart. */}
         {(b.isNew || b.isBoosted) && (
           <div className="card-badge-stack">
@@ -141,14 +144,24 @@ export function BusinessCardSmall({ b, style }: { b: Business; style?: CSSProper
 
 export function ProviderCard({ p, style }: { p: Provider; style?: CSSProperties }) {
   const nav = useNavigate();
-  const { isBookmarked, toggleBookmark } = useApp();
+  const { isBookmarked, toggleBookmark, isGuest } = useApp();
   const saved = isBookmarked("PROVIDER", p.id);
   const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
   return (
     <div className="card card-interactive fade-up" style={{ padding: 12, ...style }} onClick={() => nav(`/provider/${p.id}`)}>
       <div className="row gap-12" style={{ alignItems: "flex-start" }}>
         <div style={{ position: "relative" }}>
-          <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 56, height: 56 }} />
+          <SafeImg
+            src={p.avatar}
+            alt={p.displayName}
+            variant="avatar"
+            className="avatar"
+            style={{ width: 56, height: 56, cursor: "pointer" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              openProfile(p.id, "PROVIDER", { name: p.displayName, avatar: p.avatar });
+            }}
+          />
           <span
             style={{
               position: "absolute",
@@ -168,15 +181,17 @@ export function ProviderCard({ p, style }: { p: Provider; style?: CSSProperties 
               <span className="bold ellipsis" style={{ fontSize: 15 }}>{safeName(p.displayName, "Local provider")}</span>
               {p.isVerified && <BadgeCheck size={15} color="var(--brand-600)" fill="var(--brand-100)" />}
             </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleBookmark("PROVIDER", p.id);
-              }}
-              aria-label="Save"
-            >
-              <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-400)"} />
-            </button>
+            {!isGuest && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleBookmark("PROVIDER", p.id);
+                }}
+                aria-label="Save"
+              >
+                <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-400)"} />
+              </button>
+            )}
           </div>
           <div className="tiny muted" style={{ marginTop: 1 }}>{p.categoryName} • {p.subCategory}</div>
           <div className="row gap-8 center-v" style={{ marginTop: 6 }}>
@@ -248,7 +263,7 @@ function expiryLabel(expiresAt?: string | null): string | null {
 
 export function RequestCard({ r, style }: { r: RequestPost; style?: CSSProperties }) {
   const nav = useNavigate();
-  const { meToos, toggleMeToo } = useApp();
+  const { meToos } = useApp();
   const expiry = r.status === "OPEN" ? expiryLabel(r.expiresAt) : null;
   const budget =
     r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget";
@@ -316,24 +331,10 @@ export function RequestCard({ r, style }: { r: RequestPost; style?: CSSPropertie
           <span className="tiny muted">Budget</span>
           <span className="bold tabular-nums" style={{ color: "var(--green-500)" }}>{budget}</span>
         </div>
-        {isOpen ? (
-          <button
-            className="row gap-4 chip"
-            style={{ padding: "7px 12px", background: meTooed ? "var(--brand-800)" : "#fff", color: meTooed ? "#fff" : "var(--ink-700)", borderColor: meTooed ? "var(--brand-800)" : "var(--ink-200)" }}
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleMeToo(r.id);
-              requestService.meToo(r.id).catch(() => toggleMeToo(r.id));
-            }}
-          >
-            <Users size={13} /> {meTooed ? "Me too ✓" : "Me too"} {meTooCount > 0 && `· ${meTooCount}`}
-          </button>
-        ) : (
-          meTooCount > 0 && (
-            <span className="row gap-4 tiny muted" style={{ alignItems: "center" }}>
-              <Users size={13} /> {meTooCount} interested
-            </span>
-          )
+        {!isOpen && meTooCount > 0 && (
+          <span className="row gap-4 tiny muted" style={{ alignItems: "center" }}>
+            <Users size={13} /> {meTooCount} interested
+          </span>
         )}
         <div className="col" style={{ gap: 2, alignItems: "flex-end" }}>
           <span className="tiny muted row gap-4"><Eye size={11} /> {r.viewCount}</span>

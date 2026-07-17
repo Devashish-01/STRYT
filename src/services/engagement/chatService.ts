@@ -90,14 +90,15 @@ export const chatService = {
     const otherIds = convs.map((c) => (c.participantA === uid ? c.participantB : c.participantA));
     const { data: users } = await sb
       .from("users")
-      .select("id, name, alias, avatar")
+      .select("id, name, alias, avatar, show_name_publicly")
       .in("id", [...new Set(otherIds)]);
 
-    // Chat is a pre-relationship context — show the other person's public alias,
-    // not their real name (the real name is revealed only on booking/queue/proposal).
+    // Chat is a pre-relationship context — show the other person's public alias
+    // (or real name if they opted in via showNamePublicly), never the real name
+    // by default (it's revealed unconditionally only on booking/queue/proposal).
     const userMap = Object.fromEntries(
-      (users ?? []).map((u: { id: string; name: string; alias: string | null; avatar: string | null }) =>
-        [u.id, { id: u.id, name: aliasName(u), avatar: u.avatar ?? "" }])
+      (users ?? []).map((u: { id: string; name: string; alias: string | null; avatar: string | null; show_name_publicly: boolean | null }) =>
+        [u.id, { id: u.id, name: aliasName({ alias: u.alias, name: u.name, showNamePublicly: u.show_name_publicly }), avatar: u.avatar ?? "" }])
     );
 
     return convs.map((c) => ({
@@ -134,8 +135,8 @@ export const chatService = {
 
     if (existing) {
       const conv = toCamel<Conversation>(existing);
-      const { data: user } = await sb.from("users").select("id, name, alias, avatar").eq("id", otherUserId).maybeSingle();
-      const aliased = user ? { id: user.id, name: aliasName(user as any), avatar: (user as any).avatar ?? "" } : undefined;
+      const { data: user } = await sb.from("users").select("id, name, alias, avatar, show_name_publicly").eq("id", otherUserId).maybeSingle();
+      const aliased = user ? { id: user.id, name: aliasName({ alias: (user as any).alias, name: (user as any).name, showNamePublicly: (user as any).show_name_publicly }), avatar: (user as any).avatar ?? "" } : undefined;
       return { ...conv, otherUser: resolveOther(conv, uid, aliased) };
     }
 
@@ -156,8 +157,8 @@ export const chatService = {
     throwIfError(error);
 
     const conv = toCamel<Conversation>(created);
-    const { data: user } = await sb.from("users").select("id, name, alias, avatar").eq("id", otherUserId).maybeSingle();
-    const aliased = user ? { id: user.id, name: aliasName(user as any), avatar: (user as any).avatar ?? "" } : undefined;
+    const { data: user } = await sb.from("users").select("id, name, alias, avatar, show_name_publicly").eq("id", otherUserId).maybeSingle();
+    const aliased = user ? { id: user.id, name: aliasName({ alias: (user as any).alias, name: (user as any).name, showNamePublicly: (user as any).show_name_publicly }), avatar: (user as any).avatar ?? "" } : undefined;
     return { ...conv, otherUser: resolveOther(conv, uid, aliased) };
   },
 

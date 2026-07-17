@@ -1,5 +1,6 @@
 import { Routes, Route, useLocation, useNavigate, Navigate, Outlet } from "react-router-dom";
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
+import UserProfileSheet from "./components/UserProfileSheet";
 import BottomNav from "./components/BottomNav";
 import OfflineBanner from "./components/OfflineBanner";
 import { LiveShareProvider } from "./features/live-share/useLiveShare";
@@ -10,6 +11,7 @@ import ProviderManageNav from "./screens/provider/manage/ProviderManageNav";
 import BusinessAccessGuard from "./components/BusinessAccessGuard";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
+import { contextHomePath } from "./lib/contextHome";
 import { useI18n, type Lang } from "./lib/i18n";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
@@ -71,12 +73,13 @@ const CommunityCompose = lazy(() => import("./screens/CommunityCompose"));
 const CommunityPostDetail = lazy(() => import("./screens/CommunityPostDetail"));
 const Lists = lazy(() => import("./screens/Lists"));
 const PublicProfile = lazy(() => import("./screens/PublicProfile"));
-const Leaderboard = lazy(() => import("./screens/Leaderboard"));
 const ProfileEdit = lazy(() => import("./screens/ProfileEdit"));
 const Achievements = lazy(() => import("./screens/Achievements"));
 
 // Business console
 const ManageDashboard = lazy(() => import("./screens/business/manage/ManageDashboard"));
+const BusinessStoreHub = lazy(() => import("./screens/business/manage/BusinessStoreHub"));
+const BusinessHub = lazy(() => import("./screens/business/manage/BusinessHub"));
 const CatalogManager = lazy(() => import("./screens/business/manage/CatalogManager"));
 const BusinessPortfolio = lazy(() => import("./screens/business/manage/BusinessPortfolio"));
 const ProfileEditor = lazy(() => import("./screens/business/manage/ProfileEditor"));
@@ -93,11 +96,14 @@ const BusinessCommunity = lazy(() => import("./screens/ProfileCommunity"));
 
 // Provider console
 const ProviderDashboard = lazy(() => import("./screens/provider/manage/ProviderDashboard"));
+const ProviderProfileHub = lazy(() => import("./screens/provider/manage/ProviderProfileHub"));
 const ProviderProfileEditor = lazy(() => import("./screens/provider/manage/ProviderProfileEditor"));
 const ProviderAvailability = lazy(() => import("./screens/provider/manage/ProviderAvailability"));
 const ProviderCatalog = lazy(() => import("./screens/provider/manage/ProviderCatalog"));
 const ProviderPortfolio = lazy(() => import("./screens/provider/manage/ProviderPortfolio"));
-const ProviderLeads = lazy(() => import("./screens/provider/manage/ProviderLeads"));
+const ProviderJobs = lazy(() => import("./screens/provider/manage/ProviderJobs"));
+const ProviderFindWork = lazy(() => import("./screens/provider/manage/ProviderFindWork"));
+const ProviderMoney = lazy(() => import("./screens/provider/manage/ProviderMoney"));
 const ProviderSettings = lazy(() => import("./screens/provider/manage/ProviderSettings"));
 const ProviderVerification = lazy(() => import("./screens/provider/manage/ProviderVerification"));
 const ProviderCommunity = lazy(() => import("./screens/provider/manage/ProviderCommunity"));
@@ -108,7 +114,6 @@ const AdminLogin = lazy(() => import("./screens/admin/AdminLogin"));
 const TrackingPage = lazy(() => import("./screens/TrackingPage"));
 const SafetyHub = lazy(() => import("./screens/safety/SafetyHub"));
 const EmergencyContacts = lazy(() => import("./screens/safety/EmergencyContacts"));
-const Wallet = lazy(() => import("./screens/future-enhancement/Wallet"));
 const MyActivity = lazy(() => import("./screens/MyActivity"));
 const AccountSettings = lazy(() => import("./screens/AccountSettings"));
 const BusinessAccess = lazy(() => import("./screens/BusinessAccess"));
@@ -209,6 +214,44 @@ function AppShellSkeleton() {
   );
 }
 
+/**
+ * Routes a signed-out visitor is allowed to browse (see GUEST_MODE_PLAN.md).
+ *
+ * The third tier between PublicOnlyLayout (auth screens, bounce you OUT once
+ * signed in) and ProtectedLayout (bounce you out unless signed in): this one
+ * never redirects on auth at all — guest and signed-in both get through.
+ *
+ * Guests are NOT gated on `profileReady`: they have no profile to wait for, so
+ * that check would strand them on the app-shell skeleton forever.
+ *
+ * Note this guards *viewing* only. Every action a guest can reach from these
+ * screens is separately gated by `useRequireAuth()` at the point of tap — the
+ * button stays visible on purpose, because a guest discovering the feature and
+ * being asked to sign in is the entire point of guest mode.
+ */
+function GuestOrAuthLayout() {
+  const { isAuthed, authReady, profileReady } = useApp();
+
+  const isAuthCallback =
+    window.location.hash.includes("access_token=") ||
+    window.location.hash.includes("error=") ||
+    window.location.search.includes("code=");
+
+  // Still resolving, or mid-OAuth-handoff: wait rather than briefly rendering
+  // the guest experience to someone who does have a session.
+  if (!authReady || isAuthCallback) {
+    return <AuthSplash />;
+  }
+
+  // Signed in but profile still hydrating — same skeleton as ProtectedLayout,
+  // so a signed-in user's experience of these routes is unchanged.
+  if (isAuthed && !profileReady) {
+    return <AppShellSkeleton />;
+  }
+
+  return <Outlet />;
+}
+
 function ProtectedLayout() {
   const { isAuthed, authReady, profileReady, user } = useApp();
   const location = useLocation();
@@ -279,17 +322,32 @@ function ProtectedLayout() {
 }
 
 function PublicOnlyLayout() {
-  const { isAuthed } = useApp();
+  const { isAuthed, activeContext } = useApp();
   const isAuthCallback =
     window.location.hash.includes("access_token=") ||
     window.location.hash.includes("error=") ||
     window.location.search.includes("code=");
 
   if (isAuthed && !isAuthCallback) {
-    return <Navigate to={returnTo.consume()} replace />;
+    // Honour a remembered deep link (e.g. a shared /map link) first. Absent one,
+    // returnTo.consume() falls back to "/home" — but for a business/provider
+    // owner that's the wrong hat: the sidebar/nav/profile are already rendering
+    // their console identity from the persisted activeContext, so land them on
+    // that console's home instead of the customer Home (the two used to
+    // disagree, showing business chrome over the customer page).
+    const dest = returnTo.consume();
+    return <Navigate to={dest === "/home" ? contextHomePath(activeContext) : dest} replace />;
   }
 
   return <Outlet />;
+}
+
+// Catch-all landing for unknown paths — routes to the home of whatever hat the
+// user is currently wearing (customer Home, or the business/provider console
+// dashboard) rather than always dumping owners on the customer Home.
+function ContextHomeRedirect() {
+  const { activeContext } = useApp();
+  return <Navigate to={contextHomePath(activeContext)} replace />;
 }
 
 // Screens with their own dedicated full-bleed layout (auth/splash, admin login,
@@ -406,36 +464,50 @@ export default function App() {
               still switch into the admin account here. */}
           <Route path="/admin/login" element={<AdminLogin />} />
 
+          {/* Browsable signed-out — a guest sees these (capped to 1 km), and so
+              does a signed-in user. Actions inside them are gated individually
+              via useRequireAuth(). See GUEST_MODE_PLAN.md §3 for what's in this
+              list and why. Add to this list deliberately; never invert it. */}
+          <Route element={<GuestOrAuthLayout />}>
+            <Route path="/home" element={<Home />} />
+            <Route path="/explore" element={<Explore />} />
+            <Route path="/requests" element={<Requests />} />
+            <Route path="/request/:id" element={<RequestDetail />} />
+            <Route path="/business/:id" element={<BusinessDetail />} />
+            <Route path="/provider/:id" element={<ProviderDetail />} />
+            <Route path="/search" element={<Search />} />
+            <Route path="/categories" element={<AllCategories />} />
+            <Route path="/category/:id" element={<CategoryListing />} />
+            {/* Guests get the map too, pinned to 1 km (the radius strip is
+                hidden for them — see MapView). */}
+            <Route path="/map" element={<MapView />} />
+            {/* Read-only for guests — reading a post is "seeing", so the detail
+                page opens too (a feed you can't tap into isn't browsable).
+                Every write inside it (like/vote/comment/recommend) is gated by
+                useRequireAuth; composing a new post is protected below. */}
+            <Route path="/community-hub" element={<CommunityHub />} />
+            <Route path="/community" element={<Community />} />
+            <Route path="/community/:id" element={<CommunityPostDetail />} />
+          </Route>
+
           {/* Protected routes */}
           <Route element={<ProtectedLayout />}>
             <Route path="/auth/onboard" element={<UserOnboard />} />
             <Route path="/auth/location" element={<LocationPermission />} />
             <Route path="/auth/deletion-pending" element={<DeletionPending />} />
 
-            <Route path="/home" element={<Home />} />
-            <Route path="/explore" element={<Explore />} />
-            <Route path="/requests" element={<Requests />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/profile/edit" element={<ProfileEdit />} />
 
-            <Route path="/search" element={<Search />} />
-            <Route path="/map" element={<MapView />} />
-            <Route path="/categories" element={<AllCategories />} />
-            <Route path="/category/:id" element={<CategoryListing />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/bookmarks" element={<Bookmarks />} />
             <Route path="/followers" element={<Followers />} />
             <Route path="/queues" element={<MyQueues />} />
-            <Route path="/wallet" element={<Wallet />} />
             <Route path="/my-activity" element={<MyActivity />} />
             <Route path="/account" element={<AccountSettings />} />
             <Route path="/account/business-access" element={<BusinessAccess />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/support" element={<Support />} />
-
-            <Route path="/business/:id" element={<BusinessDetail />} />
-            <Route path="/provider/:id" element={<ProviderDetail />} />
-            <Route path="/request/:id" element={<RequestDetail />} />
 
             <Route path="/ask" element={<AskCompose />} />
             <Route path="/request/:id/propose" element={<SubmitProposal />} />
@@ -453,6 +525,8 @@ export default function App() {
                 this business, not just blocked on individual writes by RLS. */}
             <Route element={<BusinessAccessGuard />}>
               <Route path="/business/:id/manage" element={<ManageDashboard />} />
+              <Route path="/business/:id/manage/store" element={<BusinessStoreHub />} />
+              <Route path="/business/:id/manage/business" element={<BusinessHub />} />
               <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
               <Route path="/business/:id/manage/portfolio" element={<BusinessPortfolio />} />
               <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
@@ -470,11 +544,14 @@ export default function App() {
 
             {/* Provider console */}
             <Route path="/provider/:id/manage" element={<ProviderDashboard />} />
-            <Route path="/provider/:id/manage/profile" element={<ProviderProfileEditor />} />
+            <Route path="/provider/:id/manage/profile" element={<ProviderProfileHub />} />
+            <Route path="/provider/:id/manage/edit-profile" element={<ProviderProfileEditor />} />
             <Route path="/provider/:id/manage/availability" element={<ProviderAvailability />} />
             <Route path="/provider/:id/manage/catalog" element={<ProviderCatalog />} />
             <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
-            <Route path="/provider/:id/manage/leads" element={<ProviderLeads />} />
+            <Route path="/provider/:id/manage/jobs" element={<ProviderJobs />} />
+            <Route path="/provider/:id/manage/find-work" element={<ProviderFindWork />} />
+            <Route path="/provider/:id/manage/money" element={<ProviderMoney />} />
             <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
             <Route path="/provider/:id/manage/verify" element={<ProviderVerification />} />
             <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
@@ -487,22 +564,20 @@ export default function App() {
             <Route path="/chats" element={<ConversationList />} />
             <Route path="/chat/:id" element={<ChatThread />} />
 
-            {/* Community + social */}
+            {/* Community + social — the read-only feed and post detail
+                (/community, /community-hub, /community/:id) are browsable
+                signed-out and registered above. */}
             <Route path="/story/new" element={<StoryCompose />} />
-            <Route path="/community-hub" element={<CommunityHub />} />
-            <Route path="/community" element={<Community />} />
             <Route path="/community/new" element={<CommunityCompose />} />
-            <Route path="/community/:id" element={<CommunityPostDetail />} />
             <Route path="/lists" element={<Lists />} />
             <Route path="/u/:id" element={<PublicProfile />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/achievements" element={<Achievements />} />
 
             {/* Admin */}
             <Route path="/admin" element={<AdminPanel />} />
 
-            {/* Catch-all: redirect unknown paths to home */}
-            <Route path="*" element={<Navigate to="/home" replace />} />
+            {/* Catch-all: redirect unknown paths to the active context's home */}
+            <Route path="*" element={<ContextHomeRedirect />} />
           </Route>
         </Routes>
       </Suspense>
@@ -516,6 +591,7 @@ export default function App() {
           <BottomNav />
         )
       )}
+      <UserProfileSheet />
       {toast && <div className="toast">{toast}</div>}
           </LiveShareProvider>
         </div>

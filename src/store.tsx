@@ -37,6 +37,8 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import type { BookmarkKey, FollowKey, UserList } from "@/store/sliceTypes";
 import { useToast } from "@/store/useToast";
 import { useAuthSession } from "@/store/useAuthSession";
+import { useGuestLocation } from "@/store/useGuestLocation";
+import { setGuestMode, GUEST_RADIUS_KM } from "@/lib/guestMode";
 import { useSocialSlice } from "@/store/useSocialSlice";
 import { useCommerceSlice } from "@/store/useCommerceSlice";
 import { useNotificationBadges } from "@/store/useNotificationBadges";
@@ -145,6 +147,15 @@ interface AppState {
   authReady: boolean;
   signIn: () => void;
   signOut: () => void;
+
+  // guest mode — a signed-out visitor browsing before they commit. See
+  // GUEST_MODE_PLAN.md. `isGuest` is derived (authReady && !isAuthed), never
+  // stored, so it can't get stuck on for someone who has since signed in.
+  isGuest: boolean;
+  /** Live browser fix for guests, session-only — never written to `users`. */
+  guestLocation: { lat: number; lng: number } | null;
+  guestLocationStatus: "idle" | "asking" | "granted" | "denied";
+  requestGuestLocation: () => void;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -182,6 +193,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const { unread, setUnread, markAllRead, decrementUnread, chatUnread, setChatUnread } = useNotificationBadges(isAuthed);
   const [profileReady, setProfileReady] = useState(false);
+
+  // ── Guest mode ────────────────────────────────────────────────────────────
+  // A visitor who has finished the auth check and turned out to be signed out.
+  // Gated on authReady so we never flash "guest" during the boot round-trip and
+  // ask for their location before we even know if they have a session.
+  const isGuest = authReady && !isAuthed;
+  const { guestLocation, guestLocationStatus, requestGuestLocation } = useGuestLocation(isGuest);
+
+  // Services are plain modules and can't read this context — push the flag to
+  // them so their radius resolvers can clamp guests to 1 km. Must run during
+  // render (not an effect) so the very first feed fetch on a guest's initial
+  // paint is already clamped, rather than firing wide once and correcting after.
+  setGuestMode(isGuest);
+
+  // The user object screens actually consume. For a guest this is the blank
+  // seedUser with the live browser fix patched in — which is what makes every
+  // existing `user.lat`/`user.lng` nearby query work for guests with no screen
+  // changes at all. `id` stays "" so the existing
+  // `user.id ? …fetch : Promise.resolve([])` guards keep short-circuiting the
+  // personal data fetches a guest has no business making.
+  const viewUser = useMemo<CurrentUser>(() => {
+    if (!isGuest || !guestLocation) return user;
+    return {
+      ...user,
+      lat: guestLocation.lat,
+      lng: guestLocation.lng,
+      notificationRadiusKm: GUEST_RADIUS_KM,
+    };
+  }, [isGuest, guestLocation, user]);
 
   // owned entities — hydrated from userService.owned() once authed.
   const [ownedBusinessIds, setOwnedBusinessIds] = useState<string[]>([]);
@@ -351,10 +391,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppState>(
     () => ({
-      user,
+      // viewUser, not user — for a guest this carries the live browser fix so
+      // every existing `user.lat`/`user.lng` query works unchanged. Identical to
+      // `user` for everyone else.
+      user: viewUser,
       refreshUser,
       area,
-      city: user.city,
+      city: viewUser.city,
       setArea,
       activeRole,
       roles,
@@ -413,6 +456,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       showToast,
       isAuthed,
       authReady,
+      isGuest,
+      guestLocation,
+      guestLocationStatus,
+      requestGuestLocation,
       signIn: () => setIsAuthed(true),
       signOut: () => {
         tokenStore.clear();
@@ -430,11 +477,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
     }),
     [
-      user, refreshUser,
+      viewUser, refreshUser,
       area, activeRole, roles, activeContext, ownedBusinessIds, ownedProviderId,
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
       unread, chatUnread, toast, isAuthed, authReady, profileReady,
+      isGuest, guestLocation, guestLocationStatus, requestGuestLocation,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,

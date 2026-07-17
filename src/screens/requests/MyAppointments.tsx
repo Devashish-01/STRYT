@@ -124,12 +124,11 @@ export default function MyAppointments() {
     }
   }
 
-  // On a successful reschedule, cancel the original so it isn't a duplicate.
-  async function handleBooked() {
-    if (rebook?.mode === "RESCHEDULE") {
-      try { await appointmentService.updateStatus(rebook.apt.id, "CANCELLED", undefined, "CUSTOMER"); } catch { /* best-effort */ }
-    }
-  }
+  // Reschedule is now atomic on the server (reschedule_appointment cancels the
+  // original and creates the new booking in a single transaction), so there's
+  // no separate client-side cancel to run — which is what used to strand two
+  // live bookings when that best-effort cancel silently failed.
+  function handleBooked() {}
 
   return (
     <div className="screen screen-boxed">

@@ -102,7 +102,7 @@ function OptionRow({ opt, onClick }: { opt: AccountOption; onClick: () => void }
         </span>
       </div>
       <div className="grow" style={{ minWidth: 0 }}>
-        <div className="semi small text-ellipsis">{opt.name}</div>
+        <div className="semi small ellipsis">{opt.name}</div>
         <div className="tiny muted">{opt.sub}</div>
       </div>
       {opt.active && <Check size={16} color={color} style={{ flexShrink: 0 }} />}

@@ -16,52 +16,67 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QuerySt
   const [error, setError] = useState<ApiError | null>(null);
   const fnRef = useRef(fn);
   fnRef.current = fn;
+  const isFirstRun = useRef(true);
   // Screens are free to also render their own <ErrorView>, but a query that
   // fails silently (no loading state left, no data, nothing on screen) was
   // a recurring complaint — this is the one place every fetch passes through,
   // so it's the one place a failure can never go unseen.
   const { showToast } = useApp();
 
-  const run = useCallback(() => {
+  const run = useCallback((isInitial = false) => {
     let active = true;
     setLoading(true);
     setError(null);
-    fnRef
-      .current()
-      .then((res) => {
-        if (active) setData(res);
-      })
-      .catch((e) => {
-        const err = e instanceof ApiError ? e : new ApiError(0, { code: "INTERNAL", message: String(e) });
-        if (active) {
-          setError(err);
-          // Distinguish "you got signed out" from generic network noise — a 401
-          // mid-session otherwise looks like a random loading failure.
-          if (err.status === 401 || err.code === "UNAUTHENTICATED") {
-            showToast("Session expired — sign in again to continue");
-          } else if (!navigator.onLine) {
-            showToast("You're offline — reconnect to load this");
-          } else {
-            showToast("Couldn't load — check your connection and try again");
+
+    const execute = () => {
+      fnRef
+        .current()
+        .then((res) => {
+          if (active) setData(res);
+        })
+        .catch((e) => {
+          const err = e instanceof ApiError ? e : new ApiError(0, { code: "INTERNAL", message: String(e) });
+          if (active) {
+            setError(err);
+            // Distinguish "you got signed out" from generic network noise — a 401
+            // mid-session otherwise looks like a random loading failure.
+            if (err.status === 401 || err.code === "UNAUTHENTICATED") {
+              showToast("Session expired — sign in again to continue");
+            } else if (!navigator.onLine) {
+              showToast("You're offline — reconnect to load this");
+            } else {
+              showToast("Couldn't load — check your connection and try again");
+            }
           }
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
     };
+
+    if (isInitial) {
+      const timer = setTimeout(execute, 150);
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
+    } else {
+      execute();
+      return () => {
+        active = false;
+      };
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    const cleanup = run();
+    const cleanup = run(isFirstRun.current);
+    isFirstRun.current = false;
     return cleanup;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
-  return { data, loading, error, refetch: run };
+  return { data, loading, error, refetch: () => run(false) };
 }
 
 export function useQueryWithRealtime<T>(
@@ -96,7 +111,15 @@ export function useQueryWithRealtime<T>(
           if (active) refetch();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        // A silent failure here is exactly the "I must refresh to see changes"
+        // symptom: the channel never delivers events. Surface the non-OK states
+        // (usually the table isn't in the `supabase_realtime` publication, or
+        // Realtime is disabled for the project) instead of failing quietly.
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(`[realtime] "${tableName}" subscription ${status} — check the supabase_realtime publication for this table.`);
+        }
+      });
 
     return () => {
       active = false;

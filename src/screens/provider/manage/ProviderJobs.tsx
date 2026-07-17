@@ -1,14 +1,12 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { AppBar, EmptyState, SafeImg, inr } from "@/components/common";
-import { requestService, appointmentService, providerService, slotBlockService } from "@/services";
+import { useParams } from "react-router-dom";
+import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import { appointmentService, providerService, slotBlockService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import { ListSkeleton, ErrorView } from "@/components/states";
-import { RequestCard } from "@/components/cards";
-import type { RequestPost, AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
+import type { AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
 import ProviderManageNav from "./ProviderManageNav";
-import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2 } from "@/components/Icons";
+import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2, CheckCircle2 } from "@/components/Icons";
 import { useApp } from "@/store";
 import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";
@@ -21,25 +19,13 @@ import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
-export default function ProviderLeads() {
+// The provider's booking calendar — Day view (timetable + walk-in + block),
+// Upcoming, History and Cancelled. Extracted from the old combined "Leads"
+// screen so the daily driver is a top-level nav destination (see PROVIDER_DESIGN.md).
+export default function ProviderJobs() {
   const { id = "" } = useParams();
-  const nav = useNavigate();
   const { showToast } = useApp();
-  const [tab, setTab] = useState<"requests" | "sent" | "appointments">("requests");
   const { data: p } = useQuery(() => providerService.get(id), [id]);
-  const { data: sentProposals, loading: sentLoading } = useQuery(
-    () => requestService.myProposals(id),
-    [id]
-  );
-  const { data, loading, error, refetch } = useQueryWithRealtime(
-    () => requestService.feed({
-      lat: p?.lat ?? undefined,
-      lng: p?.lng ?? undefined,
-      radiusKm: p?.serviceRadiusKm ?? undefined,
-    }),
-    "requests",
-    [p?.lat, p?.lng, p?.serviceRadiusKm]
-  );
 
   const { data: aptsData, refetch: refetchApts } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForTarget(id),
@@ -52,35 +38,28 @@ export default function ProviderLeads() {
     [id]
   );
 
-  if (!id) {
-    return (
-      <div className="screen">
-        <AppBar title="Leads & Appointments" />
-        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
-      </div>
-    );
-  }
-
   const [consoleTab, setConsoleTab] = useState<ConsoleTab>("TODAY");
   const [selectedDate, setSelectedDate] = useState(new Date());
-
   const [activeApt, setActiveApt] = useState<AppointmentRecord | null>(null);
   const [actionType, setActionType] = useState<"ACCEPT" | "REJECT" | "CANCEL" | null>(null);
   const [responseNote, setResponseNote] = useState("");
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [noShowBusy, setNoShowBusy] = useState<string | null>(null);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
-
   const [blockModal, setBlockModal] = useState<{ date: Date; timeLabel: string | null } | null>(null);
   const [blockSubmitting, setBlockSubmitting] = useState(false);
   const [walkInModal, setWalkInModal] = useState<{ date: Date; timeLabel: string } | null>(null);
   const [walkInSubmitting, setWalkInSubmitting] = useState(false);
 
-  // Category-matched open requests only — a request surfaces to the providers
-  // it's actually for (falls through when the request carries no category).
-  const items = ((data?.data ?? []) as RequestPost[])
-    .filter((r) => r.status === "OPEN")
-    .filter((r) => !r.categoryId || !p?.categoryId || r.categoryId === p.categoryId);
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Jobs" />
+        <EmptyState emoji="⚠️" title="Missing provider" text="No provider id in the URL." />
+      </div>
+    );
+  }
+
   const appointments = aptsData ?? [];
   const blockedSlots = blockedData ?? [];
 
@@ -115,10 +94,35 @@ export default function ProviderLeads() {
         showToast("Payment claim rejected — customer can resubmit.");
       }
       refetchApts();
-    } catch {
-      showToast("Couldn't update payment status. Try again.");
+    } catch (e: any) {
+      console.error("Payment action failed:", e);
+      const errorMsg = e?.message || "Couldn't update payment status. Try again.";
+      showToast(errorMsg);
     } finally {
       setProcessingPayment(null);
+    }
+  }
+
+  async function handleRecordWalkInPayment(apt: AppointmentRecord) {
+    setProcessingPayment(apt.id);
+    try {
+      await appointmentService.recordWalkInPayment(apt.id, "CASH", apt.packagePrice ?? apt.paymentAmount ?? null);
+      showToast("Walk-in cash payment recorded ✓");
+      refetchApts();
+    } catch {
+      showToast("Couldn't record the payment. Try again.");
+    } finally {
+      setProcessingPayment(null);
+    }
+  }
+
+  async function handleNudgePayment(apt: AppointmentRecord) {
+    if (!apt.customerId) return;
+    try {
+      await appointmentService.nudgePayment(apt.id);
+      showToast("Payment request nudge sent 🔔");
+    } catch {
+      showToast("Couldn't send payment nudge.");
     }
   }
 
@@ -277,6 +281,25 @@ export default function ProviderLeads() {
           <CancelAttributionNote apt={apt} viewpoint="OWNER" />
         )}
 
+        {(apt.paymentStatus === "UNPAID" || apt.paymentStatus === "REJECTED") && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
+          <div className="card col gap-10" style={{ padding: 12, background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 12, marginTop: 2 }}>
+            <div className="tiny semi muted">Payment is outstanding (Unpaid)</div>
+            <div className="row gap-8">
+              {apt.isWalkIn && (apt.packagePrice || apt.paymentAmount) ? (
+                <button className="btn btn-green grow btn-sm" disabled={!!processingPayment} onClick={() => handleRecordWalkInPayment(apt)}>
+                  <CheckCircle2 size={14} /> Record cash received
+                </button>
+              ) : !apt.isWalkIn ? (
+                <button className="btn btn-outline grow btn-sm" style={{ color: "var(--amber-700)", borderColor: "var(--amber-200)" }} disabled={!!processingPayment} onClick={() => handleNudgePayment(apt)}>
+                  🔔 Request payment
+                </button>
+              ) : (
+                <span className="tiny muted">Add a priced package before recording walk-in payment.</span>
+              )}
+            </div>
+          </div>
+        )}
+
         <PaymentStatusCard
           paymentStatus={apt.paymentStatus}
           paymentMethod={apt.paymentMethod}
@@ -355,151 +378,93 @@ export default function ProviderLeads() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Leads & Appointments" subtitle={`Manage incoming jobs for ${p?.displayName ?? "Provider"}`} />
+      <AppBar title="Jobs" subtitle={`Bookings for ${p?.displayName ?? "you"}`} />
 
-      {/* Tab Switcher */}
-      <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 6 }}>
-        <button className={`chip ${tab === "requests" ? "active" : ""}`} onClick={() => setTab("requests")}>
-          🙋 Open Requests ({items.length})
-        </button>
-        <button className={`chip ${tab === "sent" ? "active" : ""}`} onClick={() => setTab("sent")}>
-          📨 Sent ({sentProposals?.length ?? 0})
-        </button>
-        <button className={`chip ${tab === "appointments" ? "active" : ""}`} onClick={() => setTab("appointments")}>
-          📅 Booked Appointments ({appointments.length})
-        </button>
+      {/* Console tabs */}
+      <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 4 }}>
+        {([["TODAY", "📅 Day view"], ["UPCOMING", `⏭️ Upcoming (${upcomingList.length})`], ["HISTORY", "🕘 History"], ["CANCELLED", `🚫 Cancelled (${cancelledList.length})`]] as const).map(([t, label]) => (
+          <button key={t} className={`chip ${consoleTab === t ? "active" : ""}`} style={{ fontSize: 12 }} onClick={() => setConsoleTab(t)}>{label}</button>
+        ))}
       </div>
 
       <div className="screen-scroll">
-        {tab === "requests" && (
-          <>
-            <div className="page-pad" style={{ paddingBottom: 0 }}>
-              <div className="card row gap-10" style={{ padding: 12, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
-                <span style={{ fontSize: 20 }}>🙋</span>
-                <span className="tiny" style={{ color: "var(--green-600)", lineHeight: 1.4 }}>
-                  Open requests near you. Send a proposal to win the job — itemize your quote for the best shot.
-                </span>
-              </div>
+        {consoleTab === "TODAY" && (
+          <div className="page-pad col gap-12" style={{ paddingTop: 8 }}>
+            <DateStrip selectedDate={selectedDate} onSelect={setSelectedDate} appointments={appointments} daysBefore={7} daysAfter={30} />
+
+            <div className="card row gap-14" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
+              <StatBlock label="Booked" value={bookedCount} />
+              <StatBlock label="Pending" value={pendingCount} />
+              <StatBlock label="Blocked" value={blockedCount} />
+              <button className="icon-btn" style={{ marginLeft: "auto", width: 32, height: 32 }} title="Copy day summary" onClick={copyDaySummary}>
+                <Share2 size={15} />
+              </button>
             </div>
-            {loading && <ListSkeleton count={3} />}
-            {error && <ErrorView error={error} onRetry={refetch} />}
-            {data && (
-              <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
-                {items.length === 0 ? <EmptyState emoji="🌙" title="No open requests" text="New matching requests will appear here." /> : items.map((r) => <RequestCard key={r.id} r={r} />)}
-              </div>
-            )}
-          </>
+
+            <DayTimetable
+              date={selectedDate}
+              availabilityNote={p?.availabilityNote || DEFAULT_WORKING_HOURS}
+              appointments={appointments}
+              blockedSlots={blockedSlots}
+              renderAppointment={renderAppointmentCard}
+              onBlockSlot={(d, t) => setBlockModal({ date: d, timeLabel: t })}
+              onUnblockSlot={unblock}
+              onAddWalkIn={(d, t) => setWalkInModal({ date: d, timeLabel: t })}
+              onBlockWholeDay={() => setBlockModal({ date: selectedDate, timeLabel: null })}
+              onUnblockWholeDay={unblock}
+            />
+          </div>
         )}
 
-        {tab === "sent" && (
-          <div className="page-pad col gap-10" style={{ paddingTop: 12 }}>
-            {sentLoading ? (
-              <ListSkeleton count={3} />
-            ) : (sentProposals ?? []).length === 0 ? (
-              <EmptyState emoji="📨" title="No proposals sent yet" text="Proposals you send as this provider appear here." />
+        {consoleTab === "UPCOMING" && (
+          <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
+            {upcomingList.length === 0 ? (
+              <EmptyState emoji="📅" title="No upcoming appointments" text="New bookings will appear here." />
             ) : (
-              (sentProposals ?? []).map((sp) => (
-                <button key={sp.id} className="card" style={{ textAlign: "left" }} onClick={() => nav(`/request/${sp.requestId}`)}>
-                  <div className="row between">
-                    <span className="badge badge-gray">{sp.status}</span>
-                    <span className="tiny muted">{sp.postedAt}</span>
-                  </div>
-                  <div className="semi small ellipsis" style={{ marginTop: 6 }}>{sp.requestTitle}</div>
-                  <div className="tiny muted" style={{ marginTop: 2 }}>Your quote: {inr(sp.price)}</div>
-                </button>
+              upcomingList.map(renderAppointmentCard)
+            )}
+          </div>
+        )}
+
+        {consoleTab === "HISTORY" && (
+          <div className="page-pad col gap-16" style={{ paddingTop: 12 }}>
+            {historyList.length === 0 ? (
+              <EmptyState emoji="🕘" title="Nothing here yet" text="Completed and past appointments will appear here." />
+            ) : (
+              historyGroups.map(([day, list]) => (
+                <div key={day} className="col gap-10">
+                  <div className="tiny semi muted" style={{ position: "sticky", top: 0, background: "var(--bg)", padding: "4px 0", zIndex: 2 }}>{day}</div>
+                  {list.map(renderAppointmentCard)}
+                </div>
               ))
             )}
           </div>
         )}
 
-        {tab === "appointments" && (
-          <>
-            {/* Inner console tabs */}
-            <div className="hscroll" style={{ paddingBottom: 4 }}>
-              {([["TODAY", "📅 Day view"], ["UPCOMING", `⏭️ Upcoming (${upcomingList.length})`], ["HISTORY", "🕘 History"], ["CANCELLED", `🚫 Cancelled (${cancelledList.length})`]] as const).map(([t, label]) => (
-                <button key={t} className={`chip ${consoleTab === t ? "active" : ""}`} style={{ fontSize: 12 }} onClick={() => setConsoleTab(t)}>{label}</button>
-              ))}
-            </div>
-
-            {consoleTab === "TODAY" && (
-              <div className="page-pad col gap-12" style={{ paddingTop: 8 }}>
-                <DateStrip selectedDate={selectedDate} onSelect={setSelectedDate} appointments={appointments} daysBefore={7} daysAfter={30} />
-
-                <div className="card row gap-14" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
-                  <StatBlock label="Booked" value={bookedCount} />
-                  <StatBlock label="Pending" value={pendingCount} />
-                  <StatBlock label="Blocked" value={blockedCount} />
-                  <button className="icon-btn" style={{ marginLeft: "auto", width: 32, height: 32 }} title="Copy day summary" onClick={copyDaySummary}>
-                    <Share2 size={15} />
-                  </button>
-                </div>
-
-                <DayTimetable
-                  date={selectedDate}
-                  availabilityNote={p?.availabilityNote || DEFAULT_WORKING_HOURS}
-                  appointments={appointments}
-                  blockedSlots={blockedSlots}
-                  renderAppointment={renderAppointmentCard}
-                  onBlockSlot={(d, t) => setBlockModal({ date: d, timeLabel: t })}
-                  onUnblockSlot={unblock}
-                  onAddWalkIn={(d, t) => setWalkInModal({ date: d, timeLabel: t })}
-                  onBlockWholeDay={() => setBlockModal({ date: selectedDate, timeLabel: null })}
-                  onUnblockWholeDay={unblock}
-                />
-              </div>
-            )}
-
-            {consoleTab === "UPCOMING" && (
-              <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
-                {upcomingList.length === 0 ? (
-                  <EmptyState emoji="📅" title="No upcoming appointments" text="New bookings will appear here." />
-                ) : (
-                  upcomingList.map(renderAppointmentCard)
-                )}
-              </div>
-            )}
-
-            {consoleTab === "HISTORY" && (
-              <div className="page-pad col gap-16" style={{ paddingTop: 12 }}>
-                {historyList.length === 0 ? (
-                  <EmptyState emoji="🕘" title="Nothing here yet" text="Completed and past appointments will appear here." />
-                ) : (
-                  historyGroups.map(([day, list]) => (
-                    <div key={day} className="col gap-10">
-                      <div className="tiny semi muted" style={{ position: "sticky", top: 0, background: "var(--bg)", padding: "4px 0", zIndex: 2 }}>{day}</div>
-                      {list.map(renderAppointmentCard)}
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {consoleTab === "CANCELLED" && (
-              <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
-                {cancelledList.length === 0 ? (
-                  <EmptyState emoji="🚫" title="No cancelled bookings" text="Cancelled and declined appointments will appear here." />
-                ) : (
-                  cancelledList.map((apt) => (
-                    <div key={apt.id} className="card col gap-8" style={{ padding: 14, opacity: apt.cancelledBy === "CUSTOMER" ? 0.75 : 1 }}>
-                      <div className="row between center-v">
-                        <div className="row gap-10 center-v">
-                          <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 38, height: 38 }} />
-                          <div>
-                            <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
-                            <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                              <Calendar size={12} /> {apt.dateLabel} at {apt.timeLabel}
-                            </div>
-                          </div>
+        {consoleTab === "CANCELLED" && (
+          <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
+            {cancelledList.length === 0 ? (
+              <EmptyState emoji="🚫" title="No cancelled bookings" text="Cancelled and declined appointments will appear here." />
+            ) : (
+              cancelledList.map((apt) => (
+                <div key={apt.id} className="card col gap-8" style={{ padding: 14, opacity: apt.cancelledBy === "CUSTOMER" ? 0.75 : 1 }}>
+                  <div className="row between center-v">
+                    <div className="row gap-10 center-v">
+                      <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 38, height: 38 }} />
+                      <div>
+                        <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
+                        <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
+                          <Calendar size={12} /> {apt.dateLabel} at {apt.timeLabel}
                         </div>
-                        <span className="badge badge-gray" style={{ fontSize: 10 }}>{apt.status}</span>
                       </div>
-                      <CancelAttributionNote apt={apt} viewpoint="OWNER" />
                     </div>
-                  ))
-                )}
-              </div>
+                    <span className="badge badge-gray" style={{ fontSize: 10 }}>{apt.status}</span>
+                  </div>
+                  <CancelAttributionNote apt={apt} viewpoint="OWNER" />
+                </div>
+              ))
             )}
-          </>
+          </div>
         )}
 
         <div style={{ height: 16 }} />

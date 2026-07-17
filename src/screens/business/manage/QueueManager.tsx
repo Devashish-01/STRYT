@@ -8,6 +8,7 @@ import { businessService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
 import type { QueueOwnerToken as Token } from "@/types";
+import ManageNav from "./ManageNav";
 
 // "12m ago" style label for how long a token has been waiting.
 function waitedLabel(iso: string): string {
@@ -203,7 +204,7 @@ export default function QueueManager() {
   }
 
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <AppBar title="Live queue" right={
         <button className="icon-btn" onClick={() => refetch()} title="Refresh">
           <RefreshCw size={17} />
@@ -387,6 +388,7 @@ export default function QueueManager() {
           </>
         )}
       </div>
+      <ManageNav bizId={businessId} waitingCount={waiting.length} />
     </div>
   );
 }

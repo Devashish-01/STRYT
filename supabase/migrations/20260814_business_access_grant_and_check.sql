@@ -23,7 +23,7 @@
 -- ── Owner: grant access to a customer by mobile number, email, or username ──
 create or replace function public.grant_business_access(
   p_business_id text, p_identifier text
-) returns table (grantee_name text)
+) returns table (session_id uuid, grantee_name text)
 language plpgsql security definer set search_path = public as $$
 declare
   v_uid      text := auth.uid()::text;
@@ -32,7 +32,7 @@ declare
   v_ident    text := trim(p_identifier);
   v_digits   text := regexp_replace(v_ident, '\D', '', 'g');
   v_biz_name text;
-  v_session_id text;
+  v_session_id uuid;
 begin
   if v_uid is null then raise exception 'Sign in to your STRYT account first.'; end if;
 
@@ -65,14 +65,27 @@ begin
     raise exception 'You already own this business.';
   end if;
 
-  -- Reactivate an existing session for this grantee if one exists, else insert a fresh one.
+  -- Preserve historical rows. Reuse at most one current row deterministically;
+  -- otherwise create a fresh grant.
   update public.business_access_sessions
-     set status = 'ACTIVE', approved_at = now(), expires_at = null
+     set status = 'EXPIRED', decided_at = coalesce(decided_at, now())
    where business_id = p_business_id and grantee_user_id = v_target
-  returning id into v_session_id;
+     and status in ('PENDING', 'ACTIVE')
+     and expires_at is not null and expires_at <= now();
 
-  if v_session_id is null then
-    insert into public.business_access_sessions (business_id, grantee_user_id, status, approved_at, expires_at)
+  select id into v_session_id
+  from public.business_access_sessions
+  where business_id = p_business_id and grantee_user_id = v_target
+    and status in ('PENDING', 'ACTIVE')
+  order by requested_at desc, id desc
+  limit 1 for update;
+
+  if v_session_id is not null then
+    update public.business_access_sessions
+       set status = 'ACTIVE', decided_at = now(), expires_at = null
+     where id = v_session_id;
+  else
+    insert into public.business_access_sessions (business_id, grantee_user_id, status, decided_at, expires_at)
     values (p_business_id, v_target, 'ACTIVE', now(), null)
     returning id into v_session_id;
   end if;
@@ -84,6 +97,7 @@ begin
             '/account/business-access');
   exception when others then null; end;
 
+  session_id := v_session_id;
   grantee_name := coalesce(v_name, 'User');
   return next;
 end $$;

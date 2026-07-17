@@ -16,13 +16,15 @@ import { RadiusController, RecenterButton, MapEventsController } from "./MapCont
 import { SearchBar } from "./SearchBar";
 import { LayerToggles } from "./LayerToggles";
 import { RadiusStrip } from "./RadiusStrip";
+import GuestRadiusNotice from "@/components/GuestRadiusNotice";
+import { GUEST_RADIUS_KM } from "@/lib/guestMode";
 import { MapMarkers } from "./MapMarkers";
 import { NearbySheet } from "./NearbySheet";
 import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 
 export default function MapView() {
-  const { user, refreshUser, showToast } = useApp();
+  const { user, refreshUser, showToast, isGuest } = useApp();
   const pin = useLocationPinDrop(refreshUser, showToast);
   const [layers, setLayers] = useState<Record<Layer, boolean>>(() => {
     const saved = localStorage.getItem("settings_map_layers");
@@ -37,17 +39,26 @@ export default function MapView() {
     const saved = localStorage.getItem("settings_map_avail_only");
     return saved === "true";
   });
-  const [radiusKm, setRadiusKm] = useState(() => {
+  const [savedRadiusKm, setRadiusKm] = useState(() => {
     const saved = localStorage.getItem("settings_radius");
     return saved ? parseFloat(saved) : (user.notificationRadiusKm || 5);
   });
+  // Guests see the map, but pinned to 1 km with no way to widen it — the radius
+  // strip is hidden for them (below), and this makes the cap real rather than
+  // just unexposed, so a stale `settings_radius` from a previous signed-in
+  // session on this device can't quietly widen a guest's map.
+  const radiusKm = isGuest ? GUEST_RADIUS_KM : savedRadiusKm;
 
   useEffect(() => {
+    // Never persist for a guest: they have no account to save a preference to,
+    // and writing here would leave a footprint on their device (and survive
+    // into a later signed-in session as if they'd chosen it).
+    if (isGuest) return;
     localStorage.setItem("settings_radius", String(radiusKm));
     if (user.id && radiusKm !== user.notificationRadiusKm) {
       void userService.update({ notificationRadiusKm: radiusKm }).catch(() => {});
     }
-  }, [radiusKm, user.id, user.notificationRadiusKm]);
+  }, [isGuest, radiusKm, user.id, user.notificationRadiusKm]);
 
   useEffect(() => {
     localStorage.setItem("settings_map_layers", JSON.stringify(layers));
@@ -152,7 +163,20 @@ export default function MapView() {
             </button>
           )}
 
-          <RadiusStrip radiusKm={radiusKm} setRadiusKm={setRadiusKm} />
+          {/* Guests are pinned to 1 km, so there's nothing to choose here — the
+              notice explains the cap instead. Positioned to sit exactly where
+              the radius strip would (it's absolutely positioned inside the map;
+              rendering the notice bare made it collapse invisibly). */}
+          {isGuest ? (
+            <div style={{
+              position: "absolute", bottom: "calc(24px + var(--safe-area-bottom))",
+              left: 12, right: 12, zIndex: 1000,
+            }}>
+              <GuestRadiusNotice />
+            </div>
+          ) : (
+            <RadiusStrip radiusKm={radiusKm} setRadiusKm={setRadiusKm} />
+          )}
 
           {/* Set-location-manually trigger, stacked above the recenter button */}
           <button

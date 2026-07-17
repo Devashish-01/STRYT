@@ -163,7 +163,7 @@ export const businessService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
-      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, alias, avatar)")
+      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, alias, avatar, show_name_publicly)")
       .eq("ratee_type", "BUSINESS")
       .eq("ratee_id", id)
       .order("created_at", { ascending: false })
@@ -171,7 +171,7 @@ export const businessService = {
     throwIfError(error);
     return (data ?? []).map((r: any) => ({
       id: r.id,
-      raterName: aliasName({ alias: r.rater?.alias, name: r.rater?.name }, "Anonymous"),
+      raterName: aliasName({ alias: r.rater?.alias, name: r.rater?.name, showNamePublicly: r.rater?.show_name_publicly }, "Anonymous"),
       raterAvatar: r.rater?.avatar ?? "",
       rating: r.rating,
       comment: r.comment ?? "",
@@ -231,7 +231,7 @@ export const businessService = {
         .in("status", ["WAITING", "CALLED"])
         .order("created_at", { ascending: true }),
       sb.from("queue_tokens")
-        .select("id, customer_name, customer_user_id, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference, customer:users!customer_user_id(alias)")
+        .select("id, customer_name, customer_user_id, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference, customer:users!customer_user_id(alias, show_name_publicly)")
         .eq("business_id", businessId)
         .eq("status", "SERVED")
         .gte("created_at", since)
@@ -258,7 +258,7 @@ export const businessService = {
       // public alias rather than keeping their real name on the history card.
       served: ((servedRes.data ?? []) as any[]).map((t) => ({
         ...map(t),
-        name: aliasName({ alias: t.customer?.alias, name: t.customer_name }, "Customer"),
+        name: aliasName({ alias: t.customer?.alias, name: t.customer_name, showNamePublicly: t.customer?.show_name_publicly }, "Customer"),
       })),
     };
   },
@@ -279,6 +279,25 @@ export const businessService = {
 
   async rejectQueuePaymentClaim(tokenId: string) {
     await updateQueueToken(tokenId, { payment_status: "REJECTED" });
+    return { ok: true };
+  },
+
+  /** Customer undoes their own unconfirmed payment claim, reverting to UNPAID
+   *  so the cancel-visit and pay-again actions become available again. Scoped
+   *  to PENDING_CONFIRM only — a claim the business already confirmed as PAID
+   *  is untouched even if this is somehow called against it. */
+  async cancelQueuePaymentClaim(tokenId: string) {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("queue_tokens")
+      .update({ payment_status: "UNPAID" } as TablesUpdate<"queue_tokens">)
+      .eq("id", tokenId)
+      .eq("payment_status", "PENDING_CONFIRM")
+      .select("id");
+    throwIfError(error);
+    if (!data || data.length === 0) {
+      throw new Error("Couldn't cancel — the business may have already confirmed or rejected it.");
+    }
     return { ok: true };
   },
 
@@ -617,7 +636,7 @@ export const businessService = {
     const uid = await currentUserId();
     const { data, error } = await sb
       .from("business_qna")
-      .select("id, business_id, question, answer, upvotes, created_at, asker:users!asker_user_id(name, alias)")
+      .select("id, business_id, question, answer, upvotes, created_at, asker:users!asker_user_id(name, alias, show_name_publicly)")
       .eq("business_id", id)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -637,7 +656,7 @@ export const businessService = {
     return rows.map((q: any) => ({
       id: q.id,
       businessId: q.business_id,
-      askerName: aliasName({ alias: q.asker?.alias, name: q.asker?.name }, "Customer"),
+      askerName: aliasName({ alias: q.asker?.alias, name: q.asker?.name, showNamePublicly: q.asker?.show_name_publicly }, "Customer"),
       question: q.question,
       answer: q.answer ?? undefined,
       askedAt: relDate(q.created_at),

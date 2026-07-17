@@ -20,16 +20,21 @@ export function displayName(name?: string | null, fallback = "STRYT Neighbor"): 
 }
 
 /**
- * Public identity shown to strangers: the user's alias if they've set one.
- * Until an alias is set we fall back to the first-name view (never a bare
- * phone) so nothing renders blank — privacy tightens the moment an alias is
- * chosen. Real names are revealed separately, only inside an active
- * relationship (appointment/queue/proposal), by passing the real name directly.
+ * Public identity shown to strangers: the real name if the user opted in via
+ * `showNamePublicly` (defaults to false — see 20260821_show_name_publicly.sql),
+ * otherwise their alias if they've set one. Until an alias is set we fall back
+ * to the first-name view (never a bare phone) so nothing renders blank —
+ * privacy tightens the moment an alias is chosen. Without the opt-in, the real
+ * name is revealed separately only inside an active relationship
+ * (appointment/queue/proposal), by passing the real name directly.
  */
 export function aliasName(
-  input?: { alias?: string | null; name?: string | null } | null,
+  input?: { alias?: string | null; name?: string | null; showNamePublicly?: boolean | null } | null,
   fallback = "STRYT Neighbor",
 ): string {
+  if (input?.showNamePublicly) {
+    return displayName(input?.name, fallback);
+  }
   const alias = (input?.alias ?? "").trim();
   if (alias) return alias;
   return firstName(input?.name) === "Neighbor" ? fallback : firstName(input?.name);

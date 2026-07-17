@@ -144,6 +144,15 @@ export const adminService = {
     };
   },
 
+  async resolveAgreementDispute(agreementId: string, resolution: "COMPLETED" | "CANCELLED") {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("admin_resolve_agreement_dispute", {
+      p_id: agreementId,
+      p_resolution: resolution,
+    });
+    throwIfError(error);
+  },
+
   async queue(type: "business" | "provider" | "category") {
     const sb = getSupabase();
 

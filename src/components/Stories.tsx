@@ -17,7 +17,7 @@ interface AuthorGroup {
 }
 
 export function StoriesBar() {
-  const { viewedStories, user } = useApp();
+  const { viewedStories, user, isGuest } = useApp();
   const nav = useNavigate();
   
   // Track open group index in allGroups list
@@ -90,7 +90,10 @@ export function StoriesBar() {
   return (
     <>
       <div className="hscroll" style={{ paddingTop: 14, paddingBottom: 4 }}>
-        {/* Your story / Add story */}
+        {/* Your story / Add story — a guest has no story to add or show, so the
+            tile is dropped entirely rather than offering a dead "+". They can
+            still watch everyone else's. */}
+        {!isGuest && (
         <button className="col center" style={{ gap: 6, width: 70, flexShrink: 0 }} onClick={handleMyStoryTap}>
           <div style={{ position: "relative", width: 64, height: 64 }}>
             {myStory ? (
@@ -130,6 +133,7 @@ export function StoriesBar() {
             {myStory ? "My story" : "Your story"}
           </span>
         </button>
+        )}
 
         {/* Other users' stories grouped by author */}
         {loading
@@ -211,7 +215,7 @@ export function StoryViewer({
   onClose,
 }: StoryViewerProps) {
   const nav = useNavigate();
-  const { markStoryViewed, user, ownedBusinessIds, ownedProviderId, showToast } = useApp();
+  const { markStoryViewed, user, ownedBusinessIds, ownedProviderId, showToast, isGuest } = useApp();
 
   const [viewers, setViewers] = useState<any[]>([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
@@ -625,8 +629,9 @@ export function StoryViewer({
         )}
       </div>
 
-      {/* Quick reactions — tap to react, tap another to change it */}
-      {!isOwnStory && (
+      {/* Quick reactions — tap to react, tap another to change it. Guests watch
+          stories but can't react (a reaction notifies the author). */}
+      {!isOwnStory && !isGuest && (
         <div className="row between" style={{ position: "absolute", bottom: "calc(16px + var(--safe-area-bottom))", left: 16, right: 16, zIndex: 3 }}>
           {REACTIONS.map((emoji) => {
             const active = myReaction === emoji;

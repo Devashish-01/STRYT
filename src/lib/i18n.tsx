@@ -41,6 +41,7 @@ const strings: Record<Lang, Record<string, string>> = {
     language: "Language",
     notifications: "Notifications",
     sign_out: "Sign out",
+    sign_in: "Sign in",
     map: "Map",
     create: "Create",
     appointments: "Appointments",
@@ -100,6 +101,9 @@ const strings: Record<Lang, Record<string, string>> = {
 
     // Requests Feed
     request_feed: "Request Feed",
+    load_more: "Load more",
+    loading: "Loading…",
+    couldnt_load_more: "Couldn't load more — try again",
     open_needs_near: "Open needs near",
     ask: "Ask",
     nearby_label: "Nearby",
@@ -122,7 +126,7 @@ const strings: Record<Lang, Record<string, string>> = {
     agreement_cancelled_desc: "This agreement may have been cancelled.",
     paid_via_upi: "I've paid via UPI",
     paid_in_cash: "I've paid in cash",
-    upi_cash_confirmation_note: "UPI claims need confirmation; cash is confirmed instantly.",
+    upi_cash_confirmation_note: "Both UPI and cash claims need {name}'s confirmation.",
     mark_work_started: "Mark work started",
     waiting_to_start_work: "Waiting for work to start…",
     submit_for_review: "Submit for review",
@@ -268,6 +272,7 @@ const strings: Record<Lang, Record<string, string>> = {
     language: "भाषा",
     notifications: "सूचनाएं",
     sign_out: "साइन आउट",
+    sign_in: "साइन इन",
     map: "नक्शा",
     create: "बनाएं",
     appointments: "नियुक्तियां",
@@ -327,6 +332,9 @@ const strings: Record<Lang, Record<string, string>> = {
 
     // Requests Feed
     request_feed: "अनुरोध फ़ीड",
+    load_more: "और देखें",
+    loading: "लोड हो रहा है…",
+    couldnt_load_more: "और लोड नहीं हो सका — फिर कोशिश करें",
     open_needs_near: "खुली जरूरतें निकट",
     ask: "पूछें",
     nearby_label: "पड़ोस में",
@@ -349,7 +357,7 @@ const strings: Record<Lang, Record<string, string>> = {
     agreement_cancelled_desc: "यह समझौता रद्द कर दिया गया होगा।",
     paid_via_upi: "मैंने यूपीआई से भुगतान किया है",
     paid_in_cash: "मैंने नकद भुगतान किया है",
-    upi_cash_confirmation_note: "यूपीआई दावों के लिए पुष्टि की आवश्यकता है; नकद तुरंत पुष्टि हो जाती है।",
+    upi_cash_confirmation_note: "यूपीआई और नकद, दोनों भुगतान दावों के लिए {name} की पुष्टि आवश्यक है।",
     mark_work_started: "काम शुरू चिह्नित करें",
     waiting_to_start_work: "काम शुरू होने की प्रतीक्षा की जा रही है…",
     submit_for_review: "समीक्षा के लिए सबमिट करें",
@@ -554,6 +562,9 @@ const strings: Record<Lang, Record<string, string>> = {
 
     // Requests Feed
     request_feed: "विनंती फीड",
+    load_more: "आणखी पहा",
+    loading: "लोड होत आहे…",
+    couldnt_load_more: "आणखी लोड होऊ शकले नाही — पुन्हा प्रयत्न करा",
     open_needs_near: "जवळपासच्या खुल्या गरजा",
     ask: "विचारा",
     nearby_label: "जवळपास",
@@ -576,7 +587,7 @@ const strings: Record<Lang, Record<string, string>> = {
     agreement_cancelled_desc: "हा करार रद्द केला असावा.",
     paid_via_upi: "मी यूपीआय द्वारे पैसे दिले आहेत",
     paid_in_cash: "मी रोख पैसे दिले आहेत",
-    upi_cash_confirmation_note: "यूपीआय दाव्यांसाठी पुष्टीकरण आवश्यक आहे; रोख लगेच पुष्टी होते.",
+    upi_cash_confirmation_note: "यूपीआय आणि रोख, दोन्ही पेमेंट दाव्यांसाठी {name} ची पुष्टी आवश्यक आहे.",
     mark_work_started: "काम सुरू झाले असे नोंदवा",
     waiting_to_start_work: "काम सुरू होण्याची वाट पाहत आहे…",
     submit_for_review: "पुनरावलोकनासाठी सबमिट करा",

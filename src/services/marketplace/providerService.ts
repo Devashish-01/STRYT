@@ -60,6 +60,17 @@ export interface ProviderAnalytics {
   leadsSeries: number[];
 }
 
+export interface EarningEntry {
+  id: string;
+  amount: number;
+  tip: number;
+  mode: string;
+  note: string;
+  date: string;         // human label
+  createdAtISO: string; // raw timestamp for sorting
+  agreementId: string;
+}
+
 export const providerService = {
   async mine(): Promise<Provider[]> {
     const sb = getSupabase();
@@ -118,7 +129,7 @@ export const providerService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
-      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, alias, avatar)")
+      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, alias, avatar, show_name_publicly)")
       .eq("ratee_type", "PROVIDER")
       .eq("ratee_id", id)
       .order("created_at", { ascending: false })
@@ -126,7 +137,7 @@ export const providerService = {
     throwIfError(error);
     return (data ?? []).map((r: any) => ({
       id: r.id,
-      raterName: aliasName({ alias: r.rater?.alias, name: r.rater?.name }, "Anonymous"),
+      raterName: aliasName({ alias: r.rater?.alias, name: r.rater?.name, showNamePublicly: r.rater?.show_name_publicly }, "Anonymous"),
       raterAvatar: r.rater?.avatar ?? "",
       rating: r.rating,
       comment: r.comment ?? "",
@@ -323,6 +334,37 @@ export const providerService = {
       viewsSeries: providerDailyBuckets((viewsSerRes.data ?? []).map((r: any) => r.viewed_at)),
       leadsSeries: providerDailyBuckets((leadsSerRes.data ?? []).map((r: any) => r.created_at)),
     };
+  },
+
+  /**
+   * Dated settlement history behind the "Earned (offline)" total — one row per
+   * recorded settlement for this provider's owning user, newest first. Feeds the
+   * Money screen's ledger.
+   */
+  async earningsLedger(id: string): Promise<EarningEntry[]> {
+    if (isMockTarget(id)) return [];
+    const sb = getSupabase();
+    const provRes = await sb.from("providers").select("user_id").eq("id", id).maybeSingle();
+    throwIfError(provRes.error);
+    const uid = (provRes.data as { user_id?: string } | null)?.user_id;
+    if (!uid) return [];
+    const { data, error } = await sb
+      .from("settlements")
+      .select("id, amount, tip, mode, note, created_at, agreement_id")
+      .eq("user_id", uid)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    throwIfError(error);
+    return (data ?? []).map((s: any) => ({
+      id: s.id,
+      amount: s.amount ?? 0,
+      tip: s.tip ?? 0,
+      mode: s.mode ?? "CASH",
+      note: s.note ?? "",
+      date: s.created_at ? relDate(s.created_at) : "",
+      createdAtISO: s.created_at ?? "",
+      agreementId: s.agreement_id ?? "",
+    }));
   },
 
   /** Submit a star rating + comment for a provider. Trigger recomputes rating_avg/count. */

@@ -17,7 +17,7 @@ create extension if not exists pgcrypto;
 -- ── Credentials (one set per business) ───────────────────────
 create table if not exists public.business_login_credentials (
   business_id      text primary key references public.businesses(id) on delete cascade,
-  login_id         text not null unique,
+  login_id         text not null,
   password_hash    text not null,
   require_approval boolean not null default true,
   session_hours    int not null default 8,
@@ -25,19 +25,20 @@ create table if not exists public.business_login_credentials (
   created_at       timestamptz default now(),
   updated_at       timestamptz default now()
 );
-create index if not exists blc_login_idx on public.business_login_credentials (lower(login_id));
+create unique index if not exists blc_login_idx
+  on public.business_login_credentials (lower(login_id));
 
 -- ── Access sessions (one per login attempt) ──────────────────
 create table if not exists public.business_access_sessions (
-  id              text primary key default gen_random_uuid()::text,
+  id              uuid primary key default gen_random_uuid(),
   business_id     text not null references public.businesses(id) on delete cascade,
   grantee_user_id text not null references public.users(id) on delete cascade,
   status          text not null default 'PENDING'
                     check (status in ('PENDING','ACTIVE','EXPIRED','REVOKED','DENIED')),
-  requested_at    timestamptz default now(),
-  approved_at     timestamptz,
+  requested_at    timestamptz not null default now(),
+  decided_at      timestamptz,
   expires_at      timestamptz,
-  created_at      timestamptz default now()
+  created_ip      text
 );
 create index if not exists bas_business_idx on public.business_access_sessions (business_id, status);
 create index if not exists bas_grantee_idx on public.business_access_sessions (grantee_user_id, status);
@@ -58,11 +59,8 @@ do $$ begin
     using (grantee_user_id = auth.uid()::text
       or exists (select 1 from public.businesses b where b.id = business_id and b.owner_user_id = auth.uid()::text));
 exception when duplicate_object then null; end $$;
--- A grantee may revoke (leave) their own session.
-do $$ begin
-  create policy update_own_bas on public.business_access_sessions for update
-    using (grantee_user_id = auth.uid()::text) with check (grantee_user_id = auth.uid()::text);
-exception when duplicate_object then null; end $$;
+-- A grantee leaves through revoke_business_session(); direct session mutation
+-- is intentionally not exposed by RLS.
 
 -- ── Access predicate: owner OR an active, unexpired session ───
 create or replace function public.has_business_access(p_business_id text, p_uid text)
@@ -161,14 +159,14 @@ grant execute on function public.set_business_login(text, text, text, boolean, i
 
 -- ── A logged-in user attempts a business login ───────────────
 create or replace function public.business_login_attempt(p_login_id text, p_password text)
-returns table (status text, business_id text, session_id text, business_name text)
+returns table (status text, business_id text, session_id uuid, business_name text)
 language plpgsql security definer set search_path = public as $$
 declare
   v_uid text := auth.uid()::text;
   v_cred public.business_login_credentials%rowtype;
   v_status text;
   v_expires timestamptz;
-  v_sid text;
+  v_sid uuid;
   v_name text;
 begin
   if v_uid is null then raise exception 'Sign in to your STRYT account first.'; end if;
@@ -184,7 +182,7 @@ begin
     v_status := 'ACTIVE'; v_expires := now() + make_interval(hours => v_cred.session_hours);
   end if;
 
-  insert into public.business_access_sessions (business_id, grantee_user_id, status, approved_at, expires_at)
+  insert into public.business_access_sessions (business_id, grantee_user_id, status, decided_at, expires_at)
   values (v_cred.business_id, v_uid, v_status, case when v_status = 'ACTIVE' then now() else null end, v_expires)
   returning id into v_sid;
 
@@ -206,51 +204,84 @@ end $$;
 grant execute on function public.business_login_attempt(text, text) to authenticated;
 
 -- ── Owner approves / denies a pending session ────────────────
-create or replace function public.decide_business_session(p_session_id text, p_approve boolean)
+create or replace function public.decide_business_session(p_session_id uuid, p_approve boolean)
 returns void language plpgsql security definer set search_path = public as $$
-declare v_biz text; v_hours int;
+declare
+  v_uid text := auth.uid()::text;
+  v_session public.business_access_sessions%rowtype;
+  v_hours int;
 begin
-  select s.business_id into v_biz
-    from public.business_access_sessions s
-    join public.businesses b on b.id = s.business_id
-   where s.id = p_session_id and b.owner_user_id = auth.uid()::text;
-  if v_biz is null then raise exception 'Only the business owner can decide this request.'; end if;
+  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;
+  select s.* into v_session
+  from public.business_access_sessions s
+  join public.businesses b on b.id = s.business_id
+  where s.id = p_session_id and b.owner_user_id = v_uid
+  for update of s;
+  if not found then raise exception 'NOT_ALLOWED'; end if;
+  if v_session.status <> 'PENDING' then raise exception 'ALREADY_DECIDED'; end if;
+  if v_session.expires_at is not null and v_session.expires_at <= now() then
+    update public.business_access_sessions
+    set status = 'EXPIRED', decided_at = coalesce(decided_at, now())
+    where id = p_session_id and status = 'PENDING';
+    return;
+  end if;
 
-  select session_hours into v_hours from public.business_login_credentials where business_id = v_biz;
+  select least(greatest(coalesce(session_hours, 8), 1), 720)
+  into v_hours from public.business_login_credentials
+  where business_id = v_session.business_id;
+
   update public.business_access_sessions
-     set status = case when p_approve then 'ACTIVE' else 'DENIED' end,
-         approved_at = case when p_approve then now() else null end,
-         expires_at = case when p_approve then now() + make_interval(hours => coalesce(v_hours, 8)) else null end
-   where id = p_session_id and status = 'PENDING';
+  set status = case when p_approve then 'ACTIVE' else 'DENIED' end,
+      decided_at = now(),
+      expires_at = case when p_approve
+        then now() + make_interval(hours => coalesce(v_hours, 8)) else null end
+  where id = p_session_id and status = 'PENDING';
+  if not found then raise exception 'ALREADY_DECIDED'; end if;
 
   begin
     insert into public.notifications (user_id, type, title, body, deep_link)
     select grantee_user_id, 'QUEUE_UPDATE',
-           case when p_approve then 'Access approved ✓' else 'Access request denied' end,
-           case when p_approve then 'You can now manage the business from Switch account.' else 'The owner declined your access request.' end,
-           '/account/business-access'
-      from public.business_access_sessions where id = p_session_id;
+      case when p_approve then 'Access approved ✓' else 'Access request denied' end,
+      case when p_approve then 'You can now manage the business from Switch account.'
+        else 'The owner declined your access request.' end,
+      '/account/business-access'
+    from public.business_access_sessions where id = p_session_id;
   exception when others then null; end;
 end $$;
-grant execute on function public.decide_business_session(text, text) to authenticated;
+revoke execute on function public.decide_business_session(uuid, boolean) from public, anon;
+grant execute on function public.decide_business_session(uuid, boolean) to authenticated;
 
 -- ── Revoke a session (owner) or leave one (grantee) ──────────
-create or replace function public.revoke_business_session(p_session_id text)
+create or replace function public.revoke_business_session(p_session_id uuid)
 returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_uid text := auth.uid()::text;
+  v_session public.business_access_sessions%rowtype;
 begin
-  update public.business_access_sessions s
-     set status = 'REVOKED', expires_at = now()
-   where s.id = p_session_id
-     and (s.grantee_user_id = auth.uid()::text
-          or exists (select 1 from public.businesses b where b.id = s.business_id and b.owner_user_id = auth.uid()::text));
+  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;
+  select * into v_session from public.business_access_sessions
+  where id = p_session_id for update;
+  if not found then raise exception 'SESSION_NOT_FOUND'; end if;
+  if v_session.grantee_user_id is distinct from v_uid
+     and not exists (select 1 from public.businesses b
+       where b.id = v_session.business_id and b.owner_user_id = v_uid) then
+    raise exception 'NOT_ALLOWED';
+  end if;
+  update public.business_access_sessions
+  set status = 'REVOKED', decided_at = now(),
+      expires_at = case when status = 'ACTIVE' then now() else expires_at end
+  where id = p_session_id and status in ('PENDING', 'ACTIVE');
 end $$;
-grant execute on function public.revoke_business_session(text) to authenticated;
+revoke execute on function public.revoke_business_session(uuid) from public, anon;
+grant execute on function public.revoke_business_session(uuid) to authenticated;
 
 -- ── Expire elapsed sessions (opportunistic sweep) ────────────
 create or replace function public.close_expired_business_sessions()
 returns void language sql security definer set search_path = public as $$
   update public.business_access_sessions
-     set status = 'EXPIRED'
-   where status = 'ACTIVE' and expires_at is not null and expires_at < now();
+     set status = 'EXPIRED', decided_at = coalesce(decided_at, now())
+   where status in ('PENDING', 'ACTIVE')
+     and expires_at is not null and expires_at <= now();
 $$;
-grant execute on function public.close_expired_business_sessions() to anon, authenticated;
+revoke execute on function public.close_expired_business_sessions() from public, anon;
+grant execute on function public.close_expired_business_sessions() to authenticated;

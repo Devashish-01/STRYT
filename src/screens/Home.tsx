@@ -18,6 +18,8 @@ import MyPeopleToggle from "@/features/live-share/MyPeopleToggle";
 import { SafeImg, PullToRefreshIndicator } from "@/components/common";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
 import { useI18n } from "@/lib/i18n";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import GuestRadiusNotice from "@/components/GuestRadiusNotice";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
 // fetched when the user actually opens the scanner, not on every Home visit.
@@ -91,9 +93,10 @@ export default function Home() {
   const nav = useNavigate();
   const { t } = useI18n();
   const { area: rawArea, chatUnread, user } = useApp();
+  const requireAuth = useRequireAuth();
   const area = rawArea || t("neighborhood_placeholder");
 
-  const theme = useAmbientTheme(user.lat, user.lng);
+  const theme = useAmbientTheme(user.lat, user.lng, "customer");
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [scanner, setScanner] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
@@ -200,8 +203,10 @@ export default function Home() {
   const tiles = [
     { emoji: "🧭", label: t("explore"), sub: t("shops_people"), tint: "var(--brand-100)", color: "var(--blue-500)", onClick: () => nav("/explore") },
     { emoji: "🏘️", label: t("community"), sub: t("street_feed"), tint: "var(--ink-50)", color: "var(--pink-500)", onClick: () => nav("/community-hub"), badge: chatUnread || undefined },
-    { emoji: "🤝", label: t("my_deals"), sub: activeAgreements.length > 0 ? `${activeAgreements.length}${t("active_suffix")}` : t("requests"), tint: "var(--green-100)", color: "var(--green-500)", onClick: () => nav("/agreements"), badge: activeAgreements.length || undefined },
-    { emoji: "📅", label: t("appointments"), sub: upcomingCount > 0 ? `${upcomingCount}${t("upcoming_suffix")}` : t("your_bookings"), tint: "var(--brand-50)", color: "var(--brand-600)", onClick: () => nav("/appointments"), badge: upcomingCount || undefined },
+    // Deals/appointments are personal — a guest has none, so these are sign-in
+    // prompts rather than tiles that bounce off ProtectedLayout unexplained.
+    { emoji: "🤝", label: t("my_deals"), sub: activeAgreements.length > 0 ? `${activeAgreements.length}${t("active_suffix")}` : t("requests"), tint: "var(--green-100)", color: "var(--green-500)", onClick: requireAuth(() => nav("/agreements"), "Sign in to see your deals"), badge: activeAgreements.length || undefined },
+    { emoji: "📅", label: t("appointments"), sub: upcomingCount > 0 ? `${upcomingCount}${t("upcoming_suffix")}` : t("your_bookings"), tint: "var(--brand-50)", color: "var(--brand-600)", onClick: requireAuth(() => nav("/appointments"), "Sign in to see your bookings"), badge: upcomingCount || undefined },
   ];
 
   return (
@@ -212,17 +217,14 @@ export default function Home() {
          ========================================================== */}
       <div className="mobile-only" style={{ display: "flex", flexDirection: "column", minHeight: "100vh", width: "100%" }}>
         {/* ── Sticky gradient header — the "Living Street Light" sky ── */}
-        <div style={{
-          // theme.accent is a CSS var (e.g. var(--blue-500)); appending "cc" to it
-          // produced invalid CSS and voided the whole gradient, leaving the header
-          // light and its white text invisible. Darken the second stop with color-mix.
-          background: `linear-gradient(135deg, ${theme.accent}, color-mix(in srgb, ${theme.accent} 78%, #000))`,
+        <div className="living-sky-header" style={{
+          background: theme.headerGradient,
           color: "#fff",
           padding: "calc(14px + var(--safe-area-top)) 16px 16px",
           position: "sticky",
           top: 0,
           zIndex: 20,
-          transition: "background 0.6s ease",
+          transition: "background 0.6s ease, background-position 0.6s ease",
           overflow: "hidden",
         }}>
           <AmbientSky dayPart={theme.dayPartKey} effect={theme.seasonEffect} glow={theme.lampGlow} />
@@ -270,6 +272,9 @@ export default function Home() {
             </span>
             <span className="row gap-4 bold" style={{ fontSize: 17, color: "#fff" }}>
               {area} <ChevronDown size={16} />
+            </span>
+            <span className="tiny" style={{ color: "#fff", opacity: 0.8, fontWeight: 500, marginTop: 2, display: "block" }}>
+              {theme.ambientSubtitle}
             </span>
           </button>
 
@@ -340,6 +345,13 @@ export default function Home() {
 
         <div ref={containerRef} className="screen-scroll" style={{ background: theme.bgGradient, transition: "background 0.6s ease", flex: 1 }}>
           <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
+
+          {/* Guests only — names the 1 km limit instead of letting an empty
+              street read as "nothing here". No-op when signed in. */}
+          <div className="page-pad" style={{ paddingBottom: 0 }}>
+            <GuestRadiusNotice />
+          </div>
+
           {/* Stories */}
           <StoriesBar />
 
@@ -416,7 +428,7 @@ export default function Home() {
 
           {/* Hero "Need something?" */}
           <div className="page-pad" style={{ paddingTop: 16, paddingBottom: 0 }}>
-            <button className="launch-hero fade-up" onClick={() => nav("/ask")} style={{ width: "100%", border: "none", cursor: "pointer" }}>
+            <button className="launch-hero fade-up" onClick={requireAuth(() => nav("/ask"), "Sign in to ask your street")} style={{ width: "100%", border: "none", cursor: "pointer" }}>
               <span className="launch-hero-icon">📋</span>
               <div className="grow" style={{ textAlign: "left" }}>
                 <div style={{ fontSize: 17, fontWeight: 800 }}>{t("need_something")}</div>
@@ -456,18 +468,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Leaderboard */}
-          <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
-            <button className="activity-banner" style={{ width: "100%", border: "none", cursor: "pointer" }} onClick={() => nav("/leaderboard")}>
-              <span style={{ fontSize: 22 }}>🏆</span>
-              <div className="grow" style={{ textAlign: "left" }}>
-                <div className="semi small">{t("leaderboard")}</div>
-                <div className="tiny muted">{t("top_contributors")}</div>
-              </div>
-              <ChevronRight size={18} color="var(--ink-400)" />
-            </button>
-          </div>
-
           {/* Empty street CTA */}
           {agreements.length === 0 && (categories ?? []).length === 0 && (
             <div className="page-pad col gap-12" style={{ paddingTop: 20 }}>
@@ -479,7 +479,7 @@ export default function Home() {
                 </p>
                 <div className="row gap-10" style={{ marginTop: 4 }}>
                   <button className="btn btn-primary btn-sm" onClick={() => nav("/onboard/business")}>{t("list_spot")}</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => nav("/ask")}>{t("post_request")}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={requireAuth(() => nav("/ask"), "Sign in to ask your street")}>{t("post_request")}</button>
                 </div>
               </div>
             </div>
@@ -500,15 +500,15 @@ export default function Home() {
 
         {/* Header — dark "Living Street Light" sky band so the lamp glow + season
             (rain/snow/petals/haze) are visible on desktop just like mobile. */}
-        <header style={{
+        <header className="living-sky-header" style={{
           position: "relative",
           overflow: "hidden",
           borderRadius: 20,
           padding: "20px 24px",
           marginBottom: 22,
           color: "#fff",
-          background: `linear-gradient(135deg, ${theme.accent}, color-mix(in srgb, ${theme.accent} 72%, #000))`,
-          transition: "background 0.6s ease",
+          background: theme.headerGradient,
+          transition: "background 0.6s ease, background-position 0.6s ease",
         }}>
           <AmbientSky dayPart={theme.dayPartKey} effect={theme.seasonEffect} glow={theme.lampGlow} />
           <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20 }}>
@@ -518,6 +518,9 @@ export default function Home() {
             </span>
             <span className="tiny" style={{ color: "#fff", opacity: 0.82, fontWeight: 600, display: "block" }}>
               {theme.greeting}{firstName ? `, ${firstName}` : ""}
+            </span>
+            <span className="tiny" style={{ color: "#fff", opacity: 0.78, fontWeight: 500, display: "block", marginTop: 2 }}>
+              {theme.ambientSubtitle}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
               <button
@@ -634,7 +637,7 @@ export default function Home() {
             )}
 
             {/* "Need something?" hero — identical to mobile */}
-            <button className="launch-hero" onClick={() => nav("/ask")} style={{ border: "none", cursor: "pointer" }}>
+            <button className="launch-hero" onClick={requireAuth(() => nav("/ask"), "Sign in to ask your street")} style={{ border: "none", cursor: "pointer" }}>
               <span className="launch-hero-icon">📋</span>
               <div className="grow" style={{ textAlign: "left" }}>
                 <div style={{ fontSize: 18, fontWeight: 800 }}>{t("need_something")}</div>
@@ -724,7 +727,7 @@ export default function Home() {
                 <p className="small muted" style={{ maxWidth: 320, lineHeight: 1.5 }}>{t("first_to_list_desc")}</p>
                 <div className="row gap-10" style={{ marginTop: 4 }}>
                   <button className="btn btn-primary btn-sm" onClick={() => nav("/onboard/business")}>{t("list_spot")}</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => nav("/ask")}>{t("post_request")}</button>
+                  <button className="btn btn-ghost btn-sm" onClick={requireAuth(() => nav("/ask"), "Sign in to ask your street")}>{t("post_request")}</button>
                 </div>
               </div>
             )}
@@ -733,16 +736,6 @@ export default function Home() {
           {/* ── Sidebar — quick-access entries (live activity now lives in the
                 "Your day" rail in the main column) ── */}
           <div className="home-sidebar-col">
-
-            {/* Leaderboard — same entry point as mobile */}
-            <button className="activity-banner" style={{ width: "100%", border: "none", cursor: "pointer" }} onClick={() => nav("/leaderboard")}>
-              <span style={{ fontSize: 22 }}>🏆</span>
-              <div className="grow" style={{ textAlign: "left" }}>
-                <div className="semi small">{t("leaderboard")}</div>
-                <div className="tiny muted">{t("top_contributors")}</div>
-              </div>
-              <ChevronRight size={18} color="var(--ink-400)" />
-            </button>
 
             {/* Location privacy quick access */}
             <button className="activity-banner" style={{ width: "100%", border: "none", cursor: "pointer" }} onClick={() => nav("/settings")}>

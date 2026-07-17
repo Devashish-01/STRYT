@@ -53,6 +53,7 @@ export default function MyQueues() {
   const [leaving, setLeaving] = useState<string | null>(null);
   const [payingQueue, setPayingQueue] = useState<MyQueueEntry | null>(null);
   const [confirmCancel, setConfirmCancel] = useState<MyQueueEntry | null>(null);
+  const [cancellingClaim, setCancellingClaim] = useState<string | null>(null);
 
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
 
@@ -90,6 +91,21 @@ export default function MyQueues() {
       showToast(e?.message ? `Couldn't leave queue: ${e.message}` : "Couldn't leave queue. Try again.");
     } finally {
       setLeaving(null);
+    }
+  }
+
+  // Undo an unconfirmed "I've paid" claim — the only way today to get the
+  // cancel/pay-again buttons back if the business hasn't responded yet.
+  async function cancelClaim(tokenId: string) {
+    setCancellingClaim(tokenId);
+    try {
+      await businessService.cancelQueuePaymentClaim(tokenId);
+      showToast("Payment claim cancelled");
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message ? `Couldn't cancel claim: ${e.message}` : "Couldn't cancel claim. Try again.");
+    } finally {
+      setCancellingClaim(null);
     }
   }
 
@@ -160,8 +176,16 @@ export default function MyQueues() {
                         {q.status === "LEFT" && <span className="badge badge-gray">You cancelled</span>}
                         {q.status === "EXPIRED" && <span className="badge badge-gray">Queue closed by shop</span>}
                         {isPayable(q.status) && (
-                          <span className={`badge ${q.paymentStatus === "PAID" ? "badge-green" : "badge-gray"}`}>
-                            {q.paymentStatus === "PAID" ? "PAID" : "UNPAID"}
+                          <span
+                            className={`badge ${
+                              q.paymentStatus === "PAID" ? "badge-green" :
+                              q.paymentStatus === "PENDING_CONFIRM" ? "badge-amber" :
+                              q.paymentStatus === "REJECTED" ? "badge-red" : "badge-gray"
+                            }`}
+                          >
+                            {q.paymentStatus === "PAID" ? "PAID" :
+                             q.paymentStatus === "PENDING_CONFIRM" ? "Payment pending" :
+                             q.paymentStatus === "REJECTED" ? "Payment declined" : "UNPAID"}
                           </span>
                         )}
                       </div>
@@ -210,10 +234,19 @@ export default function MyQueues() {
                   {isPayable(q.status) && q.paymentStatus === "PENDING_CONFIRM" && (
                     <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "var(--amber-50)", border: "1px solid var(--amber-100)", borderRadius: 10 }}>
                       <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
-                      <div>
+                      <div className="grow">
                         <div className="tiny semi" style={{ color: "var(--amber-700)" }}>Awaiting confirmation</div>
                         <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1 }}>{q.businessName} will verify and confirm receipt.</div>
                       </div>
+                      <button
+                        type="button"
+                        className="tiny semi"
+                        style={{ color: "var(--amber-700)", textDecoration: "underline", flexShrink: 0, background: "none", border: "none", cursor: "pointer", padding: "4px 0" }}
+                        disabled={cancellingClaim === q.tokenId}
+                        onClick={() => cancelClaim(q.tokenId)}
+                      >
+                        {cancellingClaim === q.tokenId ? "Cancelling…" : "Cancel claim"}
+                      </button>
                     </div>
                   )}
                   {isPayable(q.status) && q.paymentStatus === "REJECTED" && (

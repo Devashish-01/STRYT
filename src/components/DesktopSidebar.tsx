@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 import { useApp } from "@/store";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useI18n } from "@/lib/i18n";
 import { displayName } from "@/lib/publicName";
 import { PLACEHOLDER_AVATAR } from "@/lib/placeholders";
@@ -8,7 +9,7 @@ import { SafeImg } from "@/components/common";
 import {
   Home, Map, Plus, Settings, Bell, LogOut,
   LayoutDashboard, LayoutGrid, Inbox, CalendarClock, ImageIcon,
-  UserCircle, User
+  UserCircle, User, Search, Wallet
 } from "@/components/Icons";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandLockup from "@/components/BrandLockup";
@@ -24,8 +25,10 @@ export default function DesktopSidebar() {
     chatUnread,
     signOut,
     ownedBusinessIds,
-    ownedProviderId
+    ownedProviderId,
+    isGuest
   } = useApp();
+  const requireAuth = useRequireAuth();
   const ambient = useAmbientTheme();
 
   const isBusiness = activeContext.type === "business";
@@ -46,9 +49,9 @@ export default function DesktopSidebar() {
   }
 
   // Custom action sheet toggle or navigate to ask
-  const handleCreateAction = () => {
+  const handleCreateAction = requireAuth(() => {
     nav("/ask");
-  };
+  }, "Sign in to ask your street");
 
   // Log out function
   const handleLogOut = () => {
@@ -74,12 +77,25 @@ export default function DesktopSidebar() {
     if (isProvider && activeContext.id) {
       const base = `/provider/${activeContext.id}/manage`;
       return [
-        { to: base, label: "Home", icon: LayoutDashboard, exact: true },
-        { to: `${base}/leads`, label: "Leads", icon: Inbox, badge: chatUnread || undefined },
-        { to: `${base}/availability`, label: "Availability", icon: CalendarClock },
+        { to: base, label: "Today", icon: LayoutDashboard, exact: true },
+        { to: `${base}/jobs`, label: "Jobs", icon: CalendarClock },
+        { to: `${base}/find-work`, label: "Find work", icon: Search },
+        { to: `${base}/money`, label: "Money", icon: Wallet },
         { to: `${base}/catalog`, label: "Catalog", icon: LayoutGrid },
-        { to: `${base}/portfolio`, label: "Work", icon: ImageIcon },
+        { to: `${base}/profile`, label: "Profile", icon: User },
         { to: `${base}/settings`, label: "Settings", icon: Settings },
+      ];
+    }
+
+    // A guest only gets what they can actually open — listing Notifications /
+    // My Queues / Profile / Settings would be four links that all bounce
+    // straight to login. See GUEST_MODE_PLAN.md §3.
+    if (isGuest) {
+      return [
+        { to: "/home", label: t("home") || "Home", icon: Home, exact: true },
+        { to: "/explore", label: "Explore", icon: UserCircle },
+        { to: "/map", label: t("map") || "Map", icon: Map },
+        { to: "/community-hub", label: "Community", icon: ImageIcon },
       ];
     }
 
@@ -106,33 +122,51 @@ export default function DesktopSidebar() {
         <BrandLockup glow={ambient.lampGlow} size={19} onClick={goHome} />
       </div>
 
-      {/* User Profile Card & Switcher */}
-      <div className="sidebar-profile-box">
-        <div className="row gap-10">
-          <SafeImg
-            src={user.avatar || PLACEHOLDER_AVATAR}
-            alt={user.name}
-            className="sidebar-avatar"
-            style={{ width: 36, height: 36, borderRadius: "50%", border: "2px solid var(--brand-100)" }}
-          />
-          <div className="col grow" style={{ minWidth: 0 }}>
-            <span className="bold text-ellipsis" style={{ fontSize: 14.5, color: "var(--ink-900)" }}>
-              {displayName(user.name)}
-            </span>
-            <span className="tiny muted text-ellipsis" style={{ fontSize: 11.5 }}>
-              {isBusiness ? "Business Mode" : isProvider ? "Provider Mode" : user.area || "Customer"}
-            </span>
+      {/* User Profile Card & Switcher — for a guest there's no identity to show
+          and no hats to switch between, so this becomes the sign-in call to
+          action instead of an avatar placeholder above a blank name. */}
+      {isGuest ? (
+        <div className="sidebar-profile-box">
+          <div className="bold" style={{ fontSize: 14.5, color: "var(--ink-900)" }}>You're just looking</div>
+          <div className="tiny muted" style={{ fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>
+            Sign in to book, message and post on your street.
           </div>
+          <button
+            className="btn btn-primary btn-sm btn-block"
+            style={{ marginTop: 12 }}
+            onClick={() => nav("/auth/phone")}
+          >
+            {t("sign_in") || "Sign in"}
+          </button>
         </div>
-
-        {/* Real dropdown — lists every hat (Personal + each owned business/provider),
-            not just a binary back-and-forth toggle. */}
-        {hasMultipleRoles && (
-          <div style={{ marginTop: 12 }}>
-            <RoleSwitcher />
+      ) : (
+        <div className="sidebar-profile-box">
+          <div className="row gap-10">
+            <SafeImg
+              src={user.avatar || PLACEHOLDER_AVATAR}
+              alt={user.name}
+              className="sidebar-avatar"
+              style={{ width: 36, height: 36, borderRadius: "50%", border: "2px solid var(--brand-100)" }}
+            />
+            <div className="col grow" style={{ minWidth: 0 }}>
+              <div className="bold ellipsis" style={{ fontSize: 14.5, color: "var(--ink-900)" }}>
+                {displayName(user.name)}
+              </div>
+              <div className="tiny muted ellipsis" style={{ fontSize: 11.5 }}>
+                {isBusiness ? "Business Mode" : isProvider ? "Provider Mode" : user.area || "Customer"}
+              </div>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Real dropdown — lists every hat (Personal + each owned business/provider),
+              not just a binary back-and-forth toggle. */}
+          {hasMultipleRoles && (
+            <div style={{ marginTop: 12 }}>
+              <RoleSwitcher />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Navigation List */}
       <nav className="sidebar-nav">
@@ -171,13 +205,15 @@ export default function DesktopSidebar() {
         </a>
       </div>
 
-      {/* Log out Footer */}
-      <div className="sidebar-footer">
-        <button className="sidebar-logout-btn" onClick={handleLogOut}>
-          <LogOut size={18} />
-          <span>Log out</span>
-        </button>
-      </div>
+      {/* Log out Footer — a guest has no session to end. */}
+      {!isGuest && (
+        <div className="sidebar-footer">
+          <button className="sidebar-logout-btn" onClick={handleLogOut}>
+            <LogOut size={18} />
+            <span>Log out</span>
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

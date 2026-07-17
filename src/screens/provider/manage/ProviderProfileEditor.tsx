@@ -7,7 +7,6 @@ import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { X, Plus } from "@/components/Icons";
 import RadiusSelector from "@/components/RadiusSelector";
-import HoursSelector from "@/components/HoursSelector";
 
 
 export default function ProviderProfileEditor() {
@@ -26,7 +25,6 @@ export default function ProviderProfileEditor() {
   const [bio, setBio] = useState("");
   const [price, setPrice] = useState("");
   const [radius, setRadius] = useState(5);
-  const [avail, setAvail] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState("");
   const [saving, setSaving] = useState(false);
@@ -36,14 +34,13 @@ export default function ProviderProfileEditor() {
     setBio(p.bio);
     setPrice(p.startingPrice?.toString() ?? "");
     setRadius(p.serviceRadiusKm);
-    setAvail(p.availabilityNote);
     setSkills(p.skills);
   }, [p]);
 
   async function save() {
     setSaving(true);
     try {
-      await providerService.update(id, { bio, startingPrice: Number(price), serviceRadiusKm: radius, availabilityNote: avail, skills });
+      await providerService.update(id, { bio, startingPrice: Number(price), serviceRadiusKm: radius, skills });
       showToast("Profile saved");
     } catch {
       showToast("Couldn't save. Try again.");
@@ -102,15 +99,9 @@ export default function ProviderProfileEditor() {
           />
         </div>
 
-        <div className="field">
-          <HoursSelector
-            value={avail}
-            onChange={setAvail}
-            accentColor="var(--green-500)"
-            label="Availability timing"
-            description="Specify when you are available for customer bookings"
-          />
-        </div>
+        <p className="tiny muted" style={{ lineHeight: 1.5 }}>
+          Working days & hours are set separately in <span className="semi" style={{ color: "var(--green-600)" }}>Profile → Schedule</span>.
+        </p>
       </div>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
         <button className="btn btn-green btn-block" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save changes"}</button>

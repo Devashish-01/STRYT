@@ -3,6 +3,7 @@ import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 import { useNavigate } from "react-router-dom";
 import { MapPin, Store, Sparkles } from "@/components/Icons";
 import { useApp } from "@/store";
+import { contextHomePath } from "@/lib/contextHome";
 import StreetScene from "@/components/StreetScene";
 import BrandLockup from "@/components/BrandLockup";
 import AppMark from "@/components/AppMark";
@@ -13,11 +14,13 @@ const LOGIN_GLOW = 0.85;
 
 export default function Splash() {
   const nav = useNavigate();
-  const { isAuthed } = useApp();
+  const { isAuthed, activeContext } = useApp();
 
   useEffect(() => {
-    if (isAuthed) nav("/home", { replace: true });
-  }, [isAuthed, nav]);
+    // Land in the home of the hat the user last wore (customer Home, or their
+    // business/provider console) so the page matches the sidebar/nav identity.
+    if (isAuthed) nav(contextHomePath(activeContext), { replace: true });
+  }, [isAuthed, activeContext, nav]);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", width: "100%" }}>
@@ -164,6 +167,27 @@ export default function Splash() {
             onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(132,27,184,0.32)"; }}
           >
             Get Started <span style={{ fontSize:18 }}>→</span>
+          </button>
+
+          {/* The guest-mode door. A stranger won't create an account for a
+              street they can't see yet — let them look first, then sign in when
+              they find something worth doing. See GUEST_MODE_PLAN.md. */}
+          <button
+            style={{
+              width:"100%",
+              padding:"14px",
+              borderRadius:16,
+              background:"transparent",
+              color:"var(--brand-700)",
+              fontWeight:700,
+              fontSize:14.5,
+              border:"1.5px solid var(--brand-200)",
+              cursor:"pointer",
+              marginBottom:16,
+            }}
+            onClick={() => nav("/home")}
+          >
+            Look around first
           </button>
 
           <p style={{ fontSize:11, color:"var(--ink-400)", lineHeight:1.5 }}>

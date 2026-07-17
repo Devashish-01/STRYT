@@ -44,7 +44,10 @@ export default function ChatThread() {
   useEffect(() => {
     if (!conv) return;
     chatService.markRead(id, conv).then(() => {
-      chatService.totalUnread().then(setChatUnread);
+      // setChatUnread feeds the customer-scoped badge (store.tsx hydrates it with
+      // the same CUSTOMER scope) — an unscoped total here overwrote that badge
+      // with an all-roles count whenever a business/provider chat was opened.
+      chatService.totalUnread({ scope: "CUSTOMER" }).then(setChatUnread);
       refetchConvs();
     });
     const unsub = chatService.subscribe(id, (msg) => {

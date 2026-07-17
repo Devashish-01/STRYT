@@ -24,6 +24,24 @@ import { join } from "node:path";
 import archiver from "archiver";
 import { createClient } from "@supabase/supabase-js";
 
+// Auto-load .env from project root so SUPABASE_SERVICE_ROLE_KEY works
+// without needing to set it manually in the terminal every time.
+try {
+  const envPath = join(process.cwd(), ".env");
+  if (existsSync(envPath)) {
+    const lines = readFileSync(envPath, "utf8").split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eq = trimmed.indexOf("=");
+      if (eq === -1) continue;
+      const key = trimmed.slice(0, eq).trim();
+      const val = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
+      if (key && !(key in process.env)) process.env[key] = val;
+    }
+  }
+} catch { /* ignore — env vars set in terminal still work */ }
+
 const SUPABASE_URL = "https://gnswxlfmcwyhmzlfipql.supabase.co";
 const BUCKET = "app-updates";
 const DIST_DIR = join(process.cwd(), "dist");

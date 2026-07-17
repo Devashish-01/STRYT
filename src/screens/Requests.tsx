@@ -1,19 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, FileText, MessageSquare } from "@/components/Icons";
 import { requestService } from "@/services";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
+import type { RequestPost } from "@/types";
 
 type Tab = "nearby" | "mine";
 
 export default function Requests() {
   const nav = useNavigate();
-  const { area, user, chatUnread } = useApp();
+  const { area, user, chatUnread, showToast } = useApp();
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("nearby");
   const [cat, setCat] = useState<string | null>(null);
@@ -22,7 +23,41 @@ export default function Requests() {
   const { data: feedPage, loading: feedLoading, error: feedError, refetch } = useQueryWithRealtime(() => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }), "requests", [user.lat, user.lng]);
   const { data: mineList, loading: mineLoading } = useQueryWithRealtime(() => requestService.mine(user.lat || 0, user.lng || 0), "requests", [user.lat, user.lng]);
 
-  const feed = feedPage?.data ?? [];
+  // Pagination: the first page comes from the realtime-backed query above; any
+  // further pages are appended here via the service's cursor. Without this, a
+  // neighborhood with more than one page of open requests silently hid
+  // everything past the first ~20 — the backend already returned the cursor,
+  // the UI just never read it.
+  const [extra, setExtra] = useState<RequestPost[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Whenever the base (first) page reloads — realtime change, location change,
+  // manual refetch — drop accumulated pages and reset the cursor so we never
+  // show stale or duplicated rows on top of a fresh first page.
+  useEffect(() => {
+    setExtra([]);
+    setCursor(feedPage?.page?.next_cursor ?? null);
+    setHasMore(feedPage?.page?.has_more ?? false);
+  }, [feedPage]);
+
+  async function loadMore() {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const next = await requestService.feed({ lat: user.lat || 0, lng: user.lng || 0, cursor });
+      setExtra((prev) => [...prev, ...(next.data ?? [])]);
+      setCursor(next.page?.next_cursor ?? null);
+      setHasMore(next.page?.has_more ?? false);
+    } catch {
+      showToast(t("couldnt_load_more"));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const feed = [...(feedPage?.data ?? []), ...extra];
   const mine = mineList ?? [];
 
   const cats = Array.from(new Set(feed.map((r) => r.categoryName)));
@@ -115,6 +150,17 @@ export default function Requests() {
             />
           ) : (
             list.map((r) => <RequestCard key={r.id} r={r} />)
+          )}
+
+          {tab === "nearby" && !loading && !feedError && hasMore && (
+            <button
+              className="btn btn-ghost btn-block"
+              onClick={loadMore}
+              disabled={loadingMore}
+              style={{ marginTop: 4 }}
+            >
+              {loadingMore ? t("loading") : t("load_more")}
+            </button>
           )}
         </div>
         <div style={{ height: 24 }} />

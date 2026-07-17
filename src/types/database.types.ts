@@ -473,6 +473,38 @@ export type Database = {
           },
         ]
       }
+      business_login_attempts: {
+        Row: {
+          attempted_by: string
+          fail_count: number
+          last_attempt_at: string
+          locked_until: string | null
+          login_id: string
+        }
+        Insert: {
+          attempted_by: string
+          fail_count?: number
+          last_attempt_at?: string
+          locked_until?: string | null
+          login_id: string
+        }
+        Update: {
+          attempted_by?: string
+          fail_count?: number
+          last_attempt_at?: string
+          locked_until?: string | null
+          login_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_login_attempts_attempted_by_fkey"
+            columns: ["attempted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_login_credentials: {
         Row: {
           business_id: string
@@ -2579,6 +2611,7 @@ export type Database = {
       }
       ratings: {
         Row: {
+          agreement_id: string | null
           comment: string | null
           created_at: string | null
           id: string
@@ -2590,6 +2623,7 @@ export type Database = {
           tip: number | null
         }
         Insert: {
+          agreement_id?: string | null
           comment?: string | null
           created_at?: string | null
           id?: string
@@ -2601,6 +2635,7 @@ export type Database = {
           tip?: number | null
         }
         Update: {
+          agreement_id?: string | null
           comment?: string | null
           created_at?: string | null
           id?: string
@@ -3463,6 +3498,7 @@ export type Database = {
           show_badges_publicly: boolean | null
           show_city_publicly: boolean | null
           show_email_publicly: boolean | null
+          show_name_publicly: boolean | null
           show_phone_publicly: boolean | null
           show_posts_publicly: boolean | null
           show_rating_publicly: boolean | null
@@ -3495,6 +3531,7 @@ export type Database = {
           show_badges_publicly?: boolean | null
           show_city_publicly?: boolean | null
           show_email_publicly?: boolean | null
+          show_name_publicly?: boolean | null
           show_phone_publicly?: boolean | null
           show_posts_publicly?: boolean | null
           show_rating_publicly?: boolean | null
@@ -3527,6 +3564,7 @@ export type Database = {
           show_badges_publicly?: boolean | null
           show_city_publicly?: boolean | null
           show_email_publicly?: boolean | null
+          show_name_publicly?: boolean | null
           show_phone_publicly?: boolean | null
           show_posts_publicly?: boolean | null
           show_rating_publicly?: boolean | null
@@ -3715,6 +3753,14 @@ export type Database = {
       }
       _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       accept_proposal: { Args: { p_proposal_id: string }; Returns: string }
+      accept_proposal_at_price: {
+        Args: { p_final_price: number; p_proposal_id: string }
+        Returns: string
+      }
+      accept_proposal_counter: {
+        Args: { p_counter_id: string; p_proposal_id: string }
+        Returns: string
+      }
       addauth: { Args: { "": string }; Returns: boolean }
       addgeometrycolumn:
         | {
@@ -3781,6 +3827,7 @@ export type Database = {
           show_badges_publicly: boolean | null
           show_city_publicly: boolean | null
           show_email_publicly: boolean | null
+          show_name_publicly: boolean | null
           show_phone_publicly: boolean | null
           show_posts_publicly: boolean | null
           show_rating_publicly: boolean | null
@@ -3793,6 +3840,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      admin_resolve_agreement_dispute: {
+        Args: { p_id: string; p_resolution: string }
+        Returns: undefined
       }
       admin_search_users: {
         Args: { term: string }
@@ -3822,6 +3873,7 @@ export type Database = {
           show_badges_publicly: boolean | null
           show_city_publicly: boolean | null
           show_email_publicly: boolean | null
+          show_name_publicly: boolean | null
           show_phone_publicly: boolean | null
           show_posts_publicly: boolean | null
           show_rating_publicly: boolean | null
@@ -3834,6 +3886,401 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      agreement_cancel: { Args: { p_id: string }; Returns: undefined }
+      agreement_claim_payment: {
+        Args: {
+          p_amount?: number
+          p_id: string
+          p_method: string
+          p_reference?: string
+        }
+        Returns: undefined
+      }
+      agreement_complete: { Args: { p_id: string }; Returns: undefined }
+      agreement_confirm: {
+        Args: { p_id: string }
+        Returns: {
+          agreed_price: number
+          created_at: string | null
+          dispute_reason: string | null
+          id: string
+          live_status: string | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_mode: string | null
+          payment_reference: string | null
+          payment_status: string
+          proposal_id: string | null
+          provider_lat: number | null
+          provider_lng: number | null
+          request_id: string | null
+          request_title: string | null
+          requester_confirmed: boolean | null
+          requester_user_id: string | null
+          responder_confirmed: boolean | null
+          responder_user_id: string | null
+          scheduled_for: string | null
+          status: Database["public"]["Enums"]["agreement_status"] | null
+          terms: string | null
+          tracking_token: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "agreements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      agreement_confirm_payment: { Args: { p_id: string }; Returns: undefined }
+      agreement_create_tracking_token: {
+        Args: { p_id: string }
+        Returns: string
+      }
+      agreement_dispute: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
+      agreement_reject_payment: { Args: { p_id: string }; Returns: undefined }
+      agreement_start_work: { Args: { p_id: string }; Returns: undefined }
+      agreement_submit_review: { Args: { p_id: string }; Returns: undefined }
+      agreement_update_live_status: {
+        Args: { p_id: string; p_lat?: number; p_lng?: number; p_status: string }
+        Returns: {
+          agreed_price: number
+          created_at: string | null
+          dispute_reason: string | null
+          id: string
+          live_status: string | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_mode: string | null
+          payment_reference: string | null
+          payment_status: string
+          proposal_id: string | null
+          provider_lat: number | null
+          provider_lng: number | null
+          request_id: string | null
+          request_title: string | null
+          requester_confirmed: boolean | null
+          requester_user_id: string | null
+          responder_confirmed: boolean | null
+          responder_user_id: string | null
+          scheduled_for: string | null
+          status: Database["public"]["Enums"]["agreement_status"] | null
+          terms: string | null
+          tracking_token: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "agreements"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      appointment_claim_payment: {
+        Args: {
+          p_amount?: number
+          p_id: string
+          p_method: string
+          p_reference?: string
+        }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      appointment_confirm_payment: {
+        Args: { p_id: string }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      appointment_create: {
+        Args: {
+          p_date_label: string
+          p_notes?: string
+          p_package_id?: string
+          p_package_name?: string
+          p_package_price?: number
+          p_photo_url?: string
+          p_scheduled_for: string
+          p_target_id: string
+          p_target_type: string
+          p_time_label: string
+        }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      appointment_create_walk_in: {
+        Args: {
+          p_customer_name: string
+          p_customer_phone: string
+          p_date_label: string
+          p_package_id?: string
+          p_package_name?: string
+          p_package_price?: number
+          p_scheduled_for: string
+          p_target_id: string
+          p_target_type: string
+          p_time_label: string
+        }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      appointment_record_walk_in_payment: {
+        Args: {
+          p_amount?: number
+          p_id: string
+          p_method: string
+          p_reference?: string
+        }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      appointment_reject_payment: {
+        Args: { p_id: string }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      appointment_transition: {
+        Args: { p_id: string; p_response_note?: string; p_status: string }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      booked_slots: {
+        Args: { p_target_id: string }
+        Returns: {
+          scheduled_for: string
+        }[]
       }
       bump_business_metric: {
         Args: { p_business_id: string; p_metric: string }
@@ -4181,6 +4628,7 @@ export type Database = {
           show_badges_publicly: boolean | null
           show_city_publicly: boolean | null
           show_email_publicly: boolean | null
+          show_name_publicly: boolean | null
           show_phone_publicly: boolean | null
           show_posts_publicly: boolean | null
           show_rating_publicly: boolean | null
@@ -4211,6 +4659,7 @@ export type Database = {
           show_badges_publicly: boolean
           show_city_publicly: boolean
           show_email_publicly: boolean
+          show_name_publicly: boolean
           show_phone_publicly: boolean
           show_posts_publicly: boolean
           show_rating_publicly: boolean
@@ -4242,6 +4691,10 @@ export type Database = {
           session_id: string
         }[]
       }
+      has_business_access: {
+        Args: { p_business_id: string; p_uid: string }
+        Returns: boolean
+      }
       haversine_km: {
         Args: { lat1: number; lat2: number; lng1: number; lng2: number }
         Returns: number
@@ -4262,6 +4715,10 @@ export type Database = {
         Returns: boolean
       }
       longtransactionsenabled: { Args: never; Returns: boolean }
+      my_business_access_status: {
+        Args: { p_business_id: string }
+        Returns: boolean
+      }
       my_delegated_businesses: { Args: never; Returns: string[] }
       neighborhood_today: {
         Args: { in_lat: number; in_lng: number; in_radius_m?: number }
@@ -4320,6 +4777,23 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      proposal_submit_counter: {
+        Args: { p_amount: number; p_message?: string; p_proposal_id: string }
+        Returns: {
+          amount: number
+          by_user_id: string
+          created_at: string
+          id: string
+          message: string
+          proposal_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "proposal_counters"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       providers_nearby: {
         Args: {
           in_category?: string
@@ -4388,6 +4862,54 @@ export type Database = {
         Returns: undefined
       }
       request_location_share: { Args: { p_owner: string }; Returns: undefined }
+      reschedule_appointment: {
+        Args: {
+          p_date_label: string
+          p_notes?: string
+          p_original_id: string
+          p_package_id?: string
+          p_package_name?: string
+          p_package_price?: number
+          p_photo_url?: string
+          p_scheduled_for: string
+          p_time_label: string
+        }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       reserve_catalog_item: { Args: { p_item_id: string }; Returns: undefined }
       resolve_admin_email: { Args: { p_login_id: string }; Returns: string }
       respond_location_share: {
@@ -5000,6 +5522,7 @@ export type Database = {
         Args: { p_business_id: string }
         Returns: string
       }
+      sweep_my_appointments: { Args: never; Returns: undefined }
       unlockrows: { Args: { "": string }; Returns: number }
       update_live_share: {
         Args: {

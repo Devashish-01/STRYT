@@ -81,8 +81,17 @@ export const businessAccessService = {
     if (error) throw new Error(error.message || "Login failed.");
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw new Error("Login failed.");
+    if (row.status === "INVALID_CREDENTIALS") {
+      throw new Error("Invalid login id or password.");
+    }
+    if (row.status === "LOCKED") {
+      throw new Error(row.business_name || "Too many failed attempts. Try again later.");
+    }
+    if (row.status !== "PENDING" && row.status !== "ACTIVE") {
+      throw new Error("Login failed.");
+    }
     return {
-      status: row.status as AccessStatus,
+      status: row.status,
       businessId: row.business_id,
       sessionId: row.session_id,
       businessName: row.business_name ?? "Business",

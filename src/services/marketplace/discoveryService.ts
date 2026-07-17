@@ -4,6 +4,7 @@ import { cursorToRange, toPage, throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import type { Business, Provider } from "@/types";
 import { haversineKm } from "@/lib/geocode";
+import { clampRadiusForViewer } from "@/lib/guestMode";
 import { config } from "@/config";
 
 export interface SavedSearch {
@@ -39,6 +40,16 @@ function savedViewerRadius(): number | undefined {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+/**
+ * The radius this feed should actually use. Clamped LAST, after the explicit
+ * param and the saved preference have been resolved, so neither an explicit
+ * `p.radius` from a caller nor a `settings_radius` left in localStorage by a
+ * previous signed-in session on this device can widen a guest past 1 km.
+ */
+function resolveViewerRadius(explicit: number | undefined): number | undefined {
+  return clampRadiusForViewer(explicit ?? savedViewerRadius());
+}
+
 function withDistance<T extends { lat?: number; lng?: number; distanceKm?: number }>(row: T, userLat: number, userLng: number): T {
   return {
     ...row,
@@ -63,7 +74,7 @@ export const discoveryService = {
     const { from, to, limit } = cursorToRange(p.cursor);
     const userLat = p.lat ?? DEFAULT_LAT;
     const userLng = p.lng ?? DEFAULT_LNG;
-    const viewerRadius = p.radius ?? savedViewerRadius();
+    const viewerRadius = resolveViewerRadius(p.radius);
 
     // Nearby sort uses the PostGIS RPC; rating/new use a plain ordered select.
     if (!p.sort || p.sort === "nearby") {
@@ -103,7 +114,7 @@ export const discoveryService = {
     const { from, to, limit } = cursorToRange(p.cursor);
     const userLat = p.lat ?? DEFAULT_LAT;
     const userLng = p.lng ?? DEFAULT_LNG;
-    const viewerRadius = p.radius ?? savedViewerRadius();
+    const viewerRadius = resolveViewerRadius(p.radius);
 
     if (!p.sort || p.sort === "nearby") {
       const { data, error } = await sb.rpc("providers_nearby", {

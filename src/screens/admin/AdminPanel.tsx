@@ -490,14 +490,15 @@ function AdminDisputes() {
   }, "agreements", [], "status=eq.DISPUTED");
 
   async function resolve(agreementId: string, newStatus: "COMPLETED" | "CANCELLED") {
-    const sb = (await import("@/lib/supabaseClient")).getSupabase();
-    await sb.from("agreements").update({ status: newStatus }).eq("id", agreementId);
-    // Transition escrow: complete → RELEASED, cancel → REFUNDED
-    const escrowStatus = newStatus === "COMPLETED" ? "RELEASED" : "REFUNDED";
-    await sb.from("payments").update({ escrow_status: escrowStatus })
-      .eq("agreement_id", agreementId).eq("escrow_status", "HELD");
-    showToast(newStatus === "COMPLETED" ? "Resolved — marked complete, escrow released" : "Resolved — cancelled, escrow refunded");
-    refetch();
+    try {
+      await adminService.resolveAgreementDispute(agreementId, newStatus);
+      showToast(newStatus === "COMPLETED"
+        ? "Resolved — marked complete, escrow released"
+        : "Resolved — cancelled, escrow refunded");
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't resolve the dispute.");
+    }
   }
 
   if (loading) return <div className="page-pad"><ListSkeleton count={3} /></div>;

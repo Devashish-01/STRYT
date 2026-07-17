@@ -39,7 +39,7 @@ export default function SubmitProposal() {
         broadcastToMetoo: broadcast,
         ...(respondingAs ? { responderType: respondingAs.type, responderEntityId: respondingAs.id } : {}),
       });
-      showToast(boost ? "Boosted proposal sent!" : "Proposal sent!");
+      showToast(boost ? "Proposal sent & prioritized!" : "Proposal sent!");
       setTimeout(() => nav(-1), 600);
     } catch {
       showToast("Couldn't send. Try again.");
@@ -100,8 +100,8 @@ export default function SubmitProposal() {
             <Zap size={20} color="var(--amber-500)" />
           </div>
           <div className="grow">
-            <div className="semi small">Boost this proposal — ₹49</div>
-            <div className="tiny muted">Pin to the top so the requester sees you first</div>
+            <div className="semi small">Prioritize my offer <span className="tiny" style={{ color: "var(--green-600)" }}>· Free</span></div>
+            <div className="tiny muted">Pins your offer to the top so the requester sees you first</div>
           </div>
           <span style={{ width: 22, height: 22, borderRadius: 6, border: boost ? "none" : "2px solid var(--ink-300)", background: boost ? "var(--amber-500)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
             {boost ? "✓" : ""}

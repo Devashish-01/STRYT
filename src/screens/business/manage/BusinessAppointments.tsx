@@ -96,10 +96,35 @@ export default function BusinessAppointments() {
       }
       setPaymentAction(null);
       refetch();
-    } catch {
-      showToast("Couldn't update payment status. Try again.");
+    } catch (e: any) {
+      console.error("Payment action failed:", e);
+      const errorMsg = e?.message || "Couldn't update payment status. Try again.";
+      showToast(errorMsg);
     } finally {
       setProcessingPayment(null);
+    }
+  }
+
+  async function handleRecordWalkInPayment(apt: AppointmentRecord) {
+    setProcessingPayment(apt.id);
+    try {
+      await appointmentService.recordWalkInPayment(apt.id, "CASH", apt.packagePrice ?? apt.paymentAmount ?? null);
+      showToast("Walk-in cash payment recorded ✓");
+      refetch();
+    } catch {
+      showToast("Couldn't record the payment. Try again.");
+    } finally {
+      setProcessingPayment(null);
+    }
+  }
+
+  async function handleNudgePayment(apt: AppointmentRecord) {
+    if (!apt.customerId) return;
+    try {
+      await appointmentService.nudgePayment(apt.id);
+      showToast("Payment request nudge sent 🔔");
+    } catch {
+      showToast("Couldn't send payment nudge.");
     }
   }
 
@@ -289,6 +314,25 @@ export default function BusinessAppointments() {
 
         {(apt.status === "CANCELLED" || apt.status === "REJECTED") && (
           <CancelAttributionNote apt={apt} viewpoint="OWNER" />
+        )}
+
+        {(apt.paymentStatus === "UNPAID" || apt.paymentStatus === "REJECTED") && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
+          <div className="card col gap-10" style={{ padding: 12, background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 12, marginTop: 2 }}>
+            <div className="tiny semi muted">Payment is outstanding (Unpaid)</div>
+            <div className="row gap-8">
+              {apt.isWalkIn && (apt.packagePrice || apt.paymentAmount) ? (
+                <button className="btn btn-green grow btn-sm" disabled={processingPayment === apt.id} onClick={() => handleRecordWalkInPayment(apt)}>
+                  <CheckCircle2 size={14} /> Record cash received
+                </button>
+              ) : !apt.isWalkIn ? (
+                <button className="btn btn-outline grow btn-sm" style={{ color: "var(--amber-700)", borderColor: "var(--amber-200)" }} disabled={processingPayment === apt.id} onClick={() => handleNudgePayment(apt)}>
+                  🔔 Request payment
+                </button>
+              ) : (
+                <span className="tiny muted">Add a priced package before recording walk-in payment.</span>
+              )}
+            </div>
+          </div>
         )}
 
         {/* Payment: customer claimed — awaiting your confirmation */}
