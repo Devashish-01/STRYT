@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { HelpCircle, Bug, Mail, Send, CheckCircle2, ExternalLink, MessageSquareText } from "@/components/Icons";
+import { Bug, Mail, Send, CheckCircle2 } from "@/components/Icons";
 import { AppBar } from "@/components/common";
 import { useApp } from "@/store";
 import { supportService, type ReporterRole } from "@/services/core/supportService";
-import { config } from "@/config";
-
 type Tab = "CONTACT" | "BUG";
 
 const ROLE_LABELS: Record<ReporterRole, string> = {
@@ -96,15 +94,6 @@ export default function Support() {
       showToast("Failed to submit bug report. Please try again.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const openExcelSheet = () => {
-    const url = config.bugReportExcelUrl;
-    if (url && url.trim().startsWith("http")) {
-      window.open(url, "_blank");
-    } else {
-      showToast("Google Sheets / Excel bug tracker link will be added soon!");
     }
   };
 
@@ -270,35 +259,7 @@ export default function Support() {
             <div className="col gap-14">
               <div className="col gap-4">
                 <h3 className="bold h2" style={{ color: "var(--ink-800)" }}>Report a Bug</h3>
-                <p className="muted small">Help us squish bugs! You can submit the bug description below or view the team's spreadsheet tracker directly.</p>
-              </div>
-
-              {/* Excel/Sheets Button */}
-              <div
-                className="card col gap-10"
-                style={{
-                  padding: 14,
-                  background: "var(--brand-50)",
-                  border: "1.5px dashed var(--brand-300)",
-                  borderRadius: 16
-                }}
-              >
-                <div className="row gap-10 small" style={{ color: "var(--brand-800)" }}>
-                  <MessageSquareText size={20} style={{ flexShrink: 0 }} />
-                  <span className="semi">This bug log is linked to our team's Google Sheets / Excel bug tracker.</span>
-                </div>
-                <button
-                  onClick={openExcelSheet}
-                  className="btn btn-block"
-                  style={{
-                    background: "#107c41", // Microsoft Excel Green
-                    color: "#fff",
-                    boxShadow: "0 4px 12px rgba(16, 124, 65, 0.2)"
-                  }}
-                >
-                  <ExternalLink size={16} />
-                  <span>Open Bug Tracker (Excel)</span>
-                </button>
+                <p className="muted small">Help us squish bugs! Describe what happened and we'll get it fixed.</p>
               </div>
 
               <form onSubmit={handleBugSubmit} className="col gap-14" style={{ marginTop: 4 }}>
