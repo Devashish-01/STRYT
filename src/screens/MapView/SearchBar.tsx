@@ -41,8 +41,8 @@ export function SearchBar() {
       display: "flex", gap: 10, alignItems: "center"
     }}>
       <button
-        className="icon-btn"
-        style={{ background: "#fff", boxShadow: "var(--shadow)", flexShrink: 0 }}
+        className="icon-btn map-glass-panel"
+        style={{ flexShrink: 0 }}
         onClick={() => nav(-1)}
       >
         <ArrowLeft size={20} />
@@ -51,15 +51,12 @@ export function SearchBar() {
         <Search size={16} color="var(--ink-400)" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
         <input
           type="text"
-          className="input"
+          className="input map-glass-panel"
           value={locQuery}
           placeholder="Search location remotely..."
           onChange={(e) => searchPlaces(e.target.value)}
           style={{
             width: "100%",
-            background: "#fff",
-            boxShadow: "var(--shadow)",
-            border: "1.5px solid var(--ink-200)",
             borderRadius: 30,
             padding: "10px 18px",
             paddingLeft: "42px",
@@ -83,10 +80,9 @@ export function SearchBar() {
         )}
 
         {locResults.length > 0 && (
-          <div style={{
+          <div className="map-glass-panel" style={{
             position: "absolute", top: "100%", left: 0, right: 0, marginTop: 8,
-            background: "#fff", borderRadius: 16, boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-            border: "1px solid var(--ink-200)", overflow: "hidden", zIndex: 1010
+            borderRadius: 16, overflow: "hidden", zIndex: 1010
           }}>
             {locResults.map((r, idx) => (
               <button
@@ -94,10 +90,10 @@ export function SearchBar() {
                 onClick={() => pickPlace(r)}
                 style={{
                   width: "100%", padding: "12px 16px", border: "none", background: "none",
-                  textAlign: "left", fontSize: 13, color: "var(--ink-800)", borderBottom: idx < locResults.length - 1 ? "1px solid var(--ink-100)" : "none",
+                  textAlign: "left", fontSize: 13, color: "var(--ink-800)", borderBottom: idx < locResults.length - 1 ? "1px solid rgba(226, 221, 240, 0.4)" : "none",
                   cursor: "pointer", display: "block"
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "var(--ink-50)"}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(245, 241, 250, 0.5)"}
                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
               >
                 <div style={{ fontWeight: 600, color: "var(--ink-900)" }}>{r.area}</div>
@@ -109,4 +105,5 @@ export function SearchBar() {
       </div>
     </div>
   );
+
 }

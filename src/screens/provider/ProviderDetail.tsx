@@ -12,6 +12,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, RatingBars } from "@/components/common";
 import { useApp } from "@/store";
+import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import { StoryViewer } from "@/components/Stories";
@@ -34,6 +35,7 @@ export default function ProviderDetail() {
     user,
     isBookmarked, toggleBookmark, showToast,
     isFollowing, toggleFollow, vouched, toggleVouch, endorsed, toggleEndorse,
+    isGuest,
   } = useApp();
 
   const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
@@ -139,6 +141,10 @@ export default function ProviderDetail() {
           <div className="row between">
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
             <div className="row gap-8">
+              {/* Call stays available to guests — it's the provider's own
+                  published number, and recordInteraction's lead insert is
+                  already `if (uid)`, so a signed-out tap records no lead.
+                  Share/save need an account, so those stay hidden. */}
               {!isOwner && p.phone && p.showPhonePublicly !== false && (
                 <a
                   className="icon-btn"
@@ -150,10 +156,14 @@ export default function ProviderDetail() {
                   <Phone size={18} />
                 </a>
               )}
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => toggleBookmark("PROVIDER", p.id)}>
-                <Heart size={18} fill={saved ? "#fff" : "none"} />
-              </button>
+              {!isGuest && (
+                <>
+                  <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
+                  <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => toggleBookmark("PROVIDER", p.id)}>
+                    <Heart size={18} fill={saved ? "#fff" : "none"} />
+                  </button>
+                </>
+              )}
             </div>
           </div>
           <div className="row gap-14" style={{ marginTop: 14 }}>
@@ -186,23 +196,31 @@ export default function ProviderDetail() {
           </div>
         </div>
 
-        {/* Follow + vouch row */}
-        <div className="page-pad row gap-10" style={{ paddingTop: 12 }}>
-          <button
-            className="btn grow btn-sm"
-            style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
-            onClick={() => toggleFollow("PROVIDER", p.id, p.displayName)}
-          >
-            {following ? <><UserCheck size={16} /> Following</> : <><UserPlus size={16} /> Follow</>}
-          </button>
-          <button
-            className="btn grow btn-sm"
-            style={{ background: hasVouched ? "var(--green-100)" : "var(--ink-50)", color: hasVouched ? "var(--green-600)" : "var(--ink-700)" }}
-            onClick={() => toggleVouch(p.id)}
-          >
-            <ThumbsUp size={15} fill={hasVouched ? "var(--green-500)" : "none"} /> {hasVouched ? "Vouched" : "Vouch"}
-          </button>
-        </div>
+        {/* Follow + vouch row — a vouch is a trust signal that only means
+            something from a real, accountable neighbour, so guests get the
+            sign-in prompt in place of the whole row. */}
+        {isGuest ? (
+          <div className="page-pad" style={{ paddingTop: 12 }}>
+            <GuestSignInPrompt message="Sign in to book, message or follow" compact />
+          </div>
+        ) : (
+          <div className="page-pad row gap-10" style={{ paddingTop: 12 }}>
+            <button
+              className="btn grow btn-sm"
+              style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
+              onClick={() => toggleFollow("PROVIDER", p.id, p.displayName)}
+            >
+              {following ? <><UserCheck size={16} /> Following</> : <><UserPlus size={16} /> Follow</>}
+            </button>
+            <button
+              className="btn grow btn-sm"
+              style={{ background: hasVouched ? "var(--green-100)" : "var(--ink-50)", color: hasVouched ? "var(--green-600)" : "var(--ink-700)" }}
+              onClick={() => toggleVouch(p.id)}
+            >
+              <ThumbsUp size={15} fill={hasVouched ? "var(--green-500)" : "none"} /> {hasVouched ? "Vouched" : "Vouch"}
+            </button>
+          </div>
+        )}
 
         {/* Highlights — stories the provider saved past their normal expiry */}
         {highlights.length > 0 && (
@@ -303,13 +321,17 @@ export default function ProviderDetail() {
                       <div key={e.skill} className="row gap-10 card" style={{ padding: "10px 12px" }}>
                         <span className="grow semi small">{e.skill}</span>
                         <span className="tiny muted">{count}</span>
-                        <button
-                          className="btn btn-sm"
-                          style={{ padding: "6px 12px", background: isOn ? "var(--brand-100)" : "var(--ink-50)", color: isOn ? "var(--brand-700)" : "var(--ink-700)" }}
-                          onClick={() => toggleEndorse(p.id, e.skill)}
-                        >
-                          <ThumbsUp size={13} fill={isOn ? "var(--brand-600)" : "none"} /> {isOn ? "Endorsed" : "Endorse"}
-                        </button>
+                        {/* Guests see how many neighbours endorsed a skill, but
+                            can't add an endorsement — it's a trust signal. */}
+                        {!isGuest && (
+                          <button
+                            className="btn btn-sm"
+                            style={{ padding: "6px 12px", background: isOn ? "var(--brand-100)" : "var(--ink-50)", color: isOn ? "var(--brand-700)" : "var(--ink-700)" }}
+                            onClick={() => toggleEndorse(p.id, e.skill)}
+                          >
+                            <ThumbsUp size={13} fill={isOn ? "var(--brand-600)" : "none"} /> {isOn ? "Endorsed" : "Endorse"}
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -413,11 +435,13 @@ export default function ProviderDetail() {
 
         {tab === "reviews" && (
           <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
-            <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
-              <Star size={16} /> Write a Review
-            </button>
+            {!isGuest && (
+              <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
+                <Star size={16} /> Write a Review
+              </button>
+            )}
             {(reviews ?? []).length === 0 && (
-              <EmptyState emoji="⭐" title="No reviews yet" text="Be the first to leave a review!" />
+              <EmptyState emoji="⭐" title="No reviews yet" text={isGuest ? "No one has reviewed this provider yet." : "Be the first to leave a review!"} />
             )}
             {(reviews ?? []).length > 0 && (
               <div className="card" style={{ padding: "12px 16px" }}>
@@ -444,20 +468,30 @@ export default function ProviderDetail() {
           </div>
         )}
 
-        <div className="page-pad">
-          <button className="row gap-6 tiny muted center" style={{ width: "100%", padding: 10 }} onClick={() => setReport(true)}>
-            <Flag size={13} /> Report this provider
-          </button>
-        </div>
+        {!isGuest && (
+          <div className="page-pad">
+            <button className="row gap-6 tiny muted center" style={{ width: "100%", padding: 10 }} onClick={() => setReport(true)}>
+              <Flag size={13} /> Report this provider
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Bottom action bar */}
+      {/* Bottom action bar — a guest still sees the starting price (that's the
+          thing they came to find out), but the call/message/book controls are
+          replaced by a single sign-in prompt. */}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12, zIndex: 30 }}>
         <div className="row gap-10">
           <div className="col" style={{ gap: 0 }}>
             <span className="tiny muted">Starting</span>
             <span className="bold" style={{ fontSize: 18, color: "var(--green-600)" }}>{inr(p.startingPrice)}</span>
           </div>
+          {isGuest && (
+            <div className="grow">
+              <GuestSignInPrompt message="Sign in to book or message" compact />
+            </div>
+          )}
+          {/* Call is available to guests too — see the header comment above. */}
           {!isOwner && p.phone && p.showPhonePublicly !== false && (
             <a
               href={`tel:${p.phone}`}
@@ -468,7 +502,7 @@ export default function ProviderDetail() {
               <Phone size={17} />
             </a>
           )}
-          {!isOwner && (
+          {!isGuest && !isOwner && (
             <button
               className="btn btn-outline"
               style={{ flex: 0, color: "var(--brand-700)", borderColor: "var(--brand-200)", background: "var(--brand-50)" }}
@@ -487,12 +521,12 @@ export default function ProviderDetail() {
               <MessageCircle size={17} />
             </button>
           )}
-          {isOwner ? (
+          {isGuest ? null : isOwner ? (
             <button
               className="btn btn-green grow"
-              onClick={() => nav(`/provider/${p.id}/manage/leads`)}
+              onClick={() => nav(`/provider/${p.id}/manage/jobs`)}
             >
-              <Clock size={17} /> View leads & appointments
+              <Clock size={17} /> View jobs & appointments
             </button>
           ) : (
             <button

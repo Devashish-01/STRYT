@@ -3,6 +3,15 @@
 // single formula drives every ETA a user sees.
 
 /**
+ * Ceiling on the self-reported party size a customer can join a queue with.
+ * Large enough for a genuine family/group booking; small enough to bound how
+ * much one self-reported entry can skew weightedWaitMin's per-extra-person
+ * penalty for everyone else behind them — cuts the gameable range from the
+ * previous 20x down to 8x the base service-time penalty.
+ */
+export const MAX_QUEUE_PARTY_SIZE = 8;
+
+/**
  * Extract the head-count from a free-form party_size label like "3 people" → 3.
  * party_size is stored as text ("1 person", "2 people"), so we parse the first
  * integer and fall back to a party of one for anything unexpected/empty.
@@ -31,4 +40,15 @@ export function groupServiceMin(partySize: number, avgServiceMin: number): numbe
 export function weightedWaitMin(partySizesAhead: number[], avgServiceMin: number): number {
   const total = partySizesAhead.reduce((sum, size) => sum + groupServiceMin(size, avgServiceMin), 0);
   return Math.round(total);
+}
+
+/**
+ * A queue token is payable once you've been called — and stays payable after
+ * you've been served, since payment often happens right at/after service,
+ * not before. Shared between MyQueues (where it originated) and Home's
+ * "Your day" rail so both surfaces agree on exactly when a "Pay now" CTA
+ * should show.
+ */
+export function isQueuePayable(status: string): boolean {
+  return status === "CALLED" || status === "SERVED";
 }

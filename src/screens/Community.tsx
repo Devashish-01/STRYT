@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Heart, MessageCircle, Plus, MapPin, Search as SearchIcon, CheckCircle2, ArrowLeft, ArrowUpDown } from "@/components/Icons";
 import { communityService, discoveryService } from "@/services";
@@ -6,9 +6,11 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { useApp } from "@/store";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { trendingScore } from "@/lib/trending";
 import type { CommunityPost, CommunityPostType, Business, Provider, BookmarkTarget } from "@/types";
 import { displayName as safeName } from "@/lib/publicName";
+import { openProfile } from "@/lib/profileSheet";
 
 const typeMeta: Record<CommunityPostType, { label: string; emoji: string; tone: string }> = {
   LOST_FOUND: { label: "Lost & Found", emoji: "🔍", tone: "amber" },
@@ -23,7 +25,7 @@ const filters: ("ALL" | CommunityPostType)[] = ["ALL", "ALERT", "LOST_FOUND", "R
 
 export default function Community() {
   const nav = useNavigate();
-  const { area, user, activeContext } = useApp();
+  const { area, user, activeContext, isGuest } = useApp();
   const [filter, setFilter] = useState<"ALL" | CommunityPostType>("ALL");
   const [sort, setSort] = useState<"recent" | "trending">("recent");
   const { data, loading, error, refetch } = useQueryWithRealtime(
@@ -62,7 +64,7 @@ export default function Community() {
           </div>
           <div className="row gap-8">
             <button className="icon-btn" onClick={() => nav("/search")}><SearchIcon size={18} /></button>
-            <button className="btn btn-primary btn-sm" onClick={() => nav("/community/new")}><Plus size={16} /> Post</button>
+            {!isGuest && <button className="btn btn-primary btn-sm" onClick={() => nav("/community/new")}><Plus size={16} /> Post</button>}
           </div>
         </div>
         <div className="hscroll" style={{ padding: "0 0 0 0", marginLeft: -4 }}>
@@ -80,7 +82,12 @@ export default function Community() {
         ) : error ? (
           <ErrorView error={error} onRetry={refetch} />
         ) : list.length === 0 ? (
-          <EmptyState emoji="🏘️" title="Nothing here yet" text="Be the first to post in this category." action={<button className="btn btn-primary btn-sm" onClick={() => nav("/community/new")}>Post something</button>} />
+          <EmptyState
+            emoji="🏘️"
+            title="Nothing here yet"
+            text={isGuest ? "No posts in this category near you." : "Be the first to post in this category."}
+            action={isGuest ? undefined : <button className="btn btn-primary btn-sm" onClick={() => nav("/community/new")}>Post something</button>}
+          />
         ) : (
           <>
             <button
@@ -106,20 +113,28 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
   onRefetch?: () => void;
 }) {
   const nav = useNavigate();
-  const { likes, toggleLike, votes, votePoll, user, showToast } = useApp();
+  const { votes, votePoll, user, showToast, isGuest } = useApp();
   const [recommendOpen, setRecommendOpen] = useState(false);
   const M = typeMeta[post.type];
-  // XOR: the store tracks session-toggles only (empty on load); DB truth is post.liked.
-  const toggled = likes.includes(post.id);
-  const liked = toggled ? !post.liked : post.liked;
-  const likeCount = Math.max(0, post.likes + (liked && !post.liked ? 1 : 0) - (!liked && post.liked ? 1 : 0));
+  // Optimistic override for THIS card only, cleared once the server-confirmed
+  // value (post.liked/post.likes) catches up — avoids XOR-ing against a value
+  // that a realtime refetch can change out from under a session-wide toggle
+  // (that was making the like visually revert; see GOAL_LIVE_AUDIT.md #8).
+  const [likeOverride, setLikeOverride] = useState<boolean | null>(null);
+  useEffect(() => { setLikeOverride(null); }, [post.liked, post.likes]);
+  const liked = likeOverride ?? post.liked;
+  const likeCount = Math.max(0, post.likes + (likeOverride === true && !post.liked ? 1 : 0) - (likeOverride === false && post.liked ? 1 : 0));
   const votedOption = votes[post.id] ?? post.votedOptionId;
   const totalVotes = (post.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !post.votedOptionId ? 1 : 0);
 
+  // Guests never reach these — the controls that call them are hidden below —
+  // but they stay guarded at the render site rather than here so the handlers
+  // remain plain, single-purpose functions for signed-in users.
   function handleLike() {
-    toggleLike(post.id); // optimistic
+    const next = !liked;
+    setLikeOverride(next); // optimistic
     communityService.like(post.id, liked).catch(() => {
-      toggleLike(post.id); // revert so the UI never lies
+      setLikeOverride(liked); // revert so the UI never lies
       showToast("Couldn't update like — try again");
     });
   }
@@ -149,6 +164,16 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
             style={{
               width: 40, height: 40,
               border: post.authorType === "business" ? "2px solid var(--orange-500)" : post.authorType === "provider" ? "2px solid var(--green-500)" : "none",
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (post.authorType === "business" && post.authorRefId) {
+                openProfile(post.authorRefId, "BUSINESS", { name: post.authorName, avatar: post.authorAvatar });
+              } else if (post.authorType === "provider" && post.authorRefId) {
+                openProfile(post.authorRefId, "PROVIDER", { name: post.authorName, avatar: post.authorAvatar });
+              } else if (post.authorUserId) {
+                openProfile(post.authorUserId, "USER", { name: post.authorName, avatar: post.authorAvatar });
+              }
             }}
           />
           <div className="grow">
@@ -192,8 +217,9 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
               return (
                 <button
                   key={o.id}
-                  onClick={() => handleVote(o.id)}
-                  style={{ position: "relative", textAlign: "left", padding: "11px 13px", borderRadius: 10, border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)", overflow: "hidden", background: "#fff" }}
+                  disabled={isGuest}
+                  onClick={isGuest ? undefined : () => handleVote(o.id)}
+                  style={{ position: "relative", textAlign: "left", padding: "11px 13px", borderRadius: 10, border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)", overflow: "hidden", background: "#fff", cursor: isGuest ? "default" : "pointer", opacity: 1 }}
                 >
                   {votedOption && <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: voted ? "var(--brand-100)" : "var(--ink-100)" }} />}
                   <div className="row between" style={{ position: "relative" }}>
@@ -217,7 +243,7 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
               const image = b?.coverImage ?? p?.avatar ?? "";
               const sub = b?.subCategory ?? p?.categoryName ?? "";
               return (
-                <button key={i} className="row gap-10" style={{ padding: 8, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
+                <button key={rec.listingId} className="row gap-10" style={{ padding: 8, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
                   onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}>
                   <SafeImg src={image} variant={rec.listingType === "PROVIDER" ? "avatar" : "photo"} className="thumb" style={{ width: 44, height: 44, borderRadius: 10 }} />
                   <div className="grow">
@@ -232,14 +258,23 @@ export function CommunityCard({ post, businesses = [], providers = [], onRefetch
         )}
 
         <div className="divider" style={{ margin: "12px 0" }} />
+        {/* Guests see the counts (social proof is the hook) but get no controls:
+            the like button becomes plain text and Recommend disappears. Opening
+            the post to read it is still allowed — that's viewing, not acting. */}
         <div className="row gap-16">
-          <button className="row gap-6 small semi" style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }} onClick={handleLike}>
-            <Heart size={17} fill={liked ? "var(--red-500)" : "none"} /> {likeCount}
-          </button>
+          {isGuest ? (
+            <span className="row gap-6 small semi" style={{ color: "var(--ink-500)" }}>
+              <Heart size={17} /> {likeCount}
+            </span>
+          ) : (
+            <button className="row gap-6 small semi" style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }} onClick={handleLike}>
+              <Heart size={17} fill={liked ? "var(--red-500)" : "none"} /> {likeCount}
+            </button>
+          )}
           <button className="row gap-6 small semi muted" onClick={() => nav(`/community/${post.id}`, { state: { post } })}>
             <MessageCircle size={17} /> {post.commentsCount} {post.commentsCount === 1 ? "comment" : "comments"}
           </button>
-          {post.type === "RECOMMENDATION" && (
+          {!isGuest && post.type === "RECOMMENDATION" && (
             <button className="row gap-6 small semi" style={{ marginLeft: "auto", color: "var(--brand-700)" }} onClick={() => setRecommendOpen(true)}>
               + Recommend
             </button>

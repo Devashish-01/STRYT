@@ -33,9 +33,16 @@ export function useAuthSession() {
       .then(({ data }) => {
         if (data.session) {
           tokenStore.set(data.session.access_token, data.session.refresh_token);
+          // Hand the JWT to the realtime socket. Without this, Realtime treats
+          // the connection as `anon` and RLS-protected tables (chat messages,
+          // conversations, agreements…) silently deliver zero postgres_changes,
+          // so the app only updates on a manual refetch. supabase-js does this
+          // on some auth events but not reliably on the restored INITIAL_SESSION.
+          sb.realtime.setAuth(data.session.access_token);
           setIsAuthed(true);
         } else {
           tokenStore.clear();
+          sb.realtime.setAuth(null);
           setIsAuthed(false);
         }
       })
@@ -49,9 +56,14 @@ export function useAuthSession() {
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
       if (session) {
         tokenStore.set(session.access_token, session.refresh_token);
+        // Keep the realtime socket's token in sync on sign-in and every silent
+        // TOKEN_REFRESHED, so long-lived sessions don't drift into an expired
+        // token that Realtime rejects (which also manifests as "stopped updating").
+        sb.realtime.setAuth(session.access_token);
         setIsAuthed(true);
       } else if (event === "SIGNED_OUT") {
         tokenStore.clear();
+        sb.realtime.setAuth(null);
         setIsAuthed(false);
       }
       setAuthReady(true);

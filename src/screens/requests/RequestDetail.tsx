@@ -10,16 +10,18 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, EmptyState, SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
+import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import { PLACEHOLDER_REQUEST_SHARE } from "@/lib/placeholders";
 import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
-import type { Proposal } from "@/types";
+import type { Proposal, ProposalCounter } from "@/types";
+import { openProfile } from "@/lib/profileSheet";
 
 export default function RequestDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { user, showToast, meToos, toggleMeToo, isAuthed } = useApp();
+  const { user, showToast, meToos, isAuthed, isGuest } = useApp();
   const { data: r, loading, error, refetch } = useQueryWithRealtime(() => requestService.get(id, user.lat || 0, user.lng || 0), "requests", [id], `id=eq.${id}`);
 
   // proposals is a separate table from requests, so the row-level subscription
@@ -122,6 +124,20 @@ export default function RequestDetail() {
     }
   }
 
+  // Accept only the latest responder-authored counter by immutable ID. The
+  // server locks the request/proposal/counter and derives the agreed amount.
+  async function acceptCounter(p: Proposal, counter: ProposalCounter) {
+    setAccepted(p.id);
+    try {
+      const result = await requestService.acceptProposalCounter(p.id, counter.id);
+      showToast(`Accepted at ${inr(counter.amount)}`);
+      setTimeout(() => nav(result.agreementId ? `/agreement/${result.agreementId}` : `/agreements`), 700);
+    } catch {
+      setAccepted(null);
+      showToast("Couldn't accept. Try again.");
+    }
+  }
+
   async function sendCounter(p: Proposal) {
     if (!counterAmt) return;
     try {
@@ -197,14 +213,20 @@ export default function RequestDetail() {
       <header className="appbar">
         <button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
         <span className="grow bold" style={{ fontSize: 16 }}>Request</span>
-        <button className="icon-btn" onClick={() => setShare(true)}><Share2 size={18} /></button>
+        {!isGuest && <button className="icon-btn" onClick={() => setShare(true)}><Share2 size={18} /></button>}
       </header>
 
       <div className="screen-scroll" style={{ paddingBottom: isMine ? 24 : 92 }}>
         <div className="page-pad">
           {/* Requester */}
           <div className="row gap-10">
-            <SafeImg src={r.requesterAvatar} variant="avatar" className="avatar" style={{ width: 44, height: 44 }} />
+            <SafeImg
+              src={r.requesterAvatar}
+              variant="avatar"
+              className="avatar"
+              style={{ width: 44, height: 44, cursor: r.requesterUserId ? "pointer" : undefined }}
+              onClick={r.requesterUserId ? () => openProfile(r.requesterUserId!, "USER", { name: r.requesterName, avatar: r.requesterAvatar }) : undefined}
+            />
             <div className="grow">
               <div className="row gap-6"><span className="semi">{r.requesterName}</span><Rating value={r.requesterRating} size={10} /></div>
               <span className="tiny muted row gap-4"><MapPin size={12} /> {r.area}{r.distanceKm > 0 ? ` • ${r.distanceKm} km` : ""} • {r.postedAt}</span>
@@ -260,26 +282,6 @@ export default function RequestDetail() {
             </div>
           )}
 
-          {/* Me too */}
-          <button
-            className="btn btn-block btn-sm"
-            style={{ marginTop: 14, background: meTooed ? "var(--brand-800)" : "var(--ink-50)", color: meTooed ? "#fff" : "var(--ink-700)" }}
-            onClick={async () => {
-              if (r.requesterUserId === user.id) {
-                showToast("You can't me-too your own request");
-                return;
-              }
-              toggleMeToo(r.id); // optimistic UI
-              try {
-                await requestService.meToo(r.id);
-              } catch {
-                toggleMeToo(r.id); // revert on failure
-              }
-            }}
-          >
-            <Users size={16} /> {meTooed ? "You're in — me too ✓" : "Me too — I need this as well"} {meTooCount > 0 && `· ${meTooCount}`}
-          </button>
-
           {/* Detail card */}
           <div className="card row" style={{ padding: 14, marginTop: 14 }}>
             <Cell label="Budget" value={budget} color="var(--green-500)" />
@@ -328,7 +330,7 @@ export default function RequestDetail() {
             <EmptyState
               emoji="⏳"
               title="No proposals yet"
-              text={isMine ? "Hang tight — nearby providers will respond soon." : "Be the first to send a proposal."}
+              text={isMine ? "Hang tight — nearby providers will respond soon." : isGuest ? "No one has offered on this yet." : "Be the first to send a proposal."}
             />
           ) : (
             <div className="col gap-12">
@@ -336,7 +338,13 @@ export default function RequestDetail() {
                 <div key={p.id}
                   className="card" style={{ border: accepted === p.id ? "2px solid var(--green-500)" : p.isBoosted ? "1.5px solid var(--amber-500)" : "1px solid var(--line)" }}>
                   <div className="row gap-10">
-                    <SafeImg src={p.responderAvatar} variant="avatar" className="avatar" style={{ width: 42, height: 42 }} />
+                    <SafeImg
+                      src={p.responderAvatar}
+                      variant="avatar"
+                      className="avatar"
+                      style={{ width: 42, height: 42, cursor: "pointer" }}
+                      onClick={() => openProfile(p.responderUserId!, p.responderType === "business" ? "BUSINESS" : "PROVIDER", { name: p.responderName, avatar: p.responderAvatar })}
+                    />
                     <div className="grow" style={{ minWidth: 0 }}>
                       <div className="row gap-6">
                         <span className="semi small ellipsis">{p.responderName}</span>
@@ -411,6 +419,16 @@ export default function RequestDetail() {
                           <span className="tiny muted" style={{ marginTop: 2 }}>{c.time}</span>
                         </div>
                       ))}
+                      {isMine && r.status === "OPEN" && !accepted && (p.counters ?? []).length > 0
+                        && (p.counters ?? [])[(p.counters ?? []).length - 1].by === "responder" && (
+                        <button
+                          className="btn btn-green btn-sm btn-block"
+                          style={{ marginTop: 8 }}
+                          onClick={() => acceptCounter(p, (p.counters ?? [])[(p.counters ?? []).length - 1])}
+                        >
+                          Accept at {inr((p.counters ?? [])[(p.counters ?? []).length - 1].amount)}
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -461,7 +479,7 @@ export default function RequestDetail() {
           )}
         </div>
 
-        {!isMine && (
+        {!isMine && !isGuest && (
           <div className="page-pad">
             <button className="row gap-6 tiny muted center" style={{ width: "100%", padding: 10 }} onClick={() => setReport(true)}>
               <Flag size={13} /> Report this request
@@ -470,12 +488,18 @@ export default function RequestDetail() {
         )}
       </div>
 
-      {/* Respond CTA for non-owners */}
+      {/* Respond CTA for non-owners. A guest sees the request and every offer on
+          it, but can't respond — quoting is a commitment to a real neighbour, so
+          the button becomes a sign-in prompt. */}
       {!isMine && r.status === "OPEN" && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12, zIndex: 30 }}>
-          <button className="btn btn-primary btn-block" onClick={() => nav(`/request/${r.id}/propose`)}>
-            <Send size={17} /> Send a proposal
-          </button>
+          {isGuest ? (
+            <GuestSignInPrompt message="Sign in to send a proposal" compact />
+          ) : (
+            <button className="btn btn-primary btn-block" onClick={() => nav(`/request/${r.id}/propose`)}>
+              <Send size={17} /> Send a proposal
+            </button>
+          )}
         </div>
       )}
 

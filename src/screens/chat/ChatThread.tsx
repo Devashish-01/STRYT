@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import LiveLocationCard from "@/features/live-share/LiveLocationCard";
 import type { Message, Conversation } from "@/types";
+import { useI18n } from "@/lib/i18n";
 
 const TYPING_THROTTLE_MS = 2000;
 const TYPING_HIDE_MS = 3000;
@@ -16,6 +17,7 @@ const TYPING_HIDE_MS = 3000;
 export default function ChatThread() {
   const { id = "" } = useParams();
   const nav = useNavigate();
+  const { t } = useI18n();
   const { user, setChatUnread, showToast } = useApp();
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -42,7 +44,10 @@ export default function ChatThread() {
   useEffect(() => {
     if (!conv) return;
     chatService.markRead(id, conv).then(() => {
-      chatService.totalUnread().then(setChatUnread);
+      // setChatUnread feeds the customer-scoped badge (store.tsx hydrates it with
+      // the same CUSTOMER scope) — an unscoped total here overwrote that badge
+      // with an all-roles count whenever a business/provider chat was opened.
+      chatService.totalUnread({ scope: "CUSTOMER" }).then(setChatUnread);
       refetchConvs();
     });
     const unsub = chatService.subscribe(id, (msg) => {
@@ -139,7 +144,7 @@ export default function ChatThread() {
           />
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="semi" style={{ fontSize: 15, lineHeight: 1.2 }}>{other?.name ?? "Chat"}</div>
-            {other && <div className="tiny muted" style={{ lineHeight: 1.2 }}>View profile</div>}
+            {other && <div className="tiny muted" style={{ lineHeight: 1.2 }}>{t("view_profile")}</div>}
           </div>
         </button>
         {other && (
@@ -212,7 +217,7 @@ export default function ChatThread() {
                 {new Date(msg.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                 {isLastMine && seenByOther && (
                   <span className="row gap-2" style={{ color: "var(--brand-600)", alignItems: "center" }}>
-                    <Check size={12} /> Seen
+                    <Check size={12} /> {t("seen")}
                   </span>
                 )}
               </span>
@@ -223,7 +228,7 @@ export default function ChatThread() {
         {otherTyping && (
           <div style={{ display: "flex", alignItems: "flex-start" }}>
             <div style={{ padding: "10px 14px", borderRadius: "18px 18px 18px 4px", background: "var(--ink-100)" }}>
-              <span className="tiny muted">{other?.name ?? "Typing"} is typing…</span>
+              <span className="tiny muted">{t("is_typing").replace("{name}", other?.name ?? "Typing")}</span>
             </div>
           </div>
         )}
@@ -231,7 +236,7 @@ export default function ChatThread() {
         {messages.length === 0 && !loading && (
           <div style={{ textAlign: "center", color: "var(--ink-400)", paddingTop: 40 }}>
             <span style={{ fontSize: 36 }}>👋</span>
-            <p className="small muted" style={{ marginTop: 8 }}>Say hello to {other?.name ?? "them"}!</p>
+            <p className="small muted" style={{ marginTop: 8 }}>{t("say_hello_to").replace("{name}", other?.name ?? "them")}</p>
           </div>
         )}
 
@@ -280,7 +285,7 @@ export default function ChatThread() {
           </label>
           <textarea
             className="input"
-            placeholder="Type a message…"
+            placeholder={t("type_message")}
             value={body}
             rows={1}
             style={{

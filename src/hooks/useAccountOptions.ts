@@ -27,7 +27,7 @@ export interface AccountOption {
  */
 export function useAccountOptions() {
   const nav = useNavigate();
-  const { user, activeContext, setContext, ownedBusinessIds, ownedProviderId, roles, showToast } = useApp();
+  const { user, activeContext, setContext, attemptSwitchContext, ownedBusinessIds, ownedProviderId, ownedEntitiesLoaded, roles, showToast } = useApp();
 
   const { data: myBiz } = useQuery(() => businessService.mine(), []);
   const { data: myProv } = useQuery(() => providerService.mine(), []);
@@ -77,14 +77,16 @@ export function useAccountOptions() {
     if (ownedBusinessIds.includes(activeContext.id)) return;
     if (delegatedGrants.some((s) => s.businessId === activeContext.id)) return;
     if (mySessions === undefined) return; // still loading — don't act on a stale empty list
+    if (!ownedEntitiesLoaded) return; // ownedBusinessIds itself may still be hydrating
     setContext({ type: "customer", id: null, name: user.name });
     showToast("Your access to that business was revoked");
     nav("/home");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeContext.type, activeContext.id, ownedBusinessIds, mySessions]);
+  }, [activeContext.type, activeContext.id, ownedBusinessIds, mySessions, ownedEntitiesLoaded]);
 
   function pick(opt: AccountOption) {
-    setContext({ type: opt.type, id: opt.id, name: opt.name });
+    const ready = attemptSwitchContext({ type: opt.type, id: opt.id, name: opt.name }, opt.dest);
+    if (!ready) return; // PIN sheet takes over — it navigates on success
     showToast(`Switched to ${opt.name}`);
     nav(opt.dest);
   }

@@ -236,7 +236,7 @@ export const communityService = {
     // lat/lng aren't selectable via a plain query anymore (ISS-009) —
     // get_own_coords() is a SECURITY DEFINER RPC scoped to auth.uid().
     const [{ data: me }, { data: coords }] = await Promise.all([
-      sb.from("users").select("name, alias, avatar").eq("id", uid).maybeSingle(),
+      sb.from("users").select("name, alias, avatar, show_name_publicly").eq("id", uid).maybeSingle(),
       sb.rpc("get_own_coords").maybeSingle(),
     ]);
     const lat = data.lat ?? (coords as any)?.lat ?? null;
@@ -248,8 +248,9 @@ export const communityService = {
     // ownership — only the displayed identity (name/avatar/type) changes.
     const authorType = data.authorType ?? "user";
     // Posting as a business/provider uses their real public name (passed in);
-    // a plain user's fallback identity is their alias, never their real name.
-    const authorName = data.authorName || aliasName({ alias: (me as any)?.alias, name: (me as any)?.name });
+    // a plain user's fallback identity is their alias/first-name, unless they
+    // opted in to showNamePublicly.
+    const authorName = data.authorName || aliasName({ alias: (me as any)?.alias, name: (me as any)?.name, showNamePublicly: (me as any)?.show_name_publicly });
     const authorAvatar = data.authorAvatar || (me as any)?.avatar || "";
 
     const { data: created, error } = await sb.from("community_posts").insert({
@@ -258,8 +259,8 @@ export const communityService = {
       author_ref_id: data.authorRefId ?? null,
       author_name: authorName,
       author_avatar: authorAvatar,
-      type: data.type,
-      title: data.title,
+      type: data.type!,
+      title: data.title!,
       body: data.body ?? "",
       area: data.area ?? "",
       image: data.image ?? null,
@@ -347,13 +348,13 @@ export const communityService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
-    const { data: me } = await sb.from("users").select("name, alias, avatar").eq("id", uid).maybeSingle();
+    const { data: me } = await sb.from("users").select("name, alias, avatar, show_name_publicly").eq("id", uid).maybeSingle();
     const { listingType, listingId, sharedPhone, phoneVisibility, authorName, authorAvatar, parentId } = opts;
 
     const { data: created, error } = await sb.from("post_comments").insert({
       post_id: postId,
       author_user_id: uid,
-      author_name: authorName || aliasName({ alias: (me as any)?.alias, name: (me as any)?.name }),
+      author_name: authorName || aliasName({ alias: (me as any)?.alias, name: (me as any)?.name, showNamePublicly: (me as any)?.show_name_publicly }),
       author_avatar: authorAvatar || ((me as any)?.avatar ?? ""),
       body,
       parent_id: parentId ?? null,

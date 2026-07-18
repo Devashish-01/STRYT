@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/store";
 import BrandLockup from "./BrandLockup";
+import { contextHomePath } from "@/lib/contextHome";
 
 /**
  * The STRYT brand lockup shown in the top header. Tapping it takes the user to
@@ -24,9 +25,7 @@ export default function BrandHome({
   const { activeContext } = useApp();
 
   function goHome() {
-    if (activeContext.type === "business" && activeContext.id) nav(`/business/${activeContext.id}/manage`);
-    else if (activeContext.type === "provider" && activeContext.id) nav(`/provider/${activeContext.id}/manage`);
-    else nav("/home");
+    nav(contextHomePath(activeContext));
   }
 
   return (

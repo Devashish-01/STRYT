@@ -68,6 +68,8 @@ export interface PublicUser {
   showEmailPublicly?: boolean;
   showCityPublicly?: boolean;
   showRatingPublicly?: boolean;
+  /** Opt-in to showing the real `name` publicly instead of alias/first-name. Defaults false. */
+  showNamePublicly?: boolean;
   email?: string;        // present only if the owner made it public
   locationShared?: boolean; // viewer currently has an approved location grant
   locationRequestStatus?: "NONE" | "PENDING" | "APPROVED" | "DENIED";
@@ -97,6 +99,8 @@ export interface CurrentUser {
   showEmailPublicly?: boolean;
   showCityPublicly?: boolean;
   showRatingPublicly?: boolean;
+  /** Opt-in to showing the real `name` publicly instead of alias/first-name. Defaults false. */
+  showNamePublicly?: boolean;
   locationPublic?: boolean; // global "anyone can see my exact location"
   customerEnabled?: boolean;
   customerDeletedAt?: string | null;

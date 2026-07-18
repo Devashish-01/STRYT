@@ -4,6 +4,7 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { useQuery } from "@/hooks/useApi";
 import { socialService } from "@/services";
 import { useApp } from "@/store";
+import { openProfile } from "@/lib/profileSheet";
 
 export default function Followers() {
   const nav = useNavigate();
@@ -29,7 +30,12 @@ export default function Followers() {
             style={{ padding: 14, borderRadius: 16, textAlign: "left" }}
             onClick={() => nav(`/u/${f.id}`)}
           >
-            <SafeImg src={f.avatar} variant="avatar" style={{ width: 46, height: 46, borderRadius: "50%", objectFit: "cover" }} />
+            <SafeImg
+              src={f.avatar}
+              variant="avatar"
+              style={{ width: 46, height: 46, borderRadius: "50%", objectFit: "cover", cursor: "pointer" }}
+              onClick={(e) => { e.stopPropagation(); openProfile(f.id, "USER", { name: f.name, avatar: f.avatar }); }}
+            />
             <span className="bold small">{f.name}</span>
           </button>
         ))}
@@ -37,3 +43,4 @@ export default function Followers() {
     </div>
   );
 }
+

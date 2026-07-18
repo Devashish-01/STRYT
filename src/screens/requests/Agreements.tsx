@@ -8,6 +8,7 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { ChevronRight } from "@/components/Icons";
 import { useApp } from "@/store";
 import type { AgreementStatus } from "@/types";
+import { openProfile } from "@/lib/profileSheet";
 
 const statusMeta: Record<AgreementStatus, { label: string; tone: string }> = {
   PENDING:      { label: "Awaiting confirmation", tone: "amber" },
@@ -70,7 +71,16 @@ export default function Agreements() {
                   <span className="tiny muted">{a.scheduledFor}</span>
                 </div>
                 <div className="row gap-10" style={{ marginTop: 10 }}>
-                  <SafeImg src={otherAvatar} variant="avatar" className="avatar" style={{ width: 44, height: 44 }} />
+                  <SafeImg
+                    src={otherAvatar}
+                    variant="avatar"
+                    className="avatar"
+                    style={{ width: 44, height: 44, cursor: "pointer" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openProfile(isRequester ? a.responderUserId : a.requesterUserId, "USER", { name: otherName, avatar: otherAvatar });
+                    }}
+                  />
                   <div className="grow" style={{ minWidth: 0 }}>
                     <div className="semi small ellipsis">{a.requestTitle}</div>
                     <div className="tiny muted">with {otherName}</div>

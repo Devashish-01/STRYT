@@ -2,14 +2,15 @@
 // here — never the service_role key (it bypasses RLS and must stay server-side).
 // Reads VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY from the environment.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
 
 const url = (import.meta as any).env?.VITE_SUPABASE_URL ?? "";
 const anonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ?? "";
 
 // Lazily created so mock mode never needs the env vars set.
-let _client: SupabaseClient | null = null;
+let _client: SupabaseClient<Database> | null = null;
 
-export function getSupabase(): SupabaseClient {
+export function getSupabase(): SupabaseClient<Database> {
   if (!url || !anonKey) {
     throw new Error(
       "Supabase env not set. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env " +
@@ -17,7 +18,7 @@ export function getSupabase(): SupabaseClient {
     );
   }
   if (!_client) {
-    _client = createClient(url, anonKey, {
+    _client = createClient<Database>(url, anonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,

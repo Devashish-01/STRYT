@@ -10,9 +10,15 @@ import { SpeedInsights } from "@vercel/speed-insights/react";
 import { IconContext } from "@phosphor-icons/react";
 import { Capacitor } from "@capacitor/core";
 import { initNativeApp } from "./lib/nativeApp";
+import { initMonitoring } from "./lib/monitoring";
 import { registerSW } from "virtual:pwa-register";
 import "leaflet/dist/leaflet.css";
 import "./index.css";
+
+// Global error/crash monitoring — registers window error + unhandledrejection
+// handlers and ships captured errors to the client_errors sink. Wired first so
+// it's active before anything else can throw.
+initMonitoring();
 
 // Native wrapper setup (back button, status bar, splash). No-ops on web.
 void initNativeApp();

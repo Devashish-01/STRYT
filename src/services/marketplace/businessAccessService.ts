@@ -9,6 +9,7 @@ export interface BusinessLoginConfig {
 }
 
 export type AccessStatus = "PENDING" | "ACTIVE" | "EXPIRED" | "REVOKED" | "DENIED";
+export type AccessCheckResult = "ALLOWED" | "DENIED" | "ERROR";
 
 export interface AccessSession {
   id: string;
@@ -81,6 +82,15 @@ export const businessAccessService = {
     if (error) throw new Error(error.message || "Login failed.");
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw new Error("Login failed.");
+    if (row.status === "INVALID_CREDENTIALS") {
+      throw new Error("Invalid login id or password.");
+    }
+    if (row.status === "LOCKED") {
+      throw new Error(row.business_name || "Too many failed attempts. Try again later.");
+    }
+    if (row.status !== "PENDING" && row.status !== "ACTIVE") {
+      throw new Error("Login failed.");
+    }
     return {
       status: row.status,
       businessId: row.business_id,
@@ -175,11 +185,19 @@ export const businessAccessService = {
   },
 
   /** Does the current user still have access (owner OR active session) to this business? */
-  async checkAccess(businessId: string): Promise<boolean> {
+  async checkAccess(businessId: string): Promise<AccessCheckResult> {
     const sb = getSupabase();
-    const { data, error } = await sb.rpc("my_business_access_status", { p_business_id: businessId });
-    if (error) return false; // fail closed — treat an unreachable check as no access
-    return !!data;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      // Cast: my_business_access_status isn't in the generated schema types
+      // (a typegen gap for this SECURITY DEFINER helper), so the name is asserted.
+      const { data, error } = await (sb.rpc as any)("my_business_access_status", { p_business_id: businessId });
+      if (!error) return data ? "ALLOWED" : "DENIED";
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
+    }
+    // Genuinely unreachable after a retry — the caller must NOT treat this as
+    // a denial (a network blip at reopen time looks identical to a revoked
+    // grant otherwise; see BusinessAccessGuard's "retry" status).
+    return "ERROR";
   },
 
   /** Best-effort expiry sweep. */

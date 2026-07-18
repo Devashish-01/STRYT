@@ -57,6 +57,29 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Split the heavy, independently-cached vendors out of the main app chunk
+    // (was ~844 kB). Each is a separate library that changes rarely, so a code
+    // change no longer invalidates the whole vendor payload for returning users.
+    // Function form (not the object map) because packages like `firebase` are
+    // modular and have no bare root entry to resolve — we match by module path.
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("firebase")) return "vendor-firebase";
+          if (id.includes("leaflet")) return "vendor-map"; // leaflet + react-leaflet
+          if (id.includes("@supabase")) return "vendor-supabase";
+          if (id.includes("@phosphor-icons") || id.includes("lucide-react")) return "vendor-icons";
+          if (id.includes("react-router")) return "vendor-react";
+          if (id.includes("/react-dom/")) return "vendor-react";
+          if (id.includes("/react/")) return "vendor-react";
+          if (id.includes("/scheduler/")) return "vendor-react";
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     host: true,

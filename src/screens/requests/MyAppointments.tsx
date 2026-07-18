@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
 import { NoAppointmentsIllustration } from "@/components/illustrations";
@@ -10,8 +10,9 @@ import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { Calendar, Image as ImageIcon, X as XIcon, AlertCircle, CheckCircle2, RotateCcw, CalendarClock, CreditCard } from "@/components/Icons";
+import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard } from "@/components/Icons";
 import { PaymentSheet } from "@/components/PaymentSheet";
+import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppointments";
 
 // A booking counts as "upcoming" while it is still live and in the future.
@@ -55,8 +56,12 @@ export default function MyAppointments() {
     user.id ? `customer_user_id=eq.${user.id}` : undefined
   );
 
-  const list = (data ?? []).filter((a) => (tab === "UPCOMING" ? isUpcoming(a) : !isUpcoming(a)));
-  const upcomingCount = (data ?? []).filter(isUpcoming).length;
+  const { upcomingList, pastList } = useMemo(() => {
+    const all = data ?? [];
+    return { upcomingList: all.filter(isUpcoming), pastList: all.filter((a) => !isUpcoming(a)) };
+  }, [data]);
+  const list = tab === "UPCOMING" ? upcomingList : pastList;
+  const upcomingCount = upcomingList.length;
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
 
@@ -124,12 +129,11 @@ export default function MyAppointments() {
     }
   }
 
-  // On a successful reschedule, cancel the original so it isn't a duplicate.
-  async function handleBooked() {
-    if (rebook?.mode === "RESCHEDULE") {
-      try { await appointmentService.updateStatus(rebook.apt.id, "CANCELLED", undefined, "CUSTOMER"); } catch { /* best-effort */ }
-    }
-  }
+  // Reschedule is now atomic on the server (reschedule_appointment cancels the
+  // original and creates the new booking in a single transaction), so there's
+  // no separate client-side cancel to run — which is what used to strand two
+  // live bookings when that best-effort cancel silently failed.
+  function handleBooked() {}
 
   return (
     <div className="screen screen-boxed">
@@ -161,6 +165,7 @@ export default function MyAppointments() {
             ) : (
               list.map((apt) => {
                 const busy = cancelling === apt.id || loadingTarget === apt.id;
+                const payable = isPayable(apt.status);
                 return (
                   <div key={apt.id} className="card col gap-10" style={{ padding: 14 }}>
                     <div className="row between center-v">
@@ -183,7 +188,7 @@ export default function MyAppointments() {
                         >
                           {apt.status === "ACCEPTED" ? "CONFIRMED" : apt.status.replace("_", " ")}
                         </span>
-                        {isPayable(apt.status) && (
+                        {payable && (
                           <span
                             className={`badge ${apt.paymentStatus === "PAID" ? "badge-green" : "badge-gray"}`}
                             style={{ fontSize: 9, padding: "2px 7px" }}
@@ -194,73 +199,48 @@ export default function MyAppointments() {
                       </div>
                     </div>
 
-                    {apt.packageName && (
-                      <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
-                        📦 {apt.packageName}{apt.packagePrice ? ` • ₹${apt.packagePrice}` : ""}
+                    {(apt.packageName || apt.notes || apt.photoUrl) && (
+                      <div className="col gap-6" style={{ background: "var(--ink-50)", padding: 10, borderRadius: 10 }}>
+                        {apt.packageName && (
+                          <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
+                            📦 {apt.packageName}{apt.packagePrice ? ` • ₹${apt.packagePrice}` : ""}
+                          </div>
+                        )}
+                        {apt.notes && (
+                          <div className="tiny" style={{ color: "var(--ink-700)" }}>
+                            📝 <strong>Your note:</strong> {apt.notes}
+                          </div>
+                        )}
+                        {apt.photoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewPhoto(apt.photoUrl!)}
+                            className="row gap-6 center-v"
+                            style={{ background: "none", border: "none", color: "var(--brand-700)", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: 0 }}
+                          >
+                            <ImageIcon size={14} /> View your attached reference photo
+                          </button>
+                        )}
                       </div>
                     )}
 
-                    {apt.notes && (
-                      <div className="tiny" style={{ background: "var(--ink-50)", padding: 8, borderRadius: 8, color: "var(--ink-700)" }}>
-                        📝 <strong>Your note:</strong> {apt.notes}
-                      </div>
-                    )}
-
-                    {apt.photoUrl && (
-                      <div className="row gap-8 center-v">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewPhoto(apt.photoUrl!)}
-                          className="row gap-6 center-v"
-                          style={{ background: "none", border: "none", color: "var(--brand-700)", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: 0 }}
-                        >
-                          <ImageIcon size={14} /> View your attached reference photo
-                        </button>
-                      </div>
-                    )}
-
-                    {apt.status === "REJECTED" && <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />}
+                    <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />
 
                     {/* Payment status — shown for PENDING too (seller may require
                         payment before accepting) and COMPLETED too (an accepted
                         appointment auto-completes once its slot passes; the payment
                         step must not disappear just because that housekeeping ran). */}
-                    {isPayable(apt.status) && apt.paymentStatus === "PAID" && (
-                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)", borderRadius: 10 }}>
-                        <CheckCircle2 size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
-                        <span className="tiny semi" style={{ color: "var(--green-600)" }}>
-                          Payment confirmed{apt.paymentMethod ? ` via ${apt.paymentMethod}` : ""}
-                          {apt.paymentAmount ? ` • ₹${apt.paymentAmount}` : ""}
-                        </span>
-                      </div>
+                    {payable && (
+                      <PaymentStatusCard
+                        paymentStatus={apt.paymentStatus}
+                        paymentMethod={apt.paymentMethod}
+                        paymentAmount={apt.paymentAmount}
+                        paymentReference={apt.paymentReference}
+                        claimantName="You"
+                        viewerIsPayer
+                      />
                     )}
-                    {isPayable(apt.status) && apt.paymentStatus === "PENDING_CONFIRM" && (
-                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "var(--amber-50)", border: "1px solid var(--amber-100)", borderRadius: 10 }}>
-                        <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
-                        <div>
-                          <div className="tiny semi" style={{ color: "var(--amber-700)" }}>Awaiting confirmation</div>
-                          <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1 }}>{apt.targetName} will verify and confirm receipt in their app.</div>
-                        </div>
-                      </div>
-                    )}
-                    {isPayable(apt.status) && apt.paymentStatus === "REJECTED" && (
-                      <div className="card row gap-8 center-v" style={{ padding: 10, background: "var(--red-50)", border: "1px solid var(--red-100)", borderRadius: 10 }}>
-                        <AlertCircle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
-                        <div className="grow">
-                          <div className="tiny semi" style={{ color: "var(--red-600)" }}>Business couldn't verify payment</div>
-                          <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>Please retry or contact them directly.</div>
-                        </div>
-                        <button
-                          className="btn btn-sm"
-                          style={{ fontSize: 11, padding: "4px 10px", background: "var(--brand-600)", color: "#fff", borderRadius: 8, flexShrink: 0 }}
-                          disabled={loadingPay === apt.id}
-                          onClick={() => openPay(apt)}
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    )}
-                    {isPayable(apt.status) && (!apt.paymentStatus || apt.paymentStatus === "UNPAID") && (
+                    {payable && (!apt.paymentStatus || apt.paymentStatus === "UNPAID" || apt.paymentStatus === "REJECTED") && (
                       <button
                         type="button"
                         className="btn btn-primary btn-sm row gap-6 center"
@@ -268,7 +248,8 @@ export default function MyAppointments() {
                         disabled={loadingPay === apt.id}
                         onClick={() => openPay(apt)}
                       >
-                        <CreditCard size={13} />{loadingPay === apt.id ? "Loading…" : apt.packagePrice ? `Pay ₹${apt.packagePrice}` : "Pay now"}
+                        <CreditCard size={13} />
+                        {loadingPay === apt.id ? "Loading…" : apt.paymentStatus === "REJECTED" ? "Retry payment" : apt.packagePrice ? `Pay ₹${apt.packagePrice}` : "Pay now"}
                       </button>
                     )}
 
@@ -281,8 +262,6 @@ export default function MyAppointments() {
                         </div>
                       </div>
                     )}
-
-                    {apt.status === "CANCELLED" && <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />}
 
                     {/* Actions */}
                     <div className="row gap-8" style={{ borderTop: "1px solid var(--line)", paddingTop: 10, marginTop: 2 }}>

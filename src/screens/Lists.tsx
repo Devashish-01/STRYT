@@ -44,7 +44,7 @@ export default function Lists() {
               const img = b?.coverImage ?? p?.avatar ?? "";
               const sub = b?.subCategory ?? p?.categoryName ?? "";
               return (
-                <button key={i} className="card row gap-12" style={{ padding: 12, textAlign: "left" }} onClick={() => nav(it.type === "BUSINESS" ? `/business/${it.id}` : `/provider/${it.id}`)}>
+                <button key={it.id} className="card row gap-12" style={{ padding: 12, textAlign: "left" }} onClick={() => nav(it.type === "BUSINESS" ? `/business/${it.id}` : `/provider/${it.id}`)}>
                   <SafeImg src={img} variant={it.type === "PROVIDER" ? "avatar" : "photo"} className="thumb" style={{ width: 56, height: 56, borderRadius: 12 }} />
                   <div className="grow">
                     <div className="semi small">{name}</div>

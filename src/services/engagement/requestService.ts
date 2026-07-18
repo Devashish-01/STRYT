@@ -4,6 +4,7 @@ import { cursorToRange, throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { RequestPost, Proposal, Agreement, ProposalCounter } from "@/types";
 import { leaderboardService } from "@/services/marketplace/leaderboardService";
+import { clampRadiusForViewer, isGuestMode } from "@/lib/guestMode";
 import { firstName, aliasName } from "@/lib/publicName";
 
 // Columns that exist on the requests table.
@@ -28,7 +29,28 @@ function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<str
 
 // Join requester user info, proposal responder ratings, and counter-offer history.
 const REQUEST_SELECT =
-  "*, requester:users!requester_user_id(name, alias, avatar, rating_avg), proposals:proposals(*, responder:users!responder_user_id(rating_avg), counters:proposal_counters(id, by_user_id, amount, message, created_at))";
+  "*, requester:users!requester_user_id(name, alias, avatar, rating_avg, show_name_publicly), proposals:proposals(*, responder:users!responder_user_id(rating_avg), counters:proposal_counters(id, by_user_id, amount, message, created_at))";
+
+/**
+ * Same as REQUEST_SELECT minus the `proposal_counters` embed.
+ *
+ * `proposal_counters` is the private price-negotiation history between a
+ * requester and one responder, and `anon` has no SELECT grant on it — so
+ * embedding it made the whole guest request feed 401 ("permission denied for
+ * table proposal_counters"), taking the visible requests down with it.
+ *
+ * The fix is to not ask for it rather than to grant anon access: a signed-out
+ * browser is looking at open requests, not negotiating one, so haggling history
+ * is data they have no need for. (Granting would also have been near-pointless —
+ * proposal_counters' RLS is scoped to the two parties, so anon would read zero
+ * rows anyway — but the grant itself is the wrong signal to leave in the schema.)
+ */
+const REQUEST_SELECT_PUBLIC =
+  "*, requester:users!requester_user_id(name, alias, avatar, rating_avg, show_name_publicly), proposals:proposals(*, responder:users!responder_user_id(rating_avg))";
+
+function requestSelect(): string {
+  return isGuestMode() ? REQUEST_SELECT_PUBLIC : REQUEST_SELECT;
+}
 
 // ── Row mappers ───────────────────────────────────────────────────────────────
 
@@ -80,7 +102,7 @@ function rowToRequest(row: any, userLat = 0, userLng = 0): RequestPost {
     // #6 privacy: show the requester's first name publicly; "Someone nearby" if posted anonymously.
     // Anonymous must hide the avatar too — a real face next to "Someone nearby"
     // de-anonymises the poster to anyone who knows them.
-    requesterName:   row.is_anonymous ? "Someone nearby" : aliasName({ alias: requester.alias, name: requester.name }),
+    requesterName:   row.is_anonymous ? "Someone nearby" : aliasName({ alias: requester.alias, name: requester.name, showNamePublicly: requester.show_name_publicly }),
     requesterAvatar: row.is_anonymous ? "" : (requester.avatar ?? ""),
     requesterRating: Number(requester.rating_avg ?? 0),
     postedAt:        timeAgo(row.created_at),
@@ -157,7 +179,7 @@ export const requestService = {
     const sb = getSupabase();
     await sweepExpired(sb);
     const { from, to, limit } = cursorToRange(p.cursor);
-    let q = sb.from("requests").select(REQUEST_SELECT, { count: "exact" }).in("status", ["OPEN", "AGREED"]);
+    let q = sb.from("requests").select(requestSelect(), { count: "exact" }).in("status", ["OPEN", "AGREED"]);
     if (p.category)              q = q.eq("category_name", p.category);
     if (p.special === "urgent")  q = q.eq("is_urgent", true);
     if (p.special === "group")   q = q.eq("is_group_buy", true);
@@ -166,7 +188,10 @@ export const requestService = {
     throwIfError(error);
 
     const saved = localStorage.getItem("settings_radius");
-    const radiusLimit = p.radiusKm ?? (saved ? parseFloat(saved) : 5);
+    // Clamped last so a guest stays pinned to 1 km regardless of the caller's
+    // radiusKm or a settings_radius left behind by a signed-in session on this
+    // device. Non-guests are unaffected.
+    const radiusLimit = clampRadiusForViewer(p.radiusKm ?? (saved ? parseFloat(saved) : 5)) ?? 5;
 
     let rows = (data ?? []).map((r: any) => rowToRequest(r, p.lat, p.lng));
     if (p.lat && p.lng) {
@@ -188,7 +213,7 @@ export const requestService = {
     if (!uid) return [];
     const { data, error } = await sb
       .from("requests")
-      .select(REQUEST_SELECT)
+      .select(requestSelect())
       .eq("requester_user_id", uid)
       .order("created_at", { ascending: false });
     throwIfError(error);
@@ -198,7 +223,7 @@ export const requestService = {
   async get(id: string, userLat = 0, userLng = 0): Promise<RequestPost | undefined> {
     const sb = getSupabase();
     await sweepExpired(sb);
-    const { data, error } = await sb.from("requests").select(REQUEST_SELECT).eq("id", id).maybeSingle();
+    const { data, error } = await sb.from("requests").select(requestSelect()).eq("id", id).maybeSingle();
     throwIfError(error);
     return data ? rowToRequest(data as any, userLat, userLng) : undefined;
   },
@@ -324,6 +349,17 @@ export const requestService = {
     return { agreementId: (data as string) ?? null, status: "PENDING" };
   },
 
+  /** Accept the latest responder-authored counter by immutable counter ID. */
+  async acceptProposalCounter(proposalId: string, counterId: string) {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("accept_proposal_counter", {
+      p_proposal_id: proposalId,
+      p_counter_id: counterId,
+    });
+    throwIfError(error);
+    return { agreementId: (data as string) ?? null, status: "PENDING" };
+  },
+
   /** Toggle "me too" on a request. Insert if not yet; delete if already done. */
   async meToo(requestId: string): Promise<{ ok: boolean; meTooed: boolean }> {
     const sb = getSupabase();
@@ -394,71 +430,27 @@ export const requestService = {
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
 
-    // Determine which side the current user is on.
-    const { data: ag } = await sb
-      .from("agreements")
-      .select("requester_user_id, responder_user_id, requester_confirmed, responder_confirmed")
-      .eq("id", id)
-      .maybeSingle();
-    const isRequester = (ag as any)?.requester_user_id === uid;
-    const patch = isRequester ? { requester_confirmed: true } : { responder_confirmed: true };
-
-    const { data: updated, error } = await sb
-      .from("agreements")
-      .update(patch)
-      .eq("id", id)
-      .select("requester_confirmed, responder_confirmed")
-      .maybeSingle();
+    const { data, error } = await sb.rpc("agreement_confirm", { p_id: id });
     throwIfError(error);
-
-    // Activate only when BOTH sides are confirmed. Use the post-update row
-    // (not the stale pre-read) so two near-simultaneous confirmations can't
-    // both miss each other and leave the agreement stuck in PENDING — Postgres
-    // serializes the two UPDATEs, so whichever commits second sees both = true.
-    const bothConfirmed = (updated as any)?.requester_confirmed && (updated as any)?.responder_confirmed;
-    if (bothConfirmed) {
-      await sb.from("agreements").update({ status: "ACTIVE" }).eq("id", id);
-    } else {
-      // I confirmed first — the other side has no idea they're on a 10-minute
-      // clock until it silently auto-cancels. Nudge them now instead of
-      // leaving it to the countdown banner they may never open the app to see.
-      // notifications has no client insert policy (every other notification in
-      // this app is written by a SECURITY DEFINER trigger) — this narrow RPC
-      // does the same, scoped to only notifying the other party on this
-      // specific agreement. Best-effort: a failure here shouldn't block the
-      // confirm action itself.
-      const otherUserId = isRequester ? (ag as any)?.responder_user_id : (ag as any)?.requester_user_id;
-      if (otherUserId) {
-        await sb.rpc("notify_agreement_confirm", { p_agreement_id: id, p_recipient_user_id: otherUserId }).then(
-          ({ error: notifyErr }) => { if (notifyErr) console.warn("notify_agreement_confirm:", notifyErr.message); }
-        );
-      }
-    }
-    return { ok: true, isRequester };
+    const row = data as any;
+    return { ok: true, isRequester: row?.requester_user_id === uid };
   },
 
   async completeAgreement(id: string) {
     const sb = getSupabase();
     const uid = await currentUserId();
-    const { error } = await sb.from("agreements").update({ status: "COMPLETED" }).eq("id", id);
+    // Server RPC validates the caller is the requester and the deal is in
+    // REVIEW before completing, and releases any HELD escrow atomically —
+    // replacing a raw update that any participant could call out of order.
+    const { error } = await sb.rpc("agreement_complete", { p_id: id });
     throwIfError(error);
-    // Release escrow on any HELD payment for this agreement
-    await sb.from("payments")
-      .update({ escrow_status: "RELEASED" })
-      .eq("agreement_id", id)
-      .eq("escrow_status", "HELD");
     if (uid) void leaderboardService.addPoints(uid, 5);
     return { ok: true, status: "COMPLETED" };
   },
 
   /**
-   * Requester claims they've paid the agreed price.
-   * - CASH → PAID immediately (physical handover, same as appointments).
-   * - UPI → PENDING_CONFIRM (responder must verify in their bank app and confirm)
-   *   — the agreement does NOT advance to DEPOSIT_PAID until they do. This
-   *   replaces the old one-sided `markDepositPaid`, which let the requester
-   *   flip the deal to "paid" with zero chance for the responder to dispute
-   *   a claim they never actually received.
+   * Requester claims payment at the authoritative agreed price. Both UPI and
+   * cash remain PENDING_CONFIRM until the responder verifies receipt.
    */
   async claimAgreementPayment(
     id: string,
@@ -467,16 +459,14 @@ export const requestService = {
     reference?: string | null,
   ) {
     const sb = getSupabase();
-    const patch: Record<string, unknown> = { payment_method: method };
-    if (amount != null) patch.payment_amount = amount;
-    if (reference) patch.payment_reference = reference;
-    if (method === "CASH") {
-      patch.payment_status = "PAID";
-      patch.status = "DEPOSIT_PAID";
-    } else {
-      patch.payment_status = "PENDING_CONFIRM";
-    }
-    const { error } = await sb.from("agreements").update(patch).eq("id", id);
+    // Server RPC validates the caller and ACTIVE state, ignores caller-supplied
+    // amounts, derives agreed_price, and awaits responder confirmation.
+    const { error } = await sb.rpc("agreement_claim_payment", {
+      p_id: id,
+      p_method: method,
+      p_amount: amount ?? undefined,
+      p_reference: reference ?? undefined,
+    });
     throwIfError(error);
     return { ok: true };
   },
@@ -484,10 +474,7 @@ export const requestService = {
   /** Responder confirms they received the UPI payment → PAID + DEPOSIT_PAID. */
   async confirmAgreementPayment(id: string) {
     const sb = getSupabase();
-    const { error } = await sb
-      .from("agreements")
-      .update({ payment_status: "PAID", status: "DEPOSIT_PAID" })
-      .eq("id", id);
+    const { error } = await sb.rpc("agreement_confirm_payment", { p_id: id });
     throwIfError(error);
     return { ok: true };
   },
@@ -495,53 +482,58 @@ export const requestService = {
   /** Responder rejects the claim → REJECTED; requester can try again. */
   async rejectAgreementPaymentClaim(id: string) {
     const sb = getSupabase();
-    const { error } = await sb
-      .from("agreements")
-      .update({ payment_status: "REJECTED" })
-      .eq("id", id);
+    const { error } = await sb.rpc("agreement_reject_payment", { p_id: id });
     throwIfError(error);
     return { ok: true };
   },
 
   async startWork(id: string) {
     const sb = getSupabase();
-    const { error } = await sb.from("agreements").update({ status: "IN_PROGRESS" }).eq("id", id);
+    // Responder-only, DEPOSIT_PAID→IN_PROGRESS, validated server-side.
+    const { error } = await sb.rpc("agreement_start_work", { p_id: id });
     throwIfError(error);
     return { ok: true, status: "IN_PROGRESS" };
   },
 
   async submitForReview(id: string) {
     const sb = getSupabase();
-    const { error } = await sb.from("agreements").update({ status: "REVIEW" }).eq("id", id);
+    // Responder-only, IN_PROGRESS→REVIEW, validated server-side.
+    const { error } = await sb.rpc("agreement_submit_review", { p_id: id });
     throwIfError(error);
     return { ok: true, status: "REVIEW" };
   },
 
   async dispute(id: string, reason: string) {
     const sb = getSupabase();
-    const { error } = await sb
-      .from("agreements")
-      .update({ status: "DISPUTED", dispute_reason: reason })
-      .eq("id", id);
+    // Party-only, IN_PROGRESS/REVIEW→DISPUTED, validated server-side.
+    const { error } = await sb.rpc("agreement_dispute", { p_id: id, p_reason: reason });
     throwIfError(error);
     return { ok: true, status: "DISPUTED" };
   },
 
+  /** Either party backs out of an ACTIVE agreement before any money moves —
+   *  server rejects if a payment claim is PENDING_CONFIRM or already PAID.
+   *  Reopens the original request and reverts proposals so the requester can
+   *  pick someone else. */
+  async cancelAgreement(id: string) {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("agreement_cancel", { p_id: id });
+    throwIfError(error);
+    return { ok: true, status: "CANCELLED" };
+  },
+
   async submitCounter(proposalId: string, amount: number, message: string = "") {
     const sb = getSupabase();
-    const uid = await currentUserId();
-    if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
-    const { error } = await sb.from("proposal_counters").insert({
-      proposal_id: proposalId,
-      by_user_id: uid,
-      amount,
-      message,
+    const { error } = await sb.rpc("proposal_submit_counter", {
+      p_proposal_id: proposalId,
+      p_amount: amount,
+      p_message: message,
     });
     throwIfError(error);
     return { ok: true };
   },
 
-  async rate(rateeId: string, rating: number, comment: string, tip?: number) {
+  async rate(rateeId: string, rating: number, comment: string, tip?: number, agreementId?: string) {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
@@ -552,7 +544,13 @@ export const requestService = {
       rating,
       comment,
       tip: tip ?? null,
+      agreement_id: agreementId ?? null,
     });
+    // One rating per rater per agreement — the partial unique index rejects a
+    // repeat submission so counts can't be inflated by rating the same job twice.
+    if (error && (error as { code?: string }).code === "23505") {
+      throw toApiError({ code: "ALREADY_RATED", message: "You've already rated this." }, 409);
+    }
     throwIfError(error);
     return { ok: true };
   },
@@ -564,24 +562,44 @@ export const requestService = {
     lng?: number
   ): Promise<void> {
     const sb = getSupabase();
-    const patch: Record<string, unknown> = { live_status: status };
-    if (lat !== undefined) patch.provider_lat = lat;
-    if (lng !== undefined) patch.provider_lng = lng;
-    const { error } = await sb.from("agreements").update(patch).eq("id", agreementId);
+    const { error } = await sb.rpc("agreement_update_live_status", {
+      p_id: agreementId,
+      p_status: status,
+      p_lat: lat ?? undefined,
+      p_lng: lng ?? undefined,
+    });
     throwIfError(error);
   },
 
   async generateTrackingToken(agreementId: string): Promise<string> {
     const sb = getSupabase();
-    const expiresAt = new Date(Date.now() + 4 * 3600 * 1000).toISOString();
-    const { data, error } = await sb
-      .from("tracking_tokens")
-      .insert({ agreement_id: agreementId, expires_at: expiresAt })
-      .select("id")
+    const { data, error } = await sb.rpc("agreement_create_tracking_token", { p_id: agreementId });
+    throwIfError(error);
+    return data as string;
+  },
+
+  async nudgeAgreementPayment(id: string) {
+    const sb = getSupabase();
+    const { data: ag, error } = await sb
+      .from("agreements")
+      .select("id, request_title, agreed_price, requester_user_id, responder:users!responder_user_id(name)")
+      .eq("id", id)
       .maybeSingle();
     throwIfError(error);
-    const tokenId = (data as any)?.id as string;
-    await sb.from("agreements").update({ tracking_token: tokenId }).eq("id", agreementId);
-    return tokenId;
+    if (!ag) throw new Error("Agreement not found");
+    
+    const responderName = (ag as any).responder?.name || "the provider";
+    const title = "Payment Requested 🔔";
+    const body = `${responderName} requested payment of ₹${ag.agreed_price} for "${ag.request_title}".`;
+    
+    const { notificationService } = await import("@/services/engagement/notificationService");
+    await notificationService.send(
+      (ag as any).requester_user_id,
+      title,
+      body,
+      `/agreement/${id}`,
+      "SYSTEM"
+    );
+    return { ok: true };
   },
 };

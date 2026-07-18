@@ -87,8 +87,8 @@ export default function LocationPicker({
           zoomControl={false}
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
-            url={`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}?access_token=${config.mapboxToken}`}
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
           />
           <MapClickToPlace onPlace={onChange} />
           {hasPin && (

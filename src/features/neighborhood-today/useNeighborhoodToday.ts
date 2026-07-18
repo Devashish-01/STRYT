@@ -27,7 +27,7 @@ export function useNeighborhoodToday(lat?: number, lng?: number, radiusM = 3000)
         });
         if (cancelled) return;
         if (rpcError) throw rpcError;
-        setSignals(buildSignals(data as NeighborhoodTodayRaw));
+        setSignals(buildSignals(data as unknown as NeighborhoodTodayRaw));
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? "unknown");
       } finally {

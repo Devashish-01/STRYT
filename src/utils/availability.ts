@@ -309,6 +309,8 @@ export function generateWorkingSlots(
     slotDate.setHours(Math.floor(min / 60), min % 60, 0, 0);
     const timeLabel = formatMinutesToTime(min);
 
+    // Exact-match booking that starts on this grid slot — used to render the
+    // booking inline in the owner timetable (bookedAppointmentId).
     const bookedApt = existingAppointments.find(apt => {
       if (apt.status === "CANCELLED" || apt.status === "REJECTED") return false;
       try {
@@ -317,9 +319,24 @@ export function generateWorkingSlots(
         return false;
       }
     });
+
+    // Availability uses interval overlap, not exact-timestamp equality, so an
+    // off-grid walk-in (arbitrary HH:MM) or a changed slot duration still marks
+    // the covering slot as taken instead of leaving it wrongly bookable.
+    const slotStart = slotDate.getTime();
+    const slotEnd = slotStart + slotDuration * 60000;
+    const overlapBooked = existingAppointments.some(apt => {
+      if (apt.status === "CANCELLED" || apt.status === "REJECTED" || apt.status === "NO_SHOW") return false;
+      try {
+        const t = new Date(apt.scheduledForISO).getTime();
+        return t >= slotStart && t < slotEnd;
+      } catch {
+        return false;
+      }
+    });
     const isBlocked = blockedTimeLabels.has(timeLabel);
 
-    const isAvailable = !bookedApt && !isBlocked && slotDate.getTime() > nowTime + 5 * 60 * 1000;
+    const isAvailable = !overlapBooked && !isBlocked && slotStart > nowTime + 5 * 60 * 1000;
 
     slots.push({
       id: slotDate.toISOString(),

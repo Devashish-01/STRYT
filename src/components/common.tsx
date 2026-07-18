@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Star, RefreshCw } from "@/components/Icons";
-import { useState, useEffect, type ReactNode, type CSSProperties } from "react";
+import { useState, useEffect, type ReactNode, type CSSProperties, type MouseEventHandler } from "react";
 
 /** Visual for `usePullToRefresh` — a self-sizing box that grows with the
  * pull gesture and naturally pushes the content below it down, so no
@@ -251,7 +251,7 @@ export function SafeImg({
   className?: string;
   style?: CSSProperties;
   variant?: "photo" | "avatar";
-  onClick?: () => void;
+  onClick?: MouseEventHandler<HTMLImageElement>;
 }) {
   const fallback = variant === "avatar" ? FALLBACK_AVATAR : FALLBACK_IMG;
   const [errored, setErrored] = useState(false);

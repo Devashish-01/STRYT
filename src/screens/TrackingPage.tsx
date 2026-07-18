@@ -76,8 +76,8 @@ export default function TrackingPage() {
     if (loading || expired || !mapRef.current || leafletMap.current) return;
     const map = L.map(mapRef.current, { zoomControl: false }).setView([20.5937, 78.9629], 14);
     L.tileLayer(
-      `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${config.mapboxToken}`,
-      { tileSize: 512, zoomOffset: -1, attribution: "© Mapbox" }
+      "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' }
     ).addTo(map);
     leafletMap.current = map;
   }, [loading, expired]);

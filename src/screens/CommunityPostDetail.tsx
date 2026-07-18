@@ -6,10 +6,12 @@ import { useQueryWithRealtime, useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
+import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
 import type { CommunityPost, Comment } from "@/types";
+import { openProfile } from "@/lib/profileSheet";
 
-function CommentRow({ c, nav, onReply, compact }: { c: Comment; nav: (to: string) => void; onReply: () => void; compact?: boolean }) {
+function CommentRow({ c, nav, onReply, compact, canReply = true }: { c: Comment; nav: (to: string) => void; onReply: () => void; compact?: boolean; canReply?: boolean }) {
   const size = compact ? 30 : 36;
   return (
     <div className="row gap-10" style={{ alignItems: "flex-start" }}>
@@ -39,7 +41,7 @@ function CommentRow({ c, nav, onReply, compact }: { c: Comment; nav: (to: string
             → View listing
           </button>
         )}
-        <button className="tiny semi" style={{ color: "var(--ink-500)", marginTop: 4 }} onClick={onReply}>Reply</button>
+        {canReply && <button className="tiny semi" style={{ color: "var(--ink-500)", marginTop: 4 }} onClick={onReply}>Reply</button>}
       </div>
     </div>
   );
@@ -49,7 +51,7 @@ export default function CommunityPostDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { state } = useLocation() as { state?: { post?: CommunityPost } };
-  const { user, likes, toggleLike, votes, votePoll, showToast, activeContext } = useApp();
+  const { user, votes, votePoll, showToast, activeContext, isGuest } = useApp();
 
   const { data: activeBiz } = useQuery(
     () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
@@ -74,9 +76,15 @@ export default function CommunityPostDetail() {
   const [phoneInput, setPhoneInput] = useState("");
   const [reporting, setReporting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // Optimistic override for the like button, cleared once the server-confirmed
+  // value (post.liked/post.likes) catches up — avoids XOR-ing against a value
+  // that a realtime refetch can change out from under a session-wide toggle
+  // (that was making the like visually revert; see GOAL_LIVE_AUDIT.md #8).
+  const [likeOverride, setLikeOverride] = useState<boolean | null>(null);
 
   useEffect(() => { if (initialComments) setComments(initialComments); }, [initialComments]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [comments]);
+  useEffect(() => { setLikeOverride(null); }, [post?.liked, post?.likes]);
 
   if (!post) return (
     <div className="screen">
@@ -87,19 +95,19 @@ export default function CommunityPostDetail() {
 
   // post is guaranteed non-undefined below this line.
   const safePost = post;
-  // XOR: the store tracks session-toggles only (empty on load); DB truth is safePost.liked.
-  const toggled = likes.includes(safePost.id);
-  const liked = toggled ? !safePost.liked : safePost.liked;
-  const likeCount = Math.max(0, safePost.likes + (liked && !safePost.liked ? 1 : 0) - (!liked && safePost.liked ? 1 : 0));
+  const liked = likeOverride ?? safePost.liked;
+  const likeCount = Math.max(0, safePost.likes + (likeOverride === true && !safePost.liked ? 1 : 0) - (likeOverride === false && safePost.liked ? 1 : 0));
   const votedOption = votes[safePost.id] ?? safePost.votedOptionId;
   const totalVotes = (safePost.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !safePost.votedOptionId ? 1 : 0);
 
+  // Guests never reach these — every control that calls them is hidden below.
   async function handleLike() {
-    toggleLike(safePost.id); // optimistic
+    const next = !liked;
+    setLikeOverride(next); // optimistic
     try {
       await communityService.like(safePost.id, liked);
     } catch {
-      toggleLike(safePost.id); // revert so the UI never lies
+      setLikeOverride(liked); // revert so the UI never lies
       showToast("Couldn't update like — try again");
     }
   }
@@ -163,16 +171,37 @@ export default function CommunityPostDetail() {
         <button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
         <span className="bold grow" style={{ fontSize: 16 }}>Post</span>
         {safePost.resolved && <span className="badge badge-green" style={{ marginRight: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
-        <button className="icon-btn" onClick={() => setReporting(true)} aria-label="Report post">
-          <Flag size={18} />
-        </button>
+        {!isGuest && (
+          <button className="icon-btn" onClick={() => setReporting(true)} aria-label="Report post">
+            <Flag size={18} />
+          </button>
+        )}
       </header>
 
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: 72 }}>
         {/* Post body */}
         <div className="page-pad" style={{ paddingBottom: 0 }}>
           <div className="row gap-10" style={{ marginBottom: 10 }}>
-            <SafeImg src={safePost.authorAvatar} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
+            <SafeImg
+              src={safePost.authorAvatar}
+              variant={safePost.authorType === "business" ? "photo" : "avatar"}
+              className="avatar"
+              style={{
+                width: 40, height: 40,
+                border: safePost.authorType === "business" ? "2px solid var(--orange-500)" : safePost.authorType === "provider" ? "2px solid var(--green-500)" : "none",
+                cursor: "pointer",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (safePost.authorType === "business" && safePost.authorRefId) {
+                  openProfile(safePost.authorRefId, "BUSINESS", { name: safePost.authorName, avatar: safePost.authorAvatar });
+                } else if (safePost.authorType === "provider" && safePost.authorRefId) {
+                  openProfile(safePost.authorRefId, "PROVIDER", { name: safePost.authorName, avatar: safePost.authorAvatar });
+                } else if (safePost.authorUserId) {
+                  openProfile(safePost.authorUserId, "USER", { name: safePost.authorName, avatar: safePost.authorAvatar });
+                }
+              }}
+            />
             <div className="grow">
               <div className="semi small">{safePost.authorName}</div>
               <span className="tiny muted row gap-4"><MapPin size={11} />{safePost.area} • {safePost.postedAt}</span>
@@ -192,8 +221,9 @@ export default function CommunityPostDetail() {
                 return (
                   <button
                     key={o.id}
-                    onClick={() => handleVote(o.id)}
-                    style={{ position: "relative", textAlign: "left", padding: "11px 13px", borderRadius: 10, border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)", overflow: "hidden", background: "#fff" }}
+                    disabled={isGuest}
+                    onClick={isGuest ? undefined : () => handleVote(o.id)}
+                    style={{ position: "relative", textAlign: "left", padding: "11px 13px", borderRadius: 10, border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)", overflow: "hidden", background: "#fff", cursor: isGuest ? "default" : "pointer", opacity: 1 }}
                   >
                     {votedOption && <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: voted ? "var(--brand-100)" : "var(--ink-100)" }} />}
                     <div className="row between" style={{ position: "relative" }}>
@@ -210,9 +240,9 @@ export default function CommunityPostDetail() {
           {/* Recommendations */}
           {safePost.recommendations && safePost.recommendations.length > 0 && (
             <div className="col gap-8" style={{ marginTop: 12 }}>
-              {safePost.recommendations.map((rec, i) => (
+              {safePost.recommendations.map((rec) => (
                 <button
-                  key={i}
+                  key={rec.listingId}
                   className="row gap-10"
                   style={{ padding: 10, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
                   onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}
@@ -229,11 +259,17 @@ export default function CommunityPostDetail() {
             </div>
           )}
 
-          {/* Like row */}
+          {/* Like row — a guest sees the count as plain text, not a control. */}
           <div className="divider" style={{ margin: "14px 0" }} />
-          <button className="row gap-6 small semi" style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }} onClick={handleLike}>
-            <Heart size={18} fill={liked ? "var(--red-500)" : "none"} /> {likeCount} {likeCount === 1 ? "like" : "likes"}
-          </button>
+          {isGuest ? (
+            <span className="row gap-6 small semi" style={{ color: "var(--ink-500)" }}>
+              <Heart size={18} /> {likeCount} {likeCount === 1 ? "like" : "likes"}
+            </span>
+          ) : (
+            <button className="row gap-6 small semi" style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }} onClick={handleLike}>
+              <Heart size={18} fill={liked ? "var(--red-500)" : "none"} /> {likeCount} {likeCount === 1 ? "like" : "likes"}
+            </button>
+          )}
         </div>
 
         <div className="divider" style={{ margin: "14px 0", borderWidth: 4 }} />
@@ -251,11 +287,11 @@ export default function CommunityPostDetail() {
                 const replies = comments.filter((r) => r.parentId === c.id);
                 return (
                   <div key={c.id} className="col gap-12">
-                    <CommentRow c={c} nav={nav} onReply={() => startReply(c)} />
+                    <CommentRow c={c} nav={nav} onReply={() => startReply(c)} canReply={!isGuest} />
                     {replies.length > 0 && (
                       <div className="col gap-12" style={{ marginLeft: 46, paddingLeft: 10, borderLeft: "2px solid var(--line)" }}>
                         {replies.map((r) => (
-                          <CommentRow key={r.id} c={r} nav={nav} onReply={() => startReply(r)} compact />
+                          <CommentRow key={r.id} c={r} nav={nav} onReply={() => startReply(r)} compact canReply={!isGuest} />
                         ))}
                       </div>
                     )}
@@ -271,7 +307,14 @@ export default function CommunityPostDetail() {
         </div>
       </div>
 
-      {/* Comment input */}
+      {/* Comment input — a guest reads the whole thread but gets the sign-in
+          prompt where the composer would be, rather than an input that can't
+          submit (and a "share my number" control they have no number for). */}
+      {isGuest ? (
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px" }}>
+          <GuestSignInPrompt message="Sign in to join the conversation" compact />
+        </div>
+      ) : (
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px" }}>
         {replyingTo && (
           <div className="row between center-v" style={{ marginBottom: 8, padding: "6px 10px", background: "var(--brand-50)", borderRadius: 10 }}>
@@ -356,6 +399,7 @@ export default function CommunityPostDetail() {
         </button>
       </div>
       </div>
+      )}
 
       {reporting && (
         <ReportSheet targetType="POST" targetId={safePost.id} name={safePost.title || "this post"} onClose={() => setReporting(false)} />

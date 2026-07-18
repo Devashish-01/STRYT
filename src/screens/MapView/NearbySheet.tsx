@@ -248,7 +248,7 @@ export function NearbySheet({
                       <div className="grow">
                         <div className="bold small" style={{ color: "var(--ink-900)" }}>{s.authorName}</div>
                         {s.caption && (
-                          <div className="tiny text-ellipsis" style={{ color: "var(--ink-600)", marginTop: 2 }}>
+                          <div className="tiny ellipsis" style={{ color: "var(--ink-600)", marginTop: 2 }}>
                             {s.caption}
                           </div>
                         )}

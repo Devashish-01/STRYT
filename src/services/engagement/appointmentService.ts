@@ -47,47 +47,61 @@ function upsertLocal(record: AppointmentRecord) {
   saveLocalAppointments(list);
 }
 
-// Self-healing pass applied to every list read:
-//  - a PENDING booking whose slot has already passed with no owner response → auto-CANCELLED (SYSTEM)
-//  - an ACCEPTED booking whose slot has already passed → auto-COMPLETED (owner never has to touch it)
-async function runAppointmentHousekeeping(list: AppointmentRecord[]): Promise<AppointmentRecord[]> {
-  const now = Date.now();
-  const updatedList = [...list];
-  const sb = getSupabase();
-
-  for (let i = 0; i < updatedList.length; i++) {
-    const apt = updatedList[i];
-    const isPast = new Date(apt.scheduledForISO).getTime() <= now;
-    if (!isPast) continue;
-
-    if (apt.status === "PENDING") {
-      const patched = {
-        ...apt,
-        status: "CANCELLED" as const,
-        responseNote: "business not responded",
-        cancelledBy: "SYSTEM" as const,
-      };
-      updatedList[i] = patched;
-      upsertLocal(patched);
-      if (!isMockTarget(apt.targetId)) {
-        sb.from("appointments")
-          .update({ status: "CANCELLED", response_note: "business not responded", cancelled_by: "SYSTEM" })
-          .eq("id", apt.id)
-          .then(({ error }) => { if (error) console.error("Failed to auto-cancel appointment in DB:", error); });
-      }
-    } else if (apt.status === "ACCEPTED") {
-      const patched = { ...apt, status: "COMPLETED" as const };
-      updatedList[i] = patched;
-      upsertLocal(patched);
-      if (!isMockTarget(apt.targetId)) {
-        sb.from("appointments")
-          .update({ status: "COMPLETED" })
-          .eq("id", apt.id)
-          .then(({ error }) => { if (error) console.error("Failed to auto-complete appointment in DB:", error); });
-      }
-    }
+// Server-authoritative housekeeping: the DB does the PENDING→CANCELLED and
+// ACCEPTED→COMPLETED transitions atomically (sweep_my_appointments RPC), so
+// they no longer depend on a client firing an unmonitored write. Throttled so
+// the first list read per window pays one round-trip and the rest are free —
+// the ≤2-min staleness this allows is invisible to users.
+let lastAptSweepAt = 0;
+async function sweepRemoteAppointments(): Promise<void> {
+  if (Date.now() - lastAptSweepAt < 120_000) return;
+  lastAptSweepAt = Date.now();
+  try {
+    await getSupabase().rpc("sweep_my_appointments");
+  } catch {
+    lastAptSweepAt = 0; // let the next read retry
   }
-  return updatedList;
+}
+
+// listForCustomer(uid) is called independently — no sharing — by Home's rail
+// tile, Profile's menu row, this screen's list, AppointmentSheet on every
+// open, and BusinessDetail/ProviderDetail's own-booking checks. A normal
+// "land on Home, tap into My Appointments" session fires the same query
+// twice back to back. This coalesces concurrent callers for the same
+// customer onto one in-flight request — NOT a time-based cache, so it can
+// never serve stale data: the map entry is deleted the instant the promise
+// settles, so a realtime-triggered refetch arriving later always starts a
+// genuinely fresh request.
+const inFlightAppointmentLists = new Map<string, Promise<AppointmentRecord[]>>();
+
+// listForTarget(targetId) is fetched independently — no sharing — by
+// ManageDashboard, BusinessHub, BusinessAppointments, BusinessPayments,
+// ProviderManageNav's Jobs badge, ProviderDashboard, ProviderJobs, and
+// ProviderMoney, several of which mount together on the same screen. Same
+// coalescing shape as listForCustomer above — see that comment for why this
+// can never serve stale data.
+const inFlightTargetLists = new Map<string, Promise<AppointmentRecord[]>>();
+
+// Local-only housekeeping for guest / mock-target records that never reached
+// the DB (so the server sweep can't touch them). Pure client-side patch, no
+// remote writes — those are the server's job now.
+function localHousekeeping(list: AppointmentRecord[]): AppointmentRecord[] {
+  const now = Date.now();
+  return list.map((apt) => {
+    const isPast = new Date(apt.scheduledForISO).getTime() <= now;
+    if (!isPast) return apt;
+    if (apt.status === "PENDING") {
+      const patched = { ...apt, status: "CANCELLED" as const, responseNote: "business not responded", cancelledBy: "SYSTEM" as const };
+      upsertLocal(patched);
+      return patched;
+    }
+    if (apt.status === "ACCEPTED") {
+      const patched = { ...apt, status: "COMPLETED" as const };
+      upsertLocal(patched);
+      return patched;
+    }
+    return apt;
+  });
 }
 
 /** Map a DB row (snake_case) to the AppointmentRecord shape used across the UI. */
@@ -114,7 +128,7 @@ function rowToRecord(r: any): AppointmentRecord {
     responseNote: r.response_note ?? undefined,
     createdAtISO: r.created_at,
     paymentMethod: r.payment_method ?? null,
-    paymentStatus: (r.payment_status ?? "UNPAID") as "UNPAID" | "PAID",
+    paymentStatus: (r.payment_status ?? "UNPAID") as AppointmentRecord["paymentStatus"],
     paymentAmount: r.payment_amount ?? null,
     paymentReference: r.payment_reference ?? null,
     cancelledBy: r.cancelled_by ?? null,
@@ -134,23 +148,31 @@ export async function resolveTargetOwner(targetType: "PROVIDER" | "BUSINESS", ta
   return (data as any)?.user_id ?? null;
 }
 
-async function patchPaymentStatus(id: string, status: "PAID" | "REJECTED"): Promise<AppointmentRecord | undefined> {
-  try {
-    const sb = getSupabase();
-    const { data, error } = await sb.from("appointments").update({ payment_status: status }).eq("id", id).select().maybeSingle();
-    if (error) throw error;
-    if (data) {
-      const record = rowToRecord(data);
-      upsertLocal(record);
-      return record;
+async function patchPaymentStatus(
+  id: string,
+  action: "CONFIRM" | "REJECT",
+): Promise<AppointmentRecord | undefined> {
+  const uid = await currentUserId();
+  if (uid) {
+    try {
+      const sb = getSupabase();
+      const rpc = action === "CONFIRM" ? "appointment_confirm_payment" : "appointment_reject_payment";
+      const { data, error } = await sb.rpc(rpc, { p_id: id });
+      if (error) throw error;
+      if (data) {
+        const record = rowToRecord(data);
+        upsertLocal(record);
+        return record;
+      }
+    } catch (e: any) {
+      throw new Error(e?.message || "Couldn't update the payment. Please try again.");
     }
-  } catch {
-    // fall through to local update
   }
+
   const list = getLocalAppointments();
   const idx = list.findIndex((a) => a.id === id);
   if (idx !== -1) {
-    list[idx] = { ...list[idx], paymentStatus: status };
+    list[idx] = { ...list[idx], paymentStatus: action === "CONFIRM" ? "PAID" : "REJECTED" };
     saveLocalAppointments(list);
     return list[idx];
   }
@@ -162,24 +184,29 @@ export const appointmentService = {
     const uid = await currentUserId();
     const customerId = uid || payload.customerId || "guest";
 
-    // Enforce a daily appointment limit (across all businesses/providers)
-    const DAILY_APPOINTMENT_LIMIT = 5;
-    const existing = await this.listForCustomer(customerId);
-    const selectedDate = new Date(payload.scheduledForISO);
-    const aptsTodayCount = existing.filter((apt) => {
-      if (apt.status === "CANCELLED" || apt.status === "REJECTED") return false;
-      const aptDate = new Date(apt.scheduledForISO);
-      return (
-        aptDate.getFullYear() === selectedDate.getFullYear() &&
-        aptDate.getMonth() === selectedDate.getMonth() &&
-        aptDate.getDate() === selectedDate.getDate()
-      );
-    }).length;
+    // Enforce a daily appointment limit (across all businesses/providers).
+    // Skipped for reschedules: the atomic RPC cancels the original first, so
+    // the original correctly no longer counts (the DB trigger is the real
+    // guard either way — this client check is just early, friendly UX).
+    if (!payload.rescheduledFrom) {
+      const DAILY_APPOINTMENT_LIMIT = 5;
+      const existing = await this.listForCustomer(customerId);
+      const selectedDate = new Date(payload.scheduledForISO);
+      const aptsTodayCount = existing.filter((apt) => {
+        if (apt.status === "CANCELLED" || apt.status === "REJECTED") return false;
+        const aptDate = new Date(apt.scheduledForISO);
+        return (
+          aptDate.getFullYear() === selectedDate.getFullYear() &&
+          aptDate.getMonth() === selectedDate.getMonth() &&
+          aptDate.getDate() === selectedDate.getDate()
+        );
+      }).length;
 
-    if (aptsTodayCount >= DAILY_APPOINTMENT_LIMIT) {
-      throw new Error(
-        `You've reached the limit of ${DAILY_APPOINTMENT_LIMIT} appointments for this day. Please pick another date.`
-      );
+      if (aptsTodayCount >= DAILY_APPOINTMENT_LIMIT) {
+        throw new Error(
+          `You've reached the limit of ${DAILY_APPOINTMENT_LIMIT} appointments for this day. Please pick another date.`
+        );
+      }
     }
 
     // Real target + signed-in customer → persist to the shared appointments
@@ -187,31 +214,40 @@ export const appointmentService = {
     if (uid && !isMockTarget(payload.targetId)) {
       try {
         const sb = getSupabase();
-        const ownerId = await resolveTargetOwner(payload.targetType, payload.targetId);
-        if (!ownerId) throw new Error("Couldn't find this listing's owner. Try again.");
-        const { data, error } = await sb
-          .from("appointments")
-          .insert({
-            target_type: payload.targetType,
-            target_id: payload.targetId,
-            target_owner_user_id: ownerId,
-            target_name: payload.targetName,
-            target_avatar: payload.targetAvatar ?? null,
-            customer_user_id: uid,
-            customer_name: payload.customerName,
-            customer_avatar: payload.customerAvatar ?? null,
-            scheduled_for: payload.scheduledForISO,
-            date_label: payload.dateLabel,
-            time_label: payload.timeLabel,
-            notes: payload.notes ?? null,
-            photo_url: payload.photoUrl ?? null,
-            package_id: payload.packageId ?? null,
-            package_name: payload.packageName ?? null,
-            package_price: payload.packagePrice ?? null,
-            rescheduled_from: payload.rescheduledFrom ?? null,
-          })
-          .select()
-          .maybeSingle();
+
+        // Reschedule → atomic cancel-old + create-new in one transaction, so a
+        // failure can't strand two live bookings and the original is excluded
+        // from the daily-limit count.
+        if (payload.rescheduledFrom) {
+          const { data, error } = await sb.rpc("reschedule_appointment", {
+            p_original_id: payload.rescheduledFrom,
+            p_scheduled_for: payload.scheduledForISO,
+            p_date_label: payload.dateLabel,
+            p_time_label: payload.timeLabel,
+            p_notes: payload.notes ?? undefined,
+            p_photo_url: payload.photoUrl ?? undefined,
+            p_package_id: payload.packageId ?? undefined,
+            p_package_name: payload.packageName ?? undefined,
+            p_package_price: payload.packagePrice ?? undefined,
+          });
+          if (error) throw error;
+          const record = rowToRecord(data);
+          upsertLocal(record);
+          return record;
+        }
+
+        const { data, error } = await sb.rpc("appointment_create", {
+          p_target_type: payload.targetType,
+          p_target_id: payload.targetId,
+          p_scheduled_for: payload.scheduledForISO,
+          p_date_label: payload.dateLabel,
+          p_time_label: payload.timeLabel,
+          p_notes: payload.notes ?? undefined,
+          p_photo_url: payload.photoUrl ?? undefined,
+          p_package_id: payload.packageId ?? undefined,
+          p_package_name: payload.packageName ?? undefined,
+          p_package_price: payload.packagePrice ?? undefined,
+        });
         if (error) throw error;
         const record = rowToRecord(data);
         upsertLocal(record); // keep a local cache for instant reads
@@ -223,8 +259,14 @@ export const appointmentService = {
         }
         return record;
       } catch (err: any) {
+        // The double-booking unique index (appointments_no_double_book) rejects
+        // a slot that was taken between load and confirm — say so plainly.
+        const msg: string = err?.message || "";
+        if (err?.code === "23505" || /duplicate key|unique|no_double_book/i.test(msg)) {
+          throw new Error("That slot was just taken. Please pick another time.");
+        }
         // Surface the real reason instead of silently succeeding.
-        throw new Error(err?.message || "Couldn't book the appointment. Please try again.");
+        throw new Error(msg || "Couldn't book the appointment. Please try again.");
       }
     }
 
@@ -240,46 +282,88 @@ export const appointmentService = {
   },
 
   async listForCustomer(customerId: string): Promise<AppointmentRecord[]> {
-    const uid = await currentUserId();
-    let rawList: AppointmentRecord[] = [];
-    if (uid) {
-      try {
-        const sb = getSupabase();
-        const { data, error } = await sb
-          .from("appointments")
-          .select("*")
-          .eq("customer_user_id", uid)
-          .order("scheduled_for", { ascending: false });
-        if (error) throw error;
-        rawList = (data ?? []).map(rowToRecord);
-      } catch {
-        rawList = getLocalAppointments().filter((a) => a.customerId === customerId || !a.customerId);
+    const inFlight = inFlightAppointmentLists.get(customerId);
+    if (inFlight) return inFlight;
+
+    const promise = (async () => {
+      const uid = await currentUserId();
+      if (uid) {
+        try {
+          await sweepRemoteAppointments(); // DB does the stale-state transitions
+          const sb = getSupabase();
+          const { data, error } = await sb
+            .from("appointments")
+            .select("*")
+            .eq("customer_user_id", uid)
+            .order("scheduled_for", { ascending: false });
+          if (error) throw error;
+          // Rows are already swept server-side — no client-side DB writes here.
+          return (data ?? []).map(rowToRecord);
+        } catch {
+          // Read-only fallback so the list still renders offline. Never writes,
+          // so it can't mask a failed mutation or diverge the DB.
+          return localHousekeeping(getLocalAppointments().filter((a) => a.customerId === customerId || !a.customerId));
+        }
       }
-    } else {
-      rawList = getLocalAppointments().filter((a) => a.customerId === customerId || !a.customerId);
+      return localHousekeeping(getLocalAppointments().filter((a) => a.customerId === customerId || !a.customerId));
+    })();
+
+    inFlightAppointmentLists.set(customerId, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlightAppointmentLists.delete(customerId);
     }
-    return runAppointmentHousekeeping(rawList);
   },
 
   async listForTarget(targetId: string): Promise<AppointmentRecord[]> {
-    let rawList: AppointmentRecord[] = [];
-    if (!isMockTarget(targetId)) {
-      try {
-        const sb = getSupabase();
-        const { data, error } = await sb
-          .from("appointments")
-          .select("*, customer:users!customer_user_id(alias)")
-          .eq("target_id", targetId)
-          .order("scheduled_for", { ascending: false });
-        if (error) throw error;
-        rawList = (data ?? []).map(rowToRecord);
-      } catch {
-        rawList = getLocalAppointments().filter((a) => a.targetId === targetId);
+    const inFlight = inFlightTargetLists.get(targetId);
+    if (inFlight) return inFlight;
+
+    const promise = (async () => {
+      if (!isMockTarget(targetId)) {
+        try {
+          await sweepRemoteAppointments(); // DB does the stale-state transitions
+          const sb = getSupabase();
+          const { data, error } = await sb
+            .from("appointments")
+            .select("*, customer:users!customer_user_id(alias)")
+            .eq("target_id", targetId)
+            .order("scheduled_for", { ascending: false });
+          if (error) throw error;
+          return (data ?? []).map(rowToRecord);
+        } catch {
+          return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
+        }
       }
-    } else {
-      rawList = getLocalAppointments().filter((a) => a.targetId === targetId);
+      return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
+    })();
+
+    inFlightTargetLists.set(targetId, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlightTargetLists.delete(targetId);
     }
-    return runAppointmentHousekeeping(rawList);
+  },
+
+  /**
+   * Occupied slot timestamps for a target — via a privacy-safe SECURITY DEFINER
+   * RPC (booked_slots) so the booking sheet can grey out taken slots WITHOUT
+   * reading other customers' appointment rows (which appt_select RLS hides).
+   * This closes the double-booking hole where a customer's slot grid, built
+   * from only their own visible rows, showed already-taken slots as free.
+   */
+  async bookedSlots(targetId: string): Promise<string[]> {
+    if (isMockTarget(targetId)) return [];
+    try {
+      const sb = getSupabase();
+      const { data, error } = await sb.rpc("booked_slots", { p_target_id: targetId });
+      if (error) throw error;
+      return (data ?? []).map((r: any) => r.scheduled_for as string);
+    } catch {
+      return [];
+    }
   },
 
   /**
@@ -295,25 +379,27 @@ export const appointmentService = {
     amount?: number | null,
     reference?: string | null,
   ): Promise<AppointmentRecord | undefined> {
-    const newStatus: "PENDING_CONFIRM" = "PENDING_CONFIRM";
-    const patch: Record<string, unknown> = {
-      payment_method: method,
-      payment_status: newStatus,
-    };
-    if (amount != null) patch.payment_amount = amount;
-    if (reference) patch.payment_reference = reference;
+    const newStatus = "PENDING_CONFIRM" as const;
 
-    try {
-      const sb = getSupabase();
-      const { data, error } = await sb.from("appointments").update(patch).eq("id", id).select().maybeSingle();
-      if (error) throw error;
-      if (data) {
-        const record = rowToRecord(data);
-        upsertLocal(record);
-        return record;
+    const uid = await currentUserId();
+    if (uid) {
+      try {
+        const sb = getSupabase();
+        const { data, error } = await sb.rpc("appointment_claim_payment", {
+          p_id: id,
+          p_method: method,
+          p_amount: amount ?? undefined,
+          p_reference: reference ?? undefined,
+        });
+        if (error) throw error;
+        if (data) {
+          const record = rowToRecord(data);
+          upsertLocal(record);
+          return record;
+        }
+      } catch (e: any) {
+        throw new Error(e?.message || "Couldn't record the payment. Please try again.");
       }
-    } catch {
-      // fall through to local update
     }
 
     const list = getLocalAppointments();
@@ -322,7 +408,7 @@ export const appointmentService = {
       list[idx] = {
         ...list[idx],
         paymentMethod: method,
-        paymentStatus: newStatus as "PAID" | "PENDING_CONFIRM",
+        paymentStatus: newStatus,
         paymentAmount: amount ?? list[idx].paymentAmount,
         paymentReference: reference ?? list[idx].paymentReference,
       };
@@ -334,12 +420,33 @@ export const appointmentService = {
 
   /** Business confirms they received the payment → PAID. */
   async confirmPayment(id: string): Promise<AppointmentRecord | undefined> {
-    return patchPaymentStatus(id, "PAID");
+    return patchPaymentStatus(id, "CONFIRM");
   },
 
   /** Business rejects the customer's claim → REJECTED; customer can try again. */
   async rejectPaymentClaim(id: string): Promise<AppointmentRecord | undefined> {
-    return patchPaymentStatus(id, "REJECTED");
+    return patchPaymentStatus(id, "REJECT");
+  },
+
+  /** Owner records payment for an owner-created walk-in; never bypasses a customer's claim. */
+  async recordWalkInPayment(
+    id: string,
+    method: PaymentMethod,
+    amount?: number | null,
+    reference?: string | null,
+  ): Promise<AppointmentRecord | undefined> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("appointment_record_walk_in_payment", {
+      p_id: id,
+      p_method: method,
+      p_amount: amount ?? undefined,
+      p_reference: reference ?? undefined,
+    });
+    if (error) throw new Error(error.message || "Couldn't record the payment.");
+    if (!data) return undefined;
+    const record = rowToRecord(data);
+    upsertLocal(record);
+    return record;
   },
 
   async updateStatus(
@@ -348,21 +455,26 @@ export const appointmentService = {
     responseNote?: string,
     cancelledBy?: CancelledBy,
   ): Promise<AppointmentRecord | undefined> {
-    // Try the shared table first; fall back to local for guest/mock rows.
-    try {
-      const sb = getSupabase();
-      const patch: Record<string, unknown> = { status };
-      if (responseNote !== undefined) patch.response_note = responseNote;
-      if (status === "CANCELLED" && cancelledBy) patch.cancelled_by = cancelledBy;
-      const { data, error } = await sb.from("appointments").update(patch).eq("id", id).select().maybeSingle();
-      if (error) throw error;
-      if (data) {
-        const record = rowToRecord(data);
-        upsertLocal(record);
-        return record;
+    // Real DB row for a signed-in user → update the shared table and surface
+    // any failure. Only genuinely local (guest/mock) rows fall back to storage.
+    const uid = await currentUserId();
+    if (uid) {
+      try {
+        const sb = getSupabase();
+        const { data, error } = await sb.rpc("appointment_transition", {
+          p_id: id,
+          p_status: status,
+          p_response_note: responseNote ?? undefined,
+        });
+        if (error) throw error;
+        if (data) {
+          const record = rowToRecord(data);
+          upsertLocal(record);
+          return record;
+        }
+      } catch (e: any) {
+        throw new Error(e?.message || "Couldn't update the appointment. Please try again.");
       }
-    } catch {
-      // fall through to local update
     }
 
     const list = getLocalAppointments();
@@ -407,27 +519,20 @@ export const appointmentService = {
     if (!isMockTarget(payload.targetId)) {
       try {
         const sb = getSupabase();
-        const { data, error } = await sb
-          .from("appointments")
-          .insert({
-            target_type: payload.targetType,
-            target_id: payload.targetId,
-            target_owner_user_id: uid,
-            target_name: payload.targetName,
-            customer_user_id: uid,
-            customer_name: payload.customerName,
-            scheduled_for: payload.scheduledForISO,
-            date_label: payload.dateLabel,
-            time_label: payload.timeLabel,
-            notes,
-            package_id: payload.packageId ?? null,
-            package_name: payload.packageName ?? null,
-            package_price: payload.packagePrice ?? null,
-            status: "ACCEPTED",
-            is_walk_in: true,
-          })
-          .select()
-          .maybeSingle();
+        const { data, error } = await sb.rpc("appointment_create_walk_in", {
+          p_target_type: payload.targetType,
+          p_target_id: payload.targetId,
+          p_customer_name: payload.customerName,
+          // No SQL default for this one (unlike the others below) — the RPC
+          // itself already treats an empty string as "no phone given".
+          p_customer_phone: payload.customerPhone ?? "",
+          p_scheduled_for: payload.scheduledForISO,
+          p_date_label: payload.dateLabel,
+          p_time_label: payload.timeLabel,
+          p_package_id: payload.packageId ?? undefined,
+          p_package_name: payload.packageName ?? undefined,
+          p_package_price: payload.packagePrice ?? undefined,
+        });
         if (error) throw error;
         const record = rowToRecord(data);
         upsertLocal(record);
@@ -457,5 +562,66 @@ export const appointmentService = {
     };
     upsertLocal(record);
     return record;
+  },
+
+  /**
+   * A real, signed-in customer pays for an in-person purchase with no prior
+   * booking/queue relationship to the business — creates the appointment row
+   * AND claims payment atomically, stamped with the customer's own uid (not
+   * is_walk_in), so it flows into the same owner confirm/reject UI as any
+   * other payment claim. Real money, no local/guest fallback — signed-in only.
+   */
+  async createWalkInPayment(payload: {
+    targetId: string;
+    packageName: string;
+    packagePrice: number;
+    method: PaymentMethod;
+    reference?: string | null;
+  }): Promise<AppointmentRecord> {
+    const uid = await currentUserId();
+    if (!uid) throw new Error("Sign in to pay.");
+
+    const sb = getSupabase();
+    // Cast: appointment_create_walk_in_payment isn't in the generated schema
+    // types yet — a typegen gap until the migration is applied and types are
+    // regenerated (same pattern as businessAccessService.checkAccess).
+    const { data, error } = await (sb.rpc as any)("appointment_create_walk_in_payment", {
+      p_target_id: payload.targetId,
+      p_package_name: payload.packageName,
+      p_package_price: payload.packagePrice,
+      p_method: payload.method,
+      p_reference: payload.reference ?? undefined,
+    });
+    if (error) throw new Error(error.message || "Couldn't record the payment. Please try again.");
+    const record = rowToRecord(data);
+    upsertLocal(record);
+    return record;
+  },
+
+  async nudgePayment(id: string) {
+    const sb = getSupabase();
+    const { data: apt, error } = await sb
+      .from("appointments")
+      .select("id, customer_user_id, target_name, date_label, time_label, package_price")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!apt) throw new Error("Appointment not found");
+    if (!(apt as any).customer_user_id) throw new Error("No customer linked to this appointment");
+    
+    const shopName = (apt as any).target_name || "the shop";
+    const amountStr = (apt as any).package_price ? ` ₹${(apt as any).package_price}` : "";
+    const title = "Payment Requested 🔔";
+    const body = `${shopName} requested payment${amountStr} for your booking on ${(apt as any).date_label} at ${(apt as any).time_label}.`;
+    
+    const { notificationService } = await import("@/services/engagement/notificationService");
+    await notificationService.send(
+      (apt as any).customer_user_id,
+      title,
+      body,
+      `/appointments`,
+      "SYSTEM"
+    );
+    return { ok: true };
   },
 };

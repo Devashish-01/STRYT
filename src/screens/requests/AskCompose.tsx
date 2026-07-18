@@ -49,7 +49,9 @@ function getDateChips(): { label: string; sub: string; iso: string }[] {
     return {
       label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : DAY[d.getDay()],
       sub: `${d.getDate()} ${MON[d.getMonth()]}`,
-      iso: d.toISOString().split("T")[0],
+      // Local YYYY-MM-DD — toISOString() is UTC and shifts the date by a day in
+      // negative-UTC zones, mismatching the label shown to the user.
+      iso: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
     };
   });
 }

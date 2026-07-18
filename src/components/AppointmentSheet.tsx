@@ -64,6 +64,10 @@ export function AppointmentSheet({
   const [submitting, setSubmitting] = useState(false);
 
   const [existingAppointments, setExistingAppointments] = useState<AppointmentRecord[]>([]);
+  // Occupied timestamps for the target from the privacy-safe booked_slots RPC —
+  // other customers' rows are hidden by RLS, so this is how their taken slots
+  // still show as unavailable (closing the double-booking hole).
+  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
   const [customerAppointments, setCustomerAppointments] = useState<AppointmentRecord[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [loadingApts, setLoadingApts] = useState(true);
@@ -79,15 +83,17 @@ export function AppointmentSheet({
     let active = true;
     async function loadApts() {
       try {
-        const [targetList, customerList, blocked] = await Promise.all([
+        const [targetList, customerList, blocked, booked] = await Promise.all([
           appointmentService.listForTarget(targetId),
           appointmentService.listForCustomer(user?.id || "guest"),
           slotBlockService.list(targetId).catch(() => []),
+          appointmentService.bookedSlots(targetId).catch(() => []),
         ]);
         if (active) {
           setExistingAppointments(targetList);
           setCustomerAppointments(customerList);
           setBlockedSlots(blocked);
+          setBookedTimes(booked);
         }
       } catch (err) {
         console.error("Failed to load appointments", err);
@@ -111,7 +117,14 @@ export function AppointmentSheet({
   });
 
   const selectedDate = dates[dayOffset] || new Date();
-  const slots = generateWorkingSlots(availabilityNote, selectedDate, existingAppointments, blockedSlots);
+  // Merge the customer's own visible bookings with the (PII-free) booked
+  // timestamps from every other customer, so the slot grid greys out any slot
+  // that's actually taken — not just the ones this customer can see.
+  const occupiedForSlots: AppointmentRecord[] = [
+    ...existingAppointments,
+    ...bookedTimes.map((iso) => ({ id: `booked_${iso}`, scheduledForISO: iso, status: "ACCEPTED" as const } as unknown as AppointmentRecord)),
+  ];
+  const slots = generateWorkingSlots(availabilityNote, selectedDate, occupiedForSlots, blockedSlots);
 
   // Default to the first working day rather than always "Today" when today is closed.
   useEffect(() => {

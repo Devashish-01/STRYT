@@ -12,7 +12,14 @@
         "list_edge_functions",
         "get_logs",
         "list_tables",
-        "list_projects"
+        "list_projects",
+        "get_project_url",
+        "list_migrations",
+        "get_project",
+        "get_advisors",
+        "search_docs",
+        "list_organizations",
+        "get_organization"
       ]
     }
   }

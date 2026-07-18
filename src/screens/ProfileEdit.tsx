@@ -9,11 +9,13 @@ import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 type PrivacyKey =
+  | "showNamePublicly"
   | "showPostsPublicly" | "showAsksPublicly" | "showBadgesPublicly"
   | "showPhonePublicly" | "showEmailPublicly" | "showCityPublicly"
   | "showRatingPublicly" | "locationPublic";
 
 const PRIVACY_FIELDS: { key: PrivacyKey; label: string; hint: string }[] = [
+  { key: "showNamePublicly", label: "Real name", hint: "OFF = neighbors see your alias/first name. ON = your full Display Name is public." },
   { key: "showPostsPublicly", label: "Community posts", hint: "Your posts on your public profile" },
   { key: "showAsksPublicly", label: "Service requests", hint: "Your asks/requests on your public profile" },
   { key: "showBadgesPublicly", label: "Trust badges", hint: "Earned badges & verifications" },
@@ -39,6 +41,7 @@ export default function ProfileEdit() {
   const [lng, setLng]         = useState(user.lng || 0);
 
   const [privacy, setPrivacy] = useState<Record<PrivacyKey, boolean>>({
+    showNamePublicly: user.showNamePublicly === true,     // real name defaults private
     showPostsPublicly: user.showPostsPublicly !== false,
     showAsksPublicly: user.showAsksPublicly !== false,
     showBadgesPublicly: user.showBadgesPublicly !== false,
@@ -279,7 +282,8 @@ export default function ProfileEdit() {
                 placeholder="Your full name"
               />
               <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
-                Kept private. Only shared with a shop/provider once you book, join their queue, or send a proposal.
+                Private by default — only shared with a shop/provider once you book, join their queue, or send a proposal.
+                Turn on "Real name" under Privacy below to make it public instead of your alias.
               </p>
             </div>
 

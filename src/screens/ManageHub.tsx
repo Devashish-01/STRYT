@@ -8,7 +8,7 @@ import { ListSkeleton } from "@/components/states";
 
 export default function ManageHub() {
   const nav = useNavigate();
-  const { ownedBusinessIds, ownedProviderId, roles, setContext } = useApp();
+  const { ownedBusinessIds, ownedProviderId, roles, attemptSwitchContext } = useApp();
   const { data: myBiz, loading: bizLoading } = useQuery(() => businessService.mine(), [ownedBusinessIds.join(",")]);
   const { data: myProviders, loading: provLoading } = useQuery(() => providerService.mine(), [ownedProviderId]);
 
@@ -44,7 +44,10 @@ export default function ManageHub() {
                   <button
                     className="btn btn-primary btn-sm btn-block"
                     style={{ marginTop: 12 }}
-                    onClick={() => { setContext({ type: "business", id: bid, name: b.name }); nav(`/business/${bid}/manage`); }}
+                    onClick={() => {
+                      const dest = `/business/${bid}/manage`;
+                      if (attemptSwitchContext({ type: "business", id: bid, name: b.name }, dest)) nav(dest);
+                    }}
                   >
                     Manage <ChevronRight size={15} />
                   </button>
@@ -79,7 +82,10 @@ export default function ManageHub() {
               <button
                 className="btn btn-green btn-sm btn-block"
                 style={{ marginTop: 12 }}
-                onClick={() => { setContext({ type: "provider", id: provider.id, name: provider.displayName }); nav(`/provider/${provider.id}/manage`); }}
+                onClick={() => {
+                  const dest = `/provider/${provider.id}/manage`;
+                  if (attemptSwitchContext({ type: "provider", id: provider.id, name: provider.displayName }, dest)) nav(dest);
+                }}
               >
                 Manage <ChevronRight size={15} />
               </button>

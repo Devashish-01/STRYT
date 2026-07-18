@@ -20,6 +20,7 @@ const SCOPE_LABEL: Record<string, string> = {
 
 export default function ConversationList() {
   const nav = useNavigate();
+  const { user } = useApp();
   const [params] = useSearchParams();
   const rawScope = params.get("scope");
   const scopeId = params.get("id") ?? undefined;
@@ -108,7 +109,11 @@ export default function ConversationList() {
           <div>
             {filtered.map((c) => {
               const other = c.otherUser;
-              const unread = c.hasUnreadA || c.hasUnreadB;
+              // Unread is per-participant — reading hasUnreadA||hasUnreadB shows
+              // the OTHER side's flag too, so a conversation you just sent into
+              // (which sets their flag) stayed highlighted as unread forever and
+              // opening it could never clear it. Use only your own slot's flag.
+              const unread = user.id === c.participantA ? c.hasUnreadA : c.hasUnreadB;
               return (
                 <button
                   key={c.id}

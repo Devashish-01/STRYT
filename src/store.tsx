@@ -30,6 +30,7 @@ const seedUser: CurrentUser = {
 };
 import { userService } from "@/services/core/userService";
 import { authService } from "@/services/core/authService";
+import { switchPinService } from "@/services/core/switchPinService";
 import { notificationService } from "@/services/engagement/notificationService";
 import { chatService } from "@/services/engagement/chatService";
 import { registerPush } from "@/lib/pushNotifications";
@@ -37,6 +38,8 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import type { BookmarkKey, FollowKey, UserList } from "@/store/sliceTypes";
 import { useToast } from "@/store/useToast";
 import { useAuthSession } from "@/store/useAuthSession";
+import { useGuestLocation } from "@/store/useGuestLocation";
+import { setGuestMode, GUEST_RADIUS_KM } from "@/lib/guestMode";
 import { useSocialSlice } from "@/store/useSocialSlice";
 import { useCommerceSlice } from "@/store/useCommerceSlice";
 import { useNotificationBadges } from "@/store/useNotificationBadges";
@@ -69,6 +72,25 @@ interface AppState {
   setContext: (ctx: ActiveContext) => void;
   ownedBusinessIds: string[];
   ownedProviderId: string | null;
+  // true once refreshUser()'s owned-entities read has actually succeeded at
+  // least once (not flipped in a finally, unlike profileReady) — lets
+  // BusinessAccessGuard/ProviderAccessGuard trust an empty ownedBusinessIds
+  // as "really empty" instead of "still loading".
+  ownedEntitiesLoaded: boolean;
+
+  // profile-switch PIN gate — switching INTO business/provider (never back to
+  // customer) is held here until the PIN sheet confirms or cancels it.
+  switchPinIsSet: boolean;
+  pendingContextSwitch: { ctx: ActiveContext; dest: string } | null;
+  /** Returns true if the caller should navigate immediately (no PIN needed);
+   *  false means the switch is pending PIN verification via PinGateSheet. */
+  attemptSwitchContext: (ctx: ActiveContext, dest: string) => boolean;
+  /** PinGateSheet: commits the pending switch's context and returns its dest
+   *  to navigate to, or null if there was nothing pending. */
+  confirmPendingSwitch: () => string | null;
+  cancelPendingSwitch: () => void;
+  /** Re-fetches whether a switch PIN is set — call after set/clear. */
+  refreshSwitchPinStatus: () => Promise<void>;
 
   // bookmarks
   bookmarks: BookmarkKey[];
@@ -145,6 +167,15 @@ interface AppState {
   authReady: boolean;
   signIn: () => void;
   signOut: () => void;
+
+  // guest mode — a signed-out visitor browsing before they commit. See
+  // GUEST_MODE_PLAN.md. `isGuest` is derived (authReady && !isAuthed), never
+  // stored, so it can't get stuck on for someone who has since signed in.
+  isGuest: boolean;
+  /** Live browser fix for guests, session-only — never written to `users`. */
+  guestLocation: { lat: number; lng: number } | null;
+  guestLocationStatus: "idle" | "asking" | "granted" | "denied";
+  requestGuestLocation: () => void;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -183,9 +214,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { unread, setUnread, markAllRead, decrementUnread, chatUnread, setChatUnread } = useNotificationBadges(isAuthed);
   const [profileReady, setProfileReady] = useState(false);
 
+  // ── Guest mode ────────────────────────────────────────────────────────────
+  // A visitor who has finished the auth check and turned out to be signed out.
+  // Gated on authReady so we never flash "guest" during the boot round-trip and
+  // ask for their location before we even know if they have a session.
+  const isGuest = authReady && !isAuthed;
+  const { guestLocation, guestLocationStatus, requestGuestLocation } = useGuestLocation(isGuest);
+
+  // Services are plain modules and can't read this context — push the flag to
+  // them so their radius resolvers can clamp guests to 1 km. Must run during
+  // render (not an effect) so the very first feed fetch on a guest's initial
+  // paint is already clamped, rather than firing wide once and correcting after.
+  setGuestMode(isGuest);
+
+  // The user object screens actually consume. For a guest this is the blank
+  // seedUser with the live browser fix patched in — which is what makes every
+  // existing `user.lat`/`user.lng` nearby query work for guests with no screen
+  // changes at all. `id` stays "" so the existing
+  // `user.id ? …fetch : Promise.resolve([])` guards keep short-circuiting the
+  // personal data fetches a guest has no business making.
+  const viewUser = useMemo<CurrentUser>(() => {
+    if (!isGuest || !guestLocation) return user;
+    return {
+      ...user,
+      lat: guestLocation.lat,
+      lng: guestLocation.lng,
+      notificationRadiusKm: GUEST_RADIUS_KM,
+    };
+  }, [isGuest, guestLocation, user]);
+
   // owned entities — hydrated from userService.owned() once authed.
   const [ownedBusinessIds, setOwnedBusinessIds] = useState<string[]>([]);
   const [ownedProviderId, setOwnedProviderId] = useState<string | null>(null);
+  const [ownedEntitiesLoaded, setOwnedEntitiesLoaded] = useState(false);
+  const [switchPinIsSet, setSwitchPinIsSet] = useState(false);
+  const [pendingContextSwitch, setPendingContextSwitch] = useState<{ ctx: ActiveContext; dest: string } | null>(null);
   const [activeContext, setActiveContext] = useState<ActiveContext>(() => {
     const cached = localStorage.getItem("activeContext");
     if (cached) {
@@ -240,7 +303,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           id: l.id,
           name: l.name,
           emoji: l.emoji,
-          shared: l.shared,
+          shared: l.shared ?? false,
           items: liRes.data
             .filter((it) => it.list_id === l.id)
             .map((it) => ({ type: it.target_type as BookmarkTarget, id: it.target_id })),
@@ -276,6 +339,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setRoles(me.roles);
       setOwnedBusinessIds(owned.businessIds);
       setOwnedProviderId(owned.providerId);
+      setOwnedEntitiesLoaded(true);
       setActiveContext((ctx) => {
         if (ctx.type === "customer") {
           const next: ActiveContext = { type: "customer", id: null, name: me.name };
@@ -335,6 +399,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void autoRefreshLocation();
       });
       void hydratePersonalData();
+      void switchPinService.isSet().then(setSwitchPinIsSet).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthed]);
@@ -349,12 +414,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("activeContext", JSON.stringify(ctx));
   }, []);
 
+  // Single gate every "switch into business/provider" call site routes
+  // through, instead of each one pairing setContext+nav by convention (the
+  // drift risk that let context and URL disagree). Switching back to
+  // customer is never gated — only entering a business/provider hat is.
+  const attemptSwitchContext = useCallback((ctx: ActiveContext, dest: string): boolean => {
+    if (ctx.type === "customer" || !switchPinIsSet) {
+      setPersistedContext(ctx);
+      return true;
+    }
+    setPendingContextSwitch({ ctx, dest });
+    return false;
+  }, [switchPinIsSet, setPersistedContext]);
+
+  const confirmPendingSwitch = useCallback((): string | null => {
+    const pending = pendingContextSwitch;
+    if (!pending) return null;
+    setPersistedContext(pending.ctx);
+    setPendingContextSwitch(null);
+    return pending.dest;
+  }, [pendingContextSwitch, setPersistedContext]);
+
+  const cancelPendingSwitch = useCallback(() => {
+    setPendingContextSwitch(null);
+  }, []);
+
+  const refreshSwitchPinStatus = useCallback(async () => {
+    const isSet = await switchPinService.isSet().catch(() => false);
+    setSwitchPinIsSet(isSet);
+  }, []);
+
   const value = useMemo<AppState>(
     () => ({
-      user,
+      // viewUser, not user — for a guest this carries the live browser fix so
+      // every existing `user.lat`/`user.lng` query works unchanged. Identical to
+      // `user` for everyone else.
+      user: viewUser,
       refreshUser,
       area,
-      city: user.city,
+      city: viewUser.city,
       setArea,
       activeRole,
       roles,
@@ -373,6 +471,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setContext: setPersistedContext,
       ownedBusinessIds,
       ownedProviderId,
+      ownedEntitiesLoaded,
+      switchPinIsSet,
+      pendingContextSwitch,
+      attemptSwitchContext,
+      confirmPendingSwitch,
+      cancelPendingSwitch,
+      refreshSwitchPinStatus,
       bookmarks,
       toggleBookmark,
       isBookmarked,
@@ -413,6 +518,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       showToast,
       isAuthed,
       authReady,
+      isGuest,
+      guestLocation,
+      guestLocationStatus,
+      requestGuestLocation,
       signIn: () => setIsAuthed(true),
       signOut: () => {
         tokenStore.clear();
@@ -422,6 +531,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setRoles(seedUser.roles);
         setOwnedBusinessIds([]);
         setOwnedProviderId(null);
+        setOwnedEntitiesLoaded(false);
+        setSwitchPinIsSet(false);
+        setPendingContextSwitch(null);
         setActiveContext({ type: "customer", id: null, name: seedUser.name });
         localStorage.removeItem("locationPromptShown");
         localStorage.removeItem("activeContext");
@@ -430,15 +542,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       },
     }),
     [
-      user, refreshUser,
+      viewUser, refreshUser,
       area, activeRole, roles, activeContext, ownedBusinessIds, ownedProviderId,
+      ownedEntitiesLoaded, switchPinIsSet, pendingContextSwitch,
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
       unread, chatUnread, toast, isAuthed, authReady, profileReady,
+      isGuest, guestLocation, guestLocationStatus, requestGuestLocation,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,
       setPersistedActiveRole, setPersistedContext, markAllRead, decrementUnread, setChatUnread, setIsAuthed,
+      attemptSwitchContext, confirmPendingSwitch, cancelPendingSwitch, refreshSwitchPinStatus,
     ]
   );
 

@@ -1,18 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, FileText, MessageSquare } from "@/components/Icons";
 import { requestService } from "@/services";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
+import type { RequestPost } from "@/types";
 
 type Tab = "nearby" | "mine";
 
 export default function Requests() {
   const nav = useNavigate();
-  const { area, user, chatUnread } = useApp();
+  const { area, user, chatUnread, showToast } = useApp();
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("nearby");
   const [cat, setCat] = useState<string | null>(null);
   const [special, setSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
@@ -20,7 +23,41 @@ export default function Requests() {
   const { data: feedPage, loading: feedLoading, error: feedError, refetch } = useQueryWithRealtime(() => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }), "requests", [user.lat, user.lng]);
   const { data: mineList, loading: mineLoading } = useQueryWithRealtime(() => requestService.mine(user.lat || 0, user.lng || 0), "requests", [user.lat, user.lng]);
 
-  const feed = feedPage?.data ?? [];
+  // Pagination: the first page comes from the realtime-backed query above; any
+  // further pages are appended here via the service's cursor. Without this, a
+  // neighborhood with more than one page of open requests silently hid
+  // everything past the first ~20 — the backend already returned the cursor,
+  // the UI just never read it.
+  const [extra, setExtra] = useState<RequestPost[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Whenever the base (first) page reloads — realtime change, location change,
+  // manual refetch — drop accumulated pages and reset the cursor so we never
+  // show stale or duplicated rows on top of a fresh first page.
+  useEffect(() => {
+    setExtra([]);
+    setCursor(feedPage?.page?.next_cursor ?? null);
+    setHasMore(feedPage?.page?.has_more ?? false);
+  }, [feedPage]);
+
+  async function loadMore() {
+    if (!cursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const next = await requestService.feed({ lat: user.lat || 0, lng: user.lng || 0, cursor });
+      setExtra((prev) => [...prev, ...(next.data ?? [])]);
+      setCursor(next.page?.next_cursor ?? null);
+      setHasMore(next.page?.has_more ?? false);
+    } catch {
+      showToast(t("couldnt_load_more"));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const feed = [...(feedPage?.data ?? []), ...extra];
   const mine = mineList ?? [];
 
   const cats = Array.from(new Set(feed.map((r) => r.categoryName)));
@@ -36,8 +73,8 @@ export default function Requests() {
       <header className="appbar" style={{ flexDirection: "column", alignItems: "stretch", gap: 12, paddingBottom: 0 }}>
         <div className="row between">
           <div className="col" style={{ gap: 0 }}>
-            <span className="bold" style={{ fontSize: 20 }}>Request Feed</span>
-            <span className="tiny muted">Open needs near {area}</span>
+            <span className="bold" style={{ fontSize: 20 }}>{t("request_feed")}</span>
+            <span className="tiny muted">{t("open_needs_near")} {area}</span>
           </div>
           <div className="row gap-8" style={{ alignItems: "center" }}>
             <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
@@ -51,23 +88,23 @@ export default function Requests() {
               )}
             </button>
             <button className="btn btn-primary btn-sm" onClick={() => nav("/ask")}>
-              <Plus size={16} /> Ask
+              <Plus size={16} /> {t("ask")}
             </button>
           </div>
         </div>
 
         <div className="row" style={{ borderBottom: "1px solid var(--line)" }}>
-          {([["nearby", "Nearby"], ["mine", "My requests"]] as [Tab, string][]).map(([t, label]) => (
+          {([["nearby", t("nearby_label")], ["mine", t("my_requests_label")]] as [Tab, string][]).map(([tTab, label]) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
+              key={tTab}
+              onClick={() => setTab(tTab)}
               className="semi"
               style={{
                 flex: 1,
                 padding: "12px 0",
                 fontSize: 14,
-                color: tab === t ? "var(--brand-700)" : "var(--ink-500)",
-                borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
+                color: tab === tTab ? "var(--brand-700)" : "var(--ink-500)",
+                borderBottom: tab === tTab ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
               }}
             >
               {label}
@@ -80,12 +117,12 @@ export default function Requests() {
         {tab === "nearby" && (
           <>
             <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 0 }}>
-              {([["all", "All"], ["urgent", "🔥 Urgent"], ["group", "👥 Group buys"], ["recurring", "🔁 Recurring"]] as const).map(([s, label]) => (
+              {([["all", t("all")], ["urgent", t("urgent_label")], ["group", t("group_buys")], ["recurring", t("recurring_label")]] as const).map(([s, label]) => (
                 <button key={s} className={`chip ${special === s ? "active" : ""}`} onClick={() => setSpecial(s)}>{label}</button>
               ))}
             </div>
             <div className="hscroll" style={{ paddingTop: 8 }}>
-              <button className={`chip ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>All categories</button>
+              <button className={`chip ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>{t("all_categories")}</button>
               {cats.map((c) => (
                 <button key={c} className={`chip ${cat === c ? "active" : ""}`} onClick={() => setCat(cat === c ? null : c)}>
                   {c}
@@ -103,16 +140,27 @@ export default function Requests() {
           ) : list.length === 0 ? (
             <EmptyState
               emoji="📭"
-              title={tab === "mine" ? "No requests yet" : "All quiet nearby"}
-              text={tab === "mine" ? "Post your first request and watch the offers roll in." : "No open requests in this filter. Check back soon."}
+              title={tab === "mine" ? t("no_requests_yet") : t("all_quiet_nearby")}
+              text={tab === "mine" ? t("post_first_request_desc") : t("no_open_requests_desc")}
               action={
                 <button className="btn btn-primary btn-sm" onClick={() => nav("/ask")}>
-                  <FileText size={16} /> Post a request
+                  <FileText size={16} /> {t("post_request")}
                 </button>
               }
             />
           ) : (
             list.map((r) => <RequestCard key={r.id} r={r} />)
+          )}
+
+          {tab === "nearby" && !loading && !feedError && hasMore && (
+            <button
+              className="btn btn-ghost btn-block"
+              onClick={loadMore}
+              disabled={loadingMore}
+              style={{ marginTop: 4 }}
+            >
+              {loadingMore ? t("loading") : t("load_more")}
+            </button>
           )}
         </div>
         <div style={{ height: 24 }} />

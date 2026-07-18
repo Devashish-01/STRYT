@@ -48,10 +48,11 @@ export default function RateScreen() {
     if (rating === 0 || !a) return;
     setSubmitting(true);
     try {
-      await requestService.rate(a.responderUserId, rating, [comment, ...tags].filter(Boolean).join(" • "), tip || undefined);
+      await requestService.rate(a.responderUserId, rating, [comment, ...tags].filter(Boolean).join(" • "), tip || undefined, a.id);
       showToast("Thanks! Your rating builds local trust.");
       setTimeout(() => nav("/agreements"), 700);
-    } finally {
+    } catch (e) {
+      showToast(e instanceof Error && e.message ? e.message : "Couldn't submit rating. Try again.");
       setSubmitting(false);
     }
   }

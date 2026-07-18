@@ -1,6 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
+import type { TablesUpdate } from "@/lib/dbTypes";
 import type { PublicUser, CurrentUser } from "@/types";
 import { PROFILE_BADGE_THRESHOLDS } from "@/lib/badges";
 
@@ -14,7 +15,7 @@ const USER_COLUMNS = new Set([
   "ratingAvg", "ratingCount", "language", "notificationRadiusKm",
   "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
   "showPhonePublicly", "showEmailPublicly", "showCityPublicly", "showRatingPublicly",
-  "locationPublic", "onboardingCompletedAt",
+  "showNamePublicly", "locationPublic", "onboardingCompletedAt",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
@@ -102,13 +103,13 @@ export const userService = {
     // `.select()` (which asks for `*`). Callers needing the sensitive fields
     // back should re-fetch via get_own_profile() afterward.
     const { data, error } = await sb.from("users").update(toSnake(cleanPatch)).eq("id", uid)
-      .select("id, name, alias, avatar, roles, area, city, rating_avg, rating_count, language, notification_radius_km, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_email_publicly, show_city_publicly, show_rating_publicly, location_public, customer_enabled, customer_deleted_at, onboarding_completed_at")
+      .select("id, name, alias, avatar, roles, area, city, rating_avg, rating_count, language, notification_radius_km, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_email_publicly, show_city_publicly, show_rating_publicly, show_name_publicly, location_public, customer_enabled, customer_deleted_at, onboarding_completed_at")
       .maybeSingle();
     throwIfError(error);
 
     // Sync avatar and name changes to any provider profile owned by this user
     if (patch.avatar !== undefined || patch.name !== undefined) {
-      const provPatch: Record<string, any> = {};
+      const provPatch: TablesUpdate<"providers"> = {};
       if (patch.avatar !== undefined) provPatch.avatar = patch.avatar;
       if (patch.name !== undefined) provPatch.display_name = patch.name;
       const { error: provErr } = await sb.from("providers").update(provPatch).eq("user_id", uid);
@@ -152,7 +153,7 @@ export const userService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    const patch: Record<string, unknown> = { lat, lng };
+    const patch: TablesUpdate<"users"> = { lat, lng };
     if (area) patch.area = area;
     const { error } = await sb.from("users").update(patch).eq("id", uid);
     throwIfError(error);
@@ -250,6 +251,7 @@ export const userService = {
       showEmailPublicly: ur.show_email_publicly ?? false,
       showCityPublicly: ur.show_city_publicly ?? true,
       showRatingPublicly: ur.show_rating_publicly ?? true,
+      showNamePublicly: ur.show_name_publicly ?? false,
       avatar: ur.avatar ?? "",
       area: ur.area ?? "",
       memberSince: ur.created_at ? new Date(ur.created_at).getFullYear().toString() : "—",

@@ -1,7 +1,10 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Home, Map, Plus, User, X } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
+import { useApp } from "@/store";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useLongPress } from "@/hooks/useLongPress";
 import AccountSwitcher from "./AccountSwitcher";
 
 export default function BottomNav() {
@@ -10,26 +13,27 @@ export default function BottomNav() {
   const [sheet, setSheet] = useState(false);
   const [switcher, setSwitcher] = useState(false);
   const { t } = useI18n();
+  const { isGuest } = useApp();
+  const requireAuth = useRequireAuth();
 
   // Long-press (or right-click) the Profile tab to jump straight to the account
   // switcher; a normal tap opens the profile as usual.
-  const pressTimer = useRef<number | undefined>(undefined);
-  const wasLongPress = useRef(false);
-  function pressStart() {
-    wasLongPress.current = false;
-    pressTimer.current = window.setTimeout(() => {
-      wasLongPress.current = true;
-      setSwitcher(true);
-    }, 450);
-  }
-  function pressEnd() {
-    if (pressTimer.current) window.clearTimeout(pressTimer.current);
-  }
-  function profileTap() {
-    if (wasLongPress.current) { wasLongPress.current = false; return; }
-    nav("/profile");
-  }
+  const { handlers: longPress, wrapTap } = useLongPress(() => setSwitcher(true));
+  const profileTap = wrapTap(() => nav("/profile"));
   const profileActive = loc.pathname === "/profile";
+
+  // A guest has no profile and no account to switch to — the tab becomes a
+  // plain "Sign in" instead of a long-pressable identity control.
+  const guestSignInTab = (
+    <button
+      className="nav-item"
+      onClick={() => nav("/auth/phone")}
+      aria-label={t("sign_in")}
+    >
+      <User size={22} strokeWidth={2} />
+      <span>{t("sign_in")}</span>
+    </button>
+  );
 
   return (
     <>
@@ -52,26 +56,29 @@ export default function BottomNav() {
           )}
         </NavLink>
 
-        {/* Centre FAB — opens create sheet */}
-        <button className="nav-item nav-fab" onClick={() => setSheet(true)} aria-label="Create">
+        {/* Centre FAB — opens create sheet. Everything inside it (ask, story,
+            community post) is sign-in-only, so gate the sheet itself rather than
+            letting a guest open it and hit three dead ends. */}
+        <button
+          className="nav-item nav-fab"
+          onClick={requireAuth(() => setSheet(true), "Sign in to post on your street")}
+          aria-label="Create"
+        >
           <span className="fab-circle"><Plus size={26} strokeWidth={2.6} /></span>
           <span style={{ marginTop: 2 }}>{t("create")}</span>
         </button>
 
-        <button
-          className={`nav-item ${profileActive ? "active" : ""}`}
-          onClick={profileTap}
-          onTouchStart={pressStart}
-          onTouchEnd={pressEnd}
-          onMouseDown={pressStart}
-          onMouseUp={pressEnd}
-          onMouseLeave={pressEnd}
-          onContextMenu={(e) => { e.preventDefault(); setSwitcher(true); }}
-          aria-label={`${t("profile")} — long-press to switch account`}
-        >
-          <User size={22} strokeWidth={profileActive ? 2.6 : 2} />
-          <span>{t("profile")}</span>
-        </button>
+        {isGuest ? guestSignInTab : (
+          <button
+            className={`nav-item ${profileActive ? "active" : ""}`}
+            onClick={profileTap}
+            {...longPress}
+            aria-label={`${t("profile")} — long-press to switch account`}
+          >
+            <User size={22} strokeWidth={profileActive ? 2.6 : 2} />
+            <span>{t("profile")}</span>
+          </button>
+        )}
       </nav>
 
       {switcher && <AccountSwitcher onClose={() => setSwitcher(false)} />}

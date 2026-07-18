@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, Inbox, CalendarClock, ImageIcon, Settings } from "@/components/Icons";
+import { LayoutDashboard, CalendarClock, Search, Wallet, User } from "@/components/Icons";
 import { appointmentService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 
@@ -8,7 +8,7 @@ export default function ProviderManageNav({ pid }: { pid: string }) {
   const loc = useLocation();
   const base = `/provider/${pid}/manage`;
 
-  // Surface how many booking requests still need a response as a badge on Leads,
+  // Surface how many booking requests still need a response as a badge on Jobs,
   // so the provider always knows there's something waiting without opening it.
   const { data: appts } = useQueryWithRealtime(
     () => appointmentService.listForTarget(pid),
@@ -18,12 +18,15 @@ export default function ProviderManageNav({ pid }: { pid: string }) {
   );
   const pendingLeads = (appts ?? []).filter((a) => a.status === "PENDING").length;
 
+  // The 5 modes a provider is actually in — Today (triage), Jobs (the calendar),
+  // Find work (prospecting), Money (earnings), Profile (identity hub). See
+  // PROVIDER_DESIGN.md.
   const items = [
-    { to: base, label: "Home", icon: LayoutDashboard, exact: true, badge: 0 },
-    { to: `${base}/leads`, label: "Leads", icon: Inbox, badge: pendingLeads },
-    { to: `${base}/availability`, label: "Slots", icon: CalendarClock, badge: 0 },
-    { to: `${base}/portfolio`, label: "Work", icon: ImageIcon, badge: 0 },
-    { to: `${base}/settings`, label: "Settings", icon: Settings, badge: 0 },
+    { to: base, label: "Today", icon: LayoutDashboard, exact: true, badge: 0 },
+    { to: `${base}/jobs`, label: "Jobs", icon: CalendarClock, badge: pendingLeads },
+    { to: `${base}/find-work`, label: "Find work", icon: Search, badge: 0 },
+    { to: `${base}/money`, label: "Money", icon: Wallet, badge: 0 },
+    { to: `${base}/profile`, label: "Profile", icon: User, badge: 0 },
   ];
 
   return (

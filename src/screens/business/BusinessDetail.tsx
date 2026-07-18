@@ -13,6 +13,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
+import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import AddToListSheet from "@/components/AddToListSheet";
@@ -20,12 +21,14 @@ import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import LivePulseDot from "@/components/LivePulseDot";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
+import { WalkInPaySheet } from "@/components/WalkInPaySheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord } from "@/types";
 import { distanceLabel } from "@/lib/format";
 import { displayName as safeName } from "@/lib/publicName";
 import { pushRecentlyViewed } from "@/lib/recentlyViewed";
+import { MAX_QUEUE_PARTY_SIZE } from "@/lib/queueMath";
 import MiniMap from "@/components/MiniMap";
 
 export default function BusinessDetail() {
@@ -35,7 +38,7 @@ export default function BusinessDetail() {
     user,
     isBookmarked, toggleBookmark, showToast,
     isFollowing, toggleFollow, notifySubs, toggleNotify,
-    queuesJoined, joinQueue,
+    queuesJoined, joinQueue, isGuest,
   } = useApp();
 
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
@@ -56,6 +59,7 @@ export default function BusinessDetail() {
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
   const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
   const [payingQueueTokenId, setPayingQueueTokenId] = useState<string | null>(null);
+  const [walkInPaying, setWalkInPaying] = useState(false);
   const [joiningQueue, setJoiningQueue] = useState(false);
   const [partySize, setPartySize] = useState(1);
   const [queueBusy, setQueueBusy] = useState(false);
@@ -227,13 +231,17 @@ export default function BusinessDetail() {
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 35%, transparent 70%, rgba(0,0,0,0.25))" }} />
           <div className="row between" style={{ position: "absolute", top: "calc(12px + var(--safe-area-top))", left: 12, right: 12 }}>
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
-            <div className="row gap-8">
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setAddList(true)}><Bookmark size={18} /></button>
-              <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => toggleBookmark("BUSINESS", b.id)}>
-                <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
-              </button>
-            </div>
+            {/* Guests view only — save/list/share all write to an account they
+                don't have, so the controls are hidden rather than gated. */}
+            {!isGuest && (
+              <div className="row gap-8">
+                <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
+                <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setAddList(true)}><Bookmark size={18} /></button>
+                <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => toggleBookmark("BUSINESS", b.id)}>
+                  <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
+                </button>
+              </div>
+            )}
           </div>
           {b.gallery.length > 0 && (
             <div className="row gap-6" style={{ position: "absolute", bottom: 12, right: 12 }}>
@@ -276,6 +284,14 @@ export default function BusinessDetail() {
               {b.tags.map((t) => <span key={t} className="badge badge-gray">{t}</span>)}
             </div>
 
+            {/* Call + Directions stay available to guests. They're the whole
+                point of finding a shop nearby, they only use contact details the
+                owner already published, and they create nothing on the account
+                side: recordInteraction's lead insert is already `if (uid)`, so a
+                signed-out tap records no lead. The call/directions counter does
+                still tick, which is correct — the owner's phone really did ring.
+                Everything that needs an *account* (book/message/follow/save) is
+                what's replaced by the prompt below. */}
             <div className="row gap-10" style={{ marginTop: 16 }}>
               {b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> Call</a>}
               <button
@@ -290,7 +306,9 @@ export default function BusinessDetail() {
               >
                 <Navigation size={17} /> Directions
               </button>
-              {b.ownerUserId !== user.id && (
+              {/* Messaging needs a real identity on both sides — guests don't
+                  get a chat thread, so no button. */}
+              {!isGuest && b.ownerUserId !== user.id && (
                 <button
                   className="icon-btn"
                   style={{ background: "var(--brand-50)", color: "var(--brand-700)", width: 48, border: "1.5px solid var(--brand-200)" }}
@@ -311,13 +329,18 @@ export default function BusinessDetail() {
               )}
             </div>
 
-            {(payableApt || payableQueue) && (
+            {/* Always visible for a walk-in with no prior relationship to this
+                business (b.catalog.length check), not just when there's an
+                existing unpaid appointment/queue token — a customer standing
+                in the shop right now needs a way to pay too. */}
+            {!isOwner && !isGuest && !isMockTarget(id) && (payableApt || payableQueue || b.catalog.length > 0) && (
               <button
                 className="row gap-10"
                 style={{ width: "100%", marginTop: 10, padding: "12px 14px", background: "var(--brand-50)", border: "1.5px solid var(--brand-200)", borderRadius: 14 }}
                 onClick={() => {
                   if (payableApt) setPayingApt(payableApt);
                   else if (payableQueue) setPayingQueueTokenId(payableQueue.tokenId);
+                  else setWalkInPaying(true);
                 }}
               >
                 <Wallet size={18} color="var(--brand-700)" />
@@ -327,7 +350,11 @@ export default function BusinessDetail() {
               </button>
             )}
 
-            {/* Follow + notify row */}
+            {/* Follow / notify / book all write to an account — replaced for
+                guests by the one prompt that gets them one. */}
+            {isGuest ? (
+              <GuestSignInPrompt message="Sign in to book, message or follow" />
+            ) : (
             <div className="row gap-10" style={{ marginTop: 12 }}>
               <button
                 className="btn grow btn-sm"
@@ -361,6 +388,7 @@ export default function BusinessDetail() {
                 </button>
               )}
             </div>
+            )}
           </div>
         </div>
 
@@ -384,6 +412,10 @@ export default function BusinessDetail() {
                       ? "🔔 Your turn"
                       : `You're #${activeQueueEntry?.position || queue.peopleAhead + 1}`}
                   </span>
+                ) : isGuest ? (
+                  // Guests see the live wait (that's the hook) but can't take a
+                  // spot in a real shop's line without an account behind it.
+                  null
                 ) : !joiningQueue ? (
                   <button
                     className="btn btn-primary btn-sm"
@@ -411,9 +443,9 @@ export default function BusinessDetail() {
                       ><Minus size={15} /></button>
                       <span className="bold" style={{ minWidth: 24, textAlign: "center" }}>{partySize}</span>
                       <button
-                        style={{ padding: "6px 12px", color: partySize >= 20 ? "var(--ink-300)" : "var(--brand-700)" }}
-                        disabled={partySize >= 20}
-                        onClick={() => setPartySize((n) => Math.min(20, n + 1))}
+                        style={{ padding: "6px 12px", color: partySize >= MAX_QUEUE_PARTY_SIZE ? "var(--ink-300)" : "var(--brand-700)" }}
+                        disabled={partySize >= MAX_QUEUE_PARTY_SIZE}
+                        onClick={() => setPartySize((n) => Math.min(MAX_QUEUE_PARTY_SIZE, n + 1))}
                         aria-label="More"
                       ><Plus size={15} /></button>
                     </div>
@@ -505,20 +537,22 @@ export default function BusinessDetail() {
                     {item.stockStatus === "OUT_OF_STOCK" && (
                       <div className="row gap-8" style={{ marginTop: 6 }}>
                         <span className="badge badge-red">Out of stock</span>
-                        <button
-                          className="tiny semi row gap-4"
-                          style={{ color: notifySubs.includes(`STOCK:${item.id}`) ? "var(--accent-600)" : "var(--brand-700)" }}
-                          onClick={() => toggleNotify(`STOCK:${item.id}`)}
-                        >
-                          <Bell size={12} /> {notifySubs.includes(`STOCK:${item.id}`) ? "Will notify" : "Notify me"}
-                        </button>
+                        {!isGuest && (
+                          <button
+                            className="tiny semi row gap-4"
+                            style={{ color: notifySubs.includes(`STOCK:${item.id}`) ? "var(--accent-600)" : "var(--brand-700)" }}
+                            onClick={() => toggleNotify(`STOCK:${item.id}`)}
+                          >
+                            <Bell size={12} /> {notifySubs.includes(`STOCK:${item.id}`) ? "Will notify" : "Notify me"}
+                          </button>
+                        )}
                       </div>
                     )}
                     {item.stockStatus === "LIMITED" && <span className="badge badge-amber" style={{ marginTop: 6 }}>Few left</span>}
                     {item.inventoryType === "FINITE" && item.stockStatus !== "OUT_OF_STOCK" && (item.quantity ?? 0) > 0 && (
                       <span className="badge badge-amber" style={{ marginTop: 6 }}>{item.quantity} left</span>
                     )}
-                    {!isOwner && item.stockStatus !== "OUT_OF_STOCK" && (
+                    {!isOwner && !isGuest && item.stockStatus !== "OUT_OF_STOCK" && (
                       <button
                         className="btn btn-outline btn-sm"
                         style={{ marginTop: 8, fontSize: 11, padding: "4px 12px", color: "var(--brand-700)", borderColor: "var(--brand-200)", width: "fit-content" }}
@@ -528,7 +562,9 @@ export default function BusinessDetail() {
                   </div>
                   <div style={{ position: "relative", width: 110, flexShrink: 0 }}>
                     <SafeImg src={item.image} alt={item.name} className="thumb" style={{ width: 110, height: 96, borderRadius: 14 }} />
-                    {qty === 0 ? (
+                    {/* Guests read the menu and prices but can't build a cart —
+                        checkout needs an account, so ADD would be a dead end. */}
+                    {isGuest ? null : qty === 0 ? (
                       <button
                         className="btn btn-sm"
                         style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", background: "#fff", color: "var(--green-600)", border: "1.5px solid var(--green-500)", boxShadow: "var(--shadow-sm)", fontWeight: 800, padding: "6px 18px" }}
@@ -611,32 +647,38 @@ export default function BusinessDetail() {
             {/* Q&A */}
             <div>
               <div className="semi small row gap-6" style={{ marginBottom: 8 }}><HelpCircle size={15} color="var(--blue-500)" /> Questions & Answers</div>
-              <div className="card card-condensed">
-                <textarea
-                  className="input"
-                  placeholder="Ask the owner a question…"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                  style={{ minHeight: 56 }}
-                />
-                <button className="btn btn-primary btn-sm btn-block" style={{ marginTop: 8 }} disabled={question.trim().length < 5 || askingNow} onClick={submitQuestion}>
-                  {askingNow ? "Sending…" : "Ask question"}
-                </button>
-              </div>
+              {/* Guests read existing Q&A but can't post one — an unanswerable
+                  question from an anonymous stranger helps nobody. */}
+              {!isGuest && (
+                <div className="card card-condensed">
+                  <textarea
+                    className="input"
+                    placeholder="Ask the owner a question…"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    style={{ minHeight: 56 }}
+                  />
+                  <button className="btn btn-primary btn-sm btn-block" style={{ marginTop: 8 }} disabled={question.trim().length < 5 || askingNow} onClick={submitQuestion}>
+                    {askingNow ? "Sending…" : "Ask question"}
+                  </button>
+                </div>
+              )}
               {(qnaList ?? []).filter((q) => !q.answer).length > 0 && (
                 <div className="col gap-10" style={{ marginTop: 10 }}>
                   <div className="tiny semi muted">Waiting for an answer</div>
                   {[...(qnaList ?? [])].filter((q) => !q.answer).sort((a, b) => b.upvotes - a.upvotes).map((q) => (
                     <div key={q.id} className="card card-condensed row gap-10">
-                      <button
+                      {/* Guests see the upvote count, but can't cast one. */}
+                      <div
                         className="col center"
-                        style={{ gap: 2, flexShrink: 0, color: q.upvoted ? "var(--brand-700)" : "var(--ink-400)" }}
-                        onClick={() => toggleQuestionUpvote(q)}
-                        aria-label="Upvote question"
+                        onClick={isGuest ? undefined : () => toggleQuestionUpvote(q)}
+                        role={isGuest ? undefined : "button"}
+                        aria-label={isGuest ? undefined : "Upvote question"}
+                        style={{ gap: 2, flexShrink: 0, color: q.upvoted ? "var(--brand-700)" : "var(--ink-400)", cursor: isGuest ? "default" : "pointer" }}
                       >
                         <ThumbsUp size={16} fill={q.upvoted ? "var(--brand-700)" : "none"} />
                         <span className="tiny semi">{q.upvotes}</span>
-                      </button>
+                      </div>
                       <div className="grow">
                         <div className="row between">
                           <span className="semi small">{q.askerName}</span>
@@ -673,9 +715,12 @@ export default function BusinessDetail() {
 
         {tab === "reviews" && (
           <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
-            <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
-              <Star size={16} /> Write a Review
-            </button>
+            {/* Guests read reviews; writing one needs a real, rateable identity. */}
+            {!isGuest && (
+              <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
+                <Star size={16} /> Write a Review
+              </button>
+            )}
             <div className="card row gap-16" style={{ padding: 18 }}>
               <div className="col center">
                 <span className="bold" style={{ fontSize: 34, lineHeight: 1 }}>{b.ratingAvg}</span>
@@ -700,7 +745,7 @@ export default function BusinessDetail() {
               </div>
             </div>
             {(reviews ?? []).length === 0 && (
-              <EmptyState emoji="⭐" title="No reviews yet" text="Be the first to leave a review!" />
+              <EmptyState emoji="⭐" title="No reviews yet" text={isGuest ? "No one has reviewed this shop yet." : "Be the first to leave a review!"} />
             )}
             {(reviews ?? []).map((rv) => (
               <div key={rv.id} className="card row gap-12" style={{ alignItems: "flex-start", padding: "14px 14px" }}>
@@ -722,11 +767,16 @@ export default function BusinessDetail() {
           </div>
         )}
 
-        <div className="page-pad">
-          <button className="row gap-6 tiny muted center" style={{ width: "100%", padding: 10 }} onClick={() => setReport(true)}>
-            <Flag size={13} /> Report this business
-          </button>
-        </div>
+        {/* Reporting is an action against a real business — it needs an account
+            behind it, both so the owner isn't exposed to anonymous reports and
+            so moderation has someone to follow up with. */}
+        {!isGuest && (
+          <div className="page-pad">
+            <button className="row gap-6 tiny muted center" style={{ width: "100%", padding: 10 }} onClick={() => setReport(true)}>
+              <Flag size={13} /> Report this business
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Cart bar */}
@@ -759,6 +809,17 @@ export default function BusinessDetail() {
           businessUpiId={b.upiId ?? null}
           onPaid={refetchMyQueues}
           onClose={() => setPayingQueueTokenId(null)}
+        />
+      )}
+      {walkInPaying && (
+        <WalkInPaySheet
+          targetId={b.id}
+          businessName={b.name}
+          businessUpiId={b.upiId ?? null}
+          catalog={b.catalog}
+          initialCart={cart}
+          onPaid={refetchMyAppointments}
+          onClose={() => setWalkInPaying(false)}
         />
       )}
 

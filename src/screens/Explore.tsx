@@ -154,7 +154,7 @@ export default function Explore() {
                       className="dropdown-item"
                     >
                       <div className="bold">{r.area}</div>
-                      <div className="tiny muted text-ellipsis">{r.full}</div>
+                      <div className="tiny muted ellipsis">{r.full}</div>
                     </button>
                   ))}
                 </div>
