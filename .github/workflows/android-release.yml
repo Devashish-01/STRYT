@@ -63,6 +63,7 @@ jobs:
       - name: Build signed release APK
         working-directory: android
         run: |
+          chmod +x gradlew
           ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file=$(pwd)/app/stryt-release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
