@@ -33,6 +33,9 @@ const WHITELISTED_HEX = new Set([
   "107c41",           // Excel green
   "ff8400", "ec4899", // Instagram gradient stops
   "4285f4", "34a853", "fbbc05", "ea4335", // Google logo (4 distinct brand colors)
+  "5f259f",           // PhonePe brand purple
+  "00baf2",           // Paytm brand blue
+  "e87722",           // BHIM brand orange
   
   // Dark admin/special screen backgrounds (DeletionPending, AdminLogin)
   // These are intentionally off-palette, dark-mode-adjacent screens not in the main token system
