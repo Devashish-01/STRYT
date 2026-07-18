@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Heart, Share2, Phone, Navigation, Clock, MapPin,
@@ -616,18 +616,13 @@ export default function BusinessDetail() {
         )}
 
         {tab === "work" && (
-          <div className="page-pad" style={{ paddingTop: 18 }}>
+          <div style={{ paddingTop: 18, paddingBottom: 18 }}>
             {(b.portfolio ?? []).length === 0 ? (
-              <EmptyState emoji="🖼️" title="No work samples yet" text="This shop hasn't added portfolio photos." />
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {(b.portfolio ?? []).map((item) => (
-                  <div key={item.id}>
-                    <SafeImg src={item.url} alt={item.caption} className="thumb" style={{ width: "100%", height: 140, borderRadius: 14, objectFit: "cover" }} />
-                    {item.caption && <div className="tiny muted" style={{ marginTop: 4 }}>{item.caption}</div>}
-                  </div>
-                ))}
+              <div className="page-pad">
+                <EmptyState emoji="🖼️" title="No work samples yet" text="This shop hasn't added portfolio photos." />
               </div>
+            ) : (
+              <PhotoAutoScroll items={b.portfolio ?? []} />
             )}
           </div>
         )}
@@ -869,4 +864,95 @@ function daysAgo(iso: string) {
   if (days <= 0) return "today";
   if (days === 1) return "yesterday";
   return `${days} days ago`;
+}
+
+interface PortfolioItem { id: string; url: string; caption?: string; }
+
+function PhotoAutoScroll({ items }: { items: PortfolioItem[] }) {
+  const [active, setActive] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const CARD_W = 220;
+  const GAP = 12;
+
+  const goTo = (idx: number) => {
+    const next = (idx + items.length) % items.length;
+    setActive(next);
+    stripRef.current?.scrollTo({ left: next * (CARD_W + GAP), behavior: "smooth" });
+  };
+
+  // Auto-advance every 3 s; pause on user touch
+  useEffect(() => {
+    timerRef.current = setTimeout(() => goTo(active + 1), 3000);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [active]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div>
+      {/* Scrollable strip */}
+      <div
+        ref={stripRef}
+        onTouchStart={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
+        style={{
+          display: "flex",
+          gap: GAP,
+          overflowX: "auto",
+          scrollSnapType: "x mandatory",
+          scrollbarWidth: "none",
+          paddingLeft: 16,
+          paddingRight: 16,
+        }}
+      >
+        {items.map((item, i) => (
+          <div
+            key={item.id}
+            style={{
+              flex: `0 0 ${CARD_W}px`,
+              scrollSnapAlign: "start",
+              cursor: "pointer",
+            }}
+            onClick={() => goTo(i)}
+          >
+            <SafeImg
+              src={item.url}
+              alt={item.caption}
+              style={{
+                width: CARD_W,
+                height: 200,
+                borderRadius: 16,
+                objectFit: "cover",
+                display: "block",
+                border: i === active ? "2.5px solid var(--brand-500)" : "2.5px solid transparent",
+                transition: "border-color .25s",
+              }}
+            />
+            {item.caption && (
+              <div className="tiny muted" style={{ marginTop: 5, paddingLeft: 2, maxWidth: CARD_W }}>{item.caption}</div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Dot indicators */}
+      {items.length > 1 && (
+        <div className="row center-v" style={{ justifyContent: "center", gap: 6, marginTop: 12 }}>
+          {items.map((_, i) => (
+            <button
+              key={i}
+              aria-label={`Photo ${i + 1}`}
+              onClick={() => goTo(i)}
+              style={{
+                width: i === active ? 18 : 6,
+                height: 6,
+                borderRadius: 999,
+                background: i === active ? "var(--brand-500)" : "var(--ink-200)",
+                transition: "width .25s, background .25s",
+                padding: 0,
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   BadgeCheck, Bell, Calendar, Camera, Check, ChevronRight, HelpCircle,
@@ -29,6 +29,7 @@ import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 import { SetupChecklist } from "@/components/SetupChecklist";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
+import RadiusSelector from "@/components/RadiusSelector";
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
@@ -41,6 +42,8 @@ export default function ManageDashboard() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
+  const [broadcastRadius, setBroadcastRadius] = useState(5);
+  const radiusSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: business } = useQuery(() => businessService.get(id), [id]);
   const { data: posts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
@@ -75,6 +78,10 @@ export default function ManageDashboard() {
   useEffect(() => {
     if (business) setAvailable(business.isAvailableNow ?? false);
   }, [business]);
+
+  useEffect(() => {
+    if (business) setBroadcastRadius(business.broadcastRadius ?? 5);
+  }, [business?.broadcastRadius]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!business?.boostedUntil || business.boostReminderSent) return;
@@ -224,6 +231,14 @@ export default function ManageDashboard() {
     businessName: business?.name,
     businessAvatar: business?.coverImage,
   };
+
+  function handleRadiusChange(km: number) {
+    setBroadcastRadius(km);
+    if (radiusSaveTimer.current) clearTimeout(radiusSaveTimer.current);
+    radiusSaveTimer.current = setTimeout(() => {
+      businessService.update(id, { broadcastRadius: km } as any).catch(() => showToast("Couldn't save radius"));
+    }, 600);
+  }
 
   return (
     <div className="screen with-nav">
@@ -379,6 +394,16 @@ export default function ManageDashboard() {
             <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left", background: "var(--orange-50)" }} onClick={() => nav(`${base}/requests`)}><Search size={20} color="var(--orange-600)" /><div className="grow"><div className="semi small">{matchingRequests.length} nearby request{matchingRequests.length === 1 ? "" : "s"} match you</div><div className="tiny muted">Send a proposal to win the work</div></div><ChevronRight size={18} color="var(--orange-500)" /></button>
           </section>
         )}
+
+        <section className="page-pad" style={{ paddingTop: 0 }}>
+          <div className="small semi muted" style={{ marginBottom: 8 }}>Broadcast radius</div>
+          <RadiusSelector
+            value={broadcastRadius}
+            onChange={handleRadiusChange}
+            accentColor="var(--brand-600)"
+            description="Customers and requests within this distance can discover you."
+          />
+        </section>
 
         <section className="page-pad" style={{ paddingTop: 0 }}>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Grow</div>

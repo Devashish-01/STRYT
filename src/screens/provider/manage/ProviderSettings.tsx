@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { Bell } from "@/components/Icons";
@@ -7,6 +7,7 @@ import { providerService, profileControlService } from "@/services";
 import { ErrorView } from "@/components/states";
 import ProviderManageNav from "./ProviderManageNav";
 import AppUpdateButton from "@/components/AppUpdateButton";
+import RadiusSelector from "@/components/RadiusSelector";
 
 export default function ProviderSettings() {
   const { id = "" } = useParams();
@@ -35,6 +36,8 @@ export default function ProviderSettings() {
   const [showPhone, setShowPhone] = useState(true);
   const [showEmail, setShowEmail] = useState(false);
   const [locPublic, setLocPublic] = useState(false);
+  const [serviceRadius, setServiceRadius] = useState(10);
+  const radiusSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function persist(patch: Record<string, unknown>) {
     void providerService.update(id, patch as any).catch(() => showToast("Couldn't save — try again"));
@@ -57,6 +60,7 @@ export default function ProviderSettings() {
           setShowPhone(prov.showPhonePublicly !== false);
           setShowEmail(prov.showEmailPublicly === true);
           setLocPublic(prov.locationPublic === true);
+          setServiceRadius(prov.serviceRadiusKm ?? 10);
         }
         setLoading(false);
       })
@@ -103,6 +107,23 @@ export default function ProviderSettings() {
         </div>
 
         {/* Payment setup now lives in the Money tab (UPI, QR, collection timing). */}
+
+        {/* Service radius */}
+        <div>
+          <div className="small semi muted" style={{ marginBottom: 8 }}>Service radius</div>
+          <RadiusSelector
+            value={serviceRadius}
+            onChange={(km) => {
+              setServiceRadius(km);
+              if (radiusSaveTimer.current) clearTimeout(radiusSaveTimer.current);
+              radiusSaveTimer.current = setTimeout(() => {
+                void providerService.update(id, { serviceRadiusKm: km } as any).catch(() => showToast("Couldn't save radius"));
+              }, 600);
+            }}
+            accentColor="var(--green-500)"
+            description="How far you're willing to travel or serve customers."
+          />
+        </div>
 
         {/* Contact & privacy */}
         <div>
