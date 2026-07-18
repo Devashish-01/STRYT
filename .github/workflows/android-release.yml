@@ -51,8 +51,8 @@ jobs:
       - name: Build Vite web app
         run: npm run build
 
-      - name: Sync Capacitor to Android
-        run: npx cap sync android
+      - name: Copy web assets to Android
+        run: npx cap copy android
 
       - name: Decode and write release keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/stryt-release.keystore
