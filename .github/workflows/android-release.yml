@@ -52,7 +52,10 @@ jobs:
         run: npm run build
 
       - name: Copy web assets to Android
-        run: npx cap copy android
+        run: |
+          rm -rf android/app/src/main/assets/public
+          mkdir -p android/app/src/main/assets/public
+          cp -r dist/* android/app/src/main/assets/public/
 
       - name: Decode and write release keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/stryt-release.keystore
