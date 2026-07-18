@@ -82,6 +82,7 @@ export default function CommunityCompose() {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pollOpts, setPollOpts] = useState(["", ""]);
+  const [allowComments, setAllowComments] = useState(false); // comments OFF by default
   const [posting, setPosting] = useState(false);
 
   const canPost =
@@ -99,6 +100,7 @@ export default function CommunityCompose() {
         area,
         lat: user.lat || undefined,
         lng: user.lng || undefined,
+        allowComments,
         pollOptions: type === "POLL" ? pollOpts.filter((o) => o.trim()).map((label, i) => ({ id: `o${i}`, label, votes: 0 })) : undefined,
         ...(sellerCtx ? { authorType: sellerCtx.type, authorRefId: sellerCtx.id, authorName: sellerCtx.name, authorAvatar: sellerCtx.avatar } : {}),
       });
@@ -176,6 +178,36 @@ export default function CommunityCompose() {
             <div className="field">
               <label>Details</label>
               <textarea className="input" placeholder="Add more context…" value={body} onChange={(e) => setBody(e.target.value)} />
+            </div>
+
+            {/* Comments are OFF by default; posters opt in. When on, only the
+                poster and neighbors who follow each other can comment. */}
+            <div className="field">
+              <button
+                type="button"
+                className="row between align-center"
+                onClick={() => setAllowComments((v) => !v)}
+                style={{ width: "100%", padding: "12px 14px", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 14, cursor: "pointer", textAlign: "left" }}
+                aria-pressed={allowComments}
+              >
+                <div className="col" style={{ gap: 2 }}>
+                  <span className="semi small">Allow comments</span>
+                  <span className="tiny muted">
+                    {allowComments ? "Mutual followers can comment" : "Comments are turned off"}
+                  </span>
+                </div>
+                <span style={{
+                  width: 44, height: 26, borderRadius: 999, flexShrink: 0, position: "relative",
+                  background: allowComments ? "var(--brand-600)" : "var(--ink-300)",
+                  transition: "background 0.15s ease",
+                }}>
+                  <span style={{
+                    position: "absolute", top: 3, left: allowComments ? 21 : 3,
+                    width: 20, height: 20, borderRadius: "50%", background: "#fff",
+                    transition: "left 0.15s ease", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }} />
+                </span>
+              </button>
             </div>
 
             {type === "POLL" && (

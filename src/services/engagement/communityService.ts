@@ -27,6 +27,9 @@ function mapPost(
   const p = toCamel<CommunityPost>(row);
   p.likes = Number(row.likes_count) || 0;
   p.liked = likedIds.has(p.id);
+  // New column not in the generated DB types — read via `as any`. Defaults to
+  // false so older rows (pre-migration) behave as "comments off".
+  p.allowComments = (row as any).allow_comments ?? false;
 
   // Poll options & counts
   const rawOpts = parsePollOpts((row as any).poll_options);
@@ -253,6 +256,9 @@ export const communityService = {
     const authorName = data.authorName || aliasName({ alias: (me as any)?.alias, name: (me as any)?.name, showNamePublicly: (me as any)?.show_name_publicly });
     const authorAvatar = data.authorAvatar || (me as any)?.avatar || "";
 
+    // Comments are OFF unless the composer explicitly opts in.
+    const allowComments = data.allowComments ?? false;
+
     const { data: created, error } = await sb.from("community_posts").insert({
       author_user_id: uid,
       author_type: authorType,
@@ -265,13 +271,17 @@ export const communityService = {
       area: data.area ?? "",
       image: data.image ?? null,
       poll_options: pollOpts,
+      // `allow_comments` is a new column absent from the generated types — the
+      // whole payload is cast `as any` so TS doesn't reject the unknown key.
+      allow_comments: allowComments,
       lat,
       lng,
-    }).select().maybeSingle();
+    } as any).select().maybeSingle();
     throwIfError(error);
     const post = toCamel<CommunityPost>(created);
     post.likes = Number(created?.likes_count) || 0;
     post.liked = false;
+    post.allowComments = allowComments;
     return post;
   },
 
@@ -348,6 +358,34 @@ export const communityService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw new Error("Not authenticated");
+
+    // Friendly client-side pre-check so the UI can toast a clear reason. The
+    // real enforcement is the post_comments INSERT RLS policy (can_comment_on_post):
+    // this just avoids a cryptic RLS rejection and gives a specific message.
+    const { data: gate } = await sb
+      .from("community_posts")
+      .select("allow_comments, author_user_id")
+      .eq("id", postId)
+      .maybeSingle();
+    const allowComments = (gate as any)?.allow_comments ?? false;
+    const postAuthorId = (gate as any)?.author_user_id ?? null;
+    if (!allowComments) {
+      throw new Error("Comments are turned off for this post");
+    }
+    // The author can always comment on their own post; everyone else must be a
+    // mutual follower (both directions in `follows`, USER targets).
+    if (postAuthorId && uid !== postAuthorId) {
+      const [{ count: iFollow }, { count: followsMe }] = await Promise.all([
+        sb.from("follows").select("*", { count: "exact", head: true })
+          .eq("follower_user_id", uid).eq("target_id", postAuthorId).in("target_type", ["USER", "user"]),
+        sb.from("follows").select("*", { count: "exact", head: true })
+          .eq("follower_user_id", postAuthorId).eq("target_id", uid).in("target_type", ["USER", "user"]),
+      ]);
+      if (!((iFollow ?? 0) > 0 && (followsMe ?? 0) > 0)) {
+        throw new Error("You both need to follow each other to comment");
+      }
+    }
+
     const { data: me } = await sb.from("users").select("name, alias, avatar, show_name_publicly").eq("id", uid).maybeSingle();
     const { listingType, listingId, sharedPhone, phoneVisibility, authorName, authorAvatar, parentId } = opts;
 

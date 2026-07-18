@@ -277,6 +277,10 @@ export function StoryViewer({
 
   const [progress, setProgress] = useState(0);
   const [imageLoaded, setImageLoaded] = useState(false);
+  // A story whose image URL is empty/null or fails to load must NOT leave the
+  // viewer stuck on the dark loading overlay forever (the <img> is opacity-0
+  // until onLoad fires — with no onError/empty guard it never becomes visible).
+  const [imageFailed, setImageFailed] = useState(false);
 
   const groupIdx = pointer.groupIdx;
   const storyIdx = pointer.storyIdx;
@@ -304,6 +308,7 @@ export function StoryViewer({
 
     setProgress(0);
     setImageLoaded(false); // Reset image load status to trigger transition
+    setImageFailed(false); // Reset failure flag for the newly active story
     setShowViewersSheet(false);
     setMyReaction(null);
     setHighlighted(story.isHighlighted ?? false);
@@ -570,8 +575,15 @@ export function StoryViewer({
         aria-label="Next story"
       />
 
-      {/* Background Loading Spinner while downloading new image */}
-      {!imageLoaded && (
+      {/* Background layer. Three states, in priority order:
+          1. no image / image failed → a neutral gradient so the story still
+             "shows" (caption, CTA and reactions sit on top) instead of a
+             permanent black screen behind an endless spinner.
+          2. image present but still decoding → the loading spinner.
+          3. image decoded → nothing (the <img> below covers it). */}
+      {(!story.image || imageFailed) ? (
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg,#2b2b3a,#14141c)", zIndex: 1 }} />
+      ) : !imageLoaded ? (
         <div style={{ position: "absolute", inset: 0, background: "var(--ink-900)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1 }}>
           <div style={{
             width: 32, height: 32,
@@ -581,20 +593,25 @@ export function StoryViewer({
             animation: "story-spin 0.8s linear infinite"
           }} />
         </div>
-      )}
+      ) : null}
 
-      {/* Active Story Image (with key to force reload and avoid showing previous image) */}
-      <img
-        key={story.id}
-        src={story.image}
-        alt=""
-        onLoad={() => setImageLoaded(true)}
-        style={{
-          position: "absolute", inset: 0, width: "100%", height: "100%",
-          objectFit: "cover", opacity: imageLoaded ? 0.95 : 0,
-          transition: "opacity 0.2s ease"
-        }}
-      />
+      {/* Active Story Image (keyed to force a reload per story). onError flips
+          imageFailed so a broken/inaccessible URL falls back to the gradient
+          above rather than hanging on the spinner with an invisible <img>. */}
+      {story.image && !imageFailed && (
+        <img
+          key={story.id}
+          src={story.image}
+          alt=""
+          onLoad={() => setImageLoaded(true)}
+          onError={() => { setImageFailed(true); setImageLoaded(true); }}
+          style={{
+            position: "absolute", inset: 0, width: "100%", height: "100%",
+            objectFit: "cover", opacity: imageLoaded ? 0.95 : 0,
+            transition: "opacity 0.2s ease"
+          }}
+        />
+      )}
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.7), transparent 40%)" }} />
 
       {/* Caption + CTA Link */}

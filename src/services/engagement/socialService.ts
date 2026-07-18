@@ -330,6 +330,22 @@ export const socialService = {
     return list;
   },
 
+  // ── Mutual-follow check (both users follow each other, USER targets) ──
+  // Used to gate community commenting in the UI (the server enforces the same
+  // rule via the post_comments RLS policy / can_comment_on_post()).
+  async isMutualFollow(otherUserId: string): Promise<boolean> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid || !otherUserId || uid === otherUserId) return false;
+    const [{ count: iFollow }, { count: followsMe }] = await Promise.all([
+      sb.from("follows").select("*", { count: "exact", head: true })
+        .eq("follower_user_id", uid).eq("target_id", otherUserId).in("target_type", ["USER", "user"]),
+      sb.from("follows").select("*", { count: "exact", head: true })
+        .eq("follower_user_id", otherUserId).eq("target_id", uid).in("target_type", ["USER", "user"]),
+    ]);
+    return (iFollow ?? 0) > 0 && (followsMe ?? 0) > 0;
+  },
+
   // ── Followers of a user (reverse of "who I follow") ─────────────
   async followers(userId: string): Promise<{ id: string; name: string; avatar: string }[]> {
     const sb = getSupabase();

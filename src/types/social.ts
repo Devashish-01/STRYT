@@ -68,6 +68,8 @@ export interface CommunityPost {
   likes: number;
   liked: boolean;
   commentsCount: number;
+  /** Whether commenting is enabled on this post. Defaults to false (comments off). */
+  allowComments?: boolean;
   // recommendation answers reference real listings
   recommendations?: { listingType: BookmarkTarget; listingId: string; byName: string }[];
   // poll

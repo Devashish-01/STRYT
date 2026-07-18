@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone, Flag } from "@/components/Icons";
-import { communityService, businessService, providerService } from "@/services";
+import { communityService, businessService, providerService, socialService } from "@/services";
 import { useQueryWithRealtime, useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { SafeImg, inr } from "@/components/common";
@@ -66,6 +66,17 @@ export default function CommunityPostDetail() {
   const { data: fetched } = useQueryWithRealtime(() => communityService.get(id, user.lat || undefined, user.lng || undefined), "community_posts", [id, user.lat, user.lng], `id=eq.${id}`);
   const post: CommunityPost | undefined = fetched ?? state?.post;
 
+  // Whether the signed-in user and the post's author follow each other — gates
+  // commenting alongside allow_comments (the author is always allowed). Runs
+  // only when relevant; the server enforces the same rule via RLS.
+  const authorUserId = post?.authorUserId;
+  const { data: mutualFollow } = useQuery(
+    () => (!isGuest && authorUserId && authorUserId !== user.id)
+      ? socialService.isMutualFollow(authorUserId)
+      : Promise.resolve(false),
+    [authorUserId, user.id, isGuest]
+  );
+
   const { data: initialComments, loading: commentsLoading } = useQueryWithRealtime(() => communityService.comments(id), "post_comments", [id], `post_id=eq.${id}`);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
@@ -95,6 +106,12 @@ export default function CommunityPostDetail() {
 
   // post is guaranteed non-undefined below this line.
   const safePost = post;
+  // Comment gating: comments must be enabled AND the viewer is either the
+  // author or a mutual follower. Drives whether the composer or a muted note
+  // is shown (the post_comments RLS policy is the real enforcement).
+  const allowComments = safePost.allowComments ?? false;
+  const isAuthor = !isGuest && !!user.id && safePost.authorUserId === user.id;
+  const canComment = allowComments && (isAuthor || !!mutualFollow);
   const liked = likeOverride ?? safePost.liked;
   const likeCount = Math.max(0, safePost.likes + (likeOverride === true && !safePost.liked ? 1 : 0) - (likeOverride === false && safePost.liked ? 1 : 0));
   const votedOption = votes[safePost.id] ?? safePost.votedOptionId;
@@ -151,8 +168,11 @@ export default function CommunityPostDetail() {
       setComments((prev) => [...prev, c]);
       setSharePhone(false);
       setReplyingTo(null);
-    } catch {
-      showToast("Couldn't send. Try again.");
+    } catch (e: any) {
+      // addComment throws clear, user-facing reasons ("Comments are turned
+      // off…" / "You both need to follow each other…") — surface them so the
+      // toast is actionable instead of a generic failure.
+      showToast(e?.message || "Couldn't send. Try again.");
       setNewComment(text);
     } finally {
       setSending(false);
@@ -287,11 +307,11 @@ export default function CommunityPostDetail() {
                 const replies = comments.filter((r) => r.parentId === c.id);
                 return (
                   <div key={c.id} className="col gap-12">
-                    <CommentRow c={c} nav={nav} onReply={() => startReply(c)} canReply={!isGuest} />
+                    <CommentRow c={c} nav={nav} onReply={() => startReply(c)} canReply={canComment} />
                     {replies.length > 0 && (
                       <div className="col gap-12" style={{ marginLeft: 46, paddingLeft: 10, borderLeft: "2px solid var(--line)" }}>
                         {replies.map((r) => (
-                          <CommentRow key={r.id} c={r} nav={nav} onReply={() => startReply(r)} compact canReply={!isGuest} />
+                          <CommentRow key={r.id} c={r} nav={nav} onReply={() => startReply(r)} compact canReply={canComment} />
                         ))}
                       </div>
                     )}
@@ -313,6 +333,14 @@ export default function CommunityPostDetail() {
       {isGuest ? (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px" }}>
           <GuestSignInPrompt message="Sign in to join the conversation" compact />
+        </div>
+      ) : !allowComments ? (
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "14px 12px" }}>
+          <p className="small muted center" style={{ margin: 0 }}>Comments are turned off for this post.</p>
+        </div>
+      ) : !canComment ? (
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "14px 12px" }}>
+          <p className="small muted center" style={{ margin: 0 }}>Follow each other to comment</p>
         </div>
       ) : (
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px" }}>
