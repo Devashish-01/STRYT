@@ -58,13 +58,15 @@ jobs:
           cp -r dist/* android/app/src/main/assets/public/
 
       - name: Decode and write release keystore
-        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/stryt-release.keystore
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/stryt-release.keystore
+          echo "Keystore size: $(wc -c < android/app/stryt-release.keystore) bytes"
 
       - name: Build signed release APK
         working-directory: android
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease \
+          ./gradlew assembleRelease --stacktrace \
             -Pandroid.injected.signing.store.file=$(pwd)/app/stryt-release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.ANDROID_KEY_ALIAS }} \
