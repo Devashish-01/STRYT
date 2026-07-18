@@ -11,6 +11,7 @@ import { config } from "@/config";
 import { isMockTarget } from "@/services/engagement/appointmentService";
 import { PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { uploadService } from "@/services/core/uploadService";
+import { leadText } from "@/lib/leadText";
 
 // A Postgrest UPDATE that's blocked by RLS (no row satisfies the policy) returns
 // success with zero rows affected, not an error — so throwIfError alone can't
@@ -27,6 +28,24 @@ async function updateQueueToken(tokenId: string, patch: Record<string, unknown>)
   }
 }
 
+type QueueOwnerState = {
+  isOpen: boolean;
+  avgServiceMin: number;
+  waiting: Array<QueueOwnerToken>;
+  called: Array<QueueOwnerToken>;
+  served: Array<QueueOwnerToken>;
+};
+
+// queueOwnerState(businessId) is fetched independently — no sharing — by
+// ManageNav's badge count, ManageDashboard, BusinessHub, BusinessPayments, and
+// QueueManager, all of which can be mounted on the same screen at once (the
+// nav renders alongside every one of them). This coalesces concurrent callers
+// for the same business onto one in-flight request — same pattern as
+// appointmentService.listForCustomer: NOT a time-based cache, the map entry is
+// deleted the instant the promise settles, so a realtime-triggered refetch
+// arriving later always starts a genuinely fresh request.
+const inFlightQueueOwnerState = new Map<string, Promise<QueueOwnerState>>();
+
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   if (d === 0) return "today";
@@ -37,18 +56,6 @@ function relDate(iso: string): string {
 }
 
 // Human label for a lead row, given its kind and optional note.
-function leadText(kind: string, note?: string): string {
-  switch (kind) {
-    case "CALL": return "Called you via STRYT";
-    case "DIRECTIONS": return "Got directions to your shop";
-    case "QUESTION": return note ? `Asked: ${note}` : "Asked a question";
-    case "OFFER_CLIP": return "Clipped one of your offers";
-    case "STORY_REPLY": return "Replied to your story";
-    case "MESSAGE": return "Sent you a message";
-    default: return note || "Reached out via STRYT";
-  }
-}
-
 function sevenDaysAgoIso(): string {
   return new Date(Date.now() - 7 * 86400 * 1000).toISOString();
 }
@@ -214,53 +221,59 @@ export const businessService = {
   // right now), and recently-SERVED tokens (bounded to the last 24h) so a
   // payment claimed after service has somewhere to be verified — the console
   // otherwise never fetches SERVED rows at all.
-  async queueOwnerState(businessId: string): Promise<{
-    isOpen: boolean;
-    avgServiceMin: number;
-    waiting: Array<QueueOwnerToken>;
-    called: Array<QueueOwnerToken>;
-    served: Array<QueueOwnerToken>;
-  }> {
-    const sb = getSupabase();
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const [settingsRes, tokensRes, servedRes] = await Promise.all([
-      sb.from("queue_settings").select("is_open, avg_service_min").eq("business_id", businessId).maybeSingle(),
-      sb.from("queue_tokens")
-        .select("id, customer_name, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference")
-        .eq("business_id", businessId)
-        .in("status", ["WAITING", "CALLED"])
-        .order("created_at", { ascending: true }),
-      sb.from("queue_tokens")
-        .select("id, customer_name, customer_user_id, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference, customer:users!customer_user_id(alias, show_name_publicly)")
-        .eq("business_id", businessId)
-        .eq("status", "SERVED")
-        .gte("created_at", since)
-        .order("created_at", { ascending: false }),
-    ]);
-    const rows = (tokensRes.data ?? []) as any[];
-    const map = (t: any): QueueOwnerToken => ({
-      id: t.id,
-      name: t.customer_name,
-      partySize: t.party_size,
-      joinedAtISO: t.created_at,
-      arrivedAt: t.arrived_at ?? null,
-      paymentStatus: t.payment_status ?? "UNPAID",
-      paymentMethod: t.payment_method ?? null,
-      paymentAmount: t.payment_amount ?? null,
-      paymentReference: t.payment_reference ?? null,
-    });
-    return {
-      isOpen: settingsRes.data?.is_open ?? false,
-      avgServiceMin: settingsRes.data?.avg_service_min ?? 8,
-      waiting: rows.filter((t) => t.status === "WAITING").map(map),
-      called: rows.filter((t) => t.status === "CALLED").map(map),
-      // Once served, the visit is complete — the owner reverts to the customer's
-      // public alias rather than keeping their real name on the history card.
-      served: ((servedRes.data ?? []) as any[]).map((t) => ({
-        ...map(t),
-        name: aliasName({ alias: t.customer?.alias, name: t.customer_name, showNamePublicly: t.customer?.show_name_publicly }, "Customer"),
-      })),
-    };
+  async queueOwnerState(businessId: string): Promise<QueueOwnerState> {
+    const inFlight = inFlightQueueOwnerState.get(businessId);
+    if (inFlight) return inFlight;
+
+    const promise = (async (): Promise<QueueOwnerState> => {
+      const sb = getSupabase();
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const [settingsRes, tokensRes, servedRes] = await Promise.all([
+        sb.from("queue_settings").select("is_open, avg_service_min").eq("business_id", businessId).maybeSingle(),
+        sb.from("queue_tokens")
+          .select("id, customer_name, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference")
+          .eq("business_id", businessId)
+          .in("status", ["WAITING", "CALLED"])
+          .order("created_at", { ascending: true }),
+        sb.from("queue_tokens")
+          .select("id, customer_name, customer_user_id, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference, customer:users!customer_user_id(alias, show_name_publicly)")
+          .eq("business_id", businessId)
+          .eq("status", "SERVED")
+          .gte("created_at", since)
+          .order("created_at", { ascending: false }),
+      ]);
+      const rows = (tokensRes.data ?? []) as any[];
+      const map = (t: any): QueueOwnerToken => ({
+        id: t.id,
+        name: t.customer_name,
+        partySize: t.party_size,
+        joinedAtISO: t.created_at,
+        arrivedAt: t.arrived_at ?? null,
+        paymentStatus: t.payment_status ?? "UNPAID",
+        paymentMethod: t.payment_method ?? null,
+        paymentAmount: t.payment_amount ?? null,
+        paymentReference: t.payment_reference ?? null,
+      });
+      return {
+        isOpen: settingsRes.data?.is_open ?? false,
+        avgServiceMin: settingsRes.data?.avg_service_min ?? 8,
+        waiting: rows.filter((t) => t.status === "WAITING").map(map),
+        called: rows.filter((t) => t.status === "CALLED").map(map),
+        // Once served, the visit is complete — the owner reverts to the customer's
+        // public alias rather than keeping their real name on the history card.
+        served: ((servedRes.data ?? []) as any[]).map((t) => ({
+          ...map(t),
+          name: aliasName({ alias: t.customer?.alias, name: t.customer_name, showNamePublicly: t.customer?.show_name_publicly }, "Customer"),
+        })),
+      };
+    })();
+
+    inFlightQueueOwnerState.set(businessId, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlightQueueOwnerState.delete(businessId);
+    }
   },
 
   /** Business verifies/rejects a queue payment claim, or a customer/owner claims one. */
@@ -279,6 +292,32 @@ export const businessService = {
 
   async rejectQueuePaymentClaim(tokenId: string) {
     await updateQueueToken(tokenId, { payment_status: "REJECTED" });
+    return { ok: true };
+  },
+
+  /** Nudge a served customer to pay — mirrors appointmentService.nudgePayment's
+   *  shape (a plain notification insert, no RPC needed for queue payments). */
+  async nudgeQueuePayment(tokenId: string) {
+    const sb = getSupabase();
+    const { data: token, error } = await sb
+      .from("queue_tokens")
+      .select("id, customer_user_id, payment_amount, businesses!business_id(name)")
+      .eq("id", tokenId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!token) throw new Error("Queue entry not found");
+    if (!(token as any).customer_user_id) throw new Error("No customer linked to this entry");
+
+    const shopName = (token as any).businesses?.name || "the shop";
+    const amountStr = (token as any).payment_amount ? ` ₹${(token as any).payment_amount}` : "";
+    const { notificationService } = await import("@/services/engagement/notificationService");
+    await notificationService.send(
+      (token as any).customer_user_id,
+      "Payment Requested 🔔",
+      `${shopName} requested payment${amountStr} for your visit.`,
+      "/queues",
+      "SYSTEM"
+    );
     return { ok: true };
   },
 

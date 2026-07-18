@@ -20,11 +20,13 @@ import {
   calculateNextTurnoffTime, DEFAULT_ONBOARD_WORKING_HOURS,
   evaluateProviderAvailability,
 } from "@/utils/availability";
+import { deriveMoneySummary } from "@/utils/paymentSummary";
 import ManageNav from "./ManageNav";
 import ShareCard from "@/components/ShareCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
+import { SetupChecklist } from "@/components/SetupChecklist";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
 
@@ -94,17 +96,10 @@ export default function ManageDashboard() {
 
   const appts = (appointments ?? []) as AppointmentRecord[];
   const pendingAppointments = appts.filter((item) => item.status === "PENDING");
-  const appointmentClaims = appts.filter((item) => item.paymentStatus === "PENDING_CONFIRM");
   const queueTokens: QueueOwnerToken[] = [
     ...(queue?.waiting ?? []), ...(queue?.called ?? []), ...(queue?.served ?? []),
   ];
-  const queueClaims = queueTokens.filter((item) => item.paymentStatus === "PENDING_CONFIRM");
-  const paymentClaims = appointmentClaims.length + queueClaims.length;
-  const paidRecords = [
-    ...appts.filter((item) => item.paymentStatus === "PAID"),
-    ...queueTokens.filter((item) => item.paymentStatus === "PAID"),
-  ];
-  const recordedPaid = paidRecords.reduce((sum, item) => sum + (item.paymentAmount ?? 0), 0);
+  const { appointmentClaims, queueClaims, paymentClaims, paidRecords, recordedAmount: recordedPaid } = deriveMoneySummary(appts, queueTokens);
   const unanswered = (questions ?? []).filter((item) => !item.answer);
   const actionCount = pendingAppointments.length + paymentClaims + unanswered.length;
   const range = business?.broadcastRadius ?? 5;
@@ -122,14 +117,12 @@ export default function ManageDashboard() {
     })
     .sort((a, b) => +new Date(a.scheduledForISO) - +new Date(b.scheduledForISO));
 
-  const checklist = [
-    { label: "Add a catalog item", done: (business?.catalog?.length ?? 0) > 0, to: `${base}/catalog` },
-    { label: "Set your hours", done: !!business?.hours && business.hours !== DEFAULT_ONBOARD_WORKING_HOURS, to: `${base}/hours` },
-    { label: "Upload verification", done: !!business?.verificationStatus, to: `${base}/verify` },
-    { label: "Post your first update", done: (posts?.length ?? 0) > 0, to: "/community/new" },
+  const checklistItems = [
+    { label: "Add a catalog item", done: (business?.catalog?.length ?? 0) > 0, onClick: () => nav(`${base}/catalog`) },
+    { label: "Set your hours", done: !!business?.hours && business.hours !== DEFAULT_ONBOARD_WORKING_HOURS, onClick: () => nav(`${base}/hours`) },
+    { label: "Upload verification", done: !!business?.verificationStatus, onClick: () => nav(`${base}/verify`) },
+    { label: "Post your first update", done: (posts?.length ?? 0) > 0, onClick: () => nav("/community/new", { state: composeState }) },
   ];
-  const completedSetup = checklist.filter((item) => item.done).length;
-  const showChecklist = !!business && completedSetup < checklist.length;
   const availability = evaluateProviderAvailability(business?.hours, available, business?.availableUntil);
 
   async function toggleAvailability() {
@@ -238,14 +231,19 @@ export default function ManageDashboard() {
         background: ambient.headerGradient, color: "#fff",
         padding: "calc(18px + var(--safe-area-top)) 16px 22px",
         borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
-        position: "relative", overflow: "hidden",
+        position: "relative",
       }}>
-        <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
+        {/* Clips only the decorative sky layer — the header itself must NOT
+            clip, or RoleSwitcher's dropdown (a sibling below) gets cut off
+            the moment it's taller than the header. */}
+        <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
+          <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
+        </div>
         <div style={{ position: "relative", zIndex: 1 }}>
           <div className="row between center-v">
             <BrandHome color="#fff" glow={ambient.lampGlow} />
             <div className="row gap-8 center-v">
-              <RoleSwitcher theme="dark-pill" />
+              <RoleSwitcher theme="dark-pill" enableLongPress />
               <HeaderIcon label="Notifications" count={notificationUnread ?? 0} onClick={() => nav(`/notifications?scope=BUSINESS&id=${id}`)}>
                 <Bell size={16} />
               </HeaderIcon>
@@ -264,8 +262,8 @@ export default function ManageDashboard() {
                 <span className="bold h1 ellipsis" style={{ color: "#fff" }}>{business?.name ?? "Your business"}</span>
                 {business?.isVerified && <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />}
               </div>
-              <div className="small" style={{ opacity: .9 }}>{business?.subCategory || business?.categoryName || "Local business"}</div>
-              <div className="tiny" style={{ opacity: .78, marginTop: 3 }}>{ambient.greeting} · {business?.ratingAvg ?? 0}★</div>
+              <div className="small" style={{ opacity: .9, color: "#fff" }}>{business?.subCategory || business?.categoryName || "Local business"}</div>
+              <div className="tiny" style={{ opacity: .78, marginTop: 3, color: "#fff" }}>{ambient.greeting} · {business?.ratingAvg ?? 0}★</div>
             </div>
             <button className="tiny semi" style={{ color: "#fff", background: "rgba(255,255,255,.16)", padding: "7px 10px", borderRadius: 999 }} onClick={() => nav(`/business/${id}`)}>
               View shop
@@ -279,21 +277,9 @@ export default function ManageDashboard() {
           <AccountStatusBanner entityType="BUSINESS" entityId={id} status={business?.status} />
         </div>
 
-        {showChecklist && (
+        {business && (
           <section className="page-pad" style={{ paddingTop: 4 }}>
-            <div className="card" style={{ padding: 14 }}>
-              <div className="row between center-v" style={{ marginBottom: 10 }}>
-                <span className="semi small">Finish setting up your shop</span>
-                <span className="tiny muted">{completedSetup}/{checklist.length}</span>
-              </div>
-              <div className="col gap-8">
-                {checklist.filter((item) => !item.done).slice(0, 2).map((item) => (
-                  <button key={item.label} className="row between center-v" onClick={() => item.to === "/community/new" ? nav(item.to, { state: composeState }) : nav(item.to)}>
-                    <span className="small">{item.label}</span><ChevronRight size={16} color="var(--ink-300)" />
-                  </button>
-                ))}
-              </div>
-            </div>
+            <SetupChecklist title="Finish setting up your shop" items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
           </section>
         )}
 
@@ -382,7 +368,7 @@ export default function ManageDashboard() {
         )}
 
         <section className="page-pad" style={{ paddingTop: 0 }}>
-          <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`${base}/business`)}>
+          <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`${base}/payments`)}>
             <span style={{ width: 40, height: 40, borderRadius: 10, background: "var(--green-100)", display: "grid", placeItems: "center" }}><Wallet size={20} color="var(--green-600)" /></span>
             <div className="grow"><div className="semi small">Payments · {paidRecords.length} confirmed</div><div className="tiny muted">{recordedPaid > 0 ? `${inr(recordedPaid)} recorded · ` : ""}{paymentClaims} to confirm</div></div><ChevronRight size={18} color="var(--ink-300)" />
           </button>

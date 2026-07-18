@@ -6,9 +6,9 @@ import OfflineBanner from "./components/OfflineBanner";
 import { LiveShareProvider } from "./features/live-share/useLiveShare";
 import LiveShareBanner from "./features/live-share/LiveShareBanner";
 import DesktopSidebar from "./components/DesktopSidebar";
-import ManageNav from "./screens/business/manage/ManageNav";
-import ProviderManageNav from "./screens/provider/manage/ProviderManageNav";
 import BusinessAccessGuard from "./components/BusinessAccessGuard";
+import ProviderAccessGuard from "./components/ProviderAccessGuard";
+import PinGateSheet from "./components/PinGateSheet";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
 import { contextHomePath } from "./lib/contextHome";
@@ -88,7 +88,8 @@ const QueueManager = lazy(() => import("./screens/business/manage/QueueManager")
 const QnaManager = lazy(() => import("./screens/business/manage/QnaManager"));
 const ReviewsManager = lazy(() => import("./screens/business/manage/ReviewsManager"));
 const BusinessAppointments = lazy(() => import("./screens/business/manage/BusinessAppointments"));
-const LeadsInbox = lazy(() => import("./screens/business/manage/LeadsInbox"));
+const BusinessPayments = lazy(() => import("./screens/business/manage/BusinessPayments"));
+const LeadsInbox = lazy(() => import("./screens/manage/LeadsInbox"));
 const VerificationCenter = lazy(() => import("./screens/business/manage/VerificationCenter"));
 const BusinessSettings = lazy(() => import("./screens/business/manage/BusinessSettings"));
 const BusinessRequests = lazy(() => import("./screens/business/manage/BusinessRequests"));
@@ -253,7 +254,7 @@ function GuestOrAuthLayout() {
 }
 
 function ProtectedLayout() {
-  const { isAuthed, authReady, profileReady, user } = useApp();
+  const { isAuthed, authReady, profileReady, user, activeContext } = useApp();
   const location = useLocation();
   const { lang, setLang } = useI18n();
 
@@ -294,7 +295,7 @@ function ProtectedLayout() {
     }
   } else {
     if (location.pathname === "/auth/deletion-pending") {
-      return <Navigate to="/home" replace />;
+      return <Navigate to={contextHomePath(activeContext)} replace />;
     }
   }
 
@@ -368,7 +369,7 @@ function isAuthOrPublicScreen(pathname: string): boolean {
 
 export default function App() {
   const location = useLocation();
-  const { toast, activeContext } = useApp();
+  const { toast } = useApp();
   const showNav = TAB_ROUTES.includes(location.pathname);
   const showDesktopSidebar = !isAuthOrPublicScreen(location.pathname);
 
@@ -535,26 +536,31 @@ export default function App() {
               <Route path="/business/:id/manage/qna" element={<QnaManager />} />
               <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
               <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
-              <Route path="/business/:id/manage/inbox" element={<LeadsInbox />} />
+              <Route path="/business/:id/manage/payments" element={<BusinessPayments />} />
+              <Route path="/business/:id/manage/inbox" element={<LeadsInbox entityType="BUSINESS" />} />
               <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
               <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
               <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
               <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />
             </Route>
 
-            {/* Provider console */}
-            <Route path="/provider/:id/manage" element={<ProviderDashboard />} />
-            <Route path="/provider/:id/manage/profile" element={<ProviderProfileHub />} />
-            <Route path="/provider/:id/manage/edit-profile" element={<ProviderProfileEditor />} />
-            <Route path="/provider/:id/manage/availability" element={<ProviderAvailability />} />
-            <Route path="/provider/:id/manage/catalog" element={<ProviderCatalog />} />
-            <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
-            <Route path="/provider/:id/manage/jobs" element={<ProviderJobs />} />
-            <Route path="/provider/:id/manage/find-work" element={<ProviderFindWork />} />
-            <Route path="/provider/:id/manage/money" element={<ProviderMoney />} />
-            <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
-            <Route path="/provider/:id/manage/verify" element={<ProviderVerification />} />
-            <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
+            {/* Provider console — gated behind ProviderAccessGuard, parity with
+                the business console's BusinessAccessGuard above. */}
+            <Route element={<ProviderAccessGuard />}>
+              <Route path="/provider/:id/manage" element={<ProviderDashboard />} />
+              <Route path="/provider/:id/manage/profile" element={<ProviderProfileHub />} />
+              <Route path="/provider/:id/manage/edit-profile" element={<ProviderProfileEditor />} />
+              <Route path="/provider/:id/manage/availability" element={<ProviderAvailability />} />
+              <Route path="/provider/:id/manage/catalog" element={<ProviderCatalog />} />
+              <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
+              <Route path="/provider/:id/manage/inbox" element={<LeadsInbox entityType="PROVIDER" />} />
+              <Route path="/provider/:id/manage/jobs" element={<ProviderJobs />} />
+              <Route path="/provider/:id/manage/find-work" element={<ProviderFindWork />} />
+              <Route path="/provider/:id/manage/money" element={<ProviderMoney />} />
+              <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
+              <Route path="/provider/:id/manage/verify" element={<ProviderVerification />} />
+              <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
+            </Route>
 
             {/* Safety — live location sharing */}
             <Route path="/safety" element={<SafetyHub />} />
@@ -582,16 +588,20 @@ export default function App() {
         </Routes>
       </Suspense>
 
-      {showNav && (
-        activeContext.type === "business" && activeContext.id ? (
-          <ManageNav bizId={activeContext.id} />
-        ) : activeContext.type === "provider" && activeContext.id ? (
-          <ProviderManageNav pid={activeContext.id} />
-        ) : (
-          <BottomNav />
-        )
-      )}
+      {/* Every business/provider manage screen already renders its own
+          ManageNav / ProviderManageNav inline (they're not TAB_ROUTES, so
+          `showNav` is false there) — this block exists only for the 8
+          customer tab routes. It used to pick the nav from `activeContext`
+          alone, so a user who had switched into their business/provider hat
+          would see the console's nav stuck on top of the customer Home/Map/
+          etc. long after navigating away from `/business/:id/manage*`, because
+          `activeContext` persists across navigation and doesn't change just
+          by visiting "/home". Gating on the actual current path keeps this
+          block doing only the one job it's for: the customer bottom nav on
+          customer tab routes. */}
+      {showNav && <BottomNav />}
       <UserProfileSheet />
+      <PinGateSheet />
       {toast && <div className="toast">{toast}</div>}
           </LiveShareProvider>
         </div>

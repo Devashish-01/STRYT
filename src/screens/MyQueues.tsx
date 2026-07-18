@@ -9,16 +9,10 @@ import { businessService } from "@/services";
 import { useApp } from "@/store";
 import { ArrowUpDown, Clock, Users, X, CreditCard, CheckCircle2, AlertCircle } from "@/components/Icons";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
+import { isQueuePayable as isPayable } from "@/lib/queueMath";
 import type { MyQueueEntry } from "@/types";
 
 const ACTIVE: MyQueueEntry["status"][] = ["WAITING", "CALLED"];
-
-// Payment is claimable from the moment it's your turn, and stays claimable
-// after you've been served — must not vanish once status moves on (same
-// gap fixed for appointments in Flow 2).
-function isPayable(status: MyQueueEntry["status"]): boolean {
-  return status === "CALLED" || status === "SERVED";
-}
 
 // A customer can back out any time until money is in motion — while waiting,
 // after being called (their turn), even after being served — as long as they

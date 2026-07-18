@@ -63,6 +63,25 @@ async function sweepRemoteAppointments(): Promise<void> {
   }
 }
 
+// listForCustomer(uid) is called independently — no sharing — by Home's rail
+// tile, Profile's menu row, this screen's list, AppointmentSheet on every
+// open, and BusinessDetail/ProviderDetail's own-booking checks. A normal
+// "land on Home, tap into My Appointments" session fires the same query
+// twice back to back. This coalesces concurrent callers for the same
+// customer onto one in-flight request — NOT a time-based cache, so it can
+// never serve stale data: the map entry is deleted the instant the promise
+// settles, so a realtime-triggered refetch arriving later always starts a
+// genuinely fresh request.
+const inFlightAppointmentLists = new Map<string, Promise<AppointmentRecord[]>>();
+
+// listForTarget(targetId) is fetched independently — no sharing — by
+// ManageDashboard, BusinessHub, BusinessAppointments, BusinessPayments,
+// ProviderManageNav's Jobs badge, ProviderDashboard, ProviderJobs, and
+// ProviderMoney, several of which mount together on the same screen. Same
+// coalescing shape as listForCustomer above — see that comment for why this
+// can never serve stale data.
+const inFlightTargetLists = new Map<string, Promise<AppointmentRecord[]>>();
+
 // Local-only housekeeping for guest / mock-target records that never reached
 // the DB (so the server sweep can't touch them). Pure client-side patch, no
 // remote writes — those are the server's job now.
@@ -263,45 +282,69 @@ export const appointmentService = {
   },
 
   async listForCustomer(customerId: string): Promise<AppointmentRecord[]> {
-    const uid = await currentUserId();
-    if (uid) {
-      try {
-        await sweepRemoteAppointments(); // DB does the stale-state transitions
-        const sb = getSupabase();
-        const { data, error } = await sb
-          .from("appointments")
-          .select("*")
-          .eq("customer_user_id", uid)
-          .order("scheduled_for", { ascending: false });
-        if (error) throw error;
-        // Rows are already swept server-side — no client-side DB writes here.
-        return (data ?? []).map(rowToRecord);
-      } catch {
-        // Read-only fallback so the list still renders offline. Never writes,
-        // so it can't mask a failed mutation or diverge the DB.
-        return localHousekeeping(getLocalAppointments().filter((a) => a.customerId === customerId || !a.customerId));
+    const inFlight = inFlightAppointmentLists.get(customerId);
+    if (inFlight) return inFlight;
+
+    const promise = (async () => {
+      const uid = await currentUserId();
+      if (uid) {
+        try {
+          await sweepRemoteAppointments(); // DB does the stale-state transitions
+          const sb = getSupabase();
+          const { data, error } = await sb
+            .from("appointments")
+            .select("*")
+            .eq("customer_user_id", uid)
+            .order("scheduled_for", { ascending: false });
+          if (error) throw error;
+          // Rows are already swept server-side — no client-side DB writes here.
+          return (data ?? []).map(rowToRecord);
+        } catch {
+          // Read-only fallback so the list still renders offline. Never writes,
+          // so it can't mask a failed mutation or diverge the DB.
+          return localHousekeeping(getLocalAppointments().filter((a) => a.customerId === customerId || !a.customerId));
+        }
       }
+      return localHousekeeping(getLocalAppointments().filter((a) => a.customerId === customerId || !a.customerId));
+    })();
+
+    inFlightAppointmentLists.set(customerId, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlightAppointmentLists.delete(customerId);
     }
-    return localHousekeeping(getLocalAppointments().filter((a) => a.customerId === customerId || !a.customerId));
   },
 
   async listForTarget(targetId: string): Promise<AppointmentRecord[]> {
-    if (!isMockTarget(targetId)) {
-      try {
-        await sweepRemoteAppointments(); // DB does the stale-state transitions
-        const sb = getSupabase();
-        const { data, error } = await sb
-          .from("appointments")
-          .select("*, customer:users!customer_user_id(alias)")
-          .eq("target_id", targetId)
-          .order("scheduled_for", { ascending: false });
-        if (error) throw error;
-        return (data ?? []).map(rowToRecord);
-      } catch {
-        return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
+    const inFlight = inFlightTargetLists.get(targetId);
+    if (inFlight) return inFlight;
+
+    const promise = (async () => {
+      if (!isMockTarget(targetId)) {
+        try {
+          await sweepRemoteAppointments(); // DB does the stale-state transitions
+          const sb = getSupabase();
+          const { data, error } = await sb
+            .from("appointments")
+            .select("*, customer:users!customer_user_id(alias)")
+            .eq("target_id", targetId)
+            .order("scheduled_for", { ascending: false });
+          if (error) throw error;
+          return (data ?? []).map(rowToRecord);
+        } catch {
+          return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
+        }
       }
+      return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
+    })();
+
+    inFlightTargetLists.set(targetId, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlightTargetLists.delete(targetId);
     }
-    return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
   },
 
   /**
@@ -517,6 +560,40 @@ export const appointmentService = {
       isWalkIn: true,
       createdAtISO: new Date().toISOString(),
     };
+    upsertLocal(record);
+    return record;
+  },
+
+  /**
+   * A real, signed-in customer pays for an in-person purchase with no prior
+   * booking/queue relationship to the business — creates the appointment row
+   * AND claims payment atomically, stamped with the customer's own uid (not
+   * is_walk_in), so it flows into the same owner confirm/reject UI as any
+   * other payment claim. Real money, no local/guest fallback — signed-in only.
+   */
+  async createWalkInPayment(payload: {
+    targetId: string;
+    packageName: string;
+    packagePrice: number;
+    method: PaymentMethod;
+    reference?: string | null;
+  }): Promise<AppointmentRecord> {
+    const uid = await currentUserId();
+    if (!uid) throw new Error("Sign in to pay.");
+
+    const sb = getSupabase();
+    // Cast: appointment_create_walk_in_payment isn't in the generated schema
+    // types yet — a typegen gap until the migration is applied and types are
+    // regenerated (same pattern as businessAccessService.checkAccess).
+    const { data, error } = await (sb.rpc as any)("appointment_create_walk_in_payment", {
+      p_target_id: payload.targetId,
+      p_package_name: payload.packageName,
+      p_package_price: payload.packagePrice,
+      p_method: payload.method,
+      p_reference: payload.reference ?? undefined,
+    });
+    if (error) throw new Error(error.message || "Couldn't record the payment. Please try again.");
+    const record = rowToRecord(data);
     upsertLocal(record);
     return record;
   },

@@ -43,7 +43,7 @@ export default function MiniMap({ lat, lng, pinColor = "var(--brand-600)", heigh
         keyboard={false}
         attributionControl={false}
       >
-        <TileLayer url={`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}?access_token=${config.mapboxToken}`} />
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
         <Marker position={[lat, lng]} icon={makePinIcon(pinColor)} />
       </MapContainer>
       <div

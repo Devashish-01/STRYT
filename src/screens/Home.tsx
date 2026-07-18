@@ -20,6 +20,9 @@ import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@pho
 import { useI18n } from "@/lib/i18n";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import GuestRadiusNotice from "@/components/GuestRadiusNotice";
+import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
+import { isQueuePayable } from "@/lib/queueMath";
+import type { MyQueueEntry } from "@/types";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
 // fetched when the user actually opens the scanner, not on every Home visit.
@@ -48,6 +51,9 @@ type TodayItem = {
   stat: string;
   sub?: string;
   onClick: () => void;
+  /** Set only for a CALLED/SERVED queue token that's still unpaid — lets the
+   *  card open payment inline instead of navigating away to /queues. */
+  queueToken?: MyQueueEntry;
 };
 
 function reorderCategories(
@@ -100,6 +106,7 @@ export default function Home() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [scanner, setScanner] = useState(false);
   const [locationOpen, setLocationOpen] = useState(false);
+  const [payingQueueToken, setPayingQueueToken] = useState<MyQueueEntry | null>(null);
   const [recentlyViewed] = useState(getRecentlyViewed);
 
   const { data: categories, error: categoriesError, refetch: refetchCategories } = useQuery(() => catalogService.getCategories(), []);
@@ -151,6 +158,11 @@ export default function Home() {
   // the dashboard never carries empty banners.
   const todayItems: TodayItem[] = [];
   for (const q of activeQueues) {
+    // Called and not yet paid: the single highest-value action right now is
+    // paying, not navigating away to find that button on another screen —
+    // lift it onto the card itself. Every other state keeps the plain
+    // navigate-to-/queues behavior.
+    const payableNow = isQueuePayable(q.status) && (q.paymentStatus ?? "UNPAID") === "UNPAID";
     todayItems.push({
       key: `q:${q.tokenId}`,
       accent: "var(--blue-500)",
@@ -158,11 +170,14 @@ export default function Home() {
       kicker: t("live_queue"),
       live: true,
       title: q.businessName,
-      stat: q.status === "CALLED" ? t("its_your_turn") : `${t("you_are_number")}${q.position}`,
-      sub: q.status === "CALLED"
+      stat: payableNow ? "Ready to pay" : q.status === "CALLED" ? t("its_your_turn") : `${t("you_are_number")}${q.position}`,
+      sub: payableNow
+        ? "Tap to pay now"
+        : q.status === "CALLED"
         ? t("head_in_now")
         : q.estWaitMin ? `~${q.estWaitMin}${t("wait_suffix")}` : q.peopleAhead > 0 ? `${q.peopleAhead}${t("ahead_suffix")}` : t("no_one_ahead"),
-      onClick: () => nav("/queues"),
+      queueToken: payableNow ? q : undefined,
+      onClick: payableNow ? () => setPayingQueueToken(q) : () => nav("/queues"),
     });
   }
   if (nextAppointment) {
@@ -761,6 +776,15 @@ export default function Home() {
         </Suspense>
       )}
       {locationOpen && <LocationPickerSheet onClose={() => setLocationOpen(false)} />}
+      {payingQueueToken && (
+        <QueuePaymentSheet
+          tokenId={payingQueueToken.tokenId}
+          businessName={payingQueueToken.businessName}
+          businessUpiId={payingQueueToken.businessUpiId ?? null}
+          onPaid={refetchQueues}
+          onClose={() => setPayingQueueToken(null)}
+        />
+      )}
     </div>
   );
 }

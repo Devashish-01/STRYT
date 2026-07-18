@@ -11,7 +11,7 @@ import { useApp } from "@/store";
 
 export default function BusinessAccess() {
   const nav = useNavigate();
-  const { user, activeContext, setContext, showToast } = useApp();
+  const { user, activeContext, setContext, attemptSwitchContext, showToast } = useApp();
 
   const { data: myBiz, loading: bizLoading } = useQuery(() => businessService.mine(), []);
   const { data: mySessions, refetch: refetchMySessions } = useQueryWithRealtime(
@@ -26,8 +26,9 @@ export default function BusinessAccess() {
   const activeGrants = (mySessions ?? []).filter((s) => s.status === "ACTIVE");
 
   function openDelegated(s: AccessSession) {
-    setContext({ type: "business", id: s.businessId, name: s.businessName || "Business" });
-    nav(`/business/${s.businessId}/manage`);
+    const dest = `/business/${s.businessId}/manage`;
+    const ready = attemptSwitchContext({ type: "business", id: s.businessId, name: s.businessName || "Business" }, dest);
+    if (ready) nav(dest);
   }
 
   // Grantee revokes their own access. If they're currently "wearing" this

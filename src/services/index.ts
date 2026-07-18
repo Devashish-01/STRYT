@@ -26,3 +26,4 @@ export { slotBlockService } from "./engagement/slotBlockService";
 export { locationService } from "./engagement/locationService";
 export { emergencyService } from "./engagement/emergencyService";
 export { profileControlService } from "./core/profileControlService";
+export { switchPinService } from "./core/switchPinService";

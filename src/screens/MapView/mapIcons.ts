@@ -42,7 +42,11 @@ export const requestIcon  = makePinIcon(pinColors.request);
 
 export const meIcon = L.divIcon({
   className: "",
-  html: `<div style="width:18px;height:18px;border-radius:50%;background:var(--brand-500);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.35)"></div>`,
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
+  html: `<div class="gps-pulse-container">
+    <div class="gps-pulse-ring"></div>
+    <div class="gps-pulse-dot"></div>
+  </div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
 });
+

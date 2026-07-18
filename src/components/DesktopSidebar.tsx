@@ -14,6 +14,7 @@ import {
 import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandLockup from "@/components/BrandLockup";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
+import { contextHomePath } from "@/lib/contextHome";
 
 export default function DesktopSidebar() {
   const nav = useNavigate();
@@ -40,12 +41,12 @@ export default function DesktopSidebar() {
   // Used to previously hardcode nav("/home") here regardless of context, which
   // bounced business/provider owners out to the customer app when they clicked
   // the brand mark (and left a stray customer-Home entry in browser history for
-  // the back button to land on). Mirrors BrandHome's goHome() — same rule, one
-  // place each type of header gets it from.
+  // the back button to land on). Routes through the one shared contextHomePath()
+  // helper (src/lib/contextHome.ts) — this used to be a hand-rolled copy of the
+  // same rule BrandHome and App.tsx's redirects each kept separately, which is
+  // exactly the kind of drift that let the chrome and the page disagree.
   function goHome() {
-    if (isBusiness && activeContext.id) nav(`/business/${activeContext.id}/manage`);
-    else if (isProvider && activeContext.id) nav(`/provider/${activeContext.id}/manage`);
-    else nav("/home");
+    nav(contextHomePath(activeContext));
   }
 
   // Custom action sheet toggle or navigate to ask

@@ -6,7 +6,7 @@ import { Skeleton, ErrorView } from "@/components/states";
 import ProviderManageNav from "./ProviderManageNav";
 import {
   User, Clock, Image as ImageIcon, BadgeCheck, Settings, ChevronRight,
-  Star, Wallet, Globe, FileText,
+  Star, Wallet, Globe, FileText, Inbox,
 } from "@/components/Icons";
 
 // The provider's single identity home: a preview of what customers see, plus
@@ -67,6 +67,7 @@ export default function ProviderProfileHub() {
     { icon: FileText, color: "var(--brand-600)", label: "Services", hint: `${p?.catalog?.length ?? 0} service${(p?.catalog?.length ?? 0) === 1 ? "" : "s"} customers can book`, to: `${base}/catalog` },
     { icon: Clock, color: "var(--blue-500)", label: "Schedule", hint: "Working days, hours & slot length", to: `${base}/availability` },
     { icon: ImageIcon, color: "var(--brand-600)", label: "Portfolio", hint: `${p?.portfolio?.length ?? 0} work sample${(p?.portfolio?.length ?? 0) === 1 ? "" : "s"}`, to: `${base}/portfolio` },
+    { icon: Inbox, color: "var(--blue-500)", label: "Reachouts", hint: "Calls and messages from customers", to: `${base}/inbox` },
     { icon: BadgeCheck, color: "var(--green-600)", label: "Verification", hint: verifyLabel, to: `${base}/verify` },
     { icon: Wallet, color: "var(--orange-500)", label: "Payments", hint: "UPI, QR & when you get paid", to: `${base}/money` },
     { icon: Settings, color: "var(--ink-600)", label: "Privacy & settings", hint: "Contact visibility, notifications, visibility", to: `${base}/settings` },

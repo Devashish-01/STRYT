@@ -21,12 +21,14 @@ import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import LivePulseDot from "@/components/LivePulseDot";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
+import { WalkInPaySheet } from "@/components/WalkInPaySheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord } from "@/types";
 import { distanceLabel } from "@/lib/format";
 import { displayName as safeName } from "@/lib/publicName";
 import { pushRecentlyViewed } from "@/lib/recentlyViewed";
+import { MAX_QUEUE_PARTY_SIZE } from "@/lib/queueMath";
 import MiniMap from "@/components/MiniMap";
 
 export default function BusinessDetail() {
@@ -57,6 +59,7 @@ export default function BusinessDetail() {
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
   const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
   const [payingQueueTokenId, setPayingQueueTokenId] = useState<string | null>(null);
+  const [walkInPaying, setWalkInPaying] = useState(false);
   const [joiningQueue, setJoiningQueue] = useState(false);
   const [partySize, setPartySize] = useState(1);
   const [queueBusy, setQueueBusy] = useState(false);
@@ -326,13 +329,18 @@ export default function BusinessDetail() {
               )}
             </div>
 
-            {(payableApt || payableQueue) && (
+            {/* Always visible for a walk-in with no prior relationship to this
+                business (b.catalog.length check), not just when there's an
+                existing unpaid appointment/queue token — a customer standing
+                in the shop right now needs a way to pay too. */}
+            {!isOwner && !isGuest && !isMockTarget(id) && (payableApt || payableQueue || b.catalog.length > 0) && (
               <button
                 className="row gap-10"
                 style={{ width: "100%", marginTop: 10, padding: "12px 14px", background: "var(--brand-50)", border: "1.5px solid var(--brand-200)", borderRadius: 14 }}
                 onClick={() => {
                   if (payableApt) setPayingApt(payableApt);
                   else if (payableQueue) setPayingQueueTokenId(payableQueue.tokenId);
+                  else setWalkInPaying(true);
                 }}
               >
                 <Wallet size={18} color="var(--brand-700)" />
@@ -435,9 +443,9 @@ export default function BusinessDetail() {
                       ><Minus size={15} /></button>
                       <span className="bold" style={{ minWidth: 24, textAlign: "center" }}>{partySize}</span>
                       <button
-                        style={{ padding: "6px 12px", color: partySize >= 20 ? "var(--ink-300)" : "var(--brand-700)" }}
-                        disabled={partySize >= 20}
-                        onClick={() => setPartySize((n) => Math.min(20, n + 1))}
+                        style={{ padding: "6px 12px", color: partySize >= MAX_QUEUE_PARTY_SIZE ? "var(--ink-300)" : "var(--brand-700)" }}
+                        disabled={partySize >= MAX_QUEUE_PARTY_SIZE}
+                        onClick={() => setPartySize((n) => Math.min(MAX_QUEUE_PARTY_SIZE, n + 1))}
                         aria-label="More"
                       ><Plus size={15} /></button>
                     </div>
@@ -801,6 +809,17 @@ export default function BusinessDetail() {
           businessUpiId={b.upiId ?? null}
           onPaid={refetchMyQueues}
           onClose={() => setPayingQueueTokenId(null)}
+        />
+      )}
+      {walkInPaying && (
+        <WalkInPaySheet
+          targetId={b.id}
+          businessName={b.name}
+          businessUpiId={b.upiId ?? null}
+          catalog={b.catalog}
+          initialCart={cart}
+          onPaid={refetchMyAppointments}
+          onClose={() => setWalkInPaying(false)}
         />
       )}
 

@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Home, Map, Plus, User, X } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
 import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { useLongPress } from "@/hooks/useLongPress";
 import AccountSwitcher from "./AccountSwitcher";
 
 export default function BottomNav() {
@@ -17,22 +18,8 @@ export default function BottomNav() {
 
   // Long-press (or right-click) the Profile tab to jump straight to the account
   // switcher; a normal tap opens the profile as usual.
-  const pressTimer = useRef<number | undefined>(undefined);
-  const wasLongPress = useRef(false);
-  function pressStart() {
-    wasLongPress.current = false;
-    pressTimer.current = window.setTimeout(() => {
-      wasLongPress.current = true;
-      setSwitcher(true);
-    }, 450);
-  }
-  function pressEnd() {
-    if (pressTimer.current) window.clearTimeout(pressTimer.current);
-  }
-  function profileTap() {
-    if (wasLongPress.current) { wasLongPress.current = false; return; }
-    nav("/profile");
-  }
+  const { handlers: longPress, wrapTap } = useLongPress(() => setSwitcher(true));
+  const profileTap = wrapTap(() => nav("/profile"));
   const profileActive = loc.pathname === "/profile";
 
   // A guest has no profile and no account to switch to — the tab becomes a
@@ -85,12 +72,7 @@ export default function BottomNav() {
           <button
             className={`nav-item ${profileActive ? "active" : ""}`}
             onClick={profileTap}
-            onTouchStart={pressStart}
-            onTouchEnd={pressEnd}
-            onMouseDown={pressStart}
-            onMouseUp={pressEnd}
-            onMouseLeave={pressEnd}
-            onContextMenu={(e) => { e.preventDefault(); setSwitcher(true); }}
+            {...longPress}
             aria-label={`${t("profile")} — long-press to switch account`}
           >
             <User size={22} strokeWidth={profileActive ? 2.6 : 2} />

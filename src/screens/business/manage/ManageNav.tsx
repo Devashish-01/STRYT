@@ -17,7 +17,7 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
   const storeRoutes = ["/store", "/catalog", "/portfolio", "/hours"];
   const businessRoutes = [
     "/business", "/inbox", "/qna", "/reviews", "/requests", "/community",
-    "/profile", "/verify", "/settings",
+    "/profile", "/verify", "/settings", "/payments",
   ];
   const items = [
     { to: base, label: "Today", icon: Home, active: location.pathname === base },

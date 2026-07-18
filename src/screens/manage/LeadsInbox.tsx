@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
-import { businessService } from "@/services";
+import { businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ErrorView, ListSkeleton } from "@/components/states";
 import { CalendarCheck, Check, HelpCircle, MessageCircle, Navigation, Phone, Tag } from "@/components/Icons";
 import { useApp } from "@/store";
 import type { Lead } from "@/types";
-import ManageNav from "./ManageNav";
+import ManageNav from "@/screens/business/manage/ManageNav";
+import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
 
 const meta: Record<string, { icon: any; color: string }> = {
   CALL: { icon: Phone, color: "var(--green-500)" },
@@ -16,13 +17,26 @@ const meta: Record<string, { icon: any; color: string }> = {
   OFFER_CLIP: { icon: Tag, color: "var(--brand-700)" },
   RESERVATION: { icon: CalendarCheck, color: "var(--blue-500)" },
   QUESTION: { icon: HelpCircle, color: "var(--blue-500)" },
+  MESSAGE: { icon: MessageCircle, color: "var(--brand-600)" },
 };
 
-export default function LeadsInbox() {
+interface LeadsInboxProps {
+  entityType: "BUSINESS" | "PROVIDER";
+}
+
+/** Reachouts inbox, shared by the business and provider consoles — used to be
+ *  business-only (src/screens/business/manage/LeadsInbox.tsx); the provider
+ *  side's own service.leads()/markLeadHandled() were fully built and working
+ *  but had no UI consumer anywhere. Genericized rather than duplicated since
+ *  the original had no business-specific assumptions baked in beyond which
+ *  service/nav to use. */
+export default function LeadsInbox({ entityType }: LeadsInboxProps) {
   const { id = "" } = useParams();
   const { showToast } = useApp();
   const [handled, setHandled] = useState<string[]>([]);
-  const { data, loading, error, refetch } = useQuery<Lead[]>(() => businessService.leads(id) as Promise<Lead[]>, [id]);
+  const isBusiness = entityType === "BUSINESS";
+  const service = isBusiness ? businessService : providerService;
+  const { data, loading, error, refetch } = useQuery<Lead[]>(() => service.leads(id) as Promise<Lead[]>, [id]);
 
   if (!id) return <div className="screen"><AppBar title="Inbox" /><ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} /></div>;
   const leads = data ?? [];
@@ -30,7 +44,7 @@ export default function LeadsInbox() {
   async function markHandled(lead: Lead) {
     setHandled((current) => [...current, lead.id]);
     try {
-      await businessService.markLeadHandled(lead.id);
+      await service.markLeadHandled(lead.id);
       showToast("Marked handled");
     } catch {
       setHandled((current) => current.filter((item) => item !== lead.id));
@@ -40,13 +54,16 @@ export default function LeadsInbox() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Customer inbox" subtitle="Calls, directions, questions and replies" />
+      <AppBar
+        title={isBusiness ? "Customer inbox" : "Reachouts"}
+        subtitle={isBusiness ? "Calls, directions, questions and replies" : "Calls and messages from customers"}
+      />
       <div className="screen-scroll">
         {loading && <ListSkeleton count={4} />}
         {error && <ErrorView error={error} onRetry={refetch} />}
         {!loading && !error && (
           <div className="page-pad col gap-10">
-            {leads.length === 0 && <EmptyState emoji="📥" title="No reachouts" text="Calls, directions and customer questions appear here." />}
+            {leads.length === 0 && <EmptyState emoji="📥" title="No reachouts" text="Calls and customer questions appear here." />}
             {leads.map((lead) => {
               const style = meta[lead.kind] || meta.CALL;
               const Icon = style.icon;
@@ -62,7 +79,7 @@ export default function LeadsInbox() {
           </div>
         )}
       </div>
-      <ManageNav bizId={id} />
+      {isBusiness ? <ManageNav bizId={id} /> : <ProviderManageNav pid={id} />}
     </div>
   );
 }

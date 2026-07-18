@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { AppBar, SafeImg } from "@/components/common";
-import { Moon, Volume2, Globe, Shield, Eye, Pencil, MapPin, Check, X, FileText } from "@/components/Icons";
+import { Moon, Volume2, Globe, Shield, Eye, Pencil, MapPin, Check, X, FileText, Lock } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService, profileControlService, locationService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import type { LocationGrant } from "@/services/engagement/locationService";
 import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
 import RadiusSelector from "@/components/RadiusSelector";
+import PinEntrySheet from "@/components/PinEntrySheet";
+import { switchPinService } from "@/services";
 
 
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
@@ -41,7 +43,10 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 }
 
 export default function Settings() {
-  const { user, refreshUser, showToast } = useApp();
+  const { user, refreshUser, showToast, switchPinIsSet, refreshSwitchPinStatus, ownedBusinessIds, ownedProviderId } = useApp();
+  const [pinSheet, setPinSheet] = useState<"set" | "remove" | null>(null);
+  const [removingPin, setRemovingPin] = useState(false);
+  const hasHats = ownedBusinessIds.length > 0 || !!ownedProviderId;
   const [silent, setSilent] = useState(() => localStorage.getItem("settings_silent") !== "false");
   const [quiet, setQuiet] = useState(() => localStorage.getItem("settings_quiet") !== "false");
   const [newBiz, setNewBiz] = useState(() => localStorage.getItem("settings_new_biz") !== "false");
@@ -154,6 +159,20 @@ export default function Settings() {
     void userService.update({ showBadgesPublicly: v }).catch(() => {});
   }
 
+  async function handleRemovePin(pin: string) {
+    setRemovingPin(true);
+    try {
+      await switchPinService.clear(pin);
+      await refreshSwitchPinStatus();
+      showToast("Switch PIN removed");
+      setPinSheet(null);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Couldn't remove the PIN.");
+    } finally {
+      setRemovingPin(false);
+    }
+  }
+
   const { lang, setLang } = useI18n();
   const langs = Object.entries(LANG_LABELS) as [Lang, string][];
 
@@ -201,6 +220,35 @@ export default function Settings() {
             <Row label="Show customer profile publicly" hint="When disabled, you are hidden from search and leaderboards" on={customerEnabled} set={handleToggleCustomerEnabled} last />
           </div>
         </div>
+
+        {/* Security — only relevant once there's a business/provider hat to protect */}
+        {hasHats && (
+          <div>
+            <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><Lock size={14} /> Security</div>
+            <div className="card" style={{ padding: 14 }}>
+              <div className="row gap-12">
+                <div className="grow">
+                  <div className="semi small">Switch PIN</div>
+                  <div className="tiny muted">
+                    {switchPinIsSet
+                      ? "Required whenever you switch into your business or provider console."
+                      : "Ask for a PIN when switching into your business or provider console — useful if others sometimes use this device."}
+                  </div>
+                </div>
+              </div>
+              <div className="row gap-8" style={{ marginTop: 10 }}>
+                <button className="btn btn-outline btn-sm grow" onClick={() => setPinSheet("set")}>
+                  {switchPinIsSet ? "Change PIN" : "Set PIN"}
+                </button>
+                {switchPinIsSet && (
+                  <button className="btn btn-outline btn-sm grow" style={{ color: "var(--red-600)", borderColor: "var(--red-200)" }} onClick={() => setPinSheet("remove")}>
+                    Remove PIN
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Language */}
         <div>
@@ -264,6 +312,17 @@ export default function Settings() {
             </div>
           </div>
         </div>
+      )}
+
+      {pinSheet === "set" && (
+        <PinEntrySheet mode="set" onClose={() => setPinSheet(null)} onSaved={() => setPinSheet(null)} />
+      )}
+      {pinSheet === "remove" && (
+        <PinEntrySheet
+          mode="verify"
+          onClose={() => setPinSheet(null)}
+          onVerified={(pin) => { if (!removingPin) void handleRemovePin(pin); }}
+        />
       )}
     </div>
   );

@@ -41,13 +41,11 @@ export function RadiusStrip({
             style={{ position: "fixed", inset: 0, zIndex: 1100 }}
             onClick={() => setShowCustom(false)}
           />
-          <div style={{
+          <div className="map-glass-panel" style={{
             position: "absolute", bottom: "calc(80px + var(--safe-area-bottom))", left: "50%", transform: "translateX(-50%)",
             zIndex: 1200,
-            background: "#fff",
             borderRadius: 20,
             padding: "16px 18px",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.22)",
             minWidth: 240,
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-500)", marginBottom: 10, letterSpacing: 0.4 }}>
@@ -73,6 +71,7 @@ export function RadiusStrip({
                   color: "var(--ink-900)",
                   outline: "none",
                   width: 0,
+                  background: "rgba(255, 255, 255, 0.7)",
                 }}
               />
               <span style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-500)", flexShrink: 0 }}>km</span>
@@ -98,14 +97,11 @@ export function RadiusStrip({
       )}
 
       {/* Radius selector strip */}
-      <div style={{
+      <div className="map-glass-panel" style={{
         position: "absolute", bottom: "calc(24px + var(--safe-area-bottom))", left: "50%", transform: "translateX(-50%)",
         zIndex: 1000,
-        background: "rgba(255,255,255,0.96)",
-        backdropFilter: "blur(14px)",
         borderRadius: 30,
         padding: "6px 10px",
-        boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
         display: "flex", gap: 2,
         maxWidth: "calc(100% - 32px)",
         overflowX: "auto",
@@ -160,4 +156,5 @@ export function RadiusStrip({
       </div>
     </>
   );
+
 }

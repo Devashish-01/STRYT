@@ -45,6 +45,7 @@ export default function QueueManager() {
   const [called, setCalled] = useState<Token[]>([]);
   const [served, setServed] = useState<Token[]>([]);
   const [verifying, setVerifying] = useState<string | null>(null);
+  const [nudging, setNudging] = useState<string | null>(null);
   const isInputFocused = useRef(false);
 
   const { data, loading, refetch } = useQueryWithRealtime(
@@ -88,6 +89,18 @@ export default function QueueManager() {
       showToast(e?.message || "Couldn't reject — try again");
     } finally {
       setVerifying(null);
+    }
+  }
+
+  async function nudgePayment(token: Token) {
+    setNudging(token.id);
+    try {
+      await businessService.nudgeQueuePayment(token.id);
+      showToast(`🔔 Payment request sent — ${token.name}`);
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't send payment nudge.");
+    } finally {
+      setNudging(null);
     }
   }
 
@@ -377,7 +390,9 @@ export default function QueueManager() {
                       </div>
                       {t.paymentStatus === "PAID" && paymentRow(t)}
                       {(!t.paymentStatus || t.paymentStatus === "UNPAID" || t.paymentStatus === "REJECTED") && (
-                        <span className="tiny muted">Not paid yet</span>
+                        <button className="btn btn-outline btn-sm" style={{ fontSize: 10, padding: "3px 8px", color: "var(--amber-700)", borderColor: "var(--amber-200)" }} disabled={nudging === t.id} onClick={() => nudgePayment(t)}>
+                          🔔 {nudging === t.id ? "Sending…" : "Request payment"}
+                        </button>
                       )}
                     </div>
                     {t.paymentStatus === "PENDING_CONFIRM" && paymentRow(t)}

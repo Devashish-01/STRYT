@@ -17,25 +17,40 @@ import { Skeleton } from "@/components/states";
  */
 export default function BusinessAccessGuard() {
   const { id = "" } = useParams();
-  const { ownedBusinessIds, setContext, showToast } = useApp();
+  const { ownedBusinessIds, ownedEntitiesLoaded, setContext, showToast } = useApp();
   const isOwner = ownedBusinessIds.includes(id);
 
   // Owners never need the network round trip — they always have access.
-  const [status, setStatus] = useState<"checking" | "allowed" | "denied">(isOwner ? "allowed" : "checking");
+  const [status, setStatus] = useState<"checking" | "allowed" | "denied" | "retry">(isOwner ? "allowed" : "checking");
+  const [attempt, setAttempt] = useState(0);
+  const [waitedEnough, setWaitedEnough] = useState(false);
+
+  // Give ownedBusinessIds up to 2.5s to hydrate (skips an unnecessary network
+  // round trip for the common case: an owner reopening the app). Bounded so
+  // access is never stuck waiting forever if hydration never completes —
+  // after the wait, fall through to the server-authoritative RPC regardless,
+  // same as a non-owner/delegate always has.
+  useEffect(() => {
+    if (ownedEntitiesLoaded) return;
+    const timer = window.setTimeout(() => setWaitedEnough(true), 2500);
+    return () => window.clearTimeout(timer);
+  }, [ownedEntitiesLoaded]);
 
   useEffect(() => {
     if (isOwner) {
       setStatus("allowed");
       return;
     }
+    if (!ownedEntitiesLoaded && !waitedEnough) return;
     let active = true;
     setStatus("checking");
-    businessAccessService.checkAccess(id).then((ok) => {
+    businessAccessService.checkAccess(id).then((result) => {
       if (!active) return;
-      setStatus(ok ? "allowed" : "denied");
+      if (result === "ERROR") setStatus("retry");
+      else setStatus(result === "ALLOWED" ? "allowed" : "denied");
     });
     return () => { active = false; };
-  }, [id, isOwner]);
+  }, [id, isOwner, ownedEntitiesLoaded, waitedEnough, attempt]);
 
   if (status === "checking") {
     return (
@@ -43,6 +58,16 @@ export default function BusinessAccessGuard() {
         <Skeleton h={40} mb={16} />
         <Skeleton h={120} mb={12} />
         <Skeleton h={120} />
+      </div>
+    );
+  }
+
+  if (status === "retry") {
+    return (
+      <div className="screen page-pad center-v center-h col gap-12" style={{ paddingTop: "calc(20px + var(--safe-area-top))", minHeight: "60vh", textAlign: "center" }}>
+        <div className="semi">Couldn't verify your access</div>
+        <div className="small muted">Check your connection and try again — nothing about your access has changed.</div>
+        <button className="btn btn-primary" onClick={() => setAttempt((a) => a + 1)}>Retry</button>
       </div>
     );
   }

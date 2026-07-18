@@ -30,6 +30,7 @@ const seedUser: CurrentUser = {
 };
 import { userService } from "@/services/core/userService";
 import { authService } from "@/services/core/authService";
+import { switchPinService } from "@/services/core/switchPinService";
 import { notificationService } from "@/services/engagement/notificationService";
 import { chatService } from "@/services/engagement/chatService";
 import { registerPush } from "@/lib/pushNotifications";
@@ -71,6 +72,25 @@ interface AppState {
   setContext: (ctx: ActiveContext) => void;
   ownedBusinessIds: string[];
   ownedProviderId: string | null;
+  // true once refreshUser()'s owned-entities read has actually succeeded at
+  // least once (not flipped in a finally, unlike profileReady) — lets
+  // BusinessAccessGuard/ProviderAccessGuard trust an empty ownedBusinessIds
+  // as "really empty" instead of "still loading".
+  ownedEntitiesLoaded: boolean;
+
+  // profile-switch PIN gate — switching INTO business/provider (never back to
+  // customer) is held here until the PIN sheet confirms or cancels it.
+  switchPinIsSet: boolean;
+  pendingContextSwitch: { ctx: ActiveContext; dest: string } | null;
+  /** Returns true if the caller should navigate immediately (no PIN needed);
+   *  false means the switch is pending PIN verification via PinGateSheet. */
+  attemptSwitchContext: (ctx: ActiveContext, dest: string) => boolean;
+  /** PinGateSheet: commits the pending switch's context and returns its dest
+   *  to navigate to, or null if there was nothing pending. */
+  confirmPendingSwitch: () => string | null;
+  cancelPendingSwitch: () => void;
+  /** Re-fetches whether a switch PIN is set — call after set/clear. */
+  refreshSwitchPinStatus: () => Promise<void>;
 
   // bookmarks
   bookmarks: BookmarkKey[];
@@ -226,6 +246,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // owned entities — hydrated from userService.owned() once authed.
   const [ownedBusinessIds, setOwnedBusinessIds] = useState<string[]>([]);
   const [ownedProviderId, setOwnedProviderId] = useState<string | null>(null);
+  const [ownedEntitiesLoaded, setOwnedEntitiesLoaded] = useState(false);
+  const [switchPinIsSet, setSwitchPinIsSet] = useState(false);
+  const [pendingContextSwitch, setPendingContextSwitch] = useState<{ ctx: ActiveContext; dest: string } | null>(null);
   const [activeContext, setActiveContext] = useState<ActiveContext>(() => {
     const cached = localStorage.getItem("activeContext");
     if (cached) {
@@ -316,6 +339,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setRoles(me.roles);
       setOwnedBusinessIds(owned.businessIds);
       setOwnedProviderId(owned.providerId);
+      setOwnedEntitiesLoaded(true);
       setActiveContext((ctx) => {
         if (ctx.type === "customer") {
           const next: ActiveContext = { type: "customer", id: null, name: me.name };
@@ -375,6 +399,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void autoRefreshLocation();
       });
       void hydratePersonalData();
+      void switchPinService.isSet().then(setSwitchPinIsSet).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthed]);
@@ -387,6 +412,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setPersistedContext = useCallback((ctx: ActiveContext) => {
     setActiveContext(ctx);
     localStorage.setItem("activeContext", JSON.stringify(ctx));
+  }, []);
+
+  // Single gate every "switch into business/provider" call site routes
+  // through, instead of each one pairing setContext+nav by convention (the
+  // drift risk that let context and URL disagree). Switching back to
+  // customer is never gated — only entering a business/provider hat is.
+  const attemptSwitchContext = useCallback((ctx: ActiveContext, dest: string): boolean => {
+    if (ctx.type === "customer" || !switchPinIsSet) {
+      setPersistedContext(ctx);
+      return true;
+    }
+    setPendingContextSwitch({ ctx, dest });
+    return false;
+  }, [switchPinIsSet, setPersistedContext]);
+
+  const confirmPendingSwitch = useCallback((): string | null => {
+    const pending = pendingContextSwitch;
+    if (!pending) return null;
+    setPersistedContext(pending.ctx);
+    setPendingContextSwitch(null);
+    return pending.dest;
+  }, [pendingContextSwitch, setPersistedContext]);
+
+  const cancelPendingSwitch = useCallback(() => {
+    setPendingContextSwitch(null);
+  }, []);
+
+  const refreshSwitchPinStatus = useCallback(async () => {
+    const isSet = await switchPinService.isSet().catch(() => false);
+    setSwitchPinIsSet(isSet);
   }, []);
 
   const value = useMemo<AppState>(
@@ -416,6 +471,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setContext: setPersistedContext,
       ownedBusinessIds,
       ownedProviderId,
+      ownedEntitiesLoaded,
+      switchPinIsSet,
+      pendingContextSwitch,
+      attemptSwitchContext,
+      confirmPendingSwitch,
+      cancelPendingSwitch,
+      refreshSwitchPinStatus,
       bookmarks,
       toggleBookmark,
       isBookmarked,
@@ -469,6 +531,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setRoles(seedUser.roles);
         setOwnedBusinessIds([]);
         setOwnedProviderId(null);
+        setOwnedEntitiesLoaded(false);
+        setSwitchPinIsSet(false);
+        setPendingContextSwitch(null);
         setActiveContext({ type: "customer", id: null, name: seedUser.name });
         localStorage.removeItem("locationPromptShown");
         localStorage.removeItem("activeContext");
@@ -479,6 +544,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       viewUser, refreshUser,
       area, activeRole, roles, activeContext, ownedBusinessIds, ownedProviderId,
+      ownedEntitiesLoaded, switchPinIsSet, pendingContextSwitch,
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
       unread, chatUnread, toast, isAuthed, authReady, profileReady,
@@ -487,6 +553,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,
       setPersistedActiveRole, setPersistedContext, markAllRead, decrementUnread, setChatUnread, setIsAuthed,
+      attemptSwitchContext, confirmPendingSwitch, cancelPendingSwitch, refreshSwitchPinStatus,
     ]
   );
 

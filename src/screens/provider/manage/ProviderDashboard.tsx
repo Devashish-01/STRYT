@@ -18,6 +18,7 @@ import ShareCard from "@/components/ShareCard";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
+import { SetupChecklist } from "@/components/SetupChecklist";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
@@ -118,14 +119,12 @@ export default function ProviderDashboard() {
   const requiresPaymentFirst = (a: AppointmentRecord) => p?.paymentTiming === "AT_BOOKING" && a.paymentStatus !== "PAID";
 
   // Guided setup checklist — shown until every step is done.
-  const checklistSteps = [
+  const checklistItems = [
     { label: "Add a service to your catalog", done: (p?.catalog?.length ?? 0) > 0, onClick: () => nav(`${base}/catalog`) },
     { label: "Set your availability", done: !!p?.availabilityNote && p.availabilityNote !== DEFAULT_ONBOARD_WORKING_HOURS, onClick: () => nav(`${base}/availability`) },
     { label: "Upload verification", done: !!p?.verificationStatus, onClick: () => nav(`${base}/verify`) },
     { label: "Post your first community update", done: (provPosts?.length ?? 0) > 0, onClick: () => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } }) },
   ];
-  const checklistDone = checklistSteps.filter((s) => s.done).length;
-  const showChecklist = !!p && checklistDone < checklistSteps.length;
 
   async function toggleAvail() {
     const prev = available;
@@ -181,10 +180,14 @@ export default function ProviderDashboard() {
         borderBottomRightRadius: 24,
         boxShadow: "0 8px 30px rgba(22, 163, 74, 0.15)",
         position: "relative",
-        overflow: "hidden",
         transition: "background 0.6s ease, background-position 0.6s ease",
       }}>
-        <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
+        {/* Clips only the decorative sky layer — the header itself must NOT
+            clip, or RoleSwitcher's dropdown (a sibling below) gets cut off
+            the moment it's taller than the header. */}
+        <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
+          <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
+        </div>
         <div style={{ position: "relative", zIndex: 1 }}>
           <div className="row between" style={{ marginBottom: 12, alignItems: "center" }}>
             <BrandHome color="#fff" glow={ambient.lampGlow} />
@@ -204,7 +207,7 @@ export default function ProviderDashboard() {
 
           {/* Top navigation row */}
           <div className="row between">
-            <RoleSwitcher theme="dark-pill" />
+            <RoleSwitcher theme="dark-pill" enableLongPress />
             <div className="row gap-8" style={{ alignItems: "center" }}>
               <button
                 className="icon-btn-sm"
@@ -284,27 +287,9 @@ export default function ProviderDashboard() {
         </div>
 
         {/* ── Guided setup checklist — new providers only ── */}
-        {showChecklist && (
+        {p && (
           <div className="page-pad">
-            <div className="card" style={{ padding: 16 }}>
-              <div className="row between" style={{ marginBottom: 8 }}>
-                <span className="semi small">Finish setting up your profile</span>
-                <span className="tiny semi muted">{checklistDone}/{checklistSteps.length}</span>
-              </div>
-              <div style={{ height: 6, borderRadius: 3, background: "var(--ink-100)", overflow: "hidden", marginBottom: 12 }}>
-                <div style={{ height: "100%", width: `${(checklistDone / checklistSteps.length) * 100}%`, background: "var(--green-500)", transition: "width 0.3s" }} />
-              </div>
-              <div className="col gap-8">
-                {checklistSteps.map((s) => (
-                  <button key={s.label} className="row gap-10 align-center" style={{ width: "100%", textAlign: "left" }} onClick={s.onClick} disabled={s.done}>
-                    <span style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, background: s.done ? "var(--green-500)" : "var(--ink-100)", color: s.done ? "#fff" : "var(--ink-400)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>
-                      {s.done ? "✓" : ""}
-                    </span>
-                    <span className={`small ${s.done ? "muted" : "semi"}`} style={{ textDecoration: s.done ? "line-through" : "none" }}>{s.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <SetupChecklist title="Finish setting up your profile" items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
           </div>
         )}
 

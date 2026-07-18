@@ -180,15 +180,16 @@ export default function MapView() {
 
           {/* Set-location-manually trigger, stacked above the recenter button */}
           <button
-            className="icon-btn"
+            className="icon-btn map-glass-panel"
             title="Set location manually"
             onClick={pin.enterPickMode}
-            style={{ background: "#fff", boxShadow: "var(--shadow)", position: "absolute", bottom: 140, right: 16, zIndex: 1000 }}
+            style={{ position: "absolute", bottom: 140, right: 16, zIndex: 1000 }}
           >
             <MapPinPlus size={18} color="var(--brand-600)" />
           </button>
         </>
       )}
+
 
       {/* Full-screen map */}
       <MapContainer
@@ -198,8 +199,8 @@ export default function MapView() {
         zoomControl={false}
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.mapbox.com/">Mapbox</a>'
-          url={`https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/256/{z}/{x}/{y}?access_token=${config.mapboxToken}`}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
         />
 
         <RadiusController lat={centerLat} lng={centerLng} radiusKm={radiusKm} />

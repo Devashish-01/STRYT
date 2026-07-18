@@ -31,6 +31,7 @@ import { isMockTarget } from "@/services/engagement/appointmentService";
 import { DEFAULT_MOCK_WORKING_HOURS } from "@/utils/availability";
 import { PLACEHOLDER_PROVIDER_AVATAR, PLACEHOLDER_PORTFOLIO_IMAGE } from "@/lib/placeholders";
 import { uploadService } from "@/services/core/uploadService";
+import { leadText } from "@/lib/leadText";
 
 // Columns on the providers table; everything else (portfolio, distanceKm…) stripped.
 const PROVIDER_COLUMNS = new Set([
@@ -302,10 +303,16 @@ export const providerService = {
       kind: l.kind,
       name: l.from?.name ?? "Someone",
       avatar: l.from?.avatar ?? "",
-      text: l.note || "Reached out via STRYT",
+      text: leadText(l.kind, l.note),
       time: relDate(l.created_at),
       handled: l.handled,
     }));
+  },
+  async markLeadHandled(leadId: string) {
+    const sb = getSupabase();
+    const { error } = await sb.from("leads").update({ handled: true }).eq("id", leadId);
+    throwIfError(error);
+    return { ok: true };
   },
   async analytics(id: string): Promise<ProviderAnalytics> {
     const sb = getSupabase();

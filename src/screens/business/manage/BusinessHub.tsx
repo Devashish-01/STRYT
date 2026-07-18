@@ -8,6 +8,7 @@ import {
   Search, Settings, Star, Store, User, Users, Wallet,
 } from "@/components/Icons";
 import type { QueueOwnerToken } from "@/types";
+import { deriveMoneySummary } from "@/utils/paymentSummary";
 import ManageNav from "./ManageNav";
 
 interface HubLink {
@@ -30,10 +31,7 @@ export default function BusinessHub() {
   if (!id) return <div className="screen"><AppBar title="Business" /><ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} /></div>;
 
   const queueTokens: QueueOwnerToken[] = [...(queue?.waiting ?? []), ...(queue?.called ?? []), ...(queue?.served ?? [])];
-  const appointmentClaims = (appointments ?? []).filter((item) => item.paymentStatus === "PENDING_CONFIRM");
-  const queueClaims = queueTokens.filter((item) => item.paymentStatus === "PENDING_CONFIRM");
-  const paid = [...(appointments ?? []).filter((item) => item.paymentStatus === "PAID"), ...queueTokens.filter((item) => item.paymentStatus === "PAID")];
-  const recordedAmount = paid.reduce((sum, item) => sum + (item.paymentAmount ?? 0), 0);
+  const { paymentClaims, paidRecords, recordedAmount } = deriveMoneySummary(appointments ?? [], queueTokens);
   const unanswered = (questions ?? []).filter((item) => !item.answer).length;
 
   const communication: HubLink[] = [
@@ -48,7 +46,7 @@ export default function BusinessHub() {
   ];
   const profile: HubLink[] = [
     { icon: <Store size={19} color="var(--orange-500)" />, title: "Business profile", text: "Identity, contact and location", onClick: () => nav(`${base}/profile`) },
-    { icon: <Users size={19} color="var(--green-600)" />, title: "Team & access", text: "Managers, staff and delegated access", onClick: () => nav(`${base}/settings`) },
+    { icon: <Users size={19} color="var(--green-600)" />, title: "Delegated access", text: "Grant staff login to this business", onClick: () => nav("/account/business-access") },
     { icon: <BadgeCheck size={19} color="var(--green-600)" />, title: "Verification", text: "Documents and badge status", onClick: () => nav(`${base}/verify`) },
     { icon: <Settings size={19} color="var(--ink-600)" />, title: "Settings & privacy", text: "Business controls and account settings", onClick: () => nav(`${base}/settings`) },
   ];
@@ -61,8 +59,8 @@ export default function BusinessHub() {
           <section>
             <div className="small semi muted" style={{ marginBottom: 8 }}>Money</div>
             <div className="card" style={{ padding: 16 }}>
-              <div className="row gap-12 center-v"><span style={{ width: 42, height: 42, borderRadius: 12, background: "var(--green-100)", display: "grid", placeItems: "center" }}><Wallet size={21} color="var(--green-600)" /></span><div className="grow"><div className="bold">{recordedAmount > 0 ? inr(recordedAmount) : `${paid.length} payments`} recorded</div><div className="tiny muted">{appointmentClaims.length + queueClaims.length} waiting for confirmation</div></div></div>
-              <div className="row gap-8" style={{ marginTop: 12 }}><button className="btn btn-outline btn-sm grow" onClick={() => nav(`${base}/appointments`)}>Booking payments</button><button className="btn btn-outline btn-sm grow" onClick={() => nav(`${base}/queue`)}>Queue payments</button></div>
+              <div className="row gap-12 center-v"><span style={{ width: 42, height: 42, borderRadius: 12, background: "var(--green-100)", display: "grid", placeItems: "center" }}><Wallet size={21} color="var(--green-600)" /></span><div className="grow"><div className="bold">{recordedAmount > 0 ? inr(recordedAmount) : `${paidRecords.length} payments`} recorded</div><div className="tiny muted">{paymentClaims} waiting for confirmation</div></div></div>
+              <button className="btn btn-primary btn-sm btn-block" style={{ marginTop: 12 }} onClick={() => nav(`${base}/payments`)}>Open payments</button>
               <p className="tiny muted" style={{ marginTop: 9 }}>Summary covers records currently available in Bookings and the recent queue.</p>
             </div>
           </section>
