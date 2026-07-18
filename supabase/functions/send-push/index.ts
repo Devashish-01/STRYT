@@ -46,7 +46,12 @@ const admin = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
 );
 
-const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY");
+// VAPID public key is PUBLIC by design (it's shipped to browsers via
+// VITE_VAPID_PUBLIC_KEY). Fall back to the known public key so web push works
+// even if the VAPID_PUBLIC_KEY edge secret was never set — the private key
+// (VAPID_PRIVATE_KEY) is the only sensitive half and must still be a secret.
+const VAPID_PUBLIC = Deno.env.get("VAPID_PUBLIC_KEY")
+  ?? "BNA9V7sxLJVJNQfP7ueCA-_majXBa76gvlQp0RNLd2HEi2Z5dcTouf6mOAD9dTAXAojvMSi9IadhKGSpJ0oiHtE";
 const VAPID_PRIVATE = Deno.env.get("VAPID_PRIVATE_KEY");
 const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:team@stryt.app";
 
@@ -140,9 +145,37 @@ Deno.serve(async (req: Request) => {
   // verify_jwt gate accepts any validly-signed JWT (a normal user's access
   // token included), not just service-role ones, so this in-handler check
   // is the real boundary, not the gateway.
+  // The DB trigger authenticates with the project's service_role key (from the
+  // vault) as its Bearer token. We must NOT do a brittle string-equality check
+  // against Deno.env SUPABASE_SERVICE_ROLE_KEY — Supabase now injects a
+  // different-format service key into functions than the legacy JWT the trigger
+  // sends, so exact-match rejects every legitimate call with 403 (this was the
+  // "notifications not working" bug: 100% of pushes blocked here). Instead:
+  //   1. accept an exact match with the injected key (fast path), OR
+  //   2. accept any authentic service_role JWT — the platform gateway
+  //      (verify_jwt=true) has already verified the signature, so we only need
+  //      to confirm the `role` claim is service_role. A normal user's token has
+  //      role=authenticated and is still rejected, preserving the anti-phishing
+  //      boundary (no signed-in user can push arbitrary content to any userId).
   const authHeader = req.headers.get("Authorization") ?? "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!serviceKey || authHeader !== `Bearer ${serviceKey}`) {
+
+  const isServiceRoleJwt = (token: string): boolean => {
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) return false;
+      const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+      const payload = JSON.parse(atob(padded));
+      return payload?.role === "service_role";
+    } catch {
+      return false;
+    }
+  };
+
+  const authorized = (!!serviceKey && bearer === serviceKey) || isServiceRoleJwt(bearer);
+  if (!authorized) {
     return json({ error: "Forbidden: internal use only" }, 403, cors);
   }
 
