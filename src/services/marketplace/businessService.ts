@@ -508,9 +508,48 @@ export const businessService = {
   async update(id: string, patch: Partial<Business>) {
     const sb = getSupabase();
     const cols = pickColumns(patch as Record<string, unknown>, BUSINESS_COLUMNS);
+    // Location is review-gated: a business's live coordinates can ONLY change
+    // through requestLocationChange() -> adminService.approveLocationChange().
+    // Strip any lat/lng here so a plain profile save (or any other update
+    // caller) can never silently move the pin — and, in particular, can never
+    // push the owner's device location onto the live business coordinates,
+    // bypassing admin review. (lat/lng stay in BUSINESS_COLUMNS because
+    // businessService.create legitimately sets them at listing time.)
+    delete (cols as Record<string, unknown>).lat;
+    delete (cols as Record<string, unknown>).lng;
     const { data, error } = await sb.from("businesses").update(toSnake(cols)).eq("id", id).select().maybeSingle();
     throwIfError(error);
     return toCamel<Business>(data);
+  },
+
+  /**
+   * Owner requests a location change — the ONLY way to move a business, and it
+   * never goes live until an admin approves it (adminService.approveLocationChange).
+   * Writes ONLY the staging columns: it deliberately does NOT touch the live
+   * lat/lng/geom, so discovery keeps using the approved location until sign-off.
+   * The coords come from an explicit full-map picker, never from device GPS
+   * silently. Cast to `as any` because the pending_* columns are new (not yet
+   * in the generated database.types.ts).
+   */
+  async requestLocationChange(id: string, lat: number, lng: number) {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("businesses")
+      .update({
+        pending_lat: lat,
+        pending_lng: lng,
+        location_review_status: "PENDING",
+        pending_location_requested_at: new Date().toISOString(),
+      } as any)
+      .eq("id", id)
+      .select("id");
+    throwIfError(error);
+    // A no-op update (0 rows) means RLS blocked the write (not the owner / no
+    // manage access) — surface that instead of a false "submitted" toast.
+    if (!data || data.length === 0) {
+      throw new Error("Couldn't submit the location change — you may not have permission.");
+    }
+    return { ok: true };
   },
 
   async create(data: Partial<Business>) {
@@ -524,7 +563,12 @@ export const businessService = {
       sb.from("users").select("area").eq("id", uid).maybeSingle(),
     ]);
     const cols = pickColumns(data as Record<string, unknown>, BUSINESS_COLUMNS);
-    const row = { ...toSnake(cols), owner_user_id: uid, status: "ACTIVE" } as Record<string, any>;
+    // New businesses start PENDING — they must be approved by an admin before
+    // they appear in discovery (businesses_nearby/discoveryService filter
+    // status='ACTIVE'). The admin queue (adminService.queue/approve/reject)
+    // already surfaces PENDING businesses; onboarding UI already says
+    // "Submitted for review". Never insert ACTIVE directly (that skipped review).
+    const row = { ...toSnake(cols), owner_user_id: uid, status: "PENDING" } as Record<string, any>;
     if (row.lat === undefined || row.lat === null) {
       row.lat = (coords as any)?.lat ?? null;
     }
@@ -540,10 +584,14 @@ export const businessService = {
   },
 
   async submitForReview(id: string) {
+    // Puts the listing into the admin review queue (status PENDING). Only an
+    // admin (adminService.approve) may move it to ACTIVE, which is what makes
+    // it visible in discovery. Previously this set ACTIVE directly, which
+    // silently skipped the review the onboarding UI promises.
     const sb = getSupabase();
-    const { error } = await sb.from("businesses").update({ status: "ACTIVE" }).eq("id", id);
+    const { error } = await sb.from("businesses").update({ status: "PENDING" }).eq("id", id);
     throwIfError(error);
-    return { ok: true, status: "ACTIVE" };
+    return { ok: true, status: "PENDING" };
   },
 
   /**

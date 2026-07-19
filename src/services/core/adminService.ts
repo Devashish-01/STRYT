@@ -87,6 +87,20 @@ export interface AdminOverview {
   mau: string | number;
 }
 
+/** A business whose owner has requested a location change awaiting admin sign-off. */
+export interface PendingLocationChange {
+  id: string;
+  name: string;
+  coverImage: string;
+  /** Current (live) coordinates — what discovery uses right now. */
+  lat: number | null;
+  lng: number | null;
+  /** Requested (staged) coordinates — go live only on approve. */
+  pendingLat: number | null;
+  pendingLng: number | null;
+  ownerUserId: string | null;
+}
+
 export const adminService = {
   async overview(): Promise<AdminOverview> {
     const sb = getSupabase();
@@ -399,6 +413,113 @@ export const adminService = {
       }
     }
 
+    return { ok: true };
+  },
+
+  // ── Business location change review ────────────────────────────────────
+  // Owners can only *request* a move (businessService.requestLocationChange,
+  // which writes the pending_* staging columns); the live location and the
+  // geom discovery reads never change until an admin approves it here. Casts
+  // to `as any` are for the pending_* / location_review_status columns, which
+  // are new and not yet in the generated database.types.ts.
+
+  /** Businesses with a location change awaiting review (status 'PENDING'). */
+  async pendingLocationChanges(): Promise<PendingLocationChange[]> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.from("businesses") as any)
+      .select("id, name, cover_image, lat, lng, pending_lat, pending_lng, owner_user_id")
+      .eq("location_review_status", "PENDING")
+      .order("pending_location_requested_at", { ascending: true });
+    throwIfError(error);
+    return ((data ?? []) as any[]).map((b) => ({
+      id: b.id,
+      name: b.name,
+      coverImage: b.cover_image ?? "",
+      lat: b.lat ?? null,
+      lng: b.lng ?? null,
+      pendingLat: b.pending_lat ?? null,
+      pendingLng: b.pending_lng ?? null,
+      ownerUserId: b.owner_user_id ?? null,
+    }));
+  },
+
+  /** Approve: promote the staged coords onto the live lat/lng (geom re-syncs
+   *  automatically via the businesses_geom trigger), clear staging, notify owner. */
+  async approveLocationChange(id: string) {
+    const sb = getSupabase();
+    const { data: biz, error: readErr } = await (sb.from("businesses") as any)
+      .select("owner_user_id, pending_lat, pending_lng")
+      .eq("id", id)
+      .maybeSingle();
+    throwIfError(readErr);
+    if (!biz || biz.pending_lat == null || biz.pending_lng == null) {
+      throw new Error("No pending location to approve for this business.");
+    }
+
+    const { error } = await (sb.from("businesses") as any)
+      .update({
+        lat: biz.pending_lat,
+        lng: biz.pending_lng,
+        pending_lat: null,
+        pending_lng: null,
+        location_review_status: "NONE",
+        pending_location_requested_at: null,
+      })
+      .eq("id", id);
+    throwIfError(error);
+
+    const ownerId = biz.owner_user_id as string | undefined;
+    if (ownerId) {
+      try {
+        await notificationService.send(
+          ownerId,
+          "Location updated ✓",
+          "Your business location change was approved and is now live.",
+          `/business/${id}/manage`,
+          "SYSTEM"
+        );
+      } catch (err) {
+        console.warn("Failed to send location approval notification:", err);
+      }
+    }
+    return { ok: true };
+  },
+
+  /** Reject: discard the staged coords and reset status. Live location is left
+   *  exactly as it was; the owner is notified (with an optional reason). */
+  async rejectLocationChange(id: string, reason?: string) {
+    const sb = getSupabase();
+    const { data: biz, error: readErr } = await sb
+      .from("businesses")
+      .select("owner_user_id")
+      .eq("id", id)
+      .maybeSingle();
+    throwIfError(readErr);
+
+    const { error } = await (sb.from("businesses") as any)
+      .update({
+        pending_lat: null,
+        pending_lng: null,
+        location_review_status: "NONE",
+        pending_location_requested_at: null,
+      })
+      .eq("id", id);
+    throwIfError(error);
+
+    const ownerId = biz?.owner_user_id as string | undefined;
+    if (ownerId) {
+      try {
+        await notificationService.send(
+          ownerId,
+          "Location change not approved",
+          reason ? `Reason: ${reason}` : "Your business location change request was not approved.",
+          `/business/${id}/manage`,
+          "SYSTEM"
+        );
+      } catch (err) {
+        console.warn("Failed to send location rejection notification:", err);
+      }
+    }
     return { ok: true };
   },
 
