@@ -81,6 +81,11 @@ export default function ProviderDashboard() {
   const [busyApt, setBusyApt] = useState<string | null>(null);
   const base = `/provider/${id}/manage`;
 
+  // Read-only reach shown in the header; editing lives on the profile page
+  // (Profile → Identity) — mirrors the business console's dashboard header.
+  const radiusKm = p?.serviceRadiusKm ?? 10;
+  const radiusLabel = radiusKm >= 5000 ? "🌍 Worldwide" : radiusKm === 0.5 ? "500 m" : `${radiusKm} km`;
+
   useEffect(() => {
     if (p) setAvailable(p.isAvailableNow ?? false);
   }, [p]);
@@ -282,7 +287,7 @@ export default function ProviderDashboard() {
               <div className="small" style={{ color: "#fff", opacity: 0.9, marginTop: 2, display: "flex", flexDirection: "column", gap: 2 }}>
                 <span>{p?.categoryName}</span>
                 <span className="tiny" style={{ opacity: 0.8, fontWeight: 500 }}>
-                  {ambient.greeting} • {ambient.ambientSubtitle.toLowerCase()}
+                  {ambient.greeting} • {ambient.ambientSubtitle.toLowerCase()} • 📡 {radiusLabel} reach
                 </span>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   BadgeCheck, Bell, Calendar, Camera, Check, ChevronRight, HelpCircle,
@@ -29,7 +29,6 @@ import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 import { SetupChecklist } from "@/components/SetupChecklist";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
-import RadiusSelector from "@/components/RadiusSelector";
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
@@ -42,8 +41,6 @@ export default function ManageDashboard() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
-  const [broadcastRadius, setBroadcastRadius] = useState(5);
-  const radiusSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: business } = useQuery(() => businessService.get(id), [id]);
   const { data: posts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
@@ -80,10 +77,6 @@ export default function ManageDashboard() {
   }, [business]);
 
   useEffect(() => {
-    if (business) setBroadcastRadius(business.broadcastRadius ?? 5);
-  }, [business?.broadcastRadius]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
     if (!business?.boostedUntil || business.boostReminderSent) return;
     const hoursLeft = (new Date(business.boostedUntil).getTime() - Date.now()) / 3_600_000;
     if (hoursLeft > 0 && hoursLeft <= 24) {
@@ -95,7 +88,7 @@ export default function ManageDashboard() {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Today" />
+        <AppBar title="Home" />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
       </div>
     );
@@ -110,6 +103,9 @@ export default function ManageDashboard() {
   const unanswered = (questions ?? []).filter((item) => !item.answer);
   const actionCount = pendingAppointments.length + paymentClaims + unanswered.length;
   const range = business?.broadcastRadius ?? 5;
+  // Read-only reach shown in the header; editing lives on the dedicated
+  // Broadcast radius screen (Business hub) now, not on this dashboard.
+  const radiusLabel = range >= 5000 ? "🌍 Worldwide" : range === 0.5 ? "500 m" : `${range} km`;
   const matchingRequests = ((requestFeed?.data ?? []) as RequestPost[])
     .filter((item) => item.status === "OPEN")
     .filter((item) => !item.categoryId || !business?.categoryId || item.categoryId === business.categoryId)
@@ -245,14 +241,6 @@ export default function ManageDashboard() {
     businessAvatar: business?.coverImage,
   };
 
-  function handleRadiusChange(km: number) {
-    setBroadcastRadius(km);
-    if (radiusSaveTimer.current) clearTimeout(radiusSaveTimer.current);
-    radiusSaveTimer.current = setTimeout(() => {
-      businessService.update(id, { broadcastRadius: km } as any).catch(() => showToast("Couldn't save radius"));
-    }, 600);
-  }
-
   return (
     <div className="screen with-nav">
       <header className="living-sky-header" style={{
@@ -291,7 +279,7 @@ export default function ManageDashboard() {
                 {business?.isVerified && <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />}
               </div>
               <div className="small" style={{ opacity: .9, color: "#fff" }}>{business?.subCategory || business?.categoryName || "Local business"}</div>
-              <div className="tiny" style={{ opacity: .78, marginTop: 3, color: "#fff" }}>{ambient.greeting} · {business?.ratingAvg ?? 0}★</div>
+              <div className="tiny" style={{ opacity: .78, marginTop: 3, color: "#fff" }}>{ambient.greeting} · {business?.ratingAvg ?? 0}★ · 📡 {radiusLabel} reach</div>
             </div>
             <button className="tiny semi" style={{ color: "#fff", background: "rgba(255,255,255,.16)", padding: "7px 10px", borderRadius: 999 }} onClick={() => nav(`/business/${id}`)}>
               View shop
@@ -428,16 +416,6 @@ export default function ManageDashboard() {
             <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left", background: "var(--orange-50)" }} onClick={() => nav(`${base}/requests`)}><Search size={20} color="var(--orange-600)" /><div className="grow"><div className="semi small">{matchingRequests.length} nearby request{matchingRequests.length === 1 ? "" : "s"} match you</div><div className="tiny muted">Send a proposal to win the work</div></div><ChevronRight size={18} color="var(--orange-500)" /></button>
           </section>
         )}
-
-        <section className="page-pad" style={{ paddingTop: 0 }}>
-          <div className="small semi muted" style={{ marginBottom: 8 }}>Broadcast radius</div>
-          <RadiusSelector
-            value={broadcastRadius}
-            onChange={handleRadiusChange}
-            accentColor="var(--brand-600)"
-            description="Customers and requests within this distance can discover you."
-          />
-        </section>
 
         <section className="page-pad" style={{ paddingTop: 0 }}>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Grow</div>

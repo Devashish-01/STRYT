@@ -2,11 +2,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, SafeImg, StarRow } from "@/components/common";
 import { providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
+import { useApp } from "@/store";
 import { Skeleton, ErrorView } from "@/components/states";
 import ProviderManageNav from "./ProviderManageNav";
 import {
   User, Clock, Image as ImageIcon, BadgeCheck, Settings, ChevronRight,
-  Star, Wallet, Globe, FileText, Inbox,
+  Star, Wallet, Globe, FileText, Inbox, LogOut,
 } from "@/components/Icons";
 
 // The provider's single identity home: a preview of what customers see, plus
@@ -16,6 +17,7 @@ import {
 export default function ProviderProfileHub() {
   const { id = "" } = useParams();
   const nav = useNavigate();
+  const { signOut } = useApp();
   const base = `/provider/${id}/manage`;
 
   const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id), [id]);
@@ -161,6 +163,15 @@ export default function ProviderProfileHub() {
             </div>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => { signOut(); nav("/"); }}
+          className="row center gap-8"
+          style={{ padding: "13px", width: "100%", background: "var(--red-50)", border: "1px solid var(--red-500)", borderRadius: 12, color: "var(--red-600)", fontWeight: 700, cursor: "pointer" }}
+        >
+          <LogOut size={17} /> Log out
+        </button>
 
       </div>
       <ProviderManageNav pid={id} />

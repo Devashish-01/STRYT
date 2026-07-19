@@ -1,12 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Bell } from "@/components/Icons";
+import { Bell, ChevronRight, MapPin } from "@/components/Icons";
 import { useApp } from "@/store";
 import { providerService, profileControlService } from "@/services";
 import { ErrorView } from "@/components/states";
 import ProviderManageNav from "./ProviderManageNav";
-import RadiusSelector from "@/components/RadiusSelector";
 
 export default function ProviderSettings() {
   const { id = "" } = useParams();
@@ -35,8 +34,7 @@ export default function ProviderSettings() {
   const [showPhone, setShowPhone] = useState(true);
   const [showEmail, setShowEmail] = useState(false);
   const [locPublic, setLocPublic] = useState(false);
-  const [serviceRadius, setServiceRadius] = useState(10);
-  const radiusSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [serviceRadiusKm, setServiceRadiusKm] = useState(10);
 
   function persist(patch: Record<string, unknown>) {
     void providerService.update(id, patch as any).catch(() => showToast("Couldn't save — try again"));
@@ -59,7 +57,7 @@ export default function ProviderSettings() {
           setShowPhone(prov.showPhonePublicly !== false);
           setShowEmail(prov.showEmailPublicly === true);
           setLocPublic(prov.locationPublic === true);
-          setServiceRadius(prov.serviceRadiusKm ?? 10);
+          setServiceRadiusKm(prov.serviceRadiusKm ?? 10);
         }
         setLoading(false);
       })
@@ -107,21 +105,23 @@ export default function ProviderSettings() {
 
         {/* Payment setup now lives in the Money tab (UPI, QR, collection timing). */}
 
-        {/* Service radius */}
+        {/* Service radius — set from the profile page (Profile → Identity), not here. */}
         <div>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Service radius</div>
-          <RadiusSelector
-            value={serviceRadius}
-            onChange={(km) => {
-              setServiceRadius(km);
-              if (radiusSaveTimer.current) clearTimeout(radiusSaveTimer.current);
-              radiusSaveTimer.current = setTimeout(() => {
-                void providerService.update(id, { serviceRadiusKm: km } as any).catch(() => showToast("Couldn't save radius"));
-              }, 600);
-            }}
-            accentColor="var(--green-500)"
-            description="How far you're willing to travel or serve customers."
-          />
+          <button
+            className="card row between center-v"
+            style={{ width: "100%", padding: 14, textAlign: "left" }}
+            onClick={() => nav(`/provider/${id}/manage/edit-profile`)}
+          >
+            <div className="row gap-10 center-v">
+              <MapPin size={16} color="var(--green-600)" />
+              <div>
+                <div className="semi small">{serviceRadiusKm >= 5000 ? "🌍 Worldwide" : serviceRadiusKm === 0.5 ? "500 m" : `${serviceRadiusKm} km`}</div>
+                <div className="tiny muted">Edit on your profile page</div>
+              </div>
+            </div>
+            <ChevronRight size={16} color="var(--ink-300)" />
+          </button>
         </div>
 
         {/* Contact & privacy */}

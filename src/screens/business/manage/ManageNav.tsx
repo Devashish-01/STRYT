@@ -20,7 +20,7 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
     "/profile", "/verify", "/settings", "/payments",
   ];
   const items = [
-    { to: base, label: "Today", icon: Home, active: location.pathname === base },
+    { to: base, label: "Home", icon: Home, active: location.pathname === base },
     { to: `${base}/queue`, label: "Queue", icon: Users, active: location.pathname.startsWith(`${base}/queue`), badge: queueCount },
     { to: `${base}/appointments`, label: "Bookings", icon: CalendarClock, active: location.pathname.startsWith(`${base}/appointments`) },
     { to: `${base}/store`, label: "Store", icon: Store, active: storeRoutes.some((path) => location.pathname.startsWith(base + path)) },

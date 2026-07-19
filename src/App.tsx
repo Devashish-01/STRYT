@@ -87,6 +87,7 @@ const BusinessHub = lazy(() => import("./screens/business/manage/BusinessHub"));
 const CatalogManager = lazy(() => import("./screens/business/manage/CatalogManager"));
 const BusinessPortfolio = lazy(() => import("./screens/business/manage/BusinessPortfolio"));
 const ProfileEditor = lazy(() => import("./screens/business/manage/ProfileEditor"));
+const BroadcastRadius = lazy(() => import("./screens/business/manage/BroadcastRadius"));
 const HoursEditor = lazy(() => import("./screens/business/manage/HoursEditor"));
 const QueueManager = lazy(() => import("./screens/business/manage/QueueManager"));
 const QnaManager = lazy(() => import("./screens/business/manage/QnaManager"));
@@ -563,6 +564,7 @@ export default function App() {
               <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
               <Route path="/business/:id/manage/portfolio" element={<BusinessPortfolio />} />
               <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
+              <Route path="/business/:id/manage/broadcast" element={<BroadcastRadius />} />
               <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
               <Route path="/business/:id/manage/queue" element={<QueueManager />} />
               <Route path="/business/:id/manage/qna" element={<QnaManager />} />

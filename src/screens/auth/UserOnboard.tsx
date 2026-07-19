@@ -13,7 +13,7 @@ import {
   X,
 } from "@/components/Icons";
 import { useApp } from "@/store";
-import { isPhoneName } from "@/lib/publicName";
+import { isPhoneName, normalizeAlias, isValidAlias } from "@/lib/publicName";
 import { userService, uploadService } from "@/services";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import RadiusSelector from "@/components/RadiusSelector";
@@ -44,6 +44,9 @@ export default function UserOnboard() {
     user.name && user.name !== "New user" && !isPhoneName(user.name) ? user.name : ""
   );
 
+  // Unique public handle — collected up front at first sign-in (required).
+  const [username, setUsername] = useState(user.alias ?? "");
+
   // Location setup
   const [areaInput, setAreaInput] = useState(user.area || "");
   const [lat, setLat] = useState(user.lat || 0);
@@ -61,20 +64,6 @@ export default function UserOnboard() {
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  async function handleSkip() {
-    try {
-      await userService.update({
-        onboardingCompletedAt: new Date().toISOString(),
-        name: (!user.name || user.name === "New user") ? "Neighbor" : undefined,
-      });
-    } catch (e) {
-      console.warn("Soft update failed", e);
-    }
-    await refreshUser();
-    nav("/home", { replace: true });
-  }
-
 
   function selectEmoji(emoji: string) {
     const bgColors = ["var(--red-400)", "var(--accent-500)", "var(--amber-500)", "var(--green-500)", "var(--blue-500)", "var(--brand-400)", "var(--brand-300)", "var(--pink-500)"];
@@ -166,6 +155,11 @@ export default function UserOnboard() {
       return;
     }
 
+    if (!isValidAlias(username)) {
+      showToast("Pick a username: 3–20 letters, numbers, . or _");
+      return;
+    }
+
     let resolvedLat = lat;
     let resolvedLng = lng;
     if (areaInput.trim() && (lat === 0 || lng === 0)) {
@@ -184,6 +178,7 @@ export default function UserOnboard() {
     try {
       await userService.update({
         name: trimmedName,
+        alias: normalizeAlias(username),
         area: areaInput.trim() || undefined,
         lat: resolvedLat || undefined,
         lng: resolvedLng || undefined,
@@ -200,9 +195,14 @@ export default function UserOnboard() {
       await refreshUser();
       showToast(t("account_setup_complete"));
       nav("/home");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to update profile";
-      showToast(msg);
+    } catch (err: any) {
+      // The partial unique index on lower(alias) rejects a taken handle.
+      const isDuplicate = err?.code === "23505" || /duplicate|unique|alias/i.test(err?.message ?? "");
+      showToast(
+        isDuplicate
+          ? `"@${normalizeAlias(username)}" is already taken — try another username`
+          : err instanceof Error ? err.message : "Failed to update profile"
+      );
     } finally {
       setSaving(false);
     }
@@ -252,27 +252,9 @@ export default function UserOnboard() {
           zIndex: 10,
         }}
       >
-        {/* Skip Setup Header Bar */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", padding: "16px 4px 8px", zIndex: 100 }}>
+        {/* Header Bar */}
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "100%", padding: "16px 4px 8px", zIndex: 100 }}>
           <div style={{ fontWeight: 800, fontSize: 16, color: "var(--brand-700)", letterSpacing: -0.5 }}>STRYT</div>
-          <button 
-            type="button"
-            onClick={handleSkip} 
-            style={{
-              background: "rgba(255, 255, 255, 0.8)",
-              border: "1px solid var(--ink-200)",
-              borderRadius: 12,
-              padding: "6px 12px",
-              fontSize: 12,
-              fontWeight: 700,
-              color: "var(--ink-600)",
-              cursor: "pointer",
-              backdropFilter: "blur(8px)",
-              transition: "all 0.2s"
-            }}
-          >
-            {t("skip_for_now")}
-          </button>
         </div>
 
         <div style={{ textAlign: "center", marginTop: 16, marginBottom: 20, width: "100%" }}>
@@ -386,6 +368,43 @@ export default function UserOnboard() {
               maxLength={40}
               required
             />
+          </div>
+
+          {/* Username Field (unique, required) */}
+          <div className="field" style={{ marginBottom: 20 }}>
+            <label style={{ display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
+              Username *
+            </label>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: 14, top: 13, fontSize: 15, fontWeight: 700, color: "var(--ink-400)" }}>@</span>
+              <input
+                type="text"
+                className="input"
+                style={{
+                  width: "100%",
+                  padding: "12px 14px 12px 30px",
+                  fontSize: 16,
+                  background: "var(--ink-50)",
+                  border: "1.5px solid var(--ink-200)",
+                  borderRadius: 14,
+                  color: "var(--ink-900)",
+                  outline: "none",
+                }}
+                placeholder="yourname"
+                value={username}
+                onChange={(e) => setUsername(normalizeAlias(e.target.value))}
+                disabled={saving}
+                maxLength={20}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+            </div>
+            <div className="tiny" style={{ marginTop: 5, color: username && !isValidAlias(username) ? "var(--red-500)" : "var(--ink-500)" }}>
+              {username && !isValidAlias(username)
+                ? "3–20 characters: letters, numbers, . or _"
+                : "Your unique public handle — how neighbors find you."}
+            </div>
           </div>
 
           {/* Location Area Field (optional but recommended) */}
@@ -661,7 +680,7 @@ export default function UserOnboard() {
         <button
           className="btn btn-primary btn-block row center gap-8"
           onClick={handleSave}
-          disabled={saving || !name.trim()}
+          disabled={saving || !name.trim() || !isValidAlias(username)}
           style={{ padding: "16px", fontSize: 16, fontWeight: 700, borderRadius: 16, width: "100%", zIndex: 10 }}
         >
           {saving ? (

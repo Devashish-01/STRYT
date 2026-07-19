@@ -2,9 +2,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { AppBar, inr } from "@/components/common";
 import { appointmentService, businessService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
+import { useApp } from "@/store";
 import { ErrorView } from "@/components/states";
 import {
-  BadgeCheck, ChevronRight, HelpCircle, Inbox, Megaphone, MessageSquareText,
+  BadgeCheck, ChevronRight, Globe, HelpCircle, Inbox, LogOut, Megaphone, MessageSquareText,
   Search, Settings, Star, Store, User, Users, Wallet,
 } from "@/components/Icons";
 import type { QueueOwnerToken } from "@/types";
@@ -22,6 +23,7 @@ interface HubLink {
 export default function BusinessHub() {
   const { id = "" } = useParams();
   const nav = useNavigate();
+  const { signOut } = useApp();
   const base = `/business/${id}/manage`;
   const { data: appointments } = useQueryWithRealtime(() => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`);
   const { data: queue } = useQueryWithRealtime(() => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`);
@@ -46,6 +48,7 @@ export default function BusinessHub() {
   ];
   const profile: HubLink[] = [
     { icon: <Store size={19} color="var(--orange-500)" />, title: "Business profile", text: "Identity, contact and location", onClick: () => nav(`${base}/profile`) },
+    { icon: <Globe size={19} color="var(--blue-500)" />, title: "Broadcast radius", text: "Set how far your shop reaches nearby", onClick: () => nav(`${base}/broadcast`) },
     { icon: <Users size={19} color="var(--green-600)" />, title: "Delegated access", text: "Grant staff login to this business", onClick: () => nav("/account/business-access") },
     { icon: <BadgeCheck size={19} color="var(--green-600)" />, title: "Verification", text: "Documents and badge status", onClick: () => nav(`${base}/verify`) },
     { icon: <Settings size={19} color="var(--ink-600)" />, title: "Settings & privacy", text: "Business controls and account settings", onClick: () => nav(`${base}/settings`) },
@@ -67,6 +70,14 @@ export default function BusinessHub() {
           <HubSection title="Customer communication" links={communication} />
           <HubSection title="Grow" links={grow} />
           <HubSection title="Business profile" links={profile} />
+          <button
+            type="button"
+            onClick={() => { signOut(); nav("/"); }}
+            className="row center gap-8"
+            style={{ marginTop: 4, padding: "13px", width: "100%", background: "var(--red-50)", border: "1px solid var(--red-500)", borderRadius: 12, color: "var(--red-600)", fontWeight: 700, cursor: "pointer" }}
+          >
+            <LogOut size={17} /> Log out
+          </button>
         </div>
         <div style={{ height: 20 }} />
       </div>
