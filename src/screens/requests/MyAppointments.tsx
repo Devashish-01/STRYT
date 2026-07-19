@@ -14,6 +14,7 @@ import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, Cale
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppointments";
+import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
 
 // A booking counts as "upcoming" while it is still live and in the future.
 function isUpcoming(a: AppointmentRecord): boolean {
@@ -27,6 +28,24 @@ function isUpcoming(a: AppointmentRecord): boolean {
 // passes — the payment step must not vanish just because that ran).
 function isPayable(status: AppointmentRecord["status"]): boolean {
   return status === "PENDING" || status === "ACCEPTED" || status === "COMPLETED";
+}
+
+// A booking that can still be paid and still needs the customer to act: payable
+// (PENDING/ACCEPTED/COMPLETED), not yet PAID, and not in a dead-end state
+// (cancelled/declined/no-show). These are kept in Upcoming even after their slot
+// passes so the payment step never silently drops into Past before it's done.
+function isUnpaidActionable(a: AppointmentRecord): boolean {
+  if (!isPayable(a.status)) return false;
+  if (a.status === "CANCELLED" || a.status === "REJECTED" || a.status === "NO_SHOW") return false;
+  return (a.paymentStatus ?? "UNPAID") !== "PAID";
+}
+
+// The Dismiss affordance is only for cards being *held back* in Upcoming past
+// their slot time (unpaid-actionable but no longer genuinely upcoming) — e.g. a
+// COMPLETED-but-unpaid booking. A normal future booking is cancelled, not
+// dismissed, so it deliberately gets no Dismiss button.
+function isDismissible(a: AppointmentRecord): boolean {
+  return isUnpaidActionable(a) && !isUpcoming(a);
 }
 
 interface RebookTarget {
@@ -53,6 +72,7 @@ export default function MyAppointments() {
   const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
   const [payBizUpiId, setPayBizUpiId] = useState<string | null>(null);
   const [loadingPay, setLoadingPay] = useState<string | null>(null);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(loadDismissedCards);
 
   const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForCustomer(user.id),
@@ -63,8 +83,16 @@ export default function MyAppointments() {
 
   const { upcomingList, pastList } = useMemo(() => {
     const all = data ?? [];
-    return { upcomingList: all.filter(isUpcoming), pastList: all.filter((a) => !isUpcoming(a)) };
-  }, [data]);
+    // Upcoming = genuinely future live bookings PLUS any unpaid-actionable one
+    // (even if its slot has passed), so the payment step can't vanish into Past.
+    // Dismissed cards are hidden from Upcoming; Past follows the plain split so a
+    // later-PAID booking still surfaces there as a normal historical record.
+    const shouldBeUpcoming = (a: AppointmentRecord) => isUpcoming(a) || isUnpaidActionable(a);
+    return {
+      upcomingList: all.filter((a) => shouldBeUpcoming(a) && !dismissedIds.has(a.id)),
+      pastList: all.filter((a) => !shouldBeUpcoming(a)),
+    };
+  }, [data, dismissedIds]);
   const list = tab === "UPCOMING" ? upcomingList : pastList;
   const upcomingCount = upcomingList.length;
 
@@ -81,6 +109,18 @@ export default function MyAppointments() {
     } finally {
       setCancelling(null);
     }
+  }
+
+  // Local-only hide for a stuck unpaid card. Makes NO server change — the
+  // booking is untouched; it just disappears from this device's lists
+  // (persisted, so it stays gone across reloads).
+  function dismissCard(id: string) {
+    setDismissedIds((prev) => {
+      const next = new Set(prev).add(id);
+      persistDismissedCards(next);
+      return next;
+    });
+    showToast("Appointment dismissed");
   }
 
   // Load the target's live hours + packages, then open the booking sheet.
@@ -261,6 +301,20 @@ export default function MyAppointments() {
                       >
                         <CreditCard size={13} />
                         {loadingPay === apt.id ? "Loading…" : apt.paymentStatus === "REJECTED" ? "Retry payment" : apt.packagePrice ? `Pay ₹${apt.packagePrice}` : "Pay now"}
+                      </button>
+                    )}
+
+                    {/* Stuck unpaid card (payable, past its slot, still owed): a
+                        subtle local-only dismiss. Does NOT cancel/modify the
+                        booking — just hides it on this device. */}
+                    {isDismissible(apt) && (
+                      <button
+                        type="button"
+                        className="tiny semi"
+                        style={{ alignSelf: "flex-start", color: "var(--ink-400)", background: "none", border: "none", cursor: "pointer", padding: "2px 0", textDecoration: "underline" }}
+                        onClick={() => dismissCard(apt.id)}
+                      >
+                        Dismiss
                       </button>
                     )}
 

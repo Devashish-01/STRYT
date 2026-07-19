@@ -2,7 +2,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import type { TablesInsert, TablesUpdate } from "@/lib/dbTypes";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import type { Business, CatalogItem, PortfolioItem, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken } from "@/types";
+import type { Business, CatalogItem, PortfolioItem, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken, QueueHistoryToken } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
@@ -274,6 +274,32 @@ export const businessService = {
     } finally {
       inFlightQueueOwnerState.delete(businessId);
     }
+  },
+
+  // Owner: full queue history — the past tokens (SERVED/LEFT/EXPIRED) for this
+  // business, newest first. queueOwnerState only surfaces SERVED rows from the
+  // last 24h (just enough to verify a late payment); this is the unbounded
+  // "everyone who's been through the line" view for the History tab.
+  async queueHistory(businessId: string): Promise<QueueHistoryToken[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("queue_tokens")
+      .select("id, customer_name, party_size, status, created_at, payment_status, payment_method, payment_amount")
+      .eq("business_id", businessId)
+      .in("status", ["SERVED", "LEFT", "EXPIRED"])
+      .order("created_at", { ascending: false })
+      .limit(50);
+    throwIfError(error);
+    return ((data ?? []) as any[]).map((t) => ({
+      id: t.id,
+      name: t.customer_name,
+      partySize: t.party_size,
+      joinedAtISO: t.created_at,
+      status: t.status,
+      paymentStatus: t.payment_status ?? "UNPAID",
+      paymentMethod: t.payment_method ?? null,
+      paymentAmount: t.payment_amount ?? null,
+    }));
   },
 
   /** Business verifies/rejects a queue payment claim, or a customer/owner claims one. */

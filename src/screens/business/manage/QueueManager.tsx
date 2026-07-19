@@ -2,10 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import LivePulseDot from "@/components/LivePulseDot";
-import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle, UserCheck } from "@/components/Icons";
+import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService } from "@/services";
-import { useQueryWithRealtime } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
 import type { QueueOwnerToken as Token } from "@/types";
 import ManageNav from "./ManageNav";
@@ -46,6 +46,7 @@ export default function QueueManager() {
   const [served, setServed] = useState<Token[]>([]);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [nudging, setNudging] = useState<string | null>(null);
+  const [view, setView] = useState<"LIVE" | "HISTORY">("LIVE");
   const isInputFocused = useRef(false);
 
   const { data, loading, refetch } = useQueryWithRealtime(
@@ -53,6 +54,13 @@ export default function QueueManager() {
     "queue_tokens",
     [businessId],
     `business_id=eq.${businessId}`
+  );
+
+  // Full past-queue history for the History tab (SERVED/LEFT/EXPIRED, newest
+  // first). Separate from the live board so switching tabs is instant.
+  const { data: historyData, loading: historyLoading, refetch: refetchHistory } = useQuery(
+    () => businessService.queueHistory(businessId),
+    [businessId]
   );
 
   useEffect(() => {
@@ -153,16 +161,6 @@ export default function QueueManager() {
     }
   }
 
-  async function markArrived(token: Token) {
-    setCalled((c) => c.map((t) => (t.id === token.id ? { ...t, arrivedAt: new Date().toISOString() } : t)));
-    try {
-      await businessService.markArrived(token.id);
-    } catch (e: any) {
-      setCalled((c) => c.map((t) => (t.id === token.id ? { ...t, arrivedAt: null } : t)));
-      showToast(e?.message || "Couldn't mark arrived — try again");
-    }
-  }
-
   async function removeToken(token: Token) {
     setCalled((c) => c.filter((x) => x.id !== token.id));
     try {
@@ -188,6 +186,7 @@ export default function QueueManager() {
   }
 
   const totalWait = waiting.length * avgTime;
+  const historyRows = historyData ?? [];
 
   function paymentRow(t: Token) {
     if (t.paymentStatus === "PAID") {
@@ -219,11 +218,19 @@ export default function QueueManager() {
   return (
     <div className="screen with-nav">
       <AppBar title="Live queue" right={
-        <button className="icon-btn" onClick={() => refetch()} title="Refresh">
+        <button className="icon-btn" onClick={() => { refetch(); refetchHistory(); }} title="Refresh">
           <RefreshCw size={17} />
         </button>
       } />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 30 }}>
+        {/* Live board vs. past queue history */}
+        <div className="hscroll" style={{ paddingBottom: 2 }}>
+          <button className={`chip ${view === "LIVE" ? "active" : ""}`} onClick={() => setView("LIVE")}>Live board</button>
+          <button className={`chip ${view === "HISTORY" ? "active" : ""}`} onClick={() => setView("HISTORY")}>History</button>
+        </div>
+
+        {view === "LIVE" && (
+          <>
         <button
           className="card row between"
           style={{ padding: 14, border: live ? "2px solid var(--green-500)" : "1px solid var(--line)" }}
@@ -315,13 +322,8 @@ export default function QueueManager() {
                           <div className="semi small">{t.name}</div>
                           {t.paymentStatus === "PAID" && paymentRow(t)}
                         </div>
-                        <div className="tiny muted">{t.partySize} · {t.arrivedAt ? "arrived ✓ — serving" : "called — awaiting arrival"}</div>
+                        <div className="tiny muted">{t.partySize} · called</div>
                       </div>
-                      {!t.arrivedAt && (
-                        <button className="btn btn-outline btn-sm" style={{ padding: "6px 10px" }} onClick={() => markArrived(t)}>
-                          <UserCheck size={15} /> Arrived
-                        </button>
-                      )}
                       <button className="btn btn-green btn-sm" style={{ padding: "6px 12px" }} onClick={() => serveToken(t, "called")}>
                         <Check size={15} /> Done
                       </button>
@@ -401,6 +403,53 @@ export default function QueueManager() {
               </div>
             )}
           </>
+        )}
+          </>
+        )}
+
+        {view === "HISTORY" && (
+          <div className="col gap-8">
+            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Past queue</span>
+            {historyLoading && (
+              <div className="card" style={{ padding: 24, textAlign: "center" }}>
+                <span className="muted small">Loading…</span>
+              </div>
+            )}
+            {!historyLoading && historyRows.length === 0 && (
+              <p className="muted small center" style={{ padding: 20 }}>No past queue entries yet.</p>
+            )}
+            {historyRows.map((t) => (
+              <div key={t.id} className="card col gap-6" style={{ padding: 12 }}>
+                <div className="row gap-12 center-v">
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <div className="semi small">{t.name}</div>
+                    <div className="tiny muted">{t.partySize} · {servedAgoLabel(t.joinedAtISO)}</div>
+                  </div>
+                  <span
+                    className={`badge ${t.status === "SERVED" ? "badge-green" : "badge-gray"}`}
+                    style={{ fontSize: 9, padding: "2px 7px", flexShrink: 0 }}
+                  >
+                    {t.status === "SERVED" ? "Served" : t.status === "LEFT" ? "Left" : "Closed"}
+                  </span>
+                </div>
+                {t.paymentStatus === "PAID" && (
+                  <span className="badge badge-green" style={{ fontSize: 9, padding: "2px 7px", alignSelf: "flex-start" }}>
+                    ₹ {t.paymentMethod === "UPI" ? "UPI paid" : "Paid"}{t.paymentAmount ? ` · ₹${t.paymentAmount}` : ""}
+                  </span>
+                )}
+                {t.paymentStatus === "PENDING_CONFIRM" && (
+                  <span className="badge badge-amber" style={{ fontSize: 9, padding: "2px 7px", alignSelf: "flex-start" }}>
+                    Payment pending{t.paymentAmount ? ` · ₹${t.paymentAmount}` : ""}
+                  </span>
+                )}
+                {t.paymentStatus === "REJECTED" && (
+                  <span className="badge badge-red" style={{ fontSize: 9, padding: "2px 7px", alignSelf: "flex-start" }}>
+                    Payment declined
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </div>
       <ManageNav bizId={businessId} waitingCount={waiting.length} />

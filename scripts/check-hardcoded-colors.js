@@ -41,6 +41,10 @@ const WHITELISTED_HEX = new Set([
   // These are intentionally off-palette, dark-mode-adjacent screens not in the main token system
   "0f0d17", "1a1625", "180c02", "1e1104", "100600", "290d4f", "1e0a38",
 
+  // Story viewer fallback background gradient (shown behind a story whose image
+  // failed to load) — dark neutral stops, not part of the brand token system.
+  "2b2b3a", "14141c",
+
   // Native bridge APIs cannot consume CSS variables; Capacitor StatusBar
   // needs the resolved brand colors as actual platform color strings.
   "8b47f5", "7c2fe8", "6b21cc",

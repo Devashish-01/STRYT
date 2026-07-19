@@ -10,9 +10,25 @@ import { useApp } from "@/store";
 import { ArrowUpDown, Clock, Users, X, CreditCard, CheckCircle2, AlertCircle } from "@/components/Icons";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { isQueuePayable as isPayable } from "@/lib/queueMath";
+import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
 import type { MyQueueEntry } from "@/types";
 
-const ACTIVE: MyQueueEntry["status"][] = ["WAITING", "CALLED"];
+// A queue entry stays "active" (still needs the customer's attention) while
+// waiting or called — and, crucially, after being SERVED while payment is still
+// owed (anything but PAID), so the card can't drop into History before the
+// customer has paid. Everything else — LEFT, EXPIRED, or SERVED once PAID — is
+// history.
+function isActiveEntry(q: MyQueueEntry): boolean {
+  if (q.status === "WAITING" || q.status === "CALLED") return true;
+  if (q.status === "SERVED") return (q.paymentStatus ?? "UNPAID") !== "PAID";
+  return false;
+}
+
+// A served token whose payment is still outstanding — the case task 14 keeps
+// active, and the only case that's locally dismissible (task 15).
+function isServedUnpaid(q: MyQueueEntry): boolean {
+  return q.status === "SERVED" && (q.paymentStatus ?? "UNPAID") !== "PAID";
+}
 
 // A customer can back out any time until money is in motion — while waiting,
 // after being called (their turn), even after being served — as long as they
@@ -50,10 +66,11 @@ export default function MyQueues() {
   const [cancellingClaim, setCancellingClaim] = useState<string | null>(null);
 
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(loadDismissedCards);
 
   const all = data ?? [];
-  const active = all.filter((q) => ACTIVE.includes(q.status) && !removedIds.has(q.tokenId));
-  const history = all.filter((q) => !ACTIVE.includes(q.status));
+  const active = all.filter((q) => isActiveEntry(q) && !removedIds.has(q.tokenId) && !dismissedIds.has(q.tokenId));
+  const history = all.filter((q) => !isActiveEntry(q));
   let list = tab === "ACTIVE" ? [...active] : [...history];
   if (tab === "ACTIVE" && sortByName) list.sort((a, b) => a.businessName.localeCompare(b.businessName));
 
@@ -101,6 +118,19 @@ export default function MyQueues() {
     } finally {
       setCancellingClaim(null);
     }
+  }
+
+  // Local-only hide for a served-but-unpaid card. Unlike "leave"/cancel, this
+  // makes NO server change — the token stays SERVED and unpaid in the database;
+  // it just disappears from this device's Active list (persisted, so it stays
+  // gone across reloads).
+  function dismissCard(tokenId: string) {
+    setDismissedIds((prev) => {
+      const next = new Set(prev).add(tokenId);
+      persistDismissedCards(next);
+      return next;
+    });
+    showToast("Card dismissed");
   }
 
   return (
@@ -267,6 +297,20 @@ export default function MyQueues() {
                       onClick={() => setPayingQueue(q)}
                     >
                       <CreditCard size={13} />Pay now
+                    </button>
+                  )}
+
+                  {/* Served but payment still owed: a subtle local-only dismiss.
+                      Distinct from the X above (which leaves/cancels server-side) —
+                      this just hides the card on this device. */}
+                  {isServedUnpaid(q) && (
+                    <button
+                      type="button"
+                      className="tiny semi"
+                      style={{ alignSelf: "flex-start", marginTop: 8, color: "var(--ink-400)", background: "none", border: "none", cursor: "pointer", padding: "2px 0", textDecoration: "underline" }}
+                      onClick={() => dismissCard(q.tokenId)}
+                    >
+                      Dismiss
                     </button>
                   )}
                 </div>

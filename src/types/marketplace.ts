@@ -223,6 +223,18 @@ export interface QueueOwnerToken {
   paymentReference?: string | null;
 }
 
+/** A past queue token (SERVED/LEFT/EXPIRED) shown in the owner's queue history. */
+export interface QueueHistoryToken {
+  id: string;
+  name: string;
+  partySize: string;
+  joinedAtISO: string;
+  status: QueueTokenStatus;
+  paymentStatus?: PaymentStatus;
+  paymentMethod?: PaymentMethod | null;
+  paymentAmount?: number | null;
+}
+
 export interface LoyaltyCard {
   id: string;
   businessId: string;
