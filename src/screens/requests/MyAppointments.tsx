@@ -35,6 +35,11 @@ interface RebookTarget {
   availabilityNote?: string;
   packages: BookingPackage[];
   availableNow: boolean;
+  // Carried from the target so an AT_BOOKING seller can still collect (incl. a
+  // deposit) on a reschedule / book-again — the sheet got none of these before.
+  paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
+  payeeUpiId?: string | null;
+  depositPercent?: number;
 }
 
 export default function MyAppointments() {
@@ -92,6 +97,9 @@ export default function MyAppointments() {
           availabilityNote: b.hours || DEFAULT_WORKING_HOURS,
           packages: (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price })),
           availableNow,
+          paymentTiming: b.paymentTiming,
+          payeeUpiId: b.upiId ?? null,
+          depositPercent: (b as any).depositPercent,
         });
       } else {
         const p = await providerService.get(apt.targetId);
@@ -103,6 +111,9 @@ export default function MyAppointments() {
           availabilityNote: p.availabilityNote,
           packages: (p.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price })),
           availableNow,
+          paymentTiming: p.paymentTiming,
+          payeeUpiId: p.upiId ?? null,
+          depositPercent: (p as any).depositPercent,
         });
       }
     } catch (e: any) {
@@ -323,6 +334,9 @@ export default function MyAppointments() {
           availabilityNote={rebook.availabilityNote}
           packages={rebook.packages}
           availableNow={rebook.availableNow}
+          paymentTiming={rebook.paymentTiming}
+          payeeUpiId={rebook.payeeUpiId}
+          depositPercent={rebook.depositPercent}
           rescheduledFromId={rebook.mode === "RESCHEDULE" ? rebook.apt.id : undefined}
           onBooked={handleBooked}
           onClose={() => { setRebook(null); refetch(); }}

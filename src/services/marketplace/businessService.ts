@@ -81,7 +81,7 @@ const BUSINESS_COLUMNS = new Set([
   "isAvailableNow","availableUntil",
   "openingDate","isNew","status","coverImage","gallery","ratingAvg","ratingCount",
   "viewCount","isFeatured","isVerified","tags","priceForTwo","deliveryTime","offerText",
-  "verificationStatus","verificationDocumentUrl","upiId","paymentTiming",
+  "verificationStatus","verificationDocumentUrl","upiId","paymentTiming","depositPercent",
   "email","showPhonePublicly","showEmailPublicly","locationPublic",
 ]);
 

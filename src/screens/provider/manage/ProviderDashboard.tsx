@@ -109,6 +109,15 @@ export default function ProviderDashboard() {
   const todayAppts = appointments
     .filter((a) => (a.status === "ACCEPTED" || a.status === "PENDING") && isToday(a.scheduledForISO))
     .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
+  // Future days only — appts whose date is strictly after today. Copy the date
+  // first (setDate mutates) so isToday()'s reference point stays intact.
+  const startOfTomorrow = new Date(now);
+  startOfTomorrow.setHours(0, 0, 0, 0);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  const upcomingAppts = appointments
+    .filter((a) => (a.status === "ACCEPTED" || a.status === "PENDING") && new Date(a.scheduledForISO).getTime() >= startOfTomorrow.getTime())
+    .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime())
+    .slice(0, 5);
   const actionCount = pendingAppts.length + paymentClaims.length;
 
   const matchingRequests = ((reqFeed?.data ?? []) as RequestPost[])
@@ -396,6 +405,36 @@ export default function ProviderDashboard() {
                   <div className="today-card-head">
                     <span className="today-card-icon">📅</span>
                     <span className="today-card-kicker grow">{a.status === "PENDING" ? "Requested" : "Confirmed"}</span>
+                  </div>
+                  <div>
+                    <div className="today-card-title">{ownerVisibleCustomerName(a)}</div>
+                    <div className="today-card-stat" style={{ marginTop: 6 }}>{a.timeLabel}</div>
+                    {a.packageName && <div className="today-card-sub" style={{ marginTop: 2 }}>{a.packageName}</div>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Upcoming (future days) ── */}
+        {upcomingAppts.length > 0 && (
+          <div style={{ paddingBottom: 4 }}>
+            <div className="row between page-pad" style={{ paddingBottom: 0 }}>
+              <span className="semi small">Upcoming</span>
+              <button className="see-all" onClick={() => nav(`${base}/jobs`)}>View all</button>
+            </div>
+            <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
+              {upcomingAppts.map((a, idx) => (
+                <button
+                  key={a.id}
+                  className="today-card fade-up"
+                  style={{ "--today-accent": "var(--brand-600)", animationDelay: `${idx * 35}ms`, cursor: "pointer" } as CSSProperties}
+                  onClick={() => nav(`${base}/jobs`)}
+                >
+                  <div className="today-card-head">
+                    <span className="today-card-icon">📅</span>
+                    <span className="today-card-kicker grow">{a.dateLabel}</span>
                   </div>
                   <div>
                     <div className="today-card-title">{ownerVisibleCustomerName(a)}</div>

@@ -102,6 +102,13 @@ export default function ProviderDetail() {
   const saved = isBookmarked("PROVIDER", p.id);
   const following = isFollowing("PROVIDER", p.id);
   const isOwner = p.userId === user.id;
+  // The customer is beyond the provider's own service radius — surface a
+  // non-blocking heads-up in the booking sheet (booking stays allowed).
+  const outOfRange =
+    typeof p.distanceKm === "number" &&
+    typeof p.serviceRadiusKm === "number" &&
+    p.serviceRadiusKm > 0 &&
+    p.distanceKm > p.serviceRadiusKm;
   // Surface a quick-pay banner when the customer has an unsettled appointment
   // with this exact provider, so they don't have to go find it in My Appointments.
   const payableApt = !isOwner
@@ -588,6 +595,8 @@ export default function ProviderDetail() {
           packages={(p.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }))}
           paymentTiming={p.paymentTiming}
           payeeUpiId={p.upiId}
+          depositPercent={(p as any).depositPercent}
+          outOfRange={outOfRange}
           onClose={() => setScheduling(false)}
         />
       )}

@@ -44,6 +44,8 @@ export default function ProviderMoney() {
   const [uploadingQr, setUploadingQr] = useState(false);
   const [paymentTiming, setPaymentTiming] = useState<"AT_BOOKING" | "AT_APPOINTMENT">("AT_APPOINTMENT");
   const [savingTiming, setSavingTiming] = useState(false);
+  const [depositPercent, setDepositPercent] = useState("0");
+  const [savingDeposit, setSavingDeposit] = useState(false);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function ProviderMoney() {
     if (!p) return;
     setUpiId(p.upiId ?? "");
     setPaymentTiming(p.paymentTiming === "AT_BOOKING" ? "AT_BOOKING" : "AT_APPOINTMENT");
+    setDepositPercent(String((p as any).depositPercent ?? 0));
   }, [p]);
 
   if (!id) {
@@ -141,6 +144,20 @@ export default function ProviderMoney() {
       showToast("Couldn't save — try again");
     } finally {
       setSavingTiming(false);
+    }
+  }
+
+  async function saveDepositPercent() {
+    const n = Math.max(0, Math.min(100, Math.round(Number(depositPercent) || 0)));
+    setDepositPercent(String(n));
+    setSavingDeposit(true);
+    try {
+      await providerService.update(id, { depositPercent: n } as any);
+      showToast("Deposit saved");
+    } catch {
+      showToast("Couldn't save — try again");
+    } finally {
+      setSavingDeposit(false);
     }
   }
 
@@ -294,6 +311,29 @@ export default function ProviderMoney() {
                   </button>
                 ))}
               </div>
+
+              {/* Deposit % — only meaningful when payment is collected upfront. */}
+              {paymentTiming === "AT_BOOKING" && (
+                <div style={{ marginTop: 12 }}>
+                  <div className="tiny semi" style={{ marginBottom: 4 }}>Upfront deposit (%)</div>
+                  <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
+                    Upfront deposit (%) — rest collected at the appointment. 0 = full amount up front.
+                  </div>
+                  <div className="row gap-8">
+                    <input
+                      className="input grow"
+                      inputMode="numeric"
+                      placeholder="0"
+                      value={depositPercent}
+                      onChange={(e) => setDepositPercent(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
+                      style={{ fontSize: 14 }}
+                    />
+                    <button className="btn btn-outline btn-sm" disabled={savingDeposit} onClick={saveDepositPercent}>
+                      {savingDeposit ? "…" : "Save"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

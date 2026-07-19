@@ -348,6 +348,24 @@ export const appointmentService = {
   },
 
   /**
+   * Best-effort trigger for the server-side sweep of stale PENDING holds
+   * (sweep_stale_appointment_holds cancels un-accepted PENDING appointments
+   * older than 2h whose slot is still future, releasing abandoned holds
+   * globally). Swallows all errors — this is opportunistic housekeeping, never
+   * a blocker for the read that follows it.
+   */
+  async releaseStaleHolds(): Promise<void> {
+    try {
+      // Cast: sweep_stale_appointment_holds isn't in the generated schema types
+      // yet — a typegen gap until types are regenerated (same pattern as
+      // appointment_create_walk_in_payment below).
+      await (getSupabase().rpc as any)("sweep_stale_appointment_holds");
+    } catch {
+      /* best-effort — a failed sweep must not break slot loading */
+    }
+  },
+
+  /**
    * Occupied slot timestamps for a target — via a privacy-safe SECURITY DEFINER
    * RPC (booked_slots) so the booking sheet can grey out taken slots WITHOUT
    * reading other customers' appointment rows (which appt_select RLS hides).
@@ -356,6 +374,9 @@ export const appointmentService = {
    */
   async bookedSlots(targetId: string): Promise<string[]> {
     if (isMockTarget(targetId)) return [];
+    // Release any abandoned PENDING holds first so a viewer opening the sheet
+    // sees freed slots reflected in the grid. Awaited but non-fatal.
+    await this.releaseStaleHolds();
     try {
       const sb = getSupabase();
       const { data, error } = await sb.rpc("booked_slots", { p_target_id: targetId });

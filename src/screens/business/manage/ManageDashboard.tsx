@@ -124,6 +124,19 @@ export default function ManageDashboard() {
     })
     .sort((a, b) => +new Date(a.scheduledForISO) - +new Date(b.scheduledForISO));
 
+  // Future days only — a booking whose date is strictly after today. Copy the
+  // date first (setDate mutates) so today's own comparison above stays intact.
+  const startOfTomorrow = new Date(today);
+  startOfTomorrow.setHours(0, 0, 0, 0);
+  startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+  const upcomingAppointments = appts
+    .filter((item) => {
+      if (item.status !== "PENDING" && item.status !== "ACCEPTED") return false;
+      return new Date(item.scheduledForISO).getTime() >= startOfTomorrow.getTime();
+    })
+    .sort((a, b) => +new Date(a.scheduledForISO) - +new Date(b.scheduledForISO))
+    .slice(0, 5);
+
   const checklistItems = [
     { label: "Add a catalog item", done: (business?.catalog?.length ?? 0) > 0, onClick: () => nav(`${base}/catalog`) },
     { label: "Set your hours", done: !!business?.hours && business.hours !== DEFAULT_ONBOARD_WORKING_HOURS, onClick: () => nav(`${base}/hours`) },
@@ -376,6 +389,27 @@ export default function ManageDashboard() {
               {todayAppointments.slice(0, 3).map((item, index) => (
                 <button key={item.id} className="row gap-10 center-v" style={{ width: "100%", padding: "12px 14px", textAlign: "left", borderTop: index ? "1px solid var(--line)" : "none" }} onClick={() => nav(`${base}/appointments`)}>
                   <span className="semi small" style={{ color: "var(--brand-700)", minWidth: 70 }}>{item.timeLabel}</span><div className="grow"><div className="semi small">{ownerVisibleCustomerName(item)}</div><div className="tiny muted">{item.packageName ?? "Booking"}</div></div><ChevronRight size={16} color="var(--ink-300)" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {upcomingAppointments.length > 0 && (
+          <section className="page-pad" style={{ paddingTop: 0 }}>
+            <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">Upcoming</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>View all</button></div>
+            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+              {upcomingAppointments.map((item, index) => (
+                <button key={item.id} className="row gap-10 center-v" style={{ width: "100%", padding: "12px 14px", textAlign: "left", borderTop: index ? "1px solid var(--line)" : "none" }} onClick={() => nav(`${base}/appointments`)}>
+                  <div className="col" style={{ minWidth: 78, gap: 1 }}>
+                    <span className="semi small" style={{ color: "var(--brand-700)" }}>{item.dateLabel}</span>
+                    <span className="tiny muted">{item.timeLabel}</span>
+                  </div>
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <div className="semi small">{ownerVisibleCustomerName(item)}</div>
+                    <div className="tiny muted">{item.packageName ?? "Booking"}</div>
+                  </div>
+                  <ChevronRight size={16} color="var(--ink-300)" />
                 </button>
               ))}
             </div>

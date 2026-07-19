@@ -149,6 +149,13 @@ export default function BusinessDetail() {
   // hours — the same evaluator providers use. Booking is NOT gated on this.
   const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   const isOwner = b.ownerUserId === user.id;
+  // The customer is beyond the shop's own broadcast radius — surface a
+  // non-blocking heads-up in the booking sheet (booking stays allowed).
+  const outOfRange =
+    typeof b.distanceKm === "number" &&
+    typeof b.broadcastRadius === "number" &&
+    b.broadcastRadius > 0 &&
+    b.distanceKm > b.broadcastRadius;
   const saved = isBookmarked("BUSINESS", b.id);
   const following = isFollowing("BUSINESS", b.id);
   // Source of truth for "already in this queue" is the customer's live tokens
@@ -851,6 +858,8 @@ export default function BusinessDetail() {
           initialNotes={checkoutMode ? checkoutNotes : undefined}
           paymentTiming={b.paymentTiming}
           payeeUpiId={b.upiId}
+          depositPercent={(b as any).depositPercent}
+          outOfRange={outOfRange}
           onBooked={() => { if (checkoutMode) setCart({}); }}
           onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); }}
         />

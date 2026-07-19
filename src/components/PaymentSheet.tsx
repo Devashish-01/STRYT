@@ -9,19 +9,40 @@ interface PaymentSheetProps {
   appointment: AppointmentRecord;
   businessUpiId?: string | null;
   businessName: string;
+  /** Upfront deposit percentage (1–99). When set with a known package price, only
+   *  this fraction is collected now; the rest is due at the appointment. 0 / undefined
+   *  / 100 collect the full amount, exactly as before. */
+  depositPercent?: number;
   onPaid: () => void;
   onClose: () => void;
 }
 
-export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid, onClose }: PaymentSheetProps) {
+export function PaymentSheet({ appointment, businessUpiId, businessName, depositPercent, onPaid, onClose }: PaymentSheetProps) {
   const { showToast } = useApp();
 
+  const fullPrice = appointment.packagePrice ?? null;
+  // A partial deposit only applies to a genuine 1–99% split on a known package
+  // price. 0 / undefined / 100 (or no price at all) fall through to the normal
+  // full-amount flow untouched.
+  const isDeposit =
+    fullPrice != null &&
+    typeof depositPercent === "number" &&
+    depositPercent >= 1 &&
+    depositPercent <= 99;
+  const depositAmount = isDeposit ? Math.round((fullPrice as number) * (depositPercent as number) / 100) : null;
+  const balanceAmount = isDeposit ? Math.max(0, (fullPrice as number) - (depositAmount as number)) : null;
+
   const [amount, setAmount] = useState<string>(
-    appointment.paymentAmount?.toString() ?? appointment.packagePrice?.toString() ?? ""
+    isDeposit
+      ? String(depositAmount)
+      : appointment.paymentAmount?.toString() ?? appointment.packagePrice?.toString() ?? ""
   );
   const [claiming, setClaiming] = useState(false);
 
-  const numAmount = parseFloat(amount) || null;
+  // The amount actually collected now — the deposit when a split applies, else
+  // whatever's in the amount field. This is what's claimed and encoded in the
+  // UPI intent, so payment_amount records the deposit, not the full price.
+  const numAmount = isDeposit ? depositAmount : parseFloat(amount) || null;
 
   async function claim(method: PaymentMethod, reference: string | null) {
     setClaiming(true);
@@ -58,7 +79,16 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, onPaid,
         {/* Amount */}
         <div style={{ marginBottom: 16 }}>
           <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Amount (₹)</label>
-          {appointment.packagePrice ? (
+          {isDeposit ? (
+            <>
+              <div className="bold" style={{ fontSize: 26, color: "var(--brand-700)" }}>
+                Deposit now ₹{depositAmount} <span style={{ fontSize: 14, fontWeight: 600, color: "var(--brand-600)" }}>({depositPercent}%)</span>
+              </div>
+              <div className="tiny muted" style={{ marginTop: 3 }}>
+                Balance ₹{balanceAmount} at appointment{appointment.packageName ? ` · for: ${appointment.packageName}` : ""}
+              </div>
+            </>
+          ) : appointment.packagePrice ? (
             <>
               <div className="bold" style={{ fontSize: 26, color: "var(--brand-700)" }}>₹{appointment.packagePrice}</div>
               {appointment.packageName && <div className="tiny muted" style={{ marginTop: 2 }}>for: {appointment.packageName}</div>}

@@ -81,6 +81,8 @@ export interface Business {
   upiId?: string;
   /** When appointment payment is collected — before accept, or the current default (accept first, pay around service). */
   paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
+  /** Upfront deposit percentage (0–100) collected at booking when paymentTiming is AT_BOOKING; 0/undefined = full amount up front. */
+  depositPercent?: number;
   catalog: CatalogItem[];
   /** Past-work gallery shown on the public profile — mirrors the provider portfolio. */
   portfolio?: PortfolioItem[];
@@ -149,6 +151,8 @@ export interface Provider {
   deletedAt?: string | null;
   /** When appointment payment is collected — before accept, or the current default (accept first, pay around service). */
   paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
+  /** Upfront deposit percentage (0–100) collected at booking when paymentTiming is AT_BOOKING; 0/undefined = full amount up front. */
+  depositPercent?: number;
   catalog: CatalogItem[];
 }
 

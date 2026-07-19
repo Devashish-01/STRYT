@@ -31,8 +31,12 @@ interface AppointmentSheetProps {
   paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
   /** Seller's UPI ID, passed through to the post-booking payment step when paymentTiming is AT_BOOKING. */
   payeeUpiId?: string | null;
+  /** Upfront deposit percentage (1–99), passed through to the AT_BOOKING payment step so only a deposit is collected now. */
+  depositPercent?: number;
   /** Id of the appointment being replaced, when this sheet is opened from the reschedule flow. */
   rescheduledFromId?: string;
+  /** When true, the viewer appears to be outside this listing's service area — shows a non-blocking warning. */
+  outOfRange?: boolean;
   onClose: () => void;
   /** Fired after a booking is successfully created (before the sheet closes). */
   onBooked?: () => void;
@@ -49,7 +53,9 @@ export function AppointmentSheet({
   initialNotes,
   paymentTiming = "AT_APPOINTMENT",
   payeeUpiId,
+  depositPercent,
   rescheduledFromId,
+  outOfRange,
   onClose,
   onBooked,
 }: AppointmentSheetProps) {
@@ -145,6 +151,9 @@ export function AppointmentSheet({
     (apt) =>
       apt.status !== "CANCELLED" &&
       apt.status !== "REJECTED" &&
+      // A reschedule replaces the original booking, so the very booking being
+      // moved must not count against the daily limit and block its own move.
+      apt.id !== rescheduledFromId &&
       isSameDay(new Date(apt.scheduledForISO), selectedDate)
   ).length;
   const hasAptToday = aptsTodayCount >= DAILY_APPOINTMENT_LIMIT;
@@ -220,6 +229,7 @@ export function AppointmentSheet({
         appointment={bookedAppointment}
         businessUpiId={payeeUpiId}
         businessName={targetName}
+        depositPercent={depositPercent}
         onPaid={() => {
           onBooked?.();
           onClose();
@@ -274,6 +284,21 @@ export function AppointmentSheet({
             <X size={20} />
           </button>
         </div>
+
+        {/* Out-of-service-area warning — non-blocking; booking stays allowed. */}
+        {outOfRange && (
+          <div className="card card-condensed" style={{ background: "var(--amber-100)", border: "1px solid var(--amber-200)", marginBottom: 16 }}>
+            <div className="row gap-8" style={{ alignItems: "flex-start" }}>
+              <span style={{ fontSize: 16, lineHeight: 1.2 }}>⚠️</span>
+              <div>
+                <div className="bold small" style={{ color: "var(--amber-700)" }}>Outside their service area</div>
+                <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1, lineHeight: 1.5 }}>
+                  You appear to be outside this {targetType === "BUSINESS" ? "business" : "provider"}'s service area — they may not accept or be able to serve this booking.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Availability info card */}
         {availableNow ? (
