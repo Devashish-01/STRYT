@@ -41,6 +41,26 @@ export const userService = {
     const { data: { user: au } } = await sb.auth.getUser();
     if (!au) throw toApiError({ code: "UNAUTHENTICATED", message: "Not signed in" }, 401);
     const uid = au.id;
+
+    // Terms/Privacy acceptance (clickwrap). Read separately from get_own_profile()
+    // — not sensitive, same pattern as the alias fallback below. Best-effort: if
+    // the acceptance migration hasn't run these columns don't exist and the query
+    // errors; we then leave the fields `undefined`, which the app's gate reads as
+    // "unknown → don't block", so a client shipped ahead of the migration can't
+    // brick. A missing row (brand-new user, pre-seed) reads as null = not accepted.
+    let termsAcceptedVersion: string | null | undefined;
+    let termsAcceptedAt: string | null | undefined;
+    {
+      const { data: tRow, error: tErr } = await (sb.from("users") as any)
+        .select("terms_accepted_version, terms_accepted_at")
+        .eq("id", uid)
+        .maybeSingle();
+      if (!tErr) {
+        termsAcceptedVersion = (tRow?.terms_accepted_version ?? null) as string | null;
+        termsAcceptedAt = (tRow?.terms_accepted_at ?? null) as string | null;
+      }
+    }
+
     // Sensitive columns (phone/email/emergency contact/exact coords) are no
     // longer selectable via a plain client query — get_own_profile() is a
     // SECURITY DEFINER RPC scoped to auth.uid(), see ISS-009.
@@ -71,6 +91,8 @@ export const userService = {
         u.deletionScheduledAt = null;
       }
 
+      u.termsAcceptedVersion = termsAcceptedVersion;
+      u.termsAcceptedAt = termsAcceptedAt;
       return u;
     }
     // Row missing — happens for Google OAuth / phone-auth users when the DB trigger hasn't run or completed yet.
@@ -89,7 +111,20 @@ export const userService = {
       { onConflict: "id", ignoreDuplicates: true }
     );
     if (upsertErr) console.warn("me (profile self-heal):", upsertErr.message);
-    return toCamel<CurrentUser>({ id: uid, name, phone: au.phone ?? null, email: au.email ?? null, avatar, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5, deletion_scheduled_at: null, onboarding_completed_at: null });
+    return {
+      ...toCamel<CurrentUser>({ id: uid, name, phone: au.phone ?? null, email: au.email ?? null, avatar, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5, deletion_scheduled_at: null, onboarding_completed_at: null }),
+      termsAcceptedVersion,
+      termsAcceptedAt,
+    };
+  },
+
+  /** Record a clickwrap acceptance of the current LEGAL_VERSION (writes the
+   *  append-only audit row and stamps users.terms_accepted_version server-side). */
+  async acceptTerms(version: string) {
+    const sb = getSupabase();
+    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : null;
+    const { error } = await (sb.rpc as any)("record_terms_acceptance", { p_version: version, p_user_agent: userAgent });
+    throwIfError(error);
   },
 
   async update(patch: Partial<CurrentUser>) {

@@ -46,13 +46,7 @@ export async function initNativeApp(): Promise<void> {
     await CapacitorUpdater.notifyAppReady();
   } catch { /* updater plugin absent — ignore */ }
 
-  // Start listening for downloaded OTA bundles so the "Update available" button
-  // on the profile screens can light up. Registered here (early) so the
-  // updateAvailable event is never missed if it fires before a screen mounts.
-  try {
-    const { initAppUpdates } = await import("./appUpdate");
-    await initAppUpdates();
-  } catch { /* ignore */ }
+
 
   // Enables the native safe-area floor in index.css so headers never sit under
   // the status bar / notch even when the WebView reports a zero inset.

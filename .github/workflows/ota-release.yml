@@ -1,0 +1,92 @@
+name: Publish Over-The-Air (OTA) Update
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'android/**'
+      - '.github/workflows/android-release.yml'
+      - 'README.md'
+      - 'DEPLOYMENT_GUIDE.md'
+      - 'package.json'
+      - 'package-lock.json'
+
+jobs:
+  ota-release:
+    name: Publish OTA Update
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Bump package.json patch version
+        id: bump
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const parts = pkg.version.split('.');
+            parts[2] = String(Number(parts[2]) + 1);
+            const newVer = parts.join('.');
+            pkg.version = newVer;
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            console.log('Bumped version to ' + newVer);
+            
+            // Set output for the next step using GITHUB_OUTPUT
+            const fsOutput = require('fs');
+            fsOutput.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + newVer + '\n');
+          "
+
+      - name: Setup git config
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push bumped version
+        run: |
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }} [skip ci]" || echo "No changes to commit"
+          git push origin main
+
+      - name: Create .env file
+        run: |
+          cat > .env << 'EOF'
+          VITE_USE_MOCKS=false
+          VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=zetax-52843.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID=zetax-52843
+          VITE_FIREBASE_STORAGE_BUCKET=zetax-52843.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID=44008185482
+          VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_MAPBOX_TOKEN=${{ secrets.VITE_MAPBOX_TOKEN }}
+          VITE_API_URL=https://stryt.in
+          VITE_APP_URL=https://stryt.in
+          VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+          VITE_BUG_REPORT_EXCEL_URL=${{ secrets.VITE_BUG_REPORT_EXCEL_URL }}
+          VITE_BUG_REPORT_SCRIPT_URL=${{ secrets.VITE_BUG_REPORT_SCRIPT_URL }}
+          EOF
+
+      - name: Build Vite web app
+        run: npm run build
+
+      - name: Publish OTA bundle to Supabase Storage
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/publish-ota-update.mjs

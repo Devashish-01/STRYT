@@ -12,6 +12,7 @@ import PinGateSheet from "./components/PinGateSheet";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
 import { contextHomePath } from "./lib/contextHome";
+import { LEGAL_VERSION } from "./lib/legal";
 import { useI18n, type Lang } from "./lib/i18n";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
@@ -24,6 +25,9 @@ const OtpVerify = lazy(() => import("./screens/auth/OtpVerify"));
 const LocationPermission = lazy(() => import("./screens/auth/LocationPermission"));
 const UserOnboard = lazy(() => import("./screens/auth/UserOnboard"));
 const DeletionPending = lazy(() => import("./screens/auth/DeletionPending"));
+const TermsAccept = lazy(() => import("./screens/auth/TermsAccept"));
+const LegalIndex = lazy(() => import("./screens/legal/LegalIndex"));
+const LegalDoc = lazy(() => import("./screens/legal/LegalDoc"));
 
 // Core tabs
 const Home = lazy(() => import("./screens/Home"));
@@ -299,6 +303,25 @@ function ProtectedLayout() {
     }
   }
 
+  // Terms & Privacy acceptance (clickwrap) gate. A signed-in user must have
+  // accepted the CURRENT LEGAL_VERSION before using the app — bumping that
+  // constant after a policy update re-prompts everyone here automatically.
+  // `termsAcceptedVersion === undefined` means the value couldn't be read (e.g.
+  // the acceptance migration hasn't run yet) — treated as unknown so we never
+  // brick; only a genuine null/stale version blocks. Runs before onboarding so
+  // acceptance comes first, and short-circuits those gates while outstanding.
+  const termsOutstanding =
+    isAuthed && !!user.id && !user.deletionScheduledAt &&
+    user.termsAcceptedVersion !== undefined &&
+    user.termsAcceptedVersion !== LEGAL_VERSION;
+  if (termsOutstanding) {
+    return location.pathname === "/auth/terms" ? <Outlet /> : <Navigate to="/auth/terms" replace />;
+  }
+  if (location.pathname === "/auth/terms") {
+    // Already accepted — don't strand the user on the acceptance screen.
+    return <Navigate to={contextHomePath(activeContext)} replace />;
+  }
+
   // First-login onboarding, gated on an explicit account-level flag rather
   // than inferring intent from user.name. That heuristic only worked for
   // phone-OTP signups (whose profile self-heal has nothing better than "New
@@ -363,7 +386,8 @@ function isAuthOrPublicScreen(pathname: string): boolean {
     pathname === "/" ||
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/admin/login") ||
-    pathname.startsWith("/track/")
+    pathname.startsWith("/track/") ||
+    pathname.startsWith("/legal")
   );
 }
 
@@ -465,6 +489,13 @@ export default function App() {
               still switch into the admin account here. */}
           <Route path="/admin/login" element={<AdminLogin />} />
 
+          {/* Public legal / policy documents. Un-guarded so guests can read them
+              and, crucially, so a signed-in user can open them from the Terms-
+              acceptance gate before agreeing (the gate lives in ProtectedLayout,
+              which these routes sit outside of). */}
+          <Route path="/legal" element={<LegalIndex />} />
+          <Route path="/legal/:slug" element={<LegalDoc />} />
+
           {/* Browsable signed-out — a guest sees these (capped to 1 km), and so
               does a signed-in user. Actions inside them are gated individually
               via useRequireAuth(). See GUEST_MODE_PLAN.md §3 for what's in this
@@ -493,6 +524,7 @@ export default function App() {
 
           {/* Protected routes */}
           <Route element={<ProtectedLayout />}>
+            <Route path="/auth/terms" element={<TermsAccept />} />
             <Route path="/auth/onboard" element={<UserOnboard />} />
             <Route path="/auth/location" element={<LocationPermission />} />
             <Route path="/auth/deletion-pending" element={<DeletionPending />} />

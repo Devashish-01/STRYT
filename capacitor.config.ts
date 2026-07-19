@@ -51,12 +51,10 @@ const config: CapacitorConfig = {
       // public "app-updates" Supabase Storage bucket, published by
       // scripts/publish-ota-update.mjs (never written to from client code).
       //
-      // "onlyDownload": the plugin checks + downloads the new bundle in the
-      // background and emits `updateAvailable`, but NEVER applies it on its own.
-      // The user applies it explicitly via the "Update available" button on the
-      // profile screens (useAppUpdate() -> CapacitorUpdater.set). This gives the
-      // user control instead of the app silently reloading under them.
-      autoUpdate: 'onlyDownload',
+      // "atBackground": the plugin checks + downloads the new bundle in the
+      // background and applies it automatically when the app is minimized/sent
+      // to the background. This provides a silent update experience like Swiggy/Zepto.
+      autoUpdate: 'atBackground',
       // The plugin POSTs the update check (a static Storage file rejects POST
       // with 400), so updateUrl points at an edge function that returns the
       // manifest { version, url, checksum }. The zip it references is a public

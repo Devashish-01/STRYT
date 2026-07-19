@@ -8,7 +8,6 @@ import { Crown, Power, Bell, QrCode, UserPlus, X, Image as ImageIcon } from "@/c
 import { useApp } from "@/store";
 import type { TeamMember } from "@/types";
 import ManageNav from "./ManageNav";
-import AppUpdateButton from "@/components/AppUpdateButton";
 
 export default function BusinessSettings() {
   const { id = "" } = useParams();
@@ -407,8 +406,6 @@ export default function BusinessSettings() {
             <Power size={18} /> Temporarily close shop
           </button>
         </div>
-
-        <AppUpdateButton />
 
         <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
           Exit business mode

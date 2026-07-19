@@ -107,4 +107,10 @@ export interface CurrentUser {
   deletionScheduledAt?: string | null;
   /** Set once the user finishes or explicitly skips first-login onboarding (UserOnboard.tsx). */
   onboardingCompletedAt?: string | null;
+  /** Legal version (see lib/legal.ts LEGAL_VERSION) the user last accepted, or
+   *  null if never accepted. `undefined` means it couldn't be read (e.g. the
+   *  acceptance migration hasn't run) — the app's gate treats that as "unknown"
+   *  and does not block, so a client shipped ahead of the migration can't brick. */
+  termsAcceptedVersion?: string | null;
+  termsAcceptedAt?: string | null;
 }
