@@ -18,9 +18,9 @@ export function toneColor(tone?: NotificationTone): string {
 function toneBg(tone?: NotificationTone): string {
   switch (tone) {
     case "success": return "var(--green-100)";
-    case "danger": return "#fee2e2";
+    case "danger": return "var(--red-100)";
     case "warning": return "var(--amber-100)";
-    case "info": return "#dbeafe";
+    case "info": return "var(--blue-100)";
     case "brand": return "var(--brand-100)";
     default: return "var(--ink-100)";
   }
