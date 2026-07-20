@@ -372,6 +372,19 @@ h3, .h3 {
   padding: var(--space-sm);
 }
 
+/* .card-interactive's :hover lift lives in the (hover: hover) media query
+   below — this :active press is unguarded so touch devices, which never
+   fire :hover, still get tap feedback. */
+.card-interactive {
+  transition: transform 0.08s ease;
+}
+.card-interactive:active {
+  transform: scale(0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-interactive:active { transform: none; }
+}
+
 .card-flat {
   padding: 0;
 }
