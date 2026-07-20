@@ -1,8 +1,31 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { Navigate, Outlet, useParams } from "react-router-dom";
 import { businessAccessService } from "@/services";
+import type { AccessLevel, Scope } from "@/services/marketplace/businessAccessService";
 import { useApp } from "@/store";
 import { Skeleton } from "@/components/states";
+
+interface BusinessAccessValue {
+  isOwner: boolean;
+  accessLevel: AccessLevel;
+  scopes: Scope[];
+  hasScope: (scope: Scope) => boolean;
+}
+
+const FULL_ACCESS: BusinessAccessValue = { isOwner: true, accessLevel: "FULL", scopes: [], hasScope: () => true };
+
+const BusinessAccessContext = createContext<BusinessAccessValue>(FULL_ACCESS);
+
+/**
+ * What can the current user do in THIS business's manage console — owner,
+ * a FULL delegate (both act exactly like the owner), or a SCOPED team member
+ * (only the sections in `scopes`). Defaults to full/owner access when read
+ * outside a BusinessAccessGuard, so screens that don't care about scope
+ * (or aren't behind the guard at all) keep working unchanged.
+ */
+export function useBusinessAccess() {
+  return useContext(BusinessAccessContext);
+}
 
 /**
  * Wraps every /business/:id/manage* route. Owned-business reads always
@@ -14,6 +37,10 @@ import { Skeleton } from "@/components/states";
  * console and on every business_access_sessions change, and bounces to the
  * customer home the moment access is missing — same guarantee the RLS write
  * policies already give the database, now enforced for reads too.
+ *
+ * Also fetches the session's scope (once allow/deny is settled) and
+ * publishes it via BusinessAccessContext so BusinessHub/ManageNav/etc. can
+ * filter what they show a SCOPED team member without each re-fetching it.
  */
 export default function BusinessAccessGuard() {
   const { id = "" } = useParams();
@@ -24,6 +51,7 @@ export default function BusinessAccessGuard() {
   const [status, setStatus] = useState<"checking" | "allowed" | "denied" | "retry">(isOwner ? "allowed" : "checking");
   const [attempt, setAttempt] = useState(0);
   const [waitedEnough, setWaitedEnough] = useState(false);
+  const [scope, setScope] = useState<{ accessLevel: AccessLevel; scopes: Scope[] }>({ accessLevel: "FULL", scopes: [] });
 
   // Give ownedBusinessIds up to 2.5s to hydrate (skips an unnecessary network
   // round trip for the common case: an owner reopening the app). Bounded so
@@ -46,8 +74,13 @@ export default function BusinessAccessGuard() {
     setStatus("checking");
     businessAccessService.checkAccess(id).then((result) => {
       if (!active) return;
-      if (result === "ERROR") setStatus("retry");
-      else setStatus(result === "ALLOWED" ? "allowed" : "denied");
+      if (result === "ERROR") { setStatus("retry"); return; }
+      if (result === "DENIED") { setStatus("denied"); return; }
+      businessAccessService.myScope(id).then((s) => {
+        if (!active) return;
+        setScope(s);
+        setStatus("allowed");
+      });
     });
     return () => { active = false; };
   }, [id, isOwner, ownedEntitiesLoaded, waitedEnough, attempt]);
@@ -78,5 +111,18 @@ export default function BusinessAccessGuard() {
     return <Navigate to="/home" replace />;
   }
 
-  return <Outlet />;
+  const value: BusinessAccessValue = isOwner
+    ? FULL_ACCESS
+    : {
+        isOwner: false,
+        accessLevel: scope.accessLevel,
+        scopes: scope.scopes,
+        hasScope: (s) => scope.accessLevel === "FULL" || scope.scopes.includes(s),
+      };
+
+  return (
+    <BusinessAccessContext.Provider value={value}>
+      <Outlet />
+    </BusinessAccessContext.Provider>
+  );
 }

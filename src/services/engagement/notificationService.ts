@@ -23,6 +23,7 @@ function toNotif(row: Record<string, unknown>): AppNotification {
     isRead: row.is_read as boolean,
     time: relDate(row.created_at as string),
     createdAt: row.created_at as string,
+    metadata: (row.metadata as AppNotification["metadata"]) ?? null,
   };
 }
 

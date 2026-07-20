@@ -30,12 +30,15 @@ import { SetupChecklist } from "@/components/SetupChecklist";
 import Toggle from "@/components/Toggle";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
+import { useBusinessAccess } from "@/components/BusinessAccessGuard";
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast, user } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "business");
+  const { isOwner, accessLevel, hasScope } = useBusinessAccess();
+  const canSeeOwnerOnly = isOwner || accessLevel === "FULL";
   const base = `/business/${id}/manage`;
   const [share, setShare] = useState(false);
   const [available, setAvailable] = useState(false);
@@ -120,7 +123,13 @@ export default function ManageDashboard() {
   ];
   const { appointmentClaims, queueClaims, paymentClaims, paidRecords, recordedAmount: recordedPaid } = deriveMoneySummary(appts, queueTokens);
   const unanswered = (questions ?? []).filter((item) => !item.answer);
-  const actionCount = pendingAppointments.length + paymentClaims + unanswered.length;
+  // Scoped to what this session can actually act on — a team member without
+  // 'appointments' shouldn't see a badge count that includes booking claims
+  // they can't open (the items themselves are filtered the same way below).
+  const actionCount =
+    (hasScope("appointments") ? pendingAppointments.length + appointmentClaims.length : 0) +
+    (hasScope("queue") ? queueClaims.length : 0) +
+    (hasScope("leads") ? unanswered.length : 0);
   const range = business?.broadcastRadius ?? 5;
   // Read-only reach shown in the header; editing lives on the dedicated
   // Broadcast radius screen (Business hub) now, not on this dashboard.
@@ -308,88 +317,96 @@ export default function ManageDashboard() {
       </header>
 
       <div className="screen-scroll">
-        <div style={{ paddingTop: 12 }}>
-          <AccountStatusBanner entityType="BUSINESS" entityId={id} status={business?.status} />
-        </div>
+        {canSeeOwnerOnly && (
+          <div style={{ paddingTop: 12 }}>
+            <AccountStatusBanner entityType="BUSINESS" entityId={id} status={business?.status} />
+          </div>
+        )}
 
-        {business && (
+        {business && canSeeOwnerOnly && (
           <section className="page-pad" style={{ paddingTop: 4 }}>
             <SetupChecklist title="Finish setting up your shop" items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
           </section>
         )}
 
-        <section className="page-pad">
-          <button className="card row gap-12 center-v" onClick={toggleAvailability} style={{ width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)" }}>
-            <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: available ? "var(--green-100)" : "var(--ink-50)" }}>
-              <Zap size={21} color={available ? "var(--green-600)" : "var(--ink-400)"} weight={available ? "fill" : "regular"} />
-            </span>
-            <div className="grow"><div className="semi small">{available ? "Open now" : "Mark shop open now"}</div><div className="tiny muted">Visible to nearby customers</div></div>
-            <Toggle on={available} />
-          </button>
-        </section>
+        {canSeeOwnerOnly && (
+          <section className="page-pad">
+            <button className="card row gap-12 center-v" onClick={toggleAvailability} style={{ width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)" }}>
+              <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: available ? "var(--green-100)" : "var(--ink-50)" }}>
+                <Zap size={21} color={available ? "var(--green-600)" : "var(--ink-400)"} weight={available ? "fill" : "regular"} />
+              </span>
+              <div className="grow"><div className="semi small">{available ? "Open now" : "Mark shop open now"}</div><div className="tiny muted">Visible to nearby customers</div></div>
+              <Toggle on={available} />
+            </button>
+          </section>
+        )}
 
-        <section className="page-pad" style={{ paddingTop: 0 }}>
-          <div className="card" style={{ padding: 14, border: queue?.isOpen ? "1px solid var(--blue-200)" : undefined }}>
-            <div className="row gap-10 center-v">
-              <span style={{ fontSize: 23 }}>👥</span>
-              <div className="grow">
-                <div className="semi small">Queue · {queue?.waiting.length ?? 0} waiting</div>
-                <div className="tiny muted">{queue?.called.length ? `Serving ${queue.called[0].name}` : queue?.isOpen ? "Ready to call the next customer" : "Queue is currently off"}</div>
-              </div>
-              <button className="btn btn-outline btn-sm" onClick={() => nav(`${base}/queue`)}>Manage</button>
-            </div>
-            {queue?.isOpen && (queue.waiting.length ?? 0) > 0 && (
-              <button className="btn btn-primary btn-block btn-sm" style={{ marginTop: 10 }} disabled={busyId === "queue-call-next"} onClick={callNext}>
-                <Play size={15} /> Call next · {queue.waiting[0].name}
-              </button>
-            )}
-          </div>
-        </section>
-
-        <section className="page-pad" style={{ paddingTop: 0 }}>
-          <div className="row between center-v" style={{ marginBottom: 8 }}>
-            <span className="small semi muted" style={{ textTransform: "uppercase", letterSpacing: .5 }}>Action needed</span>
-            {actionCount > 0 && <span className="badge badge-amber">{actionCount}</span>}
-          </div>
-          {actionCount === 0 ? (
-            <div className="card col center" style={{ padding: 20, gap: 5 }}><span style={{ fontSize: 24 }}>✅</span><span className="tiny muted">You're all caught up.</span></div>
-          ) : (
-            <div className="col gap-10">
-              {pendingAppointments.slice(0, 3).map((item) => (
-                <TodayAction key={`appointment-${item.id}`} icon={<Calendar size={18} color="var(--brand-600)" />} title={`${ownerVisibleCustomerName(item)} · ${item.timeLabel}`} subtitle={item.packageName ?? item.dateLabel}>
-                  <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "ACCEPTED")}><Check size={14} /> Accept</button>
-                  <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "REJECTED")}><XIcon size={14} /> Decline</button>
-                </TodayAction>
-              ))}
-
-              {appointmentClaims.slice(0, 3).map((item) => (
-                <TodayAction key={`appointment-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${ownerVisibleCustomerName(item)} claims ${inr(item.paymentAmount ?? item.packagePrice ?? 0)}`} subtitle={item.paymentReference ? `Reference ${item.paymentReference}` : "Appointment payment"}>
-                  <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, true)}>Confirm</button>
-                  <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, false)}>Reject</button>
-                </TodayAction>
-              ))}
-
-              {queueClaims.slice(0, 3).map((item) => (
-                <TodayAction key={`queue-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.name} claims ${inr(item.paymentAmount ?? 0)}`} subtitle="Queue payment">
-                  <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, true)}>Confirm</button>
-                  <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, false)}>Reject</button>
-                </TodayAction>
-              ))}
-
-              {unanswered.slice(0, 2).map((question) => (
-                <div key={question.id} className="card" style={{ padding: 14 }}>
-                  <div className="row gap-10 center-v"><HelpCircle size={18} color="var(--blue-500)" /><div className="grow"><div className="semi small">{question.question}</div><div className="tiny muted">Asked by {question.askerName}</div></div></div>
-                  {answeringId === question.id ? (
-                    <div style={{ marginTop: 10 }}><textarea className="input" rows={2} value={answer} autoFocus placeholder="Type your answer…" onChange={(event) => setAnswer(event.target.value)} /><div className="row gap-8" style={{ marginTop: 8 }}><button className="btn btn-ghost btn-sm grow" onClick={() => { setAnsweringId(null); setAnswer(""); }}>Cancel</button><button className="btn btn-primary btn-sm grow" disabled={busyId === question.id || answer.trim().length < 2} onClick={() => postAnswer(question)}>Post answer</button></div></div>
-                  ) : <button className="btn btn-outline btn-sm btn-block" style={{ marginTop: 10 }} onClick={() => { setAnsweringId(question.id); setAnswer(""); }}>Answer now</button>}
+        {hasScope("queue") && (
+          <section className="page-pad" style={{ paddingTop: 0 }}>
+            <div className="card" style={{ padding: 14, border: queue?.isOpen ? "1px solid var(--blue-200)" : undefined }}>
+              <div className="row gap-10 center-v">
+                <span style={{ fontSize: 23 }}>👥</span>
+                <div className="grow">
+                  <div className="semi small">Queue · {queue?.waiting.length ?? 0} waiting</div>
+                  <div className="tiny muted">{queue?.called.length ? `Serving ${queue.called[0].name}` : queue?.isOpen ? "Ready to call the next customer" : "Queue is currently off"}</div>
                 </div>
-              ))}
+                <button className="btn btn-outline btn-sm" onClick={() => nav(`${base}/queue`)}>Manage</button>
+              </div>
+              {queue?.isOpen && (queue.waiting.length ?? 0) > 0 && (
+                <button className="btn btn-primary btn-block btn-sm" style={{ marginTop: 10 }} disabled={busyId === "queue-call-next"} onClick={callNext}>
+                  <Play size={15} /> Call next · {queue.waiting[0].name}
+                </button>
+              )}
             </div>
-          )}
-          {(reviews?.length ?? 0) > 0 && <button className="card row gap-10 center-v" style={{ width: "100%", marginTop: 10, textAlign: "left" }} onClick={() => nav(`${base}/reviews`)}><Star size={18} color="var(--amber-500)" /><span className="small semi grow">Reviews · reply to customers</span><ChevronRight size={17} color="var(--ink-300)" /></button>}
-        </section>
+          </section>
+        )}
 
-        {todayAppointments.length > 0 && (
+        {(hasScope("appointments") || hasScope("queue") || hasScope("leads")) && (
+          <section className="page-pad" style={{ paddingTop: 0 }}>
+            <div className="row between center-v" style={{ marginBottom: 8 }}>
+              <span className="small semi muted" style={{ textTransform: "uppercase", letterSpacing: .5 }}>Action needed</span>
+              {actionCount > 0 && <span className="badge badge-amber">{actionCount}</span>}
+            </div>
+            {actionCount === 0 ? (
+              <div className="card col center" style={{ padding: 20, gap: 5 }}><span style={{ fontSize: 24 }}>✅</span><span className="tiny muted">You're all caught up.</span></div>
+            ) : (
+              <div className="col gap-10">
+                {hasScope("appointments") && pendingAppointments.slice(0, 3).map((item) => (
+                  <TodayAction key={`appointment-${item.id}`} icon={<Calendar size={18} color="var(--brand-600)" />} title={`${ownerVisibleCustomerName(item)} · ${item.timeLabel}`} subtitle={item.packageName ?? item.dateLabel}>
+                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "ACCEPTED")}><Check size={14} /> Accept</button>
+                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "REJECTED")}><XIcon size={14} /> Decline</button>
+                  </TodayAction>
+                ))}
+
+                {hasScope("appointments") && appointmentClaims.slice(0, 3).map((item) => (
+                  <TodayAction key={`appointment-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${ownerVisibleCustomerName(item)} claims ${inr(item.paymentAmount ?? item.packagePrice ?? 0)}`} subtitle={item.paymentReference ? `Reference ${item.paymentReference}` : "Appointment payment"}>
+                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, true)}>Confirm</button>
+                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, false)}>Reject</button>
+                  </TodayAction>
+                ))}
+
+                {hasScope("queue") && queueClaims.slice(0, 3).map((item) => (
+                  <TodayAction key={`queue-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.name} claims ${inr(item.paymentAmount ?? 0)}`} subtitle="Queue payment">
+                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, true)}>Confirm</button>
+                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, false)}>Reject</button>
+                  </TodayAction>
+                ))}
+
+                {hasScope("leads") && unanswered.slice(0, 2).map((question) => (
+                  <div key={question.id} className="card" style={{ padding: 14 }}>
+                    <div className="row gap-10 center-v"><HelpCircle size={18} color="var(--blue-500)" /><div className="grow"><div className="semi small">{question.question}</div><div className="tiny muted">Asked by {question.askerName}</div></div></div>
+                    {answeringId === question.id ? (
+                      <div style={{ marginTop: 10 }}><textarea className="input" rows={2} value={answer} autoFocus placeholder="Type your answer…" onChange={(event) => setAnswer(event.target.value)} /><div className="row gap-8" style={{ marginTop: 8 }}><button className="btn btn-ghost btn-sm grow" onClick={() => { setAnsweringId(null); setAnswer(""); }}>Cancel</button><button className="btn btn-primary btn-sm grow" disabled={busyId === question.id || answer.trim().length < 2} onClick={() => postAnswer(question)}>Post answer</button></div></div>
+                    ) : <button className="btn btn-outline btn-sm btn-block" style={{ marginTop: 10 }} onClick={() => { setAnsweringId(question.id); setAnswer(""); }}>Answer now</button>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {canSeeOwnerOnly && (reviews?.length ?? 0) > 0 && <button className="card row gap-10 center-v" style={{ width: "100%", marginTop: 10, textAlign: "left" }} onClick={() => nav(`${base}/reviews`)}><Star size={18} color="var(--amber-500)" /><span className="small semi grow">Reviews · reply to customers</span><ChevronRight size={17} color="var(--ink-300)" /></button>}
+          </section>
+        )}
+
+        {hasScope("appointments") && todayAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">Today's bookings</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>View all</button></div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -402,7 +419,7 @@ export default function ManageDashboard() {
           </section>
         )}
 
-        {upcomingAppointments.length > 0 && (
+        {hasScope("appointments") && upcomingAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">Upcoming</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>View all</button></div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -423,28 +440,32 @@ export default function ManageDashboard() {
           </section>
         )}
 
-        <section className="page-pad" style={{ paddingTop: 0 }}>
-          <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`${base}/payments`)}>
-            <span style={{ width: 40, height: 40, borderRadius: 10, background: "var(--green-100)", display: "grid", placeItems: "center" }}><Wallet size={20} color="var(--green-600)" /></span>
-            <div className="grow"><div className="semi small">Payments · {paidRecords.length} confirmed</div><div className="tiny muted">{recordedPaid > 0 ? `${inr(recordedPaid)} recorded · ` : ""}{paymentClaims} to confirm</div></div><ChevronRight size={18} color="var(--ink-300)" />
-          </button>
-        </section>
+        {canSeeOwnerOnly && (
+          <section className="page-pad" style={{ paddingTop: 0 }}>
+            <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`${base}/payments`)}>
+              <span style={{ width: 40, height: 40, borderRadius: 10, background: "var(--green-100)", display: "grid", placeItems: "center" }}><Wallet size={20} color="var(--green-600)" /></span>
+              <div className="grow"><div className="semi small">Payments · {paidRecords.length} confirmed</div><div className="tiny muted">{recordedPaid > 0 ? `${inr(recordedPaid)} recorded · ` : ""}{paymentClaims} to confirm</div></div><ChevronRight size={18} color="var(--ink-300)" />
+            </button>
+          </section>
+        )}
 
-        {matchingRequests.length > 0 && (
+        {hasScope("leads") && matchingRequests.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left", background: "var(--orange-50)" }} onClick={() => nav(`${base}/requests`)}><Search size={20} color="var(--orange-600)" /><div className="grow"><div className="semi small">{matchingRequests.length} nearby request{matchingRequests.length === 1 ? "" : "s"} match you</div><div className="tiny muted">Send a proposal to win the work</div></div><ChevronRight size={18} color="var(--orange-500)" /></button>
           </section>
         )}
 
-        <section className="page-pad" style={{ paddingTop: 0 }}>
-          <div className="small semi muted" style={{ marginBottom: 8 }}>Grow</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <GrowAction icon={<Megaphone size={18} color="var(--brand-600)" />} label="Post update" onClick={() => nav("/community/new", { state: composeState })} />
-            <GrowAction icon={<Camera size={18} color="var(--pink-500)" />} label="Post story" onClick={() => nav("/story/new", { state: composeState })} />
-            <GrowAction icon={<QrCode size={18} color="var(--ink-700)" />} label="Share QR" onClick={() => setShare(true)} />
-            {!business?.isVerified && <GrowAction icon={<BadgeCheck size={18} color="var(--green-600)" />} label="Get verified" onClick={() => nav(`${base}/verify`)} />}
-          </div>
-        </section>
+        {canSeeOwnerOnly && (
+          <section className="page-pad" style={{ paddingTop: 0 }}>
+            <div className="small semi muted" style={{ marginBottom: 8 }}>Grow</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <GrowAction icon={<Megaphone size={18} color="var(--brand-600)" />} label="Post update" onClick={() => nav("/community/new", { state: composeState })} />
+              <GrowAction icon={<Camera size={18} color="var(--pink-500)" />} label="Post story" onClick={() => nav("/story/new", { state: composeState })} />
+              <GrowAction icon={<QrCode size={18} color="var(--ink-700)" />} label="Share QR" onClick={() => setShare(true)} />
+              {!business?.isVerified && <GrowAction icon={<BadgeCheck size={18} color="var(--green-600)" />} label="Get verified" onClick={() => nav(`${base}/verify`)} />}
+            </div>
+          </section>
+        )}
         <div style={{ height: 20 }} />
       </div>
 

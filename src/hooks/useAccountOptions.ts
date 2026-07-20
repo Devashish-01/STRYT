@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "@/store";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { businessService, providerService, businessAccessService } from "@/services";
+import { SCOPE_LABELS } from "@/services/marketplace/businessAccessService";
 import { displayName as safeName } from "@/lib/publicName";
 
 export interface AccountOption {
@@ -59,7 +60,10 @@ export function useAccountOptions() {
     })),
     ...delegatedGrants.map((s) => ({
       type: "business" as const, id: s.businessId, name: s.businessName || "Business", avatar: "",
-      sub: "Business · Delegated access", dest: `/business/${s.businessId}/manage`, active: isActive("business", s.businessId),
+      sub: s.accessLevel === "FULL"
+        ? "Business · Delegated access"
+        : `Team member · ${s.scopes.map((sc) => SCOPE_LABELS[sc]).join(", ") || "No access"}`,
+      dest: `/business/${s.businessId}/manage`, active: isActive("business", s.businessId),
       delegated: true,
     })),
     ...(provider ? [{

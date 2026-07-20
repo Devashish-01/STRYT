@@ -1,6 +1,6 @@
-import { useState, useRef } from "react";
-import { RADIUS_OPTIONS } from "@/utils/constants";
 import { Pencil } from "@/components/Icons";
+import { useRadiusPresets } from "@/hooks/useRadiusPresets";
+import { haptics } from "@/lib/haptics";
 
 interface RadiusSelectorProps {
   value: number;
@@ -17,40 +17,14 @@ export default function RadiusSelector({
   label = "Radius",
   description
 }: RadiusSelectorProps) {
-  const [showCustom, setShowCustom] = useState(false);
-  const [customVal, setCustomVal] = useState("");
-  const customInputRef = useRef<HTMLInputElement>(null);
-
-  const presetKms = new Set<number>(RADIUS_OPTIONS.map((o) => o.km));
-  const isCustomActive = !presetKms.has(value);
-
-  const roundToHalf = (v: number): number => {
-    const r = Math.round(v * 2) / 2;
-    return Math.max(0.5, r);
-  };
-
-  const handlePresetClick = (km: number) => {
-    onChange(km);
-    setShowCustom(false);
-  };
-
-  const handleCustomApply = () => {
-    const n = parseFloat(customVal);
-    if (!isNaN(n) && n > 0) {
-      onChange(roundToHalf(n));
-    }
-    setShowCustom(false);
-  };
-
-  const openCustom = () => {
-    setCustomVal(isCustomActive ? String(value) : "");
-    setShowCustom(true);
-    setTimeout(() => customInputRef.current?.focus(), 60);
-  };
+  const {
+    presets, showCustom, customVal, setCustomVal, customInputRef,
+    isCustomActive, isActive, selectPreset, openCustom, applyCustom, cancelCustom, snapPreview,
+  } = useRadiusPresets(value, onChange);
 
   return (
     <div className="card">
-      <div className="row between small semi" style={{ marginBottom: 12 }}>
+      <div className="row between small semi" style={{ marginBottom: "var(--space-sm)" }}>
         <span>{label}</span>
         <span style={{ color: accentColor, fontWeight: 700 }}>
           {value >= 5000 ? "🌍 World" : value === 0.5 ? "500m" : `${value} km`}
@@ -71,15 +45,15 @@ export default function RadiusSelector({
                 fontSize: 13,
                 height: 36,
                 border: "1.5px solid var(--ink-200)",
-                borderRadius: 10,
+                borderRadius: "var(--radius-sm)",
                 outline: "none"
               }}
               placeholder="Radius in km..."
               value={customVal}
               onChange={(e) => setCustomVal(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleCustomApply();
-                if (e.key === "Escape") setShowCustom(false);
+                if (e.key === "Enter") applyCustom();
+                if (e.key === "Escape") cancelCustom();
               }}
               autoFocus
             />
@@ -87,7 +61,7 @@ export default function RadiusSelector({
               type="button"
               className="btn btn-primary btn-sm"
               style={{ height: 36, padding: "0 12px", background: accentColor, borderColor: accentColor }}
-              onClick={handleCustomApply}
+              onClick={() => { haptics.selection(); applyCustom(); }}
             >
               Apply
             </button>
@@ -95,14 +69,14 @@ export default function RadiusSelector({
               type="button"
               className="btn btn-ghost btn-sm"
               style={{ height: 36, padding: "0 12px" }}
-              onClick={() => setShowCustom(false)}
+              onClick={cancelCustom}
             >
               Cancel
             </button>
           </div>
-          {customVal && !isNaN(parseFloat(customVal)) && parseFloat(customVal) > 0 && (
+          {snapPreview !== null && (
             <div style={{ fontSize: 11, color: "var(--ink-500)" }}>
-              Snaps to <strong style={{ color: accentColor }}>{roundToHalf(parseFloat(customVal))} km</strong>
+              Snaps to <strong style={{ color: accentColor }}>{snapPreview} km</strong>
             </div>
           )}
         </div>
@@ -117,16 +91,16 @@ export default function RadiusSelector({
             width: "100%",
           }}
         >
-          {RADIUS_OPTIONS.map((opt) => {
-            const active = value === opt.km;
+          {presets.map((opt) => {
+            const active = isActive(opt.km);
             return (
               <button
                 key={opt.km}
                 type="button"
-                onClick={() => handlePresetClick(opt.km)}
+                onClick={() => { haptics.selection(); selectPreset(opt.km); }}
                 style={{
                   padding: "6px 12px",
-                  borderRadius: 16,
+                  borderRadius: "var(--radius)",
                   border: "none",
                   background: active ? accentColor : "var(--ink-100)",
                   color: active ? "#fff" : "var(--ink-700)",
@@ -144,10 +118,10 @@ export default function RadiusSelector({
           })}
           <button
             type="button"
-            onClick={openCustom}
+            onClick={() => { haptics.selection(); openCustom(); }}
             style={{
               padding: "6px 12px",
-              borderRadius: 16,
+              borderRadius: "var(--radius)",
               border: "none",
               background: isCustomActive ? accentColor : "var(--ink-100)",
               color: isCustomActive ? "#fff" : "var(--ink-700)",
@@ -158,7 +132,7 @@ export default function RadiusSelector({
               flexShrink: 0,
               display: "flex",
               alignItems: "center",
-              gap: 4,
+              gap: "var(--space-xxs)",
               transition: "background 0.15s, color 0.15s",
             }}
           >
@@ -168,7 +142,7 @@ export default function RadiusSelector({
         </div>
       )}
       {description && (
-        <div className="tiny muted" style={{ marginTop: 8 }}>
+        <div className="tiny muted" style={{ marginTop: "var(--space-xs)" }}>
           {description}
         </div>
       )}

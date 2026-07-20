@@ -17,7 +17,7 @@ import { haptics } from "@/lib/haptics";
 
 /* ---------------- Business cards ---------------- */
 
-export function BusinessCardWide({ b, style }: { b: Business; style?: CSSProperties }) {
+export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: Business; style?: CSSProperties; entranceClass?: string }) {
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark, isGuest } = useApp();
   const saved = isBookmarked("BUSINESS", b.id);
@@ -25,7 +25,7 @@ export function BusinessCardWide({ b, style }: { b: Business; style?: CSSPropert
   // evaluator BusinessDetail uses, so the card can't show a stale "Open".
   const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   return (
-    <div className="card card-interactive fade-up" style={{ overflow: "hidden", ...style }} onClick={() => nav(`/business/${b.id}`)}>
+    <div className={`card card-interactive ${entranceClass}`} style={{ overflow: "hidden", ...style }} onClick={() => nav(`/business/${b.id}`)}>
       <div style={{ position: "relative" }}>
         <img src={b.coverImage} alt={b.name} className="thumb" style={{ width: "100%", aspectRatio: "16/10", objectFit: "cover" }} loading="lazy" />
         <div
@@ -57,6 +57,7 @@ export function BusinessCardWide({ b, style }: { b: Business; style?: CSSPropert
             style={{ position: "absolute", top: 10, right: 10, background: "rgba(255,255,255,0.92)" }}
             onClick={(e) => {
               e.stopPropagation();
+              haptics.selection();
               toggleBookmark("BUSINESS", b.id);
             }}
             aria-label="Save"
@@ -72,7 +73,7 @@ export function BusinessCardWide({ b, style }: { b: Business; style?: CSSPropert
           </div>
         )}
       </div>
-      <div style={{ padding: 12 }}>
+      <div style={{ padding: "var(--space-sm)" }}>
         <div className="row between">
           <div className="row gap-6" style={{ minWidth: 0 }}>
             <span className="bold ellipsis" style={{ fontSize: 16 }}>{b.name}</span>
@@ -83,10 +84,10 @@ export function BusinessCardWide({ b, style }: { b: Business; style?: CSSPropert
         <div className="tiny muted ellipsis tabular-nums" style={{ marginTop: 3 }}>
           {b.subCategory} {b.priceForTwo ? `• ${inr(b.priceForTwo)} for two` : ""}
         </div>
-        <div className="row gap-10 tiny muted" style={{ marginTop: 8 }}>
+        <div className="row gap-10 tiny muted" style={{ marginTop: "var(--space-xs)" }}>
           <span className="row gap-4"><MapPin size={13} /> {distanceLabel(b.distanceKm)}</span>
           {b.deliveryTime && <span className="row gap-4"><Clock size={13} /> {b.deliveryTime}</span>}
-          <span style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>
+          <span className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`} style={{ fontSize: 10, padding: "1px 6px" }}>
             {evalRes.isOpenNow ? "Open" : "Closed"}
           </span>
         </div>
@@ -95,17 +96,19 @@ export function BusinessCardWide({ b, style }: { b: Business; style?: CSSPropert
   );
 }
 
-export function BusinessCardSmall({ b, style }: { b: Business; style?: CSSProperties }) {
+export function BusinessCardSmall({ b, style, entranceClass = "fade-up" }: { b: Business; style?: CSSProperties; entranceClass?: string }) {
   const nav = useNavigate();
+  const { isBookmarked, toggleBookmark, isGuest } = useApp();
+  const saved = isBookmarked("BUSINESS", b.id);
   const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   return (
     <div
-      className="card-interactive fade-up"
+      className={`card-interactive ${entranceClass}`}
       style={{ width: 160, flexShrink: 0, ...style }}
       onClick={() => nav(`/business/${b.id}`)}
     >
       <div style={{ position: "relative" }}>
-        <img src={b.coverImage} alt={b.name} className="thumb" style={{ width: "100%", aspectRatio: "16/11", borderRadius: 16, objectFit: "cover" }} loading="lazy" />
+        <img src={b.coverImage} alt={b.name} className="thumb" style={{ width: "100%", aspectRatio: "16/11", borderRadius: "var(--radius)", objectFit: "cover" }} loading="lazy" />
         {b.offerText && (
           <div
             style={{
@@ -123,8 +126,22 @@ export function BusinessCardSmall({ b, style }: { b: Business; style?: CSSProper
             {b.offerText}
           </div>
         )}
+        {!isGuest && (
+          <button
+            className="icon-btn"
+            style={{ position: "absolute", top: 8, right: 8, width: 30, height: 30, background: "rgba(255,255,255,0.92)" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              haptics.selection();
+              toggleBookmark("BUSINESS", b.id);
+            }}
+            aria-label="Save"
+          >
+            <Heart size={14} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
+          </button>
+        )}
         {(b.isNew || b.isBoosted) && (
-          <div className="card-badge-stack" style={{ top: 8, left: 8, gap: 4 }}>
+          <div className="card-badge-stack" style={{ top: 8, left: 8, gap: "var(--space-xxs)" }}>
             {b.isNew && <span className="badge badge-new" style={{ fontSize: 10 }}>NEW</span>}
             {b.isBoosted && <span className="badge badge-amber" style={{ fontSize: 10 }}>Promoted</span>}
           </div>
@@ -138,7 +155,7 @@ export function BusinessCardSmall({ b, style }: { b: Business; style?: CSSProper
           <Rating value={b.ratingAvg} size={11} />
           <span className="tiny muted ellipsis">{distanceLabel(b.distanceKm)}</span>
         </div>
-        <span className="tiny" style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>
+        <span className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`} style={{ fontSize: 9, padding: "1px 6px" }}>
           {evalRes.isOpenNow ? "Open" : "Closed"}
         </span>
       </div>
@@ -148,13 +165,13 @@ export function BusinessCardSmall({ b, style }: { b: Business; style?: CSSProper
 
 /* ---------------- Provider card ---------------- */
 
-export function ProviderCard({ p, style }: { p: Provider; style?: CSSProperties }) {
+export function ProviderCard({ p, style, entranceClass = "fade-up" }: { p: Provider; style?: CSSProperties; entranceClass?: string }) {
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark, isGuest } = useApp();
   const saved = isBookmarked("PROVIDER", p.id);
   const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
   return (
-    <div className="card card-interactive fade-up" style={{ padding: 12, ...style }} onClick={() => nav(`/provider/${p.id}`)}>
+    <div className={`card card-interactive ${entranceClass}`} style={{ padding: "var(--space-sm)", ...style }} onClick={() => nav(`/provider/${p.id}`)}>
       <div className="row gap-12" style={{ alignItems: "flex-start" }}>
         <div style={{ position: "relative" }}>
           <SafeImg
@@ -191,6 +208,7 @@ export function ProviderCard({ p, style }: { p: Provider; style?: CSSProperties 
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  haptics.selection();
                   toggleBookmark("PROVIDER", p.id);
                 }}
                 aria-label="Save"
@@ -229,16 +247,45 @@ export function ProviderCard({ p, style }: { p: Provider; style?: CSSProperties 
   );
 }
 
-export function ProviderCardSmall({ p, style }: { p: Provider; style?: CSSProperties }) {
+export function ProviderCardSmall({ p, style, entranceClass = "fade-up" }: { p: Provider; style?: CSSProperties; entranceClass?: string }) {
   const nav = useNavigate();
+  const { isBookmarked, toggleBookmark, isGuest } = useApp();
+  const saved = isBookmarked("PROVIDER", p.id);
   return (
-    <div className="card card-interactive fade-up" style={{ width: 150, flexShrink: 0, padding: 12, ...style }} onClick={() => nav(`/provider/${p.id}`)}>
+    <div
+      className={`card card-interactive ${entranceClass}`}
+      style={{
+        width: 154,
+        flexShrink: 0,
+        padding: 14,
+        borderRadius: 16,
+        position: "relative",
+        boxShadow: "0 2px 10px rgba(0, 0, 0, 0.04)",
+        border: "1px solid var(--line)",
+        ...style
+      }}
+      onClick={() => nav(`/provider/${p.id}`)}
+    >
+      {!isGuest && (
+        <button
+          className="icon-btn"
+          style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, background: "rgba(255, 255, 255, 0.92)", boxShadow: "0 2px 6px rgba(0,0,0,0.08)" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            haptics.selection();
+            toggleBookmark("PROVIDER", p.id);
+          }}
+          aria-label="Save"
+        >
+          <Heart size={13} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-400)"} />
+        </button>
+      )}
       <div className="col center" style={{ textAlign: "center", gap: 6 }}>
-        <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 60, height: 60 }} />
-        <div className="bold small ellipsis" style={{ maxWidth: "100%" }}>{safeName(p.displayName, "Local provider")}</div>
-        <div className="tiny muted ellipsis" style={{ maxWidth: "100%" }}>{p.categoryName}</div>
+        <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 60, height: 60, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
+        <div className="bold small ellipsis" style={{ maxWidth: "100%", fontSize: 13.5 }}>{safeName(p.displayName, "Local provider")}</div>
+        <div className="tiny muted ellipsis" style={{ maxWidth: "100%", fontSize: 11 }}>{p.categoryName}</div>
         <Rating value={p.ratingAvg} size={11} />
-        <div className="tiny tabular-nums" style={{ color: "var(--green-500)", fontWeight: 700 }}>from {inr(p.startingPrice)}</div>
+        <div className="tiny tabular-nums" style={{ color: "var(--green-500)", fontWeight: 700, marginTop: 1 }}>from {inr(p.startingPrice)}</div>
       </div>
     </div>
   );

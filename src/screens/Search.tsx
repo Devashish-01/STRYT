@@ -7,11 +7,11 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import { NoResultsIllustration } from "@/components/illustrations";
-import type { Business, Provider } from "@/types";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
+import type { Business, Provider } from "@/types";
 
-const trending = ["Biryani", "Plumber", "Salon", "Birthday cake", "AC repair", "Tutor"];
+const TREND_KEYS = ["search_trend_1", "search_trend_2", "search_trend_3", "search_trend_4", "search_trend_5", "search_trend_6"] as const;
 const RECENT_KEY = "stryt_recent_searches";
 
 function loadRecent(): string[] {
@@ -40,18 +40,72 @@ export default function Search() {
   const query = debounced.toLowerCase();
   const { data: leaves } = useQuery(() => catalogService.leaves(), []);
   const { data: results, loading, error, refetch } = useQuery(
-    () => (query ? discoveryService.search(query, user.lat || undefined, user.lng || undefined) : Promise.resolve({ businesses: [] as Business[], providers: [] as Provider[] })),
+    () => (query
+      ? discoveryService.search(query, { lat: user.lat || undefined, lng: user.lng || undefined })
+      : Promise.resolve(null)),
     [query, user.lat, user.lng]
   );
   const { data: savedSearches, refetch: refetchSaved } = useQuery(() => discoveryService.savedSearches(), []);
   const saved = savedSearches ?? [];
   const isSaved = saved.some((s) => s.query.toLowerCase() === query);
 
-  const bizResults = results?.businesses ?? [];
-  const provResults = results?.providers ?? [];
+  // Load-more pagination — same extra/cursor/hasMore idiom used elsewhere,
+  // doubled since a search hits two independent entity feeds.
+  const [extraBiz, setExtraBiz] = useState<Business[]>([]);
+  const [bizCursor, setBizCursor] = useState<string | null>(null);
+  const [bizHasMore, setBizHasMore] = useState(false);
+  const [loadingMoreBiz, setLoadingMoreBiz] = useState(false);
+  const [extraProv, setExtraProv] = useState<Provider[]>([]);
+  const [provCursor, setProvCursor] = useState<string | null>(null);
+  const [provHasMore, setProvHasMore] = useState(false);
+  const [loadingMoreProv, setLoadingMoreProv] = useState(false);
+
+  useEffect(() => {
+    setExtraBiz([]);
+    setBizCursor(results?.businesses.page?.next_cursor ?? null);
+    setBizHasMore(results?.businesses.page?.has_more ?? false);
+    setExtraProv([]);
+    setProvCursor(results?.providers.page?.next_cursor ?? null);
+    setProvHasMore(results?.providers.page?.has_more ?? false);
+  }, [results]);
+
+  async function loadMoreBiz() {
+    if (!bizCursor || loadingMoreBiz || !query) return;
+    setLoadingMoreBiz(true);
+    try {
+      const next = await discoveryService.search(query, { lat: user.lat || undefined, lng: user.lng || undefined, bizCursor });
+      setExtraBiz((prev) => [...prev, ...next.businesses.data]);
+      setBizCursor(next.businesses.page?.next_cursor ?? null);
+      setBizHasMore(next.businesses.page?.has_more ?? false);
+    } catch {
+      showToast(t("catlist_load_more_failed"));
+    } finally {
+      setLoadingMoreBiz(false);
+    }
+  }
+  async function loadMoreProv() {
+    if (!provCursor || loadingMoreProv || !query) return;
+    setLoadingMoreProv(true);
+    try {
+      const next = await discoveryService.search(query, { lat: user.lat || undefined, lng: user.lng || undefined, provCursor });
+      setExtraProv((prev) => [...prev, ...next.providers.data]);
+      setProvCursor(next.providers.page?.next_cursor ?? null);
+      setProvHasMore(next.providers.page?.has_more ?? false);
+    } catch {
+      showToast(t("catlist_load_more_failed"));
+    } finally {
+      setLoadingMoreProv(false);
+    }
+  }
+
+  const bizResults = [...(results?.businesses.data ?? []), ...extraBiz];
+  const provResults = [...(results?.providers.data ?? []), ...extraProv];
   const catResults = query ? (leaves ?? []).filter((c) => c.name.toLowerCase().includes(query)) : [];
   const total = bizResults.length + provResults.length;
   const searching = !!query && loading;
+  const loadingMore = loadingMoreBiz || loadingMoreProv;
+  const extraBizIds = new Set(extraBiz.map((b) => b.id));
+  const extraProvIds = new Set(extraProv.map((p) => p.id));
 
   // Remember a search once it settles and actually returns results — that's the
   // user's real recent history (deduped, most-recent-first, capped at 8).
@@ -119,7 +173,7 @@ export default function Search() {
           <div className="page-pad">
             {recent.length > 0 && (
               <>
-                <div className="row between" style={{ marginBottom: 12 }}>
+                <div className="row between" style={{ marginBottom: "var(--space-sm)" }}>
                   <div className="small semi muted row gap-6">
                     <Clock size={15} /> {t("search_recent")}
                   </div>
@@ -137,9 +191,10 @@ export default function Search() {
               <TrendingUp size={15} /> {t("search_trending")}
             </div>
             <div className="row wrap gap-8">
-              {trending.map((word) => (
-                <button key={word} className="chip" onClick={() => setQ(word)}>🔥 {word}</button>
-              ))}
+              {TREND_KEYS.map((key) => {
+                const word = t(key);
+                return <button key={key} className="chip" onClick={() => setQ(word)}>🔥 {word}</button>;
+              })}
             </div>
 
             {saved.length > 0 && (
@@ -192,8 +247,17 @@ export default function Search() {
                 <Bell size={13} fill={isSaved ? "var(--brand-700)" : "none"} /> {isSaved ? t("search_alert_on") : t("search_get_alerts")}
               </button>
             </div>
-            {provResults.map((p) => <ProviderCard key={p.id} p={p} />)}
-            {bizResults.map((b) => <BusinessCardWide key={b.id} b={b} />)}
+            {provResults.map((p) => <ProviderCard key={p.id} p={p} entranceClass={extraProvIds.has(p.id) ? "queue-row-enter" : "fade-up"} />)}
+            {bizResults.map((b) => <BusinessCardWide key={b.id} b={b} entranceClass={extraBizIds.has(b.id) ? "queue-row-enter" : "fade-up"} />)}
+            {(bizHasMore || provHasMore) && (
+              <button
+                className="btn btn-outline btn-block"
+                disabled={loadingMore}
+                onClick={() => { if (bizHasMore) loadMoreBiz(); if (provHasMore) loadMoreProv(); }}
+              >
+                {loadingMore ? t("catlist_loading_more") : t("catlist_load_more")}
+              </button>
+            )}
           </div>
         )}
         <div style={{ height: 24 }} />

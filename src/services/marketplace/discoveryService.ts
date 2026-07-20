@@ -19,6 +19,9 @@ interface FeedParams {
   lng?: number;
   radius?: number;
   category?: string;
+  /** Match any of these category ids (e.g. a parent category + all its leaf
+   *  subcategories) — independent of `category`, use whichever fits the caller. */
+  categoryIds?: string[];
   cursor?: string | null;
   sort?: "nearby" | "rating" | "new";
 }
@@ -85,6 +88,7 @@ export const discoveryService = {
         in_category: p.category ?? undefined,
         in_limit: limit,
         in_offset: from,
+        in_category_ids: p.categoryIds ?? undefined,
       });
       throwIfError(error);
       const page = toPage<Business>(data as unknown[], null, from, limit);
@@ -95,6 +99,7 @@ export const discoveryService = {
     }
     let q = sb.from("businesses").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
     if (p.category) q = q.eq("category_id", p.category);
+    if (p.categoryIds) q = q.in("category_id", p.categoryIds);
     q = p.sort === "new" ? q.order("is_new", { ascending: false }).order("opening_date", { ascending: false })
                          : q.order("rating_avg", { ascending: false });
     const { data, error, count } = await q.range(from, to);
@@ -124,6 +129,7 @@ export const discoveryService = {
         in_category: p.category ?? undefined,
         in_limit: limit,
         in_offset: from,
+        in_category_ids: p.categoryIds ?? undefined,
       });
       throwIfError(error);
       const page = toPage<Provider>(data as unknown[], null, from, limit);
@@ -134,6 +140,7 @@ export const discoveryService = {
     }
     let q = sb.from("providers").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
     if (p.category) q = q.eq("category_id", p.category);
+    if (p.categoryIds) q = q.in("category_id", p.categoryIds);
     q = p.sort === "new" ? q.order("is_new", { ascending: false })
                          : q.order("rating_avg", { ascending: false });
     const { data, error, count } = await q.range(from, to);
@@ -175,7 +182,10 @@ export const discoveryService = {
     return prov;
   },
 
-  async search(q: string, lat?: number, lng?: number): Promise<{ businesses: Business[]; providers: Provider[] }> {
+  async search(
+    q: string,
+    opts: { lat?: number; lng?: number; radius?: number; bizCursor?: string | null; provCursor?: string | null } = {}
+  ): Promise<{ businesses: Page<Business>; providers: Page<Provider> }> {
     const sb = getSupabase();
     // PostgREST .or() takes a `,`-delimited list of `column.op.value`
     // conditions — a raw `,` `(` or `)` in user input could inject an extra
@@ -184,24 +194,30 @@ export const discoveryService = {
     // filter metacharacters before building the %term% pattern.
     const safeQ = q.replace(/[,()]/g, "").trim();
     const term = `%${safeQ}%`;
+    const { from: bizFrom, to: bizTo, limit: bizLimit } = cursorToRange(opts.bizCursor);
+    const { from: provFrom, to: provTo, limit: provLimit } = cursorToRange(opts.provCursor);
     const [bizRes, provRes] = await Promise.all([
-      sb.from("businesses").select("*").eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null).or(`name.ilike.${term},category_name.ilike.${term}`).limit(20),
-      sb.from("providers").select("*").eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null).or(`display_name.ilike.${term},category_name.ilike.${term}`).limit(20),
+      sb.from("businesses").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null).or(`name.ilike.${term},category_name.ilike.${term}`).range(bizFrom, bizTo),
+      sb.from("providers").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null).or(`display_name.ilike.${term},category_name.ilike.${term}`).range(provFrom, provTo),
     ]);
     throwIfError(bizRes.error);
     throwIfError(provRes.error);
-    
-    const userLat = lat ?? DEFAULT_LAT;
-    const userLng = lng ?? DEFAULT_LNG;
 
-    return {
-      businesses: toCamel<Business[]>(bizRes.data ?? [])
-        .map((b) => withDistance(b, userLat, userLng))
-        .filter((b) => withinListingRadius(b, b.broadcastRadius, undefined)),
-      providers: toCamel<Provider[]>(provRes.data ?? [])
-        .map((prov) => withDistance(prov, userLat, userLng))
-        .filter((prov) => withinListingRadius(prov, prov.serviceRadiusKm, undefined)),
-    };
+    const userLat = opts.lat ?? DEFAULT_LAT;
+    const userLng = opts.lng ?? DEFAULT_LNG;
+    const viewerRadius = resolveViewerRadius(opts.radius);
+
+    const bizPage = toPage<Business>(bizRes.data, bizRes.count, bizFrom, bizLimit);
+    bizPage.data = bizPage.data
+      .map((b) => withDistance(b, userLat, userLng))
+      .filter((b) => withinListingRadius(b, b.broadcastRadius, viewerRadius));
+
+    const provPage = toPage<Provider>(provRes.data, provRes.count, provFrom, provLimit);
+    provPage.data = provPage.data
+      .map((prov) => withDistance(prov, userLat, userLng))
+      .filter((prov) => withinListingRadius(prov, prov.serviceRadiusKm, viewerRadius));
+
+    return { businesses: bizPage, providers: provPage };
   },
 
   /** Save a search term so the user is notified when a new nearby listing matches it. */

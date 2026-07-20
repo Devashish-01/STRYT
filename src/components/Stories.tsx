@@ -100,7 +100,8 @@ export function StoriesBar() {
               // Active story - show avatar with gradient ring
               <div style={{
                 width: 64, height: 64, borderRadius: "50%", padding: 2.5,
-                background: "linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))"
+                background: "linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))",
+                boxShadow: "0 4px 14px rgba(236, 72, 153, 0.35)",
               }}>
                 <SafeImg
                   src={user.avatar}
@@ -112,10 +113,11 @@ export function StoriesBar() {
             ) : (
               // No active story - show add plus circle
               <div style={{
-                width: 64, height: 64, borderRadius: "50%", background: "var(--ink-100)",
-                display: "flex", alignItems: "center", justifyContent: "center", border: "2px dashed var(--ink-300)"
+                width: 64, height: 64, borderRadius: "50%", background: "linear-gradient(135deg, var(--brand-50), var(--ink-50))",
+                display: "flex", alignItems: "center", justifyContent: "center", border: "2px dashed var(--brand-400)",
+                boxShadow: "0 2px 10px rgba(139, 92, 246, 0.12)",
               }}>
-                <Plus size={24} color="var(--ink-500)" />
+                <Plus size={24} color="var(--brand-600)" />
               </div>
             )}
             {/* Camera / Plus badge on bottom-right */}
@@ -125,6 +127,7 @@ export function StoriesBar() {
               background: "var(--brand-600)",
               border: "2px solid #fff",
               display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
             }}>
               {myStory ? <Plus size={12} color="#fff" /> : <Camera size={11} color="#fff" />}
             </div>
@@ -157,6 +160,7 @@ export function StoriesBar() {
                   <div style={{
                     width: 64, height: 64, borderRadius: "50%", padding: 2.5,
                     background: seen ? "var(--ink-200)" : "linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))",
+                    boxShadow: seen ? "none" : "0 4px 14px rgba(236, 72, 153, 0.3)",
                   }}>
                     <SafeImg
                       src={g.authorAvatar}

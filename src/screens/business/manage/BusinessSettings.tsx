@@ -1,52 +1,17 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppBar, SafeImg } from "@/components/common";
+import { AppBar } from "@/components/common";
 import { businessService, profileControlService, uploadService } from "@/services";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { useQuery } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
-import { Crown, Power, Bell, QrCode, UserPlus, X, Image as ImageIcon } from "@/components/Icons";
+import { Power, Bell, QrCode, UserPlus, X, Image as ImageIcon } from "@/components/Icons";
 import { useApp } from "@/store";
-import type { TeamMember } from "@/types";
 import ManageNav from "./ManageNav";
 
 export default function BusinessSettings() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast, setContext } = useApp();
-  const { data: team, refetch: refetchTeam } = useQueryWithRealtime<TeamMember[]>(() => businessService.team(id) as any, "business_team_members", [id], `business_id=eq.${id}`);
-  const [addingMember, setAddingMember] = useState(false);
-  const [memberName, setMemberName] = useState("");
-  const [memberPhone, setMemberPhone] = useState("");
-  const [memberRole, setMemberRole] = useState<"MANAGER" | "STAFF">("STAFF");
-  const [savingMember, setSavingMember] = useState(false);
-
-  async function addMember() {
-    if (!memberName.trim() || !memberPhone.trim()) return;
-    setSavingMember(true);
-    try {
-      await businessService.addTeamMember(id, { name: memberName.trim(), phone: memberPhone.trim(), role: memberRole });
-      setMemberName("");
-      setMemberPhone("");
-      setMemberRole("STAFF");
-      setAddingMember(false);
-      refetchTeam();
-      showToast("Team member added");
-    } catch {
-      showToast("Couldn't add team member");
-    } finally {
-      setSavingMember(false);
-    }
-  }
-
-  async function removeMember(memberId: string) {
-    try {
-      await businessService.removeTeamMember(memberId);
-      refetchTeam();
-      showToast("Removed");
-    } catch {
-      showToast("Couldn't remove — try again");
-    }
-  }
   const { data: business, refetch: refetchBiz } = useQuery(() => businessService.get(id), [id], `business:${id}`);
 
   if (!id) {
@@ -339,48 +304,11 @@ export default function BusinessSettings() {
         </div>
 
         {/* Team */}
-        <div>
-          <div className="small semi muted" style={{ marginBottom: 8 }}>Team</div>
-          {(team ?? []).length > 0 && (
-            <div className="card" style={{ marginBottom: 10 }}>
-              {(team ?? []).map((m, i) => (
-                <div key={m.id} className="row gap-12" style={{ padding: "12px 14px", borderBottom: i < (team!.length - 1) ? "1px solid var(--line)" : "none" }}>
-                  <SafeImg src={m.avatar} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
-                  <div className="grow"><div className="semi small">{m.name}</div><div className="tiny muted">{m.phone}</div></div>
-                  <span className={`badge ${m.role === "OWNER" ? "badge-purple" : "badge-gray"}`}>{m.role === "OWNER" && <Crown size={10} />} {m.role}</span>
-                  {m.role !== "OWNER" && (
-                    <button className="icon-btn" style={{ width: 28, height: 28 }} onClick={() => removeMember(m.id)} aria-label={`Remove ${m.name}`}>
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {addingMember ? (
-            <div className="card col gap-10" style={{ padding: 14 }}>
-              <input className="input" placeholder="Name" value={memberName} onChange={(e) => setMemberName(e.target.value)} />
-              <input className="input" placeholder="Phone" inputMode="tel" value={memberPhone} onChange={(e) => setMemberPhone(e.target.value)} />
-              <div className="row gap-8">
-                {(["STAFF", "MANAGER"] as const).map((r) => (
-                  <button key={r} className="chip" style={{ background: memberRole === r ? "var(--brand-800)" : "#fff", color: memberRole === r ? "#fff" : "var(--ink-700)", borderColor: memberRole === r ? "var(--brand-800)" : "var(--ink-200)" }} onClick={() => setMemberRole(r)}>
-                    {r === "STAFF" ? "Staff" : "Manager"}
-                  </button>
-                ))}
-              </div>
-              <div className="row gap-8">
-                <button className="btn btn-outline grow" onClick={() => { setAddingMember(false); setMemberName(""); setMemberPhone(""); }}>Cancel</button>
-                <button className="btn btn-primary grow" disabled={savingMember || !memberName.trim() || !memberPhone.trim()} onClick={addMember}>
-                  {savingMember ? "Adding…" : "Add"}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button className="btn btn-ghost btn-block btn-sm" onClick={() => setAddingMember(true)}>
-              <UserPlus size={16} /> Add team member
-            </button>
-          )}
+        <div className="card">
+          <button className="row gap-10 semi small" onClick={() => nav("/account/business-access")}>
+            <UserPlus size={16} /> Team & access
+            <span className="tiny muted grow" style={{ textAlign: "right" }}>Add team members with scoped access</span>
+          </button>
         </div>
 
         {/* Verification — dashboard tile was removed by design; Settings is the

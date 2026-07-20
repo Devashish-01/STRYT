@@ -10,6 +10,16 @@ export interface BusinessLoginConfig {
 
 export type AccessStatus = "PENDING" | "ACTIVE" | "EXPIRED" | "REVOKED" | "DENIED";
 export type AccessCheckResult = "ALLOWED" | "DENIED" | "ERROR";
+export type AccessLevel = "FULL" | "SCOPED";
+/** appointments/queue/catalog/leads — the only scopes a team-member grant can carry. */
+export type Scope = "appointments" | "queue" | "catalog" | "leads";
+/** Short display label per scope — shared by the switcher and the Team screen so they never drift. */
+export const SCOPE_LABELS: Record<Scope, string> = {
+  appointments: "Appointments",
+  queue: "Queue",
+  catalog: "Catalogue",
+  leads: "Leads & quotes",
+};
 
 export interface AccessSession {
   id: string;
@@ -20,6 +30,13 @@ export interface AccessSession {
   status: AccessStatus;
   requestedAt: string;
   expiresAt: string | null;
+  accessLevel: AccessLevel;
+  scopes: Scope[];
+}
+
+export interface AccessScope {
+  accessLevel: AccessLevel;
+  scopes: Scope[];
 }
 
 export interface LoginResult {
@@ -99,7 +116,7 @@ export const businessAccessService = {
     };
   },
 
-  /** Owner: grant a customer access by their mobile number or email. */
+  /** Owner: grant a customer full, owner-equivalent access by mobile number, email, or username. */
   async grantByIdentifier(businessId: string, identifier: string): Promise<{ ok: true; name: string }> {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("grant_business_access", { p_business_id: businessId, p_identifier: identifier });
@@ -108,12 +125,34 @@ export const businessAccessService = {
     return { ok: true, name: (row?.grantee_name as string) ?? "User" };
   },
 
+  /** Owner: grant a team member SCOPED access (only the given sections) by mobile number, email, or username. */
+  async grantTeamMember(businessId: string, identifier: string, scopes: Scope[]): Promise<{ ok: true; name: string }> {
+    const sb = getSupabase();
+    // Cast: grant_team_member_access isn't in the generated schema types yet
+    // (new RPC — same typegen gap as my_business_access_status).
+    const { data, error } = await (sb.rpc as any)("grant_team_member_access", {
+      p_business_id: businessId, p_identifier: identifier, p_scopes: scopes,
+    });
+    if (error) throw new Error(error.message || "Couldn't add team member.");
+    const row = Array.isArray(data) ? data[0] : data;
+    return { ok: true, name: (row?.grantee_name as string) ?? "User" };
+  },
+
+  /** Owner: change an existing team member's scopes without revoking + re-adding. */
+  async updateTeamMemberScopes(sessionId: string, scopes: Scope[]) {
+    const sb = getSupabase();
+    // Cast: update_team_member_scopes isn't in the generated schema types (new RPC).
+    const { error } = await (sb.rpc as any)("update_team_member_scopes", { p_session_id: sessionId, p_scopes: scopes });
+    if (error) throw new Error(error.message || "Couldn't update access.");
+    return { ok: true };
+  },
+
   /** Owner: sessions (requests + active grants) for a business. */
   async ownerSessions(businessId: string): Promise<AccessSession[]> {
     const sb = getSupabase();
     const { data } = await sb
       .from("business_access_sessions")
-      .select("id, business_id, status, requested_at, expires_at, grantee:users!grantee_user_id(alias, avatar)")
+      .select("id, business_id, status, requested_at, expires_at, access_level, scopes, grantee:users!grantee_user_id(alias, avatar)")
       .eq("business_id", businessId)
       .order("requested_at", { ascending: false });
     return (data ?? []).map((r: any) => ({
@@ -124,6 +163,8 @@ export const businessAccessService = {
       status: r.status,
       requestedAt: r.requested_at,
       expiresAt: r.expires_at ?? null,
+      accessLevel: (r.access_level as AccessLevel) ?? "FULL",
+      scopes: (r.scopes as Scope[]) ?? [],
     }));
   },
 
@@ -134,7 +175,7 @@ export const businessAccessService = {
     if (!uid) return [];
     const { data } = await sb
       .from("business_access_sessions")
-      .select("id, business_id, status, requested_at, expires_at, businesses!business_id(name)")
+      .select("id, business_id, status, requested_at, expires_at, access_level, scopes, businesses!business_id(name)")
       .eq("grantee_user_id", uid)
       .order("requested_at", { ascending: false });
     return (data ?? []).map((r: any) => ({
@@ -145,6 +186,8 @@ export const businessAccessService = {
       status: r.status,
       requestedAt: r.requested_at,
       expiresAt: r.expires_at ?? null,
+      accessLevel: (r.access_level as AccessLevel) ?? "FULL",
+      scopes: (r.scopes as Scope[]) ?? [],
     }));
   },
 
@@ -153,7 +196,7 @@ export const businessAccessService = {
     const sb = getSupabase();
     const { data } = await sb
       .from("business_access_sessions")
-      .select("id, business_id, status, requested_at, expires_at, grantee:users!grantee_user_id(alias, avatar), businesses!business_id(name)")
+      .select("id, business_id, status, requested_at, expires_at, access_level, scopes, grantee:users!grantee_user_id(alias, avatar), businesses!business_id(name)")
       .eq("id", sessionId)
       .maybeSingle();
     if (!data) return null;
@@ -167,6 +210,8 @@ export const businessAccessService = {
       status: r.status,
       requestedAt: r.requested_at,
       expiresAt: r.expires_at ?? null,
+      accessLevel: (r.access_level as AccessLevel) ?? "FULL",
+      scopes: (r.scopes as Scope[]) ?? [],
     };
   },
 
@@ -182,6 +227,23 @@ export const businessAccessService = {
     const { error } = await sb.rpc("revoke_business_session", { p_session_id: sessionId });
     if (error) throw new Error(error.message || "Couldn't revoke the session.");
     return { ok: true };
+  },
+
+  /**
+   * The current user's access level + scopes for one business. Fails CLOSED
+   * (SCOPED, no scopes) on error or no row — real writes are still protected
+   * server-side by RLS/the trigger regardless, so the only cost of failing
+   * closed here is briefly hiding UI a FULL grantee is actually entitled to,
+   * versus failing open and showing owner-only UI to a SCOPED team member.
+   */
+  async myScope(businessId: string): Promise<AccessScope> {
+    const sb = getSupabase();
+    // Cast: my_business_access_scope isn't in the generated schema types (new RPC).
+    const { data, error } = await (sb.rpc as any)("my_business_access_scope", { p_business_id: businessId });
+    if (error) return { accessLevel: "SCOPED", scopes: [] };
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return { accessLevel: "SCOPED", scopes: [] };
+    return { accessLevel: (row.access_level as AccessLevel) ?? "SCOPED", scopes: (row.scopes as Scope[]) ?? [] };
   },
 
   /** Does the current user still have access (owner OR active session) to this business? */

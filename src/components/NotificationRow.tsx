@@ -1,6 +1,8 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Trash2 } from "@/components/Icons";
 import { haptics } from "@/lib/haptics";
+import type { NotificationMetadata } from "@/types";
+import { NotificationLeadingVisual, NotificationSupportingLine } from "@/components/NotificationContent";
 
 const SWIPE_REVEAL = 76; // px of red "Delete" backdrop revealed at full swipe
 const SWIPE_COMMIT = 46; // px of drag past which releasing commits the delete
@@ -21,6 +23,7 @@ export default function NotificationRow({
   preview,
   time,
   urgent,
+  metadata,
   onOpen,
   onDelete,
 }: {
@@ -33,6 +36,9 @@ export default function NotificationRow({
   time: string;
   /** Highest-priority notifications (e.g. "it's your turn") get a distinct tint. */
   urgent?: boolean;
+  /** Per-type enrichment (avatar/image, amount, status pill, etc.) — see
+   *  NotificationContent.tsx. Undefined/null renders exactly as before. */
+  metadata?: NotificationMetadata | null;
   onOpen: () => void;
   onDelete: () => void;
 }) {
@@ -122,10 +128,29 @@ export default function NotificationRow({
           if (e.key === "Enter" || e.key === " ") onOpen();
         }}
       >
-        <div className="notif-row-icon" style={{ background: iconBg }}>
-          {icon}
-          {unread && <span className="notif-unread-dot" aria-hidden="true" />}
-        </div>
+        {(() => {
+          const visual = (
+            <NotificationLeadingVisual metadata={metadata} fallbackIcon={icon} fallbackBg={iconBg} />
+          );
+          // The leading visual carries its own .notif-row-icon wrapper (so a
+          // photo/avatar can override sizing/shape); the plain-icon fallback
+          // path needs the unread dot layered on top, which only makes sense
+          // when we're rendering our own wrapper here.
+          if (metadata?.imageUrl || metadata?.avatarUrl || metadata?.emoji) {
+            return (
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                {visual}
+                {unread && <span className="notif-unread-dot" aria-hidden="true" />}
+              </div>
+            );
+          }
+          return (
+            <div className="notif-row-icon" style={{ background: iconBg }}>
+              {icon}
+              {unread && <span className="notif-unread-dot" aria-hidden="true" />}
+            </div>
+          );
+        })()}
         <div className="notif-row-body">
           <div className="notif-row-top">
             <span className={`notif-row-title${unread ? " unread" : ""}`}>{title}</span>
@@ -151,6 +176,7 @@ export default function NotificationRow({
             </span>
           </div>
           <p className="notif-row-preview clamp-2">{preview}</p>
+          <NotificationSupportingLine metadata={metadata} />
         </div>
       </div>
     </div>

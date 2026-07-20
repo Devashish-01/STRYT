@@ -1,12 +1,6 @@
-import { useRef, useState } from "react";
 import { Pencil, Check } from "@/components/Icons";
-import { RADIUS_OPTIONS } from "@/utils/constants";
 import { useI18n } from "@/lib/i18n";
-
-function roundToHalf(v: number): number {
-  const r = Math.round(v * 2) / 2;
-  return Math.max(0.5, r);
-}
+import { useRadiusPresets } from "@/hooks/useRadiusPresets";
 
 export function RadiusStrip({
   radiusKm, setRadiusKm,
@@ -15,24 +9,10 @@ export function RadiusStrip({
   setRadiusKm: (km: number) => void;
 }) {
   const { t } = useI18n();
-  const [showCustom, setShowCustom] = useState(false);
-  const [customVal, setCustomVal] = useState("");
-  const customInputRef = useRef<HTMLInputElement>(null);
-
-  const presetKms = new Set<number>(RADIUS_OPTIONS.map((o) => o.km));
-  const isCustomActive = !presetKms.has(radiusKm);
-
-  function openCustom() {
-    setCustomVal(isCustomActive ? String(radiusKm) : "");
-    setShowCustom(true);
-    setTimeout(() => customInputRef.current?.focus(), 60);
-  }
-
-  function applyCustom() {
-    const n = parseFloat(customVal);
-    if (!isNaN(n) && n > 0) setRadiusKm(roundToHalf(n));
-    setShowCustom(false);
-  }
+  const {
+    presets, showCustom, customVal, setCustomVal, customInputRef,
+    isCustomActive, isActive, selectPreset, openCustom, applyCustom, cancelCustom, snapPreview,
+  } = useRadiusPresets(radiusKm, setRadiusKm);
 
   return (
     <>
@@ -41,7 +21,7 @@ export function RadiusStrip({
         <>
           <div
             style={{ position: "fixed", inset: 0, zIndex: 1100 }}
-            onClick={() => setShowCustom(false)}
+            onClick={cancelCustom}
           />
           <div className="map-glass-panel" style={{
             position: "absolute", bottom: "calc(80px + var(--safe-area-bottom))", left: "50%", transform: "translateX(-50%)",
@@ -62,7 +42,7 @@ export function RadiusStrip({
                 value={customVal}
                 placeholder={t("map_radius_example")}
                 onChange={(e) => setCustomVal(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") applyCustom(); if (e.key === "Escape") setShowCustom(false); }}
+                onKeyDown={(e) => { if (e.key === "Enter") applyCustom(); if (e.key === "Escape") cancelCustom(); }}
                 style={{
                   flex: 1,
                   border: "1.5px solid var(--ink-200)",
@@ -89,9 +69,9 @@ export function RadiusStrip({
                 <Check size={20} strokeWidth={2.8} />
               </button>
             </div>
-            {customVal && !isNaN(parseFloat(customVal)) && parseFloat(customVal) > 0 && (
+            {snapPreview !== null && (
               <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: 8 }}>
-                {t("map_snaps_to")} <strong style={{ color: "var(--brand-600)" }}>{roundToHalf(parseFloat(customVal))} km</strong>
+                {t("map_snaps_to")} <strong style={{ color: "var(--brand-600)" }}>{snapPreview} km</strong>
               </div>
             )}
           </div>
@@ -109,12 +89,12 @@ export function RadiusStrip({
         overflowX: "auto",
         scrollbarWidth: "none",
       }}>
-        {RADIUS_OPTIONS.map((opt) => {
-          const active = radiusKm === opt.km;
+        {presets.map((opt) => {
+          const active = isActive(opt.km);
           return (
             <button
               key={opt.km}
-              onClick={() => { setRadiusKm(opt.km); setShowCustom(false); }}
+              onClick={() => selectPreset(opt.km)}
               style={{
                 padding: "6px 13px",
                 borderRadius: 22,

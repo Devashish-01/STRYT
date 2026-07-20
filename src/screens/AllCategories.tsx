@@ -1,12 +1,15 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, X, SlidersHorizontal } from "@/components/Icons";
+import { ArrowLeft, Search, X } from "@/components/Icons";
 import { catalogService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
+import { ErrorView } from "@/components/states";
+import { EmptyState } from "@/components/common";
 import type { Category } from "@/types";
 import { useApp } from "@/store";
 import RadiusSelector from "@/components/RadiusSelector";
 import { useI18n } from "@/lib/i18n";
+import { haptics } from "@/lib/haptics";
 
 
 function getAllIds(cat: Category): string[] {
@@ -15,7 +18,7 @@ function getAllIds(cat: Category): string[] {
 
 export default function AllCategories() {
   const nav = useNavigate();
-  const { user } = useApp();
+  const { user, showToast } = useApp();
   const { t } = useI18n();
   const [q, setQ] = useState("");
 
@@ -27,13 +30,16 @@ export default function AllCategories() {
   useEffect(() => {
     localStorage.setItem("settings_radius", String(radius));
     if (user.id && radius !== user.notificationRadiusKm) {
-      void userService.update({ notificationRadiusKm: radius }).catch(() => {});
+      void userService.update({ notificationRadiusKm: radius }).catch(() => {
+        showToast(t("explore_radius_save_failed"));
+      });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radius, user.id, user.notificationRadiusKm]);
 
 
-  const { data: categories, loading } = useQuery(() => catalogService.getCategories(), [], "categories");
-  const { data: counts } = useQuery(() => {
+  const { data: categories, loading, error, refetch } = useQuery(() => catalogService.getCategories(), [], "categories");
+  const { data: counts, loading: countsLoading } = useQuery(() => {
     return catalogService.getCategoryCounts(user.lat || undefined, user.lng || undefined, radius);
   }, [user.lat, user.lng, radius]);
 
@@ -107,22 +113,20 @@ export default function AllCategories() {
         {loading ? (
           <div
             className="page-pad"
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, paddingTop: 16 }}
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-sm)", paddingTop: 16 }}
           >
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} style={{ height: 120, borderRadius: 18, background: "var(--ink-100)" }} className="skel" />
             ))}
           </div>
+        ) : error ? (
+          <ErrorView error={error} onRetry={refetch} />
         ) : filtered.length === 0 ? (
-          <div className="col center" style={{ paddingTop: 60, gap: 12 }}>
-            <span style={{ fontSize: 44 }}>🔍</span>
-            <div className="semi" style={{ fontSize: 16 }}>{t("allcat_no_results")}</div>
-            <div className="small muted">{t("allcat_try_different")}</div>
-          </div>
+          <EmptyState emoji="🔍" title={t("allcat_no_results")} text={t("allcat_try_different")} />
         ) : (
           <div
             className="page-pad"
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, paddingTop: 16, paddingBottom: 32 }}
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-sm)", paddingTop: 16, paddingBottom: 32 }}
           >
             {filtered.map((c) => {
               const { biz, prov } = countFor(c);
@@ -133,7 +137,8 @@ export default function AllCategories() {
               return (
                 <button
                   key={c.id}
-                  onClick={() => nav(`/category/${c.id}`)}
+                  className="card-interactive"
+                  onClick={() => { haptics.selection(); nav(`/category/${c.id}`); }}
                   style={{
                     display: "flex",
                     flexDirection: "column",
@@ -145,16 +150,12 @@ export default function AllCategories() {
                     border: `1.5px solid ${c.color}30`,
                     textAlign: "left",
                     cursor: "pointer",
-                    transition: "transform 0.08s ease",
                   }}
-                  onPointerDown={(e) => (e.currentTarget.style.transform = "scale(0.96)")}
-                  onPointerUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-                  onPointerLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
                 >
                   {/* Icon */}
                   <span
                     style={{
-                      width: 52, height: 52, borderRadius: 16,
+                      width: 52, height: 52, borderRadius: "var(--radius)",
                       background: `${c.color}22`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 28, flexShrink: 0,
@@ -169,7 +170,9 @@ export default function AllCategories() {
                     </div>
 
                     {/* Count row */}
-                    {total > 0 ? (
+                    {countsLoading ? (
+                      <div className="skel" style={{ height: 16, width: 60, borderRadius: 20, marginTop: 6 }} />
+                    ) : total > 0 ? (
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
                         {biz > 0 && (
                           <span style={{

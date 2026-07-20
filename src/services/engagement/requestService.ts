@@ -269,7 +269,11 @@ export const requestService = {
     // business/provider responds under its own public name/avatar. The
     // claimed entity id is client-supplied, so ownership is verified here
     // (not trusted at face value) before it's allowed to override the name —
-    // otherwise anyone could pass another shop's id and impersonate it.
+    // otherwise anyone could pass another shop's id and impersonate it. A
+    // business team member (scoped 'leads' access, or a FULL delegate) may
+    // also respond as the business — checked via the same RPC the server-side
+    // trigger (enforce_proposal_responder_entity_owner) ultimately enforces,
+    // so this courtesy check never grants more than the DB actually allows.
     let responderType = (data.responderType as string) ?? "user";
     let responderEntityId = data.responderEntityId as string | undefined;
     let responderName: string | undefined;
@@ -281,7 +285,14 @@ export const requestService = {
       const nameCol = responderType === "business" ? "name" : "display_name";
       const avatarCol = responderType === "business" ? "cover_image" : "avatar";
       const { data: entity } = await sb.from(table).select(`${ownerCol}, ${nameCol}, ${avatarCol}`).eq("id", responderEntityId).maybeSingle();
-      if (entity && (entity as any)[ownerCol] === uid) {
+      let allowed = !!entity && (entity as any)[ownerCol] === uid;
+      if (!allowed && entity && responderType === "business") {
+        // Cast: my_business_access_scope isn't in the generated schema types (new RPC).
+        const { data: scope } = await (sb.rpc as any)("my_business_access_scope", { p_business_id: responderEntityId });
+        const row = Array.isArray(scope) ? scope[0] : scope;
+        allowed = !!row && (row.access_level === "FULL" || (row.scopes ?? []).includes("leads"));
+      }
+      if (allowed && entity) {
         responderName = (entity as any)[nameCol] ?? undefined;
         responderAvatar = (entity as any)[avatarCol] ?? "";
       } else {
@@ -314,18 +325,19 @@ export const requestService = {
     return toCamel<Proposal>(created);
   },
 
-  /** Proposals the signed-in user has sent — optionally scoped to one business/provider
-   *  entity — so a manage console can show "proposals I've sent" independent of the
-   *  generic open-request feed. */
+  /** Proposals sent as one business/provider entity (independent of who on the
+   *  team actually submitted each one — shared team access means "Sent" must
+   *  read the same for everyone managing that business, not just the original
+   *  submitter), or — with no entityId — the signed-in user's own personal
+   *  proposals sent as themselves. */
   async myProposals(entityId?: string): Promise<(Proposal & { requestTitle: string; requestStatus: string })[]> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
     let q = sb.from("proposals")
       .select("*, request:requests!request_id(title, status)")
-      .eq("responder_user_id", uid)
       .order("created_at", { ascending: false });
-    if (entityId) q = q.eq("responder_entity_id", entityId);
+    q = entityId ? q.eq("responder_entity_id", entityId) : q.eq("responder_user_id", uid);
     const { data, error } = await q;
     throwIfError(error);
     return (data ?? []).map((row: any) => {

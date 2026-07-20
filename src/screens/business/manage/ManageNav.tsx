@@ -2,10 +2,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Briefcase, CalendarClock, Home, Store, Users } from "@/components/Icons";
 import { businessService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
+import { useBusinessAccess } from "@/components/BusinessAccessGuard";
 
 export default function ManageNav({ bizId, waitingCount }: { bizId: string; waitingCount?: number }) {
   const nav = useNavigate();
   const location = useLocation();
+  const { hasScope } = useBusinessAccess();
   const { data: queue } = useQueryWithRealtime(
     () => businessService.queueOwnerState(bizId),
     "queue_tokens",
@@ -20,13 +22,16 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
     "/business", "/inbox", "/qna", "/reviews", "/requests", "/community",
     "/profile", "/verify", "/settings", "/payments",
   ];
+  // A scoped team member only sees the tabs matching their granted scopes —
+  // Home and Business always show (Business's own menu narrows further, in
+  // BusinessHub, since it fans into sections of mixed sensitivity).
   const items = [
     { to: base, label: "Home", icon: Home, active: location.pathname === base },
-    { to: `${base}/queue`, label: "Queue", icon: Users, active: location.pathname.startsWith(`${base}/queue`), badge: queueCount },
-    { to: `${base}/appointments`, label: "Bookings", icon: CalendarClock, active: location.pathname.startsWith(`${base}/appointments`) },
-    { to: `${base}/store`, label: "Store", icon: Store, active: storeRoutes.some((path) => location.pathname.startsWith(base + path)) },
+    hasScope("queue") && { to: `${base}/queue`, label: "Queue", icon: Users, active: location.pathname.startsWith(`${base}/queue`), badge: queueCount },
+    hasScope("appointments") && { to: `${base}/appointments`, label: "Bookings", icon: CalendarClock, active: location.pathname.startsWith(`${base}/appointments`) },
+    hasScope("catalog") && { to: `${base}/store`, label: "Store", icon: Store, active: storeRoutes.some((path) => location.pathname.startsWith(base + path)) },
     { to: `${base}/business`, label: "Business", icon: Briefcase, active: businessRoutes.some((path) => location.pathname.startsWith(base + path)) },
-  ];
+  ].filter((item): item is Exclude<typeof item, false> => item !== false);
 
   return (
     <nav className="bottom-nav" aria-label="Business console">

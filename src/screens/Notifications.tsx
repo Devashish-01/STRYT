@@ -186,6 +186,7 @@ export default function Notifications() {
                         preview={n.body}
                         time={n.time}
                         urgent={isYourTurn}
+                        metadata={n.metadata}
                         onOpen={() => open(n)}
                         onDelete={() => remove(n)}
                       />

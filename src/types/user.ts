@@ -27,6 +27,45 @@ export type NotificationType =
   | "BUSINESS_ACCESS"
   | "SYSTEM";
 
+/** Semantic tone for a notification's status pill / accent — maps to the
+ *  app's existing semantic color tokens (green/red/amber/blue/purple/gray). */
+export type NotificationTone = "success" | "danger" | "warning" | "info" | "brand" | "neutral";
+
+/** Structured, per-type enrichment snapshotted at notification-creation time
+ *  (DB trigger or service call) from data that already exists in scope right
+ *  then — a proposer's avatar, a deal's ₹ amount, a listing's cover photo,
+ *  a verification rejection reason, etc. Deliberately a snapshot, not a live
+ *  join: a notification is a historical record, so it should read exactly as
+ *  it did when created even if the source entity later changes (same
+ *  reasoning as `appointments.customer_avatar` being copied at booking time).
+ *  Always optional — every field must degrade gracefully to plain title/body
+ *  when absent (older rows, or a type that hasn't been enriched). */
+export interface NotificationMetadata {
+  /** Person/business/provider avatar or cover photo for a circular treatment. */
+  avatarUrl?: string;
+  /** A larger photo for a listing-style thumbnail (business/provider/story cover). */
+  imageUrl?: string;
+  /** Display name of the acting person/entity, when distinct from the title. */
+  actorName?: string;
+  /** ₹ amount relevant to the notification (quote price, deal value, payment). */
+  amount?: number;
+  /** Short label paired with `amount`, e.g. "Quoted", "Paid", "Deal value". */
+  amountLabel?: string;
+  /** Short structured status text, e.g. "Confirmed", "Rejected", "Pending". */
+  statusPill?: string;
+  /** Semantic tone driving the status pill / accent color. */
+  tone?: NotificationTone;
+  /** Free-text reason (verification rejection, report outcome, etc.). */
+  reason?: string;
+  /** A single emoji for lightweight reactions (story reactions, etc.). */
+  emoji?: string;
+  /** Category label for discovery-type notifications. */
+  category?: string;
+  /** Group-buy / "me too" progress, e.g. { current: 6, target: 10 }. */
+  progressCurrent?: number;
+  progressTarget?: number;
+}
+
 export interface AppNotification {
   id: string;
   type: NotificationType;
@@ -38,6 +77,9 @@ export interface AppNotification {
   time: string;
   /** Raw ISO timestamp — used for day-grouping (Today/Yesterday/Earlier). */
   createdAt: string;
+  /** Present only for notifications created after the metadata column shipped
+   *  and enriched by their creation path — see NotificationMetadata. */
+  metadata?: NotificationMetadata | null;
 }
 
 export interface PublicUser {

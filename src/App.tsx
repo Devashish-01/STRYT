@@ -7,6 +7,7 @@ import { LiveShareProvider } from "./features/live-share/useLiveShare";
 import LiveShareBanner from "./features/live-share/LiveShareBanner";
 import DesktopSidebar from "./components/DesktopSidebar";
 import BusinessAccessGuard from "./components/BusinessAccessGuard";
+import RequireScope from "./components/RequireScope";
 import ProviderAccessGuard from "./components/ProviderAccessGuard";
 import PinGateSheet from "./components/PinGateSheet";
 import RouteFallback from "./components/RouteFallback";
@@ -574,25 +575,49 @@ export default function App() {
                 revoked delegate is bounced out of every manage screen for
                 this business, not just blocked on individual writes by RLS. */}
             <Route element={<BusinessAccessGuard />}>
+              {/* Home and the Business hub itself are open to every session —
+                  both self-filter what they show a SCOPED team member (see
+                  ManageDashboard.tsx / BusinessHub.tsx), rather than being
+                  hard-gated, since they mix owner-only and scoped content. */}
               <Route path="/business/:id/manage" element={<ManageDashboard />} />
-              <Route path="/business/:id/manage/store" element={<BusinessStoreHub />} />
               <Route path="/business/:id/manage/business" element={<BusinessHub />} />
-              <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
-              <Route path="/business/:id/manage/inventory" element={<InventoryAlerts />} />
-              <Route path="/business/:id/manage/portfolio" element={<BusinessPortfolio />} />
-              <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
-              <Route path="/business/:id/manage/broadcast" element={<BroadcastRadius />} />
-              <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
-              <Route path="/business/:id/manage/queue" element={<QueueManager />} />
-              <Route path="/business/:id/manage/qna" element={<QnaManager />} />
-              <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
-              <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
-              <Route path="/business/:id/manage/payments" element={<BusinessPayments />} />
-              <Route path="/business/:id/manage/inbox" element={<LeadsInbox entityType="BUSINESS" />} />
-              <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
-              <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
-              <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
-              <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />
+
+              {/* Each group below is defense-in-depth against direct URL
+                  entry — BusinessHub/ManageNav already hide these links for a
+                  session lacking the scope, this is the server-shaped guard
+                  matching Phase T1's RLS/trigger boundaries exactly. */}
+              <Route element={<RequireScope scope="catalog" />}>
+                <Route path="/business/:id/manage/store" element={<BusinessStoreHub />} />
+                <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
+                <Route path="/business/:id/manage/inventory" element={<InventoryAlerts />} />
+                <Route path="/business/:id/manage/portfolio" element={<BusinessPortfolio />} />
+                <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
+              </Route>
+
+              <Route element={<RequireScope scope="queue" />}>
+                <Route path="/business/:id/manage/queue" element={<QueueManager />} />
+              </Route>
+
+              <Route element={<RequireScope scope="appointments" />}>
+                <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
+              </Route>
+
+              <Route element={<RequireScope scope="leads" />}>
+                <Route path="/business/:id/manage/qna" element={<QnaManager />} />
+                <Route path="/business/:id/manage/inbox" element={<LeadsInbox entityType="BUSINESS" />} />
+                <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
+              </Route>
+
+              {/* Owner/FULL-delegate only — no scope can ever unlock these. */}
+              <Route element={<RequireScope />}>
+                <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
+                <Route path="/business/:id/manage/broadcast" element={<BroadcastRadius />} />
+                <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
+                <Route path="/business/:id/manage/payments" element={<BusinessPayments />} />
+                <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
+                <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
+                <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />
+              </Route>
             </Route>
 
             {/* Provider console — gated behind ProviderAccessGuard, parity with
