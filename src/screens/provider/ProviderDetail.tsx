@@ -38,7 +38,7 @@ export default function ProviderDetail() {
     isGuest,
   } = useApp();
 
-  const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
+  const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `provider:${id}`);
   const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => providerService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
   const { data: vouches } = useQueryWithRealtime(() => socialService.vouches(id), "vouches", [id], `provider_id=eq.${id}`);
   const { data: endorsements } = useQueryWithRealtime(() => socialService.endorsements(id), "endorsements", [id], `provider_id=eq.${id}`);
@@ -592,7 +592,9 @@ export default function ProviderDetail() {
           targetType="PROVIDER"
           availabilityNote={p.availabilityNote}
           availableNow={evalRes.isOpenNow}
-          packages={(p.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }))}
+          packages={(p.catalog ?? [])
+            .filter((item) => item.stockStatus !== "OUT_OF_STOCK")
+            .map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }))}
           paymentTiming={p.paymentTiming}
           payeeUpiId={p.upiId}
           depositPercent={(p as any).depositPercent}

@@ -22,6 +22,7 @@ function toNotif(row: Record<string, unknown>): AppNotification {
     deepLink: row.deep_link as string,
     isRead: row.is_read as boolean,
     time: relDate(row.created_at as string),
+    createdAt: row.created_at as string,
   };
 }
 
@@ -80,6 +81,19 @@ export const notificationService = {
     let q = sb.from("notifications").update({ is_read: true }).eq("user_id", uid).eq("is_read", false);
     q = applyScope(q, scope);
     await q;
+    return { ok: true };
+  },
+
+  // Client-side dismissal (swipe-to-delete). RLS's delete_own_notifications
+  // policy (20260813_notification_rls.sql) already scopes this to the
+  // caller's own rows at the DB level — the .eq("user_id", uid) here is
+  // defense in depth, not the actual boundary.
+  async remove(id: string) {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return { ok: true };
+    const { error } = await sb.from("notifications").delete().eq("id", id).eq("user_id", uid);
+    if (error) throw error;
     return { ok: true };
   },
 

@@ -47,7 +47,7 @@ export function QueuePaymentSheet({ tokenId, businessName, businessUpiId, onPaid
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="row between center-v" style={{ marginBottom: 16 }}>
+        <div className="row between center-v" style={{ marginBottom: "var(--space-md)" }}>
           <div>
             <div className="bold" style={{ fontSize: 18 }}>Pay for your visit</div>
             <div className="tiny muted" style={{ marginTop: 2 }}>{businessName}</div>
@@ -56,7 +56,7 @@ export function QueuePaymentSheet({ tokenId, businessName, businessUpiId, onPaid
         </div>
 
         {/* Amount — always freeform, no catalog price on a queue token */}
-        <div style={{ marginBottom: 16 }}>
+        <div style={{ marginBottom: "var(--space-md)" }}>
           <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Amount (₹)</label>
           <input
             className="input"
@@ -77,7 +77,7 @@ export function QueuePaymentSheet({ tokenId, businessName, businessUpiId, onPaid
           onSubmit={claim}
         />
 
-        <div style={{ height: 8 }} />
+        <div style={{ height: "var(--space-xs)" }} />
       </div>
     </div>
   );

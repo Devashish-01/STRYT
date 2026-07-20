@@ -5,6 +5,9 @@ import { requestService, businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
+import { PROPOSAL_STATUS_BADGE } from "@/lib/statusBadges";
+import { useApp } from "@/store";
+import { haptics } from "@/lib/haptics";
 import type { RequestPost } from "@/types";
 
 // Business-as-responder: open requests matching the business category, plus
@@ -13,8 +16,10 @@ import type { RequestPost } from "@/types";
 export default function BusinessRequests() {
   const { id = "" } = useParams();
   const nav = useNavigate();
+  const { showToast } = useApp();
   const [tab, setTab] = useState<"find" | "sent">("find");
-  const { data: b } = useQuery(() => businessService.get(id), [id]);
+  const [withdrawing, setWithdrawing] = useState<string | null>(null);
+  const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
       lat: b?.lat ?? undefined,
@@ -24,10 +29,25 @@ export default function BusinessRequests() {
     "requests",
     [b?.lat, b?.lng, b?.broadcastRadius]
   );
-  const { data: sentProposals, loading: sentLoading } = useQuery(
+  const { data: sentProposals, loading: sentLoading, refetch: refetchSent } = useQuery(
     () => requestService.myProposals(id),
     [id]
   );
+
+  async function withdraw(proposalId: string) {
+    setWithdrawing(proposalId);
+    haptics.medium();
+    try {
+      await requestService.withdrawProposal(proposalId);
+      haptics.success();
+      showToast("Proposal withdrawn");
+      refetchSent();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't withdraw — try again");
+    } finally {
+      setWithdrawing(null);
+    }
+  }
 
   if (!id) {
     return (
@@ -89,11 +109,23 @@ export default function BusinessRequests() {
               (sentProposals ?? []).map((p) => (
                 <button key={p.id} className="card" style={{ textAlign: "left" }} onClick={() => nav(`/request/${p.requestId}`)}>
                   <div className="row between">
-                    <span className="badge badge-gray">{p.status}</span>
+                    <span className={`badge ${PROPOSAL_STATUS_BADGE[p.status].cls}`}>{PROPOSAL_STATUS_BADGE[p.status].label}</span>
                     <span className="tiny muted">{p.postedAt}</span>
                   </div>
                   <div className="semi small ellipsis" style={{ marginTop: 6 }}>{p.requestTitle}</div>
-                  <div className="tiny muted" style={{ marginTop: 2 }}>Your quote: {inr(p.price)}</div>
+                  <div className="row between" style={{ marginTop: 2 }}>
+                    <div className="tiny muted">Your quote: {inr(p.price)}</div>
+                    {p.status === "SUBMITTED" && (
+                      <button
+                        className="tiny semi"
+                        style={{ color: "var(--red-600)" }}
+                        disabled={withdrawing === p.id}
+                        onClick={(e) => { e.stopPropagation(); withdraw(p.id); }}
+                      >
+                        {withdrawing === p.id ? "Withdrawing…" : "Withdraw"}
+                      </button>
+                    )}
+                  </div>
                 </button>
               ))
             )}

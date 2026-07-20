@@ -68,7 +68,7 @@ function parse(raw: string | undefined): { is24x7: boolean; hours: Record<string
 export default function HoursEditor() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
-  const { data: b } = useQuery(() => businessService.get(id), [id]);
+  const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
 
   if (!id) {
     return (

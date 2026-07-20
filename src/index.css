@@ -37,6 +37,7 @@
   --red-600: #dc2626;
   --amber-50: #fffbeb;
   --amber-100: #fef3c7;
+  --amber-200: #fde68a;
   --amber-500: #f59e0b;
   --amber-700: #b45309;
   --blue-500: #3b82f6;
@@ -414,6 +415,7 @@ h3, .h3 {
 .badge-gray { background: var(--ink-100); color: var(--ink-600); }
 .badge-blue { background: #dbeafe; color: #1d4ed8; }
 .badge-amber { background: #fef3c7; color: #b45309; }
+.badge-orange { background: var(--orange-100); color: var(--orange-500); }
 
 .card-badge-stack {
   position: absolute;
@@ -496,6 +498,20 @@ textarea.input {
   flex-shrink: 0;
 }
 .icon-btn.plain { background: transparent; }
+/* Smaller round variant — was referenced across several screens (business/
+   provider dashboards, Community headers) but never actually defined, so
+   those buttons rendered as unstyled rectangles instead of circles. */
+.icon-btn-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-50);
+  color: var(--ink-700);
+  flex-shrink: 0;
+}
 
 /* ---------- Bottom nav ---------- */
 .bottom-nav {
@@ -647,6 +663,34 @@ textarea.input {
   to { opacity: 1; transform: translateY(0); }
 }
 .fade-up { animation: fadeUp 0.35s ease both; }
+
+/* Queue token rows moving between Waiting/Called/Arrived/Served buckets are
+   genuine DOM re-mounts (separate list sections) — these give that a visible
+   arrival/departure instead of an instant flat reflow. Pair .queue-row-exit
+   with a short setTimeout before the actual state removal at the call site
+   (see QueueManager.tsx) so the animation has time to play before unmount. */
+@keyframes queueRowIn {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.queue-row-enter { animation: queueRowIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes queueRowOut {
+  from { opacity: 1; transform: scale(1); max-height: 240px; }
+  to   { opacity: 0; transform: scale(0.96); max-height: 0; margin-bottom: 0 !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+}
+.queue-row-exit { animation: queueRowOut 0.3s ease forwards; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .queue-row-enter, .queue-row-exit { animation: none; }
+}
+
+/* Tactile press feedback for small tap targets (e.g. a party-size +/-
+   stepper) that don't otherwise carry .btn's :active scale. */
+.stepper-btn { transition: transform 0.12s ease; }
+.stepper-btn:active { transform: scale(0.88); }
+@media (prefers-reduced-motion: reduce) {
+  .stepper-btn:active { transform: none; }
+}
 
 @keyframes pop {
   0% { transform: scale(0.8); opacity: 0; }
@@ -2309,3 +2353,195 @@ textarea.input {
   box-shadow: 0 8px 32px rgba(26, 21, 48, 0.12) !important;
 }
 
+
+/* ============================================================
+   Notifications screen (screens/Notifications.tsx)
+   ------------------------------------------------------------
+   iOS-grade notification list: day-grouped sections, a swipeable row with a
+   real drag-follow gesture (not a CSS-only reveal), a colored icon tile per
+   type, and a clear unread state. --notif-swipe-x tracks live drag offset;
+   set inline per-row instead of a class so the row follows the finger 1:1.
+   The row body is a div[role=button] (not a real <button>) so the nested
+   quick-delete <button> stays valid HTML instead of button-in-button.
+   ============================================================ */
+.notif-section-label {
+  padding: 18px 16px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-500);
+}
+.notif-section-label:first-child {
+  padding-top: 14px;
+}
+
+/* Swipe-to-delete backdrop revealed behind the row as it's dragged left. */
+.notif-row-wrap {
+  position: relative;
+  overflow: hidden;
+  background: var(--red-500);
+}
+.notif-row-delete-btn {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: #fff;
+}
+.notif-row-delete-btn span {
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.notif-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 16px 13px 13px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  transform: translateX(var(--notif-swipe-x, 0px));
+  touch-action: pan-y;
+}
+/* Highest-urgency notifications (e.g. "it's your turn" — a customer's queue
+   spot about to expire) get a distinct tinted treatment via this class,
+   layered by the caller alongside the type's normal icon color/bg. */
+.notif-row-urgent {
+  background: var(--green-100);
+  border-left-color: var(--green-500);
+}
+.notif-row-urgent:active {
+  background: var(--green-100);
+  filter: brightness(0.97);
+}
+@media (hover: hover) {
+  .notif-row-urgent:hover { background: var(--green-100); filter: brightness(0.98); }
+}
+.notif-row.notif-row-dragging {
+  transition: none;
+}
+.notif-row:not(.notif-row-dragging) {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
+}
+.notif-row:active {
+  background: var(--ink-50);
+}
+.notif-row:focus-visible {
+  outline: 2px solid var(--brand-400);
+  outline-offset: -2px;
+}
+.notif-row-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+}
+.notif-row-icon .notif-unread-dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--brand-600);
+  border: 2px solid var(--surface);
+}
+.notif-row-body {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+.notif-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.notif-row-title {
+  font-size: 14.5px;
+  line-height: 1.35;
+  color: var(--ink-900);
+}
+.notif-row-title.unread {
+  font-weight: 700;
+}
+.notif-row-title:not(.unread) {
+  font-weight: 500;
+  color: var(--ink-700);
+}
+.notif-row-preview {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ink-500);
+}
+
+/* Timestamp / desktop quick-delete swap slot. Mouse users get a delete
+   affordance on hover (icon replaces the time label); touch users get the
+   swipe gesture instead — the two never need to coexist visually. */
+.notif-row-time-slot {
+  position: relative;
+  flex-shrink: 0;
+  min-width: 30px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.notif-row-time {
+  font-size: 11.5px;
+  color: var(--ink-400);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.notif-row-quick-delete {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--ink-400);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, color 0.12s ease;
+}
+@media (hover: hover) {
+  .notif-row:hover { background: var(--ink-50); }
+  .notif-row:hover .notif-row-time { opacity: 0; }
+  .notif-row:hover .notif-row-quick-delete { opacity: 1; pointer-events: auto; }
+  .notif-row-quick-delete:hover { color: var(--red-500); }
+}
+
+@keyframes notifRowIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.notif-row-enter {
+  animation: notifRowIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes notifRowOut {
+  from { opacity: 1; max-height: 160px; }
+  to   { opacity: 0; max-height: 0; border-bottom-width: 0; padding-top: 0; padding-bottom: 0; }
+}
+.notif-row-exit {
+  animation: notifRowOut 0.22s ease forwards;
+  overflow: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .notif-row-enter, .notif-row-exit { animation: none; }
+  .notif-row:not(.notif-row-dragging) { transition: none; }
+}

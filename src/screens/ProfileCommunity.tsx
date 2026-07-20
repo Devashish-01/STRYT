@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Plus, Globe, FileText } from "@/components/Icons";
-import { communityService, discoveryService, businessService, providerService, requestService } from "@/services";
+import { communityService, businessService, providerService, requestService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
-import { CommunityCard } from "@/screens/Community";
-import { RequestCard } from "@/components/cards";
+import { RequestCard, CommunityCard } from "@/components/cards";
 import { AppBar, EmptyState } from "@/components/common";
 import { useApp } from "@/store";
 import ManageNav from "@/screens/business/manage/ManageNav";
@@ -32,7 +31,8 @@ export function ProfileCommunity({ kind }: { kind: Kind }) {
 
   const { data: profile } = useQuery<any>(
     () => (kind === "business" ? businessService.get(id) : providerService.get(id)),
-    [id]
+    [id],
+    kind === "business" ? `business:${id}` : `provider:${id}`
   );
   const { data: posts, loading: postsLoading, error: postsError, refetch: refetchPosts } = useQueryWithRealtime(
     () => communityService.byAuthorRef(kind, id),
@@ -46,10 +46,6 @@ export function ProfileCommunity({ kind }: { kind: Kind }) {
     [user.lat, user.lng],
     user.id ? `requester_user_id=eq.${user.id}` : undefined
   );
-  // Needed by CommunityCard to resolve any recommendation chips inside a post.
-  const { data: bizPage } = useQuery(() => discoveryService.businesses({}), []);
-  const { data: provPage } = useQuery(() => discoveryService.providers({}), []);
-
   const name = kind === "business" ? profile?.name ?? "Business" : profile?.displayName ?? "Provider";
   const avatar = kind === "business" ? profile?.coverImage : profile?.avatar;
 
@@ -119,13 +115,7 @@ export function ProfileCommunity({ kind }: { kind: Kind }) {
           ) : (
             <div className="col gap-12 page-pad" style={{ paddingBottom: 24 }}>
               {postList.map((p) => (
-                <CommunityCard
-                  key={p.id}
-                  post={p}
-                  businesses={bizPage?.data ?? []}
-                  providers={provPage?.data ?? []}
-                  onRefetch={refetchPosts}
-                />
+                <CommunityCard key={p.id} post={p} onRefetch={refetchPosts} />
               ))}
             </div>
           )

@@ -46,6 +46,14 @@ type QueueOwnerState = {
 // arriving later always starts a genuinely fresh request.
 const inFlightQueueOwnerState = new Map<string, Promise<QueueOwnerState>>();
 
+// get(id) is independently re-fetched by ~19 manage-console screens for the
+// SAME business (Dashboard, Catalog, Portfolio, Hours, Settings, Payments,
+// Appointments, ...) plus the public BusinessDetail page — same coalescing
+// pattern as queueOwnerState above. Keyed on lat/lng too since those change the
+// returned distanceKm; almost every manage-console call passes neither, so
+// those all share one key and one in-flight request.
+const inFlightBusinessGet = new Map<string, Promise<Business | undefined>>();
+
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   if (d === 0) return "today";
@@ -115,6 +123,15 @@ export const businessService = {
   },
 
   async get(id: string, lat?: number, lng?: number): Promise<Business | undefined> {
+    const key = `${id}:${lat ?? ""}:${lng ?? ""}`;
+    const inFlight = inFlightBusinessGet.get(key);
+    if (inFlight) return inFlight;
+    const promise = businessService._getUncoalesced(id, lat, lng).finally(() => inFlightBusinessGet.delete(key));
+    inFlightBusinessGet.set(key, promise);
+    return promise;
+  },
+
+  async _getUncoalesced(id: string, lat?: number, lng?: number): Promise<Business | undefined> {
     if (isMockTarget(id)) {
       return {
         id,

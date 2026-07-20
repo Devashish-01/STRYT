@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal, Image } from "@/components/Icons";
+import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal, Image, RefreshCw } from "@/components/Icons";
 import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import RadiusSelector from "@/components/RadiusSelector";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
+import { loadRequestDraft, saveRequestDraft, clearRequestDraft } from "@/lib/requestDraft";
 
 
 interface Template {
@@ -68,27 +69,29 @@ const SLOTS = [
 export default function AskCompose() {
   const nav = useNavigate();
   const { area, user, showToast } = useApp();
-  const { data: categories, loading: catLoading, error: catError, refetch: refetchCats } = useQuery(() => catalogService.getCategories(), []);
+  const { data: categories, loading: catLoading, error: catError, refetch: refetchCats } = useQuery(() => catalogService.getCategories(), [], "categories");
+  const [draft] = useState(() => loadRequestDraft());
   const [template, setTemplate] = useState<Template | null>(null);
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
-  const [cat, setCat] = useState<string | null>(null);
-  const [subCat, setSubCat] = useState<string | null>(null);
+  const [title, setTitle] = useState(draft?.title ?? "");
+  const [desc, setDesc] = useState(draft?.desc ?? "");
+  const [cat, setCat] = useState<string | null>(draft?.cat ?? null);
+  const [subCat, setSubCat] = useState<string | null>(draft?.subCat ?? null);
   const [fieldVals, setFieldVals] = useState<Record<string, string>>({});
-  const [budgetMin, setBudgetMin] = useState("");
-  const [budgetMax, setBudgetMax] = useState("");
-  const [paymentMode, setPaymentMode] = useState<"" | "fixed" | "hourly">("");
-  const [schedDate, setSchedDate] = useState("");
-  const [schedSlot, setSchedSlot] = useState("");
-  const [radius, setRadius] = useState(3);
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [budgetMin, setBudgetMin] = useState(draft?.budgetMin ?? "");
+  const [budgetMax, setBudgetMax] = useState(draft?.budgetMax ?? "");
+  const [paymentMode, setPaymentMode] = useState<"" | "fixed" | "hourly">(draft?.paymentMode ?? "");
+  const [schedDate, setSchedDate] = useState(draft?.schedDate ?? "");
+  const [schedSlot, setSchedSlot] = useState(draft?.schedSlot ?? "");
+  const [radius, setRadius] = useState(draft?.radius ?? 3);
+  const [photos, setPhotos] = useState<string[]>(draft?.photos ?? []);
+  const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
-  const [urgent, setUrgent] = useState(false);
-  const [recurring, setRecurring] = useState(false);
-  const [anon, setAnon] = useState(false);
-  const [expiryHrs, setExpiryHrs] = useState(24); // auto-expire window; capped at 24h
+  const [urgent, setUrgent] = useState(draft?.urgent ?? false);
+  const [recurring, setRecurring] = useState(draft?.recurring ?? false);
+  const [anon, setAnon] = useState(draft?.anon ?? false);
+  const [expiryHrs, setExpiryHrs] = useState(draft?.expiryHrs ?? 24); // auto-expire window; capped at 24h
   const [showAdvanced, setShowAdvanced] = useState(false); // progressive disclosure of advanced options
   const [posting, setPosting] = useState(false);
   const [listening, setListening] = useState(false);
@@ -149,24 +152,30 @@ export default function AskCompose() {
   }
 
   async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
+    const remaining = 4 - photos.length - pendingPreviews.length;
+    const files = Array.from(e.target.files ?? []).slice(0, Math.max(0, remaining));
     e.target.value = ""; // allow re-picking the same file
     if (files.length === 0) return;
+    // Instant local thumbnails so a photo doesn't sit as a bare "…" label for
+    // the whole upload round-trip — replaced by the real URLs (or dropped) below.
+    const previews = files.map((f) => URL.createObjectURL(f));
+    setPendingPreviews((p) => [...p, ...previews]);
     setUploading(true);
     try {
-      for (const f of files.slice(0, 4 - photos.length)) {
-        const url = await uploadService.upload(f, "request-photo");
-        setPhotos((p) => [...p, url]);
-      }
+      const urls = await Promise.all(files.map((f) => uploadService.upload(f, "request-photo")));
+      setPhotos((p) => [...p, ...urls]);
     } catch (err) {
       showToast(err instanceof Error && err.message ? err.message : "Couldn't upload photo");
     } finally {
+      previews.forEach((url) => URL.revokeObjectURL(url));
+      setPendingPreviews((p) => p.filter((url) => !previews.includes(url)));
       setUploading(false);
     }
   }
 
-  const canPost = title.trim().length > 3 && !!cat && !posting && !uploading;
-  const missing = !title.trim() ? "title" : !cat ? "category" : null;
+  const budgetInvalid = !!budgetMin && !!budgetMax && Number(budgetMin) > Number(budgetMax);
+  const canPost = title.trim().length > 3 && !!cat && !budgetInvalid && !posting && !uploading;
+  const missing = !title.trim() ? "title" : !cat ? "category" : budgetInvalid ? "budget" : null;
 
   // Subcategories are the selected top-level category's children (tree from getCategories).
   const subOptions = (categories ?? []).find((c) => c.id === cat)?.children ?? [];
@@ -187,6 +196,27 @@ export default function AskCompose() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories]);
+
+  // One-time notice that a restored draft is prefilling the form — silent
+  // restore-without-signal would just look like stale/wrong data to the user.
+  useEffect(() => {
+    if (draft) showToast("Draft restored");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounced draft auto-save — a back-button tap or refresh no longer loses
+  // a half-written request. Skips empty/untouched forms so it doesn't create
+  // a phantom draft before the user's typed anything.
+  useEffect(() => {
+    if (!title && !desc && !cat) return;
+    const timer = setTimeout(() => {
+      saveRequestDraft({
+        title, desc, cat, subCat, budgetMin, budgetMax, paymentMode,
+        schedDate, schedSlot, radius, photos, urgent, recurring, anon, expiryHrs,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [title, desc, cat, subCat, budgetMin, budgetMax, paymentMode, schedDate, schedSlot, radius, photos, urgent, recurring, anon, expiryHrs]);
 
   async function post() {
     setPosting(true);
@@ -223,6 +253,7 @@ export default function AskCompose() {
         lat: lat || 0,
         lng: lng || 0,
       });
+      clearRequestDraft();
       showToast("Request posted! Notifying nearby providers…");
       setTimeout(() => nav("/requests"), 600);
     } catch (e) {
@@ -239,7 +270,7 @@ export default function AskCompose() {
     <div className="screen">
       <AppBar title="Post a request" subtitle="Tell your street what you need" />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
-        <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
+        <div className="card row gap-10" style={{ padding: "var(--space-sm)", background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
           <Sparkles size={20} color="var(--brand-600)" />
           <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>
             Nearby people, shops & providers will see this and send you offers. You pick the best one.
@@ -308,7 +339,7 @@ export default function AskCompose() {
         <div className="field">
           <label>Category *</label>
           {catError ? (
-            <div className="card col gap-8" style={{ padding: 12, border: "1px solid var(--red-500)" }}>
+            <div className="card col gap-8" style={{ padding: "var(--space-sm)", border: "1px solid var(--red-500)" }}>
               <span className="tiny" style={{ color: "var(--red-600)" }}>
                 Couldn't load categories: {catError.message || "network error"}
               </span>
@@ -384,7 +415,15 @@ export default function AskCompose() {
                 </button>
               </div>
             ))}
-            {photos.length < 4 && (
+            {pendingPreviews.map((url) => (
+              <div key={url} style={{ position: "relative", width: 76, height: 76 }}>
+                <img src={url} className="thumb" style={{ width: 76, height: 76, borderRadius: 12, opacity: 0.5 }} />
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <RefreshCw size={18} color="#fff" className="spin" />
+                </div>
+              </div>
+            ))}
+            {photos.length + pendingPreviews.length < 4 && (
               <>
                 <button
                   className="col center"
@@ -393,7 +432,7 @@ export default function AskCompose() {
                   disabled={uploading}
                 >
                   <Camera size={20} />
-                  <span className="tiny">{uploading ? "…" : "Camera"}</span>
+                  <span className="tiny">Camera</span>
                 </button>
                 <button
                   className="col center"
@@ -402,7 +441,7 @@ export default function AskCompose() {
                   disabled={uploading}
                 >
                   <Image size={20} />
-                  <span className="tiny">{uploading ? "…" : "Gallery"}</span>
+                  <span className="tiny">Gallery</span>
                 </button>
               </>
             )}
@@ -433,11 +472,11 @@ export default function AskCompose() {
 
           <label>{budgetLabel} <span className="tiny muted">(optional)</span></label>
           <div className="row gap-10">
-            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff" }}>
+            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
               <IndianRupee size={16} color="var(--ink-400)" />
               <input className="input" style={{ border: "none" }} inputMode="numeric" placeholder={budgetMinPlaceholder} value={budgetMin} onChange={(e) => setBudgetMin(e.target.value.replace(/\D/g, ""))} />
             </div>
-            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff" }}>
+            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
               <IndianRupee size={16} color="var(--ink-400)" />
               <input className="input" style={{ border: "none" }} inputMode="numeric" placeholder={budgetMaxPlaceholder} value={budgetMax} onChange={(e) => setBudgetMax(e.target.value.replace(/\D/g, ""))} />
             </div>
@@ -497,7 +536,7 @@ export default function AskCompose() {
 
           {/* Preview */}
           {buildDeadline() && (
-            <div className="row gap-8" style={{ marginTop: 10, padding: "9px 12px", background: "var(--brand-50)", borderRadius: 10, border: "1px solid var(--brand-100)" }}>
+            <div className="row gap-8" style={{ marginTop: 10, padding: "9px 12px", background: "var(--brand-50)", borderRadius: "var(--radius-sm)", border: "1px solid var(--brand-100)" }}>
               <Clock size={14} color="var(--brand-600)" />
               <span className="tiny semi" style={{ color: "var(--brand-700)" }}>{buildDeadline()}</span>
             </div>
@@ -558,7 +597,9 @@ export default function AskCompose() {
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "8px 12px 12px" }}>
         {missing && (
           <p className="tiny muted" style={{ textAlign: "center", marginBottom: 6 }}>
-            {missing === "title" ? "Add a title to continue" : "Select a category to continue"}
+            {missing === "title" ? "Add a title to continue"
+              : missing === "category" ? "Select a category to continue"
+              : "Max budget should be more than min budget"}
           </p>
         )}
         <button
@@ -575,7 +616,7 @@ export default function AskCompose() {
 
 function ToggleRow({ icon, label, hint, on, set }: { icon: React.ReactNode; label: string; hint: string; on: boolean; set: (v: boolean) => void }) {
   return (
-    <button className="card row gap-12" style={{ padding: 12, textAlign: "left", border: on ? "1.5px solid var(--brand-400)" : "1px solid var(--line)" }} onClick={() => set(!on)}>
+    <button className="card row gap-12" style={{ padding: "var(--space-sm)", textAlign: "left", border: on ? "1.5px solid var(--brand-400)" : "1px solid var(--line)" }} onClick={() => set(!on)}>
       {icon}
       <div className="grow">
         <div className="semi small">{label}</div>

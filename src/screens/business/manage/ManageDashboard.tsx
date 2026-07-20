@@ -13,7 +13,7 @@ import { chatService } from "@/services/engagement/chatService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { AppBar, SafeImg, inr } from "@/components/common";
-import { ErrorView } from "@/components/states";
+import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import type { AppointmentRecord, QnaItem, QueueOwnerToken, RequestPost } from "@/types";
 import {
@@ -27,6 +27,7 @@ import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 import { SetupChecklist } from "@/components/SetupChecklist";
+import Toggle from "@/components/Toggle";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
 
@@ -42,10 +43,10 @@ export default function ManageDashboard() {
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
 
-  const { data: business } = useQuery(() => businessService.get(id), [id]);
+  const { data: business, loading: businessLoading } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { data: posts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
   const { data: queue, refetch: refetchQueue } = useQueryWithRealtime(
-    () => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`,
+    () => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`, `queue:${id}`,
   );
   const { data: appointments, refetch: refetchAppointments } = useQueryWithRealtime(
     () => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`,
@@ -66,10 +67,10 @@ export default function ManageDashboard() {
     [business?.lat, business?.lng, business?.broadcastRadius],
   );
   const { data: notificationUnread } = useQueryWithRealtime(
-    () => notificationService.getUnreadCount({ scope: "BUSINESS", id }), "notifications", [id],
+    () => notificationService.getUnreadCount({ scope: "BUSINESS", id }), "notifications", [id], undefined, `notif:business:${id}`,
   );
   const { data: chatUnread } = useQueryWithRealtime(
-    () => chatService.totalUnread({ scope: "BUSINESS", id }), "conversations", [id],
+    () => chatService.totalUnread({ scope: "BUSINESS", id }), "conversations", [id], undefined, `chat:business:${id}`,
   );
 
   useEffect(() => {
@@ -90,6 +91,24 @@ export default function ManageDashboard() {
       <div className="screen">
         <AppBar title="Home" />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
+
+  // First paint with nothing cached yet (see useQuery's cacheKey) — everything
+  // below reads business?.field with optional chaining, so without this guard
+  // the dashboard used to render immediately on empty/undefined data and then
+  // visibly "pop" once the fetch resolved instead of showing a loading state.
+  if (businessLoading && !business) {
+    return (
+      <div className="screen with-nav">
+        <AppBar title="Home" />
+        <div className="page-pad col gap-14" style={{ marginTop: 12 }}>
+          <Skeleton h={120} r={20} mb={0} />
+          <Skeleton h={56} mb={0} />
+          <Skeleton h={90} r={16} mb={0} />
+          <Skeleton h={90} r={16} mb={0} />
+        </div>
       </div>
     );
   }
@@ -437,10 +456,6 @@ export default function ManageDashboard() {
 
 function HeaderIcon({ label, count, onClick, children }: { label: string; count: number; onClick: () => void; children: React.ReactNode }) {
   return <button className="icon-btn-sm" aria-label={label} onClick={onClick} style={{ background: "rgba(255,255,255,.16)", color: "#fff", position: "relative" }}>{children}{count > 0 && <span style={{ position: "absolute", top: 2, right: 2, width: 7, height: 7, borderRadius: "50%", background: "var(--red-500)" }} />}</button>;
-}
-
-function Toggle({ on }: { on: boolean }) {
-  return <span style={{ width: 44, height: 26, borderRadius: 999, background: on ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}><span style={{ position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} /></span>;
 }
 
 function TodayAction({ icon, title, subtitle, children }: { icon: React.ReactNode; title: string; subtitle: string; children: React.ReactNode }) {

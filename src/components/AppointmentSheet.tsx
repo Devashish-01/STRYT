@@ -27,6 +27,10 @@ interface AppointmentSheetProps {
   initialPackage?: BookingPackage | null;
   /** Pre-fills the notes field (e.g. an itemized cart list on checkout) — still editable. */
   initialNotes?: string;
+  /** Structured cart line items for a multi-item checkout — drives real per-item stock
+   *  reservation server-side. Omit for a plain single-package booking (the server
+   *  synthesizes one implicit item from packageId/packageName/packagePrice instead). */
+  items?: AppointmentRecord["items"];
   /** When the seller collects payment. AT_BOOKING prompts payment immediately after booking, before the seller can accept. */
   paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
   /** Seller's UPI ID, passed through to the post-booking payment step when paymentTiming is AT_BOOKING. */
@@ -35,6 +39,9 @@ interface AppointmentSheetProps {
   depositPercent?: number;
   /** Id of the appointment being replaced, when this sheet is opened from the reschedule flow. */
   rescheduledFromId?: string;
+  /** Date/time label of the booking being replaced — shown as an on-screen reference so the
+   *  reschedule flow doesn't look identical to booking a brand-new appointment. */
+  rescheduledFromLabel?: { dateLabel: string; timeLabel: string };
   /** When true, the viewer appears to be outside this listing's service area — shows a non-blocking warning. */
   outOfRange?: boolean;
   onClose: () => void;
@@ -51,15 +58,18 @@ export function AppointmentSheet({
   availableNow = false,
   initialPackage,
   initialNotes,
+  items,
   paymentTiming = "AT_APPOINTMENT",
   payeeUpiId,
   depositPercent,
   rescheduledFromId,
+  rescheduledFromLabel,
   outOfRange,
   onClose,
   onBooked,
 }: AppointmentSheetProps) {
   const { user, showToast } = useApp();
+  const isReschedule = !!rescheduledFromId;
   const [dayOffset, setDayOffset] = useState<number>(0);
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
   const [selectedPkg, setSelectedPkg] = useState<BookingPackage | null>(initialPackage ?? null);
@@ -77,6 +87,7 @@ export function AppointmentSheet({
   const [customerAppointments, setCustomerAppointments] = useState<AppointmentRecord[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [loadingApts, setLoadingApts] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [bookedAppointment, setBookedAppointment] = useState<AppointmentRecord | null>(null);
 
   useEffect(() => {
@@ -103,6 +114,10 @@ export function AppointmentSheet({
         }
       } catch (err) {
         console.error("Failed to load appointments", err);
+        if (active) {
+          setLoadError(true);
+          showToast("Couldn't load current availability — slots shown may be inaccurate.");
+        }
       } finally {
         if (active) {
           setLoadingApts(false);
@@ -203,10 +218,15 @@ export function AppointmentSheet({
         packageId: selectedPkg?.id,
         packageName: selectedPkg?.name,
         packagePrice: selectedPkg?.price,
+        items,
         rescheduledFrom: rescheduledFromId ?? null,
       });
 
-      showToast(`Appointment scheduled for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`);
+      showToast(
+        isReschedule
+          ? `Rescheduled to ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 🔄`
+          : `Appointment scheduled for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`
+      );
 
       if (paymentTiming === "AT_BOOKING") {
         // Pay now, before the seller can accept — sheet hands off to PaymentSheet below.
@@ -274,10 +294,11 @@ export function AppointmentSheet({
         <div className="row between center-v" style={{ marginBottom: 16 }}>
           <div>
             <div className="bold large" style={{ fontSize: 18, color: "var(--ink-900)" }}>
-              📅 Schedule Appointment
+              {isReschedule ? "🔄 Reschedule Appointment" : "📅 Schedule Appointment"}
             </div>
             <div className="tiny muted" style={{ marginTop: 2 }}>
-              Book a slot with <strong style={{ color: "var(--brand-700)" }}>{targetName}</strong>
+              {isReschedule ? "Pick a new slot with " : "Book a slot with "}
+              <strong style={{ color: "var(--brand-700)" }}>{targetName}</strong>
             </div>
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
@@ -285,15 +306,45 @@ export function AppointmentSheet({
           </button>
         </div>
 
+        {/* Reschedule mode — reference card showing what's being replaced. */}
+        {isReschedule && rescheduledFromLabel && (
+          <div className="card card-condensed" style={{ background: "var(--ink-50)", border: "1px solid var(--ink-200)", marginBottom: 16 }}>
+            <div className="row gap-8 center-v">
+              <CalendarIcon size={16} color="var(--ink-500)" />
+              <div>
+                <div className="tiny semi muted">Currently booked</div>
+                <div className="bold small" style={{ color: "var(--ink-700)", marginTop: 1 }}>
+                  {rescheduledFromLabel.dateLabel} at {rescheduledFromLabel.timeLabel}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Out-of-service-area warning — non-blocking; booking stays allowed. */}
         {outOfRange && (
-          <div className="card card-condensed" style={{ background: "var(--amber-100)", border: "1px solid var(--amber-200)", marginBottom: 16 }}>
+          <div className="card card-condensed" style={{ background: "var(--amber-100)", border: "1px solid var(--amber-100)", marginBottom: 16 }}>
             <div className="row gap-8" style={{ alignItems: "flex-start" }}>
               <span style={{ fontSize: 16, lineHeight: 1.2 }}>⚠️</span>
               <div>
                 <div className="bold small" style={{ color: "var(--amber-700)" }}>Outside their service area</div>
                 <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1, lineHeight: 1.5 }}>
                   You appear to be outside this {targetType === "BUSINESS" ? "business" : "provider"}'s service area — they may not accept or be able to serve this booking.
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Slot data failed to load — the grid below may be missing occupied slots. */}
+        {loadError && (
+          <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
+            <div className="row gap-8" style={{ alignItems: "flex-start" }}>
+              <span style={{ fontSize: 16, lineHeight: 1.2 }}>⚠️</span>
+              <div>
+                <div className="bold small" style={{ color: "var(--red-600)" }}>Couldn't load current availability</div>
+                <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1, lineHeight: 1.5 }}>
+                  Some slots shown as open may already be taken. Close and reopen to try again, or book carefully.
                 </div>
               </div>
             </div>
@@ -341,7 +392,7 @@ export function AppointmentSheet({
                     onClick={() => setSelectedPkg(on ? null : pk)}
                     className="row gap-10"
                     style={{
-                      padding: 12, borderRadius: 12, textAlign: "left",
+                      padding: "var(--space-sm)", borderRadius: 12, textAlign: "left",
                       border: on ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
                       background: on ? "var(--brand-50)" : "#fff",
                     }}
@@ -388,7 +439,7 @@ export function AppointmentSheet({
                   style={{
                     flexShrink: 0,
                     padding: "8px 14px",
-                    borderRadius: 16,
+                    borderRadius: "var(--radius)",
                     fontSize: 13,
                     fontWeight: isSelected ? 700 : 500,
                     opacity: working ? 1 : 0.4,
@@ -426,7 +477,7 @@ export function AppointmentSheet({
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(3, 1fr)",
-                gap: 8,
+                gap: "var(--space-xs)",
               }}
             >
               <Skeleton h={38} r={12} />
@@ -444,7 +495,7 @@ export function AppointmentSheet({
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(3, 1fr)",
-                gap: 8,
+                gap: "var(--space-xs)",
                 maxHeight: 180,
                 overflowY: "auto",
                 paddingRight: 2,
@@ -478,7 +529,7 @@ export function AppointmentSheet({
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: 4,
+                      gap: "var(--space-xxs)",
                     }}
                   >
                     {isSelected && <Check size={13} color="var(--brand-600)" />}
@@ -540,7 +591,7 @@ export function AppointmentSheet({
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 8,
+                gap: "var(--space-xs)",
                 padding: "10px 14px",
                 borderRadius: 12,
                 border: "1.5px dashed var(--ink-300)",
@@ -580,6 +631,8 @@ export function AppointmentSheet({
             : selectedSlot
             ? paymentTiming === "AT_BOOKING"
               ? `Confirm & Pay for ${selectedSlot.timeLabel}`
+              : isReschedule
+              ? `Reschedule to ${selectedSlot.timeLabel}`
               : `Confirm Booking for ${selectedSlot.timeLabel}`
             : "Select a Time Slot"}
         </button>

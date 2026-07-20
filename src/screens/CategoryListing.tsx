@@ -7,11 +7,13 @@ import { ListSkeleton } from "@/components/states";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
 import { AppBar, EmptyState } from "@/components/common";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 
 export default function CategoryListing() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { user } = useApp();
+  const { t, tf } = useI18n();
   const { data: cat, loading: catLoading } = useQuery(() => catalogService.get(id), [id]);
   const { data: bizPage, loading: bizLoading } = useQuery(
     () => {
@@ -44,7 +46,7 @@ export default function CategoryListing() {
   if (catLoading) {
     return (
       <div className="screen">
-        <AppBar title="Category" />
+        <AppBar title={t("catlist_title")} />
         <ListSkeleton count={4} />
       </div>
     );
@@ -53,8 +55,8 @@ export default function CategoryListing() {
   if (!cat) {
     return (
       <div className="screen">
-        <AppBar title="Category" />
-        <EmptyState emoji="🗂️" title="Category not found" text="This category may have moved." />
+        <AppBar title={t("catlist_title")} />
+        <EmptyState emoji="🗂️" title={t("catlist_not_found")} text={t("catlist_moved")} />
       </div>
     );
   }
@@ -68,7 +70,7 @@ export default function CategoryListing() {
             <span style={{ fontSize: 26 }}>{cat.icon}</span>
             <div className="col" style={{ gap: 0 }}>
               <span className="bold" style={{ fontSize: 18 }}>{cat.name}</span>
-              <span className="tiny muted">{biz.length + prov.length} near you</span>
+              <span className="tiny muted">{tf("catlist_near_you", { count: biz.length + prov.length })}</span>
             </div>
           </div>
           <button className="icon-btn" onClick={() => nav("/search")}><Search size={18} /></button>
@@ -79,7 +81,7 @@ export default function CategoryListing() {
       <div className="screen-scroll">
         {cat.children && cat.children.length > 0 && (
           <div className="hscroll" style={{ paddingTop: 12 }}>
-            <button className={`chip ${!sub ? "active" : ""}`} onClick={() => setSub(null)}>All</button>
+            <button className={`chip ${!sub ? "active" : ""}`} onClick={() => setSub(null)}>{t("explore_tab_all")}</button>
             {cat.children.map((c) => (
               <button key={c.id} className={`chip ${sub === c.id ? "active" : ""}`} onClick={() => setSub(sub === c.id ? null : c.id)}>
                 {c.icon} {c.name}
@@ -94,8 +96,8 @@ export default function CategoryListing() {
           ) : biz.length + prov.length === 0 ? (
             <EmptyState
               emoji="🏷️"
-              title="No listings yet"
-              text="Be the first to list here, or check a nearby category."
+              title={t("catlist_empty_title")}
+              text={t("catlist_empty_text")}
             />
           ) : (
             <>

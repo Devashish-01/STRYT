@@ -43,7 +43,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 }
 
 export default function Settings() {
-  const { user, refreshUser, showToast, switchPinIsSet, refreshSwitchPinStatus, ownedBusinessIds, ownedProviderId } = useApp();
+  const { user, refreshUser, showToast, switchPinIsSet, refreshSwitchPinStatus, ownedBusinessIds, ownedProviderId, dataSaver, setDataSaver } = useApp();
   const [pinSheet, setPinSheet] = useState<"set" | "remove" | null>(null);
   const [removingPin, setRemovingPin] = useState(false);
   const hasHats = ownedBusinessIds.length > 0 || !!ownedProviderId;
@@ -206,6 +206,21 @@ export default function Settings() {
             <Row label="Show nearby providers" hint="Hide providers from your discovery feeds & map (They can still see and quote your requests)" on={newProv} set={setNewProv} />
             <Row label="Nearby requests" on={reqs} set={setReqs} />
             <Row label="Offers & deals" on={offers} set={setOffers} last />
+          </div>
+        </div>
+
+        {/* Data settings */}
+        <div>
+          <div className="small semi muted" style={{ marginBottom: 8 }}>Data settings</div>
+          <div className="card">
+            <Row
+              icon={<Globe size={18} color="var(--brand-600)" />}
+              label="Data Saver Mode"
+              hint="Compresses images and reduces background loading for slower networks"
+              on={dataSaver}
+              set={setDataSaver}
+              last
+            />
           </div>
         </div>
 

@@ -4,8 +4,7 @@ import { MapPin, Zap, TrendingUp, Store, Users, MessageSquareText, Trophy, Clock
 import { discoveryService, requestService, socialService, communityService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { StoriesBar } from "@/components/Stories";
-import { BusinessCardSmall } from "@/components/cards";
-import { CommunityCard } from "@/screens/Community";
+import { BusinessCardSmall, CommunityCard } from "@/components/cards";
 import { useApp } from "@/store";
 
 export default function Neighborhood() {
@@ -27,7 +26,7 @@ export default function Neighborhood() {
   const providers = provPage?.data ?? [];
   const requests = reqPage?.data ?? [];
   const availableNow = availList ?? [];
-  const communityPosts = posts ?? [];
+  const communityPosts = posts?.data ?? [];
   const collections = collectionsData ?? [];
 
   const newCount = businesses.filter((b) => b.isNew).length;
@@ -132,7 +131,7 @@ export default function Neighborhood() {
         {/* Community highlights */}
         <Section title="🏘️ Neighborhood buzz" action="Open" onAction={() => nav("/community")}>
           <div className="col gap-12 page-pad" style={{ paddingTop: 0 }}>
-            {communityPosts.slice(0, 2).map((p) => <CommunityCard key={p.id} post={p} businesses={businesses} providers={providers} />)}
+            {communityPosts.slice(0, 2).map((p) => <CommunityCard key={p.id} post={p} />)}
           </div>
         </Section>
 

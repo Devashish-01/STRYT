@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppBar, inr } from "@/components/common";
+import { AppBar, inr, EmptyState } from "@/components/common";
 import { requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
+import { Skeleton, ErrorView } from "@/components/states";
 import { IndianRupee, Zap, Info, Users } from "@/components/Icons";
 import { useApp } from "@/store";
+import { GROUP_BUY_PROGRESS_ENABLED } from "@/utils/constants";
+import { haptics } from "@/lib/haptics";
 
 export default function SubmitProposal() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: r } = useQuery(() => requestService.get(id), [id]);
+  const { data: r, loading: rLoading, error: rError, refetch: refetchR } = useQuery(() => requestService.get(id), [id]);
   const { showToast, activeContext } = useApp();
   const [price, setPrice] = useState("");
   const [eta, setEta] = useState("");
@@ -26,7 +29,7 @@ export default function SubmitProposal() {
     ? { type: activeContext.type as "business" | "provider", id: activeContext.id, name: activeContext.name }
     : null;
 
-  const canSend = !!price && !!eta && message.trim().length > 5 && !sending;
+  const canSend = Number(price) > 0 && !!eta && message.trim().length > 5 && !sending;
 
   async function send() {
     setSending(true);
@@ -47,12 +50,43 @@ export default function SubmitProposal() {
     }
   }
 
+  if (rLoading) {
+    return (
+      <div className="screen">
+        <AppBar title="Send a proposal" />
+        <div className="page-pad col gap-12" style={{ marginTop: 16 }}>
+          <Skeleton h={90} mb={0} />
+          <Skeleton h={56} mb={0} />
+          <Skeleton h={56} mb={0} />
+        </div>
+      </div>
+    );
+  }
+
+  if (rError) {
+    return (
+      <div className="screen">
+        <AppBar title="Send a proposal" />
+        <ErrorView error={rError} onRetry={refetchR} />
+      </div>
+    );
+  }
+
+  if (!r) {
+    return (
+      <div className="screen">
+        <AppBar title="Send a proposal" />
+        <EmptyState emoji="📋" title="Request not found" text="This request may have expired or been removed." />
+      </div>
+    );
+  }
+
   return (
     <div className="screen">
       <AppBar title="Send a proposal" subtitle={r?.title} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 92 }}>
         {respondingAs && (
-          <div className="card row gap-10" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
+          <div className="card row gap-10" style={{ padding: "var(--space-sm)", background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
             <span className="tiny muted">Responding as</span>
             <span className="semi small" style={{ color: "var(--brand-700)" }}>{respondingAs.name}</span>
           </div>
@@ -73,7 +107,7 @@ export default function SubmitProposal() {
 
         <div className="field">
           <label>Your quote (₹) *</label>
-          <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
+          <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 12px", background: "#fff" }}>
             <IndianRupee size={18} color="var(--ink-400)" />
             <input className="input" style={{ border: "none", fontSize: 18, fontWeight: 700 }} inputMode="numeric" placeholder="0" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
           </div>
@@ -94,9 +128,9 @@ export default function SubmitProposal() {
           type="button"
           className="card row gap-12"
           style={{ padding: 14, border: boost ? "2px solid var(--amber-500)" : "1.5px solid var(--ink-200)", textAlign: "left" }}
-          onClick={() => setBoost((v) => !v)}
+          onClick={() => { haptics.selection(); setBoost((v) => !v); }}
         >
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--amber-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 40, height: 40, borderRadius: "var(--radius-sm)", background: "var(--amber-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Zap size={20} color="var(--amber-500)" />
           </div>
           <div className="grow">
@@ -108,15 +142,15 @@ export default function SubmitProposal() {
           </span>
         </button>
 
-        {/* Broadcast to me-too joiners */}
-        {r?.isGroupBuy && (r.meTooCount ?? 0) > 0 && (
+        {/* Broadcast to me-too joiners — hidden while GROUP_BUY_PROGRESS_ENABLED is off */}
+        {GROUP_BUY_PROGRESS_ENABLED && r?.isGroupBuy && (r.meTooCount ?? 0) > 0 && (
           <button
             type="button"
             className="card row gap-12"
             style={{ padding: 14, border: broadcast ? "2px solid var(--brand-500)" : "1.5px solid var(--ink-200)", textAlign: "left" }}
-            onClick={() => setBroadcast((v) => !v)}
+            onClick={() => { haptics.selection(); setBroadcast((v) => !v); }}
           >
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--brand-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 40, height: 40, borderRadius: "var(--radius-sm)", background: "var(--brand-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Users size={20} color="var(--brand-700)" />
             </div>
             <div className="grow">

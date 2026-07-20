@@ -176,6 +176,10 @@ interface AppState {
   guestLocation: { lat: number; lng: number } | null;
   guestLocationStatus: "idle" | "asking" | "granted" | "denied";
   requestGuestLocation: () => void;
+
+  // data saver mode
+  dataSaver: boolean;
+  setDataSaver: (v: boolean) => void;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -183,6 +187,14 @@ const Ctx = createContext<AppState | null>(null);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser>(seedUser);
   const [area, setArea] = useState("");
+  const [dataSaver, setDataSaverState] = useState<boolean>(() => {
+    return localStorage.getItem("dataSaver") === "true";
+  });
+
+  const setDataSaver = useCallback((v: boolean) => {
+    setDataSaverState(v);
+    localStorage.setItem("dataSaver", String(v));
+  }, []);
   const [activeRole, setActiveRole] = useState<Role>(() => {
     const cached = localStorage.getItem("activeRole");
     return (cached as Role) || "customer";
@@ -522,6 +534,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       guestLocation,
       guestLocationStatus,
       requestGuestLocation,
+      dataSaver,
+      setDataSaver,
       signIn: () => setIsAuthed(true),
       signOut: () => {
         tokenStore.clear();
@@ -549,6 +563,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
       unread, chatUnread, toast, isAuthed, authReady, profileReady,
       isGuest, guestLocation, guestLocationStatus, requestGuestLocation,
+      dataSaver, setDataSaver,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,

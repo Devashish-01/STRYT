@@ -1,3 +1,10 @@
+// Temporary kill-switch: the "me too" join action was never wired to a button
+// anywhere in the UI (toggleMeToo/requestService.meToo exist but have zero call
+// sites), yet the group-buy progress bar + broadcast-quote checkbox still
+// displayed the resulting counts, implying an interaction that doesn't exist.
+// Flip back to true to restore that display once the join button ships for real.
+export const GROUP_BUY_PROGRESS_ENABLED = false;
+
 export const RADIUS_OPTIONS = [
   { label: "500m", km: 0.5 },
   { label: "1 km",  km: 1 },

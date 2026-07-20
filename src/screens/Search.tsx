@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/common";
 import { NoResultsIllustration } from "@/components/illustrations";
 import type { Business, Provider } from "@/types";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 
 const trending = ["Biryani", "Plumber", "Salon", "Birthday cake", "AC repair", "Tutor"];
 const RECENT_KEY = "stryt_recent_searches";
@@ -28,11 +29,12 @@ export default function Search() {
   const [debounced, setDebounced] = useState("");
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const { user, showToast } = useApp();
+  const { t, tf } = useI18n();
 
   // Debounce input so we don't hit the API on every keystroke.
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(q.trim()), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setDebounced(q.trim()), 300);
+    return () => clearTimeout(timer);
   }, [q]);
 
   const query = debounced.toLowerCase();
@@ -74,14 +76,14 @@ export default function Search() {
       if (isSaved) {
         const match = saved.find((s) => s.query.toLowerCase() === query);
         if (match) await discoveryService.removeSavedSearch(match.id);
-        showToast("Alert removed");
+        showToast(t("search_alert_removed"));
       } else {
         await discoveryService.saveSearch(debounced, user.lat || undefined, user.lng || undefined);
-        showToast(`We'll notify you when a "${debounced}" joins nearby`);
+        showToast(tf("search_will_notify", { query: debounced }));
       }
       refetchSaved();
     } catch {
-      showToast("Couldn't update alert — try again");
+      showToast(t("search_alert_update_failed"));
     }
   }
 
@@ -96,19 +98,19 @@ export default function Search() {
           <input
             className="input"
             style={{ border: "none", background: "transparent", padding: "11px 0", flex: 1 }}
-            placeholder="Search businesses, services, items…"
+            placeholder={t("search_input_placeholder")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             autoFocus
           />
           {q && (
-            <button onClick={() => setQ("")} aria-label="Clear search">
+            <button onClick={() => setQ("")} aria-label={t("search_clear_aria")}>
               <X size={18} color="var(--ink-500)" />
             </button>
           )}
         </div>
         <button className="semi small" style={{ color: "var(--brand-700)" }} onClick={() => nav(-1)}>
-          Cancel
+          {t("search_cancel")}
         </button>
       </header>
 
@@ -119,9 +121,9 @@ export default function Search() {
               <>
                 <div className="row between" style={{ marginBottom: 12 }}>
                   <div className="small semi muted row gap-6">
-                    <Clock size={15} /> Recent
+                    <Clock size={15} /> {t("search_recent")}
                   </div>
-                  <button className="tiny semi" style={{ color: "var(--brand-700)" }} onClick={clearRecent}>Clear</button>
+                  <button className="tiny semi" style={{ color: "var(--brand-700)" }} onClick={clearRecent}>{t("search_clear")}</button>
                 </div>
                 <div className="row wrap gap-8">
                   {recent.map((r) => (
@@ -132,25 +134,25 @@ export default function Search() {
             )}
 
             <div className="small semi muted row gap-6" style={{ margin: recent.length > 0 ? "22px 0 12px" : "0 0 12px" }}>
-              <TrendingUp size={15} /> Trending near you
+              <TrendingUp size={15} /> {t("search_trending")}
             </div>
             <div className="row wrap gap-8">
-              {trending.map((t) => (
-                <button key={t} className="chip" onClick={() => setQ(t)}>🔥 {t}</button>
+              {trending.map((word) => (
+                <button key={word} className="chip" onClick={() => setQ(word)}>🔥 {word}</button>
               ))}
             </div>
 
             {saved.length > 0 && (
               <>
                 <div className="small semi muted row gap-6" style={{ margin: "22px 0 12px" }}>
-                  <Bell size={15} /> Your alerts
+                  <Bell size={15} /> {t("search_your_alerts")}
                 </div>
                 <div className="col gap-8">
                   {saved.map((s) => (
                     <div key={s.id} className="row between card card-condensed" style={{ padding: "10px 12px" }}>
                       <button className="small semi" style={{ textAlign: "left" }} onClick={() => setQ(s.query)}>{s.query}</button>
                       <button
-                        aria-label="Remove alert"
+                        aria-label={t("search_remove_alert_aria")}
                         onClick={async () => { await discoveryService.removeSavedSearch(s.id); refetchSaved(); }}
                       >
                         <X size={15} color="var(--ink-400)" />
@@ -167,10 +169,10 @@ export default function Search() {
           <ErrorView error={error} onRetry={refetch} />
         ) : total === 0 && catResults.length === 0 ? (
           <div className="col center" style={{ gap: 14 }}>
-            <EmptyState illustration={<NoResultsIllustration />} emoji="🤷" title={`No results for "${debounced}"`} text="Try a different keyword or browse categories from Explore." />
+            <EmptyState illustration={<NoResultsIllustration />} emoji="🤷" title={tf("search_no_results", { query: debounced })} text={t("search_no_results_hint")} />
             <button className="btn btn-outline btn-sm" onClick={toggleSaveSearch}>
               <Bell size={15} fill={isSaved ? "var(--brand-700)" : "none"} />
-              {isSaved ? "Alert on — we'll notify you" : `Notify me when a "${debounced}" joins nearby`}
+              {isSaved ? t("search_alert_on_long") : tf("search_notify_me", { query: debounced })}
             </button>
           </div>
         ) : (
@@ -185,9 +187,9 @@ export default function Search() {
               </div>
             )}
             <div className="row between align-center">
-              <span className="tiny muted">{total} results</span>
+              <span className="tiny muted">{tf("search_results_count", { count: total })}</span>
               <button className="tiny semi row gap-4" style={{ color: isSaved ? "var(--brand-700)" : "var(--ink-500)", alignItems: "center" }} onClick={toggleSaveSearch}>
-                <Bell size={13} fill={isSaved ? "var(--brand-700)" : "none"} /> {isSaved ? "Alert on" : "Get alerts"}
+                <Bell size={13} fill={isSaved ? "var(--brand-700)" : "none"} /> {isSaved ? t("search_alert_on") : t("search_get_alerts")}
               </button>
             </div>
             {provResults.map((p) => <ProviderCard key={p.id} p={p} />)}

@@ -13,8 +13,8 @@ import { MapPin, X } from "@/components/Icons";
 
 export default function ProfileEditor() {
   const { id = "" } = useParams();
-  const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id]);
-  const { data: categories } = useQuery(() => catalogService.getCategories(), []);
+  const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id], `business:${id}`);
+  const { data: categories } = useQuery(() => catalogService.getCategories(), [], "categories");
   const { showToast } = useApp();
 
   if (!id) {

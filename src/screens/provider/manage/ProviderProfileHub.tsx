@@ -7,8 +7,10 @@ import { Skeleton, ErrorView } from "@/components/states";
 import ProviderManageNav from "./ProviderManageNav";
 import {
   User, Clock, Image as ImageIcon, BadgeCheck, Settings, ChevronRight,
-  Star, Wallet, Globe, FileText, Inbox, LogOut,
+  Star, Wallet, Globe, FileText, Inbox, LogOut, AlertTriangle,
 } from "@/components/Icons";
+
+const LOW_STOCK_THRESHOLD = 5;
 
 // The provider's single identity home: a preview of what customers see, plus
 // one place to reach every editor (identity, schedule, portfolio, verification,
@@ -20,7 +22,7 @@ export default function ProviderProfileHub() {
   const { signOut } = useApp();
   const base = `/provider/${id}/manage`;
 
-  const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id), [id]);
+  const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { data: reviews } = useQuery(() => providerService.reviews(id), [id]);
 
   if (!id) {
@@ -64,9 +66,14 @@ export default function ProviderProfileHub() {
         ? "Rejected — resubmit"
         : "Get the ✓ badge";
 
+  const flaggedCount = (p?.catalog ?? []).filter(
+    (item) => item.stockStatus === "OUT_OF_STOCK" || (item.inventoryType === "FINITE" && (item.quantity ?? 0) <= LOW_STOCK_THRESHOLD)
+  ).length;
+
   const sections: { icon: any; color: string; label: string; hint: string; to: string }[] = [
     { icon: User, color: "var(--pink-500)", label: "Identity", hint: "Bio, skills, price, service radius", to: `${base}/edit-profile` },
     { icon: FileText, color: "var(--brand-600)", label: "Services", hint: `${p?.catalog?.length ?? 0} service${(p?.catalog?.length ?? 0) === 1 ? "" : "s"} customers can book`, to: `${base}/catalog` },
+    { icon: AlertTriangle, color: "var(--red-600)", label: "Inventory alerts", hint: flaggedCount > 0 ? `${flaggedCount} item${flaggedCount === 1 ? "" : "s"} need restocking` : "Out-of-stock and low items", to: `${base}/inventory` },
     { icon: Clock, color: "var(--blue-500)", label: "Schedule", hint: "Working days, hours & slot length", to: `${base}/availability` },
     { icon: ImageIcon, color: "var(--brand-600)", label: "Portfolio", hint: `${p?.portfolio?.length ?? 0} work sample${(p?.portfolio?.length ?? 0) === 1 ? "" : "s"}`, to: `${base}/portfolio` },
     { icon: Inbox, color: "var(--blue-500)", label: "Reachouts", hint: "Calls and messages from customers", to: `${base}/inbox` },

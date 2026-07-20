@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Heart, Share2, Phone, Navigation, Clock, MapPin,
   BadgeCheck, Star, Plus, Minus, MessageCircle, Flag,
-  Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle, ThumbsUp, Wallet,
+  Bookmark, Bell, UserPlus, UserCheck, Users, HelpCircle, ThumbsUp, Wallet, Calendar,
 } from "@/components/Icons";
 import { businessService, communityService, socialService } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
@@ -22,13 +22,15 @@ import { PaymentSheet } from "@/components/PaymentSheet";
 import LivePulseDot from "@/components/LivePulseDot";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { WalkInPaySheet } from "@/components/WalkInPaySheet";
+import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
-import type { AppointmentRecord } from "@/types";
+import type { AppointmentRecord, CatalogItem, MyQueueEntry } from "@/types";
 import { distanceLabel } from "@/lib/format";
 import { displayName as safeName } from "@/lib/publicName";
 import { pushRecentlyViewed } from "@/lib/recentlyViewed";
 import { MAX_QUEUE_PARTY_SIZE } from "@/lib/queueMath";
+import { haptics } from "@/lib/haptics";
 import MiniMap from "@/components/MiniMap";
 
 export default function BusinessDetail() {
@@ -41,7 +43,7 @@ export default function BusinessDetail() {
     queuesJoined, joinQueue, isGuest,
   } = useApp();
 
-  const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng]);
+  const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `business:${id}`);
   const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
   const { data: queue } = useQueryWithRealtime(() => businessService.queue(id), "queue_tokens", [id], `business_id=eq.${id}`);
   const { data: qnaList, refetch: refetchQna } = useQueryWithRealtime(() => businessService.qna(id), "business_qna", [id], `business_id=eq.${id}`);
@@ -63,7 +65,7 @@ export default function BusinessDetail() {
   const [joiningQueue, setJoiningQueue] = useState(false);
   const [partySize, setPartySize] = useState(1);
   const [queueBusy, setQueueBusy] = useState(false);
-  const [tab, setTab] = useState<"catalog" | "posts" | "work" | "about" | "reviews">("catalog");
+  const [tab, setTab] = useState<"catalog" | "posts" | "work" | "about" | "reviews" | "mine">("catalog");
   const [cart, setCart] = useState<Record<string, number>>({});
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
@@ -75,6 +77,7 @@ export default function BusinessDetail() {
   const [schedulingPkg, setSchedulingPkg] = useState<{ id: string; name: string; price: number; duration?: string } | null>(null);
   const [checkoutMode, setCheckoutMode] = useState(false);
   const [checkoutNotes, setCheckoutNotes] = useState("");
+  const [checkoutItems, setCheckoutItems] = useState<AppointmentRecord["items"]>(undefined);
 
   // Count a profile view once per business open.
   useEffect(() => {
@@ -194,6 +197,25 @@ export default function BusinessDetail() {
       ) ?? null
     : null;
 
+  // "Mine" tab — every booking + queue visit this signed-in customer has ever
+  // had with this exact business, newest first. Both lists are already
+  // fetched (cross-business) and already RLS-scoped server-side to this
+  // user, so this is just the same client-side filter payableApt/payableQueue
+  // above already use, applied without the "still unpaid" narrowing.
+  type MineRow =
+    | { kind: "appointment"; ts: number; apt: AppointmentRecord }
+    | { kind: "queue"; ts: number; q: MyQueueEntry };
+  const mineRows: MineRow[] = !isOwner
+    ? [
+        ...(myAppointments ?? [])
+          .filter((a) => a.targetId === b.id && a.targetType === "BUSINESS")
+          .map((apt): MineRow => ({ kind: "appointment", ts: new Date(apt.scheduledForISO).getTime(), apt })),
+        ...(myQueueEntries ?? [])
+          .filter((q) => q.businessId === b.id)
+          .map((q): MineRow => ({ kind: "queue", ts: new Date(q.joinedAtISO).getTime(), q })),
+      ].sort((a, c) => c.ts - a.ts)
+    : [];
+
   function add(itemId: string, delta: number) {
     setCart((c) => {
       const next = Math.max(0, (c[itemId] ?? 0) + delta);
@@ -208,16 +230,25 @@ export default function BusinessDetail() {
   // appointment" — the cart becomes a single locked-in package, itemized in
   // the notes, and the customer picks a pickup/collection slot to confirm.
   function checkout() {
-    const lines = Object.entries(cart)
+    const cartLines = Object.entries(cart)
       .map(([itemId, qty]) => {
         const item = b!.catalog.find((c) => c.id === itemId);
-        return item ? `${item.name} x${qty}` : null;
+        return item ? { item, qty } : null;
       })
-      .filter(Boolean);
-    setCheckoutNotes(`Order: ${lines.join(", ")}`);
+      .filter((l): l is { item: CatalogItem; qty: number } => !!l);
+    setCheckoutNotes(`Order: ${cartLines.map((l) => `${l.item.name} x${l.qty}`).join(", ")}`);
+    // Real per-item cart, not just a collapsed total — this is what lets the
+    // booking RPC reserve the actual quantity of each item instead of the
+    // "cart" sentinel silently matching no catalog row and reserving nothing.
+    setCheckoutItems(cartLines.map((l) => ({
+      catalogItemId: l.item.id,
+      name: l.item.name,
+      price: l.item.salePrice ?? l.item.price,
+      quantity: l.qty,
+    })));
     setSchedulingPkg({
       id: "cart",
-      name: lines.length === 1 ? lines[0]! : `${cartCount} items`,
+      name: cartLines.length === 1 ? `${cartLines[0].item.name} x${cartLines[0].qty}` : `${cartCount} items`,
       price: cartTotal,
     });
     setCheckoutMode(true);
@@ -443,16 +474,18 @@ export default function BusinessDetail() {
                     </div>
                     <div className="row center-v" style={{ background: "#fff", borderRadius: 10, border: "1px solid var(--brand-200)" }}>
                       <button
+                        className="stepper-btn"
                         style={{ padding: "6px 12px", color: partySize <= 1 ? "var(--ink-300)" : "var(--brand-700)" }}
                         disabled={partySize <= 1}
-                        onClick={() => setPartySize((n) => Math.max(1, n - 1))}
+                        onClick={() => { haptics.selection(); setPartySize((n) => Math.max(1, n - 1)); }}
                         aria-label="Fewer"
                       ><Minus size={15} /></button>
                       <span className="bold" style={{ minWidth: 24, textAlign: "center" }}>{partySize}</span>
                       <button
+                        className="stepper-btn"
                         style={{ padding: "6px 12px", color: partySize >= MAX_QUEUE_PARTY_SIZE ? "var(--ink-300)" : "var(--brand-700)" }}
                         disabled={partySize >= MAX_QUEUE_PARTY_SIZE}
-                        onClick={() => setPartySize((n) => Math.min(MAX_QUEUE_PARTY_SIZE, n + 1))}
+                        onClick={() => { haptics.selection(); setPartySize((n) => Math.min(MAX_QUEUE_PARTY_SIZE, n + 1)); }}
                         aria-label="More"
                       ><Plus size={15} /></button>
                     </div>
@@ -511,6 +544,7 @@ export default function BusinessDetail() {
             ...((b.portfolio ?? []).length > 0 ? [["work", `Work (${(b.portfolio ?? []).length})`]] : []),
             ["about", "About"],
             ["reviews", `Reviews`],
+            ...(!isOwner && !isGuest ? [["mine", mineRows.length > 0 ? `Mine (${mineRows.length})` : "Mine"]] : []),
           ] as [typeof tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
               style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>
@@ -769,6 +803,83 @@ export default function BusinessDetail() {
           </div>
         )}
 
+        {tab === "mine" && (
+          <div className="page-pad col gap-10" style={{ paddingTop: 18 }}>
+            {mineRows.length === 0 ? (
+              <EmptyState emoji="🧾" title="Nothing here yet" text="Bookings and queue visits you have with this shop will show up here." />
+            ) : (
+              mineRows.map((row) =>
+                row.kind === "appointment" ? (
+                  <div key={`a:${row.apt.id}`} className="card col gap-8" style={{ padding: 14 }}>
+                    <div className="row between">
+                      <div>
+                        <div className="bold small">{row.apt.packageName || "Appointment"}</div>
+                        <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
+                          <Calendar size={12} color="var(--brand-600)" /> {row.apt.dateLabel} at {row.apt.timeLabel}
+                        </div>
+                      </div>
+                      <span
+                        className={`badge ${
+                          row.apt.status === "ACCEPTED" || row.apt.status === "COMPLETED" ? "badge-green"
+                          : row.apt.status === "REJECTED" || row.apt.status === "CANCELLED" || row.apt.status === "NO_SHOW" ? "badge-gray"
+                          : "badge-purple"
+                        }`}
+                        style={{ fontSize: 10, padding: "3px 9px", flexShrink: 0 }}
+                      >
+                        {row.apt.status === "ACCEPTED" ? "CONFIRMED" : row.apt.status.replace("_", " ")}
+                      </span>
+                    </div>
+                    <PaymentStatusCard
+                      paymentStatus={row.apt.paymentStatus}
+                      paymentMethod={row.apt.paymentMethod}
+                      paymentAmount={row.apt.paymentAmount}
+                      paymentReference={row.apt.paymentReference}
+                      claimantName="You"
+                      viewerIsPayer
+                    />
+                    <button className="tiny semi" style={{ color: "var(--brand-700)", alignSelf: "flex-start" }} onClick={() => nav("/appointments")}>
+                      View in My Appointments →
+                    </button>
+                  </div>
+                ) : (
+                  <div key={`q:${row.q.tokenId}`} className="card col gap-8" style={{ padding: 14 }}>
+                    <div className="row between">
+                      <div>
+                        <div className="bold small">Live queue</div>
+                        <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
+                          <Users size={12} /> {row.q.partySize}
+                        </div>
+                      </div>
+                      <span
+                        className={`badge ${
+                          row.q.status === "SERVED" ? "badge-gray"
+                          : row.q.status === "CALLED" ? "badge-green"
+                          : row.q.status === "WAITING" ? "badge-purple"
+                          : "badge-gray"
+                        }`}
+                        style={{ fontSize: 10, padding: "3px 9px", flexShrink: 0 }}
+                      >
+                        {row.q.status === "WAITING" ? "Waiting" : row.q.status === "CALLED" ? "Called" : row.q.status === "SERVED" ? "Served" : row.q.status === "LEFT" ? "Left" : "Closed"}
+                      </span>
+                    </div>
+                    <PaymentStatusCard
+                      paymentStatus={row.q.paymentStatus}
+                      paymentMethod={row.q.paymentMethod}
+                      paymentAmount={row.q.paymentAmount}
+                      paymentReference={row.q.paymentReference}
+                      claimantName="You"
+                      viewerIsPayer
+                    />
+                    <button className="tiny semi" style={{ color: "var(--brand-700)", alignSelf: "flex-start" }} onClick={() => nav("/queues")}>
+                      View in My Queues →
+                    </button>
+                  </div>
+                )
+              )
+            )}
+          </div>
+        )}
+
         {/* Reporting is an action against a real business — it needs an account
             behind it, both so the owner isn't exposed to anonymous reports and
             so moderation has someone to follow up with. */}
@@ -852,16 +963,19 @@ export default function BusinessDetail() {
           packages={
             checkoutMode && schedulingPkg
               ? [schedulingPkg]
-              : (b.catalog ?? []).map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price }))
+              : (b.catalog ?? [])
+                  .filter((it) => it.stockStatus !== "OUT_OF_STOCK")
+                  .map((it) => ({ id: it.id, name: it.name, price: it.salePrice ?? it.price }))
           }
           initialPackage={schedulingPkg}
           initialNotes={checkoutMode ? checkoutNotes : undefined}
+          items={checkoutMode ? checkoutItems : undefined}
           paymentTiming={b.paymentTiming}
           payeeUpiId={b.upiId}
           depositPercent={(b as any).depositPercent}
           outOfRange={outOfRange}
           onBooked={() => { if (checkoutMode) setCart({}); }}
-          onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); }}
+          onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); setCheckoutItems(undefined); }}
         />
       )}
     </div>

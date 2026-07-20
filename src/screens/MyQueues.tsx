@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
 import { NoQueueIllustration } from "@/components/illustrations";
@@ -11,6 +11,9 @@ import { ArrowUpDown, Clock, Users, X, CreditCard, CheckCircle2, AlertCircle } f
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { isQueuePayable as isPayable } from "@/lib/queueMath";
 import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
+import { haptics } from "@/lib/haptics";
+import LivePulseDot from "@/components/LivePulseDot";
+import AnimatedNumber from "@/components/AnimatedNumber";
 import type { MyQueueEntry } from "@/types";
 
 // A queue entry stays "active" (still needs the customer's attention) while
@@ -56,8 +59,8 @@ function etaClock(min: number): string {
 
 export default function MyQueues() {
   const nav = useNavigate();
-  const { showToast } = useApp();
-  const { data, loading, error, refetch } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
+  const { showToast, user } = useApp();
+  const { data, loading, error, refetch } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined);
   const [tab, setTab] = useState<"ACTIVE" | "HISTORY">("ACTIVE");
   const [sortByName, setSortByName] = useState(false);
   const [leaving, setLeaving] = useState<string | null>(null);
@@ -67,6 +70,32 @@ export default function MyQueues() {
 
   const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(loadDismissedCards);
+
+  // Detect a WAITING → CALLED transition (not just "is CALLED") so the
+  // haptic + pop-in only fires the moment it becomes your turn, never on
+  // first load of an already-called token.
+  const prevStatusRef = useRef<Record<string, string>>({});
+  const [justCalledIds, setJustCalledIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!data) return;
+    const prev = prevStatusRef.current;
+    const nowCalled: string[] = [];
+    for (const q of data) {
+      if (prev[q.tokenId] && prev[q.tokenId] !== "CALLED" && q.status === "CALLED") nowCalled.push(q.tokenId);
+      prev[q.tokenId] = q.status;
+    }
+    if (nowCalled.length === 0) return;
+    haptics.success();
+    setJustCalledIds((s) => new Set([...s, ...nowCalled]));
+    const timer = setTimeout(() => {
+      setJustCalledIds((s) => {
+        const next = new Set(s);
+        nowCalled.forEach((id) => next.delete(id));
+        return next;
+      });
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [data]);
 
   const all = data ?? [];
   const active = all.filter((q) => isActiveEntry(q) && !removedIds.has(q.tokenId) && !dismissedIds.has(q.tokenId));
@@ -172,11 +201,12 @@ export default function MyQueues() {
             ) : (
               list.map((q) => {
                 const isCalled = q.status === "CALLED";
+                const justCalled = justCalledIds.has(q.tokenId);
                 const wait = q.estWaitMin ?? 0;
                 return (
                 <div
                   key={q.tokenId}
-                  className="card gap-12"
+                  className={`card gap-12${justCalled ? " queue-row-enter" : ""}`}
                   style={{ padding: 14, border: isCalled ? "2px solid var(--green-500)" : "1px solid var(--line)", background: isCalled ? "var(--green-100)" : undefined }}
                 >
                   <div className="row gap-12 center-v">
@@ -193,7 +223,9 @@ export default function MyQueues() {
                       </div>
                       <div className="row gap-6" style={{ marginTop: 6, flexWrap: "wrap" }}>
                         {q.status === "WAITING" && (
-                          <span className="badge badge-purple">You're #{q.position} · {q.peopleAhead} ahead</span>
+                          <span className="badge badge-purple">
+                            <LivePulseDot /> You're #<AnimatedNumber value={q.position} /> · <AnimatedNumber value={q.peopleAhead} /> ahead
+                          </span>
                         )}
                         {isCalled && <span className="badge badge-green">🔔 It's your turn — head in now!</span>}
                         {q.status === "SERVED" && <span className="badge badge-gray">✓ Served</span>}
@@ -229,14 +261,14 @@ export default function MyQueues() {
 
                   {/* Live ETA banner — only while genuinely waiting */}
                   {q.status === "WAITING" && (
-                    <div className="row between center-v" style={{ marginTop: 12, padding: "10px 12px", borderRadius: 10, background: "var(--brand-50)" }}>
+                    <div className="row between center-v" style={{ marginTop: "var(--space-sm)", padding: "10px 12px", borderRadius: "var(--radius-sm)", background: "var(--brand-50)" }}>
                       <div className="row gap-8 center-v">
                         <Clock size={16} color="var(--brand-700)" />
                         <div>
                           <div className="semi small" style={{ color: "var(--brand-700)" }}>
-                            {wait <= 0 ? "You're next!" : `~${wait} min wait`}
+                            {wait <= 0 ? "You're next!" : <>~<AnimatedNumber value={wait} /> min wait</>}
                           </div>
-                          <div className="tiny muted">{q.peopleAhead === 0 ? "No one ahead of you" : `${q.peopleAhead} ahead`}</div>
+                          <div className="tiny muted">{q.peopleAhead === 0 ? "No one ahead of you" : <><AnimatedNumber value={q.peopleAhead} /> ahead</>}</div>
                         </div>
                       </div>
                       <div className="col" style={{ alignItems: "flex-end" }}>
@@ -248,7 +280,7 @@ export default function MyQueues() {
 
                   {/* Payment — claimable once called, stays actionable after served */}
                   {isPayable(q.status) && q.paymentStatus === "PAID" && (
-                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)", borderRadius: 10 }}>
+                    <div key={q.paymentStatus} className="card row gap-8 center-v queue-row-enter" style={{ marginTop: "var(--space-sm)", padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)", borderRadius: "var(--radius-sm)" }}>
                       <CheckCircle2 size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
                       <span className="tiny semi" style={{ color: "var(--green-600)" }}>
                         Payment confirmed{q.paymentMethod ? ` via ${q.paymentMethod}` : ""}{q.paymentAmount ? ` • ₹${q.paymentAmount}` : ""}
@@ -256,7 +288,7 @@ export default function MyQueues() {
                     </div>
                   )}
                   {isPayable(q.status) && q.paymentStatus === "PENDING_CONFIRM" && (
-                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "var(--amber-50)", border: "1px solid var(--amber-100)", borderRadius: 10 }}>
+                    <div key={q.paymentStatus} className="card row gap-8 center-v queue-row-enter" style={{ marginTop: "var(--space-sm)", padding: 10, background: "var(--amber-50)", border: "1px solid var(--amber-100)", borderRadius: "var(--radius-sm)" }}>
                       <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
                       <div className="grow">
                         <div className="tiny semi" style={{ color: "var(--amber-700)" }}>Awaiting confirmation</div>
@@ -274,7 +306,7 @@ export default function MyQueues() {
                     </div>
                   )}
                   {isPayable(q.status) && q.paymentStatus === "REJECTED" && (
-                    <div className="card row gap-8 center-v" style={{ marginTop: 12, padding: 10, background: "var(--red-50)", border: "1px solid var(--red-100)", borderRadius: 10 }}>
+                    <div key={q.paymentStatus} className="card row gap-8 center-v queue-row-enter" style={{ marginTop: "var(--space-sm)", padding: 10, background: "var(--red-50)", border: "1px solid var(--red-100)", borderRadius: "var(--radius-sm)" }}>
                       <AlertCircle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
                       <div className="grow">
                         <div className="tiny semi" style={{ color: "var(--red-600)" }}>Business couldn't verify payment</div>
@@ -307,7 +339,7 @@ export default function MyQueues() {
                     <button
                       type="button"
                       className="tiny semi"
-                      style={{ alignSelf: "flex-start", marginTop: 8, color: "var(--ink-400)", background: "none", border: "none", cursor: "pointer", padding: "2px 0", textDecoration: "underline" }}
+                      style={{ alignSelf: "flex-start", marginTop: "var(--space-xs)", color: "var(--ink-400)", background: "none", border: "none", cursor: "pointer", padding: "2px 0", textDecoration: "underline" }}
                       onClick={() => dismissCard(q.tokenId)}
                     >
                       Dismiss

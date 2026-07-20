@@ -5,6 +5,7 @@ import { Camera, Plus, X, Store, Wrench, Image } from "@/components/Icons";
 import { communityService, uploadService, businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import { haptics } from "@/lib/haptics";
 import type { CommunityPostType } from "@/types";
 
 interface SellerContext {
@@ -38,16 +39,26 @@ export default function CommunityCompose() {
   const loc = useLocation();
   const { area, user, showToast, activeContext } = useApp();
 
-  const { data: activeBiz } = useQuery(
+  const { data: activeBiz, loading: bizLoading } = useQuery(
     () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
-    [activeContext.id, activeContext.type]
+    [activeContext.id, activeContext.type],
+    activeContext.type === "business" && activeContext.id ? `business:${activeContext.id}` : undefined
   );
-  const { data: activeProv } = useQuery(
+  const { data: activeProv, loading: provLoading } = useQuery(
     () => activeContext.type === "provider" && activeContext.id ? providerService.get(activeContext.id) : Promise.resolve(null),
-    [activeContext.id, activeContext.type]
+    [activeContext.id, activeContext.type],
+    activeContext.type === "provider" && activeContext.id ? `provider:${activeContext.id}` : undefined
   );
 
   const passedCtx = readSellerContext(loc.state);
+  // The router-state context (from a dashboard's "Post to community" tile) is
+  // available instantly; the active-role fallback below resolves async — a
+  // fast tap on "Post" before it lands could otherwise post under the wrong
+  // identity, so submit is blocked (see canPost) until this settles.
+  const sellerCtxLoading = !passedCtx && (
+    (activeContext.type === "business" && !!activeContext.id && bizLoading) ||
+    (activeContext.type === "provider" && !!activeContext.id && provLoading)
+  );
   const sellerCtx = passedCtx || (
     activeContext.type === "business" && activeBiz ? {
       type: "business" as const,
@@ -72,7 +83,9 @@ export default function CommunityCompose() {
     try {
       const url = await uploadService.upload(file, "community");
       setPhotoUrl(url);
-    } catch { /* ignore */ } finally {
+    } catch {
+      showToast("Couldn't upload photo. Try again.");
+    } finally {
       setUploading(false);
     }
   }
@@ -86,11 +99,12 @@ export default function CommunityCompose() {
   const [posting, setPosting] = useState(false);
 
   const canPost =
-    !!type && title.trim().length > 3 && (type !== "POLL" || pollOpts.filter((o) => o.trim()).length >= 2) && !posting;
+    !!type && title.trim().length > 3 && (type !== "POLL" || pollOpts.filter((o) => o.trim()).length >= 2) && !posting && !sellerCtxLoading;
 
   async function post() {
     if (!type) return;
     setPosting(true);
+    haptics.medium();
     try {
       await communityService.create({
         type,
@@ -104,6 +118,7 @@ export default function CommunityCompose() {
         pollOptions: type === "POLL" ? pollOpts.filter((o) => o.trim()).map((label, i) => ({ id: `o${i}`, label, votes: 0 })) : undefined,
         ...(sellerCtx ? { authorType: sellerCtx.type, authorRefId: sellerCtx.id, authorName: sellerCtx.name, authorAvatar: sellerCtx.avatar } : {}),
       });
+      haptics.success();
       showToast("Posted to community 🏘️");
       setTimeout(() => nav("/community-hub"), 500);
     } catch {
@@ -120,7 +135,7 @@ export default function CommunityCompose() {
           <div
             className="card row gap-10 center-v"
             style={{
-              padding: 12,
+              padding: "var(--space-sm)",
               background: sellerCtx.type === "business" ? "var(--orange-50)" : "var(--green-100)",
               border: `1px solid ${sellerCtx.type === "business" ? "var(--orange-100)" : "var(--green-500)"}`,
             }}
@@ -135,13 +150,7 @@ export default function CommunityCompose() {
               <div className="tiny muted">Posting as</div>
               <div className="semi small">{sellerCtx.name}</div>
             </div>
-            <span
-              className="badge row gap-4 center-v"
-              style={{
-                background: sellerCtx.type === "business" ? "var(--orange-100)" : "var(--green-100)",
-                color: sellerCtx.type === "business" ? "var(--orange-500)" : "var(--green-600)",
-              }}
-            >
+            <span className={`badge row gap-4 center-v ${sellerCtx.type === "business" ? "badge-orange" : "badge-green"}`}>
               {sellerCtx.type === "business" ? <Store size={11} /> : <Wrench size={11} />}
               {sellerCtx.type === "business" ? "Business" : "Provider"}
             </span>
@@ -155,7 +164,7 @@ export default function CommunityCompose() {
               <button
                 key={t.type}
                 className="card row gap-12"
-                style={{ padding: 12, textAlign: "left", border: type === t.type ? "2px solid var(--brand-600)" : "1.5px solid var(--ink-200)" }}
+                style={{ padding: "var(--space-sm)", textAlign: "left", border: type === t.type ? "2px solid var(--brand-600)" : "1.5px solid var(--ink-200)" }}
                 onClick={() => setType(t.type)}
               >
                 <span style={{ fontSize: 24 }}>{t.emoji}</span>
@@ -172,12 +181,18 @@ export default function CommunityCompose() {
         {type && (
           <>
             <div className="field">
-              <label>Title *</label>
-              <input className="input" placeholder={type === "RECOMMENDATION" ? "e.g. Reliable dentist near KP?" : "Short and clear"} value={title} onChange={(e) => setTitle(e.target.value)} />
+              <label className="row between">
+                <span>Title *</span>
+                <span className="tiny muted">{title.length}/150</span>
+              </label>
+              <input className="input" placeholder={type === "RECOMMENDATION" ? "e.g. Reliable dentist near KP?" : "Short and clear"} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} />
             </div>
             <div className="field">
               <label>Details</label>
-              <textarea className="input" placeholder="Add more context…" value={body} onChange={(e) => setBody(e.target.value)} />
+              <textarea className="input" placeholder="Add more context…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} />
+              {body.length > 1600 && (
+                <span className="tiny muted" style={{ textAlign: "right" }}>{body.length}/2000</span>
+              )}
             </div>
 
             {/* Comments are OFF by default; posters opt in. When on, only the
@@ -239,7 +254,7 @@ export default function CommunityCompose() {
                   <div className="row gap-8">
                     <button
                       className="col center"
-                      style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, opacity: uploading ? 0.6 : 1 }}
+                      style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: "var(--space-xxs)", opacity: uploading ? 0.6 : 1 }}
                       disabled={uploading}
                       onClick={() => cameraRef.current?.click()}
                     >
@@ -247,7 +262,7 @@ export default function CommunityCompose() {
                     </button>
                     <button
                       className="col center"
-                      style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, opacity: uploading ? 0.6 : 1 }}
+                      style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: "var(--space-xxs)", opacity: uploading ? 0.6 : 1 }}
                       disabled={uploading}
                       onClick={() => fileRef.current?.click()}
                     >
@@ -263,7 +278,10 @@ export default function CommunityCompose() {
         )}
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "12px 12px max(12px, var(--safe-area-bottom))" }}>
+        {sellerCtxLoading && (
+          <p className="tiny muted" style={{ textAlign: "center", marginBottom: 6 }}>Resolving your business/provider identity…</p>
+        )}
         <button className="btn btn-primary btn-block" disabled={!canPost} onClick={post}>
           {posting ? "Posting…" : "Post to your street"}
         </button>

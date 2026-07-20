@@ -153,6 +153,7 @@ function mapAgreement(row: any): Agreement {
     paymentStatus: (row.payment_status as any) ?? "UNPAID",
     paymentAmount: row.payment_amount ?? null,
     paymentReference: row.payment_reference ?? null,
+    disputeReason: row.dispute_reason ?? null,
   };
 }
 
@@ -337,6 +338,15 @@ export const requestService = {
     });
   },
 
+  /** Retract a still-SUBMITTED quote (withdraw_proposal RPC) — the responder-only
+   *  counterpart to a requester declining it, for a mis-quote sent too fast. */
+  async withdrawProposal(proposalId: string): Promise<Proposal> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("withdraw_proposal", { p_proposal_id: proposalId });
+    throwIfError(error);
+    return rowToProposal(data);
+  },
+
   async acceptProposal(proposalId: string) {
     const sb = getSupabase();
     // Atomic + owner-checked on the server (accept_proposal RPC): marks the
@@ -409,20 +419,6 @@ export const requestService = {
       .maybeSingle();
     throwIfError(error);
     return data ? mapAgreement(data) : undefined;
-  },
-
-  /** Latest payment row for an agreement — surfaces escrow state (HELD/RELEASED) in the UI. */
-  async paymentForAgreement(agreementId: string): Promise<{ escrowStatus: string; amount: number } | null> {
-    const sb = getSupabase();
-    const { data } = await sb
-      .from("payments")
-      .select("escrow_status, amount")
-      .eq("agreement_id", agreementId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!data) return null;
-    return { escrowStatus: (data as any).escrow_status ?? "", amount: Number((data as any).amount ?? 0) };
   },
 
   async confirmAgreement(id: string) {

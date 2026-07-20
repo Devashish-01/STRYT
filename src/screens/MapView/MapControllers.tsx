@@ -7,6 +7,7 @@ import { reverseGeocode } from "@/lib/geocode";
 import { config } from "@/config";
 import { userService } from "@/services";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
+import { useI18n } from "@/lib/i18n";
 
 // Flies/zooms the map whenever the radius changes
 export function RadiusController({ lat, lng, radiusKm }: { lat: number; lng: number; radiusKm: number }) {
@@ -30,6 +31,7 @@ export function RadiusController({ lat, lng, radiusKm }: { lat: number; lng: num
 export function RecenterButton({ radiusKm }: { radiusKm: number }) {
   const map = useMap();
   const { user, showToast, refreshUser } = useApp();
+  const { t, tf } = useI18n();
   const lat = user.lat || config.defaultLocation.lat;
   const lng = user.lng || config.defaultLocation.lng;
 
@@ -45,7 +47,7 @@ export function RecenterButton({ radiusKm }: { radiusKm: number }) {
   return (
     <button
       className="icon-btn map-glass-panel"
-      title="Re-centre"
+      title={t("map_recenter_title")}
       style={{ position: "absolute", bottom: 80, right: 16, zIndex: 1000 }}
       onClick={() => {
         nativeGeolocation.getCurrentPosition(
@@ -55,15 +57,15 @@ export function RecenterButton({ radiusKm }: { radiusKm: number }) {
               const areaName = await reverseGeocode(latitude, longitude);
               await userService.setLocation(latitude, longitude, areaName || "Current Location");
               await refreshUser();
-              showToast(`Location set to GPS — ${areaName || "Current Location"}`);
+              showToast(tf("map_location_set_gps", { area: areaName || "Current Location" }));
               recenterMap(latitude, longitude);
             } catch (err) {
-              showToast("Couldn't update saved location to GPS.");
+              showToast(t("map_gps_update_failed"));
               recenterMap(latitude, longitude);
             }
           },
           (error) => {
-            showToast("GPS unavailable. Centering on last saved location.");
+            showToast(t("map_gps_unavailable"));
             recenterMap(lat, lng);
           },
           { enableHighAccuracy: true, timeout: 5000 }
@@ -78,6 +80,7 @@ export function RecenterButton({ radiusKm }: { radiusKm: number }) {
 
 export function MapEventsController() {
   const { refreshUser, showToast } = useApp();
+  const { t, tf } = useI18n();
   const map = useMap();
   const pressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -90,9 +93,9 @@ export function MapEventsController() {
           const areaName = (await reverseGeocode(lat, lng)) || "Custom Pin";
           await userService.setLocation(lat, lng, areaName);
           await refreshUser();
-          showToast(`Location set via long press — ${areaName}`);
+          showToast(tf("map_location_set_long_press", { area: areaName }));
         } catch {
-          showToast("Couldn't set location");
+          showToast(t("explore_location_failed"));
         }
       }, 600);
     };
@@ -120,9 +123,9 @@ export function MapEventsController() {
         const areaName = (await reverseGeocode(lat, lng)) || "Custom Pin";
         await userService.setLocation(lat, lng, areaName);
         await refreshUser();
-        showToast(`Location set via context menu — ${areaName}`);
+        showToast(tf("map_location_set_context_menu", { area: areaName }));
       } catch {
-        showToast("Couldn't set location");
+        showToast(t("explore_location_failed"));
       }
     };
 
@@ -146,7 +149,7 @@ export function MapEventsController() {
       map.off("contextmenu", onContextMenu);
       if (pressTimeoutRef.current) clearTimeout(pressTimeoutRef.current);
     };
-  }, [map, refreshUser, showToast]);
+  }, [map, refreshUser, showToast, t, tf]);
 
   return null;
 }

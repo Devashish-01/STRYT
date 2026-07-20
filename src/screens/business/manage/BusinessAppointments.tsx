@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { appointmentService, businessService, slotBlockService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -16,15 +17,20 @@ import { copyText } from "@/lib/clipboard";
 import ManageNav from "./ManageNav";
 import DateStrip from "@/components/appointments/DateStrip";
 import DayTimetable from "@/components/appointments/DayTimetable";
+import DayFullnessBar from "@/components/appointments/DayFullnessBar";
 import BlockSlotModal from "@/components/appointments/BlockSlotModal";
 import WalkInModal from "@/components/appointments/WalkInModal";
+import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
+import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
+import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
+import { haptics } from "@/lib/haptics";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
 export default function BusinessAppointments() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
-  const { data: b } = useQuery(() => businessService.get(id), [id]);
+  const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForTarget(id),
     "appointments",
@@ -35,6 +41,10 @@ export default function BusinessAppointments() {
     () => slotBlockService.list(id),
     [id]
   );
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(async () => {
+    refetch();
+    refetchBlocked();
+  });
 
   if (!id) {
     return (
@@ -45,7 +55,7 @@ export default function BusinessAppointments() {
     );
   }
 
-  const [tab, setTab] = useState<ConsoleTab>("TODAY");
+  const [tab, setTab] = useState<ConsoleTab>("UPCOMING");
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [activeApt, setActiveApt] = useState<AppointmentRecord | null>(null);
@@ -54,6 +64,7 @@ export default function BusinessAppointments() {
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [paymentAction, setPaymentAction] = useState<{ apt: AppointmentRecord; action: "CONFIRM" | "REJECT" } | null>(null);
   const [processingPayment, setProcessingPayment] = useState<string | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const [blockModal, setBlockModal] = useState<{ date: Date; timeLabel: string | null } | null>(null);
   const [blockSubmitting, setBlockSubmitting] = useState(false);
@@ -66,10 +77,12 @@ export default function BusinessAppointments() {
 
   async function handleUpdateStatus() {
     if (!activeApt || !actionType) return;
+    setUpdatingStatus(true);
     try {
       const newStatus = actionType === "ACCEPT" ? "ACCEPTED" : actionType === "REJECT" ? "REJECTED" : "CANCELLED";
       const cancelledBy: CancelledBy | undefined = actionType === "CANCEL" ? "OWNER" : undefined;
       await appointmentService.updateStatus(activeApt.id, newStatus, responseNote.trim() || undefined, cancelledBy);
+      if (actionType === "ACCEPT") haptics.success(); else haptics.warning();
       showToast(
         actionType === "ACCEPT" ? "Appointment accepted 📅"
         : actionType === "REJECT" ? "Appointment declined."
@@ -81,6 +94,8 @@ export default function BusinessAppointments() {
       refetch();
     } catch {
       showToast("Couldn't update appointment");
+    } finally {
+      setUpdatingStatus(false);
     }
   }
 
@@ -89,9 +104,11 @@ export default function BusinessAppointments() {
     try {
       if (action === "CONFIRM") {
         await appointmentService.confirmPayment(apt.id);
+        haptics.success();
         showToast("Payment confirmed ✓");
       } else {
         await appointmentService.rejectPaymentClaim(apt.id);
+        haptics.warning();
         showToast("Payment claim rejected — customer notified.");
       }
       setPaymentAction(null);
@@ -235,7 +252,7 @@ export default function BusinessAppointments() {
     // and seen to before ever paying, defeating the point of pay-first.
     const requiresPaymentFirst = b?.paymentTiming === "AT_BOOKING" && apt.paymentStatus !== "PAID";
     return (
-      <div key={apt.id} className="card col gap-10" style={{ padding: 14 }}>
+      <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14 }}>
         <div className="row between center-v">
           <div className="row gap-10 center-v">
             <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 42, height: 42 }} />
@@ -251,16 +268,10 @@ export default function BusinessAppointments() {
           </div>
           <div className="col gap-4" style={{ alignItems: "flex-end" }}>
             <span
-              className={`badge ${
-                apt.status === "ACCEPTED" ? "badge-green"
-                : apt.status === "COMPLETED" ? "badge-green"
-                : apt.status === "NO_SHOW" ? "badge-red"
-                : apt.status === "REJECTED" || apt.status === "CANCELLED" ? "badge-gray"
-                : "badge-purple"
-              }`}
+              className={`badge ${APPOINTMENT_STATUS_BADGE[apt.status].cls}`}
               style={{ fontSize: 10, padding: "2px 8px" }}
             >
-              {apt.status}
+              {APPOINTMENT_STATUS_BADGE[apt.status].label}
             </span>
             {apt.paymentStatus === "PAID" && (
               <span className="badge badge-green" style={{ fontSize: 9, padding: "2px 7px" }}>
@@ -288,7 +299,7 @@ export default function BusinessAppointments() {
         )}
 
         {apt.notes && (
-          <div className="tiny" style={{ background: "var(--ink-50)", padding: 8, borderRadius: 8, color: "var(--ink-700)" }}>
+          <div className="tiny" style={{ background: "var(--ink-50)", padding: "var(--space-xs)", borderRadius: 8, color: "var(--ink-700)" }}>
             💬 <strong>Note:</strong> {apt.notes}
           </div>
         )}
@@ -317,7 +328,7 @@ export default function BusinessAppointments() {
         )}
 
         {(apt.paymentStatus === "UNPAID" || apt.paymentStatus === "REJECTED") && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
-          <div className="card col gap-10" style={{ padding: 12, background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 12, marginTop: 2 }}>
+          <div className="card col gap-10" style={{ padding: "var(--space-sm)", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 12, marginTop: 2 }}>
             <div className="tiny semi muted">Payment is outstanding (Unpaid)</div>
             <div className="row gap-8">
               {apt.isWalkIn && (apt.packagePrice || apt.paymentAmount) ? (
@@ -337,7 +348,7 @@ export default function BusinessAppointments() {
 
         {/* Payment: customer claimed — awaiting your confirmation */}
         {apt.paymentStatus === "PENDING_CONFIRM" && (
-          <div className="card col gap-10" style={{ padding: 12, background: "var(--amber-50)", border: "1px solid var(--amber-100)", borderRadius: 12, marginTop: 2 }}>
+          <div className="card col gap-10" style={{ padding: "var(--space-sm)", background: "var(--amber-50)", border: "1px solid var(--amber-100)", borderRadius: 12, marginTop: 2 }}>
             <div className="row gap-8 center-v">
               <span style={{ fontSize: 18 }}>⏳</span>
               <div className="grow">
@@ -449,27 +460,31 @@ export default function BusinessAppointments() {
 
       {/* Tabs */}
       <div className="hscroll" style={{ paddingTop: 10, paddingBottom: 6 }}>
-        {([["TODAY", "📅 Day view"], ["UPCOMING", `⏭️ Upcoming (${upcomingList.length})`], ["HISTORY", "🕘 History"], ["CANCELLED", `🚫 Cancelled (${cancelledList.length})`]] as const).map(([t, label]) => (
+        {([["UPCOMING", `⏭️ Upcoming (${upcomingList.length})`], ["TODAY", "📅 Day view"], ["HISTORY", "🕘 History"], ["CANCELLED", `🚫 Cancelled (${cancelledList.length})`]] as const).map(([t, label]) => (
           <button key={t} className={`chip ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>{label}</button>
         ))}
       </div>
 
-      <div className="screen-scroll">
+      <div className="screen-scroll" ref={containerRef}>
+        <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
         {loading && <ListSkeleton count={3} />}
         {error && <ErrorView error={error} onRetry={refetch} />}
 
         {!loading && !error && tab === "TODAY" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 8 }}>
-            <DateStrip selectedDate={selectedDate} onSelect={setSelectedDate} appointments={appointments} daysBefore={7} daysAfter={30} />
+            <DateStrip selectedDate={selectedDate} onSelect={setSelectedDate} appointments={appointments} blockedSlots={blockedSlots} daysBefore={7} daysAfter={30} />
 
-            <div className="card row gap-14" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
-              <SummaryStat label="Booked" value={bookedCount} />
-              <SummaryStat label="Pending" value={pendingCount} />
-              <SummaryStat label="Blocked" value={blockedCount} />
-              {dayRevenue > 0 && <SummaryStat label="Revenue" value={`₹${dayRevenue}`} icon={<IndianRupee size={12} />} />}
-              <button className="icon-btn" style={{ marginLeft: "auto", width: 32, height: 32 }} title="Copy day summary" onClick={copyDaySummary}>
-                <Share2 size={15} />
-              </button>
+            <div className="card col gap-10" style={{ padding: "var(--space-sm)", background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
+              <div className="row gap-14">
+                <SummaryStat label="Booked" value={bookedCount} />
+                <SummaryStat label="Pending" value={pendingCount} />
+                <SummaryStat label="Blocked" value={blockedCount} />
+                {dayRevenue > 0 && <SummaryStat label="Revenue" value={`₹${dayRevenue}`} icon={<IndianRupee size={12} />} />}
+                <button className="icon-btn" style={{ marginLeft: "auto" }} title="Copy day summary" onClick={copyDaySummary}>
+                  <Share2 size={15} />
+                </button>
+              </div>
+              <DayFullnessBar date={selectedDate} availabilityNote={b?.hours || DEFAULT_WORKING_HOURS} appointments={appointments} blockedSlots={blockedSlots} />
             </div>
 
             <DayTimetable
@@ -518,7 +533,7 @@ export default function BusinessAppointments() {
               <EmptyState emoji="🚫" title="No cancelled bookings" text="Cancelled and declined appointments will appear here." />
             ) : (
               cancelledList.map((apt) => (
-                <div key={apt.id} className="card col gap-8" style={{ padding: 14, opacity: apt.cancelledBy === "CUSTOMER" ? 0.75 : 1 }}>
+                <div key={apt.id} className="card col gap-8 queue-row-enter" style={{ padding: 14, opacity: apt.cancelledBy === "CUSTOMER" ? 0.75 : 1 }}>
                   <div className="row between center-v">
                     <div className="row gap-10 center-v">
                       <SafeImg src={apt.customerAvatar} variant="avatar" style={{ width: 38, height: 38 }} />
@@ -529,7 +544,7 @@ export default function BusinessAppointments() {
                         </div>
                       </div>
                     </div>
-                    <span className="badge badge-gray" style={{ fontSize: 10 }}>{apt.status}</span>
+                    <span className={`badge ${APPOINTMENT_STATUS_BADGE[apt.status].cls}`} style={{ fontSize: 10 }}>{APPOINTMENT_STATUS_BADGE[apt.status].label}</span>
                   </div>
                   <CancelAttributionNote apt={apt} viewpoint="OWNER" />
                 </div>
@@ -543,8 +558,9 @@ export default function BusinessAppointments() {
 
       {/* Response Note Modal (Accept / Decline / Cancel) */}
       {activeApt && actionType && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div className="card col gap-14" style={{ width: "100%", maxWidth: 400, padding: 20, background: "#fff" }}>
+        <div className="overlay" onClick={() => { if (!updatingStatus) { setActiveApt(null); setActionType(null); } }}>
+          <div className="sheet col gap-14" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
             <div className="bold large" style={{ fontSize: 16 }}>
               {actionType === "ACCEPT" ? "Accept Appointment" : actionType === "REJECT" ? "Decline Appointment" : "Cancel Appointment"}
             </div>
@@ -566,13 +582,14 @@ export default function BusinessAppointments() {
               style={{ fontSize: 13, padding: 10 }}
             />
             <div className="row gap-8 end">
-              <button className="btn btn-ghost btn-sm" onClick={() => { setActiveApt(null); setActionType(null); }}>Back</button>
+              <button className="btn btn-ghost btn-sm" disabled={updatingStatus} onClick={() => { setActiveApt(null); setActionType(null); }}>Back</button>
               <button
                 className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : "btn-primary"}`}
                 style={actionType === "CANCEL" ? { background: "var(--red-600)", color: "#fff" } : undefined}
+                disabled={updatingStatus}
                 onClick={handleUpdateStatus}
               >
-                {actionType === "ACCEPT" ? "Confirm" : actionType === "REJECT" ? "Decline" : "Cancel appointment"}
+                {updatingStatus ? "Working…" : actionType === "ACCEPT" ? "Confirm" : actionType === "REJECT" ? "Decline" : "Cancel appointment"}
               </button>
             </div>
           </div>
@@ -581,8 +598,9 @@ export default function BusinessAppointments() {
 
       {/* Payment confirm/reject modal */}
       {paymentAction && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-          <div className="card col gap-14" style={{ width: "100%", maxWidth: 380, padding: 20, background: "#fff" }}>
+        <div className="overlay" onClick={() => { if (!processingPayment) setPaymentAction(null); }}>
+          <div className="sheet col gap-14" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
             <div className="bold" style={{ fontSize: 16 }}>
               {paymentAction.action === "CONFIRM" ? "Confirm payment received?" : "Reject this payment claim?"}
             </div>
@@ -595,7 +613,7 @@ export default function BusinessAppointments() {
               <div className="bold" style={{ fontSize: 22, color: "var(--green-500)" }}>₹{paymentAction.apt.paymentAmount}</div>
             )}
             <div className="row gap-8 end">
-              <button className="btn btn-ghost btn-sm" onClick={() => setPaymentAction(null)}>Back</button>
+              <button className="btn btn-ghost btn-sm" disabled={!!processingPayment} onClick={() => setPaymentAction(null)}>Back</button>
               <button
                 className={`btn btn-sm ${paymentAction.action === "CONFIRM" ? "btn-green" : ""}`}
                 style={paymentAction.action === "REJECT" ? { background: "var(--red-600)", color: "#fff" } : undefined}
@@ -633,14 +651,7 @@ export default function BusinessAppointments() {
       )}
 
       {/* Photo Fullscreen Preview */}
-      {previewPhoto && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1300, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setPreviewPhoto(null)}>
-          <div style={{ position: "relative", maxWidth: "100%", maxHeight: "100%" }}>
-            <img src={previewPhoto} alt="Attachment Preview" style={{ maxWidth: "100%", maxHeight: "80vh", borderRadius: 12, objectFit: "contain" }} />
-            <button className="icon-btn" style={{ position: "absolute", top: -12, right: -12, background: "#fff", color: "#000" }} onClick={() => setPreviewPhoto(null)}><XIcon size={18} /></button>
-          </div>
-        </div>
-      )}
+      {previewPhoto && <PhotoPreviewModal src={previewPhoto} onClose={() => setPreviewPhoto(null)} />}
 
       <ManageNav bizId={id} />
     </div>
@@ -666,41 +677,3 @@ function groupByDay(list: AppointmentRecord[]): [string, AppointmentRecord[]][] 
   return Array.from(map.entries());
 }
 
-/** Cancellation attribution note, phrased from the given viewpoint. */
-export function CancelAttributionNote({ apt, viewpoint }: { apt: AppointmentRecord; viewpoint: "OWNER" | "CUSTOMER" }) {
-  if (apt.status === "REJECTED") {
-    return (
-      <div className="card row gap-10 center-v" style={{ padding: 10, background: "var(--red-50)", border: "1px solid var(--red-100)", borderRadius: 10 }}>
-        <AlertTriangle size={16} color="var(--red-600)" style={{ flexShrink: 0 }} />
-        <div>
-          <div className="bold tiny" style={{ color: "var(--red-600)" }}>{viewpoint === "OWNER" ? "You declined this booking" : `Declined by ${apt.targetName}`}</div>
-          {apt.responseNote ? (
-            <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1, fontStyle: "italic" }}>Reason: "{apt.responseNote}"</div>
-          ) : (
-            <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>No specific reason was provided.</div>
-          )}
-        </div>
-      </div>
-    );
-  }
-  if (apt.status !== "CANCELLED") return null;
-
-  const who = apt.cancelledBy;
-  const title = viewpoint === "OWNER"
-    ? (who === "CUSTOMER" ? "Cancelled by customer" : who === "SYSTEM" ? "Auto-cancelled (you didn't respond in time)" : "Cancelled by you")
-    : (who === "CUSTOMER" ? "Cancelled by you" : who === "SYSTEM" ? `Auto-cancelled — ${apt.targetName} didn't respond in time` : `Cancelled by ${apt.targetName}`);
-
-  return (
-    <div className="card row gap-10 center-v" style={{ padding: 10, background: "var(--orange-50)", border: "1px solid var(--orange-100)", borderRadius: 10 }}>
-      <AlertTriangle size={16} color="var(--orange-500)" style={{ flexShrink: 0 }} />
-      <div>
-        <div className="bold tiny" style={{ color: "var(--orange-500)" }}>{title}</div>
-        {apt.responseNote ? (
-          <div className="tiny" style={{ color: "var(--orange-500)", marginTop: 1, fontStyle: "italic" }}>Reason: "{apt.responseNote}"</div>
-        ) : (
-          <div className="tiny" style={{ color: "var(--orange-500)", marginTop: 1 }}>No reason was provided.</div>
-        )}
-      </div>
-    </div>
-  );
-}

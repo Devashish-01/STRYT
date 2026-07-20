@@ -19,7 +19,7 @@ export default function ProviderMoney() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
 
-  const { data: p } = useQuery(() => providerService.get(id), [id]);
+  const { data: p } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { data: analytics, loading: analyticsLoading } = useQueryWithRealtime(
     () => providerService.analytics(id),
     "settlements",

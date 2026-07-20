@@ -22,9 +22,11 @@ import { MapMarkers } from "./MapMarkers";
 import { NearbySheet } from "./NearbySheet";
 import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
+import { useI18n } from "@/lib/i18n";
 
 export default function MapView() {
   const { user, refreshUser, showToast, isGuest } = useApp();
+  const { t, tf } = useI18n();
   const pin = useLocationPinDrop(refreshUser, showToast);
   const [layers, setLayers] = useState<Record<Layer, boolean>>(() => {
     const saved = localStorage.getItem("settings_map_layers");
@@ -156,8 +158,8 @@ export default function MapView() {
               onMouseLeave={(e) => e.currentTarget.style.background = "var(--brand-600)"}
             >
               <span>
-                {visibleCount} {visibleCount === 1 ? "place" : "places"}
-                {isWorld ? " globally" : isCustomActive ? ` within ${radiusKm} km` : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
+                {visibleCount === 1 ? tf("map_place_one", { count: visibleCount }) : tf("map_place_other", { count: visibleCount })}
+                {isWorld ? t("map_globally") : isCustomActive ? tf("map_within_km", { km: radiusKm }) : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
               </span>
               <ChevronRight size={14} style={{ opacity: 0.8 }} />
             </button>
@@ -181,7 +183,7 @@ export default function MapView() {
           {/* Set-location-manually trigger, stacked above the recenter button */}
           <button
             className="icon-btn map-glass-panel"
-            title="Set location manually"
+            title={t("map_set_location_manually")}
             onClick={pin.enterPickMode}
             style={{ position: "absolute", bottom: 140, right: 16, zIndex: 1000 }}
           >

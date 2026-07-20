@@ -20,7 +20,7 @@ import { useApp } from "@/store";
 export default function BusinessPayments() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
-  const { data: b } = useQuery(() => businessService.get(id), [id]);
+  const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
 
   const { data: aptsData, refetch: refetchApts } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForTarget(id),
@@ -32,7 +32,8 @@ export default function BusinessPayments() {
     () => businessService.queueOwnerState(id),
     "queue_tokens",
     [id],
-    `business_id=eq.${id}`
+    `business_id=eq.${id}`,
+    `queue:${id}`
   );
 
   const [processingApt, setProcessingApt] = useState<string | null>(null);

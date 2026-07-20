@@ -37,6 +37,11 @@ export interface AppointmentRecord {
   isWalkIn?: boolean;
   /** Id of the appointment this one replaced, when created via the reschedule flow. */
   rescheduledFrom?: string | null;
+  /** Structured cart line items (multi-item checkout / walk-in purchases) — additive to
+   *  packageName/packagePrice, which stay the human-readable order summary. Only set on
+   *  create() payloads that pass a real cart; a single-package booking omits this and the
+   *  server synthesizes one implicit item for stock reservation. */
+  items?: { catalogItemId: string; name: string; price: number; quantity: number }[];
 }
 
 export interface BlockedSlot {

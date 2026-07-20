@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
 import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, Share2, XCircle, QrCode } from "@/components/Icons";
 import { requestService } from "@/services";
 import DealUpiSheet from "@/components/DealUpiSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import AnimatedNumber from "@/components/AnimatedNumber";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
-import type { Agreement, AgreementStatus, Proposal, RequestPost, JobLiveStatus } from "@/types";
+import type { Agreement, AgreementStatus, JobLiveStatus } from "@/types";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { useI18n } from "@/lib/i18n";
 import { openProfile } from "@/lib/profileSheet";
@@ -142,46 +143,16 @@ export default function AgreementScreen() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { t } = useI18n();
-  const { state } = useLocation() as { state?: { request?: RequestPost; proposal?: Proposal } };
   const { user, showToast } = useApp();
 
-  const isNew = id === "new" && !!state?.request && !!state?.proposal;
   const { data: fetched, loading, refetch } = useQueryWithRealtime(
-    () => (isNew ? Promise.resolve(undefined) : requestService.getAgreement(id)),
+    () => requestService.getAgreement(id),
     "agreements",
-    [id, isNew],
-    isNew ? undefined : `id=eq.${id}`
-  );
-  // Money state must be visible: HELD = safely escrowed, RELEASED = paid out.
-  const { data: payment } = useQuery(
-    () => (isNew ? Promise.resolve(null) : requestService.paymentForAgreement(id)),
-    [id, isNew]
+    [id],
+    `id=eq.${id}`
   );
 
-  let agreement: Agreement | undefined;
-  if (isNew && state?.request && state?.proposal) {
-    agreement = {
-      id: "ag-new",
-      requestId: state.request.id,
-      requestTitle: state.request.title,
-      proposalId: state.proposal.id,
-      requesterUserId: state.request.requesterUserId,
-      responderUserId: state.proposal.responderUserId,
-      requesterName: state.request.requesterName,
-      requesterAvatar: state.request.requesterAvatar,
-      responderName: state.proposal.responderName,
-      responderAvatar: state.proposal.responderAvatar,
-      agreedPrice: state.proposal.price,
-      terms: `${state.request.title}. ${state.proposal.message} ETA: ${state.proposal.eta}.`,
-      scheduledFor: state.request.deadline,
-      requesterConfirmed: false,
-      responderConfirmed: false,
-      paymentMode: "OFFLINE",
-      status: "PENDING",
-    };
-  } else {
-    agreement = fetched;
-  }
+  const agreement: Agreement | undefined = fetched;
 
   const [confirmedLocally, setConfirmedLocally] = useState(false);
   const [disputeMode, setDisputeMode] = useState(false);
@@ -226,7 +197,7 @@ export default function AgreementScreen() {
     return `${m}:${s.toString().padStart(2, "0")}`;
   }
 
-  if (loading && !isNew) {
+  if (loading) {
     return (
       <div className="screen">
         <AppBar title="Agreement" />
@@ -261,7 +232,7 @@ export default function AgreementScreen() {
     try {
       await action();
       if (successMsg) showToast(successMsg);
-      if (!isNew) refetch();
+      refetch();
     } catch {
       showToast("Something went wrong. Try again.");
     } finally {
@@ -297,7 +268,7 @@ export default function AgreementScreen() {
   function ActionArea() {
     if (status === "COMPLETED") {
       return (
-        <div className="col center" style={{ padding: 16, gap: 6, background: "var(--green-100)", borderTop: "1px solid var(--green-500)" }}>
+        <div className="col center" style={{ padding: "var(--space-md)", gap: 6, background: "var(--green-100)", borderTop: "1px solid var(--green-500)" }}>
           <CheckCircle2 size={28} color="var(--green-500)" />
           <span className="semi" style={{ color: "var(--green-600)" }}>{t("job_complete")}</span>
         </div>
@@ -306,11 +277,11 @@ export default function AgreementScreen() {
 
     if (status === "CANCELLED") {
       return (
-        <div className="col center" style={{ padding: 16, gap: 12, background: "var(--red-50)", borderTop: "1px solid var(--red-100)", textAlign: "center" }}>
+        <div className="col center" style={{ padding: "var(--space-md)", gap: "var(--space-sm)", background: "var(--red-50)", borderTop: "1px solid var(--red-100)", textAlign: "center" }}>
           <XCircle size={28} color="var(--red-600)" />
           <div>
             <span className="semi" style={{ color: "var(--red-600)" }}>{t("agreement_cancelled")}</span>
-            <p className="tiny muted" style={{ marginTop: 4, maxWidth: 320, lineHeight: 1.4 }}>
+            <p className="tiny muted" style={{ marginTop: "var(--space-xxs)", maxWidth: 320, lineHeight: 1.4 }}>
               {t("agreement_cancelled_long_desc")}
             </p>
           </div>
@@ -326,9 +297,14 @@ export default function AgreementScreen() {
 
     if (status === "DISPUTED") {
       return (
-        <div className="col center" style={{ padding: 16, gap: 6, background: "var(--orange-50)", borderTop: "1px solid var(--orange-100)" }}>
+        <div className="col center" style={{ padding: "var(--space-md)", gap: 6, background: "var(--orange-50)", borderTop: "1px solid var(--orange-100)" }}>
           <AlertTriangle size={26} color="var(--orange-500)" />
           <span className="semi" style={{ color: "var(--orange-500)" }}>{t("under_dispute_desc")}</span>
+          {agreement!.disputeReason && (
+            <p className="tiny" style={{ color: "var(--orange-500)", marginTop: 2, maxWidth: 320, lineHeight: 1.4, textAlign: "center" }}>
+              "{agreement!.disputeReason}"
+            </p>
+          )}
         </div>
       );
     }
@@ -338,7 +314,7 @@ export default function AgreementScreen() {
     // below). One form regardless of which status/role opened it.
     if (disputeMode && (status === "IN_PROGRESS" || status === "REVIEW")) {
       return (
-        <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+        <div className="col gap-8" style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
           <textarea
             className="input"
             placeholder={t("describe_issue")}
@@ -369,7 +345,7 @@ export default function AgreementScreen() {
     if (status === "PENDING") {
       if (myConfirmed) {
         return (
-          <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+          <div style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
             <button className="btn btn-outline btn-block" disabled>
               {t("waiting_other_confirm").replace("{name}", otherName)}
             </button>
@@ -377,7 +353,7 @@ export default function AgreementScreen() {
         );
       }
       return (
-        <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+        <div style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
           <button
             className="btn btn-primary btn-block"
             disabled={busy}
@@ -404,7 +380,7 @@ export default function AgreementScreen() {
       // someone else, so it's not a silent no-op.
       if (cancelConfirm && canCancel) {
         return (
-          <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+          <div className="col gap-8" style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
             <p className="tiny muted" style={{ textAlign: "center", margin: 0, lineHeight: 1.4 }}>
               Cancel before any payment? {otherName} will be notified and the original request reopens.
             </p>
@@ -429,18 +405,18 @@ export default function AgreementScreen() {
       }
 
       if (!isRequester) {
+        // A payment claim is already sitting in the PaymentStatusCard above
+        // with real Confirm/Reject buttons — this used to duplicate that with
+        // a disabled, non-functional "Review payment claim" button that went
+        // nowhere. Nothing else is actionable here while a claim is pending
+        // (cancelling is blocked once a payment's been claimed), so there's
+        // genuinely nothing for the bottom bar to show.
         if (pStatus === "PENDING_CONFIRM") {
-          return (
-            <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
-              <button className="btn btn-outline btn-block" disabled>
-                {t("review_payment_claim")}
-              </button>
-            </div>
-          );
+          return null;
         }
 
         return (
-          <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+          <div className="col gap-8" style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
             <button className="btn btn-outline btn-block" disabled>
               {t("waiting_other_pay").replace("{name}", otherName)}
             </button>
@@ -471,7 +447,7 @@ export default function AgreementScreen() {
       // responder must confirm or reject before this can move forward.
       if (pStatus === "PENDING_CONFIRM") {
         return (
-          <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+          <div style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
             <button className="btn btn-outline btn-block" disabled>
               <Clock size={16} /> {t("waiting_other_confirm_payment").replace("{name}", otherName)}
             </button>
@@ -480,7 +456,7 @@ export default function AgreementScreen() {
       }
 
       return (
-        <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+        <div className="col gap-8" style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
           {pStatus === "REJECTED" && (
             <p className="tiny" style={{ color: "var(--red-600)", textAlign: "center", margin: 0 }}>
               {t("payment_claim_rejected").replace("{name}", otherName)}
@@ -535,7 +511,7 @@ export default function AgreementScreen() {
     if (status === "DEPOSIT_PAID") {
       if (!isRequester) {
         return (
-          <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+          <div style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
             <button
               className="btn btn-green btn-block"
               disabled={busy}
@@ -547,7 +523,7 @@ export default function AgreementScreen() {
         );
       }
       return (
-        <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+        <div style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
           <button className="btn btn-outline btn-block" disabled>
             {t("waiting_other_start").replace("{name}", otherName)}
           </button>
@@ -558,7 +534,7 @@ export default function AgreementScreen() {
     if (status === "IN_PROGRESS") {
       if (!isRequester) {
         return (
-          <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+          <div className="col gap-8" style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
             <button
               className="btn btn-green btn-block"
               disabled={busy}
@@ -578,7 +554,7 @@ export default function AgreementScreen() {
         );
       }
       return (
-        <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+        <div className="col gap-8" style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
           <button className="btn btn-outline btn-block" disabled>
             {t("waiting_other_finish").replace("{name}", otherName)}
           </button>
@@ -597,7 +573,7 @@ export default function AgreementScreen() {
     if (status === "REVIEW") {
       if (isRequester) {
         return (
-          <div className="col gap-8" style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+          <div className="col gap-8" style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
             <button
               className="btn btn-green btn-block"
               disabled={busy}
@@ -619,7 +595,7 @@ export default function AgreementScreen() {
         );
       }
       return (
-        <div style={{ padding: 12, borderTop: "1px solid var(--line)", background: "#fff" }}>
+        <div style={{ padding: "var(--space-sm)", borderTop: "1px solid var(--line)", background: "#fff" }}>
           <button className="btn btn-outline btn-block" disabled>
             {t("waiting_other_approve").replace("{name}", otherName)}
           </button>
@@ -644,11 +620,11 @@ export default function AgreementScreen() {
 
         {/* Expiry Warning Banner */}
         {status === "PENDING" && timeLeft !== null && (
-          <div className="card row gap-10" style={{ padding: 12, background: "var(--amber-50)", border: "1px solid var(--amber-100)" }}>
+          <div className="card row gap-10" style={{ padding: "var(--space-sm)", background: "var(--amber-50)", border: "1px solid var(--amber-100)" }}>
             <Clock size={20} color="var(--amber-700)" style={{ flexShrink: 0 }} />
             <div className="grow">
               <div className="tiny semi" style={{ color: "var(--amber-700)" }}>
-                {t("confirmation_window")}: {formatTimeLeft(timeLeft)}
+                {t("confirmation_window")}: <AnimatedNumber value={timeLeft} format={formatTimeLeft} durationMs={280} />
               </div>
               <div className="tiny muted">
                 {t("confirmation_window_desc")}
@@ -657,8 +633,10 @@ export default function AgreementScreen() {
           </div>
         )}
 
-        {/* Timer row */}
-        {agreement.createdAt && (
+        {/* Timer row — only while the deal is actually still moving; a
+            "Active for 4d 2h" reading next to a Completed/Cancelled/Disputed
+            banner made no sense once it kept counting past the end. */}
+        {agreement.createdAt && status !== "COMPLETED" && status !== "CANCELLED" && status !== "DISPUTED" && (
           <div className="row gap-8 tiny muted" style={{ paddingLeft: 2 }}>
             <Clock size={13} style={{ flexShrink: 0 }} />
             <span>Active for <span className="semi">{elapsedSince(agreement.createdAt)}</span></span>
@@ -710,7 +688,7 @@ export default function AgreementScreen() {
                 const isActive = agreement.liveStatus === s.key;
                 return (
                   <button key={s.key} onClick={() => void handleLiveStep(s.key)}
-                    style={{ flex: "1 1 40%", padding: "8px 10px", borderRadius: 10, border: isActive ? "none" : "1px solid var(--line)", background: isActive ? "var(--brand-600)" : "#fff", color: isActive ? "#fff" : "var(--ink-700)", fontWeight: isActive ? 700 : 400, fontSize: 13, cursor: "pointer" }}>
+                    style={{ flex: "1 1 40%", padding: "8px 10px", borderRadius: "var(--radius-sm)", border: isActive ? "none" : "1px solid var(--line)", background: isActive ? "var(--brand-600)" : "#fff", color: isActive ? "#fff" : "var(--ink-700)", fontWeight: isActive ? 700 : 400, fontSize: 13, cursor: "pointer" }}>
                     {s.emoji} {t(s.labelKey)}
                   </button>
                 );
@@ -721,7 +699,7 @@ export default function AgreementScreen() {
 
         {/* Requester: see provider's live status */}
         {isRequester && agreement.liveStatus && agreement.liveStatus !== "CONFIRMED" && (
-          <div className="card row gap-10" style={{ padding: 12, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
+          <div className="card row gap-10" style={{ padding: "var(--space-sm)", background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
             <span style={{ fontSize: 20 }}>{LIVE_STEPS.find((s) => s.key === agreement.liveStatus)?.emoji ?? ""}</span>
             <div className="grow">
               <div className="tiny semi" style={{ color: "var(--green-600)" }}>
@@ -753,14 +731,14 @@ export default function AgreementScreen() {
         <div className="card">
           <div className="semi small" style={{ marginBottom: 8 }}>{t("terms_and_scope")}</div>
           <p className="small" style={{ lineHeight: 1.55, color: "var(--ink-700)" }}>{agreement.terms}</p>
-          {(agreement.requestArea || (isNew && state?.request?.area)) && (
+          {agreement.requestArea && (
             <>
               <div className="divider" />
               <div className="row gap-10 small">
                 <MapPin size={16} color="var(--blue-500)" style={{ flexShrink: 0 }} />
                 <div>
                   <span className="tiny muted">{t("location")}</span>
-                  <div className="semi small">{agreement.requestArea || state?.request?.area}</div>
+                  <div className="semi small">{agreement.requestArea}</div>
                 </div>
               </div>
             </>
@@ -779,29 +757,10 @@ export default function AgreementScreen() {
             <Wallet size={16} color="var(--orange-500)" />
             <span>{t("payment")}: <span className="semi">{agreement.paymentMode === "ONLINE" ? t("online_upi") : t("offline_cash")}</span></span>
           </div>
-          {payment?.escrowStatus && (
-            <>
-              <div className="divider" />
-              <div className="row gap-10 small">
-                <span
-                  className={`badge ${payment.escrowStatus === "HELD" ? "badge-amber" : payment.escrowStatus === "RELEASED" ? "badge-green" : "badge-gray"}`}
-                >
-                  {payment.escrowStatus === "HELD" ? t("payment_held_escrow") : payment.escrowStatus === "RELEASED" ? t("payment_released") : payment.escrowStatus}
-                </span>
-                <span className="tiny muted">
-                  {payment.escrowStatus === "HELD"
-                    ? `${inr(payment.amount)} ${t("escrow_held_desc")}`
-                    : payment.escrowStatus === "RELEASED"
-                    ? `${inr(payment.amount)} ${t("escrow_released_desc")}`
-                    : ""}
-                </span>
-              </div>
-            </>
-          )}
         </div>
 
         {agreement.paymentMode !== "ONLINE" && (
-          <div className="card row gap-10" style={{ padding: 12, background: "var(--orange-50)", border: "1px dashed var(--orange-100)" }}>
+          <div className="card row gap-10" style={{ padding: "var(--space-sm)", background: "var(--orange-50)", border: "1px dashed var(--orange-100)" }}>
             <Info size={20} color="var(--orange-500)" style={{ flexShrink: 0 }} />
             <span className="tiny" style={{ color: "var(--orange-500)", lineHeight: 1.4 }}>
               {t("pay_in_person_note")}

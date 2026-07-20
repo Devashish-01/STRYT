@@ -53,6 +53,12 @@ export function WalkInPaySheet({ targetId, businessName, businessUpiId, catalog,
     try {
       await appointmentService.createWalkInPayment({
         targetId, packageName, packagePrice: total, method, reference,
+        items: lines.map((l) => ({
+          catalogItemId: l.item.id,
+          name: l.item.name,
+          price: l.item.salePrice ?? l.item.price,
+          quantity: l.qty,
+        })),
       });
       showToast("Payment claim sent — waiting for the shop to confirm");
       onPaid();

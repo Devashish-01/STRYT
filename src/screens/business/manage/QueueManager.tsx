@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
+import { Skeleton } from "@/components/states";
 import LivePulseDot from "@/components/LivePulseDot";
-import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle } from "@/components/Icons";
+import Toggle from "@/components/Toggle";
+import { haptics } from "@/lib/haptics";
+import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle, MapPin, CheckCircle } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -29,6 +32,16 @@ function servedAgoLabel(iso: string): string {
   return `${h}h ${m % 60}m ago`;
 }
 
+// "arrived 3m ago" style label — distinct from waitedLabel so a called
+// customer who's physically here reads differently from one still en route.
+function arrivedAgoLabel(iso: string): string {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 1) return "arrived just now";
+  if (m < 60) return `arrived ${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `arrived ${h}h ${m % 60}m ago`;
+}
+
 // Clock time `min` minutes from now, e.g. "≈ 4:35 PM".
 function etaClock(min: number): string {
   const d = new Date(Date.now() + min * 60000);
@@ -46,6 +59,8 @@ export default function QueueManager() {
   const [served, setServed] = useState<Token[]>([]);
   const [verifying, setVerifying] = useState<string | null>(null);
   const [nudging, setNudging] = useState<string | null>(null);
+  const [calling, setCalling] = useState(false);
+  const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"LIVE" | "HISTORY">("LIVE");
   const isInputFocused = useRef(false);
 
@@ -53,7 +68,8 @@ export default function QueueManager() {
     () => businessService.queueOwnerState(businessId),
     "queue_tokens",
     [businessId],
-    `business_id=eq.${businessId}`
+    `business_id=eq.${businessId}`,
+    `queue:${businessId}`
   );
 
   // Full past-queue history for the History tab (SERVED/LEFT/EXPIRED, newest
@@ -134,24 +150,58 @@ export default function QueueManager() {
   }
 
   async function callNext() {
-    if (waiting.length === 0) return;
+    if (waiting.length === 0 || calling) return;
     const first = waiting[0];
+    setCalling(true);
+    haptics.medium();
     // Optimistic: move to "now serving" immediately.
     setWaiting((t) => t.slice(1));
     setCalled((c) => [...c, first]);
     try {
       await businessService.callNextToken(businessId);
+      haptics.success();
       showToast(`🔔 Called ${first.name}`);
     } catch (e: any) {
       setWaiting((t) => [first, ...t]);
       setCalled((c) => c.filter((x) => x.id !== first.id));
       showToast(e?.message || "Couldn't call next — try again");
+    } finally {
+      setCalling(false);
     }
   }
 
+  async function markArrived(token: Token) {
+    const now = new Date().toISOString();
+    setCalled((c) => c.map((x) => (x.id === token.id ? { ...x, arrivedAt: now } : x)));
+    try {
+      await businessService.markArrived(token.id);
+    } catch (e: any) {
+      setCalled((c) => c.map((x) => (x.id === token.id ? { ...x, arrivedAt: null } : x)));
+      showToast(e?.message || "Couldn't mark arrived — try again");
+    }
+  }
+
+  // Plays the .queue-row-exit shrink/fade before the row actually leaves
+  // local state, instead of an instant flat removal. Safe to use anywhere
+  // that doesn't need to roll a removal back (serve/remove already resync
+  // via refetch() on failure rather than restoring the row in place).
+  function animateOut(tokenId: string, thenRemove: () => void) {
+    setExitingIds((s) => new Set(s).add(tokenId));
+    setTimeout(() => {
+      thenRemove();
+      setExitingIds((s) => {
+        const next = new Set(s);
+        next.delete(tokenId);
+        return next;
+      });
+    }, 280);
+  }
+
   async function serveToken(token: Token, from: "waiting" | "called") {
-    if (from === "waiting") setWaiting((t) => t.filter((x) => x.id !== token.id));
-    else setCalled((c) => c.filter((x) => x.id !== token.id));
+    animateOut(token.id, () => {
+      if (from === "waiting") setWaiting((t) => t.filter((x) => x.id !== token.id));
+      else setCalled((c) => c.filter((x) => x.id !== token.id));
+    });
     try {
       await businessService.serveToken(token.id);
       showToast(`✓ Served ${token.name}`);
@@ -162,7 +212,7 @@ export default function QueueManager() {
   }
 
   async function removeToken(token: Token) {
-    setCalled((c) => c.filter((x) => x.id !== token.id));
+    animateOut(token.id, () => setCalled((c) => c.filter((x) => x.id !== token.id)));
     try {
       await businessService.leaveQueueToken(token.id);
       showToast(`Removed ${token.name}`);
@@ -176,10 +226,11 @@ export default function QueueManager() {
     return (
       <div className="screen">
         <AppBar title="Live queue" />
-        <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 30 }}>
-          <div className="card" style={{ padding: 40, textAlign: "center" }}>
-            <span className="muted small">Loading…</span>
-          </div>
+        <div className="screen-scroll page-pad col gap-14" style={{ paddingBottom: 30 }}>
+          <Skeleton h={64} r={16} mb={0} />
+          <Skeleton h={90} r={16} mb={0} />
+          <Skeleton h={90} r={16} mb={0} />
+          <Skeleton h={90} r={16} mb={0} />
         </div>
       </div>
     );
@@ -243,9 +294,7 @@ export default function QueueManager() {
             </div>
             <div className="tiny muted">Customers can join from your page</div>
           </div>
-          <span style={{ width: 44, height: 26, borderRadius: 999, background: live ? "var(--green-500)" : "var(--ink-200)", position: "relative" }}>
-            <span style={{ position: "absolute", top: 3, left: live ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
-          </span>
+          <Toggle on={live} />
         </button>
 
         {live && (
@@ -311,34 +360,43 @@ export default function QueueManager() {
             {called.length > 0 && (
               <div className="col gap-8">
                 <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Now serving</span>
-                {called.map((t) => (
-                  <div key={t.id} className="card col gap-6" style={{ padding: 12, border: "2px solid var(--green-500)", background: "var(--green-100)" }}>
+                {called.map((t) => {
+                  const arrived = !!t.arrivedAt;
+                  return (
+                  <div key={t.id} className={`card col gap-6${exitingIds.has(t.id) ? " queue-row-exit" : " queue-row-enter"}`} style={{ padding: 12, border: arrived ? "2px solid var(--green-500)" : "2px solid var(--brand-500)", background: arrived ? "var(--green-100)" : "var(--brand-50)" }}>
                     <div className="row gap-12">
-                      <span style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--green-500)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Bell size={16} />
+                      <span style={{ width: 34, height: 34, borderRadius: "50%", background: arrived ? "var(--green-500)" : "var(--brand-500)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {arrived ? <CheckCircle size={16} /> : <Bell size={16} />}
                       </span>
                       <div className="grow" style={{ minWidth: 0 }}>
                         <div className="row gap-6 center-v">
                           <div className="semi small">{t.name}</div>
                           {t.paymentStatus === "PAID" && paymentRow(t)}
                         </div>
-                        <div className="tiny muted">{t.partySize} · called</div>
+                        <div className="tiny muted row gap-4 center-v"><Users size={11} /> {t.partySize} · {arrived ? arrivedAgoLabel(t.arrivedAt as string) : "called"}</div>
                       </div>
-                      <button className="btn btn-green btn-sm" style={{ padding: "6px 12px" }} onClick={() => serveToken(t, "called")}>
-                        <Check size={15} /> Done
-                      </button>
+                      {arrived ? (
+                        <button className="btn btn-green btn-sm" style={{ padding: "6px 12px" }} onClick={() => serveToken(t, "called")}>
+                          <Check size={15} /> Done
+                        </button>
+                      ) : (
+                        <button className="btn btn-primary btn-sm" style={{ padding: "6px 12px" }} onClick={() => markArrived(t)}>
+                          <MapPin size={15} /> Arrived
+                        </button>
+                      )}
                       <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} title="Remove (no-show)" onClick={() => removeToken(t)}>
                         <X size={15} />
                       </button>
                     </div>
                     {t.paymentStatus === "PENDING_CONFIRM" && paymentRow(t)}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
-            <button className="btn btn-primary btn-block" disabled={waiting.length === 0} onClick={callNext}>
-              <Play size={17} /> Call next {waiting.length > 0 ? `— ${waiting[0].name}` : ""}
+            <button className="btn btn-primary btn-block" disabled={waiting.length === 0 || calling} onClick={callNext}>
+              {calling ? <RefreshCw size={17} className="spin" /> : <Play size={17} />} {calling ? "Calling…" : `Call next ${waiting.length > 0 ? `— ${waiting[0].name}` : ""}`}
             </button>
 
             {/* Waiting line */}
@@ -347,17 +405,19 @@ export default function QueueManager() {
                 <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Up next</span>
               )}
               {waiting.map((t, i) => (
-                <div key={t.id} className="card row gap-12" style={{ padding: 12 }}>
+                <div key={t.id} className={`card row gap-12${exitingIds.has(t.id) ? " queue-row-exit" : " queue-row-enter"}`} style={{ padding: 12 }}>
                   <span className="bold" style={{ width: 24, textAlign: "center", color: i === 0 ? "var(--brand-700)" : "var(--ink-400)" }}>{i + 1}</span>
                   <div className="grow" style={{ minWidth: 0 }}>
                     <div className="semi small">{t.name}</div>
-                    <div className="tiny muted">{t.partySize} · {waitedLabel(t.joinedAtISO)}</div>
+                    <div className="tiny muted row gap-4 center-v"><Users size={11} /> {t.partySize} · {waitedLabel(t.joinedAtISO)}</div>
                     {(() => {
                       // Weighted by the party sizes of the groups ahead — matches the
-                      // customer's My Queues ETA exactly.
+                      // customer's My Queues ETA exactly. Deliberately a size/weight
+                      // step up from the "waited so far" line above — the ETA is the
+                      // actionable number, elapsed time is just context.
                       const eta = weightedWaitMin(waiting.slice(0, i).map((w) => parsePartySize(w.partySize)), avgTime);
                       return (
-                        <div className="tiny semi" style={{ color: "var(--brand-700)", marginTop: 2 }}>
+                        <div className="small semi" style={{ color: "var(--brand-700)", marginTop: 3 }}>
                           ~{eta} min · turn {etaClock(eta)}
                         </div>
                       );
@@ -388,7 +448,7 @@ export default function QueueManager() {
                     <div className="row gap-12 center-v">
                       <div className="grow" style={{ minWidth: 0 }}>
                         <div className="semi small">{t.name}</div>
-                        <div className="tiny muted">{t.partySize} · served {servedAgoLabel(t.joinedAtISO)}</div>
+                        <div className="tiny muted row gap-4 center-v"><Users size={11} /> {t.partySize} · served {servedAgoLabel(t.joinedAtISO)}</div>
                       </div>
                       {t.paymentStatus === "PAID" && paymentRow(t)}
                       {(!t.paymentStatus || t.paymentStatus === "UNPAID" || t.paymentStatus === "REJECTED") && (
@@ -411,8 +471,9 @@ export default function QueueManager() {
           <div className="col gap-8">
             <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Past queue</span>
             {historyLoading && (
-              <div className="card" style={{ padding: 24, textAlign: "center" }}>
-                <span className="muted small">Loading…</span>
+              <div className="col gap-8">
+                <Skeleton h={56} r={14} mb={0} />
+                <Skeleton h={56} r={14} mb={0} />
               </div>
             )}
             {!historyLoading && historyRows.length === 0 && (
@@ -423,7 +484,7 @@ export default function QueueManager() {
                 <div className="row gap-12 center-v">
                   <div className="grow" style={{ minWidth: 0 }}>
                     <div className="semi small">{t.name}</div>
-                    <div className="tiny muted">{t.partySize} · {servedAgoLabel(t.joinedAtISO)}</div>
+                    <div className="tiny muted row gap-4 center-v"><Users size={11} /> {t.partySize} · {servedAgoLabel(t.joinedAtISO)}</div>
                   </div>
                   <span
                     className={`badge ${t.status === "SERVED" ? "badge-green" : "badge-gray"}`}

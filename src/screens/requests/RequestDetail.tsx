@@ -17,6 +17,10 @@ import { PLACEHOLDER_REQUEST_SHARE } from "@/lib/placeholders";
 import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import type { Proposal, ProposalCounter } from "@/types";
 import { openProfile } from "@/lib/profileSheet";
+import { GROUP_BUY_PROGRESS_ENABLED } from "@/utils/constants";
+import { REQUEST_STATUS_BADGE, PROPOSAL_STATUS_BADGE } from "@/lib/statusBadges";
+import { haptics } from "@/lib/haptics";
+import AnimatedNumber from "@/components/AnimatedNumber";
 
 export default function RequestDetail() {
   const { id = "" } = useParams();
@@ -44,6 +48,7 @@ export default function RequestDetail() {
   const [counterAmt, setCounterAmt] = useState("");
   const [counterBackFor, setCounterBackFor] = useState<string | null>(null);
   const [counterBackAmt, setCounterBackAmt] = useState("");
+  const [counterBusy, setCounterBusy] = useState<string | null>(null);
 
   // CRUD Edit / Delete state for owner
   const [editing, setEditing] = useState(false);
@@ -114,8 +119,10 @@ export default function RequestDetail() {
 
   async function acceptProposal(p: Proposal) {
     setAccepted(p.id);
+    haptics.medium();
     try {
       const result = await requestService.acceptProposal(p.id);
+      haptics.success();
       showToast(`Accepted ${p.responderName}'s offer`);
       setTimeout(() => nav(result.agreementId ? `/agreement/${result.agreementId}` : `/agreements`), 700);
     } catch {
@@ -128,8 +135,10 @@ export default function RequestDetail() {
   // server locks the request/proposal/counter and derives the agreed amount.
   async function acceptCounter(p: Proposal, counter: ProposalCounter) {
     setAccepted(p.id);
+    haptics.medium();
     try {
       const result = await requestService.acceptProposalCounter(p.id, counter.id);
+      haptics.success();
       showToast(`Accepted at ${inr(counter.amount)}`);
       setTimeout(() => nav(result.agreementId ? `/agreement/${result.agreementId}` : `/agreements`), 700);
     } catch {
@@ -139,7 +148,9 @@ export default function RequestDetail() {
   }
 
   async function sendCounter(p: Proposal) {
-    if (!counterAmt) return;
+    if (!counterAmt || counterBusy) return;
+    setCounterBusy(p.id);
+    haptics.medium();
     try {
       await requestService.submitCounter(p.id, Number(counterAmt));
       showToast(`Counter offer of ${inr(Number(counterAmt))} sent`);
@@ -148,11 +159,15 @@ export default function RequestDetail() {
       refetch();
     } catch {
       showToast("Couldn't send counter. Try again.");
+    } finally {
+      setCounterBusy(null);
     }
   }
 
   async function sendCounterBack(p: Proposal) {
-    if (!counterBackAmt) return;
+    if (!counterBackAmt || counterBusy) return;
+    setCounterBusy(p.id);
+    haptics.medium();
     try {
       await requestService.submitCounter(p.id, Number(counterBackAmt));
       showToast(`Your counter of ${inr(Number(counterBackAmt))} sent`);
@@ -161,6 +176,8 @@ export default function RequestDetail() {
       refetch();
     } catch {
       showToast("Couldn't send counter. Try again.");
+    } finally {
+      setCounterBusy(null);
     }
   }
 
@@ -231,14 +248,16 @@ export default function RequestDetail() {
               <div className="row gap-6"><span className="semi">{r.requesterName}</span><Rating value={r.requesterRating} size={10} /></div>
               <span className="tiny muted row gap-4"><MapPin size={12} /> {r.area}{r.distanceKm > 0 ? ` • ${r.distanceKm} km` : ""} • {r.postedAt}</span>
             </div>
-            {r.status !== "OPEN" && <span className="badge badge-blue">{r.status}</span>}
+            {REQUEST_STATUS_BADGE[r.status] && (
+              <span className={`badge ${REQUEST_STATUS_BADGE[r.status]!.cls}`}>{REQUEST_STATUS_BADGE[r.status]!.label}</span>
+            )}
           </div>
 
           {r.status === "OPEN" && r.expiresAt && <ExpiryCountdown expiresAt={r.expiresAt} />}
 
           {/* Owner Management Controls (CRUD) */}
           {isMine && (
-            <div className="row gap-8" style={{ marginTop: 12, background: "var(--ink-50)", padding: 8, borderRadius: 12 }}>
+            <div className="row gap-8" style={{ marginTop: "var(--space-sm)", background: "var(--ink-50)", padding: "var(--space-xs)", borderRadius: 12 }}>
               <button className="btn btn-outline btn-sm grow row center gap-6" onClick={startEdit}>
                 <Edit3 size={14} /> Edit Request
               </button>
@@ -259,18 +278,18 @@ export default function RequestDetail() {
             {r.expiresInHrs && <span className="badge badge-gray"><Clock size={11} /> expires in {r.expiresInHrs}h</span>}
           </div>
           <h1 className="bold h1" style={{ marginTop: 8 }}>{r.title}</h1>
-          <p className="small" style={{ marginTop: 8, lineHeight: 1.6, color: "var(--ink-700)" }}>{r.description}</p>
+          <p className="small" style={{ marginTop: "var(--space-xs)", lineHeight: 1.6, color: "var(--ink-700)" }}>{r.description}</p>
 
           {r.photos.length > 0 && (
-            <div className="row gap-8" style={{ marginTop: 12, overflowX: "auto" }}>
+            <div className="row gap-8" style={{ marginTop: "var(--space-sm)", overflowX: "auto" }}>
               {r.photos.map((ph, i) => (
                 <SafeImg key={i} src={ph} className="thumb" style={{ width: 120, height: 120, borderRadius: 14, flexShrink: 0 }} />
               ))}
             </div>
           )}
 
-          {/* Group buy progress */}
-          {r.isGroupBuy && r.groupBuyTarget && (
+          {/* Group buy progress — hidden while GROUP_BUY_PROGRESS_ENABLED is off */}
+          {GROUP_BUY_PROGRESS_ENABLED && r.isGroupBuy && r.groupBuyTarget && (
             <div className="card" style={{ marginTop: 14, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
               <div className="row between tiny" style={{ marginBottom: 6 }}>
                 <span className="semi" style={{ color: "var(--green-600)" }}>{meTooCount} of {r.groupBuyTarget} neighbors in</span>
@@ -318,7 +337,7 @@ export default function RequestDetail() {
                     borderColor: propSort === key ? "var(--brand-600)" : "var(--ink-200)",
                     fontWeight: propSort === key ? 700 : 500,
                   }}
-                  onClick={() => setPropSort(key)}
+                  onClick={() => { haptics.selection(); setPropSort(key); }}
                 >
                   {label}
                 </button>
@@ -336,7 +355,7 @@ export default function RequestDetail() {
             <div className="col gap-12">
               {sortedProposals.map((p) => (
                 <div key={p.id}
-                  className="card" style={{ border: accepted === p.id ? "2px solid var(--green-500)" : p.isBoosted ? "1.5px solid var(--amber-500)" : "1px solid var(--line)" }}>
+                  className="card queue-row-enter" style={{ border: accepted === p.id ? "2px solid var(--green-500)" : p.isBoosted ? "1.5px solid var(--amber-500)" : "1px solid var(--line)" }}>
                   <div className="row gap-10">
                     <SafeImg
                       src={p.responderAvatar}
@@ -355,6 +374,12 @@ export default function RequestDetail() {
                     <div className="col" style={{ alignItems: "flex-end", gap: 2 }}>
                       <Rating value={p.responderRating} size={10} />
                       {p.isBoosted && <span className="badge badge-amber" style={{ fontSize: 9 }}><Zap size={9} /> Boosted</span>}
+                      {/* Server-truth status — the "Accepted"/local-optimistic pill further
+                          down only appears mid-tap for isMine+OPEN; this is what still shows
+                          the real outcome on every later visit to a decided request. */}
+                      {p.status !== "SUBMITTED" && (
+                        <span className={`badge ${PROPOSAL_STATUS_BADGE[p.status].cls}`} style={{ fontSize: 9 }}>{PROPOSAL_STATUS_BADGE[p.status].label}</span>
+                      )}
                     </div>
                   </div>
 
@@ -407,7 +432,7 @@ export default function RequestDetail() {
                         >
                           <div style={{
                             background: c.by === "requester" ? "var(--brand-100)" : "var(--green-100)",
-                            borderRadius: 10,
+                            borderRadius: "var(--radius-sm)",
                             padding: "6px 10px",
                             maxWidth: "75%",
                           }}>
@@ -437,11 +462,11 @@ export default function RequestDetail() {
                     <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
                       <div className="tiny semi muted" style={{ marginBottom: 8 }}>Propose a different price</div>
                       <div className="row gap-8">
-                        <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff" }}>
+                        <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
                           <span className="muted" style={{ padding: "10px 0" }}>₹</span>
                           <input className="input" style={{ border: "none", padding: "10px 6px" }} inputMode="numeric" placeholder={`e.g. ${p.price - 50}`} value={counterAmt} onChange={(e) => setCounterAmt(e.target.value.replace(/\D/g, ""))} />
                         </div>
-                        <button className="btn btn-primary btn-sm" disabled={!counterAmt} onClick={() => void sendCounter(p)}>Send</button>
+                        <button className="btn btn-primary btn-sm" disabled={!counterAmt || counterBusy === p.id} onClick={() => void sendCounter(p)}>{counterBusy === p.id ? "Sending…" : "Send"}</button>
                       </div>
                       <div className="tiny muted" style={{ marginTop: 6 }}>They can accept or counter back.</div>
                     </div>
@@ -454,11 +479,11 @@ export default function RequestDetail() {
                         <div className="card card-condensed" style={{ background: "var(--ink-50)", border: "none" }}>
                           <div className="tiny semi muted" style={{ marginBottom: 8 }}>Your counter offer</div>
                           <div className="row gap-8">
-                            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff" }}>
+                            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
                               <span className="muted" style={{ padding: "10px 0" }}>₹</span>
                               <input className="input" style={{ border: "none", padding: "10px 6px" }} inputMode="numeric" placeholder={`e.g. ${p.price}`} value={counterBackAmt} onChange={(e) => setCounterBackAmt(e.target.value.replace(/\D/g, ""))} />
                             </div>
-                            <button className="btn btn-primary btn-sm" disabled={!counterBackAmt} onClick={() => void sendCounterBack(p)}>Send</button>
+                            <button className="btn btn-primary btn-sm" disabled={!counterBackAmt || counterBusy === p.id} onClick={() => void sendCounterBack(p)}>{counterBusy === p.id ? "Sending…" : "Send"}</button>
                           </div>
                           <button className="tiny muted" style={{ marginTop: 6 }} onClick={() => { setCounterBackFor(null); setCounterBackAmt(""); }}>Cancel</button>
                         </div>
@@ -492,7 +517,7 @@ export default function RequestDetail() {
           it, but can't respond — quoting is a commitment to a real neighbour, so
           the button becomes a sign-in prompt. */}
       {!isMine && r.status === "OPEN" && (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12, zIndex: 30 }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "var(--space-sm)", zIndex: 30 }}>
           {isGuest ? (
             <GuestSignInPrompt message="Sign in to send a proposal" compact />
           ) : (
@@ -593,17 +618,19 @@ function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
   const msLeft = new Date(expiresAt).getTime() - now;
   if (msLeft <= 0) return null;
   const totalMin = Math.floor(msLeft / 60_000);
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
   const urgent = msLeft < 3_600_000;
-  const label = h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+  const formatLabel = (min: number) => {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+  };
   return (
     <span
       className="row gap-4"
       style={{
         alignItems: "center",
         alignSelf: "flex-start",
-        marginTop: 8,
+        marginTop: "var(--space-xs)",
         padding: "3px 10px",
         borderRadius: 999,
         fontSize: 12,
@@ -613,7 +640,7 @@ function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
         border: `1px solid ${urgent ? "var(--red-100)" : "var(--brand-200)"}`,
       }}
     >
-      <Clock size={12} /> Expires in {label}
+      <Clock size={12} /> Expires in <AnimatedNumber value={totalMin} format={formatLabel} durationMs={280} />
     </span>
   );
 }

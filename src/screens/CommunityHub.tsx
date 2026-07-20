@@ -1,15 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText, ArrowLeft, ArrowUpDown } from "@/components/Icons";
-import { requestService, communityService, discoveryService } from "@/services";
+import { requestService, communityService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
-import { RequestCard } from "@/components/cards";
-import { CommunityCard } from "@/screens/Community";
+import { RequestCard, CommunityCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import { useApp } from "@/store";
 import { trendingScore } from "@/lib/trending";
-import type { CommunityPostType } from "@/types";
+import type { CommunityPost, CommunityPostType } from "@/types";
 
 type HubTab = "requests" | "posts";
 
@@ -21,7 +20,7 @@ const POST_LABELS: Record<"ALL" | CommunityPostType, string> = {
 
 export default function CommunityHub() {
   const nav = useNavigate();
-  const { area, user, chatUnread, activeContext } = useApp();
+  const { area, user, chatUnread, activeContext, showToast } = useApp();
   const [tab, setTab] = useState<HubTab>("posts");
   const [postFilter, setPostFilter] = useState<"ALL" | CommunityPostType>("ALL");
   const [reqSpecial, setReqSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
@@ -36,8 +35,35 @@ export default function CommunityHub() {
     () => communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }),
     [user.lat, user.lng]
   );
-  const { data: bizPage } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
-  const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
+
+  // Pagination: the first page comes from the query above; further pages are
+  // appended here via the service's cursor (same pattern as Requests.tsx) —
+  // without this, anything past the first 20 posts was permanently unreachable.
+  const [extraPosts, setExtraPosts] = useState<CommunityPost[]>([]);
+  const [postCursor, setPostCursor] = useState<string | null>(null);
+  const [postsHasMore, setPostsHasMore] = useState(false);
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
+
+  useEffect(() => {
+    setExtraPosts([]);
+    setPostCursor(postData?.page?.next_cursor ?? null);
+    setPostsHasMore(postData?.page?.has_more ?? false);
+  }, [postData]);
+
+  async function loadMorePosts() {
+    if (!postCursor || loadingMorePosts) return;
+    setLoadingMorePosts(true);
+    try {
+      const next = await communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined, cursor: postCursor });
+      setExtraPosts((prev) => [...prev, ...(next.data ?? [])]);
+      setPostCursor(next.page?.next_cursor ?? null);
+      setPostsHasMore(next.page?.has_more ?? false);
+    } catch {
+      showToast("Couldn't load more posts");
+    } finally {
+      setLoadingMorePosts(false);
+    }
+  }
 
   const allRequests = feedPage?.data ?? [];
   let requests = allRequests;
@@ -45,7 +71,7 @@ export default function CommunityHub() {
   if (reqSpecial === "group")     requests = requests.filter((r) => r.isGroupBuy);
   if (reqSpecial === "recurring") requests = requests.filter((r) => r.isRecurring);
 
-  const allPosts = postData ?? [];
+  const allPosts = [...(postData?.data ?? []), ...extraPosts];
   const filteredPosts = postFilter === "ALL" ? allPosts : allPosts.filter((p) => p.type === postFilter);
   const posts = postSort === "trending" ? [...filteredPosts].sort((a, b) => trendingScore(b) - trendingScore(a)) : filteredPosts;
 
@@ -211,14 +237,13 @@ export default function CommunityHub() {
                 <ArrowUpDown size={13} /> Sort: {postSort === "trending" ? "🔥 Trending nearby" : "Recent"}
               </button>
               {posts.map((p) => (
-                <CommunityCard
-                  key={p.id}
-                  post={p}
-                  businesses={bizPage?.data ?? []}
-                  providers={provPage?.data ?? []}
-                  onRefetch={refetchPosts}
-                />
+                <CommunityCard key={p.id} post={p} onRefetch={refetchPosts} />
               ))}
+              {postFilter === "ALL" && postsHasMore && (
+                <button className="btn btn-ghost btn-block" onClick={loadMorePosts} disabled={loadingMorePosts} style={{ marginTop: 4 }}>
+                  {loadingMorePosts ? "Loading…" : "Load more"}
+                </button>
+              )}
             </div>
           )
         )}

@@ -72,6 +72,13 @@ export interface EarningEntry {
   agreementId: string;
 }
 
+// get(id) is independently re-fetched by every provider manage-console screen
+// for the SAME provider (Today, Jobs, Money, Portfolio, Availability, Profile
+// editor, Settings, ...) plus the public ProviderDetail page — same
+// coalescing pattern as businessService.get. Keyed on lat/lng too since those
+// change the returned distanceKm.
+const inFlightProviderGet = new Map<string, Promise<Provider | undefined>>();
+
 export const providerService = {
   async mine(): Promise<Provider[]> {
     const sb = getSupabase();
@@ -82,6 +89,15 @@ export const providerService = {
     return toCamel<Provider[]>(data ?? []);
   },
   async get(id: string, lat?: number, lng?: number): Promise<Provider | undefined> {
+    const key = `${id}:${lat ?? ""}:${lng ?? ""}`;
+    const inFlight = inFlightProviderGet.get(key);
+    if (inFlight) return inFlight;
+    const promise = providerService._getUncoalesced(id, lat, lng).finally(() => inFlightProviderGet.delete(key));
+    inFlightProviderGet.set(key, promise);
+    return promise;
+  },
+
+  async _getUncoalesced(id: string, lat?: number, lng?: number): Promise<Provider | undefined> {
     if (isMockTarget(id)) {
       return {
         id,

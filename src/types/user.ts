@@ -34,7 +34,10 @@ export interface AppNotification {
   body: string;
   deepLink: string;
   isRead: boolean;
+  /** Human-friendly relative label, e.g. "2h ago" — for display only. */
   time: string;
+  /** Raw ISO timestamp — used for day-grouping (Today/Yesterday/Earlier). */
+  createdAt: string;
 }
 
 export interface PublicUser {

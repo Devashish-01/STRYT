@@ -4,10 +4,12 @@ import { ArrowLeft, Search } from "@/components/Icons";
 import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { userService } from "@/services";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 
 export function SearchBar() {
   const nav = useNavigate();
   const { refreshUser, showToast } = useApp();
+  const { t, tf } = useI18n();
   const [locQuery, setLocQuery] = useState("");
   const [locResults, setLocResults] = useState<GeoPlace[]>([]);
   const [searching, setSearching] = useState(false);
@@ -29,9 +31,9 @@ export function SearchBar() {
       await refreshUser();
       setLocQuery("");
       setLocResults([]);
-      showToast(`Location set — ${p.area}`);
+      showToast(tf("explore_location_set", { area: p.area }));
     } catch {
-      showToast("Couldn't set that location");
+      showToast(t("explore_location_failed"));
     }
   }
 
@@ -53,7 +55,7 @@ export function SearchBar() {
           type="text"
           className="input map-glass-panel"
           value={locQuery}
-          placeholder="Search location remotely..."
+          placeholder={t("map_search_location_remotely")}
           onChange={(e) => searchPlaces(e.target.value)}
           style={{
             width: "100%",

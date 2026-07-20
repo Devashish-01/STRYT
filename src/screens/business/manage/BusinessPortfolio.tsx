@@ -10,7 +10,7 @@ import ManageNav from "./ManageNav";
 
 export default function BusinessPortfolio() {
   const { id = "" } = useParams();
-  const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id]);
+  const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { showToast } = useApp();
 
   if (!id) {

@@ -11,7 +11,7 @@ import RadiusSelector from "@/components/RadiusSelector";
 
 export default function ProviderProfileEditor() {
   const { id = "" } = useParams();
-  const { data: p, loading } = useQuery(() => providerService.get(id), [id]);
+  const { data: p, loading } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { showToast } = useApp();
 
   if (!id) {

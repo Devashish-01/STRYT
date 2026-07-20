@@ -9,6 +9,7 @@ import DesktopSidebar from "./components/DesktopSidebar";
 import BusinessAccessGuard from "./components/BusinessAccessGuard";
 import ProviderAccessGuard from "./components/ProviderAccessGuard";
 import PinGateSheet from "./components/PinGateSheet";
+import RouteFallback from "./components/RouteFallback";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
 import { contextHomePath } from "./lib/contextHome";
@@ -28,6 +29,8 @@ const DeletionPending = lazy(() => import("./screens/auth/DeletionPending"));
 const TermsAccept = lazy(() => import("./screens/auth/TermsAccept"));
 const LegalIndex = lazy(() => import("./screens/legal/LegalIndex"));
 const LegalDoc = lazy(() => import("./screens/legal/LegalDoc"));
+const GuideIndex = lazy(() => import("./screens/guide/GuideIndex"));
+const GuideDoc = lazy(() => import("./screens/guide/GuideDoc"));
 
 // Core tabs
 const Home = lazy(() => import("./screens/Home"));
@@ -72,7 +75,6 @@ const ChatThread = lazy(() => import("./screens/chat/ChatThread"));
 // Social & community
 const CommunityHub = lazy(() => import("./screens/CommunityHub"));
 const StoryCompose = lazy(() => import("./screens/StoryCompose"));
-const Community = lazy(() => import("./screens/Community"));
 const CommunityCompose = lazy(() => import("./screens/CommunityCompose"));
 const CommunityPostDetail = lazy(() => import("./screens/CommunityPostDetail"));
 const Lists = lazy(() => import("./screens/Lists"));
@@ -85,6 +87,7 @@ const ManageDashboard = lazy(() => import("./screens/business/manage/ManageDashb
 const BusinessStoreHub = lazy(() => import("./screens/business/manage/BusinessStoreHub"));
 const BusinessHub = lazy(() => import("./screens/business/manage/BusinessHub"));
 const CatalogManager = lazy(() => import("./screens/business/manage/CatalogManager"));
+const InventoryAlerts = lazy(() => import("./screens/business/manage/InventoryAlerts"));
 const BusinessPortfolio = lazy(() => import("./screens/business/manage/BusinessPortfolio"));
 const ProfileEditor = lazy(() => import("./screens/business/manage/ProfileEditor"));
 const BroadcastRadius = lazy(() => import("./screens/business/manage/BroadcastRadius"));
@@ -106,6 +109,7 @@ const ProviderProfileHub = lazy(() => import("./screens/provider/manage/Provider
 const ProviderProfileEditor = lazy(() => import("./screens/provider/manage/ProviderProfileEditor"));
 const ProviderAvailability = lazy(() => import("./screens/provider/manage/ProviderAvailability"));
 const ProviderCatalog = lazy(() => import("./screens/provider/manage/ProviderCatalog"));
+const ProviderInventory = lazy(() => import("./screens/provider/manage/ProviderInventory"));
 const ProviderPortfolio = lazy(() => import("./screens/provider/manage/ProviderPortfolio"));
 const ProviderJobs = lazy(() => import("./screens/provider/manage/ProviderJobs"));
 const ProviderFindWork = lazy(() => import("./screens/provider/manage/ProviderFindWork"));
@@ -134,7 +138,7 @@ const BusinessAccess = lazy(() => import("./screens/BusinessAccess"));
 // UPI-deeplink payments only) — screen file stays in future-enhancement/.
 
 // Routes that show the bottom navigation bar
-const TAB_ROUTES = ["/home", "/map", "/explore", "/chats", "/requests", "/community-hub", "/community", "/profile"];
+const TAB_ROUTES = ["/home", "/map", "/explore", "/chats", "/requests", "/community-hub", "/profile"];
 
 // Brief full-screen loader shown while the initial Supabase session resolves
 function AuthSplash() {
@@ -388,7 +392,8 @@ function isAuthOrPublicScreen(pathname: string): boolean {
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/admin/login") ||
     pathname.startsWith("/track/") ||
-    pathname.startsWith("/legal")
+    pathname.startsWith("/legal") ||
+    pathname.startsWith("/guide")
   );
 }
 
@@ -475,6 +480,13 @@ export default function App() {
           <OfflineBanner />
           <LiveShareBanner />
       <Suspense fallback={<AuthSplash />}>
+      {/* Nested boundary: once the outer one has painted successfully once
+          (first route of the session), React catches any LATER route's
+          not-yet-loaded lazy chunk here instead of re-triggering the outer
+          fallback — so navigating deeper into the app (e.g. first tap into
+          Settings) shows the light RouteFallback, not the full cold-boot
+          splash again. */}
+      <Suspense fallback={<RouteFallback />}>
         <Routes>
           {/* Public only auth routes */}
           <Route element={<PublicOnlyLayout />}>
@@ -496,6 +508,11 @@ export default function App() {
               which these routes sit outside of). */}
           <Route path="/legal" element={<LegalIndex />} />
           <Route path="/legal/:slug" element={<LegalDoc />} />
+
+          {/* Public user guide & FAQ — same "readable before you're signed in
+              or committed" reasoning as /legal above. */}
+          <Route path="/guide" element={<GuideIndex />} />
+          <Route path="/guide/:slug" element={<GuideDoc />} />
 
           {/* Browsable signed-out — a guest sees these (capped to 1 km), and so
               does a signed-in user. Actions inside them are gated individually
@@ -519,7 +536,6 @@ export default function App() {
                 Every write inside it (like/vote/comment/recommend) is gated by
                 useRequireAuth; composing a new post is protected below. */}
             <Route path="/community-hub" element={<CommunityHub />} />
-            <Route path="/community" element={<Community />} />
             <Route path="/community/:id" element={<CommunityPostDetail />} />
           </Route>
 
@@ -562,6 +578,7 @@ export default function App() {
               <Route path="/business/:id/manage/store" element={<BusinessStoreHub />} />
               <Route path="/business/:id/manage/business" element={<BusinessHub />} />
               <Route path="/business/:id/manage/catalog" element={<CatalogManager />} />
+              <Route path="/business/:id/manage/inventory" element={<InventoryAlerts />} />
               <Route path="/business/:id/manage/portfolio" element={<BusinessPortfolio />} />
               <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
               <Route path="/business/:id/manage/broadcast" element={<BroadcastRadius />} />
@@ -586,6 +603,7 @@ export default function App() {
               <Route path="/provider/:id/manage/edit-profile" element={<ProviderProfileEditor />} />
               <Route path="/provider/:id/manage/availability" element={<ProviderAvailability />} />
               <Route path="/provider/:id/manage/catalog" element={<ProviderCatalog />} />
+              <Route path="/provider/:id/manage/inventory" element={<ProviderInventory />} />
               <Route path="/provider/:id/manage/portfolio" element={<ProviderPortfolio />} />
               <Route path="/provider/:id/manage/inbox" element={<LeadsInbox entityType="PROVIDER" />} />
               <Route path="/provider/:id/manage/jobs" element={<ProviderJobs />} />
@@ -620,6 +638,7 @@ export default function App() {
             <Route path="*" element={<ContextHomeRedirect />} />
           </Route>
         </Routes>
+      </Suspense>
       </Suspense>
 
       {/* Every business/provider manage screen already renders its own

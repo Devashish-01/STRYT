@@ -8,6 +8,7 @@ import type { Story, Business, Provider, RequestPost } from "@/types";
 import { pinColors } from "./mapIcons";
 import { displayName as safeName } from "@/lib/publicName";
 import { distanceLabel } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 
 export function NearbySheet({
   visibleCount, isWorld, radiusKm,
@@ -26,6 +27,7 @@ export function NearbySheet({
 }) {
   const nav = useNavigate();
   const { viewedStories } = useApp();
+  const { t, tf } = useI18n();
   const [activeTab, setActiveTab] = useState<"business" | "provider" | "story" | "request">("business");
 
   return (
@@ -47,9 +49,10 @@ export function NearbySheet({
         {/* Header */}
         <div className="row between" style={{ marginBottom: 16 }}>
           <div>
-            <h3 className="bold h2">Nearby on your Street</h3>
+            <h3 className="bold h2">{t("nearby_sheet_title")}</h3>
             <span className="tiny muted">
-              Showing {visibleCount} {visibleCount === 1 ? "item" : "items"}{isWorld ? " globally" : ` within ${radiusKm} km`}
+              {visibleCount === 1 ? tf("nearby_showing_one", { count: visibleCount }) : tf("nearby_showing_other", { count: visibleCount })}
+              {isWorld ? t("map_globally") : tf("map_within_km", { km: radiusKm })}
             </span>
           </div>
           <button
@@ -88,7 +91,7 @@ export function NearbySheet({
               textAlign: "center"
             }}
           >
-            Shops ({filteredBusinesses.length})
+            {tf("nearby_tab_shops", { count: filteredBusinesses.length })}
           </button>
           <button
             onClick={() => setActiveTab("provider")}
@@ -105,7 +108,7 @@ export function NearbySheet({
               textAlign: "center"
             }}
           >
-            Providers ({filteredProviders.length})
+            {tf("nearby_tab_providers", { count: filteredProviders.length })}
           </button>
           <button
             onClick={() => setActiveTab("story")}
@@ -122,7 +125,7 @@ export function NearbySheet({
               textAlign: "center"
             }}
           >
-            Stories ({mapStories.length})
+            {tf("nearby_tab_stories", { count: mapStories.length })}
           </button>
           <button
             onClick={() => setActiveTab("request")}
@@ -139,7 +142,7 @@ export function NearbySheet({
               textAlign: "center"
             }}
           >
-            Requests ({nearbyRequests.length})
+            {tf("nearby_tab_requests", { count: nearbyRequests.length })}
           </button>
         </div>
 
@@ -150,7 +153,7 @@ export function NearbySheet({
               {filteredBusinesses.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--ink-400)" }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>🏬</div>
-                  <div className="semi small">No shops found in this radius</div>
+                  <div className="semi small">{t("nearby_no_shops")}</div>
                 </div>
               ) : (
                 filteredBusinesses.map((b) => (
@@ -175,7 +178,7 @@ export function NearbySheet({
                         <Rating value={b.ratingAvg} size={10} />
                         {b.distanceKm != null && (
                           <span style={{ fontSize: 11, color: "var(--ink-400)" }}>
-                            • {distanceLabel(b.distanceKm)}
+                            • {distanceLabel(b.distanceKm, t)}
                           </span>
                         )}
                       </div>
@@ -192,7 +195,7 @@ export function NearbySheet({
               {filteredProviders.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--ink-400)" }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>🛠️</div>
-                  <div className="semi small">No providers found in this radius</div>
+                  <div className="semi small">{t("nearby_no_providers")}</div>
                 </div>
               ) : (
                 filteredProviders.map((p) => (
@@ -223,7 +226,7 @@ export function NearbySheet({
               {mapStories.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--ink-400)" }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📸</div>
-                  <div className="semi small">No stories found in this radius</div>
+                  <div className="semi small">{t("nearby_no_stories")}</div>
                 </div>
               ) : (
                 mapStories.map((s, idx) => {
@@ -269,7 +272,7 @@ export function NearbySheet({
               {nearbyRequests.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "32px 16px", color: "var(--ink-400)" }}>
                   <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
-                  <div className="semi small">No requests found in this radius</div>
+                  <div className="semi small">{t("nearby_no_requests")}</div>
                 </div>
               ) : (
                 nearbyRequests.map((r) => (
@@ -289,7 +292,7 @@ export function NearbySheet({
                     </div>
                     <div className="grow">
                       <div className="bold small" style={{ color: "var(--ink-900)" }}>{r.title}</div>
-                      <div className="tiny muted">{r.categoryName} · {r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget"}</div>
+                      <div className="tiny muted">{r.categoryName} · {r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : t("budget_open")}</div>
                     </div>
                     <ChevronRight size={16} className="muted" />
                   </div>

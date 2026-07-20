@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useMapEvents } from "react-leaflet";
 import { MapPin, X, Check, Loader } from "@/components/Icons";
+import { useI18n } from "@/lib/i18n";
 
 // Lives inside <MapContainer>. The pin itself is fixed on screen — this just
 // reports the map's center whenever a pan/zoom settles, so the caller can
@@ -32,6 +33,7 @@ export function LocationPinDropOverlay({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <>
       {/* Top instruction bar */}
@@ -44,13 +46,13 @@ export function LocationPinDropOverlay({
         }}
       >
         <span className="semi" style={{ fontSize: 13, color: "var(--ink-800)", flex: 1 }}>
-          Move the map to place the pin
+          {t("map_pin_instruction")}
         </span>
         <button
           className="icon-btn"
           onClick={onCancel}
           style={{ background: "var(--ink-100)", flexShrink: 0 }}
-          aria-label="Cancel"
+          aria-label={t("search_cancel")}
         >
           <X size={16} />
         </button>
@@ -92,11 +94,11 @@ export function LocationPinDropOverlay({
           {addressLoading ? (
             <span className="row gap-6" style={{ alignItems: "center", color: "var(--ink-500)" }}>
               <Loader size={13} className="spin" />
-              <span className="small">Finding address…</span>
+              <span className="small">{t("map_finding_address")}</span>
             </span>
           ) : (
             <span className="semi small" style={{ color: "var(--ink-900)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {address || "Move the map to select a point"}
+              {address || t("map_select_point")}
             </span>
           )}
         </div>
@@ -107,7 +109,7 @@ export function LocationPinDropOverlay({
             onClick={onCancel}
             disabled={confirming}
           >
-            Cancel
+            {t("search_cancel")}
           </button>
           <button
             className="btn btn-primary row center gap-6"
@@ -116,7 +118,7 @@ export function LocationPinDropOverlay({
             disabled={confirming || addressLoading}
           >
             {confirming ? <Loader size={15} className="spin" /> : <Check size={15} />}
-            {confirming ? "Saving…" : "Confirm this location"}
+            {confirming ? t("map_saving") : t("map_confirm_location")}
           </button>
         </div>
       </div>

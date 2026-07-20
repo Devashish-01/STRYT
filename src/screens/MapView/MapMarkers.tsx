@@ -13,6 +13,7 @@ import type { Business, Provider } from "@/types";
 import type { RequestPost } from "@/types";
 import { displayName as safeName } from "@/lib/publicName";
 import { distanceLabel } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
 
 export function MapMarkers({
   layers, filteredBusinesses, filteredProviders, nearbyRequests, mapStories, onStoryClick,
@@ -26,6 +27,7 @@ export function MapMarkers({
 }) {
   const nav = useNavigate();
   const { viewedStories } = useApp();
+  const { t } = useI18n();
 
   return (
     <>
@@ -40,19 +42,19 @@ export function MapMarkers({
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <strong>{b.name}</strong>
                   <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: isBizOpen ? "var(--green-100)" : "var(--ink-100)", color: isBizOpen ? "var(--green-600)" : "var(--ink-600)", fontWeight: 700 }}>
-                    {isBizOpen ? "Open" : "Closed"}
+                    {isBizOpen ? t("map_open") : t("map_closed")}
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: "var(--ink-600)", marginTop: 2 }}>{b.subCategory}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
                   <Rating value={b.ratingAvg} size={11} />
-                  {b.distanceKm != null && <span style={{ fontSize: 12, color: "var(--ink-500)" }}>{distanceLabel(b.distanceKm)}</span>}
+                  {b.distanceKm != null && <span style={{ fontSize: 12, color: "var(--ink-500)" }}>{distanceLabel(b.distanceKm, t)}</span>}
                 </div>
                 <button
                   onClick={() => nav(`/business/${b.id}`)}
                   style={{ marginTop: 8, padding: "6px 12px", background: isBizOpen ? pinColors.business : "var(--ink-500)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
                 >
-                  View shop
+                  {t("map_view_shop")}
                 </button>
               </div>
             </Popup>
@@ -70,7 +72,7 @@ export function MapMarkers({
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <strong>{safeName(p.displayName, "Local provider")}</strong>
                   <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 999, background: evalRes.isOpenNow ? "var(--green-100)" : "var(--ink-100)", color: evalRes.isOpenNow ? "var(--green-600)" : "var(--ink-600)", fontWeight: 700 }}>
-                    {evalRes.isOpenNow ? "Available" : "Offline"}
+                    {evalRes.isOpenNow ? t("map_available") : t("map_offline")}
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: "var(--ink-600)", marginTop: 2 }}>{p.categoryName} · from {inr(p.startingPrice)}</div>
@@ -79,7 +81,7 @@ export function MapMarkers({
                   onClick={() => nav(`/provider/${p.id}`)}
                   style={{ marginTop: 8, padding: "6px 12px", background: evalRes.isOpenNow ? pinColors.provider : "var(--ink-500)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
                 >
-                  View profile
+                  {t("map_view_profile")}
                 </button>
               </div>
             </Popup>
@@ -98,13 +100,13 @@ export function MapMarkers({
                 <span style={{ fontSize: 11, background: "var(--brand-200)", color: "var(--brand-600)", padding: "2px 6px", borderRadius: 4 }}>{r.categoryName}</span>
                 <div style={{ fontWeight: 700, marginTop: 4, fontSize: 14 }}>{r.title}</div>
                 <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: 2 }}>
-                  {r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget"}
+                  {r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : t("budget_open")}
                 </div>
                 <button
                   onClick={() => nav(`/request/${r.id}`)}
                   style={{ marginTop: 8, padding: "6px 12px", background: pinColors.request, color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
                 >
-                  View request
+                  {t("map_view_request")}
                 </button>
               </div>
             </Popup>
@@ -131,7 +133,7 @@ export function MapMarkers({
                   onClick={() => onStoryClick(mapStories, i)}
                   style={{ marginTop: 8, padding: "6px 12px", background: "linear-gradient(135deg,#ff8400,var(--pink-500))", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, width: "100%" }}
                 >
-                  View story
+                  {t("map_view_story")}
                 </button>
               </div>
             </Popup>

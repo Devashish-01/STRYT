@@ -17,7 +17,7 @@ const steps = ["Basics", "Location", "Photos", "Contact"];
 export default function BusinessOnboard() {
   const nav = useNavigate();
   const { user, addRole, showToast, refreshUser } = useApp();
-  const { data: categories, loading: catLoading, error: catError, refetch: refetchCats } = useQuery(() => catalogService.getCategories("BUSINESS"), []);
+  const { data: categories, loading: catLoading, error: catError, refetch: refetchCats } = useQuery(() => catalogService.getCategories("BUSINESS"), [], "categories:BUSINESS");
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);

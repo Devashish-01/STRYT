@@ -47,7 +47,7 @@ export default function BusinessSettings() {
       showToast("Couldn't remove — try again");
     }
   }
-  const { data: business, refetch: refetchBiz } = useQuery(() => businessService.get(id), [id]);
+  const { data: business, refetch: refetchBiz } = useQuery(() => businessService.get(id), [id], `business:${id}`);
 
   if (!id) {
     return (

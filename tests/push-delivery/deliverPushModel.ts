@@ -240,6 +240,18 @@ function pushClientSrc(): string {
   return readIfExists("src/lib/pushNotifications.ts");
 }
 
+/** req 3.1 — the row write happens inside the INSERT itself; the push trigger
+ * is declared AFTER INSERT, so it structurally cannot suppress, delay, or
+ * observe-and-cancel the in-app row regardless of push outcome. Combined with
+ * insertIsNonBlocking() (the trigger swallows all errors), this is what
+ * guarantees the notifications row always exists independent of delivery. */
+export function triggerFiresAfterInsert(): boolean {
+  const src = readIfExists(
+    "supabase/migrations/20260731_push_on_every_notification.sql",
+  );
+  return /after insert on public\.notifications/i.test(src);
+}
+
 /** req 3.2 — the trigger fires pg_net async and swallows errors, so a push
  * failure never rolls back or errors the notifications insert. */
 export function insertIsNonBlocking(): boolean {

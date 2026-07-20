@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone, Flag } from "@/components/Icons";
-import { communityService, businessService, providerService, socialService } from "@/services";
+import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone, Flag, Pencil, Trash2, X, Camera } from "@/components/Icons";
+import { communityService, businessService, providerService, socialService, uploadService } from "@/services";
 import { useQueryWithRealtime, useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { SafeImg, inr } from "@/components/common";
@@ -10,6 +10,90 @@ import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
 import type { CommunityPost, Comment } from "@/types";
 import { openProfile } from "@/lib/profileSheet";
+import { resolveRecommendations, type ResolvedRecommendation } from "@/lib/communityRecommendations";
+import { haptics } from "@/lib/haptics";
+
+/** Author-only edit sheet — title/details/photo, the same fields CommunityCompose
+ *  collects at creation time. Kept local to this file since it's only ever
+ *  opened from here. */
+function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClose: () => void; onSaved: (p: CommunityPost) => void }) {
+  const { showToast } = useApp();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [title, setTitle] = useState(post.title);
+  const [body, setBody] = useState(post.body ?? "");
+  const [image, setImage] = useState<string | null | undefined>(post.image);
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const canSave = title.trim().length > 3 && !saving && !uploading;
+
+  async function pickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(true);
+    try {
+      setImage(await uploadService.upload(file, "community"));
+    } catch {
+      showToast("Couldn't upload photo. Try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      await communityService.update(post.id, { title: title.trim(), body: body.trim(), image });
+      onSaved({ ...post, title: title.trim(), body: body.trim(), image: image ?? undefined });
+      showToast("Post updated");
+    } catch {
+      showToast("Couldn't save changes. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-grab" />
+        <h3 className="bold h2" style={{ marginBottom: 14 }}>Edit post</h3>
+        <div className="col gap-12">
+          <div className="field">
+            <label>Title *</label>
+            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} />
+          </div>
+          <div className="field">
+            <label>Details</label>
+            <textarea className="input" value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} />
+          </div>
+          <div className="field">
+            <label>Photo</label>
+            {image ? (
+              <div style={{ position: "relative", width: 100 }}>
+                <img src={image} className="thumb" style={{ width: 100, height: 100, borderRadius: 12, objectFit: "cover" }} />
+                <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setImage(null)}><X size={14} /></button>
+              </div>
+            ) : (
+              <button
+                className="col center"
+                style={{ width: 100, height: 100, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, opacity: uploading ? 0.6 : 1 }}
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
+                <Camera size={20} /><span className="tiny">{uploading ? "…" : "Add photo"}</span>
+              </button>
+            )}
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickPhoto} />
+          </div>
+        </div>
+        <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={!canSave} onClick={save}>
+          {saving ? "Saving…" : "Save changes"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function CommentRow({ c, nav, onReply, compact, canReply = true }: { c: Comment; nav: (to: string) => void; onReply: () => void; compact?: boolean; canReply?: boolean }) {
   const size = compact ? 30 : 36;
@@ -55,11 +139,13 @@ export default function CommunityPostDetail() {
 
   const { data: activeBiz } = useQuery(
     () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
-    [activeContext.id, activeContext.type]
+    [activeContext.id, activeContext.type],
+    activeContext.type === "business" && activeContext.id ? `business:${activeContext.id}` : undefined
   );
   const { data: activeProv } = useQuery(
     () => activeContext.type === "provider" && activeContext.id ? providerService.get(activeContext.id) : Promise.resolve(null),
-    [activeContext.id, activeContext.type]
+    [activeContext.id, activeContext.type],
+    activeContext.type === "provider" && activeContext.id ? `provider:${activeContext.id}` : undefined
   );
 
   // Use passed post for instant display; re-fetch in background for freshness.
@@ -78,6 +164,15 @@ export default function CommunityPostDetail() {
   );
 
   const { data: initialComments, loading: commentsLoading } = useQueryWithRealtime(() => communityService.comments(id), "post_comments", [id], `post_id=eq.${id}`);
+
+  // Looked up by id directly (not searched against a pre-fetched "nearby"
+  // list) — a recommended listing isn't guaranteed to be within the current
+  // viewer's own discovery radius. See src/lib/communityRecommendations.ts.
+  const postRecs = post?.recommendations;
+  const { data: recNames } = useQuery<Record<string, ResolvedRecommendation>>(
+    () => (postRecs && postRecs.length > 0) ? resolveRecommendations(postRecs) : Promise.resolve({}),
+    [id, postRecs?.map((r) => r.listingId).join(",")]
+  );
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
@@ -86,16 +181,22 @@ export default function CommunityPostDetail() {
   const [phoneVis, setPhoneVis] = useState<"OWNER" | "PUBLIC">("OWNER");
   const [phoneInput, setPhoneInput] = useState("");
   const [reporting, setReporting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [resolvedBusy, setResolvedBusy] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   // Optimistic override for the like button, cleared once the server-confirmed
   // value (post.liked/post.likes) catches up — avoids XOR-ing against a value
   // that a realtime refetch can change out from under a session-wide toggle
   // (that was making the like visually revert; see GOAL_LIVE_AUDIT.md #8).
   const [likeOverride, setLikeOverride] = useState<boolean | null>(null);
+  const [resolvedOverride, setResolvedOverride] = useState<boolean | null>(null);
 
   useEffect(() => { if (initialComments) setComments(initialComments); }, [initialComments]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [comments]);
   useEffect(() => { setLikeOverride(null); }, [post?.liked, post?.likes]);
+  useEffect(() => { setResolvedOverride(null); }, [post?.resolved]);
 
   if (!post) return (
     <div className="screen">
@@ -116,10 +217,41 @@ export default function CommunityPostDetail() {
   const likeCount = Math.max(0, safePost.likes + (likeOverride === true && !safePost.liked ? 1 : 0) - (likeOverride === false && safePost.liked ? 1 : 0));
   const votedOption = votes[safePost.id] ?? safePost.votedOptionId;
   const totalVotes = (safePost.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !safePost.votedOptionId ? 1 : 0);
+  const resolved = resolvedOverride ?? safePost.resolved ?? false;
+  // "Resolved" only makes sense for these two types — a giveaway/poll/shoutout
+  // never had an outstanding thing to resolve.
+  const canMarkResolved = isAuthor && (safePost.type === "LOST_FOUND" || safePost.type === "ALERT");
+
+  async function toggleResolved() {
+    const next = !resolved;
+    setResolvedOverride(next); // optimistic — this is a deliberate single tap, should feel instant
+    setResolvedBusy(true);
+    try {
+      await communityService.setResolved(safePost.id, next);
+    } catch {
+      setResolvedOverride(!next);
+      showToast("Couldn't update — try again");
+    } finally {
+      setResolvedBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await communityService.delete(safePost.id);
+      showToast("Post deleted");
+      nav("/community-hub", { replace: true });
+    } catch {
+      showToast("Couldn't delete — try again");
+      setDeleting(false);
+    }
+  }
 
   // Guests never reach these — every control that calls them is hidden below.
   async function handleLike() {
     const next = !liked;
+    haptics.selection();
     setLikeOverride(next); // optimistic
     try {
       await communityService.like(safePost.id, liked);
@@ -131,6 +263,7 @@ export default function CommunityPostDetail() {
 
   async function handleVote(optId: string) {
     if (votedOption) return;
+    haptics.selection();
     votePoll(safePost.id, optId); // optimistic
     try {
       await communityService.vote(safePost.id, optId);
@@ -165,6 +298,7 @@ export default function CommunityPostDetail() {
         parentId,
         ...customAuthor
       });
+      haptics.selection();
       setComments((prev) => [...prev, c]);
       setSharePhone(false);
       setReplyingTo(null);
@@ -190,8 +324,28 @@ export default function CommunityPostDetail() {
       <header className="appbar" style={{ borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
         <button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
         <span className="bold grow" style={{ fontSize: 16 }}>Post</span>
-        {safePost.resolved && <span className="badge badge-green" style={{ marginRight: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
-        {!isGuest && (
+        {isAuthor && canMarkResolved && (
+          <button
+            className={`badge ${resolved ? "badge-green" : "badge-gray"}`}
+            style={{ marginRight: 8 }}
+            disabled={resolvedBusy}
+            onClick={toggleResolved}
+          >
+            <CheckCircle2 size={11} /> {resolved ? "Resolved" : "Mark resolved"}
+          </button>
+        )}
+        {!isAuthor && resolved && <span className="badge badge-green" style={{ marginRight: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
+        {isAuthor && (
+          <>
+            <button className="icon-btn" onClick={() => setEditing(true)} aria-label="Edit post">
+              <Pencil size={18} />
+            </button>
+            <button className="icon-btn" style={{ color: "var(--red-600)" }} onClick={() => setDeleteConfirm(true)} aria-label="Delete post">
+              <Trash2 size={18} />
+            </button>
+          </>
+        )}
+        {!isGuest && !isAuthor && (
           <button className="icon-btn" onClick={() => setReporting(true)} aria-label="Report post">
             <Flag size={18} />
           </button>
@@ -243,7 +397,7 @@ export default function CommunityPostDetail() {
                     key={o.id}
                     disabled={isGuest}
                     onClick={isGuest ? undefined : () => handleVote(o.id)}
-                    style={{ position: "relative", textAlign: "left", padding: "11px 13px", borderRadius: 10, border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)", overflow: "hidden", background: "#fff", cursor: isGuest ? "default" : "pointer", opacity: 1 }}
+                    style={{ position: "relative", textAlign: "left", padding: "11px 13px", borderRadius: "var(--radius-sm)", border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)", overflow: "hidden", background: "#fff", cursor: isGuest ? "default" : "pointer", opacity: 1 }}
                   >
                     {votedOption && <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: voted ? "var(--brand-100)" : "var(--ink-100)" }} />}
                     <div className="row between" style={{ position: "relative" }}>
@@ -260,22 +414,25 @@ export default function CommunityPostDetail() {
           {/* Recommendations */}
           {safePost.recommendations && safePost.recommendations.length > 0 && (
             <div className="col gap-8" style={{ marginTop: 12 }}>
-              {safePost.recommendations.map((rec) => (
-                <button
-                  key={rec.listingId}
-                  className="row gap-10"
-                  style={{ padding: 10, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
-                  onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}
-                >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: rec.listingType === "BUSINESS" ? "var(--orange-100)" : "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
-                    {rec.listingType === "BUSINESS" ? "🏪" : "👤"}
-                  </div>
-                  <div className="grow">
-                    <div className="semi small">{rec.listingId}</div>
-                    <div className="tiny muted">Recommended by {rec.byName}</div>
-                  </div>
-                </button>
-              ))}
+              {safePost.recommendations.map((rec) => {
+                const resolved = recNames?.[rec.listingId];
+                return (
+                  <button
+                    key={rec.listingId}
+                    className="row gap-10"
+                    style={{ padding: 10, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
+                    onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}
+                  >
+                    <div style={{ width: 40, height: 40, borderRadius: "var(--radius-sm)", background: rec.listingType === "BUSINESS" ? "var(--orange-100)" : "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                      {rec.listingType === "BUSINESS" ? "🏪" : "👤"}
+                    </div>
+                    <div className="grow">
+                      <div className="semi small">{resolved?.name ?? "Loading…"}</div>
+                      <div className="tiny muted">Recommended by {rec.byName}</div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -306,7 +463,7 @@ export default function CommunityPostDetail() {
               {comments.filter((c) => !c.parentId).map((c) => {
                 const replies = comments.filter((r) => r.parentId === c.id);
                 return (
-                  <div key={c.id} className="col gap-12">
+                  <div key={c.id} className="col gap-12 queue-row-enter">
                     <CommentRow c={c} nav={nav} onReply={() => startReply(c)} canReply={canComment} />
                     {replies.length > 0 && (
                       <div className="col gap-12" style={{ marginLeft: 46, paddingLeft: 10, borderLeft: "2px solid var(--line)" }}>
@@ -331,21 +488,21 @@ export default function CommunityPostDetail() {
           prompt where the composer would be, rather than an input that can't
           submit (and a "share my number" control they have no number for). */}
       {isGuest ? (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px" }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px max(10px, var(--safe-area-bottom))" }}>
           <GuestSignInPrompt message="Sign in to join the conversation" compact />
         </div>
       ) : !allowComments ? (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "14px 12px" }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "14px 12px max(14px, var(--safe-area-bottom))" }}>
           <p className="small muted center" style={{ margin: 0 }}>Comments are turned off for this post.</p>
         </div>
       ) : !canComment ? (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "14px 12px" }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "14px 12px max(14px, var(--safe-area-bottom))" }}>
           <p className="small muted center" style={{ margin: 0 }}>Follow each other to comment</p>
         </div>
       ) : (
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px" }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px max(10px, var(--safe-area-bottom))" }}>
         {replyingTo && (
-          <div className="row between center-v" style={{ marginBottom: 8, padding: "6px 10px", background: "var(--brand-50)", borderRadius: 10 }}>
+          <div className="row between center-v" style={{ marginBottom: "var(--space-xs)", padding: "6px 10px", background: "var(--brand-50)", borderRadius: 10 }}>
             <span className="tiny" style={{ color: "var(--brand-700)" }}>Replying to <span className="semi">{replyingTo.authorName}</span></span>
             <button className="tiny semi" style={{ color: "var(--ink-500)" }} onClick={() => setReplyingTo(null)}>Cancel</button>
           </div>
@@ -378,7 +535,7 @@ export default function CommunityPostDetail() {
             )}
           </div>
           {sharePhone && (
-            <div className="row gap-8" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff" }}>
+            <div className="row gap-8" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
               <Phone size={14} color="var(--ink-400)" />
               <input
                 className="input"
@@ -431,6 +588,37 @@ export default function CommunityPostDetail() {
 
       {reporting && (
         <ReportSheet targetType="POST" targetId={safePost.id} name={safePost.title || "this post"} onClose={() => setReporting(false)} />
+      )}
+
+      {editing && (
+        <EditPostSheet
+          post={safePost}
+          onClose={() => setEditing(false)}
+          onSaved={() => setEditing(false)}
+        />
+      )}
+
+      {deleteConfirm && (
+        <div className="overlay" onClick={() => setDeleteConfirm(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h2 className="h2" style={{ marginBottom: 6 }}>Delete this post?</h2>
+            <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
+              This removes it and its comments for everyone. This can't be undone.
+            </p>
+            <div className="col gap-8">
+              <button
+                className="btn btn-block"
+                style={{ background: "var(--red-500)", color: "#fff" }}
+                disabled={deleting}
+                onClick={handleDelete}
+              >
+                {deleting ? "Deleting…" : "Yes, delete"}
+              </button>
+              <button className="btn btn-ghost btn-block" onClick={() => setDeleteConfirm(false)}>Keep post</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

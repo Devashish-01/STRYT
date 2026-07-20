@@ -127,6 +127,8 @@ export interface Agreement {
   paymentStatus?: "UNPAID" | "PENDING_CONFIRM" | "PAID" | "REJECTED";
   paymentAmount?: number | null;
   paymentReference?: string | null;
+  /** Set by agreement_dispute — shown to both parties on the DISPUTED terminal view. */
+  disputeReason?: string | null;
 }
 
 export interface Review {

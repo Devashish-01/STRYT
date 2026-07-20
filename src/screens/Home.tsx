@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type CSSProperties } from "react";
+import { lazy, Suspense, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "@/components/Icons";
 import { useApp } from "@/store";
@@ -16,12 +16,14 @@ import BrandHome from "@/components/BrandHome";
 import BrandLockup from "@/components/BrandLockup";
 import MyPeopleToggle from "@/features/live-share/MyPeopleToggle";
 import { SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { Skeleton } from "@/components/states";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
 import { useI18n } from "@/lib/i18n";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import GuestRadiusNotice from "@/components/GuestRadiusNotice";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { isQueuePayable } from "@/lib/queueMath";
+import AnimatedNumber from "@/components/AnimatedNumber";
 import type { MyQueueEntry } from "@/types";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
@@ -48,8 +50,8 @@ type TodayItem = {
   kicker: string;
   live?: boolean;
   title: string;
-  stat: string;
-  sub?: string;
+  stat: ReactNode;
+  sub?: ReactNode;
   onClick: () => void;
   /** Set only for a CALLED/SERVED queue token that's still unpaid — lets the
    *  card open payment inline instead of navigating away to /queues. */
@@ -109,22 +111,22 @@ export default function Home() {
   const [payingQueueToken, setPayingQueueToken] = useState<MyQueueEntry | null>(null);
   const [recentlyViewed] = useState(getRecentlyViewed);
 
-  const { data: categories, error: categoriesError, refetch: refetchCategories } = useQuery(() => catalogService.getCategories(), []);
+  const { data: categories, error: categoriesError, refetch: refetchCategories } = useQuery(() => catalogService.getCategories(), [], "categories");
   const { data: agreementsList, refetch: refetchAgreements } = useQuery(() => requestService.agreements(), []);
   // Real, always-populated discovery content — the dashboard shouldn't rely
   // solely on conditional "you have an active X" cards to feel complete.
-  const { data: nearbyBizPage, refetch: refetchNearbyBiz } = useQuery(
+  const { data: nearbyBizPage, loading: nearbyBizLoading, refetch: refetchNearbyBiz } = useQuery(
     () => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined, sort: "nearby" }),
     [user.lat, user.lng]
   );
-  const { data: nearbyProvPage, refetch: refetchNearbyProv } = useQuery(
+  const { data: nearbyProvPage, loading: nearbyProvLoading, refetch: refetchNearbyProv } = useQuery(
     () => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined, sort: "nearby" }),
     [user.lat, user.lng]
   );
   const { data: myAppointments, refetch: refetchAppointments } = useQuery(() => appointmentService.listForCustomer(user.id), [user.id]);
-  const { data: myQueuesData, refetch: refetchQueues } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
+  const { data: myQueuesData, refetch: refetchQueues } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined);
   const { data: pendingLocReqs, refetch: refetchPendingLoc } = useQueryWithRealtime(() => locationService.pendingForMe(), "location_share_grants", []);
-  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", []);
+  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [], undefined, "notif:customer");
 
   const handleRefresh = async () => {
     await Promise.allSettled([
@@ -145,6 +147,11 @@ export default function Home() {
   const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
   const nearbyBiz = (nearbyBizPage?.data ?? []).slice(0, 8);
   const nearbyProv = (nearbyProvPage?.data ?? []).slice(0, 8);
+  // Nothing cached yet for either rail — first paint only (see useQuery's
+  // cacheKey). Without this, the "Nearby on your street" section — the main
+  // reason to be on this screen — simply didn't render at all while loading,
+  // making the whole page look sparse instead of visibly loading.
+  const nearbyRailLoading = nearbyBizLoading && nearbyProvLoading && nearbyBiz.length === 0 && nearbyProv.length === 0;
 
   // Upcoming = still-live bookings scheduled in the future.
   const upcomingAppointments = (myAppointments ?? [])
@@ -170,12 +177,12 @@ export default function Home() {
       kicker: t("live_queue"),
       live: true,
       title: q.businessName,
-      stat: payableNow ? "Ready to pay" : q.status === "CALLED" ? t("its_your_turn") : `${t("you_are_number")}${q.position}`,
+      stat: payableNow ? "Ready to pay" : q.status === "CALLED" ? t("its_your_turn") : <>{t("you_are_number")}<AnimatedNumber value={q.position} /></>,
       sub: payableNow
         ? "Tap to pay now"
         : q.status === "CALLED"
         ? t("head_in_now")
-        : q.estWaitMin ? `~${q.estWaitMin}${t("wait_suffix")}` : q.peopleAhead > 0 ? `${q.peopleAhead}${t("ahead_suffix")}` : t("no_one_ahead"),
+        : q.estWaitMin ? <>~<AnimatedNumber value={q.estWaitMin} />{t("wait_suffix")}</> : q.peopleAhead > 0 ? <><AnimatedNumber value={q.peopleAhead} />{t("ahead_suffix")}</> : t("no_one_ahead"),
       queueToken: payableNow ? q : undefined,
       onClick: payableNow ? () => setPayingQueueToken(q) : () => nav("/queues"),
     });
@@ -470,7 +477,14 @@ export default function Home() {
           </div>
 
           {/* Nearby on your street — real discovery content, brought to mobile */}
-          {(nearbyBiz.length > 0 || nearbyProv.length > 0) && (
+          {nearbyRailLoading ? (
+            <div style={{ paddingTop: 16 }}>
+              <div className="page-pad"><Skeleton h={15} w={140} mb={0} /></div>
+              <div className="hscroll" style={{ paddingTop: 10, gap: 10 }}>
+                {[0, 1, 2].map((i) => <Skeleton key={i} h={150} w={150} r={16} mb={0} />)}
+              </div>
+            </div>
+          ) : (nearbyBiz.length > 0 || nearbyProv.length > 0) && (
             <div style={{ paddingTop: 16 }}>
               <div className="row between page-pad" style={{ paddingBottom: 0, paddingTop: 0 }}>
                 <span className="semi" style={{ fontSize: 15 }}>{t("nearby_on_street")}</span>
@@ -701,7 +715,14 @@ export default function Home() {
             )}
 
             {/* Nearby on Your Street — discovery content the wide canvas can afford */}
-            {(nearbyBiz.length > 0 || nearbyProv.length > 0) && (
+            {nearbyRailLoading ? (
+              <div className="card" style={{ padding: 20 }}>
+                <Skeleton h={15} w={160} mb={14} />
+                <div className="hscroll" style={{ padding: 0, gap: 10 }}>
+                  {[0, 1, 2, 3].map((i) => <Skeleton key={i} h={150} w={150} r={16} mb={0} />)}
+                </div>
+              </div>
+            ) : (nearbyBiz.length > 0 || nearbyProv.length > 0) && (
               <div className="card" style={{ padding: 20 }}>
                 <div className="row between" style={{ marginBottom: 14 }}>
                   <span className="semi" style={{ fontSize: 15 }}>{t("nearby_on_street")}</span>

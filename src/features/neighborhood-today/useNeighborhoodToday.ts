@@ -65,7 +65,7 @@ function buildSignals(d: NeighborhoodTodayRaw): TodaySignal[] {
           icon: "✅",
           tone: "positive",
           text: `${n(d.alerts_resolved, "alert")} resolved today`,
-          deepLink: "/community",
+          deepLink: "/community-hub",
         }
       : null,
 
@@ -86,7 +86,7 @@ function buildSignals(d: NeighborhoodTodayRaw): TodaySignal[] {
           icon: "🐶",
           tone: "positive",
           text: `${n(d.lost_found_resolved, "lost-and-found reunion")}`,
-          deepLink: "/community",
+          deepLink: "/community-hub",
         }
       : null,
 

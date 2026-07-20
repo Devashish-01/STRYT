@@ -13,8 +13,11 @@ import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/ava
 import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard } from "@/components/Icons";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
-import { CancelAttributionNote } from "@/screens/business/manage/BusinessAppointments";
+import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
+import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
 import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
+import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
+import { haptics } from "@/lib/haptics";
 
 // A booking counts as "upcoming" while it is still live and in the future.
 function isUpcoming(a: AppointmentRecord): boolean {
@@ -73,6 +76,7 @@ export default function MyAppointments() {
   const [payBizUpiId, setPayBizUpiId] = useState<string | null>(null);
   const [loadingPay, setLoadingPay] = useState<string | null>(null);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(loadDismissedCards);
+  const [cancelConfirm, setCancelConfirm] = useState<AppointmentRecord | null>(null);
 
   const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForCustomer(user.id),
@@ -99,9 +103,11 @@ export default function MyAppointments() {
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
 
   async function cancel(apt: AppointmentRecord) {
+    setCancelConfirm(null);
     setCancelling(apt.id);
     try {
       await appointmentService.updateStatus(apt.id, "CANCELLED", undefined, "CUSTOMER");
+      haptics.warning();
       showToast("Appointment cancelled");
       refetch();
     } catch {
@@ -218,7 +224,7 @@ export default function MyAppointments() {
                 const busy = cancelling === apt.id || loadingTarget === apt.id;
                 const payable = isPayable(apt.status);
                 return (
-                  <div key={apt.id} className="card col gap-10" style={{ padding: 14 }}>
+                  <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14 }}>
                     <div className="row between center-v">
                       <div>
                         <div className="bold small" style={{ color: "var(--ink-900)" }}>{apt.targetName}</div>
@@ -228,16 +234,10 @@ export default function MyAppointments() {
                       </div>
                       <div className="col gap-4" style={{ alignItems: "flex-end" }}>
                         <span
-                          className={`badge ${
-                            apt.status === "ACCEPTED" || apt.status === "COMPLETED"
-                              ? "badge-green"
-                              : apt.status === "REJECTED" || apt.status === "CANCELLED" || apt.status === "NO_SHOW"
-                              ? "badge-gray"
-                              : "badge-purple"
-                          }`}
+                          className={`badge ${APPOINTMENT_STATUS_BADGE[apt.status].cls}`}
                           style={{ fontSize: 10, padding: "3px 9px" }}
                         >
-                          {apt.status === "ACCEPTED" ? "CONFIRMED" : apt.status.replace("_", " ")}
+                          {APPOINTMENT_STATUS_BADGE[apt.status].label}
                         </span>
                         {payable && (
                           <span
@@ -337,7 +337,7 @@ export default function MyAppointments() {
                             className="btn btn-outline grow btn-sm row gap-4 center"
                             style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }}
                             disabled={busy}
-                            onClick={() => cancel(apt)}
+                            onClick={() => setCancelConfirm(apt)}
                           >
                             <XIcon size={14} /> {cancelling === apt.id ? "Cancelling…" : "Cancel"}
                           </button>
@@ -392,6 +392,7 @@ export default function MyAppointments() {
           payeeUpiId={rebook.payeeUpiId}
           depositPercent={rebook.depositPercent}
           rescheduledFromId={rebook.mode === "RESCHEDULE" ? rebook.apt.id : undefined}
+          rescheduledFromLabel={rebook.mode === "RESCHEDULE" ? { dateLabel: rebook.apt.dateLabel, timeLabel: rebook.apt.timeLabel } : undefined}
           onBooked={handleBooked}
           onClose={() => { setRebook(null); refetch(); }}
         />
@@ -408,15 +409,28 @@ export default function MyAppointments() {
         />
       )}
 
-      {/* Photo Preview Modal */}
-      {previewPhoto && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1300, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setPreviewPhoto(null)}>
-          <div style={{ position: "relative", maxWidth: "100%", maxHeight: "100%" }}>
-            <img src={previewPhoto} alt="Attachment Preview" style={{ maxWidth: "100%", maxHeight: "80vh", borderRadius: 12, objectFit: "contain" }} />
-            <button className="icon-btn" style={{ position: "absolute", top: -12, right: -12, background: "#fff", color: "#000" }} onClick={() => setPreviewPhoto(null)}><XIcon size={18} /></button>
+      {/* Cancel confirmation */}
+      {cancelConfirm && (
+        <div className="overlay" onClick={() => setCancelConfirm(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h2 className="h2" style={{ marginBottom: 6 }}>Cancel this appointment?</h2>
+            <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
+              {cancelConfirm.targetName} will be notified. This can't be undone.
+              {cancelConfirm.paymentStatus === "PAID" && " You've already paid for this booking — check with them about a refund after cancelling."}
+            </p>
+            <div className="col gap-8">
+              <button className="btn btn-block" style={{ background: "var(--red-500)", color: "#fff" }} onClick={() => cancel(cancelConfirm)}>
+                Yes, cancel
+              </button>
+              <button className="btn btn-ghost btn-block" onClick={() => setCancelConfirm(null)}>Keep appointment</button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Photo Preview Modal */}
+      {previewPhoto && <PhotoPreviewModal src={previewPhoto} onClose={() => setPreviewPhoto(null)} />}
     </div>
   );
 }

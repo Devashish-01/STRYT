@@ -9,21 +9,13 @@ import { ChevronRight } from "@/components/Icons";
 import { useApp } from "@/store";
 import type { AgreementStatus } from "@/types";
 import { openProfile } from "@/lib/profileSheet";
-
-const statusMeta: Record<AgreementStatus, { label: string; tone: string }> = {
-  PENDING:      { label: "Awaiting confirmation", tone: "amber" },
-  ACTIVE:       { label: "Active",                tone: "blue" },
-  DEPOSIT_PAID: { label: "Deposit paid",          tone: "blue" },
-  IN_PROGRESS:  { label: "In progress",           tone: "blue" },
-  REVIEW:       { label: "Under review",          tone: "amber" },
-  COMPLETED:    { label: "Completed",             tone: "green" },
-  CANCELLED:    { label: "Cancelled",             tone: "gray" },
-  DISPUTED:     { label: "Disputed",              tone: "red" },
-};
+import { AGREEMENT_STATUS_BADGE } from "@/lib/statusBadges";
+import { useI18n } from "@/lib/i18n";
 
 export default function Agreements() {
   const nav = useNavigate();
   const { user } = useApp();
+  const { t, tf } = useI18n();
   const [tab, setTab] = useState<"active" | "completed">("active");
   // Realtime: a deal's status changes when the other party confirms / starts /
   // completes — the list should reflect that live, like the single-deal screen.
@@ -37,11 +29,11 @@ export default function Agreements() {
 
   return (
     <div className="screen screen-boxed">
-      <AppBar title="My agreements" />
+      <AppBar title={t("agreements_screen_title")} />
       <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff" }}>
-        {([["active", `Active (${active.length})`], ["completed", `History (${completed.length})`]] as const).map(([t, label]) => (
-          <button key={t} onClick={() => setTab(t)} className="semi"
-            style={{ flex: 1, padding: "12px 0", fontSize: 14, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>
+        {([["active", `${t("active")} (${active.length})`], ["completed", `${t("agreements_history_tab")} (${completed.length})`]] as const).map(([tabKey, label]) => (
+          <button key={tabKey} onClick={() => setTab(tabKey)} className="semi"
+            style={{ flex: 1, padding: "12px 0", fontSize: 14, color: tab === tabKey ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === tabKey ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>
             {label}
           </button>
         ))}
@@ -53,10 +45,10 @@ export default function Agreements() {
         ) : error ? (
           <ErrorView error={error} onRetry={refetch} />
         ) : list.length === 0 ? (
-          <EmptyState illustration={<NoDealsIllustration />} emoji="🤝" title="No agreements here" text="Accepted proposals turn into agreements you can track here." />
+          <EmptyState illustration={<NoDealsIllustration />} emoji="🤝" title={t("no_agreements_title")} text={t("no_agreements_desc")} />
         ) : (
           list.map((a) => {
-            const M = statusMeta[a.status];
+            const M = AGREEMENT_STATUS_BADGE[a.status];
             // Show the OTHER party, not the viewer's own name/avatar — a
             // business/provider viewing their own accepted proposal here was
             // previously shown "with {themselves}" since the card always
@@ -67,7 +59,7 @@ export default function Agreements() {
             return (
               <button key={a.id} className="card" style={{ textAlign: "left" }} onClick={() => nav(`/agreement/${a.id}`)}>
                 <div className="row between">
-                  <span className={`badge badge-${M.tone}`}>{M.label}</span>
+                  <span className={`badge ${M.cls}`}>{M.label}</span>
                   <span className="tiny muted">{a.scheduledFor}</span>
                 </div>
                 <div className="row gap-10" style={{ marginTop: 10 }}>
@@ -83,7 +75,7 @@ export default function Agreements() {
                   />
                   <div className="grow" style={{ minWidth: 0 }}>
                     <div className="semi small ellipsis">{a.requestTitle}</div>
-                    <div className="tiny muted">with {otherName}</div>
+                    <div className="tiny muted">{tf("with_person", { name: otherName })}</div>
                   </div>
                   <div className="col" style={{ alignItems: "flex-end" }}>
                     <span className="bold tabular-nums" style={{ color: "var(--green-500)" }}>{inr(a.agreedPrice)}</span>
@@ -96,7 +88,7 @@ export default function Agreements() {
                     style={{ marginTop: 10 }}
                     onClick={(e) => { e.stopPropagation(); nav(`/rate/${a.id}`); }}
                   >
-                    Rate {otherName}
+                    {tf("rate_person", { name: otherName })}
                   </button>
                 )}
               </button>

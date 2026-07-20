@@ -26,7 +26,7 @@ const TIME_OPTIONS = [
 export default function ProviderAvailability() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
-  const { data: provider, loading: providerLoading } = useQuery(() => providerService.get(id), [id]);
+  const { data: provider, loading: providerLoading } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
 
   if (!id) {
     return (

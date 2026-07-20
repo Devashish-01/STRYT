@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { AppBar } from "@/components/common";
-import { Globe, Shield, HelpCircle, Bug, LogOut, ChevronRight, UserCircle, Key, MapPin } from "@/components/Icons";
+import { Globe, Shield, HelpCircle, Bug, LogOut, ChevronRight, UserCircle, Key, MapPin, BookOpen, FileText } from "@/components/Icons";
 import { useApp } from "@/store";
 import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 
@@ -42,8 +42,10 @@ export default function AccountSettings() {
         </Section>
 
         <Section title="Support">
+          <MenuRow icon={<BookOpen size={20} color="var(--brand-600)" />} label="Guide & FAQ" hint="Quick answers, self-serve" onClick={() => nav("/guide")} />
           <MenuRow icon={<HelpCircle size={20} color="var(--blue-500)" />} label="Help & support" onClick={() => nav("/support?tab=contact")} />
-          <MenuRow icon={<Bug size={20} color="var(--red-500)" />} label="Report a bug" onClick={() => nav("/support?tab=bug")} last={!isAdmin} />
+          <MenuRow icon={<Bug size={20} color="var(--red-500)" />} label="Report a bug" onClick={() => nav("/support?tab=bug")} />
+          <MenuRow icon={<FileText size={20} color="var(--ink-600)" />} label="Legal & policies" hint="Terms, privacy & more" onClick={() => nav("/legal")} last={!isAdmin} />
           {isAdmin && (
             <MenuRow icon={<Shield size={20} color="var(--ink-900)" />} label="Admin console" onClick={() => nav("/admin")} last />
           )}

@@ -6,6 +6,7 @@ import { useQuery } from "@/hooks/useApi";
 import type { Category } from "@/types";
 import { useApp } from "@/store";
 import RadiusSelector from "@/components/RadiusSelector";
+import { useI18n } from "@/lib/i18n";
 
 
 function getAllIds(cat: Category): string[] {
@@ -15,6 +16,7 @@ function getAllIds(cat: Category): string[] {
 export default function AllCategories() {
   const nav = useNavigate();
   const { user } = useApp();
+  const { t } = useI18n();
   const [q, setQ] = useState("");
 
   const [radius, setRadius] = useState(() => {
@@ -30,7 +32,7 @@ export default function AllCategories() {
   }, [radius, user.id, user.notificationRadiusKm]);
 
 
-  const { data: categories, loading } = useQuery(() => catalogService.getCategories(), []);
+  const { data: categories, loading } = useQuery(() => catalogService.getCategories(), [], "categories");
   const { data: counts } = useQuery(() => {
     return catalogService.getCategoryCounts(user.lat || undefined, user.lng || undefined, radius);
   }, [user.lat, user.lng, radius]);
@@ -64,8 +66,8 @@ export default function AllCategories() {
       <header className="appbar">
         <button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
         <div className="col grow" style={{ gap: 1 }}>
-          <span className="bold" style={{ fontSize: 18 }}>All categories</span>
-          <span className="tiny muted">Tap to explore businesses & providers</span>
+          <span className="bold" style={{ fontSize: 18 }}>{t("allcat_title")}</span>
+          <span className="tiny muted">{t("allcat_subtitle")}</span>
         </div>
       </header>
 
@@ -79,7 +81,7 @@ export default function AllCategories() {
           <input
             className="input"
             style={{ border: "none", background: "transparent", padding: "11px 0" }}
-            placeholder="Search categories…"
+            placeholder={t("allcat_search")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -98,7 +100,7 @@ export default function AllCategories() {
             value={radius}
             onChange={setRadius}
             accentColor="var(--brand-600)"
-            label="Radius"
+            label={t("allcat_radius")}
           />
         </div>
 
@@ -114,8 +116,8 @@ export default function AllCategories() {
         ) : filtered.length === 0 ? (
           <div className="col center" style={{ paddingTop: 60, gap: 12 }}>
             <span style={{ fontSize: 44 }}>🔍</span>
-            <div className="semi" style={{ fontSize: 16 }}>No categories found</div>
-            <div className="small muted">Try a different word</div>
+            <div className="semi" style={{ fontSize: 16 }}>{t("allcat_no_results")}</div>
+            <div className="small muted">{t("allcat_try_different")}</div>
           </div>
         ) : (
           <div
@@ -189,10 +191,10 @@ export default function AllCategories() {
                     ) : (
                       <div style={{ fontSize: 11, color: "var(--ink-400)", marginTop: 5, lineHeight: 1.4 }}>
                         {isOther
-                          ? "Anything that doesn't fit above"
+                          ? t("allcat_other_desc")
                           : subNames.length > 0
                             ? subNames.join(" · ")
-                            : "Be first to list here"}
+                            : t("allcat_be_first")}
                       </div>
                     )}
                   </div>

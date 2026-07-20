@@ -11,6 +11,7 @@ import { NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
 import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import RadiusSelector from "@/components/RadiusSelector";
+import { useI18n } from "@/lib/i18n";
 
 
 type Tab = "all" | "business" | "provider";
@@ -22,6 +23,7 @@ export default function Explore() {
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
   const { area, user, refreshUser, showToast, chatUnread } = useApp();
+  const { t, tf } = useI18n();
   const [tab, setTab] = useState<Tab>("all");
   const [cat, setCat] = useState<string | null>(() => searchParams.get("cat"));
 
@@ -67,13 +69,13 @@ export default function Explore() {
       await refreshUser();
       setLocQuery("");
       setLocResults([]);
-      showToast(`Location set — ${p.area}`);
+      showToast(tf("explore_location_set", { area: p.area }));
     } catch {
-      showToast("Couldn't set that location");
+      showToast(t("explore_location_failed"));
     }
   }
 
-  const { data: categories } = useQuery(() => catalogService.getCategories(), []);
+  const { data: categories } = useQuery(() => catalogService.getCategories(), [], "categories");
   const { data: bizPage, loading: bizLoading, error: bizError, refetch: refetchBiz } = useQuery(
     () => discoveryService.businesses({
       category: cat ?? undefined,
@@ -116,20 +118,20 @@ export default function Explore() {
         {/* Left Side: Desktop Filter Panel (Visible only on desktop) */}
         <div className="explore-desktop-filters desktop-only">
           <div className="filters-header">
-            <h3>Filters</h3>
-            <span className="tiny muted">Near {area}</span>
+            <h3>{t("explore_filters")}</h3>
+            <span className="tiny muted">{tf("explore_near", { area })}</span>
           </div>
 
           {/* Location search input */}
           <div className="filter-section">
-            <label className="filter-label">Change Location</label>
+            <label className="filter-label">{t("explore_change_location")}</label>
             <div style={{ position: "relative" }}>
               <Search size={14} color="var(--ink-400)" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
               <input
                 type="text"
                 className="input"
                 value={locQuery}
-                placeholder="Search address..."
+                placeholder={t("explore_search_address")}
                 onChange={(e) => searchPlaces(e.target.value)}
                 style={{ width: "100%", paddingLeft: "32px", fontSize: 13, borderRadius: 10, background: "var(--ink-50)", border: "1.5px solid var(--ink-200)" }}
               />
@@ -164,13 +166,13 @@ export default function Explore() {
 
           {/* View Tab Selector */}
           <div className="filter-section">
-            <label className="filter-label">Browse Type</label>
+            <label className="filter-label">{t("explore_browse_type")}</label>
             <div className="desktop-tabs">
-              {([["all", "All"], ["business", "Shops"], ["provider", "Helpers"]] as [Tab, string][]).map(([t, label]) => (
+              {([["all", t("explore_tab_all")], ["business", t("explore_tab_shops")], ["provider", t("explore_tab_helpers")]] as [Tab, string][]).map(([tabKey, label]) => (
                 <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`tab-btn ${tab === t ? "active" : ""}`}
+                  key={tabKey}
+                  onClick={() => setTab(tabKey)}
+                  className={`tab-btn ${tab === tabKey ? "active" : ""}`}
                 >
                   {label}
                 </button>
@@ -184,16 +186,16 @@ export default function Explore() {
               value={radius}
               onChange={setRadius}
               accentColor="var(--brand-600)"
-              label="Search Radius"
+              label={t("explore_search_radius")}
             />
           </div>
 
           {/* Categories Sidebar List */}
           <div className="filter-section">
-            <label className="filter-label">Categories</label>
+            <label className="filter-label">{t("explore_categories")}</label>
             <div className="desktop-categories-list">
               <button className={`category-item-btn ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>
-                <span>✨ Show All</span>
+                <span>{t("explore_show_all")}</span>
               </button>
               {catTree.map((c) => (
                 <button
@@ -215,13 +217,13 @@ export default function Explore() {
           <header className="appbar mobile-only" style={{ flexDirection: "column", alignItems: "stretch", gap: 12, paddingBottom: 0, background: "transparent", borderBottom: "none", boxShadow: "none", padding: 0 }}>
             <div className="row between">
               <div className="col" style={{ gap: 0 }}>
-                <span className="bold" style={{ fontSize: 20 }}>Explore</span>
-                <span className="tiny muted">Near {area}</span>
+                <span className="bold" style={{ fontSize: 20 }}>{t("explore")}</span>
+                <span className="tiny muted">{tf("explore_near", { area })}</span>
               </div>
               <div className="row gap-8">
                 <button className="icon-btn" onClick={() => nav("/search")}><Search size={20} /></button>
                 <button className="icon-btn" onClick={() => nav("/map")}><Map size={20} /></button>
-                <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
+                <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label={t("explore_chats_aria")}>
                   <MessageSquare size={20} />
                   {chatUnread > 0 && (
                     <span style={{
@@ -241,7 +243,7 @@ export default function Explore() {
                 type="text"
                 className="input"
                 value={locQuery}
-                placeholder="Search address to set area..."
+                placeholder={t("explore_search_address_area")}
                 onChange={(e) => searchPlaces(e.target.value)}
                 style={{
                   width: "100%",
@@ -295,17 +297,17 @@ export default function Explore() {
 
             {/* Tabs (mobile only) */}
             <div className="row" style={{ borderBottom: "1px solid var(--line)" }}>
-              {([["all", "All"], ["business", "Businesses"], ["provider", "Providers"]] as [Tab, string][]).map(([t, label]) => (
+              {([["all", t("explore_tab_all")], ["business", t("explore_tab_businesses")], ["provider", t("explore_tab_providers")]] as [Tab, string][]).map(([tabKey, label]) => (
                 <button
-                  key={t}
-                  onClick={() => setTab(t)}
+                  key={tabKey}
+                  onClick={() => setTab(tabKey)}
                   className="semi"
                   style={{
                     flex: 1,
                     padding: "12px 0",
                     fontSize: 14,
-                    color: tab === t ? "var(--brand-700)" : "var(--ink-500)",
-                    borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
+                    color: tab === tabKey ? "var(--brand-700)" : "var(--ink-500)",
+                    borderBottom: tab === tabKey ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
                   }}
                 >
                   {label}
@@ -319,7 +321,7 @@ export default function Explore() {
             {/* Mobile Category chips horizontal scroll & Radius Selector (mobile only) */}
             <div className="mobile-only">
               <div className="hscroll" style={{ paddingTop: 12 }}>
-                <button className={`chip ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>All</button>
+                <button className={`chip ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>{t("explore_tab_all")}</button>
                 {catTree.map((c) => (
                   <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => setCat(cat === c.id ? null : c.id)}>
                     {c.icon} {c.name.split(" ")[0]}
@@ -331,16 +333,16 @@ export default function Explore() {
                   value={radius}
                   onChange={setRadius}
                   accentColor="var(--brand-600)"
-                  label="Radius"
+                  label={t("explore_radius_label")}
                 />
               </div>
             </div>
 
             {/* Results Grid Title & Count */}
             <div className="listings-grid-header desktop-only">
-              <h2>{tab === "all" ? "Explore Near You" : tab === "business" ? "Shops & Businesses" : "Service Providers"}</h2>
+              <h2>{tab === "all" ? t("explore_title_all") : tab === "business" ? t("explore_title_business") : t("explore_title_provider")}</h2>
               <span className="results-count muted small">
-                {loading ? "Searching..." : `${(showBiz ? biz.length : 0) + (showProv ? prov.length : 0)} matches found`}
+                {loading ? t("explore_searching") : tf("explore_matches_found", { count: (showBiz ? biz.length : 0) + (showProv ? prov.length : 0) })}
               </span>
             </div>
 
@@ -355,9 +357,9 @@ export default function Explore() {
                   <EmptyState
                     illustration={<NoResultsIllustration />}
                     emoji="🔍"
-                    title="Nothing here yet"
-                    text="Try widening your radius or picking a different category."
-                    action={<button className="btn btn-ghost btn-sm" onClick={() => { setCat(null); setRadius(15); }}>Reset filters</button>}
+                    title={t("explore_empty_title")}
+                    text={t("explore_empty_text")}
+                    action={<button className="btn btn-ghost btn-sm" onClick={() => { setCat(null); setRadius(15); }}>{t("explore_reset_filters")}</button>}
                   />
                 )}
                 {showProv && prov.map((p, idx) => <ProviderCard key={p.id} p={p} style={{ animationDelay: `${idx * 35}ms` }} />)}

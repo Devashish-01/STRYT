@@ -8,7 +8,7 @@ import { providerService, communityService, appointmentService, notificationServ
 import { chatService } from "@/services/engagement/chatService";
 import { SafeImg, inr, AppBar } from "@/components/common";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import { ErrorView } from "@/components/states";
+import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
@@ -57,7 +57,7 @@ function getWeatherText(code: number): string {
 export default function ProviderDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: p } = useQuery(() => providerService.get(id), [id]);
+  const { data: p, loading: providerLoading } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { showToast, user } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "provider");
   const { data: analytics } = useQuery(() => providerService.analytics(id), [id]);
@@ -73,8 +73,8 @@ export default function ProviderDashboard() {
     "requests",
     [p?.lat, p?.lng, p?.serviceRadiusKm]
   );
-  const { data: notifUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "PROVIDER", id }), "notifications", [id]);
-  const { data: chatUnread } = useQueryWithRealtime(() => chatService.totalUnread({ scope: "PROVIDER", id }), "conversations", [id]);
+  const { data: notifUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "PROVIDER", id }), "notifications", [id], undefined, `notif:provider:${id}`);
+  const { data: chatUnread } = useQueryWithRealtime(() => chatService.totalUnread({ scope: "PROVIDER", id }), "conversations", [id], undefined, `chat:provider:${id}`);
 
   const [available, setAvailable] = useState(false);
   const [share, setShare] = useState(false);
@@ -95,6 +95,22 @@ export default function ProviderDashboard() {
       <div className="screen">
         <AppBar title="Today" />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
+
+  // First paint with nothing cached yet — see the matching guard + comment in
+  // business/manage/ManageDashboard.tsx.
+  if (providerLoading && !p) {
+    return (
+      <div className="screen with-nav">
+        <AppBar title="Today" />
+        <div className="page-pad col gap-14" style={{ marginTop: 12 }}>
+          <Skeleton h={120} r={20} mb={0} />
+          <Skeleton h={56} mb={0} />
+          <Skeleton h={90} r={16} mb={0} />
+          <Skeleton h={90} r={16} mb={0} />
+        </div>
       </div>
     );
   }

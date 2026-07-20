@@ -5,6 +5,7 @@ import {
   Prohibit as PhosphorProhibit,
   Bell,
   Bookmark,
+  BookOpen,
   Briefcase,
   Bug,
   Calendar,
@@ -106,7 +107,8 @@ import {
   GridFour,
   ListChecks,
   CircleNotch,
-  WifiSlash
+  WifiSlash,
+  Package
 } from "@phosphor-icons/react";
 
 export { WifiSlash as WifiOff };
@@ -117,6 +119,7 @@ export {
   ArrowRight,
   Bell,
   Bookmark,
+  BookOpen,
   Briefcase,
   Bug,
   Calendar,
@@ -163,7 +166,8 @@ export {
   Wrench,
   X,
   Lock,
-  Info
+  Info,
+  Package
 };
 
 // Aliased mappings for Lucide compatibility

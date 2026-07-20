@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Pencil, Check } from "@/components/Icons";
 import { RADIUS_OPTIONS } from "@/utils/constants";
+import { useI18n } from "@/lib/i18n";
 
 function roundToHalf(v: number): number {
   const r = Math.round(v * 2) / 2;
@@ -13,6 +14,7 @@ export function RadiusStrip({
   radiusKm: number;
   setRadiusKm: (km: number) => void;
 }) {
+  const { t } = useI18n();
   const [showCustom, setShowCustom] = useState(false);
   const [customVal, setCustomVal] = useState("");
   const customInputRef = useRef<HTMLInputElement>(null);
@@ -49,7 +51,7 @@ export function RadiusStrip({
             minWidth: 240,
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-500)", marginBottom: 10, letterSpacing: 0.4 }}>
-              CUSTOM RADIUS
+              {t("map_custom_radius_label")}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <input
@@ -58,7 +60,7 @@ export function RadiusStrip({
                 min={0.5}
                 step={0.5}
                 value={customVal}
-                placeholder="e.g. 3.7"
+                placeholder={t("map_radius_example")}
                 onChange={(e) => setCustomVal(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") applyCustom(); if (e.key === "Escape") setShowCustom(false); }}
                 style={{
@@ -89,7 +91,7 @@ export function RadiusStrip({
             </div>
             {customVal && !isNaN(parseFloat(customVal)) && parseFloat(customVal) > 0 && (
               <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: 8 }}>
-                Snaps to <strong style={{ color: "var(--brand-600)" }}>{roundToHalf(parseFloat(customVal))} km</strong>
+                {t("map_snaps_to")} <strong style={{ color: "var(--brand-600)" }}>{roundToHalf(parseFloat(customVal))} km</strong>
               </div>
             )}
           </div>
@@ -151,7 +153,7 @@ export function RadiusStrip({
           }}
         >
           <Pencil size={12} strokeWidth={2.5} />
-          {isCustomActive ? `${radiusKm} km` : "Custom"}
+          {isCustomActive ? `${radiusKm} km` : t("map_custom")}
         </button>
       </div>
     </>

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Star, RefreshCw } from "@/components/Icons";
 import { useState, useEffect, type ReactNode, type CSSProperties, type MouseEventHandler } from "react";
+import { useApp } from "@/store";
 
 /** Visual for `usePullToRefresh` — a self-sizing box that grows with the
  * pull gesture and naturally pushes the content below it down, so no
@@ -254,21 +255,43 @@ export function SafeImg({
   onClick?: MouseEventHandler<HTMLImageElement>;
 }) {
   const fallback = variant === "avatar" ? FALLBACK_AVATAR : FALLBACK_IMG;
-  const [errored, setErrored] = useState(false);
+  const [loadState, setLoadState] = useState<"optimized" | "original" | "fallback">("optimized");
+  const { dataSaver } = useApp();
 
   useEffect(() => {
-    setErrored(false);
+    setLoadState("optimized");
   }, [src]);
+
+  let displaySrc = src || "";
+  const isSupabase = displaySrc.includes(".supabase.co/storage/v1/object/public/");
+
+  if (isSupabase && loadState === "optimized") {
+    const width = variant === "avatar" ? (dataSaver ? 80 : 120) : (dataSaver ? 300 : 600);
+    const quality = dataSaver ? 60 : 80;
+    displaySrc = displaySrc
+      .replace("/storage/v1/object/public/", "/storage/v1/render/image/public/")
+      + `?width=${width}&quality=${quality}&resize=contain`;
+  } else if (!src || loadState === "fallback") {
+    displaySrc = fallback;
+  }
+
+  const handleError = () => {
+    if (loadState === "optimized" && isSupabase) {
+      setLoadState("original");
+    } else {
+      setLoadState("fallback");
+    }
+  };
 
   return (
     <img
-      src={!src || errored ? fallback : src}
+      src={displaySrc}
       alt={alt}
       className={className}
       style={style}
       loading="lazy"
       onClick={onClick}
-      onError={() => setErrored(true)}
+      onError={handleError}
     />
   );
 }

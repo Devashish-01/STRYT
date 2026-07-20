@@ -3,19 +3,26 @@ import { AppBar, SafeImg } from "@/components/common";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ErrorView, Skeleton } from "@/components/states";
-import { ChevronRight, Clock, ExternalLink, FileText, Image, Store } from "@/components/Icons";
+import { AlertTriangle, ChevronRight, Clock, ExternalLink, FileText, Image, Store } from "@/components/Icons";
 import ManageNav from "./ManageNav";
+
+const LOW_STOCK_THRESHOLD = 5;
 
 export default function BusinessStoreHub() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: business, loading } = useQuery(() => businessService.get(id), [id]);
+  const { data: business, loading } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const base = `/business/${id}/manage`;
 
   if (!id) return <div className="screen"><AppBar title="Store" /><ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} /></div>;
 
+  const flaggedCount = (business?.catalog ?? []).filter(
+    (item) => item.stockStatus === "OUT_OF_STOCK" || (item.inventoryType === "FINITE" && (item.quantity ?? 0) <= LOW_STOCK_THRESHOLD)
+  ).length;
+
   const sections = [
     { icon: <FileText size={20} color="var(--brand-600)" />, title: "Menu & catalog", text: "Services, prices, offers and stock", to: `${base}/catalog` },
+    { icon: <AlertTriangle size={20} color="var(--red-600)" />, title: "Inventory alerts", text: flaggedCount > 0 ? `${flaggedCount} item${flaggedCount === 1 ? "" : "s"} need restocking` : "Out-of-stock and low items", to: `${base}/inventory` },
     { icon: <Image size={20} color="var(--pink-500)" />, title: "Portfolio", text: "Show customers your best work", to: `${base}/portfolio` },
     { icon: <Clock size={20} color="var(--blue-500)" />, title: "Opening hours", text: "Keep availability and booking hours current", to: `${base}/hours` },
     { icon: <Store size={20} color="var(--orange-500)" />, title: "Business details", text: "Name, cover, contact and location", to: `${base}/profile` },

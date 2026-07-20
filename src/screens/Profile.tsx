@@ -96,7 +96,7 @@ export default function Profile() {
   const activeAgreements = (agreementsData ?? []).filter((a) => !TERMINAL.includes(a.status));
   const totalAgreements  = agreementsData?.length ?? 0;
 
-  const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", []);
+  const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined);
   const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
 
   // Tile subtitles are only worth showing if they're TRUE — a tile that says
@@ -118,7 +118,7 @@ export default function Profile() {
     ? `${achievementsData.filter((a) => a.unlocked).length} of ${achievementsData.length} unlocked`
     : "Your achievements";
 
-  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", []);
+  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [], undefined, "notif:customer");
 
   const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id]);
   const highlights = highlightsData ?? [];

@@ -11,6 +11,7 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
     "queue_tokens",
     [bizId],
     `business_id=eq.${bizId}`,
+    `queue:${bizId}`,
   );
   const queueCount = waitingCount ?? queue?.waiting.length ?? 0;
   const base = `/business/${bizId}/manage`;

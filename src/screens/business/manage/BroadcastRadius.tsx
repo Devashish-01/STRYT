@@ -16,7 +16,7 @@ export default function BroadcastRadius() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast } = useApp();
-  const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id), [id]);
+  const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const [radius, setRadius] = useState(5);
   const [saving, setSaving] = useState(false);
 

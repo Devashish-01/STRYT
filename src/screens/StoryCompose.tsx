@@ -37,11 +37,13 @@ export default function StoryCompose() {
 
   const { data: activeBiz } = useQuery(
     () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
-    [activeContext.id, activeContext.type]
+    [activeContext.id, activeContext.type],
+    activeContext.type === "business" && activeContext.id ? `business:${activeContext.id}` : undefined
   );
   const { data: activeProv } = useQuery(
     () => activeContext.type === "provider" && activeContext.id ? providerService.get(activeContext.id) : Promise.resolve(null),
-    [activeContext.id, activeContext.type]
+    [activeContext.id, activeContext.type],
+    activeContext.type === "provider" && activeContext.id ? `provider:${activeContext.id}` : undefined
   );
 
   const passedCtx = readSellerContext(loc.state);

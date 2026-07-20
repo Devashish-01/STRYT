@@ -1,9 +1,19 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
-import { throwIfError } from "@/lib/supabasePage";
+import { cursorToRange, throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import type { CommunityPost, Comment } from "@/types";
 import { haversineKm } from "@/lib/geocode";
 import { aliasName } from "@/lib/publicName";
+import type { Page } from "@/lib/apiClient";
+
+function makePage<T>(rows: T[], count: number | null, from: number, limit: number): Page<T> {
+  const nextStart = from + rows.length;
+  const hasMore = count != null ? nextStart < count : rows.length === limit;
+  return {
+    data: rows,
+    page: { next_cursor: hasMore ? String(nextStart) : null, has_more: hasMore },
+  };
+}
 
 /** Safely parse poll_options whether stored as a JSONB array or (legacy) JSON string. */
 function parsePollOpts(raw: any): { id: string; label: string }[] | null {
@@ -68,37 +78,42 @@ function relLabel(iso: string): string {
 }
 
 export const communityService = {
-  async feed(opts: { lat?: number; lng?: number; radiusKm?: number } = {}): Promise<CommunityPost[]> {
+  async feed(opts: { lat?: number; lng?: number; radiusKm?: number; cursor?: string | null } = {}): Promise<Page<CommunityPost>> {
     const sb = getSupabase();
     const uid = await currentUserId();
 
     const saved = localStorage.getItem("settings_radius");
     const radiusLimit = opts.radiusKm ?? (saved ? parseFloat(saved) : 5);
+    const { from, to, limit } = cursorToRange(opts.cursor, 20);
 
     // 1. Posts — use geo RPC when user coords are available, otherwise global feed.
     let rows: any[] | null = null;
     let error: any = null;
+    let count: number | null = null;
     if (opts.lat && opts.lng) {
       const res = await sb.rpc("community_posts_nearby", {
         in_lat: opts.lat,
         in_lng: opts.lng,
         in_radius_km: radiusLimit,
-        in_limit: 50,
-        in_offset: 0,
+        in_limit: limit,
+        in_offset: from,
       });
       rows = res.data;
       error = res.error;
+      // The geo RPC returns rows only, no total count — has_more falls back
+      // to "did we get a full page" (see makePage).
     } else {
       const res = await sb
         .from("community_posts")
-        .select("*")
+        .select("*", { count: "exact" })
         .order("created_at", { ascending: false })
-        .limit(50);
+        .range(from, to);
       rows = res.data;
       error = res.error;
+      count = res.count;
     }
     throwIfError(error);
-    if (!rows || rows.length === 0) return [];
+    if (!rows || rows.length === 0) return makePage([], count, from, limit);
 
     const postIds = rows.map((r: any) => r.id);
 
@@ -138,7 +153,7 @@ export const communityService = {
       });
     }
 
-    return rows
+    const posts = rows
       .map((r: any) => mapPost(r, likedIds, userVotes, voteCounts, opts.lat, opts.lng))
       .filter((post) => {
         if (opts.lat && opts.lng && post.lat && post.lng) {
@@ -146,6 +161,7 @@ export const communityService = {
         }
         return true;
       });
+    return makePage(posts, count, from, limit);
   },
 
   async get(id: string, lat?: number, lng?: number): Promise<CommunityPost | undefined> {
@@ -426,6 +442,35 @@ export const communityService = {
     const existing = (post as any)?.recommendations ?? [];
     const updated = [...existing, { listingType, listingId, byName }];
     const { error } = await sb.from("community_posts").update({ recommendations: updated }).eq("id", postId);
+    throwIfError(error);
+  },
+
+  /** Author-only edit — goes through community_post_update (SECURITY DEFINER,
+   *  checks author_user_id) rather than a raw table write, unlike the
+   *  likes/comments-count/recommendations writes above. */
+  async update(postId: string, patch: { title: string; body?: string; image?: string | null }): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("community_post_update", {
+      p_id: postId,
+      p_title: patch.title,
+      p_body: patch.body ?? null,
+      p_image: patch.image ?? null,
+    });
+    throwIfError(error);
+  },
+
+  /** Author-only delete — cascades comments/likes/votes server-side. */
+  async delete(postId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("community_post_delete", { p_id: postId });
+    throwIfError(error);
+  },
+
+  /** Author-only — the "Resolved" badge is only ever shown, never settable,
+   *  without this. */
+  async setResolved(postId: string, resolved: boolean): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("community_post_set_resolved", { p_id: postId, p_resolved: resolved });
     throwIfError(error);
   },
 };

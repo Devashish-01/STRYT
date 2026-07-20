@@ -101,7 +101,7 @@ export default function RadiusSelector({
             </button>
           </div>
           {customVal && !isNaN(parseFloat(customVal)) && parseFloat(customVal) > 0 && (
-            <div style={{ fontSize: 11, color: "var(--ink-50)" }}>
+            <div style={{ fontSize: 11, color: "var(--ink-500)" }}>
               Snaps to <strong style={{ color: accentColor }}>{roundToHalf(parseFloat(customVal))} km</strong>
             </div>
           )}

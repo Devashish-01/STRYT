@@ -5,10 +5,12 @@ import { requestService, providerService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
+import { PROPOSAL_STATUS_BADGE } from "@/lib/statusBadges";
 import type { RequestPost } from "@/types";
 import ProviderManageNav from "./ProviderManageNav";
 import { Plus, Copy, Trash2, FileText } from "@/components/Icons";
 import { useApp } from "@/store";
+import { haptics } from "@/lib/haptics";
 import { copyText } from "@/lib/clipboard";
 import { loadQuoteTemplates, addQuoteTemplate, deleteQuoteTemplate, type QuoteTemplate } from "@/lib/quoteTemplates";
 
@@ -21,12 +23,28 @@ export default function ProviderFindWork() {
   const nav = useNavigate();
   const { showToast } = useApp();
   const [tab, setTab] = useState<Tab>("requests");
+  const [withdrawing, setWithdrawing] = useState<string | null>(null);
 
-  const { data: p } = useQuery(() => providerService.get(id), [id]);
-  const { data: sentProposals, loading: sentLoading } = useQuery(
+  const { data: p } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
+  const { data: sentProposals, loading: sentLoading, refetch: refetchSent } = useQuery(
     () => requestService.myProposals(id),
     [id]
   );
+
+  async function withdraw(proposalId: string) {
+    setWithdrawing(proposalId);
+    haptics.medium();
+    try {
+      await requestService.withdrawProposal(proposalId);
+      haptics.success();
+      showToast("Proposal withdrawn");
+      refetchSent();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't withdraw — try again");
+    } finally {
+      setWithdrawing(null);
+    }
+  }
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
       lat: p?.lat ?? undefined,
@@ -99,11 +117,23 @@ export default function ProviderFindWork() {
               (sentProposals ?? []).map((sp) => (
                 <button key={sp.id} className="card" style={{ textAlign: "left" }} onClick={() => nav(`/request/${sp.requestId}`)}>
                   <div className="row between">
-                    <span className="badge badge-gray">{sp.status}</span>
+                    <span className={`badge ${PROPOSAL_STATUS_BADGE[sp.status].cls}`}>{PROPOSAL_STATUS_BADGE[sp.status].label}</span>
                     <span className="tiny muted">{sp.postedAt}</span>
                   </div>
                   <div className="semi small ellipsis" style={{ marginTop: 6 }}>{sp.requestTitle}</div>
-                  <div className="tiny muted" style={{ marginTop: 2 }}>Your quote: {inr(sp.price)}</div>
+                  <div className="row between" style={{ marginTop: 2 }}>
+                    <div className="tiny muted">Your quote: {inr(sp.price)}</div>
+                    {sp.status === "SUBMITTED" && (
+                      <button
+                        className="tiny semi"
+                        style={{ color: "var(--red-600)" }}
+                        disabled={withdrawing === sp.id}
+                        onClick={(e) => { e.stopPropagation(); withdraw(sp.id); }}
+                      >
+                        {withdrawing === sp.id ? "Withdrawing…" : "Withdraw"}
+                      </button>
+                    )}
+                  </div>
                 </button>
               ))
             )}

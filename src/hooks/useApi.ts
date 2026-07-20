@@ -10,12 +10,33 @@ interface QueryState<T> {
   refetch: () => void;
 }
 
-export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QueryState<T> {
-  const [data, setData] = useState<T>();
-  const [loading, setLoading] = useState(true);
+// Module-level stale-while-revalidate cache, keyed by an explicit string the
+// caller opts in with. Callers that omit `cacheKey` get the exact original
+// behaviour (always loading=true on mount, no cache) — this is purely
+// additive, so it's safe to roll out to call sites one at a time.
+//
+// On a cache hit: data + loading=false render on the very first paint (no
+// skeleton flash), while a fresh fetch still runs in the background and
+// silently replaces both the screen and the cache entry when it resolves —
+// this is what makes navigating back to an already-visited screen feel
+// instant instead of re-showing a skeleton every time.
+const queryCache = new Map<string, unknown>();
+
+/** Drop a cached entry (e.g. after a mutation that makes it stale) so the next
+ *  render of that query starts fresh instead of briefly showing old data. */
+export function invalidateQueryCache(key: string) {
+  queryCache.delete(key);
+}
+
+export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = [], cacheKey?: string): QueryState<T> {
+  const initialHit = cacheKey && queryCache.has(cacheKey);
+  const [data, setData] = useState<T | undefined>(initialHit ? (queryCache.get(cacheKey!) as T) : undefined);
+  const [loading, setLoading] = useState(!initialHit);
   const [error, setError] = useState<ApiError | null>(null);
   const fnRef = useRef(fn);
   fnRef.current = fn;
+  const keyRef = useRef(cacheKey);
+  keyRef.current = cacheKey;
   const isFirstRun = useRef(true);
   // Screens are free to also render their own <ErrorView>, but a query that
   // fails silently (no loading state left, no data, nothing on screen) was
@@ -25,14 +46,26 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QuerySt
 
   const run = useCallback((isInitial = false) => {
     let active = true;
-    setLoading(true);
+    const key = keyRef.current;
+    const hit = key ? queryCache.has(key) : false;
+    if (hit) {
+      // Revalidate silently — the screen already has (possibly stale) data
+      // to show, so there's no reason to blank it out while refetching.
+      setData(queryCache.get(key!) as T);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
     const execute = () => {
       fnRef
         .current()
         .then((res) => {
-          if (active) setData(res);
+          if (active) {
+            setData(res);
+            if (key) queryCache.set(key, res);
+          }
         })
         .catch((e) => {
           const err = e instanceof ApiError ? e : new ApiError(0, { code: "INTERNAL", message: String(e) });
@@ -54,7 +87,11 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []): QuerySt
         });
     };
 
-    if (isInitial) {
+    // Only stagger the very first fetch of a screen that has nothing cached
+    // to show yet (avoids a same-tick flash of the skeleton on a fast
+    // connection). Once there's something on screen — cached data, or any
+    // refetch — there's no reason to add latency, so it runs immediately.
+    if (isInitial && !hit) {
       const timer = setTimeout(execute, 150);
       return () => {
         active = false;
@@ -83,9 +120,10 @@ export function useQueryWithRealtime<T>(
   fn: () => Promise<T>,
   tableName: string,
   deps: unknown[] = [],
-  filter?: string
+  filter?: string,
+  cacheKey?: string
 ): QueryState<T> {
-  const state = useQuery(fn, deps);
+  const state = useQuery(fn, deps, cacheKey);
   const { refetch } = state;
 
   useEffect(() => {

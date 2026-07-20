@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { Layer } from "./mapIcons";
-import { pinColors, layerLabels } from "./mapIcons";
+import { pinColors } from "./mapIcons";
+import { useI18n } from "@/lib/i18n";
 
 const activeShadows: Record<Layer, string> = {
   business: "0 4px 12px rgba(242, 106, 0, 0.25)",
@@ -17,6 +18,13 @@ export function LayerToggles({
   availOnly: boolean;
   setAvailOnly: Dispatch<SetStateAction<boolean>>;
 }) {
+  const { t } = useI18n();
+  const translatedLayerLabels: Record<Layer, string> = {
+    business: t("explore_tab_shops"),
+    provider: t("map_layer_providers"),
+    request: t("map_layer_requests"),
+    story: t("map_layer_stories"),
+  };
   return (
     <div style={{ position: "absolute", top: "calc(74px + var(--safe-area-top))", left: 16, zIndex: 1000 }}>
       <div className="row gap-8" style={{ flexWrap: "wrap", maxWidth: 240 }}>
@@ -40,7 +48,7 @@ export function LayerToggles({
               }}
               onClick={() => setLayers((s) => ({ ...s, [l]: !s[l] }))}
             >
-              {layerLabels[l]}
+              {translatedLayerLabels[l]}
             </button>
           );
         })}
@@ -59,7 +67,7 @@ export function LayerToggles({
           }}
           onClick={() => setAvailOnly((v) => !v)}
         >
-          ⚡ Available
+          {t("map_available_only")}
         </button>
       </div>
     </div>

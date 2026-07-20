@@ -8,9 +8,9 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { CatalogItem } from "@/types";
 
-type Kind = "business" | "provider";
+export type Kind = "business" | "provider";
 
-function serviceFor(kind: Kind) {
+export function serviceFor(kind: Kind) {
   return kind === "business" ? businessService : providerService;
 }
 
@@ -20,7 +20,8 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   const service = serviceFor(kind);
   const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[] } | undefined>(
     () => (kind === "business" ? businessService.get(id) : providerService.get(id)),
-    [id]
+    [id],
+    kind === "business" ? `business:${id}` : `provider:${id}`
   );
 
   if (!id) {
@@ -125,7 +126,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   );
 }
 
-function ItemEditor({
+export function ItemEditor({
   kind, targetId, item, onClose, onSaved,
 }: {
   kind: Kind;

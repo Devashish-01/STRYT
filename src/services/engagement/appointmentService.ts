@@ -24,6 +24,20 @@ export function isMockTarget(id: string): boolean {
   return id === "b1" || id === "p1" || id.startsWith("biz_mock_") || id.startsWith("prov_mock_");
 }
 
+// Maps a cart's camelCase line items to the snake_case shape the p_items
+// jsonb RPC param expects. Undefined (not an empty array) when there's
+// nothing to send, so a plain single-package booking still hits the RPC's
+// synth-from-package-id fallback instead of an empty cart.
+function toRpcItems(items: AppointmentRecord["items"] | undefined) {
+  if (!items || items.length === 0) return undefined;
+  return items.map((it) => ({
+    catalog_item_id: it.catalogItemId,
+    item_name: it.name,
+    unit_price: it.price,
+    quantity: it.quantity,
+  }));
+}
+
 function getLocalAppointments(): AppointmentRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -219,6 +233,8 @@ export const appointmentService = {
         // failure can't strand two live bookings and the original is excluded
         // from the daily-limit count.
         if (payload.rescheduledFrom) {
+          // Reschedule carries the original's cart forward server-side (it's
+          // the same purchase, just retimed) — no items param, no re-reserve.
           const { data, error } = await sb.rpc("reschedule_appointment", {
             p_original_id: payload.rescheduledFrom,
             p_scheduled_for: payload.scheduledForISO,
@@ -247,16 +263,11 @@ export const appointmentService = {
           p_package_id: payload.packageId ?? undefined,
           p_package_name: payload.packageName ?? undefined,
           p_package_price: payload.packagePrice ?? undefined,
+          p_items: toRpcItems(payload.items),
         });
         if (error) throw error;
         const record = rowToRecord(data);
         upsertLocal(record); // keep a local cache for instant reads
-        // Reserve one unit if the booked package is a FINITE catalog item.
-        // The RPC no-ops for INFINITE items, provider packages, and cart
-        // bundles, so it's always safe to call best-effort.
-        if (payload.targetType === "BUSINESS" && payload.packageId) {
-          try { await sb.rpc("reserve_catalog_item", { p_item_id: payload.packageId }); } catch { /* stock reserve is best-effort */ }
-        }
         return record;
       } catch (err: any) {
         // The double-booking unique index (appointments_no_double_book) rejects
@@ -264,6 +275,9 @@ export const appointmentService = {
         const msg: string = err?.message || "";
         if (err?.code === "23505" || /duplicate key|unique|no_double_book/i.test(msg)) {
           throw new Error("That slot was just taken. Please pick another time.");
+        }
+        if (/INSUFFICIENT_STOCK/i.test(msg)) {
+          throw new Error("An item in your order just sold out — please update your cart and try again.");
         }
         // Surface the real reason instead of silently succeeding.
         throw new Error(msg || "Couldn't book the appointment. Please try again.");
@@ -598,6 +612,7 @@ export const appointmentService = {
     packagePrice: number;
     method: PaymentMethod;
     reference?: string | null;
+    items?: AppointmentRecord["items"];
   }): Promise<AppointmentRecord> {
     const uid = await currentUserId();
     if (!uid) throw new Error("Sign in to pay.");
@@ -612,8 +627,14 @@ export const appointmentService = {
       p_package_price: payload.packagePrice,
       p_method: payload.method,
       p_reference: payload.reference ?? undefined,
+      p_items: toRpcItems(payload.items),
     });
-    if (error) throw new Error(error.message || "Couldn't record the payment. Please try again.");
+    if (error) {
+      if (/INSUFFICIENT_STOCK/i.test(error.message || "")) {
+        throw new Error("An item in this order just sold out — please update the cart and try again.");
+      }
+      throw new Error(error.message || "Couldn't record the payment. Please try again.");
+    }
     const record = rowToRecord(data);
     upsertLocal(record);
     return record;
