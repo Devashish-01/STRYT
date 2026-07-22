@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "44008185482-2hsef8obvb4a5o3o6358j8ui6jutvj36.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.stryt.app",
+            "certificate_hash": "d5b9aabf79c3db47c23e1e97226889e389e73171"
+          }
+        },
+        {
           "client_id": "44008185482-ei7gkaunmn4g0n0bbn4f21fvv67kepvo.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

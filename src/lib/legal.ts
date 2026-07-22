@@ -1,4 +1,4 @@
-﻿// Central legal-version + document links for the Terms/Privacy acceptance gate.
+// Central legal-version + document links for the Terms/Privacy acceptance gate.
 //
 // LEGAL_VERSION drives the clickwrap gate in App.tsx: a signed-in user must have
 // accepted THIS exact version, otherwise they are sent to /auth/terms. Bump this
