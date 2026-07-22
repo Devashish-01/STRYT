@@ -192,30 +192,7 @@ export default function PhoneEntry() {
               Continue with Google
             </button>
 
-            {/* 🏪 Business Merchant Fast Entrance */}
-            <div style={{ textAlign: "center", marginTop: 8, paddingTop: 12, borderTop: "1px dashed var(--ink-200)" }}>
-              <div style={{ fontSize: 12, color: "var(--ink-500)", marginBottom: 8, fontWeight: 600 }}>Are you a Shop Owner or Service Provider?</div>
-              <button
-                onClick={() => nav("/business/onboard")}
-                style={{
-                  width: "100%",
-                  padding: "11px 16px",
-                  borderRadius: 12,
-                  background: "var(--brand-50)",
-                  border: "1.5px solid var(--brand-300)",
-                  color: "var(--brand-800)",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  cursor: "pointer",
-                }}
-              >
-                🗺️ Import &amp; List Shop from Google Maps
-              </button>
-            </div>
+
           </div>
         </div>
 
