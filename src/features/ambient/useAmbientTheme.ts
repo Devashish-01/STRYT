@@ -143,7 +143,7 @@ export function useAmbientTheme(
     // Seasonal nudge (sets boost extension, default banner & styling).
     if (season === "monsoon") {
       boost = ["plumber", "waterproofing", "umbrella-repair", ...boost];
-      banner = "🌧️ Monsoon season — waterproofing & plumbers listed up top";
+      banner = "☁️ Monsoon season — waterproofing & plumbers listed up top";
       accent = "var(--brand-500)";
       bg     = "linear-gradient(180deg, var(--ink-50) 0%, #fff 100%)";
     }
@@ -241,7 +241,8 @@ export function useAmbientTheme(
                         dayPart === "evening" ? "Cold winter twilight" :
                                                 "Freezing quiet night";
     } else {
-      ambientSubtitle = dayPart === "morning" ? "Golden rays & fresh morning air" :
+      ambientSubtitle = season === "monsoon" ? "Cloudy monsoon skies & cool breeze" :
+                        dayPart === "morning" ? "Golden rays & fresh morning air" :
                         dayPart === "afternoon" ? "Bright skies & clear afternoon" :
                         dayPart === "evening" ? "Sunset hues & evening winds" :
                                                 "Starry skies & quiet streets";

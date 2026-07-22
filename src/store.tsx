@@ -412,6 +412,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       });
       void hydratePersonalData();
       void switchPinService.isSet().then(setSwitchPinIsSet).catch(() => {});
+    } else {
+      // BUG FIX #2: Reset profileReady whenever we lose auth so a subsequent
+      // re-auth cycle (e.g. Supabase auto-recovering after a transient network
+      // drop) re-fetches the real profile instead of staying stuck on stale/seed
+      // data with profileReady=true from a previous successful fetch.
+      setProfileReady(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthed]);

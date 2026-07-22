@@ -22,9 +22,11 @@ export function useAuthSession() {
       setAuthReady(true);
       return;
     }
+
     // Safety net: if getSession() stalls (flaky network), never trap the user on
     // the splash — mark auth ready after a few seconds so routing can proceed.
     const readyTimer = setTimeout(() => setAuthReady(true), 6000);
+
     // Resolve the initial session on mount. With detectSessionInUrl enabled, a
     // Google/email redirect lands here and getSession() awaits the code→session
     // exchange before resolving — so by the time this runs we have a definitive
@@ -41,18 +43,27 @@ export function useAuthSession() {
           sb.realtime.setAuth(data.session.access_token);
           setIsAuthed(true);
         } else {
-          tokenStore.clear();
-          sb.realtime.setAuth(null);
+          // BUG FIX #1: Do NOT call tokenStore.clear() here.
+          // getSession() can return null when the network is unavailable at
+          // startup (Supabase tries to refresh an expired token but the request
+          // fails). Clearing tokens here turns a transient network error into
+          // a permanent logout. The onAuthStateChange SIGNED_OUT event below
+          // is the correct and authoritative place to clear credentials — it
+          // only fires when Supabase has confirmed the session is truly invalid.
           setIsAuthed(false);
         }
       })
       .catch((e) => {
-        console.error("getSession failed:", e);
+        // Network error during startup — leave stored tokens intact so the user
+        // stays "logged in" optimistically. The session will re-validate on the
+        // next successful network request or foreground resume.
+        console.warn("getSession failed (network?), keeping stored session:", e);
       })
       .finally(() => {
         clearTimeout(readyTimer);
         setAuthReady(true);
       });
+
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
       if (session) {
         tokenStore.set(session.access_token, session.refresh_token);
@@ -62,15 +73,51 @@ export function useAuthSession() {
         sb.realtime.setAuth(session.access_token);
         setIsAuthed(true);
       } else if (event === "SIGNED_OUT") {
+        // Only clear on an explicit, confirmed server-side sign-out — not on
+        // transient network failures. This is the single authoritative logout path.
         tokenStore.clear();
         sb.realtime.setAuth(null);
         setIsAuthed(false);
       }
       setAuthReady(true);
     });
+
+    // BUG FIX #3: Capacitor native foreground resume re-validation.
+    // After the phone sleeps for hours, the JS auto-refresh timer is frozen in
+    // the suspended WebView. When the user reopens the app, the stored access
+    // token may be expired. Proactively calling refreshSession() on every
+    // foreground event re-syncs the Supabase session before any API call fires,
+    // preventing 401 cascades that would otherwise clear the session.
+    let appStateCleanup: (() => void) | null = null;
+    import("@capacitor/app")
+      .then(({ App }) => {
+        const listenerPromise = App.addListener("appStateChange", ({ isActive }) => {
+          if (isActive) {
+            void sb.auth.refreshSession().catch(() => {
+              // Refresh failed (still offline) — the stored session remains,
+              // and the next successful network call will trigger onAuthStateChange.
+            });
+          }
+        });
+        appStateCleanup = () => {
+          void listenerPromise.then((h) => h.remove()).catch(() => {});
+        };
+      })
+      .catch(() => {
+        // Not a Capacitor environment (e.g. plain web) — skip, use visibilitychange.
+        const onVisible = () => {
+          if (document.visibilityState === "visible") {
+            void sb.auth.refreshSession().catch(() => {});
+          }
+        };
+        document.addEventListener("visibilitychange", onVisible);
+        appStateCleanup = () => document.removeEventListener("visibilitychange", onVisible);
+      });
+
     return () => {
       clearTimeout(readyTimer);
       subscription.unsubscribe();
+      appStateCleanup?.();
     };
   }, []);
 

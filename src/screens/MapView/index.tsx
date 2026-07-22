@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronRight, MapPinPlus } from "@/components/Icons";
-import L from "leaflet";
-import { MapContainer, TileLayer, Marker, Circle } from "react-leaflet";
+import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
+import "maplibre-gl/dist/maplibre-gl.css";
 import { discoveryService, requestService, socialService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -10,8 +10,8 @@ import { StoryViewer } from "@/components/Stories";
 import type { Story } from "@/types";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { RADIUS_OPTIONS } from "@/utils/constants";
-import type { Layer } from "./mapIcons";
-import { meIcon } from "./mapIcons";
+import type { Layer as MapLayer } from "./mapIcons";
+import { meIconHtml } from "./mapIcons";
 import { RadiusController, RecenterButton, MapEventsController } from "./MapControllers";
 import { SearchBar } from "./SearchBar";
 import { LayerToggles } from "./LayerToggles";
@@ -24,11 +24,53 @@ import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 import { useI18n } from "@/lib/i18n";
 
+// Free, open-source, no API key/account of any kind — see openfreemap.org.
+// Positron: a clean, minimal light basemap (closest match to the CARTO
+// Voyager tiles this screen used before), so STRYT's own purple/pink pins
+// and UI stay the visual focus rather than a busy basemap.
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+
+// haversine, km — same distance math the old Leaflet build used
+// (L.latLng(...).distanceTo(...)), just without the Leaflet dependency.
+function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// MapLibre paint properties are WebGL, not CSS — they can't read a
+// var(--token) directly. Resolving it at runtime (rather than hardcoding the
+// hex, which the repo's color-lint script would also flag) keeps this
+// derived from the one real token instead of a second, driftable copy of it.
+function resolveToken(name: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+// A circle-as-polygon GeoJSON feature — MapLibre has no built-in <Circle>
+// (unlike react-leaflet), so the radius ring is a Source+Layer instead.
+function circleGeoJSON(lat: number, lng: number, radiusKm: number, points = 72): GeoJSON.Feature<GeoJSON.Polygon> {
+  const latRad = (lat * Math.PI) / 180;
+  const coords: [number, number][] = [];
+  for (let i = 0; i <= points; i++) {
+    const angle = (i / points) * 2 * Math.PI;
+    const dx = radiusKm * Math.cos(angle);
+    const dy = radiusKm * Math.sin(angle);
+    coords.push([lng + dx / (111 * Math.cos(latRad)), lat + dy / 111]);
+  }
+  return { type: "Feature", properties: {}, geometry: { type: "Polygon", coordinates: [coords] } };
+}
+
 export default function MapView() {
   const { user, refreshUser, showToast, isGuest } = useApp();
   const { t, tf } = useI18n();
   const pin = useLocationPinDrop(refreshUser, showToast);
-  const [layers, setLayers] = useState<Record<Layer, boolean>>(() => {
+  const [layers, setLayers] = useState<Record<MapLayer, boolean>>(() => {
     const saved = localStorage.getItem("settings_map_layers");
     if (saved) {
       try {
@@ -123,8 +165,7 @@ export default function MapView() {
   const nearbyRequests = requests.filter((r) => {
     if (!r.lat || !r.lng) return false;
     if (isWorld) return true;
-    const dist = L.latLng(centerLat, centerLng).distanceTo(L.latLng(r.lat, r.lng)) / 1000;
-    return dist <= radiusKm;
+    return distanceKm(centerLat, centerLng, r.lat, r.lng) <= radiusKm;
   });
 
   const visibleCount =
@@ -132,6 +173,12 @@ export default function MapView() {
     (layers.provider ? filteredProviders.length : 0) +
     (layers.request  ? nearbyRequests.length : 0) +
     (layers.story    ? mapStories.length : 0);
+
+  const brandColor = useMemo(() => resolveToken("--brand-600", "#7c2fe8"), []);
+  const radiusRing = useMemo(
+    () => (isWorld ? null : circleGeoJSON(centerLat, centerLng, radiusKm)),
+    [centerLat, centerLng, radiusKm, isWorld]
+  );
 
   return (
     <div className="screen screen-canvas" style={{ position: "relative" }}>
@@ -192,39 +239,36 @@ export default function MapView() {
         </>
       )}
 
-
-      {/* Full-screen map */}
-      <MapContainer
-        center={[centerLat, centerLng]}
-        zoom={13}
+      {/* Full-screen map — MapLibre GL (free, open-source, no API key),
+          OpenFreeMap tiles. Web and Android app both render this exact
+          screen — Capacitor's WebView is just a browser, so there's no
+          native/web split needed here. */}
+      <Map
+        initialViewState={{ longitude: centerLng, latitude: centerLat, zoom: 13 }}
+        mapStyle={MAP_STYLE}
         style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
-        zoomControl={false}
+        attributionControl={{ compact: true }}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-        />
-
         <RadiusController lat={centerLat} lng={centerLng} radiusKm={radiusKm} />
         {!pin.pickMode && <RecenterButton radiusKm={radiusKm} />}
         {!pin.pickMode && <MapEventsController />}
         {pin.pickMode && <PickCenterTracker onCenterChange={pin.onCenterChange} />}
 
         {/* User dot */}
-        <Marker position={[centerLat, centerLng]} icon={meIcon} />
+        <Marker longitude={centerLng} latitude={centerLat} anchor="center">
+          <span dangerouslySetInnerHTML={{ __html: meIconHtml }} />
+        </Marker>
 
         {/* Radius ring — hidden for World mode */}
-        {!isWorld && (
-          <Circle
-            center={[centerLat, centerLng]}
-            radius={radiusKm * 1000}
-            pathOptions={{
-              color: "var(--brand-600)", weight: 1.5,
-              dashArray: "6 5",
-              fillColor: "var(--brand-600)", fillOpacity: 0.05,
-              interactive: false,
-            }}
-          />
+        {radiusRing && (
+          <Source id="radius-ring" type="geojson" data={radiusRing}>
+            <Layer id="radius-ring-fill" type="fill" paint={{ "fill-color": brandColor, "fill-opacity": 0.05 }} />
+            <Layer
+              id="radius-ring-line"
+              type="line"
+              paint={{ "line-color": brandColor, "line-width": 1.5, "line-dasharray": [2, 1.5] }}
+            />
+          </Source>
         )}
 
         <MapMarkers
@@ -235,7 +279,7 @@ export default function MapView() {
           mapStories={mapStories}
           onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
         />
-      </MapContainer>
+      </Map>
 
       {pin.pickMode && (
         <LocationPinDropOverlay

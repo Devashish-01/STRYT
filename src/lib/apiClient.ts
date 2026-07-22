@@ -112,23 +112,28 @@ async function tryRefresh(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       try {
-        const res = await fetch(buildUrl("/auth/refresh"), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refresh_token: tokenStore.refresh }),
-        });
-        if (!res.ok) {
-          tokenStore.clear();
+        // BUG FIX #4: Use Supabase's own session refresh instead of the legacy
+        // /auth/refresh REST endpoint (which no longer exists — auth is fully
+        // Supabase-managed). The old endpoint returned non-200, causing
+        // tokenStore.clear() to be called and silently logging the user out.
+        //
+        // IMPORTANT: Do NOT call tokenStore.clear() on failure here. If the
+        // network is down, refreshSession() will throw/error — we return false
+        // so the caller can handle the 401 gracefully. The SIGNED_OUT event from
+        // onAuthStateChange is the only authoritative place to wipe credentials.
+        const { getSupabase } = await import("./supabaseClient");
+        const sb = getSupabase();
+        const { data, error } = await sb.auth.refreshSession();
+        if (error || !data.session) {
+          // Session is genuinely expired or revoked — Supabase will fire
+          // SIGNED_OUT via onAuthStateChange, which clears the token store.
           return false;
         }
-        const json = await res.json();
-        if (json?.access_token && json?.refresh_token) {
-          tokenStore.set(json.access_token, json.refresh_token);
-          return true;
-        }
-        tokenStore.clear();
-        return false;
+        tokenStore.set(data.session.access_token, data.session.refresh_token);
+        return true;
       } catch {
+        // Network error — return false without clearing tokens. The session
+        // may still be valid once connectivity is restored.
         return false;
       } finally {
         // allow the next refresh cycle once this settles
@@ -138,3 +143,4 @@ async function tryRefresh(): Promise<boolean> {
   }
   return refreshPromise;
 }
+

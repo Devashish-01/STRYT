@@ -8,7 +8,7 @@ export interface Weather {
 }
 
 const CACHE_KEY = "naya_weather_cache";
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes for accurate real-time weather
 
 interface CacheEntry { weather: Weather; ts: number; lat: number; lng: number; }
 

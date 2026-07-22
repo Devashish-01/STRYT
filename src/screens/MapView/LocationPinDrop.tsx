@@ -1,23 +1,27 @@
 import { useEffect } from "react";
-import { useMapEvents } from "react-leaflet";
+import { useMap } from "react-map-gl/maplibre";
 import { MapPin, X, Check, Loader } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
 
-// Lives inside <MapContainer>. The pin itself is fixed on screen — this just
-// reports the map's center whenever a pan/zoom settles, so the caller can
-// resolve "whatever is under the pin" into an address.
+// Lives inside <Map>. The pin itself is fixed on screen — this just reports
+// the map's center whenever a pan/zoom settles, so the caller can resolve
+// "whatever is under the pin" into an address.
 export function PickCenterTracker({ onCenterChange }: { onCenterChange: (lat: number, lng: number) => void }) {
-  const map = useMapEvents({
-    moveend: () => {
+  const { current: mapRef } = useMap();
+
+  useEffect(() => {
+    const map = mapRef?.getMap();
+    if (!map) return;
+    const report = () => {
       const c = map.getCenter();
       onCenterChange(c.lat, c.lng);
-    },
-  });
-  useEffect(() => {
-    const c = map.getCenter();
-    onCenterChange(c.lat, c.lng);
+    };
+    report();
+    map.on("moveend", report);
+    return () => { map.off("moveend", report); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map]);
+  }, [mapRef]);
+
   return null;
 }
 

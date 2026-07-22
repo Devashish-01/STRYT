@@ -11,6 +11,7 @@ import HoursSelector from "@/components/HoursSelector";
 import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
 
 import { reverseGeocodeFull } from "@/lib/geocode";
+import { searchGoogleMapBusiness, ImportedBusinessDetails } from "@/lib/googlePlaces";
 
 const steps = ["Basics", "Location", "Photos", "Contact"];
 
@@ -21,6 +22,12 @@ export default function BusinessOnboard() {
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // Google Maps Import State
+  const [gQuery, setGQuery] = useState("");
+  const [gSearching, setGSearching] = useState(false);
+  const [gResults, setGResults] = useState<ImportedBusinessDetails[]>([]);
+  const [imported, setImported] = useState(false);
 
   const [name, setName] = useState("");
   const [cat, setCat] = useState<string | null>(null);
@@ -128,9 +135,89 @@ export default function BusinessOnboard() {
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
         {step === 0 && (
           <>
+            {/* 🚀 1-TAP GOOGLE MAPS IMPORT CARD */}
+            <div className="card col gap-10" style={{ background: "linear-gradient(135deg, var(--brand-50) 0%, #fff 100%)", border: "1.5px solid var(--brand-200)", padding: 14 }}>
+              <div className="row gap-8 align-center">
+                <span style={{ fontSize: 20 }}>🗺️</span>
+                <div>
+                  <div className="semi" style={{ color: "var(--ink-900)" }}>Import from Google Maps</div>
+                  <div className="tiny muted">Search your business name to auto-fill details in 1 tap.</div>
+                </div>
+              </div>
+
+              <div className="row gap-8">
+                <input
+                  className="input grow"
+                  placeholder="e.g. Dr Sharma Clinic Pune or Shop Name"
+                  value={gQuery}
+                  onChange={(e) => setGQuery(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      setGSearching(true);
+                      const res = await searchGoogleMapBusiness(gQuery);
+                      setGResults(res);
+                      setGSearching(false);
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={gSearching || gQuery.trim().length < 2}
+                  onClick={async () => {
+                    setGSearching(true);
+                    const res = await searchGoogleMapBusiness(gQuery);
+                    setGResults(res);
+                    setGSearching(false);
+                  }}
+                >
+                  {gSearching ? "Searching…" : "Search"}
+                </button>
+              </div>
+
+              {gResults.length > 0 && (
+                <div className="col gap-6" style={{ marginTop: 4 }}>
+                  <div className="tiny semi muted">Select your business to auto-fill:</div>
+                  {gResults.map((item, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className="card row center-v gap-8 text-left"
+                      style={{ padding: "8px 12px", background: "#fff", border: "1px solid var(--brand-200)", cursor: "pointer" }}
+                      onClick={() => {
+                        setName(item.name);
+                        setAddress(item.address);
+                        if (item.city) setCity(item.city);
+                        if (item.pincode) setPincode(item.pincode);
+                        setLat(item.lat);
+                        setLng(item.lng);
+                        if (item.phone) setPhone(item.phone.replace(/\D/g, "").slice(-10));
+                        setImported(true);
+                        setGResults([]);
+                        showToast("✅ Details imported from Google Maps!");
+                      }}
+                    >
+                      <div className="grow">
+                        <div className="semi small">{item.name}</div>
+                        <div className="tiny muted line-clamp-1">{item.address}</div>
+                      </div>
+                      <span className="chip active tiny" style={{ background: "var(--brand-600)", color: "#fff" }}>Import</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {imported && (
+                <div className="tiny row gap-6 center-v" style={{ color: "var(--green-700)", fontWeight: 600 }}>
+                  ✓ Business imported from Google Maps! Review and complete below.
+                </div>
+              )}
+            </div>
+
             <div className="field">
               <label>Business name *</label>
-              <input className="input" placeholder="e.g. Spice Route Kitchen" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+              <input className="input" placeholder="e.g. Spice Route Kitchen" value={name} onChange={(e) => setName(e.target.value)} autoFocus={!imported} />
             </div>
             <div className="field">
               <label>Category *</label>

@@ -993,4 +993,38 @@ export const businessService = {
       if (biz?.owner_user_id) void leaderboardService.addPoints(biz.owner_user_id, 3);
     }
   },
+
+  async verifyAndSyncFromGoogle(id: string, details: {
+    name?: string;
+    address?: string;
+    city?: string;
+    pincode?: string;
+    lat?: number;
+    lng?: number;
+    phone?: string;
+    hours?: string;
+    coverImage?: string;
+    gallery?: string[];
+  }): Promise<void> {
+    const sb = getSupabase();
+    const patch: Record<string, unknown> = {
+      is_verified: true,
+      verification_status: "APPROVED",
+    };
+
+    if (details.name) patch.name = details.name;
+    if (details.address) patch.address_line1 = details.address;
+    if (details.city) patch.city = details.city;
+    if (details.pincode) patch.pincode = details.pincode;
+    if (typeof details.lat === "number" && details.lat !== 0) patch.lat = details.lat;
+    if (typeof details.lng === "number" && details.lng !== 0) patch.lng = details.lng;
+    if (details.phone) patch.phone = details.phone;
+    if (details.hours) patch.hours = details.hours;
+    if (details.coverImage) patch.cover_image = details.coverImage;
+    if (details.gallery && details.gallery.length > 0) patch.gallery = details.gallery;
+
+    const { error } = await sb.from("businesses").update(patch as TablesUpdate<"businesses">).eq("id", id);
+    throwIfError(error);
+    inFlightBusinessGet.clear();
+  },
 };
