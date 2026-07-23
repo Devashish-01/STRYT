@@ -110,9 +110,9 @@ export default function VerificationPanel({ entityType, entityId }: { entityType
         </div>
         <p className="tiny muted center" style={{ textAlign: "center" }}>
           {status === "VERIFIED" && "Your STRYT Verified badge is live on your public page."}
-          {status === "PENDING" && "Your manual submission is under review — or skip the wait and verify instantly with Google below."}
+          {status === "PENDING" && "Your manual submission is under review — you can also import your details from Google Maps below."}
           {status === "REJECTED" && "See the reviewer's note below, then resubmit."}
-          {status === "NONE" && "Verify instantly with Google Business below or upload documents for manual verification."}
+          {status === "NONE" && "Import your details from Google Maps below, or upload documents for manual verification."}
         </p>
       </div>
 
@@ -131,7 +131,7 @@ export default function VerificationPanel({ entityType, entityId }: { entityType
               entityId={entityId}
               currentName={"name" in entity ? entity.name : (entity as any).fullName || ""}
               onSuccess={async () => {
-                showToast("🎉 Verified & synced with Google Maps!");
+                showToast("🎉 Profile details imported from Google Maps!");
                 await load();
               }}
             />
