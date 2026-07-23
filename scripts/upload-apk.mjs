@@ -17,13 +17,19 @@ function readEnv() {
 
 async function run() {
   const env = readEnv();
-  const url = env.VITE_SUPABASE_URL;
-  // Use the service role key we retrieved
-  const serviceRoleKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imduc3d4bGZtY3d5aG16bGZpcHFsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDUxMjU3MiwiZXhwIjoyMDk2MDg4NTcyfQ.jmtNOU1_SgNOvqRlztZNENVl1ZvZ7Xjk2jDmY5cYCF0";
+  const url = process.env.VITE_SUPABASE_URL || env.VITE_SUPABASE_URL;
+  // Never hardcode the service_role key — it bypasses RLS. Read it from the
+  // environment (GitHub Actions secret SUPABASE_SERVICE_ROLE_KEY) or the local
+  // .env file for manual runs.
+  const serviceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceRoleKey) {
-    console.error("Missing supabase URL or service role key");
-    return;
+    console.error(
+      "Missing Supabase URL or service role key. Set SUPABASE_SERVICE_ROLE_KEY " +
+        "(GitHub Actions secret) or add it to .env for local runs."
+    );
+    process.exit(1);
   }
 
   const pathsToTry = [
@@ -43,7 +49,7 @@ async function run() {
 
   if (!apkPath) {
     console.error("Error: Could not find any stryt.apk or app-debug.apk to upload!");
-    return;
+    process.exit(1);
   }
 
   console.log(`Found APK to upload at: ${apkPath}`);
@@ -61,7 +67,7 @@ async function run() {
 
   if (error) {
     console.error("Upload failed:", error);
-    return;
+    process.exit(1);
   }
 
   console.log("Upload successful!", data);
@@ -69,4 +75,7 @@ async function run() {
   console.log("Public URL:", publicUrlData.publicUrl);
 }
 
-run();
+run().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

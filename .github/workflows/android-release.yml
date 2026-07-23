@@ -56,11 +56,13 @@ jobs:
       - name: Build Vite web app
         run: npm run build
 
-      - name: Copy web assets to Android
-        run: |
-          rm -rf android/app/src/main/assets/public
-          mkdir -p android/app/src/main/assets/public
-          cp -r dist/* android/app/src/main/assets/public/
+      - name: Sync web assets & Capacitor plugins into Android
+        # `cap sync` copies dist/ into the Android assets AND regenerates the
+        # gitignored generated files (capacitor-cordova-android-plugins/,
+        # capacitor.build.gradle, capacitor.settings.gradle, capacitor.config.json,
+        # capacitor.plugins.json). Without this the Gradle build fails with
+        # "Could not read script '.../cordova.variables.gradle' as it does not exist".
+        run: npx cap sync android
 
       - name: Decode and write release keystore
         run: |
@@ -83,6 +85,8 @@ jobs:
           cp android/app/build/outputs/apk/release/app-release.apk release-artifacts/stryt.apk
 
       - name: Upload APK to Supabase Storage
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/upload-apk.mjs
 
       - name: Get commit info
