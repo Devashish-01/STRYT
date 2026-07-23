@@ -45,3 +45,5 @@ android/app/google-services.json
 /skills
 .agents
 .claude
+.vercel
+.env*
