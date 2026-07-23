@@ -4,6 +4,7 @@ import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ErrorView, Skeleton } from "@/components/states";
 import { AlertTriangle, ChevronRight, Clock, ExternalLink, FileText, Image, Store } from "@/components/Icons";
+import GoogleImportCard from "@/components/GoogleImportCard";
 import ManageNav from "./ManageNav";
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -11,7 +12,7 @@ const LOW_STOCK_THRESHOLD = 5;
 export default function BusinessStoreHub() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: business, loading } = useQuery(() => businessService.get(id), [id], `business:${id}`);
+  const { data: business, loading, refetch } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const base = `/business/${id}/manage`;
 
   if (!id) return <div className="screen"><AppBar title="Store" /><ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} /></div>;
@@ -42,6 +43,14 @@ export default function BusinessStoreHub() {
               </div>
             </button>
           )}
+          {business && (
+            <GoogleImportCard
+              entityId={id}
+              currentName={business.name ?? ""}
+              onSuccess={() => { void refetch(); }}
+            />
+          )}
+
           <div>
             <div className="small semi muted" style={{ marginBottom: 8 }}>Storefront</div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>

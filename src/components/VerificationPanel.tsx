@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BadgeCheck, ShieldCheck, Camera, Clock, XCircle } from "@/components/Icons";
 import { useApp } from "@/store";
-import { businessService, providerService, authService } from "@/services";
-import { searchGoogleMapBusiness } from "@/lib/googlePlaces";
+import { businessService, providerService } from "@/services";
 import type { Business, Provider } from "@/types";
 
 type EntityType = "BUSINESS" | "PROVIDER";
@@ -110,9 +109,9 @@ export default function VerificationPanel({ entityType, entityId }: { entityType
         </div>
         <p className="tiny muted center" style={{ textAlign: "center" }}>
           {status === "VERIFIED" && "Your STRYT Verified badge is live on your public page."}
-          {status === "PENDING" && "Your manual submission is under review — you can also import your details from Google Maps below."}
+          {status === "PENDING" && "Your manual submission is under review."}
           {status === "REJECTED" && "See the reviewer's note below, then resubmit."}
-          {status === "NONE" && "Import your details from Google Maps below, or upload documents for manual verification."}
+          {status === "NONE" && "Upload documents below for manual verification."}
         </p>
       </div>
 
@@ -125,21 +124,9 @@ export default function VerificationPanel({ entityType, entityId }: { entityType
 
       {status !== "VERIFIED" && (
         <div className="col gap-16">
-          {/* ⚡ GOOGLE BUSINESS VERIFICATION & DATA IMPORT */}
-          {entityType === "BUSINESS" && (
-            <GoogleBusinessVerifyCard
-              entityId={entityId}
-              currentName={"name" in entity ? entity.name : (entity as any).fullName || ""}
-              onSuccess={async () => {
-                showToast("🎉 Profile details imported from Google Maps!");
-                await load();
-              }}
-            />
-          )}
-
           <div className="col gap-10">
             <div className="small semi muted row gap-6" style={{ alignItems: "center" }}>
-              <ShieldCheck size={14} /> {status === "REJECTED" ? "Or resubmit documents manually" : "Or submit documents manually"}
+              <ShieldCheck size={14} /> {status === "REJECTED" ? "Resubmit documents" : "Submit documents"}
             </div>
 
             {files.length > 0 && (
@@ -169,143 +156,6 @@ export default function VerificationPanel({ entityType, entityId }: { entityType
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function GoogleBusinessVerifyCard({ entityId, currentName, onSuccess }: { entityId: string; currentName: string; onSuccess: () => void }) {
-  const { showToast } = useApp();
-  const [gQuery, setGQuery] = useState(currentName || "");
-  const [gSearching, setGSearching] = useState(false);
-  const [gResults, setGResults] = useState<any[]>([]);
-  const [importing, setImporting] = useState(false);
-
-  async function handleSearch() {
-    if (!gQuery.trim()) return;
-    setGSearching(true);
-    try {
-      let uLat: number | undefined;
-      let uLng: number | undefined;
-
-      if ("geolocation" in navigator) {
-        try {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000, enableHighAccuracy: true });
-          });
-          uLat = pos.coords.latitude;
-          uLng = pos.coords.longitude;
-        } catch {
-          /* fallback to Pune center */
-        }
-      }
-
-      const res = await searchGoogleMapBusiness(gQuery, uLat, uLng);
-      setGResults(res);
-      if (res.length === 0) {
-        showToast("No matching business found on Google Maps nearby");
-      }
-    } catch {
-      showToast("Error searching Google Maps");
-    } finally {
-      setGSearching(false);
-    }
-  }
-
-  async function applyGoogleImport(item: any) {
-    setImporting(true);
-    try {
-      const cleanPhone = item.phone ? item.phone.replace(/\D/g, "").slice(-10) : "9876543210";
-      await businessService.verifyAndSyncFromGoogle(entityId, {
-        name: item.name,
-        address: item.address,
-        city: item.city,
-        pincode: item.pincode,
-        lat: item.lat,
-        lng: item.lng,
-        phone: cleanPhone.length === 10 ? cleanPhone : "9876543210",
-        hours: item.hours || "Everyday from 09:00 AM to 09:00 PM",
-        coverImage: item.coverImage,
-        gallery: item.gallery && item.gallery.length > 0 ? item.gallery : undefined,
-      });
-      showToast("✅ Google Maps profile data, photos, timing & location imported successfully!");
-      onSuccess();
-    } catch (e: any) {
-      showToast(e?.message || "Google Maps import failed");
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  return (
-    <div className="card col gap-12" style={{ padding: 16, background: "linear-gradient(135deg, var(--brand-50) 0%, #fff 100%)", border: "1.5px solid var(--brand-300)" }}>
-      <div className="row gap-10 center-v">
-        <div style={{ width: 40, height: 40, borderRadius: 12, background: "#fff", border: "1px solid var(--ink-200)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
-          🗺️
-        </div>
-        <div className="grow">
-          <div className="bold small" style={{ color: "var(--ink-900)" }}>Import Profile Data from Google Maps</div>
-          <div className="tiny muted">Search your business on Google Maps to auto-fill &amp; test profile data sync.</div>
-        </div>
-      </div>
-
-      <div className="col gap-10">
-        <div className="row gap-8">
-          <input
-            className="input grow"
-            placeholder="e.g. Dr Sharma Clinic Pune or Shop Name"
-            value={gQuery}
-            onChange={(e) => setGQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                handleSearch();
-              }
-            }}
-          />
-          <button
-            className="btn btn-primary btn-sm"
-            disabled={gSearching || !gQuery.trim()}
-            onClick={handleSearch}
-          >
-            {gSearching ? "Searching…" : "Search"}
-          </button>
-        </div>
-
-        {gResults.length > 0 ? (
-          <div className="col gap-6" style={{ marginTop: 4 }}>
-            <div className="tiny semi muted">Select your listing to import data:</div>
-            {gResults.map((item, idx) => (
-              <button
-                key={idx}
-                type="button"
-                disabled={importing}
-                className="card row center-v gap-8 text-left"
-                style={{ padding: "10px 12px", background: "#fff", border: "1px solid var(--brand-300)", cursor: "pointer" }}
-                onClick={() => applyGoogleImport(item)}
-              >
-                <div className="grow">
-                  <div className="row center-v gap-6">
-                    <div className="semi small">{item.name}</div>
-                    {typeof item.distanceKm === "number" && (
-                      <span className="tiny semi" style={{ color: "var(--brand-700)", background: "var(--brand-50)", padding: "2px 6px", borderRadius: 4 }}>
-                        📍 {item.distanceKm} km
-                      </span>
-                    )}
-                  </div>
-                  <div className="tiny muted line-clamp-1">{item.address}</div>
-                </div>
-                <span className="chip active tiny" style={{ background: "var(--brand-600)", color: "#fff" }}>
-                  {importing ? "Importing…" : "Import Data"}
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="tiny muted center" style={{ textAlign: "center", paddingTop: 4 }}>
-            Type your shop or clinic name above and tap <b>Search</b> to view Google Maps listings.
-          </div>
-        )}
-      </div>
     </div>
   );
 }
