@@ -17,10 +17,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Node 22 ships a global WebSocket. @supabase/realtime-js (pulled in
+          # by supabase-js createClient in scripts/upload-apk.mjs) throws on
+          # Node < 22 when no global WebSocket exists, which would fail the
+          # "Upload APK to Supabase Storage" step.
+          node-version: "22"
           cache: "npm"
 
       - name: Setup Java 17

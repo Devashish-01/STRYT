@@ -25,10 +25,13 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # Node 22 ships a global WebSocket. @supabase/realtime-js (pulled in
+          # by supabase-js createClient) throws on Node < 22 when no global
+          # WebSocket exists, which broke the OTA publish step.
+          node-version: "22"
           cache: "npm"
 
       - name: Install npm dependencies
