@@ -1,5 +1,6 @@
 import { config } from "@/config";
 import { tokenStore } from "./auth";
+import { getSupabase } from "./supabaseClient";
 
 export interface ApiErrorShape {
   code: string;
@@ -121,7 +122,6 @@ async function tryRefresh(): Promise<boolean> {
         // network is down, refreshSession() will throw/error — we return false
         // so the caller can handle the 401 gracefully. The SIGNED_OUT event from
         // onAuthStateChange is the only authoritative place to wipe credentials.
-        const { getSupabase } = await import("./supabaseClient");
         const sb = getSupabase();
         const { data, error } = await sb.auth.refreshSession();
         if (error || !data.session) {

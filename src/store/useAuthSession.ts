@@ -26,6 +26,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { App as CapApp }       from "@capacitor/app";
 import { tokenStore }          from "@/lib/auth";
 import { getSupabase }         from "@/lib/supabaseClient";
 import {
@@ -202,22 +203,21 @@ export function useAuthSession() {
       // Both paths trigger onAuthStateChange which updates state and tokenStore.
     };
 
-    // Try Capacitor (native), fall back to the Web Visibility API.
-    import("@capacitor/app")
-      .then(({ App: CapApp }) => {
-        const handle = CapApp.addListener("appStateChange", ({ isActive }) => {
-          if (isActive) void handleForeground();
-        });
-        foregroundCleanup = () => void handle.then((h) => h.remove()).catch(() => {});
-      })
-      .catch(() => {
-        // Plain web environment — use the Page Visibility API.
-        const onVisible = () => {
-          if (document.visibilityState === "visible") void handleForeground();
-        };
-        document.addEventListener("visibilitychange", onVisible);
-        foregroundCleanup = () => document.removeEventListener("visibilitychange", onVisible);
+    // Capacitor's App plugin fires appStateChange on native; on the web the
+    // plugin backs this with the Page Visibility API. If registering the
+    // listener ever throws, fall back to the raw Page Visibility API directly.
+    try {
+      const handle = CapApp.addListener("appStateChange", ({ isActive }) => {
+        if (isActive) void handleForeground();
       });
+      foregroundCleanup = () => void handle.then((h) => h.remove()).catch(() => {});
+    } catch {
+      const onVisible = () => {
+        if (document.visibilityState === "visible") void handleForeground();
+      };
+      document.addEventListener("visibilitychange", onVisible);
+      foregroundCleanup = () => document.removeEventListener("visibilitychange", onVisible);
+    }
 
     // ── Cleanup ───────────────────────────────────────────────────────────────
     return () => {

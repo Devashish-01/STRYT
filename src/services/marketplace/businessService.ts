@@ -12,6 +12,7 @@ import { isMockTarget } from "@/services/engagement/appointmentService";
 import { PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { uploadService } from "@/services/core/uploadService";
 import { leadText } from "@/lib/leadText";
+import { notificationService } from "@/services/engagement/notificationService";
 
 // A Postgrest UPDATE that's blocked by RLS (no row satisfies the policy) returns
 // success with zero rows affected, not an error — so throwIfError alone can't
@@ -353,7 +354,6 @@ export const businessService = {
 
     const shopName = (token as any).businesses?.name || "the shop";
     const amountStr = (token as any).payment_amount ? ` ₹${(token as any).payment_amount}` : "";
-    const { notificationService } = await import("@/services/engagement/notificationService");
     await notificationService.send(
       (token as any).customer_user_id,
       "Payment Requested 🔔",

@@ -29,6 +29,8 @@ const seedUser: CurrentUser = {
   notificationRadiusKm: 5,
 };
 import { userService } from "@/services/core/userService";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
+import { reverseGeocode } from "@/lib/geocode";
 import { authService } from "@/services/core/authService";
 import { switchPinService } from "@/services/core/switchPinService";
 import { notificationService } from "@/services/engagement/notificationService";
@@ -376,7 +378,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const perm = await (navigator as any).permissions?.query?.({ name: "geolocation" });
       if (perm && perm.state !== "granted") return;
     } catch { /* Permissions API unavailable (native webview) — proceed */ }
-    const { nativeGeolocation } = await import("@/lib/nativeGeolocation");
     nativeGeolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -390,7 +391,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ));
         if (moved < 0.25) return;
         try {
-          const { reverseGeocode } = await import("@/lib/geocode");
           const areaName = await reverseGeocode(latitude, longitude).catch(() => null);
           await userService.autoSyncLocation(latitude, longitude, areaName ?? undefined);
           setUser((u) => ({ ...u, lat: latitude, lng: longitude, area: areaName ?? u.area }));

@@ -6,6 +6,7 @@ import type { RequestPost, Proposal, Agreement, ProposalCounter } from "@/types"
 import { leaderboardService } from "@/services/marketplace/leaderboardService";
 import { clampRadiusForViewer, isGuestMode } from "@/lib/guestMode";
 import { firstName, aliasName } from "@/lib/publicName";
+import { notificationService } from "@/services/engagement/notificationService";
 
 // Columns that exist on the requests table.
 const REQUEST_COLUMNS = new Set([
@@ -600,7 +601,6 @@ export const requestService = {
     const title = "Payment Requested 🔔";
     const body = `${responderName} requested payment of ₹${ag.agreed_price} for "${ag.request_title}".`;
     
-    const { notificationService } = await import("@/services/engagement/notificationService");
     await notificationService.send(
       (ag as any).requester_user_id,
       title,

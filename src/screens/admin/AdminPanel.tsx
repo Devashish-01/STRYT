@@ -10,6 +10,7 @@ import { Skeleton, ListSkeleton } from "@/components/states";
 import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut, Eye, ExternalLink, MapPin } from "@/components/Icons";
 import MiniMap from "@/components/MiniMap";
 import { useApp } from "@/store";
+import { getSupabase } from "@/lib/supabaseClient";
 
 type Tab = "dashboard" | "queue" | "verification" | "location" | "disputes" | "appeals" | "reports" | "bugs" | "profiles" | "account";
 type QueueType = "business" | "provider" | "category";
@@ -574,7 +575,7 @@ function AdminBugs() {
 function AdminDisputes() {
   const { showToast } = useApp();
   const { data, loading, refetch } = useQueryWithRealtime<any[]>(async () => {
-    const sb = (await import("@/lib/supabaseClient")).getSupabase();
+    const sb = getSupabase();
     const { data, error } = await sb
       .from("agreements")
       .select("id, request_title, status, dispute_reason, created_at, requester:users!requester_user_id(name), responder:users!responder_user_id(name)")
@@ -742,7 +743,7 @@ function AdminProfiles() {
   async function loadRecent() {
     setLoading(true);
     try {
-      const sb = (await import("@/lib/supabaseClient")).getSupabase();
+      const sb = getSupabase();
       if (searchType === "CUSTOMER") {
         // admin_recent_users() is a SECURITY DEFINER RPC that checks the
         // caller is actually an admin internally — customer PII columns
@@ -785,7 +786,7 @@ function AdminProfiles() {
     }
     setLoading(true);
     try {
-      const sb = (await import("@/lib/supabaseClient")).getSupabase();
+      const sb = getSupabase();
       const term = `%${searchQuery.trim()}%`;
       if (searchType === "CUSTOMER") {
         // admin_search_users() is a SECURITY DEFINER RPC — checks the caller
@@ -812,7 +813,7 @@ function AdminProfiles() {
 
   async function handleToggleSuspension(item: any, isSuspended: boolean) {
     try {
-      const sb = (await import("@/lib/supabaseClient")).getSupabase();
+      const sb = getSupabase();
       const newStatus = isSuspended ? "SUSPENDED" : "ACTIVE";
       const table = searchType === "BUSINESS" ? "businesses" : "providers";
       const { error } = await sb.from(table).update({ status: newStatus }).eq("id", item.id);

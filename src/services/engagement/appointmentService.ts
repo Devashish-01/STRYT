@@ -1,5 +1,6 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { aliasName } from "@/lib/publicName";
+import { notificationService } from "@/services/engagement/notificationService";
 import type { AppointmentRecord, AppointmentStatus, PaymentMethod, CancelledBy } from "@/types";
 
 const STORAGE_KEY = "stryt_appointments";
@@ -656,7 +657,6 @@ export const appointmentService = {
     const title = "Payment Requested 🔔";
     const body = `${shopName} requested payment${amountStr} for your booking on ${(apt as any).date_label} at ${(apt as any).time_label}.`;
     
-    const { notificationService } = await import("@/services/engagement/notificationService");
     await notificationService.send(
       (apt as any).customer_user_id,
       title,
