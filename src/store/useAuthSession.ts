@@ -31,6 +31,7 @@ import { getSupabase }         from "@/lib/supabaseClient";
 import {
   hasFirebaseWebConfig,
   firebaseSilentRefresh,
+  firebaseCompleteRedirect,
 } from "@/lib/firebaseWeb";
 
 // ---------------------------------------------------------------------------
@@ -81,51 +82,65 @@ export function useAuthSession() {
     // ── 3. Resolve the initial session ────────────────────────────────────────
     // With detectSessionInUrl=true, Supabase awaits the ?code= PKCE exchange
     // before getSession() resolves, so by this point we have a definitive answer.
-    void sb.auth.getSession().then(async ({ data }) => {
-      if (data.session) {
-        tokenStore.set(data.session.access_token, data.session.refresh_token);
-        // Hand the JWT to the Realtime socket. Without this, Realtime treats the
-        // connection as `anon` and RLS-protected tables silently deliver no rows.
-        sb.realtime.setAuth(data.session.access_token);
-        setIsAuthed(true);
-        return;
-      }
+    void (async () => {
+      try {
+        // 3a. If this page load is the return leg of a Firebase redirect
+        // sign-in (the popup fallback), consume the pending credential and
+        // bridge it to Supabase first. No-op when there's no pending redirect.
+        if (hasFirebaseWebConfig) {
+          const bridged = await firebaseCompleteRedirect();
+          if (bridged) {
+            // onAuthStateChange fires with the new session and sets isAuthed.
+            return;
+          }
+        }
 
-      // No session on bootstrap. This is the ONE case the live
-      // onAuthStateChange('SIGNED_OUT') healing branch never covers: that
-      // branch only fires when a session that was already active during THIS
-      // page load expires while the app is running. On a fresh page load /
-      // reload, if the Firebase-bridged Supabase session (signInWithIdToken)
-      // already expired BEFORE this reload happened, getSession() resolves
-      // straight to null with no SIGNED_OUT event in between — so without this,
-      // a user with a perfectly valid Firebase session gets bounced to the
-      // login screen on every reload once their ~1h Supabase session lapses.
-      // Try the same silent Firebase re-bridge used for live expiry before
-      // accepting the logout.
-      if (hasFirebaseWebConfig) {
-        const healed = await firebaseSilentRefresh();
-        if (healed) {
-          // onAuthStateChange fires with the new session and sets isAuthed —
-          // nothing further to do here.
+        const { data } = await sb.auth.getSession();
+        if (data.session) {
+          tokenStore.set(data.session.access_token, data.session.refresh_token);
+          // Hand the JWT to the Realtime socket. Without this, Realtime treats
+          // the connection as `anon` and RLS-protected tables silently deliver
+          // no rows.
+          sb.realtime.setAuth(data.session.access_token);
+          setIsAuthed(true);
           return;
         }
-      }
 
-      // Do NOT call tokenStore.clear() here. getSession() returns null when the
-      // network is unavailable during startup (Supabase can't refresh an expired
-      // token). Clearing here would turn a transient network hiccup into a
-      // permanent logout. The onAuthStateChange SIGNED_OUT event (below) is the
-      // correct and authoritative path for credential clearing.
-      setIsAuthed(false);
-    }).catch((e) => {
-      // Network error — leave stored tokens intact. The user stays in an
-      // optimistically-authenticated state; the session will re-validate on the
-      // next successful network request or foreground resume.
-      console.warn("[auth] getSession() failed (network?), keeping stored session:", e);
-    }).finally(() => {
-      clearTimeout(readyTimer);
-      setAuthReady(true);
-    });
+        // No session on bootstrap. This is the ONE case the live
+        // onAuthStateChange('SIGNED_OUT') healing branch never covers: that
+        // branch only fires when a session that was already active during THIS
+        // page load expires while the app is running. On a fresh page load /
+        // reload, if the Firebase-bridged Supabase session (signInWithIdToken)
+        // already expired BEFORE this reload happened, getSession() resolves
+        // straight to null with no SIGNED_OUT event in between — so without
+        // this, a user with a perfectly valid Firebase session gets bounced to
+        // the login screen on every reload once their ~1h Supabase session
+        // lapses. Try the same silent Firebase re-bridge used for live expiry
+        // before accepting the logout.
+        if (hasFirebaseWebConfig) {
+          const healed = await firebaseSilentRefresh();
+          if (healed) {
+            // onAuthStateChange fires with the new session and sets isAuthed.
+            return;
+          }
+        }
+
+        // Do NOT call tokenStore.clear() here. getSession() returns null when
+        // the network is unavailable during startup (Supabase can't refresh an
+        // expired token). Clearing here would turn a transient network hiccup
+        // into a permanent logout. The onAuthStateChange SIGNED_OUT event
+        // (below) is the correct and authoritative path for credential clearing.
+        setIsAuthed(false);
+      } catch (e) {
+        // Network error — leave stored tokens intact. The user stays in an
+        // optimistically-authenticated state; the session will re-validate on
+        // the next successful network request or foreground resume.
+        console.warn("[auth] bootstrap session resolve failed (network?), keeping stored session:", e);
+      } finally {
+        clearTimeout(readyTimer);
+        setAuthReady(true);
+      }
+    })();
 
     // ── 4. Subscribe to auth state changes ────────────────────────────────────
     const { data: { subscription } } = sb.auth.onAuthStateChange(

@@ -31,6 +31,8 @@ import {
   getAuth,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as fbSignOut,
   getIdToken,
   type Auth,
@@ -103,33 +105,98 @@ export function firebaseCurrentUser(): User | null {
 }
 
 /**
- * Open the Google OAuth popup, bridge the result to Supabase, and keep the
- * Firebase session alive for future silent refreshes.
+ * Build the Google provider with a forced account picker so returning users
+ * always choose an account (prevents a different account silently resuming a
+ * prior session).
+ */
+function googleProvider(): GoogleAuthProvider {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  return provider;
+}
+
+/**
+ * Sign in with Google through Firebase and bridge the result to Supabase.
  *
- * On success, Supabase's onAuthStateChange fires with the new session and the
- * app transitions to authenticated state automatically — the caller does not
- * need to do anything further.
+ * Primary path is signInWithPopup. When the popup can't be used — mobile
+ * browsers, popup blockers, in-app webviews — we fall back to Firebase's OWN
+ * redirect handler (`<authDomain>/__/auth/handler`), which is pre-authorized
+ * on Firebase's OAuth client and never touches Supabase's Google client
+ * secret. The redirect completes on the next page load via
+ * firebaseCompleteRedirect().
  *
- * Throws a user-visible Error on failure (popup closed, network error, etc.).
+ * On the popup path, Supabase's onAuthStateChange fires with the new session
+ * and the app transitions to authenticated state automatically. On the
+ * redirect path, the function returns after navigation is initiated and the
+ * bridge happens after the round-trip.
+ *
+ * Throws a user-visible Error on genuine failure.
  */
 export async function firebaseGoogleSignIn(): Promise<void> {
-  const auth     = getFirebaseAuth();
-  const provider = new GoogleAuthProvider();
-  // force_select_account so returning users always see the account picker,
-  // preventing a different account from silently resuming a prior session.
-  provider.setCustomParameters({ prompt: "select_account" });
+  const auth = getFirebaseAuth();
 
-  const result = await signInWithPopup(auth, provider);
-  const cred   = GoogleAuthProvider.credentialFromResult(result);
-  const idToken = cred?.idToken;
+  try {
+    const result  = await signInWithPopup(auth, googleProvider());
+    const cred    = GoogleAuthProvider.credentialFromResult(result);
+    const idToken = cred?.idToken;
 
-  if (!idToken) {
-    throw new Error("Google sign-in didn't return a credential. Please try again.");
+    if (!idToken) {
+      throw new Error("Google sign-in didn't return a credential. Please try again.");
+    }
+
+    // Bridge to Supabase. Firebase session is intentionally kept alive here —
+    // see the module-level doc block for why.
+    await bridgeToSupabase(idToken);
+  } catch (e: unknown) {
+    const code = (e as { code?: string } | null)?.code;
+
+    // Popup unavailable / blocked / not supported in this environment →
+    // fall back to Firebase's redirect flow. Navigation happens here; the
+    // token is bridged after the round-trip via firebaseCompleteRedirect().
+    if (
+      code === "auth/popup-blocked" ||
+      code === "auth/cancelled-popup-request" ||
+      code === "auth/operation-not-supported-in-this-environment"
+    ) {
+      await signInWithRedirect(auth, googleProvider());
+      return;
+    }
+
+    // User dismissed the popup themselves — surface a friendly, non-alarming message.
+    if (code === "auth/popup-closed-by-user") {
+      throw new Error("Sign-in was cancelled.");
+    }
+
+    throw e;
   }
+}
 
-  // Bridge to Supabase. Firebase session is intentionally kept alive here —
-  // see the module-level doc block for why.
-  await bridgeToSupabase(idToken);
+/**
+ * Complete a Google sign-in that used the redirect fallback.
+ *
+ * Call this once on app bootstrap. If the current page load is the return leg
+ * of a signInWithRedirect(), this consumes the pending credential and bridges
+ * the Google id_token into a Supabase session. If there is no pending redirect,
+ * it resolves to false immediately (cheap no-op).
+ *
+ * Never throws — a failed redirect completion must not block app startup.
+ */
+export async function firebaseCompleteRedirect(): Promise<boolean> {
+  try {
+    if (!hasFirebaseWebConfig) return false;
+    const result = await getRedirectResult(getFirebaseAuth());
+    if (!result) return false;
+
+    const cred    = GoogleAuthProvider.credentialFromResult(result);
+    const idToken = cred?.idToken;
+    if (!idToken) return false;
+
+    await bridgeToSupabase(idToken);
+    return true;
+  } catch (e) {
+    console.warn("[auth] Firebase redirect completion failed:", e);
+    return false;
+  }
 }
 
 /**

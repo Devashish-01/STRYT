@@ -24,9 +24,7 @@ import { getSupabase } from "@/lib/supabaseClient";
 import { toApiError }  from "@/lib/supabasePage";
 import {
   isNativePlatform,
-  NATIVE_GOOGLE_SIGNIN_READY,
   nativeGoogleSignInViaFirebase,
-  nativeGoogleSignIn,
   hasFirebaseWebConfig,
   firebaseGoogleSignIn,
   firebaseSignOut,
@@ -167,36 +165,36 @@ export const authService = {
   // ── Google OAuth ───────────────────────────────────────────────────────────
 
   /**
-   * Sign in with Google. The method is chosen based on platform:
+   * Sign in with Google — Firebase is the ONLY identity provider.
    *
-   *  Native + Firebase ready  → Credential Manager (no browser)
-   *  Native + no Firebase     → Custom Tab + PKCE deep link
-   *  Web   + Firebase config  → Firebase popup → Supabase bridge
-   *  Web   + no Firebase      → Supabase's own OAuth redirect (last resort)
+   *  Native  → Firebase Credential Manager account picker (no browser chrome)
+   *  Web     → Firebase popup, with automatic fallback to Firebase's own
+   *            redirect handler when a popup can't be shown
    *
-   * In all cases, on success, Supabase's onAuthStateChange fires with the new
-   * session. The caller does not need to do anything after awaiting this.
+   * Both paths obtain a Google ID token from Firebase and bridge it into a
+   * Supabase session via signInWithIdToken — which validates the token against
+   * the authorized client IDs and does NOT use Supabase's Google OAuth client
+   * secret. This deliberately avoids Supabase's signInWithOAuth redirect flow
+   * (the /authorize → /callback path), which fails with "invalid_client" when
+   * the dashboard client secret is stale.
+   *
+   * On success, Supabase's onAuthStateChange fires with the new session (popup
+   * path) or the session lands after the redirect round-trip. The caller does
+   * not need to do anything after awaiting this.
    */
   async signInWithGoogle(): Promise<void> {
     if (isNativePlatform()) {
-      if (NATIVE_GOOGLE_SIGNIN_READY) await nativeGoogleSignInViaFirebase();
-      else                            await nativeGoogleSignIn();
+      await nativeGoogleSignInViaFirebase();
       return;
     }
 
-    if (hasFirebaseWebConfig) {
-      await firebaseGoogleSignIn();
-      return;
+    if (!hasFirebaseWebConfig) {
+      throw new Error(
+        "Google sign-in is unavailable — Firebase is not configured for this build.",
+      );
     }
 
-    // Last-resort fallback — requires the Supabase callback URL to be
-    // registered in the Google Cloud Console for the Web client.
-    const sb = getSupabase();
-    const { error } = await sb.auth.signInWithOAuth({
-      provider: "google",
-      options:  { redirectTo: supabaseOAuthReturnUrl() },
-    });
-    if (error) throw toApiError(error);
+    await firebaseGoogleSignIn();
   },
 
   // ── Sign out ───────────────────────────────────────────────────────────────
