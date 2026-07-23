@@ -15,7 +15,7 @@ export default defineConfig({
       strategies: "injectManifest",
       srcDir: "src",
       filename: "sw.js",
-      includeAssets: ["favicon.svg", "icon-192.png", "icon-512.png"],
+      includeAssets: ["favicon.svg", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "og-image.png"],
       manifest: {
         name: "STRYT — Your Street Marketplace",
         short_name: "STRYT",
