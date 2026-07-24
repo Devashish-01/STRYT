@@ -11,14 +11,20 @@ export interface BusinessLoginConfig {
 export type AccessStatus = "PENDING" | "ACTIVE" | "EXPIRED" | "REVOKED" | "DENIED";
 export type AccessCheckResult = "ALLOWED" | "DENIED" | "ERROR";
 export type AccessLevel = "FULL" | "SCOPED";
-/** appointments/queue/catalog/leads — the only scopes a team-member grant can carry. */
-export type Scope = "appointments" | "queue" | "catalog" | "leads";
+/**
+ * Team-member grant scopes. `delivery` is the delivery-agent scope (Phase 1
+ * groundwork) — the DB grant whitelist + has_business_scope already accept it,
+ * but it stays hidden from the Team UI until DELIVERY_AGENT_ENABLED is flipped
+ * on (it's deliberately excluded from ALL_SCOPES in BusinessAccess).
+ */
+export type Scope = "appointments" | "queue" | "catalog" | "leads" | "delivery";
 /** Short display label per scope — shared by the switcher and the Team screen so they never drift. */
 export const SCOPE_LABELS: Record<Scope, string> = {
   appointments: "Appointments",
   queue: "Queue",
   catalog: "Catalogue",
   leads: "Leads & quotes",
+  delivery: "Delivery",
 };
 
 export interface AccessSession {

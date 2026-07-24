@@ -17,7 +17,11 @@ const SCOPE_META: Record<Scope, { label: string; text: string }> = {
   queue: { label: SCOPE_LABELS.queue, text: "Call, serve and manage the walk-in queue" },
   catalog: { label: SCOPE_LABELS.catalog, text: "Products, inventory, portfolio and hours" },
   leads: { label: SCOPE_LABELS.leads, text: "Respond to leads, send quotes, answer questions" },
+  delivery: { label: SCOPE_LABELS.delivery, text: "Pick up and deliver orders assigned to them" },
 };
+// `delivery` is intentionally NOT listed here yet — it stays out of the Team
+// UI until the delivery-agent feature is switched on (Phase 1 is DB groundwork
+// only). Add "delivery" here + a preset when DELIVERY_AGENT_ENABLED flips on.
 const ALL_SCOPES: Scope[] = ["appointments", "queue", "catalog", "leads"];
 
 type Preset = "front_desk" | "store_manager" | "full" | "custom";
