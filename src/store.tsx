@@ -46,7 +46,7 @@ import { useSocialSlice } from "@/store/useSocialSlice";
 import { useCommerceSlice } from "@/store/useCommerceSlice";
 import { useNotificationBadges } from "@/store/useNotificationBadges";
 
-export type ContextType = "customer" | "business" | "provider";
+export type ContextType = "customer" | "business" | "provider" | "delivery";
 export interface ActiveContext {
   type: ContextType;
   id: string | null; // business/provider id, null for customer
@@ -437,7 +437,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // drift risk that let context and URL disagree). Switching back to
   // customer is never gated — only entering a business/provider hat is.
   const attemptSwitchContext = useCallback((ctx: ActiveContext, dest: string): boolean => {
-    if (ctx.type === "customer" || !switchPinIsSet) {
+    // Customer and Delivery are the user's OWN identities (not operating-as a
+    // business you don't own), so they're never PIN-gated — only switching into
+    // a business/provider console requires the switch PIN.
+    if (ctx.type === "customer" || ctx.type === "delivery" || !switchPinIsSet) {
       setPersistedContext(ctx);
       return true;
     }

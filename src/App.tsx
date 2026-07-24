@@ -9,6 +9,7 @@ import DesktopSidebar from "./components/DesktopSidebar";
 import BusinessAccessGuard from "./components/BusinessAccessGuard";
 import RequireScope from "./components/RequireScope";
 import ProviderAccessGuard from "./components/ProviderAccessGuard";
+import RequireDeliveryAgent from "./components/RequireDeliveryAgent";
 import PinGateSheet from "./components/PinGateSheet";
 import RouteFallback from "./components/RouteFallback";
 import { useApp } from "./store";
@@ -128,6 +129,10 @@ const EmergencyContacts = lazy(() => import("./screens/safety/EmergencyContacts"
 const MyActivity = lazy(() => import("./screens/MyActivity"));
 const AccountSettings = lazy(() => import("./screens/AccountSettings"));
 const BusinessAccess = lazy(() => import("./screens/BusinessAccess"));
+
+// Delivery agent console (Phase 2 — gated behind DELIVERY_AGENT_ENABLED via
+// RequireDeliveryAgent, so the route is inert until the feature ships).
+const DeliveryConsole = lazy(() => import("./screens/delivery/DeliveryConsole"));
 
 // Society / Subscriptions / Pro / Neighborhood / Available / Wallet / Loyalty /
 // Photos / Story: all moved to screens/future-enhancement/ and unrouted —
@@ -637,6 +642,13 @@ export default function App() {
               <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
               <Route path="/provider/:id/manage/verify" element={<ProviderVerification />} />
               <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
+            </Route>
+
+            {/* Delivery agent console — a focused, delivery-only hat. Gated by
+                RequireDeliveryAgent (active `delivery` grant + feature flag), so
+                it never renders for anyone else. */}
+            <Route element={<RequireDeliveryAgent />}>
+              <Route path="/delivery" element={<DeliveryConsole />} />
             </Route>
 
             {/* Safety — live location sharing */}

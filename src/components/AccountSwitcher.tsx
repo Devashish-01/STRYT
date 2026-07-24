@@ -1,9 +1,9 @@
-import { Check, Store, Briefcase, User, Plus, ChevronRight } from "@/components/Icons";
+import { Check, Store, Briefcase, User, Plus, ChevronRight, Package } from "@/components/Icons";
 import { SafeImg } from "./common";
 import { useAccountOptions, type AccountOption } from "@/hooks/useAccountOptions";
 
-const ICONS = { customer: User, business: Store, provider: Briefcase } as const;
-const COLORS = { customer: "var(--brand-600)", business: "var(--orange-500)", provider: "var(--green-500)" } as const;
+const ICONS = { customer: User, business: Store, provider: Briefcase, delivery: Package } as const;
+const COLORS = { customer: "var(--brand-600)", business: "var(--orange-500)", provider: "var(--green-500)", delivery: "var(--delivery-600)" } as const;
 
 export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
   const { options, pick, canAddBusiness, canBecomeProvider, nav } = useAccountOptions();

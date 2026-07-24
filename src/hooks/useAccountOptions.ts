@@ -5,9 +5,10 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { businessService, providerService, businessAccessService } from "@/services";
 import { SCOPE_LABELS } from "@/services/marketplace/businessAccessService";
 import { displayName as safeName } from "@/lib/publicName";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 
 export interface AccountOption {
-  type: "customer" | "business" | "provider";
+  type: "customer" | "business" | "provider" | "delivery";
   id: string | null;
   name: string;
   avatar: string;
@@ -47,6 +48,13 @@ export function useAccountOptions() {
   const delegatedGrants = (mySessions ?? []).filter((s) => s.status === "ACTIVE" && !ownedIds.has(s.businessId));
   const provider = (myProv ?? []).find((p) => !ownedProviderId || p.id === ownedProviderId) ?? null;
 
+  // Delivery hat: appears only when the user has an ACTIVE grant that explicitly
+  // carries the `delivery` scope (a FULL delegate is not automatically a rider).
+  // Feature-flagged off until the delivery console ships.
+  const hasDeliveryGrant =
+    DELIVERY_AGENT_ENABLED &&
+    (mySessions ?? []).some((s) => s.status === "ACTIVE" && (s.scopes ?? []).includes("delivery" as any));
+
   const isActive = (type: string, id: string | null) => activeContext.type === type && activeContext.id === id;
 
   const options: AccountOption[] = [
@@ -70,6 +78,10 @@ export function useAccountOptions() {
       type: "provider" as const, id: provider.id, name: provider.displayName, avatar: provider.avatar,
       sub: "Provider · Active", dest: `/provider/${provider.id}/manage`, active: isActive("provider", provider.id),
     }] : []),
+    ...(hasDeliveryGrant ? [{
+      type: "delivery" as const, id: null, name: "Delivery", avatar: user.avatar,
+      sub: "Delivery agent", dest: "/delivery", active: isActive("delivery", null),
+    }] : []),
   ];
 
   // If the context we're currently "wearing" is a delegated business whose
@@ -87,6 +99,17 @@ export function useAccountOptions() {
     nav("/home");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeContext.type, activeContext.id, ownedBusinessIds, mySessions, ownedEntitiesLoaded]);
+
+  // Same self-heal for the Delivery hat: if the delivery grant is gone (revoked
+  // or feature turned off), don't leave the user stuck in Delivery mode.
+  useEffect(() => {
+    if (activeContext.type !== "delivery") return;
+    if (mySessions === undefined) return; // still loading
+    if (hasDeliveryGrant) return;
+    setContext({ type: "customer", id: null, name: user.name });
+    nav("/home");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeContext.type, hasDeliveryGrant, mySessions]);
 
   function pick(opt: AccountOption) {
     const ready = attemptSwitchContext({ type: opt.type, id: opt.id, name: opt.name }, opt.dest);

@@ -46,6 +46,11 @@
   --orange-100: #ffedd5;
   --orange-500: #f26a00;
 
+  /* Delivery hat accent (teal) */
+  --delivery-50: #d5f2ee;
+  --delivery-500: #14b8a6;
+  --delivery-600: #0d9488;
+
   /* Neutrals — Deep Ink, purple-tinted */
   --ink-900: #1a1530;
   --ink-800: #2c2447;

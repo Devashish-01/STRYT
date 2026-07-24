@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Check, Store, Briefcase, User, Plus, ChevronDown } from "@/components/Icons";
+import { Check, Store, Briefcase, User, Plus, ChevronDown, Package } from "@/components/Icons";
 import { SafeImg } from "@/components/common";
 import { useAccountOptions, type AccountOption } from "@/hooks/useAccountOptions";
 import { useLongPress } from "@/hooks/useLongPress";
@@ -7,8 +7,8 @@ import AccountSwitcher from "@/components/AccountSwitcher";
 
 const PANEL_WIDTH = 260;
 
-const ICONS = { customer: User, business: Store, provider: Briefcase } as const;
-const COLORS = { customer: "var(--brand-600)", business: "var(--orange-500)", provider: "var(--green-500)" } as const;
+const ICONS = { customer: User, business: Store, provider: Briefcase, delivery: Package } as const;
+const COLORS = { customer: "var(--brand-600)", business: "var(--orange-500)", provider: "var(--green-500)", delivery: "var(--delivery-600)" } as const;
 
 /**
  * Replaces the old one-tap "Switch to Customer" toggle buttons with a real

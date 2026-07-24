@@ -18,5 +18,6 @@ import type { ActiveContext } from "@/store";
 export function contextHomePath(ctx: ActiveContext): string {
   if (ctx.type === "business" && ctx.id) return `/business/${ctx.id}/manage`;
   if (ctx.type === "provider" && ctx.id) return `/provider/${ctx.id}/manage`;
+  if (ctx.type === "delivery") return "/delivery";
   return "/home";
 }

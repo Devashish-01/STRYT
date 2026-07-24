@@ -22,6 +22,7 @@ export { proService, PRO_PLANS, LEAD_PACKS } from "./core/proService";
 export { aiService } from "./core/aiService";
 export { supportService } from "./core/supportService";
 export { appointmentService } from "./engagement/appointmentService";
+export { deliveryService } from "./engagement/deliveryService";
 export { slotBlockService } from "./engagement/slotBlockService";
 export { locationService } from "./engagement/locationService";
 export { emergencyService } from "./engagement/emergencyService";
