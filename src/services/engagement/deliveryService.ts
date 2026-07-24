@@ -1,4 +1,27 @@
 import { getSupabase } from "@/lib/supabaseClient";
+import { businessAccessService } from "@/services/marketplace/businessAccessService";
+import { aliasName } from "@/lib/publicName";
+
+/** A delivery-scoped team member the owner can dispatch a delivery to. */
+export interface DeliveryTeamMember {
+  userId: string;
+  name: string;
+  avatar?: string;
+}
+
+/** The delivery attached to an appointment (owner/customer view). */
+export interface AppointmentDelivery {
+  id: string;
+  appointmentId: string;
+  status: DeliveryStatus;
+  liveStatus: DeliveryLiveStatus | null;
+  handoffCode: string | null;
+  handoffVerified: boolean;
+  agentUserId: string | null;
+  agentName: string;
+  lat: number | null;
+  lng: number | null;
+}
 
 /** Live-status vocabulary an agent can push (mirrors the agreement flow). */
 export type DeliveryLiveStatus = "LEAVING" | "ON_THE_WAY" | "ARRIVED" | "DONE";
@@ -89,5 +112,53 @@ export const deliveryService = {
     });
     if (error) throw error;
     return data as string;
+  },
+
+  // ── Owner side ────────────────────────────────────────────────────────────
+
+  /** The business's ACTIVE team members who carry the `delivery` scope. */
+  async deliveryTeam(businessId: string): Promise<DeliveryTeamMember[]> {
+    const sessions = await businessAccessService.ownerSessions(businessId);
+    return sessions
+      .filter((s) => s.status === "ACTIVE" && (s.scopes ?? []).includes("delivery") && s.granteeUserId)
+      .map((s) => ({ userId: s.granteeUserId as string, name: s.granteeName, avatar: s.granteeAvatar }));
+  },
+
+  /** Owner/manager assigns (or reassigns) a delivery for an appointment. */
+  async assignDelivery(appointmentId: string, agentUserId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("assign_delivery", {
+      p_appointment_id: appointmentId,
+      p_agent_user_id: agentUserId,
+    });
+    if (error) throw error;
+  },
+
+  /** Read the delivery for an appointment (owner + customer, RLS-scoped). */
+  async forAppointment(appointmentId: string): Promise<AppointmentDelivery | null> {
+    const sb = getSupabase();
+    // Cast: appointment_deliveries isn't in the generated schema types yet
+    // (new table — same typegen gap as the delivery RPCs).
+    const { data } = await (sb as any)
+      .from("appointment_deliveries")
+      .select("id, appointment_id, status, live_status, handoff_code, handoff_verified, agent_user_id, lat, lng, agent:users!agent_user_id(alias, avatar)")
+      .eq("appointment_id", appointmentId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!data) return null;
+    const r = data as any;
+    return {
+      id: r.id,
+      appointmentId: r.appointment_id,
+      status: r.status,
+      liveStatus: r.live_status ?? null,
+      handoffCode: r.handoff_code ?? null,
+      handoffVerified: !!r.handoff_verified,
+      agentUserId: r.agent_user_id ?? null,
+      agentName: aliasName({ alias: r.agent?.alias }, "Delivery agent"),
+      lat: r.lat ?? null,
+      lng: r.lng ?? null,
+    };
   },
 };

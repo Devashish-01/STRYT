@@ -15,6 +15,8 @@ import { PaymentSheet } from "@/components/PaymentSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
+import DeliveryTrackControl from "@/components/delivery/DeliveryTrackControl";
 import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
@@ -276,6 +278,11 @@ export default function MyAppointments() {
                     )}
 
                     <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />
+
+                    {/* Delivery tracking — live link + handoff code. Feature-gated. */}
+                    {DELIVERY_AGENT_ENABLED && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
+                      <DeliveryTrackControl appointmentId={apt.id} />
+                    )}
 
                     {/* Payment status — shown for PENDING too (seller may require
                         payment before accepting) and COMPLETED too (an accepted

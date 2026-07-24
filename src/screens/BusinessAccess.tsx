@@ -11,6 +11,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
 import Toggle from "@/components/Toggle";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 
 const SCOPE_META: Record<Scope, { label: string; text: string }> = {
   appointments: { label: SCOPE_LABELS.appointments, text: "View and manage booking requests" },
@@ -19,16 +20,18 @@ const SCOPE_META: Record<Scope, { label: string; text: string }> = {
   leads: { label: SCOPE_LABELS.leads, text: "Respond to leads, send quotes, answer questions" },
   delivery: { label: SCOPE_LABELS.delivery, text: "Pick up and deliver orders assigned to them" },
 };
-// `delivery` is intentionally NOT listed here yet — it stays out of the Team
-// UI until the delivery-agent feature is switched on (Phase 1 is DB groundwork
-// only). Add "delivery" here + a preset when DELIVERY_AGENT_ENABLED flips on.
-const ALL_SCOPES: Scope[] = ["appointments", "queue", "catalog", "leads"];
+// Management scopes drive the "Full access" preset. Delivery is a distinct
+// role (its own hat/console), so it's a separate opt-in toggle rather than part
+// of "full". It only appears while the delivery feature is enabled.
+const MANAGEMENT_SCOPES: Scope[] = ["appointments", "queue", "catalog", "leads"];
+const ALL_SCOPES: Scope[] = DELIVERY_AGENT_ENABLED ? [...MANAGEMENT_SCOPES, "delivery"] : MANAGEMENT_SCOPES;
 
-type Preset = "front_desk" | "store_manager" | "full" | "custom";
+type Preset = "front_desk" | "store_manager" | "delivery_rider" | "full" | "custom";
 const PRESETS: { id: Exclude<Preset, "custom">; label: string; scopes: Scope[] }[] = [
   { id: "front_desk", label: "Front desk", scopes: ["appointments", "queue"] },
   { id: "store_manager", label: "Store manager", scopes: ["catalog", "leads"] },
-  { id: "full", label: "Full access", scopes: ALL_SCOPES },
+  ...(DELIVERY_AGENT_ENABLED ? [{ id: "delivery_rider" as const, label: "Delivery rider", scopes: ["delivery"] as Scope[] }] : []),
+  { id: "full", label: "Full access", scopes: MANAGEMENT_SCOPES },
 ];
 
 function presetForScopes(scopes: Scope[]): Preset {

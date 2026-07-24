@@ -31,6 +31,7 @@ export interface AccessSession {
   id: string;
   businessId: string;
   businessName?: string;
+  granteeUserId?: string;
   granteeName: string;
   granteeAvatar?: string;
   status: AccessStatus;
@@ -158,12 +159,13 @@ export const businessAccessService = {
     const sb = getSupabase();
     const { data } = await sb
       .from("business_access_sessions")
-      .select("id, business_id, status, requested_at, expires_at, access_level, scopes, grantee:users!grantee_user_id(alias, avatar)")
+      .select("id, business_id, grantee_user_id, status, requested_at, expires_at, access_level, scopes, grantee:users!grantee_user_id(alias, avatar)")
       .eq("business_id", businessId)
       .order("requested_at", { ascending: false });
     return (data ?? []).map((r: any) => ({
       id: r.id,
       businessId: r.business_id,
+      granteeUserId: r.grantee_user_id ?? undefined,
       granteeName: aliasName({ alias: r.grantee?.alias }, "A user"),
       granteeAvatar: r.grantee?.avatar ?? undefined,
       status: r.status,

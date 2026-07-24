@@ -24,6 +24,8 @@ import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
+import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
@@ -425,6 +427,11 @@ export default function BusinessAppointments() {
           >
             <Ban size={12} /> {noShowBusy === apt.id ? "Updating…" : "Customer didn't show up? Mark no-show"}
           </button>
+        )}
+
+        {/* Delivery dispatch — assign a delivery-scoped team member. Feature-gated. */}
+        {DELIVERY_AGENT_ENABLED && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
+          <DeliveryAssignControl appointmentId={apt.id} businessId={id} />
         )}
       </div>
     );

@@ -230,15 +230,29 @@ New RPCs (thin clones of proven ones): `assign_delivery`,
 
 ---
 
-## 8. Phased rollout
-- **P1 (safe/additive):** `delivery` scope + `SCOPE_LABELS` + Team preset;
-  `appointment_deliveries` table + RLS; RPC clones. No live UI. Feature-flagged.
-- **P2 (hat + console):** `delivery` context type end-to-end (store,
-  `useAccountOptions`, `RoleSwitcher`, `contextHomePath`, `/delivery` routes +
-  `RequireDeliveryAgent`); the focused Delivery console (Active/Assigned/History).
-- **P3 (assignment + tracking):** owner "Assign delivery" on the appointment;
-  agent live stepper + GPS; customer Track button; handoff code; COD tie-in;
-  notifications on assign/arrive/deliver.
+## 8. Phased rollout — STATUS
+- **P1 (safe/additive): ✅ DONE.** `delivery` scope in the grant whitelist;
+  `appointment_deliveries` table + RLS; RPCs (assign/update/confirm/token);
+  generalized `tracking_tokens`. Migrations `20260845`. Feature-flagged off.
+- **P2 (hat + console): ✅ DONE.** `delivery` context type end-to-end (store,
+  `useAccountOptions`, `RoleSwitcher`/`AccountSwitcher`, `contextHomePath`,
+  `/delivery` route + `RequireDeliveryAgent`); focused Delivery console
+  (Active/Assigned/History). `my_deliveries` RPC (`20260846`).
+- **P3 (assignment + tracking): ✅ DONE.** Owner "Assign delivery" on the
+  appointment card (`DeliveryAssignControl`); agent GPS live-push (30s) + handoff
+  verification in the console; customer Track button + handoff code
+  (`DeliveryTrackControl`); `delivery` scope + "Delivery rider" preset in Team &
+  Access. DB refinements `20260847` (hide code from agent, gate DONE on handoff,
+  let customer mint tracking token).
+
+### To go live
+Everything is behind `DELIVERY_AGENT_ENABLED` in `src/lib/features.ts` (currently
+`false`). Flipping it to `true` reveals: the Delivery role in Team & Access, the
+Delivery hat in the account switcher, the `/delivery` console, and the assign/
+track controls on appointment cards. The DB groundwork is already live in prod.
+Remaining polish before flipping: capture a real delivery address (appointments
+don't store one today — the console shows the customer's area), a proper map view
+in the agent console, and notifications on arrive/deliver.
 
 ## 9. Decisions (resolved per requirements)
 - Agent identity → **existing STRYT user + team member only** (req. 2); no ad-hoc

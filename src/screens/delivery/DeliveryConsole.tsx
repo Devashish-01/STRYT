@@ -1,8 +1,20 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@/hooks/useApi";
 import { deliveryService, type DeliveryItem, type DeliveryLiveStatus } from "@/services/engagement/deliveryService";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
+import { nativeGeolocation } from "@/lib/nativeGeolocation";
+
+/** Best-effort current position; resolves null if unavailable/denied. */
+function getGPS(): Promise<{ lat: number; lng: number } | null> {
+  return new Promise((res) =>
+    nativeGeolocation.getCurrentPosition(
+      (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => res(null),
+      { timeout: 5000 },
+    ),
+  );
+}
 import RoleSwitcher from "@/components/RoleSwitcher";
 import { EmptyState } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
@@ -35,14 +47,31 @@ export default function DeliveryConsole() {
   const history = items.filter((d) => d.status === "DELIVERED" || d.status === "CANCELLED");
 
   const [tab, setTab] = useState<Tab>("ACTIVE");
-  // Auto-focus the tab that has something to act on.
   const effectiveTab: Tab = tab;
+
+  // Live GPS push: while a delivery is EN_ROUTE, re-send the agent's position
+  // every 30s so the customer's tracking map keeps moving (mirrors the agreement
+  // flow). Stops automatically once nothing is en route.
+  const enRoute = active.find((d) => d.status === "EN_ROUTE");
+  const enRouteId = enRoute?.id ?? null;
+  const pushTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!enRouteId) return;
+    const tick = async () => {
+      const c = await getGPS();
+      if (c) { try { await deliveryService.updateStatus(enRouteId, "ON_THE_WAY", c.lat, c.lng); } catch { /* transient */ } }
+    };
+    void tick();
+    pushTimer.current = setInterval(tick, 30000);
+    return () => { if (pushTimer.current) clearInterval(pushTimer.current); };
+  }, [enRouteId]);
 
   async function advance(d: DeliveryItem, next: DeliveryLiveStatus, okMsg: string) {
     setBusyId(d.id);
     haptics.medium();
     try {
-      await deliveryService.updateStatus(d.id, next);
+      const c = await getGPS();
+      await deliveryService.updateStatus(d.id, next, c?.lat, c?.lng);
       haptics.success();
       showToast(okMsg);
       refetch();
@@ -50,6 +79,18 @@ export default function DeliveryConsole() {
       showToast(e?.message || "Couldn't update — try again");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function verifyHandoff(d: DeliveryItem, code: string): Promise<boolean> {
+    try {
+      const ok = await deliveryService.confirmHandoff(d.id, code.trim());
+      if (ok) { haptics.success(); showToast("Handoff confirmed"); refetch(); }
+      else { showToast("Code doesn't match — check with the customer"); }
+      return ok;
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't verify — try again");
+      return false;
     }
   }
 
@@ -97,7 +138,7 @@ export default function DeliveryConsole() {
           />
         ) : (
           list.map((d) => (
-            <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} />
+            <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} />
           ))
         )}
       </div>
@@ -123,8 +164,15 @@ function Stepper({ status }: { status: string }) {
   );
 }
 
-function DeliveryCard({ d, busy, onAdvance }: { d: DeliveryItem; busy: boolean; onAdvance: (d: DeliveryItem, next: DeliveryLiveStatus, msg: string) => void }) {
+function DeliveryCard({ d, busy, onAdvance, onVerify }: {
+  d: DeliveryItem;
+  busy: boolean;
+  onAdvance: (d: DeliveryItem, next: DeliveryLiveStatus, msg: string) => void;
+  onVerify: (d: DeliveryItem, code: string) => Promise<boolean>;
+}) {
   const terminal = d.status === "DELIVERED" || d.status === "CANCELLED";
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
   return (
     <div className="card col gap-10" style={{ padding: 14 }}>
       <div className="row between center-v">
@@ -143,11 +191,6 @@ function DeliveryCard({ d, busy, onAdvance }: { d: DeliveryItem; busy: boolean; 
           <div className="small semi ellipsis">{d.customerName}</div>
           {d.customerArea && <div className="tiny muted ellipsis">{d.customerArea}</div>}
         </div>
-        {!terminal && d.handoffCode && (
-          <div className="tiny semi" title="Handoff code" style={{ letterSpacing: 1, color: "var(--delivery-600)", background: "var(--delivery-50)", padding: "3px 8px", borderRadius: 6 }}>
-            #{d.handoffCode}
-          </div>
-        )}
       </div>
 
       {!terminal && <Stepper status={d.status} />}
@@ -163,7 +206,30 @@ function DeliveryCard({ d, busy, onAdvance }: { d: DeliveryItem; busy: boolean; 
           {busy ? "…" : "I've arrived"}
         </button>
       )}
-      {d.status === "ARRIVED" && (
+      {d.status === "ARRIVED" && !d.handoffVerified && (
+        <div className="col gap-8">
+          <div className="tiny muted">Ask the customer for their handoff code to confirm you reached the right person.</div>
+          <div className="row gap-8">
+            <input
+              className="input grow"
+              inputMode="numeric"
+              placeholder="Handoff code"
+              value={code}
+              maxLength={6}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              style={{ letterSpacing: 2, textAlign: "center" }}
+            />
+            <button
+              className="btn btn-primary btn-sm"
+              disabled={verifying || code.trim().length < 4}
+              onClick={async () => { setVerifying(true); const ok = await onVerify(d, code); setVerifying(false); if (ok) setCode(""); }}
+            >
+              {verifying ? "…" : "Confirm"}
+            </button>
+          </div>
+        </div>
+      )}
+      {d.status === "ARRIVED" && d.handoffVerified && (
         <button className="btn btn-primary btn-block" disabled={busy} onClick={() => onAdvance(d, "DONE", "Delivered ✓")}>
           {busy ? "…" : "Mark delivered"}
         </button>
