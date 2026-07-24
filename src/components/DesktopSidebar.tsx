@@ -32,8 +32,18 @@ export default function DesktopSidebar() {
   const requireAuth = useRequireAuth();
   const ambient = useAmbientTheme();
 
-  const isBusiness = activeContext.type === "business";
-  const isProvider = activeContext.type === "provider";
+  // Profile isolation: when actually ON a business/provider console route, the
+  // chrome must match THAT console (from the URL), never a stale activeContext
+  // pointing at a different entity. On customer routes we fall back to the
+  // persisted activeContext. This keeps the page and its nav from ever showing
+  // two different hats, without silently switching context (which would bypass
+  // the PIN gate on entering a business — see attemptSwitchContext).
+  const consoleMatch = loc.pathname.match(/^\/(business|provider)\/([^/]+)\/manage/);
+  const effType = consoleMatch ? consoleMatch[1] : activeContext.type;
+  const effId = consoleMatch ? consoleMatch[2] : activeContext.id;
+
+  const isBusiness = effType === "business";
+  const isProvider = effType === "provider";
   const hasMultipleRoles = ownedBusinessIds.length > 0 || !!ownedProviderId;
 
   // The sidebar's own "home" is whatever context the user is currently in —
@@ -62,8 +72,8 @@ export default function DesktopSidebar() {
 
   // Build items based on active role
   const getNavItems = () => {
-    if (isBusiness && activeContext.id) {
-      const base = `/business/${activeContext.id}/manage`;
+    if (isBusiness && effId) {
+      const base = `/business/${effId}/manage`;
       return [
         { to: base, label: "Home", icon: LayoutDashboard, exact: true },
         { to: `${base}/catalog`, label: "Catalog", icon: LayoutGrid },
@@ -75,8 +85,8 @@ export default function DesktopSidebar() {
       ];
     }
 
-    if (isProvider && activeContext.id) {
-      const base = `/provider/${activeContext.id}/manage`;
+    if (isProvider && effId) {
+      const base = `/provider/${effId}/manage`;
       return [
         { to: base, label: "Today", icon: LayoutDashboard, exact: true },
         { to: `${base}/jobs`, label: "Jobs", icon: CalendarClock },
