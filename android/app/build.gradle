@@ -1,5 +1,13 @@
 apply plugin: 'com.android.application'
 
+// Version is injectable from CI so each Play upload gets a monotonically
+// increasing versionCode (Play rejects re-used codes). Pass
+//   -PstrytVersionCode=<int> -PstrytVersionName=<semver>
+// e.g. from the GitHub Actions run number + package.json version. Falls back
+// to sensible defaults for local builds.
+def strytVersionCode = (project.findProperty('strytVersionCode') ?: '1').toString().toInteger()
+def strytVersionName = (project.findProperty('strytVersionName') ?: '1.0').toString()
+
 android {
     namespace = "in.stryt.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -7,8 +15,8 @@ android {
         applicationId "in.stryt.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode strytVersionCode
+        versionName strytVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

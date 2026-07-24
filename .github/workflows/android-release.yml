@@ -69,20 +69,49 @@ jobs:
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/stryt-release.keystore
           echo "Keystore size: $(wc -c < android/app/stryt-release.keystore) bytes"
 
+      - name: Resolve app version
+        id: ver
+        run: |
+          # Monotonic versionCode from the run number (Play rejects re-used
+          # codes); human versionName from package.json.
+          echo "code=${{ github.run_number }}" >> $GITHUB_OUTPUT
+          echo "name=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
       - name: Build signed release APK
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --stacktrace \
+            -PstrytVersionCode=${{ steps.ver.outputs.code }} \
+            -PstrytVersionName=${{ steps.ver.outputs.name }} \
             -Pandroid.injected.signing.store.file=$(pwd)/app/stryt-release.keystore \
             -Pandroid.injected.signing.store.password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
             -Pandroid.injected.signing.key.alias=${{ secrets.ANDROID_KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.ANDROID_KEY_PASSWORD }}
 
-      - name: Collect APK
+      - name: Build signed release AAB (Play Store bundle)
+        working-directory: android
+        run: |
+          ./gradlew bundleRelease --stacktrace \
+            -PstrytVersionCode=${{ steps.ver.outputs.code }} \
+            -PstrytVersionName=${{ steps.ver.outputs.name }} \
+            -Pandroid.injected.signing.store.file=$(pwd)/app/stryt-release.keystore \
+            -Pandroid.injected.signing.store.password=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.ANDROID_KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Collect APK + AAB
         run: |
           mkdir -p release-artifacts
           cp android/app/build/outputs/apk/release/app-release.apk release-artifacts/stryt.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab release-artifacts/stryt.aab
+
+      - name: Upload AAB artifact (for Play Console upload)
+        uses: actions/upload-artifact@v4
+        with:
+          name: stryt-playstore-aab
+          path: release-artifacts/stryt.aab
+          retention-days: 30
 
       - name: Upload APK to Supabase Storage
         env:
@@ -111,6 +140,8 @@ jobs:
             3. Allow "Install unknown apps" if prompted
             4. Tap Install
 
-            > Direct APK download. Play Store listing coming soon.
-          files: release-artifacts/stryt.apk
+            > Direct APK download. `stryt.aab` is the Play Store bundle.
+          files: |
+            release-artifacts/stryt.apk
+            release-artifacts/stryt.aab
           make_latest: true
