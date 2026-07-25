@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState } from "@/components/common";
 import { adminService, type AdminReport, type VerificationQueueItem, type PendingLocationChange } from "@/services/core/adminService";
 import { profileControlService, type DeletionRequest } from "@/services/core/profileControlService";
+import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
 import { notificationService } from "@/services/engagement/notificationService";
 import { appealService, type AccountAppeal } from "@/services/core/appealService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -898,7 +899,7 @@ function AdminProfiles() {
           className={`chip ${subTab === "requests" ? "active" : ""}`}
           onClick={() => setSubTab("requests")}
         >
-          Deletion Queue
+          Scheduled deletions
         </button>
       </div>
 
@@ -996,12 +997,12 @@ function AdminProfiles() {
           {loadingRequests ? (
             <ListSkeleton count={2} />
           ) : requests.length === 0 ? (
-            <EmptyState emoji="✅" title="Queue clear" text="No active deletion requests." />
+            <EmptyState emoji="✅" title="Queue clear" text="No scheduled self-serve deletions." />
           ) : (
             <div className="col gap-10">
               {requests.map((req) => {
                 const reqDate = new Date(req.createdAt);
-                const purgeDate = new Date(reqDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+                const purgeDate = new Date(reqDate.getTime() + ACCOUNT_DELETION_GRACE_DAYS * 24 * 60 * 60 * 1000);
                 const daysLeft = Math.max(0, Math.ceil((purgeDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
                 const isReadyToPurge = daysLeft <= 0;
 

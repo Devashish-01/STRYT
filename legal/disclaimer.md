@@ -1,10 +1,10 @@
-ï»¿# STRYT â€” Disclaimer
+# STRYT — Disclaimer
 
 **Effective Date:** [To be set by STRYT on publication]
 **Last Updated:** 19 July 2026
 **Version:** 1.0 (draft for legal review)
 
-This Disclaimer forms part of the [Terms & Conditions](terms-and-conditions.md) and should be read with them and the other STRYT policies. It highlights important limitations about the STRYT platform (the app, **https://stryt.in**, and the native Android app). Nothing here excludes any liability that cannot be excluded under applicable Indian law, including non-waivable rights under the Consumer Protection Act, 2019.
+This Disclaimer forms part of the [Terms & Conditions](terms-and-conditions.md) and should be read with them and the other STRYT policies. It highlights important limitations about the STRYT platform (the app, **https://stryt.in**, and the native Android and iOS apps). Nothing here excludes any liability that cannot be excluded under applicable Indian law, including non-waivable rights under the Consumer Protection Act, 2019.
 
 ---
 
@@ -14,13 +14,13 @@ STRYT is an **intermediary** that helps neighbours discover and coordinate with 
 
 ---
 
-## 2. No payment handling â€” no refunds by STRYT
+## 2. No payment handling — no refunds by STRYT
 
-STRYT is **not** a bank, wallet, payment aggregator, payment gateway, or escrow agent, and never holds, processes, or controls your money. Payments happen **directly between you and the Seller** via UPI or cash. The in-app "I have paid" / "confirm" / "reject" actions and any "held"/"released" labels are **status records only** â€” not proof of payment and not a STRYT-operated escrow. **STRYT cannot and does not issue refunds.** Verify the recipient and that you received what you paid for before confirming. See the [Refund & Cancellation Policy](refund-cancellation-policy.md).
+STRYT is **not** a bank, wallet, payment aggregator, payment gateway, or escrow agent, and never holds, processes, or controls your money. Payments happen **directly between you and the Seller** via UPI or cash. The in-app "I have paid" / "confirm" / "reject" actions and any "held"/"released" labels are **status records only** — not proof of payment and not a STRYT-operated escrow. **STRYT cannot and does not issue refunds.** Verify the recipient and that you received what you paid for before confirming. See the [Refund & Cancellation Policy](refund-cancellation-policy.md).
 
 ---
 
-## 3. "As is" â€” no warranties
+## 3. "As is" — no warranties
 
 The Platform is provided **"as is"** and **"as available"**, without warranties of any kind, express or implied, including merchantability, fitness for a particular purpose, non-infringement, accuracy, availability, or uninterrupted/error-free operation, to the maximum extent permitted by law. We do not warrant that the Platform will always be available, secure, or free of errors, or that defects will be corrected.
 
@@ -40,7 +40,7 @@ A **"STRYT Verified"** badge means only that a human reviewer checked certain do
 
 ## 6. Estimates, suggestions, and automated features are informational
 
-Wait-time estimates, distances, "nearby" and map results, search rankings, saved-search matches, and the statistical **price suggestion** are **informational and may be inaccurate**. The price suggestion is a statistical average of recent local quotes â€” **not AI, financial, or professional advice**, and it does not read or send your text to any AI service. Do not rely on any estimate or suggestion as a promise. You are responsible for your own pricing and decisions.
+Wait-time estimates, distances, "nearby" and map results, search rankings, saved-search matches, and the statistical **price suggestion** are **informational and may be inaccurate**. The price suggestion is a statistical average of recent local quotes — **not AI, financial, or professional advice**, and it does not read or send your text to any AI service. Do not rely on any estimate or suggestion as a promise. You are responsible for your own pricing and decisions.
 
 ---
 
@@ -70,7 +70,7 @@ The Platform relies on and may link to third-party services (including Google/Fi
 
 ## 11. Features not yet available
 
-Some capabilities present in the app or its code are **not currently available to users** â€” including in-app paid plans, provider lead packs, listing boosts, the wallet/loyalty/coupon features, recurring subscriptions, the society/gate-pass module, phone/email OTP sign-in, and SMS. References to such features do not constitute an offer, and they may change, be delayed, or be withdrawn without notice. When any becomes available, applicable terms will be presented at that time.
+Some capabilities present in the app or its code are **not currently available to users** — including in-app paid plans, provider lead packs, listing boosts, the wallet/loyalty/coupon features, recurring subscriptions, the society/gate-pass module, phone/email OTP sign-in, and SMS. References to such features do not constitute an offer, and they may change, be delayed, or be withdrawn without notice. When any becomes available, applicable terms will be presented at that time.
 
 ---
 
@@ -88,13 +88,13 @@ Content on the Platform, including community posts, is provided by Users for gen
 
 ## 14. Limitation of liability
 
-To the maximum extent permitted by law, STRYT's liability is limited and excluded as set out in **Sections 39â€“42 of the [Terms & Conditions](terms-and-conditions.md)**, which apply to this Disclaimer. Nothing in this Disclaimer or the Terms excludes liability that cannot lawfully be excluded, including under the Consumer Protection Act, 2019.
+To the maximum extent permitted by law, STRYT's liability is limited and excluded as set out in **Sections 39–42 of the [Terms & Conditions](terms-and-conditions.md)**, which apply to this Disclaimer. Nothing in this Disclaimer or the Terms excludes liability that cannot lawfully be excluded, including under the Consumer Protection Act, 2019.
 
 ---
 
 ## 15. Contact
 
-Questions about this Disclaimer: contact@stryt.in, **Account â†’ Help & Support**, or the Grievance Officer (see the [Grievance Redressal Policy](grievance-redressal-policy.md)).
+Questions about this Disclaimer: contact@stryt.in, **Account ? Help & Support**, or the Grievance Officer (see the [Grievance Redressal Policy](grievance-redressal-policy.md)).
 
 ---
 

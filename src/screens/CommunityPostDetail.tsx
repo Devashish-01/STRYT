@@ -444,7 +444,7 @@ export default function CommunityPostDetail() {
             </span>
           ) : (
             <button className="row gap-6 small semi" style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }} onClick={handleLike}>
-              <Heart size={18} fill={liked ? "var(--red-500)" : "none"} /> {likeCount} {likeCount === 1 ? "like" : "likes"}
+              <Heart size={18} weight={liked ? "fill" : "regular"} /> {likeCount} {likeCount === 1 ? "like" : "likes"}
             </button>
           )}
         </div>

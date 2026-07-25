@@ -1,27 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Zap, Clock, Calendar, CheckCircle } from "@/components/Icons";
+import { Zap, Clock } from "@/components/Icons";
 import { providerService } from "@/services";
 import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
 import LivePulseDot from "@/components/LivePulseDot";
 import ProviderManageNav from "./ProviderManageNav";
-import { evaluateProviderAvailability, calculateNextTurnoffTime, parseTimeToMinutes, DEFAULT_DAYS_PATTERN, DEFAULT_START_TIME, DEFAULT_END_TIME } from "@/utils/availability";
-
-const DAYS_PRESETS = [
-  { label: "Mon – Sat", value: "Mon–Sat" },
-  { label: "Mon – Fri", value: "Mon–Fri" },
-  { label: "Everyday", value: "Everyday" },
-  { label: "Weekends Only", value: "Sat–Sun" },
-];
-
-const TIME_OPTIONS = [
-  "06:00 AM", "07:00 AM", "08:00 AM", "09:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
-  "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM", "06:00 PM", "07:00 PM",
-  "08:00 PM", "09:00 PM", "10:00 PM", "11:00 PM"
-];
+import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
+import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
 
 export default function ProviderAvailability() {
   const { id = "" } = useParams();
@@ -40,53 +28,23 @@ export default function ProviderAvailability() {
   // Keep all form state as null until real data arrives — prevents default-value flash
   const [now, setNow] = useState<boolean | null>(null);
   const [hours, setHours] = useState(3);
-  const [fromTime, setFromTime] = useState<string | null>(null);
-  const [toTime, setToTime] = useState<string | null>(null);
-  const [daysPattern, setDaysPattern] = useState<string | null>(null);
-  const [slotDuration, setSlotDuration] = useState<number | null>(null);
+  const [noteRaw, setNoteRaw] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
   // Populate state exactly once when provider data arrives
   useEffect(() => {
     if (!provider) return;
     setNow(provider.isAvailableNow ?? false);
-    let days = DEFAULT_DAYS_PATTERN;
-    let from = DEFAULT_START_TIME;
-    let to   = DEFAULT_END_TIME;
-    let dur  = 30;
-    if (provider.availabilityNote) {
-      const parts    = provider.availabilityNote.split("|");
-      const mainPart = parts[0];
-      const cfgPart  = parts[1];
-      if (cfgPart && cfgPart.includes("duration=")) {
-        const match = cfgPart.match(/duration=(\d+)/);
-        if (match) dur = parseInt(match[1], 10);
-      }
-      if (mainPart.includes("from ") && mainPart.includes(" to ")) {
-        const p = mainPart.split(" from ");
-        if (p[0]) days = p[0].trim();
-        const times = p[1]?.split(" to ");
-        if (times?.[0]) from = times[0].trim();
-        if (times?.[1]) to   = times[1].trim();
-      }
-    }
-    setDaysPattern(days);
-    setFromTime(from);
-    setToTime(to);
-    setSlotDuration(dur);
+    setNoteRaw(provider.availabilityNote ?? "");
   }, [provider]);
 
   // Effective values — fall back to defaults only for computed display (never shown before data loads)
-  const effectiveNow          = now ?? false;
-  const effectiveFromTime     = fromTime ?? DEFAULT_START_TIME;
-  const effectiveToTime       = toTime   ?? DEFAULT_END_TIME;
-  const effectiveDaysPattern  = daysPattern ?? DEFAULT_DAYS_PATTERN;
-  const effectiveSlotDuration = slotDuration ?? 30;
+  const effectiveNow = now ?? false;
 
   const evalResult = evaluateProviderAvailability(provider?.availabilityNote, effectiveNow, provider?.availableUntil);
 
   // Don't render the form at all until real data is ready — no flash of defaults
-  const formReady = !providerLoading && now !== null && fromTime !== null;
+  const formReady = !providerLoading && now !== null && noteRaw !== undefined;
 
   async function toggleNow() {
     const prev = now;
@@ -95,7 +53,7 @@ export default function ProviderAvailability() {
     try {
       if (next && !evalResult.isOpenNow) {
         // Turning ON during off-hours: set availableUntil to next day's turnoff time!
-        const turnoff = calculateNextTurnoffTime(`${daysPattern} from ${fromTime} to ${toTime}`);
+        const turnoff = calculateNextTurnoffTime(noteRaw);
         const diffHrs = Math.max(1, Math.round((turnoff.getTime() - Date.now()) / (3600 * 1000)));
         await providerService.setAvailability(id, true, diffHrs);
         showToast(`Available until ${turnoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} tomorrow ⚡`);
@@ -110,11 +68,11 @@ export default function ProviderAvailability() {
   }
 
   async function handleSaveHours() {
+    if (noteRaw === undefined) return;
     setSaving(true);
-    const formattedNote = `${effectiveDaysPattern} from ${effectiveFromTime} to ${effectiveToTime}|duration=${effectiveSlotDuration}`;
     try {
-      await providerService.update(id, { availabilityNote: formattedNote });
-      showToast(`Saved availability: ${effectiveDaysPattern} from ${effectiveFromTime} to ${effectiveToTime}`);
+      await providerService.update(id, { availabilityNote: noteRaw });
+      showToast("Saved availability");
     } catch {
       showToast("Couldn't update availability note");
     } finally {
@@ -199,93 +157,9 @@ export default function ProviderAvailability() {
                 <Clock size={18} color="var(--brand-700)" /> Working Hours (Availability Timing)
               </div>
 
-              {/* Days selector */}
-              <div className="field">
-                <label className="tiny semi muted">Available Days</label>
-                <div className="row wrap gap-8" style={{ marginTop: 6 }}>
-                  {DAYS_PRESETS.map((d) => (
-                    <button
-                      key={d.value}
-                      type="button"
-                      onClick={() => setDaysPattern(d.value)}
-                      className={`chip ${effectiveDaysPattern === d.value ? "active" : ""}`}
-                      style={{ fontSize: 12 }}
-                    >
-                      <Calendar size={12} style={{ marginRight: 4 }} /> {d.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Time Range */}
-              <div className="row gap-12" style={{ marginTop: 4 }}>
-                <div className="field grow">
-                  <label className="tiny semi muted">Available From (Start)</label>
-                  <select
-                    className="input"
-                    value={effectiveFromTime}
-                    onChange={(e) => setFromTime(e.target.value)}
-                    style={{ fontSize: 13, padding: "10px 12px" }}
-                  >
-                    {TIME_OPTIONS.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field grow">
-                  <label className="tiny semi muted">Available Until (End)</label>
-                  <select
-                    className="input"
-                    value={effectiveToTime}
-                    onChange={(e) => setToTime(e.target.value)}
-                    style={{ fontSize: 13, padding: "10px 12px" }}
-                  >
-                    {TIME_OPTIONS.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Slot Duration & Max Appointments */}
-              <div className="row gap-12" style={{ marginTop: 4 }}>
-                <div className="field grow">
-                  <label className="tiny semi muted">Appointment Slot Duration</label>
-                  <select
-                    className="input"
-                    value={effectiveSlotDuration}
-                    onChange={(e) => setSlotDuration(Number(e.target.value))}
-                    style={{ fontSize: 13, padding: "10px 12px" }}
-                  >
-                    <option value={15}>15 minutes</option>
-                    <option value={30}>30 minutes</option>
-                    <option value={45}>45 minutes</option>
-                    <option value={60}>60 minutes (1 hr)</option>
-                    <option value={90}>90 minutes (1.5 hrs)</option>
-                    <option value={120}>120 minutes (2 hrs)</option>
-                  </select>
-                </div>
-                <div className="field grow">
-                  <label className="tiny semi muted">Max Appointments / Day</label>
-                  <div
-                    className="input"
-                    style={{ fontSize: 13.5, padding: "10px 12px", background: "var(--ink-50)", fontWeight: 700, display: "flex", alignItems: "center", height: 38 }}
-                  >
-                    {(() => {
-                      const total = parseTimeToMinutes(effectiveToTime) - parseTimeToMinutes(effectiveFromTime);
-                      return total > 0 ? Math.floor(total / effectiveSlotDuration) : 0;
-                    })()} slots
-                  </div>
-                </div>
-              </div>
-
-              {/* Summary Preview */}
-              <div className="card card-condensed" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
-                <div className="tiny semi muted">Public Profile Display Preview:</div>
-                <div className="bold small" style={{ color: "var(--brand-800)", marginTop: 2 }}>
-                  🕒 {effectiveDaysPattern} from {effectiveFromTime} to {effectiveToTime}
-                </div>
-              </div>
+              {noteRaw !== undefined && (
+                <WeeklyHoursEditor key={id} initialRaw={noteRaw} onChange={setNoteRaw} />
+              )}
 
               <button
                 type="button"

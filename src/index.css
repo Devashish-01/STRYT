@@ -91,6 +91,8 @@
 
   --maxw: 480px;
   --nav-h: 66px;
+  /* Map overlays sit above the fixed bottom nav (see MapView/RadiusStrip). */
+  --map-radius-strip-bottom: calc(var(--nav-h) + 12px + var(--safe-area-bottom));
   --header-h: 56px;
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);

@@ -7,11 +7,11 @@ import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store } from "@/compo
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
-import HoursSelector from "@/components/HoursSelector";
-import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
+import HoursSelector, { parseAvailability } from "@/components/HoursSelector";
+import { DEFAULT_ONBOARD_WORKING_HOURS, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
 
 import { reverseGeocodeFull } from "@/lib/geocode";
-import { searchGoogleMapBusiness, ImportedBusinessDetails } from "@/lib/googlePlaces";
+import { searchMapBusinessCandidates, ImportedBusinessDetails } from "@/lib/mapBusinessSearch";
 
 const steps = ["Basics", "Location", "Photos", "Contact"];
 
@@ -64,6 +64,11 @@ export default function BusinessOnboard() {
         );
       }
       const subNames = sub.map(id => selectedCat?.children?.find(ch => ch.id === id)?.name || id);
+      // Onboarding still picks hours via the lightweight day-group + single-range HoursSelector,
+      // but writes storage in the new per-day format so the new hours editor / correct "open now"
+      // badges apply immediately, without a legacy round-trip.
+      const parsedHours = parseAvailability(hours);
+      const hoursValue = serializeHoursValue(expandPatternToWeekly(parsedHours.days, parsedHours.from, parsedHours.to, 30));
       const biz = await businessService.create({
         name,
         categoryId: cat ?? undefined,
@@ -75,7 +80,7 @@ export default function BusinessOnboard() {
         phone,
         openingDate: openDate || undefined,
         offerText: offer || undefined,
-        hours: hours || undefined,
+        hours: hoursValue || undefined,
         coverImage: uploadedUrls[0] || undefined,
         gallery: uploadedUrls.length > 0 ? uploadedUrls : undefined,
         broadcastRadius,
@@ -155,7 +160,7 @@ export default function BusinessOnboard() {
                     if (e.key === "Enter") {
                       e.preventDefault();
                       setGSearching(true);
-                      const res = await searchGoogleMapBusiness(gQuery);
+                      const res = await searchMapBusinessCandidates(gQuery);
                       setGResults(res);
                       setGSearching(false);
                     }
@@ -167,7 +172,7 @@ export default function BusinessOnboard() {
                   disabled={gSearching || gQuery.trim().length < 2}
                   onClick={async () => {
                     setGSearching(true);
-                    const res = await searchGoogleMapBusiness(gQuery);
+                    const res = await searchMapBusinessCandidates(gQuery);
                     setGResults(res);
                     setGSearching(false);
                   }}

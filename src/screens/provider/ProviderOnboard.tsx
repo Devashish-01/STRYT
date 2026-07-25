@@ -7,8 +7,8 @@ import { Camera, CheckCircle2, IndianRupee, Plus, Briefcase } from "@/components
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
-import HoursSelector from "@/components/HoursSelector";
-import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
+import HoursSelector, { parseAvailability } from "@/components/HoursSelector";
+import { DEFAULT_ONBOARD_WORKING_HOURS, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
 
 
 const steps = ["Skill", "Area & price", "Portfolio", "Photo"];
@@ -60,13 +60,18 @@ export default function ProviderOnboard() {
       if (newCat.trim()) await catalogService.proposeCategory(newCat.trim(), null, "SERVICE");
       // A clear photograph becomes the provider's profile photo (avatar).
       const photoUrl = await uploadService.upload(photoFile as File, "provider-photo");
+      // Onboarding still picks hours via the lightweight day-group + single-range HoursSelector,
+      // but writes storage in the new per-day format so the new hours editor / correct "open now"
+      // badges apply immediately, without a legacy round-trip.
+      const parsedAvailability = parseAvailability(availability);
+      const availabilityValue = serializeHoursValue(expandPatternToWeekly(parsedAvailability.days, parsedAvailability.from, parsedAvailability.to, 30));
       const created = await providerService.create({
         displayName: displayName.trim(),
         categoryId: cat ?? undefined,
         bio,
         startingPrice: Number(price),
         serviceRadiusKm: radius,
-        availabilityNote: availability,
+        availabilityNote: availabilityValue,
         avatar: photoUrl,
         lat: lat!,
         lng: lng!,

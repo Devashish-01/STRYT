@@ -43,7 +43,8 @@ export default function MyPeopleToggle({ size = 20 }: { size?: number }) {
       showToast("Live location sharing stopped");
     } else {
       const id = await start();
-      showToast(id ? "Live location shared with My People" : "Couldn't start sharing — add a contact first");
+      if (id) showToast("Live location shared with My People");
+      // null = declined disclosure, no contacts / RPC failure, or cancelled — avoid noisy toast on decline
     }
   }
 

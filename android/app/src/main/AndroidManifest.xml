@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="false"
@@ -55,12 +56,13 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Nearby discovery + live share (while-in-use). -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <!-- Live location sharing keeps streaming while the app is backgrounded /
-         the screen is locked (safety-grade). Requires the Play Store
-         background-location disclosure + the @capacitor-community/background-
-         geolocation plugin (foreground-service based). -->
+    <!-- Live share with My People continues while the app is backgrounded /
+         screen locked via @capgo/background-geolocation (FGS).
+         Play requires a prominent in-app disclosure (BackgroundLocationDisclosure)
+         before the system dialog + a Play Console background-location declaration. -->
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
@@ -68,4 +70,6 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Capgo plugin marks GPS required; keep the app installable without GPS. -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" tools:replace="android:required" />
 </manifest>

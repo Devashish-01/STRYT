@@ -10,7 +10,8 @@ import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
-import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, RatingBars } from "@/components/common";
+import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, RatingBars, Pill } from "@/components/common";
+import PhotoViewer, { type PhotoViewerItem } from "@/components/PhotoViewer";
 import { useApp } from "@/store";
 import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
@@ -18,7 +19,7 @@ import ShareCard from "@/components/ShareCard";
 import { StoryViewer } from "@/components/Stories";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { PaymentSheet } from "@/components/PaymentSheet";
-import { evaluateProviderAvailability } from "@/utils/availability";
+import { evaluateProviderAvailability, formatHoursForDisplay } from "@/utils/availability";
 import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord } from "@/types";
 import { PROVIDER_BADGE_THRESHOLDS } from "@/lib/badges";
@@ -67,6 +68,7 @@ export default function ProviderDetail() {
   const [reviewing, setReviewing] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
+  const [viewingPhotos, setViewingPhotos] = useState<{ photos: PhotoViewerItem[]; startIndex: number } | null>(null);
   const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
 
   if (loading) {
@@ -138,15 +140,17 @@ export default function ProviderDetail() {
         )}
         {/* Header */}
         <div
+          onClick={heroPhoto ? () => setViewingPhotos({ photos: p.portfolio.map((i) => ({ url: i.url, caption: i.caption })), startIndex: 0 }) : undefined}
           style={{
             background: heroPhoto
               ? `linear-gradient(160deg, rgba(22,163,74,0.88), rgba(21,128,61,0.92)), url(${heroPhoto}) center/cover`
               : "linear-gradient(135deg,var(--green-500),var(--green-600))",
             color: "#fff", padding: "calc(12px + var(--safe-area-top)) 16px 24px",
+            cursor: heroPhoto ? "pointer" : "default",
           }}
         >
           <div className="row between">
-            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
+            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={(e) => { e.stopPropagation(); nav(-1); }}><ArrowLeft size={20} /></button>
             <div className="row gap-8">
               {/* Call stays available to guests — it's the provider's own
                   published number, and recordInteraction's lead insert is
@@ -158,27 +162,37 @@ export default function ProviderDetail() {
                   style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }}
                   href={`tel:${p.phone}`}
                   aria-label="Call"
-                  onClick={() => providerService.recordInteraction(p.id, "CALL").catch(() => {})}
+                  onClick={(e) => { e.stopPropagation(); providerService.recordInteraction(p.id, "CALL").catch(() => {}); }}
                 >
                   <Phone size={18} />
                 </a>
               )}
               {!isGuest && (
                 <>
-                  <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
-                  <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={() => toggleBookmark("PROVIDER", p.id)}>
-                    <Heart size={18} fill={saved ? "#fff" : "none"} />
-                  </button>
+                  <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={(e) => { e.stopPropagation(); setShare(true); }}><Share2 size={18} /></button>
+                  {!isOwner && (
+                    <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={(e) => { e.stopPropagation(); toggleBookmark("PROVIDER", p.id); }}>
+                      <Heart size={18} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-900)"} />
+                    </button>
+                  )}
                 </>
               )}
             </div>
           </div>
           <div className="row gap-14" style={{ marginTop: 14 }}>
-            <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 78, height: 78, border: "3px solid rgba(255,255,255,0.4)" }} />
+            <SafeImg
+              src={p.avatar}
+              alt={p.displayName}
+              variant="avatar"
+              className="avatar"
+              style={{ width: 78, height: 78, border: "3px solid rgba(255,255,255,0.4)" }}
+              onClick={(e) => { e.stopPropagation(); setViewingPhotos({ photos: [{ url: p.avatar }], startIndex: 0 }); }}
+            />
             <div className="grow">
-              <div className="row gap-6">
+              <div className="row gap-6 center-v">
                 <span className="bold" style={{ fontSize: 20 }}>{safeName(p.displayName, "Local provider")}</span>
                 {p.isVerified && <BadgeCheck size={18} color="#fff" />}
+                {isOwner && <Pill tone="purple">Owner</Pill>}
               </div>
               <div className="small" style={{ opacity: 0.9 }}>{p.categoryName} • {p.subCategory}</div>
               <div className="row gap-8" style={{ marginTop: 6 }}>
@@ -205,12 +219,13 @@ export default function ProviderDetail() {
 
         {/* Follow + vouch row — a vouch is a trust signal that only means
             something from a real, accountable neighbour, so guests get the
-            sign-in prompt in place of the whole row. */}
+            sign-in prompt in place of the whole row. Owners don't follow or
+            vouch for themselves, so the row is skipped entirely for them. */}
         {isGuest ? (
           <div className="page-pad" style={{ paddingTop: 12 }}>
             <GuestSignInPrompt message="Sign in to book, message or follow" compact />
           </div>
-        ) : (
+        ) : isOwner ? null : (
           <div className="page-pad row gap-10" style={{ paddingTop: 12 }}>
             <button
               className="btn grow btn-sm"
@@ -224,7 +239,7 @@ export default function ProviderDetail() {
               style={{ background: hasVouched ? "var(--green-100)" : "var(--ink-50)", color: hasVouched ? "var(--green-600)" : "var(--ink-700)" }}
               onClick={() => toggleVouch(p.id)}
             >
-              <ThumbsUp size={15} fill={hasVouched ? "var(--green-500)" : "none"} /> {hasVouched ? "Vouched" : "Vouch"}
+              <ThumbsUp size={15} weight={hasVouched ? "fill" : "regular"} /> {hasVouched ? "Vouched" : "Vouch"}
             </button>
           </div>
         )}
@@ -329,14 +344,15 @@ export default function ProviderDetail() {
                         <span className="grow semi small">{e.skill}</span>
                         <span className="tiny muted">{count}</span>
                         {/* Guests see how many neighbours endorsed a skill, but
-                            can't add an endorsement — it's a trust signal. */}
-                        {!isGuest && (
+                            can't add an endorsement — it's a trust signal.
+                            Owners don't endorse their own skills. */}
+                        {!isGuest && !isOwner && (
                           <button
                             className="btn btn-sm"
                             style={{ padding: "6px 12px", background: isOn ? "var(--brand-100)" : "var(--ink-50)", color: isOn ? "var(--brand-700)" : "var(--ink-700)" }}
                             onClick={() => toggleEndorse(p.id, e.skill)}
                           >
-                            <ThumbsUp size={13} fill={isOn ? "var(--brand-600)" : "none"} /> {isOn ? "Endorsed" : "Endorse"}
+                            <ThumbsUp size={13} weight={isOn ? "fill" : "regular"} /> {isOn ? "Endorsed" : "Endorse"}
                           </button>
                         )}
                       </div>
@@ -382,7 +398,7 @@ export default function ProviderDetail() {
                 <Clock size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
                 <div>
                   <div className="tiny semi muted" style={{ fontSize: 11, color: "var(--ink-500)" }}>Working Availability Timing</div>
-                  <div className="semi" style={{ color: "var(--ink-900)" }}>{p.availabilityNote || "Available on request"}</div>
+                  <div className="semi" style={{ color: "var(--ink-900)" }}>{p.availabilityNote ? formatHoursForDisplay(p.availabilityNote) : "Available on request"}</div>
                 </div>
               </div>
               <div className="divider" />
@@ -429,9 +445,15 @@ export default function ProviderDetail() {
               <EmptyState emoji="🖼️" title="No work samples yet" text="This provider hasn't added portfolio photos." />
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                {p.portfolio.map((item) => (
+                {p.portfolio.map((item, i) => (
                   <div key={item.id}>
-                    <SafeImg src={item.url} alt={item.caption} className="thumb" style={{ width: "100%", height: 140, borderRadius: 14 }} />
+                    <SafeImg
+                      src={item.url}
+                      alt={item.caption}
+                      className="thumb"
+                      style={{ width: "100%", height: 140, borderRadius: 14, cursor: "pointer" }}
+                      onClick={() => setViewingPhotos({ photos: p.portfolio.map((it) => ({ url: it.url, caption: it.caption })), startIndex: i })}
+                    />
                     {item.caption && <p className="tiny muted" style={{ marginTop: 6 }}>{item.caption}</p>}
                   </div>
                 ))}
@@ -442,7 +464,7 @@ export default function ProviderDetail() {
 
         {tab === "reviews" && (
           <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
-            {!isGuest && (
+            {!isGuest && !isOwner && (
               <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
                 <Star size={16} /> Write a Review
               </button>
@@ -475,7 +497,7 @@ export default function ProviderDetail() {
           </div>
         )}
 
-        {!isGuest && (
+        {!isGuest && !isOwner && (
           <div className="page-pad">
             <button className="row gap-6 tiny muted center" style={{ width: "100%", padding: 10 }} onClick={() => setReport(true)}>
               <Flag size={13} /> Report this provider
@@ -571,6 +593,9 @@ export default function ProviderDetail() {
 
       {viewingHighlight !== null && (
         <StoryViewer stories={highlights} startIndex={viewingHighlight} onClose={() => setViewingHighlight(null)} />
+      )}
+      {viewingPhotos && (
+        <PhotoViewer photos={viewingPhotos.photos} startIndex={viewingPhotos.startIndex} onClose={() => setViewingPhotos(null)} />
       )}
       {report && <ReportSheet targetType="PROVIDER" targetId={p.id} name={p.displayName} onClose={() => setReport(false)} />}
       {share && <ShareCard title={safeName(p.displayName, "Local provider")} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={[p.ratingCount > 0 ? `⭐ ${p.ratingAvg}` : "", p.jobsDone > 0 ? `${p.jobsDone} jobs` : ""].filter(Boolean).join(" • ") || "New provider"} url={window.location.origin + "/provider/" + p.id} onClose={() => setShare(false)} />}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
 import { Moon, Volume2, Globe, Shield, Eye, Pencil, MapPin, Check, X, FileText, Lock } from "@/components/Icons";
 import { useApp } from "@/store";
@@ -9,6 +10,7 @@ import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
 import RadiusSelector from "@/components/RadiusSelector";
 import PinEntrySheet from "@/components/PinEntrySheet";
 import { switchPinService } from "@/services";
+import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
 
 
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
@@ -43,6 +45,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 }
 
 export default function Settings() {
+  const nav = useNavigate();
   const { user, refreshUser, showToast, switchPinIsSet, refreshSwitchPinStatus, ownedBusinessIds, ownedProviderId, dataSaver, setDataSaver } = useApp();
   const [pinSheet, setPinSheet] = useState<"set" | "remove" | null>(null);
   const [removingPin, setRemovingPin] = useState(false);
@@ -88,18 +91,16 @@ export default function Settings() {
   }
 
   async function handleSubmitDeleteRequest() {
-    if (!deleteReason.trim()) {
-      showToast("Please provide a reason for deletion");
-      return;
-    }
     setSubmittingDelete(true);
     try {
       await profileControlService.requestDeletion("CUSTOMER", null, deleteReason);
-      showToast("Deletion request submitted to administrators");
       setShowDeleteModal(false);
       setDeleteReason("");
+      await refreshUser();
+      showToast(`Account scheduled for deletion in ${ACCOUNT_DELETION_GRACE_DAYS} days`);
+      nav("/auth/deletion-pending", { replace: true });
     } catch (err: any) {
-      showToast(err.message || "Failed to submit request");
+      showToast(err.message || "Failed to schedule deletion");
     } finally {
       setSubmittingDelete(false);
     }
@@ -286,15 +287,15 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Account Deletion */}
+        {/* Account Deletion — self-serve (Play / App Store User Data policy) */}
         <div>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Account Actions</div>
           <div className="card col gap-10" style={{ padding: 14 }}>
             <span className="tiny muted">
-              Request permanent deletion of your profile and data. This requires administrator verification.
+              Permanently delete your account and data. Your profile is hidden immediately, then purged automatically after a {ACCOUNT_DELETION_GRACE_DAYS}-day grace period. You can cancel anytime before then — no admin approval needed.
             </span>
             <button className="btn btn-outline btn-sm" onClick={() => setShowDeleteModal(true)} style={{ color: "var(--red-600)", borderColor: "var(--red-200)", width: "100%" }}>
-              Request Account Deletion
+              Delete Account
             </button>
           </div>
         </div>
@@ -302,7 +303,7 @@ export default function Settings() {
         <div className="card" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
           <div className="row gap-8 small" style={{ color: "var(--brand-700)" }}>
             <Shield size={18} />
-            <span>Your data is yours. We store only your last location, never a trail. Request deletion anytime.</span>
+            <span>Your data is yours. We store only your last location, never a trail. Delete anytime from this screen.</span>
           </div>
         </div>
       </div>
@@ -310,19 +311,21 @@ export default function Settings() {
       {showDeleteModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div className="card col gap-12" style={{ maxWidth: 400, width: "100%", padding: 16, background: "var(--ink-50)", boxShadow: "var(--shadow-lg)" }}>
-            <h3 className="bold h2">Request Deletion</h3>
-            <p className="tiny muted">Explain why you would like to permanently delete your customer account. An administrator will review your request shortly.</p>
+            <h3 className="bold h2">Delete account?</h3>
+            <p className="tiny muted">
+              Your profile and listings will be hidden now. After {ACCOUNT_DELETION_GRACE_DAYS} days your account and personal data are permanently deleted automatically. You can cancel during the grace period with one tap.
+            </p>
             <textarea
               className="input"
-              placeholder="Reason for deletion request..."
+              placeholder="Optional: why are you leaving? (helps us improve)"
               value={deleteReason}
               onChange={(e) => setDeleteReason(e.target.value)}
               style={{ minHeight: 80, width: "100%", padding: 10, borderRadius: 8, border: "1px solid var(--line)", background: "transparent", color: "inherit" }}
             />
             <div className="row gap-10" style={{ marginTop: 10 }}>
-              <button className="btn btn-outline btn-sm grow" onClick={() => setShowDeleteModal(false)} disabled={submittingDelete}>Cancel</button>
+              <button className="btn btn-outline btn-sm grow" onClick={() => setShowDeleteModal(false)} disabled={submittingDelete}>Keep account</button>
               <button className="btn btn-red btn-sm grow" onClick={handleSubmitDeleteRequest} disabled={submittingDelete}>
-                {submittingDelete ? "Submitting..." : "Submit Request"}
+                {submittingDelete ? "Scheduling…" : "Delete my account"}
               </button>
             </div>
           </div>

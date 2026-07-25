@@ -11,7 +11,8 @@ import ReviewSheet from "@/components/ReviewSheet";
 import { StoryViewer } from "@/components/Stories";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
-import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr } from "@/components/common";
+import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, Pill } from "@/components/common";
+import PhotoViewer, { type PhotoViewerItem } from "@/components/PhotoViewer";
 import { useApp } from "@/store";
 import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
@@ -23,7 +24,7 @@ import LivePulseDot from "@/components/LivePulseDot";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { WalkInPaySheet } from "@/components/WalkInPaySheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
-import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
+import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS, formatHoursForDisplay } from "@/utils/availability";
 import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord, CatalogItem, MyQueueEntry } from "@/types";
 import { distanceLabel } from "@/lib/format";
@@ -59,6 +60,7 @@ export default function BusinessDetail() {
     [user.id]
   );
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
+  const [viewingPhotos, setViewingPhotos] = useState<{ photos: PhotoViewerItem[]; startIndex: number } | null>(null);
   const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
   const [payingQueueTokenId, setPayingQueueTokenId] = useState<string | null>(null);
   const [walkInPaying, setWalkInPaying] = useState(false);
@@ -226,6 +228,14 @@ export default function BusinessDetail() {
     });
   }
 
+  // Cover + gallery strip both open the same photo array, just at different
+  // starting positions — computed once so the two tap targets stay in sync.
+  // b.gallery isn't guaranteed to be an array for every record (demo/seed
+  // data in particular can leave it null), so guard the spread.
+  const galleryPhotos: PhotoViewerItem[] = [b.coverImage, ...(b.gallery ?? [])]
+    .filter((url): url is string => !!url)
+    .map((url) => ({ url }));
+
   // Checkout reuses the exact same booking + UPI/Cash payment flow as "Book
   // appointment" — the cart becomes a single locked-in package, itemized in
   // the notes, and the customer picks a pickup/collection slot to confirm.
@@ -265,8 +275,13 @@ export default function BusinessDetail() {
         )}
         {/* Cover */}
         <div style={{ position: "relative" }}>
-          <SafeImg src={b.coverImage} alt={b.name} style={{ width: "100%", height: 230, objectFit: "cover" }} />
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 35%, transparent 70%, rgba(0,0,0,0.25))" }} />
+          <SafeImg
+            src={b.coverImage}
+            alt={b.name}
+            style={{ width: "100%", height: 230, objectFit: "cover", cursor: "pointer" }}
+            onClick={() => setViewingPhotos({ photos: galleryPhotos, startIndex: 0 })}
+          />
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 35%, transparent 70%, rgba(0,0,0,0.25))", pointerEvents: "none" }} />
           <div className="row between" style={{ position: "absolute", top: "calc(12px + var(--safe-area-top))", left: 12, right: 12 }}>
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
             {/* Guests view only — save/list/share all write to an account they
@@ -274,17 +289,26 @@ export default function BusinessDetail() {
             {!isGuest && (
               <div className="row gap-8">
                 <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
-                <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setAddList(true)}><Bookmark size={18} /></button>
-                <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => toggleBookmark("BUSINESS", b.id)}>
-                  <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
-                </button>
+                {!isOwner && (
+                  <>
+                    <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setAddList(true)}><Bookmark size={18} /></button>
+                    <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => toggleBookmark("BUSINESS", b.id)}>
+                      <Heart size={18} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
           {b.gallery.length > 0 && (
             <div className="row gap-6" style={{ position: "absolute", bottom: 12, right: 12 }}>
-              {[b.coverImage, ...b.gallery].slice(0, 3).map((g, i) => (
-                <img key={i} src={g} style={{ width: 40, height: 40, borderRadius: 8, border: "2px solid #fff", objectFit: "cover" }} />
+              {galleryPhotos.slice(0, 3).map((g, i) => (
+                <img
+                  key={i}
+                  src={g.url}
+                  style={{ width: 40, height: 40, borderRadius: 8, border: "2px solid #fff", objectFit: "cover", cursor: "pointer" }}
+                  onClick={() => setViewingPhotos({ photos: galleryPhotos, startIndex: i })}
+                />
               ))}
             </div>
           )}
@@ -295,9 +319,10 @@ export default function BusinessDetail() {
           <div className="card">
             <div className="row between" style={{ alignItems: "flex-start" }}>
               <div style={{ minWidth: 0 }}>
-                <div className="row gap-6">
+                <div className="row gap-6 center-v">
                   <h1 className="bold h2">{b.name}</h1>
                   {b.isVerified && <BadgeCheck size={18} color="var(--brand-600)" fill="var(--brand-100)" />}
+                  {isOwner && <Pill tone="purple">Owner</Pill>}
                 </div>
                 <p className="small muted" style={{ marginTop: 2 }}>{b.subCategory}</p>
               </div>
@@ -316,10 +341,10 @@ export default function BusinessDetail() {
                 {evalRes.isOpenNow && <LivePulseDot style={{ marginLeft: 2 }} />}
               </span>
             </div>
-            <p className="tiny muted" style={{ marginTop: 6 }}>{b.addressLine1}, {b.city} • {b.hours}</p>
+            <p className="tiny muted" style={{ marginTop: 6 }}>{b.addressLine1}, {b.city} • {formatHoursForDisplay(b.hours)}</p>
 
             <div className="row wrap gap-6" style={{ marginTop: 14 }}>
-              {b.tags.map((t) => <span key={t} className="badge badge-gray">{t}</span>)}
+              {(b.tags ?? []).map((t) => <span key={t} className="badge badge-gray">{t}</span>)}
             </div>
 
             {/* Call + Directions stay available to guests. They're the whole
@@ -394,20 +419,24 @@ export default function BusinessDetail() {
               <GuestSignInPrompt message="Sign in to book, message or follow" />
             ) : (
             <div className="row gap-10" style={{ marginTop: 12 }}>
-              <button
-                className="btn grow btn-sm"
-                style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
-                onClick={() => toggleFollow("BUSINESS", b.id, b.name)}
-              >
-                {following ? <><UserCheck size={16} /> Following</> : <><UserPlus size={16} /> Follow</>}
-              </button>
-              <button
-                className="btn grow btn-sm"
-                style={{ background: notifying ? "var(--orange-50)" : "var(--ink-50)", color: notifying ? "var(--accent-600)" : "var(--ink-700)" }}
-                onClick={() => toggleNotify(notifyKey)}
-              >
-                <Bell size={16} fill={notifying ? "var(--orange-500)" : "none"} /> {notifying ? "Alerts on" : "Notify me"}
-              </button>
+              {!isOwner && (
+                <>
+                  <button
+                    className="btn grow btn-sm"
+                    style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
+                    onClick={() => toggleFollow("BUSINESS", b.id, b.name)}
+                  >
+                    {following ? <><UserCheck size={16} /> Following</> : <><UserPlus size={16} /> Follow</>}
+                  </button>
+                  <button
+                    className="btn grow btn-sm"
+                    style={{ background: notifying ? "var(--orange-50)" : "var(--ink-50)", color: notifying ? "var(--accent-600)" : "var(--ink-700)" }}
+                    onClick={() => toggleNotify(notifyKey)}
+                  >
+                    <Bell size={16} weight={notifying ? "fill" : "regular"} /> {notifying ? "Alerts on" : "Notify me"}
+                  </button>
+                </>
+              )}
               {isOwner ? (
                 <button
                   className="btn grow btn-sm"
@@ -444,7 +473,13 @@ export default function BusinessDetail() {
                   </div>
                   <div className="tiny muted">{queue.peopleAhead === 0 ? "Walk in anytime" : `~${queue.estWaitMin} min wait`}</div>
                 </div>
-                {inQueue ? (
+                {isOwner ? (
+                  <button
+                    className="btn btn-sm"
+                    style={{ flexShrink: 0, background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
+                    onClick={() => nav(`/business/${b.id}/manage/queue`)}
+                  >Manage queue</button>
+                ) : inQueue ? (
                   <span className="badge badge-green">
                     {activeQueueEntry?.status === "CALLED"
                       ? "🔔 Your turn"
@@ -465,7 +500,7 @@ export default function BusinessDetail() {
 
               {/* Party-size picker — shown after tapping "Join queue". Party size is
                   passed to joinQueueToken and feeds the weighted wait-time estimate. */}
-              {!inQueue && joiningQueue && (
+              {!isOwner && !inQueue && joiningQueue && (
                 <div className="col gap-10" style={{ paddingTop: 4, borderTop: "1px solid var(--brand-100)" }}>
                   <div className="row between center-v">
                     <div style={{ minWidth: 0 }}>
@@ -602,10 +637,17 @@ export default function BusinessDetail() {
                     )}
                   </div>
                   <div style={{ position: "relative", width: 110, flexShrink: 0 }}>
-                    <SafeImg src={item.image} alt={item.name} className="thumb" style={{ width: 110, height: 96, borderRadius: 14 }} />
+                    <SafeImg
+                      src={item.image}
+                      alt={item.name}
+                      className="thumb"
+                      style={{ width: 110, height: 96, borderRadius: 14, cursor: "pointer" }}
+                      onClick={() => setViewingPhotos({ photos: [{ url: item.image, caption: item.name }], startIndex: 0 })}
+                    />
                     {/* Guests read the menu and prices but can't build a cart —
-                        checkout needs an account, so ADD would be a dead end. */}
-                    {isGuest ? null : qty === 0 ? (
+                        checkout needs an account, so ADD would be a dead end.
+                        Owners don't order from their own catalog. */}
+                    {isGuest || isOwner ? null : qty === 0 ? (
                       <button
                         className="btn btn-sm"
                         style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", background: "#fff", color: "var(--green-600)", border: "1.5px solid var(--green-500)", boxShadow: "var(--shadow-sm)", fontWeight: 800, padding: "6px 18px" }}
@@ -663,7 +705,10 @@ export default function BusinessDetail() {
                 <EmptyState emoji="🖼️" title="No work samples yet" text="This shop hasn't added portfolio photos." />
               </div>
             ) : (
-              <PhotoAutoScroll items={b.portfolio ?? []} />
+              <PhotoAutoScroll
+                items={b.portfolio ?? []}
+                onOpen={(i) => setViewingPhotos({ photos: (b.portfolio ?? []).map((p) => ({ url: p.url, caption: p.caption })), startIndex: i })}
+              />
             )}
           </div>
         )}
@@ -673,7 +718,7 @@ export default function BusinessDetail() {
             {b.description && <p className="small" style={{ lineHeight: 1.7, color: "var(--ink-700)" }}>{b.description}</p>}
             <div className="card col gap-10" style={{ padding: 16 }}>
               <div className="small semi" style={{ marginBottom: 6 }}>Hours</div>
-              <div className="row between small" style={{ padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span className="muted">Mon – Sun</span><span className="semi">{b.hours}</span></div>
+              <div className="row between small" style={{ padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span className="semi">{formatHoursForDisplay(b.hours)}</span></div>
               <div className="small semi" style={{ marginTop: 10, marginBottom: 6 }}>Address</div>
               <p className="small muted" style={{ lineHeight: 1.5 }}>{b.addressLine1}, {b.city} – {b.pincode}</p>
             </div>
@@ -684,8 +729,9 @@ export default function BusinessDetail() {
             <div>
               <div className="semi small row gap-6" style={{ marginBottom: 8 }}><HelpCircle size={15} color="var(--blue-500)" /> Questions & Answers</div>
               {/* Guests read existing Q&A but can't post one — an unanswerable
-                  question from an anonymous stranger helps nobody. */}
-              {!isGuest && (
+                  question from an anonymous stranger helps nobody. Owners
+                  answer questions, they don't ask themselves one. */}
+              {!isGuest && !isOwner && (
                 <div className="card card-condensed">
                   <textarea
                     className="input"
@@ -704,15 +750,15 @@ export default function BusinessDetail() {
                   <div className="tiny semi muted">Waiting for an answer</div>
                   {[...(qnaList ?? [])].filter((q) => !q.answer).sort((a, b) => b.upvotes - a.upvotes).map((q) => (
                     <div key={q.id} className="card card-condensed row gap-10">
-                      {/* Guests see the upvote count, but can't cast one. */}
+                      {/* Guests see the upvote count, but can't cast one. Same for owners. */}
                       <div
                         className="col center"
-                        onClick={isGuest ? undefined : () => toggleQuestionUpvote(q)}
-                        role={isGuest ? undefined : "button"}
-                        aria-label={isGuest ? undefined : "Upvote question"}
-                        style={{ gap: 2, flexShrink: 0, color: q.upvoted ? "var(--brand-700)" : "var(--ink-400)", cursor: isGuest ? "default" : "pointer" }}
+                        onClick={isGuest || isOwner ? undefined : () => toggleQuestionUpvote(q)}
+                        role={isGuest || isOwner ? undefined : "button"}
+                        aria-label={isGuest || isOwner ? undefined : "Upvote question"}
+                        style={{ gap: 2, flexShrink: 0, color: q.upvoted ? "var(--brand-700)" : "var(--ink-400)", cursor: isGuest || isOwner ? "default" : "pointer" }}
                       >
-                        <ThumbsUp size={16} fill={q.upvoted ? "var(--brand-700)" : "none"} />
+                        <ThumbsUp size={16} weight={q.upvoted ? "fill" : "regular"} />
                         <span className="tiny semi">{q.upvotes}</span>
                       </div>
                       <div className="grow">
@@ -751,8 +797,9 @@ export default function BusinessDetail() {
 
         {tab === "reviews" && (
           <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
-            {/* Guests read reviews; writing one needs a real, rateable identity. */}
-            {!isGuest && (
+            {/* Guests read reviews; writing one needs a real, rateable identity.
+                Owners don't review their own business. */}
+            {!isGuest && !isOwner && (
               <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
                 <Star size={16} /> Write a Review
               </button>
@@ -882,8 +929,9 @@ export default function BusinessDetail() {
 
         {/* Reporting is an action against a real business — it needs an account
             behind it, both so the owner isn't exposed to anonymous reports and
-            so moderation has someone to follow up with. */}
-        {!isGuest && (
+            so moderation has someone to follow up with. Owners can't report
+            themselves. */}
+        {!isGuest && !isOwner && (
           <div className="page-pad">
             <button className="row gap-6 tiny muted center" style={{ width: "100%", padding: 10 }} onClick={() => setReport(true)}>
               <Flag size={13} /> Report this business
@@ -893,7 +941,7 @@ export default function BusinessDetail() {
       </div>
 
       {/* Cart bar */}
-      {cartCount > 0 && (
+      {!isOwner && cartCount > 0 && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 14, zIndex: 30 }}>
           <button
             className="btn btn-green btn-block row between"
@@ -938,6 +986,9 @@ export default function BusinessDetail() {
 
       {viewingHighlight !== null && (
         <StoryViewer stories={highlights} startIndex={viewingHighlight} onClose={() => setViewingHighlight(null)} />
+      )}
+      {viewingPhotos && (
+        <PhotoViewer photos={viewingPhotos.photos} startIndex={viewingPhotos.startIndex} onClose={() => setViewingPhotos(null)} />
       )}
       {report && <ReportSheet targetType="BUSINESS" targetId={b.id} name={b.name} onClose={() => setReport(false)} />}
       {share && <ShareCard title={b.name} subtitle={b.subCategory} image={b.coverImage} meta={`${b.ratingCount > 0 ? `⭐ ${b.ratingAvg} (${b.ratingCount}) • ` : ""}${b.city}`} url={window.location.origin + "/business/" + b.id} onClose={() => setShare(false)} />}
@@ -991,7 +1042,7 @@ function daysAgo(iso: string) {
 
 interface PortfolioItem { id: string; url: string; caption?: string; }
 
-function PhotoAutoScroll({ items }: { items: PortfolioItem[] }) {
+function PhotoAutoScroll({ items, onOpen }: { items: PortfolioItem[]; onOpen: (index: number) => void }) {
   const [active, setActive] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
@@ -1034,7 +1085,7 @@ function PhotoAutoScroll({ items }: { items: PortfolioItem[] }) {
               scrollSnapAlign: "start",
               cursor: "pointer",
             }}
-            onClick={() => goTo(i)}
+            onClick={() => { goTo(i); onOpen(i); }}
           >
             <SafeImg
               src={item.url}

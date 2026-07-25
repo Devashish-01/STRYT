@@ -25,22 +25,26 @@ export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: B
   // evaluator BusinessDetail uses, so the card can't show a stale "Open".
   const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   return (
-    <div className={`card card-interactive ${entranceClass}`} style={{ overflow: "hidden", ...style }} onClick={() => nav(`/business/${b.id}`)}>
+    <div
+      className={`card card-interactive card-flat ${entranceClass}`}
+      style={{ overflow: "hidden", borderRadius: "var(--radius-lg)", ...style }}
+      onClick={() => nav(`/business/${b.id}`)}
+    >
       <div style={{ position: "relative" }}>
         <img src={b.coverImage} alt={b.name} className="thumb" style={{ width: "100%", aspectRatio: "16/10", objectFit: "cover" }} loading="lazy" />
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "linear-gradient(to top, rgba(0,0,0,0.55), transparent 55%)",
+            background: "linear-gradient(to top, rgba(10,6,20,0.62) 0%, rgba(10,6,20,0.18) 38%, transparent 62%)",
           }}
         />
         {b.offerText && (
           <div
             style={{
               position: "absolute",
-              left: 10,
-              bottom: 10,
+              left: 12,
+              bottom: 11,
               color: "#fff",
               fontWeight: 800,
               fontSize: 15,
@@ -54,7 +58,7 @@ export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: B
         {!isGuest && (
           <button
             className="icon-btn"
-            style={{ position: "absolute", top: 10, right: 10, background: "rgba(255,255,255,0.92)" }}
+            style={{ position: "absolute", top: 10, right: 10, background: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)" }}
             onClick={(e) => {
               e.stopPropagation();
               haptics.selection();
@@ -62,29 +66,31 @@ export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: B
             }}
             aria-label="Save"
           >
-            <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
+            <Heart size={18} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
           </button>
         )}
-        {/* Paid-placement transparency: users must be able to tell boosted results apart. */}
+        {/* Paid-placement transparency: users must be able to tell boosted results apart.
+            Frosted-glass backing (not the flat badge-new/badge-amber fill) so the pill
+            stays legible over any photo. */}
         {(b.isNew || b.isBoosted) && (
           <div className="card-badge-stack">
-            {b.isNew && <span className="badge badge-new">● NEW</span>}
-            {b.isBoosted && <span className="badge badge-amber">Promoted</span>}
+            {b.isNew && <span className="badge" style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(8px)", color: "var(--accent-600)" }}>● NEW</span>}
+            {b.isBoosted && <span className="badge" style={{ background: "rgba(255,255,255,0.9)", backdropFilter: "blur(8px)", color: "#b45309" }}>Promoted</span>}
           </div>
         )}
       </div>
-      <div style={{ padding: "var(--space-sm)" }}>
-        <div className="row between">
+      <div style={{ padding: "14px var(--space-sm) var(--space-sm)" }}>
+        <div className="row between" style={{ alignItems: "flex-start" }}>
           <div className="row gap-6" style={{ minWidth: 0 }}>
-            <span className="bold ellipsis" style={{ fontSize: 16 }}>{b.name}</span>
+            <span className="bold ellipsis" style={{ fontSize: 16.5, letterSpacing: "-0.1px" }}>{b.name}</span>
             {b.isVerified && <BadgeCheck size={16} color="var(--brand-600)" fill="var(--brand-100)" />}
           </div>
           <Rating value={b.ratingAvg} />
         </div>
-        <div className="tiny muted ellipsis tabular-nums" style={{ marginTop: 3 }}>
+        <div className="tiny muted ellipsis tabular-nums" style={{ marginTop: 4 }}>
           {b.subCategory} {b.priceForTwo ? `• ${inr(b.priceForTwo)} for two` : ""}
         </div>
-        <div className="row gap-10 tiny muted" style={{ marginTop: "var(--space-xs)" }}>
+        <div className="row gap-10 tiny muted" style={{ marginTop: 9 }}>
           <span className="row gap-4"><MapPin size={13} /> {distanceLabel(b.distanceKm)}</span>
           {b.deliveryTime && <span className="row gap-4"><Clock size={13} /> {b.deliveryTime}</span>}
           <span className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`} style={{ fontSize: 10, padding: "1px 6px" }}>
@@ -137,7 +143,7 @@ export function BusinessCardSmall({ b, style, entranceClass = "fade-up" }: { b: 
             }}
             aria-label="Save"
           >
-            <Heart size={14} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
+            <Heart size={14} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
           </button>
         )}
         {(b.isNew || b.isBoosted) && (
@@ -171,7 +177,7 @@ export function ProviderCard({ p, style, entranceClass = "fade-up" }: { p: Provi
   const saved = isBookmarked("PROVIDER", p.id);
   const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
   return (
-    <div className={`card card-interactive ${entranceClass}`} style={{ padding: "var(--space-sm)", ...style }} onClick={() => nav(`/provider/${p.id}`)}>
+    <div className={`card card-interactive ${entranceClass}`} style={{ padding: 16, borderRadius: "var(--radius-lg)", ...style }} onClick={() => nav(`/provider/${p.id}`)}>
       <div className="row gap-12" style={{ alignItems: "flex-start" }}>
         <div style={{ position: "relative" }}>
           <SafeImg
@@ -179,7 +185,7 @@ export function ProviderCard({ p, style, entranceClass = "fade-up" }: { p: Provi
             alt={p.displayName}
             variant="avatar"
             className="avatar"
-            style={{ width: 56, height: 56, cursor: "pointer" }}
+            style={{ width: 56, height: 56, cursor: "pointer", border: "2px solid var(--brand-100)" }}
             onClick={(e) => {
               e.stopPropagation();
               openProfile(p.id, "PROVIDER", { name: p.displayName, avatar: p.avatar });
@@ -188,24 +194,30 @@ export function ProviderCard({ p, style, entranceClass = "fade-up" }: { p: Provi
           <span
             style={{
               position: "absolute",
-              bottom: 2,
-              right: 2,
+              bottom: 1,
+              right: 1,
               width: 14,
               height: 14,
               borderRadius: "50%",
               background: evalRes.isOpenNow ? "var(--green-500)" : "var(--ink-400)",
-              border: "2px solid #fff",
+              border: "2.5px solid #fff",
             }}
           />
         </div>
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="row between">
             <div className="row gap-6" style={{ minWidth: 0 }}>
-              <span className="bold ellipsis" style={{ fontSize: 15 }}>{safeName(p.displayName, "Local provider")}</span>
+              <span className="bold ellipsis" style={{ fontSize: 15.5, letterSpacing: "-0.1px" }}>{safeName(p.displayName, "Local provider")}</span>
               {p.isVerified && <BadgeCheck size={15} color="var(--brand-600)" fill="var(--brand-100)" />}
             </div>
             {!isGuest && (
               <button
+                className="icon-btn"
+                style={{
+                  width: 32, height: 32, flexShrink: 0,
+                  background: saved ? "var(--red-50)" : "var(--ink-100)",
+                  border: saved ? "1px solid var(--red-100)" : "1px solid var(--ink-200)",
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   haptics.selection();
@@ -213,12 +225,12 @@ export function ProviderCard({ p, style, entranceClass = "fade-up" }: { p: Provi
                 }}
                 aria-label="Save"
               >
-                <Heart size={18} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-400)"} />
+                <Heart size={16} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
               </button>
             )}
           </div>
-          <div className="tiny muted" style={{ marginTop: 1 }}>{p.categoryName} • {p.subCategory}</div>
-          <div className="row gap-8 center-v" style={{ marginTop: 6 }}>
+          <div className="tiny muted" style={{ marginTop: 2 }}>{p.categoryName} • {p.subCategory}</div>
+          <div className="row gap-8 center-v" style={{ marginTop: 7 }}>
             <Rating value={p.ratingAvg} size={11} />
             {p.jobsDone > 0 && <span className="tiny muted">{p.jobsDone} jobs</span>}
             <span className="tiny muted">• {distanceLabel(p.distanceKm)}</span>
@@ -231,12 +243,13 @@ export function ProviderCard({ p, style, entranceClass = "fade-up" }: { p: Provi
           </div>
         </div>
       </div>
-      <div className="row wrap gap-6" style={{ marginTop: 10 }}>
+      <div className="row wrap gap-6" style={{ marginTop: 11 }}>
         {p.skills.slice(0, 3).map((s) => (
           <span key={s} className="badge badge-gray">{s}</span>
         ))}
       </div>
-      <div className="row between" style={{ marginTop: 11 }}>
+      <div className="divider" style={{ margin: "12px 0 10px" }} />
+      <div className="row between">
         <div>
           <span className="tiny muted">Starts at </span>
           <span className="bold tabular-nums" style={{ color: "var(--green-500)" }}>{inr(p.startingPrice)}</span>
@@ -269,7 +282,12 @@ export function ProviderCardSmall({ p, style, entranceClass = "fade-up" }: { p: 
       {!isGuest && (
         <button
           className="icon-btn"
-          style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, background: "rgba(255, 255, 255, 0.92)", boxShadow: "0 2px 6px rgba(0,0,0,0.08)" }}
+          style={{
+            position: "absolute", top: 8, right: 8, width: 28, height: 28,
+            background: saved ? "var(--red-50)" : "var(--ink-100)",
+            border: saved ? "1px solid var(--red-100)" : "1px solid var(--ink-200)",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+          }}
           onClick={(e) => {
             e.stopPropagation();
             haptics.selection();
@@ -277,7 +295,7 @@ export function ProviderCardSmall({ p, style, entranceClass = "fade-up" }: { p: 
           }}
           aria-label="Save"
         >
-          <Heart size={13} fill={saved ? "var(--red-500)" : "none"} color={saved ? "var(--red-500)" : "var(--ink-400)"} />
+          <Heart size={13} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
         </button>
       )}
       <div className="col center" style={{ textAlign: "center", gap: 6 }}>
@@ -572,7 +590,7 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
             </span>
           ) : (
             <button className="row gap-6 small semi" style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }} onClick={handleLike}>
-              <Heart size={17} fill={liked ? "var(--red-500)" : "none"} /> {likeCount}
+              <Heart size={17} weight={liked ? "fill" : "regular"} /> {likeCount}
             </button>
           )}
           <button className="row gap-6 small semi muted" onClick={() => nav(`/community/${post.id}`, { state: { post } })}>

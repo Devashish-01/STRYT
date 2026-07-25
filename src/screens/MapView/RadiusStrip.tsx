@@ -24,7 +24,7 @@ export function RadiusStrip({
             onClick={cancelCustom}
           />
           <div className="map-glass-panel" style={{
-            position: "absolute", bottom: "calc(80px + var(--safe-area-bottom))", left: "50%", transform: "translateX(-50%)",
+            position: "absolute", bottom: "calc(var(--nav-h) + 68px + var(--safe-area-bottom))", left: "50%", transform: "translateX(-50%)",
             zIndex: 1200,
             borderRadius: 20,
             padding: "16px 18px",
@@ -80,14 +80,17 @@ export function RadiusStrip({
 
       {/* Radius selector strip */}
       <div className="map-glass-panel" style={{
-        position: "absolute", bottom: "calc(24px + var(--safe-area-bottom))", left: "50%", transform: "translateX(-50%)",
+        position: "absolute", bottom: "var(--map-radius-strip-bottom)", left: 16, right: 16,
         zIndex: 1000,
         borderRadius: 30,
         padding: "6px 10px",
         display: "flex", gap: 2,
-        maxWidth: "calc(100% - 32px)",
         overflowX: "auto",
+        overflowY: "hidden",
         scrollbarWidth: "none",
+        WebkitOverflowScrolling: "touch",
+        scrollPaddingInline: 10,
+        background: "rgba(255, 255, 255, 0.96)",
       }}>
         {presets.map((opt) => {
           const active = isActive(opt.km);

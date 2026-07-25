@@ -10,7 +10,7 @@
 
 ## 1. Who we are (Data Fiduciary)
 
-STRYT (the "Platform" — the app, **https://stryt.in**, and the native Android app) is operated by `[STRYT OPERATOR LEGAL NAME]`, `[REGISTERED ADDRESS]` ("STRYT", "we", "us"). For the purposes of the **Digital Personal Data Protection Act, 2023 ("DPDP Act")**, STRYT is the **Data Fiduciary** that determines the purposes and means of processing your personal data. In these terms "you" / "Data Principal" means the individual whose personal data we process.
+STRYT (the "Platform" — the app, **https://stryt.in**, and the native Android and iOS apps) is operated by `[STRYT OPERATOR LEGAL NAME]`, `[REGISTERED ADDRESS]` ("STRYT", "we", "us"). For the purposes of the **Digital Personal Data Protection Act, 2023 ("DPDP Act")**, STRYT is the **Data Fiduciary** that determines the purposes and means of processing your personal data. In these terms "you" / "Data Principal" means the individual whose personal data we process.
 
 This Policy explains what personal data we collect, why, how, with whom we share it, how long we keep it, and the rights you have. It should be read with the [Terms & Conditions](terms-and-conditions.md), [Cookie Policy](cookie-policy.md), and [Data Retention Policy](data-retention-policy.md).
 
@@ -61,6 +61,7 @@ We collect only what the features you use require. Grouped by purpose:
 
 ### 3.8 Safety and location-sharing
 - Live-location shares and their recipients, one-time location-share grants (requests/approvals), your chosen emergency contacts (limited to people you've chatted with), and public tracking tokens for shareable tracking links.
+- When you start a **live share with My People**, we collect your **precise location in the background** (including when the app is closed or not in use) until you stop sharing, so your chosen contacts can follow you on a map. We show an in-app disclosure before the system permission prompt, and a persistent notification while sharing is active. Nearby discovery without a live share uses while-in-use location only.
 - (The society/gate-pass module exists in the schema but is **not currently enabled** for users.)
 
 ### 3.9 Device, notifications, and technical data
@@ -156,13 +157,13 @@ We may disclose data where required by law, court order, or a lawful government 
 
 9.1 Our infrastructure providers (Supabase, Vercel, Google/Firebase) may store or process data on servers **outside India**, depending on region configuration. Where personal data is stored or transferred outside India, we will comply with the DPDP Act and any restrictions notified by the Central Government.
 
-9.2 **Flagged for STRYT:** confirm the actual hosting region(s) of your Supabase project and other providers and state the country/region here for transparency.
+9.2 Our primary product audience is India. Infrastructure regions depend on each provider's project configuration (Supabase database/auth/storage, Vercel edge/hosting, Google/Firebase). If you need the current hosting region details for a data-rights request, contact us at contact@stryt.in and we will provide them.
 
 ---
 
 ## 10. Data retention
 
-We keep personal data only as long as needed for the purposes above or as required by law, and then delete or anonymise it. Account deletion has a **30-day recoverable grace period**, after which we permanently remove or irreversibly anonymise your data (including uploaded files and KYC documents) subject to guardrails (no active deals / no "held"-status payment records) and legally required retention. Full details and periods are in the [Data Retention Policy](data-retention-policy.md).
+We keep personal data only as long as needed for the purposes above or as required by law, and then delete or anonymise it. Account deletion is **self-serve** from Settings: a **30-day recoverable grace period**, then automatic permanent removal or irreversible anonymisation (including uploaded files and KYC documents), subject to guardrails (no active deals / no "held"-status payment records) and legally required retention. Full details and periods are in the [Data Retention Policy](data-retention-policy.md).
 
 ---
 
@@ -172,7 +173,7 @@ As a Data Principal you have the right to:
 
 - **Access** — a summary of the personal data we process about you and the processing activities.
 - **Correction and updating** — correct or complete inaccurate or incomplete data (much of which you can do directly in your profile/settings).
-- **Erasure** — request deletion of your personal data where it is no longer required and retention is not legally mandated (you can start this from Settings → account deletion).
+- **Erasure** — delete your account and personal data from Settings (self-serve: hidden immediately, permanently purged after a 30-day grace period you can cancel — no administrator approval required), where retention is not legally mandated.
 - **Withdraw consent** — as easily as you gave it, for processing based on consent.
 - **Grievance redressal** — a readily available means to raise grievances with us (Section 13 and the [Grievance Redressal Policy](grievance-redressal-policy.md)).
 - **Nominate** — nominate another individual to exercise your rights in the event of death or incapacity.

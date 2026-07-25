@@ -1,21 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, LogOut, ArrowRight, Loader } from "@/components/Icons";
 import { useApp } from "@/store";
 import { profileControlService } from "@/services/core/profileControlService";
+import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
 
 export default function DeletionPending() {
   const nav = useNavigate();
   const { user, refreshUser, showToast, signOut } = useApp();
   const [cancelling, setCancelling] = useState(false);
+  const [purging, setPurging] = useState(false);
 
-  // Calculate days remaining
   const daysRemaining = (() => {
-    if (!user.deletionScheduledAt) return 30;
+    if (!user.deletionScheduledAt) return ACCOUNT_DELETION_GRACE_DAYS;
     const purgeDate = new Date(user.deletionScheduledAt);
     const msLeft = purgeDate.getTime() - Date.now();
     return Math.max(0, Math.ceil(msLeft / (1000 * 60 * 60 * 24)));
   })();
+
+  const graceEnded = !!user.deletionScheduledAt && daysRemaining === 0;
 
   const deletionDateStr = user.deletionScheduledAt
     ? new Date(user.deletionScheduledAt).toLocaleDateString(undefined, {
@@ -23,17 +26,39 @@ export default function DeletionPending() {
         month: "long",
         day: "numeric",
       })
-    : "30 days";
+    : `${ACCOUNT_DELETION_GRACE_DAYS} days`;
+
+  // When the grace period has ended, complete deletion automatically (no admin).
+  useEffect(() => {
+    if (!graceEnded || purging || cancelling) return;
+    let cancelled = false;
+    (async () => {
+      setPurging(true);
+      try {
+        await profileControlService.completeScheduledDeletion();
+        if (cancelled) return;
+        showToast("Your account has been permanently deleted.");
+        await signOut();
+        nav("/", { replace: true });
+      } catch (err: any) {
+        if (!cancelled) {
+          showToast(err?.message || "Could not finish deleting your account. We'll retry shortly.");
+          setPurging(false);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [graceEnded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleCancelDeletion() {
     setCancelling(true);
     try {
       await profileControlService.cancelDeletion();
       await refreshUser();
-      showToast("Welcome back! Your account deletion has been cancelled. 🎉");
+      showToast("Welcome back — account deletion cancelled.");
       nav("/home", { replace: true });
     } catch (err: any) {
-      showToast(err.message || "Failed to cancel deletion request");
+      showToast(err.message || "Failed to cancel deletion");
     } finally {
       setCancelling(false);
     }
@@ -47,7 +72,6 @@ export default function DeletionPending() {
         color: "#fff",
       }}
     >
-      {/* Dynamic warning glow blob */}
       <div
         style={{
           position: "absolute",
@@ -91,13 +115,15 @@ export default function DeletionPending() {
           >
             <AlertTriangle size={36} color="#fff" />
           </div>
-          
-          <h1 className="h1" style={{ letterSpacing: -0.5,
-              color: "#fff",
-              lineHeight: 1.2 }}>
-            Account Scheduled <br /> for Deletion
+
+          <h1 className="h1" style={{ letterSpacing: -0.5, color: "#fff", lineHeight: 1.2 }}>
+            {purging || graceEnded ? (
+              <>Deleting your account…</>
+            ) : (
+              <>Account scheduled for deletion</>
+            )}
           </h1>
-          
+
           <p
             style={{
               marginTop: 10,
@@ -108,11 +134,12 @@ export default function DeletionPending() {
               lineHeight: 1.5,
             }}
           >
-            You requested to delete your account. Your profile and listings are currently hidden from all neighbors.
+            {purging || graceEnded
+              ? "Your grace period has ended. We’re permanently removing your profile and personal data now."
+              : "You chose to delete your account. Your profile and listings are hidden from neighbours until you cancel or the grace period ends."}
           </p>
         </div>
 
-        {/* Warning Information Box */}
         <div
           style={{
             width: "100%",
@@ -140,64 +167,72 @@ export default function DeletionPending() {
               marginBottom: 16,
             }}
           >
-            Grace Period Active
+            {purging || graceEnded ? "Purging now" : "Grace period"}
           </div>
 
           <div style={{ fontSize: 13, color: "rgba(255, 255, 255, 0.8)", lineHeight: 1.6 }}>
-            Your account will be permanently purged on <br />
-            <strong style={{ color: "var(--amber-500)", fontSize: 15 }}>{deletionDateStr}</strong>
-            <span style={{ display: "block", marginTop: 8, fontSize: 13, color: "rgba(255, 255, 255, 0.5)" }}>
-              ({daysRemaining} {daysRemaining === 1 ? "day" : "days"} remaining)
-            </span>
-          </div>
-
-          <div
-            style={{
-              height: 1,
-              background: "rgba(255,255,255,0.08)",
-              margin: "20px 0",
-            }}
-          />
-
-          <p style={{ fontSize: 12.5, color: "rgba(255, 255, 255, 0.5)", lineHeight: 1.5 }}>
-            Restoring your account will cancel this deletion request and immediately make your profile and listings visible to your community again.
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="col gap-12" style={{ width: "100%" }}>
-          <button
-            className="btn btn-primary btn-block row center gap-8"
-            onClick={handleCancelDeletion}
-            disabled={cancelling}
-            style={{
-              padding: "16px",
-              fontSize: 16,
-              fontWeight: 700,
-              borderRadius: 16,
-              width: "100%",
-              background: "linear-gradient(135deg, var(--amber-500) 0%, var(--amber-500) 100%)",
-              border: "none",
-              color: "#180c02",
-              boxShadow: "0 8px 24px rgba(245, 158, 11, 0.2)",
-            }}
-          >
-            {cancelling ? (
+            {purging || graceEnded ? (
               <>
-                <Loader className="spin" size={18} /> Restoring Profile...
+                <Loader className="spin" size={18} style={{ display: "inline", verticalAlign: "middle", marginRight: 8 }} />
+                Completing deletion — no admin approval required.
               </>
             ) : (
               <>
-                Keep Account & Continue <ArrowRight size={18} />
+                Your account will be permanently deleted on <br />
+                <strong style={{ color: "var(--amber-500)", fontSize: 15 }}>{deletionDateStr}</strong>
+                <span style={{ display: "block", marginTop: 8, fontSize: 13, color: "rgba(255, 255, 255, 0.5)" }}>
+                  ({daysRemaining} {daysRemaining === 1 ? "day" : "days"} remaining)
+                </span>
               </>
             )}
-          </button>
+          </div>
+
+          {!purging && !graceEnded && (
+            <>
+              <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "20px 0" }} />
+              <p style={{ fontSize: 12.5, color: "rgba(255, 255, 255, 0.5)", lineHeight: 1.5 }}>
+                Restoring your account cancels deletion and makes your profile visible again immediately.
+              </p>
+            </>
+          )}
+        </div>
+
+        <div className="col gap-12" style={{ width: "100%" }}>
+          {!purging && !graceEnded && (
+            <button
+              className="btn btn-primary btn-block row center gap-8"
+              onClick={handleCancelDeletion}
+              disabled={cancelling}
+              style={{
+                padding: "16px",
+                fontSize: 16,
+                fontWeight: 700,
+                borderRadius: 16,
+                width: "100%",
+                background: "linear-gradient(135deg, var(--amber-500) 0%, var(--amber-500) 100%)",
+                border: "none",
+                color: "#180c02",
+                boxShadow: "0 8px 24px rgba(245, 158, 11, 0.2)",
+              }}
+            >
+              {cancelling ? (
+                <>
+                  <Loader className="spin" size={18} /> Restoring profile…
+                </>
+              ) : (
+                <>
+                  Keep account & continue <ArrowRight size={18} />
+                </>
+              )}
+            </button>
+          )}
 
           <button
             onClick={() => {
               signOut();
               nav("/", { replace: true });
             }}
+            disabled={purging}
             className="row center gap-6"
             style={{
               width: "100%",
@@ -206,10 +241,10 @@ export default function DeletionPending() {
               border: "1px solid rgba(255, 255, 255, 0.1)",
               color: "rgba(255, 255, 255, 0.7)",
               borderRadius: 16,
-              cursor: "pointer",
+              cursor: purging ? "default" : "pointer",
               fontSize: 14,
               fontWeight: 600,
-              transition: "all 0.2s",
+              opacity: purging ? 0.5 : 1,
             }}
           >
             <LogOut size={16} /> Sign out

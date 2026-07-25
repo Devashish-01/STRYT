@@ -4,4 +4,7 @@
     <string name="title_activity_main">STRYT</string>
     <string name="package_name">in.stryt.app</string>
     <string name="custom_url_scheme">in.stryt.app</string>
+    <!-- @capacitor-community/background-geolocation FGS notification -->
+    <string name="capacitor_background_geolocation_notification_channel_name">Live location sharing</string>
+    <string name="capacitor_background_geolocation_notification_color">#8b47f5</string>
 </resources>

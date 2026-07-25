@@ -27,7 +27,8 @@ export default function SafetyHub() {
   async function onStart() {
     if (list.length === 0) { nav("/safety/contacts"); return; }
     const id = await start();
-    showToast(id ? "Live location shared with My People" : "Couldn't start sharing");
+    if (id) showToast("Live location shared with My People");
+    else if (list.length === 0) showToast("Add a contact first");
   }
 
   async function onStop() {
@@ -62,8 +63,8 @@ export default function SafetyHub() {
           </div>
           <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.5, marginBottom: 18 }}>
             {sharing
-              ? "My People can follow you on the map in their chat with you, until you stop."
-              : "Tip: tap the My People icon on Home to share instantly — hold it to come back here."}
+              ? "My People can follow you on the map even if STRYT is in the background — until you stop."
+              : "Sharing continues in the background with a notification. Tip: tap My People on Home to share instantly — hold it to open this hub."}
           </div>
           <button
             onClick={() => void (sharing ? onStop() : onStart())}

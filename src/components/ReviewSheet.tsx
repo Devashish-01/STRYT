@@ -49,8 +49,7 @@ export default function ReviewSheet({ targetName, onSubmit, onClose }: Props) {
             >
               <Star
                 size={40}
-                fill={i <= (hover || rating) ? "var(--amber-500)" : "none"}
-                strokeWidth={i <= (hover || rating) ? 0 : 1.5}
+                weight={i <= (hover || rating) ? "fill" : "regular"}
                 color={i <= (hover || rating) ? "var(--amber-500)" : "var(--ink-300)"}
                 style={{ transition: "transform 0.1s", transform: i <= (hover || rating) ? "scale(1.1)" : "scale(1)" }}
               />

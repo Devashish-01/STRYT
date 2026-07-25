@@ -88,7 +88,7 @@ export function LocationPinDropOverlay({
       {/* Bottom confirm card */}
       <div
         style={{
-          position: "absolute", bottom: "calc(24px + var(--safe-area-bottom))", left: 16, right: 16, zIndex: 1000,
+          position: "absolute", bottom: "var(--map-radius-strip-bottom)", left: 16, right: 16, zIndex: 1000,
           background: "#fff", borderRadius: 20, padding: 16,
           boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
         }}

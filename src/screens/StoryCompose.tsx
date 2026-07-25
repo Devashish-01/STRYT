@@ -478,7 +478,7 @@ export default function StoryCompose() {
                   cursor: "pointer"
                 }}
               >
-                <Star size={15} fill={visibility === "close_friends" ? "var(--green-500)" : "none"} /> Close Friends
+                <Star size={15} weight={visibility === "close_friends" ? "fill" : "regular"} /> Close Friends
               </button>
             </div>
 

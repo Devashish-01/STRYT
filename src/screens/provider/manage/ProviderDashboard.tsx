@@ -10,7 +10,7 @@ import { SafeImg, inr, AppBar } from "@/components/common";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
-import { DEFAULT_ONBOARD_WORKING_HOURS } from "@/utils/availability";
+import { DEFAULT_ONBOARD_WORKING_HOURS, parseHoursValue, serializeHoursValue } from "@/utils/availability";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord, RequestPost } from "@/types";
 import ProviderManageNav from "./ProviderManageNav";
@@ -148,10 +148,16 @@ export default function ProviderDashboard() {
   const totalEarned = analytics?.earnings ?? 0;
   const requiresPaymentFirst = (a: AppointmentRecord) => p?.paymentTiming === "AT_BOOKING" && a.paymentStatus !== "PAID";
 
+  // Compares normalized schedules (not raw strings) so this survives the hours storage
+  // format upgrade — old providers may still have the legacy default string, new ones
+  // the equivalent JSON, and both should count as "still on the onboarding default."
+  const isDefaultAvailability = !p?.availabilityNote
+    || serializeHoursValue(parseHoursValue(p.availabilityNote)) === serializeHoursValue(parseHoursValue(DEFAULT_ONBOARD_WORKING_HOURS));
+
   // Guided setup checklist — shown until every step is done.
   const checklistItems = [
     { label: "Add a service to your catalog", done: (p?.catalog?.length ?? 0) > 0, onClick: () => nav(`${base}/catalog`) },
-    { label: "Set your availability", done: !!p?.availabilityNote && p.availabilityNote !== DEFAULT_ONBOARD_WORKING_HOURS, onClick: () => nav(`${base}/availability`) },
+    { label: "Set your availability", done: !isDefaultAvailability, onClick: () => nav(`${base}/availability`) },
     { label: "Upload verification", done: !!p?.verificationStatus, onClick: () => nav(`${base}/verify`) },
     { label: "Post your first community update", done: (provPosts?.length ?? 0) > 0, onClick: () => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } }) },
   ];

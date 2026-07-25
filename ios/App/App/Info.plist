@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CAPACITOR_DEBUG</key>
+	<string>$(CAPACITOR_DEBUG)</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>STRYT</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+
+	<!-- Permission usage strings (required before any related API prompt) -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>STRYT uses your location while you use the app to show nearby businesses, providers, and community posts, and to share live location with people you choose.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>STRYT needs background location so My People can follow your live share on a map even when the app is closed or your screen is locked. You can stop sharing anytime.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>STRYT needs background location so My People can follow your live share on a map even when the app is closed or your screen is locked. You can stop sharing anytime.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>STRYT uses the camera so you can take photos for your profile, posts, stories, and requests.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>STRYT needs photo library access so you can choose images for your profile, posts, stories, and requests.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>STRYT may save images you create or share to your photo library when you choose to.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>STRYT uses the microphone for voice input when composing requests.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>STRYT uses speech recognition to turn your voice into text when composing requests.</string>
+
+	<!-- Push + live-share background location -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>location</string>
+	</array>
+
+	<!-- OAuth / deep-link callback — must match Android in.stryt.app://auth -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>in.stryt.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>in.stryt.app</string>
+			</array>
+		</dict>
+	</array>
+
+	<!-- UPI app deep links (PaymentMethodPanel) — required for canOpenURL on iOS -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tez</string>
+		<string>phonepe</string>
+		<string>paytmmp</string>
+		<string>bhim</string>
+		<string>upi</string>
+	</array>
+
+	<!-- Export compliance: only standard HTTPS; no custom crypto -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

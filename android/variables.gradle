@@ -1,7 +1,10 @@
 ext {
     minSdkVersion = 24
     compileSdkVersion = 36
-    targetSdkVersion = 34
+    // Play Console requires target API 35+ (and 36 from 31 Aug 2026).
+    // Keep in sync with compileSdkVersion so permission / FGS behavior matches
+    // the platform we build against.
+    targetSdkVersion = 36
     androidxActivityVersion = '1.11.0'
     androidxAppCompatVersion = '1.7.1'
     androidxCoordinatorLayoutVersion = '1.3.0'

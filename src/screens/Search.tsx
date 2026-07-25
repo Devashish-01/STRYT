@@ -226,7 +226,7 @@ export default function Search() {
           <div className="col center" style={{ gap: 14 }}>
             <EmptyState illustration={<NoResultsIllustration />} emoji="🤷" title={tf("search_no_results", { query: debounced })} text={t("search_no_results_hint")} />
             <button className="btn btn-outline btn-sm" onClick={toggleSaveSearch}>
-              <Bell size={15} fill={isSaved ? "var(--brand-700)" : "none"} />
+              <Bell size={15} weight={isSaved ? "fill" : "regular"} />
               {isSaved ? t("search_alert_on_long") : tf("search_notify_me", { query: debounced })}
             </button>
           </div>
@@ -244,7 +244,7 @@ export default function Search() {
             <div className="row between align-center">
               <span className="tiny muted">{tf("search_results_count", { count: total })}</span>
               <button className="tiny semi row gap-4" style={{ color: isSaved ? "var(--brand-700)" : "var(--ink-500)", alignItems: "center" }} onClick={toggleSaveSearch}>
-                <Bell size={13} fill={isSaved ? "var(--brand-700)" : "none"} /> {isSaved ? t("search_alert_on") : t("search_get_alerts")}
+                <Bell size={13} weight={isSaved ? "fill" : "regular"} /> {isSaved ? t("search_alert_on") : t("search_get_alerts")}
               </button>
             </div>
             {provResults.map((p) => <ProviderCard key={p.id} p={p} entranceClass={extraProvIds.has(p.id) ? "queue-row-enter" : "fade-up"} />)}

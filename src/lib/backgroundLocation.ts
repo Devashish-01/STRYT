@@ -1,21 +1,17 @@
 import { Capacitor } from "@capacitor/core";
 import { Geolocation } from "@capacitor/geolocation";
+import { BackgroundGeolocation } from "@capgo/background-geolocation";
 
-// One continuous location watcher used while a live share is active. It pushes
-// throttled fixes to `onFix` (the caller forwards them to update_live_share).
-//
-// Three tiers, best available wins:
-//   1. @capacitor-community/background-geolocation — TRUE background: keeps
-//      updating when the app is backgrounded / the screen is locked (the
-//      safety-grade path). Loaded via a guarded dynamic import so the web
-//      build and un-synced native builds don't require the module to exist.
-//   2. @capacitor/geolocation watchPosition — native foreground watch.
-//   3. navigator.geolocation.watchPosition — web.
-//
-// NATIVE SETUP (one-time, done outside the web build):
-//   npm i @capacitor-community/background-geolocation && npx cap sync
-//   + ACCESS_BACKGROUND_LOCATION in AndroidManifest (already added) + the
-//   Play Store background-location disclosure.
+/**
+ * Continuous location watcher for live share (Cap 8).
+ *
+ * Native (preferred): @capgo/background-geolocation with backgroundMessage →
+ * foreground-service notification so fixes continue while backgrounded /
+ * screen locked. Show BackgroundLocationDisclosure BEFORE start().
+ *
+ * Fallback: @capacitor/geolocation watchPosition (foreground only).
+ * Web: navigator.geolocation.watchPosition.
+ */
 
 export interface Fix {
   lat: number;
@@ -25,11 +21,11 @@ export interface Fix {
 }
 type FixCb = (f: Fix) => void;
 
-const MIN_INTERVAL_MS = 12000; // ~1 push / 12s — enough for "live", easy on battery
+const MIN_INTERVAL_MS = 12000;
 
 let webWatchId: number | null = null;
 let capWatchId: string | null = null;
-let bgRemove: (() => Promise<void>) | null = null;
+let bgActive = false;
 let lastPush = 0;
 
 function throttled(cb: FixCb): FixCb {
@@ -41,64 +37,114 @@ function throttled(cb: FixCb): FixCb {
   };
 }
 
+/** Notification permission so the Android FGS notification can display. */
+export async function ensureLocationNotificationPermission(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    let status = await PushNotifications.checkPermissions();
+    if (status.receive === "prompt") {
+      status = await PushNotifications.requestPermissions();
+    }
+  } catch {
+    /* optional */
+  }
+}
+
 export const backgroundLocation = {
-  async start(onFix: FixCb): Promise<void> {
+  async start(onFix: FixCb): Promise<"background" | "foreground" | "web"> {
     await this.stop();
     lastPush = 0;
     const push = throttled(onFix);
 
     if (Capacitor.isNativePlatform()) {
-      // Tier 1 — true background. Specifier kept in a string variable so the
-      // web/un-synced build neither type-resolves nor bundles the native module.
+      await ensureLocationNotificationPermission();
       try {
-        const spec: string = "@capacitor-community/background-geolocation";
-        const mod: any = await import(/* @vite-ignore */ spec);
-        const BG = mod.BackgroundGeolocation ?? mod.default;
-        const id: string = await BG.addWatcher(
+        // Prefer Capgo's permission helper when available (fine + background + notify).
+        // After in-app disclosure: fine location → background/Always → notification.
+        await BackgroundGeolocation.requestPermissions({
+          permissions: ["location", "backgroundLocation", "notification"],
+        });
+
+        await BackgroundGeolocation.start(
           {
-            requestPermissions: true,
+            backgroundMessage:
+              "Sharing your live location with My People. Open STRYT to stop.",
+            backgroundTitle: "STRYT live location",
+            requestPermissions: false,
             stale: false,
             distanceFilter: 15,
-            backgroundTitle: "STRYT live location",
-            backgroundMessage: "Sharing your live location with your emergency contacts",
           },
-          (loc: any, err: any) => {
+          (loc, err) => {
             if (err || !loc) return;
-            push({ lat: loc.latitude, lng: loc.longitude, accuracy: loc.accuracy, heading: loc.bearing });
-          }
+            push({
+              lat: loc.latitude,
+              lng: loc.longitude,
+              accuracy: loc.accuracy,
+              heading: loc.bearing ?? undefined,
+            });
+          },
         );
-        bgRemove = () => BG.removeWatcher({ id });
-        return;
-      } catch {
-        // Plugin not installed/synced yet — fall through to foreground watch.
+        bgActive = true;
+        return "background";
+      } catch (err) {
+        console.warn("[backgroundLocation] Capgo watcher failed, using foreground:", err);
+        bgActive = false;
       }
-      // Tier 2 — native foreground.
+
       capWatchId = await Geolocation.watchPosition({ enableHighAccuracy: true }, (pos, err) => {
         if (err || !pos) return;
         push({
-          lat: pos.coords.latitude, lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy, heading: pos.coords.heading ?? undefined,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          heading: pos.coords.heading ?? undefined,
         });
       });
-      return;
+      return "foreground";
     }
 
-    // Tier 3 — web.
     if ("geolocation" in navigator) {
       webWatchId = navigator.geolocation.watchPosition(
-        (pos) => push({
-          lat: pos.coords.latitude, lng: pos.coords.longitude,
-          accuracy: pos.coords.accuracy, heading: pos.coords.heading ?? undefined,
-        }),
+        (pos) =>
+          push({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+            heading: pos.coords.heading ?? undefined,
+          }),
         undefined,
-        { enableHighAccuracy: true, maximumAge: 10000 }
+        { enableHighAccuracy: true, maximumAge: 10000 },
       );
     }
+    return "web";
   },
 
   async stop(): Promise<void> {
-    if (bgRemove) { try { await bgRemove(); } catch { /* ignore */ } bgRemove = null; }
-    if (capWatchId) { try { await Geolocation.clearWatch({ id: capWatchId }); } catch { /* ignore */ } capWatchId = null; }
-    if (webWatchId !== null) { navigator.geolocation.clearWatch(webWatchId); webWatchId = null; }
+    if (bgActive) {
+      try {
+        await BackgroundGeolocation.stop();
+      } catch {
+        /* ignore */
+      }
+      bgActive = false;
+    }
+    if (capWatchId) {
+      try {
+        await Geolocation.clearWatch({ id: capWatchId });
+      } catch {
+        /* ignore */
+      }
+      capWatchId = null;
+    }
+    if (webWatchId !== null) {
+      navigator.geolocation.clearWatch(webWatchId);
+      webWatchId = null;
+    }
+  },
+
+  openSettings(): void {
+    if (!Capacitor.isNativePlatform()) return;
+    void BackgroundGeolocation.openSettings();
   },
 };

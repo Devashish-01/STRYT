@@ -17,6 +17,9 @@
     "audit:desktop": "playwright test --project=desktop",
     "cap:sync": "npm run build && node scripts/delete-apk.js && npx cap sync android",
     "cap:run": "npm run build && node scripts/delete-apk.js && npx cap run android",
+    "cap:sync:ios": "npm run build && npx cap sync ios",
+    "cap:open:ios": "npx cap open ios",
+    "cap:run:ios": "npm run build && npx cap run ios",
     "ota:publish": "npm run build && node scripts/publish-ota-update.mjs"
   },
   "dependencies": {
@@ -28,10 +31,12 @@
     "@capacitor/core": "^8.4.1",
     "@capacitor/geolocation": "^8.2.0",
     "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.4.2",
     "@capacitor/keyboard": "^8.0.5",
     "@capacitor/push-notifications": "^8.1.1",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
+    "@capgo/background-geolocation": "^8.3.1",
     "@capgo/capacitor-updater": "^8.50.2",
     "@phosphor-icons/react": "^2.1.10",
     "@supabase/ssr": "^0.12.0",

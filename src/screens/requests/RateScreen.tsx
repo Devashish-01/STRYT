@@ -71,8 +71,7 @@ export default function RateScreen() {
             <button key={i} onClick={() => setRating(i)} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(0)}>
               <Star
                 size={42}
-                fill={i <= (hover || rating) ? "var(--amber-500)" : "none"}
-                strokeWidth={i <= (hover || rating) ? 0 : 1.5}
+                weight={i <= (hover || rating) ? "fill" : "regular"}
                 color={i <= (hover || rating) ? "var(--amber-500)" : "var(--ink-300)"}
                 style={{ transition: "transform 0.1s", transform: i <= (hover || rating) ? "scale(1.08)" : "scale(1)" }}
               />

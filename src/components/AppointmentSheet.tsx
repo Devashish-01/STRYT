@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2 } from "@/components/Icons";
 import { useApp } from "@/store";
-import { generateWorkingSlots, isWorkingDay, type AppointmentSlot, DEFAULT_WORKING_HOURS } from "@/utils/availability";
+import { generateWorkingSlots, isWorkingDay, type AppointmentSlot, DEFAULT_WORKING_HOURS, formatHoursForDisplay } from "@/utils/availability";
 import { uploadService } from "@/services/core/uploadService";
 import { appointmentService } from "@/services/engagement/appointmentService";
 import { slotBlockService } from "@/services/engagement/slotBlockService";
@@ -369,7 +369,7 @@ export function AppointmentSheet({
               <div>
                 <div className="tiny semi muted">Working Hours Schedule</div>
                 <div className="bold small" style={{ color: "var(--brand-800)", marginTop: 1 }}>
-                  {availabilityNote || DEFAULT_WORKING_HOURS}
+                  {formatHoursForDisplay(availabilityNote || DEFAULT_WORKING_HOURS)}
                 </div>
               </div>
             </div>

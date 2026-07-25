@@ -4,6 +4,7 @@ import { toCamel, toSnake } from "@/lib/caseMap";
 import type { TablesUpdate } from "@/lib/dbTypes";
 import type { PublicUser, CurrentUser } from "@/types";
 import { PROFILE_BADGE_THRESHOLDS } from "@/lib/badges";
+import { deletionPurgeAt } from "@/lib/accountDeletion";
 
 export interface OwnedEntities {
   businessIds: string[];
@@ -74,7 +75,7 @@ export const userService = {
         const { data: aliasRow } = await sb.from("users").select("alias").eq("id", uid).maybeSingle();
         if (aliasRow) u.alias = (aliasRow as { alias?: string | null }).alias ?? null;
       }
-      // Look up pending deletion requests
+      // Self-serve deletion: PENDING CUSTOMER request → purge date = created + grace
       const { data: delReq } = await sb
         .from("profile_deletion_requests")
         .select("created_at")
@@ -84,9 +85,7 @@ export const userService = {
         .maybeSingle();
 
       if (delReq) {
-        const requestDate = new Date(delReq.created_at);
-        const scheduledDate = new Date(requestDate.getTime() + 30 * 24 * 60 * 60 * 1000);
-        u.deletionScheduledAt = scheduledDate.toISOString();
+        u.deletionScheduledAt = deletionPurgeAt(delReq.created_at).toISOString();
       } else {
         u.deletionScheduledAt = null;
       }

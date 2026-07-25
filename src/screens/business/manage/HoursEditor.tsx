@@ -7,63 +7,7 @@ import { useQuery } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
-
-const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-interface DayHours {
-  open: boolean;
-  from: string;
-  to: string;
-}
-
-/** Serialize the per-day UI state into a compact human-readable string stored in DB. */
-function serialize(is24x7: boolean, hours: Record<string, DayHours>, slotDuration: number): string {
-  let main = "";
-  if (is24x7) {
-    main = "Open 24×7";
-  } else {
-    main = days
-      .map((d) => {
-        const h = hours[d];
-        return h.open ? `${d} ${h.from}–${h.to}` : `${d} Closed`;
-      })
-      .join(", ");
-  }
-  return `${main}|duration=${slotDuration}`;
-}
-
-/** Parse a stored string back into per-day state. Falls back to defaults. */
-function parse(raw: string | undefined): { is24x7: boolean; hours: Record<string, DayHours>; slotDuration: number } {
-  const defaults = Object.fromEntries(days.map((d) => [d, { open: true, from: "11:00", to: "23:30" }]));
-  if (!raw) return { is24x7: false, hours: defaults, slotDuration: 30 };
-  
-  const parts = raw.split("|");
-  const mainPart = parts[0]?.trim() || "";
-  const configPart = parts[1];
-  
-  let slotDuration = 30;
-  if (configPart && configPart.includes("duration=")) {
-    const match = configPart.match(/duration=(\d+)/);
-    if (match) slotDuration = parseInt(match[1], 10);
-  }
-
-  if (mainPart === "Open 24×7") return { is24x7: true, hours: defaults, slotDuration };
-  const result = { ...defaults };
-  for (const chunk of mainPart.split(", ")) {
-    for (const d of days) {
-      if (chunk.startsWith(d + " Closed")) {
-        result[d] = { open: false, from: "11:00", to: "23:30" };
-        break;
-      }
-      const m = chunk.match(new RegExp(`^${d} (\\d{2}:\\d{2})[–-](\\d{2}:\\d{2})$`));
-      if (m) {
-        result[d] = { open: true, from: m[1], to: m[2] };
-        break;
-      }
-    }
-  }
-  return { is24x7: false, hours: result, slotDuration };
-}
+import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
 
 export default function HoursEditor() {
   const { id = "" } = useParams();
@@ -79,11 +23,7 @@ export default function HoursEditor() {
     );
   }
 
-  const [is24x7, setIs24x7] = useState(false);
-  const [hours, setHours] = useState<Record<string, DayHours>>(
-    Object.fromEntries(days.map((d) => [d, { open: true, from: "11:00", to: "23:30" }]))
-  );
-  const [slotDuration, setSlotDuration] = useState(30);
+  const [hoursRaw, setHoursRaw] = useState<string | undefined>(undefined);
   const [special, setSpecial] = useState<{ date: string; note: string }[]>([]);
   const [newSpecial, setNewSpecial] = useState("");
   const [saving, setSaving] = useState(false);
@@ -92,10 +32,7 @@ export default function HoursEditor() {
   // Seed form state from live business once loaded.
   useEffect(() => {
     if (!b) return;
-    const parsed = parse(b.hours);
-    setIs24x7(parsed.is24x7);
-    setHours(parsed.hours);
-    setSlotDuration(parsed.slotDuration);
+    setHoursRaw(b.hours);
     setOpenNow(b.isAvailableNow ?? false);
   }, [b]);
 
@@ -123,14 +60,11 @@ export default function HoursEditor() {
     }
   }
 
-  function setDay(d: string, patch: Partial<DayHours>) {
-    setHours((h) => ({ ...h, [d]: { ...h[d], ...patch } }));
-  }
-
   async function save() {
+    if (hoursRaw === undefined) return;
     setSaving(true);
     try {
-      await businessService.update(id, { hours: serialize(is24x7, hours, slotDuration) });
+      await businessService.update(id, { hours: hoursRaw });
       showToast("Hours saved");
     } catch {
       showToast("Couldn't save hours. Try again.");
@@ -138,24 +72,6 @@ export default function HoursEditor() {
       setSaving(false);
     }
   }
-
-  const firstOpenDay = days.find((d) => hours[d]?.open);
-  const maxSlots = firstOpenDay
-    ? (() => {
-        const h = hours[firstOpenDay];
-        const parseTimeToMin = (t: string) => {
-          const parts = t.split(":");
-          return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-        };
-        const total = parseTimeToMin(h.to) - parseTimeToMin(h.from);
-        return total > 0 ? Math.floor(total / slotDuration) : 0;
-      })()
-    : 0;
-
-  // What customers see on the public page (same string that gets stored).
-  const previewText = is24x7
-    ? "Open 24×7"
-    : days.map((d) => (hours[d].open ? `${d} ${hours[d].from}–${hours[d].to}` : `${d} Closed`)).join(", ");
 
   return (
     <div className="screen">
@@ -189,85 +105,9 @@ export default function HoursEditor() {
             <Clock size={18} color="var(--brand-700)" /> Working Hours (Availability Timing)
           </div>
 
-          {/* Open 24×7 */}
-          <button
-            className="row between center-v"
-            style={{ padding: "10px 12px", borderRadius: 12, background: "#fff", width: "100%", border: is24x7 ? "2px solid var(--brand-500)" : "1px solid var(--line)" }}
-            onClick={() => setIs24x7((v) => !v)}
-          >
-            <span className="semi small">Open 24×7</span>
-            <span style={{ width: 44, height: 26, borderRadius: 999, background: is24x7 ? "var(--brand-600)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}>
-              <span style={{ position: "absolute", top: 3, left: is24x7 ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
-            </span>
-          </button>
-
-          {/* Per-day open/close (richer than the provider's single pattern) */}
-          {!is24x7 && (
-            <div className="field">
-              <label className="tiny semi muted">Available Days & Hours</label>
-              <div className="card" style={{ overflow: "hidden", marginTop: 6 }}>
-                {days.map((d, i) => {
-                  const h = hours[d];
-                  return (
-                    <div key={d} className="row gap-10" style={{ padding: "12px 14px", borderBottom: i < days.length - 1 ? "1px solid var(--line)" : "none" }}>
-                      <span className="semi small" style={{ width: 36 }}>{d}</span>
-                      <button
-                        onClick={() => setDay(d, { open: !h.open })}
-                        style={{ width: 40, height: 24, borderRadius: 999, background: h.open ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}
-                      >
-                        <span style={{ position: "absolute", top: 3, left: h.open ? 19 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff" }} />
-                      </button>
-                      {h.open ? (
-                        <div className="row gap-6 grow" style={{ justifyContent: "flex-end" }}>
-                          <input className="input" style={{ width: 80, padding: "8px 8px", textAlign: "center" }} type="time" value={h.from} onChange={(e) => setDay(d, { from: e.target.value })} />
-                          <span className="muted">–</span>
-                          <input className="input" style={{ width: 80, padding: "8px 8px", textAlign: "center" }} type="time" value={h.to} onChange={(e) => setDay(d, { to: e.target.value })} />
-                        </div>
-                      ) : (
-                        <span className="grow tiny muted" style={{ textAlign: "right" }}>Closed</span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+          {hoursRaw !== undefined && (
+            <WeeklyHoursEditor key={id} initialRaw={hoursRaw} onChange={setHoursRaw} />
           )}
-
-          {/* Slot duration & max appointments */}
-          <div className="row gap-12">
-            <div className="field grow">
-              <label className="tiny semi muted">Appointment Slot Duration</label>
-              <select
-                className="input"
-                value={slotDuration}
-                onChange={(e) => setSlotDuration(Number(e.target.value))}
-                style={{ fontSize: 13, padding: "10px 12px", width: "100%" }}
-              >
-                <option value={15}>15 minutes</option>
-                <option value={30}>30 minutes</option>
-                <option value={45}>45 minutes</option>
-                <option value={60}>60 minutes (1 hr)</option>
-                <option value={90}>90 minutes (1.5 hrs)</option>
-                <option value={120}>120 minutes (2 hrs)</option>
-              </select>
-            </div>
-
-            <div className="field grow">
-              <label className="tiny semi muted">Max Appointments / Day</label>
-              <div
-                className="input"
-                style={{ fontSize: 13.5, padding: "10px 12px", background: "var(--ink-50)", fontWeight: 700, display: "flex", alignItems: "center", height: 38 }}
-              >
-                {is24x7 ? "Continuous" : `${maxSlots} slots`}
-              </div>
-            </div>
-          </div>
-
-          {/* Public profile display preview */}
-          <div className="card card-condensed" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
-            <div className="tiny semi muted">Public Profile Display Preview:</div>
-            <div className="bold small" style={{ color: "var(--brand-800)", marginTop: 2 }}>🕒 {previewText}</div>
-          </div>
         </div>
 
         {/* Special / holiday hours */}

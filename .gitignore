@@ -22,7 +22,7 @@ tsconfig.tsbuildinfo
 Thumbs.db
 *.swp
 
-# Capacitor (native wrapper — committed so GitHub Actions can build the APK)
+# Capacitor (native wrappers — committed so CI can build Android APK / iOS archive)
 # Only ignore build outputs and local secrets
 android/.gradle
 android/app/build
@@ -30,7 +30,7 @@ android/build
 android/local.properties
 android/app/stryt-release.keystore
 android/.idea
-ios
+# iOS build/output ignores live in ios/.gitignore (Pods, DerivedData, public web copy)
 .capacitor
 
 # APK binary — served from GitHub Releases, not stored in git

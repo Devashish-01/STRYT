@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Map, MessageSquare } from "@/components/Icons";
+import { Search, Map, MessageSquare, ChevronDown } from "@/components/Icons";
 import { catalogService, discoveryService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -106,6 +106,60 @@ function LocationSearchBox({
               <span className="tiny muted">{t("explore_location_no_matches")}</span>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Radius as a compact pill — tapping it drops down the existing RadiusSelector
+// (unchanged, still shared with every other screen that uses it) instead of
+// leaving the full preset row permanently visible above the results.
+function RadiusDropdown({
+  value, onChange, accentColor = "var(--brand-600)", label, align = "right",
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  accentColor?: string;
+  label: string;
+  /** Which side the popover hangs from — "right" (default, for a button sitting
+   *  near the right edge of a row) or "left" (for the narrow desktop sidebar,
+   *  where opening rightward into the main content area is what has room). */
+  align?: "left" | "right";
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const valueLabel = value >= 5000 ? "🌍 World" : value === 0.5 ? "500m" : `${value} km`;
+
+  return (
+    <div ref={rootRef} style={{ position: "relative" }}>
+      <button
+        type="button"
+        className="chip"
+        style={{ gap: 6 }}
+        onClick={() => { haptics.selection(); setOpen((v) => !v); }}
+      >
+        📍 {valueLabel}
+        <ChevronDown size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }} />
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 8px)", [align]: 0, zIndex: 1010, width: 280 }}>
+          <RadiusSelector
+            value={value}
+            onChange={(v) => { onChange(v); setOpen(false); }}
+            accentColor={accentColor}
+            label={label}
+          />
         </div>
       )}
     </div>
@@ -320,11 +374,13 @@ export default function Explore() {
 
           {/* Radius selector */}
           <div className="filter-section">
-            <RadiusSelector
+            <label className="filter-label">{t("explore_search_radius")}</label>
+            <RadiusDropdown
               value={radius}
               onChange={setRadius}
               accentColor="var(--brand-600)"
               label={t("explore_search_radius")}
+              align="left"
             />
           </div>
 
@@ -415,18 +471,18 @@ export default function Explore() {
 
           <div ref={containerRef} className="explore-listings-scroll">
             <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
-            {/* Mobile Category chips horizontal scroll & Radius Selector (mobile only) */}
+            {/* Mobile Category chips horizontal scroll + compact Radius button (mobile only) */}
             <div className="mobile-only">
-              <div className="hscroll" style={{ paddingTop: 12 }}>
-                <button className={`chip ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>{t("explore_tab_all")}</button>
-                {catTree.map((c) => (
-                  <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}>
-                    {c.icon} {c.name.split(" ")[0]}
-                  </button>
-                ))}
-              </div>
-              <div className="page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
-                <RadiusSelector
+              <div className="row gap-8 center-v page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
+                <div className="hscroll grow" style={{ padding: 0, margin: 0 }}>
+                  <button className={`chip ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>{t("explore_tab_all")}</button>
+                  {catTree.map((c) => (
+                    <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}>
+                      {c.icon} {c.name.split(" ")[0]}
+                    </button>
+                  ))}
+                </div>
+                <RadiusDropdown
                   value={radius}
                   onChange={setRadius}
                   accentColor="var(--brand-600)"

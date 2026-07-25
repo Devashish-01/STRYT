@@ -193,7 +193,7 @@ export default function MapView() {
             <button
               onClick={() => setShowNearbyPopup(true)}
               style={{
-                position: "absolute", bottom: 88, left: "50%", transform: "translateX(-50%)",
+                position: "absolute", bottom: "calc(var(--nav-h) + 76px + var(--safe-area-bottom))", left: "50%", transform: "translateX(-50%)",
                 zIndex: 1000, background: "var(--brand-600)", color: "#fff",
                 borderRadius: 20, padding: "8px 16px", fontSize: 12, fontWeight: 700,
                 boxShadow: "0 4px 16px rgba(107,33,204,0.35)", whiteSpace: "nowrap",
@@ -218,7 +218,7 @@ export default function MapView() {
               rendering the notice bare made it collapse invisibly). */}
           {isGuest ? (
             <div style={{
-              position: "absolute", bottom: "calc(24px + var(--safe-area-bottom))",
+              position: "absolute", bottom: "var(--map-radius-strip-bottom)",
               left: 12, right: 12, zIndex: 1000,
             }}>
               <GuestRadiusNotice />
@@ -232,7 +232,7 @@ export default function MapView() {
             className="icon-btn map-glass-panel"
             title={t("map_set_location_manually")}
             onClick={pin.enterPickMode}
-            style={{ position: "absolute", bottom: 140, right: 16, zIndex: 1000 }}
+            style={{ position: "absolute", bottom: "calc(var(--nav-h) + 128px + var(--safe-area-bottom))", right: 16, zIndex: 1000 }}
           >
             <MapPinPlus size={18} color="var(--brand-600)" />
           </button>

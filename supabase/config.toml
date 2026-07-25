@@ -28,6 +28,9 @@ verify_jwt = false
 [functions.profile-control]
 verify_jwt = true
 
+[functions.purge-deleted-accounts]
+verify_jwt = true
+
 [functions.send-push]
 verify_jwt = true
 

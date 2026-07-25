@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { functionUrl } from "@/config";
+import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
 
 export type ProfileTarget = "CUSTOMER" | "BUSINESS" | "PROVIDER";
 
@@ -43,18 +44,44 @@ export const profileControlService = {
   },
 
   /**
-   * Submits a deletion request to the review queue for admins.
+   * Self-serve account deletion schedule (Play / App Store User Data policy).
+   * Hides the profile immediately and permanently purges after
+   * ACCOUNT_DELETION_GRACE_DAYS unless the user cancels. No admin approval.
    */
   async requestDeletion(targetType: ProfileTarget, targetId: string | null, reason: string): Promise<void> {
     const sb = getSupabase();
     const { data: { session } } = await sb.auth.getSession();
     if (!session || !session.user) throw new Error("Authentication required");
 
+    if (targetType === "CUSTOMER") {
+      const uid = session.user.id;
+
+      const { count: activeAgreements } = await sb
+        .from("agreements")
+        .select("*", { count: "exact", head: true })
+        .or(`requester_user_id.eq.${uid},responder_user_id.eq.${uid}`)
+        .not("status", "in", '("COMPLETED","CANCELLED","DISPUTED")');
+      if (activeAgreements && activeAgreements > 0) {
+        throw new Error("You still have active deals. Finish or cancel them before deleting your account.");
+      }
+
+      const { data: existing } = await sb
+        .from("profile_deletion_requests")
+        .select("id")
+        .eq("user_id", uid)
+        .eq("target_type", "CUSTOMER")
+        .eq("status", "PENDING")
+        .maybeSingle();
+      if (existing) {
+        throw new Error("Account deletion is already scheduled. Open the deletion screen to cancel or wait for purge.");
+      }
+    }
+
     const { error } = await sb.from("profile_deletion_requests").insert({
       user_id: session.user.id,
       target_type: targetType,
       target_id: targetId,
-      reason,
+      reason: reason.trim() || "User requested account deletion",
       status: "PENDING",
     });
     throwIfError(error);
@@ -68,6 +95,7 @@ export const profileControlService = {
     }
   },
 
+  /** Cancel a scheduled CUSTOMER deletion during the grace period. */
   async cancelDeletion(): Promise<void> {
     const sb = getSupabase();
     const { data: { session } } = await sb.auth.getSession();
@@ -87,6 +115,32 @@ export const profileControlService = {
       .eq("id", session.user.id);
     throwIfError(userErr);
   },
+
+  /**
+   * Completes permanent deletion after the grace period (self-serve).
+   * Calls the purge-deleted-accounts Edge Function.
+   */
+  async completeScheduledDeletion(): Promise<void> {
+    const sb = getSupabase();
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error("Authentication required");
+
+    const res = await fetch(functionUrl("purge-deleted-accounts"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({}),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.ok) {
+      throw new Error(json.message || "Could not complete account deletion.");
+    }
+  },
+
+  /** Grace period length shown in UI copy. */
+  graceDays: ACCOUNT_DELETION_GRACE_DAYS,
 
   /**
    * Retrieves all deletion requests (Admin only).

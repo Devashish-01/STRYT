@@ -18,7 +18,7 @@ import { useApp } from "@/store";
 import type { AppointmentRecord, QnaItem, QueueOwnerToken, RequestPost } from "@/types";
 import {
   calculateNextTurnoffTime, DEFAULT_ONBOARD_WORKING_HOURS,
-  evaluateProviderAvailability,
+  evaluateProviderAvailability, parseHoursValue, serializeHoursValue,
 } from "@/utils/availability";
 import { deriveMoneySummary } from "@/utils/paymentSummary";
 import ManageNav from "./ManageNav";
@@ -161,9 +161,15 @@ export default function ManageDashboard() {
     .sort((a, b) => +new Date(a.scheduledForISO) - +new Date(b.scheduledForISO))
     .slice(0, 5);
 
+  // Compares normalized schedules (not raw strings) so this survives the hours storage
+  // format upgrade — old businesses may still have the legacy default string, new ones
+  // the equivalent JSON, and both should count as "still on the onboarding default."
+  const isDefaultHours = !business?.hours
+    || serializeHoursValue(parseHoursValue(business.hours)) === serializeHoursValue(parseHoursValue(DEFAULT_ONBOARD_WORKING_HOURS));
+
   const checklistItems = [
     { label: "Add a catalog item", done: (business?.catalog?.length ?? 0) > 0, onClick: () => nav(`${base}/catalog`) },
-    { label: "Set your hours", done: !!business?.hours && business.hours !== DEFAULT_ONBOARD_WORKING_HOURS, onClick: () => nav(`${base}/hours`) },
+    { label: "Set your hours", done: !isDefaultHours, onClick: () => nav(`${base}/hours`) },
     { label: "Upload verification", done: !!business?.verificationStatus, onClick: () => nav(`${base}/verify`) },
     { label: "Post your first update", done: (posts?.length ?? 0) > 0, onClick: () => nav("/community/new", { state: composeState }) },
   ];

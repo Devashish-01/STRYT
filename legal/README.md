@@ -36,7 +36,10 @@ Indian Contract Act 1872; Information Technology Act 2000 and the IT (Intermedia
 
 ## ⚠️ Must be completed before publication (fill-ins)
 
-Search the documents for these bracketed tokens and complete them:
+**Preferred path:** edit [`operator.yaml`](operator.yaml) and run
+`node scripts/apply-legal-operator.mjs` — that fills every document at once.
+
+Search the documents for these bracketed tokens if editing by hand:
 
 1. **`[STRYT OPERATOR LEGAL NAME]`** — the legal entity operating STRYT (proprietorship / Pvt Ltd / etc.).
 2. **`[REGISTERED ADDRESS]` / `[REGISTERED OFFICE ADDRESS]`** — registered office.
@@ -44,7 +47,7 @@ Search the documents for these bracketed tokens and complete them:
 4. **`[GRIEVANCE OFFICER NAME]` + designation + dedicated email + phone** — a named, India-based Grievance Officer is **mandatory** (IT Rules 2021 / DPDP).
 5. **`[grievance@stryt.in]`** — provision a dedicated grievance mailbox (interim: contact@stryt.in / stryt.assistance@gmail.com).
 6. **`[CITY, STATE OF REGISTERED OFFICE]`** — governing jurisdiction / arbitration seat in Terms §50–51 (currently suggested as Pune, Maharashtra based on the app's default location — confirm).
-7. **Effective Date** — set on each document at publication.
+7. **Effective Date** — set on each document at publication (the apply script sets this from `operator.yaml`).
 
 ## Open compliance items flagged for STRYT (decide with counsel)
 

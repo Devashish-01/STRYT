@@ -54,7 +54,10 @@ function slugOf(path: string): string {
 
 const bySlug = new Map<string, string>();
 for (const [path, content] of Object.entries(files)) {
-  bySlug.set(slugOf(path), content);
+  const slug = slugOf(path);
+  // Maintainer-only files — not user-facing policies.
+  if (slug === "README" || slug === "OPERATOR") continue;
+  bySlug.set(slug, content);
 }
 
 export function getLegalDoc(slug: string): { title: string; content: string } | null {

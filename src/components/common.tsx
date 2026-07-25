@@ -98,7 +98,7 @@ export function Rating({ value, size = 13 }: { value: number; size?: number }) {
       }}
     >
       {value.toFixed(1)}
-      <Star size={size - 2} fill="#fff" strokeWidth={0} />
+      <Star size={size - 2} weight="fill" />
     </span>
   );
 }
@@ -110,8 +110,7 @@ export function StarRow({ value, size = 16 }: { value: number; size?: number }) 
         <Star
           key={i}
           size={size}
-          fill={i <= Math.round(value) ? "var(--amber-500)" : "none"}
-          strokeWidth={i <= Math.round(value) ? 0 : 1.5}
+          weight={i <= Math.round(value) ? "fill" : "regular"}
           color={i <= Math.round(value) ? "var(--amber-500)" : "var(--ink-300)"}
         />
       ))}

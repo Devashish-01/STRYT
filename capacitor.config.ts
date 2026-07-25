@@ -18,13 +18,29 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
+    iosScheme: 'https',
   },
   android: {
     backgroundColor: '#8b47f5',
     // Smoother scrolling / fewer paint glitches in the web view.
     webContentsDebuggingEnabled: false,
+    // Keeps the Capacitor bridge alive so background location / HTTP keep
+    // working after several minutes in the background (Capgo BG geo).
+    useLegacyBridge: true,
+  },
+  ios: {
+    backgroundColor: '#8b47f5',
+    contentInset: 'automatic',
+    // Permission / URL-scheme strings live in ios/App/App/Info.plist
+    // (usage descriptions + CFBundleURLTypes + LSApplicationQueriesSchemes).
+    // PrivacyInfo.xcprivacy ships Required Reason API declarations for review.
   },
   plugins: {
+    // Native HTTP so live-share / Supabase calls keep working when Android
+    // throttles WebView networking after several minutes in the background.
+    CapacitorHttp: {
+      enabled: true,
+    },
     SplashScreen: {
       // We hide it from JS once React mounts (initNativeApp), so don't let the
       // native splash linger or flash white underneath.

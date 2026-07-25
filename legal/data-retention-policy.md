@@ -32,11 +32,11 @@ We keep your account and content while your account is active so the Platform wo
 
 ## 3. Account deletion (Customer)
 
-3.1 **Self-service request + grace period.** You can request deletion from Settings. Your account then enters a **30-day grace period** during which it is hidden from other Users but **recoverable in one tap**. This protects against accidental or impulsive deletion.
+3.1 **Self-service deletion + grace period.** You can delete your account from Settings without contacting support or waiting for an administrator. Your account then enters a **30-day grace period** during which it is hidden from other Users but **recoverable in one tap**. After the grace period, deletion completes automatically. (Admins may still force-delete early for safety or legal reasons.)
 
 3.2 **Guardrails.** Deletion cannot complete while you have **active Deals/Agreements** (not completed, cancelled, or disputed) or any payment record in a **"held" status** in the Deal tracker. These must be resolved first. (These are internal status checks; STRYT holds no money — see Terms Section 13.)
 
-3.3 **What permanent deletion does.** When deletion proceeds (via the admin-executed deletion process, which for a full customer account additionally requires Super Admin authorisation and a typed confirmation), STRYT:
+3.3 **What permanent deletion does.** When deletion proceeds (automatically after the grace period, or earlier via an authorised admin force-delete), STRYT:
 - **anonymises your user record** — for example replacing your name with "Deleted User", zeroing your phone number, clearing your avatar, and marking the account disabled with a deletion timestamp;
 - **deletes your uploaded files** from storage, including avatars, stories, request photos, business/catalogue/portfolio photos, and **KYC/verification documents**;
 - **deletes the Business and Provider profiles you own**, along with their catalogue items, offers, portfolio items, packages, and stories (deleting them, or where a hard delete is not possible, anonymising and suspending them);

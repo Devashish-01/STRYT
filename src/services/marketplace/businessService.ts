@@ -994,42 +994,4 @@ export const businessService = {
     }
   },
 
-  async verifyAndSyncFromGoogle(id: string, details: {
-    name?: string;
-    address?: string;
-    city?: string;
-    pincode?: string;
-    lat?: number;
-    lng?: number;
-    phone?: string;
-    hours?: string;
-    coverImage?: string;
-    gallery?: string[];
-  }): Promise<void> {
-    const sb = getSupabase();
-    // IMPORTANT: do NOT set is_verified / verification_status here. A DB trigger
-    // (enforce_manual_verification_decision) rejects any non-service_role caller
-    // that tries to self-verify — and because that rejection aborts the WHOLE
-    // update, it previously made the Google import fail entirely (no data landed).
-    // Verification is a separate, reviewed step (verification-review edge fn);
-    // this action only imports the public profile data.
-    const patch: Record<string, unknown> = {};
-
-    if (details.name) patch.name = details.name;
-    if (details.address) patch.address_line1 = details.address;
-    if (details.city) patch.city = details.city;
-    if (details.pincode) patch.pincode = details.pincode;
-    if (typeof details.lat === "number" && details.lat !== 0) patch.lat = details.lat;
-    if (typeof details.lng === "number" && details.lng !== 0) patch.lng = details.lng;
-    if (details.phone) patch.phone = details.phone;
-    if (details.hours) patch.hours = details.hours;
-    if (details.coverImage) patch.cover_image = details.coverImage;
-    if (details.gallery && details.gallery.length > 0) patch.gallery = details.gallery;
-
-    if (Object.keys(patch).length === 0) return; // nothing to import
-
-    const { error } = await sb.from("businesses").update(patch as TablesUpdate<"businesses">).eq("id", id);
-    throwIfError(error);
-    inFlightBusinessGet.clear();
-  },
 };

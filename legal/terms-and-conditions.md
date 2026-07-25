@@ -10,7 +10,7 @@
 
 ## 0. Operator Information (to be completed before publication)
 
-The STRYT application, website (**https://stryt.in**), and native Android application (together, the **"Platform"**) are operated by:
+The STRYT application, website (**https://stryt.in**), and native Android and iOS applications (together, the **"Platform"**) are operated by:
 
 - **Legal entity name:** `[STRYT OPERATOR LEGAL NAME — e.g. "____ Private Limited" / proprietorship name]`
 - **Registered office:** `[REGISTERED ADDRESS, City, State, PIN]`
@@ -309,7 +309,7 @@ In these Terms, unless the context requires otherwise:
 
 ## 22. Notifications
 
-22.1 The Platform sends notifications through (a) an in-app notification centre, (b) web push notifications (in the browser), and (c) Firebase Cloud Messaging push on the native Android app (note: native push configuration may not be fully live — see the Privacy Policy).
+22.1 The Platform sends notifications through (a) an in-app notification centre, (b) web push notifications (in the browser), and (c) Firebase Cloud Messaging push on the native Android and iOS apps (note: native push configuration may not be fully live — see the Privacy Policy).
 
 22.2 By using the Platform you consent to receive **service and transactional** notifications necessary to operate the features you use — for example queue turns, booking and deal updates, quote and offer alerts, saved-search matches, community replies, verification decisions, location-share requests, and account/security notices.
 
@@ -351,7 +351,7 @@ In these Terms, unless the context requires otherwise:
 
 26.1 Sign-in uses your Google account through Firebase Authentication. Your use of Google Sign-In is subject to Google's terms and privacy policy. STRYT receives only the basic profile information necessary to create and operate your Account (see the Privacy Policy).
 
-26.2 The native Android app uses the device's native Google sign-in picker and native location services. Distribution of the Android app may be subject to Google Play policies where applicable.
+26.2 The native Android and iOS apps use the device's native sign-in picker and native location services. Distribution of the apps may be subject to Google Play and Apple App Store policies where applicable.
 
 ---
 
@@ -391,7 +391,7 @@ In these Terms, unless the context requires otherwise:
 
 ## 31. Push Notifications
 
-31.1 Push notifications are delivered via browser Web Push and, on the native Android app, via Firebase Cloud Messaging. To deliver them, the Platform stores a push subscription or device token associated with your Account.
+31.1 Push notifications are delivered via browser Web Push and, on the native Android and iOS apps, via Firebase Cloud Messaging. To deliver them, the Platform stores a push subscription or device token associated with your Account.
 
 31.2 You may enable or disable push notifications through your browser or device settings at any time. Section 22 (Notifications) applies to push notifications, including the no-guarantee-of-delivery provision.
 

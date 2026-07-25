@@ -725,7 +725,7 @@ export function StoryViewer({
               cursor: "pointer"
             }}
           >
-            <Star size={15} color={highlighted ? "var(--amber-500)" : "#fff"} fill={highlighted ? "var(--amber-500)" : "none"} />
+            <Star size={15} color={highlighted ? "var(--amber-500)" : "#fff"} weight={highlighted ? "fill" : "regular"} />
             {highlighted ? "Saved" : "Save"}
           </button>
         </div>

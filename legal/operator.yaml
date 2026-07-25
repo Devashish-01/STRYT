@@ -1,0 +1,17 @@
+# Single source of truth for legal-entity fill-ins.
+# Edit this file, then run:  node scripts/apply-legal-operator.mjs
+#
+# Required for App Store / IT Rules publication. Do not invent values.
+
+brand: STRYT
+operator_legal_name: ""
+registered_address: ""
+cin_or_registration: "Not applicable"
+gstin: "Not applicable"
+grievance_officer_name: ""
+grievance_officer_designation: "Grievance Officer"
+grievance_officer_email: "contact@stryt.in"
+grievance_officer_phone: ""
+jurisdiction_city_state: "Pune, Maharashtra"
+effective_date: "25 July 2026"
+legal_version: "2026-07-25"
