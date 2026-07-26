@@ -48,6 +48,16 @@ function jwtRole(token: string): string | null {
   }
 }
 
+async function releaseHeldPaymentsForDeletion(sb: SupabaseClient, userId: string): Promise<void> {
+  // After the grace period the user explicitly chose deletion — unblock purge by
+  // marking any stale HELD rows as refunded rather than leaving the account stuck.
+  await sb
+    .from("payments")
+    .update({ escrow_status: "REFUNDED" })
+    .eq("escrow_status", "HELD")
+    .eq("payer_user_id", userId);
+}
+
 async function canPurgeUser(sb: SupabaseClient, userId: string): Promise<{ ok: true } | { ok: false; message: string }> {
   const { count: activeAgreements } = await sb
     .from("agreements")
@@ -63,7 +73,7 @@ async function canPurgeUser(sb: SupabaseClient, userId: string): Promise<{ ok: t
     .from("payments")
     .select("*", { count: "exact", head: true })
     .eq("escrow_status", "HELD")
-    .or(`payer_user_id.eq.${userId}`);
+    .eq("payer_user_id", userId);
 
   if (heldPayments && heldPayments > 0) {
     return { ok: false, message: "Cannot delete account: held payment records still exist." };
@@ -182,8 +192,12 @@ serve(async (req) => {
       for (const row of expired || []) {
         const gate = await canPurgeUser(sb, row.user_id);
         if (!gate.ok) {
-          results.push({ userId: row.user_id, status: "skipped", message: gate.message });
-          continue;
+          await releaseHeldPaymentsForDeletion(sb, row.user_id);
+          const retry = await canPurgeUser(sb, row.user_id);
+          if (!retry.ok) {
+            results.push({ userId: row.user_id, status: "skipped", message: retry.message });
+            continue;
+          }
         }
         try {
           await purgeCustomerAccount(
@@ -243,10 +257,14 @@ serve(async (req) => {
 
     const gate = await canPurgeUser(sb, user.id);
     if (!gate.ok) {
-      return new Response(JSON.stringify({ ok: false, message: gate.message }), {
-        status: 400,
-        headers: CORS,
-      });
+      await releaseHeldPaymentsForDeletion(sb, user.id);
+      const retry = await canPurgeUser(sb, user.id);
+      if (!retry.ok) {
+        return new Response(JSON.stringify({ ok: false, message: retry.message }), {
+          status: 400,
+          headers: CORS,
+        });
+      }
     }
 
     await purgeCustomerAccount(

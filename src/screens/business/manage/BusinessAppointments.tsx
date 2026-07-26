@@ -9,7 +9,7 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import {
   Calendar, Check, X as XIcon, Image as ImageIcon, CheckCircle2, AlertTriangle,
-  Share2, IndianRupee, Ban,
+  Share2, IndianRupee, Ban, Package,
 } from "@/components/Icons";
 import type { AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
 import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
@@ -26,8 +26,9 @@ import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
+import { deliveryService } from "@/services";
 
-type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
+type ConsoleTab = "TODAY" | "UPCOMING" | "DELIVERIES" | "HISTORY" | "CANCELLED";
 
 export default function BusinessAppointments() {
   const { id = "" } = useParams();
@@ -73,6 +74,16 @@ export default function BusinessAppointments() {
   const [walkInModal, setWalkInModal] = useState<{ date: Date; timeLabel: string } | null>(null);
   const [walkInSubmitting, setWalkInSubmitting] = useState(false);
   const [noShowBusy, setNoShowBusy] = useState<string | null>(null);
+
+  // Delivery: bulk-assign N eligible appointments to one agent in a single run.
+  const [deliverySelectMode, setDeliverySelectMode] = useState(false);
+  const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
+  const [batchAgentPicking, setBatchAgentPicking] = useState(false);
+  const [batchAssigning, setBatchAssigning] = useState(false);
+  const { data: deliveryTeam } = useQuery(
+    () => (DELIVERY_AGENT_ENABLED ? deliveryService.deliveryTeam(id) : Promise.resolve([])),
+    [id]
+  );
 
   const appointments = useMemo(() => data ?? [], [data]);
   const blockedSlots = blockedData ?? [];
@@ -157,6 +168,31 @@ export default function BusinessAppointments() {
       showToast("Couldn't update. Try again.");
     } finally {
       setNoShowBusy(null);
+    }
+  }
+
+  function toggleSelectedForBatch(appointmentId: string) {
+    setSelectedForBatch((prev) => {
+      const next = new Set(prev);
+      if (next.has(appointmentId)) next.delete(appointmentId); else next.add(appointmentId);
+      return next;
+    });
+  }
+
+  async function assignBatchToAgent(agentUserId: string) {
+    setBatchAssigning(true);
+    try {
+      await deliveryService.assignBatch(Array.from(selectedForBatch), agentUserId);
+      haptics.success();
+      showToast(`${selectedForBatch.size} ${selectedForBatch.size === 1 ? "delivery" : "deliveries"} assigned`);
+      setSelectedForBatch(new Set());
+      setDeliverySelectMode(false);
+      setBatchAgentPicking(false);
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't assign — try again");
+    } finally {
+      setBatchAssigning(false);
     }
   }
 
@@ -429,8 +465,9 @@ export default function BusinessAppointments() {
           </button>
         )}
 
-        {/* Delivery dispatch — assign a delivery-scoped team member. Feature-gated. */}
-        {DELIVERY_AGENT_ENABLED && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
+        {/* Delivery dispatch — assign a delivery-scoped team member. Feature-gated, and
+            only for bookings the customer actually asked to have delivered. */}
+        {DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY" && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
           <DeliveryAssignControl appointmentId={apt.id} businessId={id} />
         )}
       </div>
@@ -459,6 +496,13 @@ export default function BusinessAppointments() {
     .filter((a) => a.status === "CANCELLED" || a.status === "REJECTED")
     .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
 
+  // Deliveries tab: every home-delivery booking that's been accepted or completed —
+  // matches DeliveryAssignControl's own render gate. Only ACCEPTED ones are selectable
+  // for a fresh batch (a COMPLETED one is a past order, nothing left to dispatch).
+  const deliveryList = appointments
+    .filter((a) => a.fulfillmentType === "DELIVERY" && (a.status === "ACCEPTED" || a.status === "COMPLETED"))
+    .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
+
   const packageOptions = (b?.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }));
 
   return (
@@ -467,7 +511,17 @@ export default function BusinessAppointments() {
 
       {/* Tabs */}
       <div className="hscroll" style={{ paddingTop: 10, paddingBottom: 6 }}>
-        {([["UPCOMING", `⏭️ Upcoming (${upcomingList.length})`], ["TODAY", "📅 Day view"], ["HISTORY", "🕘 History"], ["CANCELLED", `🚫 Cancelled (${cancelledList.length})`]] as const).map(([t, label]) => (
+        {(
+          [
+            { key: "UPCOMING" as const, label: `⏭️ Upcoming (${upcomingList.length})` },
+            { key: "TODAY" as const, label: "📅 Day view" },
+            ...(DELIVERY_AGENT_ENABLED
+              ? [{ key: "DELIVERIES" as const, label: `🛵 Deliveries (${deliveryList.length})` }]
+              : []),
+            { key: "HISTORY" as const, label: "🕘 History" },
+            { key: "CANCELLED" as const, label: `🚫 Cancelled (${cancelledList.length})` },
+          ]
+        ).map(({ key: t, label }) => (
           <button key={t} className={`chip ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>{label}</button>
         ))}
       </div>
@@ -515,6 +569,48 @@ export default function BusinessAppointments() {
               <EmptyState emoji="📅" title="No upcoming appointments" text="New bookings will appear here." />
             ) : (
               upcomingList.map(renderAppointmentCard)
+            )}
+          </div>
+        )}
+
+        {!loading && !error && tab === "DELIVERIES" && (
+          <div className="page-pad col gap-12" style={{ paddingTop: 12, paddingBottom: selectedForBatch.size > 0 ? 90 : 12 }}>
+            {deliveryList.length > 0 && (
+              <div className="row between center-v">
+                <span className="tiny muted">{deliveryList.length} {deliveryList.length === 1 ? "delivery" : "deliveries"}</span>
+                <button
+                  type="button"
+                  className="tiny semi"
+                  style={{ color: "var(--delivery-600)" }}
+                  onClick={() => { setDeliverySelectMode((v) => !v); setSelectedForBatch(new Set()); }}
+                >
+                  {deliverySelectMode ? "Cancel" : "Select multiple"}
+                </button>
+              </div>
+            )}
+            {deliveryList.length === 0 ? (
+              <EmptyState emoji="🛵" title="No deliveries yet" text="Appointments booked for home delivery will appear here once accepted." />
+            ) : (
+              deliveryList.map((apt) => (
+                <div key={apt.id} className="row gap-8" style={{ alignItems: "flex-start" }}>
+                  {deliverySelectMode && apt.status === "ACCEPTED" && (
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectedForBatch(apt.id)}
+                      aria-label="Select for batch assignment"
+                      style={{
+                        marginTop: 14, width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+                        border: selectedForBatch.has(apt.id) ? "none" : "2px solid var(--ink-300)",
+                        background: selectedForBatch.has(apt.id) ? "var(--delivery-600)" : "#fff",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}
+                    >
+                      {selectedForBatch.has(apt.id) && <Check size={13} color="#fff" />}
+                    </button>
+                  )}
+                  <div className="grow">{renderAppointmentCard(apt)}</div>
+                </div>
+              ))
             )}
           </div>
         )}
@@ -659,6 +755,63 @@ export default function BusinessAppointments() {
 
       {/* Photo Fullscreen Preview */}
       {previewPhoto && <PhotoPreviewModal src={previewPhoto} onClose={() => setPreviewPhoto(null)} />}
+
+      {/* Delivery batch-select bar — slides up over the nav, iOS Mail-style */}
+      {selectedForBatch.size > 0 && (
+        <div
+          className="row between center-v"
+          style={{
+            position: "fixed", left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: "var(--maxw)",
+            bottom: "calc(var(--nav-h) + var(--safe-area-bottom))",
+            padding: "10px 16px", background: "var(--delivery-600)", color: "#fff",
+            boxShadow: "var(--shadow-lg)", zIndex: 60, animation: "slideUp .2s ease-out",
+          }}
+        >
+          <span className="semi small">{selectedForBatch.size} selected</span>
+          <button
+            type="button"
+            className="btn btn-sm"
+            style={{ background: "#fff", color: "var(--delivery-600)" }}
+            onClick={() => setBatchAgentPicking(true)}
+          >
+            Assign to…
+          </button>
+        </div>
+      )}
+
+      {/* Agent picker for the selected batch */}
+      {batchAgentPicking && (
+        <div className="overlay" onClick={() => { if (!batchAssigning) setBatchAgentPicking(false); }}>
+          <div className="sheet col gap-14" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <div className="bold" style={{ fontSize: 16 }}>
+              Assign {selectedForBatch.size} {selectedForBatch.size === 1 ? "delivery" : "deliveries"} to…
+            </div>
+            <div className="tiny muted">The agent must accept the whole run — never just part of it.</div>
+            {(deliveryTeam ?? []).length === 0 ? (
+              <div className="tiny muted">No delivery team members yet. Add one in Team &amp; access with the Delivery role.</div>
+            ) : (
+              <div className="col gap-8">
+                {(deliveryTeam ?? []).map((m) => (
+                  <button
+                    key={m.userId}
+                    type="button"
+                    className="row gap-10 center-v"
+                    disabled={batchAssigning}
+                    onClick={() => assignBatchToAgent(m.userId)}
+                    style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid var(--ink-200)", textAlign: "left" }}
+                  >
+                    <Package size={16} color="var(--delivery-600)" />
+                    <span className="semi small grow">{m.name}</span>
+                    {batchAssigning && <span className="tiny muted">…</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button className="tiny muted" style={{ alignSelf: "flex-start" }} disabled={batchAssigning} onClick={() => setBatchAgentPicking(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       <ManageNav bizId={id} />
     </div>

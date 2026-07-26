@@ -243,6 +243,90 @@ h3, .h3 {
   padding-bottom: calc(var(--nav-h) + var(--safe-area-bottom) + 8px);
 }
 
+/* --- Explore mobile (phone + native WebView) --- */
+.explore-screen-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.explore-screen-wrapper .explore-main-layout {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.explore-screen-wrapper .explore-listings-feed {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.explore-mobile-header {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: calc(8px + var(--safe-area-top)) 16px 0;
+  flex-shrink: 0;
+}
+
+.explore-listings-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  min-height: 0;
+}
+
+.explore-screen-wrapper .listings-cards-grid {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* --- Community hub mobile header --- */
+.community-hub-screen {
+  overflow: hidden;
+}
+
+.community-hub-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: calc(10px + var(--safe-area-top)) 16px 0;
+  flex-shrink: 0;
+}
+
+.community-hub-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.community-hub-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.community-hub-actions .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.community-hub-filters {
+  padding: 10px 0 8px;
+}
+
 .page-pad {
   padding: 16px;
 }

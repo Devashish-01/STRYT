@@ -1,4 +1,4 @@
--- Delivery Agent — Phase 3 refinements. See app-plans/09_delivery_boy_flow.md.
+-- Delivery Agent — Phase 3 refinements. See docs/plans/app-plans/09_delivery_boy_flow.md.
 --   1) my_deliveries: do NOT expose handoff_code to the agent (verify-by-ask).
 --   2) update_delivery_status: block DONE until handoff verified (when a code
 --      exists), so "delivered" always follows a real handoff.

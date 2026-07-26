@@ -1,0 +1,31 @@
+name: Purge deleted accounts
+
+# Daily cron for Play / website account-deletion compliance.
+# Purges CUSTOMER accounts whose 30-day grace period has expired.
+# Requires GitHub repo secrets:
+#   VITE_SUPABASE_URL
+#   SUPABASE_SERVICE_ROLE_KEY
+
+on:
+  schedule:
+    - cron: "30 2 * * *" # 08:00 IST daily
+  workflow_dispatch:
+
+jobs:
+  purge:
+    name: Run purge-deleted-accounts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Invoke edge function (service role)
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SERVICE_ROLE_KEY" ]; then
+            echo "Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY secrets — skipping."
+            exit 1
+          fi
+          curl -sf -X POST "${SUPABASE_URL}/functions/v1/purge-deleted-accounts" \
+            -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}'

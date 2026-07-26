@@ -3,7 +3,7 @@
 -- won't expose it), so this SECURITY DEFINER function returns the enriched list
 -- for the calling agent only, applying the alias-reveal rule: the customer's
 -- real name shows only while the delivery is active (ASSIGNED/EN_ROUTE/ARRIVED),
--- and their alias once it's terminal. See app-plans/09_delivery_boy_flow.md.
+-- and their alias once it's terminal. See docs/plans/app-plans/09_delivery_boy_flow.md.
 CREATE OR REPLACE FUNCTION public.my_deliveries()
 RETURNS TABLE(
   id text, appointment_id text, business_id text, business_name text,

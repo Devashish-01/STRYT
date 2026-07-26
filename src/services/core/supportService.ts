@@ -99,22 +99,8 @@ export const supportService = {
       }
     }
 
-    // Call Supabase Edge Function to trigger any spreadsheet synchronization webhook if configured.
-    try {
-      const { data: { session } } = await sb.auth.getSession();
-      if (session?.access_token) {
-        await fetch(functionUrl("sync-bug-report"), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.access_token}`
-          },
-          body: JSON.stringify({ ...bug, userId: uid })
-        });
-      }
-    } catch (err) {
-      console.warn("Failed to sync bug report via edge function:", err);
-    }
+    // Bug reports are stored in bug_reports; optional Google Sheets sync above.
+    // sync-bug-report edge function is not deployed — skip to avoid noisy 404s.
 
     return { ok: true };
   }

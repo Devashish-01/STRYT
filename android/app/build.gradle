@@ -26,10 +26,14 @@ android {
     }
     signingConfigs {
         release {
+            // CI passes -Pandroid.injected.signing.* ; local release builds need
+            // RELEASE_STORE_PASSWORD / RELEASE_KEY_PASSWORD env vars (never commit secrets).
+            def releaseStorePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: findProperty("RELEASE_STORE_PASSWORD") ?: ""
+            def releaseKeyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: findProperty("RELEASE_KEY_PASSWORD") ?: ""
             storeFile file('stryt-release.keystore')
-            storePassword 'stryt123'
+            storePassword releaseStorePassword
             keyAlias 'stryt-key'
-            keyPassword 'stryt123'
+            keyPassword releaseKeyPassword
         }
     }
     lintOptions {

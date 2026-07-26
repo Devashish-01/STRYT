@@ -55,12 +55,16 @@ export default function AdminPanel() {
             <button className="btn btn-primary" onClick={() => nav("/admin/login")}>
               Sign in as admin
             </button>
-            <button className="btn btn-outline" disabled={claiming} onClick={claimFirstAdmin}>
-              {claiming ? "Claiming…" : "Claim first-admin access (one-time)"}
-            </button>
-            <p className="tiny muted" style={{ lineHeight: 1.5 }}>
-              "Claim first-admin access" only works once, on whichever account uses it first — it's rejected the moment any admin already exists.
-            </p>
+            {import.meta.env.DEV && (
+              <>
+                <button className="btn btn-outline" disabled={claiming} onClick={claimFirstAdmin}>
+                  {claiming ? "Claiming…" : "Claim first-admin access (dev only)"}
+                </button>
+                <p className="tiny muted" style={{ lineHeight: 1.5 }}>
+                  Dev builds only — bootstrap production admins out-of-band before launch.
+                </p>
+              </>
+            )}
           </div>
 
           <button className="btn btn-dark" style={{ marginTop: 16, width: "100%", maxWidth: 200 }} onClick={() => nav("/home")}>Back to Home</button>

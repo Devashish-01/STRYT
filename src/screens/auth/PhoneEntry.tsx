@@ -89,15 +89,6 @@ export default function PhoneEntry() {
             ))}
           </div>
 
-          {/* Stat row */}
-          <div style={{ display:"flex", gap:28, marginTop:52, paddingTop:28, borderTop:"1px solid rgba(255,255,255,0.12)" }}>
-            {[["10K+","Locals"], ["500+","Services"], ["4.9★","Rating"]].map(([val, label]) => (
-              <div key={label}>
-                <div style={{ fontSize:22, fontWeight:900, letterSpacing:-1 }}>{val}</div>
-                <div style={{ fontSize:11, opacity:0.55, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.5px" }}>{label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Phone, Image as ImageIcon, Check } from "@/components/Icons";
-import { chatService } from "@/services/engagement/chatService";
+import { chatService, inboxScopeFor } from "@/services/engagement/chatService";
 import { uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { SafeImg } from "@/components/common";
@@ -44,10 +44,13 @@ export default function ChatThread() {
   useEffect(() => {
     if (!conv) return;
     chatService.markRead(id, conv).then(() => {
-      // setChatUnread feeds the customer-scoped badge (store.tsx hydrates it with
-      // the same CUSTOMER scope) — an unscoped total here overwrote that badge
-      // with an all-roles count whenever a business/provider chat was opened.
-      chatService.totalUnread({ scope: "CUSTOMER" }).then(setChatUnread);
+      // Only refresh the customer nav badge for personal/customer inbox chats.
+      // Business/provider inbox threads have their own scoped badges on their
+      // manage dashboards — updating the customer badge here was misleading.
+      const scope = inboxScopeFor(conv, user.id);
+      if (scope.scope === "CUSTOMER") {
+        chatService.totalUnread({ scope: "CUSTOMER" }).then(setChatUnread);
+      }
       refetchConvs();
     });
     const unsub = chatService.subscribe(id, (msg) => {

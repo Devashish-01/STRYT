@@ -1,16 +1,34 @@
+import type { ReactNode } from "react";
 import { MapPin, Shield } from "@/components/Icons";
+
+const DEFAULT_BODY = (
+  <>
+    STRYT collects your precise location <strong>even when the app is closed or not in use</strong>{" "}
+    so My People can follow your live share on a map until you stop sharing.
+  </>
+);
+const DEFAULT_NOTICE =
+  "Location is shared only with emergency contacts you choose. A persistent notification stays visible while sharing. Stop anytime in the app or from that notification.";
 
 /**
  * Play / Apple prominent disclosure shown BEFORE the system location
- * permission dialog when starting a live share that needs background location.
+ * permission dialog when starting a share/run that needs background location.
  * Required when declaring ACCESS_BACKGROUND_LOCATION / Always location.
+ * Reused as-is by delivery (accepted stop routes) — same OS-level consent,
+ * different audience, so the copy is overridable per caller.
  */
 export default function BackgroundLocationDisclosure({
   onAccept,
   onDecline,
+  body = DEFAULT_BODY,
+  noticeBody = DEFAULT_NOTICE,
 }: {
   onAccept: () => void;
   onDecline: () => void;
+  /** Main disclosure copy — override for non-live-share callers (e.g. delivery). */
+  body?: ReactNode;
+  /** Copy inside the reassurance strip below the main disclosure text. */
+  noticeBody?: ReactNode;
 }) {
   return (
     <div
@@ -60,8 +78,7 @@ export default function BackgroundLocationDisclosure({
               Allow location in the background?
             </h2>
             <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.5 }}>
-              STRYT collects your precise location <strong>even when the app is closed or not in use</strong>{" "}
-              so My People can follow your live share on a map until you stop sharing.
+              {body}
             </p>
           </div>
         </div>
@@ -80,8 +97,7 @@ export default function BackgroundLocationDisclosure({
             <Shield size={16} color="var(--brand-600)" />
           </span>
           <p className="tiny" style={{ margin: 0, color: "var(--brand-800)", lineHeight: 1.45 }}>
-            Location is shared only with emergency contacts you choose. A persistent notification stays
-            visible while sharing. Stop anytime in the app or from that notification.
+            {noticeBody}
           </p>
         </div>
 

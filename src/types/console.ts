@@ -37,6 +37,14 @@ export interface AppointmentRecord {
   isWalkIn?: boolean;
   /** Id of the appointment this one replaced, when created via the reschedule flow. */
   rescheduledFrom?: string | null;
+  /** How the customer wants this fulfilled — visit the store, or delivered home. Defaults
+   *  to IN_STORE for every booking made before this field existed. */
+  fulfillmentType?: "IN_STORE" | "DELIVERY";
+  /** Free-text delivery address (flat/street/landmark) — required alongside lat/lng when
+   *  fulfillmentType is DELIVERY. Not a structured address; just enough for an agent to find the door. */
+  deliveryAddressLine?: string | null;
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
   /** Structured cart line items (multi-item checkout / walk-in purchases) — additive to
    *  packageName/packagePrice, which stay the human-readable order summary. Only set on
    *  create() payloads that pass a real cart; a single-package booking omits this and the

@@ -1,5 +1,5 @@
 -- Delivery Agent — Phase 1 groundwork (additive, feature-flagged, no live UI).
--- See app-plans/09_delivery_boy_flow.md.
+-- See docs/plans/app-plans/09_delivery_boy_flow.md.
 --   1) Allow the 'delivery' team scope in the grant/update whitelists.
 --   2) Generalize tracking_tokens to also back an appointment (delivery) token.
 --   3) appointment_deliveries table + RLS (SELECT for agent/managers/customer;

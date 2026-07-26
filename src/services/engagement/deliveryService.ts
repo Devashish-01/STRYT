@@ -27,6 +27,9 @@ export interface AppointmentDelivery {
 export type DeliveryLiveStatus = "LEAVING" | "ON_THE_WAY" | "ARRIVED" | "DONE";
 /** Server-side lifecycle status of a delivery. */
 export type DeliveryStatus = "ASSIGNED" | "EN_ROUTE" | "ARRIVED" | "DELIVERED" | "CANCELLED";
+/** Server-side lifecycle status of a delivery run (batch). All-or-nothing accept lives here —
+ *  there is no per-stop accept, only PENDING_ACCEPTANCE → ACCEPTED or DECLINED for the whole run. */
+export type DeliveryBatchStatus = "PENDING_ACCEPTANCE" | "ACCEPTED" | "DECLINED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
 
 export interface DeliveryItem {
   id: string;
@@ -36,6 +39,11 @@ export interface DeliveryItem {
   /** Customer's real name while the delivery is active, alias once terminal. */
   customerName: string;
   customerArea: string | null;
+  /** Free-text address captured at booking time — falls back to the customer's general area
+   *  (customerArea) for pre-existing deliveries booked before this field existed. */
+  deliveryAddressLine: string | null;
+  deliveryLat: number | null;
+  deliveryLng: number | null;
   scheduledFor: string | null;
   dateLabel: string | null;
   timeLabel: string | null;
@@ -45,6 +53,15 @@ export interface DeliveryItem {
   handoffVerified: boolean;
   lat: number | null;
   lng: number | null;
+  /** Null when this delivery isn't part of a batched run (assigned individually). */
+  batchId: string | null;
+  /** This stop's position within its batch's route — set once the agent accepts the run. */
+  stopOrder: number | null;
+  batchStatus: DeliveryBatchStatus | null;
+  /** The agent's current live position for the whole run — lives on the batch, not the stop,
+   *  since one agent has one position serving every stop in an active run. */
+  batchLat: number | null;
+  batchLng: number | null;
   createdAt: string | null;
   deliveredAt: string | null;
 }
@@ -57,6 +74,9 @@ function rowToItem(r: any): DeliveryItem {
     businessName: r.business_name ?? "Business",
     customerName: r.customer_name ?? "Customer",
     customerArea: r.customer_area ?? null,
+    deliveryAddressLine: r.delivery_address_line ?? null,
+    deliveryLat: r.delivery_lat ?? null,
+    deliveryLng: r.delivery_lng ?? null,
     scheduledFor: r.scheduled_for ?? null,
     dateLabel: r.date_label ?? null,
     timeLabel: r.time_label ?? null,
@@ -66,6 +86,11 @@ function rowToItem(r: any): DeliveryItem {
     handoffVerified: !!r.handoff_verified,
     lat: r.lat ?? null,
     lng: r.lng ?? null,
+    batchId: r.batch_id ?? null,
+    stopOrder: r.stop_order ?? null,
+    batchStatus: r.batch_status ?? null,
+    batchLat: r.batch_lat ?? null,
+    batchLng: r.batch_lng ?? null,
     createdAt: r.created_at ?? null,
     deliveredAt: r.delivered_at ?? null,
   };
@@ -114,6 +139,39 @@ export const deliveryService = {
     return data as string;
   },
 
+  /** Agent accepts the whole run at once, persisting the client-computed nearest-neighbor
+   *  stop order in the same round trip. There is no per-stop accept — this is the only
+   *  way any stop in the batch becomes workable. */
+  async acceptBatch(batchId: string, stopOrder?: string[]): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("accept_delivery_batch", {
+      p_batch_id: batchId,
+      p_stop_order: stopOrder && stopOrder.length > 0 ? stopOrder : undefined,
+    });
+    if (error) throw error;
+  },
+
+  /** Agent declines the whole run — every stop is unassigned so the owner can reassign. */
+  async declineBatch(batchId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("decline_delivery_batch", { p_batch_id: batchId });
+    if (error) throw error;
+  },
+
+  /** Pure GPS push for the whole active run — separate from discrete stop-status changes,
+   *  so a throttled background fix never has to pretend to be a status transition. */
+  async updateBatchPosition(batchId: string, lat: number, lng: number, accuracy?: number, heading?: number): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("update_delivery_batch_position", {
+      p_batch_id: batchId,
+      p_lat: lat,
+      p_lng: lng,
+      p_accuracy: accuracy ?? undefined,
+      p_heading: heading ?? undefined,
+    });
+    if (error) throw error;
+  },
+
   // ── Owner side ────────────────────────────────────────────────────────────
 
   /** The business's ACTIVE team members who carry the `delivery` scope. */
@@ -129,6 +187,17 @@ export const deliveryService = {
     const sb = getSupabase();
     const { error } = await (sb.rpc as any)("assign_delivery", {
       p_appointment_id: appointmentId,
+      p_agent_user_id: agentUserId,
+    });
+    if (error) throw error;
+  },
+
+  /** Owner/manager assigns N eligible appointments to one agent in a single run — the agent
+   *  must accept the whole batch or decline it, there's no per-stop assignment here. */
+  async assignBatch(appointmentIds: string[], agentUserId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("assign_delivery_batch", {
+      p_appointment_ids: appointmentIds,
       p_agent_user_id: agentUserId,
     });
     if (error) throw error;

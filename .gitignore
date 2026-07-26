@@ -41,9 +41,12 @@ public/stryt.apk
 *firebase-adminsdk*.json
 google-services.json
 android/app/google-services.json
+android/app/client_secret_*.json
+**/client_secret_*.json
 
 /skills
 .agents
 .claude
 .vercel
 .env*
+!.env.example

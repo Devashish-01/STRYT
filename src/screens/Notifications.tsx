@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock } from "@/components/Icons";
+import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package } from "@/components/Icons";
 import { notificationService } from "@/services";
 import type { NotifScope } from "@/services/engagement/notificationService";
 import { useQueryWithRealtime } from "@/hooks/useApi";
@@ -33,6 +33,7 @@ const meta: Record<NotificationType, { icon: any; color: string; bg: string }> =
   VERIFICATION_DECIDED: { icon: BadgeCheck, color: "var(--green-500)", bg: "var(--green-100)" },
   QUEUE_UPDATE: { icon: Users, color: "var(--blue-500)", bg: "var(--ink-100)" },
   APPOINTMENT: { icon: Clock, color: "var(--brand-600)", bg: "var(--brand-50)" },
+  DELIVERY: { icon: Package, color: "var(--delivery-600)", bg: "var(--delivery-50)" },
   BUSINESS_ACCESS: { icon: Users, color: "var(--orange-500)", bg: "var(--orange-50)" },
   SYSTEM: { icon: Bell, color: "var(--ink-600)", bg: "var(--ink-100)" },
 };

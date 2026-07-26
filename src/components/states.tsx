@@ -18,17 +18,20 @@ export function CardSkeleton() {
 
 export function BusinessCardSkeleton() {
   return (
-    <div className="card" style={{ padding: 12, overflow: "hidden" }}>
-      <Skeleton h={150} r={14} mb={12} />
-      <div className="row between" style={{ marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
-        <Skeleton h={16} w="60%" />
-        <Skeleton h={16} w="15%" />
-      </div>
-      <Skeleton h={12} w="40%" mb={8} />
-      <div className="row gap-10" style={{ display: "flex", gap: 10 }}>
-        <Skeleton h={11} w="20%" />
-        <Skeleton h={11} w="25%" />
-        <Skeleton h={11} w="15%" />
+    <div className="card" style={{ padding: 12 }}>
+      <div className="row gap-12" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+        <Skeleton h={72} w={72} r={16} />
+        <div className="grow col gap-6" style={{ flexGrow: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+          <div className="row between" style={{ display: "flex", justifyContent: "space-between" }}>
+            <Skeleton h={15} w="55%" />
+            <Skeleton h={15} w="15%" />
+          </div>
+          <Skeleton h={11} w="40%" />
+          <div className="row gap-8" style={{ display: "flex", gap: 8, marginTop: 2 }}>
+            <Skeleton h={11} w="20%" />
+            <Skeleton h={11} w="15%" />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -38,28 +41,18 @@ export function ProviderCardSkeleton() {
   return (
     <div className="card" style={{ padding: 12 }}>
       <div className="row gap-12" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <Skeleton h={56} w={56} r={28} />
-        <div className="grow col gap-8" style={{ flexGrow: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+        <Skeleton h={64} w={64} r={32} />
+        <div className="grow col gap-6" style={{ flexGrow: 1, display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
           <div className="row between" style={{ display: "flex", justifyContent: "space-between" }}>
             <Skeleton h={15} w="50%" />
             <Skeleton h={15} w="10%" />
           </div>
-          <Skeleton h={12} w="40%" />
-          <div className="row gap-8 center-v" style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
-            <Skeleton h={11} w="15%" />
-            <Skeleton h={11} w="15%" />
+          <Skeleton h={11} w="45%" />
+          <div className="row gap-8" style={{ display: "flex", gap: 8, marginTop: 2 }}>
+            <Skeleton h={11} w="20%" />
             <Skeleton h={11} w="20%" />
           </div>
         </div>
-      </div>
-      <div className="row wrap gap-6" style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 }}>
-        <Skeleton h={18} w={60} r={6} />
-        <Skeleton h={18} w={50} r={6} />
-        <Skeleton h={18} w={70} r={6} />
-      </div>
-      <div className="row between" style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
-        <Skeleton h={14} w="30%" />
-        <Skeleton h={12} w="25%" />
       </div>
     </div>
   );

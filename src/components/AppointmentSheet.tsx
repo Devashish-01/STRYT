@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2 } from "@/components/Icons";
+import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2, Store, Package } from "@/components/Icons";
 import { useApp } from "@/store";
 import { generateWorkingSlots, isWorkingDay, type AppointmentSlot, DEFAULT_WORKING_HOURS, formatHoursForDisplay } from "@/utils/availability";
 import { uploadService } from "@/services/core/uploadService";
@@ -9,6 +9,8 @@ import type { AppointmentRecord, BlockedSlot } from "@/types";
 import { displayName as safeName } from "@/lib/publicName";
 import { Skeleton } from "@/components/states";
 import { PaymentSheet } from "@/components/PaymentSheet";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
+import LocationPicker from "@/components/LocationPicker";
 
 export interface BookingPackage {
   id: string;
@@ -74,6 +76,13 @@ export function AppointmentSheet({
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
   const [selectedPkg, setSelectedPkg] = useState<BookingPackage | null>(initialPackage ?? null);
   const [notes, setNotes] = useState(initialNotes ?? "");
+  // Home delivery is a business-only choice — a provider visit doesn't have a
+  // "product to deliver" in the same sense, so this stays IN_STORE for providers.
+  const canOfferDelivery = DELIVERY_AGENT_ENABLED && targetType === "BUSINESS";
+  const [fulfillmentType, setFulfillmentType] = useState<"IN_STORE" | "DELIVERY">("IN_STORE");
+  const [deliveryAddressLine, setDeliveryAddressLine] = useState("");
+  const [deliveryLat, setDeliveryLat] = useState<number | null>(null);
+  const [deliveryLng, setDeliveryLng] = useState<number | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -189,9 +198,15 @@ export function AppointmentSheet({
     setPhotoPreview(null);
   }
 
+  const deliveryAddressReady = fulfillmentType !== "DELIVERY" || (deliveryAddressLine.trim().length > 2 && deliveryLat !== null && deliveryLng !== null);
+
   async function handleConfirm() {
     if (!selectedSlot) {
       showToast("Please select a time slot");
+      return;
+    }
+    if (!deliveryAddressReady) {
+      showToast("Add your delivery address to continue");
       return;
     }
     setSubmitting(true);
@@ -220,6 +235,10 @@ export function AppointmentSheet({
         packagePrice: selectedPkg?.price,
         items,
         rescheduledFrom: rescheduledFromId ?? null,
+        fulfillmentType: canOfferDelivery ? fulfillmentType : "IN_STORE",
+        deliveryAddressLine: canOfferDelivery && fulfillmentType === "DELIVERY" ? deliveryAddressLine.trim() : undefined,
+        deliveryLat: canOfferDelivery && fulfillmentType === "DELIVERY" ? deliveryLat ?? undefined : undefined,
+        deliveryLng: canOfferDelivery && fulfillmentType === "DELIVERY" ? deliveryLng ?? undefined : undefined,
       });
 
       showToast(
@@ -373,6 +392,59 @@ export function AppointmentSheet({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Fulfillment — visit the store, or have it delivered home */}
+        {canOfferDelivery && (
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
+              How would you like this?
+            </label>
+            <div className="row gap-8">
+              <button
+                type="button"
+                onClick={() => setFulfillmentType("IN_STORE")}
+                className="row gap-8 center grow"
+                style={{
+                  padding: "12px 10px", borderRadius: 12,
+                  border: fulfillmentType === "IN_STORE" ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
+                  background: fulfillmentType === "IN_STORE" ? "var(--brand-50)" : "#fff",
+                  color: fulfillmentType === "IN_STORE" ? "var(--brand-800)" : "var(--ink-700)",
+                  fontWeight: 600, fontSize: 13,
+                }}
+              >
+                <Store size={16} /> Visit the store
+              </button>
+              <button
+                type="button"
+                onClick={() => setFulfillmentType("DELIVERY")}
+                className="row gap-8 center grow"
+                style={{
+                  padding: "12px 10px", borderRadius: 12,
+                  border: fulfillmentType === "DELIVERY" ? "2px solid var(--delivery-600)" : "1px solid var(--ink-200)",
+                  background: fulfillmentType === "DELIVERY" ? "var(--delivery-50)" : "#fff",
+                  color: fulfillmentType === "DELIVERY" ? "var(--delivery-600)" : "var(--ink-700)",
+                  fontWeight: 600, fontSize: 13,
+                }}
+              >
+                <Package size={16} /> Home delivery
+              </button>
+            </div>
+
+            {fulfillmentType === "DELIVERY" && (
+              <div className="col gap-8" style={{ marginTop: 12 }}>
+                <input
+                  className="input"
+                  placeholder="Flat / house no., street, landmark"
+                  value={deliveryAddressLine}
+                  onChange={(e) => setDeliveryAddressLine(e.target.value)}
+                  style={{ fontSize: 13 }}
+                />
+                <LocationPicker lat={deliveryLat} lng={deliveryLng} onChange={(lat, lng) => { setDeliveryLat(lat); setDeliveryLng(lng); }} height={140} pinColor="var(--delivery-600)" />
+                <span className="tiny muted">Tap the map or drag the pin to mark exactly where the agent should come.</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -620,7 +692,7 @@ export function AppointmentSheet({
         <button
           type="button"
           className={hasAptToday ? "btn btn-outline btn-block btn-lg" : "btn btn-green btn-block btn-lg"}
-          disabled={!selectedSlot || submitting || uploading || hasAptToday}
+          disabled={!selectedSlot || submitting || uploading || hasAptToday || !deliveryAddressReady}
           onClick={handleConfirm}
           style={{ height: 48, fontSize: 15, fontWeight: 700 }}
         >

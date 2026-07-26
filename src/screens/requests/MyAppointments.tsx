@@ -279,8 +279,9 @@ export default function MyAppointments() {
 
                     <CancelAttributionNote apt={apt} viewpoint="CUSTOMER" />
 
-                    {/* Delivery tracking — live link + handoff code. Feature-gated. */}
-                    {DELIVERY_AGENT_ENABLED && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
+                    {/* Delivery tracking — live link + handoff code. Feature-gated, and only
+                        for bookings the customer actually asked to have delivered. */}
+                    {DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY" && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
                       <DeliveryTrackControl appointmentId={apt.id} />
                     )}
 

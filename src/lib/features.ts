@@ -7,7 +7,7 @@
  */
 
 /**
- * Delivery Agent flow (app-plans/09_delivery_boy_flow.md).
+ * Delivery Agent flow (docs/plans/app-plans/09_delivery_boy_flow.md).
  *
  * Phase 1 (DB + scope groundwork) is live and inert: the `delivery` team scope,
  * `appointment_deliveries` table + RLS, and the assign/track/handoff RPCs exist

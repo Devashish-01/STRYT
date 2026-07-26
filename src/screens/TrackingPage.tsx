@@ -41,6 +41,11 @@ export default function TrackingPage() {
   const [liveStatus, setLiveStatus] = useState("ON_THE_WAY");
   const [agreementId, setAgreementId] = useState("");
   const [eta, setEta] = useState("");
+  const [stopsBefore, setStopsBefore] = useState<number | null>(null);
+  const [destLat, setDestLat] = useState<number | null>(null);
+  const [destLng, setDestLng] = useState<number | null>(null);
+  const prevPos = useRef<{ lat: number; lng: number; at: number } | null>(null);
+  const speedKmh = useRef(15); // smoothed estimate, seeded with a sane city-riding default
 
   // Inject pulse CSS
   useEffect(() => {
@@ -67,6 +72,9 @@ export default function TrackingPage() {
       setLiveStatus(row.live_status ?? "ON_THE_WAY");
       setProviderName(row.provider_name ?? "Provider");
       setProviderAvatar(row.provider_avatar ?? "");
+      setStopsBefore(row.stops_before ?? null);
+      setDestLat(row.dest_lat ?? null);
+      setDestLng(row.dest_lng ?? null);
       setLoading(false);
     })();
   }, [token]);
@@ -97,11 +105,34 @@ export default function TrackingPage() {
       markerRef.current = L.marker([providerLat, providerLng], { icon }).addTo(leafletMap.current);
     }
     leafletMap.current.setView([providerLat, providerLng], 15);
-    // Simple ETA: assume 15 km/h
-    const dist = haversineKm(providerLat, providerLng, providerLat, providerLng);
-    void dist;
-    setEta(liveStatus === "DONE" ? "Job complete" : liveStatus === "ARRIVED" ? "Arrived" : "~8 min away");
-  }, [providerLat, providerLng, liveStatus]);
+
+    // Real ETA: distance to the actual destination (when known) over a speed
+    // estimate smoothed from consecutive fixes — previously this always showed
+    // a hardcoded "~8 min away" regardless of where the agent actually was.
+    const now = Date.now();
+    if (prevPos.current) {
+      const elapsedH = (now - prevPos.current.at) / 3_600_000;
+      const movedKm = haversineKm(prevPos.current.lat, prevPos.current.lng, providerLat, providerLng);
+      if (elapsedH > 0 && movedKm > 0.01) {
+        const instantSpeed = movedKm / elapsedH;
+        // Exponential smoothing so one noisy GPS jump can't wreck the estimate.
+        speedKmh.current = speedKmh.current * 0.7 + Math.min(instantSpeed, 60) * 0.3;
+      }
+    }
+    prevPos.current = { lat: providerLat, lng: providerLng, at: now };
+
+    if (liveStatus === "DONE") {
+      setEta("Job complete");
+    } else if (liveStatus === "ARRIVED") {
+      setEta("Arrived");
+    } else if (destLat != null && destLng != null) {
+      const remainingKm = haversineKm(providerLat, providerLng, destLat, destLng);
+      const minutes = Math.max(1, Math.round((remainingKm / Math.max(5, speedKmh.current)) * 60));
+      setEta(remainingKm < 0.1 ? "Arriving now" : `~${minutes} min away`);
+    } else {
+      setEta("On the way");
+    }
+  }, [providerLat, providerLng, liveStatus, destLat, destLng]);
 
   // Live updates: poll the safe RPC. (Realtime on agreements can't be used here
   // because the agreements table is correctly locked to participants, and this
@@ -115,6 +146,7 @@ export default function TrackingPage() {
       if (row.provider_lat != null) setProviderLat(row.provider_lat);
       if (row.provider_lng != null) setProviderLng(row.provider_lng);
       if (row.live_status) setLiveStatus(row.live_status);
+      if (row.stops_before != null) setStopsBefore(row.stops_before);
     }, 15000);
     return () => clearInterval(poll);
   }, [agreementId, token]);
@@ -159,7 +191,9 @@ export default function TrackingPage() {
         <SafeImg src={providerAvatar} variant="avatar" style={{ width: 40, height: 40 }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{providerName} is {statusInfo.label.toLowerCase()}</div>
-          <div style={{ fontSize: 12, color: "var(--ink-500)" }}>Updates every 30s</div>
+          <div style={{ fontSize: 12, color: "var(--ink-500)" }}>
+            {stopsBefore != null && stopsBefore > 0 ? `${stopsBefore} ${stopsBefore === 1 ? "stop" : "stops"} before yours` : "Updates every 15s"}
+          </div>
         </div>
         <span style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 20 }}>{statusInfo.emoji} {statusInfo.label}</span>
       </div>

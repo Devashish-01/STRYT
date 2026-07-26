@@ -65,6 +65,15 @@ export const profileControlService = {
         throw new Error("You still have active deals. Finish or cancel them before deleting your account.");
       }
 
+      const { count: heldPayments } = await sb
+        .from("payments")
+        .select("*", { count: "exact", head: true })
+        .eq("escrow_status", "HELD")
+        .eq("payer_user_id", uid);
+      if (heldPayments && heldPayments > 0) {
+        throw new Error("You have payments still marked as held. Resolve them in your deals before deleting your account.");
+      }
+
       const { data: existing } = await sb
         .from("profile_deletion_requests")
         .select("id")

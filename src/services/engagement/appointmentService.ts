@@ -149,6 +149,10 @@ function rowToRecord(r: any): AppointmentRecord {
     cancelledBy: r.cancelled_by ?? null,
     isWalkIn: r.is_walk_in ?? false,
     rescheduledFrom: r.rescheduled_from ?? null,
+    fulfillmentType: r.fulfillment_type ?? "IN_STORE",
+    deliveryAddressLine: r.delivery_address_line ?? null,
+    deliveryLat: r.delivery_lat ?? null,
+    deliveryLng: r.delivery_lng ?? null,
   };
 }
 
@@ -265,7 +269,11 @@ export const appointmentService = {
           p_package_name: payload.packageName ?? undefined,
           p_package_price: payload.packagePrice ?? undefined,
           p_items: toRpcItems(payload.items),
-        });
+          p_fulfillment_type: payload.fulfillmentType ?? "IN_STORE",
+          p_delivery_address_line: payload.deliveryAddressLine ?? undefined,
+          p_delivery_lat: payload.deliveryLat ?? undefined,
+          p_delivery_lng: payload.deliveryLng ?? undefined,
+        } as any);
         if (error) throw error;
         const record = rowToRecord(data);
         upsertLocal(record); // keep a local cache for instant reads

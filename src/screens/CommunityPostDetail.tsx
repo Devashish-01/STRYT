@@ -195,7 +195,10 @@ export default function CommunityPostDetail() {
 
   useEffect(() => { if (initialComments) setComments(initialComments); }, [initialComments]);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [comments]);
-  useEffect(() => { setLikeOverride(null); }, [post?.liked, post?.likes]);
+  useEffect(() => {
+    if (likeOverride === null) return;
+    if (post?.liked === likeOverride) setLikeOverride(null);
+  }, [post?.liked, post?.likes, likeOverride]);
   useEffect(() => { setResolvedOverride(null); }, [post?.resolved]);
 
   if (!post) return (

@@ -24,6 +24,7 @@ export type NotificationType =
   | "VERIFICATION_DECIDED"
   | "QUEUE_UPDATE"
   | "APPOINTMENT"
+  | "DELIVERY"
   | "BUSINESS_ACCESS"
   | "SYSTEM";
 

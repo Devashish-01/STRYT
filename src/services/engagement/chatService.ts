@@ -37,6 +37,17 @@ function sortedPair(a: string, b: string): [string, string] {
  */
 export type ChatScope = { scope: "CUSTOMER" | "BUSINESS" | "PROVIDER"; id?: string };
 
+/** Which inbox a conversation belongs to from the current user's perspective. */
+export function inboxScopeFor(conv: Conversation, uid: string): ChatScope {
+  if (conv.subjectOwnerId === uid && conv.subjectType === "business" && conv.subjectId) {
+    return { scope: "BUSINESS", id: conv.subjectId };
+  }
+  if (conv.subjectOwnerId === uid && conv.subjectType === "provider" && conv.subjectId) {
+    return { scope: "PROVIDER", id: conv.subjectId };
+  }
+  return { scope: "CUSTOMER" };
+}
+
 /**
  * Push the inbox partition down to Postgres so we transfer only matching rows
  * (or just a count) instead of pulling every conversation and filtering in JS.

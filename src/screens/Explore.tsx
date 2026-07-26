@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Search, Map, MessageSquare, ChevronDown } from "@/components/Icons";
+import { Search, Map, MessageSquare, ChevronDown, ArrowLeft } from "@/components/Icons";
 import { catalogService, discoveryService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -13,6 +13,7 @@ import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import RadiusSelector from "@/components/RadiusSelector";
 import SortMenu from "@/components/SortMenu";
 import { useI18n } from "@/lib/i18n";
+import { useSmartBack } from "@/hooks/useSmartBack";
 import { haptics } from "@/lib/haptics";
 import type { Business, Provider } from "@/types";
 
@@ -153,7 +154,7 @@ function RadiusDropdown({
         <ChevronDown size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s ease" }} />
       </button>
       {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 8px)", [align]: 0, zIndex: 1010, width: 280 }}>
+        <div style={{ position: "absolute", top: "calc(100% + 8px)", [align]: 0, zIndex: 1010, width: "min(280px, calc(100vw - 32px))" }}>
           <RadiusSelector
             value={value}
             onChange={(v) => { onChange(v); setOpen(false); }}
@@ -171,6 +172,7 @@ export default function Explore() {
   const [searchParams] = useSearchParams();
   const { area, user, refreshUser, showToast, chatUnread } = useApp();
   const { t, tf } = useI18n();
+  const goBack = useSmartBack("/home");
   const [tab, setTab] = useState<Tab>("all");
   const [cat, setCat] = useState<string | null>(() => searchParams.get("cat"));
 
@@ -412,31 +414,33 @@ export default function Explore() {
 
         {/* Right Side: Main explore listings */}
         <div className="explore-listings-feed">
-          {/* Mobile-only app bar (hidden on desktop) */}
-          <header className="appbar mobile-only" style={{ flexDirection: "column", alignItems: "stretch", gap: "var(--space-sm)", paddingBottom: 0, background: "transparent", borderBottom: "none", boxShadow: "none", padding: 0 }}>
-            <div className="row between">
-              <div className="col" style={{ gap: 0 }}>
-                <span className="bold" style={{ fontSize: 20 }}>{t("explore")}</span>
-                <span className="tiny muted">{tf("explore_near", { area })}</span>
+          {/* Mobile header — safe-area aware, single scroll region below */}
+          <header className="explore-mobile-header mobile-only">
+            <div className="row gap-8 center-v" style={{ marginBottom: 10 }}>
+              <button className="icon-btn" onClick={goBack} aria-label="Go back">
+                <ArrowLeft size={20} />
+              </button>
+              <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
+                <span className="bold" style={{ fontSize: 20, lineHeight: 1.15 }}>{t("explore")}</span>
+                <span className="tiny muted ellipsis">{tf("explore_near", { area })}</span>
               </div>
-              <div className="row gap-8">
-                <button className="icon-btn" onClick={() => nav("/search")}><Search size={20} /></button>
-                <button className="icon-btn" onClick={() => nav("/map")}><Map size={20} /></button>
+              <div className="row gap-6" style={{ flexShrink: 0 }}>
+                <button className="icon-btn" onClick={() => nav("/search")} aria-label={t("search_input_placeholder")}><Search size={20} /></button>
+                <button className="icon-btn" onClick={() => nav("/map")} aria-label={t("map")}><Map size={20} /></button>
                 <button className="icon-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label={t("explore_chats_aria")}>
                   <MessageSquare size={20} />
                   {chatUnread > 0 && (
                     <span style={{
                       position: "absolute", top: 6, right: 6,
                       width: 8, height: 8, background: "var(--red-500)",
-                      borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)",
+                      borderRadius: "50%", border: "2px solid var(--surface)",
                     }} />
                   )}
                 </button>
               </div>
             </div>
 
-            {/* Remote location setting picker (mobile only) */}
-            <div style={{ marginTop: 2, marginBottom: 2 }}>
+            <div style={{ marginBottom: 10 }}>
               <LocationSearchBox
                 value={locQuery}
                 onChange={searchPlaces}
@@ -448,8 +452,7 @@ export default function Explore() {
               />
             </div>
 
-            {/* Tabs (mobile only) */}
-            <div className="row" style={{ borderBottom: "1px solid var(--line)" }}>
+            <div className="row" style={{ borderBottom: "1px solid var(--line)", margin: "0 -16px", padding: "0 16px" }}>
               {([["all", t("explore_tab_all")], ["business", t("explore_tab_businesses")], ["provider", t("explore_tab_providers")]] as [Tab, string][]).map(([tabKey, label]) => (
                 <button
                   key={tabKey}
@@ -508,7 +511,7 @@ export default function Explore() {
             ) : (bizError || provError) ? (
               <ErrorView error={(bizError || provError)!} onRetry={() => { refetchBiz(); refetchProv(); }} />
             ) : (
-              <div className="listings-cards-grid">
+              <div className="col gap-14 listings-cards-grid">
                 {empty && (
                   <EmptyState
                     illustration={<NoResultsIllustration />}

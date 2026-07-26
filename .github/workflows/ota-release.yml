@@ -8,7 +8,7 @@ on:
       - 'android/**'
       - '.github/workflows/android-release.yml'
       - 'README.md'
-      - 'DEPLOYMENT_GUIDE.md'
+      - 'docs/**'
       - 'package.json'
       - 'package-lock.json'
 

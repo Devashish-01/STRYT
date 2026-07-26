@@ -75,9 +75,9 @@ export default function Splash() {
             ))}
           </div>
 
-          {/* Stat pills */}
+          {/* Feature pills — no unverified user counts */}
           <div style={{ display:"flex", gap:10, marginTop:48, flexWrap:"wrap" }}>
-            {["10K+ Locals", "500+ Services", "Real-time Queue"].map((label) => (
+            {["Local discovery", "Trusted providers", "Street requests"].map((label) => (
               <div key={label} style={{ background:"rgba(255,255,255,0.11)", border:"1px solid rgba(255,255,255,0.2)", borderRadius:999, padding:"6px 16px", fontSize:12, fontWeight:700, backdropFilter:"blur(8px)", letterSpacing:"0.3px" }}>
                 {label}
               </div>
