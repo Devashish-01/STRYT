@@ -65,6 +65,16 @@ jobs:
         # "Could not read script '.../cordova.variables.gradle' as it does not exist".
         run: npx cap sync android
 
+      - name: Decode and write google-services.json
+        # android/app/build.gradle applies the com.google.gms.google-services
+        # plugin (needed for native Firebase/FCM push). That plugin hard-fails
+        # the very first Gradle invocation if this file is missing — and it's
+        # gitignored (never checked in), so CI has never had it. This was the
+        # actual reason every release build has failed.
+        run: |
+          echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" | base64 --decode > android/app/google-services.json
+          echo "google-services.json size: $(wc -c < android/app/google-services.json) bytes"
+
       - name: Decode and write release keystore
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > android/app/stryt-release.keystore

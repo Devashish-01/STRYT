@@ -12,7 +12,30 @@
 // capacitor.config.ts), so we just hand back the newest manifest. If no bundle
 // has been published yet, we return a benign "no update" body the plugin no-ops
 // on, rather than an error.
+//
+// Compatibility floor: the plugin POSTs a JSON body including `version_build`
+// (the native shell's baked-in version — confirmed from the Android plugin
+// source, ee/forgr/capacitor_updater/CapgoUpdater.java) and `version_name`
+// (the currently-running bundle). OTA can only ever replace JS/CSS/HTML — a
+// bundle assuming a native plugin/permission that an old native shell doesn't
+// have would crash that device. MIN_NATIVE_VERSION (optional Edge Function
+// secret, e.g. "0.1.15") lets a release that needs a native-breaking change
+// withhold the OTA bundle from devices whose native build predates it. Unset
+// by default, so this is a no-op until someone deliberately sets it for a
+// specific release.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+/** Compares dot-separated version strings numerically per segment (semver-ish,
+ *  no pre-release/build metadata support — this app's versions are plain x.y.z). */
+function versionAtLeast(actual: string, floor: string): boolean {
+  const a = actual.split(".").map((n) => parseInt(n, 10) || 0);
+  const f = floor.split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(a.length, f.length); i++) {
+    const av = a[i] ?? 0, fv = f[i] ?? 0;
+    if (av !== fv) return av > fv;
+  }
+  return true; // exactly equal
+}
 // CORS allowlist — reflects only known app origins, never "*" (Security
 // Audit M-3). Inlined (not a shared import) so this function deploys
 // standalone via the Supabase dashboard.
@@ -62,6 +85,21 @@ Deno.serve(async (req: Request) => {
     const manifest = JSON.parse(await data.text());
     if (!manifest?.version || !manifest?.url) {
       return json({ message: "no update available" }, 200, cors);
+    }
+
+    const minNativeVersion = Deno.env.get("MIN_NATIVE_VERSION");
+    if (minNativeVersion) {
+      let nativeVersion = "";
+      try {
+        const body = await req.clone().json();
+        nativeVersion = typeof body?.version_build === "string" ? body.version_build : "";
+      } catch { /* no/invalid JSON body — treat as unknown native version, fail closed below */ }
+
+      if (!nativeVersion || !versionAtLeast(nativeVersion, minNativeVersion)) {
+        // Native shell too old (or didn't report a version) for this OTA bundle
+        // — withhold it rather than risk a runtime crash on a missing plugin/permission.
+        return json({ message: "no update available" }, 200, cors);
+      }
     }
 
     // Exactly the fields the plugin reads; extra keys are ignored.

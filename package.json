@@ -20,7 +20,8 @@
     "cap:sync:ios": "npm run build && npx cap sync ios",
     "cap:open:ios": "npx cap open ios",
     "cap:run:ios": "npm run build && npx cap run ios",
-    "ota:publish": "npm run build && node scripts/publish-ota-update.mjs"
+    "ota:publish": "npm run build && node scripts/publish-ota-update.mjs",
+    "ota:rollback": "node scripts/rollback-ota-update.mjs"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.3.0",

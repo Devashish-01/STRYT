@@ -37,7 +37,13 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Bump package.json patch version
+      - name: Bump package.json patch version (working copy only — not committed yet)
+        # Deliberately does NOT commit/push here. If the build or the publish
+        # step below fails, package.json on `main` must stay untouched — a
+        # committed version bump with no bundle behind it desyncs "what
+        # version does the repo say we're on" from "what's actually live",
+        # which is exactly what happened before this reorder. The commit only
+        # happens after a successful publish, at the bottom of this workflow.
         id: bump
         run: |
           node -e "
@@ -49,22 +55,8 @@ jobs:
             pkg.version = newVer;
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
             console.log('Bumped version to ' + newVer);
-            
-            // Set output for the next step using GITHUB_OUTPUT
-            const fsOutput = require('fs');
-            fsOutput.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + newVer + '\n');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + newVer + '\n');
           "
-
-      - name: Setup git config
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Commit and push bumped version
-        run: |
-          git add package.json
-          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }} [skip ci]" || echo "No changes to commit"
-          git push origin main
 
       - name: Create .env file
         run: |
@@ -93,3 +85,17 @@ jobs:
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: node scripts/publish-ota-update.mjs
+
+      # Only reached if the publish step above succeeded — this is what makes
+      # the reorder safe: a failed build/publish stops the job here and
+      # main's package.json is left exactly as it was.
+      - name: Setup git config
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push bumped version
+        run: |
+          git add package.json
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }} [skip ci]" || echo "No changes to commit"
+          git push origin main

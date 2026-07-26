@@ -1,9 +1,20 @@
+import { readFileSync } from "fs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
 import { VitePWA } from "vite-plugin-pwa";
 
+// Bakes package.json's version into the bundle at build time — this is the
+// same field the OTA workflow bumps and publishes, so the running app can
+// show/report exactly which bundle it is without needing an env var (the
+// previous VITE_APP_VERSION never got set by any workflow, so the one place
+// that referenced it — src/lib/monitoring.ts — always saw null).
+const appVersion = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf-8")).version as string;
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   plugins: [
     react(),
     VitePWA({

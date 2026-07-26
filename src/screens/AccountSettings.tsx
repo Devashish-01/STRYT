@@ -74,7 +74,7 @@ export default function AccountSettings() {
           <LogOut size={18} /> Log out
         </button>
 
-        <p className="tiny muted" style={{ textAlign: "center", padding: "4px 0" }}>STRYT v0.1.0 · Made for your street</p>
+        <p className="tiny muted" style={{ textAlign: "center", padding: "4px 0" }}>STRYT v{__APP_VERSION__} · Made for your street</p>
       </div>
     </div>
   );

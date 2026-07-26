@@ -20,7 +20,10 @@ export type ErrorKind = "REACT" | "WINDOW_ERROR" | "UNHANDLED_REJECTION" | "MANU
 const MAX_MESSAGE = 2000;
 const MAX_STACK = 8000;
 const MAX_PER_MINUTE = 12; // hard cap on remote inserts per rolling minute
-const APP_VERSION = (import.meta as any).env?.VITE_APP_VERSION ?? null;
+// Was reading VITE_APP_VERSION, an env var no workflow ever set — always null
+// in practice. __APP_VERSION__ is baked in at build time from package.json
+// (see vite.config.ts), so this now actually tags reports with a real version.
+const APP_VERSION = __APP_VERSION__;
 
 let initialized = false;
 let sinkReady = false; // flips true after the first successful insert; also gated below

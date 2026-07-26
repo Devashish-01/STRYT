@@ -375,7 +375,7 @@ export default function Profile() {
           </div>
 
           <p className="tiny muted" style={{ textAlign: "center", padding: "8px 0 28px" }}>
-            STRYT v0.1.0 · Made for your street
+            STRYT v{__APP_VERSION__} · Made for your street
           </p>
         </div>
       </div>
@@ -606,7 +606,7 @@ export default function Profile() {
             </div>
 
             <p className="tiny muted" style={{ textAlign: "center", padding: "12px 0 20px" }}>
-              STRYT v0.1.0 · Made for your street
+              STRYT v{__APP_VERSION__} · Made for your street
             </p>
 
           </div>

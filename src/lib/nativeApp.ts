@@ -44,6 +44,18 @@ export async function initNativeApp(): Promise<void> {
   try {
     const { CapacitorUpdater } = await import("@capgo/capacitor-updater");
     await CapacitorUpdater.notifyAppReady();
+
+    // Previously there was zero visibility into whether a background check/
+    // download/apply ever actually happened — the only signal was "did the
+    // app change," which is indistinguishable from "the check silently
+    // failed." These just log; no UI, no behavior change. Each wrapped in its
+    // own try/catch so one failing addListener call can't skip the rest.
+    const log = (event: string) => (state: unknown) => console.log(`[ota] ${event}`, state);
+    void CapacitorUpdater.addListener("updateAvailable", log("updateAvailable")).catch(() => { /* ignore */ });
+    void CapacitorUpdater.addListener("downloadComplete", log("downloadComplete")).catch(() => { /* ignore */ });
+    void CapacitorUpdater.addListener("updateFailed", log("updateFailed")).catch(() => { /* ignore */ });
+    void CapacitorUpdater.addListener("downloadFailed", log("downloadFailed")).catch(() => { /* ignore */ });
+    void CapacitorUpdater.addListener("appReloaded", () => log("appReloaded")(undefined)).catch(() => { /* ignore */ });
   } catch { /* updater plugin absent — ignore */ }
 
 

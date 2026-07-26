@@ -4,7 +4,10 @@
 > Covers web (Vercel), Android APK (GitHub Actions), OTA (self-hosted Capgo),
 > database (Supabase), and payment model notes.
 >
-> Compiled 2026-07-17. Grounded in actual config files — every claim is verified.
+> Compiled 2026-07-17, corrected 2026-07-26 — §4/§5 were written when OTA was
+> still a manual step; `.github/workflows/ota-release.yml` has since automated
+> it, and the "Update available" button described below never actually
+> existed. Grounded in actual config files — every claim is verified.
 
 ---
 
@@ -19,11 +22,13 @@ STRYT has three separate things to deploy, and they are **independent of each ot
 │   WEB APP        │   ANDROID APK    │   OTA UPDATE              │
 │   (Vercel)       │   (GitHub CI)    │   (Supabase Storage)      │
 ├──────────────────┼──────────────────┼───────────────────────────┤
-│ git push → auto  │ git push → auto  │ npm run ota:publish       │
-│                  │                  │ (manual, you run it)      │
+│ git push → auto  │ git push → auto  │ git push → auto           │
+│                  │                  │ (or `npm run ota:publish` │
+│                  │                  │  manually, one-off)       │
 ├──────────────────┼──────────────────┼───────────────────────────┤
-│ Instant          │ ~5 min build     │ Background download on    │
-│ on push          │ then auto-upload │ user's device             │
+│ Instant          │ ~5 min build     │ Downloads on next app     │
+│ on push          │ then auto-upload │ open; APPLIES on next     │
+│                  │                  │ background→reopen cycle   │
 └──────────────────┴──────────────────┴───────────────────────────┘
 ```
 
@@ -107,56 +112,79 @@ https://stryt.in/stryt.apk now serves the new APK
 
 ---
 
-## 4. Path 3 — OTA (Over-The-Air) Updates (Manual)
+## 4. Path 3 — OTA (Over-The-Air) Updates (Automatic)
 
 ### What is OTA?
 
 OTA lets you push new JS/CSS/HTML to users who **already have the APK installed** — without them needing to re-download the APK. This uses `@capgo/capacitor-updater` in self-hosted mode (no third-party service — updates live in your own Supabase Storage).
 
-### What happens when you run `npm run ota:publish`?
+### What happens on every push to `main`?
+
+`.github/workflows/ota-release.yml` runs automatically:
 
 ```
-npm run ota:publish
+git push → main
         ↓
-Step 1: npm run build         (creates dist/)
+Step 1: npm run build                              (creates dist/, using the
+                                                      NEXT patch version)
         ↓
 Step 2: node scripts/publish-ota-update.mjs
-   a) Reads version from package.json (e.g. "0.1.1")
-   b) Zips entire dist/ folder → bundle-0.1.1.zip
+   a) Reads version from package.json (e.g. "0.1.18")
+   b) Zips entire dist/ folder → bundle-0.1.18.zip
    c) Calculates SHA256 checksum of the zip
-   d) Uploads bundle-0.1.1.zip to Supabase Storage (app-updates bucket)
-   e) Writes latest.json to same bucket:
+   d) Uploads bundle-0.1.18.zip to Supabase Storage (app-updates bucket) —
+      this object is never overwritten again, so it stays available for rollback
+   e) Writes latest.json to same bucket (this one IS overwritten each publish):
       {
-        "version": "0.1.1",
-        "url": "https://...supabase.co/storage/.../bundle-0.1.1.zip",
+        "version": "0.1.18",
+        "url": "https://...supabase.co/storage/.../bundle-0.1.18.zip",
         "checksum": "abc123..."
       }
         ↓
-DONE on your side — takes ~1-2 minutes
+Step 3: ONLY if step 2 succeeded — commit + push the version bump to package.json.
+        (If the build or publish fails, main's version is left untouched —
+        it used to bump-then-build, which could leave a version number with
+        no bundle actually published behind it.)
 ```
+
+You can also run this manually for a one-off publish without a full commit: `npm run ota:publish` (same script, no version-bump/commit step — bumps nothing, just builds and publishes whatever version is currently in `package.json`).
+
+**Rollback:** `bundle-<version>.zip` objects are kept, never deleted — only `latest.json`'s pointer moves. To roll back to a previously-published version without rebuilding: `SUPABASE_SERVICE_ROLE_KEY=... npm run ota:rollback -- 0.1.15` (repoints `latest.json` at that version's already-uploaded bundle). This does not downgrade devices already running something newer — it only affects what NEW update-checks are offered.
 
 ### What happens on the user's device AFTER you publish?
 
 ```
 User opens their installed STRYT app (or brings it to foreground)
         ↓
-App checks latest.json via Supabase edge function: /functions/v1/app-update
+Plugin POSTs an update check to /functions/v1/app-update
         ↓
-Plugin sees version "0.1.1" > current installed version
-→ starts download silently in the background
+Edge function returns the latest.json manifest — UNLESS a MIN_NATIVE_VERSION
+floor is set for this release and the device's native build is older, in
+which case it returns "no update available" instead (so a device that lacks
+a plugin/permission this bundle assumes is never offered it)
         ↓
-User uses the app normally — download is invisible, no interruption
+Plugin sees the returned version > current bundle version
+→ downloads it silently in the background, verifies the checksum
         ↓
-Download + checksum verification completes
+Update is now STAGED, not yet applied — nothing visible changes yet
         ↓
-"Update available" button appears on profile screen
-        ↓
-User taps it → app reloads with new code instantly (WebView hot-swap)
+The NEXT time the app is sent to the background and reopened (autoUpdate:
+'atBackground'), the staged bundle is swapped in
 ```
 
-### Does the download start INSTANTLY when you publish?
+**There is no in-app "Update available" UI at all** — no button, no banner, no toast. It's fully silent by design (the Swiggy/Zepto-style pattern the original config comment describes). `src/lib/nativeApp.ts` does log each stage (`[ota] updateAvailable`, `downloadComplete`, `appReloaded`, etc.) to the console if you need to confirm it's actually happening on a connected/debuggable device.
 
-**YES** — the moment you publish, the `latest.json` file is updated in Supabase Storage. The next time any user opens the app (or brings it from background to foreground), their device checks this file and begins downloading immediately. There is no delay on STRYT's side. The only wait is the user opening the app.
+### How to actually test this (read this before assuming it's broken)
+
+Publishing and then just **staying in the foreground of the app will never show anything change**, no matter how long you wait — the apply step only fires on background→reopen. Correct test procedure:
+
+1. Publish (push to `main`, or `npm run ota:publish`) and confirm the workflow went green.
+2. Open the installed app.
+3. Press the home button — **actually background it**, don't just stay in-app.
+4. Wait a few seconds.
+5. Reopen the app. The new bundle should now be active.
+
+If step 5 doesn't show the change, check (in order): the OTA workflow actually succeeded for that push; `app-update` isn't withholding it behind a `MIN_NATIVE_VERSION` floor you forgot was set; the installed app is a CI-built release (a manually/locally-built APK may have a stale `capacitor.config.ts` version baked in from whenever it was last `cap sync`'d, which can make every OTA bundle look like a downgrade).
 
 ### OTA Limitations — Critical
 
@@ -184,59 +212,14 @@ User taps it → app reloads with new code instantly (WebView hot-swap)
 
 ---
 
-## 5. Automating OTA — How to Do It
+## 5. OTA automation — already done
 
-Currently OTA is manual. It can be added to the GitHub Actions workflow so it fires automatically on every push to `main` alongside the APK build.
+This section used to be a walkthrough for adding OTA automation. It's done — `.github/workflows/ota-release.yml` is a **separate** workflow from `android-release.yml` (not steps bolted onto the APK build as originally proposed here), triggered on every push to `main` that isn't purely android/docs/readme changes (see the workflow's `paths-ignore`). See §4 above for exactly what it does and how versioning/rollback work.
 
-### Step 1 — Add SUPABASE_SERVICE_ROLE_KEY to GitHub Secrets
+Two things worth knowing that aren't obvious from the workflow file alone:
 
-Go to: GitHub repo → Settings → Secrets and variables → Actions → New secret
-
-| Secret | Where to find it |
-|---|---|
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Project Settings → API → service_role key |
-
-### Step 2 — Add these steps to `.github/workflows/android-release.yml`
-
-Add them **after** the "Upload APK to Supabase Storage" step:
-
-```yaml
-- name: Bump OTA patch version
-  run: |
-    node -e "
-      const fs = require('fs');
-      const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
-      const [maj, min, patch] = pkg.version.split('.').map(Number);
-      pkg.version = maj + '.' + min + '.' + (patch + 1);
-      fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-      console.log('OTA version bumped to', pkg.version);
-    "
-
-- name: Publish OTA bundle to Supabase
-  env:
-    SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  run: node scripts/publish-ota-update.mjs
-```
-
-### Result after automation
-
-```
-git push origin main
-        ↓
-GitHub Actions runs all steps:
-  ✅ Builds Vite web bundle
-  ✅ Syncs to Android, compiles signed APK
-  ✅ Uploads APK to Supabase Storage
-  ✅ Publishes GitHub Release (android-latest)
-  ✅ Auto-bumps version: 0.1.0 → 0.1.1       ← NEW
-  ✅ Publishes OTA bundle to Supabase         ← NEW
-        ↓
-Every existing installed app picks up the update on next open.
-Every new download gets the updated APK.
-Web users at stryt.in see it instantly.
-```
-
-Zero manual steps for any deployment type.
+- **The two release workflows are independent and uncoordinated.** A push touching both `src/` and something native-requiring fires both `android-release.yml` and `ota-release.yml` — nothing stops an OTA bundle from publishing code that assumes a plugin/permission the currently-installed native shell doesn't have. `scripts/publish-ota-update.mjs`'s own header warns about this; the `MIN_NATIVE_VERSION` floor on `app-update` (§4) is the mitigation, but it has to be set deliberately per release — it's not automatic.
+- **`android-release.yml` requires a `GOOGLE_SERVICES_JSON_BASE64` secret** (base64 of `android/app/google-services.json`, decoded in a step before the Gradle build) — the native Android build cannot succeed without it, since `android/app/build.gradle` applies the `com.google.gms.google-services` plugin which hard-fails without that file present.
 
 ---
 
@@ -354,8 +337,11 @@ npm run cap:sync
 # Build + run directly on connected Android device
 npm run cap:run
 
-# Publish OTA update manually
+# Publish OTA update manually (auto-runs on push to main; this is for a one-off)
 npm run ota:publish
+
+# Roll back the OTA pointer to a previously-published version
+SUPABASE_SERVICE_ROLE_KEY=... npm run ota:rollback -- 0.1.15
 ```
 
 ---
@@ -366,6 +352,6 @@ npm run ota:publish
 |---|---|---|
 | Update web app at stryt.in | `git push` to main | ✅ Auto (Vercel) |
 | Build new Android APK | `git push` to main | ✅ Auto (GitHub Actions) |
-| Push update to existing installed users | `npm run ota:publish` | ❌ Manual — can be automated (see §5) |
+| Push update to existing installed users | `git push` to main | ✅ Auto (`.github/workflows/ota-release.yml`) |
 | Apply new DB migrations | `npx supabase db push` | ❌ Manual |
 | Regenerate TypeScript DB types | `npx supabase gen types typescript ...` | ❌ Manual |

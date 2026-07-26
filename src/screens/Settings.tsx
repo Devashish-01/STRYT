@@ -570,6 +570,12 @@ function LocationSharesManager() {
           </div>
         </div>
       )}
+
+      {/* About — lets you (or support) confirm which build/OTA bundle is
+          actually running on a device, instead of guessing. */}
+      <div className="tiny muted center" style={{ marginTop: 8, marginBottom: 4 }}>
+        STRYT v{__APP_VERSION__}
+      </div>
     </div>
   );
 }
