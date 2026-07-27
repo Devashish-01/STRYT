@@ -63,15 +63,20 @@ export const notificationService = {
     return count ?? 0;
   },
 
+  // Throws on failure (like remove() below) rather than swallowing the error.
+  // Silently discarding it meant a mark-read that never persisted looked
+  // identical to one that did — the row's unread dot came back on the next
+  // refetch with nothing explaining why.
   async markRead(id: string) {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return { ok: true };
-    await sb
+    const { error } = await sb
       .from("notifications")
       .update({ is_read: true })
       .eq("id", id)
       .eq("user_id", uid);
+    if (error) throw error;
     return { ok: true };
   },
 
@@ -81,7 +86,8 @@ export const notificationService = {
     if (!uid) return { ok: true };
     let q = sb.from("notifications").update({ is_read: true }).eq("user_id", uid).eq("is_read", false);
     q = applyScope(q, scope);
-    await q;
+    const { error } = await q;
+    if (error) throw error;
     return { ok: true };
   },
 

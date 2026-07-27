@@ -66,6 +66,57 @@ export interface DeliveryItem {
   deliveredAt: string | null;
 }
 
+/** What the CUSTOMER is allowed to see about their delivery: progress, their
+ *  own handoff code, and the agent's contact details only once the delivery is
+ *  actually under way. Never any coordinates — live tracking is not offered to
+ *  customers (deliberate product decision, enforced server-side). */
+export interface CustomerDeliveryProgress {
+  id: string;
+  status: DeliveryStatus;
+  liveStatus: DeliveryLiveStatus | null;
+  handoffCode: string | null;
+  handoffVerified: boolean;
+  /** Null until `agentRevealed` is true. */
+  agentName: string | null;
+  agentPhone: string | null;
+  agentAvatar: string | null;
+  /** True once this delivery is EN_ROUTE or later. */
+  agentRevealed: boolean;
+  etaText: string | null;
+  /** How many stops the agent has ahead of this one on the current run. */
+  stopsBefore: number | null;
+}
+
+/** One delivery as the BUSINESS OWNER sees it — adds the agent's real identity
+ *  (their own team member) on top of the customer-facing delivery shape. */
+export interface BusinessDeliveryItem {
+  id: string;
+  appointmentId: string;
+  status: DeliveryStatus;
+  liveStatus: DeliveryLiveStatus | null;
+  agentUserId: string | null;
+  agentName: string;
+  agentAvatar: string | null;
+  agentPhone: string | null;
+  customerName: string;
+  deliveryAddressLine: string | null;
+  deliveryLat: number | null;
+  deliveryLng: number | null;
+  deliveryEtaText: string | null;
+  scheduledFor: string | null;
+  dateLabel: string | null;
+  timeLabel: string | null;
+  batchId: string | null;
+  stopOrder: number | null;
+  batchStatus: DeliveryBatchStatus | null;
+  batchLat: number | null;
+  batchLng: number | null;
+  batchHeading: number | null;
+  handoffVerified: boolean;
+  createdAt: string | null;
+  deliveredAt: string | null;
+}
+
 function rowToItem(r: any): DeliveryItem {
   return {
     id: r.id,
@@ -129,6 +180,34 @@ export const deliveryService = {
     return data === true;
   },
 
+  /**
+   * Customer-facing progress for their own delivery. Deliberately NOT a read
+   * of appointment_deliveries: the customer gets status + their handoff code,
+   * and the agent's name/phone/photo only once that delivery has actually
+   * started. No coordinates are returned at any point — see
+   * my_delivery_progress + the narrowed get_tracking.
+   */
+  async myProgress(appointmentId: string): Promise<CustomerDeliveryProgress | null> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("my_delivery_progress", { p_appointment_id: appointmentId });
+    if (error) throw error;
+    const r = Array.isArray(data) ? data[0] : data;
+    if (!r) return null;
+    return {
+      id: r.id,
+      status: r.status,
+      liveStatus: r.live_status ?? null,
+      handoffCode: r.handoff_code ?? null,
+      handoffVerified: !!r.handoff_verified,
+      agentName: r.agent_name ?? null,
+      agentPhone: r.agent_phone ?? null,
+      agentAvatar: r.agent_avatar ?? null,
+      agentRevealed: !!r.agent_revealed,
+      etaText: r.eta_text ?? null,
+      stopsBefore: r.stops_before ?? null,
+    };
+  },
+
   /** Create/reuse a public tracking token for the delivery's appointment. */
   async generateTrackingToken(appointmentId: string): Promise<string> {
     const sb = getSupabase();
@@ -170,6 +249,45 @@ export const deliveryService = {
       p_heading: heading ?? undefined,
     });
     if (error) throw error;
+  },
+
+  /**
+   * Owner/manager view of this business's deliveries — the business-scoped
+   * mirror of myDeliveries(). Includes the assigned agent's real identity
+   * (they're the owner's own team member) and the run's live position, so the
+   * tracking page can follow progress per order and per agent.
+   */
+  async businessDeliveries(businessId: string): Promise<BusinessDeliveryItem[]> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("business_active_deliveries", { p_business_id: businessId });
+    if (error) throw error;
+    return ((data ?? []) as any[]).map((r) => ({
+      id: r.id,
+      appointmentId: r.appointment_id,
+      status: r.status,
+      liveStatus: r.live_status ?? null,
+      agentUserId: r.agent_user_id ?? null,
+      agentName: r.agent_name ?? "Delivery agent",
+      agentAvatar: r.agent_avatar ?? null,
+      agentPhone: r.agent_phone ?? null,
+      customerName: r.customer_name ?? "Customer",
+      deliveryAddressLine: r.delivery_address_line ?? null,
+      deliveryLat: r.delivery_lat ?? null,
+      deliveryLng: r.delivery_lng ?? null,
+      deliveryEtaText: r.delivery_eta_text ?? null,
+      scheduledFor: r.scheduled_for ?? null,
+      dateLabel: r.date_label ?? null,
+      timeLabel: r.time_label ?? null,
+      batchId: r.batch_id ?? null,
+      stopOrder: r.stop_order ?? null,
+      batchStatus: r.batch_status ?? null,
+      batchLat: r.batch_lat ?? null,
+      batchLng: r.batch_lng ?? null,
+      batchHeading: r.batch_heading ?? null,
+      handoffVerified: !!r.handoff_verified,
+      createdAt: r.created_at ?? null,
+      deliveredAt: r.delivered_at ?? null,
+    }));
   },
 
   // ── Owner side ────────────────────────────────────────────────────────────

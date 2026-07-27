@@ -45,6 +45,13 @@ export interface AppointmentRecord {
   deliveryAddressLine?: string | null;
   deliveryLat?: number | null;
   deliveryLng?: number | null;
+  /** How many spots this booking consumes in its slot (party size). Defaults to 1. */
+  partySize?: number;
+  /** Delivery window the CUSTOMER asked for at booking time (free text, e.g. "before 6pm"). */
+  requestedDeliveryWindow?: string | null;
+  /** ETA the BUSINESS confirmed when accepting (free text, e.g. "30-45 min"). Kept
+   *  separate from requestedDeliveryWindow so the ask and the answer stay distinguishable. */
+  deliveryEtaText?: string | null;
   /** Structured cart line items (multi-item checkout / walk-in purchases) — additive to
    *  packageName/packagePrice, which stay the human-readable order summary. Only set on
    *  create() payloads that pass a real cart; a single-package booking omits this and the

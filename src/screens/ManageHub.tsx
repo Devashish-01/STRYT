@@ -18,7 +18,7 @@ export default function ManageHub() {
   return (
     <div className="screen">
       <AppBar title="Manage" subtitle="Your businesses & provider profile" />
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 30 }}>
+      <div className="screen-scroll page-pad col gap-16 scroll-pad-end">
         {/* Businesses */}
         <div>
           <div className="small semi muted" style={{ marginBottom: 8 }}>Businesses</div>

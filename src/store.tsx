@@ -32,7 +32,7 @@ import { userService } from "@/services/core/userService";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { reverseGeocode } from "@/lib/geocode";
 import { authService } from "@/services/core/authService";
-import { switchPinService } from "@/services/core/switchPinService";
+import { entityPasswordService } from "@/services/core/entityPasswordService";
 import { notificationService } from "@/services/engagement/notificationService";
 import { chatService } from "@/services/engagement/chatService";
 import { registerPush } from "@/lib/pushNotifications";
@@ -80,19 +80,30 @@ interface AppState {
   // as "really empty" instead of "still loading".
   ownedEntitiesLoaded: boolean;
 
-  // profile-switch PIN gate — switching INTO business/provider (never back to
-  // customer) is held here until the PIN sheet confirms or cancels it.
-  switchPinIsSet: boolean;
+  // profile-switch password gate — switching INTO business/provider (never
+  // back to customer) is held here until the password sheet confirms or
+  // cancels it. Business and Provider each have their own independent
+  // password, set by the owner from their profile (Settings).
+  /** Does auth.uid() (as an owner) have a business password set? Drives Settings' display + gates the owner's own switch-in for every business they own. */
+  businessPasswordIsSet: boolean;
+  /** Same, for the provider password (providers have no delegation, so this alone gates provider switch-in). */
+  providerPasswordIsSet: boolean;
+  /** Does auth.uid() have a backup recovery question for business password reset? */
+  businessRecoveryIsSet: boolean;
+  /** Same for provider password. */
+  providerRecoveryIsSet: boolean;
+  /** Per-business-id "does opening this business require a password" — covers owned businesses (mirrors businessPasswordIsSet) AND delegated ones (the OWNER's password, looked up server-side). Missing/unknown ids default to not-required (fail-open, matching today's optional/opt-in model). */
+  businessPasswordRequired: Record<string, boolean>;
   pendingContextSwitch: { ctx: ActiveContext; dest: string } | null;
-  /** Returns true if the caller should navigate immediately (no PIN needed);
-   *  false means the switch is pending PIN verification via PinGateSheet. */
+  /** Returns true if the caller should navigate immediately (no password needed);
+   *  false means the switch is pending password verification via PinGateSheet. */
   attemptSwitchContext: (ctx: ActiveContext, dest: string) => boolean;
   /** PinGateSheet: commits the pending switch's context and returns its dest
    *  to navigate to, or null if there was nothing pending. */
   confirmPendingSwitch: () => string | null;
   cancelPendingSwitch: () => void;
-  /** Re-fetches whether a switch PIN is set — call after set/clear. */
-  refreshSwitchPinStatus: () => Promise<void>;
+  /** Re-fetches business/provider password + recovery status (self + delegated map) — call after set/clear/reset. */
+  refreshEntityPasswordStatus: () => Promise<void>;
 
   // bookmarks
   bookmarks: BookmarkKey[];
@@ -261,7 +272,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [ownedBusinessIds, setOwnedBusinessIds] = useState<string[]>([]);
   const [ownedProviderId, setOwnedProviderId] = useState<string | null>(null);
   const [ownedEntitiesLoaded, setOwnedEntitiesLoaded] = useState(false);
-  const [switchPinIsSet, setSwitchPinIsSet] = useState(false);
+  const [businessPasswordIsSet, setBusinessPasswordIsSet] = useState(false);
+  const [providerPasswordIsSet, setProviderPasswordIsSet] = useState(false);
+  const [businessRecoveryIsSet, setBusinessRecoveryIsSet] = useState(false);
+  const [providerRecoveryIsSet, setProviderRecoveryIsSet] = useState(false);
+  const [delegatedBusinessPasswordMap, setDelegatedBusinessPasswordMap] = useState<Record<string, boolean>>({});
   const [pendingContextSwitch, setPendingContextSwitch] = useState<{ ctx: ActiveContext; dest: string } | null>(null);
   const [activeContext, setActiveContext] = useState<ActiveContext>(() => {
     const cached = localStorage.getItem("activeContext");
@@ -411,7 +426,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void autoRefreshLocation();
       });
       void hydratePersonalData();
-      void switchPinService.isSet().then(setSwitchPinIsSet).catch(() => {});
+      void refreshEntityPasswordStatus();
     } else {
       // BUG FIX #2: Reset profileReady whenever we lose auth so a subsequent
       // re-auth cycle (e.g. Supabase auto-recovering after a transient network
@@ -432,21 +447,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("activeContext", JSON.stringify(ctx));
   }, []);
 
+  // Per-business "does opening this one require a password" — owned
+  // businesses mirror the owner's own businessPasswordIsSet; delegated ones
+  // come from the batched delegate lookup (that business's OWNER's password).
+  // Kept as its own derivation (not baked in at fetch time) so it's never
+  // stale relative to ownedBusinessIds, whichever hydrates first.
+  const businessPasswordRequired = useMemo(() => {
+    const map: Record<string, boolean> = { ...delegatedBusinessPasswordMap };
+    for (const id of ownedBusinessIds) map[id] = businessPasswordIsSet;
+    return map;
+  }, [delegatedBusinessPasswordMap, ownedBusinessIds, businessPasswordIsSet]);
+
   // Single gate every "switch into business/provider" call site routes
   // through, instead of each one pairing setContext+nav by convention (the
   // drift risk that let context and URL disagree). Switching back to
   // customer is never gated — only entering a business/provider hat is.
   const attemptSwitchContext = useCallback((ctx: ActiveContext, dest: string): boolean => {
     // Customer and Delivery are the user's OWN identities (not operating-as a
-    // business you don't own), so they're never PIN-gated — only switching into
-    // a business/provider console requires the switch PIN.
-    if (ctx.type === "customer" || ctx.type === "delivery" || !switchPinIsSet) {
+    // business you don't own), so they're never password-gated — only
+    // entering a business/provider console can be, and only when that
+    // console's owner (not necessarily the switcher — see BusinessAccess'
+    // delegated grants) has actually set one.
+    const required =
+      ctx.type === "business" ? (ctx.id ? businessPasswordRequired[ctx.id] ?? false : false)
+      : ctx.type === "provider" ? providerPasswordIsSet
+      : false;
+    if (!required) {
       setPersistedContext(ctx);
       return true;
     }
     setPendingContextSwitch({ ctx, dest });
     return false;
-  }, [switchPinIsSet, setPersistedContext]);
+  }, [businessPasswordRequired, providerPasswordIsSet, setPersistedContext]);
 
   const confirmPendingSwitch = useCallback((): string | null => {
     const pending = pendingContextSwitch;
@@ -460,9 +492,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPendingContextSwitch(null);
   }, []);
 
-  const refreshSwitchPinStatus = useCallback(async () => {
-    const isSet = await switchPinService.isSet().catch(() => false);
-    setSwitchPinIsSet(isSet);
+  const refreshEntityPasswordStatus = useCallback(async () => {
+    const [biz, prov, bizRecovery, provRecovery, delegated] = await Promise.all([
+      entityPasswordService.isSet("business").catch(() => false),
+      entityPasswordService.isSet("provider").catch(() => false),
+      entityPasswordService.isRecoverySet("business").catch(() => false),
+      entityPasswordService.isRecoverySet("provider").catch(() => false),
+      entityPasswordService.myDelegatedBusinessPasswordStatus().catch(() => ({})),
+    ]);
+    setBusinessPasswordIsSet(biz);
+    setProviderPasswordIsSet(prov);
+    setBusinessRecoveryIsSet(bizRecovery);
+    setProviderRecoveryIsSet(provRecovery);
+    setDelegatedBusinessPasswordMap(delegated);
   }, []);
 
   const value = useMemo<AppState>(
@@ -493,12 +535,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ownedBusinessIds,
       ownedProviderId,
       ownedEntitiesLoaded,
-      switchPinIsSet,
+      businessPasswordIsSet,
+      providerPasswordIsSet,
+      businessRecoveryIsSet,
+      providerRecoveryIsSet,
+      businessPasswordRequired,
       pendingContextSwitch,
       attemptSwitchContext,
       confirmPendingSwitch,
       cancelPendingSwitch,
-      refreshSwitchPinStatus,
+      refreshEntityPasswordStatus,
       bookmarks,
       toggleBookmark,
       isBookmarked,
@@ -555,7 +601,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setOwnedBusinessIds([]);
         setOwnedProviderId(null);
         setOwnedEntitiesLoaded(false);
-        setSwitchPinIsSet(false);
+        setBusinessPasswordIsSet(false);
+        setProviderPasswordIsSet(false);
+        setBusinessRecoveryIsSet(false);
+        setProviderRecoveryIsSet(false);
+        setDelegatedBusinessPasswordMap({});
         setPendingContextSwitch(null);
         setActiveContext({ type: "customer", id: null, name: seedUser.name });
         localStorage.removeItem("locationPromptShown");
@@ -567,7 +617,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       viewUser, refreshUser,
       area, activeRole, roles, activeContext, ownedBusinessIds, ownedProviderId,
-      ownedEntitiesLoaded, switchPinIsSet, pendingContextSwitch,
+      ownedEntitiesLoaded, businessPasswordIsSet, providerPasswordIsSet,
+      businessRecoveryIsSet, providerRecoveryIsSet, businessPasswordRequired, pendingContextSwitch,
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
       unread, chatUnread, toast, isAuthed, authReady, profileReady,
@@ -577,7 +628,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,
       setPersistedActiveRole, setPersistedContext, markAllRead, decrementUnread, setChatUnread, setIsAuthed,
-      attemptSwitchContext, confirmPendingSwitch, cancelPendingSwitch, refreshSwitchPinStatus,
+      attemptSwitchContext, confirmPendingSwitch, cancelPendingSwitch, refreshEntityPasswordStatus,
     ]
   );
 

@@ -242,4 +242,6 @@ export { PhosphorHouse as Home };
 export { SquaresFour };
 export { GridFour };
 export { CircleNotch };
+export { DownloadSimple as Download, Printer } from "@phosphor-icons/react";
 export { Tray as Inbox } from "@phosphor-icons/react";
+

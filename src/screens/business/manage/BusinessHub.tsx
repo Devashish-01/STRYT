@@ -6,8 +6,9 @@ import { useApp } from "@/store";
 import { ErrorView } from "@/components/states";
 import {
   BadgeCheck, ChevronRight, Globe, HelpCircle, Inbox, LogOut, Megaphone, MessageSquareText,
-  Search, Settings, Star, Store, User, Users, Wallet,
+  Package, Search, Settings, Star, Store, User, Users, Wallet,
 } from "@/components/Icons";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import type { QueueOwnerToken } from "@/types";
 import { deriveMoneySummary } from "@/utils/paymentSummary";
 import ManageNav from "./ManageNav";
@@ -55,6 +56,11 @@ export default function BusinessHub() {
       { icon: <Star size={19} color="var(--amber-500)" />, title: "Reviews", text: "Read and reply to customer feedback", badge: reviews?.length ?? 0, onClick: () => nav(`${base}/reviews`) },
     ] : []),
   ];
+  const operations: HubLink[] = [
+    ...(DELIVERY_AGENT_ENABLED && hasScope("appointments") ? [
+      { icon: <Package size={19} color="var(--delivery-600)" />, title: "Live deliveries", text: "Track agents and orders in progress", onClick: () => nav(`${base}/deliveries`) },
+    ] : []),
+  ];
   const grow: HubLink[] = [
     ...(hasScope("leads") ? [
       { icon: <Search size={19} color="var(--orange-500)" />, title: "Find requests", text: "Win nearby customer work", onClick: () => nav(`${base}/requests`) },
@@ -86,6 +92,7 @@ export default function BusinessHub() {
               </div>
             </section>
           )}
+          <HubSection title="Operations" links={operations} />
           <HubSection title="Customer communication" links={communication} />
           <HubSection title="Grow" links={grow} />
           <HubSection title="Business profile" links={profile} />

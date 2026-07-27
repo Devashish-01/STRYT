@@ -157,7 +157,14 @@ export default function DayTimetable({
           {slots.map((s) => {
             const top = (minuteOfDay(s.isoTimestamp) - dayStartMin) * PX_PER_MIN;
             const height = Math.max(slotHeightPx - 2, 14);
-            const apt = s.bookedAppointmentId ? appointments.find((a) => a.id === s.bookedAppointmentId) : undefined;
+            // A slot can hold several bookings once the business sets a
+            // capacity > 1, so resolve the whole set. `apt` stays the first for
+            // the single-booking layout below; extras get a "+N" affordance.
+            const slotApts = (s.bookedAppointmentIds ?? [])
+              .map((id) => appointments.find((a) => a.id === id))
+              .filter((a): a is AppointmentRecord => !!a);
+            const apt = slotApts[0];
+            const extraCount = slotApts.length - 1;
             const isPast = new Date(s.isoTimestamp).getTime() <= now;
             const boxStyle: CSSProperties = {
               position: "absolute", top, left: 4, right: 4, height,
@@ -183,13 +190,30 @@ export default function DayTimetable({
                   {compact ? (
                     <>
                       <span style={{ width: 6, height: 6, borderRadius: "50%", background: colors.fg, flexShrink: 0 }} />
-                      <span className="tiny semi ellipsis" style={{ color: colors.fg, fontSize: 10 }}>{s.timeLabel} · {apt.customerName}</span>
+                      <span className="tiny semi ellipsis" style={{ color: colors.fg, fontSize: 10 }}>
+                        {s.timeLabel} · {apt.customerName}{extraCount > 0 ? ` +${extraCount}` : ""}
+                      </span>
                     </>
                   ) : (
                     <>
                       <span className="tiny semi" style={{ color: colors.fg, fontSize: 10.5 }}>{s.timeLabel}</span>
-                      <span className="tiny bold ellipsis" style={{ color: colors.fg, maxWidth: "100%" }}>{apt.customerName}</span>
+                      <span className="tiny bold ellipsis" style={{ color: colors.fg, maxWidth: "100%" }}>
+                        {apt.customerName}{extraCount > 0 ? ` +${extraCount} more` : ""}
+                      </span>
                     </>
+                  )}
+                  {/* Capacity marker so a shared slot reads as shared at a
+                      glance, not as a single booking. */}
+                  {extraCount > 0 && (
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        position: "absolute", top: 3, right: 4,
+                        fontSize: 8.5, fontWeight: 700, color: colors.fg, opacity: 0.75,
+                      }}
+                    >
+                      {slotApts.length}/{s.capacity}
+                    </span>
                   )}
                 </button>
               );

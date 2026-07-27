@@ -359,6 +359,11 @@ GRANT EXECUTE ON FUNCTION public.appointment_create(text, text, timestamptz, tex
 -- 7) get_tracking — add stops_before + destination coords (for a real ETA
 --    instead of the previous hardcoded "~8 min away"), prefer the batch's
 --    live position over the stop's own (possibly stale, pre-batch) lat/lng. -
+-- Same return-type-widening constraint as my_deliveries below: the existing
+-- 6-column version has to be dropped before the 9-column one can be created.
+-- Dropped and recreated in one transaction, so the public /track/:token page
+-- never observes a missing function.
+DROP FUNCTION IF EXISTS public.get_tracking(text);
 CREATE OR REPLACE FUNCTION public.get_tracking(p_token text)
  RETURNS TABLE(agreement_id text, provider_lat double precision, provider_lng double precision,
                live_status text, provider_name text, provider_avatar text, stops_before int,
@@ -399,6 +404,11 @@ GRANT EXECUTE ON FUNCTION public.get_tracking(text) TO anon, authenticated;
 
 -- 8) my_deliveries — surface batch_id/stop_order/batch_status so the console
 --    can group stops into a run and gate the accept/decline prompt. ---------
+-- Widening a RETURNS TABLE is a return-type change, which CREATE OR REPLACE
+-- rejects ("cannot change return type of existing function") — the previous
+-- 17-column version must be dropped first. Same transaction, so there's no
+-- window where the RPC is missing.
+DROP FUNCTION IF EXISTS public.my_deliveries();
 CREATE OR REPLACE FUNCTION public.my_deliveries()
 RETURNS TABLE(
   id text, appointment_id text, business_id text, business_name text,

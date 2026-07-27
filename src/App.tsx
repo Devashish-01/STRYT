@@ -14,6 +14,7 @@ import PinGateSheet from "./components/PinGateSheet";
 import RouteFallback from "./components/RouteFallback";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
+import { clearDeliveredNotifications } from "./lib/pushNotifications";
 import { contextHomePath } from "./lib/contextHome";
 import { LEGAL_VERSION } from "./lib/legal";
 import { useI18n, type Lang } from "./lib/i18n";
@@ -98,6 +99,7 @@ const QueueManager = lazy(() => import("./screens/business/manage/QueueManager")
 const QnaManager = lazy(() => import("./screens/business/manage/QnaManager"));
 const ReviewsManager = lazy(() => import("./screens/business/manage/ReviewsManager"));
 const BusinessAppointments = lazy(() => import("./screens/business/manage/BusinessAppointments"));
+const BusinessDeliveries = lazy(() => import("./screens/business/manage/BusinessDeliveries"));
 const BusinessPayments = lazy(() => import("./screens/business/manage/BusinessPayments"));
 const LeadsInbox = lazy(() => import("./screens/manage/LeadsInbox"));
 const VerificationCenter = lazy(() => import("./screens/business/manage/VerificationCenter"));
@@ -475,6 +477,18 @@ export default function App() {
     };
   }, [navigate]);
 
+  // Once the app is in the foreground, tray copies of push notifications are
+  // stale — the in-app Notifications screen is the live source of truth.
+  // Nothing cleared them before, so the OS tray accumulated indefinitely.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void clearDeliveredNotifications();
+    };
+    onVisible();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
   return (
     <div className="desktop-layout">
       {showDesktopSidebar && <DesktopSidebar />}
@@ -605,6 +619,9 @@ export default function App() {
 
               <Route element={<RequireScope scope="appointments" />}>
                 <Route path="/business/:id/manage/appointments" element={<BusinessAppointments />} />
+                {/* Live delivery tracking — same scope as bookings, since it's
+                    the same work seen mid-flight rather than a new capability. */}
+                <Route path="/business/:id/manage/deliveries" element={<BusinessDeliveries />} />
               </Route>
 
               <Route element={<RequireScope scope="leads" />}>

@@ -42,7 +42,7 @@ export default function GuideIndex() {
   return (
     <div className="screen">
       <AppBar title="Guide & FAQ" onBack={() => nav(-1)} />
-      <div className="screen-scroll page-pad" style={{ paddingBottom: 48 }}>
+      <div className="screen-scroll page-pad scroll-pad-end">
         <p style={{ fontSize: 13.5, color: "var(--ink-600)", lineHeight: 1.6, margin: "4px 0 16px" }}>
           Quick answers for every part of STRYT — how to book, how payments work, running your shop or provider profile, and more.
         </p>

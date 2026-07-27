@@ -91,8 +91,16 @@
 
   --maxw: 480px;
   --nav-h: 66px;
-  /* Map overlays sit above the fixed bottom nav (see MapView/RadiusStrip). */
-  --map-radius-strip-bottom: calc(var(--nav-h) + 12px + var(--safe-area-bottom));
+  /* Map chrome — stacked above bottom nav (see MapView + .map-screen). */
+  --map-chrome-inset: 12px;
+  --map-strip-h: 42px;
+  --map-dock-pad: 10px;
+  --map-over-nav: calc(var(--nav-h) + var(--safe-area-bottom));
+  --map-radius-strip-bottom: calc(var(--map-over-nav) + var(--map-dock-pad));
+  --map-fab-size: 40px;
+  --map-fab-gap: 8px;
+  --map-fab-bottom: calc(var(--map-radius-strip-bottom) + var(--map-strip-h) + 12px);
+  --map-pin-bottom: calc(var(--map-fab-bottom) + var(--map-fab-size) + var(--map-fab-gap));
   --header-h: 56px;
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -2466,6 +2474,175 @@ textarea.input {
   box-shadow: 0 8px 32px rgba(26, 21, 48, 0.12) !important;
 }
 
+/* ============================================================
+   Map screen — mobile-first chrome (MapView)
+   Keeps search, layer chips, radius strip, FABs, and badges
+   in non-overlapping zones on narrow viewports (Chrome mobile).
+   ============================================================ */
+.screen.map-screen {
+  height: 100dvh;
+  height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+.map-screen__search {
+  position: absolute;
+  top: calc(var(--map-chrome-inset) + var(--safe-area-top));
+  left: var(--map-chrome-inset);
+  right: var(--map-chrome-inset);
+  z-index: 1000;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.map-layer-toggles {
+  position: absolute;
+  top: calc(56px + var(--safe-area-top));
+  left: var(--map-chrome-inset);
+  right: calc(var(--map-chrome-inset) + var(--map-fab-size) + 8px);
+  z-index: 1000;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, #000 92%, transparent);
+  -webkit-mask-image: linear-gradient(to right, #000 92%, transparent);
+}
+
+.map-layer-toggles::-webkit-scrollbar {
+  display: none;
+}
+
+.map-layer-toggles__row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  width: max-content;
+  padding-right: 16px;
+}
+
+.map-bottom-dock {
+  position: absolute;
+  left: var(--map-chrome-inset);
+  right: var(--map-chrome-inset);
+  bottom: var(--map-radius-strip-bottom);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.map-bottom-dock > * {
+  pointer-events: auto;
+}
+
+.map-places-badge {
+  align-self: center;
+  background: var(--brand-600);
+  color: #fff;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(107, 33, 204, 0.35);
+  white-space: nowrap;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s ease-in-out;
+  max-width: calc(100% - 56px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-places-badge:hover {
+  background: var(--brand-700);
+}
+
+.map-radius-strip {
+  border-radius: 30px;
+  padding: 6px 10px;
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-inline: 10px;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.map-radius-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.map-radius-custom-popover {
+  position: absolute;
+  bottom: calc(var(--map-radius-strip-bottom) + var(--map-strip-h) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  border-radius: 20px;
+  padding: 16px 18px;
+  min-width: min(240px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+}
+
+.map-fab-pin {
+  position: absolute;
+  bottom: var(--map-pin-bottom);
+  right: var(--map-chrome-inset);
+  z-index: 1001;
+}
+
+.map-fab-recenter {
+  position: absolute;
+  bottom: var(--map-fab-bottom);
+  right: var(--map-chrome-inset);
+  z-index: 1001;
+}
+
+.map-screen:has(.map-places-badge) .map-fab-recenter {
+  bottom: calc(var(--map-fab-bottom) + 44px);
+}
+
+.map-screen:has(.map-places-badge) .map-fab-pin {
+  bottom: calc(var(--map-pin-bottom) + 44px);
+}
+
+.map-screen .maplibregl-ctrl-bottom-right,
+.map-screen .maplibregl-ctrl-bottom-left {
+  bottom: calc(var(--map-radius-strip-bottom) + var(--map-strip-h) + 4px) !important;
+}
+
+@media (min-width: 768px) {
+  .screen.map-screen {
+    height: 100vh !important;
+  }
+
+  :root {
+    --map-over-nav: var(--safe-area-bottom);
+    --map-radius-strip-bottom: calc(var(--safe-area-bottom) + var(--map-dock-pad));
+    --map-fab-bottom: calc(var(--map-radius-strip-bottom) + var(--map-strip-h) + 12px);
+    --map-pin-bottom: calc(var(--map-fab-bottom) + var(--map-fab-size) + var(--map-fab-gap));
+  }
+
+  .map-screen:has(.map-places-badge) .map-fab-recenter {
+    bottom: calc(var(--map-fab-bottom) + 44px);
+  }
+
+  .map-screen:has(.map-places-badge) .map-fab-pin {
+    bottom: calc(var(--map-pin-bottom) + 44px);
+  }
+}
+
 
 /* ============================================================
    Notifications screen (screens/Notifications.tsx)
@@ -2658,3 +2835,194 @@ textarea.input {
   .notif-row-enter, .notif-row-exit { animation: none; }
   .notif-row:not(.notif-row-dragging) { transition: none; }
 }
+
+/* ============================================================
+   Entity password recovery — backup question UI
+   (components/entity-password/*)
+   ============================================================ */
+.recovery-question-step {
+  width: 100%;
+}
+
+.recovery-step-label {
+  margin-bottom: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.recovery-step-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--brand-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.recovery-group {
+  background: var(--ink-50);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.recovery-question-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+@media (hover: hover) {
+  .recovery-question-row:hover {
+    background: rgba(255, 255, 255, 0.65);
+  }
+}
+
+.recovery-question-preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.recovery-custom-input {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  padding: 12px 14px;
+  line-height: 1.45;
+}
+
+.recovery-eye-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  padding: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.recovery-picker-overlay {
+  z-index: 110;
+}
+
+.recovery-picker-sheet {
+  max-height: 70vh;
+}
+
+.recovery-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--ink-50);
+}
+
+.recovery-picker-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.recovery-picker-option:last-child {
+  border-bottom: none;
+}
+
+.recovery-picker-option.active {
+  background: var(--brand-50);
+}
+
+@media (hover: hover) {
+  .recovery-picker-option:hover {
+    background: var(--ink-50);
+  }
+  .recovery-picker-option.active:hover {
+    background: var(--brand-50);
+  }
+}
+
+.recovery-picker-option-label {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-800);
+  line-height: 1.4;
+}
+
+.recovery-picker-check {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.recovery-status-pill {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--ink-100);
+  color: var(--ink-500);
+  flex-shrink: 0;
+}
+
+.recovery-status-pill--on {
+  background: var(--green-100);
+  color: var(--green-700);
+}
+
+.recovery-forgot-link {
+  color: var(--brand-700) !important;
+  font-weight: 600;
+}
+
+/* Print styles for Counter Stand QR display */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .printable-counter-stand,
+  .printable-counter-stand * {
+    visibility: visible !important;
+  }
+  .printable-counter-stand {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 90% !important;
+    max-width: 450px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+

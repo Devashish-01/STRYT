@@ -89,7 +89,7 @@ export default function BusinessAccess() {
   return (
     <div className="screen screen-boxed">
       <AppBar title="Team & access" subtitle="Add team members & manage sessions" />
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingTop: 14, paddingBottom: 30 }}>
+      <div className="screen-scroll page-pad col gap-16 scroll-pad-end" style={{ paddingTop: 14 }}>
 
         {/* ── Businesses granted to me ── */}
         {activeGrants.length > 0 && (
@@ -181,7 +181,8 @@ function PresetChips({ preset, onPick }: { preset: Preset; onPick: (p: Preset) =
 }
 
 function ManageSheet({ business, onClose }: { business: Business; onClose: () => void }) {
-  const { showToast } = useApp();
+  const nav = useNavigate();
+  const { showToast, businessPasswordIsSet } = useApp();
   const { data: sessions, refetch: refetchSessions } = useQueryWithRealtime(
     () => businessAccessService.ownerSessions(business.id),
     "business_access_sessions",
@@ -293,6 +294,20 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
         <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={adding || !identifier.trim() || scopes.length === 0} onClick={addGrant}>
           <UserPlus size={16} /> {adding ? "Adding…" : "Add to team"}
         </button>
+
+        {/* Nudge, not a block — a business password is optional, but if there's
+            already a team member/delegate on the roster the owner probably
+            wants to know anyone with a grant can currently open this business
+            without one. */}
+        {active.length > 0 && !businessPasswordIsSet && (
+          <div className="card row gap-10 center-v" style={{ marginTop: 16, padding: 12, background: "var(--amber-50)", border: "none" }}>
+            <div className="grow">
+              <div className="tiny semi">No business password set</div>
+              <div className="tiny muted">Anyone with access can open this business without one. Set a password in your profile.</div>
+            </div>
+            <button className="tiny semi" style={{ color: "var(--brand-700)", flexShrink: 0 }} onClick={() => nav("/settings")}>Set up</button>
+          </div>
+        )}
 
         {/* People with access */}
         {active.length > 0 && (

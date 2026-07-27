@@ -5,6 +5,14 @@ import type { AppointmentRecord, AppointmentStatus, PaymentMethod, CancelledBy }
 
 const STORAGE_KEY = "stryt_appointments";
 
+/** Spots used at one timestamp for one service, from the `booked_slots` RPC. */
+export interface BookedSlotUsage {
+  scheduledForISO: string;
+  /** Null for bookings with no specific service (cart checkout, plain booking). */
+  packageId: string | null;
+  usedSpots: number;
+}
+
 const TERMINAL_APPOINTMENT: AppointmentStatus[] = ["COMPLETED", "CANCELLED", "REJECTED", "NO_SHOW"];
 
 /**
@@ -149,10 +157,13 @@ function rowToRecord(r: any): AppointmentRecord {
     cancelledBy: r.cancelled_by ?? null,
     isWalkIn: r.is_walk_in ?? false,
     rescheduledFrom: r.rescheduled_from ?? null,
+    partySize: r.party_size ?? 1,
     fulfillmentType: r.fulfillment_type ?? "IN_STORE",
     deliveryAddressLine: r.delivery_address_line ?? null,
     deliveryLat: r.delivery_lat ?? null,
     deliveryLng: r.delivery_lng ?? null,
+    requestedDeliveryWindow: r.requested_delivery_window ?? null,
+    deliveryEtaText: r.delivery_eta_text ?? null,
   };
 }
 
@@ -273,6 +284,8 @@ export const appointmentService = {
           p_delivery_address_line: payload.deliveryAddressLine ?? undefined,
           p_delivery_lat: payload.deliveryLat ?? undefined,
           p_delivery_lng: payload.deliveryLng ?? undefined,
+          p_requested_delivery_window: payload.requestedDeliveryWindow ?? undefined,
+          p_party_size: payload.partySize ?? undefined,
         } as any);
         if (error) throw error;
         const record = rowToRecord(data);
@@ -284,6 +297,18 @@ export const appointmentService = {
         const msg: string = err?.message || "";
         if (err?.code === "23505" || /duplicate key|unique|no_double_book/i.test(msg)) {
           throw new Error("That slot was just taken. Please pick another time.");
+        }
+        // Capacity guard (enforce_slot_capacity). SLOT_FULL_OVERALL means the
+        // business's own concurrent-bookings ceiling is the binding limit, not
+        // this service's — worth distinguishing so the copy isn't misleading.
+        if (/SLOT_FULL_OVERALL/i.test(msg)) {
+          throw new Error("This business is fully booked at that time. Please pick another slot.");
+        }
+        if (/SLOT_FULL/i.test(msg)) {
+          throw new Error("Those spots just went — please pick another time.");
+        }
+        if (/PARTY_SIZE_TOO_LARGE/i.test(msg)) {
+          throw new Error("That's more spots than this slot allows. Reduce the number and try again.");
         }
         if (/INSUFFICIENT_STOCK/i.test(msg)) {
           throw new Error("An item in your order just sold out — please update your cart and try again.");
@@ -389,13 +414,13 @@ export const appointmentService = {
   },
 
   /**
-   * Occupied slot timestamps for a target — via a privacy-safe SECURITY DEFINER
-   * RPC (booked_slots) so the booking sheet can grey out taken slots WITHOUT
-   * reading other customers' appointment rows (which appt_select RLS hides).
-   * This closes the double-booking hole where a customer's slot grid, built
-   * from only their own visible rows, showed already-taken slots as free.
+   * Per-slot, per-service spot usage for a target — via a privacy-safe
+   * SECURITY DEFINER RPC (booked_slots) so the booking sheet can grey out full
+   * slots WITHOUT reading other customers' appointment rows (which appt_select
+   * RLS hides). Returns spots USED (party sizes summed), not booking count, so
+   * a slot with capacity can show how many are left.
    */
-  async bookedSlots(targetId: string): Promise<string[]> {
+  async bookedSlots(targetId: string): Promise<BookedSlotUsage[]> {
     if (isMockTarget(targetId)) return [];
     // Release any abandoned PENDING holds first so a viewer opening the sheet
     // sees freed slots reflected in the grid. Awaited but non-fatal.
@@ -404,9 +429,37 @@ export const appointmentService = {
       const sb = getSupabase();
       const { data, error } = await sb.rpc("booked_slots", { p_target_id: targetId });
       if (error) throw error;
-      return (data ?? []).map((r: any) => r.scheduled_for as string);
+      return (data ?? []).map((r: any) => ({
+        scheduledForISO: r.scheduled_for as string,
+        packageId: (r.package_id as string | null) ?? null,
+        usedSpots: Number(r.used_spots ?? 0),
+      }));
     } catch {
       return [];
+    }
+  },
+
+  /**
+   * Per-service slot capacity + max party size for a business, already
+   * resolved against the business default server-side. Empty on failure so a
+   * lookup blip degrades to capacity-1 rather than blocking booking.
+   */
+  async slotCapacities(businessId: string): Promise<Record<string, { capacity: number; maxPartySize: number }>> {
+    if (isMockTarget(businessId)) return {};
+    try {
+      const sb = getSupabase();
+      const { data, error } = await (sb.rpc as any)("business_slot_capacities", { p_business_id: businessId });
+      if (error) throw error;
+      const out: Record<string, { capacity: number; maxPartySize: number }> = {};
+      for (const r of (data ?? []) as any[]) {
+        out[r.package_id] = {
+          capacity: Math.max(1, Number(r.slot_capacity ?? 1)),
+          maxPartySize: Math.max(1, Number(r.max_party_size ?? 1)),
+        };
+      }
+      return out;
+    } catch {
+      return {};
     }
   },
 
@@ -460,6 +513,27 @@ export const appointmentService = {
       return list[idx];
     }
     return undefined;
+  },
+
+  /**
+   * Accept a booking and stamp the confirmed delivery ETA atomically. Used
+   * instead of updateStatus("ACCEPTED") for DELIVERY bookings so a delivery
+   * can never end up accepted with no ETA the customer was promised — the
+   * server sends the "accepted, arriving in X" notification in the same call.
+   */
+  async acceptWithEta(id: string, etaText: string): Promise<AppointmentRecord | undefined> {
+    const sb = getSupabase();
+    // Cast: appointment_accept_with_eta isn't in the generated schema types yet
+    // (new RPC — same typegen gap as the delivery RPCs).
+    const { data, error } = await (sb.rpc as any)("appointment_accept_with_eta", {
+      p_id: id,
+      p_eta_text: etaText,
+    });
+    if (error) throw new Error(error.message || "Couldn't accept the booking. Please try again.");
+    if (!data) return undefined;
+    const record = rowToRecord(data);
+    upsertLocal(record);
+    return record;
   },
 
   /** Business confirms they received the payment → PAID. */

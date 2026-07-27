@@ -15,7 +15,7 @@ build + commit checkpoint after each.
 | 6 | Website presence / logo / branding | `06_website_presence.md` | Low | ✅ done |
 | 7 | Freeze business location + admin-approved change | `07_business_location_freeze.md` | Med | ✅ done (+ server-side trigger) |
 | 8 | Alias-name privacy model | `08_alias_name_privacy.md` | Med | ✅ done |
-| 9 | Delivery-boy at appointment time | `09_delivery_boy_flow.md` | High | ✅ mature plan (impl deferred) |
+| 9 | Delivery-boy at appointment time | `09_delivery_boy_flow.md` | High | ✅ built through P5; DB applied. Flag still `false` pending 2-account E2E |
 | 10 | Free-choice improvements | `10_free_choice_improvements.md` | Low | ✅ advisors reviewed + documented |
 
 See `DONE_SUMMARY.md` for the full outcome.

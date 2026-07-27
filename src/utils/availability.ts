@@ -356,8 +356,27 @@ export interface AppointmentSlot {
   /** True when an owner-set block (not a booking) is why this slot is unavailable. */
   blocked?: boolean;
   blockReason?: string;
-  /** Set when a live appointment occupies this exact slot — lets the owner timetable render it inline. */
+  /** Set when a live appointment occupies this exact slot — lets the owner timetable render it inline.
+   *  With slot capacity > 1 a slot can hold several; this is the first of `bookedAppointmentIds`. */
   bookedAppointmentId?: string;
+  /** Every live appointment occupying this slot (capacity > 1 → more than one). */
+  bookedAppointmentIds: string[];
+  /** Total spots this slot can hold. 1 unless the business set a capacity. */
+  capacity: number;
+  /** Spots already taken (sums party sizes, not just booking count). */
+  used: number;
+  /** Spots still free — `capacity - used`, floored at 0. */
+  remaining: number;
+}
+
+/** Slot-capacity inputs for `generateWorkingSlots`. Omit entirely to get the
+ *  historical one-booking-per-slot behaviour. */
+export interface SlotCapacityOptions {
+  /** Spots per slot for the service being booked. */
+  capacity: number;
+  /** ISO timestamp → spots already taken, from the `booked_slots` RPC. Counts
+   *  bookings this viewer can't see (other customers' rows are RLS-hidden). */
+  usedByIso?: Record<string, number>;
 }
 
 /** Whether the business/provider works on this calendar day, per their availabilityNote. Used to
@@ -373,7 +392,10 @@ export function generateWorkingSlots(
   availabilityNote?: string,
   targetDate = new Date(),
   existingAppointments: AppointmentRecord[] = [],
-  blockedSlots: BlockedSlot[] = []
+  blockedSlots: BlockedSlot[] = [],
+  /** Omit for the historical behaviour: capacity 1, any overlapping booking
+   *  makes the slot unavailable. Pass it to enable multi-booking per slot. */
+  capacityOpts?: SlotCapacityOptions,
 ): AppointmentSlot[] {
   const slots: AppointmentSlot[] = [];
   const w = parseHoursValue(availabilityNote);
@@ -398,9 +420,9 @@ export function generateWorkingSlots(
       slotDate.setHours(Math.floor(min / 60), min % 60, 0, 0);
       const timeLabel = formatMinutesToTime(min);
 
-      // Exact-match booking that starts on this grid slot — used to render the
-      // booking inline in the owner timetable (bookedAppointmentId).
-      const bookedApt = existingAppointments.find(apt => {
+      // Exact-match bookings that start on this grid slot — rendered inline in
+      // the owner timetable. With capacity > 1 a slot can hold several.
+      const bookedApts = existingAppointments.filter(apt => {
         if (apt.status === "CANCELLED" || apt.status === "REJECTED") return false;
         try {
           return new Date(apt.scheduledForISO).getTime() === slotDate.getTime();
@@ -409,12 +431,12 @@ export function generateWorkingSlots(
         }
       });
 
-      // Availability uses interval overlap, not exact-timestamp equality, so an
-      // off-grid walk-in (arbitrary HH:MM) or a changed slot duration still marks
-      // the covering slot as taken instead of leaving it wrongly bookable.
+      // Occupancy uses interval overlap, not exact-timestamp equality, so an
+      // off-grid walk-in (arbitrary HH:MM) or a changed slot duration still
+      // counts against the covering slot instead of leaving it wrongly bookable.
       const slotStart = slotDate.getTime();
       const slotEnd = slotStart + slotDuration * 60000;
-      const overlapBooked = existingAppointments.some(apt => {
+      const overlapping = existingAppointments.filter(apt => {
         if (apt.status === "CANCELLED" || apt.status === "REJECTED" || apt.status === "NO_SHOW") return false;
         try {
           const t = new Date(apt.scheduledForISO).getTime();
@@ -425,17 +447,32 @@ export function generateWorkingSlots(
       });
       const isBlocked = blockedTimeLabels.has(timeLabel);
 
-      const isAvailable = !overlapBooked && !isBlocked && slotStart > nowTime + 5 * 60 * 1000;
+      const capacity = Math.max(1, capacityOpts?.capacity ?? 1);
+      // Prefer the server's authoritative usage (it can see other customers'
+      // bookings, which RLS hides from this viewer); fall back to what's
+      // locally visible. Sum party sizes, not booking count — one booking can
+      // take several spots.
+      const iso = slotDate.toISOString();
+      const serverUsed = capacityOpts?.usedByIso?.[iso];
+      const localUsed = overlapping.reduce((n, apt) => n + Math.max(1, apt.partySize ?? 1), 0);
+      const used = Math.max(serverUsed ?? 0, localUsed);
+      const remaining = Math.max(0, capacity - used);
+
+      const isAvailable = remaining > 0 && !isBlocked && slotStart > nowTime + 5 * 60 * 1000;
 
       slots.push({
-        id: slotDate.toISOString(),
+        id: iso,
         timeLabel,
         dateLabel: slotDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
-        isoTimestamp: slotDate.toISOString(),
+        isoTimestamp: iso,
         isAvailable,
         blocked: isBlocked || undefined,
         blockReason: isBlocked ? blockedTimeLabels.get(timeLabel) : undefined,
-        bookedAppointmentId: bookedApt?.id,
+        bookedAppointmentId: bookedApts[0]?.id,
+        bookedAppointmentIds: bookedApts.map((a) => a.id),
+        capacity,
+        used,
+        remaining,
       });
     }
   }

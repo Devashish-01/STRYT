@@ -45,9 +45,9 @@ const WHITELISTED_HEX = new Set([
   // failed to load) — dark neutral stops, not part of the brand token system.
   "2b2b3a", "14141c",
 
-  // Native bridge APIs cannot consume CSS variables; Capacitor StatusBar
-  // needs the resolved brand colors as actual platform color strings.
-  "8b47f5", "7c2fe8", "6b21cc",
+  // Native bridge APIs & 2D Canvas poster rendering cannot consume CSS variables
+  "8b47f5", "7c2fe8", "6b21cc", "15803d", "7c3aed", "f1f5f9", "0f172a",
+
 
   // Ambient Weather Themes dynamic gradient stops (useAmbientTheme.ts)
   "9a3412", "b45309", "94a3b8", "c2410c", "f97316", "fdba74", "d97706", "93c5fd",

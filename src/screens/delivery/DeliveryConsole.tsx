@@ -14,6 +14,7 @@ import RoleSwitcher from "@/components/RoleSwitcher";
 import { EmptyState } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
 import { Package, MapPin, Clock, CheckCircle, Navigation } from "@/components/Icons";
+import { routableStops, openRoute, exceedsRouteCap, MAX_ROUTE_WAYPOINTS } from "@/lib/routeLink";
 import BackgroundLocationDisclosure from "@/features/live-share/BackgroundLocationDisclosure";
 
 /** Best-effort current position; resolves null if unavailable/denied. */
@@ -49,6 +50,11 @@ function whenLabel(d: DeliveryItem): string {
 
 function openNativeDirections(lat: number, lng: number) {
   window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, "_blank", "noopener");
+}
+
+/** Stops → the {lat,lng} shape buildRouteUrl expects, in the given order. */
+function toRoutePoints(items: DeliveryItem[]) {
+  return routableStops(items).map((d) => ({ lat: d.deliveryLat!, lng: d.deliveryLng! }));
 }
 
 interface BatchGroup {
@@ -401,9 +407,28 @@ function RunCard({ batch, busyId, onAdvance, onVerify }: {
 }) {
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
+  // Selective routing: when non-empty, "Route selected" builds a link through
+  // only these stops instead of the whole remaining run.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const current = batch.items.find((d) => d.status !== "DELIVERED" && d.status !== "CANCELLED") ?? null;
   const remaining = batch.items.filter((d) => d.id !== current?.id && d.status !== "DELIVERED" && d.status !== "CANCELLED");
+
+  // Everything still to be delivered, in route order — current stop first.
+  const pending = current ? [current, ...remaining] : remaining;
+  const routablePending = routableStops(pending);
+  const selectedStops = pending.filter((d) => selected.has(d.id));
+  const routableSelected = routableStops(selectedStops);
+
+  function toggleSelected(id: string) {
+    haptics.selection();
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   if (!current) {
     return (
@@ -454,13 +479,44 @@ function RunCard({ batch, busyId, onAdvance, onVerify }: {
 
         <Stepper status={current.status} />
 
-        <button
-          className="btn btn-outline btn-sm btn-block row gap-6 center"
-          disabled={current.deliveryLat == null || current.deliveryLng == null}
-          onClick={() => openNativeDirections(current.deliveryLat!, current.deliveryLng!)}
-        >
-          <Navigation size={14} /> Navigate to this stop
-        </button>
+        <div className="col gap-6">
+          <button
+            className="btn btn-outline btn-sm btn-block row gap-6 center"
+            disabled={current.deliveryLat == null || current.deliveryLng == null}
+            onClick={() => openNativeDirections(current.deliveryLat!, current.deliveryLng!)}
+          >
+            <Navigation size={14} /> Navigate to this stop
+          </button>
+
+          {/* One tap for the whole remaining run — the agent shouldn't have to
+              reopen maps after every drop. Order is the accepted route order. */}
+          {routablePending.length > 1 && (
+            <button
+              className="btn btn-sm btn-block row gap-6 center"
+              style={{ background: "var(--delivery-600)", color: "#fff" }}
+              onClick={() => openRoute(toRoutePoints(pending))}
+            >
+              <Navigation size={14} /> Best route · all {routablePending.length} stops
+            </button>
+          )}
+
+          {routableSelected.length > 0 && (
+            <button
+              className="btn btn-outline btn-sm btn-block row gap-6 center"
+              style={{ borderColor: "var(--delivery-600)", color: "var(--delivery-600)" }}
+              onClick={() => openRoute(toRoutePoints(selectedStops))}
+            >
+              <Navigation size={14} /> Route {routableSelected.length} selected
+            </button>
+          )}
+
+          {exceedsRouteCap(routablePending.length) && (
+            <div className="tiny muted">
+              Maps supports {MAX_ROUTE_WAYPOINTS + 1} stops per route — the first{" "}
+              {MAX_ROUTE_WAYPOINTS + 1} are included. Re-tap after those to route the rest.
+            </div>
+          )}
+        </div>
 
         {current.status === "ASSIGNED" && (
           <button className="btn btn-primary btn-block" disabled={busyId === current.id} onClick={() => onAdvance(current, "ON_THE_WAY", "On the way")}>
@@ -504,15 +560,42 @@ function RunCard({ batch, busyId, onAdvance, onVerify }: {
 
       {remaining.length > 0 && (
         <div className="col gap-6">
-          <div className="tiny semi muted">Next up ({remaining.length})</div>
-          {remaining.map((d) => (
-            <div key={d.id} className="row gap-8 center-v" style={{ padding: "8px 10px", background: "var(--ink-50)", borderRadius: 10 }}>
-              <span style={{ width: 20, height: 20, borderRadius: "50%", background: "var(--ink-200)", color: "var(--ink-600)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                {d.stopOrder ?? "?"}
-              </span>
-              <div className="grow tiny ellipsis muted">{d.deliveryAddressLine || d.customerArea || "Address on file"}</div>
-            </div>
-          ))}
+          <div className="row between center-v">
+            <div className="tiny semi muted">Next up ({remaining.length})</div>
+            {selected.size > 0 && (
+              <button className="tiny semi" style={{ color: "var(--delivery-600)" }} onClick={() => setSelected(new Set())}>
+                Clear selection
+              </button>
+            )}
+          </div>
+          <div className="tiny muted">Tap stops to route only those.</div>
+          {remaining.map((d) => {
+            const isSel = selected.has(d.id);
+            const routable = d.deliveryLat != null && d.deliveryLng != null;
+            return (
+              <button
+                key={d.id}
+                type="button"
+                disabled={!routable}
+                onClick={() => toggleSelected(d.id)}
+                className="row gap-8 center-v"
+                style={{
+                  width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10,
+                  background: isSel ? "var(--delivery-50)" : "var(--ink-50)",
+                  border: isSel ? "1.5px solid var(--delivery-600)" : "1.5px solid transparent",
+                  opacity: routable ? 1 : 0.55,
+                }}
+              >
+                <span style={{ width: 20, height: 20, borderRadius: "50%", background: isSel ? "var(--delivery-600)" : "var(--ink-200)", color: isSel ? "#fff" : "var(--ink-600)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                  {d.stopOrder ?? "?"}
+                </span>
+                <div className="grow tiny ellipsis" style={{ color: isSel ? "var(--delivery-600)" : "var(--ink-500)" }}>
+                  {d.deliveryAddressLine || d.customerArea || "Address on file"}
+                  {!routable && " · no map location"}
+                </div>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

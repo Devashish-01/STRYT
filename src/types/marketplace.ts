@@ -75,6 +75,15 @@ export interface Business {
   tags: string[];
   priceForTwo?: number;
   deliveryTime?: string;
+  /** Owner opt-in for home delivery (Business → Settings). Gates the DELIVERY
+   *  option in the booking sheet; also enforced server-side in appointment_create. */
+  deliveryEnabled?: boolean;
+  /** Fallback bookings-per-slot for catalogue items with no capacity of their
+   *  own, and for cart/no-service bookings. 1 = the classic one-at-a-time rule. */
+  defaultSlotCapacity?: number;
+  /** Optional ceiling across ALL services at one timestamp — stops per-service
+   *  capacity overbooking a shared resource (3 chairs, 2 services). Null = off. */
+  maxConcurrentBookings?: number | null;
   offerText?: string;
   ownerEnabled?: boolean;
   deletedAt?: string | null;
@@ -105,6 +114,12 @@ export interface CatalogItem {
   inventoryType?: "INFINITE" | "FINITE";
   /** Remaining units for a FINITE item (null/undefined for INFINITE). */
   quantity?: number | null;
+  /** How many bookings this service can take at the SAME time slot. Null →
+   *  falls back to the business's `defaultSlotCapacity`. Distinct from
+   *  `quantity`, which is stock across all time. */
+  slotCapacity?: number | null;
+  /** How many spots one customer may take in a single booking (party size). */
+  maxPartySize?: number;
 }
 
 export interface Provider {
@@ -276,13 +291,5 @@ export interface Lead {
   text: string;
   time: string;
   handled: boolean;
-}
-
-export interface TeamMember {
-  id: string;
-  name: string;
-  avatar: string;
-  role: "OWNER" | "MANAGER" | "STAFF";
-  phone: string;
 }
 

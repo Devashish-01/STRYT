@@ -1,62 +1,97 @@
-import { useState } from "react";
 import { useQuery } from "@/hooks/useApi";
 import { deliveryService } from "@/services";
-import { useApp } from "@/store";
-import { Package, MapPin } from "@/components/Icons";
+import { SafeImg } from "@/components/common";
+import { Package, Phone, CheckCircle } from "@/components/Icons";
+
+const STEPS = [
+  { key: "ASSIGNED", label: "Assigned" },
+  { key: "EN_ROUTE", label: "On the way" },
+  { key: "ARRIVED", label: "Arrived" },
+  { key: "DELIVERED", label: "Delivered" },
+];
+const STEP_INDEX: Record<string, number> = { ASSIGNED: 0, EN_ROUTE: 1, ARRIVED: 2, DELIVERED: 3 };
 
 /**
- * Customer control on their appointment card: shows the delivery status, the
- * live Track link (once the agent is on the way), and their handoff code to
- * show the agent. Rendered only when the delivery feature is on (gated at the
- * call site).
+ * Customer's view of their delivery: progress only.
+ *
+ * There is deliberately NO live map or agent location here — that was withdrawn
+ * as a product decision, and the restriction is enforced server-side
+ * (my_delivery_progress returns no coordinates, and get_tracking nulls them for
+ * the delivery branch), not just hidden in this component.
+ *
+ * The agent's name/phone/photo appear only once THIS delivery is actually under
+ * way, so an assigned-but-not-started order discloses nothing about who's coming.
  */
 export default function DeliveryTrackControl({ appointmentId }: { appointmentId: string }) {
-  const { showToast } = useApp();
-  const { data: delivery } = useQuery(() => deliveryService.forAppointment(appointmentId), [appointmentId]);
-  const [opening, setOpening] = useState(false);
+  const { data: d } = useQuery(() => deliveryService.myProgress(appointmentId), [appointmentId]);
 
-  if (!delivery || delivery.status === "CANCELLED") return null;
+  if (!d || d.status === "CANCELLED") return null;
 
-  const enRoute = delivery.status === "EN_ROUTE" || delivery.status === "ARRIVED";
+  const idx = STEP_INDEX[d.status] ?? 0;
   const label =
-    delivery.status === "ASSIGNED" ? "A delivery agent is assigned"
-    : delivery.status === "EN_ROUTE" ? "Your delivery is on the way"
-    : delivery.status === "ARRIVED" ? "Your delivery agent has arrived"
+    d.status === "ASSIGNED" ? "A delivery agent is assigned"
+    : d.status === "EN_ROUTE" ? "Your delivery is on the way"
+    : d.status === "ARRIVED" ? "Your delivery agent has arrived"
     : "Delivered";
 
-  async function track() {
-    setOpening(true);
-    try {
-      const token = await deliveryService.generateTrackingToken(appointmentId);
-      window.open(`/track/${token}`, "_blank");
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't open tracking");
-    } finally {
-      setOpening(false);
-    }
-  }
-
   return (
-    <div className="card col gap-8" style={{ padding: "10px 12px", background: "var(--delivery-50)", border: "none", marginTop: 2 }}>
+    <div className="card col gap-9" style={{ padding: "11px 12px", background: "var(--delivery-50)", border: "none", marginTop: 2 }}>
       <div className="row gap-8 center-v">
         <Package size={15} color="var(--delivery-600)" />
         <span className="small semi grow" style={{ color: "var(--delivery-600)" }}>{label}</span>
+        {d.etaText && d.status !== "DELIVERED" && (
+          <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>{d.etaText}</span>
+        )}
       </div>
 
-      {enRoute && (
-        <div className="row gap-8 center-v">
-          <button className="btn btn-sm row gap-6 center grow" style={{ background: "var(--delivery-600)", color: "#fff" }} disabled={opening} onClick={track}>
-            <MapPin size={14} /> {opening ? "Opening…" : "Track live"}
-          </button>
-          {delivery.handoffCode && (
-            <div className="tiny semi" title="Show this code to the agent" style={{ letterSpacing: 2, color: "var(--delivery-600)", background: "#fff", padding: "6px 10px", borderRadius: 8 }}>
-              {delivery.handoffCode}
-            </div>
+      {/* Progress stepper — the only "tracking" a customer gets. */}
+      <div className="row" style={{ gap: 4, alignItems: "center" }}>
+        {STEPS.map((s, i) => (
+          <div key={s.key} className="row center-v" style={{ gap: 4, flex: i < STEPS.length - 1 ? 1 : "0 0 auto" }}>
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: i <= idx ? "var(--delivery-600)" : "var(--ink-200)", flexShrink: 0 }} />
+            {i < STEPS.length - 1 && (
+              <span style={{ flex: 1, height: 2, background: i < idx ? "var(--delivery-600)" : "var(--ink-200)" }} />
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="tiny muted">{STEPS[idx]?.label}</div>
+
+      {/* Queue position while they wait their turn on a multi-stop run. */}
+      {d.status === "ASSIGNED" && (d.stopsBefore ?? 0) > 0 && (
+        <div className="tiny muted">
+          {d.stopsBefore} {d.stopsBefore === 1 ? "delivery" : "deliveries"} ahead of yours.
+        </div>
+      )}
+
+      {/* Agent identity — revealed only once the delivery has started. */}
+      {d.agentRevealed && d.agentName && (
+        <div className="row gap-9 center-v" style={{ background: "#fff", borderRadius: 10, padding: "8px 10px" }}>
+          <SafeImg src={d.agentAvatar ?? undefined} variant="avatar" style={{ width: 30, height: 30, flexShrink: 0 }} />
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="tiny semi ellipsis">{d.agentName}</div>
+            <div className="tiny muted">Your delivery agent</div>
+          </div>
+          {d.agentPhone && (
+            <a className="btn btn-sm row gap-6 center" style={{ background: "var(--delivery-600)", color: "#fff", flexShrink: 0 }} href={`tel:${d.agentPhone}`}>
+              <Phone size={13} /> Call
+            </a>
           )}
         </div>
       )}
-      {enRoute && delivery.handoffCode && (
-        <div className="tiny muted">Show code <b>{delivery.handoffCode}</b> to the agent to confirm handoff.</div>
+
+      {/* Handoff code — the customer's half of the OTP exchange. */}
+      {(d.status === "EN_ROUTE" || d.status === "ARRIVED") && d.handoffCode && !d.handoffVerified && (
+        <div className="row gap-8 center-v" style={{ background: "#fff", borderRadius: 10, padding: "8px 10px" }}>
+          <div className="grow tiny muted">Show this code to the agent</div>
+          <div className="semi" style={{ letterSpacing: 3, fontSize: 16, color: "var(--delivery-600)" }}>{d.handoffCode}</div>
+        </div>
+      )}
+
+      {d.status === "DELIVERED" && (
+        <div className="row gap-6 center-v tiny" style={{ color: "var(--green-600)" }}>
+          <CheckCircle size={14} /> Delivered
+        </div>
       )}
     </div>
   );

@@ -181,58 +181,40 @@ export default function MapView() {
   );
 
   return (
-    <div className="screen screen-canvas" style={{ position: "relative" }}>
+    <div className="screen screen-canvas map-screen" style={{ position: "relative" }}>
       {!pin.pickMode && (
         <>
           <SearchBar />
 
           <LayerToggles layers={layers} setLayers={setLayers} availOnly={availOnly} setAvailOnly={setAvailOnly} />
 
-          {/* Visible-count badge (clickable button) */}
-          {visibleCount > 0 && (
-            <button
-              onClick={() => setShowNearbyPopup(true)}
-              style={{
-                position: "absolute", bottom: "calc(var(--nav-h) + 76px + var(--safe-area-bottom))", left: "50%", transform: "translateX(-50%)",
-                zIndex: 1000, background: "var(--brand-600)", color: "#fff",
-                borderRadius: 20, padding: "8px 16px", fontSize: 12, fontWeight: 700,
-                boxShadow: "0 4px 16px rgba(107,33,204,0.35)", whiteSpace: "nowrap",
-                border: "none", outline: "none", cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 6,
-                transition: "all 0.2s ease-in-out",
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "var(--brand-700)"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "var(--brand-600)"}
-            >
-              <span>
-                {visibleCount === 1 ? tf("map_place_one", { count: visibleCount }) : tf("map_place_other", { count: visibleCount })}
-                {isWorld ? t("map_globally") : isCustomActive ? tf("map_within_km", { km: radiusKm }) : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
-              </span>
-              <ChevronRight size={14} style={{ opacity: 0.8 }} />
-            </button>
-          )}
+          <div className="map-bottom-dock">
+            {visibleCount > 0 && (
+              <button
+                type="button"
+                className="map-places-badge"
+                onClick={() => setShowNearbyPopup(true)}
+              >
+                <span>
+                  {visibleCount === 1 ? tf("map_place_one", { count: visibleCount }) : tf("map_place_other", { count: visibleCount })}
+                  {isWorld ? t("map_globally") : isCustomActive ? tf("map_within_km", { km: radiusKm }) : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
+                </span>
+                <ChevronRight size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
+              </button>
+            )}
 
-          {/* Guests are pinned to 1 km, so there's nothing to choose here — the
-              notice explains the cap instead. Positioned to sit exactly where
-              the radius strip would (it's absolutely positioned inside the map;
-              rendering the notice bare made it collapse invisibly). */}
-          {isGuest ? (
-            <div style={{
-              position: "absolute", bottom: "var(--map-radius-strip-bottom)",
-              left: 12, right: 12, zIndex: 1000,
-            }}>
+            {isGuest ? (
               <GuestRadiusNotice />
-            </div>
-          ) : (
-            <RadiusStrip radiusKm={radiusKm} setRadiusKm={setRadiusKm} />
-          )}
+            ) : (
+              <RadiusStrip radiusKm={radiusKm} setRadiusKm={setRadiusKm} />
+            )}
+          </div>
 
-          {/* Set-location-manually trigger, stacked above the recenter button */}
           <button
-            className="icon-btn map-glass-panel"
+            type="button"
+            className="icon-btn map-glass-panel map-fab-pin"
             title={t("map_set_location_manually")}
             onClick={pin.enterPickMode}
-            style={{ position: "absolute", bottom: "calc(var(--nav-h) + 128px + var(--safe-area-bottom))", right: 16, zIndex: 1000 }}
           >
             <MapPinPlus size={18} color="var(--brand-600)" />
           </button>

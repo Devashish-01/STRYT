@@ -66,8 +66,11 @@ so an unused import fails the build.
 **Onboarding:** `/onboard/business` `BusinessOnboard` · `/onboard/provider` `ProviderOnboard` · `/manage` `ManageHub`
 
 **Business console** (`/business/:id/manage/*`): `` (Dashboard) · `catalog` · `portfolio` · `profile` · `hours` ·
-`photos` · `story` · `queue` · `loyalty` · `qna` · `reviews` · `reservations` · **`appointments`** · `inbox` ·
-`promote` · `verify` · `settings` · `requests`
+`photos` · `story` · `queue` · `loyalty` · `qna` · `reviews` · `reservations` · **`appointments`** · **`deliveries`** (live
+agent tracking, `appointments` scope) · `inbox` · `promote` · `verify` · `settings` · `requests`
+
+**Delivery agent console:** `/delivery` `DeliveryConsole` (own hat, behind `RequireDeliveryAgent` +
+`DELIVERY_AGENT_ENABLED`) — Active/Assigned/History, multi-stop runs, OTP handoff.
 _(The Offers feature was removed; the `offers` table remains only as the backing store for Wallet coupons. Businesses now have a `portfolio` (past-work gallery) mirroring providers, and catalog items support FINITE/INFINITE inventory.)_
 
 **Provider console** (`/provider/:id/manage/*`): `` (Dashboard) · `profile` · `availability` · `packages` ·
@@ -140,7 +143,9 @@ handy for local dev without a backend. Real ids hit Supabase.
 | `discoveryService` | Search/feed of businesses+providers | feed/search | `businesses`, `providers` |
 | `businessService` | **Business CRUD + storefront** (catalog, photos, queue, loyalty, Q&A, analytics, boosts, availability, reviews) | see §7 | `businesses`, `catalog_items`, `queue_*`, `ratings`, `leads` |
 | `providerService` | **Provider CRUD + service funnel** (packages, portfolio, availability, leads, analytics, reviews) | see §7 | `providers`, `provider_packages`, `portfolio_items`, `ratings`, `leads` |
-| `appointmentService` | **Bookings** (create/list/updateStatus) — Supabase table + localStorage fallback | `create`, `listForCustomer`, `listForTarget`, `updateStatus` | `appointments` |
+| `appointmentService` | **Bookings** (create/list/updateStatus) — Supabase table + localStorage fallback | `create`, `listForCustomer`, `listForTarget`, `updateStatus`, `acceptWithEta`, `createWalkInPayment`, `bookedSlots` (per-slot usage), `slotCapacities` | `appointments`, `catalog_items` |
+| `deliveryService` | **Home delivery** — agent runs, owner tracking, customer progress | `myDeliveries`, `acceptBatch`/`declineBatch`, `updateBatchPosition`, `assignDelivery`/`assignBatch`, `businessDeliveries` (owner), `myProgress` (customer, no coords) | `appointment_deliveries`, `delivery_batches` |
+| `entityPasswordService` | Business/provider console passwords (replaced the switch PIN) | `isSet`, `set`, `clear`, `verify` | `users`, `entity_password_attempts` |
 | `requestService` | Requests, proposals, agreements feed | `feed`, `agreements`, propose | `requests`, `proposals`, `agreements` |
 | `communityService` | Community posts/comments/likes | `feed`, `byAuthor`, `like`, `comments`, `addComment` | `community_posts`, `post_likes`, `post_comments` |
 | `socialService` | Vouches, endorsements, available-now list | add/remove vouch/endorsement, `availableNow()` | `vouches`, `endorsements`, `providers` |
@@ -324,7 +329,24 @@ For a typical new capability, touch these in order:
 
 ---
 
-*Last mapped: 2026-07 — offers removed; catalog inventory; business portfolio; alias/privacy model;
-wallet sourcing + routing; community replies; story-visibility fix; appointment/queue notifications;
-My Activity archive; native safe-area. Migrations 20260802–20260808 must be run in the SQL editor.*
+*Last mapped: 2026-07-27 — home delivery (per-business `delivery_enabled`, two-way ETA, multi-stop
+routing via `src/lib/routeLink.ts`, owner live-tracking page, customer restricted to progress-only);
+business/provider console passwords replaced the switch PIN; cart Buy-now vs Book-later
+(`CartCheckoutSheet`). Earlier: offers removed; catalog inventory; business portfolio; alias/privacy
+model; wallet sourcing + routing; community replies; appointment/queue notifications; My Activity
+archive; native safe-area.*
+
+**Slot capacity (multi-booking).** A time slot can hold more than one booking. Capacity is per catalogue
+item (`catalog_items.slot_capacity`, falling back to `businesses.default_slot_capacity`), one customer may
+take several spots (`catalog_items.max_party_size` → `appointments.party_size`), and an optional
+`businesses.max_concurrent_bookings` caps all services combined. Enforcement is the
+`trg_enforce_slot_capacity` trigger — it **replaced the old `appointments_no_double_book` UNIQUE index**,
+and takes `pg_advisory_xact_lock` because a counting check (unlike a unique index) is not atomic.
+Everything defaults to 1, reproducing the old one-per-slot rule exactly. Providers are always capacity-1.
+`generateWorkingSlots(...)` takes optional capacity opts; **omit them and it behaves exactly as before**.
+
+⚠️ **A migration file in `supabase/migrations/` is NOT proof it ran.** `20260848` sat committed and
+unapplied long enough to break every booking in production. Verify with `list_migrations` (Supabase
+MCP) against the DB before assuming schema state. Note also that widening a function's `RETURNS TABLE`
+requires `DROP FUNCTION` first — `CREATE OR REPLACE` rejects a return-type change.
 *When you change structure, update the section above and bump this line.*

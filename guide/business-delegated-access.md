@@ -6,4 +6,4 @@
 
 **Revoking access.** See everyone with access to your business, revoke it instantly, and review a history of past grants — all from the same Business access screen.
 
-**Team roster.** A simple internal list of staff/managers by name, phone, and role, kept for your own reference under Business → Settings → Team. This is just a record — it's separate from who actually has app login access (that's Delegated Access above).
+**Scoped team access.** Rather than all-or-nothing, you can grant a team member access to only the sections they need — Appointments, Queue, Catalogue, or Leads & quotes — using the presets (Front desk, Store manager) or your own combination. They see only what their scope covers; everything else is hidden from their console and blocked server-side. Edit or revoke a member's scopes at any time from the same screen.

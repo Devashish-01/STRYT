@@ -38,10 +38,7 @@ export function SearchBar() {
   }
 
   return (
-    <div style={{
-      position: "absolute", top: "calc(12px + var(--safe-area-top))", left: 16, right: 16, zIndex: 1000,
-      display: "flex", gap: 10, alignItems: "center"
-    }}>
+    <div className="map-screen__search">
       <button
         className="icon-btn map-glass-panel"
         style={{ flexShrink: 0 }}

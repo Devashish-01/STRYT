@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
 import { Skeleton, ErrorView } from "@/components/states";
-import { catalogService, businessService } from "@/services";
+import { catalogService, businessService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import RadiusSelector from "@/components/RadiusSelector";
 import MiniMap from "@/components/MiniMap";
 import LocationPicker from "@/components/LocationPicker";
-import { MapPin, X } from "@/components/Icons";
+import { Camera, MapPin, X } from "@/components/Icons";
 
 
 export default function ProfileEditor() {
@@ -35,6 +35,33 @@ export default function ProfileEditor() {
   const [whatsapp, setWhatsapp] = useState("");
   const [broadcastRadius, setBroadcastRadius] = useState(5);
   const [saving, setSaving] = useState(false);
+
+  // Cover photo. Saved immediately on pick (not deferred to "Save changes") —
+  // it's a discrete action with its own upload round trip, and bundling it
+  // into the text-field save would mean a half-finished upload could block
+  // the whole form. Mirrors PhotosManager's upload path.
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  async function pickCover(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCover(true);
+    try {
+      const url = await uploadService.upload(file, "business-photo");
+      // Keep it in the gallery too, so the photo isn't orphaned if the owner
+      // later picks a different cover.
+      await businessService.addPhoto(id, url);
+      await businessService.setCoverPhoto(id, url);
+      showToast("Cover photo updated");
+      refetch();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Couldn't upload the photo. Try again.");
+    } finally {
+      setUploadingCover(false);
+      if (coverInputRef.current) coverInputRef.current.value = ""; // allow re-picking the same file
+    }
+  }
 
   // Business location change is review-gated — the owner can only *request* a
   // move via an explicit full-map picker; it never touches the live location
@@ -90,9 +117,16 @@ export default function ProfileEditor() {
   async function save() {
     if (!valid) return;
     setSaving(true);
-    await businessService.update(id, { name, description: desc, addressLine1: address, city, pincode, phone, whatsapp, broadcastRadius });
-    showToast("Profile saved");
-    setSaving(false);
+    try {
+      await businessService.update(id, { name, description: desc, addressLine1: address, city, pincode, phone, whatsapp, broadcastRadius });
+      showToast("Profile saved");
+    } catch (err) {
+      // Without this the button stayed stuck on "Saving…" and still claimed
+      // success — a failed save was indistinguishable from a successful one.
+      showToast(err instanceof Error ? err.message : "Couldn't save. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
 
@@ -114,10 +148,36 @@ export default function ProfileEditor() {
   return (
     <div className="screen">
       <AppBar title="Edit profile" subtitle={b?.name} />
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
-        {/* Live preview */}
+      <div className="screen-scroll page-pad col gap-16">
+        {/* Live preview — the cover image doubles as the change-photo control,
+            so the owner edits it where they already see it. */}
         <div className="card" style={{ overflow: "hidden" }}>
-          <SafeImg src={b?.coverImage} style={{ width: "100%", height: 110, objectFit: "cover" }} />
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            onChange={pickCover}
+            style={{ display: "none" }}
+          />
+          <button
+            type="button"
+            onClick={() => coverInputRef.current?.click()}
+            disabled={uploadingCover}
+            aria-label="Change cover photo"
+            style={{ display: "block", width: "100%", padding: 0, position: "relative", cursor: "pointer", background: "none", border: "none" }}
+          >
+            <SafeImg src={b?.coverImage} style={{ width: "100%", height: 110, objectFit: "cover", display: "block" }} />
+            <span
+              className="row gap-6 center-v"
+              style={{
+                position: "absolute", right: 10, bottom: 10,
+                background: "rgba(0,0,0,.62)", color: "#fff",
+                padding: "6px 11px", borderRadius: 999, fontSize: 12, fontWeight: 600,
+              }}
+            >
+              <Camera size={14} /> {uploadingCover ? "Uploading…" : "Change photo"}
+            </span>
+          </button>
           <div style={{ padding: 12 }}>
             <div className="bold">{name || "Business name"}</div>
             <div className="tiny muted">{parentCat?.name} • {city}</div>

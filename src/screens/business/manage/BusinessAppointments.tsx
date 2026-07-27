@@ -9,8 +9,9 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import {
   Calendar, Check, X as XIcon, Image as ImageIcon, CheckCircle2, AlertTriangle,
-  Share2, IndianRupee, Ban, Package,
+  Share2, IndianRupee, Ban, Package, MapPin,
 } from "@/components/Icons";
+import { haversineKm } from "@/lib/geocode";
 import type { AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
 import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";
@@ -76,6 +77,9 @@ export default function BusinessAppointments() {
   const [noShowBusy, setNoShowBusy] = useState<string | null>(null);
 
   // Delivery: bulk-assign N eligible appointments to one agent in a single run.
+  // ETA the owner confirms when accepting a DELIVERY booking (the business
+  // half of the two-way ETA; the customer's requested window is on the row).
+  const [deliveryEta, setDeliveryEta] = useState("");
   const [deliverySelectMode, setDeliverySelectMode] = useState(false);
   const [selectedForBatch, setSelectedForBatch] = useState<Set<string>>(new Set());
   const [batchAgentPicking, setBatchAgentPicking] = useState(false);
@@ -88,13 +92,27 @@ export default function BusinessAppointments() {
   const appointments = useMemo(() => data ?? [], [data]);
   const blockedSlots = blockedData ?? [];
 
+  /** Straight-line distance shop → delivery address, or null if either end
+   *  has no coords (bookings made before delivery addresses were captured). */
+  function deliveryDistanceKm(apt: AppointmentRecord): number | null {
+    if (!b?.lat || !b?.lng || apt.deliveryLat == null || apt.deliveryLng == null) return null;
+    return haversineKm(b.lat, b.lng, apt.deliveryLat, apt.deliveryLng);
+  }
+
   async function handleUpdateStatus() {
     if (!activeApt || !actionType) return;
     setUpdatingStatus(true);
     try {
       const newStatus = actionType === "ACCEPT" ? "ACCEPTED" : actionType === "REJECT" ? "REJECTED" : "CANCELLED";
       const cancelledBy: CancelledBy | undefined = actionType === "CANCEL" ? "OWNER" : undefined;
-      await appointmentService.updateStatus(activeApt.id, newStatus, responseNote.trim() || undefined, cancelledBy);
+      // Accepting a DELIVERY booking goes through a dedicated RPC so the
+      // confirmed ETA is stamped in the same transaction as the status flip —
+      // a delivery can't end up ACCEPTED with no ETA the customer was promised.
+      if (actionType === "ACCEPT" && activeApt.fulfillmentType === "DELIVERY") {
+        await appointmentService.acceptWithEta(activeApt.id, deliveryEta.trim());
+      } else {
+        await appointmentService.updateStatus(activeApt.id, newStatus, responseNote.trim() || undefined, cancelledBy);
+      }
       if (actionType === "ACCEPT") haptics.success(); else haptics.warning();
       showToast(
         actionType === "ACCEPT" ? "Appointment accepted 📅"
@@ -104,6 +122,7 @@ export default function BusinessAppointments() {
       setActiveApt(null);
       setActionType(null);
       setResponseNote("");
+      setDeliveryEta("");
       refetch();
     } catch {
       showToast("Couldn't update appointment");
@@ -672,6 +691,64 @@ export default function BusinessAppointments() {
                 ? `Add a reason for cancelling ${activeApt.customerName}'s appointment (the customer will see this).`
                 : `Add an optional note to send back to ${activeApt.customerName}.`}
             </div>
+
+            {/* Delivery acceptance — the owner needs to know how far it is
+                before committing to a time, so distance and the customer's
+                requested window sit directly above the ETA field. */}
+            {actionType === "ACCEPT" && activeApt.fulfillmentType === "DELIVERY" && (
+              <div className="card col gap-10" style={{ padding: 12, background: "var(--delivery-50)", border: "none" }}>
+                <div className="row gap-8 center-v">
+                  <MapPin size={15} color="var(--delivery-600)" />
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <div className="tiny semi" style={{ color: "var(--delivery-600)" }}>
+                      {(() => {
+                        const km = deliveryDistanceKm(activeApt);
+                        return km == null
+                          ? "Delivery — distance unavailable"
+                          : `${km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`} from your shop`;
+                      })()}
+                    </div>
+                    <div className="tiny muted ellipsis">
+                      {activeApt.deliveryAddressLine || "No address line given"}
+                    </div>
+                  </div>
+                </div>
+
+                {activeApt.requestedDeliveryWindow && (
+                  <div className="tiny muted">
+                    Customer asked for: <b style={{ color: "var(--ink-700)" }}>{activeApt.requestedDeliveryWindow}</b>
+                  </div>
+                )}
+
+                <div>
+                  <div className="tiny semi" style={{ marginBottom: 5 }}>Delivery ETA you're promising</div>
+                  <input
+                    className="input"
+                    placeholder={b?.deliveryTime || "e.g. 30–45 min"}
+                    value={deliveryEta}
+                    maxLength={40}
+                    onChange={(e) => setDeliveryEta(e.target.value)}
+                    style={{ fontSize: 13 }}
+                  />
+                  <div className="tiny muted" style={{ marginTop: 5 }}>
+                    Sent to the customer with your acceptance.
+                    {b?.deliveryTime && !deliveryEta.trim() && (
+                      <>
+                        {" "}
+                        <button
+                          type="button"
+                          className="tiny semi"
+                          style={{ color: "var(--delivery-600)" }}
+                          onClick={() => setDeliveryEta(b.deliveryTime ?? "")}
+                        >
+                          Use "{b.deliveryTime}"
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             <textarea
               className="input"
               rows={3}

@@ -87,12 +87,15 @@ export function LocationPinDropOverlay({
 
       {/* Bottom confirm card */}
       <div
-        style={{
-          position: "absolute", bottom: "var(--map-radius-strip-bottom)", left: 16, right: 16, zIndex: 1000,
-          background: "#fff", borderRadius: 20, padding: 16,
-          boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
-        }}
+        className="map-bottom-dock"
+        style={{ pointerEvents: "auto" }}
       >
+        <div
+          style={{
+            background: "#fff", borderRadius: 20, padding: 16,
+            boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
+          }}
+        >
         <div className="row gap-8" style={{ alignItems: "center", marginBottom: 14 }}>
           <MapPin size={16} color="var(--brand-600)" style={{ flexShrink: 0 }} />
           {addressLoading ? (
@@ -124,6 +127,7 @@ export function LocationPinDropOverlay({
             {confirming ? <Loader size={15} className="spin" /> : <Check size={15} />}
             {confirming ? t("map_saving") : t("map_confirm_location")}
           </button>
+        </div>
         </div>
       </div>
     </>

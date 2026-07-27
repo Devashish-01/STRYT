@@ -148,6 +148,11 @@ export function ItemEditor({
   const [isVeg, setIsVeg] = useState(item?.isVeg ?? true);
   const [invType, setInvType] = useState<"INFINITE" | "FINITE">(item?.inventoryType ?? "INFINITE");
   const [qty, setQty] = useState(item?.quantity != null ? String(item.quantity) : "");
+  // Slot capacity: how many bookings this service can take at the SAME time.
+  // Blank = inherit the business default. Distinct from `quantity`, which is
+  // stock across all time rather than concurrency.
+  const [slotCap, setSlotCap] = useState(item?.slotCapacity != null ? String(item.slotCapacity) : "");
+  const [maxParty, setMaxParty] = useState(String(item?.maxPartySize ?? 1));
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -182,6 +187,13 @@ export function ItemEditor({
         isVeg: isFood ? isVeg : null,
         inventoryType: invType,
         quantity: finiteQty,
+        slotCapacity: slotCap.trim() ? Math.max(1, Number(slotCap) || 1) : null,
+        // Party size can never exceed the slot's own capacity, so clamp rather
+        // than let the server reject a combination the owner just typed.
+        maxPartySize: Math.max(
+          1,
+          Math.min(Number(maxParty) || 1, slotCap.trim() ? Math.max(1, Number(slotCap) || 1) : Number(maxParty) || 1),
+        ),
         // Finite items track availability by count: restocking above zero makes
         // it available again, dropping to zero hides it. Infinite items keep
         // whatever manual availability the row already had.
@@ -249,6 +261,34 @@ export function ItemEditor({
               <input className="input" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder="e.g. 25" />
             </div>
           )}
+
+          {/* Concurrency — how many of THIS service can run at the same time.
+              Separate from stock: 3 chairs is a capacity of 3 forever, not 3
+              units that sell out. Blank inherits the business default. */}
+          <div className="field">
+            <label>Bookings at the same time</label>
+            <div className="row gap-10">
+              <input
+                className="input grow"
+                inputMode="numeric"
+                value={slotCap}
+                onChange={(e) => setSlotCap(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                placeholder="Business default"
+              />
+              <input
+                className="input grow"
+                inputMode="numeric"
+                value={maxParty}
+                onChange={(e) => setMaxParty(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                placeholder="Spots per booking"
+              />
+            </div>
+            <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
+              Left: how many customers you can serve at one time slot (e.g. 3 chairs → 3).
+              Right: how many spots one customer may take in a single booking.
+              Leave the first blank to use your business default.
+            </p>
+          </div>
 
           <div className="field">
             <label>Is this a food item?</label>

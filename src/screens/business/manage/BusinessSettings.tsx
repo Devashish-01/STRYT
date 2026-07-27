@@ -4,7 +4,7 @@ import { AppBar } from "@/components/common";
 import { businessService, profileControlService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
-import { Power, Bell, QrCode, UserPlus, X, Image as ImageIcon } from "@/components/Icons";
+import { Power, Bell, QrCode, UserPlus, X, Package, CalendarClock, Image as ImageIcon } from "@/components/Icons";
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
 
@@ -44,6 +44,12 @@ export default function BusinessSettings() {
   const [savingTiming, setSavingTiming] = useState(false);
   const [depositPercent, setDepositPercent] = useState("0");
   const [savingDeposit, setSavingDeposit] = useState(false);
+  const [defaultCapacity, setDefaultCapacity] = useState("1");
+  const [ceiling, setCeiling] = useState("");
+  const [savingCapacity, setSavingCapacity] = useState(false);
+  const [deliveryEnabled, setDeliveryEnabled] = useState(false);
+  const [defaultEta, setDefaultEta] = useState("");
+  const [savingEta, setSavingEta] = useState(false);
 
   async function handleQrUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -77,6 +83,10 @@ export default function BusinessSettings() {
       setLocPublic(business.locationPublic === true);
       setPaymentTiming(business.paymentTiming === "AT_BOOKING" ? "AT_BOOKING" : "AT_APPOINTMENT");
       setDepositPercent(String((business as any).depositPercent ?? 0));
+      setDeliveryEnabled(business.deliveryEnabled === true);
+      setDefaultEta(business.deliveryTime ?? "");
+      setDefaultCapacity(String(business.defaultSlotCapacity ?? 1));
+      setCeiling(business.maxConcurrentBookings != null ? String(business.maxConcurrentBookings) : "");
     }
   }, [business]);
 
@@ -139,6 +149,47 @@ export default function BusinessSettings() {
     }
   }
 
+  async function saveCapacity() {
+    setSavingCapacity(true);
+    try {
+      await businessService.update(id, {
+        defaultSlotCapacity: Math.max(1, Number(defaultCapacity) || 1),
+        maxConcurrentBookings: ceiling.trim() ? Math.max(1, Number(ceiling) || 1) : null,
+      } as any);
+      showToast("Booking capacity saved");
+      void refetchBiz();
+    } catch {
+      showToast("Couldn't save — try again");
+    } finally {
+      setSavingCapacity(false);
+    }
+  }
+
+  async function toggleDelivery(v: boolean) {
+    setDeliveryEnabled(v);
+    try {
+      await businessService.update(id, { deliveryEnabled: v } as any);
+      showToast(v ? "Home delivery is on — customers can now order delivery" : "Home delivery turned off");
+      void refetchBiz();
+    } catch {
+      setDeliveryEnabled(!v); // optimistic + revert, per the app-wide write pattern
+      showToast("Couldn't save — try again");
+    }
+  }
+
+  async function saveDefaultEta() {
+    setSavingEta(true);
+    try {
+      await businessService.update(id, { deliveryTime: defaultEta.trim() || null } as any);
+      showToast("Typical delivery time saved");
+      void refetchBiz();
+    } catch {
+      showToast("Couldn't save — try again");
+    } finally {
+      setSavingEta(false);
+    }
+  }
+
   async function handleToggleVisibility(v: boolean) {
     setOwnerEnabled(v);
     try {
@@ -170,6 +221,79 @@ export default function BusinessSettings() {
             <Toggle label="New leads" on={leads} set={setLeads} />
             <Toggle label="New reviews" on={reviewsN} set={setReviewsN} />
             <Toggle label="Matching requests" on={requests} set={setRequests} last />
+          </div>
+        </div>
+
+        {/* Booking capacity — how many bookings can share one time slot. 1 is
+            the classic one-at-a-time rule; per-service overrides live on each
+            catalogue item. */}
+        <div>
+          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><CalendarClock size={14} /> Booking capacity</div>
+          <div className="card col gap-12" style={{ padding: 14 }}>
+            <div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>Default bookings per time slot</div>
+              <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
+                How many customers you can serve at the same time. Individual services can override this in your catalogue.
+              </div>
+              <input
+                className="input"
+                inputMode="numeric"
+                value={defaultCapacity}
+                onChange={(e) => setDefaultCapacity(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                placeholder="1"
+              />
+            </div>
+            <div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>Overall limit at one time (optional)</div>
+              <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
+                A hard cap across <em>all</em> services combined — useful when different services share the same space or staff. Leave blank for no overall limit.
+              </div>
+              <input
+                className="input"
+                inputMode="numeric"
+                value={ceiling}
+                onChange={(e) => setCeiling(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                placeholder="No limit"
+              />
+            </div>
+            <button className="btn btn-outline btn-sm" disabled={savingCapacity} onClick={saveCapacity}>
+              {savingCapacity ? "Saving…" : "Save capacity"}
+            </button>
+          </div>
+        </div>
+
+        {/* Home delivery — opt-in. Off means the delivery option never appears
+            in the booking sheet for this shop (enforced server-side too). */}
+        <div>
+          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><Package size={14} /> Home delivery</div>
+          <div className="card">
+            <Toggle
+              label="Offer home delivery"
+              hint="Lets customers choose delivery instead of visiting, and send their address at booking"
+              on={deliveryEnabled}
+              set={toggleDelivery}
+              last={!deliveryEnabled}
+            />
+            {deliveryEnabled && (
+              <div style={{ padding: "13px 14px", borderTop: "1px solid var(--line)" }}>
+                <div className="tiny semi" style={{ marginBottom: 4 }}>Typical delivery time</div>
+                <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
+                  Shown to customers as a guide. You still confirm an exact ETA when you accept each order.
+                </div>
+                <div className="row gap-8">
+                  <input
+                    className="input grow"
+                    placeholder="e.g. 30–45 min"
+                    value={defaultEta}
+                    maxLength={40}
+                    onChange={(e) => setDefaultEta(e.target.value)}
+                  />
+                  <button className="btn btn-outline btn-sm" disabled={savingEta} onClick={saveDefaultEta}>
+                    {savingEta ? "Saving…" : "Save"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

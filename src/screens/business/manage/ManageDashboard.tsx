@@ -31,6 +31,9 @@ import Toggle from "@/components/Toggle";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
 import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import { SCOPE_LABELS, type Scope } from "@/services/marketplace/businessAccessService";
+
+const SCOPE_ORDER: Scope[] = ["queue", "appointments", "catalog", "leads"];
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
@@ -39,6 +42,11 @@ export default function ManageDashboard() {
   const ambient = useAmbientTheme(user.lat, user.lng, "business");
   const { isOwner, accessLevel, hasScope } = useBusinessAccess();
   const canSeeOwnerOnly = isOwner || accessLevel === "FULL";
+  // A scoped team member's header shouldn't lead with owner metrics (rating,
+  // broadcast reach) that aren't theirs to manage — swap it for which of
+  // their own sections they're looking at, so the page reads as built for
+  // their role rather than the owner's dashboard with holes in it.
+  const myScopeLabel = canSeeOwnerOnly ? null : SCOPE_ORDER.filter(hasScope).map((s) => SCOPE_LABELS[s]).join(" & ") || "No access yet";
   const base = `/business/${id}/manage`;
   const [share, setShare] = useState(false);
   const [available, setAvailable] = useState(false);
@@ -313,7 +321,9 @@ export default function ManageDashboard() {
                 {business?.isVerified && <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />}
               </div>
               <div className="small" style={{ opacity: .9, color: "#fff" }}>{business?.subCategory || business?.categoryName || "Local business"}</div>
-              <div className="tiny" style={{ opacity: .78, marginTop: 3, color: "#fff" }}>{ambient.greeting} · {business?.ratingAvg ?? 0}★ · 📡 {radiusLabel} reach</div>
+              <div className="tiny" style={{ opacity: .78, marginTop: 3, color: "#fff" }}>
+                {canSeeOwnerOnly ? `${ambient.greeting} · ${business?.ratingAvg ?? 0}★ · 📡 ${radiusLabel} reach` : `Team access · ${myScopeLabel}`}
+              </div>
             </div>
             <button className="tiny semi" style={{ color: "#fff", background: "rgba(255,255,255,.16)", padding: "7px 10px", borderRadius: 999 }} onClick={() => nav(`/business/${id}`)}>
               View shop

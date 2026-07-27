@@ -91,7 +91,8 @@ const BUSINESS_COLUMNS = new Set([
   "openingDate","isNew","status","coverImage","gallery","ratingAvg","ratingCount",
   "viewCount","isFeatured","isVerified","tags","priceForTwo","deliveryTime","offerText",
   "verificationStatus","verificationDocumentUrl","upiId","paymentTiming","depositPercent",
-  "email","showPhonePublicly","showEmailPublicly","locationPublic",
+  "email","showPhonePublicly","showEmailPublicly","locationPublic","deliveryEnabled",
+  "defaultSlotCapacity","maxConcurrentBookings",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
@@ -885,33 +886,11 @@ export const businessService = {
     await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: "view" });
     return { ok: true };
   },
-  async team(id: string): Promise<import("@/types").TeamMember[]> {
-    const sb = getSupabase();
-    const { data, error } = await sb
-      .from("business_team_members")
-      .select("id, name, phone, avatar, role")
-      .eq("business_id", id)
-      .order("created_at", { ascending: true });
-    throwIfError(error);
-    return (data ?? []) as import("@/types").TeamMember[];
-  },
-  async addTeamMember(businessId: string, member: { name: string; phone: string; role: "MANAGER" | "STAFF" }) {
-    const sb = getSupabase();
-    const { error } = await sb.from("business_team_members").insert({
-      business_id: businessId,
-      name: member.name,
-      phone: member.phone,
-      role: member.role,
-    });
-    throwIfError(error);
-    return { ok: true };
-  },
-  async removeTeamMember(memberId: string) {
-    const sb = getSupabase();
-    const { error } = await sb.from("business_team_members").delete().eq("id", memberId);
-    throwIfError(error);
-    return { ok: true };
-  },
+  // NOTE: team()/addTeamMember()/removeTeamMember() were removed here — they
+  // backed a plain name/phone/role staff roster (`business_team_members`) that
+  // never had a single UI caller. Team access is granted through
+  // BusinessAccess.tsx (scoped grants on `business_access_sessions`), which is
+  // the only team concept the app actually has.
 
   async buyBoost(id: string, boostType: string) {
     const sb = getSupabase();

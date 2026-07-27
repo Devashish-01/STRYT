@@ -27,4 +27,15 @@ export { slotBlockService } from "./engagement/slotBlockService";
 export { locationService } from "./engagement/locationService";
 export { emergencyService } from "./engagement/emergencyService";
 export { profileControlService } from "./core/profileControlService";
-export { switchPinService } from "./core/switchPinService";
+export { entityPasswordService } from "./core/entityPasswordService";
+export type {
+  EntityPasswordKind,
+  EntityRecoveryQuestion,
+  EntityRecoveryQuestionId,
+  BusinessRecoveryQuestionId,
+  ProviderRecoveryQuestionId,
+} from "./core/entityPasswordService";
+export {
+  BUSINESS_RECOVERY_QUESTION_IDS,
+  PROVIDER_RECOVERY_QUESTION_IDS,
+} from "./core/entityPasswordService";

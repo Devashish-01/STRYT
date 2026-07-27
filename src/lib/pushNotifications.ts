@@ -25,9 +25,11 @@ export async function registerPush(userId: string): Promise<void> {
       }
       if (permStatus.receive !== "granted") return;
 
-      await PushNotifications.register();
-
-      // Listeners must be cleared to avoid duplicates on re-logins
+      // Order matters: clear stale listeners, attach the new ones, and only
+      // THEN register. register() is what triggers the "registration" event
+      // that carries the FCM token — previously register() ran first and
+      // removeAllListeners() ran after it, so a fast callback could fire
+      // before (or be wiped by) the listener meant to persist the token.
       await PushNotifications.removeAllListeners();
 
       PushNotifications.addListener("registration", async (token) => {
@@ -51,6 +53,10 @@ export async function registerPush(userId: string): Promise<void> {
       });
 
       PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
+        // Tapping one notification only dismisses that one; anything else this
+        // app queued stays in the tray. The user is now looking at the app, so
+        // clear the rest rather than leave a stale pile behind them.
+        void PushNotifications.removeAllDeliveredNotifications().catch(() => { /* best-effort */ });
         const data = action.notification.data;
         if (data && data.url) {
           // SPA navigation via App.tsx listener — window.location.href here
@@ -58,6 +64,9 @@ export async function registerPush(userId: string): Promise<void> {
           window.dispatchEvent(new CustomEvent("push-nav", { detail: data.url }));
         }
       });
+
+      // Attach listeners BEFORE register() — see the ordering comment above.
+      await PushNotifications.register();
     } catch (e) {
       console.warn("Native push registration failed:", e);
     }
@@ -94,6 +103,19 @@ export async function registerPush(userId: string): Promise<void> {
   } catch (e) {
     console.warn("Push registration failed:", e);
   }
+}
+
+/**
+ * Clear this app's delivered OS notifications. Called when the app comes to
+ * the foreground: once the user is in the app the tray copies are stale — the
+ * in-app Notifications screen is the live source of truth. Nothing cleared the
+ * tray before, so it accumulated indefinitely.
+ */
+export async function clearDeliveredNotifications(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await PushNotifications.removeAllDeliveredNotifications();
+  } catch { /* best-effort — never block app resume */ }
 }
 
 export async function unregisterPush(userId: string): Promise<void> {

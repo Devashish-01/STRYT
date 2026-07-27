@@ -245,14 +245,57 @@ New RPCs (thin clones of proven ones): `assign_delivery`,
   Access. DB refinements `20260847` (hide code from agent, gate DONE on handoff,
   let customer mint tracking token).
 
+### Phase 4 — batches (code written earlier, DB applied 2026-07-27)
+`20260848_delivery_batches_phase4.sql` adds multi-stop runs (`delivery_batches`,
+`assign_delivery_batch`, `accept_delivery_batch`/`decline_delivery_batch`,
+`update_delivery_batch_position`), the captured delivery address on
+`appointment_create`, a live map + route polyline in the agent console, and the
+"out for delivery"/"delivered" customer notifications.
+
+> ⚠️ **This file was committed but never applied to the database.** The client
+> was already calling the widened 15-arg `appointment_create` while production
+> still had the 11-arg version, so **every appointment booking failed** until it
+> was applied on 2026-07-27. Two blockers had to be fixed first: `my_deliveries`
+> and `get_tracking` both widen their `RETURNS TABLE`, which `CREATE OR REPLACE`
+> rejects — each needs an explicit `DROP FUNCTION`. Lesson: a migration file in
+> the repo is not evidence it ran; check `list_migrations` against the DB.
+
+### Phase 5 — home delivery, owner tracking, customer restriction (2026-07-27)
+- `20260851_home_delivery_toggle_and_eta.sql` — `businesses.delivery_enabled`
+  (per-shop opt-in, enforced in `appointment_create`, not just hidden in the UI)
+  and the **two-way ETA**: customer states `requested_delivery_window` at
+  booking, business confirms/overrides via `appointment_accept_with_eta`, which
+  flips status and notifies in one transaction. Owner sees straight-line
+  distance shop→address at acceptance (`haversineKm`).
+- `20260852_business_active_deliveries.sql` — owner-side mirror of
+  `my_deliveries()`, backing the new **live tracking page**
+  (`/business/:id/manage/deliveries`, `BusinessDeliveries.tsx`): agent positions
+  on a map, route polyline, filter per agent and per order.
+- `20260853_customer_delivery_progress_only.sql` — **customers no longer get
+  live tracking.** `get_tracking`'s delivery branch returns NULL coordinates,
+  the customer's direct RLS SELECT on `appointment_deliveries` is removed, and
+  `my_delivery_progress()` reveals the agent's name/phone/photo only once *their*
+  delivery is EN_ROUTE. Enforced server-side because the tracking token is
+  shareable and `get_tracking` is granted to `anon`.
+- Multi-stop routing (`src/lib/routeLink.ts`): one consolidated best-route deep
+  link through every remaining stop, plus tap-to-select a subset. Capped at
+  Google Maps' 9-waypoint URL limit, surfaced to the agent.
+- `20260854_revoke_anon_on_delivery_rpcs.sql` — the phase 1-4 migrations granted
+  to `authenticated` without revoking Postgres' default PUBLIC grant, leaving
+  every delivery RPC anon-callable (harmless — they all raise UNAUTHENTICATED —
+  but inconsistent). Only `get_tracking` stays anon, by design.
+
+**Sequential notification chain** (verified, no change needed): batch assign
+notifies only the *agent*; accept notifies nobody; each customer is notified on
+their own stop's EN_ROUTE, and `DONE` is gated on `handoff_verified`. So
+customer *n+1* only hears anything after *n*'s OTP handoff completes.
+
 ### To go live
-Everything is behind `DELIVERY_AGENT_ENABLED` in `src/lib/features.ts` (currently
-`false`). Flipping it to `true` reveals: the Delivery role in Team & Access, the
-Delivery hat in the account switcher, the `/delivery` console, and the assign/
-track controls on appointment cards. The DB groundwork is already live in prod.
-Remaining polish before flipping: capture a real delivery address (appointments
-don't store one today — the console shows the customer's area), a proper map view
-in the agent console, and notifications on arrive/deliver.
+`DELIVERY_AGENT_ENABLED` in `src/lib/features.ts` is still **`false`** pending an
+end-to-end test with two real accounts (owner + delivery-scoped team member).
+Flipping it reveals: the Delivery role in Team & Access, the Delivery hat in the
+account switcher, the `/delivery` console, the Live deliveries page in the
+Business hub, and the assign/track controls on appointment cards.
 
 ## 9. Decisions (resolved per requirements)
 - Agent identity → **existing STRYT user + team member only** (req. 2); no ad-hoc

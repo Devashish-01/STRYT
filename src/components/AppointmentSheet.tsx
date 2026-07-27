@@ -3,10 +3,11 @@ import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, 
 import { useApp } from "@/store";
 import { generateWorkingSlots, isWorkingDay, type AppointmentSlot, DEFAULT_WORKING_HOURS, formatHoursForDisplay } from "@/utils/availability";
 import { uploadService } from "@/services/core/uploadService";
-import { appointmentService } from "@/services/engagement/appointmentService";
+import { appointmentService, type BookedSlotUsage } from "@/services/engagement/appointmentService";
 import { slotBlockService } from "@/services/engagement/slotBlockService";
 import type { AppointmentRecord, BlockedSlot } from "@/types";
 import { displayName as safeName } from "@/lib/publicName";
+import { haptics } from "@/lib/haptics";
 import { Skeleton } from "@/components/states";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
@@ -46,6 +47,11 @@ interface AppointmentSheetProps {
   rescheduledFromLabel?: { dateLabel: string; timeLabel: string };
   /** When true, the viewer appears to be outside this listing's service area — shows a non-blocking warning. */
   outOfRange?: boolean;
+  /** Whether THIS business offers home delivery (Business → Settings). Businesses only;
+   *  the DELIVERY option is hidden unless the shop opted in. Also enforced server-side. */
+  deliveryEnabled?: boolean;
+  /** The shop's typical delivery time, shown as a guide next to the delivery option. */
+  deliveryTime?: string | null;
   onClose: () => void;
   /** Fired after a booking is successfully created (before the sheet closes). */
   onBooked?: () => void;
@@ -67,6 +73,8 @@ export function AppointmentSheet({
   rescheduledFromId,
   rescheduledFromLabel,
   outOfRange,
+  deliveryEnabled = false,
+  deliveryTime,
   onClose,
   onBooked,
 }: AppointmentSheetProps) {
@@ -78,9 +86,13 @@ export function AppointmentSheet({
   const [notes, setNotes] = useState(initialNotes ?? "");
   // Home delivery is a business-only choice — a provider visit doesn't have a
   // "product to deliver" in the same sense, so this stays IN_STORE for providers.
-  const canOfferDelivery = DELIVERY_AGENT_ENABLED && targetType === "BUSINESS";
+  // Gated on the shop's own opt-in, not just the global flag: a business that
+  // hasn't turned delivery on can't fulfil it, and appointment_create rejects
+  // DELIVERY for such a shop anyway (DELIVERY_NOT_OFFERED).
+  const canOfferDelivery = DELIVERY_AGENT_ENABLED && targetType === "BUSINESS" && deliveryEnabled;
   const [fulfillmentType, setFulfillmentType] = useState<"IN_STORE" | "DELIVERY">("IN_STORE");
   const [deliveryAddressLine, setDeliveryAddressLine] = useState("");
+  const [requestedWindow, setRequestedWindow] = useState("");
   const [deliveryLat, setDeliveryLat] = useState<number | null>(null);
   const [deliveryLng, setDeliveryLng] = useState<number | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -92,7 +104,11 @@ export function AppointmentSheet({
   // Occupied timestamps for the target from the privacy-safe booked_slots RPC —
   // other customers' rows are hidden by RLS, so this is how their taken slots
   // still show as unavailable (closing the double-booking hole).
-  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
+  const [bookedTimes, setBookedTimes] = useState<BookedSlotUsage[]>([]);
+  /** package_id → { capacity, maxPartySize }, resolved server-side against the
+   *  business default. Empty for providers (always capacity 1). */
+  const [capacities, setCapacities] = useState<Record<string, { capacity: number; maxPartySize: number }>>({});
+  const [partySize, setPartySize] = useState(1);
   const [customerAppointments, setCustomerAppointments] = useState<AppointmentRecord[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [loadingApts, setLoadingApts] = useState(true);
@@ -109,17 +125,22 @@ export function AppointmentSheet({
     let active = true;
     async function loadApts() {
       try {
-        const [targetList, customerList, blocked, booked] = await Promise.all([
+        const [targetList, customerList, blocked, booked, caps] = await Promise.all([
           appointmentService.listForTarget(targetId),
           appointmentService.listForCustomer(user?.id || "guest"),
           slotBlockService.list(targetId).catch(() => []),
           appointmentService.bookedSlots(targetId).catch(() => []),
+          // Providers have no capacity concept — skip the round trip entirely.
+          targetType === "BUSINESS"
+            ? appointmentService.slotCapacities(targetId).catch(() => ({}))
+            : Promise.resolve({}),
         ]);
         if (active) {
           setExistingAppointments(targetList);
           setCustomerAppointments(customerList);
           setBlockedSlots(blocked);
           setBookedTimes(booked);
+          setCapacities(caps);
         }
       } catch (err) {
         console.error("Failed to load appointments", err);
@@ -137,7 +158,14 @@ export function AppointmentSheet({
     return () => {
       active = false;
     };
-  }, [targetId, user?.id]);
+  }, [targetId, user?.id, targetType]);
+
+  /** Reload just the live usage — after a SLOT_FULL race, so the grid reflects
+   *  reality in place instead of stranding the user on a stale view. */
+  async function refreshSlotUsage() {
+    const booked = await appointmentService.bookedSlots(targetId).catch(() => []);
+    setBookedTimes(booked);
+  }
 
   // Generate 7 upcoming day choices
   const dates = Array.from({ length: 7 }, (_, i) => {
@@ -147,14 +175,62 @@ export function AppointmentSheet({
   });
 
   const selectedDate = dates[dayOffset] || new Date();
-  // Merge the customer's own visible bookings with the (PII-free) booked
-  // timestamps from every other customer, so the slot grid greys out any slot
-  // that's actually taken — not just the ones this customer can see.
-  const occupiedForSlots: AppointmentRecord[] = [
-    ...existingAppointments,
-    ...bookedTimes.map((iso) => ({ id: `booked_${iso}`, scheduledForISO: iso, status: "ACCEPTED" as const } as unknown as AppointmentRecord)),
-  ];
-  const slots = generateWorkingSlots(availabilityNote, selectedDate, occupiedForSlots, blockedSlots);
+
+  // Capacity is per-service, so availability depends on which service is
+  // selected. Falls back to 1 (classic one-per-slot) for providers, for a
+  // cart/no-service booking, or if the lookup failed.
+  const activeCapacity = selectedPkg ? capacities[selectedPkg.id] : undefined;
+  const slotCapacity = Math.max(1, activeCapacity?.capacity ?? 1);
+  const maxPartySize = Math.min(slotCapacity, Math.max(1, activeCapacity?.maxPartySize ?? 1));
+
+  // Server-side usage for the selected service only — bookings for a DIFFERENT
+  // service don't consume this service's capacity (the overall ceiling, when
+  // set, is enforced server-side at confirm time).
+  const usedByIso: Record<string, number> = {};
+  for (const b of bookedTimes) {
+    if ((b.packageId ?? null) !== (selectedPkg?.id ?? null)) continue;
+    usedByIso[b.scheduledForISO] = (usedByIso[b.scheduledForISO] ?? 0) + b.usedSpots;
+  }
+
+  // Local rows must be filtered to the SAME service, or a customer's booking
+  // for a different service would wrongly consume this one's capacity (the two
+  // have independent limits). The server RPC already counts these same rows,
+  // and generateWorkingSlots takes max(server, local), so there's no double
+  // count — the local pass only adds off-grid overlap coverage.
+  const occupiedForSlots: AppointmentRecord[] = existingAppointments.filter(
+    (a) => (a.packageId ?? null) === (selectedPkg?.id ?? null),
+  );
+  const slots = generateWorkingSlots(availabilityNote, selectedDate, occupiedForSlots, blockedSlots, {
+    capacity: slotCapacity,
+    usedByIso,
+  });
+
+  // Spots the customer may take right now: capped by the service's max party
+  // size and by what's actually left in the chosen slot.
+  const partyCeiling = Math.max(1, Math.min(maxPartySize, selectedSlot ? selectedSlot.remaining : maxPartySize));
+  const canPickParty = maxPartySize > 1;
+
+  // Switching service changes both capacity and party limits, so a slot or
+  // party size chosen under the old service may no longer be valid. Clamp the
+  // party size and drop a selection that no longer fits rather than letting
+  // the customer submit something the server will reject.
+  useEffect(() => {
+    setPartySize((n) => Math.max(1, Math.min(n, maxPartySize)));
+  }, [maxPartySize]);
+
+  useEffect(() => {
+    if (!selectedSlot) return;
+    const fresh = slots.find((s) => s.id === selectedSlot.id);
+    if (!fresh || !fresh.isAvailable || fresh.remaining < partySize) {
+      setSelectedSlot(fresh && fresh.isAvailable ? fresh : null);
+      if (fresh && fresh.isAvailable && fresh.remaining < partySize) {
+        setPartySize(Math.max(1, fresh.remaining));
+      }
+    } else if (fresh.remaining !== selectedSlot.remaining) {
+      setSelectedSlot(fresh); // keep the live remaining count in sync
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPkg?.id, bookedTimes, slotCapacity]);
 
   // Default to the first working day rather than always "Today" when today is closed.
   useEffect(() => {
@@ -239,6 +315,11 @@ export function AppointmentSheet({
         deliveryAddressLine: canOfferDelivery && fulfillmentType === "DELIVERY" ? deliveryAddressLine.trim() : undefined,
         deliveryLat: canOfferDelivery && fulfillmentType === "DELIVERY" ? deliveryLat ?? undefined : undefined,
         deliveryLng: canOfferDelivery && fulfillmentType === "DELIVERY" ? deliveryLng ?? undefined : undefined,
+        requestedDeliveryWindow:
+          canOfferDelivery && fulfillmentType === "DELIVERY" && requestedWindow.trim()
+            ? requestedWindow.trim()
+            : undefined,
+        partySize: canPickParty ? partySize : undefined,
       });
 
       showToast(
@@ -255,7 +336,15 @@ export function AppointmentSheet({
         onClose();
       }
     } catch (err: any) {
-      showToast(err?.message || "Couldn't schedule appointment. Try again.");
+      const msg: string = err?.message || "Couldn't schedule appointment. Try again.";
+      showToast(msg);
+      // Someone took the last spots between load and confirm. Refresh usage in
+      // place so the grid tells the truth and the customer can pick again,
+      // rather than leaving them staring at a slot that looks free.
+      if (/just went|fully booked|just taken|spots/i.test(msg)) {
+        await refreshSlotUsage();
+        setSelectedSlot(null);
+      }
     } finally {
       setUploading(false);
       setSubmitting(false);
@@ -434,6 +523,11 @@ export function AppointmentSheet({
 
             {fulfillmentType === "DELIVERY" && (
               <div className="col gap-8" style={{ marginTop: 12 }}>
+                {deliveryTime && (
+                  <div className="tiny" style={{ color: "var(--delivery-600)" }}>
+                    Usually delivered in {deliveryTime}.
+                  </div>
+                )}
                 <input
                   className="input"
                   placeholder="Flat / house no., street, landmark"
@@ -443,6 +537,16 @@ export function AppointmentSheet({
                 />
                 <LocationPicker lat={deliveryLat} lng={deliveryLng} onChange={(lat, lng) => { setDeliveryLat(lat); setDeliveryLng(lng); }} height={140} pinColor="var(--delivery-600)" />
                 <span className="tiny muted">Tap the map or drag the pin to mark exactly where the agent should come.</span>
+                {/* Optional: the customer's half of the two-way ETA. The shop
+                    confirms (or overrides) this with a real ETA on acceptance. */}
+                <input
+                  className="input"
+                  placeholder="Preferred time, e.g. before 6pm (optional)"
+                  value={requestedWindow}
+                  maxLength={60}
+                  onChange={(e) => setRequestedWindow(e.target.value)}
+                  style={{ fontSize: 13 }}
+                />
               </div>
             )}
           </div>
@@ -575,6 +679,11 @@ export function AppointmentSheet({
             >
               {slots.map((s) => {
                 const isSelected = selectedSlot?.id === s.id;
+                // Only surface a count when it's actually informative: a
+                // capacity-1 business (the norm) should look exactly as before,
+                // and a half-empty slot doesn't need a number either.
+                const showRemaining = s.capacity > 1 && s.isAvailable && s.remaining <= 3;
+                const scarce = showRemaining && s.remaining === 1;
                 return (
                   <button
                     key={s.id}
@@ -582,9 +691,13 @@ export function AppointmentSheet({
                     disabled={!s.isAvailable}
                     onClick={() => setSelectedSlot(s)}
                     style={{
-                      padding: "10px 8px",
+                      padding: showRemaining ? "7px 8px" : "10px 8px",
                       borderRadius: 12,
-                      border: isSelected ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
+                      border: isSelected
+                        ? "2px solid var(--brand-600)"
+                        : scarce
+                        ? "1px solid var(--amber-500)"
+                        : "1px solid var(--ink-200)",
                       background: isSelected
                         ? "var(--brand-50)"
                         : !s.isAvailable
@@ -599,19 +712,66 @@ export function AppointmentSheet({
                       fontWeight: isSelected ? 700 : 500,
                       cursor: s.isAvailable ? "pointer" : "not-allowed",
                       display: "flex",
+                      flexDirection: showRemaining ? "column" : "row",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: "var(--space-xxs)",
+                      gap: showRemaining ? 1 : "var(--space-xxs)",
+                      lineHeight: 1.15,
                     }}
                   >
-                    {isSelected && <Check size={13} color="var(--brand-600)" />}
-                    {s.timeLabel}
+                    <span className="row center-v" style={{ gap: 3 }}>
+                      {isSelected && <Check size={13} color="var(--brand-600)" />}
+                      {s.timeLabel}
+                    </span>
+                    {showRemaining && (
+                      <span style={{ fontSize: 9.5, fontWeight: 600, color: scarce ? "var(--amber-600)" : "var(--ink-400)" }}>
+                        {s.remaining} left
+                      </span>
+                    )}
                   </button>
                 );
               })}
             </div>
           )}
         </div>
+
+        {/* Party size — only when the chosen service actually allows more than
+            one spot per booking, so a normal 1:1 service shows nothing. */}
+        {canPickParty && (
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>
+              How many spots?
+            </label>
+            <div className="row gap-12 center-v">
+              <div className="row center-v" style={{ border: "1px solid var(--ink-200)", borderRadius: 12, overflow: "hidden" }}>
+                <button
+                  type="button"
+                  aria-label="Fewer spots"
+                  disabled={partySize <= 1}
+                  onClick={() => { haptics.selection(); setPartySize((n) => Math.max(1, n - 1)); }}
+                  style={{ width: 42, height: 40, fontSize: 20, fontWeight: 600, color: partySize <= 1 ? "var(--ink-300)" : "var(--ink-700)" }}
+                >
+                  −
+                </button>
+                <span className="semi" style={{ minWidth: 34, textAlign: "center", fontSize: 15 }}>{partySize}</span>
+                <button
+                  type="button"
+                  aria-label="More spots"
+                  disabled={partySize >= partyCeiling}
+                  onClick={() => { haptics.selection(); setPartySize((n) => Math.min(partyCeiling, n + 1)); }}
+                  style={{ width: 42, height: 40, fontSize: 20, fontWeight: 600, color: partySize >= partyCeiling ? "var(--ink-300)" : "var(--ink-700)" }}
+                >
+                  +
+                </button>
+              </div>
+              <div className="tiny muted">
+                {selectedSlot
+                  ? `${selectedSlot.remaining} of ${selectedSlot.capacity} left at ${selectedSlot.timeLabel}`
+                  : `Up to ${maxPartySize} per booking`}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Special Instructions / Notes */}
         <div className="field" style={{ marginBottom: 14 }}>

@@ -76,7 +76,7 @@ export default function HoursEditor() {
   return (
     <div className="screen">
       <AppBar title="Hours & Availability" />
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+      <div className="screen-scroll page-pad col gap-16">
         {/* ── Instant availability banner (presence — separate from bookable slots) ── */}
         <div className="card" style={{ background: openNow ? "var(--green-100)" : "var(--ink-50)", border: "none" }}>
           <div className="row between center-v">

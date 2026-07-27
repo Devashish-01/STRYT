@@ -19,6 +19,7 @@ import ReportSheet from "@/components/ReportSheet";
 import ShareCard from "@/components/ShareCard";
 import AddToListSheet from "@/components/AddToListSheet";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
+import CartCheckoutSheet from "@/components/CartCheckoutSheet";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import LivePulseDot from "@/components/LivePulseDot";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
@@ -77,6 +78,7 @@ export default function BusinessDetail() {
   const [askingNow, setAskingNow] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [schedulingPkg, setSchedulingPkg] = useState<{ id: string; name: string; price: number; duration?: string } | null>(null);
+  const [cartSheet, setCartSheet] = useState(false);
   const [checkoutMode, setCheckoutMode] = useState(false);
   const [checkoutNotes, setCheckoutNotes] = useState("");
   const [checkoutItems, setCheckoutItems] = useState<AppointmentRecord["items"]>(undefined);
@@ -236,29 +238,39 @@ export default function BusinessDetail() {
     .filter((url): url is string => !!url)
     .map((url) => ({ url }));
 
-  // Checkout reuses the exact same booking + UPI/Cash payment flow as "Book
-  // appointment" — the cart becomes a single locked-in package, itemized in
-  // the notes, and the customer picks a pickup/collection slot to confirm.
-  function checkout() {
-    const cartLines = Object.entries(cart)
+  function cartLines() {
+    return Object.entries(cart)
       .map(([itemId, qty]) => {
         const item = b!.catalog.find((c) => c.id === itemId);
         return item ? { item, qty } : null;
       })
       .filter((l): l is { item: CatalogItem; qty: number } => !!l);
-    setCheckoutNotes(`Order: ${cartLines.map((l) => `${l.item.name} x${l.qty}`).join(", ")}`);
-    // Real per-item cart, not just a collapsed total — this is what lets the
-    // booking RPC reserve the actual quantity of each item instead of the
-    // "cart" sentinel silently matching no catalog row and reserving nothing.
-    setCheckoutItems(cartLines.map((l) => ({
+  }
+  function cartSummary() {
+    return cartLines().map((l) => `${l.item.name} x${l.qty}`).join(", ");
+  }
+  /** Real per-item cart, not just a collapsed total — this is what lets the
+   *  booking/purchase RPCs reserve the actual quantity of each item instead of
+   *  a "cart" sentinel silently matching no catalog row and reserving nothing. */
+  function cartLineItems() {
+    return cartLines().map((l) => ({
       catalogItemId: l.item.id,
       name: l.item.name,
       price: l.item.salePrice ?? l.item.price,
       quantity: l.qty,
-    })));
+    }));
+  }
+
+  // Checkout reuses the exact same booking + UPI/Cash payment flow as "Book
+  // appointment" — the cart becomes a single locked-in package, itemized in
+  // the notes, and the customer picks a pickup/collection slot to confirm.
+  function checkout() {
+    const lines = cartLines();
+    setCheckoutNotes(`Order: ${cartSummary()}`);
+    setCheckoutItems(cartLineItems());
     setSchedulingPkg({
       id: "cart",
-      name: cartLines.length === 1 ? `${cartLines[0].item.name} x${cartLines[0].qty}` : `${cartCount} items`,
+      name: lines.length === 1 ? `${lines[0].item.name} x${lines[0].qty}` : `${cartCount} items`,
       price: cartTotal,
     });
     setCheckoutMode(true);
@@ -940,18 +952,34 @@ export default function BusinessDetail() {
         )}
       </div>
 
-      {/* Cart bar */}
+      {/* Cart bar — opens the buy-now vs book-later fork rather than jumping
+          straight into scheduling. */}
       {!isOwner && cartCount > 0 && (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 14, zIndex: 30 }}>
           <button
             className="btn btn-green btn-block row between"
             style={{ boxShadow: "var(--shadow-lg)" }}
-            onClick={checkout}
+            onClick={() => setCartSheet(true)}
           >
             <span>{cartCount} item{cartCount > 1 ? "s" : ""} • {inr(cartTotal)}</span>
             <span className="row gap-4">Checkout <ArrowLeft size={16} style={{ transform: "rotate(180deg)" }} /></span>
           </button>
         </div>
+      )}
+
+      {cartSheet && (
+        <CartCheckoutSheet
+          businessId={b.id}
+          businessName={b.name}
+          businessUpiId={b.upiId}
+          itemCount={cartCount}
+          total={cartTotal}
+          summary={cartSummary()}
+          items={cartLineItems()}
+          onSchedule={() => { setCartSheet(false); checkout(); }}
+          onPaid={() => { setCart({}); refetchMyAppointments(); }}
+          onClose={() => setCartSheet(false)}
+        />
       )}
 
       {payingApt && (
@@ -1025,6 +1053,8 @@ export default function BusinessDetail() {
           payeeUpiId={b.upiId}
           depositPercent={(b as any).depositPercent}
           outOfRange={outOfRange}
+          deliveryEnabled={b.deliveryEnabled === true}
+          deliveryTime={b.deliveryTime}
           onBooked={() => { if (checkoutMode) setCart({}); }}
           onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); setCheckoutItems(undefined); }}
         />

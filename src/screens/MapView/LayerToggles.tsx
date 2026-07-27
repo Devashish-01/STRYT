@@ -26,8 +26,8 @@ export function LayerToggles({
     story: t("map_layer_stories"),
   };
   return (
-    <div style={{ position: "absolute", top: "calc(74px + var(--safe-area-top))", left: 16, zIndex: 1000 }}>
-      <div className="row gap-8" style={{ flexWrap: "wrap", maxWidth: 240 }}>
+    <div className="map-layer-toggles">
+      <div className="map-layer-toggles__row">
         {(["business", "provider", "request", "story"] as Layer[]).map((l) => {
           const color = l === "story" ? "var(--pink-500)" : pinColors[l as Exclude<Layer, "story">];
           const active = layers[l];

@@ -9,7 +9,10 @@ import type { LocationGrant } from "@/services/engagement/locationService";
 import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
 import RadiusSelector from "@/components/RadiusSelector";
 import PinEntrySheet from "@/components/PinEntrySheet";
-import { switchPinService } from "@/services";
+import { RecoveryBackfillSheet } from "@/components/entity-password";
+import { entityPasswordService } from "@/services";
+import type { EntityPasswordKind } from "@/services/core/entityPasswordService";
+import { recoveryQuestionLabel } from "@/lib/entityPasswordRecovery";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
 
 
@@ -46,10 +49,19 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 
 export default function Settings() {
   const nav = useNavigate();
-  const { user, refreshUser, showToast, switchPinIsSet, refreshSwitchPinStatus, ownedBusinessIds, ownedProviderId, dataSaver, setDataSaver } = useApp();
-  const [pinSheet, setPinSheet] = useState<"set" | "remove" | null>(null);
+  const {
+    user, refreshUser, showToast,
+    businessPasswordIsSet, providerPasswordIsSet,
+    businessRecoveryIsSet, providerRecoveryIsSet,
+    refreshEntityPasswordStatus,
+    ownedBusinessIds, ownedProviderId, dataSaver, setDataSaver,
+  } = useApp();
+  const [pinSheet, setPinSheet] = useState<{ kind: EntityPasswordKind; mode: "set" | "remove" } | null>(null);
+  const [recoveryBackfill, setRecoveryBackfill] = useState<EntityPasswordKind | null>(null);
   const [removingPin, setRemovingPin] = useState(false);
   const hasHats = ownedBusinessIds.length > 0 || !!ownedProviderId;
+  const needsBusinessRecovery = businessPasswordIsSet && !businessRecoveryIsSet;
+  const needsProviderRecovery = providerPasswordIsSet && !providerRecoveryIsSet;
   const [silent, setSilent] = useState(() => localStorage.getItem("settings_silent") !== "false");
   const [quiet, setQuiet] = useState(() => localStorage.getItem("settings_quiet") !== "false");
   const [newBiz, setNewBiz] = useState(() => localStorage.getItem("settings_new_biz") !== "false");
@@ -160,15 +172,15 @@ export default function Settings() {
     void userService.update({ showBadgesPublicly: v }).catch(() => {});
   }
 
-  async function handleRemovePin(pin: string) {
+  async function handleRemovePassword(kind: EntityPasswordKind, pin: string) {
     setRemovingPin(true);
     try {
-      await switchPinService.clear(pin);
-      await refreshSwitchPinStatus();
-      showToast("Switch PIN removed");
+      await entityPasswordService.clear(kind, pin);
+      await refreshEntityPasswordStatus();
+      showToast(`${kind === "business" ? "Business" : "Provider"} password removed`);
       setPinSheet(null);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Couldn't remove the PIN.");
+      showToast(e instanceof Error ? e.message : "Couldn't remove the password.");
     } finally {
       setRemovingPin(false);
     }
@@ -180,7 +192,7 @@ export default function Settings() {
   return (
     <div className="screen screen-boxed">
       <AppBar title="Settings" />
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 40 }}>
+      <div className="screen-scroll page-pad col gap-16 scroll-pad-end">
         {/* Inbound location-share requests to approve/deny */}
         <LocationRequestsInbox />
         <LocationSharesManager />
@@ -237,31 +249,63 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Security — only relevant once there's a business/provider hat to protect */}
+        {/* Security — only relevant once there's a business/provider hat to protect.
+            Two independent passwords: Business also gates anyone you've delegated
+            access to (Team & Access), not just yourself — Provider has no
+            delegation, so it only ever protects your own switch-in. */}
         {hasHats && (
           <div>
             <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><Lock size={14} /> Security</div>
-            <div className="card" style={{ padding: 14 }}>
-              <div className="row gap-12">
-                <div className="grow">
-                  <div className="semi small">Switch PIN</div>
-                  <div className="tiny muted">
-                    {switchPinIsSet
-                      ? "Required whenever you switch into your business or provider console."
-                      : "Ask for a PIN when switching into your business or provider console — useful if others sometimes use this device."}
-                  </div>
+
+            {(needsBusinessRecovery || needsProviderRecovery) && (
+              <div className="card col gap-8" style={{ padding: 14, marginBottom: 10, background: "var(--amber-50)", border: "1px solid var(--amber-200)" }}>
+                <div className="semi small" style={{ color: "var(--amber-800)" }}>Add a backup reset question</div>
+                <p className="tiny muted" style={{ lineHeight: 1.45 }}>
+                  You have a console password but no backup question yet. Add one so you can reset your password if you forget it.
+                </p>
+                <div className="row gap-8">
+                  {needsBusinessRecovery && (
+                    <button type="button" className="btn btn-outline btn-sm grow" onClick={() => setRecoveryBackfill("business")}>
+                      Business backup
+                    </button>
+                  )}
+                  {needsProviderRecovery && (
+                    <button type="button" className="btn btn-outline btn-sm grow" onClick={() => setRecoveryBackfill("provider")}>
+                      Provider backup
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="row gap-8" style={{ marginTop: 10 }}>
-                <button className="btn btn-outline btn-sm grow" onClick={() => setPinSheet("set")}>
-                  {switchPinIsSet ? "Change PIN" : "Set PIN"}
-                </button>
-                {switchPinIsSet && (
-                  <button className="btn btn-outline btn-sm grow" style={{ color: "var(--red-600)", borderColor: "var(--red-200)" }} onClick={() => setPinSheet("remove")}>
-                    Remove PIN
-                  </button>
-                )}
-              </div>
+            )}
+
+            <div className="col gap-10">
+              {ownedBusinessIds.length > 0 && (
+                <EntityPasswordSecurityCard
+                  kind="business"
+                  title="Business password"
+                  passwordIsSet={businessPasswordIsSet}
+                  recoveryIsSet={businessRecoveryIsSet}
+                  descriptionSet="Required to open your business console — including for anyone you've given team or delegated access to."
+                  descriptionUnset="Set a password to protect your business console — required of you and anyone you delegate access to."
+                  onSetPassword={() => setPinSheet({ kind: "business", mode: "set" })}
+                  onRemovePassword={() => setPinSheet({ kind: "business", mode: "remove" })}
+                  onManageRecovery={() => setRecoveryBackfill("business")}
+                />
+              )}
+
+              {!!ownedProviderId && (
+                <EntityPasswordSecurityCard
+                  kind="provider"
+                  title="Provider password"
+                  passwordIsSet={providerPasswordIsSet}
+                  recoveryIsSet={providerRecoveryIsSet}
+                  descriptionSet="Required whenever you switch into your provider console."
+                  descriptionUnset="Ask for a password when switching into your provider console — useful if others sometimes use this device."
+                  onSetPassword={() => setPinSheet({ kind: "provider", mode: "set" })}
+                  onRemovePassword={() => setPinSheet({ kind: "provider", mode: "remove" })}
+                  onManageRecovery={() => setRecoveryBackfill("provider")}
+                />
+              )}
             </div>
           </div>
         )}
@@ -332,15 +376,107 @@ export default function Settings() {
         </div>
       )}
 
-      {pinSheet === "set" && (
-        <PinEntrySheet mode="set" onClose={() => setPinSheet(null)} onSaved={() => setPinSheet(null)} />
+      {pinSheet?.mode === "set" && (
+        <PinEntrySheet mode="set" kind={pinSheet.kind} onClose={() => setPinSheet(null)} onSaved={() => setPinSheet(null)} />
       )}
-      {pinSheet === "remove" && (
+      {pinSheet?.mode === "remove" && (
         <PinEntrySheet
           mode="verify"
+          kind={pinSheet.kind}
           onClose={() => setPinSheet(null)}
-          onVerified={(pin) => { if (!removingPin) void handleRemovePin(pin); }}
+          onVerified={(pin) => { if (!removingPin) void handleRemovePassword(pinSheet.kind, pin); }}
         />
+      )}
+      {recoveryBackfill && (
+        <RecoveryBackfillSheet
+          kind={recoveryBackfill}
+          onClose={() => setRecoveryBackfill(null)}
+          onSaved={() => setRecoveryBackfill(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function EntityPasswordSecurityCard({
+  kind,
+  title,
+  passwordIsSet,
+  recoveryIsSet,
+  descriptionSet,
+  descriptionUnset,
+  onSetPassword,
+  onRemovePassword,
+  onManageRecovery,
+}: {
+  kind: EntityPasswordKind;
+  title: string;
+  passwordIsSet: boolean;
+  recoveryIsSet: boolean;
+  descriptionSet: string;
+  descriptionUnset: string;
+  onSetPassword: () => void;
+  onRemovePassword: () => void;
+  onManageRecovery: () => void;
+}) {
+  const [recoveryLabel, setRecoveryLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!passwordIsSet || !recoveryIsSet) {
+      setRecoveryLabel(null);
+      return;
+    }
+    let cancelled = false;
+    void entityPasswordService.getRecoveryQuestion(kind).then((q) => {
+      if (cancelled || !q) return;
+      setRecoveryLabel(recoveryQuestionLabel(q.questionId, q.questionText));
+    });
+    return () => { cancelled = true; };
+  }, [kind, passwordIsSet, recoveryIsSet]);
+
+  return (
+    <div className="card col gap-10" style={{ padding: 14 }}>
+      <div>
+        <div className="row gap-8 center-v" style={{ marginBottom: 4 }}>
+          <div className="semi small grow">{title}</div>
+          {passwordIsSet && (
+            <span className="recovery-status-pill recovery-status-pill--on">Protected</span>
+          )}
+        </div>
+        <div className="tiny muted">{passwordIsSet ? descriptionSet : descriptionUnset}</div>
+      </div>
+
+      <div className="row gap-8">
+        <button type="button" className="btn btn-outline btn-sm grow" onClick={onSetPassword}>
+          {passwordIsSet ? "Change password" : "Set password"}
+        </button>
+        {passwordIsSet && (
+          <button type="button" className="btn btn-outline btn-sm grow" style={{ color: "var(--red-600)", borderColor: "var(--red-200)" }} onClick={onRemovePassword}>
+            Remove
+          </button>
+        )}
+      </div>
+
+      {passwordIsSet && (
+        <>
+          <div className="divider" style={{ margin: 0 }} />
+          <div>
+            <div className="row gap-8 center-v" style={{ marginBottom: 4 }}>
+              <div className="semi small grow">Backup reset question</div>
+              <span className={`recovery-status-pill ${recoveryIsSet ? "recovery-status-pill--on" : ""}`}>
+                {recoveryIsSet ? "Set" : "Not set"}
+              </span>
+            </div>
+            {recoveryIsSet && recoveryLabel ? (
+              <div className="tiny muted recovery-question-preview">{recoveryLabel}</div>
+            ) : (
+              <div className="tiny muted">Used only if you forget your password.</div>
+            )}
+            <button type="button" className="btn btn-outline btn-sm btn-block" style={{ marginTop: 10 }} onClick={onManageRecovery}>
+              {recoveryIsSet ? "Update backup question" : "Add backup question"}
+            </button>
+          </div>
+        </>
       )}
     </div>
   );

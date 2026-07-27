@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package } from "@/components/Icons";
 import { notificationService } from "@/services";
@@ -74,7 +74,7 @@ function groupByDay(items: AppNotification[]): Section[] {
 
 export default function Notifications() {
   const nav = useNavigate();
-  const { markAllRead, decrementUnread, showToast } = useApp();
+  const { markAllRead, decrementUnread, showToast, user } = useApp();
   const [params] = useSearchParams();
 
   // Scope the feed to the context that opened it: a specific business, a
@@ -90,12 +90,34 @@ export default function Notifications() {
     : scope?.scope === "PROVIDER" ? "For this service"
     : scope?.scope === "CUSTOMER" ? "Personal" : undefined;
 
-  const { data, loading, error, refetch } = useQueryWithRealtime(() => notificationService.list(scope), "notifications", [scopeKey]);
+  const { data, loading, error, refetch } = useQueryWithRealtime(
+    () => notificationService.list(scope),
+    "notifications",
+    [scopeKey],
+    user.id ? `user_id=eq.${user.id}` : undefined,
+  );
   const [items, setItems] = useState<AppNotification[]>([]);
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
 
+  // Ids marked read locally whose UPDATE may not have committed yet. A
+  // realtime refetch triggered by ANY notifications change (an unrelated
+  // insert is enough — a DB trigger fires on every one) used to land between
+  // the optimistic flip and the commit, and `setItems(data)` would blind-
+  // overwrite the row back to unread. Merging against this set keeps the tap
+  // sticky; entries are dropped once the server agrees.
+  const locallyReadRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    if (data) setItems(data);
+    if (!data) return;
+    setItems(
+      data.map((n) => {
+        if (n.isRead) {
+          locallyReadRef.current.delete(n.id); // server caught up
+          return n;
+        }
+        return locallyReadRef.current.has(n.id) ? { ...n, isRead: true } : n;
+      }),
+    );
   }, [data]);
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
@@ -104,9 +126,19 @@ export default function Notifications() {
   const hasUnread = items.some((n) => !n.isRead);
 
   function open(n: AppNotification) {
-    if (!n.isRead) decrementUnread();
-    setItems((p) => p.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
-    void notificationService.markRead(n.id);
+    if (!n.isRead) {
+      decrementUnread();
+      locallyReadRef.current.add(n.id);
+      setItems((p) => p.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
+      notificationService.markRead(n.id).catch(() => {
+        // Persisting failed — undo the optimistic read rather than leave the
+        // row looking read forever against a server that still says unread.
+        locallyReadRef.current.delete(n.id);
+        setItems((p) => p.map((x) => (x.id === n.id ? { ...x, isRead: false } : x)));
+        refetch();
+        showToast("Couldn't mark as read — try again");
+      });
+    }
     if (n.deepLink) nav(n.deepLink);
   }
 
@@ -145,9 +177,15 @@ export default function Notifications() {
               className="tiny semi"
               style={{ color: "var(--brand-700)" }}
               onClick={() => {
+                const unreadIds = items.filter((n) => !n.isRead).map((n) => n.id);
+                unreadIds.forEach((id) => locallyReadRef.current.add(id));
                 setItems((p) => p.map((n) => ({ ...n, isRead: true })));
                 markAllRead();
-                void notificationService.markAllRead(scope);
+                notificationService.markAllRead(scope).catch(() => {
+                  unreadIds.forEach((id) => locallyReadRef.current.delete(id));
+                  refetch();
+                  showToast("Couldn't mark all as read — try again");
+                });
               }}
             >
               Mark all read

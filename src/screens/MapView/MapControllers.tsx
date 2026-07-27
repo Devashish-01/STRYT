@@ -64,9 +64,9 @@ export function RecenterButton({ radiusKm }: { radiusKm: number }) {
 
   return (
     <button
-      className="icon-btn map-glass-panel"
+      type="button"
+      className="icon-btn map-glass-panel map-fab-recenter"
       title={t("map_recenter_title")}
-      style={{ position: "absolute", bottom: "calc(var(--nav-h) + 68px + var(--safe-area-bottom))", right: 16, zIndex: 1000 }}
       onClick={() => {
         nativeGeolocation.getCurrentPosition(
           async (pos) => {
