@@ -1,5 +1,16 @@
 -- ============================================================
--- 20260851 — Business & Provider password recovery (backup Q&A)
+-- 20260856 — Business & Provider password recovery (backup Q&A)
+--
+-- APPLIED TO PRODUCTION 2026-07-27 as `entity_password_recovery_a_schema_helpers`
+-- + `entity_password_recovery_b_rpcs`.
+--
+-- ⚠️ HISTORY: this file was committed (as 20260851) but NOT applied, while the
+-- client already depended on it. PinEntrySheet's first-time setup path defers
+-- the password write entirely to setup_entity_password_with_recovery(), so
+-- until this was applied **no owner could set a business or provider password
+-- at all** — the RPC 404'd and the password was never written. Renumbered from
+-- 20260851 (which collided with 20260851_home_delivery_toggle_and_eta.sql) to
+-- reflect true apply order. See docs: a migration file is not proof it ran.
 --
 -- Adds optional backup reset questions alongside the entity passwords
 -- introduced in 20260850_entity_passwords.sql. Answers are normalized

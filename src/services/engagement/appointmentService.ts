@@ -628,6 +628,7 @@ export const appointmentService = {
     packageId?: string;
     packageName?: string;
     packagePrice?: number;
+    partySize?: number;
   }): Promise<AppointmentRecord> {
     const uid = await currentUserId();
     if (!uid) throw new Error("Sign in required to add a walk-in booking.");
@@ -650,13 +651,27 @@ export const appointmentService = {
           p_package_id: payload.packageId ?? undefined,
           p_package_name: payload.packageName ?? undefined,
           p_package_price: payload.packagePrice ?? undefined,
-        });
+          p_party_size: payload.partySize ?? undefined,
+        } as any);
         if (error) throw error;
         const record = rowToRecord(data);
         upsertLocal(record);
         return record;
       } catch (err: any) {
-        throw new Error(err?.message || "Couldn't add the walk-in booking. Please try again.");
+        const msg: string = err?.message || "";
+        // Same capacity-guard mapping as create() — a walk-in goes through the
+        // identical trg_enforce_slot_capacity trigger, so it can hit the same
+        // errors (e.g. an owner double-booking a slot a customer already took).
+        if (/SLOT_FULL_OVERALL/i.test(msg)) {
+          throw new Error("This time is fully booked across your services. Pick another slot.");
+        }
+        if (/SLOT_FULL/i.test(msg)) {
+          throw new Error("That slot is already full. Pick another time.");
+        }
+        if (/PARTY_SIZE_TOO_LARGE/i.test(msg)) {
+          throw new Error("That's more spots than this slot allows. Reduce the party size.");
+        }
+        throw new Error(msg || "Couldn't add the walk-in booking. Please try again.");
       }
     }
 
@@ -674,6 +689,7 @@ export const appointmentService = {
       packageId: payload.packageId,
       packageName: payload.packageName,
       packagePrice: payload.packagePrice,
+      partySize: payload.partySize ?? 1,
       status: "ACCEPTED",
       isWalkIn: true,
       createdAtISO: new Date().toISOString(),

@@ -208,16 +208,6 @@ export const deliveryService = {
     };
   },
 
-  /** Create/reuse a public tracking token for the delivery's appointment. */
-  async generateTrackingToken(appointmentId: string): Promise<string> {
-    const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("appointment_create_tracking_token", {
-      p_appointment_id: appointmentId,
-    });
-    if (error) throw error;
-    return data as string;
-  },
-
   /** Agent accepts the whole run at once, persisting the client-computed nearest-neighbor
    *  stop order in the same round trip. There is no per-stop accept — this is the only
    *  way any stop in the batch becomes workable. */

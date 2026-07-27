@@ -345,8 +345,17 @@ and takes `pg_advisory_xact_lock` because a counting check (unlike a unique inde
 Everything defaults to 1, reproducing the old one-per-slot rule exactly. Providers are always capacity-1.
 `generateWorkingSlots(...)` takes optional capacity opts; **omit them and it behaves exactly as before**.
 
-⚠️ **A migration file in `supabase/migrations/` is NOT proof it ran.** `20260848` sat committed and
-unapplied long enough to break every booking in production. Verify with `list_migrations` (Supabase
-MCP) against the DB before assuming schema state. Note also that widening a function's `RETURNS TABLE`
-requires `DROP FUNCTION` first — `CREATE OR REPLACE` rejects a return-type change.
+⚠️ **A migration file in `supabase/migrations/` is NOT proof it ran.** `20260848` and `20260851`
+(entity password recovery) both sat committed and unapplied long enough to break booking and password
+setup in production, respectively. Verify with `list_migrations` (Supabase MCP) against the DB before
+assuming schema state. Note also that widening a function's `RETURNS TABLE` requires `DROP FUNCTION`
+first — `CREATE OR REPLACE` rejects a return-type change. **`npm run check-migrations`**
+(`scripts/check-migration-drift.mjs`, needs `DATABASE_URL`) scans every migration file for the
+functions/tables it creates and confirms they exist in the live DB — run it after any migration work.
+
+⚠️ **Before rewriting an existing RPC, read its current definition first** (`pg_get_functiondef` via
+MCP, or the migration that last defined it) — don't reconstruct from memory/summary. A same-session
+rewrite of `reschedule_appointment` this way silently dropped four guards (`is_walk_in` rejection, an
+optimistic-concurrency check, the "Rescheduled" note, notes truncation) that had to be restored in a
+follow-up migration once caught by a functional test.
 *When you change structure, update the section above and bump this line.*

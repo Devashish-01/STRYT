@@ -99,6 +99,18 @@ export default function BusinessAppointments() {
     return haversineKm(b.lat, b.lng, apt.deliveryLat, apt.deliveryLng);
   }
 
+  /** Mirrors the server's resolve_slot_capacity: a catalog item's own
+   *  capacity, falling back to the business default. Used to show real
+   *  fill-rate ("3/5 booked") on the owner's day timetable, which mixes every
+   *  service together and so can't use one blanket capacity value the way
+   *  the single-service customer booking sheet does. */
+  function resolveSlotCapacity(packageId: string | null): number {
+    const fallback = Math.max(1, b?.defaultSlotCapacity ?? 1);
+    if (!packageId) return fallback;
+    const item = (b?.catalog ?? []).find((c) => c.id === packageId);
+    return Math.max(1, item?.slotCapacity ?? fallback);
+  }
+
   async function handleUpdateStatus() {
     if (!activeApt || !actionType) return;
     setUpdatingStatus(true);
@@ -252,7 +264,7 @@ export default function BusinessAppointments() {
     }
   }
 
-  async function confirmWalkIn(opts: { name: string; phone: string; packageId?: string; packageName?: string; packagePrice?: number }) {
+  async function confirmWalkIn(opts: { name: string; phone: string; packageId?: string; packageName?: string; packagePrice?: number; partySize?: number }) {
     if (!walkInModal) return;
     setWalkInSubmitting(true);
     try {
@@ -276,6 +288,7 @@ export default function BusinessAppointments() {
         packageId: opts.packageId,
         packageName: opts.packageName,
         packagePrice: opts.packagePrice,
+        partySize: opts.partySize,
       });
       showToast("Walk-in booking added");
       setWalkInModal(null);
@@ -522,7 +535,10 @@ export default function BusinessAppointments() {
     .filter((a) => a.fulfillmentType === "DELIVERY" && (a.status === "ACCEPTED" || a.status === "COMPLETED"))
     .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
 
-  const packageOptions = (b?.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }));
+  const packageOptions = (b?.catalog ?? []).map((item) => ({
+    id: item.id, name: item.name, price: item.salePrice ?? item.price,
+    slotCapacity: item.slotCapacity, maxPartySize: item.maxPartySize,
+  }));
 
   return (
     <div className="screen with-nav">
@@ -578,6 +594,7 @@ export default function BusinessAppointments() {
               onAddWalkIn={(d, t) => setWalkInModal({ date: d, timeLabel: t })}
               onBlockWholeDay={() => setBlockModal({ date: selectedDate, timeLabel: null })}
               onUnblockWholeDay={unblock}
+              resolveCapacity={resolveSlotCapacity}
             />
           </div>
         )}
@@ -824,6 +841,7 @@ export default function BusinessAppointments() {
           date={walkInModal.date}
           timeLabel={walkInModal.timeLabel}
           packages={packageOptions}
+          defaultCapacity={b?.defaultSlotCapacity ?? 1}
           submitting={walkInSubmitting}
           onConfirm={confirmWalkIn}
           onClose={() => setWalkInModal(null)}

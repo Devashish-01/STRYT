@@ -18,7 +18,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   const { id = "" } = useParams();
   const { showToast } = useApp();
   const service = serviceFor(kind);
-  const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[] } | undefined>(
+  const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[]; defaultSlotCapacity?: number } | undefined>(
     () => (kind === "business" ? businessService.get(id) : providerService.get(id)),
     [id],
     kind === "business" ? `business:${id}` : `provider:${id}`
@@ -118,6 +118,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
           kind={kind}
           targetId={id}
           item={editing}
+          businessDefaultCapacity={kind === "business" ? entity.defaultSlotCapacity : undefined}
           onClose={() => { setCreating(false); setEditing(null); }}
           onSaved={() => { setCreating(false); setEditing(null); refetch(); }}
         />
@@ -127,11 +128,15 @@ export function CatalogManager({ kind }: { kind: Kind }) {
 }
 
 export function ItemEditor({
-  kind, targetId, item, onClose, onSaved,
+  kind, targetId, item, businessDefaultCapacity, onClose, onSaved,
 }: {
   kind: Kind;
   targetId: string;
   item: CatalogItem | null;
+  /** The business's fallback bookings-per-slot, shown in the placeholder so
+   *  "blank" has a concrete meaning instead of a generic "business default".
+   *  Undefined for providers — see the gating note below. */
+  businessDefaultCapacity?: number;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -187,13 +192,19 @@ export function ItemEditor({
         isVeg: isFood ? isVeg : null,
         inventoryType: invType,
         quantity: finiteQty,
-        slotCapacity: slotCap.trim() ? Math.max(1, Number(slotCap) || 1) : null,
-        // Party size can never exceed the slot's own capacity, so clamp rather
-        // than let the server reject a combination the owner just typed.
-        maxPartySize: Math.max(
-          1,
-          Math.min(Number(maxParty) || 1, slotCap.trim() ? Math.max(1, Number(slotCap) || 1) : Number(maxParty) || 1),
-        ),
+        // Capacity is a business-only concept — providers are solo operators
+        // with no concurrency to configure, and resolve_slot_capacity ignores
+        // these columns for provider targets anyway. Omitting them for a
+        // provider keeps the UI honest about what it actually controls.
+        ...(kind === "business" ? {
+          slotCapacity: slotCap.trim() ? Math.max(1, Number(slotCap) || 1) : null,
+          // Party size can never exceed the slot's own capacity, so clamp
+          // rather than let the server reject a combination the owner just typed.
+          maxPartySize: Math.max(
+            1,
+            Math.min(Number(maxParty) || 1, slotCap.trim() ? Math.max(1, Number(slotCap) || 1) : Number(maxParty) || 1),
+          ),
+        } : {}),
         // Finite items track availability by count: restocking above zero makes
         // it available again, dropping to zero hides it. Infinite items keep
         // whatever manual availability the row already had.
@@ -264,31 +275,40 @@ export function ItemEditor({
 
           {/* Concurrency — how many of THIS service can run at the same time.
               Separate from stock: 3 chairs is a capacity of 3 forever, not 3
-              units that sell out. Blank inherits the business default. */}
-          <div className="field">
-            <label>Bookings at the same time</label>
-            <div className="row gap-10">
-              <input
-                className="input grow"
-                inputMode="numeric"
-                value={slotCap}
-                onChange={(e) => setSlotCap(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                placeholder="Business default"
-              />
-              <input
-                className="input grow"
-                inputMode="numeric"
-                value={maxParty}
-                onChange={(e) => setMaxParty(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                placeholder="Spots per booking"
-              />
+              units that sell out. Blank inherits the business default.
+              Business-only: providers are solo operators with no concurrency
+              to configure, and the server ignores these fields for them. */}
+          {kind === "business" && (
+            <div className="field">
+              <label>Bookings at the same time</label>
+              <div className="row gap-10">
+                <input
+                  className="input grow"
+                  inputMode="numeric"
+                  value={slotCap}
+                  onChange={(e) => setSlotCap(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                  placeholder={`Business default${businessDefaultCapacity ? ` (${businessDefaultCapacity})` : ""}`}
+                />
+                <input
+                  className="input grow"
+                  inputMode="numeric"
+                  value={maxParty}
+                  onChange={(e) => setMaxParty(e.target.value.replace(/\D/g, "").slice(0, 3))}
+                  placeholder="Spots per booking"
+                />
+              </div>
+              <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
+                Left: how many customers you can serve at one time slot (e.g. 3 chairs → 3).
+                {" "}
+                {slotCap.trim()
+                  ? "This overrides your business default for this service only."
+                  : businessDefaultCapacity
+                    ? `Blank = uses your business default of ${businessDefaultCapacity}.`
+                    : "Blank = uses your business default (set in Business → Settings)."}
+                {" "}Right: how many spots one customer may take in a single booking.
+              </p>
             </div>
-            <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
-              Left: how many customers you can serve at one time slot (e.g. 3 chairs → 3).
-              Right: how many spots one customer may take in a single booking.
-              Leave the first blank to use your business default.
-            </p>
-          </div>
+          )}
 
           <div className="field">
             <label>Is this a food item?</label>

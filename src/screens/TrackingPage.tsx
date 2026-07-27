@@ -44,6 +44,13 @@ export default function TrackingPage() {
   const [stopsBefore, setStopsBefore] = useState<number | null>(null);
   const [destLat, setDestLat] = useState<number | null>(null);
   const [destLng, setDestLng] = useState<number | null>(null);
+  // Deliveries never carry live coordinates (product decision — customers get
+  // progress only, not the agent's location). get_tracking's agreement branch
+  // always returns stops_before as a literal SQL null; only the delivery
+  // branch computes a real count (possibly 0), so this is a reliable signal
+  // for "this token is a delivery, don't bother mounting a map that will stay
+  // permanently blank."
+  const [isDelivery, setIsDelivery] = useState(false);
   const prevPos = useRef<{ lat: number; lng: number; at: number } | null>(null);
   const speedKmh = useRef(15); // smoothed estimate, seeded with a sane city-riding default
 
@@ -75,20 +82,22 @@ export default function TrackingPage() {
       setStopsBefore(row.stops_before ?? null);
       setDestLat(row.dest_lat ?? null);
       setDestLng(row.dest_lng ?? null);
+      setIsDelivery(row.stops_before !== null && row.stops_before !== undefined);
       setLoading(false);
     })();
   }, [token]);
 
-  // Init Leaflet map
+  // Init Leaflet map — skipped entirely for deliveries, which never carry
+  // coordinates, so a map here would just stay permanently blank.
   useEffect(() => {
-    if (loading || expired || !mapRef.current || leafletMap.current) return;
+    if (loading || expired || isDelivery || !mapRef.current || leafletMap.current) return;
     const map = L.map(mapRef.current, { zoomControl: false }).setView([20.5937, 78.9629], 14);
     L.tileLayer(
       "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
       { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' }
     ).addTo(map);
     leafletMap.current = map;
-  }, [loading, expired]);
+  }, [loading, expired, isDelivery]);
 
   // Update marker when position changes
   useEffect(() => {
@@ -170,6 +179,8 @@ export default function TrackingPage() {
   }
 
   const statusInfo = STATUS_LABELS[liveStatus] ?? { emoji: "📍", label: liveStatus };
+  const DELIVERY_STEPS = ["LEAVING", "ON_THE_WAY", "ARRIVED", "DONE"];
+  const stepIdx = Math.max(0, DELIVERY_STEPS.indexOf(liveStatus));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
@@ -183,7 +194,7 @@ export default function TrackingPage() {
           </svg>
           <span style={{ fontWeight: 800, fontSize: 18, color: "var(--brand-700)", letterSpacing: 0.5 }}>STRYT</span>
         </span>
-        <span style={{ fontSize: 12, color: "var(--ink-400)" }}>Live tracking</span>
+        <span style={{ fontSize: 12, color: "var(--ink-400)" }}>{isDelivery ? "Delivery progress" : "Live tracking"}</span>
       </div>
 
       {/* Provider bar */}
@@ -192,18 +203,45 @@ export default function TrackingPage() {
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{providerName} is {statusInfo.label.toLowerCase()}</div>
           <div style={{ fontSize: 12, color: "var(--ink-500)" }}>
-            {stopsBefore != null && stopsBefore > 0 ? `${stopsBefore} ${stopsBefore === 1 ? "stop" : "stops"} before yours` : "Updates every 15s"}
+            {stopsBefore != null && stopsBefore > 0 ? `${stopsBefore} ${stopsBefore === 1 ? "delivery" : "deliveries"} before yours` : "Updates every 15s"}
           </div>
         </div>
         <span style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 20 }}>{statusInfo.emoji} {statusInfo.label}</span>
       </div>
 
-      {/* Map */}
-      <div ref={mapRef} style={{ flex: 1 }} />
+      {isDelivery ? (
+        // Progress only — deliberate, no live location shared with the
+        // customer. A map here would just be a permanently blank grey box, so
+        // it's replaced with a status stepper instead.
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: "0 32px" }}>
+          <div style={{ width: "100%", maxWidth: 320 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              {DELIVERY_STEPS.map((s, i) => (
+                <div key={s} style={{ display: "flex", alignItems: "center", flex: i < DELIVERY_STEPS.length - 1 ? 1 : "0 0 auto" }}>
+                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: i <= stepIdx ? "var(--green-500)" : "var(--ink-200)", flexShrink: 0 }} />
+                  {i < DELIVERY_STEPS.length - 1 && (
+                    <span style={{ flex: 1, height: 2, background: i < stepIdx ? "var(--green-500)" : "var(--ink-200)" }} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ textAlign: "center", color: "var(--ink-500)", fontSize: 13, lineHeight: 1.6 }}>
+            Live location isn't shared for deliveries — this page shows progress only.
+            {liveStatus === "ARRIVED" && " Ask your delivery agent for the handoff code to confirm."}
+          </div>
+        </div>
+      ) : (
+        <div ref={mapRef} style={{ flex: 1 }} />
+      )}
 
       {/* Footer */}
       <div style={{ height: 50, background: "var(--surface)", borderTop: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", flexShrink: 0 }}>
-        <span style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 20 }}>{eta}</span>
+        {isDelivery ? (
+          <span style={{ fontSize: 12, color: "var(--ink-400)" }}>{stopsBefore === 0 ? "Next stop" : "Progress updates every 15s"}</span>
+        ) : (
+          <span style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 20 }}>{eta}</span>
+        )}
         <span style={{ fontSize: 11, color: "var(--ink-400)" }}>Powered by STRYT</span>
       </div>
     </div>

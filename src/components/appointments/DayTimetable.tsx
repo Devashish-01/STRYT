@@ -14,6 +14,13 @@ interface DayTimetableProps {
   onAddWalkIn: (date: Date, timeLabel: string) => void;
   onBlockWholeDay: () => void;
   onUnblockWholeDay: (block: BlockedSlot) => void;
+  /** Resolves a booking's real slot capacity from its package_id (catalog
+   *  item capacity, falling back to the business default) — the day view
+   *  mixes every service together, so capacity is resolved per-booking here
+   *  rather than passed as one blanket value to generateWorkingSlots (that
+   *  path is for the single-service customer booking sheet). Omit to treat
+   *  every slot as capacity 1, matching a business that hasn't set any. */
+  resolveCapacity?: (packageId: string | null) => number;
 }
 
 // Pixels per minute of the working day — a 30-min slot renders at ~46px (a
@@ -51,6 +58,7 @@ const STATUS_COLOR: Record<string, { bg: string; fg: string; border: string }> =
 export default function DayTimetable({
   date, availabilityNote, appointments, blockedSlots,
   renderAppointment, onBlockSlot, onUnblockSlot, onAddWalkIn, onBlockWholeDay, onUnblockWholeDay,
+  resolveCapacity,
 }: DayTimetableProps) {
   const isTargetToday = dateKey(date) === dateKey(new Date());
   const slots = useMemo(
@@ -62,6 +70,9 @@ export default function DayTimetable({
 
   const nowRef = useRef<HTMLDivElement>(null);
   const [expandedApt, setExpandedApt] = useState<AppointmentRecord | null>(null);
+  // A shared slot (capacity > 1) holds several bookings behind one block —
+  // this lists them so booking 2..N are reachable, not just the first.
+  const [slotList, setSlotList] = useState<AppointmentRecord[] | null>(null);
   const [blockedPopup, setBlockedPopup] = useState<BlockedSlot | null>(null);
   const [quickAction, setQuickAction] = useState<string | null>(null); // timeLabel
 
@@ -165,6 +176,11 @@ export default function DayTimetable({
               .filter((a): a is AppointmentRecord => !!a);
             const apt = slotApts[0];
             const extraCount = slotApts.length - 1;
+            // generateWorkingSlots has no per-service capacity here (this view
+            // mixes every service in one day, unlike the customer sheet), so
+            // s.capacity is always 1 — resolve the real number from the
+            // booking's own package instead.
+            const effectiveCapacity = apt ? (resolveCapacity?.(apt.packageId ?? null) ?? 1) : 1;
             const isPast = new Date(s.isoTimestamp).getTime() <= now;
             const boxStyle: CSSProperties = {
               position: "absolute", top, left: 4, right: 4, height,
@@ -185,7 +201,10 @@ export default function DayTimetable({
                     display: "flex", flexDirection: compact ? "row" : "column",
                     alignItems: compact ? "center" : "flex-start", gap: compact ? 4 : 0, justifyContent: "center",
                   }}
-                  onClick={() => setExpandedApt(apt)}
+                  // A shared slot opens a picker listing every booking; a
+                  // normal single-booking slot opens straight to the card as
+                  // before — no added tap for the common case.
+                  onClick={() => (slotApts.length > 1 ? setSlotList(slotApts) : setExpandedApt(apt))}
                 >
                   {compact ? (
                     <>
@@ -202,9 +221,12 @@ export default function DayTimetable({
                       </span>
                     </>
                   )}
-                  {/* Capacity marker so a shared slot reads as shared at a
-                      glance, not as a single booking. */}
-                  {extraCount > 0 && (
+                  {/* Fill-rate marker — shown whenever this booking's service
+                      has real capacity (>1), not just once it's actually
+                      shared, so a high-capacity slot with only 1 booking still
+                      reads as "1/5" rather than looking identical to a
+                      capacity-1 slot. */}
+                  {effectiveCapacity > 1 && (
                     <span
                       aria-hidden="true"
                       style={{
@@ -212,7 +234,7 @@ export default function DayTimetable({
                         fontSize: 8.5, fontWeight: 700, color: colors.fg, opacity: 0.75,
                       }}
                     >
-                      {slotApts.length}/{s.capacity}
+                      {slotApts.length}/{effectiveCapacity}
                     </span>
                   )}
                 </button>
@@ -246,7 +268,9 @@ export default function DayTimetable({
             // Open, bookable slot — deliberately minimal (just a faint
             // available band), tap opens the walk-in/block quick-action
             // sheet. This is what removes the old "one noisy row per empty
-            // half-hour" problem entirely.
+            // half-hour" problem entirely. No fill-rate hint here: an empty
+            // slot isn't tied to any one service yet, so there's no single
+            // capacity to resolve until it actually has a booking.
             return (
               <button
                 key={s.id}
@@ -267,6 +291,34 @@ export default function DayTimetable({
           )}
         </div>
       </div>
+
+      {/* Shared slot (capacity > 1) — pick which booking to open. */}
+      {slotList && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1150, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setSlotList(null)}>
+          <div className="card col gap-8" style={{ width: "100%", maxWidth: 360, padding: 14, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+            <div className="row between center-v" style={{ marginBottom: 2 }}>
+              <span className="bold small">{slotList.length} bookings at {slotList[0]?.timeLabel}</span>
+              <button onClick={() => setSlotList(null)}><XIcon size={16} color="var(--ink-400)" /></button>
+            </div>
+            {slotList.map((a) => {
+              const colors = STATUS_COLOR[a.status] ?? STATUS_COLOR.PENDING;
+              const needsAttention = a.status === "PENDING" || a.paymentStatus === "PENDING_CONFIRM";
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  className="row between center-v"
+                  style={{ padding: "10px 12px", borderRadius: 10, background: colors.bg, border: `1.5px solid ${needsAttention ? colors.border : "transparent"}`, textAlign: "left" }}
+                  onClick={() => { setExpandedApt(a); setSlotList(null); }}
+                >
+                  <span className="tiny semi ellipsis" style={{ color: colors.fg }}>{a.customerName}</span>
+                  <span className="tiny" style={{ color: colors.fg, opacity: 0.8 }}>{a.status === "PENDING" ? "Needs response" : a.status}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Tap a booked block — the full appointment card, unchanged, just revealed on demand. */}
       {expandedApt && (
