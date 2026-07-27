@@ -15,6 +15,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Must run before super.onCreate() — that's when Capacitor's Bridge
+        // collects registered plugins.
+        registerPlugin(BatteryOptimizationPlugin.class);
         super.onCreate(savedInstanceState);
         createNotificationChannel();
     }

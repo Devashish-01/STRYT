@@ -219,7 +219,15 @@ export const providerService = {
       row["lng"] = (coords as any)?.lng ?? null;
     }
     const { data: created, error } = await sb.from("providers").insert(row as TablesInsert<"providers">).select().maybeSingle();
-    throwIfError(error);
+    if (error) {
+      // idx_providers_one_per_user (UNIQUE on user_id) is the real boundary —
+      // this turns a missed entry point or a two-tab race into a friendly
+      // message instead of a raw driver error.
+      if (error.code === "23505" || /idx_providers_one_per_user/i.test(error.message ?? "")) {
+        throw new Error("You already have a provider profile — manage it instead of creating a new one.");
+      }
+      throwIfError(error);
+    }
     return toCamel<Provider>(created);
   },
   // Catalog — same table/shape as businessService's, scoped by provider_id

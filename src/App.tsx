@@ -11,6 +11,7 @@ import RequireScope from "./components/RequireScope";
 import ProviderAccessGuard from "./components/ProviderAccessGuard";
 import RequireDeliveryAgent from "./components/RequireDeliveryAgent";
 import PinGateSheet from "./components/PinGateSheet";
+import BatteryOptimizationSheet from "./components/BatteryOptimizationSheet";
 import RouteFallback from "./components/RouteFallback";
 import { useApp } from "./store";
 import { returnTo } from "./lib/returnTo";
@@ -709,6 +710,7 @@ export default function App() {
       {showNav && <BottomNav />}
       <UserProfileSheet />
       <PinGateSheet />
+      <BatteryOptimizationSheet />
       {toast && <div className="toast">{toast}</div>}
           </LiveShareProvider>
         </div>

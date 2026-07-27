@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabaseClient";
 import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
+import { isIgnoringBatteryOptimizations } from "@/lib/batteryOptimization";
 
 function urlBase64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -42,6 +43,17 @@ export async function registerPush(userId: string): Promise<void> {
           },
           { onConflict: "user_id,token" }
         );
+
+        // Nudge for OEM battery-optimization exemption once per install — many
+        // Android skins (MIUI, Samsung, Oppo/Vivo, OnePlus) silently suppress
+        // heads-up alerts/sound for backgrounded or locked apps unless the app
+        // is whitelisted, no matter how correctly FCM delivery is wired up.
+        // See BatteryOptimizationSheet.tsx for the prompt UI this triggers.
+        if (Capacitor.getPlatform() === "android" && localStorage.getItem("batteryPromptShown") !== "true") {
+          localStorage.setItem("batteryPromptShown", "true");
+          const ignoring = await isIgnoringBatteryOptimizations();
+          if (!ignoring) window.dispatchEvent(new CustomEvent("battery-optimization-prompt"));
+        }
       });
 
       PushNotifications.addListener("registrationError", (error) => {

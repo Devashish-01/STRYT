@@ -88,7 +88,10 @@ function getWeatherText(code: number): string {
 export default function Home() {
   const nav = useNavigate();
   const { t } = useI18n();
-  const { area: rawArea, chatUnread, user } = useApp();
+  const { area: rawArea, chatUnread, user, ownedBusinessIds } = useApp();
+  // One business per owner is a hard DB constraint — don't invite someone who
+  // already manages a business (owned or delegated) to list a brand-new one.
+  const hasAnyBusiness = ownedBusinessIds.length > 0;
   const requireAuth = useRequireAuth();
   const area = rawArea || t("neighborhood_placeholder");
 
@@ -521,7 +524,9 @@ export default function Home() {
                   {t("first_to_list_desc")}
                 </p>
                 <div className="row gap-10" style={{ marginTop: 6 }}>
-                  <button className="btn btn-primary btn-sm" style={{ borderRadius: 12, padding: "8px 16px" }} onClick={() => nav("/onboard/business")}>{t("list_spot")}</button>
+                  {!hasAnyBusiness && (
+                    <button className="btn btn-primary btn-sm" style={{ borderRadius: 12, padding: "8px 16px" }} onClick={() => nav("/onboard/business")}>{t("list_spot")}</button>
+                  )}
                   <button className="btn btn-ghost btn-sm" style={{ borderRadius: 12, padding: "8px 16px" }} onClick={requireAuth(() => nav("/ask"), "Sign in to ask your street")}>{t("post_request")}</button>
                 </div>
               </div>
@@ -772,7 +777,9 @@ export default function Home() {
                 <div className="bold" style={{ fontSize: 18 }}>{t("street_getting_started")}</div>
                 <p className="small muted" style={{ maxWidth: 320, lineHeight: 1.5 }}>{t("first_to_list_desc")}</p>
                 <div className="row gap-10" style={{ marginTop: 4 }}>
-                  <button className="btn btn-primary btn-sm" onClick={() => nav("/onboard/business")}>{t("list_spot")}</button>
+                  {!hasAnyBusiness && (
+                    <button className="btn btn-primary btn-sm" onClick={() => nav("/onboard/business")}>{t("list_spot")}</button>
+                  )}
                   <button className="btn btn-ghost btn-sm" onClick={requireAuth(() => nav("/ask"), "Sign in to ask your street")}>{t("post_request")}</button>
                 </div>
               </div>

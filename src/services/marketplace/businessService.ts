@@ -623,7 +623,16 @@ export const businessService = {
       row.address_line1 = (me as any)?.area ?? null;
     }
     const { data: created, error } = await sb.from("businesses").insert(row).select().maybeSingle();
-    throwIfError(error);
+    if (error) {
+      // idx_businesses_one_per_owner (UNIQUE on owner_user_id) is the real
+      // boundary — the UI hides "Add a business" once you own one, but this
+      // catches any missed entry point or a genuine two-tab race and turns
+      // the raw driver error into something a user can actually act on.
+      if (error.code === "23505" || /idx_businesses_one_per_owner/i.test(error.message ?? "")) {
+        throw new Error("You already have a business listed — manage it instead of creating a new one.");
+      }
+      throwIfError(error);
+    }
     return toCamel<Business>(created);
   },
 
