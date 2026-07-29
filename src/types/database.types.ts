@@ -1,7 +1,3 @@
-// AUTO-GENERATED from the live Supabase schema. Do not edit by hand.
-// Regenerate after any migration:  npx supabase gen types typescript --project-id gnswxlfmcwyhmzlfipql > src/types/database.types.ts
-// (or via the Supabase MCP generate_typescript_types tool).
-
 export type Json =
   | string
   | number
@@ -61,6 +57,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      admin_login_resolve_attempts: {
+        Row: {
+          fail_count: number
+          last_attempt_at: string
+          locked_until: string | null
+          login_id: string
+        }
+        Insert: {
+          fail_count?: number
+          last_attempt_at?: string
+          locked_until?: string | null
+          login_id: string
+        }
+        Update: {
+          fail_count?: number
+          last_attempt_at?: string
+          locked_until?: string | null
+          login_id?: string
+        }
+        Relationships: []
       }
       agreements: {
         Row: {
@@ -169,6 +186,124 @@ export type Database = {
           },
         ]
       }
+      appointment_deliveries: {
+        Row: {
+          agent_user_id: string | null
+          appointment_id: string
+          batch_id: string | null
+          business_id: string
+          created_at: string
+          delivered_at: string | null
+          handoff_code: string | null
+          handoff_verified: boolean
+          id: string
+          lat: number | null
+          live_status: string | null
+          lng: number | null
+          status: string
+          stop_order: number | null
+        }
+        Insert: {
+          agent_user_id?: string | null
+          appointment_id: string
+          batch_id?: string | null
+          business_id: string
+          created_at?: string
+          delivered_at?: string | null
+          handoff_code?: string | null
+          handoff_verified?: boolean
+          id?: string
+          lat?: number | null
+          live_status?: string | null
+          lng?: number | null
+          status?: string
+          stop_order?: number | null
+        }
+        Update: {
+          agent_user_id?: string | null
+          appointment_id?: string
+          batch_id?: string | null
+          business_id?: string
+          created_at?: string
+          delivered_at?: string | null
+          handoff_code?: string | null
+          handoff_verified?: boolean
+          id?: string
+          lat?: number | null
+          live_status?: string | null
+          lng?: number | null
+          status?: string
+          stop_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_deliveries_agent_user_id_fkey"
+            columns: ["agent_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_deliveries_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_deliveries_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_deliveries_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      appointment_items: {
+        Row: {
+          appointment_id: string
+          catalog_item_id: string | null
+          created_at: string
+          id: string
+          item_name: string
+          quantity: number
+          unit_price: number
+        }
+        Insert: {
+          appointment_id: string
+          catalog_item_id?: string | null
+          created_at?: string
+          id?: string
+          item_name: string
+          quantity: number
+          unit_price?: number
+        }
+        Update: {
+          appointment_id?: string
+          catalog_item_id?: string | null
+          created_at?: string
+          id?: string
+          item_name?: string
+          quantity?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointment_items_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       appointments: {
         Row: {
           cancelled_by: string | null
@@ -177,17 +312,24 @@ export type Database = {
           customer_name: string | null
           customer_user_id: string
           date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
           id: string
           is_walk_in: boolean
           notes: string | null
           package_id: string | null
           package_name: string | null
           package_price: number | null
+          party_size: number
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: string
           photo_url: string | null
+          requested_delivery_window: string | null
           rescheduled_from: string | null
           response_note: string | null
           scheduled_for: string
@@ -206,17 +348,24 @@ export type Database = {
           customer_name?: string | null
           customer_user_id: string
           date_label?: string | null
+          delivery_address_line?: string | null
+          delivery_eta_text?: string | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
+          fulfillment_type?: string
           id?: string
           is_walk_in?: boolean
           notes?: string | null
           package_id?: string | null
           package_name?: string | null
           package_price?: number | null
+          party_size?: number
           payment_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
           payment_status?: string
           photo_url?: string | null
+          requested_delivery_window?: string | null
           rescheduled_from?: string | null
           response_note?: string | null
           scheduled_for: string
@@ -235,17 +384,24 @@ export type Database = {
           customer_name?: string | null
           customer_user_id?: string
           date_label?: string | null
+          delivery_address_line?: string | null
+          delivery_eta_text?: string | null
+          delivery_lat?: number | null
+          delivery_lng?: number | null
+          fulfillment_type?: string
           id?: string
           is_walk_in?: boolean
           notes?: string | null
           package_id?: string | null
           package_name?: string | null
           package_price?: number | null
+          party_size?: number
           payment_amount?: number | null
           payment_method?: string | null
           payment_reference?: string | null
           payment_status?: string
           photo_url?: string | null
+          requested_delivery_window?: string | null
           rescheduled_from?: string | null
           response_note?: string | null
           scheduled_for?: string
@@ -427,6 +583,7 @@ export type Database = {
       }
       business_access_sessions: {
         Row: {
+          access_level: string
           business_id: string
           created_ip: string | null
           decided_at: string | null
@@ -434,9 +591,11 @@ export type Database = {
           grantee_user_id: string
           id: string
           requested_at: string
+          scopes: string[]
           status: string
         }
         Insert: {
+          access_level?: string
           business_id: string
           created_ip?: string | null
           decided_at?: string | null
@@ -444,9 +603,11 @@ export type Database = {
           grantee_user_id: string
           id?: string
           requested_at?: string
+          scopes?: string[]
           status?: string
         }
         Update: {
+          access_level?: string
           business_id?: string
           created_ip?: string | null
           decided_at?: string | null
@@ -454,6 +615,7 @@ export type Database = {
           grantee_user_id?: string
           id?: string
           requested_at?: string
+          scopes?: string[]
           status?: string
         }
         Relationships: [
@@ -746,8 +908,11 @@ export type Database = {
           city: string | null
           cover_image: string | null
           created_at: string | null
+          default_slot_capacity: number
           deleted_at: string | null
+          delivery_enabled: boolean
           delivery_time: string | null
+          deposit_percent: number
           description: string | null
           directions_count: number | null
           disabled_at: string | null
@@ -766,6 +931,8 @@ export type Database = {
           lead_credits: number
           lng: number | null
           location_public: boolean | null
+          location_review_status: string
+          max_concurrent_bookings: number | null
           name: string
           offer_text: string | null
           opening_date: string | null
@@ -773,6 +940,9 @@ export type Database = {
           owner_user_id: string | null
           pan_doc_url: string | null
           payment_timing: string
+          pending_lat: number | null
+          pending_lng: number | null
+          pending_location_requested_at: string | null
           phone: string | null
           pincode: string | null
           price_for_two: number | null
@@ -783,6 +953,7 @@ export type Database = {
           show_email_publicly: boolean | null
           show_phone_publicly: boolean | null
           slug: string | null
+          special_hours: Json | null
           status: Database["public"]["Enums"]["entity_status"] | null
           sub_category: string | null
           tags: string[] | null
@@ -810,8 +981,11 @@ export type Database = {
           city?: string | null
           cover_image?: string | null
           created_at?: string | null
+          default_slot_capacity?: number
           deleted_at?: string | null
+          delivery_enabled?: boolean
           delivery_time?: string | null
+          deposit_percent?: number
           description?: string | null
           directions_count?: number | null
           disabled_at?: string | null
@@ -830,6 +1004,8 @@ export type Database = {
           lead_credits?: number
           lng?: number | null
           location_public?: boolean | null
+          location_review_status?: string
+          max_concurrent_bookings?: number | null
           name: string
           offer_text?: string | null
           opening_date?: string | null
@@ -837,6 +1013,9 @@ export type Database = {
           owner_user_id?: string | null
           pan_doc_url?: string | null
           payment_timing?: string
+          pending_lat?: number | null
+          pending_lng?: number | null
+          pending_location_requested_at?: string | null
           phone?: string | null
           pincode?: string | null
           price_for_two?: number | null
@@ -847,6 +1026,7 @@ export type Database = {
           show_email_publicly?: boolean | null
           show_phone_publicly?: boolean | null
           slug?: string | null
+          special_hours?: Json | null
           status?: Database["public"]["Enums"]["entity_status"] | null
           sub_category?: string | null
           tags?: string[] | null
@@ -874,8 +1054,11 @@ export type Database = {
           city?: string | null
           cover_image?: string | null
           created_at?: string | null
+          default_slot_capacity?: number
           deleted_at?: string | null
+          delivery_enabled?: boolean
           delivery_time?: string | null
+          deposit_percent?: number
           description?: string | null
           directions_count?: number | null
           disabled_at?: string | null
@@ -894,6 +1077,8 @@ export type Database = {
           lead_credits?: number
           lng?: number | null
           location_public?: boolean | null
+          location_review_status?: string
+          max_concurrent_bookings?: number | null
           name?: string
           offer_text?: string | null
           opening_date?: string | null
@@ -901,6 +1086,9 @@ export type Database = {
           owner_user_id?: string | null
           pan_doc_url?: string | null
           payment_timing?: string
+          pending_lat?: number | null
+          pending_lng?: number | null
+          pending_location_requested_at?: string | null
           phone?: string | null
           pincode?: string | null
           price_for_two?: number | null
@@ -911,6 +1099,7 @@ export type Database = {
           show_email_publicly?: boolean | null
           show_phone_publicly?: boolean | null
           slug?: string | null
+          special_hours?: Json | null
           status?: Database["public"]["Enums"]["entity_status"] | null
           sub_category?: string | null
           tags?: string[] | null
@@ -951,11 +1140,13 @@ export type Database = {
           inventory_type: string
           is_food: boolean
           is_veg: boolean | null
+          max_party_size: number
           name: string
           price: number
           provider_id: string | null
           quantity: number | null
           sale_price: number | null
+          slot_capacity: number | null
           sort_order: number | null
           stock_status: Database["public"]["Enums"]["stock_status"] | null
         }
@@ -968,11 +1159,13 @@ export type Database = {
           inventory_type?: string
           is_food?: boolean
           is_veg?: boolean | null
+          max_party_size?: number
           name: string
           price: number
           provider_id?: string | null
           quantity?: number | null
           sale_price?: number | null
+          slot_capacity?: number | null
           sort_order?: number | null
           stock_status?: Database["public"]["Enums"]["stock_status"] | null
         }
@@ -985,11 +1178,13 @@ export type Database = {
           inventory_type?: string
           is_food?: boolean
           is_veg?: boolean | null
+          max_party_size?: number
           name?: string
           price?: number
           provider_id?: string | null
           quantity?: number | null
           sale_price?: number | null
+          slot_capacity?: number | null
           sort_order?: number | null
           stock_status?: Database["public"]["Enums"]["stock_status"] | null
         }
@@ -1095,6 +1290,7 @@ export type Database = {
       }
       community_posts: {
         Row: {
+          allow_comments: boolean
           area: string | null
           author_avatar: string | null
           author_name: string
@@ -1117,6 +1313,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          allow_comments?: boolean
           area?: string | null
           author_avatar?: string | null
           author_name?: string
@@ -1139,6 +1336,7 @@ export type Database = {
           type: string
         }
         Update: {
+          allow_comments?: boolean
           area?: string | null
           author_avatar?: string | null
           author_name?: string
@@ -1239,6 +1437,89 @@ export type Database = {
           },
         ]
       }
+      delivery_agent_duty: {
+        Row: {
+          on_duty: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          on_duty?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          on_duty?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_agent_duty_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_batches: {
+        Row: {
+          accepted_at: string | null
+          accuracy: number | null
+          agent_user_id: string
+          business_id: string
+          completed_at: string | null
+          created_at: string
+          heading: number | null
+          id: string
+          lat: number | null
+          lng: number | null
+          status: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accuracy?: number | null
+          agent_user_id: string
+          business_id: string
+          completed_at?: string | null
+          created_at?: string
+          heading?: number | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          status?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accuracy?: number | null
+          agent_user_id?: string
+          business_id?: string
+          completed_at?: string | null
+          created_at?: string
+          heading?: number | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_batches_agent_user_id_fkey"
+            columns: ["agent_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_batches_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emergency_contacts: {
         Row: {
           contact_user_id: string
@@ -1310,6 +1591,70 @@ export type Database = {
             columns: ["provider_id"]
             isOneToOne: false
             referencedRelation: "providers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entity_password_attempts: {
+        Row: {
+          fail_count: number
+          kind: string
+          last_attempt_at: string
+          locked_until: string | null
+          owner_user_id: string
+        }
+        Insert: {
+          fail_count?: number
+          kind: string
+          last_attempt_at?: string
+          locked_until?: string | null
+          owner_user_id: string
+        }
+        Update: {
+          fail_count?: number
+          kind?: string
+          last_attempt_at?: string
+          locked_until?: string | null
+          owner_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_password_attempts_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entity_recovery_attempts: {
+        Row: {
+          fail_count: number
+          kind: string
+          last_attempt_at: string
+          locked_until: string | null
+          owner_user_id: string
+        }
+        Insert: {
+          fail_count?: number
+          kind: string
+          last_attempt_at?: string
+          locked_until?: string | null
+          owner_user_id: string
+        }
+        Update: {
+          fail_count?: number
+          kind?: string
+          last_attempt_at?: string
+          locked_until?: string | null
+          owner_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_recovery_attempts_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1429,6 +1774,35 @@ export type Database = {
             columns: ["society_id"]
             isOneToOne: false
             referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      handoff_attempts: {
+        Row: {
+          delivery_id: string
+          fail_count: number
+          last_attempt_at: string
+          locked_until: string | null
+        }
+        Insert: {
+          delivery_id: string
+          fail_count?: number
+          last_attempt_at?: string
+          locked_until?: string | null
+        }
+        Update: {
+          delivery_id?: string
+          fail_count?: number
+          last_attempt_at?: string
+          locked_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handoff_attempts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: true
+            referencedRelation: "appointment_deliveries"
             referencedColumns: ["id"]
           },
         ]
@@ -1726,6 +2100,7 @@ export type Database = {
           entity_type: string | null
           id: string
           is_read: boolean | null
+          metadata: Json | null
           title: string
           type: string
           user_id: string
@@ -1738,6 +2113,7 @@ export type Database = {
           entity_type?: string | null
           id?: string
           is_read?: boolean | null
+          metadata?: Json | null
           title: string
           type: string
           user_id: string
@@ -1750,6 +2126,7 @@ export type Database = {
           entity_type?: string | null
           id?: string
           is_read?: boolean | null
+          metadata?: Json | null
           title?: string
           type?: string
           user_id?: string
@@ -2295,6 +2672,7 @@ export type Database = {
           category_name: string | null
           created_at: string | null
           deleted_at: string | null
+          deposit_percent: number
           disabled_at: string | null
           display_name: string
           email: string | null
@@ -2342,6 +2720,7 @@ export type Database = {
           category_name?: string | null
           created_at?: string | null
           deleted_at?: string | null
+          deposit_percent?: number
           disabled_at?: string | null
           display_name: string
           email?: string | null
@@ -2389,6 +2768,7 @@ export type Database = {
           category_name?: string | null
           created_at?: string | null
           deleted_at?: string | null
+          deposit_percent?: number
           disabled_at?: string | null
           display_name?: string
           email?: string | null
@@ -2616,6 +2996,8 @@ export type Database = {
           created_at: string | null
           id: string
           is_verified_booking: boolean
+          owner_reply: string | null
+          owner_reply_at: string | null
           ratee_id: string
           ratee_type: string
           rater_user_id: string | null
@@ -2628,6 +3010,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_verified_booking?: boolean
+          owner_reply?: string | null
+          owner_reply_at?: string | null
           ratee_id: string
           ratee_type: string
           rater_user_id?: string | null
@@ -2640,6 +3024,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_verified_booking?: boolean
+          owner_reply?: string | null
+          owner_reply_at?: string | null
           ratee_id?: string
           ratee_type?: string
           rater_user_id?: string | null
@@ -3300,21 +3686,85 @@ export type Database = {
           },
         ]
       }
+      switch_pin_attempts: {
+        Row: {
+          fail_count: number
+          last_attempt_at: string
+          locked_until: string | null
+          user_id: string
+        }
+        Insert: {
+          fail_count?: number
+          last_attempt_at?: string
+          locked_until?: string | null
+          user_id: string
+        }
+        Update: {
+          fail_count?: number
+          last_attempt_at?: string
+          locked_until?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "switch_pin_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      terms_acceptances: {
+        Row: {
+          accepted_at: string
+          id: string
+          user_agent: string | null
+          user_id: string
+          version: string
+        }
+        Insert: {
+          accepted_at?: string
+          id?: string
+          user_agent?: string | null
+          user_id: string
+          version: string
+        }
+        Update: {
+          accepted_at?: string
+          id?: string
+          user_agent?: string | null
+          user_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "terms_acceptances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tracking_tokens: {
         Row: {
-          agreement_id: string
+          agreement_id: string | null
+          appointment_id: string | null
           created_at: string | null
           expires_at: string
           id: string
         }
         Insert: {
-          agreement_id: string
+          agreement_id?: string | null
+          appointment_id?: string | null
           created_at?: string | null
           expires_at: string
           id?: string
         }
         Update: {
-          agreement_id?: string
+          agreement_id?: string | null
+          appointment_id?: string | null
           created_at?: string | null
           expires_at?: string
           id?: string
@@ -3325,6 +3775,13 @@ export type Database = {
             columns: ["agreement_id"]
             isOneToOne: false
             referencedRelation: "agreements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracking_tokens_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
             referencedColumns: ["id"]
           },
         ]
@@ -3477,6 +3934,10 @@ export type Database = {
           alias: string | null
           area: string | null
           avatar: string | null
+          business_password_hash: string | null
+          business_recovery_answer_hash: string | null
+          business_recovery_question_id: string | null
+          business_recovery_question_text: string | null
           city: string | null
           created_at: string | null
           customer_deleted_at: string | null
@@ -3488,9 +3949,18 @@ export type Database = {
           lng: number | null
           location_public: boolean | null
           name: string
+          notif_nearby_requests: boolean
+          notif_new_business: boolean
+          notif_offers: boolean
+          notif_quiet_hours: boolean
+          notif_silent: boolean
           notification_radius_km: number | null
           onboarding_completed_at: string | null
           phone: string | null
+          provider_password_hash: string | null
+          provider_recovery_answer_hash: string | null
+          provider_recovery_question_id: string | null
+          provider_recovery_question_text: string | null
           rating_avg: number | null
           rating_count: number | null
           roles: string[]
@@ -3503,6 +3973,10 @@ export type Database = {
           show_posts_publicly: boolean | null
           show_rating_publicly: boolean | null
           society_id: string | null
+          switch_pin_hash: string | null
+          terms_accepted_at: string | null
+          terms_accepted_version: string | null
+          timezone: string | null
           unit_number: string | null
         }
         Insert: {
@@ -3510,6 +3984,10 @@ export type Database = {
           alias?: string | null
           area?: string | null
           avatar?: string | null
+          business_password_hash?: string | null
+          business_recovery_answer_hash?: string | null
+          business_recovery_question_id?: string | null
+          business_recovery_question_text?: string | null
           city?: string | null
           created_at?: string | null
           customer_deleted_at?: string | null
@@ -3521,9 +3999,18 @@ export type Database = {
           lng?: number | null
           location_public?: boolean | null
           name: string
+          notif_nearby_requests?: boolean
+          notif_new_business?: boolean
+          notif_offers?: boolean
+          notif_quiet_hours?: boolean
+          notif_silent?: boolean
           notification_radius_km?: number | null
           onboarding_completed_at?: string | null
           phone?: string | null
+          provider_password_hash?: string | null
+          provider_recovery_answer_hash?: string | null
+          provider_recovery_question_id?: string | null
+          provider_recovery_question_text?: string | null
           rating_avg?: number | null
           rating_count?: number | null
           roles?: string[]
@@ -3536,6 +4023,10 @@ export type Database = {
           show_posts_publicly?: boolean | null
           show_rating_publicly?: boolean | null
           society_id?: string | null
+          switch_pin_hash?: string | null
+          terms_accepted_at?: string | null
+          terms_accepted_version?: string | null
+          timezone?: string | null
           unit_number?: string | null
         }
         Update: {
@@ -3543,6 +4034,10 @@ export type Database = {
           alias?: string | null
           area?: string | null
           avatar?: string | null
+          business_password_hash?: string | null
+          business_recovery_answer_hash?: string | null
+          business_recovery_question_id?: string | null
+          business_recovery_question_text?: string | null
           city?: string | null
           created_at?: string | null
           customer_deleted_at?: string | null
@@ -3554,9 +4049,18 @@ export type Database = {
           lng?: number | null
           location_public?: boolean | null
           name?: string
+          notif_nearby_requests?: boolean
+          notif_new_business?: boolean
+          notif_offers?: boolean
+          notif_quiet_hours?: boolean
+          notif_silent?: boolean
           notification_radius_km?: number | null
           onboarding_completed_at?: string | null
           phone?: string | null
+          provider_password_hash?: string | null
+          provider_recovery_answer_hash?: string | null
+          provider_recovery_question_id?: string | null
+          provider_recovery_question_text?: string | null
           rating_avg?: number | null
           rating_count?: number | null
           roles?: string[]
@@ -3569,6 +4073,10 @@ export type Database = {
           show_posts_publicly?: boolean | null
           show_rating_publicly?: boolean | null
           society_id?: string | null
+          switch_pin_hash?: string | null
+          terms_accepted_at?: string | null
+          terms_accepted_version?: string | null
+          timezone?: string | null
           unit_number?: string | null
         }
         Relationships: [
@@ -3663,6 +4171,10 @@ export type Database = {
       }
     }
     Functions: {
+      _normalize_recovery_answer: {
+        Args: { p_answer: string }
+        Returns: string
+      }
       _postgis_deprecate: {
         Args: { newname: string; oldname: string; version: string }
         Returns: undefined
@@ -3752,6 +4264,40 @@ export type Database = {
         Returns: unknown
       }
       _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _validate_recovery_question: {
+        Args: { p_kind: string; p_question_id: string; p_question_text: string }
+        Returns: undefined
+      }
+      _verify_entity_password: {
+        Args: { p_kind: string; p_owner_user_id: string; p_password: string }
+        Returns: boolean
+      }
+      _verify_entity_recovery_answer: {
+        Args: { p_answer: string; p_kind: string; p_owner_user_id: string }
+        Returns: boolean
+      }
+      accept_delivery_batch: {
+        Args: { p_batch_id: string; p_stop_order?: string[] }
+        Returns: {
+          accepted_at: string | null
+          accuracy: number | null
+          agent_user_id: string
+          business_id: string
+          completed_at: string | null
+          created_at: string
+          heading: number | null
+          id: string
+          lat: number | null
+          lng: number | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "delivery_batches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       accept_proposal: { Args: { p_proposal_id: string }; Returns: string }
       accept_proposal_at_price: {
         Args: { p_final_price: number; p_proposal_id: string }
@@ -3806,6 +4352,10 @@ export type Database = {
           alias: string | null
           area: string | null
           avatar: string | null
+          business_password_hash: string | null
+          business_recovery_answer_hash: string | null
+          business_recovery_question_id: string | null
+          business_recovery_question_text: string | null
           city: string | null
           created_at: string | null
           customer_deleted_at: string | null
@@ -3817,9 +4367,18 @@ export type Database = {
           lng: number | null
           location_public: boolean | null
           name: string
+          notif_nearby_requests: boolean
+          notif_new_business: boolean
+          notif_offers: boolean
+          notif_quiet_hours: boolean
+          notif_silent: boolean
           notification_radius_km: number | null
           onboarding_completed_at: string | null
           phone: string | null
+          provider_password_hash: string | null
+          provider_recovery_answer_hash: string | null
+          provider_recovery_question_id: string | null
+          provider_recovery_question_text: string | null
           rating_avg: number | null
           rating_count: number | null
           roles: string[]
@@ -3832,6 +4391,10 @@ export type Database = {
           show_posts_publicly: boolean | null
           show_rating_publicly: boolean | null
           society_id: string | null
+          switch_pin_hash: string | null
+          terms_accepted_at: string | null
+          terms_accepted_version: string | null
+          timezone: string | null
           unit_number: string | null
         }[]
         SetofOptions: {
@@ -3852,6 +4415,10 @@ export type Database = {
           alias: string | null
           area: string | null
           avatar: string | null
+          business_password_hash: string | null
+          business_recovery_answer_hash: string | null
+          business_recovery_question_id: string | null
+          business_recovery_question_text: string | null
           city: string | null
           created_at: string | null
           customer_deleted_at: string | null
@@ -3863,9 +4430,18 @@ export type Database = {
           lng: number | null
           location_public: boolean | null
           name: string
+          notif_nearby_requests: boolean
+          notif_new_business: boolean
+          notif_offers: boolean
+          notif_quiet_hours: boolean
+          notif_silent: boolean
           notification_radius_km: number | null
           onboarding_completed_at: string | null
           phone: string | null
+          provider_password_hash: string | null
+          provider_recovery_answer_hash: string | null
+          provider_recovery_question_id: string | null
+          provider_recovery_question_text: string | null
           rating_avg: number | null
           rating_count: number | null
           roles: string[]
@@ -3878,6 +4454,10 @@ export type Database = {
           show_posts_publicly: boolean | null
           show_rating_publicly: boolean | null
           society_id: string | null
+          switch_pin_hash: string | null
+          terms_accepted_at: string | null
+          terms_accepted_version: string | null
+          timezone: string | null
           unit_number: string | null
         }[]
         SetofOptions: {
@@ -3978,6 +4558,51 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      appointment_accept_with_eta: {
+        Args: { p_eta_text: string; p_id: string }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          party_size: number
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          requested_delivery_window: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       appointment_claim_payment: {
         Args: {
           p_amount?: number
@@ -3992,17 +4617,24 @@ export type Database = {
           customer_name: string | null
           customer_user_id: string
           date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
           id: string
           is_walk_in: boolean
           notes: string | null
           package_id: string | null
           package_name: string | null
           package_price: number | null
+          party_size: number
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: string
           photo_url: string | null
+          requested_delivery_window: string | null
           rescheduled_from: string | null
           response_note: string | null
           scheduled_for: string
@@ -4030,17 +4662,24 @@ export type Database = {
           customer_name: string | null
           customer_user_id: string
           date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
           id: string
           is_walk_in: boolean
           notes: string | null
           package_id: string | null
           package_name: string | null
           package_price: number | null
+          party_size: number
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: string
           photo_url: string | null
+          requested_delivery_window: string | null
           rescheduled_from: string | null
           response_note: string | null
           scheduled_for: string
@@ -4062,11 +4701,18 @@ export type Database = {
       appointment_create: {
         Args: {
           p_date_label: string
+          p_delivery_address_line?: string
+          p_delivery_lat?: number
+          p_delivery_lng?: number
+          p_fulfillment_type?: string
+          p_items?: Json
           p_notes?: string
           p_package_id?: string
           p_package_name?: string
           p_package_price?: number
+          p_party_size?: number
           p_photo_url?: string
+          p_requested_delivery_window?: string
           p_scheduled_for: string
           p_target_id: string
           p_target_type: string
@@ -4079,17 +4725,24 @@ export type Database = {
           customer_name: string | null
           customer_user_id: string
           date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
           id: string
           is_walk_in: boolean
           notes: string | null
           package_id: string | null
           package_name: string | null
           package_price: number | null
+          party_size: number
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: string
           photo_url: string | null
+          requested_delivery_window: string | null
           rescheduled_from: string | null
           response_note: string | null
           scheduled_for: string
@@ -4108,14 +4761,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      appointment_create_tracking_token: {
+        Args: { p_appointment_id: string }
+        Returns: string
+      }
       appointment_create_walk_in: {
         Args: {
           p_customer_name: string
           p_customer_phone: string
           p_date_label: string
+          p_items?: Json
           p_package_id?: string
           p_package_name?: string
           p_package_price?: number
+          p_party_size?: number
           p_scheduled_for: string
           p_target_id: string
           p_target_type: string
@@ -4128,17 +4787,76 @@ export type Database = {
           customer_name: string | null
           customer_user_id: string
           date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
           id: string
           is_walk_in: boolean
           notes: string | null
           package_id: string | null
           package_name: string | null
           package_price: number | null
+          party_size: number
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: string
           photo_url: string | null
+          requested_delivery_window: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      appointment_create_walk_in_payment: {
+        Args: {
+          p_items?: Json
+          p_method: string
+          p_package_name: string
+          p_package_price: number
+          p_reference?: string
+          p_target_id: string
+        }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          party_size: number
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          requested_delivery_window: string | null
           rescheduled_from: string | null
           response_note: string | null
           scheduled_for: string
@@ -4171,17 +4889,24 @@ export type Database = {
           customer_name: string | null
           customer_user_id: string
           date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
           id: string
           is_walk_in: boolean
           notes: string | null
           package_id: string | null
           package_name: string | null
           package_price: number | null
+          party_size: number
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: string
           photo_url: string | null
+          requested_delivery_window: string | null
           rescheduled_from: string | null
           response_note: string | null
           scheduled_for: string
@@ -4209,17 +4934,24 @@ export type Database = {
           customer_name: string | null
           customer_user_id: string
           date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
           id: string
           is_walk_in: boolean
           notes: string | null
           package_id: string | null
           package_name: string | null
           package_price: number | null
+          party_size: number
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: string
           photo_url: string | null
+          requested_delivery_window: string | null
           rescheduled_from: string | null
           response_note: string | null
           scheduled_for: string
@@ -4247,17 +4979,24 @@ export type Database = {
           customer_name: string | null
           customer_user_id: string
           date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
           id: string
           is_walk_in: boolean
           notes: string | null
           package_id: string | null
           package_name: string | null
           package_price: number | null
+          party_size: number
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: string
           photo_url: string | null
+          requested_delivery_window: string | null
           rescheduled_from: string | null
           response_note: string | null
           scheduled_for: string
@@ -4276,10 +5015,89 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      appointment_update_delivery_status: {
+        Args: {
+          p_delivery_id: string
+          p_lat?: number
+          p_lng?: number
+          p_status: string
+        }
+        Returns: {
+          agent_user_id: string | null
+          appointment_id: string
+          batch_id: string | null
+          business_id: string
+          created_at: string
+          delivered_at: string | null
+          handoff_code: string | null
+          handoff_verified: boolean
+          id: string
+          lat: number | null
+          live_status: string | null
+          lng: number | null
+          status: string
+          stop_order: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointment_deliveries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assign_delivery: {
+        Args: { p_agent_user_id: string; p_appointment_id: string }
+        Returns: {
+          agent_user_id: string | null
+          appointment_id: string
+          batch_id: string | null
+          business_id: string
+          created_at: string
+          delivered_at: string | null
+          handoff_code: string | null
+          handoff_verified: boolean
+          id: string
+          lat: number | null
+          live_status: string | null
+          lng: number | null
+          status: string
+          stop_order: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointment_deliveries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      assign_delivery_batch: {
+        Args: { p_agent_user_id: string; p_appointment_ids: string[] }
+        Returns: {
+          accepted_at: string | null
+          accuracy: number | null
+          agent_user_id: string
+          business_id: string
+          completed_at: string | null
+          created_at: string
+          heading: number | null
+          id: string
+          lat: number | null
+          lng: number | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "delivery_batches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       booked_slots: {
         Args: { p_target_id: string }
         Returns: {
+          package_id: string
           scheduled_for: string
+          used_spots: number
         }[]
       }
       bump_business_metric: {
@@ -4290,6 +5108,36 @@ export type Database = {
         Args: { p_provider_id: string }
         Returns: undefined
       }
+      business_active_deliveries: {
+        Args: { p_business_id: string }
+        Returns: {
+          agent_avatar: string
+          agent_heading: number
+          agent_lat: number
+          agent_lng: number
+          agent_name: string
+          agent_phone: string
+          agent_user_id: string
+          appointment_id: string
+          batch_id: string
+          batch_status: string
+          created_at: string
+          customer_name: string
+          date_label: string
+          delivered_at: string
+          delivery_address_line: string
+          delivery_eta_text: string
+          delivery_lat: number
+          delivery_lng: number
+          handoff_verified: boolean
+          id: string
+          live_status: string
+          scheduled_for: string
+          status: string
+          stop_order: number
+          time_label: string
+        }[]
+      }
       business_login_attempt: {
         Args: { p_login_id: string; p_password: string }
         Returns: {
@@ -4299,9 +5147,18 @@ export type Database = {
           status: string
         }[]
       }
+      business_slot_capacities: {
+        Args: { p_business_id: string }
+        Returns: {
+          max_party_size: number
+          package_id: string
+          slot_capacity: number
+        }[]
+      }
       businesses_nearby: {
         Args: {
           in_category?: string
+          in_category_ids?: string[]
           in_lat: number
           in_limit?: number
           in_lng: number
@@ -4322,8 +5179,11 @@ export type Database = {
           city: string | null
           cover_image: string | null
           created_at: string | null
+          default_slot_capacity: number
           deleted_at: string | null
+          delivery_enabled: boolean
           delivery_time: string | null
+          deposit_percent: number
           description: string | null
           directions_count: number | null
           disabled_at: string | null
@@ -4342,6 +5202,8 @@ export type Database = {
           lead_credits: number
           lng: number | null
           location_public: boolean | null
+          location_review_status: string
+          max_concurrent_bookings: number | null
           name: string
           offer_text: string | null
           opening_date: string | null
@@ -4349,6 +5211,9 @@ export type Database = {
           owner_user_id: string | null
           pan_doc_url: string | null
           payment_timing: string
+          pending_lat: number | null
+          pending_lng: number | null
+          pending_location_requested_at: string | null
           phone: string | null
           pincode: string | null
           price_for_two: number | null
@@ -4359,6 +5224,7 @@ export type Database = {
           show_email_publicly: boolean | null
           show_phone_publicly: boolean | null
           slug: string | null
+          special_hours: Json | null
           status: Database["public"]["Enums"]["entity_status"] | null
           sub_category: string | null
           tags: string[] | null
@@ -4379,12 +5245,88 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      can_comment_on_post: { Args: { p_post_id: string }; Returns: boolean }
       can_manage_business: { Args: { p_business_id: string }; Returns: boolean }
       cancel_expired_agreements: { Args: never; Returns: undefined }
       claim_first_admin: { Args: { p_login_id: string }; Returns: undefined }
+      clear_entity_password: {
+        Args: { p_current_password: string; p_kind: string }
+        Returns: undefined
+      }
+      clear_switch_pin: { Args: { p_current_pin: string }; Returns: undefined }
       close_expired_business_sessions: { Args: never; Returns: undefined }
       close_expired_requests: { Args: never; Returns: undefined }
       close_stale_queue_tokens: { Args: never; Returns: undefined }
+      community_post_delete: { Args: { p_id: string }; Returns: undefined }
+      community_post_set_resolved: {
+        Args: { p_id: string; p_resolved: boolean }
+        Returns: {
+          allow_comments: boolean
+          area: string | null
+          author_avatar: string | null
+          author_name: string
+          author_ref_id: string | null
+          author_type: string
+          author_user_id: string | null
+          body: string | null
+          comments_count: number | null
+          created_at: string | null
+          geom: unknown
+          id: string
+          image: string | null
+          lat: number | null
+          likes_count: number | null
+          lng: number | null
+          poll_options: Json | null
+          recommendations: Json | null
+          resolved: boolean | null
+          title: string
+          type: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "community_posts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      community_post_update: {
+        Args: {
+          p_body?: string
+          p_id: string
+          p_image?: string
+          p_title: string
+        }
+        Returns: {
+          allow_comments: boolean
+          area: string | null
+          author_avatar: string | null
+          author_name: string
+          author_ref_id: string | null
+          author_type: string
+          author_user_id: string | null
+          body: string | null
+          comments_count: number | null
+          created_at: string | null
+          geom: unknown
+          id: string
+          image: string | null
+          lat: number | null
+          likes_count: number | null
+          lng: number | null
+          poll_options: Json | null
+          recommendations: Json | null
+          resolved: boolean | null
+          title: string
+          type: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "community_posts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       community_posts_nearby: {
         Args: {
           in_lat: number
@@ -4394,6 +5336,7 @@ export type Database = {
           in_radius_km?: number
         }
         Returns: {
+          allow_comments: boolean
           area: string | null
           author_avatar: string | null
           author_name: string
@@ -4422,9 +5365,35 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      confirm_handoff: {
+        Args: { p_code: string; p_delivery_id: string }
+        Returns: boolean
+      }
       decide_business_session: {
         Args: { p_approve: boolean; p_session_id: string }
         Returns: undefined
+      }
+      decline_delivery_batch: {
+        Args: { p_batch_id: string }
+        Returns: {
+          accepted_at: string | null
+          accuracy: number | null
+          agent_user_id: string
+          business_id: string
+          completed_at: string | null
+          created_at: string
+          heading: number | null
+          id: string
+          lat: number | null
+          lng: number | null
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "delivery_batches"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       disablelongtransactions: { Args: never; Returns: string }
       distance_km: {
@@ -4566,6 +5535,14 @@ export type Database = {
         Returns: boolean
       }
       geomfromewkt: { Args: { "": string }; Returns: unknown }
+      get_delivery_duty: { Args: never; Returns: boolean }
+      get_entity_recovery_question: {
+        Args: { p_kind: string }
+        Returns: {
+          question_id: string
+          question_text: string
+        }[]
+      }
       get_leaderboard: {
         Args: never
         Returns: {
@@ -4607,6 +5584,10 @@ export type Database = {
           alias: string | null
           area: string | null
           avatar: string | null
+          business_password_hash: string | null
+          business_recovery_answer_hash: string | null
+          business_recovery_question_id: string | null
+          business_recovery_question_text: string | null
           city: string | null
           created_at: string | null
           customer_deleted_at: string | null
@@ -4618,9 +5599,18 @@ export type Database = {
           lng: number | null
           location_public: boolean | null
           name: string
+          notif_nearby_requests: boolean
+          notif_new_business: boolean
+          notif_offers: boolean
+          notif_quiet_hours: boolean
+          notif_silent: boolean
           notification_radius_km: number | null
           onboarding_completed_at: string | null
           phone: string | null
+          provider_password_hash: string | null
+          provider_recovery_answer_hash: string | null
+          provider_recovery_question_id: string | null
+          provider_recovery_question_text: string | null
           rating_avg: number | null
           rating_count: number | null
           roles: string[]
@@ -4633,6 +5623,10 @@ export type Database = {
           show_posts_publicly: boolean | null
           show_rating_publicly: boolean | null
           society_id: string | null
+          switch_pin_hash: string | null
+          terms_accepted_at: string | null
+          terms_accepted_version: string | null
+          timezone: string | null
           unit_number: string | null
         }[]
         SetofOptions: {
@@ -4676,11 +5670,14 @@ export type Database = {
         Args: { p_token: string }
         Returns: {
           agreement_id: string
+          dest_lat: number
+          dest_lng: number
           live_status: string
           provider_avatar: string
           provider_lat: number
           provider_lng: number
           provider_name: string
+          stops_before: number
         }[]
       }
       gettransactionid: { Args: never; Returns: unknown }
@@ -4691,8 +5688,27 @@ export type Database = {
           session_id: string
         }[]
       }
+      grant_team_member_access: {
+        Args: {
+          p_business_id: string
+          p_identifier: string
+          p_scopes: string[]
+        }
+        Returns: {
+          grantee_name: string
+          session_id: string
+        }[]
+      }
       has_business_access: {
         Args: { p_business_id: string; p_uid: string }
+        Returns: boolean
+      }
+      has_business_full_access: {
+        Args: { p_business_id: string; p_uid: string }
+        Returns: boolean
+      }
+      has_business_scope: {
+        Args: { p_business_id: string; p_scope: string; p_uid: string }
         Returns: boolean
       }
       haversine_km: {
@@ -4706,6 +5722,8 @@ export type Database = {
       is_admin:
         | { Args: never; Returns: boolean }
         | { Args: { p_user_id: string }; Returns: boolean }
+      is_entity_password_set: { Args: { p_kind: string }; Returns: boolean }
+      is_entity_recovery_set: { Args: { p_kind: string }; Returns: boolean }
       is_society_admin: {
         Args: { p_society_id: string; p_user_id: string }
         Returns: boolean
@@ -4714,12 +5732,73 @@ export type Database = {
         Args: { p_society_id: string; p_user_id: string }
         Returns: boolean
       }
+      is_switch_pin_set: { Args: never; Returns: boolean }
       longtransactionsenabled: { Args: never; Returns: boolean }
+      my_business_access_scope: {
+        Args: { p_business_id: string }
+        Returns: {
+          access_level: string
+          scopes: string[]
+        }[]
+      }
       my_business_access_status: {
         Args: { p_business_id: string }
         Returns: boolean
       }
+      my_delegated_business_password_status: {
+        Args: never
+        Returns: {
+          business_id: string
+          required: boolean
+        }[]
+      }
       my_delegated_businesses: { Args: never; Returns: string[] }
+      my_deliveries: {
+        Args: never
+        Returns: {
+          appointment_id: string
+          batch_id: string
+          batch_lat: number
+          batch_lng: number
+          batch_status: string
+          business_id: string
+          business_name: string
+          created_at: string
+          customer_area: string
+          customer_name: string
+          date_label: string
+          delivered_at: string
+          delivery_address_line: string
+          delivery_lat: number
+          delivery_lng: number
+          handoff_code: string
+          handoff_verified: boolean
+          id: string
+          lat: number
+          live_status: string
+          lng: number
+          scheduled_for: string
+          status: string
+          stop_order: number
+          time_label: string
+        }[]
+      }
+      my_delivery_progress: {
+        Args: { p_appointment_id: string }
+        Returns: {
+          agent_avatar: string
+          agent_name: string
+          agent_phone: string
+          agent_revealed: boolean
+          eta_text: string
+          handoff_code: string
+          handoff_verified: boolean
+          id: string
+          live_status: string
+          status: string
+          stops_before: number
+        }[]
+      }
       neighborhood_today: {
         Args: { in_lat: number; in_lng: number; in_radius_m?: number }
         Returns: Json
@@ -4797,6 +5876,7 @@ export type Database = {
       providers_nearby: {
         Args: {
           in_category?: string
+          in_category_ids?: string[]
           in_lat: number
           in_limit?: number
           in_lng: number
@@ -4813,6 +5893,7 @@ export type Database = {
           category_name: string | null
           created_at: string | null
           deleted_at: string | null
+          deposit_percent: number
           disabled_at: string | null
           display_name: string
           email: string | null
@@ -4857,9 +5938,36 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      record_terms_acceptance: {
+        Args: { p_user_agent?: string; p_version: string }
+        Returns: undefined
+      }
       renew_location_share: {
         Args: { p_requester: string }
         Returns: undefined
+      }
+      reply_to_rating: {
+        Args: { p_rating_id: string; p_reply: string }
+        Returns: {
+          agreement_id: string | null
+          comment: string | null
+          created_at: string | null
+          id: string
+          is_verified_booking: boolean
+          owner_reply: string | null
+          owner_reply_at: string | null
+          ratee_id: string
+          ratee_type: string
+          rater_user_id: string | null
+          rating: number
+          tip: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ratings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       request_location_share: { Args: { p_owner: string }; Returns: undefined }
       reschedule_appointment: {
@@ -4881,17 +5989,24 @@ export type Database = {
           customer_name: string | null
           customer_user_id: string
           date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
           id: string
           is_walk_in: boolean
           notes: string | null
           package_id: string | null
           package_name: string | null
           package_price: number | null
+          party_size: number
           payment_amount: number | null
           payment_method: string | null
           payment_reference: string | null
           payment_status: string
           photo_url: string | null
+          requested_delivery_window: string | null
           rescheduled_from: string | null
           response_note: string | null
           scheduled_for: string
@@ -4911,7 +6026,20 @@ export type Database = {
         }
       }
       reserve_catalog_item: { Args: { p_item_id: string }; Returns: undefined }
+      reserve_catalog_items: { Args: { p_items: Json }; Returns: undefined }
+      reset_entity_password_via_recovery: {
+        Args: { p_answer: string; p_kind: string; p_new_password: string }
+        Returns: undefined
+      }
       resolve_admin_email: { Args: { p_login_id: string }; Returns: string }
+      resolve_slot_capacity: {
+        Args: {
+          p_package_id: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: number
+      }
       respond_location_share: {
         Args: { p_approve: boolean; p_requester: string }
         Returns: undefined
@@ -4929,6 +6057,39 @@ export type Database = {
           p_password: string
           p_require_approval: boolean
           p_session_hours: number
+        }
+        Returns: undefined
+      }
+      set_delivery_duty: { Args: { p_on_duty: boolean }; Returns: boolean }
+      set_entity_password: {
+        Args: {
+          p_current_password?: string
+          p_kind: string
+          p_new_password: string
+        }
+        Returns: undefined
+      }
+      set_entity_recovery: {
+        Args: {
+          p_answer?: string
+          p_current_password?: string
+          p_kind: string
+          p_question_id: string
+          p_question_text?: string
+        }
+        Returns: undefined
+      }
+      set_switch_pin: {
+        Args: { p_current_pin?: string; p_new_pin: string }
+        Returns: undefined
+      }
+      setup_entity_password_with_recovery: {
+        Args: {
+          p_answer?: string
+          p_kind: string
+          p_new_password: string
+          p_question_id: string
+          p_question_text?: string
         }
         Returns: undefined
       }
@@ -5523,7 +6684,18 @@ export type Database = {
         Returns: string
       }
       sweep_my_appointments: { Args: never; Returns: undefined }
+      sweep_stale_appointment_holds: { Args: never; Returns: undefined }
       unlockrows: { Args: { "": string }; Returns: number }
+      update_delivery_batch_position: {
+        Args: {
+          p_accuracy?: number
+          p_batch_id: string
+          p_heading?: number
+          p_lat: number
+          p_lng: number
+        }
+        Returns: undefined
+      }
       update_live_share: {
         Args: {
           p_accuracy?: number
@@ -5531,6 +6703,10 @@ export type Database = {
           p_lat: number
           p_lng: number
         }
+        Returns: undefined
+      }
+      update_team_member_scopes: {
+        Args: { p_scopes: string[]; p_session_id: string }
         Returns: undefined
       }
       updategeometrysrid: {
@@ -5542,6 +6718,41 @@ export type Database = {
           table_name: string
         }
         Returns: string
+      }
+      verify_business_password: {
+        Args: { p_business_id: string; p_password: string }
+        Returns: boolean
+      }
+      verify_provider_password: {
+        Args: { p_password: string; p_provider_id: string }
+        Returns: boolean
+      }
+      verify_switch_pin: { Args: { p_pin: string }; Returns: boolean }
+      withdraw_proposal: {
+        Args: { p_proposal_id: string }
+        Returns: {
+          broadcast_to_metoo: boolean
+          created_at: string | null
+          eta: string | null
+          id: string
+          is_boosted: boolean | null
+          message: string | null
+          price: number
+          request_id: string | null
+          responder_avatar: string | null
+          responder_entity_id: string | null
+          responder_name: string | null
+          responder_tagline: string | null
+          responder_type: string | null
+          responder_user_id: string | null
+          status: Database["public"]["Enums"]["proposal_status"] | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "proposals"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

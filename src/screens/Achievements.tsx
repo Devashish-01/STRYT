@@ -3,17 +3,22 @@ import { ListSkeleton } from "@/components/states";
 import { socialService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 import { displayName } from "@/lib/publicName";
 
 export default function Achievements() {
   const { user } = useApp();
+  const { t } = useI18n();
   const { data, loading } = useQuery(() => socialService.achievements(), []);
   const achievements = data ?? [];
   const unlocked = achievements.filter((a) => a.unlocked).length;
 
   return (
     <div className="screen">
-      <AppBar title="Achievements" subtitle={`${unlocked} of ${achievements.length} unlocked`} />
+      {/* "Badges" is the word the rest of the app uses for these (the Profile
+          tile, show_badges_publicly, ProfileEdit's "Trust badges") — the title
+          said "Achievements" only here. Route stays /achievements. */}
+      <AppBar title={t("badges")} subtitle={`${unlocked} of ${achievements.length} unlocked`} />
       <div className="screen-scroll">
         {/* Hero */}
         <div className="page-pad">

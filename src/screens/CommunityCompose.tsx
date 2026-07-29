@@ -106,7 +106,7 @@ export default function CommunityCompose() {
     setPosting(true);
     haptics.medium();
     try {
-      await communityService.create({
+      const created = await communityService.create({
         type,
         title,
         body,
@@ -120,7 +120,11 @@ export default function CommunityCompose() {
       });
       haptics.success();
       showToast("Posted to community 🏘️");
-      setTimeout(() => nav("/community-hub"), 500);
+      // Land on the post itself, not /community-hub — that's a TAB_ROUTE, which
+      // forces the customer BottomNav onto a business/provider-context session
+      // (its Profile tab has no activeContext awareness), stranding an owner on
+      // the wrong "hat" right after posting as their business/provider.
+      setTimeout(() => nav(`/community/${created.id}`, { replace: true }), 500);
     } catch {
       showToast("Couldn't post. Try again.");
       setPosting(false);
@@ -247,8 +251,8 @@ export default function CommunityCompose() {
                 <label>Photo</label>
                 {photoUrl ? (
                   <div style={{ position: "relative", width: 110 }}>
-                    <img src={photoUrl} className="thumb" style={{ width: 110, height: 110, borderRadius: 12, objectFit: "cover" }} />
-                    <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setPhotoUrl(null)}><X size={14} /></button>
+                    <img src={photoUrl} alt="Photo preview" className="thumb" style={{ width: 110, height: 110, borderRadius: 12, objectFit: "cover" }} />
+                    <button className="icon-btn" aria-label="Remove photo" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setPhotoUrl(null)}><X size={14} /></button>
                   </div>
                 ) : (
                   <div className="row gap-8">

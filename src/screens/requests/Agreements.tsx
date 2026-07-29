@@ -29,7 +29,10 @@ export default function Agreements() {
 
   return (
     <div className="screen screen-boxed">
-      <AppBar title={t("agreements_screen_title")} />
+      {/* "My deals", not "My agreements" — Profile's stat and Home both call
+          this Deals, and DESIGN_PRINCIPLES §8 says use the customer's word.
+          The my_deals key already existed in all three languages. */}
+      <AppBar title={t("my_deals")} />
       <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff" }}>
         {([["active", `${t("active")} (${active.length})`], ["completed", `${t("agreements_history_tab")} (${completed.length})`]] as const).map(([tabKey, label]) => (
           <button key={tabKey} onClick={() => setTab(tabKey)} className="semi"

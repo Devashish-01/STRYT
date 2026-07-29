@@ -100,7 +100,7 @@ export default function MyQueues() {
   const all = data ?? [];
   const active = all.filter((q) => isActiveEntry(q) && !removedIds.has(q.tokenId) && !dismissedIds.has(q.tokenId));
   const history = all.filter((q) => !isActiveEntry(q));
-  let list = tab === "ACTIVE" ? [...active] : [...history];
+  const list = tab === "ACTIVE" ? [...active] : [...history];
   if (tab === "ACTIVE" && sortByName) list.sort((a, b) => a.businessName.localeCompare(b.businessName));
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);

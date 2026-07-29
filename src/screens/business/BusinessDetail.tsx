@@ -92,6 +92,10 @@ export default function BusinessDetail() {
   useEffect(() => {
     if (!b) return;
     pushRecentlyViewed({ type: "business", id: b.id, name: b.name, image: b.coverImage });
+    // `b` is excluded deliberately — a fresh object reference every refetch
+    // even when nothing meaningful changed; `b?.id` is the correct identity
+    // check so this doesn't re-push on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [b?.id]);
 
   async function submitQuestion() {
@@ -368,7 +372,8 @@ export default function BusinessDetail() {
                 Everything that needs an *account* (book/message/follow/save) is
                 what's replaced by the prompt below. */}
             <div className="row gap-10" style={{ marginTop: 16 }}>
-              {b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> Call</a>}
+              {!isOwner && b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> Call</a>}
+              {!isOwner && (
               <button
                 className="btn btn-outline grow"
                 onClick={() => {
@@ -381,6 +386,7 @@ export default function BusinessDetail() {
               >
                 <Navigation size={17} /> Directions
               </button>
+              )}
               {/* Messaging needs a real identity on both sides — guests don't
                   get a chat thread, so no button. */}
               {!isGuest && b.ownerUserId !== user.id && (
@@ -456,6 +462,10 @@ export default function BusinessDetail() {
                   onClick={() => nav(`/business/${b.id}/manage/appointments`)}
                 >
                   <Clock size={16} /> View appointments
+                </button>
+              ) : b.isOpenNow === false ? (
+                <button className="btn grow btn-sm" style={{ background: "var(--ink-50)", color: "var(--ink-400)" }} disabled>
+                  <Clock size={16} /> Not accepting appointments right now
                 </button>
               ) : (
                 <button

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package } from "@/components/Icons";
 import { notificationService } from "@/services";
 import type { NotifScope } from "@/services/engagement/notificationService";
-import { useQueryWithRealtime } from "@/hooks/useApi";
+import { useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState, PullToRefreshIndicator } from "@/components/common";
 import { NoNotificationsIllustration } from "@/components/illustrations";
@@ -74,7 +74,7 @@ function groupByDay(items: AppNotification[]): Section[] {
 
 export default function Notifications() {
   const nav = useNavigate();
-  const { markAllRead, decrementUnread, showToast, user } = useApp();
+  const { showToast, user } = useApp();
   const [params] = useSearchParams();
 
   // Scope the feed to the context that opened it: a specific business, a
@@ -86,6 +86,16 @@ export default function Notifications() {
     : rawScope === "CUSTOMER" ? { scope: "CUSTOMER" }
     : undefined;
   const scopeKey = `${rawScope ?? "all"}:${params.get("id") ?? ""}`;
+  // Same cache-key convention the origin screen's own unread-count query uses
+  // (Home.tsx/Profile.tsx "notif:customer", ManageDashboard.tsx
+  // `notif:business:${id}`, ProviderDashboard.tsx `notif:provider:${id}`) — so
+  // marking read here can invalidate exactly that badge's cache, rather than
+  // waiting on the realtime channel to eventually resync it.
+  const badgeCacheKey =
+    scope?.scope === "CUSTOMER" ? "notif:customer"
+    : scope?.scope === "BUSINESS" ? `notif:business:${scope.id}`
+    : scope?.scope === "PROVIDER" ? `notif:provider:${scope.id}`
+    : undefined;
   const subtitle = scope?.scope === "BUSINESS" ? "For this business"
     : scope?.scope === "PROVIDER" ? "For this service"
     : scope?.scope === "CUSTOMER" ? "Personal" : undefined;
@@ -127,7 +137,7 @@ export default function Notifications() {
 
   function open(n: AppNotification) {
     if (!n.isRead) {
-      decrementUnread();
+      if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
       locallyReadRef.current.add(n.id);
       setItems((p) => p.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
       notificationService.markRead(n.id).catch(() => {
@@ -155,13 +165,9 @@ export default function Notifications() {
         return next;
       });
     }, 220);
-    if (!n.isRead) decrementUnread();
+    if (!n.isRead && badgeCacheKey) invalidateQueryCache(badgeCacheKey);
     notificationService.remove(n.id).catch(() => {
       setItems((p) => (p.some((x) => x.id === n.id) ? p : [...p, n]));
-      if (!n.isRead) {
-        // decrementUnread has no inverse; a refetch resyncs the badge count.
-        refetch();
-      }
       showToast("Couldn't delete — try again");
     });
   }
@@ -180,7 +186,7 @@ export default function Notifications() {
                 const unreadIds = items.filter((n) => !n.isRead).map((n) => n.id);
                 unreadIds.forEach((id) => locallyReadRef.current.add(id));
                 setItems((p) => p.map((n) => ({ ...n, isRead: true })));
-                markAllRead();
+                if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
                 notificationService.markAllRead(scope).catch(() => {
                   unreadIds.forEach((id) => locallyReadRef.current.delete(id));
                   refetch();

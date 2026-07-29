@@ -12,6 +12,8 @@ export default function PhotosManager() {
   const { id = "" } = useParams();
   const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id]);
   const { showToast } = useApp();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   if (!id) {
     return (
@@ -21,8 +23,6 @@ export default function PhotosManager() {
       </div>
     );
   }
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
 
   if (loading) {
     return (

@@ -189,6 +189,11 @@ export default function AgreementScreen() {
     updateTime();
     const timer = setInterval(updateTime, 1000);
     return () => clearInterval(timer);
+    // `agreement` itself is excluded deliberately — it's a fresh object
+    // reference on every refetch even when status/createdAt are unchanged;
+    // depending on it would restart this countdown timer far more often than
+    // the actual expiry-relevant fields change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agreement?.status, agreement?.createdAt, refetch]);
 
   function formatTimeLeft(sec: number): string {

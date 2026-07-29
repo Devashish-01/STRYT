@@ -407,18 +407,21 @@ export default function ProviderJobs() {
   const dayRevenue = dayApts.filter((a) => a.paymentStatus === "PAID" && a.paymentAmount).reduce((s, a) => s + (a.paymentAmount || 0), 0);
 
   const now = Date.now();
+  // Newest-created first across every tab — a fresh booking request needs
+  // attention regardless of when it's scheduled for, so it shouldn't get
+  // buried wherever its scheduled time happens to sort it.
   const upcomingList = appointments
     .filter((a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > now)
-    .sort((a, c) => new Date(a.scheduledForISO).getTime() - new Date(c.scheduledForISO).getTime());
+    .sort((a, c) => new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
 
   const historyList = appointments
     .filter((a) => a.status === "COMPLETED" || a.status === "NO_SHOW")
-    .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
+    .sort((a, c) => new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
   const historyGroups = groupByDay(historyList);
 
   const cancelledList = appointments
     .filter((a) => a.status === "CANCELLED" || a.status === "REJECTED")
-    .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
+    .sort((a, c) => new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
 
   const packageOptions = (p?.catalog ?? []).map((item) => ({ id: item.id, name: item.name, price: item.salePrice ?? item.price }));
 

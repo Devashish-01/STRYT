@@ -62,7 +62,6 @@ export function captureException(
     const stack = String(e?.stack ?? "").slice(0, MAX_STACK);
 
     // 1) Always visible locally.
-    // eslint-disable-next-line no-console
     console.error(`[monitor:${kind}]`, message, e);
 
     // 2) Dedupe within the session so a render loop logs once, not thousands.

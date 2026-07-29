@@ -132,6 +132,40 @@ async function getFcmAccessToken(serviceAccountJson: string): Promise<string> {
   return data.access_token;
 }
 
+/**
+ * Which notification types a user preference is allowed to suppress.
+ *
+ * This is deliberately an ALLOWLIST, not a denylist: a notification type not
+ * named here is always delivered. Bookings, queue calls, agreements,
+ * deliveries, chat and payments are transactional — the user is waiting on
+ * them, and a discovery-preference switch must never be able to swallow one.
+ * Adding a new marketing type means adding it here on purpose.
+ */
+const PREF_GATED_TYPES: Record<string, string> = {
+  NEW_BUSINESS: "notif_new_business",
+  NEW_PROVIDER: "notif_new_business",
+  NEARBY_REQUEST: "notif_nearby_requests",
+  QUOTE_BROADCAST: "notif_nearby_requests",
+  OFFER: "notif_offers",
+};
+
+/** True when local time in `tz` is inside the 22:00–07:00 quiet window. */
+function isQuietHour(tz: string | null | undefined): boolean {
+  try {
+    const hour = Number(
+      new Intl.DateTimeFormat("en-GB", {
+        timeZone: tz || "Asia/Kolkata",
+        hour: "2-digit",
+        hour12: false,
+      }).format(new Date()),
+    );
+    return hour >= 22 || hour < 7;
+  } catch {
+    // Unknown/invalid zone — treat as not-quiet rather than silencing wrongly.
+    return false;
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const cors = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -182,6 +216,28 @@ Deno.serve(async (req: Request) => {
   try {
     const { userId, title, body, deepLink, type } = await req.json();
     if (!userId) return json({ error: "userId required" }, 400, cors);
+
+    // Load the recipient's push preferences once, up front. These columns were
+    // added in 20260859 — before that the six toggles in the app's Settings
+    // screen wrote to localStorage and nothing ever read them, so they changed
+    // nothing about delivery.
+    const { data: prefs } = await admin
+      .from("users")
+      .select("notif_new_business, notif_nearby_requests, notif_offers, notif_silent, notif_quiet_hours, timezone")
+      .eq("id", userId)
+      .maybeSingle();
+
+    // Discovery types the user has opted out of stop here. Transactional types
+    // aren't in PREF_GATED_TYPES at all, so they always fall through.
+    const gateColumn = type ? PREF_GATED_TYPES[type as string] : undefined;
+    if (gateColumn && prefs && (prefs as Record<string, unknown>)[gateColumn] === false) {
+      return json({ ok: true, webSent: 0, fcmSent: 0, skipped: "user-preference" }, 200, cors);
+    }
+
+    // Silent/quiet-hours downgrade the ALERT only — the notification is still
+    // delivered and still lands in the tray, it just doesn't make a sound.
+    const silent = prefs?.notif_silent === true
+      || (prefs?.notif_quiet_hours === true && isQuietHour(prefs?.timezone as string | null));
 
     let webSent = 0;
     let fcmSent = 0;
@@ -248,17 +304,23 @@ Deno.serve(async (req: Request) => {
                         // Android: give the notification a channel with sound +
                         // heads-up priority so it behaves like a real app's push
                         // (banner + sound), not a silent tray entry.
+                        // `silent` (user's silent switch, or an active quiet
+                        // hour) drops the sound and the heads-up banner but
+                        // still delivers to the tray — it must never swallow
+                        // the notification itself. The stryt_silent channel is
+                        // created in MainActivity.java; on an older install that
+                        // lacks it, FCM falls back to the manifest's declared
+                        // default channel rather than dropping the message.
                         android: {
-                          priority: "HIGH",
+                          priority: silent ? "NORMAL" : "HIGH",
                           notification: {
-                            sound: "default",
-                            channel_id: "stryt_default",
-                            default_sound: true,
-                            notification_priority: "PRIORITY_HIGH",
+                            ...(silent ? {} : { sound: "default", default_sound: true }),
+                            channel_id: silent ? "stryt_silent" : "stryt_default",
+                            notification_priority: silent ? "PRIORITY_LOW" : "PRIORITY_HIGH",
                           },
                         },
                         apns: {
-                          payload: { aps: { sound: "default" } },
+                          payload: { aps: silent ? {} : { sound: "default" } },
                         },
                         data: { url: deepLink || "/", type: type || "SYSTEM" },
                       },

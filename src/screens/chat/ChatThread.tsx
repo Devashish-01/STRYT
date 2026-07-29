@@ -71,7 +71,13 @@ export default function ChatThread() {
       typing.unsubscribe();
       if (typingHideTimer.current) clearTimeout(typingHideTimer.current);
     };
-  }, [id, conv]);
+    // setChatUnread is a raw useState setter (stable) and user.id is a
+    // primitive — both safe to add. refetchConvs is deliberately excluded:
+    // useQuery's `refetch` is a new closure every render (see useApi.ts), so
+    // depending on it here would re-subscribe realtime/typing on every render
+    // instead of only when the thread (id) or its conversation (conv) changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, conv, user.id, setChatUnread]);
 
   // Auto-scroll to bottom on new message.
   useEffect(() => {

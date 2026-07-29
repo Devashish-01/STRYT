@@ -134,6 +134,10 @@ export default function UserProfileSheet() {
         .catch(() => {})
         .finally(() => setLoading(false));
     }
+    // `payload` is excluded deliberately — _subscribeProfileSheet delivers a
+    // fresh object on every notification, even for the same id/type; the two
+    // primitives actually read here (id, type) are the correct dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payload?.id, payload?.type, me.lat, me.lng]);
 
   if (!payload) return null;

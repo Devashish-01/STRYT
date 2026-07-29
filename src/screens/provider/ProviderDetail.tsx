@@ -61,6 +61,10 @@ export default function ProviderDetail() {
   useEffect(() => {
     if (!p) return;
     pushRecentlyViewed({ type: "provider", id: p.id, name: p.displayName, image: p.avatar });
+    // `p` is excluded deliberately — same reason as BusinessDetail's
+    // equivalent effect: a fresh object reference every refetch, so `p?.id`
+    // is the correct identity check to avoid re-pushing on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p?.id]);
   const [tab, setTab] = useState<"about" | "posts" | "portfolio" | "reviews">("about");
   const [report, setReport] = useState(false);

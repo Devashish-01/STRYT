@@ -409,15 +409,15 @@ export default function AskCompose() {
           <div className="row gap-8 wrap">
             {photos.map((url, i) => (
               <div key={url} style={{ position: "relative" }}>
-                <img src={url} className="thumb" style={{ width: 76, height: 76, borderRadius: 12 }} />
-                <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setPhotos((p) => p.filter((_, x) => x !== i))}>
+                <img src={url} alt={`Attached photo ${i + 1}`} className="thumb" style={{ width: 76, height: 76, borderRadius: 12 }} />
+                <button className="icon-btn" aria-label="Remove photo" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setPhotos((p) => p.filter((_, x) => x !== i))}>
                   <X size={14} />
                 </button>
               </div>
             ))}
             {pendingPreviews.map((url) => (
               <div key={url} style={{ position: "relative", width: 76, height: 76 }}>
-                <img src={url} className="thumb" style={{ width: 76, height: 76, borderRadius: 12, opacity: 0.5 }} />
+                <img src={url} alt="Uploading photo" className="thumb" style={{ width: 76, height: 76, borderRadius: 12, opacity: 0.5 }} />
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <RefreshCw size={18} color="#fff" className="spin" />
                 </div>

@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n";
 import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useLongPress } from "@/hooks/useLongPress";
+import { contextHomePath } from "@/lib/contextHome";
 import AccountSwitcher from "./AccountSwitcher";
 
 export default function BottomNav() {
@@ -13,13 +14,17 @@ export default function BottomNav() {
   const [sheet, setSheet] = useState(false);
   const [switcher, setSwitcher] = useState(false);
   const { t } = useI18n();
-  const { isGuest } = useApp();
+  const { isGuest, activeContext } = useApp();
   const requireAuth = useRequireAuth();
 
   // Long-press (or right-click) the Profile tab to jump straight to the account
   // switcher; a normal tap opens the profile as usual.
   const { handlers: longPress, wrapTap } = useLongPress(() => setSwitcher(true));
-  const profileTap = wrapTap(() => nav("/profile"));
+  // A business/provider-context session can end up on a customer TAB_ROUTE
+  // (e.g. right after posting to community — CommunityCompose used to force
+  // this) — in that case "Profile" should return to their own console, not
+  // the customer profile screen, same as every other "go home" path in the app.
+  const profileTap = wrapTap(() => nav(activeContext.type === "customer" ? "/profile" : contextHomePath(activeContext)));
   const profileActive = loc.pathname === "/profile";
 
   // A guest has no profile and no account to switch to — the tab becomes a

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, FileText, MessageSquare } from "@/components/Icons";
 import { requestService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
@@ -16,7 +16,12 @@ export default function Requests() {
   const nav = useNavigate();
   const { area, user, chatUnread, showToast } = useApp();
   const { t } = useI18n();
-  const [tab, setTab] = useState<Tab>("nearby");
+  const [params] = useSearchParams();
+  // `?tab=mine` lets a caller open this screen on the user's OWN requests.
+  // Profile's "My requests" tile shows a count of your open requests, so it
+  // must land on that tab — landing on the neighbourhood feed (the default)
+  // showed a number from one list and the contents of another.
+  const [tab, setTab] = useState<Tab>(params.get("tab") === "mine" ? "mine" : "nearby");
   const [cat, setCat] = useState<string | null>(null);
   const [special, setSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
 

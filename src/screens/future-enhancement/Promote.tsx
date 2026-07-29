@@ -20,6 +20,12 @@ export default function Promote() {
   const { showToast } = useApp();
   const [active, setActive] = useState<string[]>([]);
 
+  useEffect(() => {
+    let alive = true;
+    businessService.activeBoosts(id).then((b) => { if (alive) setActive(b); }).catch(() => {});
+    return () => { alive = false; };
+  }, [id]);
+
   if (!id) {
     return (
       <div className="screen">
@@ -28,12 +34,6 @@ export default function Promote() {
       </div>
     );
   }
-
-  useEffect(() => {
-    let alive = true;
-    businessService.activeBoosts(id).then((b) => { if (alive) setActive(b); }).catch(() => {});
-    return () => { alive = false; };
-  }, [id]);
 
   async function buy(type: string) {
     setActive((a) => [...a, type]);

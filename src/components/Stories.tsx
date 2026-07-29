@@ -316,7 +316,14 @@ export function StoryViewer({
     setShowViewersSheet(false);
     setMyReaction(null);
     setHighlighted(story.isHighlighted ?? false);
-  }, [groupIdx, storyIdx, story?.id, isOwnStory]);
+    // `story` itself is a fresh object reference every render (derived via
+    // array indexing), even when its `.id` hasn't changed — depending on the
+    // object would re-run this reset (and re-record the view) on every
+    // render, not just when actually switching stories. `story?.id` is the
+    // correct, deliberately-used identity check. `markStoryViewed` IS safe to
+    // include (useSocialSlice wraps it in useCallback).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupIdx, storyIdx, story?.id, isOwnStory, markStoryViewed]);
 
   async function sendReaction(emoji: string) {
     if (!story) return;
@@ -358,6 +365,9 @@ export function StoryViewer({
       .finally(() => {
         setLoadingViewers(false);
       });
+    // See the `story` identity note on the reset effect above — same reason
+    // the full object is excluded here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story?.id, isOwnStory]);
 
   // While the owner has the viewer sheet open, new views should appear live
@@ -372,6 +382,8 @@ export function StoryViewer({
       })
       .subscribe();
     return () => { sb.removeChannel(channel); };
+    // See the `story` identity note above — same reason the full object is excluded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story?.id, isOwnStory]);
 
   // Fetch profiles of allowed/hidden users for privacy settings if they exist
@@ -401,6 +413,8 @@ export function StoryViewer({
     };
 
     void fetchPrivacyUsers();
+    // See the `story` identity note above — same reason the full object is excluded.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story?.id, story?.visibility, isOwnStory]);
 
   // Reset sheet tab when active story changes
@@ -422,6 +436,12 @@ export function StoryViewer({
       }
     }, 40);
     return () => clearInterval(interval);
+    // `story` is excluded for the same object-identity reason noted above.
+    // `handleNext` is a plain (non-memoized) closure defined below this effect
+    // — not adding it here to avoid changing this timing-sensitive auto-advance
+    // effect's re-run semantics without being able to interactively verify the
+    // story viewer in a browser.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIdx, storyIdx, showViewersSheet, progress]);
 
   if (!activeGroup || !story) return null;

@@ -35,7 +35,7 @@ type Tile = {
 
 export default function Profile() {
   const nav = useNavigate();
-  const { user, roles, activeRole, setActiveRole, attemptSwitchContext, bookmarks, follows, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
+  const { user, roles, activeRole, setActiveRole, attemptSwitchContext, bookmarks, follows, lists, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "customer");
   const { t } = useI18n();
   const [switcher, setSwitcher] = useState(false);
@@ -137,15 +137,23 @@ export default function Profile() {
   // Map is deliberately excluded — it already lives in the bottom nav.
   const activityTiles: Tile[] = [
     { icon: <Calendar size={20} />, label: t("appointments"), sub: upcomingCount > 0 ? `${upcomingCount} upcoming` : "None upcoming", tint: "var(--brand-50)", accent: "var(--brand-600)", onClick: () => nav("/appointments") },
-    { icon: <FileText size={20} />, label: t("requests"), sub: openRequestCount > 0 ? `${openRequestCount} open` : "None open", tint: "var(--brand-50)", accent: "var(--brand-700)", onClick: () => nav("/requests") },
+    // "My requests" + ?tab=mine: the count below is YOUR open requests
+    // (requestService.mine), so the tile must open that tab — the default
+    // "nearby" tab is everyone else's feed, which made the number and the
+    // destination describe two different lists.
+    { icon: <FileText size={20} />, label: "My requests", sub: openRequestCount > 0 ? `${openRequestCount} open` : "None open", tint: "var(--brand-50)", accent: "var(--brand-700)", onClick: () => nav("/requests?tab=mine") },
     { icon: <Clock size={20} />, label: "Queues", sub: activeQueues.length > 0 ? `${activeQueues.length} active` : "Not in line", tint: "var(--amber-100)", accent: "var(--amber-700)", badge: activeQueues.length || undefined, onClick: () => nav("/queues") },
     { icon: <Award size={20} />, label: t("badges"), sub: badgeSub, tint: "var(--green-100)", accent: "var(--green-600)", onClick: () => nav("/achievements") },
   ];
 
   const youTiles: Tile[] = [
-    { icon: <Users size={20} />, label: t("community"), sub: "Your street feed", tint: "var(--pink-100)", accent: "var(--pink-600)", onClick: () => nav("/community-hub") },
+    { icon: <Users size={20} />, label: t("community"), sub: "Neighbourhood feed", tint: "var(--pink-100)", accent: "var(--pink-600)", onClick: () => nav("/community-hub") },
     { icon: <Image size={20} />, label: "My activity", sub: "Stories & posts", tint: "var(--pink-100)", accent: "var(--pink-600)", onClick: () => nav("/my-activity") },
-    { icon: <ListChecks size={20} />, label: "Saved lists", sub: bookmarks.length > 0 ? `${bookmarks.length} saved` : "Nothing saved yet", tint: "var(--brand-50)", accent: "var(--brand-600)", onClick: () => nav("/lists") },
+    // Counts `lists`, not `bookmarks` — /lists renders user-created lists, a
+    // different collection entirely. Showing the bookmark count here meant
+    // "7 saved" could open a completely empty screen. Bookmarks have their own
+    // entry: the "Saved" stat above, which goes to /bookmarks.
+    { icon: <ListChecks size={20} />, label: "My lists", sub: lists.length > 0 ? `${lists.length} ${lists.length === 1 ? "list" : "lists"}` : "No lists yet", tint: "var(--brand-50)", accent: "var(--brand-600)", onClick: () => nav("/lists") },
     { icon: <UserCircle size={20} />, label: "Public profile", sub: "How neighbours see you", tint: "var(--brand-50)", accent: "var(--brand-600)", onClick: () => nav(`/u/${user.id}`) },
   ];
 
@@ -176,8 +184,13 @@ export default function Profile() {
     </button>
   );
 
+  // paddingBottom deliberately omitted below — see Home.tsx's identical fix:
+  // the old shorthand `padding: 0` here overrode .with-nav's bottom clearance
+  // for the fixed nav bar (inline styles always win over a class for the same
+  // property), so Profile's last content — the version footer — rendered
+  // underneath the nav bar.
   return (
-    <div className="screen with-nav" style={{ padding: 0 }}>
+    <div className="screen with-nav" style={{ paddingTop: 0, paddingLeft: 0, paddingRight: 0 }}>
       {/* ==========================================================
           MOBILE-ONLY VIEW
          ========================================================== */}
@@ -201,15 +214,17 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Privacy state + "see yourself as a neighbour does" are the same
-                  question, so they're one control. */}
-              <button className="pf-glass-row" onClick={() => nav(`/u/${user.id}`)}>
-                {user.showNamePublicly ? <Globe size={15} /> : <Lock size={15} />}
-                <span className="pf-glass-row-label grow">
-                  {user.showNamePublicly ? "Your full name is public" : "Your full name is private"}
-                </span>
+              {/* Leads with what the row DOES (opens your public profile).
+                  The name-privacy state rides along as a status, not as the
+                  label — worded as a state with a Globe/Lock it read like a
+                  toggle, but tapping it never changed anything (that switch
+                  lives in Edit profile → Privacy). */}
+              <button className="pf-glass-row" onClick={() => nav(`/u/${user.id}`)} aria-label="View your public profile">
+                <UserCircle size={15} />
+                <span className="pf-glass-row-label grow">View your public profile</span>
                 <span className="pf-glass-row-cta">
-                  <UserCircle size={13} /> View as neighbour
+                  {user.showNamePublicly ? <Globe size={13} /> : <Lock size={13} />}
+                  {user.showNamePublicly ? "Name public" : "Name private"}
                 </span>
               </button>
 
@@ -351,6 +366,11 @@ export default function Profile() {
                 <button className="pf-subtle-link" onClick={() => setSwitcher(true)}>
                   <ArrowLeftRight size={13} /> Switch or add another account
                 </button>
+                {/* Parity with desktop — a seller can reach the manage hub
+                    directly, not only via the role buttons above. */}
+                <button className="pf-subtle-link" onClick={() => nav("/manage")}>
+                  <Store size={13} /> Manage business &amp; profile
+                </button>
               </div>
             ) : (
               <button className="pf-row pf-row-invite" style={themed("var(--surface)", "var(--brand-600)")} onClick={() => nav("/manage")}>
@@ -473,12 +493,29 @@ export default function Profile() {
                     <button
                       key={r}
                       onClick={() => {
+                        // Must mirror the mobile branch exactly: entering a
+                        // business/provider console goes through
+                        // attemptSwitchContext, which raises PinGateSheet when
+                        // that console has an entity password set. Navigating
+                        // directly (as this used to) walked straight past the
+                        // password — BusinessAccessGuard only checks access,
+                        // never the password — and left activeContext stale.
                         if (!has) {
                           nav(r === "business_owner" ? "/onboard/business" : "/onboard/provider");
                         } else if (r === "business_owner") {
-                          nav(manageBizId ? `/business/${manageBizId}/manage` : "/manage");
+                          const dest = manageBizId ? `/business/${manageBizId}/manage` : "/manage";
+                          const ready = attemptSwitchContext(
+                            { type: "business", id: manageBizId ?? null, name: myBiz?.name ?? "My Business" },
+                            dest
+                          );
+                          if (ready) nav(dest);
                         } else if (r === "provider") {
-                          nav(ownedProviderId ? `/provider/${ownedProviderId}/manage` : "/manage");
+                          const dest = ownedProviderId ? `/provider/${ownedProviderId}/manage` : "/manage";
+                          const ready = attemptSwitchContext(
+                            { type: "provider", id: ownedProviderId ?? null, name: myProv?.displayName ?? "My Provider Profile" },
+                            dest
+                          );
+                          if (ready) nav(dest);
                         } else {
                           setActiveRole(r);
                         }
@@ -494,12 +531,26 @@ export default function Profile() {
                 })}
               </div>
               {activeRole === "business_owner" && roles.includes("business_owner") && manageBizId && (
-                <button className="btn btn-ghost btn-block btn-sm" style={{ marginTop: 12 }} onClick={() => nav(`/business/${manageBizId}/manage`)}>
+                <button
+                  className="btn btn-ghost btn-block btn-sm"
+                  style={{ marginTop: 12 }}
+                  onClick={() => {
+                    const dest = `/business/${manageBizId}/manage`;
+                    if (attemptSwitchContext({ type: "business", id: manageBizId, name: myBiz?.name ?? "My Business" }, dest)) nav(dest);
+                  }}
+                >
                   Open business dashboard →
                 </button>
               )}
               {activeRole === "provider" && roles.includes("provider") && ownedProviderId && (
-                <button className="btn btn-ghost btn-block btn-sm" style={{ marginTop: 12 }} onClick={() => nav(`/provider/${ownedProviderId}/manage`)}>
+                <button
+                  className="btn btn-ghost btn-block btn-sm"
+                  style={{ marginTop: 12 }}
+                  onClick={() => {
+                    const dest = `/provider/${ownedProviderId}/manage`;
+                    if (attemptSwitchContext({ type: "provider", id: ownedProviderId, name: myProv?.displayName ?? "My Provider Profile" }, dest)) nav(dest);
+                  }}
+                >
                   Open provider dashboard →
                 </button>
               )}
@@ -588,13 +639,26 @@ export default function Profile() {
               <TileGrid tiles={youTiles} />
             </div>
 
-            {/* Seller entry + settings — genuinely different destinations. */}
+            {/* Seller entry + settings — genuinely different destinations.
+                Both states render on both platforms: a seller gets "Manage",
+                a non-seller gets the invite. Previously desktop only had the
+                first and mobile only had the second, so a desktop customer had
+                no way into selling at all from this screen. */}
             <div className="col gap-10">
-              {hasSellerProfile && (
+              {hasSellerProfile ? (
                 <button className="pf-row" style={themed("var(--orange-100)", "var(--orange-500)")} onClick={() => nav("/manage")}>
                   <span className="pf-row-icon"><Store size={19} /></span>
                   <span className="semi grow" style={{ fontSize: 14 }}>Manage business &amp; profile</span>
                   <ChevronRight size={18} color="var(--ink-300)" />
+                </button>
+              ) : (
+                <button className="pf-row pf-row-invite" style={themed("var(--surface)", "var(--brand-600)")} onClick={() => nav("/manage")}>
+                  <span className="pf-row-icon"><Store size={19} /></span>
+                  <span className="col grow" style={{ gap: 2, textAlign: "left" }}>
+                    <span className="semi" style={{ fontSize: 14 }}>Start selling on STRYT</span>
+                    <span className="tiny" style={{ fontWeight: 500 }}>List your shop or offer your services</span>
+                  </span>
+                  <ChevronRight size={18} color="var(--brand-300)" />
                 </button>
               )}
               <button className="pf-row" onClick={() => nav("/account")}>

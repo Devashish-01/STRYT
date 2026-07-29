@@ -12,6 +12,10 @@ export default function ProviderPortfolio() {
   const { id = "" } = useParams();
   const { data: p, loading, refetch } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { showToast } = useApp();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [editingCaption, setEditingCaption] = useState<string | null>(null);
+  const [captionVal, setCaptionVal] = useState("");
 
   if (!id) {
     return (
@@ -21,10 +25,6 @@ export default function ProviderPortfolio() {
       </div>
     );
   }
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [editingCaption, setEditingCaption] = useState<string | null>(null);
-  const [captionVal, setCaptionVal] = useState("");
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];

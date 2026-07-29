@@ -51,7 +51,16 @@ const Notifications = lazy(() => import("./screens/Notifications"));
 const Bookmarks = lazy(() => import("./screens/Bookmarks"));
 const Followers = lazy(() => import("./screens/Followers"));
 const MyQueues = lazy(() => import("./screens/MyQueues"));
-const Settings = lazy(() => import("./screens/Settings"));
+// Settings is a tree, not a page: /account is the hub and each row below opens
+// a screen whose title is that row's label. The old monolithic /settings page
+// is gone — its route now redirects to the hub so existing links still work.
+const NotificationSettings = lazy(() => import("./screens/settings/NotificationSettings"));
+const PrivacySettings = lazy(() => import("./screens/settings/PrivacySettings"));
+const DiscoverySettings = lazy(() => import("./screens/settings/DiscoverySettings"));
+const LanguageSettings = lazy(() => import("./screens/settings/LanguageSettings"));
+const SecuritySettings = lazy(() => import("./screens/settings/SecuritySettings"));
+const LocationSettings = lazy(() => import("./screens/settings/LocationSettings"));
+const DataSettings = lazy(() => import("./screens/settings/DataSettings"));
 const Support = lazy(() => import("./screens/Support"));
 
 // Detail
@@ -577,7 +586,17 @@ export default function App() {
             <Route path="/my-activity" element={<MyActivity />} />
             <Route path="/account" element={<AccountSettings />} />
             <Route path="/account/business-access" element={<BusinessAccess />} />
-            <Route path="/settings" element={<Settings />} />
+            {/* /settings is now the hub's old address — Home, DesktopSidebar
+                and BusinessAccess all still link to it, so it redirects rather
+                than 404s. Each real setting lives on its own screen below. */}
+            <Route path="/settings" element={<Navigate to="/account" replace />} />
+            <Route path="/settings/notifications" element={<NotificationSettings />} />
+            <Route path="/settings/privacy" element={<PrivacySettings />} />
+            <Route path="/settings/discovery" element={<DiscoverySettings />} />
+            <Route path="/settings/language" element={<LanguageSettings />} />
+            <Route path="/settings/security" element={<SecuritySettings />} />
+            <Route path="/settings/location" element={<LocationSettings />} />
+            <Route path="/settings/data" element={<DataSettings />} />
             <Route path="/support" element={<Support />} />
 
             <Route path="/ask" element={<AskCompose />} />

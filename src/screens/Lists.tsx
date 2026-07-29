@@ -1,9 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
-import { Plus, Share2, ChevronRight, Users } from "@/components/Icons";
+import { Plus, ChevronRight, Users } from "@/components/Icons";
 import { useApp } from "@/store";
-import { copyText } from "@/lib/clipboard";
 import { discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 
@@ -11,8 +10,13 @@ const emojis = ["🌟", "🍽️", "🚨", "🧸", "💎", "🎁", "🏠", "💇
 
 export default function Lists() {
   const nav = useNavigate();
-  const { lists, createList, showToast, user } = useApp();
-  const [open, setOpen] = useState<string | null>(null);
+  const { lists, createList, user } = useApp();
+  // The open list lives in the URL (`?list=<id>`), not component state, so
+  // hardware/browser back closes the list instead of leaving the whole screen,
+  // and an open list survives a refresh.
+  const [params, setParams] = useSearchParams();
+  const open = params.get("list");
+  const setOpen = (id: string | null) => setParams(id ? { list: id } : {});
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🌟");
@@ -27,11 +31,15 @@ export default function Lists() {
   if (active) {
     return (
       <div className="screen">
+        {/* No Share button: user_lists' SELECT policy is strictly
+            `user_id = auth.uid()` with no exception for `shared`, so a copied
+            link is unreadable by anyone else. It copied window.location.href
+            (always "/lists") on top of that. Re-add this when server-side list
+            sharing actually exists. */}
         <AppBar
           title={`${active.emoji} ${active.name}`}
           subtitle={`${active.items.length} saved`}
           onBack={() => setOpen(null)}
-          right={<button className="icon-btn" onClick={async () => { const ok = await copyText(window.location.href); showToast(ok ? "List link copied" : "Couldn't copy link"); }}><Share2 size={18} /></button>}
         />
         <div className="screen-scroll page-pad col gap-12">
           {active.items.length === 0 ? (

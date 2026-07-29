@@ -268,5 +268,8 @@ export function useAmbientTheme(
       headerGradient,
       ambientSubtitle,
     };
-  }, [weather, role]);
+    // `role` is a hook parameter but unused inside this memo's computation —
+    // see the file-level comment above about collapsing role-specific ramps
+    // into one on-brand ambient — so it's intentionally excluded here.
+  }, [weather]);
 }

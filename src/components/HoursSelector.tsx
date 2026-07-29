@@ -38,8 +38,8 @@ export function normalizeTimeStr(tStr: string): string {
   
   const numPart = cleaned.replace(/(AM|PM)/g, "").trim();
   const parts = numPart.split(":");
-  let hour = parseInt(parts[0], 10) || 0;
-  let minute = parseInt(parts[1], 10) || 0;
+  const hour = parseInt(parts[0], 10) || 0;
+  const minute = parseInt(parts[1], 10) || 0;
   
   const isPM = hasPM || (hour >= 12 && !hasAM);
   

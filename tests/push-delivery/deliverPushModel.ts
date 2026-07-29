@@ -47,10 +47,28 @@ function readIfExists(rel: string): string {
  * The channel id the send-push edge function targets for Android FCM messages.
  * Read live so the model tracks the real contract instead of a hard-coded copy.
  */
-export function sendPushChannelId(): string | null {
+/**
+ * Every Android channel id send-push can target.
+ *
+ * send-push picks a channel at runtime (`channel_id: silent ? "stryt_silent"
+ * : "stryt_default"`), so this pulls ALL quoted ids out of that expression
+ * rather than assuming a single literal. That matters: a notification aimed at
+ * a channel the app never created is silently dropped by Android 8+, so the
+ * channel-exists check below has to hold for each id, not just the first one.
+ */
+export function sendPushChannelIds(): string[] {
   const src = readIfExists("supabase/functions/send-push/index.ts");
-  const m = src.match(/channel_id:\s*["']([^"']+)["']/);
-  return m ? m[1] : null;
+  // Capture the whole right-hand side of channel_id up to the line end, then
+  // take every quoted string in it — handles a literal and a ternary alike.
+  const expr = src.match(/channel_id:\s*(.+)$/m);
+  if (!expr) return [];
+  return [...expr[1].matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
+}
+
+/** The primary (non-silent) channel — kept for callers that only need one. */
+export function sendPushChannelId(): string | null {
+  const ids = sendPushChannelIds();
+  return ids.find((id) => !id.includes("silent")) ?? ids[0] ?? null;
 }
 
 /**
@@ -61,22 +79,23 @@ export function sendPushChannelId(): string | null {
  * silently drops the notification.
  */
 export function androidChannelExists(): boolean {
-  const channelId = sendPushChannelId();
-  if (!channelId) return false;
+  const channelIds = sendPushChannelIds();
+  if (channelIds.length === 0) return false;
 
   const mainActivity = readIfExists(
     "android/app/src/main/java/in/stryt/app/MainActivity.java",
   );
-  const createsChannel =
-    /createNotificationChannel/.test(mainActivity) &&
-    mainActivity.includes(channelId);
-
   const manifest = readIfExists("android/app/src/main/AndroidManifest.xml");
-  const declaresDefault =
-    /default_notification_channel_id/.test(manifest) &&
-    manifest.includes(channelId);
+  const createsAny = /createNotificationChannel/.test(mainActivity);
+  const declaresDefault = /default_notification_channel_id/.test(manifest);
 
-  return createsChannel || declaresDefault;
+  // EVERY channel send-push can target must be accounted for — one missing id
+  // means that branch's notifications get dropped on Android 8+.
+  return channelIds.every((id) => {
+    const createdNatively = createsAny && mainActivity.includes(id);
+    const declaredInManifest = declaresDefault && manifest.includes(id);
+    return createdNatively || declaredInManifest;
+  });
 }
 
 /**
@@ -285,10 +304,15 @@ export function fcmStaleCleanupEnabled(): boolean {
   return detects && deletes;
 }
 
-/** req 3.4 — native tap dispatches the "push-nav" CustomEvent for SPA nav. */
+/** req 3.4 — native tap dispatches the "push-nav" CustomEvent for SPA nav.
+ *  Matches specifically the CustomEvent carrying a `detail` payload (the
+ *  navigation target URL) rather than the first CustomEvent in the file —
+ *  pushNotifications.ts also dispatches an unrelated no-detail
+ *  "battery-optimization-prompt" event earlier in the file, which a naive
+ *  first-match regex would pick up instead. */
 export function nativeNavEvent(): string | null {
   const src = pushClientSrc();
-  const m = src.match(/new CustomEvent\(["']([^"']+)["']/);
+  const m = src.match(/new CustomEvent\(["']([^"']+)["'],\s*\{\s*detail/);
   return m ? m[1] : null;
 }
 

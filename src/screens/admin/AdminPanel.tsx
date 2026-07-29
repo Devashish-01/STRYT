@@ -248,7 +248,7 @@ function AdminQueue() {
             return (
               <div key={item.id} className="card">
                 <div className="row gap-12">
-                  {item.image ? <img src={item.image} className="thumb" style={{ width: 48, height: 48, borderRadius: 12 }} /> : <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color="var(--brand-600)" /></div>}
+                  {item.image ? <img src={item.image} alt={item.name} className="thumb" style={{ width: 48, height: 48, borderRadius: 12 }} /> : <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color="var(--brand-600)" /></div>}
                   <div className="grow"><div className="semi small">{item.name}</div><div className="tiny muted">{item.sub}</div></div>
                 </div>
                 <div className="row gap-8" style={{ marginTop: 12 }}>
@@ -423,7 +423,7 @@ function AdminLocationChanges() {
           <div key={item.id} className="card">
             <div className="row gap-12" style={{ marginBottom: 10 }}>
               {item.coverImage
-                ? <img src={item.coverImage} className="thumb" style={{ width: 44, height: 44, borderRadius: 10 }} />
+                ? <img src={item.coverImage} alt={item.name} className="thumb" style={{ width: 44, height: 44, borderRadius: 10 }} />
                 : <div style={{ width: 44, height: 44, borderRadius: 10, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Store size={18} color="var(--brand-600)" /></div>}
               <div className="grow">
                 <div className="semi small">{item.name}</div>

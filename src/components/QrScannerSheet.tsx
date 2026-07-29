@@ -20,7 +20,7 @@ export default function QrScannerSheet({ onClose }: Props) {
 
   const handleScanResult = (data: string) => {
     try {
-      let raw = data.trim();
+      const raw = data.trim();
       if (!raw) return;
 
       // 1. Try JSON parsing (e.g. {"type": "business", "id": "b1"} or {"action": "stamp", "cardId": "c1"})
@@ -159,6 +159,12 @@ export default function QrScannerSheet({ onClose }: Props) {
         }).catch(() => {/* ignore */});
       }
     };
+    // handleScanResult is a plain (non-memoized) function recreated every
+    // render, and this effect's own callbacks call setIsScanning/setCameraError
+    // — adding it here would re-run the effect (tearing down and restarting
+    // the live camera stream) on every render while tab === "camera", not just
+    // when the tab changes. Deliberately excluded; only `tab` should retrigger this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {

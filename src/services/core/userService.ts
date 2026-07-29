@@ -17,6 +17,11 @@ const USER_COLUMNS = new Set([
   "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
   "showPhonePublicly", "showEmailPublicly", "showCityPublicly", "showRatingPublicly",
   "showNamePublicly", "locationPublic", "onboardingCompletedAt",
+  // Discovery-push preferences + the timezone quiet hours needs. Without these
+  // here, pickColumns silently drops them and the toggle appears to save but
+  // never reaches the DB — which is how they ended up cosmetic in the first place.
+  "notifNewBusiness", "notifNearbyRequests", "notifOffers",
+  "notifSilent", "notifQuietHours", "timezone",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
@@ -68,7 +73,7 @@ export const userService = {
     const { data, error } = await sb.rpc("get_own_profile").maybeSingle();
     throwIfError(error);
     if (data) {
-      let u = toCamel<CurrentUser>(data);
+      const u = toCamel<CurrentUser>(data);
       // alias isn't a sensitive field, but get_own_profile() may predate it —
       // merge it from a plain select so the user's own handle always loads.
       if (u.alias === undefined) {
@@ -188,7 +193,12 @@ export const userService = {
     const uid = await currentUserId();
     if (!uid) return;
     const patch: TablesUpdate<"users"> = { lat, lng };
-    if (area) patch.area = area;
+    // `undefined` = caller doesn't know the name yet, leave the stored one alone.
+    // `""` = caller confirmed the position moved but couldn't resolve a name —
+    // clear the stale name rather than silently keep showing the OLD area next
+    // to the NEW coordinates (this used to read `if (area)`, so an empty-string
+    // "couldn't resolve" signal was indistinguishable from "don't touch it").
+    if (area !== undefined) patch.area = area || null;
     const { error } = await sb.from("users").update(patch).eq("id", uid);
     throwIfError(error);
     const { error: provErr } = await sb.from("providers").update({ lat, lng }).eq("user_id", uid);

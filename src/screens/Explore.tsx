@@ -408,6 +408,12 @@ export default function Explore() {
                   <span>{c.name}</span>
                 </button>
               ))}
+              {/* The full category browser (/categories) is a real, working
+                  screen that had ZERO links pointing at it anywhere in the app
+                  — reachable only by typing the URL. This is its way in. */}
+              <button className="category-item-btn" onClick={() => nav("/categories")}>
+                <span>Browse all categories →</span>
+              </button>
             </div>
           </div>
         </div>

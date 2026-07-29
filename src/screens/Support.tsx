@@ -99,7 +99,10 @@ export default function Support() {
 
   return (
     <div className="screen">
-      <AppBar title="Help & Support" onBack={() => nav("/profile")} />
+      {/* No hardcoded onBack — the only way in is from Settings, so forcing
+          /profile skipped a level of the tree. AppBar defaults to nav(-1),
+          which returns you to wherever you actually came from. */}
+      <AppBar title="Help & Support" />
 
       {/* Tabs */}
       <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff" }}>
@@ -158,8 +161,8 @@ export default function Support() {
               <p className="muted small" style={{ lineHeight: 1.5, maxWidth: 300 }}>
                 Thank you for contacting us. We have received your query and will reply to <strong>{email}</strong> within 24 hours.
               </p>
-              <button className="btn btn-ghost btn-block" onClick={() => nav("/profile")} style={{ marginTop: 8 }}>
-                Back to Profile
+              <button className="btn btn-ghost btn-block" onClick={() => nav(-1)} style={{ marginTop: 8 }}>
+                Done
               </button>
             </div>
           ) : (
@@ -250,8 +253,8 @@ export default function Support() {
                 <button className="btn btn-outline grow" onClick={() => setBugSubmitted(false)}>
                   Report Another
                 </button>
-                <button className="btn btn-ghost grow" onClick={() => nav("/profile")}>
-                  Profile
+                <button className="btn btn-ghost grow" onClick={() => nav(-1)}>
+                  Done
                 </button>
               </div>
             </div>

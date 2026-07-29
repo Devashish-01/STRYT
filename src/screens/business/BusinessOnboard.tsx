@@ -7,8 +7,8 @@ import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store } from "@/compo
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
-import HoursSelector, { parseAvailability } from "@/components/HoursSelector";
-import { DEFAULT_ONBOARD_WORKING_HOURS, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
+import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
+import { DEFAULT_ONBOARD_DAYS_PATTERN, DEFAULT_START_TIME, DEFAULT_ONBOARD_END_TIME, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
 
 import { reverseGeocodeFull } from "@/lib/geocode";
 import { searchMapBusinessCandidates, ImportedBusinessDetails } from "@/lib/mapBusinessSearch";
@@ -36,7 +36,12 @@ export default function BusinessOnboard() {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("Pune");
   const [pincode, setPincode] = useState("");
-  const [hours, setHours] = useState(DEFAULT_ONBOARD_WORKING_HOURS);
+  // Same per-day, multi-shift editor as the real Hours page (HoursEditor.tsx) —
+  // so what's set at onboarding is the exact control the owner will edit later,
+  // not a coarser preset picker that forces an immediate follow-up trip to Settings.
+  const [hoursRaw, setHoursRaw] = useState(() =>
+    serializeHoursValue(expandPatternToWeekly(DEFAULT_ONBOARD_DAYS_PATTERN, DEFAULT_START_TIME, DEFAULT_ONBOARD_END_TIME, 30))
+  );
   const [photos, setPhotos] = useState<{ file: File; previewUrl: string }[]>([]);
   const [phone, setPhone] = useState("");
   const [openDate, setOpenDate] = useState("");
@@ -64,11 +69,6 @@ export default function BusinessOnboard() {
         );
       }
       const subNames = sub.map(id => selectedCat?.children?.find(ch => ch.id === id)?.name || id);
-      // Onboarding still picks hours via the lightweight day-group + single-range HoursSelector,
-      // but writes storage in the new per-day format so the new hours editor / correct "open now"
-      // badges apply immediately, without a legacy round-trip.
-      const parsedHours = parseAvailability(hours);
-      const hoursValue = serializeHoursValue(expandPatternToWeekly(parsedHours.days, parsedHours.from, parsedHours.to, 30));
       const biz = await businessService.create({
         name,
         categoryId: cat ?? undefined,
@@ -80,7 +80,7 @@ export default function BusinessOnboard() {
         phone,
         openingDate: openDate || undefined,
         offerText: offer || undefined,
-        hours: hoursValue || undefined,
+        hours: hoursRaw || undefined,
         coverImage: uploadedUrls[0] || undefined,
         gallery: uploadedUrls.length > 0 ? uploadedUrls : undefined,
         broadcastRadius,
@@ -325,7 +325,7 @@ export default function BusinessOnboard() {
               <span className="tiny muted">A great cover photo gets 3x more views.</span>
               <div className="row gap-8 wrap" style={{ marginTop: 8 }}>
                 {photos.map((p, idx) => (
-                  <img key={idx} src={p.previewUrl} className="thumb" style={{ width: 96, height: 96, borderRadius: 12, objectFit: "cover" }} />
+                  <img key={idx} src={p.previewUrl} alt={`Shop photo ${idx + 1}`} className="thumb" style={{ width: 96, height: 96, borderRadius: 12, objectFit: "cover" }} />
                 ))}
                 {photos.length < 4 && (
                   <label className="col center" style={{ width: 96, height: 96, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, cursor: "pointer" }}>
@@ -367,13 +367,11 @@ export default function BusinessOnboard() {
               </div>
             </div>
             <div className="field">
-              <HoursSelector
-                value={hours}
-                onChange={setHours}
-                accentColor="var(--brand-600)"
-                label="Hours"
-                description="Specify open and close hours"
-              />
+              <label>Hours</label>
+              <span className="tiny muted">Set your real working hours — this is exactly what customers will book against.</span>
+              <div style={{ marginTop: 8 }}>
+                <WeeklyHoursEditor initialRaw={hoursRaw} onChange={setHoursRaw} />
+              </div>
             </div>
           </>
         )}

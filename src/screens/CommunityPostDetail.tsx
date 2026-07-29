@@ -71,8 +71,8 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
             <label>Photo</label>
             {image ? (
               <div style={{ position: "relative", width: 100 }}>
-                <img src={image} className="thumb" style={{ width: 100, height: 100, borderRadius: 12, objectFit: "cover" }} />
-                <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setImage(null)}><X size={14} /></button>
+                <img src={image} alt="Photo preview" className="thumb" style={{ width: 100, height: 100, borderRadius: 12, objectFit: "cover" }} />
+                <button className="icon-btn" aria-label="Remove photo" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setImage(null)}><X size={14} /></button>
               </div>
             ) : (
               <button

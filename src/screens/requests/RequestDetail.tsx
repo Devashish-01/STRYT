@@ -38,6 +38,10 @@ export default function RequestDetail() {
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "proposals", filter: `request_id=eq.${id}` }, () => refetch())
       .subscribe();
     return () => { sb.removeChannel(channel); };
+    // refetch is a new closure every render (useQueryWithRealtime doesn't
+    // memoize it) — depending on it here would tear down and resubscribe
+    // this realtime channel on every render instead of only when `id` changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);

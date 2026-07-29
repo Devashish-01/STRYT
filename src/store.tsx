@@ -33,7 +33,6 @@ import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { reverseGeocode } from "@/lib/geocode";
 import { authService } from "@/services/core/authService";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
-import { notificationService } from "@/services/engagement/notificationService";
 import { chatService } from "@/services/engagement/chatService";
 import { registerPush } from "@/lib/pushNotifications";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
@@ -157,11 +156,6 @@ interface AppState {
   addToList: (listId: string, type: BookmarkTarget, id: string) => void;
   isInAnyList: (type: BookmarkTarget, id: string) => boolean;
 
-  // notifications read state
-  unreadCount: number;
-  markAllRead: () => void;
-  decrementUnread: () => void;
-
   // true once the first post-login refreshUser() attempt has settled (success
   // or failure) — the route guard waits on this so screens never mount against
   // the blank seed user and briefly show placeholder identity data.
@@ -236,7 +230,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     lists, setLists, createList, addToList, isInAnyList,
   } = useCommerceSlice(showToast);
 
-  const { unread, setUnread, markAllRead, decrementUnread, chatUnread, setChatUnread } = useNotificationBadges(isAuthed);
+  const { chatUnread, setChatUnread } = useNotificationBadges(isAuthed);
   const [profileReady, setProfileReady] = useState(false);
 
   // ── Guest mode ────────────────────────────────────────────────────────────
@@ -297,15 +291,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!uid) return;
 
     // run all fetches in parallel
-    const [bmRes, fwRes, lstRes, liRes, unreadCount, vcRes, enRes, cpRes, mtRes, chatUnreadCount] = await Promise.all([
+    const [bmRes, fwRes, lstRes, liRes, vcRes, enRes, cpRes, mtRes, chatUnreadCount] = await Promise.all([
       sb.from("bookmarks").select("target_type,target_id").eq("user_id", uid),
       sb.from("follows").select("target_type,target_id").eq("follower_user_id", uid),
       sb.from("user_lists").select("id,name,emoji,shared").eq("user_id", uid).order("created_at"),
       sb.from("user_list_items").select("list_id,target_type,target_id"),
-      notificationService.getUnreadCount().catch((err) => {
-        console.warn("Unread notification count failed; preserving existing badge count.", err);
-        return null;
-      }),
       sb.from("vouches").select("provider_id").eq("from_user_id", uid),
       sb.from("endorsements").select("provider_id,skill").eq("from_user_id", uid),
       sb.from("user_saved_coupons").select("offer_id").eq("user_id", uid),
@@ -351,9 +341,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (mtRes.data) {
       setMeToos(mtRes.data.map((r) => r.request_id));
     }
-    if (unreadCount !== null) setUnread(unreadCount);
     setChatUnread(chatUnreadCount);
-  }, []);
+    // Every dep below is a useState setter — React guarantees these are
+    // referentially stable for the life of the component, so listing them
+    // satisfies exhaustive-deps with zero behavior change (they can never
+    // actually cause this callback to be recreated).
+  }, [setBookmarks, setChatUnread, setEndorsed, setFollows, setLists, setMeToos, setSavedCoupons, setVouched]);
 
   // Pull the real user + owned entities whenever we become authenticated.
   const refreshUser = useCallback(async () => {
@@ -364,6 +357,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (me.notificationRadiusKm) {
         localStorage.setItem("settings_radius", String(me.notificationRadiusKm));
       }
+      // Seed the timezone from the device once. send-push needs it to evaluate
+      // quiet hours; without it that setting can't mean anything. Best-effort
+      // and fire-and-forget — a failure here must never block sign-in.
+      try {
+        const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (deviceTz && deviceTz !== me.timezone) {
+          void userService.update({ timezone: deviceTz }).catch(() => {});
+        }
+      } catch { /* Intl unavailable — quiet hours falls back server-side */ }
       setArea(me.area);
       setRoles(me.roles);
       setOwnedBusinessIds(owned.businessIds);
@@ -407,9 +409,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (moved < 0.25) return;
         try {
           const areaName = await reverseGeocode(latitude, longitude).catch(() => null);
-          await userService.autoSyncLocation(latitude, longitude, areaName ?? undefined);
-          setUser((u) => ({ ...u, lat: latitude, lng: longitude, area: areaName ?? u.area }));
-          if (areaName) setArea(areaName);
+          // The position has already been confirmed to have moved meaningfully
+          // (past the `moved < 0.25` guard above) — if the name can't be
+          // resolved, clear it explicitly (`""`) instead of leaving the OLD
+          // area name attached to the NEW coordinates. A blank "set your
+          // location" placeholder is honest; a confidently wrong city name is
+          // actively misleading (this was the actual bug: map correct, header
+          // and location-picker's nearby list both stuck on a stale name).
+          await userService.autoSyncLocation(latitude, longitude, areaName ?? "");
+          setUser((u) => ({ ...u, lat: latitude, lng: longitude, area: areaName ?? "" }));
+          setArea(areaName ?? "");
         } catch { /* silent — freshness sync is best-effort */ }
       },
       () => { /* denied/unavailable — keep stored location */ },
@@ -575,9 +584,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       createList,
       addToList,
       isInAnyList,
-      unreadCount: unread,
-      markAllRead,
-      decrementUnread,
       profileReady,
       chatUnread,
       setChatUnread,
@@ -621,13 +627,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       businessRecoveryIsSet, providerRecoveryIsSet, businessPasswordRequired, pendingContextSwitch,
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
-      unread, chatUnread, toast, isAuthed, authReady, profileReady,
+      chatUnread, toast, isAuthed, authReady, profileReady,
       isGuest, guestLocation, guestLocationStatus, requestGuestLocation,
       dataSaver, setDataSaver,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,
-      setPersistedActiveRole, setPersistedContext, markAllRead, decrementUnread, setChatUnread, setIsAuthed,
+      setPersistedActiveRole, setPersistedContext, setChatUnread, setIsAuthed,
       attemptSwitchContext, confirmPendingSwitch, cancelPendingSwitch, refreshEntityPasswordStatus,
     ]
   );

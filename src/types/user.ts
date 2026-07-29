@@ -148,6 +148,20 @@ export interface CurrentUser {
   /** Opt-in to showing the real `name` publicly instead of alias/first-name. Defaults false. */
   showNamePublicly?: boolean;
   locationPublic?: boolean; // global "anyone can see my exact location"
+  /** Discovery/marketing push preferences, read by the send-push edge function
+   *  at delivery time. These may only ever gate DISCOVERY notifications —
+   *  bookings, queue updates, agreements, deliveries, chat and payments are
+   *  transactional and always deliver regardless. Default true (opted in). */
+  notifNewBusiness?: boolean;
+  notifNearbyRequests?: boolean;
+  notifOffers?: boolean;
+  /** Deliver without sound. Suppresses the alert, never the notification. */
+  notifSilent?: boolean;
+  /** Silence sounds 22:00–07:00 in the user's own `timezone`. */
+  notifQuietHours?: boolean;
+  /** IANA zone, seeded from the device at sign-in. Quiet hours is meaningless
+   *  without it, so send-push falls back to Asia/Kolkata when it's unset. */
+  timezone?: string | null;
   customerEnabled?: boolean;
   customerDeletedAt?: string | null;
   deletionScheduledAt?: string | null;

@@ -343,7 +343,7 @@ export const appointmentService = {
             .from("appointments")
             .select("*")
             .eq("customer_user_id", uid)
-            .order("scheduled_for", { ascending: false });
+            .order("created_at", { ascending: false });
           if (error) throw error;
           // Rows are already swept server-side — no client-side DB writes here.
           return (data ?? []).map(rowToRecord);
@@ -377,7 +377,7 @@ export const appointmentService = {
             .from("appointments")
             .select("*, customer:users!customer_user_id(alias)")
             .eq("target_id", targetId)
-            .order("scheduled_for", { ascending: false });
+            .order("created_at", { ascending: false });
           if (error) throw error;
           return (data ?? []).map(rowToRecord);
         } catch {

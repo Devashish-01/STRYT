@@ -222,7 +222,12 @@ export default function Home() {
   ];
 
   return (
-    <div className="screen with-nav home-screen-wrapper" style={{ padding: 0, maxWidth: "100%", margin: 0 }}>
+    // paddingBottom deliberately omitted — it's the one side .with-nav's CSS
+    // rule sets (clearance for the fixed bottom-nav bar). The old shorthand
+    // `padding: 0` here overrode that too (an inline style always wins over a
+    // class for the same property), so Home's last content rendered underneath
+    // the nav bar on both web and the Android WebView.
+    <div className="screen with-nav home-screen-wrapper" style={{ paddingTop: 0, paddingLeft: 0, paddingRight: 0, maxWidth: "100%", margin: 0 }}>
       
       {/* ==========================================================
           MOBILE-ONLY HOME VIEW (Matches original mobile flow)

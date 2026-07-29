@@ -213,7 +213,7 @@ export default function ProviderOnboard() {
             <span className="tiny muted">Portfolio photos build trust and win more jobs.</span>
             <div className="row gap-8 wrap" style={{ marginTop: 8 }}>
               {photos.map((p, idx) => (
-                <img key={idx} src={p.previewUrl} className="thumb" style={{ width: 96, height: 96, borderRadius: 12, objectFit: "cover" }} />
+                <img key={idx} src={p.previewUrl} alt={`Portfolio photo ${idx + 1}`} className="thumb" style={{ width: 96, height: 96, borderRadius: 12, objectFit: "cover" }} />
               ))}
               {photos.length < 5 && (
                 <label className="col center" style={{ width: 96, height: 96, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, cursor: "pointer" }}>
@@ -247,7 +247,7 @@ export default function ProviderOnboard() {
               <label>Your photograph *</label>
               <label className="row gap-12" style={{ cursor: "pointer", alignItems: "center" }}>
                 {photoPreview
-                  ? <img src={photoPreview} className="thumb" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }} />
+                  ? <img src={photoPreview} alt="Your profile photo" className="thumb" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }} />
                   : <div className="col center" style={{ width: 72, height: 72, borderRadius: "50%", border: "2px dashed var(--ink-300)", color: "var(--ink-500)" }}><Camera size={22} /></div>}
                 <span className="small semi" style={{ color: photoFile ? "var(--green-600)" : "var(--ink-600)" }}>
                   {photoFile ? "Photo added — tap to change" : "Add a clear face photo"}

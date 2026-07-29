@@ -15,6 +15,14 @@ export default function StoryComposer() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { data: b } = useQuery(() => businessService.get(id), [id]);
+  const { showToast } = useApp();
+  const [image, setImage] = useState("");
+  const [caption, setCaption] = useState("");
+  const [cta, setCta] = useState("Order now");
+  const [hours, setHours] = useState<number>(6);
+  const [showCustom, setShowCustom] = useState(false);
+  const [customVal, setCustomVal] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   if (!id) {
     return (
@@ -24,14 +32,6 @@ export default function StoryComposer() {
       </div>
     );
   }
-  const { showToast } = useApp();
-  const [image, setImage] = useState("");
-  const [caption, setCaption] = useState("");
-  const [cta, setCta] = useState("Order now");
-  const [hours, setHours] = useState<number>(6);
-  const [showCustom, setShowCustom] = useState(false);
-  const [customVal, setCustomVal] = useState("");
-  const [uploading, setUploading] = useState(false);
 
   return (
     <div className="screen">
@@ -58,7 +58,7 @@ export default function StoryComposer() {
               }
             }}
           />
-          {image ? <img src={image} style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.95 }} /> : (
+          {image ? <img src={image} alt="Story preview" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.95 }} /> : (
             <span className="col center muted gap-6" style={{ height: "100%" }}><Camera size={30} /><span className="small">{uploading ? "Uploading…" : "Tap to add photo"}</span></span>
           )}
           {image && caption && (
