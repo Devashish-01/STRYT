@@ -12,11 +12,6 @@ export const config = {
     lng: Number((import.meta as any).env?.VITE_DEFAULT_LNG ?? 73.893),
   },
   defaultCountry: (import.meta as any).env?.VITE_DEFAULT_COUNTRY ?? "IN",
-  presetLocations: [
-    { area: "Koregaon Park", full: "Koregaon Park, Pune, Maharashtra", lat: 18.536, lng: 73.893, emoji: "🌳" },
-    { area: "Kalyani Nagar", full: "Kalyani Nagar, Pune, Maharashtra", lat: 18.547, lng: 73.901, emoji: "🏢" },
-    { area: "Marathahalli", full: "Marathahalli, Bengaluru, Karnataka", lat: 12.956, lng: 77.701, emoji: "💻" },
-  ],
 };
 
 // Every Edge Function call needs this same base — centralized so it isn't

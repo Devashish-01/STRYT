@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, MapPin, Navigation, Loader } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService } from "@/services";
-import { reverseGeocode, type GeoPlace } from "@/lib/geocode";
-import { config } from "@/config";
+import { reverseGeocode, nearbyAreas, type GeoPlace } from "@/lib/geocode";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 interface Props {
@@ -11,8 +10,21 @@ interface Props {
 }
 
 export default function LocationPickerSheet({ onClose }: Props) {
-  const { area, refreshUser, showToast, setArea } = useApp();
+  const { user, area, refreshUser, showToast, setArea } = useApp();
   const [locating, setLocating] = useState(false);
+  const [nearby, setNearby] = useState<GeoPlace[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+
+  // Real nearby neighbourhoods around wherever the user already is — not a
+  // fixed list, so this is useful (and correct) no matter which city someone's
+  // actually in.
+  useEffect(() => {
+    if (user.lat == null || user.lng == null) return;
+    setNearbyLoading(true);
+    nearbyAreas(user.lat, user.lng)
+      .then(setNearby)
+      .finally(() => setNearbyLoading(false));
+  }, [user.lat, user.lng]);
 
   async function handleSelect(p: GeoPlace) {
     try {
@@ -53,8 +65,6 @@ export default function LocationPickerSheet({ onClose }: Props) {
       { enableHighAccuracy: true, timeout: 12000 }
     );
   }
-
-  const presetLocations = config.presetLocations;
 
   return (
     <div className="overlay" style={{ zIndex: 1100 }} onClick={onClose}>
@@ -118,26 +128,35 @@ export default function LocationPickerSheet({ onClose }: Props) {
           </span>
         </button>
 
-        {/* Popular areas — GPS is the primary path; this is the fallback when it fails */}
+        {/* Nearby areas — real neighbourhoods around wherever the user already
+            is, not a fixed list. GPS is still the primary path; this is a
+            faster tap for "somewhere close by, not exactly here." */}
         <div className="col gap-10" style={{ overflowY: "auto", flexGrow: 1, maxHeight: 280 }}>
-          <div className="tiny semi muted" style={{ letterSpacing: 0.5 }}>POPULAR AREAS</div>
-          {presetLocations.map((p) => (
-            <button
-              key={p.area}
-              onClick={() => handleSelect(p)}
-              className="row gap-10"
-              style={{
-                width: "100%", padding: "12px 14px", border: "none", background: "var(--ink-50)",
-                borderRadius: 14, textAlign: "left", cursor: "pointer"
-              }}
-            >
-              <span style={{ fontSize: 18 }}>{p.emoji}</span>
-              <div className="grow">
-                <div className="semi small" style={{ color: "var(--ink-900)" }}>{p.area}</div>
-                <div style={{ fontSize: 10.5, color: "var(--ink-500)", marginTop: 1 }}>{p.full}</div>
-              </div>
-            </button>
-          ))}
+          <div className="tiny semi muted" style={{ letterSpacing: 0.5 }}>NEARBY AREAS</div>
+          {nearbyLoading ? (
+            <div className="tiny muted" style={{ padding: "12px 14px" }}>Finding nearby areas…</div>
+          ) : nearby.length === 0 ? (
+            <div className="tiny muted" style={{ padding: "12px 14px" }}>
+              {user.lat == null ? "Use GPS above to see nearby areas." : "Couldn't find nearby areas — try GPS or search above."}
+            </div>
+          ) : (
+            nearby.map((p) => (
+              <button
+                key={p.area}
+                onClick={() => handleSelect(p)}
+                className="row gap-10"
+                style={{
+                  width: "100%", padding: "12px 14px", border: "none", background: "var(--ink-50)",
+                  borderRadius: 14, textAlign: "left", cursor: "pointer"
+                }}
+              >
+                <MapPin size={18} color="var(--ink-500)" />
+                <div className="grow">
+                  <div className="semi small" style={{ color: "var(--ink-900)" }}>{p.area}</div>
+                </div>
+              </button>
+            ))
+          )}
         </div>
       </div>
     </div>
