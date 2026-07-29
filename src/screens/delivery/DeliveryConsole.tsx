@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { deliveryService, type DeliveryItem, type DeliveryLiveStatus, type DeliveryBatchStatus } from "@/services/engagement/deliveryService";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
@@ -11,11 +11,16 @@ import { haversineKm } from "@/lib/geocode";
 import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";
 import RoleSwitcher from "@/components/RoleSwitcher";
-import { EmptyState } from "@/components/common";
-import { ListSkeleton } from "@/components/states";
+import Toggle from "@/components/Toggle";
+import { EmptyState, PullToRefreshIndicator } from "@/components/common";
+import { ListSkeleton, ErrorView } from "@/components/states";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Package, MapPin, Clock, CheckCircle, Navigation } from "@/components/Icons";
 import { routableStops, openRoute, exceedsRouteCap, MAX_ROUTE_WAYPOINTS } from "@/lib/routeLink";
 import BackgroundLocationDisclosure from "@/features/live-share/BackgroundLocationDisclosure";
+import DeliveryStatusPill from "@/components/delivery/DeliveryStatusPill";
+import DeliveryStepper from "@/components/delivery/DeliveryStepper";
+import HandoffCodeInput from "@/components/delivery/HandoffCodeInput";
 
 /** Best-effort current position; resolves null if unavailable/denied. */
 function getGPS(): Promise<{ lat: number; lng: number } | null> {
@@ -33,14 +38,6 @@ function getGPS(): Promise<{ lat: number; lng: number } | null> {
 const DISCLOSURE_KEY = "stryt_bg_location_disclosure_v1";
 
 type Tab = "ACTIVE" | "ASSIGNED" | "HISTORY";
-
-const STEPS: { key: string; label: string }[] = [
-  { key: "ASSIGNED", label: "Assigned" },
-  { key: "EN_ROUTE", label: "On the way" },
-  { key: "ARRIVED", label: "Arrived" },
-  { key: "DELIVERED", label: "Delivered" },
-];
-const STEP_INDEX: Record<string, number> = { ASSIGNED: 0, EN_ROUTE: 1, ARRIVED: 2, DELIVERED: 3 };
 
 function whenLabel(d: DeliveryItem): string {
   if (d.dateLabel || d.timeLabel) return [d.dateLabel, d.timeLabel].filter(Boolean).join(" · ");
@@ -105,13 +102,24 @@ function computeNearestNeighborOrder(start: { lat: number; lng: number }, stops:
 }
 
 export default function DeliveryConsole() {
-  const { showToast } = useApp();
-  const { data, loading, refetch } = useQuery(() => deliveryService.myDeliveries(), [], "my-deliveries");
+  const { user, showToast } = useApp();
+  const { data, loading, error, refetch } = useQueryWithRealtime<DeliveryItem[]>(
+    () => deliveryService.myDeliveries(),
+    "appointment_deliveries",
+    [user.id],
+    `agent_user_id=eq.${user.id}`,
+    "my-deliveries",
+  );
+  const { data: dutyData, refetch: refetchDuty } = useQuery(() => deliveryService.myDutyStatus(), [], "delivery-duty");
+  const [dutyBusy, setDutyBusy] = useState(false);
+  const onDuty = dutyData !== false;
+
   const [busyId, setBusyId] = useState<string | null>(null);
   const [decidingBatch, setDecidingBatch] = useState<string | null>(null);
   const [disclosureOpen, setDisclosureOpen] = useState(false);
   const disclosureResolver = useRef<((accepted: boolean) => void) | null>(null);
-  const watchingBatchId = useRef<string | null>(null);
+
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
 
   const items = useMemo(() => data ?? [], [data]);
   const soloItems = items.filter((d) => !d.batchId);
@@ -125,6 +133,20 @@ export default function DeliveryConsole() {
   const soloHistory = soloItems.filter((d) => d.status === "DELIVERED" || d.status === "CANCELLED");
 
   const [tab, setTab] = useState<Tab>("ACTIVE");
+
+  async function toggleDuty() {
+    const next = !onDuty;
+    setDutyBusy(true);
+    try {
+      await deliveryService.setDuty(next);
+      haptics.selection();
+      void refetchDuty();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update duty status");
+    } finally {
+      setDutyBusy(false);
+    }
+  }
 
   function ensureDisclosure(): Promise<boolean> {
     try {
@@ -147,47 +169,48 @@ export default function DeliveryConsole() {
     disclosureResolver.current = null;
   }
 
-  // Live GPS for an accepted multi-stop run: the proven background-capable watcher
-  // (already used by live-share), not the old foreground-only 30s poll — a run can
-  // take much longer than a single drop-off, so surviving a backgrounded app matters.
+  // One background-capable GPS watcher, shared by whichever job(s) currently
+  // need live tracking — a batch run AND/OR a solo delivery that's EN_ROUTE.
+  // backgroundLocation is a process-wide singleton (one native watcher at a
+  // time), so this only starts/stops on the *transition* into/out of "needs
+  // tracking" — never restarted just because which job it's attributed to
+  // changes mid-flight (e.g. a batch finishes while a solo delivery
+  // continues). Each fix is routed to whichever job(s) are active via a ref,
+  // read fresh on every fix rather than captured in a stale closure.
   const runningBatch = activeBatches[0] ?? null;
+  const soloEnRoute = soloActive.find((d) => d.status === "EN_ROUTE") ?? null;
+  const trackingTargetsRef = useRef<{ batchId: string | null; soloId: string | null }>({ batchId: null, soloId: null });
+  trackingTargetsRef.current = { batchId: runningBatch?.batchId ?? null, soloId: soloEnRoute?.id ?? null };
+  const isTrackingRef = useRef(false);
+
   useEffect(() => {
-    if (!runningBatch) {
-      if (watchingBatchId.current) {
-        watchingBatchId.current = null;
-        void backgroundLocation.stop();
-      }
+    const needsTracking = !!runningBatch || !!soloEnRoute;
+    if (needsTracking === isTrackingRef.current) return;
+
+    if (!needsTracking) {
+      isTrackingRef.current = false;
+      void backgroundLocation.stop();
       return;
     }
-    if (watchingBatchId.current === runningBatch.batchId) return;
-    watchingBatchId.current = runningBatch.batchId;
-    const bId = runningBatch.batchId;
+
+    isTrackingRef.current = true;
     void (async () => {
       const allowed = await ensureDisclosure();
-      if (!allowed || watchingBatchId.current !== bId) return;
+      if (!allowed) { isTrackingRef.current = false; return; }
       void backgroundLocation.start((f) => {
-        void deliveryService.updateBatchPosition(bId, f.lat, f.lng, f.accuracy, f.heading).catch(() => { /* transient */ });
+        const targets = trackingTargetsRef.current;
+        if (targets.batchId) {
+          void deliveryService.updateBatchPosition(targets.batchId, f.lat, f.lng, f.accuracy, f.heading).catch(() => { /* transient */ });
+        }
+        if (targets.soloId) {
+          void deliveryService.updateStatus(targets.soloId, "ON_THE_WAY", f.lat, f.lng).catch(() => { /* transient */ });
+        }
       });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runningBatch?.batchId]);
+  }, [!!runningBatch, !!soloEnRoute]);
 
   useEffect(() => () => { void backgroundLocation.stop(); }, []);
-
-  // Legacy solo GPS push — unchanged 30s poll, only for non-batched deliveries.
-  const soloEnRoute = soloActive.find((d) => d.status === "EN_ROUTE");
-  const soloEnRouteId = soloEnRoute?.id ?? null;
-  const pushTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => {
-    if (!soloEnRouteId) return;
-    const tick = async () => {
-      const c = await getGPS();
-      if (c) { try { await deliveryService.updateStatus(soloEnRouteId, "ON_THE_WAY", c.lat, c.lng); } catch { /* transient */ } }
-    };
-    void tick();
-    pushTimer.current = setInterval(tick, 30000);
-    return () => { if (pushTimer.current) clearInterval(pushTimer.current); };
-  }, [soloEnRouteId]);
 
   async function advance(d: DeliveryItem, next: DeliveryLiveStatus, okMsg: string) {
     setBusyId(d.id);
@@ -277,21 +300,46 @@ export default function DeliveryConsole() {
     HISTORY: historyBatches.length + soloHistory.length,
   };
 
+  // Only the single primary job gets the persistent bottom action bar (the
+  // same "which job is being GPS-tracked" priority as above) — an edge-case
+  // second simultaneous active job (rare: no auto-dispatch ever creates this,
+  // but nothing prevents an owner from assigning one while another is mid-run)
+  // keeps its action button inline in its own card instead of a second bar.
+  const primaryBatchId = runningBatch?.batchId ?? null;
+  const primarySoloId = !primaryBatchId ? (soloActive[0]?.id ?? null) : null;
+
+  const hasVisibleActionBar =
+    tab === "ACTIVE" &&
+    ((!!runningBatch && runningBatch.items.some((d) => d.status !== "DELIVERED" && d.status !== "CANCELLED")) ||
+      !!primarySoloId);
+
   return (
     <div className="screen screen-boxed">
       {/* Header — identity + one-tap switch back to Personal */}
-      <div className="row between center-v" style={{ padding: "14px 16px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
+      <div className="row between center-v" style={{ padding: "calc(14px + var(--safe-area-top)) 16px 14px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
         <div className="row gap-10 center-v">
           <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--delivery-600)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Package size={18} />
           </span>
           <div>
-            <div className="bold" style={{ fontSize: 16, lineHeight: 1.1 }}>Delivery</div>
+            <div className="h3">Delivery</div>
             <div className="tiny muted">Your assigned deliveries</div>
           </div>
         </div>
         <RoleSwitcher enableLongPress />
       </div>
+
+      {/* Duty — glanceable, always visible, not buried in a menu. */}
+      <button
+        type="button"
+        className="row between center-v"
+        style={{ width: "100%", padding: "10px 16px", borderBottom: "1px solid var(--line)", background: onDuty ? "var(--surface)" : "var(--ink-50)" }}
+        onClick={toggleDuty}
+        disabled={dutyBusy}
+      >
+        <span className="small semi">{onDuty ? "On duty" : "Off duty"}</span>
+        <Toggle on={onDuty} />
+      </button>
 
       {/* Tabs */}
       <div className="row" style={{ padding: "10px 12px 0", gap: 8 }}>
@@ -307,8 +355,11 @@ export default function DeliveryConsole() {
         ))}
       </div>
 
-      <div className="screen-scroll page-pad col gap-12" style={{ paddingTop: 12, paddingBottom: 30 }}>
-        {loading ? (
+      <div ref={containerRef} className="screen-scroll page-pad col gap-12" style={{ paddingTop: 12, paddingBottom: hasVisibleActionBar ? 140 : 30 }}>
+        <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
+        {error ? (
+          <ErrorView error={error} onRetry={refetch} />
+        ) : loading ? (
           <ListSkeleton count={3} />
         ) : tab === "ACTIVE" ? (
           activeBatches.length === 0 && soloActive.length === 0 ? (
@@ -316,19 +367,28 @@ export default function DeliveryConsole() {
           ) : (
             <>
               {activeBatches.map((b) => (
-                <RunCard key={b.batchId} batch={b} busyId={busyId} onAdvance={advance} onVerify={verifyHandoff} />
+                <RunCard key={b.batchId} batch={b} busyId={busyId} onAdvance={advance} onVerify={verifyHandoff} showActionBar={b.batchId === primaryBatchId} />
               ))}
               {soloActive.map((d) => (
-                <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} />
+                <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} showActionBar={d.id === primarySoloId} />
               ))}
             </>
           )
         ) : tab === "ASSIGNED" ? (
           soloAssigned.length === 0 ? (
-            <EmptyState emoji="🛵" title="Nothing assigned yet" text="New deliveries a business assigns to you will appear here." />
+            onDuty ? (
+              <EmptyState emoji="🛵" title="Nothing assigned yet" text="New deliveries a business assigns to you will appear here." />
+            ) : (
+              <EmptyState
+                emoji="🛵"
+                title="You're off duty"
+                text="Go on duty to receive new deliveries."
+                action={<button className="btn btn-delivery btn-sm" disabled={dutyBusy} onClick={toggleDuty}>Go on duty</button>}
+              />
+            )
           ) : (
             soloAssigned.map((d) => (
-              <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} />
+              <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} showActionBar={false} />
             ))
           )
         ) : historyBatches.length === 0 && soloHistory.length === 0 ? (
@@ -337,7 +397,7 @@ export default function DeliveryConsole() {
           <>
             {historyBatches.map((b) => <RunHistoryCard key={b.batchId} batch={b} />)}
             {soloHistory.map((d) => (
-              <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} />
+              <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} showActionBar={false} />
             ))}
           </>
         )}
@@ -355,13 +415,34 @@ function NewRunGate({ batch, busy, onAccept, onDecline }: {
   onAccept: () => void;
   onDecline: () => void;
 }) {
+  // Lightweight two-tap decline — no heavy modal, but a mis-tap can no longer
+  // instantly and irreversibly decline a whole run. Auto-disarms after 5s.
+  const [armed, setArmed] = useState(false);
+  const armTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (armTimer.current) clearTimeout(armTimer.current); }, []);
+
+  function handleDeclineTap() {
+    if (!armed) {
+      setArmed(true);
+      haptics.warning();
+      armTimer.current = setTimeout(() => setArmed(false), 5000);
+      return;
+    }
+    if (armTimer.current) clearTimeout(armTimer.current);
+    onDecline();
+  }
+  function cancelArm() {
+    setArmed(false);
+    if (armTimer.current) clearTimeout(armTimer.current);
+  }
+
   return (
-    <div className="col" style={{ minHeight: "100dvh", padding: "24px 20px", justifyContent: "center", gap: 22 }}>
+    <div className="col" style={{ minHeight: "100dvh", padding: "calc(24px + var(--safe-area-top)) 20px 24px", justifyContent: "center", gap: 22 }}>
       <div className="col center" style={{ gap: 10 }}>
         <span style={{ width: 64, height: 64, borderRadius: 20, background: "var(--delivery-50)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Package size={32} color="var(--delivery-600)" />
         </span>
-        <div className="bold" style={{ fontSize: 20, textAlign: "center" }}>New delivery run</div>
+        <div className="h1" style={{ textAlign: "center" }}>New delivery run</div>
         <div className="muted small" style={{ textAlign: "center" }}>
           {batch.items.length} {batch.items.length === 1 ? "stop" : "stops"} · accept the whole run, or decline it
         </div>
@@ -383,30 +464,94 @@ function NewRunGate({ batch, busy, onAccept, onDecline }: {
 
       <div className="col gap-10">
         <button
-          className="btn btn-block"
-          style={{ background: "var(--delivery-600)", color: "#fff", height: 52, fontSize: 16, fontWeight: 700 }}
-          disabled={busy}
+          className="btn btn-delivery btn-block"
+          style={{ height: 52, fontSize: 16, fontWeight: 700 }}
+          disabled={busy || armed}
           onClick={onAccept}
         >
           {busy ? "…" : `Accept all ${batch.items.length}`}
         </button>
-        <button className="btn btn-outline btn-block" disabled={busy} onClick={onDecline}>
-          Decline
+        <button
+          className="btn btn-outline btn-block"
+          style={armed ? { borderColor: "var(--red-500)", color: "var(--red-600)" } : undefined}
+          disabled={busy}
+          onClick={handleDeclineTap}
+        >
+          {busy ? "…" : armed ? `Tap again to decline · ${batch.items.length} stops` : "Decline"}
         </button>
+        {armed && (
+          <button className="tiny muted" style={{ alignSelf: "center" }} onClick={cancelArm}>Never mind</button>
+        )}
       </div>
     </div>
   );
 }
 
+/** The Navigate-icon + primary status action, shared by RunCard/DeliveryCard —
+ *  rendered either inline in the card or inside the fixed bottom bar. */
+function ActionControls({
+  current, busy, onNavigate, onAdvance, onVerify, primaryLabel,
+}: {
+  current: DeliveryItem;
+  busy: boolean;
+  onNavigate: (() => void) | null;
+  onAdvance: (d: DeliveryItem, next: DeliveryLiveStatus, msg: string) => void;
+  onVerify: (d: DeliveryItem, code: string) => Promise<boolean>;
+  primaryLabel: string;
+}) {
+  const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
+
+  if (current.status === "ARRIVED" && !current.handoffVerified) {
+    return (
+      <div className="col gap-8">
+        <div className="tiny muted">Ask the customer for their handoff code to confirm you reached the right person.</div>
+        <HandoffCodeInput value={code} onChange={setCode} disabled={verifying} />
+        <button
+          className="btn btn-primary btn-block"
+          disabled={verifying || code.length < 6}
+          onClick={async () => { setVerifying(true); const ok = await onVerify(current, code); setVerifying(false); if (ok) setCode(""); }}
+        >
+          {verifying ? "…" : "Confirm handoff"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="row gap-8">
+      {onNavigate && (
+        <button className="btn btn-outline row gap-6 center" style={{ flex: "0 0 auto", width: 48, padding: 0 }} aria-label="Navigate" onClick={onNavigate}>
+          <Navigation size={16} />
+        </button>
+      )}
+      {current.status === "ASSIGNED" && (
+        <button className="btn btn-primary grow" disabled={busy} onClick={() => onAdvance(current, "ON_THE_WAY", "On the way")}>
+          {busy ? "…" : primaryLabel}
+        </button>
+      )}
+      {current.status === "EN_ROUTE" && (
+        <button className="btn btn-primary grow" disabled={busy} onClick={() => onAdvance(current, "ARRIVED", "Marked arrived")}>
+          {busy ? "…" : "I've arrived"}
+        </button>
+      )}
+      {current.status === "ARRIVED" && current.handoffVerified && (
+        <button className="btn btn-primary grow" disabled={busy} onClick={() => onAdvance(current, "DONE", "Delivered ✓")}>
+          {busy ? "…" : "Mark delivered"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Multi-stop active run: live map + the current stop expanded + a collapsed queue. */
-function RunCard({ batch, busyId, onAdvance, onVerify }: {
+function RunCard({ batch, busyId, onAdvance, onVerify, showActionBar }: {
   batch: BatchGroup;
   busyId: string | null;
   onAdvance: (d: DeliveryItem, next: DeliveryLiveStatus, msg: string) => void;
   onVerify: (d: DeliveryItem, code: string) => Promise<boolean>;
+  showActionBar: boolean;
 }) {
-  const [code, setCode] = useState("");
-  const [verifying, setVerifying] = useState(false);
   // Selective routing: when non-empty, "Route selected" builds a link through
   // only these stops instead of the whole remaining run.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -432,7 +577,7 @@ function RunCard({ batch, busyId, onAdvance, onVerify }: {
 
   if (!current) {
     return (
-      <div className="card col center" style={{ padding: 24, gap: 8 }}>
+      <div className="card col center queue-row-enter" style={{ padding: 24, gap: 8 }}>
         <CheckCircle size={28} color="var(--green-500)" />
         <div className="semi">All stops delivered</div>
       </div>
@@ -445,8 +590,20 @@ function RunCard({ batch, busyId, onAdvance, onVerify }: {
     ...remaining.filter((d) => d.deliveryLat != null && d.deliveryLng != null).map((d) => [d.deliveryLat!, d.deliveryLng!] as [number, number]),
   ];
 
+  const canNavigate = current.deliveryLat != null && current.deliveryLng != null;
+  const controls = (
+    <ActionControls
+      current={current}
+      busy={busyId === current.id}
+      onNavigate={canNavigate ? () => openNativeDirections(current.deliveryLat!, current.deliveryLng!) : null}
+      onAdvance={onAdvance}
+      onVerify={onVerify}
+      primaryLabel="Start this stop"
+    />
+  );
+
   return (
-    <div className="col gap-12">
+    <div className="col gap-12 queue-row-enter">
       {routePoints.length > 0 && (
         <div style={{ height: 220, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)" }}>
           <MapContainer center={routePoints[0]} zoom={14} style={{ width: "100%", height: "100%" }} zoomControl={false} attributionControl={false}>
@@ -466,7 +623,7 @@ function RunCard({ batch, busyId, onAdvance, onVerify }: {
       <div className="card col gap-10" style={{ padding: 14, border: "1.5px solid var(--delivery-600)" }}>
         <div className="row between center-v">
           <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>Stop {current.stopOrder ?? 1} of {batch.items.length}</span>
-          <StatusPill status={current.status} />
+          <DeliveryStatusPill status={current.status} />
         </div>
 
         <div className="row gap-8 center-v" style={{ padding: "8px 10px", background: "var(--ink-50)", borderRadius: 10 }}>
@@ -477,23 +634,15 @@ function RunCard({ batch, busyId, onAdvance, onVerify }: {
           </div>
         </div>
 
-        <Stepper status={current.status} />
+        <DeliveryStepper status={current.status} showLabel={false} />
 
         <div className="col gap-6">
-          <button
-            className="btn btn-outline btn-sm btn-block row gap-6 center"
-            disabled={current.deliveryLat == null || current.deliveryLng == null}
-            onClick={() => openNativeDirections(current.deliveryLat!, current.deliveryLng!)}
-          >
-            <Navigation size={14} /> Navigate to this stop
-          </button>
-
           {/* One tap for the whole remaining run — the agent shouldn't have to
-              reopen maps after every drop. Order is the accepted route order. */}
+              reopen maps after every drop. Order is the accepted route order.
+              (The per-stop Navigate button lives in the bottom action bar.) */}
           {routablePending.length > 1 && (
             <button
-              className="btn btn-sm btn-block row gap-6 center"
-              style={{ background: "var(--delivery-600)", color: "#fff" }}
+              className="btn btn-delivery btn-sm btn-block row gap-6 center"
               onClick={() => openRoute(toRoutePoints(pending))}
             >
               <Navigation size={14} /> Best route · all {routablePending.length} stops
@@ -518,44 +667,7 @@ function RunCard({ batch, busyId, onAdvance, onVerify }: {
           )}
         </div>
 
-        {current.status === "ASSIGNED" && (
-          <button className="btn btn-primary btn-block" disabled={busyId === current.id} onClick={() => onAdvance(current, "ON_THE_WAY", "On the way")}>
-            {busyId === current.id ? "…" : "Start this stop"}
-          </button>
-        )}
-        {current.status === "EN_ROUTE" && (
-          <button className="btn btn-primary btn-block" disabled={busyId === current.id} onClick={() => onAdvance(current, "ARRIVED", "Marked arrived")}>
-            {busyId === current.id ? "…" : "I've arrived"}
-          </button>
-        )}
-        {current.status === "ARRIVED" && !current.handoffVerified && (
-          <div className="col gap-8">
-            <div className="tiny muted">Ask the customer for their handoff code to confirm you reached the right person.</div>
-            <div className="row gap-8">
-              <input
-                className="input grow"
-                inputMode="numeric"
-                placeholder="Handoff code"
-                value={code}
-                maxLength={6}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                style={{ letterSpacing: 2, textAlign: "center" }}
-              />
-              <button
-                className="btn btn-primary btn-sm"
-                disabled={verifying || code.trim().length < 4}
-                onClick={async () => { setVerifying(true); const ok = await onVerify(current, code); setVerifying(false); if (ok) setCode(""); }}
-              >
-                {verifying ? "…" : "Confirm"}
-              </button>
-            </div>
-          </div>
-        )}
-        {current.status === "ARRIVED" && current.handoffVerified && (
-          <button className="btn btn-primary btn-block" disabled={busyId === current.id} onClick={() => onAdvance(current, "DONE", "Delivered ✓")}>
-            {busyId === current.id ? "…" : "Mark delivered"}
-          </button>
-        )}
+        {!showActionBar && controls}
       </div>
 
       {remaining.length > 0 && (
@@ -598,6 +710,8 @@ function RunCard({ batch, busyId, onAdvance, onVerify }: {
           })}
         </div>
       )}
+
+      {showActionBar && <div className="delivery-action-bar">{controls}</div>}
     </div>
   );
 }
@@ -605,17 +719,10 @@ function RunCard({ batch, busyId, onAdvance, onVerify }: {
 function RunHistoryCard({ batch }: { batch: BatchGroup }) {
   const delivered = batch.items.filter((d) => d.status === "DELIVERED").length;
   return (
-    <div className="card col gap-6" style={{ padding: 14 }}>
+    <div className="card col gap-6 queue-row-enter" style={{ padding: 14 }}>
       <div className="row between center-v">
         <span className="semi small">Delivery run · {batch.items.length} {batch.items.length === 1 ? "stop" : "stops"}</span>
-        <span
-          className="tiny semi"
-          style={{
-            background: batch.status === "COMPLETED" ? "var(--green-100)" : "var(--red-50)",
-            color: batch.status === "COMPLETED" ? "var(--green-600)" : "var(--red-600)",
-            padding: "3px 10px", borderRadius: 999,
-          }}
-        >
+        <span className={`badge ${batch.status === "COMPLETED" ? "badge-green" : "badge-red"}`}>
           {batch.status === "COMPLETED" ? "Completed" : "Cancelled"}
         </span>
       </div>
@@ -624,35 +731,28 @@ function RunHistoryCard({ batch }: { batch: BatchGroup }) {
   );
 }
 
-function Stepper({ status }: { status: string }) {
-  const idx = STEP_INDEX[status] ?? 0;
-  const cancelled = status === "CANCELLED";
-  return (
-    <div className="row" style={{ gap: 4, alignItems: "center" }}>
-      {STEPS.map((s, i) => {
-        const done = !cancelled && i <= idx;
-        return (
-          <div key={s.key} className="row center-v" style={{ gap: 4, flex: i < STEPS.length - 1 ? 1 : "0 0 auto" }}>
-            <span style={{ width: 9, height: 9, borderRadius: "50%", background: done ? "var(--delivery-600)" : "var(--ink-200)", flexShrink: 0 }} />
-            {i < STEPS.length - 1 && <span style={{ flex: 1, height: 2, background: !cancelled && i < idx ? "var(--delivery-600)" : "var(--ink-200)" }} />}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function DeliveryCard({ d, busy, onAdvance, onVerify }: {
+function DeliveryCard({ d, busy, onAdvance, onVerify, showActionBar }: {
   d: DeliveryItem;
   busy: boolean;
   onAdvance: (d: DeliveryItem, next: DeliveryLiveStatus, msg: string) => void;
   onVerify: (d: DeliveryItem, code: string) => Promise<boolean>;
+  showActionBar: boolean;
 }) {
   const terminal = d.status === "DELIVERED" || d.status === "CANCELLED";
-  const [code, setCode] = useState("");
-  const [verifying, setVerifying] = useState(false);
+  const canNavigate = d.deliveryLat != null && d.deliveryLng != null;
+  const controls = !terminal && (
+    <ActionControls
+      current={d}
+      busy={busy}
+      onNavigate={canNavigate ? () => openNativeDirections(d.deliveryLat!, d.deliveryLng!) : null}
+      onAdvance={onAdvance}
+      onVerify={onVerify}
+      primaryLabel="Start delivery"
+    />
+  );
+
   return (
-    <div className="card col gap-10" style={{ padding: 14 }}>
+    <div className="card col gap-10 queue-row-enter" style={{ padding: 14 }}>
       <div className="row between center-v">
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="semi">{d.businessName}</div>
@@ -660,7 +760,7 @@ function DeliveryCard({ d, busy, onAdvance, onVerify }: {
             <Clock size={12} /> {whenLabel(d)}
           </div>
         </div>
-        <StatusPill status={d.status} />
+        <DeliveryStatusPill status={d.status} />
       </div>
 
       <div className="row gap-8 center-v" style={{ padding: "8px 10px", background: "var(--ink-50)", borderRadius: 10 }}>
@@ -671,65 +771,18 @@ function DeliveryCard({ d, busy, onAdvance, onVerify }: {
         </div>
       </div>
 
-      {!terminal && <Stepper status={d.status} />}
+      {!terminal && <DeliveryStepper status={d.status} showLabel={false} />}
 
-      {/* Primary action — one at a time, largest button */}
-      {d.status === "ASSIGNED" && (
-        <button className="btn btn-primary btn-block" disabled={busy} onClick={() => onAdvance(d, "ON_THE_WAY", "On the way")}>
-          {busy ? "…" : "Start delivery"}
-        </button>
-      )}
-      {d.status === "EN_ROUTE" && (
-        <button className="btn btn-primary btn-block" disabled={busy} onClick={() => onAdvance(d, "ARRIVED", "Marked arrived")}>
-          {busy ? "…" : "I've arrived"}
-        </button>
-      )}
-      {d.status === "ARRIVED" && !d.handoffVerified && (
-        <div className="col gap-8">
-          <div className="tiny muted">Ask the customer for their handoff code to confirm you reached the right person.</div>
-          <div className="row gap-8">
-            <input
-              className="input grow"
-              inputMode="numeric"
-              placeholder="Handoff code"
-              value={code}
-              maxLength={6}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-              style={{ letterSpacing: 2, textAlign: "center" }}
-            />
-            <button
-              className="btn btn-primary btn-sm"
-              disabled={verifying || code.trim().length < 4}
-              onClick={async () => { setVerifying(true); const ok = await onVerify(d, code); setVerifying(false); if (ok) setCode(""); }}
-            >
-              {verifying ? "…" : "Confirm"}
-            </button>
-          </div>
-        </div>
-      )}
-      {d.status === "ARRIVED" && d.handoffVerified && (
-        <button className="btn btn-primary btn-block" disabled={busy} onClick={() => onAdvance(d, "DONE", "Delivered ✓")}>
-          {busy ? "…" : "Mark delivered"}
-        </button>
-      )}
+      {controls && !showActionBar && controls}
+
       {d.status === "DELIVERED" && (
         <div className="row gap-6 center-v tiny" style={{ color: "var(--green-600)" }}>
           <CheckCircle size={14} /> Delivered{d.deliveredAt ? ` · ${new Date(d.deliveredAt).toLocaleDateString([], { day: "numeric", month: "short" })}` : ""}
         </div>
       )}
       {d.status === "CANCELLED" && <div className="tiny muted">Cancelled</div>}
+
+      {controls && showActionBar && <div className="delivery-action-bar">{controls}</div>}
     </div>
   );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const map: Record<string, { label: string; bg: string; fg: string }> = {
-    ASSIGNED: { label: "Assigned", bg: "var(--ink-100)", fg: "var(--ink-600)" },
-    EN_ROUTE: { label: "On the way", bg: "var(--delivery-50)", fg: "var(--delivery-600)" },
-    ARRIVED: { label: "Arrived", bg: "var(--brand-50)", fg: "var(--brand-700)" },
-    DELIVERED: { label: "Delivered", bg: "var(--green-100)", fg: "var(--green-600)" },
-    CANCELLED: { label: "Cancelled", bg: "var(--red-50)", fg: "var(--red-600)" },
-  };
-  const s = map[status] ?? map.ASSIGNED;
-  return <span className="tiny semi" style={{ background: s.bg, color: s.fg, padding: "3px 10px", borderRadius: 999, flexShrink: 0 }}>{s.label}</span>;
 }

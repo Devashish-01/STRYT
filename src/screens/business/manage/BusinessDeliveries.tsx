@@ -13,26 +13,10 @@ import { Package, MapPin, Phone, CheckCircle, Navigation } from "@/components/Ic
 import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";
 import { openRoute } from "@/lib/routeLink";
+import DeliveryStatusPill from "@/components/delivery/DeliveryStatusPill";
 import ManageNav from "./ManageNav";
 
 const ACTIVE_STATUSES = ["ASSIGNED", "EN_ROUTE", "ARRIVED"] as const;
-
-const STATUS_PILL: Record<string, { label: string; bg: string; fg: string }> = {
-  ASSIGNED: { label: "Assigned", bg: "var(--ink-100)", fg: "var(--ink-600)" },
-  EN_ROUTE: { label: "On the way", bg: "var(--delivery-50)", fg: "var(--delivery-600)" },
-  ARRIVED: { label: "Arrived", bg: "var(--brand-50)", fg: "var(--brand-700)" },
-  DELIVERED: { label: "Delivered", bg: "var(--green-100)", fg: "var(--green-600)" },
-  CANCELLED: { label: "Cancelled", bg: "var(--red-50)", fg: "var(--red-600)" },
-};
-
-function StatusPill({ status }: { status: string }) {
-  const s = STATUS_PILL[status] ?? STATUS_PILL.ASSIGNED;
-  return (
-    <span className="tiny semi" style={{ background: s.bg, color: s.fg, padding: "3px 10px", borderRadius: 999, flexShrink: 0 }}>
-      {s.label}
-    </span>
-  );
-}
 
 /**
  * Live delivery tracking for the business owner/manager.
@@ -82,16 +66,19 @@ export default function BusinessDeliveries() {
 
   const visible = agentFilter === "ALL" ? active : active.filter((d) => d.agentUserId === agentFilter);
 
-  // Map: the agent's live position (from the batch) plus every visible stop,
-  // joined in route order so the owner sees the path being followed.
+  // Map: each agent's live position (a batch's shared run position, or a solo
+  // delivery's own tracked point) plus every visible stop, joined in route
+  // order so the owner sees the path being followed. Keyed on the agent, not
+  // the batch — a solo (non-batched) delivery has no batchId but still has a
+  // real agentLat/agentLng once that agent goes EN_ROUTE.
   const agentPoints = useMemo(() => {
-    const byBatch = new Map<string, { lat: number; lng: number; name: string }>();
+    const byAgent = new Map<string, { lat: number; lng: number; name: string }>();
     for (const d of visible) {
-      if (d.batchId && d.batchLat != null && d.batchLng != null && !byBatch.has(d.batchId)) {
-        byBatch.set(d.batchId, { lat: d.batchLat, lng: d.batchLng, name: d.agentName });
+      if (d.agentUserId && d.agentLat != null && d.agentLng != null && !byAgent.has(d.agentUserId)) {
+        byAgent.set(d.agentUserId, { lat: d.agentLat, lng: d.agentLng, name: d.agentName });
       }
     }
-    return Array.from(byBatch.values());
+    return Array.from(byAgent.values());
   }, [visible]);
 
   const stopPoints = useMemo(
@@ -214,7 +201,7 @@ export default function BusinessDeliveries() {
                           {d.deliveredAt ? ` · ${new Date(d.deliveredAt).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}
                         </div>
                       </div>
-                      <StatusPill status={d.status} />
+                      <DeliveryStatusPill status={d.status} />
                     </div>
                   ))}
                 </>
@@ -242,7 +229,7 @@ function DeliveryRow({ d, focused, onFocus }: { d: BusinessDeliveryItem; focused
             {d.stopOrder != null ? ` · stop ${d.stopOrder}` : ""}
           </div>
         </div>
-        <StatusPill status={d.status} />
+        <DeliveryStatusPill status={d.status} />
       </button>
 
       <div className="row gap-8 center-v" style={{ padding: "7px 9px", background: "var(--ink-50)", borderRadius: 9 }}>

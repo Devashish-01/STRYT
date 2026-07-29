@@ -33,6 +33,7 @@
   --green-700: #15803d;
   --red-50:  #fff5f5;
   --red-100: #fee2e2;
+  --red-200: #fecaca;
   --red-500: #ef4444;
   --red-600: #dc2626;
   --amber-50: #fffbeb;
@@ -40,6 +41,7 @@
   --amber-200: #fde68a;
   --amber-500: #f59e0b;
   --amber-700: #b45309;
+  --amber-800: #92400e;
   --blue-100: #dbeafe;
   --blue-500: #3b82f6;
   --orange-50: #fff7ed;
@@ -250,13 +252,28 @@ h3, .h3 {
 .with-nav {
   padding-bottom: calc(var(--nav-h) + var(--safe-area-bottom) + 8px);
 }
+/* Breathing room under the last item of a scroll region that isn't behind the
+   bottom nav (settings/manage pages). Referenced in several screens but never
+   defined, so their last row sat flush against the bottom edge. */
+.scroll-pad-end {
+  padding-bottom: calc(28px + var(--safe-area-bottom));
+}
 
 /* --- Explore mobile (phone + native WebView) --- */
 .explore-screen-wrapper {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* height, not min-height — this wrapper contains THREE nested levels of
+     flex:1 + min-height:0 scroll regions (explore-main-layout ->
+     explore-listings-feed -> explore-listings-scroll). With only min-height,
+     nothing above them caps the box at one viewport tall, so once the card
+     list got long enough the whole chain just grew past the viewport instead
+     of the innermost region activating its own scrollbar — and overflow:hidden
+     here silently clipped whatever fell below the fold, with no page-level
+     scroll to reach it either. Every other screen with this pattern (see
+     .screen.map-screen) uses a definite height for exactly this reason. */
+  height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -361,6 +378,11 @@ h3, .h3 {
 .wrap { flex-wrap: wrap; }
 .grow { flex: 1; }
 .center { align-items: center; justify-content: center; }
+/* Used in ~66 files but never defined — every one of those rows was relying on
+   .row's default align-items:center and this class was a silent no-op. Defined
+   here so the intent is real rather than accidental. */
+.center-v { align-items: center; }
+.gap-18 { gap: 18px; }
 .muted { color: var(--ink-500); }
 .tiny { font-size: 12px; }
 .small { font-size: 13px; }
@@ -423,6 +445,16 @@ h3, .h3 {
 }
 .btn-green {
   background: var(--green-500);
+  color: #fff;
+}
+.btn-delivery {
+  background: var(--delivery-600);
+  color: #fff;
+}
+/* Destructive CTA. Referenced by the delete-account button but never defined,
+   so the single most dangerous button in the app rendered unstyled. */
+.btn-red {
+  background: var(--red-500);
   color: #fff;
 }
 .btn-pink {
@@ -529,6 +561,7 @@ h3, .h3 {
 .badge-blue { background: #dbeafe; color: #1d4ed8; }
 .badge-amber { background: #fef3c7; color: #b45309; }
 .badge-orange { background: var(--orange-100); color: var(--orange-500); }
+.badge-delivery { background: var(--delivery-50); color: var(--delivery-600); }
 
 .card-badge-stack {
   position: absolute;
@@ -1011,6 +1044,26 @@ textarea.input {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+/* Persistent bottom bar for the delivery agent's primary action (status
+   button + Navigate) — reachable one-handed while moving, per the "thumb
+   first" rule for a hands-busy, on-the-move context. */
+.delivery-action-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--maxw);
+  bottom: 0;
+  padding: 10px 16px calc(10px + var(--safe-area-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
+  z-index: 55;
+}
 .sheet-grab {
   width: 42px;
   height: 5px;
@@ -1117,6 +1170,100 @@ textarea.input {
   text-transform: uppercase;
   color: var(--ink-400);
   margin: 0 2px 10px;
+}
+
+/* ---------- Settings rows (components/settings/) ----------
+   ONE answer for the settings-row question. Before this, the same two jobs (a
+   nav row and a toggle row) were re-implemented 11 times across the app with
+   chevrons at 16/17/18px in two colours, icons at 17/19/20px in four container
+   shapes, hints sometimes right-aligned and sometimes stacked, and dividers
+   sometimes on the top edge and sometimes the bottom. All of that is settled
+   here. Uses .profile-eyebrow above for the section title. */
+.set-group {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 13px 14px;
+  text-align: left;
+  background: none;
+  border: none;
+  /* ≥36px touch target (DESIGN_PRINCIPLES §9) even for a single-line row. */
+  min-height: 52px;
+}
+.set-row + .set-row {
+  border-top: 1px solid var(--line);
+}
+button.set-row:active {
+  background: var(--ink-50);
+}
+.set-row-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--ink-50);
+  flex-shrink: 0;
+}
+.set-row-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.set-row-hint {
+  font-size: 12px;
+  color: var(--ink-500);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+.set-row-value {
+  font-size: 13px;
+  color: var(--ink-500);
+  flex-shrink: 0;
+}
+.set-row-danger .set-row-label { color: var(--red-600); }
+.set-row-danger .set-row-icon  { background: var(--red-50); }
+
+/* Switch. The six previous copies were bare <button>s with no role, no
+   aria-checked and no accessible name — invisible to a screen reader. */
+.set-switch {
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--ink-200);
+  position: relative;
+  flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.set-switch[aria-checked="true"] {
+  background: var(--brand-600);
+}
+.set-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: left 0.2s;
+}
+.set-switch[aria-checked="true"]::after {
+  left: 21px;
+}
+.set-switch:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 /* ---------- Hub sub-tabs (CommunityHub) ---------- */
@@ -2484,6 +2631,31 @@ textarea.input {
   height: 100vh;
   max-height: 100dvh;
   overflow: hidden;
+}
+
+/* Shown only while attempting to load Mapbox as the primary map style — see
+   MapView/index.tsx and mapboxFallback.ts. Backstopped by a 4s timeout, so
+   this can never linger indefinitely. */
+.map-loading-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--bg);
+  color: var(--ink-500);
+}
+.map-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--ink-200);
+  border-top-color: var(--brand-600);
+  /* .spin (index.css:846) supplies the rotation keyframes — composed via
+     className below rather than redefined here. */
 }
 
 .map-screen__search {

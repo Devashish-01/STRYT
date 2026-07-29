@@ -2,14 +2,7 @@ import { useQuery } from "@/hooks/useApi";
 import { deliveryService } from "@/services";
 import { SafeImg } from "@/components/common";
 import { Package, Phone, CheckCircle } from "@/components/Icons";
-
-const STEPS = [
-  { key: "ASSIGNED", label: "Assigned" },
-  { key: "EN_ROUTE", label: "On the way" },
-  { key: "ARRIVED", label: "Arrived" },
-  { key: "DELIVERED", label: "Delivered" },
-];
-const STEP_INDEX: Record<string, number> = { ASSIGNED: 0, EN_ROUTE: 1, ARRIVED: 2, DELIVERED: 3 };
+import DeliveryStepper from "@/components/delivery/DeliveryStepper";
 
 /**
  * Customer's view of their delivery: progress only.
@@ -27,7 +20,6 @@ export default function DeliveryTrackControl({ appointmentId }: { appointmentId:
 
   if (!d || d.status === "CANCELLED") return null;
 
-  const idx = STEP_INDEX[d.status] ?? 0;
   const label =
     d.status === "ASSIGNED" ? "A delivery agent is assigned"
     : d.status === "EN_ROUTE" ? "Your delivery is on the way"
@@ -45,17 +37,7 @@ export default function DeliveryTrackControl({ appointmentId }: { appointmentId:
       </div>
 
       {/* Progress stepper — the only "tracking" a customer gets. */}
-      <div className="row" style={{ gap: 4, alignItems: "center" }}>
-        {STEPS.map((s, i) => (
-          <div key={s.key} className="row center-v" style={{ gap: 4, flex: i < STEPS.length - 1 ? 1 : "0 0 auto" }}>
-            <span style={{ width: 9, height: 9, borderRadius: "50%", background: i <= idx ? "var(--delivery-600)" : "var(--ink-200)", flexShrink: 0 }} />
-            {i < STEPS.length - 1 && (
-              <span style={{ flex: 1, height: 2, background: i < idx ? "var(--delivery-600)" : "var(--ink-200)" }} />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="tiny muted">{STEPS[idx]?.label}</div>
+      <DeliveryStepper status={d.status} compact />
 
       {/* Queue position while they wait their turn on a multi-stop run. */}
       {d.status === "ASSIGNED" && (d.stopsBefore ?? 0) > 0 && (
@@ -73,7 +55,7 @@ export default function DeliveryTrackControl({ appointmentId }: { appointmentId:
             <div className="tiny muted">Your delivery agent</div>
           </div>
           {d.agentPhone && (
-            <a className="btn btn-sm row gap-6 center" style={{ background: "var(--delivery-600)", color: "#fff", flexShrink: 0 }} href={`tel:${d.agentPhone}`}>
+            <a className="btn btn-delivery btn-sm row gap-6 center" style={{ flexShrink: 0 }} href={`tel:${d.agentPhone}`}>
               <Phone size={13} /> Call
             </a>
           )}

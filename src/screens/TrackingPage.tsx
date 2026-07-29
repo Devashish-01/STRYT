@@ -5,6 +5,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { SafeImg } from "@/components/common";
 import { config } from "@/config";
+import DeliveryStepper, { liveStatusToDeliveryStatus } from "@/components/delivery/DeliveryStepper";
 
 const anonSb = createClient(
   config.supabaseUrl,
@@ -179,13 +180,11 @@ export default function TrackingPage() {
   }
 
   const statusInfo = STATUS_LABELS[liveStatus] ?? { emoji: "📍", label: liveStatus };
-  const DELIVERY_STEPS = ["LEAVING", "ON_THE_WAY", "ARRIVED", "DONE"];
-  const stepIdx = Math.max(0, DELIVERY_STEPS.indexOf(liveStatus));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
       {/* Top bar */}
-      <div style={{ height: 50, background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
+      <div style={{ minHeight: 50, background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "calc(0px + var(--safe-area-top)) 16px 0", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
         <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <svg width="22" height="22" viewBox="0 0 64 64">
             <rect width="64" height="64" rx="16" fill="var(--brand-600)"/>
@@ -215,16 +214,7 @@ export default function TrackingPage() {
         // it's replaced with a status stepper instead.
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24, padding: "0 32px" }}>
           <div style={{ width: "100%", maxWidth: 320 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              {DELIVERY_STEPS.map((s, i) => (
-                <div key={s} style={{ display: "flex", alignItems: "center", flex: i < DELIVERY_STEPS.length - 1 ? 1 : "0 0 auto" }}>
-                  <span style={{ width: 12, height: 12, borderRadius: "50%", background: i <= stepIdx ? "var(--green-500)" : "var(--ink-200)", flexShrink: 0 }} />
-                  {i < DELIVERY_STEPS.length - 1 && (
-                    <span style={{ flex: 1, height: 2, background: i < stepIdx ? "var(--green-500)" : "var(--ink-200)" }} />
-                  )}
-                </div>
-              ))}
-            </div>
+            <DeliveryStepper status={liveStatusToDeliveryStatus(liveStatus)} showLabel={false} />
           </div>
           <div style={{ textAlign: "center", color: "var(--ink-500)", fontSize: 13, lineHeight: 1.6 }}>
             Live location isn't shared for deliveries — this page shows progress only.

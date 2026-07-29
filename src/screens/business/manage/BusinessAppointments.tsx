@@ -50,15 +50,6 @@ export default function BusinessAppointments() {
     refetchBlocked();
   });
 
-  if (!id) {
-    return (
-      <div className="screen">
-        <AppBar title="Appointments" />
-        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
-      </div>
-    );
-  }
-
   const [tab, setTab] = useState<ConsoleTab>("UPCOMING");
   const [selectedDate, setSelectedDate] = useState(new Date());
 
@@ -91,6 +82,15 @@ export default function BusinessAppointments() {
 
   const appointments = useMemo(() => data ?? [], [data]);
   const blockedSlots = blockedData ?? [];
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Appointments" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   /** Straight-line distance shop → delivery address, or null if either end
    *  has no coords (bookings made before delivery addresses were captured). */
@@ -515,25 +515,28 @@ export default function BusinessAppointments() {
   const dayRevenue = dayApts.filter((a) => a.paymentStatus === "PAID" && a.paymentAmount).reduce((s, a) => s + (a.paymentAmount || 0), 0);
 
   const now = Date.now();
+  // Newest-created first across every tab — a fresh booking request needs
+  // attention regardless of when it's scheduled for, so it shouldn't get
+  // buried wherever its scheduled time happens to sort it.
   const upcomingList = appointments
     .filter((a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > now)
-    .sort((a, c) => new Date(a.scheduledForISO).getTime() - new Date(c.scheduledForISO).getTime());
+    .sort((a, c) => new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
 
   const historyList = appointments
     .filter((a) => a.status === "COMPLETED" || a.status === "NO_SHOW")
-    .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
+    .sort((a, c) => new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
   const historyGroups = groupByDay(historyList);
 
   const cancelledList = appointments
     .filter((a) => a.status === "CANCELLED" || a.status === "REJECTED")
-    .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
+    .sort((a, c) => new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
 
   // Deliveries tab: every home-delivery booking that's been accepted or completed —
   // matches DeliveryAssignControl's own render gate. Only ACCEPTED ones are selectable
   // for a fresh batch (a COMPLETED one is a past order, nothing left to dispatch).
   const deliveryList = appointments
     .filter((a) => a.fulfillmentType === "DELIVERY" && (a.status === "ACCEPTED" || a.status === "COMPLETED"))
-    .sort((a, c) => new Date(c.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
+    .sort((a, c) => new Date(c.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
 
   const packageOptions = (b?.catalog ?? []).map((item) => ({
     id: item.id, name: item.name, price: item.salePrice ?? item.price,

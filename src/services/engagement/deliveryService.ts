@@ -7,6 +7,10 @@ export interface DeliveryTeamMember {
   userId: string;
   name: string;
   avatar?: string;
+  /** Informational only — an off-duty agent can still be assigned (there's no
+   *  auto-dispatch anywhere in this app to gate), it just shows a tag in the
+   *  picker so the owner isn't surprised when nobody responds right away. */
+  onDuty: boolean;
 }
 
 /** The delivery attached to an appointment (owner/customer view). */
@@ -109,9 +113,11 @@ export interface BusinessDeliveryItem {
   batchId: string | null;
   stopOrder: number | null;
   batchStatus: DeliveryBatchStatus | null;
-  batchLat: number | null;
-  batchLng: number | null;
-  batchHeading: number | null;
+  /** The agent's current live position — a batch's shared run position, or
+   *  (as of the agent-position fix) a solo delivery's own tracked point. */
+  agentLat: number | null;
+  agentLng: number | null;
+  agentHeading: number | null;
   handoffVerified: boolean;
   createdAt: string | null;
   deliveredAt: string | null;
@@ -271,9 +277,9 @@ export const deliveryService = {
       batchId: r.batch_id ?? null,
       stopOrder: r.stop_order ?? null,
       batchStatus: r.batch_status ?? null,
-      batchLat: r.batch_lat ?? null,
-      batchLng: r.batch_lng ?? null,
-      batchHeading: r.batch_heading ?? null,
+      agentLat: r.agent_lat ?? null,
+      agentLng: r.agent_lng ?? null,
+      agentHeading: r.agent_heading ?? null,
       handoffVerified: !!r.handoff_verified,
       createdAt: r.created_at ?? null,
       deliveredAt: r.delivered_at ?? null,
@@ -285,9 +291,41 @@ export const deliveryService = {
   /** The business's ACTIVE team members who carry the `delivery` scope. */
   async deliveryTeam(businessId: string): Promise<DeliveryTeamMember[]> {
     const sessions = await businessAccessService.ownerSessions(businessId);
-    return sessions
+    const members = sessions
       .filter((s) => s.status === "ACTIVE" && (s.scopes ?? []).includes("delivery") && s.granteeUserId)
       .map((s) => ({ userId: s.granteeUserId as string, name: s.granteeName, avatar: s.granteeAvatar }));
+    if (members.length === 0) return [];
+
+    // Duty is informational only here (no auto-dispatch to gate) — best-effort,
+    // defaults every member to on-duty if the lookup fails rather than hiding
+    // the assign option behind a transient error.
+    const sb = getSupabase();
+    try {
+      const { data } = await (sb as any)
+        .from("delivery_agent_duty")
+        .select("user_id, on_duty")
+        .in("user_id", members.map((m) => m.userId));
+      const duty = new Map<string, boolean>((data ?? []).map((r: any) => [r.user_id, r.on_duty !== false]));
+      return members.map((m) => ({ ...m, onDuty: duty.get(m.userId) ?? true }));
+    } catch {
+      return members.map((m) => ({ ...m, onDuty: true }));
+    }
+  },
+
+  /** The signed-in agent's own duty status. */
+  async myDutyStatus(): Promise<boolean> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("get_delivery_duty");
+    if (error) throw error;
+    return data !== false;
+  },
+
+  /** Sets the signed-in agent's duty status. Rejects (server-side) if they
+   *  have any non-terminal delivery work when going off duty. */
+  async setDuty(onDuty: boolean): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("set_delivery_duty", { p_on_duty: onDuty });
+    if (error) throw error;
   },
 
   /** Owner/manager assigns (or reassigns) a delivery for an appointment. */
