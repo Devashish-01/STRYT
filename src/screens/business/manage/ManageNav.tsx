@@ -28,7 +28,7 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
   const items = [
     { to: base, label: "Home", icon: Home, active: location.pathname === base },
     hasScope("queue") && { to: `${base}/queue`, label: "Queue", icon: Users, active: location.pathname.startsWith(`${base}/queue`), badge: queueCount },
-    hasScope("appointments") && { to: `${base}/appointments`, label: "Bookings", icon: CalendarClock, active: location.pathname.startsWith(`${base}/appointments`) },
+    hasScope("appointments") && { to: `${base}/appointments`, label: "Appointments", icon: CalendarClock, active: location.pathname.startsWith(`${base}/appointments`) },
     hasScope("catalog") && { to: `${base}/store`, label: "Store", icon: Store, active: storeRoutes.some((path) => location.pathname.startsWith(base + path)) },
     { to: `${base}/business`, label: "Business", icon: Briefcase, active: businessRoutes.some((path) => location.pathname.startsWith(base + path)) },
   ].filter((item): item is Exclude<typeof item, false> => item !== false);

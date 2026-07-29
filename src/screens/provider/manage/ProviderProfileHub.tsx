@@ -4,10 +4,11 @@ import { providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { Skeleton, ErrorView } from "@/components/states";
+import { SettingsSection, SettingsRow } from "@/components/settings";
 import ProviderManageNav from "./ProviderManageNav";
 import {
-  User, Clock, Image as ImageIcon, BadgeCheck, Settings, ChevronRight,
-  Star, Wallet, Globe, FileText, Inbox, LogOut, AlertTriangle,
+  User, Clock, Image as ImageIcon, BadgeCheck, Settings,
+  Wallet, Globe, FileText, Inbox, LogOut, AlertTriangle,
 } from "@/components/Icons";
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -70,18 +71,6 @@ export default function ProviderProfileHub() {
     (item) => item.stockStatus === "OUT_OF_STOCK" || (item.inventoryType === "FINITE" && (item.quantity ?? 0) <= LOW_STOCK_THRESHOLD)
   ).length;
 
-  const sections: { icon: any; color: string; label: string; hint: string; to: string }[] = [
-    { icon: User, color: "var(--pink-500)", label: "Identity", hint: "Bio, skills, price, service radius", to: `${base}/edit-profile` },
-    { icon: FileText, color: "var(--brand-600)", label: "Services", hint: `${p?.catalog?.length ?? 0} service${(p?.catalog?.length ?? 0) === 1 ? "" : "s"} customers can book`, to: `${base}/catalog` },
-    { icon: AlertTriangle, color: "var(--red-600)", label: "Inventory alerts", hint: flaggedCount > 0 ? `${flaggedCount} item${flaggedCount === 1 ? "" : "s"} need restocking` : "Out-of-stock and low items", to: `${base}/inventory` },
-    { icon: Clock, color: "var(--blue-500)", label: "Schedule", hint: "Working days, hours & slot length", to: `${base}/availability` },
-    { icon: ImageIcon, color: "var(--brand-600)", label: "Portfolio", hint: `${p?.portfolio?.length ?? 0} work sample${(p?.portfolio?.length ?? 0) === 1 ? "" : "s"}`, to: `${base}/portfolio` },
-    { icon: Inbox, color: "var(--blue-500)", label: "Reachouts", hint: "Calls and messages from customers", to: `${base}/inbox` },
-    { icon: BadgeCheck, color: "var(--green-600)", label: "Verification", hint: verifyLabel, to: `${base}/verify` },
-    { icon: Wallet, color: "var(--orange-500)", label: "Payments", hint: "UPI, QR & when you get paid", to: `${base}/money` },
-    { icon: Settings, color: "var(--ink-600)", label: "Privacy & settings", hint: "Contact visibility, notifications, visibility", to: `${base}/settings` },
-  ];
-
   return (
     <div className="screen with-nav">
       <AppBar title="Profile" />
@@ -116,33 +105,27 @@ export default function ProviderProfileHub() {
           )}
         </div>
 
-        {/* Edit sections */}
-        <div className="card" style={{ overflow: "hidden", padding: 0 }}>
-          {sections.map((s, i) => {
-            const Icon = s.icon;
-            return (
-              <button
-                key={s.label}
-                className="row gap-12 center-v"
-                style={{ width: "100%", padding: "14px 16px", borderTop: i > 0 ? "1px solid var(--line)" : "none", textAlign: "left" }}
-                onClick={() => nav(s.to)}
-              >
-                <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--ink-50)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <Icon size={17} color={s.color} />
-                </div>
-                <div className="grow" style={{ minWidth: 0 }}>
-                  <div className="semi small">{s.label}</div>
-                  <div className="tiny muted ellipsis">{s.hint}</div>
-                </div>
-                <ChevronRight size={16} color="var(--ink-300)" />
-              </button>
-            );
-          })}
-        </div>
+        <SettingsSection title="Profile & services">
+          <SettingsRow icon={<User size={19} color="var(--pink-500)" />} label="Edit profile" hint="Bio, skills, price, service radius" onClick={() => nav(`${base}/edit-profile`)} />
+          <SettingsRow icon={<FileText size={19} color="var(--brand-600)" />} label="Services" hint={`${p?.catalog?.length ?? 0} service${(p?.catalog?.length ?? 0) === 1 ? "" : "s"} customers can book`} onClick={() => nav(`${base}/catalog`)} />
+          <SettingsRow icon={<AlertTriangle size={19} color="var(--red-600)" />} label="Inventory alerts" hint={flaggedCount > 0 ? `${flaggedCount} item${flaggedCount === 1 ? "" : "s"} need restocking` : "Out-of-stock and low items"} onClick={() => nav(`${base}/inventory`)} />
+          <SettingsRow icon={<Clock size={19} color="var(--blue-500)" />} label="Hours & Availability" hint="Working days, hours & slot length" onClick={() => nav(`${base}/availability`)} />
+          <SettingsRow icon={<ImageIcon size={19} color="var(--brand-600)" />} label="Portfolio" hint={`${p?.portfolio?.length ?? 0} work sample${(p?.portfolio?.length ?? 0) === 1 ? "" : "s"}`} onClick={() => nav(`${base}/portfolio`)} />
+        </SettingsSection>
+
+        <SettingsSection title="Customer communication">
+          <SettingsRow icon={<Inbox size={19} color="var(--blue-500)" />} label="Reachouts" hint="Calls and messages from customers" onClick={() => nav(`${base}/inbox`)} />
+        </SettingsSection>
+
+        <SettingsSection title="Account">
+          <SettingsRow icon={<BadgeCheck size={19} color="var(--green-600)" />} label="Verification" hint={verifyLabel} onClick={() => nav(`${base}/verify`)} />
+          <SettingsRow icon={<Wallet size={19} color="var(--orange-500)" />} label="Money" hint="UPI, QR & when you get paid" onClick={() => nav(`${base}/money`)} />
+          <SettingsRow icon={<Settings size={19} color="var(--ink-600)" />} label="Provider settings" hint="Contact visibility, notifications, visibility" onClick={() => nav(`${base}/settings`)} />
+        </SettingsSection>
 
         {/* Reviews (read-only) */}
         <div>
-          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><Star size={14} /> Recent reviews</div>
+          <div className="profile-eyebrow">Recent reviews</div>
           {(reviews ?? []).length === 0 ? (
             <div className="card col center" style={{ padding: 24, gap: 6 }}>
               <span style={{ fontSize: 28 }}>⭐</span>
@@ -173,11 +156,11 @@ export default function ProviderProfileHub() {
 
         <button
           type="button"
+          className="btn btn-block row center gap-8"
+          style={{ color: "var(--red-600)", background: "var(--red-50)", border: "1px solid var(--red-100)" }}
           onClick={() => { signOut(); nav("/"); }}
-          className="row center gap-8"
-          style={{ padding: "13px", width: "100%", background: "var(--red-50)", border: "1px solid var(--red-500)", borderRadius: 12, color: "var(--red-600)", fontWeight: 700, cursor: "pointer" }}
         >
-          <LogOut size={17} /> Log out
+          <LogOut size={18} /> Log out
         </button>
 
       </div>

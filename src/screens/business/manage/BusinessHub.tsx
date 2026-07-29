@@ -4,22 +4,37 @@ import { appointmentService, businessService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { ErrorView } from "@/components/states";
+import { SettingsSection, SettingsRow } from "@/components/settings";
 import {
-  BadgeCheck, ChevronRight, Globe, HelpCircle, Inbox, LogOut, Megaphone, MessageSquareText,
-  Package, Search, Settings, Star, Store, User, Users, Wallet,
+  BadgeCheck, Globe, HelpCircle, Inbox, LogOut, Megaphone, MessageSquareText,
+  Package, Search, Settings, Star, Store, Users, Wallet,
 } from "@/components/Icons";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import type { QueueOwnerToken } from "@/types";
 import { deriveMoneySummary } from "@/utils/paymentSummary";
 import ManageNav from "./ManageNav";
 import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import type { ReactNode } from "react";
 
 interface HubLink {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   text: string;
   onClick: () => void;
   badge?: number;
+}
+
+function links(items: HubLink[]) {
+  return items.map((link) => (
+    <SettingsRow
+      key={link.title}
+      icon={link.icon}
+      label={link.title}
+      hint={link.text}
+      badge={!!link.badge && <span className="badge badge-amber">{link.badge}</span>}
+      onClick={link.onClick}
+    />
+  ));
 }
 
 export default function BusinessHub() {
@@ -66,15 +81,15 @@ export default function BusinessHub() {
       { icon: <Search size={19} color="var(--orange-500)" />, title: "Find requests", text: "Win nearby customer work", onClick: () => nav(`${base}/requests`) },
     ] : []),
     ...(canSeeOwnerOnly ? [
-      { icon: <Megaphone size={19} color="var(--brand-600)" />, title: "Community", text: "Post updates and manage your activity", onClick: () => nav(`${base}/community`) },
+      { icon: <Megaphone size={19} color="var(--brand-600)" />, title: "My Community", text: "Post updates and manage your activity", onClick: () => nav(`${base}/community`) },
     ] : []),
   ];
   const profile: HubLink[] = canSeeOwnerOnly ? [
-    { icon: <Store size={19} color="var(--orange-500)" />, title: "Business profile", text: "Identity, contact and location", onClick: () => nav(`${base}/profile`) },
+    { icon: <Store size={19} color="var(--orange-500)" />, title: "Edit profile", text: "Identity, contact and location", onClick: () => nav(`${base}/profile`) },
     { icon: <Globe size={19} color="var(--blue-500)" />, title: "Broadcast radius", text: "Set how far your shop reaches nearby", onClick: () => nav(`${base}/broadcast`) },
     { icon: <Users size={19} color="var(--green-600)" />, title: "Team & access", text: "Add team members with scoped access", onClick: () => nav("/account/business-access") },
     { icon: <BadgeCheck size={19} color="var(--green-600)" />, title: "Verification", text: "Documents and badge status", onClick: () => nav(`${base}/verify`) },
-    { icon: <Settings size={19} color="var(--ink-600)" />, title: "Settings & privacy", text: "Business controls and account settings", onClick: () => nav(`${base}/settings`) },
+    { icon: <Settings size={19} color="var(--ink-600)" />, title: "Business settings", text: "Business controls and account settings", onClick: () => nav(`${base}/settings`) },
   ] : [];
 
   return (
@@ -92,41 +107,22 @@ export default function BusinessHub() {
               </div>
             </section>
           )}
-          <HubSection title="Operations" links={operations} />
-          <HubSection title="Customer communication" links={communication} />
-          <HubSection title="Grow" links={grow} />
-          <HubSection title="Business profile" links={profile} />
+          {operations.length > 0 && <SettingsSection title="Operations">{links(operations)}</SettingsSection>}
+          {communication.length > 0 && <SettingsSection title="Customer communication">{links(communication)}</SettingsSection>}
+          {grow.length > 0 && <SettingsSection title="Grow">{links(grow)}</SettingsSection>}
+          {profile.length > 0 && <SettingsSection title="Business profile">{links(profile)}</SettingsSection>}
           <button
             type="button"
+            className="btn btn-block row center gap-8"
+            style={{ color: "var(--red-600)", background: "var(--red-50)", border: "1px solid var(--red-100)" }}
             onClick={() => { signOut(); nav("/"); }}
-            className="row center gap-8"
-            style={{ marginTop: 4, padding: "13px", width: "100%", background: "var(--red-50)", border: "1px solid var(--red-500)", borderRadius: 12, color: "var(--red-600)", fontWeight: 700, cursor: "pointer" }}
           >
-            <LogOut size={17} /> Log out
+            <LogOut size={18} /> Log out
           </button>
         </div>
         <div style={{ height: 20 }} />
       </div>
       <ManageNav bizId={id} waitingCount={queue?.waiting.length ?? 0} />
     </div>
-  );
-}
-
-function HubSection({ title, links }: { title: string; links: HubLink[] }) {
-  if (links.length === 0) return null;
-  return (
-    <section>
-      <div className="small semi muted" style={{ marginBottom: 8 }}>{title}</div>
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-        {links.map((link, index) => (
-          <button key={link.title} className="row gap-12 center-v" style={{ width: "100%", padding: "14px 16px", textAlign: "left", borderTop: index ? "1px solid var(--line)" : "none" }} onClick={link.onClick}>
-            <span style={{ width: 38, height: 38, borderRadius: 10, background: "var(--ink-50)", display: "grid", placeItems: "center" }}>{link.icon}</span>
-            <div className="grow"><div className="semi small">{link.title}</div><div className="tiny muted">{link.text}</div></div>
-            {!!link.badge && <span className="badge badge-amber">{link.badge}</span>}
-            <ChevronRight size={17} color="var(--ink-300)" />
-          </button>
-        ))}
-      </div>
-    </section>
   );
 }

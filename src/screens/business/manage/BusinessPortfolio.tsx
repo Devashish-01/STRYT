@@ -12,6 +12,10 @@ export default function BusinessPortfolio() {
   const { id = "" } = useParams();
   const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { showToast } = useApp();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [editingCaption, setEditingCaption] = useState<string | null>(null);
+  const [captionVal, setCaptionVal] = useState("");
 
   if (!id) {
     return (
@@ -21,10 +25,6 @@ export default function BusinessPortfolio() {
       </div>
     );
   }
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
-  const [editingCaption, setEditingCaption] = useState<string | null>(null);
-  const [captionVal, setCaptionVal] = useState("");
 
   const portfolio = b?.portfolio ?? [];
 

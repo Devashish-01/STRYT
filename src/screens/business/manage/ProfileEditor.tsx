@@ -16,15 +16,6 @@ export default function ProfileEditor() {
   const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { data: categories } = useQuery(() => catalogService.getCategories(), [], "categories");
   const { showToast } = useApp();
-
-  if (!id) {
-    return (
-      <div className="screen">
-        <AppBar title="Edit Profile" />
-        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
-      </div>
-    );
-  }
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [cat, setCat] = useState("");
@@ -132,6 +123,15 @@ export default function ProfileEditor() {
 
   const parentCat = cats.find((c) => c.id === cat || c.children?.some((ch) => ch.id === cat));
 
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Edit profile" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="screen">
@@ -148,7 +148,10 @@ export default function ProfileEditor() {
   return (
     <div className="screen">
       <AppBar title="Edit profile" subtitle={b?.name} />
-      <div className="screen-scroll page-pad col gap-16">
+      {/* paddingBottom clears the sticky "Save changes" bar below —
+          ProviderProfileEditor.tsx (this screen's provider twin) already has
+          it; this one didn't, so the last field rendered under the button. */}
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
         {/* Live preview — the cover image doubles as the change-photo control,
             so the owner edits it where they already see it. */}
         <div className="card" style={{ overflow: "hidden" }}>

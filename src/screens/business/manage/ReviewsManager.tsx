@@ -6,6 +6,7 @@ import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import { Flag, Reply } from "@/components/Icons";
+import ReportSheet from "@/components/ReportSheet";
 import type { Review } from "@/types";
 
 export default function ReviewsManager() {
@@ -40,7 +41,7 @@ export default function ReviewsManager() {
         {error && <ErrorView error={error} onRetry={refetch} />}
         {!loading && !error && (
           <div className="page-pad col gap-14">
-            {list.map((r) => <ReviewItem key={r.id} r={r} />)}
+            {list.map((r) => <ReviewItem key={r.id} r={r} onReplied={refetch} />)}
           </div>
         )}
       </div>
@@ -48,11 +49,26 @@ export default function ReviewsManager() {
   );
 }
 
-function ReviewItem({ r }: { r: Review }) {
+function ReviewItem({ r, onReplied }: { r: Review; onReplied: () => void }) {
   const { showToast } = useApp();
   const [replying, setReplying] = useState(false);
   const [reply, setReply] = useState("");
-  const [replied, setReplied] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [reporting, setReporting] = useState(false);
+
+  async function postReply() {
+    setPosting(true);
+    try {
+      await businessService.replyToReview(r.id, reply);
+      showToast("Reply posted");
+      setReplying(false);
+      onReplied();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't post reply — try again");
+    } finally {
+      setPosting(false);
+    }
+  }
 
   return (
     <div className="card">
@@ -65,24 +81,33 @@ function ReviewItem({ r }: { r: Review }) {
       </div>
       <p className="small" style={{ marginTop: 8, lineHeight: 1.45 }}>{r.comment}</p>
 
-      {replied ? (
+      {r.ownerReply ? (
         <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
           <div className="tiny semi" style={{ color: "var(--brand-700)" }}>Owner reply</div>
-          <p className="small" style={{ marginTop: 2 }}>{reply}</p>
+          <p className="small" style={{ marginTop: 2 }}>{r.ownerReply}</p>
         </div>
       ) : replying ? (
         <div style={{ marginTop: 10 }}>
           <textarea className="input" placeholder="Reply publicly…" value={reply} onChange={(e) => setReply(e.target.value)} style={{ minHeight: 60 }} />
           <div className="row gap-8" style={{ marginTop: 8 }}>
             <button className="btn btn-ghost grow btn-sm" onClick={() => setReplying(false)}>Cancel</button>
-            <button className="btn btn-primary grow btn-sm" disabled={reply.trim().length < 2} onClick={() => { setReplied(true); setReplying(false); showToast("Reply posted"); }}>Post reply</button>
+            <button className="btn btn-primary grow btn-sm" disabled={reply.trim().length < 2 || posting} onClick={postReply}>{posting ? "Posting…" : "Post reply"}</button>
           </div>
         </div>
       ) : (
         <div className="row gap-16" style={{ marginTop: 10 }}>
           <button className="row gap-6 tiny semi" style={{ color: "var(--brand-700)" }} onClick={() => setReplying(true)}><Reply size={14} /> Reply</button>
-          <button className="row gap-6 tiny semi muted" onClick={() => showToast("Reported to moderation")}><Flag size={14} /> Report</button>
+          <button className="row gap-6 tiny semi muted" onClick={() => setReporting(true)}><Flag size={14} /> Report</button>
         </div>
+      )}
+
+      {reporting && (
+        <ReportSheet
+          targetType="RATING"
+          targetId={r.id}
+          name={`${r.raterName}'s review`}
+          onClose={() => setReporting(false)}
+        />
       )}
     </div>
   );

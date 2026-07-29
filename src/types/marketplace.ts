@@ -46,6 +46,7 @@ export interface Business {
   locationPublic?: boolean;
   whatsapp?: string;
   hours: string;
+  specialHours?: { date: string; note: string }[];
   isOpenNow: boolean;
   isAvailableNow?: boolean;
   availableUntil?: string | null;

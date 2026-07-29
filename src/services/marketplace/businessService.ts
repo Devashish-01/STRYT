@@ -86,7 +86,7 @@ function dailyBuckets(isoDates: string[]): number[] {
 // on an unknown column.
 const BUSINESS_COLUMNS = new Set([
   "ownerUserId","name","slug","categoryId","categoryName","subCategory","description",
-  "addressLine1","city","pincode","lat","lng","broadcastRadius","phone","whatsapp","hours","isOpenNow",
+  "addressLine1","city","pincode","lat","lng","broadcastRadius","phone","whatsapp","hours","specialHours","isOpenNow",
   "isAvailableNow","availableUntil",
   "openingDate","isNew","status","coverImage","gallery","ratingAvg","ratingCount",
   "viewCount","isFeatured","isVerified","tags","priceForTwo","deliveryTime","offerText",
@@ -189,7 +189,7 @@ export const businessService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
-      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, alias, avatar, show_name_publicly)")
+      .select("id, rating, comment, created_at, is_verified_booking, owner_reply, rater:users!rater_user_id(name, alias, avatar, show_name_publicly)")
       .eq("ratee_type", "BUSINESS")
       .eq("ratee_id", id)
       .order("created_at", { ascending: false })
@@ -203,7 +203,14 @@ export const businessService = {
       comment: r.comment ?? "",
       date: relDate(r.created_at),
       isVerifiedBooking: !!r.is_verified_booking,
+      ownerReply: r.owner_reply ?? undefined,
     }));
+  },
+
+  async replyToReview(ratingId: string, reply: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("reply_to_rating", { p_rating_id: ratingId, p_reply: reply });
+    throwIfError(error);
   },
 
   async queue(id: string): Promise<QueueInfo | undefined> {

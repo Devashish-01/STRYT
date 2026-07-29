@@ -123,9 +123,12 @@ export default function ProviderDashboard() {
   };
 
   // ── Triage inputs ──
+  // Newest request first — this is a "needs my action" list, not a same-day
+  // schedule, so a fresh request shouldn't get buried behind an older one
+  // that just happens to be scheduled sooner.
   const pendingAppts = appointments
     .filter((a) => a.status === "PENDING")
-    .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
+    .sort((a, b) => new Date(b.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
   const paymentClaims = appointments.filter((a) => a.paymentStatus === "PENDING_CONFIRM");
   const todayAppts = appointments
     .filter((a) => (a.status === "ACCEPTED" || a.status === "PENDING") && isToday(a.scheduledForISO))
@@ -513,7 +516,7 @@ export default function ProviderDashboard() {
             <GrowTile icon={QrCode} color="var(--ink-700)" label="Share QR" onClick={() => setShare(true)} />
             {!p?.isVerified
               ? <GrowTile icon={BadgeCheck} color="var(--green-600)" label="Get verified" onClick={() => nav(`${base}/verify`)} />
-              : <GrowTile icon={FileText} color="var(--brand-600)" label="Edit profile" onClick={() => nav(`${base}/profile`)} />}
+              : <GrowTile icon={FileText} color="var(--brand-600)" label="Edit profile" onClick={() => nav(`${base}/edit-profile`)} />}
           </div>
         </div>
 

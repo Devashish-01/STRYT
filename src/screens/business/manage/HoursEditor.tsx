@@ -14,15 +14,6 @@ export default function HoursEditor() {
   const { showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
 
-  if (!id) {
-    return (
-      <div className="screen">
-        <AppBar title="Hours" />
-        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
-      </div>
-    );
-  }
-
   const [hoursRaw, setHoursRaw] = useState<string | undefined>(undefined);
   const [special, setSpecial] = useState<{ date: string; note: string }[]>([]);
   const [newSpecial, setNewSpecial] = useState("");
@@ -34,7 +25,17 @@ export default function HoursEditor() {
     if (!b) return;
     setHoursRaw(b.hours);
     setOpenNow(b.isAvailableNow ?? false);
+    setSpecial(b.specialHours ?? []);
   }, [b]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Hours" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   const evalRes = evaluateProviderAvailability(b?.hours, openNow, b?.availableUntil);
 
@@ -64,7 +65,7 @@ export default function HoursEditor() {
     if (hoursRaw === undefined) return;
     setSaving(true);
     try {
-      await businessService.update(id, { hours: hoursRaw });
+      await businessService.update(id, { hours: hoursRaw, specialHours: special });
       showToast("Hours saved");
     } catch {
       showToast("Couldn't save hours. Try again.");
@@ -76,7 +77,10 @@ export default function HoursEditor() {
   return (
     <div className="screen">
       <AppBar title="Hours & Availability" />
-      <div className="screen-scroll page-pad col gap-16">
+      {/* paddingBottom clears the sticky "Save Working Timing" bar below —
+          ProviderAvailability.tsx (this screen's provider twin) already has
+          it; this one didn't, so the last card rendered under the button. */}
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
         {/* ── Instant availability banner (presence — separate from bookable slots) ── */}
         <div className="card" style={{ background: openNow ? "var(--green-100)" : "var(--ink-50)", border: "none" }}>
           <div className="row between center-v">

@@ -13,15 +13,6 @@ export default function ProviderProfileEditor() {
   const { id = "" } = useParams();
   const { data: p, loading } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { showToast } = useApp();
-
-  if (!id) {
-    return (
-      <div className="screen">
-        <AppBar title="Edit Profile" />
-        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
-      </div>
-    );
-  }
   const [bio, setBio] = useState("");
   const [price, setPrice] = useState("");
   const [radius, setRadius] = useState(5);
@@ -36,6 +27,15 @@ export default function ProviderProfileEditor() {
     setRadius(p.serviceRadiusKm);
     setSkills(p.skills);
   }, [p]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Edit profile" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   async function save() {
     setSaving(true);

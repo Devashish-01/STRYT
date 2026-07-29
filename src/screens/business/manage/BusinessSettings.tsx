@@ -1,36 +1,32 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { businessService, profileControlService, uploadService } from "@/services";
+import { businessService, profileControlService, uploadService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
-import { Power, Bell, QrCode, UserPlus, X, Package, CalendarClock, Image as ImageIcon } from "@/components/Icons";
+import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/settings";
+import { BadgeCheck, UserPlus, X, Image as ImageIcon } from "@/components/Icons";
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
 
 export default function BusinessSettings() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { showToast, setContext } = useApp();
+  const { showToast, setContext, user } = useApp();
   const { data: business, refetch: refetchBiz } = useQuery(() => businessService.get(id), [id], `business:${id}`);
-
-  if (!id) {
-    return (
-      <div className="screen">
-        <AppBar title="Settings" />
-        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
-      </div>
-    );
-  }
   const [ownerEnabled, setOwnerEnabled] = useState(true);
-  // Persist notification prefs to localStorage so they stick across reloads,
-  // consistent with the customer Settings screen.
+  const [accepting, setAccepting] = useState(true);
+  // "New leads"/"New reviews" have no notification-emission trigger yet (no
+  // insert into public.notifications is fired by the leads or ratings
+  // tables) — localStorage-only until that trigger exists. "Matching
+  // requests", below, is different: it already fires server-side via
+  // NEARBY_REQUEST/notif_nearby_requests, so it's wired to the real column.
   const [leads, setLeads] = useState(() => localStorage.getItem("biz_notif_leads") !== "false");
   const [reviewsN, setReviewsN] = useState(() => localStorage.getItem("biz_notif_reviews") !== "false");
-  const [requests, setRequests] = useState(() => localStorage.getItem("biz_notif_requests") !== "false");
   useEffect(() => { localStorage.setItem("biz_notif_leads", String(leads)); }, [leads]);
   useEffect(() => { localStorage.setItem("biz_notif_reviews", String(reviewsN)); }, [reviewsN]);
-  useEffect(() => { localStorage.setItem("biz_notif_requests", String(requests)); }, [requests]);
+  const [requests, setRequests] = useState(user.notifNearbyRequests !== false);
+  useEffect(() => { setRequests(user.notifNearbyRequests !== false); }, [user.notifNearbyRequests]);
   const [upiId, setUpiId] = useState("");
   const [savingUpi, setSavingUpi] = useState(false);
   const [email, setEmail] = useState("");
@@ -50,6 +46,16 @@ export default function BusinessSettings() {
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const [defaultEta, setDefaultEta] = useState("");
   const [savingEta, setSavingEta] = useState(false);
+
+  function persistMatchingRequests(v: boolean) {
+    setRequests(v);
+    userService.update({ notifNearbyRequests: v } as any)
+      .then(() => showToast(v ? "You'll hear about matching requests" : "Matching-request alerts off"))
+      .catch(() => {
+        setRequests(!v);
+        showToast("Couldn't save — try again");
+      });
+  }
 
   async function handleQrUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -76,6 +82,7 @@ export default function BusinessSettings() {
   useEffect(() => {
     if (business) {
       setOwnerEnabled(business.ownerEnabled !== false);
+      setAccepting(business.isOpenNow !== false);
       setUpiId(business.upiId ?? "");
       setEmail(business.email ?? "");
       setShowPhone(business.showPhonePublicly !== false);
@@ -89,6 +96,15 @@ export default function BusinessSettings() {
       setCeiling(business.maxConcurrentBookings != null ? String(business.maxConcurrentBookings) : "");
     }
   }, [business]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Settings" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   function persist(patch: Record<string, unknown>) {
     void businessService.update(id, patch as any).catch(() => showToast("Couldn't save — try again"));
@@ -202,33 +218,55 @@ export default function BusinessSettings() {
     }
   }
 
+  async function toggleAccepting(v: boolean) {
+    setAccepting(v);
+    try {
+      await businessService.update(id, { isOpenNow: v } as any);
+      showToast(v ? "Now accepting appointments" : "Paused — customers can't book new appointments");
+      void refetchBiz();
+    } catch {
+      setAccepting(!v);
+      showToast("Couldn't save — try again");
+    }
+  }
+
   return (
     <div className="screen with-nav">
       <AppBar title="Business settings" />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 20 }}>
-        {/* Visibility */}
-        <div>
-          <div className="small semi muted" style={{ marginBottom: 8 }}>Visibility</div>
-          <div className="card">
-            <Toggle label="Show business publicly" on={ownerEnabled} set={handleToggleVisibility} last />
-          </div>
-        </div>
 
-        {/* Notifications */}
-        <div>
-          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><Bell size={14} /> Notifications</div>
-          <div className="card">
-            <Toggle label="New leads" on={leads} set={setLeads} />
-            <Toggle label="New reviews" on={reviewsN} set={setReviewsN} />
-            <Toggle label="Matching requests" on={requests} set={setRequests} last />
-          </div>
-        </div>
+        <SettingsSection title="Visibility">
+          <SettingsToggleRow label="Show business publicly" on={ownerEnabled} onChange={handleToggleVisibility} />
+        </SettingsSection>
+
+        <SettingsSection title="Notifications">
+          <SettingsToggleRow label="New leads" on={leads} onChange={setLeads} />
+          <SettingsToggleRow label="New reviews" on={reviewsN} onChange={setReviewsN} />
+          <SettingsToggleRow
+            label="Matching requests"
+            hint="Also controls your personal 'Nearby requests' alerts"
+            on={requests}
+            onChange={persistMatchingRequests}
+          />
+        </SettingsSection>
+
+        {/* Accepting appointments — the real "pause bookings" control (businesses.is_open_now).
+            Mirrored on the manage dashboard front door for one-tap access; this is the
+            fuller settings-page home for it, alongside the rest of the booking controls. */}
+        <SettingsSection title="Appointments">
+          <SettingsToggleRow
+            label="Accepting appointments"
+            hint={accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}
+            on={accepting}
+            onChange={toggleAccepting}
+          />
+        </SettingsSection>
 
         {/* Booking capacity — how many bookings can share one time slot. 1 is
             the classic one-at-a-time rule; per-service overrides live on each
             catalogue item. */}
         <div>
-          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><CalendarClock size={14} /> Booking capacity</div>
+          <div className="profile-eyebrow">Booking capacity</div>
           <div className="card col gap-12" style={{ padding: 14 }}>
             <div>
               <div className="tiny semi" style={{ marginBottom: 4 }}>Default bookings per time slot</div>
@@ -264,42 +302,38 @@ export default function BusinessSettings() {
 
         {/* Home delivery — opt-in. Off means the delivery option never appears
             in the booking sheet for this shop (enforced server-side too). */}
-        <div>
-          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><Package size={14} /> Home delivery</div>
-          <div className="card">
-            <Toggle
-              label="Offer home delivery"
-              hint="Lets customers choose delivery instead of visiting, and send their address at booking"
-              on={deliveryEnabled}
-              set={toggleDelivery}
-              last={!deliveryEnabled}
-            />
-            {deliveryEnabled && (
-              <div style={{ padding: "13px 14px", borderTop: "1px solid var(--line)" }}>
-                <div className="tiny semi" style={{ marginBottom: 4 }}>Typical delivery time</div>
-                <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
-                  Shown to customers as a guide. You still confirm an exact ETA when you accept each order.
-                </div>
-                <div className="row gap-8">
-                  <input
-                    className="input grow"
-                    placeholder="e.g. 30–45 min"
-                    value={defaultEta}
-                    maxLength={40}
-                    onChange={(e) => setDefaultEta(e.target.value)}
-                  />
-                  <button className="btn btn-outline btn-sm" disabled={savingEta} onClick={saveDefaultEta}>
-                    {savingEta ? "Saving…" : "Save"}
-                  </button>
-                </div>
+        <SettingsSection title="Home delivery">
+          <SettingsToggleRow
+            label="Offer home delivery"
+            hint="Lets customers choose delivery instead of visiting, and send their address at booking"
+            on={deliveryEnabled}
+            onChange={toggleDelivery}
+          />
+          {deliveryEnabled && (
+            <div style={{ padding: "13px 14px", borderTop: "1px solid var(--line)" }}>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>Typical delivery time</div>
+              <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
+                Shown to customers as a guide. You still confirm an exact ETA when you accept each order.
               </div>
-            )}
-          </div>
-        </div>
+              <div className="row gap-8">
+                <input
+                  className="input grow"
+                  placeholder="e.g. 30–45 min"
+                  value={defaultEta}
+                  maxLength={40}
+                  onChange={(e) => setDefaultEta(e.target.value)}
+                />
+                <button className="btn btn-outline btn-sm" disabled={savingEta} onClick={saveDefaultEta}>
+                  {savingEta ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </div>
+          )}
+        </SettingsSection>
 
         {/* Payment */}
         <div>
-          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><QrCode size={14} /> Payment</div>
+          <div className="profile-eyebrow">Payment</div>
           <div className="card col gap-12" style={{ padding: 14 }}>
             {/* UPI ID */}
             <div>
@@ -402,82 +436,37 @@ export default function BusinessSettings() {
         </div>
 
         {/* Contact & privacy — control what customers can see */}
-        <div>
-          <div className="small semi muted" style={{ marginBottom: 8 }}>Contact & privacy</div>
-          <div className="card col gap-10" style={{ padding: 14 }}>
-            <div>
-              <div className="tiny semi" style={{ marginBottom: 6 }}>Business email</div>
-              <div className="row gap-8">
-                <input
-                  className="input grow"
-                  placeholder="e.g. hello@yourshop.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{ fontSize: 14 }}
-                />
-                <button className="btn btn-outline btn-sm" disabled={savingEmail} onClick={saveEmail}>
-                  {savingEmail ? "…" : "Save"}
-                </button>
-              </div>
+        <SettingsSection title="Contact & privacy">
+          <div style={{ padding: "13px 14px" }}>
+            <div className="tiny semi" style={{ marginBottom: 6 }}>Business email</div>
+            <div className="row gap-8">
+              <input
+                className="input grow"
+                placeholder="e.g. hello@yourshop.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ fontSize: 14 }}
+              />
+              <button className="btn btn-outline btn-sm" disabled={savingEmail} onClick={saveEmail}>
+                {savingEmail ? "…" : "Save"}
+              </button>
             </div>
-            <div className="divider" style={{ margin: "2px 0" }} />
-            <Toggle label="Show phone publicly" on={showPhone} set={(v) => { setShowPhone(v); persist({ showPhonePublicly: v }); }} />
-            <Toggle label="Show email publicly" on={showEmail} set={(v) => { setShowEmail(v); persist({ showEmailPublicly: v }); }} />
-            <Toggle label="Exact location public" hint="OFF = customers must request & you approve" on={locPublic} set={(v) => { setLocPublic(v); persist({ locationPublic: v }); }} last />
           </div>
-        </div>
+          <SettingsToggleRow label="Show phone publicly" on={showPhone} onChange={(v) => { setShowPhone(v); persist({ showPhonePublicly: v }); }} />
+          <SettingsToggleRow label="Show email publicly" on={showEmail} onChange={(v) => { setShowEmail(v); persist({ showEmailPublicly: v }); }} />
+          <SettingsToggleRow label="Exact location public" hint="OFF = customers must request & you approve" on={locPublic} onChange={(v) => { setLocPublic(v); persist({ locationPublic: v }); }} />
+        </SettingsSection>
 
-        {/* Team */}
-        <div className="card">
-          <button className="row gap-10 semi small" onClick={() => nav("/account/business-access")}>
-            <UserPlus size={16} /> Team & access
-            <span className="tiny muted grow" style={{ textAlign: "right" }}>Add team members with scoped access</span>
-          </button>
-        </div>
-
-        {/* Verification — dashboard tile was removed by design; Settings is the
-            low-prominence home so the flow isn't a dead-end. */}
-        <div className="card">
-          <button className="row gap-10 semi small" onClick={() => nav(`/business/${id}/manage/verify`)}>
-            🛡️ Verification & documents
-          </button>
-        </div>
-
-        {/* Danger */}
-        <div className="card">
-          <button
-            className="row gap-10 semi small"
-            style={{ color: "var(--red-600)" }}
-            onClick={async () => {
-              try {
-                await businessService.update(id, { isOpenNow: false });
-                showToast("Shop marked closed — update your hours to reopen");
-              } catch { showToast("Couldn't update. Try again."); }
-            }}
-          >
-            <Power size={18} /> Temporarily close shop
-          </button>
-        </div>
+        <SettingsSection title="Account">
+          <SettingsRow icon={<UserPlus size={18} />} label="Team & access" hint="Add team members with scoped access" onClick={() => nav("/account/business-access")} />
+          <SettingsRow icon={<BadgeCheck size={18} />} label="Verification" hint="Documents and badge status" onClick={() => nav(`/business/${id}/manage/verify`)} />
+        </SettingsSection>
 
         <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
           Exit business mode
         </button>
       </div>
       <ManageNav bizId={id} />
-    </div>
-  );
-}
-
-function Toggle({ label, hint, on, set, last }: { label: string; hint?: string; on: boolean; set: (v: boolean) => void; last?: boolean }) {
-  return (
-    <div className="row between" style={{ padding: "13px 14px", borderBottom: last ? "none" : "1px solid var(--line)", alignItems: "center" }}>
-      <div className="col" style={{ gap: 2, paddingRight: 10 }}>
-        <span className="semi small">{label}</span>
-        {hint && <span className="tiny muted">{hint}</span>}
-      </div>
-      <button onClick={() => set(!on)} style={{ width: 44, height: 26, borderRadius: 999, background: on ? "var(--brand-600)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}>
-        <span style={{ position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
-      </button>
     </div>
   );
 }

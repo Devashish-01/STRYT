@@ -16,15 +16,6 @@ export default function ProviderAvailability() {
   const { showToast } = useApp();
   const { data: provider, loading: providerLoading } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
 
-  if (!id) {
-    return (
-      <div className="screen">
-        <AppBar title="Availability" />
-        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
-      </div>
-    );
-  }
-
   // Keep all form state as null until real data arrives — prevents default-value flash
   const [now, setNow] = useState<boolean | null>(null);
   const [hours, setHours] = useState(3);
@@ -37,6 +28,15 @@ export default function ProviderAvailability() {
     setNow(provider.isAvailableNow ?? false);
     setNoteRaw(provider.availabilityNote ?? "");
   }, [provider]);
+
+  if (!id) {
+    return (
+      <div className="screen">
+        <AppBar title="Availability" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
 
   // Effective values — fall back to defaults only for computed display (never shown before data loads)
   const effectiveNow = now ?? false;
@@ -82,7 +82,7 @@ export default function ProviderAvailability() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Availability & Hours" />
+      <AppBar title="Hours & Availability" />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
 
         {/* Show skeleton until real data is ready — prevents default-value flash */}

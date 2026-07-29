@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Skeleton } from "@/components/states";
+import { Skeleton, ErrorView } from "@/components/states";
 import LivePulseDot from "@/components/LivePulseDot";
 import Toggle from "@/components/Toggle";
 import { haptics } from "@/lib/haptics";
@@ -222,10 +222,19 @@ export default function QueueManager() {
     }
   }
 
+  if (!businessId) {
+    return (
+      <div className="screen">
+        <AppBar title="Queue" />
+        <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="screen">
-        <AppBar title="Live queue" />
+        <AppBar title="Queue" />
         <div className="screen-scroll page-pad col gap-14" style={{ paddingBottom: 30 }}>
           <Skeleton h={64} r={16} mb={0} />
           <Skeleton h={90} r={16} mb={0} />
@@ -268,7 +277,7 @@ export default function QueueManager() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Live queue" right={
+      <AppBar title="Queue" right={
         <button className="icon-btn" onClick={() => { refetch(); refetchHistory(); }} title="Refresh">
           <RefreshCw size={17} />
         </button>

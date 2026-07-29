@@ -24,18 +24,21 @@ export function CatalogManager({ kind }: { kind: Kind }) {
     kind === "business" ? `business:${id}` : `provider:${id}`
   );
 
+  const [editing, setEditing] = useState<CatalogItem | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const kindTitle = kind === "provider" ? "Services" : "Catalog";
+
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Catalog" />
+        <AppBar title={kindTitle} />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
       </div>
     );
   }
-  const [editing, setEditing] = useState<CatalogItem | null>(null);
-  const [creating, setCreating] = useState(false);
 
-  if (loading) return <div className="screen"><AppBar title="Catalog" /><ListSkeleton count={3} /></div>;
+  if (loading) return <div className="screen"><AppBar title={kindTitle} /><ListSkeleton count={3} /></div>;
   if (!entity) return null;
   const catalog: CatalogItem[] = entity.catalog ?? [];
 
@@ -73,7 +76,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
         {catalog.map((item) => (
           <div key={item.id} className="card row gap-12" style={{ padding: 12 }}>
             {item.image
-              ? <img src={item.image} className="thumb" style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
+              ? <img src={item.image} alt={item.name} className="thumb" style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover", flexShrink: 0 }} />
               : <div style={{ width: 64, height: 64, borderRadius: 12, background: "var(--ink-100)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Tag size={24} color="var(--ink-400)" /></div>
             }
             <div className="grow" style={{ minWidth: 0 }}>
@@ -230,7 +233,7 @@ export function ItemEditor({
         {/* Photo picker */}
         <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--ink-300)", overflow: "hidden", marginBottom: 14, cursor: "pointer", background: "var(--ink-50)" }}>
           {image
-            ? <img src={image} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ? <img src={image} alt={name || "Item photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             : <span style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, color: "var(--ink-400)" }}>
                 <Camera size={26} /><span className="tiny">{uploading ? "Uploading…" : "Add photo (optional)"}</span>
               </span>

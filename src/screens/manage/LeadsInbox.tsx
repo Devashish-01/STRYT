@@ -55,7 +55,7 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
   return (
     <div className="screen with-nav">
       <AppBar
-        title={isBusiness ? "Customer inbox" : "Reachouts"}
+        title={isBusiness ? "Customer reachouts" : "Reachouts"}
         subtitle={isBusiness ? "Calls, directions, questions and replies" : "Calls and messages from customers"}
       />
       <div className="screen-scroll">

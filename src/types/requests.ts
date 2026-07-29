@@ -139,6 +139,7 @@ export interface Review {
   comment: string;
   date: string;
   isVerifiedBooking?: boolean;
+  ownerReply?: string;
 }
 
 export interface Settlement {

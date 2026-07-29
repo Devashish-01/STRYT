@@ -26,13 +26,13 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Inventory" />
+        <AppBar title="Inventory alerts" />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
       </div>
     );
   }
 
-  if (loading) return <div className="screen"><AppBar title="Inventory" /><ListSkeleton count={3} /></div>;
+  if (loading) return <div className="screen"><AppBar title="Inventory alerts" /><ListSkeleton count={3} /></div>;
   if (!entity) return null;
 
   const catalog: CatalogItem[] = entity.catalog ?? [];
@@ -46,7 +46,7 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
     return (
       <button key={item.id} className="card row gap-12 center-v" style={{ padding: 12, textAlign: "left" }} onClick={() => setEditing(item)}>
         {item.image
-          ? <img src={item.image} className="thumb" style={{ width: 48, height: 48, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
+          ? <img src={item.image} alt={item.name} className="thumb" style={{ width: 48, height: 48, borderRadius: 10, objectFit: "cover", flexShrink: 0 }} />
           : <div style={{ width: 48, height: 48, borderRadius: 10, background: "var(--ink-100)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Package size={20} color="var(--ink-400)" /></div>
         }
         <div className="grow" style={{ minWidth: 0 }}>
@@ -62,7 +62,7 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
 
   return (
     <div className="screen">
-      <AppBar title="Inventory" subtitle={totalFlagged > 0 ? `${totalFlagged} item${totalFlagged === 1 ? "" : "s"} need attention` : "Stock status"} />
+      <AppBar title="Inventory alerts" subtitle={totalFlagged > 0 ? `${totalFlagged} item${totalFlagged === 1 ? "" : "s"} need attention` : "Stock status"} />
       <div className="screen-scroll page-pad col gap-18" style={{ paddingBottom: 30 }}>
         {totalFlagged === 0 && (
           <div className="col center" style={{ padding: "48px 20px", gap: 12 }}>

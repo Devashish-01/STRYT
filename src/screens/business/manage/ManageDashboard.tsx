@@ -50,6 +50,7 @@ export default function ManageDashboard() {
   const base = `/business/${id}/manage`;
   const [share, setShare] = useState(false);
   const [available, setAvailable] = useState(false);
+  const [accepting, setAccepting] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
@@ -86,6 +87,10 @@ export default function ManageDashboard() {
 
   useEffect(() => {
     if (business) setAvailable(business.isAvailableNow ?? false);
+  }, [business]);
+
+  useEffect(() => {
+    if (business) setAccepting(business.isOpenNow ?? true);
   }, [business]);
 
   useEffect(() => {
@@ -199,6 +204,22 @@ export default function ManageDashboard() {
     } catch (error: any) {
       setAvailable(previous);
       showToast(error?.message ?? "Couldn't update availability");
+    }
+  }
+
+  // "Accepting appointments" (businesses.is_open_now) — distinct from the
+  // "open now" presence toggle above: this one actually stops new bookings,
+  // gated client-side (BusinessDetail) and server-side (appointment_create).
+  async function toggleAccepting() {
+    const previous = accepting;
+    const next = !accepting;
+    setAccepting(next);
+    try {
+      await businessService.update(id, { isOpenNow: next });
+      showToast(next ? "Now accepting appointments" : "Paused — customers can't book new appointments");
+    } catch (error: any) {
+      setAccepting(previous);
+      showToast(error?.message ?? "Couldn't update appointment setting");
     }
   }
 
@@ -354,6 +375,13 @@ export default function ManageDashboard() {
               <div className="grow"><div className="semi small">{available ? "Open now" : "Mark shop open now"}</div><div className="tiny muted">Visible to nearby customers</div></div>
               <Toggle on={available} />
             </button>
+            <button className="card row gap-12 center-v" onClick={toggleAccepting} style={{ width: "100%", textAlign: "left", marginTop: 10, border: accepting ? "1px solid var(--line)" : "2px solid var(--red-400)" }}>
+              <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: accepting ? "var(--ink-50)" : "var(--red-100)" }}>
+                <Calendar size={21} color={accepting ? "var(--ink-400)" : "var(--red-600)"} />
+              </span>
+              <div className="grow"><div className="semi small">Accepting appointments</div><div className="tiny muted">{accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}</div></div>
+              <Toggle on={accepting} />
+            </button>
           </section>
         )}
 
@@ -424,7 +452,7 @@ export default function ManageDashboard() {
 
         {hasScope("appointments") && todayAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
-            <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">Today's bookings</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>View all</button></div>
+            <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">Today's appointments</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>View all</button></div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
               {todayAppointments.slice(0, 3).map((item, index) => (
                 <button key={item.id} className="row gap-10 center-v" style={{ width: "100%", padding: "12px 14px", textAlign: "left", borderTop: index ? "1px solid var(--line)" : "none" }} onClick={() => nav(`${base}/appointments`)}>

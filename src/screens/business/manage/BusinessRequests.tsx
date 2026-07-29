@@ -52,7 +52,7 @@ export default function BusinessRequests() {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Requests" />
+        <AppBar title="Find requests" />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
       </div>
     );
@@ -69,7 +69,7 @@ export default function BusinessRequests() {
 
   return (
     <div className="screen">
-      <AppBar title="Requests" subtitle={`Within ${range} km of ${b?.name ?? "your shop"}`} />
+      <AppBar title="Find requests" subtitle={`Within ${range} km of ${b?.name ?? "your shop"}`} />
       <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff" }}>
         {([["find", "Find requests"], ["sent", `Sent (${sentProposals?.length ?? 0})`]] as const).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)} className="semi"
