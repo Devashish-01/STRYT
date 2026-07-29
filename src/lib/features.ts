@@ -9,9 +9,20 @@
 /**
  * Delivery Agent flow (docs/plans/app-plans/09_delivery_boy_flow.md).
  *
- * Phase 1 (DB + scope groundwork) is live and inert: the `delivery` team scope,
- * `appointment_deliveries` table + RLS, and the assign/track/handoff RPCs exist
- * but nothing in the UI surfaces them yet. Keep this `false` until the Delivery
- * hat + console (Phase 2) and assignment/tracking UI (Phase 3) ship.
+ * Phase 1 (DB + scope groundwork), Phase 2 (Delivery hat + console), and
+ * Phase 3 (assignment/tracking UI) are all built — DeliveryConsole.tsx,
+ * DeliveryAssignControl.tsx, DeliveryTrackControl.tsx, the Team & Access
+ * `delivery` scope/preset, and the customer IN_STORE/DELIVERY toggle in
+ * AppointmentSheet.tsx were sitting wired but dark behind this flag.
  */
-export const DELIVERY_AGENT_ENABLED = false;
+export const DELIVERY_AGENT_ENABLED = true;
+
+/**
+ * Main map screen (MapView) tries Mapbox's styled tiles first, falling back
+ * to the free OpenFreeMap style (src/screens/MapView/index.tsx's original,
+ * still-default behavior) if Mapbox errors or hasn't loaded within 4s. Flip
+ * to `false` for an instant, code-only revert to the pure-free-map behavior —
+ * no other changes needed — if Mapbox ever misbehaves in a way the
+ * timeout/error handling doesn't catch.
+ */
+export const MAPBOX_PRIMARY_MAP_ENABLED = true;

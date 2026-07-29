@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, MapPinPlus } from "@/components/Icons";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -6,6 +6,7 @@ import { discoveryService, requestService, socialService, userService } from "@/
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { config } from "@/config";
+import { MAPBOX_PRIMARY_MAP_ENABLED } from "@/lib/features";
 import { StoryViewer } from "@/components/Stories";
 import type { Story } from "@/types";
 import { evaluateProviderAvailability } from "@/utils/availability";
@@ -23,12 +24,28 @@ import { NearbySheet } from "./NearbySheet";
 import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 import { useI18n } from "@/lib/i18n";
+import { hasMapboxFallenBackThisSession, rememberMapboxFallback, makeMapboxTransformRequest } from "./mapboxFallback";
 
 // Free, open-source, no API key/account of any kind — see openfreemap.org.
 // Positron: a clean, minimal light basemap (closest match to the CARTO
 // Voyager tiles this screen used before), so STRYT's own purple/pink pins
-// and UI stay the visual focus rather than a busy basemap.
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+// and UI stay the visual focus rather than a busy basemap. This is the
+// fallback/default: see MAPBOX_STYLE below for the primary attempt.
+const FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+
+// Mapbox's own minimal light style — chosen to match FREE_MAP_STYLE's "clean,
+// pins stay the focus" intent, so a fallback mid-session isn't jarring. Only
+// meaningful when a token is configured; MAP_ATTEMPTS_MAPBOX below decides
+// whether this is ever actually requested.
+const MAPBOX_STYLE = `https://api.mapbox.com/styles/v1/mapbox/light-v11?access_token=${config.mapboxToken}`;
+
+// Skip Mapbox entirely (go straight to the free style, no wait, no flash) when
+// the feature is off, no token is configured, or Mapbox already failed once
+// this session — see mapboxFallback.ts for the session-memory reasoning.
+const MAP_ATTEMPTS_MAPBOX =
+  MAPBOX_PRIMARY_MAP_ENABLED && !!config.mapboxToken && !hasMapboxFallenBackThisSession();
+
+const MAPBOX_LOAD_TIMEOUT_MS = 4000;
 
 // haversine, km — same distance math the old Leaflet build used
 // (L.latLng(...).distanceTo(...)), just without the Leaflet dependency.
@@ -114,6 +131,36 @@ export default function MapView() {
 
   const [storyViewer, setStoryViewer] = useState<{ stories: Story[]; idx: number } | null>(null);
   const [showNearbyPopup, setShowNearbyPopup] = useState(false);
+
+  // Mapbox-primary, free-map-fallback. mapReady starts true when we're not
+  // even attempting Mapbox (skipped entirely — no wait, no flash, identical
+  // to this screen's long-standing free-only behavior). transformRequest is
+  // only needed while actually pointed at Mapbox; harmless either way since
+  // it no-ops for any non-"mapbox://" URL.
+  const [mapStyle, setMapStyle] = useState(() => (MAP_ATTEMPTS_MAPBOX ? MAPBOX_STYLE : FREE_MAP_STYLE));
+  const [mapReady, setMapReady] = useState(() => !MAP_ATTEMPTS_MAPBOX);
+  const mapboxSettledRef = useRef(!MAP_ATTEMPTS_MAPBOX);
+  const transformRequest = useMemo(() => makeMapboxTransformRequest(config.mapboxToken), []);
+
+  function fallBackToFreeMap() {
+    if (mapboxSettledRef.current) return; // already loaded, or already fell back
+    mapboxSettledRef.current = true;
+    rememberMapboxFallback();
+    setMapStyle(FREE_MAP_STYLE);
+    // FREE_MAP_STYLE has been this screen's only style until now and has
+    // always loaded fast/reliably — treating the switch itself as "ready"
+    // avoids chasing maplibre-gl's per-style-change load events for a style
+    // that's never actually been the slow part.
+    setMapReady(true);
+  }
+
+  useEffect(() => {
+    if (!MAP_ATTEMPTS_MAPBOX) return;
+    const timer = window.setTimeout(fallBackToFreeMap, MAPBOX_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+    // Deliberately once-only (mount/unmount): MAP_ATTEMPTS_MAPBOX is a
+    // module-level constant and fallBackToFreeMap only closes over refs/setters.
+  }, []);
 
   const presetKms = new Set<number>(RADIUS_OPTIONS.map((o) => o.km));
   const isCustomActive = !presetKms.has(radiusKm);
@@ -221,13 +268,17 @@ export default function MapView() {
         </>
       )}
 
-      {/* Full-screen map — MapLibre GL (free, open-source, no API key),
-          OpenFreeMap tiles. Web and Android app both render this exact
-          screen — Capacitor's WebView is just a browser, so there's no
-          native/web split needed here. */}
+      {/* Full-screen map — MapLibre GL (open-source renderer either way).
+          Web and Android app both render this exact screen — Capacitor's
+          WebView is just a browser, so there's no native/web split needed
+          here. mapStyle is Mapbox first, free OpenFreeMap tiles as the
+          automatic fallback — see the state/effect above. */}
       <Map
         initialViewState={{ longitude: centerLng, latitude: centerLat, zoom: 13 }}
-        mapStyle={MAP_STYLE}
+        mapStyle={mapStyle}
+        transformRequest={transformRequest}
+        onLoad={() => { mapboxSettledRef.current = true; setMapReady(true); }}
+        onError={fallBackToFreeMap}
         style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
         attributionControl={{ compact: true }}
       >
@@ -262,6 +313,17 @@ export default function MapView() {
           onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
         />
       </Map>
+
+      {/* Only ever shown during a Mapbox attempt — the free style has always
+          loaded fast enough to need nothing (see MAP_ATTEMPTS_MAPBOX above),
+          so most sessions never render this at all. Backstopped by the 4s
+          timeout: this can never stay up longer than that. */}
+      {!mapReady && (
+        <div className="map-loading-veil">
+          <div className="map-loading-spinner spin" />
+          <span className="tiny semi">Loading map…</span>
+        </div>
+      )}
 
       {pin.pickMode && (
         <LocationPinDropOverlay

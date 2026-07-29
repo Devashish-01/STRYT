@@ -97,7 +97,7 @@ export function MapMarkers({
             <span
               style={{ cursor: "pointer", display: "block" }}
               dangerouslySetInnerHTML={{
-                __html: `<div style="width:44px;height:44px;border-radius:50%;${seen ? "background:var(--ink-400)" : "background:linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))"};padding:2.5px;box-shadow:0 2px 10px rgba(0,0,0,0.35)"><div style="width:100%;height:100%;border-radius:50%;background:var(--ink-200);overflow:hidden;border:2px solid #fff">${s.authorAvatar ? `<img src="${s.authorAvatar}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'" />` : ""}</div></div>`,
+                __html: `<div style="width:44px;height:44px;border-radius:50%;${seen ? "background:var(--ink-400)" : "background:linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))"};padding:2.5px;box-shadow:0 2px 10px rgba(0,0,0,0.35)"><div style="width:100%;height:100%;border-radius:50%;background:var(--ink-200);overflow:hidden;border:2px solid #fff">${s.authorAvatar ? `<img src="${s.authorAvatar}" alt="${s.authorName ?? ""}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'" />` : ""}</div></div>`,
               }}
             />
           </Marker>
