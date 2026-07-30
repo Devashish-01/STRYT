@@ -29,12 +29,11 @@ interface FeedParams {
 const DEFAULT_LAT = config.defaultLocation.lat;
 const DEFAULT_LNG = config.defaultLocation.lng;
 
-// Fetch a wide candidate set, then intersect the viewer's radius with the
-// listing's own service/broadcast radius. The matching DB migration applies
-// the same rule in the nearby RPCs; this client guard keeps older databases
-// from leaking irrelevant far-away listings.
+// Discovery is viewer-radius-only — a listing's own broadcast_radius/
+// serviceRadiusKm no longer gates general discovery (it still governs booking
+// eligibility and content/lead-matching reach, just not this). GLOBAL_RADIUS_KM
+// is only the RPC's own fallback when the viewer has no radius preference set.
 const GLOBAL_RADIUS_KM = 20000;
-const DEFAULT_LISTING_RADIUS_KM = 5;
 
 function savedViewerRadius(): number | undefined {
   const saved = localStorage.getItem("settings_radius");
@@ -60,17 +59,6 @@ function withDistance<T extends { lat?: number; lng?: number; distanceKm?: numbe
   };
 }
 
-function withinListingRadius<T extends { distanceKm?: number }>(
-  row: T,
-  listingRadius: number | undefined,
-  explicitRadius: number | undefined,
-): boolean {
-  if (row.distanceKm === undefined) return true;
-  const ownRadius = Math.max(0, Number(listingRadius ?? DEFAULT_LISTING_RADIUS_KM));
-  const radiusCap = explicitRadius === undefined ? ownRadius : Math.min(explicitRadius, ownRadius);
-  return row.distanceKm <= radiusCap;
-}
-
 export const discoveryService = {
   async businesses(p: FeedParams = {}): Promise<Page<Business>> {
     const sb = getSupabase();
@@ -92,9 +80,7 @@ export const discoveryService = {
       });
       throwIfError(error);
       const page = toPage<Business>(data as unknown[], null, from, limit);
-      page.data = page.data
-        .map((b) => withDistance(b, userLat, userLng))
-        .filter((b) => withinListingRadius(b, b.broadcastRadius, viewerRadius));
+      page.data = page.data.map((b) => withDistance(b, userLat, userLng));
       return page;
     }
     let q = sb.from("businesses").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
@@ -105,9 +91,7 @@ export const discoveryService = {
     const { data, error, count } = await q.range(from, to);
     throwIfError(error);
     const page = toPage<Business>(data, count, from, limit);
-    page.data = page.data
-      .map((b) => withDistance(b, userLat, userLng))
-      .filter((b) => withinListingRadius(b, b.broadcastRadius, viewerRadius));
+    page.data = page.data.map((b) => withDistance(b, userLat, userLng));
     return page;
   },
 
@@ -133,9 +117,7 @@ export const discoveryService = {
       });
       throwIfError(error);
       const page = toPage<Provider>(data as unknown[], null, from, limit);
-      page.data = page.data
-        .map((prov) => withDistance(prov, userLat, userLng))
-        .filter((prov) => withinListingRadius(prov, prov.serviceRadiusKm, viewerRadius));
+      page.data = page.data.map((prov) => withDistance(prov, userLat, userLng));
       return page;
     }
     let q = sb.from("providers").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
@@ -146,9 +128,7 @@ export const discoveryService = {
     const { data, error, count } = await q.range(from, to);
     throwIfError(error);
     const page = toPage<Provider>(data, count, from, limit);
-    page.data = page.data
-      .map((prov) => withDistance(prov, userLat, userLng))
-      .filter((prov) => withinListingRadius(prov, prov.serviceRadiusKm, viewerRadius));
+    page.data = page.data.map((prov) => withDistance(prov, userLat, userLng));
     return page;
   },
 
@@ -205,17 +185,12 @@ export const discoveryService = {
 
     const userLat = opts.lat ?? DEFAULT_LAT;
     const userLng = opts.lng ?? DEFAULT_LNG;
-    const viewerRadius = resolveViewerRadius(opts.radius);
 
     const bizPage = toPage<Business>(bizRes.data, bizRes.count, bizFrom, bizLimit);
-    bizPage.data = bizPage.data
-      .map((b) => withDistance(b, userLat, userLng))
-      .filter((b) => withinListingRadius(b, b.broadcastRadius, viewerRadius));
+    bizPage.data = bizPage.data.map((b) => withDistance(b, userLat, userLng));
 
     const provPage = toPage<Provider>(provRes.data, provRes.count, provFrom, provLimit);
-    provPage.data = provPage.data
-      .map((prov) => withDistance(prov, userLat, userLng))
-      .filter((prov) => withinListingRadius(prov, prov.serviceRadiusKm, viewerRadius));
+    provPage.data = provPage.data.map((prov) => withDistance(prov, userLat, userLng));
 
     return { businesses: bizPage, providers: provPage };
   },

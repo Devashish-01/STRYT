@@ -156,7 +156,7 @@ const DeliveryConsole = lazy(() => import("./screens/delivery/DeliveryConsole"))
 // UPI-deeplink payments only) — screen file stays in future-enhancement/.
 
 // Routes that show the bottom navigation bar
-const TAB_ROUTES = ["/home", "/map", "/explore", "/chats", "/requests", "/community-hub", "/profile"];
+const TAB_ROUTES = ["/home", "/map", "/notifications", "/explore", "/chats", "/requests", "/community-hub", "/profile"];
 
 // Brief full-screen loader shown while the initial Supabase session resolves
 function AuthSplash() {

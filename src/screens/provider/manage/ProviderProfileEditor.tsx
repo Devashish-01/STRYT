@@ -95,7 +95,7 @@ export default function ProviderProfileEditor() {
             onChange={setRadius}
             accentColor="var(--green-500)"
             label="Service radius"
-            description="How far you're willing to travel/serve."
+            description="How far you'll travel to serve, and how far your posts and stories reach nearby customers."
           />
         </div>
 

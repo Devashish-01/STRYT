@@ -108,30 +108,14 @@ export const socialService = {
 
   async storiesNearby(lat: number, lng: number, radiusKm = 5): Promise<Story[]> {
     const sb = getSupabase();
-    // Fetch ALL active stories (including ones without coordinates) — a story
-    // posted without a location isn't tied to a spot and must stay visible to
-    // everyone. Previously the query dropped null-coord stories and the radius
-    // filter hid the rest, so the bar showed almost nothing from others.
-    const { data, error } = await sb
-      .from("stories")
-      .select("*")
-      .gt("expires_at", new Date().toISOString())
-      .order("created_at", { ascending: false })
-      .limit(50);
+    const { data, error } = await (sb.rpc as any)("stories_nearby", {
+      in_lng: lng,
+      in_lat: lat,
+      in_radius_km: radiusKm,
+      in_limit: 50,
+    });
     if (error) throw error;
-    const R = 6371;
-    const toRad = (d: number) => (d * Math.PI) / 180;
-    const mapped = (data ?? [])
-      .map(rowToStory)
-      .filter((s) => {
-        // Location-less stories are always shown; located ones only within radius.
-        if (!s.lat || !s.lng) return true;
-        const dLat = toRad(s.lat - lat);
-        const dLng = toRad(s.lng - lng);
-        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat)) * Math.cos(toRad(s.lat)) * Math.sin(dLng / 2) ** 2;
-        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) <= radiusKm;
-      });
-    return filterStoriesByPrivacy(mapped);
+    return filterStoriesByPrivacy((data ?? []).map(rowToStory));
   },
 
   async myStory(): Promise<Story | null> {

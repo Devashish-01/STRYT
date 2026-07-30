@@ -234,8 +234,8 @@ export default function ProfileEditor() {
             value={broadcastRadius}
             onChange={setBroadcastRadius}
             accentColor="var(--brand-600)"
-            label="Broadcast radius"
-            description="Specify how far you want to announce your business."
+            label="Service radius"
+            description="How far you'll take bookings from, and how far your posts and stories reach nearby customers."
           />
         </div>
       </div>

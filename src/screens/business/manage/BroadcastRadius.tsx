@@ -8,10 +8,8 @@ import { useApp } from "@/store";
 import RadiusSelector from "@/components/RadiusSelector";
 import { Loader } from "@/components/Icons";
 
-// Dedicated, one-tap editor for just the business's broadcast radius — how far
-// the shop is surfaced to nearby customers. (Broadcast radius is also editable
-// inside the full profile editor; this gives it its own entry from the business
-// hub so an owner can adjust reach without scrolling the whole profile form.)
+// Dedicated editor for the business's service radius — how far bookings,
+// community posts, and stories reach nearby customers (not general discovery).
 export default function BroadcastRadius() {
   const { id = "" } = useParams();
   const nav = useNavigate();
@@ -28,17 +26,17 @@ export default function BroadcastRadius() {
     setSaving(true);
     try {
       await businessService.update(id, { broadcastRadius: radius });
-      showToast("Broadcast radius updated");
+      showToast("Service radius updated");
       nav(-1);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : "Couldn't save broadcast radius");
+      showToast(e instanceof Error ? e.message : "Couldn't save service radius");
       setSaving(false);
     }
   }
 
   return (
     <div className="screen">
-      <AppBar title="Broadcast radius" onBack={() => nav(-1)} />
+      <AppBar title="Service radius" onBack={() => nav(-1)} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 40 }}>
         {loading ? (
           <Skeleton h={140} mb={0} />
@@ -47,13 +45,13 @@ export default function BroadcastRadius() {
         ) : (
           <>
             <p className="small muted" style={{ lineHeight: 1.55 }}>
-              Choose how far around your shop STRYT shows it to nearby customers. A wider radius reaches more people; a tighter one keeps you local.
+              Choose how far you&apos;ll take bookings from, and how far your community posts and stories reach nearby customers. It no longer limits how far away customers can find your shop in Explore or Search.
             </p>
             <RadiusSelector
               value={radius}
               onChange={setRadius}
-              label="Broadcast radius"
-              description="Customers within this distance can discover your shop."
+              label="Service radius"
+              description="Customers within this distance can book you, and see your posts and stories."
             />
             <button
               className="btn btn-primary btn-block row center gap-8"

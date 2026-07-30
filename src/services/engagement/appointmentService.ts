@@ -313,6 +313,9 @@ export const appointmentService = {
         if (/INSUFFICIENT_STOCK/i.test(msg)) {
           throw new Error("An item in your order just sold out — please update your cart and try again.");
         }
+        if (/OUT_OF_SERVICE_AREA/i.test(msg)) {
+          throw new Error(`You're outside this ${payload.targetType === "BUSINESS" ? "business" : "provider"}'s service area — booking isn't available from here.`);
+        }
         // Surface the real reason instead of silently succeeding.
         throw new Error(msg || "Couldn't book the appointment. Please try again.");
       }

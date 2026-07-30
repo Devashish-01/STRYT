@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { Home, Map, Plus, User, X } from "@/components/Icons";
+import { Home, Map, MessageSquare, Plus, User, X } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
 import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -72,6 +72,15 @@ export default function BottomNav() {
           <span className="fab-circle"><Plus size={26} strokeWidth={2.6} /></span>
           <span style={{ marginTop: 2 }}>{t("create")}</span>
         </button>
+
+        <NavLink to="/chats" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
+          {({ isActive }) => (
+            <>
+              <MessageSquare size={22} strokeWidth={isActive ? 2.6 : 2} />
+              <span>{t("chats")}</span>
+            </>
+          )}
+        </NavLink>
 
         {isGuest ? guestSignInTab : (
           <button

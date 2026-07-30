@@ -72,6 +72,8 @@ export default function CommunityCompose() {
       avatar: activeProv.avatar
     } : null
   );
+  const sellerLat = sellerCtx?.type === "business" ? activeBiz?.lat : sellerCtx?.type === "provider" ? activeProv?.lat : undefined;
+  const sellerLng = sellerCtx?.type === "business" ? activeBiz?.lng : sellerCtx?.type === "provider" ? activeProv?.lng : undefined;
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
 
@@ -112,8 +114,8 @@ export default function CommunityCompose() {
         body,
         image: photoUrl ?? undefined,
         area,
-        lat: user.lat || undefined,
-        lng: user.lng || undefined,
+        lat: sellerCtx ? sellerLat : (user.lat || undefined),
+        lng: sellerCtx ? sellerLng : (user.lng || undefined),
         allowComments,
         pollOptions: type === "POLL" ? pollOpts.filter((o) => o.trim()).map((label, i) => ({ id: `o${i}`, label, votes: 0 })) : undefined,
         ...(sellerCtx ? { authorType: sellerCtx.type, authorRefId: sellerCtx.id, authorName: sellerCtx.name, authorAvatar: sellerCtx.avatar } : {}),

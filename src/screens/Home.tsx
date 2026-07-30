@@ -5,7 +5,6 @@ import { useApp } from "@/store";
 import { catalogService, requestService, appointmentService, businessService, locationService, discoveryService, notificationService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { StoriesBar } from "@/components/Stories";
 import { BusinessCardSmall, ProviderCardSmall } from "@/components/cards";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
@@ -261,30 +260,6 @@ export default function Home() {
                   width: 38,
                   height: 38,
                 }}
-                onClick={() => nav("/chats?scope=CUSTOMER")}
-                aria-label="Chats"
-              >
-                <MessageSquare size={19} />
-                {chatUnread > 0 && (
-                  <span style={{
-                    position: "absolute", top: 5, right: 5,
-                    width: 8, height: 8, background: "var(--red-500)",
-                    borderRadius: "50%", border: "2px solid rgba(0,0,0,0.2)",
-                  }} />
-                )}
-              </button>
-              <button
-                className="icon-btn"
-                style={{
-                  background: "rgba(255, 255, 255, 0.16)",
-                  backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
-                  color: "#fff",
-                  position: "relative",
-                  borderRadius: 12,
-                  width: 38,
-                  height: 38,
-                }}
                 onClick={() => nav("/notifications?scope=CUSTOMER")}
                 aria-label="Notifications"
               >
@@ -398,9 +373,6 @@ export default function Home() {
           <div className="page-pad" style={{ paddingBottom: 0 }}>
             <GuestRadiusNotice />
           </div>
-
-          {/* Stories */}
-          <StoriesBar />
 
           {/* ── Your day — consolidated live activity rail ── */}
           {todayItems.length > 0 && (
@@ -613,10 +585,6 @@ export default function Home() {
             >
               <Search size={16} />
               <span>{t("search_placeholder")}</span>
-            </button>
-            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", border: "none", position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Chats">
-              <MessageSquare size={18} />
-              {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
             </button>
             <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", border: "none", position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
               <Bell size={18} />

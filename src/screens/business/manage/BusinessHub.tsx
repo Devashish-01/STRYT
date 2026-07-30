@@ -86,7 +86,7 @@ export default function BusinessHub() {
   ];
   const profile: HubLink[] = canSeeOwnerOnly ? [
     { icon: <Store size={19} color="var(--orange-500)" />, title: "Edit profile", text: "Identity, contact and location", onClick: () => nav(`${base}/profile`) },
-    { icon: <Globe size={19} color="var(--blue-500)" />, title: "Broadcast radius", text: "Set how far your shop reaches nearby", onClick: () => nav(`${base}/broadcast`) },
+    { icon: <Globe size={19} color="var(--blue-500)" />, title: "Service radius", text: "Bookings, posts and stories reach", onClick: () => nav(`${base}/broadcast`) },
     { icon: <Users size={19} color="var(--green-600)" />, title: "Team & access", text: "Add team members with scoped access", onClick: () => nav("/account/business-access") },
     { icon: <BadgeCheck size={19} color="var(--green-600)" />, title: "Verification", text: "Documents and badge status", onClick: () => nav(`${base}/verify`) },
     { icon: <Settings size={19} color="var(--ink-600)" />, title: "Business settings", text: "Business controls and account settings", onClick: () => nav(`${base}/settings`) },

@@ -6,6 +6,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard, CommunityCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
+import { StoriesBar } from "@/components/Stories";
 import { useApp } from "@/store";
 import { trendingScore } from "@/lib/trending";
 import type { CommunityPost, CommunityPostType } from "@/types";
@@ -150,6 +151,11 @@ export default function CommunityHub() {
           >
             <FileText size={14} /> Request
           </button>
+        </div>
+
+        {/* Stories bar — neighborhood & business stories reel */}
+        <div style={{ margin: "10px -16px 0", paddingBottom: 6 }}>
+          <StoriesBar />
         </div>
 
         <div className="row" style={{ gap: 0, marginTop: 12 }}>

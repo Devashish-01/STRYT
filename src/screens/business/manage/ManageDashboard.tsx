@@ -145,7 +145,7 @@ export default function ManageDashboard() {
     (hasScope("leads") ? unanswered.length : 0);
   const range = business?.broadcastRadius ?? 5;
   // Read-only reach shown in the header; editing lives on the dedicated
-  // Broadcast radius screen (Business hub) now, not on this dashboard.
+  // Service radius screen (Business hub) now, not on this dashboard.
   const radiusLabel = range >= 5000 ? "🌍 Worldwide" : range === 0.5 ? "500 m" : `${range} km`;
   const matchingRequests = ((requestFeed?.data ?? []) as RequestPost[])
     .filter((item) => item.status === "OPEN")

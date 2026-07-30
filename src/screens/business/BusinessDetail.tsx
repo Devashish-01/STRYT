@@ -160,7 +160,7 @@ export default function BusinessDetail() {
   // hours — the same evaluator providers use. Booking is NOT gated on this.
   const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   const isOwner = b.ownerUserId === user.id;
-  // The customer is beyond the shop's own broadcast radius — surface a
+  // The customer is beyond the shop's own service radius — surface a
   // non-blocking heads-up in the booking sheet (booking stays allowed).
   const outOfRange =
     typeof b.distanceKm === "number" &&

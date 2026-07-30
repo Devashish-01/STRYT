@@ -406,7 +406,7 @@ export default function ProviderDetail() {
                 </div>
               </div>
               <div className="divider" />
-              <div className="row gap-10 small"><MapPin size={16} color="var(--green-500)" /><span>Serves within {p.serviceRadiusKm} km{p.distanceKm > 0 ? ` • ${p.distanceKm} km from you` : ""}</span></div>
+              <div className="row gap-10 small"><MapPin size={16} color="var(--green-500)" /><span>Serves within {p.serviceRadiusKm} km — bookings from farther away aren&apos;t accepted{p.distanceKm > 0 ? ` • ${p.distanceKm} km from you` : ""}</span></div>
               {/* Where they're based — one tap opens directions */}
               <div style={{ marginTop: 10 }}>
                 <MiniMap lat={p.lat} lng={p.lng} pinColor="var(--green-500)" height={150} />

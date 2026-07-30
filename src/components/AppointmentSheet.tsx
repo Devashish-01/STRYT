@@ -45,7 +45,7 @@ interface AppointmentSheetProps {
   /** Date/time label of the booking being replaced — shown as an on-screen reference so the
    *  reschedule flow doesn't look identical to booking a brand-new appointment. */
   rescheduledFromLabel?: { dateLabel: string; timeLabel: string };
-  /** When true, the viewer appears to be outside this listing's service area — shows a non-blocking warning. */
+  /** When true, the viewer is outside this listing's service area — blocks booking. */
   outOfRange?: boolean;
   /** Whether THIS business offers home delivery (Business → Settings). Businesses only;
    *  the DELIVERY option is hidden unless the shop opted in. Also enforced server-side. */
@@ -429,15 +429,14 @@ export function AppointmentSheet({
           </div>
         )}
 
-        {/* Out-of-service-area warning — non-blocking; booking stays allowed. */}
         {outOfRange && (
-          <div className="card card-condensed" style={{ background: "var(--amber-100)", border: "1px solid var(--amber-100)", marginBottom: 16 }}>
+          <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
             <div className="row gap-8" style={{ alignItems: "flex-start" }}>
               <span style={{ fontSize: 16, lineHeight: 1.2 }}>⚠️</span>
               <div>
-                <div className="bold small" style={{ color: "var(--amber-700)" }}>Outside their service area</div>
-                <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1, lineHeight: 1.5 }}>
-                  You appear to be outside this {targetType === "BUSINESS" ? "business" : "provider"}'s service area — they may not accept or be able to serve this booking.
+                <div className="bold small" style={{ color: "var(--red-600)" }}>Outside service area</div>
+                <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1, lineHeight: 1.5 }}>
+                  You&apos;re outside this {targetType === "BUSINESS" ? "business" : "provider"}&apos;s service area, so booking here isn&apos;t available. Move closer, or contact them directly.
                 </div>
               </div>
             </div>
@@ -852,12 +851,14 @@ export function AppointmentSheet({
         <button
           type="button"
           className={hasAptToday ? "btn btn-outline btn-block btn-lg" : "btn btn-green btn-block btn-lg"}
-          disabled={!selectedSlot || submitting || uploading || hasAptToday || !deliveryAddressReady}
+          disabled={!selectedSlot || submitting || uploading || hasAptToday || !deliveryAddressReady || outOfRange}
           onClick={handleConfirm}
           style={{ height: 48, fontSize: 15, fontWeight: 700 }}
         >
           {submitting || uploading
             ? "Booking & Uploading..."
+            : outOfRange
+            ? "Outside Service Area"
             : hasAptToday
             ? "Daily Limit Exceeded"
             : selectedSlot
