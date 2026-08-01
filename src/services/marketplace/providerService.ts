@@ -40,6 +40,7 @@ const PROVIDER_COLUMNS = new Set([
   "ratingAvg","ratingCount","jobsDone","responseTime","isNew","skills","phone",
   "verificationStatus","verificationDocumentUrl","paymentTiming","depositPercent",
   "email","upiId","showPhonePublicly","showEmailPublicly","locationPublic",
+  "isOpenNow","isAvailableNow","availableUntil",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {
@@ -78,6 +79,13 @@ export interface EarningEntry {
 // coalescing pattern as businessService.get. Keyed on lat/lng too since those
 // change the returned distanceKm.
 const inFlightProviderGet = new Map<string, Promise<Provider | undefined>>();
+
+/** Drop coalesced in-flight GETs after a mutation so refetch can't reuse pre-write data. */
+export function bustProviderGetCache(id: string) {
+  for (const key of [...inFlightProviderGet.keys()]) {
+    if (key.startsWith(`${id}:`)) inFlightProviderGet.delete(key);
+  }
+}
 
 export const providerService = {
   async mine(): Promise<Provider[]> {
@@ -167,6 +175,7 @@ export const providerService = {
     const cols = pickColumns(patch as Record<string, unknown>, PROVIDER_COLUMNS);
     const { data, error } = await sb.from("providers").update(toSnake(cols)).eq("id", id).select().maybeSingle();
     throwIfError(error);
+    if (!data) throw new Error("Couldn't save — you may not have permission to change this.");
     return toCamel<Provider>(data);
   },
   /**
@@ -305,11 +314,15 @@ export const providerService = {
       }
     }
 
-    const { error } = await sb
+    const { data, error } = await sb
       .from("providers")
       .update(patch as TablesUpdate<"providers">)
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     throwIfError(error);
+    if (!data || data.length === 0) {
+      throw new Error("Couldn't save — you may not have permission to change this.");
+    }
     return { ok: true, availableNow, hours };
   },
   async leads(id: string) {

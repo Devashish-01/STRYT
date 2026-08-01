@@ -22,10 +22,11 @@ interface QueryState<T> {
 // instant instead of re-showing a skeleton every time.
 const queryCache = new Map<string, unknown>();
 
-/** Drop a cached entry (e.g. after a mutation that makes it stale) so the next
- *  render of that query starts fresh instead of briefly showing old data. */
-export function invalidateQueryCache(key: string) {
+/** Drop a cached entry (e.g. after a mutation). Optional bust clears in-flight
+ *  coalesced GETs in businessService/providerService so refetch is fresh. */
+export function invalidateQueryCache(key: string, bustInflight?: () => void) {
   queryCache.delete(key);
+  bustInflight?.();
 }
 
 export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = [], cacheKey?: string): QueryState<T> {

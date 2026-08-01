@@ -45,7 +45,7 @@ const MAPBOX_STYLE = `https://api.mapbox.com/styles/v1/mapbox/light-v11?access_t
 const MAP_ATTEMPTS_MAPBOX =
   MAPBOX_PRIMARY_MAP_ENABLED && !!config.mapboxToken && !hasMapboxFallenBackThisSession();
 
-const MAPBOX_LOAD_TIMEOUT_MS = 4000;
+const MAPBOX_LOAD_TIMEOUT_MS = 7000;
 
 // haversine, km — same distance math the old Leaflet build used
 // (L.latLng(...).distanceTo(...)), just without the Leaflet dependency.
@@ -316,7 +316,7 @@ export default function MapView() {
 
       {/* Only ever shown during a Mapbox attempt — the free style has always
           loaded fast enough to need nothing (see MAP_ATTEMPTS_MAPBOX above),
-          so most sessions never render this at all. Backstopped by the 4s
+          so most sessions never render this at all. Backstopped by the 7s
           timeout: this can never stay up longer than that. */}
       {!mapReady && (
         <div className="map-loading-veil">

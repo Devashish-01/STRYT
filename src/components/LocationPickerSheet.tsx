@@ -45,13 +45,10 @@ export default function LocationPickerSheet({ onClose }: Props) {
         const { latitude, longitude } = pos.coords;
         const areaName = await reverseGeocode(latitude, longitude);
         try {
-          // The DB write is the source of truth for feeds (they read user.lat
-          // from the profile). If it fails, say so — a fake "✓" here left users
-          // stuck on the old location no matter how many times they re-tapped.
           await userService.setLocation(latitude, longitude, areaName ?? undefined);
           await refreshUser();
           if (areaName) setArea(areaName);
-          showToast(`Location set — ${areaName ?? "current position"} ✓`);
+          showToast(`Location set — ${areaName || "current position"} ✓`);
           onClose();
         } catch {
           showToast("Got GPS fix, but couldn't save it — check connection & retry");

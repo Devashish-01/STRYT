@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { Zap, Clock } from "@/components/Icons";
-import { providerService } from "@/services";
+import { providerService, bustProviderGetCache } from "@/services";
 import { useApp } from "@/store";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
 import LivePulseDot from "@/components/LivePulseDot";
 import ProviderManageNav from "./ProviderManageNav";
@@ -14,7 +14,7 @@ import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/
 export default function ProviderAvailability() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
-  const { data: provider, loading: providerLoading } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
+  const { data: provider, loading: providerLoading, refetch: refetchProvider } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
 
   // Keep all form state as null until real data arrives — prevents default-value flash
   const [now, setNow] = useState<boolean | null>(null);
@@ -41,17 +41,16 @@ export default function ProviderAvailability() {
   // Effective values — fall back to defaults only for computed display (never shown before data loads)
   const effectiveNow = now ?? false;
 
-  const evalResult = evaluateProviderAvailability(provider?.availabilityNote, effectiveNow, provider?.availableUntil);
-
   // Don't render the form at all until real data is ready — no flash of defaults
   const formReady = !providerLoading && now !== null && noteRaw !== undefined;
 
   async function toggleNow() {
     const prev = now;
-    const next = !now;
+    const next = !effectiveNow;
     setNow(next);
     try {
-      if (next && !evalResult.isOpenNow) {
+      const scheduleEval = evaluateProviderAvailability(provider?.availabilityNote, undefined, provider?.availableUntil);
+      if (next && !scheduleEval.isOpenNow) {
         // Turning ON during off-hours: set availableUntil to next day's turnoff time!
         const turnoff = calculateNextTurnoffTime(noteRaw);
         const diffHrs = Math.max(1, Math.round((turnoff.getTime() - Date.now()) / (3600 * 1000)));
@@ -61,6 +60,8 @@ export default function ProviderAvailability() {
         await providerService.setAvailability(id, next, hours);
         showToast(next ? `Available right now ⚡` : "Marked offline");
       }
+      invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
+      void refetchProvider();
     } catch (e: any) {
       setNow(prev);
       showToast(e?.message ?? "Couldn't update availability");

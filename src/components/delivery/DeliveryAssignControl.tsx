@@ -10,8 +10,8 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 /**
- * Owner/manager control on an appointment card: assign a delivery to a
- * delivery-scoped team member, and see the live status once assigned. Rendered
+ * Owner/manager control on an appointment card: assign a delivery to any
+ * active team member, and see the live status once assigned. Rendered
  * only when the delivery feature is enabled (gated at the call site).
  */
 export default function DeliveryAssignControl({ appointmentId, businessId }: { appointmentId: string; businessId: string }) {

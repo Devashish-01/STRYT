@@ -4,10 +4,10 @@ import {
   Zap, Share2, Bell, Calendar, FileText, QrCode, Megaphone, Camera,
   BadgeCheck, MessageSquareText, Check, X as XIcon, ChevronRight, Wallet, Search,
 } from "@/components/Icons";
-import { providerService, communityService, appointmentService, notificationService, requestService } from "@/services";
+import { providerService, bustProviderGetCache, communityService, appointmentService, notificationService, requestService } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
 import { SafeImg, inr, AppBar } from "@/components/common";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import { DEFAULT_ONBOARD_WORKING_HOURS, parseHoursValue, serializeHoursValue } from "@/utils/availability";
@@ -57,7 +57,7 @@ function getWeatherText(code: number): string {
 export default function ProviderDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: p, loading: providerLoading } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
+  const { data: p, loading: providerLoading, refetch: refetchProvider } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { showToast, user } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "provider");
   const { data: analytics } = useQuery(() => providerService.analytics(id), [id]);
@@ -77,6 +77,7 @@ export default function ProviderDashboard() {
   const { data: chatUnread } = useQueryWithRealtime(() => chatService.totalUnread({ scope: "PROVIDER", id }), "conversations", [id], undefined, `chat:provider:${id}`);
 
   const [available, setAvailable] = useState(false);
+  const [accepting, setAccepting] = useState(true);
   const [share, setShare] = useState(false);
   const [busyApt, setBusyApt] = useState<string | null>(null);
   const base = `/provider/${id}/manage`;
@@ -87,8 +88,11 @@ export default function ProviderDashboard() {
   const radiusLabel = radiusKm >= 5000 ? "🌍 Worldwide" : radiusKm === 0.5 ? "500 m" : `${radiusKm} km`;
 
   useEffect(() => {
-    if (p) setAvailable(p.isAvailableNow ?? false);
-  }, [p]);
+    if (p) {
+      setAvailable(p.isAvailableNow ?? false);
+      setAccepting(p.isOpenNow ?? true);
+    }
+  }, [p?.id, p?.isAvailableNow, p?.isOpenNow]);
 
   if (!id) {
     return (
@@ -172,9 +176,29 @@ export default function ProviderDashboard() {
     try {
       await providerService.setAvailability(id, next, 3);
       showToast(next ? "You're available for 3 hours ⚡" : "Marked unavailable");
+      invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
+      void refetchProvider();
     } catch (e: any) {
       setAvailable(prev);
       showToast(e?.message ?? "Couldn't update availability");
+    }
+  }
+
+  // "Accepting appointments" (providers.is_open_now) — distinct from the
+  // "available right now" presence toggle above: stops new bookings while
+  // keeping the profile visible. Mirrored on Provider settings.
+  async function toggleAccepting() {
+    const prev = accepting;
+    const next = !accepting;
+    setAccepting(next);
+    try {
+      await providerService.update(id, { isOpenNow: next });
+      showToast(next ? "Now accepting appointments" : "Paused — customers can't book new appointments");
+      invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
+      void refetchProvider();
+    } catch (e: any) {
+      setAccepting(prev);
+      showToast(e?.message ?? "Couldn't save — try again");
     }
   }
 
@@ -333,7 +357,7 @@ export default function ProviderDashboard() {
         )}
 
         {/* ── Availability (primary revenue lever) ── */}
-        <div className="page-pad">
+        <div className="page-pad col gap-10">
           <button
             className="card row gap-12"
             style={{ width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)", boxShadow: available ? "0 4px 16px rgba(22, 163, 74, 0.08)" : "var(--shadow-sm)" }}
@@ -348,6 +372,22 @@ export default function ProviderDashboard() {
             </div>
             <span style={{ width: 44, height: 26, borderRadius: 999, background: available ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0, transition: "background-color 0.2s" }}>
               <span style={{ position: "absolute", top: 3, left: available ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s", boxShadow: "0 1px 4px rgba(0,0,0,0.15)" }} />
+            </span>
+          </button>
+          <button
+            className="card row gap-12"
+            style={{ width: "100%", textAlign: "left", border: accepting ? "1px solid var(--line)" : "2px solid var(--red-400)" }}
+            onClick={toggleAccepting}
+          >
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: accepting ? "var(--ink-50)" : "var(--red-100)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Calendar size={22} color={accepting ? "var(--ink-400)" : "var(--red-600)"} />
+            </div>
+            <div className="grow">
+              <div className="semi small">Accepting appointments</div>
+              <div className="tiny muted">{accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}</div>
+            </div>
+            <span style={{ width: 44, height: 26, borderRadius: 999, background: accepting ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0, transition: "background-color 0.2s" }}>
+              <span style={{ position: "absolute", top: 3, left: accepting ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s", boxShadow: "0 1px 4px rgba(0,0,0,0.15)" }} />
             </span>
           </button>
         </div>

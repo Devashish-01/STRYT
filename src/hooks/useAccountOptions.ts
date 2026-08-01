@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "@/store";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { businessService, providerService, businessAccessService } from "@/services";
+import { deliveryService } from "@/services/engagement/deliveryService";
 import { SCOPE_LABELS } from "@/services/marketplace/businessAccessService";
 import { displayName as safeName } from "@/lib/publicName";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
@@ -39,6 +40,10 @@ export function useAccountOptions() {
     [user.id],
     user.id ? `grantee_user_id=eq.${user.id}` : undefined,
   );
+  const { data: activeDeliveryCount } = useQuery(
+    async () => (DELIVERY_AGENT_ENABLED ? deliveryService.countMyActiveDeliveries() : 0),
+    [user.id],
+  );
 
   const owned = (myBiz ?? []).filter((b) => ownedBusinessIds.length === 0 || ownedBusinessIds.includes(b.id));
   const ownedIds = new Set(owned.map((b) => b.id));
@@ -48,12 +53,12 @@ export function useAccountOptions() {
   const delegatedGrants = (mySessions ?? []).filter((s) => s.status === "ACTIVE" && !ownedIds.has(s.businessId));
   const provider = (myProv ?? []).find((p) => !ownedProviderId || p.id === ownedProviderId) ?? null;
 
-  // Delivery hat: appears only when the user has an ACTIVE grant that explicitly
-  // carries the `delivery` scope (a FULL delegate is not automatically a rider).
-  // Feature-flagged off until the delivery console ships.
+  // Delivery hat: delivery scope OR any active assigned delivery run.
   const hasDeliveryGrant =
-    DELIVERY_AGENT_ENABLED &&
-    (mySessions ?? []).some((s) => s.status === "ACTIVE" && (s.scopes ?? []).includes("delivery" as any));
+    DELIVERY_AGENT_ENABLED && (
+      (mySessions ?? []).some((s) => s.status === "ACTIVE" && (s.scopes ?? []).includes("delivery" as any))
+      || (activeDeliveryCount ?? 0) > 0
+    );
 
   const isActive = (type: string, id: string | null) => activeContext.type === type && activeContext.id === id;
 

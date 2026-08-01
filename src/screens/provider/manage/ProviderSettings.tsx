@@ -3,10 +3,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { MapPin } from "@/components/Icons";
 import { useApp } from "@/store";
-import { providerService, profileControlService, userService } from "@/services";
+import { providerService, bustProviderGetCache, profileControlService, userService } from "@/services";
 import { ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/settings";
 import ProviderManageNav from "./ProviderManageNav";
+import { invalidateQueryCache } from "@/hooks/useApi";
 
 export default function ProviderSettings() {
   const { id = "" } = useParams();
@@ -22,6 +23,7 @@ export default function ProviderSettings() {
   useEffect(() => { setMatched(user.notifNearbyRequests !== false); }, [user.notifNearbyRequests]);
   const [loading, setLoading] = useState(true);
   const [ownerEnabled, setOwnerEnabled] = useState(true);
+  const [accepting, setAccepting] = useState(true);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
@@ -55,6 +57,7 @@ export default function ProviderSettings() {
       .then((prov) => {
         if (prov) {
           setOwnerEnabled(prov.ownerEnabled !== false);
+          setAccepting(prov.isOpenNow !== false);
           setEmail(prov.email ?? "");
           setDisplayName(prov.displayName ?? "");
           setShowPhone(prov.showPhonePublicly !== false);
@@ -89,6 +92,18 @@ export default function ProviderSettings() {
     }
   }
 
+  async function toggleAccepting(v: boolean) {
+    setAccepting(v);
+    try {
+      await providerService.update(id, { isOpenNow: v });
+      showToast(v ? "Now accepting appointments" : "Paused — customers can't book new appointments");
+      invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
+    } catch (err: any) {
+      setAccepting(!v);
+      showToast(err?.message || "Couldn't save — try again");
+    }
+  }
+
   if (loading) {
     return (
       <div className="screen with-nav">
@@ -113,6 +128,15 @@ export default function ProviderSettings() {
             hint="Also controls your personal 'Nearby requests' alerts"
             on={matched}
             onChange={persistMatched}
+          />
+        </SettingsSection>
+
+        <SettingsSection title="Appointments">
+          <SettingsToggleRow
+            label="Accepting appointments"
+            hint={accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}
+            on={accepting}
+            onChange={toggleAccepting}
           />
         </SettingsSection>
 

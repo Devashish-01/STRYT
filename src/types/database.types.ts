@@ -2680,6 +2680,7 @@ export type Database = {
           id: string
           is_available_now: boolean | null
           is_new: boolean | null
+          is_open_now: boolean | null
           is_verified: boolean | null
           jobs_done: number | null
           lat: number | null
@@ -2728,6 +2729,7 @@ export type Database = {
           id?: string
           is_available_now?: boolean | null
           is_new?: boolean | null
+          is_open_now?: boolean | null
           is_verified?: boolean | null
           jobs_done?: number | null
           lat?: number | null
@@ -2776,6 +2778,7 @@ export type Database = {
           id?: string
           is_available_now?: boolean | null
           is_new?: boolean | null
+          is_open_now?: boolean | null
           is_verified?: boolean | null
           jobs_done?: number | null
           lat?: number | null
@@ -5901,6 +5904,7 @@ export type Database = {
           id: string
           is_available_now: boolean | null
           is_new: boolean | null
+          is_open_now: boolean | null
           is_verified: boolean | null
           jobs_done: number | null
           lat: number | null

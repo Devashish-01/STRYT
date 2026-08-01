@@ -1,13 +1,14 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Briefcase, CalendarClock, Home, Store, Users } from "@/components/Icons";
+import { Briefcase, CalendarClock, Home, Package, Store, Users } from "@/components/Icons";
 import { businessService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 
 export default function ManageNav({ bizId, waitingCount }: { bizId: string; waitingCount?: number }) {
   const nav = useNavigate();
   const location = useLocation();
-  const { hasScope } = useBusinessAccess();
+  const { hasScope, hasActiveDeliveries } = useBusinessAccess();
   const { data: queue } = useQueryWithRealtime(
     () => businessService.queueOwnerState(bizId),
     "queue_tokens",
@@ -29,6 +30,12 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
     { to: base, label: "Home", icon: Home, active: location.pathname === base },
     hasScope("queue") && { to: `${base}/queue`, label: "Queue", icon: Users, active: location.pathname.startsWith(`${base}/queue`), badge: queueCount },
     hasScope("appointments") && { to: `${base}/appointments`, label: "Appointments", icon: CalendarClock, active: location.pathname.startsWith(`${base}/appointments`) },
+    DELIVERY_AGENT_ENABLED && hasActiveDeliveries && {
+      to: `${base}/my-deliveries`,
+      label: "Deliveries",
+      icon: Package,
+      active: location.pathname.startsWith(`${base}/my-deliveries`),
+    },
     hasScope("catalog") && { to: `${base}/store`, label: "Store", icon: Store, active: storeRoutes.some((path) => location.pathname.startsWith(base + path)) },
     { to: `${base}/business`, label: "Business", icon: Briefcase, active: businessRoutes.some((path) => location.pathname.startsWith(base + path)) },
   ].filter((item): item is Exclude<typeof item, false> => item !== false);

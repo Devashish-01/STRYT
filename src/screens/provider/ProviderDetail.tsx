@@ -384,7 +384,20 @@ export default function ProviderDetail() {
                 </div>
               </div>
             )}
-            {!evalRes.isOpenNow && (
+            {p.isOpenNow === false && (
+              <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)" }}>
+                <div className="row gap-8 center-v">
+                  <Clock size={16} color="var(--red-600)" />
+                  <div>
+                    <div className="bold tiny" style={{ color: "var(--red-700)" }}>Not accepting appointments</div>
+                    <div className="tiny" style={{ color: "var(--red-700)", marginTop: 1 }}>
+                      This provider has paused new bookings for now. You can still message them.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {!evalRes.isOpenNow && p.isOpenNow !== false && (
               <div className="card card-condensed" style={{ background: "var(--amber-100)", border: "1px solid var(--amber-100)" }}>
                 <div className="row gap-8 center-v">
                   <Clock size={16} color="var(--amber-700)" />
@@ -560,6 +573,10 @@ export default function ProviderDetail() {
               onClick={() => nav(`/provider/${p.id}/manage/jobs`)}
             >
               <Clock size={17} /> View jobs & appointments
+            </button>
+          ) : p.isOpenNow === false ? (
+            <button className="btn grow" style={{ background: "var(--ink-50)", color: "var(--ink-400)" }} disabled>
+              <Clock size={17} /> Not accepting appointments right now
             </button>
           ) : (
             <button

@@ -41,8 +41,7 @@ export default function BusinessHub() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { signOut } = useApp();
-  const { isOwner, accessLevel, hasScope } = useBusinessAccess();
-  const canSeeOwnerOnly = isOwner || accessLevel === "FULL";
+  const { isOwner, hasScope, hasActiveDeliveries } = useBusinessAccess();
   const base = `/business/${id}/manage`;
   const { data: appointments } = useQueryWithRealtime(() => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`);
   const { data: queue } = useQueryWithRealtime(() => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`, `queue:${id}`);
@@ -67,7 +66,7 @@ export default function BusinessHub() {
       { icon: <MessageSquareText size={19} color="var(--brand-600)" />, title: "Messages", text: "Business-scoped customer chats", onClick: () => nav(`/chats?scope=BUSINESS&id=${id}`) },
       { icon: <HelpCircle size={19} color="var(--blue-500)" />, title: "Questions & answers", text: "Answer storefront questions", badge: unanswered, onClick: () => nav(`${base}/qna`) },
     ] : []),
-    ...(canSeeOwnerOnly ? [
+    ...(isOwner ? [
       { icon: <Star size={19} color="var(--amber-500)" />, title: "Reviews", text: "Read and reply to customer feedback", badge: reviews?.length ?? 0, onClick: () => nav(`${base}/reviews`) },
     ] : []),
   ];
@@ -75,16 +74,19 @@ export default function BusinessHub() {
     ...(DELIVERY_AGENT_ENABLED && hasScope("appointments") ? [
       { icon: <Package size={19} color="var(--delivery-600)" />, title: "Live deliveries", text: "Track agents and orders in progress", onClick: () => nav(`${base}/deliveries`) },
     ] : []),
+    ...(DELIVERY_AGENT_ENABLED && hasActiveDeliveries ? [
+      { icon: <Package size={19} color="var(--delivery-600)" />, title: "My deliveries", text: "Runs assigned to you", onClick: () => nav(`${base}/my-deliveries`) },
+    ] : []),
   ];
   const grow: HubLink[] = [
     ...(hasScope("leads") ? [
       { icon: <Search size={19} color="var(--orange-500)" />, title: "Find requests", text: "Win nearby customer work", onClick: () => nav(`${base}/requests`) },
     ] : []),
-    ...(canSeeOwnerOnly ? [
+    ...(isOwner ? [
       { icon: <Megaphone size={19} color="var(--brand-600)" />, title: "My Community", text: "Post updates and manage your activity", onClick: () => nav(`${base}/community`) },
     ] : []),
   ];
-  const profile: HubLink[] = canSeeOwnerOnly ? [
+  const profile: HubLink[] = isOwner ? [
     { icon: <Store size={19} color="var(--orange-500)" />, title: "Edit profile", text: "Identity, contact and location", onClick: () => nav(`${base}/profile`) },
     { icon: <Globe size={19} color="var(--blue-500)" />, title: "Service radius", text: "Bookings, posts and stories reach", onClick: () => nav(`${base}/broadcast`) },
     { icon: <Users size={19} color="var(--green-600)" />, title: "Team & access", text: "Add team members with scoped access", onClick: () => nav("/account/business-access") },
@@ -97,7 +99,7 @@ export default function BusinessHub() {
       <AppBar title="Business" subtitle="Money, customers, growth and profile" />
       <div className="screen-scroll">
         <div className="page-pad col gap-18">
-          {canSeeOwnerOnly && (
+          {isOwner && (
             <section>
               <div className="small semi muted" style={{ marginBottom: 8 }}>Money</div>
               <div className="card" style={{ padding: 16 }}>

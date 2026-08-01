@@ -6,12 +6,12 @@ import {
   Wallet, X as XIcon, Zap,
 } from "@/components/Icons";
 import {
-  appointmentService, businessService, communityService, notificationService,
-  requestService,
+  appointmentService, businessService, bustBusinessGetCache, communityService,
+  notificationService, requestService,
 } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
 import { AppBar, SafeImg, inr } from "@/components/common";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
@@ -31,22 +31,13 @@ import Toggle from "@/components/Toggle";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
 import { useBusinessAccess } from "@/components/BusinessAccessGuard";
-import { SCOPE_LABELS, type Scope } from "@/services/marketplace/businessAccessService";
-
-const SCOPE_ORDER: Scope[] = ["queue", "appointments", "catalog", "leads"];
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast, user } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "business");
-  const { isOwner, accessLevel, hasScope } = useBusinessAccess();
-  const canSeeOwnerOnly = isOwner || accessLevel === "FULL";
-  // A scoped team member's header shouldn't lead with owner metrics (rating,
-  // broadcast reach) that aren't theirs to manage — swap it for which of
-  // their own sections they're looking at, so the page reads as built for
-  // their role rather than the owner's dashboard with holes in it.
-  const myScopeLabel = canSeeOwnerOnly ? null : SCOPE_ORDER.filter(hasScope).map((s) => SCOPE_LABELS[s]).join(" & ") || "No access yet";
+  const { isOwner, hasScope, consoleMode, scopeLabel } = useBusinessAccess();
   const base = `/business/${id}/manage`;
   const [share, setShare] = useState(false);
   const [available, setAvailable] = useState(false);
@@ -55,7 +46,7 @@ export default function ManageDashboard() {
   const [answeringId, setAnsweringId] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
 
-  const { data: business, loading: businessLoading } = useQuery(() => businessService.get(id), [id], `business:${id}`);
+  const { data: business, loading: businessLoading, refetch: refetchBusiness } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { data: posts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
   const { data: queue, refetch: refetchQueue } = useQueryWithRealtime(
     () => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`, `queue:${id}`,
@@ -86,12 +77,14 @@ export default function ManageDashboard() {
   );
 
   useEffect(() => {
-    if (business) setAvailable(business.isAvailableNow ?? false);
-  }, [business]);
+    if (business == null) return;
+    setAvailable(business.isAvailableNow ?? false);
+  }, [business?.id, business?.isAvailableNow]);
 
   useEffect(() => {
-    if (business) setAccepting(business.isOpenNow ?? true);
-  }, [business]);
+    if (business == null) return;
+    setAccepting(business.isOpenNow ?? true);
+  }, [business?.id, business?.isOpenNow]);
 
   useEffect(() => {
     if (!business?.boostedUntil || business.boostReminderSent) return;
@@ -186,14 +179,14 @@ export default function ManageDashboard() {
     { label: "Upload verification", done: !!business?.verificationStatus, onClick: () => nav(`${base}/verify`) },
     { label: "Post your first update", done: (posts?.length ?? 0) > 0, onClick: () => nav("/community/new", { state: composeState }) },
   ];
-  const availability = evaluateProviderAvailability(business?.hours, available, business?.availableUntil);
 
   async function toggleAvailability() {
     const previous = available;
     const next = !available;
     setAvailable(next);
     try {
-      if (next && !availability.isOpenNow) {
+      const scheduleEval = evaluateProviderAvailability(business?.hours, undefined, business?.availableUntil);
+      if (next && !scheduleEval.isOpenNow) {
         const until = calculateNextTurnoffTime(business?.hours);
         await businessService.setAvailability(id, true, until.toISOString());
         showToast(`Open now — clears at ${until.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
@@ -201,9 +194,14 @@ export default function ManageDashboard() {
         await businessService.setAvailability(id, next, null);
         showToast(next ? "Shop marked open right now" : "Shop marked closed");
       }
+      invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
+      void refetchBusiness();
     } catch (error: any) {
       setAvailable(previous);
-      showToast(error?.message ?? "Couldn't update availability");
+      const msg = String(error?.message ?? "");
+      showToast(msg.includes("has_business_full_access")
+        ? "Couldn't save — database permissions need updating (migration 20260842)"
+        : msg || "Couldn't update availability");
     }
   }
 
@@ -217,9 +215,14 @@ export default function ManageDashboard() {
     try {
       await businessService.update(id, { isOpenNow: next });
       showToast(next ? "Now accepting appointments" : "Paused — customers can't book new appointments");
+      invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
+      void refetchBusiness();
     } catch (error: any) {
       setAccepting(previous);
-      showToast(error?.message ?? "Couldn't update appointment setting");
+      const msg = String(error?.message ?? "");
+      showToast(msg.includes("has_business_full_access")
+        ? "Couldn't save — database permissions need updating (migration 20260842)"
+        : msg || "Couldn't update appointment setting");
     }
   }
 
@@ -304,10 +307,21 @@ export default function ManageDashboard() {
     businessAvatar: business?.coverImage,
   };
 
+  const headerSubtitle = isOwner
+    ? `${ambient.greeting} · ${business?.ratingAvg ?? 0}★ · 📡 ${radiusLabel} reach`
+    : consoleMode === "full_delegate"
+      ? "Delegated access · Full"
+      : `Team access · ${scopeLabel}`;
+
   return (
     <div className="screen with-nav">
       <header className="living-sky-header" style={{
-        background: ambient.headerGradient, color: "#fff",
+        background: isOwner
+          ? ambient.headerGradient
+          : consoleMode === "full_delegate"
+            ? "linear-gradient(135deg, var(--console-delegate-from) 0%, var(--console-delegate-to) 100%)"
+            : "linear-gradient(135deg, var(--console-team-from) 0%, var(--console-team-to) 100%)",
+        color: "#fff",
         padding: "calc(18px + var(--safe-area-top)) 16px 22px",
         borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
         position: "relative",
@@ -316,7 +330,7 @@ export default function ManageDashboard() {
             clip, or RoleSwitcher's dropdown (a sibling below) gets cut off
             the moment it's taller than the header. */}
         <div style={{ position: "absolute", inset: 0, overflow: "hidden", borderBottomLeftRadius: 24, borderBottomRightRadius: 24 }}>
-          <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
+          {isOwner && <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />}
         </div>
         <div style={{ position: "relative", zIndex: 1 }}>
           <div className="row between center-v">
@@ -329,9 +343,11 @@ export default function ManageDashboard() {
               <HeaderIcon label="Messages" count={chatUnread ?? 0} onClick={() => nav(`/chats?scope=BUSINESS&id=${id}`)}>
                 <MessageSquareText size={16} />
               </HeaderIcon>
+              {isOwner && (
               <button className="icon-btn-sm" aria-label="Share shop" onClick={() => setShare(true)} style={{ background: "rgba(255,255,255,.16)", color: "#fff" }}>
                 <Share2 size={16} />
               </button>
+              )}
             </div>
           </div>
           <div className="row gap-12 center-v" style={{ marginTop: 18 }}>
@@ -343,7 +359,7 @@ export default function ManageDashboard() {
               </div>
               <div className="small" style={{ opacity: .9, color: "#fff" }}>{business?.subCategory || business?.categoryName || "Local business"}</div>
               <div className="tiny" style={{ opacity: .78, marginTop: 3, color: "#fff" }}>
-                {canSeeOwnerOnly ? `${ambient.greeting} · ${business?.ratingAvg ?? 0}★ · 📡 ${radiusLabel} reach` : `Team access · ${myScopeLabel}`}
+                {headerSubtitle}
               </div>
             </div>
             <button className="tiny semi" style={{ color: "#fff", background: "rgba(255,255,255,.16)", padding: "7px 10px", borderRadius: 999 }} onClick={() => nav(`/business/${id}`)}>
@@ -354,19 +370,19 @@ export default function ManageDashboard() {
       </header>
 
       <div className="screen-scroll">
-        {canSeeOwnerOnly && (
+        {isOwner && (
           <div style={{ paddingTop: 12 }}>
             <AccountStatusBanner entityType="BUSINESS" entityId={id} status={business?.status} />
           </div>
         )}
 
-        {business && canSeeOwnerOnly && (
+        {business && isOwner && (
           <section className="page-pad" style={{ paddingTop: 4 }}>
             <SetupChecklist title="Finish setting up your shop" items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
           </section>
         )}
 
-        {canSeeOwnerOnly && (
+        {isOwner && (
           <section className="page-pad">
             <button className="card row gap-12 center-v" onClick={toggleAvailability} style={{ width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)" }}>
               <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: available ? "var(--green-100)" : "var(--ink-50)" }}>
@@ -446,7 +462,7 @@ export default function ManageDashboard() {
                 ))}
               </div>
             )}
-            {canSeeOwnerOnly && (reviews?.length ?? 0) > 0 && <button className="card row gap-10 center-v" style={{ width: "100%", marginTop: 10, textAlign: "left" }} onClick={() => nav(`${base}/reviews`)}><Star size={18} color="var(--amber-500)" /><span className="small semi grow">Reviews · reply to customers</span><ChevronRight size={17} color="var(--ink-300)" /></button>}
+            {isOwner && (reviews?.length ?? 0) > 0 && <button className="card row gap-10 center-v" style={{ width: "100%", marginTop: 10, textAlign: "left" }} onClick={() => nav(`${base}/reviews`)}><Star size={18} color="var(--amber-500)" /><span className="small semi grow">Reviews · reply to customers</span><ChevronRight size={17} color="var(--ink-300)" /></button>}
           </section>
         )}
 
@@ -484,7 +500,7 @@ export default function ManageDashboard() {
           </section>
         )}
 
-        {canSeeOwnerOnly && (
+        {isOwner && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`${base}/payments`)}>
               <span style={{ width: 40, height: 40, borderRadius: 10, background: "var(--green-100)", display: "grid", placeItems: "center" }}><Wallet size={20} color="var(--green-600)" /></span>
@@ -499,7 +515,7 @@ export default function ManageDashboard() {
           </section>
         )}
 
-        {canSeeOwnerOnly && (
+        {isOwner && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="small semi muted" style={{ marginBottom: 8 }}>Grow</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

@@ -389,8 +389,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // GPS and — when the user has moved meaningfully (>250 m) or has no location
   // yet — sync users + any provider profile (people move; shop premises don't).
   const autoRefreshLocation = useCallback(async () => {
-    if (sessionStorage.getItem("loc_synced") === "1") return;
-    sessionStorage.setItem("loc_synced", "1");
+    const uid = await currentUserId();
+    if (!uid) return;
+    // Per-user, not per-tab — a previous account on this device must not
+    // block auto-GPS for the next person who signs in.
+    const syncKey = `loc_synced_${uid}`;
+    if (sessionStorage.getItem(syncKey) === "1") return;
+    sessionStorage.setItem(syncKey, "1");
     try {
       const perm = await (navigator as any).permissions?.query?.({ name: "geolocation" });
       if (perm && perm.state !== "granted") return;
@@ -409,16 +414,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (moved < 0.25) return;
         try {
           const areaName = await reverseGeocode(latitude, longitude).catch(() => null);
-          // The position has already been confirmed to have moved meaningfully
-          // (past the `moved < 0.25` guard above) — if the name can't be
-          // resolved, clear it explicitly (`""`) instead of leaving the OLD
-          // area name attached to the NEW coordinates. A blank "set your
-          // location" placeholder is honest; a confidently wrong city name is
-          // actively misleading (this was the actual bug: map correct, header
-          // and location-picker's nearby list both stuck on a stale name).
-          await userService.autoSyncLocation(latitude, longitude, areaName ?? "");
-          setUser((u) => ({ ...u, lat: latitude, lng: longitude, area: areaName ?? "" }));
-          setArea(areaName ?? "");
+          // Only touch the label when geocoding succeeds — never wipe a good
+          // saved name (e.g. "Amanora Park Town") just because a lookup failed
+          // or timed out on a slow network.
+          await userService.autoSyncLocation(latitude, longitude, areaName ?? undefined);
+          setUser((u) => ({
+            ...u,
+            lat: latitude,
+            lng: longitude,
+            ...(areaName ? { area: areaName } : {}),
+          }));
+          if (areaName) setArea(areaName);
         } catch { /* silent — freshness sync is best-effort */ }
       },
       () => { /* denied/unavailable — keep stored location */ },
@@ -603,6 +609,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setIsAuthed(false);
         setProfileReady(false);
         setUser(seedUser);
+        setArea("");
         setRoles(seedUser.roles);
         setOwnedBusinessIds([]);
         setOwnedProviderId(null);
@@ -617,6 +624,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("locationPromptShown");
         localStorage.removeItem("activeContext");
         localStorage.removeItem("activeRole");
+        // Legacy global key + per-user keys — must clear both so re-login
+        // on the same tab can run autoRefreshLocation again.
+        for (const key of Object.keys(sessionStorage)) {
+          if (key === "loc_synced" || key.startsWith("loc_synced_")) {
+            sessionStorage.removeItem(key);
+          }
+        }
         void authService.logout().catch((err) => console.error("Error signing out:", err));
       },
     }),

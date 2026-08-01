@@ -163,6 +163,8 @@ export interface Provider {
   locationPublic?: boolean;
   isAvailableNow?: boolean;
   availableUntil?: string | null;
+  /** When false, new appointment bookings are paused (distinct from isAvailableNow). */
+  isOpenNow?: boolean;
   ownerEnabled?: boolean;
   deletedAt?: string | null;
   /** When appointment payment is collected — before accept, or the current default (accept first, pay around service). */

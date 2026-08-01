@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { businessService, profileControlService, uploadService, userService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { businessService, bustBusinessGetCache, profileControlService, uploadService, userService } from "@/services";
+import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/settings";
 import { BadgeCheck, UserPlus, X, Image as ImageIcon } from "@/components/Icons";
@@ -223,10 +223,11 @@ export default function BusinessSettings() {
     try {
       await businessService.update(id, { isOpenNow: v } as any);
       showToast(v ? "Now accepting appointments" : "Paused — customers can't book new appointments");
+      invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
       void refetchBiz();
-    } catch {
+    } catch (err: any) {
       setAccepting(!v);
-      showToast("Couldn't save — try again");
+      showToast(err?.message || "Couldn't save — try again");
     }
   }
 

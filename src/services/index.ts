@@ -4,9 +4,9 @@
 export { authService } from "./core/authService";
 export { catalogService } from "./marketplace/catalogService";
 export { discoveryService } from "./marketplace/discoveryService";
-export { businessService } from "./marketplace/businessService";
+export { businessService, bustBusinessGetCache } from "./marketplace/businessService";
 export { businessAccessService } from "./marketplace/businessAccessService";
-export { providerService } from "./marketplace/providerService";
+export { providerService, bustProviderGetCache } from "./marketplace/providerService";
 export { requestService } from "./engagement/requestService";
 export { uploadService } from "./core/uploadService";
 export { adminService } from "./core/adminService";

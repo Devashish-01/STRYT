@@ -154,6 +154,16 @@ function rowToItem(r: any): DeliveryItem {
 }
 
 export const deliveryService = {
+  /** Count non-terminal deliveries assigned to the signed-in user. */
+  async countMyActiveDeliveries(businessId?: string): Promise<number> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("count_my_active_deliveries", {
+      p_business_id: businessId ?? null,
+    });
+    if (error) throw error;
+    return typeof data === "number" ? data : Number(data ?? 0);
+  },
+
   /** All deliveries assigned to the signed-in agent (active first). */
   async myDeliveries(): Promise<DeliveryItem[]> {
     const sb = getSupabase();
@@ -288,11 +298,11 @@ export const deliveryService = {
 
   // ── Owner side ────────────────────────────────────────────────────────────
 
-  /** The business's ACTIVE team members who carry the `delivery` scope. */
+  /** The business's ACTIVE team members — any grantee may be assigned a delivery. */
   async deliveryTeam(businessId: string): Promise<DeliveryTeamMember[]> {
     const sessions = await businessAccessService.ownerSessions(businessId);
     const members = sessions
-      .filter((s) => s.status === "ACTIVE" && (s.scopes ?? []).includes("delivery") && s.granteeUserId)
+      .filter((s) => s.status === "ACTIVE" && s.granteeUserId)
       .map((s) => ({ userId: s.granteeUserId as string, name: s.granteeName, avatar: s.granteeAvatar }));
     if (members.length === 0) return [];
 

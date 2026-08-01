@@ -29,6 +29,17 @@ async function updateQueueToken(tokenId: string, patch: Record<string, unknown>)
   }
 }
 
+const WRITE_DENIED_MSG = "Couldn't save — you may not have permission to change this.";
+
+function assertRowsUpdated(data: { id?: string }[] | null | undefined): void {
+  if (!data || data.length === 0) throw new Error(WRITE_DENIED_MSG);
+}
+
+function assertRowUpdated<T>(data: T | null | undefined): T {
+  if (!data) throw new Error(WRITE_DENIED_MSG);
+  return data;
+}
+
 type QueueOwnerState = {
   isOpen: boolean;
   avgServiceMin: number;
@@ -54,6 +65,13 @@ const inFlightQueueOwnerState = new Map<string, Promise<QueueOwnerState>>();
 // returned distanceKm; almost every manage-console call passes neither, so
 // those all share one key and one in-flight request.
 const inFlightBusinessGet = new Map<string, Promise<Business | undefined>>();
+
+/** Drop coalesced in-flight GETs after a mutation so refetch can't reuse pre-write data. */
+export function bustBusinessGetCache(id: string) {
+  for (const key of [...inFlightBusinessGet.keys()]) {
+    if (key.startsWith(`${id}:`)) inFlightBusinessGet.delete(key);
+  }
+}
 
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -559,6 +577,7 @@ export const businessService = {
   async update(id: string, patch: Partial<Business>) {
     const sb = getSupabase();
     const cols = pickColumns(patch as Record<string, unknown>, BUSINESS_COLUMNS);
+    if (Object.keys(cols).length === 0) return undefined as unknown as Business;
     // Location is review-gated: a business's live coordinates can ONLY change
     // through requestLocationChange() -> adminService.approveLocationChange().
     // Strip any lat/lng here so a plain profile save (or any other update
@@ -570,7 +589,7 @@ export const businessService = {
     delete (cols as Record<string, unknown>).lng;
     const { data, error } = await sb.from("businesses").update(toSnake(cols)).eq("id", id).select().maybeSingle();
     throwIfError(error);
-    return toCamel<Business>(data);
+    return toCamel<Business>(assertRowUpdated(data));
   },
 
   /**
@@ -854,11 +873,13 @@ export const businessService = {
    */
   async setAvailability(id: string, availableNow: boolean, availableUntil?: string | null) {
     const sb = getSupabase();
-    const { error } = await sb
+    const { data, error } = await sb
       .from("businesses")
       .update({ is_available_now: availableNow, available_until: availableNow ? availableUntil ?? null : null })
-      .eq("id", id);
+      .eq("id", id)
+      .select("id");
     throwIfError(error);
+    assertRowsUpdated(data);
     return { ok: true, availableNow };
   },
 

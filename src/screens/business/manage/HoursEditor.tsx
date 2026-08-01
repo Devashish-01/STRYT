@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { Plus, X, Zap, Clock } from "@/components/Icons";
-import { businessService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { businessService, bustBusinessGetCache } from "@/services";
+import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
@@ -12,7 +12,7 @@ import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
 export default function HoursEditor() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
-  const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
+  const { data: b, refetch: refetchBusiness } = useQuery(() => businessService.get(id), [id], `business:${id}`);
 
   const [hoursRaw, setHoursRaw] = useState<string | undefined>(undefined);
   const [special, setSpecial] = useState<{ date: string; note: string }[]>([]);
@@ -37,8 +37,6 @@ export default function HoursEditor() {
     );
   }
 
-  const evalRes = evaluateProviderAvailability(b?.hours, openNow, b?.availableUntil);
-
   // Presence toggle: "open right now" is separate from bookable slots — a
   // customer can still book a future working-hour slot when this is off.
   async function toggleOpenNow() {
@@ -46,7 +44,10 @@ export default function HoursEditor() {
     const next = !openNow;
     setOpenNow(next);
     try {
-      if (next && !evalRes.isOpenNow) {
+      // Schedule-only eval — passing `next` as isAvailableNow would force "open"
+      // and skip the off-hours availableUntil branch.
+      const scheduleEval = evaluateProviderAvailability(b?.hours, undefined, b?.availableUntil);
+      if (next && !scheduleEval.isOpenNow) {
         // Turning ON outside working hours → auto-clear at next closing time.
         const turnoff = calculateNextTurnoffTime(b?.hours);
         await businessService.setAvailability(id, true, turnoff.toISOString());
@@ -55,6 +56,8 @@ export default function HoursEditor() {
         await businessService.setAvailability(id, next, null);
         showToast(next ? "Shop marked open right now ⚡" : "Shop marked closed");
       }
+      invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
+      void refetchBusiness();
     } catch (e: any) {
       setOpenNow(prev);
       showToast(e?.message ?? "Couldn't update availability");

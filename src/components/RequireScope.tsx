@@ -11,10 +11,7 @@ import type { Scope } from "@/services/marketplace/businessAccessService";
  * lacks it (those hide the link; this blocks the route itself). Must render
  * INSIDE BusinessAccessGuard, which provides the access context this reads.
  *
- * Pass `scope` for one of the four grantable sections (appointments/queue/
- * catalog/leads); omit it for the owner-only surfaces (profile, broadcast,
- * verification, settings, payments, reviews, community) that no scope can
- * ever unlock.
+ * Owner-only surfaces now use RequireOwner instead — see App.tsx.
  */
 export default function RequireScope({ scope }: { scope?: Scope }) {
   const { id = "" } = useParams();

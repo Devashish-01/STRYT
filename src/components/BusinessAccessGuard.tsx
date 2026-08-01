@@ -1,63 +1,58 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Navigate, Outlet, useParams } from "react-router-dom";
 import { businessAccessService } from "@/services";
+import { deliveryService } from "@/services/engagement/deliveryService";
 import type { AccessLevel, Scope } from "@/services/marketplace/businessAccessService";
 import { useApp } from "@/store";
 import { Skeleton } from "@/components/states";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
+import { buildScopeLabel, resolveConsoleMode, type ConsoleMode } from "@/lib/teamConsole";
 
 interface BusinessAccessValue {
   isOwner: boolean;
   accessLevel: AccessLevel;
   scopes: Scope[];
   hasScope: (scope: Scope) => boolean;
+  consoleMode: ConsoleMode;
+  scopeLabel: string;
+  hasActiveDeliveries: boolean;
 }
 
-const FULL_ACCESS: BusinessAccessValue = { isOwner: true, accessLevel: "FULL", scopes: [], hasScope: () => true };
+const FULL_ACCESS: BusinessAccessValue = {
+  isOwner: true,
+  accessLevel: "FULL",
+  scopes: [],
+  hasScope: () => true,
+  consoleMode: "owner",
+  scopeLabel: "",
+  hasActiveDeliveries: false,
+};
 
 const BusinessAccessContext = createContext<BusinessAccessValue>(FULL_ACCESS);
 
 /**
  * What can the current user do in THIS business's manage console — owner,
- * a FULL delegate (both act exactly like the owner), or a SCOPED team member
- * (only the sections in `scopes`). Defaults to full/owner access when read
- * outside a BusinessAccessGuard, so screens that don't care about scope
- * (or aren't behind the guard at all) keep working unchanged.
+ * a FULL delegate, or a SCOPED team member (only the sections in `scopes`).
  */
 export function useBusinessAccess() {
   return useContext(BusinessAccessContext);
 }
 
 /**
- * Wraps every /business/:id/manage* route. Owned-business reads always
- * succeed via the public `businesses` SELECT policy, so without this guard a
- * revoked delegate could still open and browse the whole console — write
- * actions would silently fail one by one via RLS, but the UI itself never
- * told them access was gone. This re-validates against
- * has_business_access() (owner OR active session) on every entry to the
- * console and on every business_access_sessions change, and bounces to the
- * customer home the moment access is missing — same guarantee the RLS write
- * policies already give the database, now enforced for reads too.
- *
- * Also fetches the session's scope (once allow/deny is settled) and
- * publishes it via BusinessAccessContext so BusinessHub/ManageNav/etc. can
- * filter what they show a SCOPED team member without each re-fetching it.
+ * Wraps every /business/:id/manage* route. Re-validates access on entry and
+ * publishes scope + console mode for child screens.
  */
 export default function BusinessAccessGuard() {
   const { id = "" } = useParams();
   const { ownedBusinessIds, ownedEntitiesLoaded, setContext, showToast } = useApp();
   const isOwner = ownedBusinessIds.includes(id);
 
-  // Owners never need the network round trip — they always have access.
   const [status, setStatus] = useState<"checking" | "allowed" | "denied" | "retry">(isOwner ? "allowed" : "checking");
   const [attempt, setAttempt] = useState(0);
   const [waitedEnough, setWaitedEnough] = useState(false);
   const [scope, setScope] = useState<{ accessLevel: AccessLevel; scopes: Scope[] }>({ accessLevel: "FULL", scopes: [] });
+  const [hasActiveDeliveries, setHasActiveDeliveries] = useState(false);
 
-  // Give ownedBusinessIds up to 2.5s to hydrate (skips an unnecessary network
-  // round trip for the common case: an owner reopening the app). Bounded so
-  // access is never stuck waiting forever if hydration never completes —
-  // after the wait, fall through to the server-authoritative RPC regardless,
-  // same as a non-owner/delegate always has.
   useEffect(() => {
     if (ownedEntitiesLoaded) return;
     const timer = window.setTimeout(() => setWaitedEnough(true), 2500);
@@ -85,6 +80,31 @@ export default function BusinessAccessGuard() {
     return () => { active = false; };
   }, [id, isOwner, ownedEntitiesLoaded, waitedEnough, attempt]);
 
+  useEffect(() => {
+    if (status !== "allowed" || !DELIVERY_AGENT_ENABLED || !id) return;
+    let active = true;
+    deliveryService.countMyActiveDeliveries(id).then((count) => {
+      if (active) setHasActiveDeliveries(count > 0);
+    }).catch(() => {
+      if (active) setHasActiveDeliveries(false);
+    });
+    return () => { active = false; };
+  }, [status, id]);
+
+  const value = useMemo((): BusinessAccessValue => {
+    if (isOwner) return FULL_ACCESS;
+    const hasScope = (s: Scope) => scope.accessLevel === "FULL" || scope.scopes.includes(s);
+    return {
+      isOwner: false,
+      accessLevel: scope.accessLevel,
+      scopes: scope.scopes,
+      hasScope,
+      consoleMode: resolveConsoleMode(false, scope.accessLevel),
+      scopeLabel: buildScopeLabel(hasScope),
+      hasActiveDeliveries,
+    };
+  }, [isOwner, scope, hasActiveDeliveries]);
+
   if (status === "checking") {
     return (
       <div className="screen page-pad" style={{ paddingTop: "calc(20px + var(--safe-area-top))" }}>
@@ -110,15 +130,6 @@ export default function BusinessAccessGuard() {
     showToast("Your access to that business was revoked");
     return <Navigate to="/home" replace />;
   }
-
-  const value: BusinessAccessValue = isOwner
-    ? FULL_ACCESS
-    : {
-        isOwner: false,
-        accessLevel: scope.accessLevel,
-        scopes: scope.scopes,
-        hasScope: (s) => scope.accessLevel === "FULL" || scope.scopes.includes(s),
-      };
 
   return (
     <BusinessAccessContext.Provider value={value}>

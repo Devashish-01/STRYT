@@ -53,6 +53,12 @@
   --delivery-500: #14b8a6;
   --delivery-600: #0d9488;
 
+  /* Team console header gradients (ManageDashboard delegate/member chrome) */
+  --console-delegate-from: #5b21b6;
+  --console-delegate-to: #4c1d95;
+  --console-team-from: #0f766e;
+  --console-team-to: #134e4a;
+
   /* Neutrals — Deep Ink, purple-tinted */
   --ink-900: #1a1530;
   --ink-800: #2c2447;
@@ -3197,4 +3203,46 @@ button.set-row:active {
   }
 }
 
+/* Business team console — distinct chrome for delegates vs scoped members */
+.business-manage-root[data-console-mode="team_member"] {
+  --console-accent: var(--delivery-600);
+  --console-banner-bg: #ecfdf5;
+  --console-banner-border: #99f6e4;
+  --console-banner-ink: #115e59;
+}
+
+.business-manage-root[data-console-mode="full_delegate"] {
+  --console-accent: var(--brand-700);
+  --console-banner-bg: var(--brand-50);
+  --console-banner-border: var(--brand-200);
+  --console-banner-ink: var(--brand-800);
+}
+
+.team-console-banner {
+  margin: calc(8px + var(--safe-area-top)) 12px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--console-banner-border, var(--line));
+  background: var(--console-banner-bg, var(--ink-50));
+  color: var(--console-banner-ink, var(--ink-800));
+}
+
+.team-console-banner__title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.team-console-banner__detail {
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.team-console-banner__delivery {
+  font-size: 12px;
+  margin-top: 6px;
+  color: var(--console-accent, var(--delivery-600));
+  font-weight: 600;
+}
 

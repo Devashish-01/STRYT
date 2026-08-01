@@ -210,17 +210,16 @@ export const userService = {
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED", message: "Not signed in" }, 401);
     
-    // 1. Update users profile
-    const { error } = await sb.from("users").update({ lat, lng, area }).eq("id", uid);
+    // 1. Update users profile — only touch `area` when the caller supplies one.
+    const patch: TablesUpdate<"users"> = { lat, lng };
+    if (area !== undefined) patch.area = area;
+    const { error } = await sb.from("users").update(patch).eq("id", uid);
     throwIfError(error);
 
-    // 2. Sync to any businesses owned by the user
-    const { error: bizErr } = await sb.from("businesses")
-      .update({ lat, lng, address_line1: area || null })
-      .eq("owner_user_id", uid);
-    if (bizErr) console.warn("setLocation (biz sync):", bizErr.message);
+    // Business premises are frozen server-side (see enforce_business_location_freeze)
+    // and must never follow the owner's personal map pin — only the user row moves here.
 
-    // 3. Sync to any provider profiles owned by the user
+    // 2. Sync to any provider profiles owned by the user
     const { error: provErr } = await sb.from("providers")
       .update({ lat, lng })
       .eq("user_id", uid);

@@ -17,6 +17,8 @@ const NOMINATIM_HEADERS = {
   "User-Agent": "STRYT-App/1.0 (contact@stryt.in)"
 };
 
+const KM_PER_DEG_LAT = 111;
+
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -35,13 +37,85 @@ function pickAreaName(addr: Record<string, string | undefined>): string | null {
   );
 }
 
-async function reverseGeocodeAt(lat: number, lng: number, zoom: number): Promise<{ area: string | null; city: string | null }> {
+/** Township / gated-community names are often only on internal roads, not admin boundaries. */
+export function extractAreaFromRoadName(road: string | undefined | null): string | null {
+  if (!road?.trim()) return null;
+  const r = road.trim();
+
+  const mainRoad = r.match(/^(.+?)\s+Main\s+Road$/i);
+  if (mainRoad?.[1]) return mainRoad[1].trim();
+
+  const suffixMatch = r.match(/^(.+?)\s+(Main\s+)?(Road|Marg|Street|Lane|Way|Boulevard)$/i);
+  if (suffixMatch?.[1]) {
+    const prefix = suffixMatch[1].trim();
+    if (/\b(Town|Township|Park|Nagar|Enclave|Residency|Gardens|Estate|City|Village|Heights|Complex|Colony|Layout|Plaza)\b/i.test(prefix)
+      || prefix.split(/\s+/).length >= 3) {
+      return prefix;
+    }
+  }
+  return null;
+}
+
+interface ReverseGeocodeHit {
+  area: string | null;
+  city: string | null;
+  road: string | null;
+  featureName: string | null;
+}
+
+async function reverseGeocodeAt(lat: number, lng: number, zoom: number): Promise<ReverseGeocodeHit> {
   const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=${zoom}&addressdetails=1&accept-language=en`;
   const res = await fetch(url, { headers: NOMINATIM_HEADERS });
   if (!res.ok) throw new Error(`reverse geocode ${res.status}`);
   const data = await res.json();
   const addr = data?.address ?? {};
-  return { area: pickAreaName(addr), city: addr.city || null };
+  const featureName = typeof data?.name === "string" && data.name.trim() ? data.name.trim() : null;
+  return {
+    area: pickAreaName(addr),
+    city: addr.city || addr.town || addr.municipality || null,
+    road: addr.road || null,
+    featureName,
+  };
+}
+
+function areaFromRoadOrFeature(hit: ReverseGeocodeHit): string | null {
+  return extractAreaFromRoadName(hit.road) || extractAreaFromRoadName(hit.featureName);
+}
+
+// GPS fixes often land on an unnamed internal road inside a large township.
+// Reverse-geocoding a short distance away usually hits a named artery (e.g.
+// "Amanora Park Town Main Road") — return on the first hit to stay fast and
+// within Nominatim rate limits.
+async function discoverAreaFromNearbyRoads(lat: number, lng: number): Promise<string | null> {
+  const radiusKm = 0.35;
+  const dLat = radiusKm / KM_PER_DEG_LAT;
+  const dLng = radiusKm / (KM_PER_DEG_LAT * Math.cos((lat * Math.PI) / 180) || 1);
+  const points = [
+    { lat: lat + dLat, lng },
+    { lat, lng: lng + dLng },
+    { lat: lat - dLat, lng },
+    { lat, lng: lng - dLng },
+  ];
+
+  for (let i = 0; i < points.length; i++) {
+    const hit = await reverseGeocodeAt(points[i].lat, points[i].lng, 17);
+    const extracted =
+      extractAreaFromRoadName(hit.road) ||
+      extractAreaFromRoadName(hit.featureName);
+    if (extracted) return extracted;
+    if (i < points.length - 1) await sleep(200);
+  }
+  return null;
+}
+
+function scoreNamedPlace(name: string, distKm: number): number {
+  let score = 1000 - distKm * 200;
+  if (/\bpark\s+town\b/i.test(name)) score += 300;
+  if (/\btownship\b/i.test(name)) score += 250;
+  if (/\b(town|nagar|enclave|residency|gardens|estate|colony|layout)\b/i.test(name)) score += 120;
+  // Prefer the township over a mall, lake, or internal service road label.
+  if (/\b(mall|bowl|lake|club\s+house|school\s+road|town\s+centre)\b/i.test(name)) score -= 150;
+  return score;
 }
 
 /**
@@ -59,8 +133,8 @@ async function reverseGeocodeAt(lat: number, lng: number, zoom: number): Promise
  * as part of the address hierarchy. Fails soft (null) on any error/timeout —
  * this is a last-resort enrichment, not something worth blocking or retrying.
  */
-async function nearestNamedPlace(lat: number, lng: number, radiusM = 1500): Promise<string | null> {
-  const query = `[out:json][timeout:8];(node(around:${radiusM},${lat},${lng})["place"]["name"];way(around:${radiusM},${lat},${lng})["place"]["name"];node(around:${radiusM},${lat},${lng})["leisure"="park"]["name"];way(around:${radiusM},${lat},${lng})["landuse"]["name"];);out center;`;
+async function nearestNamedPlace(lat: number, lng: number, radiusM = 1500, maxDistKm = 1.2): Promise<string | null> {
+  const query = `[out:json][timeout:8];(way(around:${radiusM},${lat},${lng})["highway"]["name"];way(around:${radiusM},${lat},${lng})["landuse"="residential"]["name"];relation(around:${radiusM},${lat},${lng})["landuse"="residential"]["name"];way(around:${radiusM},${lat},${lng})["place"]["name"];way(around:${radiusM},${lat},${lng})["landuse"]["name"];);out center;`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 6000);
   try {
@@ -68,14 +142,18 @@ async function nearestNamedPlace(lat: number, lng: number, radiusM = 1500): Prom
     if (!res.ok) return null;
     const data = await res.json();
     const elements = Array.isArray(data?.elements) ? data.elements : [];
-    let best: { name: string; distKm: number } | null = null;
+    let best: { name: string; score: number } | null = null;
     for (const el of elements) {
-      const name = el?.tags?.name;
+      const rawName = el?.tags?.name;
       const elat = el?.lat ?? el?.center?.lat;
       const elng = el?.lon ?? el?.center?.lon;
-      if (!name || elat == null || elng == null) continue;
+      if (!rawName || elat == null || elng == null) continue;
+      const fromRoad = extractAreaFromRoadName(rawName);
+      const name = fromRoad || rawName.trim();
       const distKm = haversineKm(lat, lng, elat, elng);
-      if (!best || distKm < best.distKm) best = { name, distKm };
+      if (distKm > maxDistKm) continue;
+      const score = scoreNamedPlace(name, distKm);
+      if (!best || score > best.score) best = { name, score };
     }
     return best?.name ?? null;
   } catch {
@@ -85,42 +163,37 @@ async function nearestNamedPlace(lat: number, lng: number, radiusM = 1500): Prom
   }
 }
 
-// coords → best area name. Three real-world gaps this covers, confirmed
-// against an actual reported bug (a user's stored coordinates, at Amanora
-// Park Town, Pune, reverse-geocoded first to "Pimpri-Chinchwad", then to the
-// technically-correct-but-unrecognizable "Gopalpatti"):
+// coords → best area name. Covers the Amanora Park Town / Gopalpatti class of
+// bugs where the official revenue-village name OSM returns is not what
+// residents use:
 //
-// 1. Zoom 18 (building/street level) is the most precise when the point is
-//    well-tagged (e.g. a named residential enclave), but many real points are
-//    only tagged with a road/building and NO neighbourhood-level field at all —
-//    falling straight to `city` there can land on a whole separate, distant
-//    municipal area (confirmed: OSM's own data tags that exact point's `city`
-//    as "Pimpri-Chinchwad", an adjacent municipal corporation, not the actual
-//    neighbourhood). A second, coarser lookup at zoom 14 (suburb level) finds
-//    the official local revenue-village/suburb name where zoom 18 found
-//    nothing.
-// 2. That official name can still be unrecognizable — large private
-//    townships are often built on and administratively named after a
-//    pre-existing village, which residents never actually call their area.
-//    `nearestNamedPlace` looks for actual named developments/parks nearby via
-//    Overpass, which surfaces the real, recognizable name in that case.
-//    `city` is now a genuine last resort, tried only after all three lookups
-//    above find nothing.
-// 3. Retries once on failure — a transient network blip or Nominatim's rate
-//    limit shouldn't mean a stale area name gets silently left in place
-//    elsewhere (see autoRefreshLocation in store.tsx, which used to leave the
-//    OLD area name showing forever whenever this returned null even though
-//    the coordinates themselves had already moved to the new position).
+// 1. Road / feature names at zoom 18/16 (e.g. "Amanora Park Town Main Road").
+// 2. Nearby-road sampling when the GPS point sits on an unnamed internal street.
+// 3. Overpass named developments within ~1 km.
+// 4. Official suburb (zoom 14) and city — genuine last resorts.
 export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const fine = await reverseGeocodeAt(lat, lng, 18);
-      if (fine.area) return fine.area;
-      const coarse = await reverseGeocodeAt(lat, lng, 14);
-      if (coarse.area) return coarse.area;
+      const [fine, mid] = await Promise.all([
+        reverseGeocodeAt(lat, lng, 18),
+        reverseGeocodeAt(lat, lng, 16),
+      ]);
+      const fromRoad = areaFromRoadOrFeature(fine) || areaFromRoadOrFeature(mid);
+      if (fromRoad) return fromRoad;
+
+      const fromNearbyRoads = await discoverAreaFromNearbyRoads(lat, lng);
+      if (fromNearbyRoads) return fromNearbyRoads;
+
       const named = await nearestNamedPlace(lat, lng);
       if (named) return named;
-      return fine.city || coarse.city || null;
+
+      if (fine.area) return fine.area;
+      if (mid.area) return mid.area;
+
+      const coarse = await reverseGeocodeAt(lat, lng, 14);
+      if (coarse.area) return coarse.area;
+
+      return fine.city || mid.city || coarse.city || null;
     } catch {
       if (attempt === 0) { await sleep(600); continue; }
       return null;
@@ -197,7 +270,6 @@ export async function forwardGeocode(query: string): Promise<GeoPlace[]> {
 // the GPS button already calls. Sequential (not Promise.all) and lightly
 // throttled to respect Nominatim's ~1 req/sec usage policy.
 const NEARBY_OFFSET_KM = 1.5;
-const KM_PER_DEG_LAT = 111;
 
 export async function nearbyAreas(lat: number, lng: number): Promise<GeoPlace[]> {
   const dLat = NEARBY_OFFSET_KM / KM_PER_DEG_LAT;

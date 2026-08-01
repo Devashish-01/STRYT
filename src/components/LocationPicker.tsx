@@ -53,13 +53,16 @@ export default function LocationPicker({
   const autoRequested = useRef(false);
 
   // Auto-detect on mount (marketplace onboarding pattern).
+  // Treat (0, 0) as "no location yet" — some parents initialise with 0
+  // instead of null, which used to skip GPS and leave the pin at the default.
+  const hasRealPin = lat !== null && lng !== null && !(lat === 0 && lng === 0);
   useEffect(() => {
-    if (autoRequested.current || (lat !== null && lng !== null)) return;
+    if (autoRequested.current || hasRealPin) return;
     autoRequested.current = true;
     void request().then((coords) => {
       if (coords) onChange(coords.lat, coords.lng);
     });
-  }, [lat, lng, onChange, request]);
+  }, [hasRealPin, onChange, request]);
 
   useEffect(() => {
     if (error) onError?.(error);
@@ -67,7 +70,7 @@ export default function LocationPicker({
 
   const centerLat = lat ?? storedLat ?? DEFAULT_LAT;
   const centerLng = lng ?? storedLng ?? DEFAULT_LNG;
-  const hasPin = lat !== null && lng !== null;
+  const hasPin = hasRealPin;
 
   async function detect() {
     // force=true: this is an explicit user tap asking for a fresh GPS fix,

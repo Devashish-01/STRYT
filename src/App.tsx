@@ -7,7 +7,10 @@ import { LiveShareProvider } from "./features/live-share/useLiveShare";
 import LiveShareBanner from "./features/live-share/LiveShareBanner";
 import DesktopSidebar from "./components/DesktopSidebar";
 import BusinessAccessGuard from "./components/BusinessAccessGuard";
+import BusinessManageLayout from "./components/BusinessManageLayout";
 import RequireScope from "./components/RequireScope";
+import RequireOwner from "./components/RequireOwner";
+import RequireBusinessDeliveryMember from "./components/RequireBusinessDeliveryMember";
 import ProviderAccessGuard from "./components/ProviderAccessGuard";
 import RequireDeliveryAgent from "./components/RequireDeliveryAgent";
 import PinGateSheet from "./components/PinGateSheet";
@@ -110,6 +113,7 @@ const QnaManager = lazy(() => import("./screens/business/manage/QnaManager"));
 const ReviewsManager = lazy(() => import("./screens/business/manage/ReviewsManager"));
 const BusinessAppointments = lazy(() => import("./screens/business/manage/BusinessAppointments"));
 const BusinessDeliveries = lazy(() => import("./screens/business/manage/BusinessDeliveries"));
+const TeamMyDeliveries = lazy(() => import("./screens/business/manage/TeamMyDeliveries"));
 const BusinessPayments = lazy(() => import("./screens/business/manage/BusinessPayments"));
 const LeadsInbox = lazy(() => import("./screens/manage/LeadsInbox"));
 const VerificationCenter = lazy(() => import("./screens/business/manage/VerificationCenter"));
@@ -614,6 +618,7 @@ export default function App() {
                 revoked delegate is bounced out of every manage screen for
                 this business, not just blocked on individual writes by RLS. */}
             <Route element={<BusinessAccessGuard />}>
+              <Route element={<BusinessManageLayout />}>
               {/* Home and the Business hub itself are open to every session —
                   both self-filter what they show a SCOPED team member (see
                   ManageDashboard.tsx / BusinessHub.tsx), rather than being
@@ -644,14 +649,18 @@ export default function App() {
                 <Route path="/business/:id/manage/deliveries" element={<BusinessDeliveries />} />
               </Route>
 
+              <Route element={<RequireBusinessDeliveryMember />}>
+                <Route path="/business/:id/manage/my-deliveries" element={<TeamMyDeliveries />} />
+              </Route>
+
               <Route element={<RequireScope scope="leads" />}>
                 <Route path="/business/:id/manage/qna" element={<QnaManager />} />
                 <Route path="/business/:id/manage/inbox" element={<LeadsInbox entityType="BUSINESS" />} />
                 <Route path="/business/:id/manage/requests" element={<BusinessRequests />} />
               </Route>
 
-              {/* Owner/FULL-delegate only — no scope can ever unlock these. */}
-              <Route element={<RequireScope />}>
+              {/* Owner-only — FULL delegates and scoped team members are bounced. */}
+              <Route element={<RequireOwner />}>
                 <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
                 <Route path="/business/:id/manage/broadcast" element={<BroadcastRadius />} />
                 <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
@@ -659,6 +668,7 @@ export default function App() {
                 <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
                 <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
                 <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />
+              </Route>
               </Route>
             </Route>
 
