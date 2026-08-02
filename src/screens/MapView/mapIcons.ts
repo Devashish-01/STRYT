@@ -28,17 +28,13 @@ export function pinHtml(color: string): string {
   </svg>`;
 }
 
-export function storyIconHtml(avatarUrl: string, seen: boolean): string {
-  const ringStyle = seen
-    ? "background:var(--ink-400)"
-    : "background:linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))";
-  return `<div style="width:44px;height:44px;border-radius:50%;${ringStyle};padding:2.5px;box-shadow:0 2px 10px rgba(0,0,0,0.35)">
-    <div style="width:100%;height:100%;border-radius:50%;background:var(--ink-200);overflow:hidden;border:2px solid #fff">
-      ${avatarUrl ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'" />` : ""}
-    </div>
-  </div>`;
-}
+// storyIconHtml() was removed here. It was dead code — MapMarkers carried its
+// own copy of the same markup — and it interpolated a user-supplied avatar URL
+// straight into an `src` attribute alongside an inline `onerror` handler. The
+// live copy is now real JSX (see MapMarkers' StoryAvatar), which escapes its
+// inputs and needs no `'unsafe-inline'` in the CSP.
 
+// Safe to keep as a string: static markup, no interpolation, no handlers.
 export const meIconHtml = `<div class="gps-pulse-container">
   <div class="gps-pulse-ring"></div>
   <div class="gps-pulse-dot"></div>

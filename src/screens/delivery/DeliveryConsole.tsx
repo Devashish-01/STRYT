@@ -5,6 +5,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { deliveryService, type DeliveryItem, type DeliveryLiveStatus, type DeliveryBatchStatus, type CancelReason } from "@/services/engagement/deliveryService";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
+import { promptBatteryExemptionForDuty } from "@/lib/batteryOptimization";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { backgroundLocation } from "@/lib/backgroundLocation";
 import { haversineKm } from "@/lib/geocode";
@@ -162,6 +163,11 @@ export default function DeliveryConsole() {
       haptics.selection();
       void refetchDuty();
       refetchBlockers();
+      // Going ON duty is the only moment the battery exemption is genuinely
+      // needed (and the only one defensible at Play review) — an accepted run
+      // has to keep reporting location, and OEM battery managers are what stop
+      // it. Never asked of customers. Best-effort; never blocks the toggle.
+      if (next) void promptBatteryExemptionForDuty(user.id);
     } catch (e: any) {
       showToast(e?.message || "Couldn't update duty status");
     } finally {

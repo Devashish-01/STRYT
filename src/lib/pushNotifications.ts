@@ -44,16 +44,18 @@ export async function registerPush(userId: string): Promise<void> {
           { onConflict: "user_id,token" }
         );
 
-        // Nudge for OEM battery-optimization exemption once per install — many
-        // Android skins (MIUI, Samsung, Oppo/Vivo, OnePlus) silently suppress
-        // heads-up alerts/sound for backgrounded or locked apps unless the app
-        // is whitelisted, no matter how correctly FCM delivery is wired up.
-        // See BatteryOptimizationSheet.tsx for the prompt UI this triggers.
-        if (Capacitor.getPlatform() === "android" && localStorage.getItem("batteryPromptShown") !== "true") {
-          localStorage.setItem("batteryPromptShown", "true");
-          const ignoring = await isIgnoringBatteryOptimizations();
-          if (!ignoring) window.dispatchEvent(new CustomEvent("battery-optimization-prompt"));
-        }
+        // NOTE: the battery-optimization prompt used to fire here, for every
+        // Android user, justified as "keeps notifications reliable". It has
+        // been moved to the delivery duty toggle
+        // (promptBatteryExemptionForDuty in lib/batteryOptimization.ts).
+        //
+        // Play restricts REQUEST_IGNORE_BATTERY_OPTIMIZATIONS to a narrow
+        // allowlist that does NOT include notification delivery, so asking
+        // every customer here was the app's largest review risk — and it
+        // wasn't buying customers much either: a high-priority FCM message
+        // already wakes the device from Doze. Riders are the ones who really
+        // need it, because a killed foreground service freezes their live
+        // position mid-run.
       });
 
       PushNotifications.addListener("registrationError", (error) => {
@@ -61,7 +63,10 @@ export async function registerPush(userId: string): Promise<void> {
       });
 
       PushNotifications.addListener("pushNotificationReceived", (notification) => {
-        console.log("FCM notification received:", notification);
+        // DEV only: the payload carries the notification title/body and deep
+        // link, which can name a customer or a booking. Not something to write
+        // to a production device log.
+        if (import.meta.env.DEV) console.log("FCM notification received:", notification);
       });
 
       PushNotifications.addListener("pushNotificationActionPerformed", (action) => {

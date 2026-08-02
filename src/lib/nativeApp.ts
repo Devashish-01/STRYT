@@ -50,7 +50,9 @@ export async function initNativeApp(): Promise<void> {
     // app change," which is indistinguishable from "the check silently
     // failed." These just log; no UI, no behavior change. Each wrapped in its
     // own try/catch so one failing addListener call can't skip the rest.
-    const log = (event: string) => (state: unknown) => console.log(`[ota] ${event}`, state);
+    const log = (event: string) => (state: unknown) => {
+      if (import.meta.env.DEV) console.log(`[ota] ${event}`, state);
+    };
     void CapacitorUpdater.addListener("updateAvailable", log("updateAvailable")).catch(() => { /* ignore */ });
     void CapacitorUpdater.addListener("downloadComplete", log("downloadComplete")).catch(() => { /* ignore */ });
     void CapacitorUpdater.addListener("updateFailed", log("updateFailed")).catch(() => { /* ignore */ });

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { catalogService, businessService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store } from "@/components/Icons";
+import { Camera, Phone, Calendar, CheckCircle2, FileCheck, Store, Clock } from "@/components/Icons";
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
@@ -305,11 +305,26 @@ export default function BusinessOnboard() {
                 />
               </div>
             </div>
-            <div className="field">
-              <label>Hours</label>
-              <span className="tiny muted">Set your real working hours â€” this is exactly what customers will book against.</span>
-              <div style={{ marginTop: 8 }}>
-                <WeeklyHoursEditor initialRaw={hoursRaw} onChange={setHoursRaw} />
+            {/* Deliberately mirrors the Hours settings screen
+                (manage/HoursEditor.tsx) — same card chrome, same icon, same
+                heading, same editor. The editor component was always shared,
+                but the surrounding UI wasn't, so setting hours at signup looked
+                like a different feature from editing them afterwards.
+                The two controls NOT shown here are absent on purpose:
+                "open right now" is meaningless before the shop exists, and
+                holiday hours have nothing to override yet. The footnote says
+                where they live so the owner isn't left hunting. */}
+            <div className="card col gap-14" style={{ padding: 16 }}>
+              <div className="bold small row gap-6 center-v" style={{ color: "var(--ink-900)" }}>
+                <Clock size={18} color="var(--brand-700)" /> Working Hours (Availability Timing)
+              </div>
+              <span className="tiny muted">
+                Set your real working hours — this is exactly what customers will book against.
+              </span>
+              <WeeklyHoursEditor initialRaw={hoursRaw} onChange={setHoursRaw} />
+              <div className="tiny muted">
+                Holiday hours, "open right now" and booking capacity can be set
+                any time from Business → Settings once you're live.
               </div>
             </div>
           </>

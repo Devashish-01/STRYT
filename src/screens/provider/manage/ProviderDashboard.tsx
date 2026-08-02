@@ -216,7 +216,8 @@ export default function ProviderDashboard() {
   }
 
   async function quickPayment(apt: AppointmentRecord, action: "CONFIRM" | "REJECT") {
-    console.log("quickPayment called:", { aptId: apt.id, action, paymentStatus: apt.paymentStatus });
+    // DEV only — appointment id + payment state shouldn't land in a production log.
+    if (import.meta.env.DEV) console.log("quickPayment called:", { aptId: apt.id, action, paymentStatus: apt.paymentStatus });
     setBusyApt(apt.id);
     try {
       if (action === "CONFIRM") { await appointmentService.confirmPayment(apt.id); showToast("Payment confirmed ✓"); }

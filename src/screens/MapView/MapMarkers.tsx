@@ -35,6 +35,49 @@ type Selected =
 /** Minimum comfortable touch target (iOS HIG / Material both land here). */
 const MIN_TAP_PX = 44;
 
+/**
+ * A story author's avatar bubble on the map.
+ *
+ * Real JSX rather than an HTML string. The previous version interpolated
+ * `authorAvatar` into `src` and `authorName` into `alt` inside
+ * dangerouslySetInnerHTML — so a name containing a double quote could break out
+ * of the attribute — and carried an inline `onerror` handler, which is exactly
+ * what blocks the CSP from being enforced without `'unsafe-inline'`. React
+ * escapes both values, and `onError` is a real listener.
+ */
+function StoryAvatar({ avatar, name, seen }: { avatar?: string | null; name?: string | null; seen: boolean }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <span style={{ cursor: "pointer", display: "block" }}>
+      <div
+        style={{
+          width: MIN_TAP_PX, height: MIN_TAP_PX, borderRadius: "50%", padding: 2.5,
+          boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
+          background: seen
+            ? "var(--ink-400)"
+            : "linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))",
+        }}
+      >
+        <div
+          style={{
+            width: "100%", height: "100%", borderRadius: "50%",
+            background: "var(--ink-200)", overflow: "hidden", border: "2px solid #fff",
+          }}
+        >
+          {avatar && !broken && (
+            <img
+              src={avatar}
+              alt={name ?? ""}
+              onError={() => setBroken(true)}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          )}
+        </div>
+      </div>
+    </span>
+  );
+}
+
 function PinMarker({ lng, lat, html, label, onClick }: {
   lng: number; lat: number; html: string; label: string; onClick: () => void;
 }) {
@@ -134,12 +177,7 @@ export function MapMarkers({
         const seen = viewedStories.includes(s.id);
         return (
           <Marker key={s.id} longitude={s.lng!} latitude={s.lat!} anchor="center" onClick={() => onStoryClick(mapStories, i)}>
-            <span
-              style={{ cursor: "pointer", display: "block" }}
-              dangerouslySetInnerHTML={{
-                __html: `<div style="width:44px;height:44px;border-radius:50%;${seen ? "background:var(--ink-400)" : "background:linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))"};padding:2.5px;box-shadow:0 2px 10px rgba(0,0,0,0.35)"><div style="width:100%;height:100%;border-radius:50%;background:var(--ink-200);overflow:hidden;border:2px solid #fff">${s.authorAvatar ? `<img src="${s.authorAvatar}" alt="${s.authorName ?? ""}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'" />` : ""}</div></div>`,
-              }}
-            />
+            <StoryAvatar avatar={s.authorAvatar} name={s.authorName} seen={seen} />
           </Marker>
         );
       })}
