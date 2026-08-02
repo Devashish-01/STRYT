@@ -41,6 +41,10 @@ export default function BusinessHub() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { signOut } = useApp();
+  // TMA-006 — this route has NO RequireScope wrapper; it sits directly under
+  // BusinessAccessGuard and self-hides sections by scope instead. That means
+  // anything added here is visible to EVERY grantee by default. Gate each new
+  // section on hasScope()/isOwner explicitly, the way the existing ones are.
   const { isOwner, hasScope, hasActiveDeliveries } = useBusinessAccess();
   const base = `/business/${id}/manage`;
   const { data: appointments } = useQueryWithRealtime(() => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`);

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import { deliveryService, type DeliveryItem, type DeliveryLiveStatus, type DeliveryBatchStatus } from "@/services/engagement/deliveryService";
+import { deliveryService, type DeliveryItem, type DeliveryLiveStatus, type DeliveryBatchStatus, type CancelReason } from "@/services/engagement/deliveryService";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
@@ -21,6 +21,7 @@ import BackgroundLocationDisclosure from "@/features/live-share/BackgroundLocati
 import DeliveryStatusPill from "@/components/delivery/DeliveryStatusPill";
 import DeliveryStepper from "@/components/delivery/DeliveryStepper";
 import HandoffCodeInput from "@/components/delivery/HandoffCodeInput";
+import CantDeliverSheet from "@/components/delivery/CantDeliverSheet";
 
 /** Best-effort current position; resolves null if unavailable/denied. */
 function getGPS(): Promise<{ lat: number; lng: number } | null> {
@@ -113,9 +114,18 @@ export default function DeliveryConsole() {
   const { data: dutyData, refetch: refetchDuty } = useQuery(() => deliveryService.myDutyStatus(), [], "delivery-duty");
   const [dutyBusy, setDutyBusy] = useState(false);
   const onDuty = dutyData !== false;
+  // Read the blockers up front so the off-duty toggle can disable itself and
+  // say WHY, instead of letting the agent tap it and eat a server exception.
+  const { data: blockers, refetch: refetchBlockers } = useQuery(() => deliveryService.dutyBlockers(), [], "delivery-duty-blockers");
+  const dutyBlocked = onDuty && (blockers?.count ?? 0) > 0;
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [decidingBatch, setDecidingBatch] = useState<string | null>(null);
+  // The stop the "Can't deliver" sheet is open for, and whether its request is
+  // in flight — `cancelBusy` also locks the sheet shut so a half-sent cancel
+  // can't be dismissed into an unknown state.
+  const [cancelTarget, setCancelTarget] = useState<DeliveryItem | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
   const [disclosureOpen, setDisclosureOpen] = useState(false);
   const disclosureResolver = useRef<((accepted: boolean) => void) | null>(null);
 
@@ -124,7 +134,12 @@ export default function DeliveryConsole() {
   const items = useMemo(() => data ?? [], [data]);
   const soloItems = items.filter((d) => !d.batchId);
   const batches = useMemo(() => groupBatches(items), [items]);
-  const pendingBatch = batches.find((b) => b.status === "PENDING_ACCEPTANCE") ?? null;
+  // ALL pending runs, not just the first. `find()` meant a second assigned run
+  // was invisible until the first was resolved, and the fullscreen gate below
+  // hid solo assigned work behind it too (DLV-004). One decision at a time is
+  // right; silently dropping the rest is not.
+  const pendingBatches = batches.filter((b) => b.status === "PENDING_ACCEPTANCE");
+  const pendingBatch = pendingBatches[0] ?? null;
   const activeBatches = batches.filter((b) => b.status === "ACCEPTED" || b.status === "IN_PROGRESS");
   const historyBatches = batches.filter((b) => b.status === "COMPLETED" || b.status === "CANCELLED");
 
@@ -136,11 +151,17 @@ export default function DeliveryConsole() {
 
   async function toggleDuty() {
     const next = !onDuty;
+    // Going off duty with live work is blocked server-side. We already know
+    // that before the tap (see `blockers`), so the toggle is disabled rather
+    // than tappable-then-rejected — but this stays as the backstop for the
+    // race where the last job lands between render and tap.
+    if (!next && dutyBlocked) return;
     setDutyBusy(true);
     try {
       await deliveryService.setDuty(next);
       haptics.selection();
       void refetchDuty();
+      refetchBlockers();
     } catch (e: any) {
       showToast(e?.message || "Couldn't update duty status");
     } finally {
@@ -178,13 +199,25 @@ export default function DeliveryConsole() {
   // continues). Each fix is routed to whichever job(s) are active via a ref,
   // read fresh on every fix rather than captured in a stale closure.
   const runningBatch = activeBatches[0] ?? null;
-  const soloEnRoute = soloActive.find((d) => d.status === "EN_ROUTE") ?? null;
-  const trackingTargetsRef = useRef<{ batchId: string | null; soloId: string | null }>({ batchId: null, soloId: null });
-  trackingTargetsRef.current = { batchId: runningBatch?.batchId ?? null, soloId: soloEnRoute?.id ?? null };
+  // Track through ARRIVED, not just EN_ROUTE: position matters most in the
+  // last hundred metres. Only safe now that the ping carries no status —
+  // before DLV-003 this would have pinned the stop back to EN_ROUTE forever.
+  const soloTracked = soloActive.filter((d) => d.status === "EN_ROUTE" || d.status === "ARRIVED");
+  // EVERY active run, not just the first. `activeBatches[0]` meant a second
+  // accepted run reported a frozen position for its whole duration — its
+  // customers and its owner watched a stationary dot (DLV-005). The fan-out
+  // pattern was already here; it just wasn't applied across batches.
+  const trackedBatchIds = activeBatches.map((b) => b.batchId);
+  const trackingTargetsRef = useRef<{ batchIds: string[]; soloIds: string[] }>({ batchIds: [], soloIds: [] });
+  trackingTargetsRef.current = { batchIds: trackedBatchIds, soloIds: soloTracked.map((d) => d.id) };
   const isTrackingRef = useRef(false);
 
+  // Join keys, not lengths: swapping one run for another keeps the count the
+  // same, and the effect must not miss that the targets changed.
+  const trackingKey = `${trackedBatchIds.join(",")}|${soloTracked.map((d) => d.id).join(",")}`;
+
   useEffect(() => {
-    const needsTracking = !!runningBatch || !!soloEnRoute;
+    const needsTracking = trackedBatchIds.length > 0 || soloTracked.length > 0;
     if (needsTracking === isTrackingRef.current) return;
 
     if (!needsTracking) {
@@ -198,17 +231,19 @@ export default function DeliveryConsole() {
       const allowed = await ensureDisclosure();
       if (!allowed) { isTrackingRef.current = false; return; }
       void backgroundLocation.start((f) => {
+        // One agent, one position — fanned out to every job it serves.
         const targets = trackingTargetsRef.current;
-        if (targets.batchId) {
-          void deliveryService.updateBatchPosition(targets.batchId, f.lat, f.lng, f.accuracy, f.heading).catch(() => { /* transient */ });
+        for (const batchId of targets.batchIds) {
+          void deliveryService.updateBatchPosition(batchId, f.lat, f.lng, f.accuracy, f.heading).catch(() => { /* transient */ });
         }
-        if (targets.soloId) {
-          void deliveryService.updateStatus(targets.soloId, "ON_THE_WAY", f.lat, f.lng).catch(() => { /* transient */ });
+        for (const soloId of targets.soloIds) {
+          // Coordinates only — never a status transition. See DLV-003.
+          void deliveryService.updatePosition(soloId, f.lat, f.lng, f.accuracy, f.heading).catch(() => { /* transient */ });
         }
       });
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!runningBatch, !!soloEnRoute]);
+  }, [trackingKey]);
 
   useEffect(() => () => { void backgroundLocation.stop(); }, []);
 
@@ -225,6 +260,29 @@ export default function DeliveryConsole() {
       showToast(e?.message || "Couldn't update — try again");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function cancelDelivery(reason: CancelReason, note: string) {
+    const target = cancelTarget;
+    if (!target || cancelBusy) return;
+    setCancelBusy(true);
+    haptics.warning();
+    try {
+      await deliveryService.cancelDelivery(target.id, reason, note);
+      haptics.success();
+      setCancelTarget(null);
+      // Name the business: the agent needs to know someone specific was told,
+      // not just that "something was sent".
+      showToast(`Marked undeliverable — ${target.businessName} has been notified`);
+      refetch();
+      // The whole point of this feature is unblocking duty. Re-read the
+      // blockers immediately so the toggle enables in the same beat.
+      refetchBlockers();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update — try again");
+    } finally {
+      setCancelBusy(false);
     }
   }
 
@@ -279,6 +337,10 @@ export default function DeliveryConsole() {
         <NewRunGate
           batch={pendingBatch}
           busy={decidingBatch === pendingBatch.batchId}
+          queuePosition={1}
+          queueTotal={pendingBatches.length}
+          nextBatch={pendingBatches[1] ?? null}
+          soloWaiting={soloAssigned.length}
           onAccept={() => acceptRun(pendingBatch)}
           onDecline={() => declineRun(pendingBatch)}
         />
@@ -329,15 +391,25 @@ export default function DeliveryConsole() {
         <RoleSwitcher enableLongPress />
       </div>
 
-      {/* Duty — glanceable, always visible, not buried in a menu. */}
+      {/* Duty — glanceable, always visible, not buried in a menu. When it's
+          blocked, say so here and point at the job doing the blocking; never
+          make someone hunt for a reason we already know. */}
       <button
         type="button"
         className="row between center-v"
-        style={{ width: "100%", padding: "10px 16px", borderBottom: "1px solid var(--line)", background: onDuty ? "var(--surface)" : "var(--ink-50)" }}
-        onClick={toggleDuty}
+        style={{ width: "100%", padding: "10px 16px", borderBottom: "1px solid var(--line)", background: onDuty ? "var(--surface)" : "var(--ink-50)", opacity: dutyBlocked ? 0.75 : 1 }}
+        onClick={dutyBlocked ? () => setTab("ACTIVE") : toggleDuty}
         disabled={dutyBusy}
+        aria-label={dutyBlocked ? "Can't go off duty yet — show active deliveries" : undefined}
       >
-        <span className="small semi">{onDuty ? "On duty" : "Off duty"}</span>
+        <span className="col" style={{ alignItems: "flex-start", gap: 1, minWidth: 0 }}>
+          <span className="small semi">{onDuty ? "On duty" : "Off duty"}</span>
+          {dutyBlocked && (
+            <span className="tiny muted ellipsis">
+              {blockers!.count === 1 ? "1 delivery in progress" : `${blockers!.count} deliveries in progress`} · tap to view
+            </span>
+          )}
+        </span>
         <Toggle on={onDuty} />
       </button>
 
@@ -367,10 +439,10 @@ export default function DeliveryConsole() {
           ) : (
             <>
               {activeBatches.map((b) => (
-                <RunCard key={b.batchId} batch={b} busyId={busyId} onAdvance={advance} onVerify={verifyHandoff} showActionBar={b.batchId === primaryBatchId} />
+                <RunCard key={b.batchId} batch={b} busyId={busyId} onAdvance={advance} onVerify={verifyHandoff} onCantDeliver={setCancelTarget} showActionBar={b.batchId === primaryBatchId} />
               ))}
               {soloActive.map((d) => (
-                <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} showActionBar={d.id === primarySoloId} />
+                <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} onCantDeliver={setCancelTarget} showActionBar={d.id === primarySoloId} />
               ))}
             </>
           )
@@ -388,7 +460,7 @@ export default function DeliveryConsole() {
             )
           ) : (
             soloAssigned.map((d) => (
-              <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} showActionBar={false} />
+              <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} onCantDeliver={setCancelTarget} showActionBar={false} />
             ))
           )
         ) : historyBatches.length === 0 && soloHistory.length === 0 ? (
@@ -397,11 +469,21 @@ export default function DeliveryConsole() {
           <>
             {historyBatches.map((b) => <RunHistoryCard key={b.batchId} batch={b} />)}
             {soloHistory.map((d) => (
-              <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} showActionBar={false} />
+              <DeliveryCard key={d.id} d={d} busy={busyId === d.id} onAdvance={advance} onVerify={verifyHandoff} onCantDeliver={setCancelTarget} showActionBar={false} />
             ))}
           </>
         )}
       </div>
+
+      {cancelTarget && (
+        <CantDeliverSheet
+          orderLabel={cancelTarget.businessName}
+          customerName={cancelTarget.customerName}
+          busy={cancelBusy}
+          onConfirm={cancelDelivery}
+          onClose={() => setCancelTarget(null)}
+        />
+      )}
 
       {disclosureOpen && <BackgroundLocationDisclosure onAccept={acceptDisclosure} onDecline={declineDisclosure} />}
     </div>
@@ -409,9 +491,16 @@ export default function DeliveryConsole() {
 }
 
 /** The accept-all-or-nothing moment — intercepts the whole console until decided. */
-function NewRunGate({ batch, busy, onAccept, onDecline }: {
+function NewRunGate({ batch, busy, queuePosition, queueTotal, nextBatch, soloWaiting, onAccept, onDecline }: {
   batch: BatchGroup;
   busy: boolean;
+  /** 1-based position of this run in the pending queue. */
+  queuePosition: number;
+  queueTotal: number;
+  /** The run that comes after this decision, if any — shown, not actionable. */
+  nextBatch: BatchGroup | null;
+  /** Solo deliveries waiting behind the gate; they need no acceptance. */
+  soloWaiting: number;
   onAccept: () => void;
   onDecline: () => void;
 }) {
@@ -442,6 +531,13 @@ function NewRunGate({ batch, busy, onAccept, onDecline }: {
         <span style={{ width: 64, height: 64, borderRadius: 20, background: "var(--delivery-50)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Package size={32} color="var(--delivery-600)" />
         </span>
+        {/* The count is the whole fix for DLV-004: the agent must know more
+            work is waiting BEFORE they decide on this one. */}
+        {queueTotal > 1 && (
+          <span className="chip active tiny" style={{ pointerEvents: "none" }}>
+            Run {queuePosition} of {queueTotal}
+          </span>
+        )}
         <div className="h1" style={{ textAlign: "center" }}>New delivery run</div>
         <div className="muted small" style={{ textAlign: "center" }}>
           {batch.items.length} {batch.items.length === 1 ? "stop" : "stops"} · accept the whole run, or decline it
@@ -481,6 +577,23 @@ function NewRunGate({ batch, busy, onAccept, onDecline }: {
         </button>
         {armed && (
           <button className="tiny muted" style={{ alignSelf: "center" }} onClick={cancelArm}>Never mind</button>
+        )}
+
+        {/* Everything else waiting behind this decision — acknowledged so it
+            isn't a surprise, deliberately inert so it doesn't compete with it. */}
+        {(nextBatch || soloWaiting > 0) && (
+          <div className="col gap-4" style={{ marginTop: 4, textAlign: "center" }}>
+            {nextBatch && (
+              <span className="tiny muted">
+                Next up · {nextBatch.items.length} {nextBatch.items.length === 1 ? "stop" : "stops"}
+              </span>
+            )}
+            {soloWaiting > 0 && (
+              <span className="tiny muted">
+                {soloWaiting === 1 ? "1 single delivery" : `${soloWaiting} single deliveries`} also waiting
+              </span>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -545,11 +658,12 @@ function ActionControls({
 }
 
 /** Multi-stop active run: live map + the current stop expanded + a collapsed queue. */
-function RunCard({ batch, busyId, onAdvance, onVerify, showActionBar }: {
+function RunCard({ batch, busyId, onAdvance, onVerify, onCantDeliver, showActionBar }: {
   batch: BatchGroup;
   busyId: string | null;
   onAdvance: (d: DeliveryItem, next: DeliveryLiveStatus, msg: string) => void;
   onVerify: (d: DeliveryItem, code: string) => Promise<boolean>;
+  onCantDeliver: (d: DeliveryItem) => void;
   showActionBar: boolean;
 }) {
   // Selective routing: when non-empty, "Route selected" builds a link through
@@ -635,6 +749,17 @@ function RunCard({ batch, busyId, onAdvance, onVerify, showActionBar }: {
         </div>
 
         <DeliveryStepper status={current.status} showLabel={false} />
+
+        {/* Scoped to THIS stop, not the run — one bad address doesn't end a
+            shift. If it's the last live stop, the server closes the run. */}
+        <button
+          type="button"
+          className="tiny muted"
+          style={{ alignSelf: "flex-start", minHeight: 32, color: "var(--ink-500)" }}
+          onClick={() => onCantDeliver(current)}
+        >
+          Can't deliver this stop?
+        </button>
 
         <div className="col gap-6">
           {/* One tap for the whole remaining run — the agent shouldn't have to
@@ -731,11 +856,12 @@ function RunHistoryCard({ batch }: { batch: BatchGroup }) {
   );
 }
 
-function DeliveryCard({ d, busy, onAdvance, onVerify, showActionBar }: {
+function DeliveryCard({ d, busy, onAdvance, onVerify, onCantDeliver, showActionBar }: {
   d: DeliveryItem;
   busy: boolean;
   onAdvance: (d: DeliveryItem, next: DeliveryLiveStatus, msg: string) => void;
   onVerify: (d: DeliveryItem, code: string) => Promise<boolean>;
+  onCantDeliver: (d: DeliveryItem) => void;
   showActionBar: boolean;
 }) {
   const terminal = d.status === "DELIVERED" || d.status === "CANCELLED";
@@ -781,6 +907,19 @@ function DeliveryCard({ d, busy, onAdvance, onVerify, showActionBar }: {
         </div>
       )}
       {d.status === "CANCELLED" && <div className="tiny muted">Cancelled</div>}
+
+      {/* Deliberately quiet and last: the exit exists and is always reachable,
+          but it never competes with finishing the job. */}
+      {!terminal && (
+        <button
+          type="button"
+          className="tiny muted"
+          style={{ alignSelf: "flex-start", minHeight: 32, color: "var(--ink-500)" }}
+          onClick={() => onCantDeliver(d)}
+        >
+          Can't deliver?
+        </button>
+      )}
 
       {controls && showActionBar && <div className="delivery-action-bar">{controls}</div>}
     </div>

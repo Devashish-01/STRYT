@@ -6,7 +6,13 @@ import { useI18n } from "@/lib/i18n";
 // Lives inside <Map>. The pin itself is fixed on screen — this just reports
 // the map's center whenever a pan/zoom settles, so the caller can resolve
 // "whatever is under the pin" into an address.
-export function PickCenterTracker({ onCenterChange }: { onCenterChange: (lat: number, lng: number) => void }) {
+export function PickCenterTracker({
+  onCenterChange, startAt,
+}: {
+  onCenterChange: (lat: number, lng: number) => void;
+  /** Point to centre on when pick mode opens (a long-pressed spot); omit to keep the current view. */
+  startAt?: { lat: number; lng: number } | null;
+}) {
   const { current: mapRef } = useMap();
 
   useEffect(() => {
@@ -16,6 +22,9 @@ export function PickCenterTracker({ onCenterChange }: { onCenterChange: (lat: nu
       const c = map.getCenter();
       onCenterChange(c.lat, c.lng);
     };
+    // Glide to the pressed point rather than teleporting — an instant jumpCut
+    // reads as a bug on a map the user was just touching.
+    if (startAt) map.easeTo({ center: [startAt.lng, startAt.lat], duration: 350 });
     report();
     map.on("moveend", report);
     return () => { map.off("moveend", report); };

@@ -2,15 +2,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { reverseGeocode } from "@/lib/geocode";
 import { userService } from "@/services";
 
+export interface LatLng { lat: number; lng: number }
+
 export function useLocationPinDrop(refreshUser: () => Promise<void>, showToast: (msg: string) => void) {
   const [pickMode, setPickMode] = useState(false);
   const [pickCenter, setPickCenter] = useState<{ lat: number; lng: number } | null>(null);
+  // Where the map should be sitting when pick mode opens. `null` = wherever the
+  // user already is (the FAB); a point = a long-press, which hands the pressed
+  // coordinate over so the crosshair lands under the finger instead of making
+  // the user re-find the spot they just pressed.
+  const [pickStart, setPickStart] = useState<LatLng | null>(null);
   const [address, setAddress] = useState("");
   const [addressLoading, setAddressLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const enterPickMode = useCallback(() => {
+  const enterPickMode = useCallback((at?: LatLng) => {
+    setPickStart(at ?? null);
     setPickMode(true);
   }, []);
 
@@ -18,6 +26,7 @@ export function useLocationPinDrop(refreshUser: () => Promise<void>, showToast: 
     if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
     setPickMode(false);
     setPickCenter(null);
+    setPickStart(null);
     setAddress("");
   }, []);
 
@@ -54,6 +63,7 @@ export function useLocationPinDrop(refreshUser: () => Promise<void>, showToast: 
       showToast(`Location set — ${address || "Custom location"}`);
       setPickMode(false);
       setPickCenter(null);
+      setPickStart(null);
       setAddress("");
     } catch {
       showToast("Couldn't set location — try again");
@@ -63,7 +73,7 @@ export function useLocationPinDrop(refreshUser: () => Promise<void>, showToast: 
   }, [pickCenter, address, refreshUser, showToast]);
 
   return {
-    pickMode, pickCenter, address, addressLoading, confirming,
+    pickMode, pickCenter, pickStart, address, addressLoading, confirming,
     enterPickMode, cancelPickMode, confirmPickMode, onCenterChange,
   };
 }

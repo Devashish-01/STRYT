@@ -6,7 +6,10 @@ import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { deliveryService } from "@/services";
-import type { BusinessDeliveryItem } from "@/services/engagement/deliveryService";
+import type { BusinessDeliveryItem, CancelReason } from "@/services/engagement/deliveryService";
+import { useApp } from "@/store";
+import CantDeliverSheet from "@/components/delivery/CantDeliverSheet";
+import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Package, MapPin, Phone, CheckCircle, Navigation } from "@/components/Icons";
@@ -28,8 +31,29 @@ const ACTIVE_STATUSES = ["ASSIGNED", "EN_ROUTE", "ARRIVED"] as const;
  */
 export default function BusinessDeliveries() {
   const { id = "" } = useParams();
+  const { showToast } = useApp();
   const [agentFilter, setAgentFilter] = useState<string | "ALL">("ALL");
   const [focusedId, setFocusedId] = useState<string | null>(null);
+  // DLV-006: this board was view-only, so an owner watching a stalled delivery
+  // had to leave it to act — and for cancel there was nowhere to go at all.
+  const [cancelTarget, setCancelTarget] = useState<BusinessDeliveryItem | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+
+  async function cancelDelivery(reason: CancelReason, note: string) {
+    const target = cancelTarget;
+    if (!target || cancelBusy) return;
+    setCancelBusy(true);
+    try {
+      await deliveryService.cancelDelivery(target.id, reason, note);
+      setCancelTarget(null);
+      showToast(`Delivery cancelled — ${target.agentName} has been notified`);
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't cancel — try again");
+    } finally {
+      setCancelBusy(false);
+    }
+  }
 
   const { data: business } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   // Realtime on the stop rows; the batch's moving position is picked up by the
@@ -181,7 +205,9 @@ export default function BusinessDeliveries() {
                     key={d.id}
                     d={d}
                     focused={focusedId === d.id}
+                    businessId={id}
                     onFocus={() => setFocusedId(focusedId === d.id ? null : d.id)}
+                    onCancel={setCancelTarget}
                   />
                 ))
               )}
@@ -211,13 +237,31 @@ export default function BusinessDeliveries() {
         )}
       </div>
 
+      {cancelTarget && (
+        <CantDeliverSheet
+          variant="business"
+          orderLabel={`Delivery by ${cancelTarget.agentName}`}
+          customerName={cancelTarget.customerName}
+          busy={cancelBusy}
+          onConfirm={cancelDelivery}
+          onClose={() => setCancelTarget(null)}
+        />
+      )}
+
       <ManageNav bizId={id} />
     </div>
   );
 }
 
-function DeliveryRow({ d, focused, onFocus }: { d: BusinessDeliveryItem; focused: boolean; onFocus: () => void }) {
+function DeliveryRow({ d, focused, businessId, onFocus, onCancel }: {
+  d: BusinessDeliveryItem;
+  focused: boolean;
+  businessId: string;
+  onFocus: () => void;
+  onCancel: (d: BusinessDeliveryItem) => void;
+}) {
   const routable = d.deliveryLat != null && d.deliveryLng != null;
+  const live = (ACTIVE_STATUSES as readonly string[]).includes(d.status);
   return (
     <div className="card col gap-9" style={{ padding: 12, border: focused ? "1.5px solid var(--delivery-600)" : undefined }}>
       <button type="button" onClick={onFocus} className="row gap-10 center-v" style={{ width: "100%", textAlign: "left" }}>
@@ -259,6 +303,25 @@ function DeliveryRow({ d, focused, onFocus }: { d: BusinessDeliveryItem; focused
           </button>
         )}
       </div>
+
+      {/* Actions live in the focused row — revealed, not swipe-hidden (this
+          board is used on desktop too, where swipe is undiscoverable).
+          Reassign reuses DeliveryAssignControl rather than a second copy of
+          the picker, so the off-duty tags and the new-handoff-code warning
+          can't drift between the two places an owner can reassign from. */}
+      {focused && live && (
+        <>
+          <DeliveryAssignControl appointmentId={d.appointmentId} businessId={businessId} />
+          <button
+            type="button"
+            className="tiny"
+            style={{ alignSelf: "flex-start", minHeight: 32, color: "var(--red-600)" }}
+            onClick={() => onCancel(d)}
+          >
+            Cancel this delivery
+          </button>
+        </>
+      )}
     </div>
   );
 }

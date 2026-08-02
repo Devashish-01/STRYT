@@ -12,10 +12,17 @@ export type AccessStatus = "PENDING" | "ACTIVE" | "EXPIRED" | "REVOKED" | "DENIE
 export type AccessCheckResult = "ALLOWED" | "DENIED" | "ERROR";
 export type AccessLevel = "FULL" | "SCOPED";
 /**
- * Team-member grant scopes. `delivery` is the delivery-agent scope (Phase 1
- * groundwork) — the DB grant whitelist + has_business_scope already accept it,
- * but it stays hidden from the Team UI until DELIVERY_AGENT_ENABLED is flipped
- * on (it's deliberately excluded from ALL_SCOPES in BusinessAccess).
+ * Team-member grant scopes.
+ *
+ * `delivery` is grantable as of `20260874_delivery_scope_grantable.sql`. Before
+ * that, this comment claimed the DB whitelist already accepted it and it did
+ * not: `grant_team_member_access` filtered the array down to the four
+ * management scopes, so a delivery grant succeeded while granting nothing, and
+ * the hat could only ever appear from an active assignment (TMA-005/DLV-002).
+ *
+ * If you add a scope here, widen BOTH `grant_team_member_access` and
+ * `update_team_member_scopes` — otherwise the grant works and the first scope
+ * edit silently strips it.
  */
 export type Scope = "appointments" | "queue" | "catalog" | "leads" | "delivery";
 /** Short display label per scope — shared by the switcher and the Team screen so they never drift. */

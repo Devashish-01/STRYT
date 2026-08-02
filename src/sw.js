@@ -4,12 +4,38 @@
 // were split across a generated caching-only SW and a separate hand-written
 // push SW that fought each other, which killed web push on the built app.
 
-import { precacheAndRoute } from "workbox-precaching";
+import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
 import { registerRoute, NavigationRoute } from "workbox-routing";
 import { NetworkFirst, CacheFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
+import { clientsClaim } from "workbox-core";
+
+// ── Take over immediately ───────────────────────────────────────────────────
+// REQUIRED, and the reason deployed users were stuck on old builds.
+//
+// vite-plugin-pwa injects skipWaiting/clientsClaim automatically ONLY for
+// `strategies: "generateSW"`. This project uses `injectManifest` (so one SW can
+// own both caching and push), which means the plugin injects nothing and these
+// have to be written by hand. They weren't. And `registerType: "autoUpdate"`
+// never calls `onNeedRefresh`, so ServiceWorkerUpdater's `updateSW(true)` never
+// ran either, and nothing in the app ever posted the SKIP_WAITING message the
+// handler at the bottom of this file listens for.
+//
+// Net effect: every new deploy installed a SW that sat in `waiting` forever.
+// The old worker kept serving the old bundle until the user closed every tab /
+// fully killed the PWA — which on a phone is close to never. That is the
+// "sometimes I get the old version" report.
+//
+// Safe because the client reloads on `controllerchange` (see
+// ServiceWorkerUpdater): the new worker claims the page and the page
+// immediately reloads, so old JS never runs against new assets.
+self.skipWaiting();
+clientsClaim();
 
 // ── Precache (self.__WB_MANIFEST is injected at build time) ──────────────────
+// Drop precaches from previous Workbox versions/deploys so storage doesn't grow
+// forever and a stale shell can't be resurrected.
+cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST || []);
 
 // SPA navigation fallback → Network-First with cached index.html fallback
@@ -25,8 +51,12 @@ registerRoute(
         );
         return await Promise.race([networkPromise, timeoutPromise]);
       } catch (error) {
-        // Fall back to the cached index.html if offline/network fails
-        const cache = await caches.match("/index.html");
+        // Fall back to the cached index.html if offline/network fails.
+        // `ignoreSearch` matters: Workbox stores precached entries under a
+        // revisioned URL (`/index.html?__WB_REVISION__=…`), so a bare
+        // caches.match("/index.html") missed it and the offline fallback
+        // silently did nothing.
+        const cache = await caches.match("/index.html", { ignoreSearch: true });
         if (cache) return cache;
         throw error;
       }
@@ -97,8 +127,9 @@ self.addEventListener("notificationclick", function (event) {
   );
 });
 
-// autoUpdate: activate a new SW immediately so push-handler fixes ship without
-// waiting for every tab to close.
+// Kept as a manual escape hatch (and for any older client still posting it).
+// The real activation path is the top-level skipWaiting()/clientsClaim() above
+// — this message was never sent by anything in the app.
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") self.skipWaiting();
 });

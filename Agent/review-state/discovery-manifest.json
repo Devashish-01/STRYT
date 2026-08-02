@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "project_root": null,
+  "discovered_at": null,
+  "confirmed_at": null,
+  "status": "pending_confirmation",
+  "confirmation_stale_days": 7,
+  "trackers": [],
+  "architecture_docs": [],
+  "database_sources": [],
+  "test_docs": [],
+  "onboarding_docs": [],
+  "code_roots": [],
+  "log_sources": [],
+  "excluded": [],
+  "user_overrides": {
+    "added": [],
+    "removed": []
+  },
+  "notes": []
+}

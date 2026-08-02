@@ -159,29 +159,45 @@ export default function Profile() {
 
   // The identity block: username-first. Your @handle is what neighbours see and
   // search for, so it leads; the real name sits under it, quiet and clearly
-  // "yours only". Tapping anywhere on the block opens Edit, where the handle
-  // lives — previously the only route to it, with no signpost from here.
+  // "yours only".
+  //
+  // This block is DELIBERATELY not tappable. It used to be one big button to
+  // /profile/edit, so glancing at your own name — or trying to select it —
+  // threw you into an edit form you hadn't asked for. Editing has its own
+  // explicit button ("Edit profile", below), which is the only route now.
+  //
+  // The one exception is a user with no @handle yet: that sub-line is a real
+  // call to action rather than a label, so it stays a button. Everyone on the
+  // current DB has an alias, so this is the rare path.
   const IdentityBlock = () => (
-    <button className="pf-identity" onClick={() => nav("/profile/edit")} aria-label="Edit your profile and handle">
+    <div className="pf-identity">
       <SafeImg
         src={user.avatar} alt="" variant="avatar" className="avatar pf-avatar"
       />
       <div style={{ minWidth: 0 }}>
         <div className="row gap-6" style={{ minWidth: 0 }}>
+          {/* No pencil icon here any more — it advertised a tap target that
+              should not exist on the name itself. */}
           <span className="pf-hero-name ellipsis">
             {hasAlias ? `@${user.alias}` : displayName(user.name)}
           </span>
-          <Pencil size={14} color="rgba(255,255,255,0.7)" style={{ flexShrink: 0 }} />
         </div>
-        <div className="pf-hero-sub ellipsis">
-          {hasAlias ? (
-            <>{displayName(user.name)}{user.area ? ` · ${user.area}` : ""}</>
-          ) : (
-            <>Tap to set your public @handle</>
-          )}
-        </div>
+        {hasAlias ? (
+          <div className="pf-hero-sub ellipsis">
+            {displayName(user.name)}{user.area ? ` · ${user.area}` : ""}
+          </div>
+        ) : (
+          <button
+            className="pf-hero-sub ellipsis row gap-4 center-v"
+            onClick={() => nav("/profile/edit")}
+            style={{ background: "none", border: "none", padding: 0, textAlign: "left" }}
+          >
+            Set your public @handle
+            <Pencil size={12} color="rgba(255,255,255,0.7)" style={{ flexShrink: 0 }} />
+          </button>
+        )}
       </div>
-    </button>
+    </div>
   );
 
   // paddingBottom deliberately omitted below — see Home.tsx's identical fix:
@@ -373,14 +389,29 @@ export default function Profile() {
                 </button>
               </div>
             ) : (
-              <button className="pf-row pf-row-invite" style={themed("var(--surface)", "var(--brand-600)")} onClick={() => nav("/manage")}>
-                <span className="pf-row-icon"><Store size={19} /></span>
-                <span className="col grow" style={{ gap: 2 }}>
-                  <span className="semi" style={{ fontSize: 14 }}>Start selling on STRYT</span>
-                  <span className="tiny" style={{ fontWeight: 500 }}>List your shop or offer your services</span>
-                </span>
-                <ChevronRight size={18} color="var(--brand-300)" />
-              </button>
+              /* Feedback #1 — "the option to create a business is not coming
+                 and also the provider". Both routes existed, but only as one
+                 generic "Start selling" card pointing at /manage, so neither
+                 word appeared anywhere on this page. Now they're two named
+                 actions going straight to the thing they name. */
+              <div className="col gap-8">
+                <button className="pf-row pf-row-invite" style={themed("var(--surface)", "var(--brand-600)")} onClick={() => nav("/onboard/business")}>
+                  <span className="pf-row-icon"><Store size={19} /></span>
+                  <span className="col grow" style={{ gap: 2 }}>
+                    <span className="semi" style={{ fontSize: 14 }}>Create a business</span>
+                    <span className="tiny" style={{ fontWeight: 500 }}>List your shop so neighbours can find it</span>
+                  </span>
+                  <ChevronRight size={18} color="var(--brand-300)" />
+                </button>
+                <button className="pf-row pf-row-invite" style={themed("var(--surface)", "var(--green-600)")} onClick={() => nav("/onboard/provider")}>
+                  <span className="pf-row-icon"><Briefcase size={19} /></span>
+                  <span className="col grow" style={{ gap: 2 }}>
+                    <span className="semi" style={{ fontSize: 14 }}>Become a provider</span>
+                    <span className="tiny" style={{ fontWeight: 500 }}>Offer your services around the street</span>
+                  </span>
+                  <ChevronRight size={18} color="var(--green-600)" />
+                </button>
+              </div>
             )}
           </div>
 

@@ -7,7 +7,19 @@ import { PROFILE_BADGE_THRESHOLDS } from "@/lib/badges";
 import { deletionPurgeAt } from "@/lib/accountDeletion";
 
 export interface OwnedEntities {
+  /**
+   * Businesses this user literally OWNS (businesses.owner_user_id = them).
+   *
+   * Delegated grants are deliberately NOT merged in here. They used to be, and
+   * because BusinessAccessGuard treats "is this id in the owned list?" as the
+   * definition of ownership, every scoped team member was silently promoted to
+   * owner as soon as this list hydrated — i.e. on the next reload after being
+   * added to a team. Anything that wants "businesses I can open the console
+   * for" should use `manageableBusinessIds` from the store instead.
+   */
   businessIds: string[];
+  /** Businesses this user can manage through an ACTIVE access grant, not ownership. */
+  delegatedBusinessIds: string[];
   providerId: string | null;
 }
 
@@ -162,23 +174,33 @@ export const userService = {
   async owned(): Promise<OwnedEntities> {
     const sb = getSupabase();
     const uid = await currentUserId();
-    if (!uid) return { businessIds: [], providerId: null };
+    if (!uid) return { businessIds: [], delegatedBusinessIds: [], providerId: null };
     const [biz, prov] = await Promise.all([
-      sb.from("businesses").select("id").eq("owner_user_id", uid),
+      // Exclude soft-deleted shops — a DELETED business must stop counting as
+      // owned, or the owner keeps a hat pointing at a dead console (#5).
+      // Cast: 'DELETED' was added to the entity_status enum in 20260877 and
+      // isn't in the generated schema types yet — same typegen gap the delivery
+      // RPCs carry.
+      sb.from("businesses").select("id").eq("owner_user_id", uid).neq("status", "DELETED" as any),
       sb.from("providers").select("id").eq("user_id", uid).limit(1),
     ]);
     throwIfError(biz.error);
     throwIfError(prov.error);
     const ownedIds = (biz.data ?? []).map((b: { id: string }) => b.id);
-    // Also include businesses this user can manage via an active delegated-login
-    // session (business remote login). Best-effort — skips silently pre-migration.
+    // Businesses reachable via an active delegated-login session, reported
+    // SEPARATELY from owned ones. `my_delegated_businesses()` returns every
+    // ACTIVE session regardless of access_level, so it lists FULL delegates and
+    // SCOPED team members alike — it answers "can I open this console at all",
+    // never "am I the owner". Best-effort: skips silently pre-migration.
     let delegatedIds: string[] = [];
     try {
       const { data: del } = await sb.rpc("my_delegated_businesses");
       if (Array.isArray(del)) delegatedIds = del.map((r: any) => (typeof r === "string" ? r : r?.my_delegated_businesses)).filter(Boolean);
     } catch { /* table/rpc not present yet */ }
+    const ownedSet = new Set(ownedIds);
     return {
-      businessIds: Array.from(new Set([...ownedIds, ...delegatedIds])),
+      businessIds: ownedIds,
+      delegatedBusinessIds: Array.from(new Set(delegatedIds.filter((id) => !ownedSet.has(id)))),
       providerId: prov.data?.[0]?.id ?? null,
     };
   },

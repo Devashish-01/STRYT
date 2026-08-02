@@ -17,6 +17,26 @@ export function hasMapboxFallenBackThisSession(): boolean {
   }
 }
 
+export function clearMapboxFallbackSession(): void {
+  try {
+    sessionStorage.removeItem(FALLBACK_KEY);
+  } catch { /* best-effort */ }
+}
+
+/** True when Mapbox should be the initial basemap for this map open. */
+export function shouldAttemptMapbox(token: string): boolean {
+  if (!token) return false;
+  // Local dev: always retry Mapbox when a token is configured — avoids a
+  // stale sessionStorage flag (e.g. from React Strict Mode double-mount) pinning
+  // developers to the free tiles for the whole tab session.
+  if (import.meta.env.DEV) return true;
+  return !hasMapboxFallenBackThisSession();
+}
+
+export function mapboxStyleUrl(token: string): string {
+  return `https://api.mapbox.com/styles/v1/mapbox/light-v11?access_token=${token}`;
+}
+
 export function rememberMapboxFallback(): void {
   try {
     sessionStorage.setItem(FALLBACK_KEY, "true");

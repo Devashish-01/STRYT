@@ -138,11 +138,24 @@ describe("Property 2: Preservation — non-buggy delivery behavior unchanged", (
         ),
       });
 
+    // Credentials are UNIQUE per credential value, so the generators must be
+    // too. send-push loads rows for ONE user, and the live schema keys
+    // fcm_tokens on (user_id, token) and push_subscriptions on
+    // (user_id, endpoint) — verified against the project 2026-08-02. So a
+    // single invocation can never see the same token twice.
+    //
+    // Without this, fc.array happily generated
+    //   [{token:"p",status:"ok"}, {token:"p",status:"unregistered"}]
+    // — one value both delivered AND deleted. The per-credential assertions
+    // below ("ok" is never in deletedTokens) then failed on an input the real
+    // system cannot produce. It only reproduced on seeds that happened to
+    // generate a collision, which is why this test failed intermittently
+    // rather than every run.
     it("FOR ALL mixed valid/stale credential sets, stale entries are deleted and valid ones delivered — identically under UNFIXED and FIXED", () => {
       fc.assert(
         fc.property(
-          fc.array(webSubArb(), { maxLength: 8 }),
-          fc.array(fcmTokArb(), { maxLength: 8 }),
+          fc.uniqueArray(webSubArb(), { maxLength: 8, selector: (s) => s.endpoint }),
+          fc.uniqueArray(fcmTokArb(), { maxLength: 8, selector: (t) => t.token }),
           (subs, toks) => {
             const before = processCredentials(subs, toks, UNFIXED);
             const after = processCredentials(subs, toks, FIXED);

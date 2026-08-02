@@ -28,7 +28,24 @@ const FULL_ACCESS: BusinessAccessValue = {
   hasActiveDeliveries: false,
 };
 
-const BusinessAccessContext = createContext<BusinessAccessValue>(FULL_ACCESS);
+/**
+ * The context default, used only when a component calls useBusinessAccess()
+ * outside this guard's provider. It denies everything on purpose: the default
+ * used to be FULL_ACCESS, which meant any such component — a screen mounted on
+ * a route that forgot the guard, or one rendering during a route transition —
+ * silently rendered as if the viewer owned the business.
+ */
+const NO_ACCESS: BusinessAccessValue = {
+  isOwner: false,
+  accessLevel: "SCOPED",
+  scopes: [],
+  hasScope: () => false,
+  consoleMode: "team_member",
+  scopeLabel: "",
+  hasActiveDeliveries: false,
+};
+
+const BusinessAccessContext = createContext<BusinessAccessValue>(NO_ACCESS);
 
 /**
  * What can the current user do in THIS business's manage console — owner,
@@ -45,6 +62,10 @@ export function useBusinessAccess() {
 export default function BusinessAccessGuard() {
   const { id = "" } = useParams();
   const { ownedBusinessIds, ownedEntitiesLoaded, setContext, showToast } = useApp();
+  // Strictly ownership — `ownedBusinessIds` must never contain a delegated
+  // grant (see userService.owned). This one line is the whole definition of
+  // "owner" for the console: everything RequireOwner protects, and every
+  // hasScope() check, collapses to true the moment it's wrong.
   const isOwner = ownedBusinessIds.includes(id);
 
   const [status, setStatus] = useState<"checking" | "allowed" | "denied" | "retry">(isOwner ? "allowed" : "checking");
@@ -75,7 +96,14 @@ export default function BusinessAccessGuard() {
         if (!active) return;
         setScope(s);
         setStatus("allowed");
+      }).catch(() => {
+        // myScope already fails closed on a Supabase error, but a thrown
+        // rejection would skip .then entirely and strand the guard on the
+        // "checking" skeleton forever. Offer the retry screen instead.
+        if (active) setStatus("retry");
       });
+    }).catch(() => {
+      if (active) setStatus("retry");
     });
     return () => { active = false; };
   }, [id, isOwner, ownedEntitiesLoaded, waitedEnough, attempt]);

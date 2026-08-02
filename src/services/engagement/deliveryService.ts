@@ -29,6 +29,25 @@ export interface AppointmentDelivery {
 
 /** Live-status vocabulary an agent can push (mirrors the agreement flow). */
 export type DeliveryLiveStatus = "LEAVING" | "ON_THE_WAY" | "ARRIVED" | "DONE";
+/**
+ * Why a delivery couldn't be completed. Mirrors the CHECK constraint in
+ * `20260872_delivery_cancellation.sql` — keep the two in step, the server
+ * rejects anything outside this list.
+ */
+export type CancelReason =
+  | "CUSTOMER_UNAVAILABLE"
+  | "ADDRESS_PROBLEM"
+  | "CUSTOMER_REFUSED"
+  | "UNSAFE"
+  | "AGENT_EMERGENCY"
+  | "OTHER";
+
+/** Why the off-duty toggle is blocked, so the UI can say so before it's tapped. */
+export interface DutyBlockers {
+  count: number;
+  deliveryId: string | null;
+  batchId: string | null;
+}
 /** Server-side lifecycle status of a delivery. */
 export type DeliveryStatus = "ASSIGNED" | "EN_ROUTE" | "ARRIVED" | "DELIVERED" | "CANCELLED";
 /** Server-side lifecycle status of a delivery run (batch). All-or-nothing accept lives here —
@@ -185,6 +204,40 @@ export const deliveryService = {
     if (error) throw error;
   },
 
+  /**
+   * Mark a delivery undeliverable. Callable by the assigned agent or by
+   * owner/manager. The APPOINTMENT is deliberately untouched — the customer
+   * keeps their order, it simply has no live delivery until someone is
+   * dispatched again (see DLV-001 / decision D2).
+   */
+  async cancelDelivery(deliveryId: string, reason: CancelReason, note?: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("cancel_delivery", {
+      p_delivery_id: deliveryId,
+      p_reason: reason,
+      p_note: note?.trim() || undefined,
+    });
+    if (error) throw error;
+  },
+
+  /**
+   * What's stopping this agent going off duty, read BEFORE they tap rather
+   * than discovered by tapping. `set_delivery_duty` still raises on its own —
+   * this is the proactive read that lets the toggle disable itself with a
+   * reason instead of punishing the tap.
+   */
+  async dutyBlockers(): Promise<DutyBlockers> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("my_duty_blockers");
+    if (error) throw error;
+    const r = Array.isArray(data) ? data[0] : data;
+    return {
+      count: Number(r?.blocking_count ?? 0),
+      deliveryId: r?.blocking_delivery_id ?? null,
+      batchId: r?.blocking_batch_id ?? null,
+    };
+  },
+
   /** Verify the customer's handoff code; true when it matches. */
   async confirmHandoff(deliveryId: string, code: string): Promise<boolean> {
     const sb = getSupabase();
@@ -240,6 +293,28 @@ export const deliveryService = {
   async declineBatch(batchId: string): Promise<void> {
     const sb = getSupabase();
     const { error } = await (sb.rpc as any)("decline_delivery_batch", { p_batch_id: batchId });
+    if (error) throw error;
+  },
+
+  /**
+   * Pure GPS push for one SOLO delivery — the single-stop twin of
+   * updateBatchPosition. Writes coordinates only, never status: pushing
+   * position through `updateStatus(..., "ON_THE_WAY")` (what this replaced)
+   * could drag an ARRIVED delivery back to EN_ROUTE when a background fix
+   * landed just after the agent tapped Arrived. See DLV-003.
+   *
+   * Silently no-ops server-side for a terminal delivery, so a late fix from a
+   * backgrounded app can't resurrect anything.
+   */
+  async updatePosition(deliveryId: string, lat: number, lng: number, accuracy?: number, heading?: number): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("update_delivery_position", {
+      p_delivery_id: deliveryId,
+      p_lat: lat,
+      p_lng: lng,
+      p_accuracy: accuracy ?? undefined,
+      p_heading: heading ?? undefined,
+    });
     if (error) throw error;
   },
 

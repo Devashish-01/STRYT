@@ -8,7 +8,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { BusinessCardSmall, ProviderCardSmall } from "@/components/cards";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
-import { firstName as safeFirstName } from "@/lib/publicName";
+import { greetingName } from "@/lib/publicName";
 import { getRecentlyViewed } from "@/lib/recentlyViewed";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
 import BrandHome from "@/components/BrandHome";
@@ -87,10 +87,10 @@ function getWeatherText(code: number): string {
 export default function Home() {
   const nav = useNavigate();
   const { t } = useI18n();
-  const { area: rawArea, chatUnread, user, ownedBusinessIds } = useApp();
+  const { area: rawArea, chatUnread, user, manageableBusinessIds } = useApp();
   // One business per owner is a hard DB constraint — don't invite someone who
   // already manages a business (owned or delegated) to list a brand-new one.
-  const hasAnyBusiness = ownedBusinessIds.length > 0;
+  const hasAnyBusiness = manageableBusinessIds.length > 0;
   const requireAuth = useRequireAuth();
   const area = rawArea || t("neighborhood_placeholder");
 
@@ -207,8 +207,11 @@ export default function Home() {
   }
 
   const showBanner = !!theme.banner && !bannerDismissed;
-  // Phone-safe: never greet someone with their raw phone number as a name.
-  const greetName = safeFirstName(user.name);
+  // Contact-safe: never greet someone with their raw phone number OR email
+  // address. Sign-up seeds `users.name` from the email, so this greeting used
+  // to read "Good evening, priya@gmail.com". Falls back to their alias before
+  // giving up on a name entirely.
+  const greetName = greetingName(user);
   const firstName = greetName === "Neighbor" ? "" : greetName;
 
   const tiles = [

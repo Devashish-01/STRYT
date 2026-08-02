@@ -137,9 +137,26 @@ export const businessService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
-    const { data, error } = await sb.from("businesses").select("*").eq("owner_user_id", uid);
+    // Soft-deleted businesses are excluded here too — see delete_business
+    // (20260877). This is the list every switcher and "my business" surface
+    // reads, so it's where a deleted shop has to disappear from.
+    // Cast: 'DELETED' (entity_status, added in 20260877) isn't in the generated
+    // schema types yet.
+    const { data, error } = await sb.from("businesses").select("*").eq("owner_user_id", uid).neq("status", "DELETED" as any);
     throwIfError(error);
     return toCamel<Business[]>(data ?? []);
+  },
+
+  /**
+   * Soft-delete a business (owner only). Nothing is destroyed: the row moves to
+   * status DELETED so it drops out of every `status='ACTIVE'` discovery filter,
+   * existing appointments keep resolving, and team grants are revoked. Refuses
+   * while upcoming bookings exist — see the migration for why.
+   */
+  async delete(businessId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("delete_business", { p_business_id: businessId });
+    if (error) throw new Error(error.message || "Couldn't delete this business.");
   },
 
   async get(id: string, lat?: number, lng?: number): Promise<Business | undefined> {

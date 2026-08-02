@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "status": "not_started",
+  "discovery_manifest_path": "review-state/discovery-manifest.json",
+  "current_feature": null,
+  "current_feature_index": 0,
+  "features_completed": [],
+  "features_total": 0,
+  "findings_count": {
+    "bug": 0,
+    "gap": 0,
+    "doc-mismatch": 0,
+    "regression": 0
+  },
+  "checks_summary": {
+    "screen_alignment": { "pass": 0, "fail": 0, "partial": 0, "n/a": 0 },
+    "functionality": { "pass": 0, "fail": 0, "partial": 0 },
+    "database_validation": { "pass": 0, "fail": 0, "partial": 0, "n/a": 0 },
+    "flow_validation": { "pass": 0, "fail": 0, "partial": 0, "unverified": 0 }
+  },
+  "next_finding_id": 1,
+  "last_run_at": null,
+  "run_started_at": null,
+  "_deprecated": "Use review-state/progress-state.json instead. Kept for backward compatibility."
+}

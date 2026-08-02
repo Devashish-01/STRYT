@@ -112,10 +112,23 @@ export function webVapidConfigured(): boolean {
 }
 
 /**
- * Whether the backend prerequisites (DB GUCs + edge secrets) are verified.
- * These live in Supabase, not the repo, so they are surfaced via an env flag a
- * verifier sets once `alter database ... set app.settings.*` and
- * `supabase secrets set ...` are confirmed (design tasks 3.4/3.5).
+ * Whether the backend prerequisites are verified. These live in Supabase, not
+ * the repo, so a unit test cannot probe them directly — the flag is set by a
+ * verifier once the live project has been checked (design tasks 3.4/3.5).
+ *
+ * VERIFIED 2026-08-02 against project `gnswxlfmcwyhmzlfipql` (see
+ * vitest.config.ts for the flag and the exact re-verification query):
+ *   • vault secrets `functions_url` + `service_role_key` — both set, non-empty
+ *   • `pg_net` extension — installed
+ *   • `notifications` — 2 non-internal triggers attached
+ *   • `fcm_tokens`, `push_subscriptions` — both present
+ *   • edge function `send-push` — ACTIVE, v28
+ *
+ * NOTE the real limitation: this is a point-in-time attestation, not a live
+ * probe. Rotating or clearing either vault secret makes the trigger no-op
+ * silently (it returns early by design so a push failure can't roll back the
+ * notifications insert) and this flag would NOT notice. Re-run the query in
+ * vitest.config.ts after any secret rotation.
  */
 export function liveBackendConfigured(): boolean {
   return process.env.PUSH_BACKEND_CONFIGURED === "true";

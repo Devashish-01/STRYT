@@ -1,31 +1,66 @@
 import { useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { registerSW } from "virtual:pwa-register";
-import { useApp } from "@/store";
 
-// Was: main.tsx called registerSW({ immediate: true }) at module scope with no
-// callbacks. Per registerType:"autoUpdate" in vite.config.ts, that silently
-// reloads the page the instant a new deploy is detected — no visible cause,
-// possibly mid-tap. That forced reload is deliberate and load-bearing (see the
-// comment this replaced): without it, a stale cached shell used to stick
-// around for 2-3 app opens until every tab was closed — so this still forces
-// the same reload, just gives it a brief branded moment first instead of an
-// unexplained flash. Needs to live in a component (not main.tsx's module
-// scope) to reach useApp()'s showToast.
+/** Re-check for a new deploy this often while the app stays open. */
+const UPDATE_POLL_MS = 60 * 60 * 1000; // 1h
+
+/**
+ * Keeps a deployed PWA on the current build.
+ *
+ * The previous version relied on `onNeedRefresh` to call `updateSW(true)`.
+ * That callback only fires for `registerType: "prompt"`; this project uses
+ * `"autoUpdate"`, so it never ran — and because the SW is built with
+ * `injectManifest`, nothing injected `skipWaiting`/`clientsClaim` either. New
+ * deploys installed a worker that waited forever behind the old one, which is
+ * why users kept opening a stale build.
+ *
+ * The activation now happens in the service worker itself (src/sw.js). This
+ * component owns the two things that must happen on the PAGE side:
+ *
+ *   1. Reload once the new worker takes control, so the running tab isn't left
+ *      executing old JS against newly-cached assets (mismatched lazy chunks
+ *      404 — the failure mode that makes people wary of skipWaiting).
+ *   2. Poll for updates. A PWA that's never closed would otherwise only check
+ *      at startup and could sit on an old build for days.
+ */
 export default function ServiceWorkerUpdater() {
-  const { showToast } = useApp();
-
   useEffect(() => {
+    // Native builds deliberately run no service worker at all — nativeApp.ts
+    // unregisters any leftovers, because a SW inside the WebView caches the
+    // APK's assets and survives APK updates. Native updates come via
+    // @capgo/capacitor-updater instead.
     if (Capacitor.isNativePlatform() || !("serviceWorker" in navigator)) return;
 
-    const updateSW = registerSW({
+    // A new worker calling clientsClaim() fires `controllerchange`. Reload
+    // exactly once — the guard matters because Chrome can fire this more than
+    // once and an unguarded reload here is an infinite refresh loop.
+    let reloading = false;
+    const onControllerChange = () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+
+    let poll: ReturnType<typeof setInterval> | undefined;
+    registerSW({
       immediate: true,
-      onNeedRefresh() {
-        showToast("Updating STRYT to the latest version…");
-        setTimeout(() => { void updateSW(true); }, 900);
+      onRegisteredSW(_swUrl, registration) {
+        if (!registration) return;
+        poll = setInterval(() => { void registration.update(); }, UPDATE_POLL_MS);
+        // Also check the moment the user comes back to the app — the common
+        // real-world case is a phone waking after a deploy went out.
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") void registration.update();
+        });
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    return () => {
+      navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
+      if (poll) clearInterval(poll);
+    };
   }, []);
 
   return null;

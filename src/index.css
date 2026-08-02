@@ -141,10 +141,24 @@ body {
   color: var(--ink-900);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Feedback #17 — nothing stopped a single overshooting element (a long
+     unbroken string, a wide row, a fixed-width child) from making the WHOLE
+     page scroll sideways, which is what "not opening according to the phone"
+     looks like in practice. `clip` rather than `hidden` on purpose: `hidden`
+     creates a scroll container and would break every `position: sticky`
+     header in the app (BusinessDetail's tab bar, among others). `hidden`
+     stays first as the fallback for browsers without `clip`. */
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 #root {
+  /* dvh first-class, vh as the fallback: on mobile browsers 100vh includes the
+     collapsing URL bar, so the app was taller than the visible viewport and
+     left dead space / bounce at the bottom. Same pattern .screen.map-screen
+     already uses. */
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 button {
@@ -695,6 +709,50 @@ textarea.input {
   position: relative;
 }
 .nav-item.active { color: var(--brand-700); }
+/* Feedback #4 — the tabs read as static labels rather than controls. Three
+   things fix that, and they apply to EVERY tab: the complaint named Profile
+   only because it's the one people reach for, but all five share this class,
+   so treating one specially would just look broken.
+     · a guaranteed 44pt-tall target (icon+label alone fell short)
+     · a tinted pill behind the active tab, so "where am I" survives a glance
+     · a real pressed state, so a tap that hasn't navigated yet still responds */
+.nav-item {
+  min-height: 44px;
+  border-radius: 12px;
+  transition: background 140ms ease, transform 100ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-item.active { background: var(--brand-50); }
+.nav-item:active { transform: scale(0.94); background: var(--ink-100); }
+.provider-nav .nav-item.active { background: var(--green-100); }
+@media (prefers-reduced-motion: reduce) {
+  .nav-item { transition: none; }
+  .nav-item:active { transform: none; }
+}
+
+/* Feedback #3 — action rows in the account switcher ("Add a business",
+   "Become a provider", "Manage all") were bare icon+text on a flat sheet, so
+   they read as a list of labels. Given a surface, a border and a press state
+   they read as what they are: the primary way to create a business here. */
+.action-row {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  text-align: left;
+  transition: background 140ms ease, border-color 140ms ease, transform 100ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.action-row:active {
+  transform: scale(0.985);
+  background: var(--ink-50);
+  border-color: var(--ink-300);
+}
+@media (prefers-reduced-motion: reduce) {
+  .action-row { transition: none; }
+  .action-row:active { transform: none; }
+}
 .nav-fab {
   margin-top: -22px;
 }
@@ -1570,7 +1628,6 @@ button.set-row:active {
 @keyframes pulse-live {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.85; transform: scale(1.06); }
-}
 }
 
 /* compact "on your street now" rows */
@@ -2637,11 +2694,16 @@ button.set-row:active {
   height: 100vh;
   max-height: 100dvh;
   overflow: hidden;
+  /* A drag that starts on the map must never bubble out to the page as a
+     pull-to-refresh or a rubber-band bounce — on mobile that's the clearest
+     "this is a website" tell there is. */
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
-/* Shown only while attempting to load Mapbox as the primary map style — see
-   MapView/index.tsx and mapboxFallback.ts. Backstopped by a 4s timeout, so
-   this can never linger indefinitely. */
+/* Covers the blank canvas while the first style loads — see MapView/index.tsx
+   (MAP_VEIL_MAX_MS). Lifts on style load or after a short grace period,
+   whichever comes first, so it can never linger. */
 .map-loading-veil {
   position: absolute;
   inset: 0;
@@ -2653,6 +2715,17 @@ button.set-row:active {
   gap: 10px;
   background: var(--bg);
   color: var(--ink-500);
+  transition: opacity 260ms ease;
+}
+.map-loading-veil.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+  /* Keeps the faded-out veil from swallowing map gestures mid-transition. */
+  visibility: hidden;
+  transition: opacity 260ms ease, visibility 0s linear 260ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-loading-veil { transition: none; }
 }
 .map-loading-spinner {
   width: 28px;

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
-import { Plus, ChevronRight, Users } from "@/components/Icons";
+import { EmptyListIllustration } from "@/components/illustrations";
+import { Plus, ChevronRight, Users, Store } from "@/components/Icons";
 import { useApp } from "@/store";
 import { discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -43,7 +44,17 @@ export default function Lists() {
         />
         <div className="screen-scroll page-pad col gap-12">
           {active.items.length === 0 ? (
-            <EmptyState emoji="📂" title="Empty list" text="Save shops or providers here from their pages." />
+            <EmptyState
+              illustration={<EmptyListIllustration />}
+              emoji="📂"
+              title="Nothing saved yet"
+              text="Tap the bookmark on any shop or provider to drop it into this list."
+              action={
+                <button className="btn btn-outline row gap-6 center" onClick={() => nav("/explore")}>
+                  <Store size={16} /> Explore nearby
+                </button>
+              }
+            />
           ) : (
             active.items.map((it, i) => {
               const b = it.type === "BUSINESS" ? businesses.find((x) => x.id === it.id) : undefined;
@@ -85,6 +96,25 @@ export default function Lists() {
               <button className="btn btn-primary grow btn-sm" disabled={name.trim().length < 2} onClick={() => { createList(name.trim(), emoji); setName(""); setCreating(false); }}>Create</button>
             </div>
           </div>
+        )}
+
+        {/* Feedback #15 — "my list page when empty should see some good
+            background". This case had NO empty state at all: with no lists,
+            the map below rendered nothing and the screen was genuinely blank
+            under the AppBar. The illustration + a first-run action give it
+            something to be. */}
+        {lists.length === 0 && !creating && (
+          <EmptyState
+            illustration={<EmptyListIllustration />}
+            emoji="🌟"
+            title="No lists yet"
+            text="Lists are how you group the places you love — a date-night shortlist, weekend errands, the good chai spots."
+            action={
+              <button className="btn btn-primary row gap-6 center" onClick={() => setCreating(true)}>
+                <Plus size={16} /> Create your first list
+              </button>
+            }
+          />
         )}
 
         {lists.map((l) => (

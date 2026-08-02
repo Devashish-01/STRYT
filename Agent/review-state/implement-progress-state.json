@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "work_item_id": null,
+  "work_item_type": null,
+  "tracker_ref": null,
+  "feature_slug": null,
+  "finding_type": null,
+  "status": "idle",
+  "current_phase": 0,
+  "phases_completed": [],
+  "plan_path": null,
+  "implementation_step_index": 0,
+  "implementation_steps_total": 0,
+  "started_at": null,
+  "completed_at": null,
+  "last_run_at": null
+}

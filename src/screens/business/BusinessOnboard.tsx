@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { catalogService, businessService, uploadService } from "@/services";
@@ -11,9 +11,19 @@ import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
 import { DEFAULT_ONBOARD_DAYS_PATTERN, DEFAULT_START_TIME, DEFAULT_ONBOARD_END_TIME, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
 
 import { reverseGeocodeFull } from "@/lib/geocode";
-import { searchMapBusinessCandidates, ImportedBusinessDetails } from "@/lib/mapBusinessSearch";
 
 const steps = ["Basics", "Location", "Photos", "Contact"];
+
+// Bounds for the opening-date picker, as YYYY-MM-DD (what <input type="date">
+// expects, and what Postgres accepts unambiguously for a `date` column —
+// no locale guessing about 03/04/2026).
+function isoDay(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+/** Long-established shops exist; 50 years covers them without allowing typos like 1066. */
+const OPENING_DATE_MIN = isoDay(new Date(Date.now() - 50 * 365 * 24 * 60 * 60 * 1000));
+/** You can pre-register a shop that's opening soon, but not one opening in 2099. */
+const OPENING_DATE_MAX = isoDay(new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000));
 
 export default function BusinessOnboard() {
   const nav = useNavigate();
@@ -23,12 +33,6 @@ export default function BusinessOnboard() {
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Google Maps Import State
-  const [gQuery, setGQuery] = useState("");
-  const [gSearching, setGSearching] = useState(false);
-  const [gResults, setGResults] = useState<ImportedBusinessDetails[]>([]);
-  const [imported, setImported] = useState(false);
-
   const [name, setName] = useState("");
   const [cat, setCat] = useState<string | null>(null);
   const [sub, setSub] = useState<string[]>([]);
@@ -36,7 +40,7 @@ export default function BusinessOnboard() {
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("Pune");
   const [pincode, setPincode] = useState("");
-  // Same per-day, multi-shift editor as the real Hours page (HoursEditor.tsx) —
+  // Same per-day, multi-shift editor as the real Hours page (HoursEditor.tsx) â€”
   // so what's set at onboarding is the exact control the owner will edit later,
   // not a coarser preset picker that forces an immediate follow-up trip to Settings.
   const [hoursRaw, setHoursRaw] = useState(() =>
@@ -115,7 +119,7 @@ export default function BusinessOnboard() {
             We'll verify your business within ~24 hours. Once approved, <span className="semi" style={{ color: "var(--ink-900)" }}>3,247 nearby users</span> get a silent heads-up that you're open.
           </p>
           <div className="card" style={{ marginTop: 24, width: "100%", textAlign: "left" }}>
-            <div className="row gap-10"><Store size={20} color="var(--orange-500)" /><div><div className="semi small">{name || "Your business"}</div><div className="tiny muted">{selectedCat?.name} • Under review</div></div></div>
+            <div className="row gap-10"><Store size={20} color="var(--orange-500)" /><div><div className="semi small">{name || "Your business"}</div><div className="tiny muted">{selectedCat?.name} â€¢ Under review</div></div></div>
           </div>
         </div>
         <div className="page-pad col gap-10">
@@ -128,7 +132,7 @@ export default function BusinessOnboard() {
 
   return (
     <div className="screen">
-      <AppBar title="List your business" subtitle={`Step ${step + 1} of 4 • ${steps[step]}`} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
+      <AppBar title="List your business" subtitle={`Step ${step + 1} of 4 â€¢ ${steps[step]}`} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
 
       {/* Progress */}
       <div className="row gap-4 page-pad" style={{ paddingTop: 12, paddingBottom: 4 }}>
@@ -140,89 +144,10 @@ export default function BusinessOnboard() {
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
         {step === 0 && (
           <>
-            {/* 🚀 1-TAP GOOGLE MAPS IMPORT CARD */}
-            <div className="card col gap-10" style={{ background: "linear-gradient(135deg, var(--brand-50) 0%, #fff 100%)", border: "1.5px solid var(--brand-200)", padding: 14 }}>
-              <div className="row gap-8 align-center">
-                <span style={{ fontSize: 20 }}>🗺️</span>
-                <div>
-                  <div className="semi" style={{ color: "var(--ink-900)" }}>Import from Google Maps</div>
-                  <div className="tiny muted">Search your business name to auto-fill details in 1 tap.</div>
-                </div>
-              </div>
-
-              <div className="row gap-8">
-                <input
-                  className="input grow"
-                  placeholder="e.g. Dr Sharma Clinic Pune or Shop Name"
-                  value={gQuery}
-                  onChange={(e) => setGQuery(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      setGSearching(true);
-                      const res = await searchMapBusinessCandidates(gQuery);
-                      setGResults(res);
-                      setGSearching(false);
-                    }
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={gSearching || gQuery.trim().length < 2}
-                  onClick={async () => {
-                    setGSearching(true);
-                    const res = await searchMapBusinessCandidates(gQuery);
-                    setGResults(res);
-                    setGSearching(false);
-                  }}
-                >
-                  {gSearching ? "Searching…" : "Search"}
-                </button>
-              </div>
-
-              {gResults.length > 0 && (
-                <div className="col gap-6" style={{ marginTop: 4 }}>
-                  <div className="tiny semi muted">Select your business to auto-fill:</div>
-                  {gResults.map((item, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      className="card row center-v gap-8 text-left"
-                      style={{ padding: "8px 12px", background: "#fff", border: "1px solid var(--brand-200)", cursor: "pointer" }}
-                      onClick={() => {
-                        setName(item.name);
-                        setAddress(item.address);
-                        if (item.city) setCity(item.city);
-                        if (item.pincode) setPincode(item.pincode);
-                        setLat(item.lat);
-                        setLng(item.lng);
-                        if (item.phone) setPhone(item.phone.replace(/\D/g, "").slice(-10));
-                        setImported(true);
-                        setGResults([]);
-                        showToast("✅ Details imported from Google Maps!");
-                      }}
-                    >
-                      <div className="grow">
-                        <div className="semi small">{item.name}</div>
-                        <div className="tiny muted line-clamp-1">{item.address}</div>
-                      </div>
-                      <span className="chip active tiny" style={{ background: "var(--brand-600)", color: "#fff" }}>Import</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {imported && (
-                <div className="tiny row gap-6 center-v" style={{ color: "var(--green-700)", fontWeight: 600 }}>
-                  ✓ Business imported from Google Maps! Review and complete below.
-                </div>
-              )}
-            </div>
 
             <div className="field">
               <label>Business name *</label>
-              <input className="input" placeholder="e.g. Spice Route Kitchen" value={name} onChange={(e) => setName(e.target.value)} autoFocus={!imported} />
+              <input className="input" placeholder="e.g. Spice Route Kitchen" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
             </div>
             <div className="field">
               <label>Category *</label>
@@ -232,7 +157,7 @@ export default function BusinessOnboard() {
                   <button className="btn btn-outline btn-sm" style={{ width: "fit-content" }} onClick={refetchCats}>Retry</button>
                 </div>
               ) : catLoading && cats.length === 0 ? (
-                <div className="tiny muted">Loading categories…</div>
+                <div className="tiny muted">Loading categoriesâ€¦</div>
               ) : cats.length === 0 ? (
                 <div className="tiny muted">No categories available. <button className="semi" style={{ color: "var(--brand-700)" }} onClick={refetchCats}>Reload</button></div>
               ) : (
@@ -345,7 +270,7 @@ export default function BusinessOnboard() {
             </div>
             <div className="field">
               <label>Opening offer (optional)</label>
-              <input className="input" placeholder="e.g. 50% OFF up to ₹100" value={offer} onChange={(e) => setOffer(e.target.value)} />
+              <input className="input" placeholder="e.g. 50% OFF up to â‚¹100" value={offer} onChange={(e) => setOffer(e.target.value)} />
             </div>
           </>
         )}
@@ -361,14 +286,28 @@ export default function BusinessOnboard() {
             </div>
             <div className="field">
               <label>Opening date</label>
+              {/* A real date input, not free text. This used to be a plain
+                  text field with placeholder "e.g. 30 May 2026" writing into
+                  businesses.opening_date, which is a genuine `date` column —
+                  so anything unparseable was silently lost on submit.
+                  min/max keep it to a sane window: a shop can have opened in
+                  the past, but not be scheduled decades out. */}
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <Calendar size={16} color="var(--ink-400)" />
-                <input className="input" style={{ border: "none" }} placeholder="e.g. 30 May 2026" value={openDate} onChange={(e) => setOpenDate(e.target.value)} />
+                <input
+                  type="date"
+                  className="input"
+                  style={{ border: "none" }}
+                  value={openDate}
+                  min={OPENING_DATE_MIN}
+                  max={OPENING_DATE_MAX}
+                  onChange={(e) => setOpenDate(e.target.value)}
+                />
               </div>
             </div>
             <div className="field">
               <label>Hours</label>
-              <span className="tiny muted">Set your real working hours — this is exactly what customers will book against.</span>
+              <span className="tiny muted">Set your real working hours â€” this is exactly what customers will book against.</span>
               <div style={{ marginTop: 8 }}>
                 <WeeklyHoursEditor initialRaw={hoursRaw} onChange={setHoursRaw} />
               </div>
@@ -384,7 +323,7 @@ export default function BusinessOnboard() {
           disabled={!canNext || submitting}
           onClick={() => (step < 3 ? setStep(step + 1) : submit())}
         >
-          {step < 3 ? "Continue" : submitting ? "Submitting…" : "Submit for review"}
+          {step < 3 ? "Continue" : submitting ? "Submittingâ€¦" : "Submit for review"}
         </button>
       </div>
     </div>

@@ -71,7 +71,17 @@ interface AppState {
   // active context (which "hat" you're wearing)
   activeContext: ActiveContext;
   setContext: (ctx: ActiveContext) => void;
+  /**
+   * Businesses this user OWNS. This is an authority signal — it decides who
+   * counts as the owner in BusinessAccessGuard, who may run business-password
+   * recovery, and whose business appears on their own profile. Never put a
+   * delegated grant in here; use `manageableBusinessIds` for "can open".
+   */
   ownedBusinessIds: string[];
+  /** Businesses reachable via an ACTIVE grant (team member or FULL delegate), never owned. */
+  delegatedBusinessIds: string[];
+  /** owned ∪ delegated — "which business consoles can this user open at all". */
+  manageableBusinessIds: string[];
   ownedProviderId: string | null;
   // true once refreshUser()'s owned-entities read has actually succeeded at
   // least once (not flipped in a finally, unlike profileReady) — lets
@@ -264,6 +274,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // owned entities — hydrated from userService.owned() once authed.
   const [ownedBusinessIds, setOwnedBusinessIds] = useState<string[]>([]);
+  const [delegatedBusinessIds, setDelegatedBusinessIds] = useState<string[]>([]);
   const [ownedProviderId, setOwnedProviderId] = useState<string | null>(null);
   const [ownedEntitiesLoaded, setOwnedEntitiesLoaded] = useState(false);
   const [businessPasswordIsSet, setBusinessPasswordIsSet] = useState(false);
@@ -369,6 +380,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setArea(me.area);
       setRoles(me.roles);
       setOwnedBusinessIds(owned.businessIds);
+      setDelegatedBusinessIds(owned.delegatedBusinessIds);
       setOwnedProviderId(owned.providerId);
       setOwnedEntitiesLoaded(true);
       setActiveContext((ctx) => {
@@ -462,11 +474,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("activeContext", JSON.stringify(ctx));
   }, []);
 
+  const manageableBusinessIds = useMemo(
+    () => Array.from(new Set([...ownedBusinessIds, ...delegatedBusinessIds])),
+    [ownedBusinessIds, delegatedBusinessIds],
+  );
+
   // Per-business "does opening this one require a password" — owned
   // businesses mirror the owner's own businessPasswordIsSet; delegated ones
   // come from the batched delegate lookup (that business's OWNER's password).
   // Kept as its own derivation (not baked in at fetch time) so it's never
   // stale relative to ownedBusinessIds, whichever hydrates first.
+  //
+  // The owner loop MUST run over strictly-owned ids only. While delegated ids
+  // were mixed into ownedBusinessIds, this overwrote a delegated business's
+  // real (owner-set) requirement with the delegate's own flag — so a team
+  // member with no business password of their own walked straight past the
+  // password gate on a business they'd been added to.
   const businessPasswordRequired = useMemo(() => {
     const map: Record<string, boolean> = { ...delegatedBusinessPasswordMap };
     for (const id of ownedBusinessIds) map[id] = businessPasswordIsSet;
@@ -548,6 +571,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       activeContext,
       setContext: setPersistedContext,
       ownedBusinessIds,
+      delegatedBusinessIds,
+      manageableBusinessIds,
       ownedProviderId,
       ownedEntitiesLoaded,
       businessPasswordIsSet,
@@ -612,6 +637,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setArea("");
         setRoles(seedUser.roles);
         setOwnedBusinessIds([]);
+        setDelegatedBusinessIds([]);
         setOwnedProviderId(null);
         setOwnedEntitiesLoaded(false);
         setBusinessPasswordIsSet(false);
@@ -636,7 +662,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }),
     [
       viewUser, refreshUser,
-      area, activeRole, roles, activeContext, ownedBusinessIds, ownedProviderId,
+      area, activeRole, roles, activeContext, ownedBusinessIds, delegatedBusinessIds,
+      manageableBusinessIds, ownedProviderId,
       ownedEntitiesLoaded, businessPasswordIsSet, providerPasswordIsSet,
       businessRecoveryIsSet, providerRecoveryIsSet, businessPasswordRequired, pendingContextSwitch,
       bookmarks, follows, viewedStories, meToos, likes, votes,

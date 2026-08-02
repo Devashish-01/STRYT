@@ -13,6 +13,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, Pill } from "@/components/common";
 import PhotoViewer, { type PhotoViewerItem } from "@/components/PhotoViewer";
+import { catalogLabel, catalogEmptyText } from "@/lib/categoryLabels";
 import { useApp } from "@/store";
 import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
@@ -160,6 +161,9 @@ export default function BusinessDetail() {
   // hours — the same evaluator providers use. Booking is NOT gated on this.
   const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   const isOwner = b.ownerUserId === user.id;
+  // What this business calls its catalogue — Menu / Services / Products —
+  // instead of calling everything a "Menu" (#10).
+  const catLabel = catalogLabel(b.categoryName, b.subCategory);
   // The customer is beyond the shop's own service radius — surface a
   // non-blocking heads-up in the booking sheet (booking stays allowed).
   const outOfRange =
@@ -596,7 +600,8 @@ export default function BusinessDetail() {
         {/* Tabs */}
         <div className="row page-pad" style={{ gap: 0, paddingBottom: 0, paddingTop: 12, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
           {([
-            ["catalog", `Menu (${b.catalog.length})`],
+            // #10 — was hardcoded "Menu", so salons and chemists advertised one too.
+            ["catalog", `${catLabel} (${b.catalog.length})`],
             ["posts", `Posts (${(bizPosts ?? []).length})`],
             ...((b.portfolio ?? []).length > 0 ? [["work", `Work (${(b.portfolio ?? []).length})`]] : []),
             ["about", "About"],
@@ -616,7 +621,8 @@ export default function BusinessDetail() {
             {b.catalog.length === 0 && (
               <div className="col center" style={{ padding: "32px 0", gap: 8 }}>
                 <span style={{ fontSize: 32 }}>🛒</span>
-                <span className="small muted">No items listed yet.</span>
+                {/* Matches the tab's own noun, so the two can't disagree. */}
+                <span className="small muted">{catalogEmptyText(catLabel)}</span>
               </div>
             )}
             {b.catalog.map((item) => {

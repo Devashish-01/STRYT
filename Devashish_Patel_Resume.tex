@@ -1,0 +1,234 @@
+\documentclass[a4paper,11pt]{article}
+
+% Essential packages for modern resume formatting
+\usepackage{latexsym}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{ragged2e}
+\usepackage[empty]{fullpage}
+\usepackage{wrapfig}
+\usepackage{lipsum}
+\usepackage{tabularx}
+\usepackage{titlesec}
+\usepackage{geometry}
+\usepackage{marvosym}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{fontawesome5}
+\usepackage{multicol}
+\usepackage{graphicx}
+\usepackage{cfr-lm}
+\usepackage[T1]{fontenc}
+\usepackage[most]{tcolorbox}
+
+% Page layout configuration
+\setlength{\multicolsep}{0pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\geometry{left=1.4cm, top=0.8cm, right=1.2cm, bottom=1cm}
+
+% Section header styling with colored box
+\tcbset{
+frame code={}
+center title,
+left=0pt,
+right=0pt,
+top=0pt,
+bottom=0pt,
+colback=gray!20,
+colframe=white,
+width=\dimexpr\textwidth\relax,
+enlarge left by=-2mm,
+boxsep=4pt,
+arc=0pt,outer arc=0pt,
+}
+
+% URL and text formatting
+\urlstyle{same}
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Section title formatting with underline
+\titleformat{\section}{
+\vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-7pt}]
+
+% Custom command for resume items with bold labels
+\newcommand{\resumeItem}[2]{
+\item{
+\textbf{#1}{\hspace{0.5mm}#2 \vspace{-0.5mm}}
+}
+}
+
+% Command for positions of responsibility entries
+\newcommand{\resumePOR}[3]{
+\vspace{0.5mm}\item
+\begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{#1}\hspace{0.3mm}#2 & \textit{\small{#3}}
+\end{tabular*}
+\vspace{-2mm}
+}
+
+% Command for education and experience entries
+\newcommand{\resumeSubheading}[4]{
+\vspace{0.5mm}\item
+\begin{tabular*}{0.98\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & \textit{\footnotesize{#4}} \\
+    \textit{\footnotesize{#3}} &  \footnotesize{#2}\\
+\end{tabular*}
+\vspace{-2.4mm}
+}
+
+% Command for project entries with title, tech stack, and dates
+\newcommand{\resumeProject}[4]{
+\vspace{0.5mm}\item
+\begin{tabular*}{0.98\textwidth}[t]{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & \textit{\footnotesize{#3}} \\
+    \footnotesize{\textit{#2}} & \footnotesize{#4}
+\end{tabular*}
+\vspace{-2.4mm}
+}
+
+% Simplified resume item command
+\newcommand{\resumeSubItem}[2]{\resumeItem{#1}{#2}\vspace{-4pt}}
+
+% Custom bullet point styling
+\renewcommand{\labelitemi}{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+% List environment definitions for consistent spacing
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=*,labelsep=0mm]}
+\newcommand{\resumeHeadingSkillStart}{\begin{itemize}[leftmargin=*,itemsep=1.7mm, rightmargin=2ex]}
+\newcommand{\resumeItemListStart}{\begin{itemize}[leftmargin=3ex, rightmargin=2ex, noitemsep,labelsep=1.2mm,itemsep=0mm]\small}
+
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}\vspace{2mm}}
+\newcommand{\resumeHeadingSkillEnd}{\end{itemize}\vspace{-2mm}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\end{justify}\vspace{-2mm}}
+
+% Section header with gray background box
+\newcommand{\cvsection}[1]{%
+\vspace{2mm}
+\begin{tcolorbox}
+\textbf{\large #1}
+\end{tcolorbox}
+\vspace{-4mm}
+}
+
+% Table column alignment definitions
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}%
+\newcolumntype{R}{>{\raggedleft\arraybackslash}X}%
+\newcolumntype{C}{>{\centering\arraybackslash}X}%
+
+% Personal information variables
+\newcommand{\name}{Devashish Patel}
+\newcommand{\phone}{7974388188}
+\newcommand{\emaila}{devashish.ind@gmail.com}
+\newcommand{\github}{https://github.com/Devashish-01}
+\newcommand{\linkedin}{https://www.linkedin.com/in/devashish-patel01/}
+
+\begin{document}
+\fontfamily{cmr}\selectfont
+
+% Header section
+\begin{center}
+\fontsize{20}{20}\selectfont
+\textbf{\name}
+\end{center}
+
+\begin{center}
+{\raisebox{0.0\height}{\footnotesize \faPhone}\ +91-\phone} \quad
+\href{mailto:\emaila}{\raisebox{0.0\height}{\footnotesize \faEnvelope}\ \emaila} \quad
+\href{\github}{\raisebox{0.0\height}{\footnotesize \faGithub}\ {GitHub Profile}} \quad
+\href{\linkedin}{\raisebox{0.0\height}{\footnotesize \faLinkedin}\ {LinkedIn Profile}}
+\end{center}
+
+\vspace{-2.0mm}
+
+% Education
+\section{\textbf{Education}}
+\resumeSubHeadingListStart
+\resumeSubheading
+  { National Institute of Technology, Warangal}{}
+  {Masters of Computer Applications}{2021--2024}
+\resumeSubheading
+  { Devi Ahilya Vishwavidyalaya, Indore}{}
+  {Bachelors of Computer Applications}{2018--2021}
+\resumeSubHeadingListEnd
+\vspace{-3.0mm}
+
+% Technical Skills
+\section{\textbf{Technical Skills}}
+\vspace{0.5mm}
+\begin{itemize}[leftmargin=0.05in, label={}]
+\small{\item{
+    \textbf{Languages:} Java, TypeScript, JavaScript, Python, SQL \\
+    \textbf{Backend:} Spring Boot, FastAPI, REST APIs, JPA/Hibernate, OAuth2/JWT, Keycloak \\
+    \textbf{Frontend:} React, Next.js, Vite, Redux Toolkit, Ant Design, MUI, HTML, CSS \\
+    \textbf{Databases:} MySQL, PostgreSQL, PostGIS; schema design, migrations, indexing \\
+    \textbf{Cloud \& Services:} Supabase, Azure OpenAI, Firebase, FCM \quad \textbf{Mobile \& Tools:} Capacitor, Git, Docker, Playwright, Agile/Scrum
+}}
+\end{itemize}
+
+% Professional Experience
+\section{\textbf{Professional Experience}}
+
+\resumeProject
+{Full-Stack Developer -- Infinevo Cloud Solutions Pvt Ltd}
+{Pune, India}
+{January 2026 -- Present}{}
+\vspace{-0.5mm}
+\begin{itemize}[leftmargin=0.05in, label={}]
+\small{\item{
+    \textbf{Infinevo Payroll (Indian Payroll SaaS):} Developed salary structure and revision modules on React/Redux for employee onboarding and CTC configuration; fixed component payload and flat-vs-percentage calculation logic across onboarding and edit flows. Implemented admin and employee portal access control using Keycloak JWT roles on React routes and Spring Boot organization-scoped interceptors. Resolved post-login organization ID race conditions via shared React context, enabling reliable pay-run and payslip API integration. \\
+    \textbf{Shreenidhi Finance (Microfinance Platform):} Built cross-platform mobile app using React, Vite, and Capacitor for Android field agents; configured native HTTP and staging APK pipeline for API access outside browser CORS limits. Delivered customer self-service portal (loan dashboard, EMI history, profile) and collection-management screens for payment methods and agent-wise collections. Contributed Spring Boot services for customer profiles, penalty configuration, and scheduled penalty calculation on a JWT-secured MySQL backend. \\
+    \textbf{Invoice AI SaaS (Azure-based Document Processing):} Built AI Trainer Sandbox on Next.js/TypeScript for multi-tenant invoice extraction rule training with PDF preview, scoped Q\&A, and rule commit/rollback workflows. Implemented FastAPI backend routes for scoped training sessions, Redis-backed state, rule versioning, and background re-audit of processed invoices. Integrated frontend with backend via Next.js API proxies and Alembic PostgreSQL migrations. \\
+    \textbf{Ashtasiddhi Infrastructure (Corporate Website):} Developed full-stack marketing website using React, Vite, TypeScript, and FastAPI with SMTP-based contact form. Implemented JSON-driven content architecture for projects, services, and company data; added SEO metadata, lazy-loaded routes, and accessible responsive UI for a government-facing civil contractor brand.
+}}
+\end{itemize}
+
+% Personal Projects
+\section{\textbf{Personal Projects}}
+
+\resumeProject
+{ZetaX -- Live Software Agency \& SaaS Website}
+{\href{https://zetax.in}{zetax.in} \,|\, React, TypeScript, Vite, Tailwind CSS}
+{Live Project}{}
+\vspace{-0.5mm}
+\begin{itemize}[leftmargin=0.05in, label={}]
+\small{\item{
+    Designed, developed, and deployed the live marketing website for ZetaX, a custom software and SaaS solutions company --- \textbf{\href{https://zetax.in}{zetax.in}} \\
+    Built 15+ SPA routes (services, product landings, enterprise, careers, legal) with React 19, TypeScript, Vite, Tailwind; added SEO/schema, Formspree leads, WhatsApp CTA, deployed on Vercel.
+}}
+\end{itemize}
+
+\resumeProject
+{STRYT -- Live Hyperlocal Marketplace Platform}
+{\href{https://stryt.in}{stryt.in} \,|\, React, TypeScript, Supabase, Capacitor}
+{Live Project}{}
+\vspace{-0.5mm}
+\begin{itemize}[leftmargin=0.05in, label={}]
+\small{\item{
+    Independently designed, built, and deployed a location-first hyperlocal marketplace --- \textbf{\href{https://stryt.in}{stryt.in}} \\
+    Built PostGIS discovery, appointments, real-time queues, and multi-role consoles; Supabase backend with RLS and RPCs; live PWA and native apps with UPI payments and multilingual support.
+}}
+\end{itemize}
+
+\vspace{-3.0mm}
+
+% Achievements
+\section{\textbf{Achievements}}
+\vspace{0.2mm}
+\begin{itemize}[leftmargin=0.05in, label={}]
+\small{\item{
+    \textbf{Competitive Programming:} Solved 1000+ problems on \href{https://leetcode.com/u/devashish_ind/}{LeetCode}, \href{https://www.geeksforgeeks.org/user/devashishind/}{GeeksforGeeks}, \href{https://www.hackerrank.com/profile/devashish_ind}{HackerRank}, \href{https://www.codechef.com/users/devashish_ind}{CodeChef}, and \href{https://codeforces.com/profile/devashish_ind}{Codeforces}
+}}
+\end{itemize}
+
+\resumeSubHeadingListEnd
+\vspace{-5mm}
+
+\end{document}

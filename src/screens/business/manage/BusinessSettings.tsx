@@ -5,14 +5,19 @@ import { businessService, bustBusinessGetCache, profileControlService, uploadSer
 import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/settings";
-import { BadgeCheck, UserPlus, X, Image as ImageIcon } from "@/components/Icons";
+import { BadgeCheck, UserPlus, X, Image as ImageIcon, Trash2 } from "@/components/Icons";
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
 
 export default function BusinessSettings() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { showToast, setContext, user } = useApp();
+  const { showToast, setContext, user, refreshUser } = useApp();
+  // #5 — delete flow state. Typed confirmation, not a yes/no: this is the one
+  // action on this screen that removes the shop from the app.
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const { data: business, refetch: refetchBiz } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const [ownerEnabled, setOwnerEnabled] = useState(true);
   const [accepting, setAccepting] = useState(true);
@@ -466,6 +471,74 @@ export default function BusinessSettings() {
         <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
           Exit business mode
         </button>
+
+        {/* Feedback #5 — there was no way to delete a business at all.
+            Owner-only, last on the page, and behind a typed confirmation:
+            this is the single most destructive thing an owner can do here. */}
+        <SettingsSection title="Danger zone">
+          <SettingsRow
+            icon={<Trash2 size={18} color="var(--red-600)" />}
+            label="Delete this business"
+            hint="Removes it from STRYT. Past bookings are kept."
+            onClick={() => setDeleteOpen(true)}
+          />
+        </SettingsSection>
+
+        {deleteOpen && (
+          <div className="overlay" onClick={() => !deleting && setDeleteOpen(false)}>
+            <div className="sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="sheet-grab" />
+              <h3 className="bold h2" style={{ marginBottom: 4 }}>Delete {business?.name || "this business"}?</h3>
+              <p className="small muted" style={{ marginBottom: 14 }}>
+                It disappears from search, the map and nearby feeds, and your team loses access.
+                Bookings customers already have with you are kept, so nobody loses their history.
+                This can't be undone from the app.
+              </p>
+              <label className="tiny semi" style={{ display: "block", marginBottom: 6 }}>
+                Type <b>DELETE</b> to confirm
+              </label>
+              <input
+                className="input"
+                value={deleteConfirm}
+                disabled={deleting}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder="DELETE"
+                autoFocus
+              />
+              <button
+                className="btn btn-block"
+                style={{ marginTop: 14, height: 48, background: deleteConfirm.trim().toUpperCase() === "DELETE" ? "var(--red-500)" : "var(--ink-200)", color: "#fff", fontWeight: 700 }}
+                disabled={deleting || deleteConfirm.trim().toUpperCase() !== "DELETE"}
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    await businessService.delete(id);
+                    showToast("Business deleted");
+                    setContext({ type: "customer", id: null, name: "Personal" });
+                    await refreshUser();
+                    nav("/home");
+                  } catch (e: any) {
+                    // Surfaces the server's own reason — e.g. "You have 3
+                    // upcoming booking(s)" — which is actionable, unlike a
+                    // generic failure.
+                    showToast(e?.message || "Couldn't delete this business");
+                    setDeleting(false);
+                  }
+                }}
+              >
+                {deleting ? "Deleting…" : "Delete permanently"}
+              </button>
+              <button
+                className="btn btn-block"
+                style={{ marginTop: 8, height: 44, background: "transparent", color: "var(--ink-600)" }}
+                disabled={deleting}
+                onClick={() => setDeleteOpen(false)}
+              >
+                Keep my business
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       <ManageNav bizId={id} />
     </div>

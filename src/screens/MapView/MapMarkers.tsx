@@ -19,16 +19,42 @@ import { useI18n } from "@/lib/i18n";
 // react-map-gl separates <Popup> from <Marker> (no nested-children-opens-
 // on-click like react-leaflet) — one "which pin is selected" state drives a
 // single conditionally-rendered Popup, positioned at that pin's coordinates.
+//
+// Selection is held as a REFERENCE (kind + id), not a snapshot of the object.
+// It used to hold the row itself, which meant the popup outlived its pin: turn
+// the layer off, narrow the radius, or let a query refetch, and the pin
+// vanished while a popup full of stale data stayed floating over the map.
+// Resolving it against the current lists on every render makes the popup
+// strictly a view of something that is still on screen.
 type Selected =
-  | { kind: "business"; data: Business }
-  | { kind: "provider"; data: Provider }
-  | { kind: "request"; data: RequestPost }
+  | { kind: "business"; id: string }
+  | { kind: "provider"; id: string }
+  | { kind: "request"; id: string }
   | null;
 
-function PinMarker({ lng, lat, html, onClick }: { lng: number; lat: number; html: string; onClick: () => void }) {
+/** Minimum comfortable touch target (iOS HIG / Material both land here). */
+const MIN_TAP_PX = 44;
+
+function PinMarker({ lng, lat, html, label, onClick }: {
+  lng: number; lat: number; html: string; label: string; onClick: () => void;
+}) {
   return (
     <Marker longitude={lng} latitude={lat} anchor="bottom" onClick={onClick}>
-      <span style={{ cursor: "pointer", display: "block" }} dangerouslySetInnerHTML={{ __html: html }} />
+      <span style={{ cursor: "pointer", display: "block", position: "relative" }} role="button" aria-label={label}>
+        <span style={{ display: "block" }} dangerouslySetInnerHTML={{ __html: html }} />
+        {/* The pin art is 32×40 (mapIcons.ts) — under the 44pt minimum, which
+            is why pins felt fiddly to hit on a phone. This transparent overlay
+            widens the hit area without moving the pin or its anchor: it's
+            absolutely positioned, so it contributes no layout. */}
+        <span
+          aria-hidden
+          style={{
+            position: "absolute", left: "50%", top: "50%",
+            transform: "translate(-50%, -50%)",
+            width: MIN_TAP_PX, height: MIN_TAP_PX,
+          }}
+        />
+      </span>
     </Marker>
   );
 }
@@ -48,6 +74,17 @@ export function MapMarkers({
   const { t } = useI18n();
   const [selected, setSelected] = useState<Selected>(null);
 
+  // Resolve the selection against the CURRENT lists. If the pin is gone —
+  // layer toggled off, radius narrowed, refetch dropped it — this is
+  // undefined and no popup renders, instead of one hanging over empty map.
+  const selectedBusiness = selected?.kind === "business"
+    ? filteredBusinesses.find((b) => b.id === selected.id) : undefined;
+  const selectedProvider = selected?.kind === "provider"
+    ? filteredProviders.find((p) => p.id === selected.id) : undefined;
+  const selectedRequest = selected?.kind === "request"
+    ? nearbyRequests.find((r) => r.id === selected.id) : undefined;
+  const selectedPoint = selectedBusiness ?? selectedProvider ?? selectedRequest;
+
   return (
     <>
       {/* Businesses */}
@@ -59,7 +96,8 @@ export function MapMarkers({
             lng={b.lng}
             lat={b.lat}
             html={isBizOpen ? businessIconHtml : businessOfflineIconHtml}
-            onClick={() => setSelected({ kind: "business", data: b })}
+            label={b.name}
+            onClick={() => setSelected({ kind: "business", id: b.id })}
           />
         );
       })}
@@ -73,7 +111,8 @@ export function MapMarkers({
             lng={p.lng}
             lat={p.lat}
             html={isOpen ? providerIconHtml : providerOfflineIconHtml}
-            onClick={() => setSelected({ kind: "provider", data: p })}
+            label={safeName(p.displayName, "Local provider")}
+            onClick={() => setSelected({ kind: "provider", id: p.id })}
           />
         );
       })}
@@ -85,7 +124,8 @@ export function MapMarkers({
           lng={r.lng as number}
           lat={r.lat as number}
           html={requestIconHtml}
-          onClick={() => setSelected({ kind: "request", data: r })}
+          label={r.title}
+          onClick={() => setSelected({ kind: "request", id: r.id })}
         />
       ))}
 
@@ -104,18 +144,18 @@ export function MapMarkers({
         );
       })}
 
-      {selected && (
+      {selectedPoint && (
         <Popup
-          longitude={selected.kind === "request" ? (selected.data.lng as number) : selected.data.lng}
-          latitude={selected.kind === "request" ? (selected.data.lat as number) : selected.data.lat}
+          longitude={selectedPoint.lng as number}
+          latitude={selectedPoint.lat as number}
           anchor="bottom"
           offset={40}
           closeButton
           closeOnClick={false}
           onClose={() => setSelected(null)}
         >
-          {selected.kind === "business" && (() => {
-            const b = selected.data;
+          {selectedBusiness && (() => {
+            const b = selectedBusiness;
             const isBizOpen = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil).isOpenNow;
             return (
               <div style={{ minWidth: 180 }}>
@@ -140,8 +180,8 @@ export function MapMarkers({
             );
           })()}
 
-          {selected.kind === "provider" && (() => {
-            const p = selected.data;
+          {selectedProvider && (() => {
+            const p = selectedProvider;
             const isOpen = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil).isOpenNow;
             return (
               <div style={{ minWidth: 180 }}>
@@ -163,8 +203,8 @@ export function MapMarkers({
             );
           })()}
 
-          {selected.kind === "request" && (() => {
-            const r = selected.data;
+          {selectedRequest && (() => {
+            const r = selectedRequest;
             return (
               <div style={{ minWidth: 180 }}>
                 <span style={{ fontSize: 11, background: "var(--brand-200)", color: "var(--brand-600)", padding: "2px 6px", borderRadius: 4 }}>{r.categoryName}</span>

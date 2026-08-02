@@ -31,9 +31,20 @@ function boundsForRadius(lat: number, lng: number, radiusKm: number): LngLatBoun
 // Flies/zooms the map whenever the radius changes
 export function RadiusController({ lat, lng, radiusKm }: { lat: number; lng: number; radiusKm: number }) {
   const { current: mapRef } = useMap();
+  const framedOnceRef = useRef(false);
+
   useEffect(() => {
     const map = mapRef?.getMap();
     if (!map) return;
+    // Skip the very first run. <Map initialViewState> has already framed the
+    // user's location, so animating a fitBounds on top of it made the map
+    // visibly lurch the instant it appeared — the single most "this is a web
+    // page, not an app" moment on this screen. Later radius/location changes
+    // still animate, because there the movement IS the feedback.
+    if (!framedOnceRef.current) {
+      framedOnceRef.current = true;
+      return;
+    }
     if (radiusKm >= 5000) {
       map.flyTo({ center: [0, 20], zoom: 2, duration: 1200 });
     } else {
@@ -96,81 +107,93 @@ export function RecenterButton({ radiusKm }: { radiusKm: number }) {
 
 }
 
-export function MapEventsController() {
-  const { refreshUser, showToast } = useApp();
-  const { t, tf } = useI18n();
+/** How long a finger/cursor must rest before a press counts as "long". */
+const LONG_PRESS_MS = 550;
+/** Pixels of drift allowed during a long press before it's treated as a pan. */
+const LONG_PRESS_SLOP_PX = 8;
+
+/**
+ * Long-press / right-click on the map opens the pin-drop confirm flow at that
+ * point.
+ *
+ * It deliberately does NOT write the location itself. It used to: a 600 ms
+ * press fired `userService.setLocation()` straight away, so resting a finger
+ * for a moment before panning silently rewrote the user's saved location and
+ * re-fetched every nearby query. Handing off to the existing confirm overlay
+ * (the same one the pin FAB opens) makes the gesture previewable and
+ * cancellable, which is how every native map behaves.
+ */
+export function MapEventsController({ onLongPress }: { onLongPress: (lat: number, lng: number) => void }) {
   const { current: mapRef } = useMap();
   const pressTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressOriginRef = useRef<{ x: number; y: number } | null>(null);
+  // Held in a ref so the listener effect doesn't re-subscribe (and drop an
+  // in-flight press) every time the parent re-renders with a new closure.
+  const onLongPressRef = useRef(onLongPress);
+  onLongPressRef.current = onLongPress;
 
   useEffect(() => {
     const map = mapRef?.getMap();
     if (!map) return;
 
-    const startPress = (lngLat: { lat: number; lng: number }) => {
-      if (pressTimeoutRef.current) clearTimeout(pressTimeoutRef.current);
-      pressTimeoutRef.current = setTimeout(async () => {
-        const { lat, lng } = lngLat;
-        try {
-          const areaName = (await reverseGeocode(lat, lng)) || "Custom Pin";
-          await userService.setLocation(lat, lng, areaName);
-          await refreshUser();
-          showToast(tf("map_location_set_long_press", { area: areaName }));
-        } catch {
-          showToast(t("explore_location_failed"));
-        }
-      }, 600);
+    const startPress = (e: any) => {
+      if (!e?.lngLat) return;
+      cancelPress();
+      pressOriginRef.current = e.point ? { x: e.point.x, y: e.point.y } : null;
+      const { lat, lng } = e.lngLat;
+      pressTimeoutRef.current = setTimeout(() => {
+        pressTimeoutRef.current = null;
+        onLongPressRef.current(lat, lng);
+      }, LONG_PRESS_MS);
     };
 
     const cancelPress = () => {
+      pressOriginRef.current = null;
       if (pressTimeoutRef.current) {
         clearTimeout(pressTimeoutRef.current);
         pressTimeoutRef.current = null;
       }
     };
 
-    const onMouseDown = (e: any) => startPress(e.lngLat);
-    const onMouseUp = () => cancelPress();
-    const onTouchStart = (e: any) => {
-      if (e.lngLat) startPress(e.lngLat);
-    };
-    const onTouchEnd = () => cancelPress();
-    const onTouchMove = () => cancelPress();
-    const onDragStart = () => cancelPress();
-    const onZoomStart = () => cancelPress();
-    const onContextMenu = async (e: any) => {
-      cancelPress();
-      const { lat, lng } = e.lngLat;
-      try {
-        const areaName = (await reverseGeocode(lat, lng)) || "Custom Pin";
-        await userService.setLocation(lat, lng, areaName);
-        await refreshUser();
-        showToast(tf("map_location_set_context_menu", { area: areaName }));
-      } catch {
-        showToast(t("explore_location_failed"));
-      }
+    // A press that drifts more than a few pixels is a pan, not a long press.
+    // Cancelling only on `touchmove`/`dragstart` was too coarse: a slow drag
+    // could cross the threshold before MapLibre called it a drag.
+    const onMove = (e: any) => {
+      const origin = pressOriginRef.current;
+      if (!origin || !e?.point) return;
+      if (Math.hypot(e.point.x - origin.x, e.point.y - origin.y) > LONG_PRESS_SLOP_PX) cancelPress();
     };
 
-    map.on("mousedown", onMouseDown);
-    map.on("mouseup", onMouseUp);
-    map.on("touchstart", onTouchStart as any);
-    map.on("touchend", onTouchEnd as any);
-    map.on("touchmove", onTouchMove as any);
-    map.on("dragstart", onDragStart);
-    map.on("zoomstart", onZoomStart);
+    const onContextMenu = (e: any) => {
+      cancelPress();
+      if (e?.lngLat) onLongPressRef.current(e.lngLat.lat, e.lngLat.lng);
+    };
+
+    map.on("mousedown", startPress);
+    map.on("touchstart", startPress as any);
+    map.on("mousemove", onMove);
+    map.on("touchmove", onMove as any);
+    map.on("mouseup", cancelPress);
+    map.on("touchend", cancelPress as any);
+    map.on("touchcancel", cancelPress as any);
+    map.on("dragstart", cancelPress);
+    map.on("zoomstart", cancelPress);
     map.on("contextmenu", onContextMenu);
 
     return () => {
-      map.off("mousedown", onMouseDown);
-      map.off("mouseup", onMouseUp);
-      map.off("touchstart", onTouchStart as any);
-      map.off("touchend", onTouchEnd as any);
-      map.off("touchmove", onTouchMove as any);
-      map.off("dragstart", onDragStart);
-      map.off("zoomstart", onZoomStart);
+      map.off("mousedown", startPress);
+      map.off("touchstart", startPress as any);
+      map.off("mousemove", onMove);
+      map.off("touchmove", onMove as any);
+      map.off("mouseup", cancelPress);
+      map.off("touchend", cancelPress as any);
+      map.off("touchcancel", cancelPress as any);
+      map.off("dragstart", cancelPress);
+      map.off("zoomstart", cancelPress);
       map.off("contextmenu", onContextMenu);
-      if (pressTimeoutRef.current) clearTimeout(pressTimeoutRef.current);
+      cancelPress();
     };
-  }, [mapRef, refreshUser, showToast, t, tf]);
+  }, [mapRef]);
 
   return null;
 }

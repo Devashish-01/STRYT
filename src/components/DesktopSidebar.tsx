@@ -25,7 +25,7 @@ export default function DesktopSidebar() {
     activeContext,
     chatUnread,
     signOut,
-    ownedBusinessIds,
+    manageableBusinessIds,
     ownedProviderId,
     isGuest
   } = useApp();
@@ -44,7 +44,9 @@ export default function DesktopSidebar() {
 
   const isBusiness = effType === "business";
   const isProvider = effType === "provider";
-  const hasMultipleRoles = ownedBusinessIds.length > 0 || !!ownedProviderId;
+  // "Can this user switch hats at all" — a delegated grant is a hat too, so
+  // this is the manageable set, not the ownership set.
+  const hasMultipleRoles = manageableBusinessIds.length > 0 || !!ownedProviderId;
 
   // The sidebar's own "home" is whatever context the user is currently in —
   // the business/provider dashboard while in that hat, customer Home otherwise.

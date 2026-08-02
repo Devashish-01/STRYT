@@ -37,6 +37,9 @@ export default function ManageDashboard() {
   const nav = useNavigate();
   const { showToast, user } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "business");
+  // TMA-006 — no RequireScope on this route: it sits directly under
+  // BusinessAccessGuard and self-hides by scope. Anything added here is
+  // visible to EVERY grantee unless explicitly gated on hasScope()/isOwner.
   const { isOwner, hasScope, consoleMode, scopeLabel } = useBusinessAccess();
   const base = `/business/${id}/manage`;
   const [share, setShare] = useState(false);

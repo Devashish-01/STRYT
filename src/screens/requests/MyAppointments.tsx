@@ -10,7 +10,7 @@ import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard } from "@/components/Icons";
+import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store } from "@/components/Icons";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
@@ -196,7 +196,20 @@ export default function MyAppointments() {
 
   return (
     <div className="screen screen-boxed">
-      <AppBar title="My Appointments" subtitle="Track and manage your bookings" />
+      {/* Feedback #14 — there was no way to START a booking from this page,
+          only to review existing ones. A customer can't create an appointment
+          out of thin air (slots belong to a shop or provider), so "book" means
+          "go find who you want to book with" — Explore is the honest target,
+          not a form. */}
+      <AppBar
+        title="My Appointments"
+        subtitle="Track and manage your bookings"
+        right={
+          <button className="icon-btn" onClick={() => nav("/explore")} aria-label="Book a new appointment" title="Book an appointment">
+            <Plus size={20} />
+          </button>
+        }
+      />
 
       {/* Upcoming / Past tabs */}
       <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 6 }}>
@@ -220,6 +233,11 @@ export default function MyAppointments() {
                 emoji="📅"
                 title={tab === "UPCOMING" ? "No upcoming appointments" : "Nothing here yet"}
                 text={tab === "UPCOMING" ? "Book a slot with a shop or provider and it'll show up here." : "Past, declined and cancelled bookings appear here."}
+                action={tab === "UPCOMING" ? (
+                  <button className="btn btn-primary row gap-6 center" onClick={() => nav("/explore")}>
+                    <Store size={16} /> Find a place to book
+                  </button>
+                ) : undefined}
               />
             ) : (
               list.map((apt) => {
