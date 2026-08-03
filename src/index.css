@@ -2737,6 +2737,45 @@ button.set-row:active {
      className below rather than redefined here. */
 }
 
+/* "Search this area" — floats over the map centre-top, below the search bar.
+   Kept mounted and animated rather than unmounted so it can ease in/out; while
+   hidden it's also removed from the tab order and the a11y tree. */
+.map-search-area {
+  position: absolute;
+  top: calc(var(--map-chrome-inset) + var(--safe-area-top) + 104px);
+  left: 50%;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--brand-700);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(26, 21, 48, 0.18);
+  /* translateY doubles as the enter/exit motion; -50% X keeps it centred. */
+  transform: translate(-50%, -10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.map-search-area.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+.map-search-area:active { transform: translate(-50%, 0) scale(0.97); }
+.map-search-area:disabled { opacity: 0.75; }
+@media (prefers-reduced-motion: reduce) {
+  .map-search-area { transition: opacity 180ms ease; transform: translate(-50%, 0); }
+  .map-search-area:active { transform: translate(-50%, 0); }
+}
+
 .map-screen__search {
   position: absolute;
   top: calc(var(--map-chrome-inset) + var(--safe-area-top));

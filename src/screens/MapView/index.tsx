@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, MapPinPlus } from "@/components/Icons";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
-import type { MapEvent } from "react-map-gl/maplibre";
+import type { MapEvent, MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { discoveryService, requestService, socialService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -26,6 +26,8 @@ import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 import { useI18n } from "@/lib/i18n";
 import { rememberMapboxFallback, makeMapboxTransformRequest, shouldAttemptMapbox, mapboxStyleUrl } from "./mapboxFallback";
+import { useMapViewport } from "./useMapViewport";
+import SearchThisArea from "./SearchThisArea";
 
 // Free, open-source basemap — the fallback when Mapbox can't be shown.
 const FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
@@ -144,6 +146,9 @@ export default function MapView() {
   const [mapReady, setMapReady] = useState(() => !canUseMapbox);
   const mapboxLoadedRef = useRef(false);
   const mountedRef = useRef(true);
+  // Needed outside the <Map> subtree (useMap() only works inside it) so the
+  // "Search this area" pill can read the live bounds at the moment it's tapped.
+  const mapRef = useRef<MapRef>(null);
   const loadTimerRef = useRef<number | null>(null);
   const transformRequest = useMemo(() => makeMapboxTransformRequest(config.mapboxToken), []);
 
@@ -212,29 +217,47 @@ export default function MapView() {
   const presetKms = new Set<number>(RADIUS_OPTIONS.map((o) => o.km));
   const isCustomActive = !presetKms.has(radiusKm);
 
-  const centerLat = user.lat || config.defaultLocation.lat;
-  const centerLng = user.lng || config.defaultLocation.lng;
-  const isWorld   = radiusKm >= 5000;
+  // Where the map is FRAMED on open — still the user's own location.
+  const homeLat = user.lat || config.defaultLocation.lat;
+  const homeLng = user.lng || config.defaultLocation.lng;
+
+  // Where the results come FROM. Starts at the user, then follows wherever they
+  // ask to search. Previously these were the same thing, which is why panning
+  // the map never changed a single pin.
+  //
+  // Guests stay clamped to GUEST_RADIUS_KM here rather than merely having the
+  // radius control hidden — the cap has to apply to the area actually queried,
+  // or zooming out would quietly widen it.
+  const viewport = useMapViewport({
+    lat: homeLat,
+    lng: homeLng,
+    radiusKm: isGuest ? GUEST_RADIUS_KM : radiusKm,
+  });
+  const searched = viewport.searched;
+  const centerLat = searched.lat;
+  const centerLng = searched.lng;
+  const searchRadiusKm = isGuest ? Math.min(searched.radiusKm, GUEST_RADIUS_KM) : searched.radiusKm;
+  const isWorld = false; // "World" was a radius-strip mode; it retires with the strip (Phase 3).
 
   // For "World" use a globally-sorted (newest-first) query with no geo filter
-  const { data: bizPage } = useQuery(
+  const { data: bizPage, loading: bizLoading } = useQuery(
     () => isWorld
       ? discoveryService.businesses({ sort: "new" })
-      : discoveryService.businesses({ lat: centerLat, lng: centerLng, radius: radiusKm }),
-    [centerLat, centerLng, radiusKm]
+      : discoveryService.businesses({ lat: centerLat, lng: centerLng, radius: searchRadiusKm }),
+    [centerLat, centerLng, searchRadiusKm]
   );
-  const { data: provPage } = useQuery(
+  const { data: provPage, loading: provLoading } = useQuery(
     () => isWorld
       ? discoveryService.providers({ sort: "new" })
-      : discoveryService.providers({ lat: centerLat, lng: centerLng, radius: radiusKm }),
-    [centerLat, centerLng, radiusKm]
+      : discoveryService.providers({ lat: centerLat, lng: centerLng, radius: searchRadiusKm }),
+    [centerLat, centerLng, searchRadiusKm]
   );
   const { data: reqPage } = useQuery(() => requestService.feed({ lat: centerLat, lng: centerLng }), [centerLat, centerLng]);
   const { data: nearbyStories } = useQuery(
     () => layers.story
-      ? socialService.storiesNearby(centerLat, centerLng, Math.min(radiusKm, 200))
+      ? socialService.storiesNearby(centerLat, centerLng, Math.min(searchRadiusKm, 200))
       : Promise.resolve([]),
-    [layers.story, centerLat, centerLng, radiusKm]
+    [layers.story, centerLat, centerLng, searchRadiusKm]
   );
 
   const businesses = bizPage?.data ?? [];
@@ -259,7 +282,7 @@ export default function MapView() {
   const nearbyRequests = requests.filter((r) => {
     if (!r.lat || !r.lng) return false;
     if (isWorld) return true;
-    return distanceKm(centerLat, centerLng, r.lat, r.lng) <= radiusKm;
+    return distanceKm(centerLat, centerLng, r.lat, r.lng) <= searchRadiusKm;
   });
 
   const visibleCount =
@@ -269,9 +292,11 @@ export default function MapView() {
     (layers.story    ? mapStories.length : 0);
 
   const brandColor = useMemo(() => resolveToken("--brand-600", "#7c2fe8"), []);
+  // Ring shows the area the RESULTS came from, so a user who has panned away
+  // can see at a glance that what's on screen belongs somewhere else.
   const radiusRing = useMemo(
-    () => (isWorld ? null : circleGeoJSON(centerLat, centerLng, radiusKm)),
-    [centerLat, centerLng, radiusKm, isWorld]
+    () => (isWorld ? null : circleGeoJSON(centerLat, centerLng, searchRadiusKm)),
+    [centerLat, centerLng, searchRadiusKm, isWorld]
   );
 
   return (
@@ -304,6 +329,12 @@ export default function MapView() {
             )}
           </div>
 
+          <SearchThisArea
+            visible={viewport.hasMoved}
+            busy={bizLoading || provLoading}
+            onClick={() => viewport.searchHere(mapRef.current?.getMap())}
+          />
+
           <button
             type="button"
             className="icon-btn map-glass-panel map-fab-pin"
@@ -319,11 +350,20 @@ export default function MapView() {
 
       {/* Full-screen map — Mapbox, or OpenFreeMap if Mapbox couldn't load in time. */}
       <Map
-        initialViewState={{ longitude: centerLng, latitude: centerLat, zoom: 13 }}
+        // Framed on the USER's location; `searched` then follows wherever they
+        // ask. Using `centerLat/Lng` here would re-frame the map every time a
+        // new area was searched, fighting the user's own panning.
+        initialViewState={{ longitude: homeLng, latitude: homeLat, zoom: 13 }}
         mapStyle={mapStyle}
         transformRequest={transformRequest}
         onLoad={handleMapLoad}
         onError={handleMapError}
+        // Tracks where the map IS, so the pill knows when the on-screen results
+        // stopped describing what's visible. Deliberately does not trigger a
+        // query — see useMapViewport.
+        onMoveEnd={viewport.onMapMove}
+        onZoomEnd={viewport.onMapMove}
+        ref={mapRef}
         style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
         attributionControl={{ compact: true }}
         // Keep the GL context alive across tab switches. Without this, leaving
@@ -342,7 +382,13 @@ export default function MapView() {
         // from one that feels like a scrolling div.
         dragPan={{ deceleration: 1400 }}
       >
-        <RadiusController lat={centerLat} lng={centerLng} radiusKm={radiusKm} />
+        {/* Framed on HOME, not on the searched area. Feeding it `centerLat`
+            would re-run fitBounds every time the user tapped "Search this
+            area", yanking the map back to fit that circle and undoing the pan
+            they had just made. This controller's job is only "the radius strip
+            changed, re-frame the user's own circle" — it retires with the strip
+            in Phase 3. */}
+        <RadiusController lat={homeLat} lng={homeLng} radiusKm={radiusKm} />
         {!pin.pickMode && <RecenterButton radiusKm={radiusKm} />}
         {!pin.pickMode && (
           <MapEventsController onLongPress={(lat, lng) => pin.enterPickMode({ lat, lng })} />
