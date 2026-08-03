@@ -11,6 +11,7 @@ import { MAPBOX_PRIMARY_MAP_ENABLED } from "@/lib/features";
 import { StoryViewer } from "@/components/Stories";
 import type { Story } from "@/types";
 import { evaluateProviderAvailability } from "@/utils/availability";
+import { RADIUS_OPTIONS } from "@/utils/constants";
 
 import type { Layer as MapLayer } from "./mapIcons";
 import { meIconHtml } from "./mapIcons";
@@ -237,7 +238,43 @@ export default function MapView() {
   const searched = viewport.searched;
   const centerLat = searched.lat;
   const centerLng = searched.lng;
-  const searchRadiusKm = isGuest ? Math.min(searched.radiusKm, GUEST_RADIUS_KM) : searched.radiusKm;
+
+  // An explicit "within N km", or null to follow the map's zoom.
+  //
+  // The redesign derived radius purely from zoom, which removed the control
+  // people were actually using. "How far" and "where" are separate questions:
+  // zoom answers neither well on its own, so radius is explicit again and
+  // panning still decides the centre. Null keeps the zoom-derived behaviour as
+  // the default.
+  const [radiusOverride, setRadiusOverride] = useState<number | null>(() => {
+    const saved = localStorage.getItem("settings_map_radius_override");
+    if (saved === null || saved === "") return null;
+    const n = parseFloat(saved);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  });
+  useEffect(() => {
+    localStorage.setItem("settings_map_radius_override", radiusOverride == null ? "" : String(radiusOverride));
+  }, [radiusOverride]);
+
+  const searchRadiusKm = isGuest
+    ? Math.min(radiusOverride ?? searched.radiusKm, GUEST_RADIUS_KM)
+    : (radiusOverride ?? searched.radiusKm);
+
+  // Picking a radius re-frames the map around it so the ring, the pins and the
+  // list all describe the same circle — otherwise "within 10 km" while zoomed
+  // into one street is a claim the screen visibly contradicts.
+  function applyRadius(km: number | null) {
+    setRadiusOverride(km);
+    if (km == null) return;
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    const latDelta = km / 111;
+    const lngDelta = km / (111 * Math.cos((centerLat * Math.PI) / 180) || 1);
+    map.fitBounds(
+      [[centerLng - lngDelta, centerLat - latDelta], [centerLng + lngDelta, centerLat + latDelta]],
+      { padding: 48, duration: 600 },
+    );
+  }
   const isWorld = false; // "World" was a radius-strip mode; it retires with the strip (Phase 3).
 
   // For "World" use a globally-sorted (newest-first) query with no geo filter
@@ -460,6 +497,11 @@ export default function MapView() {
           setFilter={setResultFilter}
           availOnly={availOnly}
           setAvailOnly={setAvailOnly}
+          radiusKm={radiusOverride}
+          // Guests are capped at GUEST_RADIUS_KM, so offering the row would be
+          // offering choices that silently don't apply.
+          onRadiusChange={isGuest ? undefined : applyRadius}
+          radiusOptions={RADIUS_OPTIONS}
           onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
         />
       )}

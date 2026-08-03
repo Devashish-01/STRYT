@@ -2801,6 +2801,20 @@ button.set-row:active {
   flex-shrink: 0;
 }
 
+/* "Within …" — how far to search. Separate row from the type filters because
+   they answer different questions and mixing them reads as one long soup. */
+.map-sheet__radius {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 10px;
+  flex-shrink: 0;
+}
+.map-sheet__radius-label {
+  flex-shrink: 0;
+  padding-right: 2px;
+}
+
 .map-sheet__list {
   flex: 1;
   overflow-y: auto;

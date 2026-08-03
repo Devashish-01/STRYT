@@ -59,6 +59,7 @@ export default function MapResultsSheet({
   centerLat, centerLng, loading,
   businesses, providers, requests, stories,
   filter, setFilter, availOnly, setAvailOnly,
+  radiusKm, onRadiusChange, radiusOptions = [],
   onStoryClick,
 }: {
   centerLat: number;
@@ -72,6 +73,11 @@ export default function MapResultsSheet({
   setFilter: (f: ResultFilter) => void;
   availOnly: boolean;
   setAvailOnly: (v: boolean) => void;
+  /** Explicit search radius in km, or null to follow the map's zoom. */
+  radiusKm?: number | null;
+  /** Omit to hide the radius row entirely (guests, who are capped). */
+  onRadiusChange?: (km: number | null) => void;
+  radiusOptions?: { label: string; km: number }[];
   onStoryClick: (stories: Story[], idx: number) => void;
 }) {
   const nav = useNavigate();
@@ -214,6 +220,37 @@ export default function MapResultsSheet({
           </button>
         ))}
       </div>
+
+      {/* How far to search.
+          The redesign made radius derive from zoom, which removed the control
+          entirely — but "how far" and "where" are two different questions and
+          people want to answer them separately. So: radius is explicit here,
+          panning still decides the centre.
+          Leaving every option unselected means "follow the zoom", which is the
+          redesigned behaviour and stays the default. */}
+      {onRadiusChange && (
+        <div className="map-sheet__radius hscroll">
+          <span className="tiny muted map-sheet__radius-label">Within</span>
+          <button
+            type="button"
+            className={`chip tiny${radiusKm == null ? " active" : ""}`}
+            onClick={() => { haptics.selection(); onRadiusChange(null); }}
+            title="Search whatever the map is showing"
+          >
+            Map view
+          </button>
+          {radiusOptions.map((o) => (
+            <button
+              key={o.km}
+              type="button"
+              className={`chip tiny${radiusKm === o.km ? " active" : ""}`}
+              onClick={() => { haptics.selection(); onRadiusChange(o.km); }}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="map-sheet__list">
         {shown.length === 0 ? (
