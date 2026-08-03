@@ -28,32 +28,9 @@ function boundsForRadius(lat: number, lng: number, radiusKm: number): LngLatBoun
   ];
 }
 
-// Flies/zooms the map whenever the radius changes
-export function RadiusController({ lat, lng, radiusKm }: { lat: number; lng: number; radiusKm: number }) {
-  const { current: mapRef } = useMap();
-  const framedOnceRef = useRef(false);
-
-  useEffect(() => {
-    const map = mapRef?.getMap();
-    if (!map) return;
-    // Skip the very first run. <Map initialViewState> has already framed the
-    // user's location, so animating a fitBounds on top of it made the map
-    // visibly lurch the instant it appeared — the single most "this is a web
-    // page, not an app" moment on this screen. Later radius/location changes
-    // still animate, because there the movement IS the feedback.
-    if (!framedOnceRef.current) {
-      framedOnceRef.current = true;
-      return;
-    }
-    if (radiusKm >= 5000) {
-      map.flyTo({ center: [0, 20], zoom: 2, duration: 1200 });
-    } else {
-      map.fitBounds(boundsForRadius(lat, lng, radiusKm), { padding: 60, duration: 800 });
-    }
-  }, [lat, lng, radiusKm, mapRef]);
-
-  return null;
-}
+// RadiusController lived here. Its only job was re-framing the map when the
+// radius strip changed; the strip retired with the map redesign (zoom now
+// defines the searched area), so it had nothing left to react to.
 
 // Flies to the current user location and updates their DB coordinates to GPS coords on tap
 export function RecenterButton({ radiusKm }: { radiusKm: number }) {

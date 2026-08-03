@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, MapPinPlus } from "@/components/Icons";
+import { MapPinPlus } from "@/components/Icons";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapEvent, MapRef } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -11,17 +11,17 @@ import { MAPBOX_PRIMARY_MAP_ENABLED } from "@/lib/features";
 import { StoryViewer } from "@/components/Stories";
 import type { Story } from "@/types";
 import { evaluateProviderAvailability } from "@/utils/availability";
-import { RADIUS_OPTIONS } from "@/utils/constants";
+
 import type { Layer as MapLayer } from "./mapIcons";
 import { meIconHtml } from "./mapIcons";
-import { RadiusController, RecenterButton, MapEventsController } from "./MapControllers";
+import { RecenterButton, MapEventsController } from "./MapControllers";
 import { SearchBar } from "./SearchBar";
-import { LayerToggles } from "./LayerToggles";
-import { RadiusStrip } from "./RadiusStrip";
+
+
 import GuestRadiusNotice from "@/components/GuestRadiusNotice";
 import { GUEST_RADIUS_KM } from "@/lib/guestMode";
 import { MapMarkers } from "./MapMarkers";
-import { NearbySheet } from "./NearbySheet";
+import MapResultsSheet, { type ResultFilter } from "./MapResultsSheet";
 import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 import { useI18n } from "@/lib/i18n";
@@ -86,50 +86,53 @@ export default function MapView() {
   const { user, refreshUser, showToast, isGuest } = useApp();
   const { t, tf } = useI18n();
   const pin = useLocationPinDrop(refreshUser, showToast);
-  const [layers, setLayers] = useState<Record<MapLayer, boolean>>(() => {
-    const saved = localStorage.getItem("settings_map_layers");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {}
-    }
-    return { business: true, provider: true, request: true, story: false };
+  // One filter now drives BOTH the sheet list and which markers are on the map.
+  // Previously these were separate (LayerToggles for the map, tabs inside the
+  // NearbySheet for the list), so the list could show things the map didn't.
+  const [resultFilter, setResultFilter] = useState<ResultFilter>(() => {
+    const saved = localStorage.getItem("settings_map_filter");
+    return (saved as ResultFilter) || "all";
   });
+  useEffect(() => {
+    localStorage.setItem("settings_map_filter", resultFilter);
+  }, [resultFilter]);
+
+  // Stories stay OUT of "all" on purpose: they're a separate query, and the
+  // old layer default had them off for the same reason. Picking the Stories
+  // filter is what opts into that cost.
+  const layers = useMemo<Record<MapLayer, boolean>>(() => ({
+    business: resultFilter === "all" || resultFilter === "business",
+    provider: resultFilter === "all" || resultFilter === "provider",
+    request: resultFilter === "all" || resultFilter === "request",
+    story: resultFilter === "story",
+  }), [resultFilter]);
   const [availOnly, setAvailOnly] = useState(() => {
     const saved = localStorage.getItem("settings_map_avail_only");
     return saved === "true";
   });
-  const [savedRadiusKm, setRadiusKm] = useState(() => {
-    const saved = localStorage.getItem("settings_radius");
-    return saved ? parseFloat(saved) : (user.notificationRadiusKm || 5);
-  });
-  // Guests see the map, but pinned to 1 km with no way to widen it — the radius
-  // strip is hidden for them (below), and this makes the cap real rather than
-  // just unexposed, so a stale `settings_radius` from a previous signed-in
-  // session on this device can't quietly widen a guest's map.
-  const radiusKm = isGuest ? GUEST_RADIUS_KM : savedRadiusKm;
-
-  useEffect(() => {
-    // Never persist for a guest: they have no account to save a preference to,
-    // and writing here would leave a footprint on their device (and survive
-    // into a later signed-in session as if they'd chosen it).
-    if (isGuest) return;
-    localStorage.setItem("settings_radius", String(radiusKm));
-    if (user.id && radiusKm !== user.notificationRadiusKm) {
-      void userService.update({ notificationRadiusKm: radiusKm }).catch(() => {});
-    }
-  }, [isGuest, radiusKm, user.id, user.notificationRadiusKm]);
-
-  useEffect(() => {
-    localStorage.setItem("settings_map_layers", JSON.stringify(layers));
-  }, [layers]);
+  // Only the STARTING search radius now — after first paint the searched area
+  // comes from the viewport (useMapViewport). Guests are clamped to
+  // GUEST_RADIUS_KM, applied to the area actually queried rather than by hiding
+  // a control, so zooming out can't quietly widen it.
+  //
+  // The map deliberately no longer WRITES notificationRadiusKm. The old radius
+  // strip doubled as a profile setting, which is part of why this screen was
+  // overloaded — and now that nothing here changes the radius, that write would
+  // only ever push a stale localStorage value over the user's real preference.
+  // Settings → Notifications owns it (NotificationSettings.tsx).
+  const initialRadiusKm = isGuest
+    ? GUEST_RADIUS_KM
+    : (() => {
+        const saved = localStorage.getItem("settings_radius");
+        const n = saved ? parseFloat(saved) : (user.notificationRadiusKm || 5);
+        return Number.isFinite(n) && n > 0 ? n : 5;
+      })();
 
   useEffect(() => {
     localStorage.setItem("settings_map_avail_only", String(availOnly));
   }, [availOnly]);
 
   const [storyViewer, setStoryViewer] = useState<{ stories: Story[]; idx: number } | null>(null);
-  const [showNearbyPopup, setShowNearbyPopup] = useState(false);
 
   // Mapbox is the default basemap whenever a token is configured. The free
   // style is a fallback, not a rotation: the basemap is chosen once per map
@@ -214,8 +217,6 @@ export default function MapView() {
 
   const usingMapbox = mapStyle.includes("api.mapbox.com");
 
-  const presetKms = new Set<number>(RADIUS_OPTIONS.map((o) => o.km));
-  const isCustomActive = !presetKms.has(radiusKm);
 
   // Where the map is FRAMED on open — still the user's own location.
   const homeLat = user.lat || config.defaultLocation.lat;
@@ -231,7 +232,7 @@ export default function MapView() {
   const viewport = useMapViewport({
     lat: homeLat,
     lng: homeLng,
-    radiusKm: isGuest ? GUEST_RADIUS_KM : radiusKm,
+    radiusKm: initialRadiusKm,
   });
   const searched = viewport.searched;
   const centerLat = searched.lat;
@@ -285,11 +286,8 @@ export default function MapView() {
     return distanceKm(centerLat, centerLng, r.lat, r.lng) <= searchRadiusKm;
   });
 
-  const visibleCount =
-    (layers.business ? filteredBusinesses.length : 0) +
-    (layers.provider ? filteredProviders.length : 0) +
-    (layers.request  ? nearbyRequests.length : 0) +
-    (layers.story    ? mapStories.length : 0);
+  // The old "N places" badge counted these; the sheet now derives its own
+  // count from the rows it actually renders, so there's nothing to total here.
 
   const brandColor = useMemo(() => resolveToken("--brand-600", "#7c2fe8"), []);
   // Ring shows the area the RESULTS came from, so a user who has panned away
@@ -305,29 +303,12 @@ export default function MapView() {
         <>
           <SearchBar />
 
-          <LayerToggles layers={layers} setLayers={setLayers} availOnly={availOnly} setAvailOnly={setAvailOnly} />
-
-          <div className="map-bottom-dock">
-            {visibleCount > 0 && (
-              <button
-                type="button"
-                className="map-places-badge"
-                onClick={() => setShowNearbyPopup(true)}
-              >
-                <span>
-                  {visibleCount === 1 ? tf("map_place_one", { count: visibleCount }) : tf("map_place_other", { count: visibleCount })}
-                  {isWorld ? t("map_globally") : isCustomActive ? tf("map_within_km", { km: radiusKm }) : ` within ${RADIUS_OPTIONS.find(o => o.km === radiusKm)?.label}`}
-                </span>
-                <ChevronRight size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
-              </button>
-            )}
-
-            {isGuest ? (
-              <GuestRadiusNotice />
-            ) : (
-              <RadiusStrip radiusKm={radiusKm} setRadiusKm={setRadiusKm} />
-            )}
-          </div>
+          {/* LayerToggles, the places badge and the RadiusStrip all lived here.
+              They're now inside MapResultsSheet (filters, count) or retired
+              entirely (radius derives from zoom — see useMapViewport). Guests
+              keep their notice; the 1 km cap itself is applied to the searched
+              area, not just to a hidden control. */}
+          {isGuest && <div className="map-bottom-dock"><GuestRadiusNotice /></div>}
 
           <SearchThisArea
             visible={viewport.hasMoved}
@@ -386,10 +367,10 @@ export default function MapView() {
             would re-run fitBounds every time the user tapped "Search this
             area", yanking the map back to fit that circle and undoing the pan
             they had just made. This controller's job is only "the radius strip
-            changed, re-frame the user's own circle" — it retires with the strip
-            in Phase 3. */}
-        <RadiusController lat={homeLat} lng={homeLng} radiusKm={radiusKm} />
-        {!pin.pickMode && <RecenterButton radiusKm={radiusKm} />}
+        {/* RadiusController retired with the radius strip: its only job was
+            re-framing the map when the strip changed, and nothing changes the
+            radius any more — zoom defines the searched area. */}
+        {!pin.pickMode && <RecenterButton radiusKm={initialRadiusKm} />}
         {!pin.pickMode && (
           <MapEventsController onLongPress={(lat, lng) => pin.enterPickMode({ lat, lng })} />
         )}
@@ -466,16 +447,19 @@ export default function MapView() {
         />
       )}
 
-      {showNearbyPopup && (
-        <NearbySheet
-          visibleCount={visibleCount}
-          isWorld={isWorld}
-          radiusKm={radiusKm}
-          filteredBusinesses={filteredBusinesses}
-          filteredProviders={filteredProviders}
-          mapStories={mapStories}
-          nearbyRequests={nearbyRequests}
-          onClose={() => setShowNearbyPopup(false)}
+      {!pin.pickMode && (
+        <MapResultsSheet
+          centerLat={centerLat}
+          centerLng={centerLng}
+          loading={bizLoading || provLoading}
+          businesses={layers.business ? filteredBusinesses : []}
+          providers={layers.provider ? filteredProviders : []}
+          requests={layers.request ? nearbyRequests : []}
+          stories={layers.story ? mapStories : []}
+          filter={resultFilter}
+          setFilter={setResultFilter}
+          availOnly={availOnly}
+          setAvailOnly={setAvailOnly}
           onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
         />
       )}

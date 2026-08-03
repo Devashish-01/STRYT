@@ -99,15 +99,20 @@
 
   --maxw: 480px;
   --nav-h: 66px;
-  /* Map chrome — stacked above bottom nav (see MapView + .map-screen). */
+  /* Map chrome. This used to be six variables doing arithmetic
+     (--map-fab-bottom was computed from three others) to stack a search bar,
+     layer toggles, a places badge, a radius strip and two FABs above the nav —
+     plus four :has() selectors that nudged the FABs when the badge appeared.
+     The results sheet absorbed all of that, so the FABs only ever sit above
+     one thing now and can be positioned directly. */
   --map-chrome-inset: 12px;
-  --map-strip-h: 42px;
-  --map-dock-pad: 10px;
   --map-over-nav: calc(var(--nav-h) + var(--safe-area-bottom));
-  --map-radius-strip-bottom: calc(var(--map-over-nav) + var(--map-dock-pad));
   --map-fab-size: 40px;
   --map-fab-gap: 8px;
-  --map-fab-bottom: calc(var(--map-radius-strip-bottom) + var(--map-strip-h) + 12px);
+  /* Above the sheet at its peek height, which is the only detent the FABs
+     need to clear — taller detents cover the map deliberately. */
+  --map-sheet-peek-h: 148px;
+  --map-fab-bottom: calc(var(--map-sheet-peek-h) + var(--map-over-nav) + 12px);
   --map-pin-bottom: calc(var(--map-fab-bottom) + var(--map-fab-size) + var(--map-fab-gap));
   --header-h: 56px;
   --safe-area-top: env(safe-area-inset-top, 0px);
@@ -2737,6 +2742,108 @@ button.set-row:active {
      className below rather than redefined here. */
 }
 
+/* ── Map results sheet ──────────────────────────────────────────────────────
+   Absorbs the old places badge, LayerToggles, availability toggle and the
+   modal NearbySheet. Three detents; peek is the default so the map keeps the
+   screen.
+
+   dvh, never vh: native has a stable viewport but mobile web's URL bar
+   collapses, and a vh-based sheet jumps by ~60px when it does. */
+.map-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -8px 32px rgba(26, 21, 48, 0.16);
+  /* Clears the app's bottom nav and the gesture bar. */
+  padding-bottom: calc(var(--map-over-nav, 0px) + var(--safe-area-bottom));
+  transition: height 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  /* The sheet owns vertical gestures inside itself; the map keeps the rest. */
+  touch-action: pan-y;
+  max-height: 92dvh;
+}
+.map-sheet--peek { height: 148px; }
+.map-sheet--half { height: 52dvh; }
+.map-sheet--full { height: 92dvh; }
+
+.map-sheet__grip {
+  padding: 8px 14px 10px;
+  flex-shrink: 0;
+  cursor: grab;
+  /* Drag is claimed here only — the list below scrolls normally. */
+  touch-action: none;
+}
+.map-sheet__grip:active { cursor: grabbing; }
+
+/* A real button, not a decorative bar: tapping cycles detents, so a mouse user
+   never has to drag. */
+.map-sheet__handle {
+  display: block;
+  width: 40px;
+  height: 5px;
+  margin: 0 auto 10px;
+  border-radius: 999px;
+  border: none;
+  background: var(--ink-300);
+  cursor: pointer;
+}
+.map-sheet__handle:active { background: var(--ink-400); }
+
+.map-sheet__filters {
+  display: flex;
+  gap: 7px;
+  padding: 2px 14px 10px;
+  flex-shrink: 0;
+}
+
+.map-sheet__list {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; /* don't chain the scroll out to the page */
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-sheet__row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 60px;
+  padding: 9px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-align: left;
+}
+.map-sheet__row:active { background: var(--ink-50); }
+
+.map-sheet__thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.map-sheet__thumb--emoji {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .map-sheet { transition: none; }
+}
+
 /* "Search this area" — floats over the map centre-top, below the search bar.
    Kept mounted and animated rather than unmounted so it can ease in/out; while
    hidden it's also removed from the tab order and the a11y tree. */
@@ -2813,11 +2920,13 @@ button.set-row:active {
   padding-right: 16px;
 }
 
+/* Only the guest radius notice uses this now — the places badge and radius
+   strip it used to stack are gone. */
 .map-bottom-dock {
   position: absolute;
   left: var(--map-chrome-inset);
   right: var(--map-chrome-inset);
-  bottom: var(--map-radius-strip-bottom);
+  bottom: calc(var(--map-sheet-peek-h) + var(--map-over-nav) + 10px);
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -2873,17 +2982,8 @@ button.set-row:active {
   display: none;
 }
 
-.map-radius-custom-popover {
-  position: absolute;
-  bottom: calc(var(--map-radius-strip-bottom) + var(--map-strip-h) + 16px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1200;
-  border-radius: 20px;
-  padding: 16px 18px;
-  min-width: min(240px, calc(100vw - 32px));
-  max-width: calc(100vw - 32px);
-}
+/* .map-radius-custom-popover removed with RadiusStrip. */
+
 
 .map-fab-pin {
   position: absolute;
@@ -2899,38 +2999,57 @@ button.set-row:active {
   z-index: 1001;
 }
 
-.map-screen:has(.map-places-badge) .map-fab-recenter {
-  bottom: calc(var(--map-fab-bottom) + 44px);
-}
-
-.map-screen:has(.map-places-badge) .map-fab-pin {
-  bottom: calc(var(--map-pin-bottom) + 44px);
-}
+/* The two `:has(.map-places-badge)` rules that used to sit here nudged both
+   FABs up by 44px when the places badge appeared. The badge is gone (its count
+   lives in the sheet header), so the FABs have a fixed anchor and the selector
+   isn't needed. Worth losing on its own merits: `:has()` is unsupported on
+   older Android WebViews, so this layout silently mispositioned on exactly the
+   devices the native build targets. */
 
 .map-screen .maplibregl-ctrl-bottom-right,
 .map-screen .maplibregl-ctrl-bottom-left {
-  bottom: calc(var(--map-radius-strip-bottom) + var(--map-strip-h) + 4px) !important;
+  bottom: calc(var(--map-sheet-peek-h) + var(--map-over-nav) + 4px) !important;
 }
 
+/* ── Desktop: the sheet docks as a side panel ──────────────────────────────
+   Same component, same state — only the box it lives in changes. A phone-width
+   sheet stretched across a 1400px browser was the old desktop "treatment". */
 @media (min-width: 768px) {
   .screen.map-screen {
-    height: 100vh !important;
+    height: 100dvh !important;
   }
 
   :root {
+    /* No bottom nav on desktop, and the panel no longer sits under the FABs. */
     --map-over-nav: var(--safe-area-bottom);
-    --map-radius-strip-bottom: calc(var(--safe-area-bottom) + var(--map-dock-pad));
-    --map-fab-bottom: calc(var(--map-radius-strip-bottom) + var(--map-strip-h) + 12px);
+    --map-fab-bottom: calc(var(--map-over-nav) + 20px);
     --map-pin-bottom: calc(var(--map-fab-bottom) + var(--map-fab-size) + var(--map-fab-gap));
   }
 
-  .map-screen:has(.map-places-badge) .map-fab-recenter {
-    bottom: calc(var(--map-fab-bottom) + 44px);
+  .map-sheet,
+  .map-sheet--peek,
+  .map-sheet--half,
+  .map-sheet--full {
+    top: 0;
+    right: auto;
+    width: 380px;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    box-shadow: 4px 0 24px rgba(26, 21, 48, 0.12);
+    padding-bottom: var(--safe-area-bottom);
+    transition: none; /* detents are meaningless docked */
   }
 
-  .map-screen:has(.map-places-badge) .map-fab-pin {
-    bottom: calc(var(--map-pin-bottom) + 44px);
-  }
+  /* The grip becomes a static header: nothing to drag to. */
+  .map-sheet__grip { cursor: default; touch-action: auto; }
+  .map-sheet__handle { display: none; }
+
+  /* Keep the map's own chrome clear of the panel. */
+  .map-screen__search { left: calc(380px + var(--map-chrome-inset)); }
+  .map-search-area { left: calc(380px + (100% - 380px) / 2); }
+  .map-screen .maplibregl-ctrl-bottom-left { left: 380px !important; bottom: 4px !important; }
+  .map-screen .maplibregl-ctrl-bottom-right { bottom: 4px !important; }
 }
 
 
