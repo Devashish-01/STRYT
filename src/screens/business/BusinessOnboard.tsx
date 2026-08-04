@@ -38,7 +38,13 @@ export default function BusinessOnboard() {
   const [sub, setSub] = useState<string[]>([]);
   const [broadcastRadius, setBroadcastRadius] = useState(5);
   const [address, setAddress] = useState("");
-  const [city, setCity] = useState("Pune");
+  // Deliberately blank, not "Pune". It's filled from the location picker's
+  // reverse-geocode (below) and is editable. Hardcoding a default meant a shop
+  // whose geocode failed — or whose owner never touched the field — was filed
+  // under Pune regardless of where it actually is. Harmless while Pune was the
+  // only market; wrong the moment Bangalore is in scope, and city is what
+  // discovery and the admin review both read.
+  const [city, setCity] = useState("");
   const [pincode, setPincode] = useState("");
   // Same per-day, multi-shift editor as the real Hours page (HoursEditor.tsx) â€”
   // so what's set at onboarding is the exact control the owner will edit later,
@@ -58,7 +64,10 @@ export default function BusinessOnboard() {
 
   const canNext = [
     name.trim().length > 1 && !!cat,
-    address.trim().length > 4 && lat !== null && lng !== null,
+    // City is now required to leave the Location step. It drives discovery and
+    // it's what an admin checks at review, so an empty or wrong one is worse
+    // than an extra field to fill.
+    address.trim().length > 4 && city.trim().length > 1 && lat !== null && lng !== null,
     true,
     phone.replace(/\D/g, "").length === 10,
   ][step];
@@ -237,7 +246,7 @@ export default function BusinessOnboard() {
               <textarea className="input" placeholder="Shop no, lane, area" value={address} onChange={(e) => setAddress(e.target.value)} style={{ minHeight: 70 }} />
             </div>
             <div className="row gap-10">
-              <div className="field grow"><label>City</label><input className="input" value={city} onChange={(e) => setCity(e.target.value)} /></div>
+              <div className="field grow"><label>City *</label><input className="input" placeholder="e.g. Pune" value={city} onChange={(e) => setCity(e.target.value)} /></div>
               <div className="field grow"><label>Pincode</label><input className="input" placeholder="411001" inputMode="numeric" value={pincode} onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))} /></div>
             </div>
           </>

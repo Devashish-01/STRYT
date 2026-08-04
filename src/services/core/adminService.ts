@@ -171,19 +171,45 @@ export const adminService = {
     const sb = getSupabase();
 
     if (type === "business") {
-      const { data, error } = await sb.from("businesses").select("id, name, sub_category, cover_image").eq("status", "PENDING");
+      // Onboarding collects ~16 fields; this used to select four
+      // (id, name, sub_category, cover_image), so an admin was asked to approve
+      // a real business having seen a name, a category string and a photo. They
+      // could not check the address was real, the phone worked, or that it was
+      // even in the right city. Reported as "when submitted the review the data
+      // is not showing correct" — the data wasn't wrong, it was absent.
+      const { data, error } = await sb
+        .from("businesses")
+        .select("id, name, sub_category, category_name, cover_image, address_line1, city, pincode, phone, email, hours, opening_date, lat, lng, created_at")
+        .eq("status", "PENDING")
+        .order("created_at", { ascending: true }); // oldest first — fairest queue
       throwIfError(error);
       return (data ?? []).map((b: any) => ({
         id: b.id,
         name: b.name,
-        sub: b.sub_category || "",
+        sub: b.sub_category || b.category_name || "",
         image: b.cover_image || "",
         kind: "business" as const,
+        details: {
+          Category: b.category_name || null,
+          Address: [b.address_line1, b.city, b.pincode].filter(Boolean).join(", ") || null,
+          Phone: b.phone || null,
+          Email: b.email || null,
+          Hours: b.hours || null,
+          "Opening date": b.opening_date || null,
+          Location: b.lat != null && b.lng != null ? `${Number(b.lat).toFixed(5)}, ${Number(b.lng).toFixed(5)}` : null,
+          Submitted: b.created_at ? new Date(b.created_at).toLocaleString() : null,
+        } as Record<string, string | null>,
       }));
     }
 
     if (type === "provider") {
-      const { data, error } = await sb.from("providers").select("id, display_name, category_name, avatar").eq("status", "PENDING");
+      // Same gap as businesses above — four fields is not enough to approve a
+      // real person offering services.
+      const { data, error } = await sb
+        .from("providers")
+        .select("id, display_name, category_name, avatar, bio, phone, area, city, starting_price, lat, lng, created_at")
+        .eq("status", "PENDING")
+        .order("created_at", { ascending: true });
       throwIfError(error);
       return (data ?? []).map((p: any) => ({
         id: p.id,
@@ -191,6 +217,15 @@ export const adminService = {
         sub: p.category_name || "",
         image: p.avatar || "",
         kind: "provider" as const,
+        details: {
+          Category: p.category_name || null,
+          About: p.bio || null,
+          Phone: p.phone || null,
+          Area: [p.area, p.city].filter(Boolean).join(", ") || null,
+          "Starting price": p.starting_price != null ? String(p.starting_price) : null,
+          Location: p.lat != null && p.lng != null ? `${Number(p.lat).toFixed(5)}, ${Number(p.lng).toFixed(5)}` : null,
+          Submitted: p.created_at ? new Date(p.created_at).toLocaleString() : null,
+        } as Record<string, string | null>,
       }));
     }
 

@@ -27,6 +27,7 @@ const TITLES: Record<string, string> = {
   "community-guidelines": "Community Guidelines",
   "cookie-policy": "Cookie Policy",
   "data-retention-policy": "Data Retention Policy",
+  "account-deletion": "Delete Your Account",
   "grievance-redressal-policy": "Grievance Redressal Policy",
   "disclaimer": "Disclaimer",
   "TERMS_SUMMARY": "Terms — Plain-Language Summary",
@@ -44,6 +45,9 @@ const ORDER = [
   "acceptable-use-policy",
   "community-guidelines",
   "data-retention-policy",
+  // Play/App Store both require a publicly reachable account-deletion page that
+  // works without installing the app — this slug is the URL we declare.
+  "account-deletion",
   "grievance-redressal-policy",
   "disclaimer",
 ];

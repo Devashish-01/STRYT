@@ -30,4 +30,8 @@ export const LEGAL_ROUTES = {
   index: "/legal",
   terms: "/legal/terms-and-conditions",
   privacy: "/legal/privacy-policy",
+  // Declared to Google Play / App Store as the public account-deletion URL. It
+  // must stay reachable WITHOUT signing in — the reviewer opens it in a browser
+  // with no app installed — so never move it behind the auth or Terms gate.
+  accountDeletion: "/legal/account-deletion",
 } as const;

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { QRCodeCanvas } from "qrcode.react";
 import { MessageCircle, Copy, Link2, Send, Share2, QrCode, Download, Printer, X, Store, MapPin, Camera, Sparkles } from "@/components/Icons";
 import AppMark from "@/components/AppMark";
 import { useApp } from "@/store";
@@ -47,9 +48,34 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
   const shareUrl = activeOpt ? activeOpt.url : (url ?? (typeof window !== "undefined" ? window.location.href : ""));
   const shareText = `${currentTitle} — ${currentSubtitle}${currentMeta ? ` (${currentMeta})` : ""}`;
 
-  const qrUrlToUse = (qrMode === "payment" && hasPaymentQr)
-    ? (paymentQrUrl || `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(`upi://pay?pa=${upiId}&pn=${encodeURIComponent(currentTitle)}`)}`)
-    : `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(shareUrl)}`;
+  // What the QR encodes. Payment mode carries the merchant's UPI VPA, so this
+  // string must never leave the device — it used to be handed to a third-party
+  // image service (api.qrserver.com), which meant every payment QR shipped a
+  // merchant's payment identifier to goqr.me. Rendered locally instead: nothing
+  // is transmitted, and the data: URL keeps the download canvas untainted.
+  const qrPayload = (qrMode === "payment" && hasPaymentQr && !paymentQrUrl)
+    ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(currentTitle)}`
+    : shareUrl;
+  // A merchant-uploaded QR image wins over anything we generate.
+  const uploadedQrUrl = qrMode === "payment" && paymentQrUrl ? paymentQrUrl : "";
+
+  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [generatedQrUrl, setGeneratedQrUrl] = useState("");
+
+  // The hidden <QRCodeCanvas> below is a child, so its own draw effect has
+  // already run by the time this one fires — the canvas is painted and safe to
+  // read. Re-runs whenever the encoded payload changes (profile ⇄ payment tab,
+  // or a different share option).
+  useEffect(() => {
+    if (uploadedQrUrl) return;
+    try {
+      setGeneratedQrUrl(qrCanvasRef.current?.toDataURL("image/png") ?? "");
+    } catch {
+      setGeneratedQrUrl(""); // canvas unavailable — the <img> just renders empty
+    }
+  }, [qrPayload, uploadedQrUrl]);
+
+  const qrUrlToUse = uploadedQrUrl || generatedQrUrl;
 
   async function copyLink() {
     const ok = await copyText(shareUrl);
@@ -83,6 +109,10 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
   }
 
   async function downloadQrImage() {
+    if (!qrUrlToUse) {
+      showToast("QR isn't ready yet — try again in a moment");
+      return;
+    }
     try {
       setIsGenerating(true);
       const canvas = document.createElement("canvas");
@@ -189,6 +219,16 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
 
   return (
     <>
+      {/* Off-screen source for every QR on this sheet (preview, print stand and
+          the downloaded PNG all read its data: URL). Kept mounted regardless of
+          which tab is showing so "Download QR" works straight from the card
+          view. `marginSize={4}` is the quiet zone the QR spec requires — without
+          it scanners struggle against a coloured backdrop. */}
+      {!uploadedQrUrl && (
+        <div aria-hidden style={{ position: "absolute", width: 0, height: 0, overflow: "hidden", pointerEvents: "none" }}>
+          <QRCodeCanvas ref={qrCanvasRef} value={qrPayload} size={500} level="M" marginSize={4} />
+        </div>
+      )}
       <div className="overlay" onClick={onClose}>
         <div className="sheet" onClick={(e) => e.stopPropagation()}>
           <div className="sheet-grab" />
@@ -292,7 +332,10 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
               {qrMode === "payment" && hasPaymentQr ? (
                 <>
                   <div style={{ background: "#fff", borderRadius: 16, padding: 12, boxShadow: "var(--shadow)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
-                    <img src={qrUrlToUse} alt="Payment QR" style={{ width: 160, height: 160, objectFit: "contain", display: "block" }} />
+                    {/* `|| undefined` so React omits src entirely on the first
+                        frame before the canvas has been read — an empty src
+                        makes the browser re-request the page itself. */}
+                    <img src={qrUrlToUse || undefined} alt="Payment QR" style={{ width: 160, height: 160, objectFit: "contain", display: "block" }} />
                   </div>
                   <div className="bold" style={{ fontSize: 18 }}>{currentTitle}</div>
                   <div className="small" style={{ opacity: 0.9, marginTop: 2 }}>{upiId}</div>
@@ -302,7 +345,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
                 <>
                   <div style={{ background: "#fff", borderRadius: 16, padding: 12, boxShadow: "var(--shadow)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
                     <img
-                      src={qrUrlToUse}
+                      src={qrUrlToUse || undefined}
                       alt="QR Code"
                       style={{ width: 160, height: 160, display: "block" }}
                     />
@@ -456,7 +499,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
                   }}
                 >
                   <img
-                    src={qrUrlToUse}
+                    src={qrUrlToUse || undefined}
                     alt="Store QR Scanner"
                     style={{ width: 210, height: 210, display: "block" }}
                   />

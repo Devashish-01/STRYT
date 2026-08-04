@@ -251,6 +251,29 @@ function AdminQueue() {
                   {item.image ? <img src={item.image} alt={item.name} className="thumb" style={{ width: 48, height: 48, borderRadius: 12 }} /> : <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={20} color="var(--brand-600)" /></div>}
                   <div className="grow"><div className="semi small">{item.name}</div><div className="tiny muted">{item.sub}</div></div>
                 </div>
+
+                {/* The submitted details. Without these an admin was approving
+                    a business from a name and a photo — unable to check the
+                    address existed, the phone worked, or that it was even in a
+                    city we serve. */}
+                {item.details && (
+                  <div className="col gap-6" style={{ marginTop: 12, padding: "10px 12px", background: "var(--ink-50)", borderRadius: 10 }}>
+                    {Object.entries(item.details as Record<string, string | null>)
+                      .filter(([, v]) => v)
+                      .map(([label, value]) => (
+                        <div key={label} className="row gap-8" style={{ alignItems: "flex-start" }}>
+                          <span className="tiny muted" style={{ minWidth: 92, flexShrink: 0 }}>{label}</span>
+                          <span className="tiny" style={{ color: "var(--ink-800)", wordBreak: "break-word" }}>{value}</span>
+                        </div>
+                      ))}
+                    {Object.values(item.details as Record<string, string | null>).every((v) => !v) && (
+                      <span className="tiny" style={{ color: "var(--red-600)" }}>
+                        No details submitted — reject and ask them to complete their profile.
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 <div className="row gap-8" style={{ marginTop: 12 }}>
                   <button className="btn btn-outline grow btn-sm" onClick={() => act(item, false)}><X size={15} /> Reject</button>
                   <button className="btn btn-green grow btn-sm" onClick={() => act(item, true)}><Check size={15} /> Approve</button>

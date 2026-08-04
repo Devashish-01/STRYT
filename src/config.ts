@@ -1,6 +1,9 @@
 // Central runtime config for live app.
 export const config = {
-  apiUrl: (import.meta as any).env?.VITE_API_URL ?? "https://api.stryt.app/v1",
+  // stryt.in is the live host — api.stryt.app has never resolved, so the old
+  // fallback silently pointed apiClient at nothing whenever VITE_API_URL was
+  // unset. Matches .env.example.
+  apiUrl: (import.meta as any).env?.VITE_API_URL ?? "https://stryt.in",
   mapboxToken: String((import.meta as any).env?.VITE_MAPBOX_TOKEN ?? "").trim(),
   appName: "STRYT",
   bugReportExcelUrl: (import.meta as any).env?.VITE_BUG_REPORT_EXCEL_URL ?? "",

@@ -108,7 +108,7 @@ export default function ProviderProfileHub() {
         <SettingsSection title="Profile & services">
           <SettingsRow icon={<User size={19} color="var(--pink-500)" />} label="Edit profile" hint="Bio, skills, price, service radius" onClick={() => nav(`${base}/edit-profile`)} />
           <SettingsRow icon={<FileText size={19} color="var(--brand-600)" />} label="Services" hint={`${p?.catalog?.length ?? 0} service${(p?.catalog?.length ?? 0) === 1 ? "" : "s"} customers can book`} onClick={() => nav(`${base}/catalog`)} />
-          <SettingsRow icon={<AlertTriangle size={19} color="var(--red-600)" />} label="Inventory" hint={flaggedCount > 0 ? `${flaggedCount} item${flaggedCount === 1 ? "" : "s"} need restocking` : "Out-of-stock and low items"} onClick={() => nav(`${base}/inventory`)} />
+          <SettingsRow icon={<AlertTriangle size={19} color="var(--red-600)" />} label="Inventory management" hint={flaggedCount > 0 ? `${flaggedCount} item${flaggedCount === 1 ? "" : "s"} need restocking` : "Out-of-stock and low items"} onClick={() => nav(`${base}/inventory`)} />
           <SettingsRow icon={<Clock size={19} color="var(--blue-500)" />} label="Hours & Availability" hint="Working days, hours & slot length" onClick={() => nav(`${base}/availability`)} />
           <SettingsRow icon={<ImageIcon size={19} color="var(--brand-600)" />} label="Portfolio" hint={`${p?.portfolio?.length ?? 0} work sample${(p?.portfolio?.length ?? 0) === 1 ? "" : "s"}`} onClick={() => nav(`${base}/portfolio`)} />
         </SettingsSection>

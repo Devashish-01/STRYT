@@ -6,6 +6,7 @@ import { Download, Trash2, Shield } from "@/components/Icons";
 import { useApp } from "@/store";
 import { profileControlService, appointmentService, requestService } from "@/services";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
+import { LEGAL_ROUTES } from "@/lib/legal";
 
 /**
  * Your data — take a copy, or close the account.
@@ -129,6 +130,20 @@ export default function DataSettings() {
               value={deleteReason}
               onChange={(e) => setDeleteReason(e.target.value)}
             />
+            {/* The same page we declare to Play/App Store as the public
+                account-deletion URL, so what a user reads here and what a
+                reviewer reads in a browser are one document. */}
+            <button
+              type="button"
+              className="tiny"
+              onClick={() => nav(LEGAL_ROUTES.accountDeletion)}
+              style={{
+                background: "none", border: "none", padding: "10px 0 0",
+                color: "var(--brand-700)", fontWeight: 700, cursor: "pointer",
+              }}
+            >
+              What gets deleted, and what's kept
+            </button>
             <div className="row gap-10" style={{ marginTop: 14 }}>
               {/* Safe option first and visually dominant — DESIGN_PRINCIPLES §7. */}
               <button className="btn btn-outline grow" disabled={submittingDelete} onClick={() => setShowDeleteModal(false)}>
