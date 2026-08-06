@@ -277,6 +277,37 @@ export default function MapView() {
   }
   const isWorld = false; // "World" was a radius-strip mode; it retires with the strip (Phase 3).
 
+  // Move the map to an explicitly picked point — a searched area, or a shop
+  // from the search dropdown — and make that the SEARCHED area too, not just
+  // where the camera lands.
+  //
+  // Found while wiring this up: the old SearchBar called
+  // userService.setLocation() on every picked area, permanently overwriting
+  // the user's saved profile location just for looking somewhere else.
+  // Deliberately not done here — searching from the map is a viewport
+  // operation (useMapViewport), same as panning or "Search this area"; it
+  // must never rewrite what the user's own location is.
+  function flyToPlace(lat: number, lng: number) {
+    // An explicit radius choice (§ applyRadius) is honoured rather than reset,
+    // so jumping to a new area while "within 10 km" is selected keeps that
+    // circle instead of silently narrowing it. With no override, 2 km is a
+    // "just arrived, let's look around" default — tighter than the 5 km
+    // fallback used before any radius is chosen at all, because someone who
+    // just searched for a specific place wants to see what's near THAT point
+    // now, not re-run their original broad radius somewhere new.
+    const framingKm = radiusOverride ?? 2;
+    const map = mapRef.current?.getMap();
+    if (map) {
+      const latDelta = framingKm / 111;
+      const lngDelta = framingKm / (111 * Math.cos((lat * Math.PI) / 180) || 1);
+      map.fitBounds(
+        [[lng - lngDelta, lat - latDelta], [lng + lngDelta, lat + latDelta]],
+        { padding: 48, duration: 800 },
+      );
+    }
+    viewport.searchAt({ lat, lng, radiusKm: framingKm });
+  }
+
   // For "World" use a globally-sorted (newest-first) query with no geo filter
   const { data: bizPage, loading: bizLoading } = useQuery(
     () => isWorld
@@ -338,7 +369,12 @@ export default function MapView() {
     <div className="screen screen-canvas map-screen" style={{ position: "relative" }}>
       {!pin.pickMode && (
         <>
-          <SearchBar />
+          <SearchBar
+            centerLat={centerLat}
+            centerLng={centerLng}
+            onPickArea={(area) => flyToPlace(area.lat, area.lng)}
+            onPickShop={(shop) => flyToPlace(shop.lat, shop.lng)}
+          />
 
           {/* LayerToggles, the places badge and the RadiusStrip all lived here.
               They're now inside MapResultsSheet (filters, count) or retired

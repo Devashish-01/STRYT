@@ -1,15 +1,14 @@
 import { useState } from "react";
+import type { ComponentType } from "react";
 import { useNavigate } from "react-router-dom";
 import { Marker, Popup } from "react-map-gl/maplibre";
 import { Rating, inr } from "@/components/common";
+import { Store, Briefcase } from "@/components/Icons";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import type { Story } from "@/types";
 import type { Layer } from "./mapIcons";
-import {
-  pinColors, businessIconHtml, businessOfflineIconHtml,
-  providerIconHtml, providerOfflineIconHtml, requestIconHtml,
-} from "./mapIcons";
+import { pinColors, requestIconHtml } from "./mapIcons";
 import type { Business, Provider } from "@/types";
 import type { RequestPost } from "@/types";
 import { displayName as safeName } from "@/lib/publicName";
@@ -36,48 +35,97 @@ type Selected =
 const MIN_TAP_PX = 44;
 
 /**
- * A story author's avatar bubble on the map.
- *
- * Real JSX rather than an HTML string. The previous version interpolated
- * `authorAvatar` into `src` and `authorName` into `alt` inside
- * dangerouslySetInnerHTML — so a name containing a double quote could break out
- * of the attribute — and carried an inline `onerror` handler, which is exactly
- * what blocks the CSP from being enforced without `'unsafe-inline'`. React
- * escapes both values, and `onError` is a real listener.
+ * The ring state around an avatar pin. One vocabulary shared by every pin type
+ * that has an open/closed or available/unavailable state — a business "open"
+ * and a provider "available" are the same visual idea (brand-colored ring vs.
+ * grey), so they share tones rather than each type inventing its own palette.
  */
-function StoryAvatar({ avatar, name, seen }: { avatar?: string | null; name?: string | null; seen: boolean }) {
+type RingTone = "open" | "closed" | "available" | "unavailable" | "story-new" | "story-seen";
+
+const RING_BACKGROUND: Record<RingTone, string> = {
+  open: "var(--brand-600)",
+  closed: "var(--ink-300)",
+  available: "var(--green-500)",
+  unavailable: "var(--ink-300)",
+  "story-new": "linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))",
+  "story-seen": "var(--ink-400)",
+};
+
+/**
+ * One circular-avatar pin renderer shared by businesses, providers and
+ * stories (MAP_SNAPCHAT_STYLE_PLAN.md §2.3 — decision D2: every pin is a
+ * circular photo, not a generic map-pin icon). Generalized from what used to
+ * be a story-only component (StoryAvatar) — businesses and providers get the
+ * same ring-around-a-photo treatment stories already had, rather than the
+ * teardrop pins from mapIcons.ts.
+ *
+ * Real JSX rather than an HTML string, same reasoning as before this was
+ * generalized: interpolating a user-supplied photo URL into `src`/`alt` inside
+ * dangerouslySetInnerHTML is both an escaping risk (a name with a `"` could
+ * break out of the attribute) and what forces `'unsafe-inline'` into the CSP.
+ * React escapes both, and `onError` is a real listener.
+ *
+ * Already meets the 44pt minimum tap target at its default size — unlike the
+ * teardrop pins it replaces (32×40), this needs no separate hit-area overlay.
+ */
+function AvatarPin({ photo, name, tone, fallback: Fallback, size = MIN_TAP_PX }: {
+  photo?: string | null;
+  name?: string | null;
+  tone: RingTone;
+  /** Shown inside the ring when there's no photo — a Store/Briefcase glyph, so a shop with no cover image reads as "a shop with no photo yet", not a blank tinted circle. */
+  fallback?: ComponentType<{ size?: number | string; color?: string }>;
+  size?: number;
+}) {
   const [broken, setBroken] = useState(false);
+  const showPhoto = !!photo && !broken;
   return (
     <span style={{ cursor: "pointer", display: "block" }}>
       <div
         style={{
-          width: MIN_TAP_PX, height: MIN_TAP_PX, borderRadius: "50%", padding: 2.5,
+          width: size, height: size, borderRadius: "50%", padding: 2.5,
           boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
-          background: seen
-            ? "var(--ink-400)"
-            : "linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))",
+          background: RING_BACKGROUND[tone],
         }}
       >
         <div
           style={{
             width: "100%", height: "100%", borderRadius: "50%",
-            background: "var(--ink-200)", overflow: "hidden", border: "2px solid #fff",
+            background: "var(--ink-100)", overflow: "hidden", border: "2px solid #fff",
+            display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
-          {avatar && !broken && (
+          {showPhoto ? (
             <img
-              src={avatar}
+              src={photo!}
               alt={name ?? ""}
               onError={() => setBroken(true)}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
-          )}
+          ) : Fallback ? (
+            <Fallback size={Math.round(size * 0.45)} color="var(--ink-400)" />
+          ) : null}
         </div>
       </div>
     </span>
   );
 }
 
+/** AvatarPin wired into a map <Marker> — center-anchored, since a circle (unlike a teardrop) sits directly on its point rather than pointing down at it. */
+function AvatarMarker({ lng, lat, label, onClick, ...avatar }: {
+  lng: number; lat: number; label: string; onClick: () => void;
+  photo?: string | null; name?: string | null; tone: RingTone;
+  fallback?: ComponentType<{ size?: number | string; color?: string }>;
+}) {
+  return (
+    <Marker longitude={lng} latitude={lat} anchor="center" onClick={onClick}>
+      <span role="button" aria-label={label} style={{ display: "block" }}>
+        <AvatarPin {...avatar} />
+      </span>
+    </Marker>
+  );
+}
+
+/** The plain teardrop pin — kept for requests only. See mapIcons.ts's pinHtml comment for why. */
 function PinMarker({ lng, lat, html, label, onClick }: {
   lng: number; lat: number; html: string; label: string; onClick: () => void;
 }) {
@@ -130,30 +178,37 @@ export function MapMarkers({
 
   return (
     <>
-      {/* Businesses */}
+      {/* Businesses — the shop's own cover photo in a ring, open now = brand,
+          closed = grey. No photo yet: a Store glyph, not a blank circle. */}
       {layers.business && filteredBusinesses.map((b) => {
         const isBizOpen = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil).isOpenNow;
         return (
-          <PinMarker
+          <AvatarMarker
             key={b.id}
             lng={b.lng}
             lat={b.lat}
-            html={isBizOpen ? businessIconHtml : businessOfflineIconHtml}
+            photo={b.coverImage}
+            name={b.name}
+            tone={isBizOpen ? "open" : "closed"}
+            fallback={Store}
             label={b.name}
             onClick={() => setSelected({ kind: "business", id: b.id })}
           />
         );
       })}
 
-      {/* Providers */}
+      {/* Providers — same treatment, green ring while available. */}
       {layers.provider && filteredProviders.map((p) => {
         const isOpen = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil).isOpenNow;
         return (
-          <PinMarker
+          <AvatarMarker
             key={p.id}
             lng={p.lng}
             lat={p.lat}
-            html={isOpen ? providerIconHtml : providerOfflineIconHtml}
+            photo={p.avatar}
+            name={safeName(p.displayName, "Local provider")}
+            tone={isOpen ? "available" : "unavailable"}
+            fallback={Briefcase}
             label={safeName(p.displayName, "Local provider")}
             onClick={() => setSelected({ kind: "provider", id: p.id })}
           />
@@ -172,12 +227,14 @@ export function MapMarkers({
         />
       ))}
 
-      {/* Stories — avatar bubbles, tap opens the viewer directly (no popup) */}
+      {/* Stories — avatar bubbles, tap opens the viewer directly (no popup).
+          Same AvatarPin as businesses/providers now — gradient ring = unseen,
+          grey = seen, unchanged from before this was generalized. */}
       {layers.story && mapStories.map((s, i) => {
         const seen = viewedStories.includes(s.id);
         return (
           <Marker key={s.id} longitude={s.lng!} latitude={s.lat!} anchor="center" onClick={() => onStoryClick(mapStories, i)}>
-            <StoryAvatar avatar={s.authorAvatar} name={s.authorName} seen={seen} />
+            <AvatarPin photo={s.authorAvatar} name={s.authorName} tone={seen ? "story-seen" : "story-new"} />
           </Marker>
         );
       })}
@@ -187,7 +244,14 @@ export function MapMarkers({
           longitude={selectedPoint.lng as number}
           latitude={selectedPoint.lat as number}
           anchor="bottom"
-          offset={40}
+          // 40 clears the OLD teardrop (anchor="bottom", 40px tall, so the geo
+          // point sits at its tip and the popup needs the pin's full height of
+          // clearance above it) — still correct for requests, which kept that
+          // pin. Businesses/providers now render as a 44px circle centered ON
+          // the point (anchor="center"), so only half its height plus a small
+          // gap is needed, or the popup floats with an obvious empty gap above
+          // the avatar.
+          offset={selected?.kind === "request" ? 40 : 30}
           closeButton
           closeOnClick={false}
           onClose={() => setSelected(null)}
