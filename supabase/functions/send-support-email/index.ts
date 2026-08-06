@@ -1,6 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6.9.10";
+
+/**
+ * The project's secret API key, for the RLS-bypassing admin client.
+ *
+ * Reads the new `SUPABASE_SECRET_KEYS` map the platform injects (our key is
+ * named "default") instead of the legacy `SUPABASE_SERVICE_ROLE_KEY`. The
+ * legacy service_role JWT is being retired because its value leaked in this
+ * repo's git history, and it will be disabled in Settings -> API Keys.
+ *
+ * Falls back to the legacy variable so this deploys safely BEFORE the legacy
+ * key is switched off, and keeps working if it is ever re-enabled.
+ */
+function secretKey(): string {
+  try {
+    const keys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
+    if (keys?.default) return keys.default as string;
+  } catch { /* malformed or absent -- fall through to the legacy key */ }
+  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+}
+
 // CORS allowlist — reflects only known app origins, never "*" (Security
 // Audit M-3). Inlined (not a shared import) so this function deploys
 // standalone via the Supabase dashboard.
@@ -69,7 +89,7 @@ serve(async (req) => {
     if (!authHeader) {
       return new Response(JSON.stringify({ ok: false, message: "Missing authorization header" }), { status: 401, headers: { ...CORS, "Content-Type": "application/json" } });
     }
-    const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, secretKey());
     const { data: { user }, error: authError } = await sb.auth.getUser(authHeader.replace("Bearer ", ""));
     if (authError || !user) {
       return new Response(JSON.stringify({ ok: false, message: "Invalid or expired token" }), { status: 401, headers: { ...CORS, "Content-Type": "application/json" } });

@@ -3,11 +3,13 @@
  *
  * Completes self-serve account deletion after the 30-day grace period.
  *
- * Auth modes (verify_jwt = true):
- *  1. User JWT  — purges the caller's own account if their PENDING CUSTOMER
- *                 deletion request is past the 30-day grace period.
- *  2. Service role JWT — purges every expired PENDING CUSTOMER request
- *                 (intended for a daily cron / scheduled function).
+ * Auth modes (verify_jwt = false — see isServiceCaller() below for why):
+ *  1. User session JWT — purges the caller's own account if their PENDING
+ *                 CUSTOMER deletion request is past the 30-day grace period.
+ *                 Verified directly via sb.auth.getUser(), independent of the
+ *                 gateway setting.
+ *  2. The project's secret API key — purges every expired PENDING CUSTOMER
+ *                 request (the daily cron / scheduled function).
  *
  * Play / App Store User Data policy: deletion must complete without an
  * administrator approving the request. Admins may still force-delete early
@@ -16,6 +18,26 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+/**
+ * The project's secret API key, for the RLS-bypassing admin client.
+ *
+ * Reads the new `SUPABASE_SECRET_KEYS` map the platform injects (our key is
+ * named "default") instead of the legacy `SUPABASE_SERVICE_ROLE_KEY`. The
+ * legacy service_role JWT is being retired because its value leaked in this
+ * repo's git history, and it will be disabled in Settings -> API Keys.
+ *
+ * Falls back to the legacy variable so this deploys safely BEFORE the legacy
+ * key is switched off, and keeps working if it is ever re-enabled.
+ */
+function secretKey(): string {
+  try {
+    const keys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
+    if (keys?.default) return keys.default as string;
+  } catch { /* malformed or absent -- fall through to the legacy key */ }
+  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+}
+
 
 const GRACE_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -39,13 +61,25 @@ function corsHeaders(req: Request): Record<string, string> {
   };
 }
 
-function jwtRole(token: string): string | null {
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1] ?? ""));
-    return typeof payload.role === "string" ? payload.role : null;
-  } catch {
-    return null;
-  }
+/**
+ * True when the request is the daily cron calling with the project's secret
+ * API key — checked by exact string comparison, never by decoding a JWT
+ * claim. `verify_jwt` is false for this function (secret keys aren't JWTs),
+ * so nothing upstream has verified anything by the time this runs: trusting a
+ * self-decoded `role` claim the way the old JWT-based check did would let
+ * anyone who can craft a token body claim service_role and purge every
+ * expired account. A secret is either the right secret or it isn't — no
+ * decoding involved. Checks `apikey` first (where Supabase's own docs say
+ * secret keys belong) and Authorization: Bearer as a fallback, so the caller
+ * doesn't have to get the header exactly right.
+ */
+function isServiceCaller(req: Request): boolean {
+  const expected = secretKey();
+  if (!expected) return false;
+  const apikey = req.headers.get("apikey") ?? "";
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  return apikey === expected || bearer === expected;
 }
 
 async function releaseHeldPaymentsForDeletion(sb: SupabaseClient, userId: string): Promise<void> {
@@ -156,19 +190,24 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
+    // Cron/service calls are identified by holding the project's own secret
+    // key (checked in isServiceCaller — exact match, no decoding). Everyone
+    // else must present a real session token for the self-serve path below,
+    // which sb.auth.getUser() verifies for real.
+    const isCronCaller = isServiceCaller(req);
+
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
+    if (!isCronCaller && !authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ ok: false, message: "Missing authorization header" }), {
         status: 401,
         headers: CORS,
       });
     }
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : "";
 
-    const token = authHeader.slice("Bearer ".length);
-    const role = jwtRole(token);
     const sb = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      secretKey(),
     );
 
     if (req.method === "POST") {
@@ -177,7 +216,7 @@ serve(async (req) => {
     }
     const now = Date.now();
 
-    if (role === "service_role") {
+    if (isCronCaller) {
       const cutoff = new Date(now - GRACE_MS).toISOString();
       const { data: expired, error } = await sb
         .from("profile_deletion_requests")

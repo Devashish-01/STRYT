@@ -4,7 +4,8 @@ name: Purge deleted accounts
 # Purges CUSTOMER accounts whose 30-day grace period has expired.
 # Requires GitHub repo secrets:
 #   VITE_SUPABASE_URL
-#   SUPABASE_SERVICE_ROLE_KEY
+#   SUPABASE_SERVICE_ROLE_KEY  (now holds the project's sb_secret_… key, not
+#                               the legacy service_role JWT)
 
 on:
   schedule:
@@ -25,7 +26,14 @@ jobs:
             echo "Missing VITE_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY secrets — skipping."
             exit 1
           fi
+          # Secret keys aren't JWTs, so per Supabase's own migration guide they
+          # travel on `apikey`, not `Authorization: Bearer` (the gateway tries
+          # to parse Bearer values as a JWT). The function also accepts an
+          # exact-match Bearer as a fallback — see isServiceCaller() in
+          # supabase/functions/purge-deleted-accounts/index.ts — so both are
+          # sent for robustness.
           curl -sf -X POST "${SUPABASE_URL}/functions/v1/purge-deleted-accounts" \
+            -H "apikey: ${SERVICE_ROLE_KEY}" \
             -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
             -d '{}'

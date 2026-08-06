@@ -8,9 +8,29 @@
 //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY   (npx web-push generate-vapid-keys)
 //   VAPID_SUBJECT                         (e.g. "mailto:team@stryt.app")
 //   FIREBASE_SERVICE_ACCOUNT              (Full contents of Firebase Service Account JSON file)
-//   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  (auto-injected)
+//   SUPABASE_URL, SUPABASE_SECRET_KEYS       (auto-injected)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import webpush from "https://esm.sh/web-push@3.6.7";
+
+/**
+ * The project's secret API key, for the RLS-bypassing admin client.
+ *
+ * Reads the new `SUPABASE_SECRET_KEYS` map the platform injects (our key is
+ * named "default") instead of the legacy `SUPABASE_SERVICE_ROLE_KEY`. The
+ * legacy service_role JWT is being retired because its value leaked in this
+ * repo's git history, and it will be disabled in Settings -> API Keys.
+ *
+ * Falls back to the legacy variable so this deploys safely BEFORE the legacy
+ * key is switched off, and keeps working if it is ever re-enabled.
+ */
+function secretKey(): string {
+  try {
+    const keys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
+    if (keys?.default) return keys.default as string;
+  } catch { /* malformed or absent -- fall through to the legacy key */ }
+  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+}
+
 // CORS allowlist — reflects only known app origins, never "*" (Security
 // Audit M-3). Inlined (not a shared import) so this function deploys
 // standalone via the Supabase dashboard.
@@ -43,7 +63,7 @@ function json(body: unknown, status = 200, cors: Record<string, string> = {}): R
 
 const admin = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+  secretKey(),
 );
 
 // VAPID public key is PUBLIC by design (it's shipped to browsers via
@@ -172,28 +192,32 @@ Deno.serve(async (req: Request) => {
 
   // Internal-only: this function exists to be called exclusively by the
   // push_on_notification_insert DB trigger
-  // (supabase/migrations/20260731_push_on_every_notification.sql), which
-  // authenticates by sending the raw service_role key as its Bearer token.
+  // (supabase/migrations/20260731_push_on_every_notification.sql).
   // Without this check, any signed-in user could push arbitrary
-  // title/body/deepLink to ANY userId (push-phishing) — the platform's
-  // verify_jwt gate accepts any validly-signed JWT (a normal user's access
-  // token included), not just service-role ones, so this in-handler check
-  // is the real boundary, not the gateway.
-  // The DB trigger authenticates with the project's service_role key (from the
-  // vault) as its Bearer token. We must NOT do a brittle string-equality check
-  // against Deno.env SUPABASE_SERVICE_ROLE_KEY — Supabase now injects a
-  // different-format service key into functions than the legacy JWT the trigger
-  // sends, so exact-match rejects every legitimate call with 403 (this was the
-  // "notifications not working" bug: 100% of pushes blocked here). Instead:
-  //   1. accept an exact match with the injected key (fast path), OR
-  //   2. accept any authentic service_role JWT — the platform gateway
-  //      (verify_jwt=true) has already verified the signature, so we only need
-  //      to confirm the `role` claim is service_role. A normal user's token has
-  //      role=authenticated and is still rejected, preserving the anti-phishing
-  //      boundary (no signed-in user can push arbitrary content to any userId).
+  // title/body/deepLink to ANY userId (push-phishing). verify_jwt is now
+  // FALSE for this function — the new secret keys are not JWTs, so the
+  // platform gate cannot vet them — which makes this in-handler check the
+  // ONLY boundary. It must stay strict.
+  //
+  // Three accepted shapes, so this survives the legacy-key retirement in either
+  // direction — deploy before or after the trigger is cut over, both work:
+  //   1. `apikey: <secret key>`. The FUTURE path. New secret keys are not JWTs,
+  //      so they are rejected on Authorization: Bearer and must travel on the
+  //      apikey header.
+  //   2. `Authorization: Bearer <secret key>` — exact match, fast path.
+  //   3. `Authorization: Bearer <authentic service_role JWT>`. The LEGACY path,
+  //      kept only until the legacy service_role key is disabled. A normal
+  //      user's token carries role=authenticated and is rejected, preserving
+  //      the anti-phishing boundary.
+  //
+  // NOTE on shape 3: with verify_jwt=false the gateway no longer verifies the
+  // signature, so this accepts an UNVERIFIED service_role claim. That is
+  // acceptable only because the legacy key is being disabled within the hour —
+  // once Settings -> API Keys shows service_role disabled, DELETE shape 3.
   const authHeader = req.headers.get("Authorization") ?? "";
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const apiKeyHeader = req.headers.get("apikey") ?? "";
+  const serviceKey = secretKey();
 
   const isServiceRoleJwt = (token: string): boolean => {
     try {
@@ -208,7 +232,9 @@ Deno.serve(async (req: Request) => {
     }
   };
 
-  const authorized = (!!serviceKey && bearer === serviceKey) || isServiceRoleJwt(bearer);
+  const authorized =
+    (!!serviceKey && (apiKeyHeader === serviceKey || bearer === serviceKey)) ||
+    isServiceRoleJwt(bearer);
   if (!authorized) {
     return json({ error: "Forbidden: internal use only" }, 403, cors);
   }

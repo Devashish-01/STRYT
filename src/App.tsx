@@ -21,6 +21,7 @@ import { returnTo } from "./lib/returnTo";
 import { clearDeliveredNotifications } from "./lib/pushNotifications";
 import { contextHomePath } from "./lib/contextHome";
 import { LEGAL_VERSION } from "./lib/legal";
+import { schedulePrefetch } from "./lib/prefetchRoutes";
 import { useI18n, type Lang } from "./lib/i18n";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
@@ -426,6 +427,11 @@ export default function App() {
   const showDesktopSidebar = !isAuthOrPublicScreen(location.pathname);
 
   const navigate = useNavigate();
+
+  // Warm the map chunk (~320 KB gzipped, maplibre-gl dominating) during idle
+  // time so tapping the Map tab doesn't start a cold download + parse. See
+  // lib/prefetchRoutes.ts.
+  useEffect(() => { schedulePrefetch(); }, []);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {

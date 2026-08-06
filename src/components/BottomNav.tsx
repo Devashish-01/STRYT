@@ -6,6 +6,7 @@ import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useLongPress } from "@/hooks/useLongPress";
 import { contextHomePath } from "@/lib/contextHome";
+import { prefetchMapView } from "@/lib/prefetchRoutes";
 import AccountSwitcher from "./AccountSwitcher";
 
 export default function BottomNav() {
@@ -52,7 +53,15 @@ export default function BottomNav() {
           )}
         </NavLink>
 
-        <NavLink to="/map" className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}>
+        {/* Second chance to warm the map chunk: if the idle prefetch hasn't run
+            yet (slow start, or the user reached for Map immediately), starting
+            it on finger-down buys the download a head start over the tap. Cheap
+            and idempotent — prefetchMapView() self-limits to one call. */}
+        <NavLink
+          to="/map"
+          className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+          onPointerDown={prefetchMapView}
+        >
           {({ isActive }) => (
             <>
               <Map size={22} strokeWidth={isActive ? 2.6 : 2} />

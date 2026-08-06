@@ -25,6 +25,26 @@
 // specific release.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+/**
+ * The project's secret API key, for the RLS-bypassing admin client.
+ *
+ * Reads the new `SUPABASE_SECRET_KEYS` map the platform injects (our key is
+ * named "default") instead of the legacy `SUPABASE_SERVICE_ROLE_KEY`. The
+ * legacy service_role JWT is being retired because its value leaked in this
+ * repo's git history, and it will be disabled in Settings -> API Keys.
+ *
+ * Falls back to the legacy variable so this deploys safely BEFORE the legacy
+ * key is switched off, and keeps working if it is ever re-enabled.
+ */
+function secretKey(): string {
+  try {
+    const keys = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}");
+    if (keys?.default) return keys.default as string;
+  } catch { /* malformed or absent -- fall through to the legacy key */ }
+  return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+}
+
+
 /** Compares dot-separated version strings numerically per segment (semver-ish,
  *  no pre-release/build metadata support — this app's versions are plain x.y.z). */
 function versionAtLeast(actual: string, floor: string): boolean {
@@ -68,7 +88,7 @@ function json(body: unknown, status = 200, cors: Record<string, string> = {}): R
 
 const admin = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+  secretKey(),
 );
 
 Deno.serve(async (req: Request) => {
