@@ -2790,6 +2790,14 @@ button.set-row:active {
 }
 .map-carousel__card:active { transform: scale(0.96); }
 
+/* The card the map's Popup currently matches (Phase C bidirectional sync —
+   MAP_SNAPCHAT_STYLE_PLAN.md §2.1). Outline, not the glass panel's own
+   border, so it doesn't fight `.map-glass-panel`'s `!important` border. */
+.map-carousel__card--selected {
+  outline: 2px solid var(--brand-600);
+  outline-offset: -1px;
+}
+
 .map-carousel__card--empty {
   width: 220px;
   padding: 16px 14px;

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { ComponentType } from "react";
 import { Rating, inr } from "@/components/common";
 import { Store, Briefcase } from "@/components/Icons";
@@ -9,6 +9,7 @@ import { distanceLabel } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import { AvatarPin, type RingTone } from "./AvatarPin";
 import { pinColors } from "./mapIcons";
+import type { Selected } from "./MapMarkers";
 import type { Story, Business, Provider, RequestPost } from "@/types";
 
 /**
@@ -18,16 +19,23 @@ import type { Story, Business, Provider, RequestPost } from "@/types";
  * over the full-bleed map (D1 — "browsing moves the map, it doesn't open a
  * panel over it").
  *
- * Tapping a card eases the map to that point (`onFlyTo`, the same one-
- * directional action Phase D's search dropdown uses) rather than navigating
- * to the shop's detail page — this keeps browsing on the map. Full
- * bidirectional scroll↔map sync ("swipe the tray, the map follows") is
- * Phase C, which depends on this shipping first.
+ * Phase C adds the bidirectional half: `selected` is the SAME state
+ * MapMarkers' Popup uses, lifted to MapView/index.tsx ("one state, two views
+ * of it"). Scrolling settles on a card → that card is selected and the map
+ * eases to it. Tapping a map pin sets `selected` from the other side → this
+ * component scrolls to match. Each direction tracks the last key IT
+ * synced so the resulting scroll/select doesn't immediately echo back and
+ * re-trigger the other direction.
+ *
+ * Stories are excluded from this sync on purpose: they don't have a Popup/
+ * selection state on the map either (tapping a story pin opens the viewer
+ * directly today) — a story card keeps that same direct-open behavior.
  */
 
 interface Row {
   key: string;
   kind: "business" | "provider" | "request" | "story";
+  id: string;
   title: string;
   sub: string;
   distanceKm: number | null;
@@ -37,8 +45,12 @@ interface Row {
   tone?: RingTone;
   fallback?: ComponentType<{ size?: number | string; color?: string }>;
   rating?: number;
-  onOpen: () => void;
+  /** Stories only — they open the viewer directly and sit outside the selection sync (see file header). Everything else goes through selectRow(). */
+  onOpen?: () => void;
 }
+
+/** Milliseconds of scroll inactivity before the resting card counts as "picked" — long enough to not fire mid-swipe, short enough to still feel live. */
+const SCROLL_SETTLE_MS = 150;
 
 function kmBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371;
@@ -53,7 +65,7 @@ function kmBetween(lat1: number, lng1: number, lat2: number, lng2: number): numb
 export function MapCarousel({
   centerLat, centerLng, loading,
   businesses, providers, requests, stories,
-  onFlyTo, onStoryClick,
+  selected, onSelect, onEaseTo, onStoryClick,
 }: {
   centerLat: number;
   centerLng: number;
@@ -62,12 +74,27 @@ export function MapCarousel({
   providers: Provider[];
   requests: RequestPost[];
   stories: Story[];
-  /** Ease the map to a result's point. */
-  onFlyTo: (lat: number, lng: number) => void;
+  selected: Selected;
+  onSelect: (s: Selected) => void;
+  /** Ease the map to a result's point — never re-searches, just looks. */
+  onEaseTo: (lat: number, lng: number) => void;
   onStoryClick: (stories: Story[], idx: number) => void;
 }) {
   const { viewedStories } = useApp();
   const { t } = useI18n();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const settleTimerRef = useRef<number | null>(null);
+  // The row key THIS component last synced in either direction — lets each
+  // direction recognize an echo of its own action and skip re-acting on it.
+  const lastSyncedKeyRef = useRef<string | null>(null);
+
+  function selectRow(r: Row) {
+    if (r.kind === "story") return;
+    lastSyncedKeyRef.current = r.key;
+    onSelect({ kind: r.kind, id: r.id });
+    onEaseTo(r.lat, r.lng);
+  }
 
   const rows = useMemo<Row[]>(() => {
     const out: Row[] = [];
@@ -75,35 +102,35 @@ export function MapCarousel({
       if (b.lat == null || b.lng == null) continue;
       const isOpen = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil).isOpenNow;
       out.push({
-        key: `b:${b.id}`, kind: "business", title: b.name, sub: b.subCategory || b.categoryName || "Shop",
+        key: `b:${b.id}`, kind: "business", id: b.id, title: b.name, sub: b.subCategory || b.categoryName || "Shop",
         distanceKm: b.distanceKm ?? kmBetween(centerLat, centerLng, b.lat, b.lng),
         lat: b.lat, lng: b.lng, photo: b.coverImage, tone: isOpen ? "open" : "closed", fallback: Store,
-        rating: b.ratingAvg, onOpen: () => onFlyTo(b.lat!, b.lng!),
+        rating: b.ratingAvg,
       });
     }
     for (const p of providers) {
       if (p.lat == null || p.lng == null) continue;
       const isOpen = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil).isOpenNow;
       out.push({
-        key: `p:${p.id}`, kind: "provider", title: safeName(p.displayName, "Local provider"),
+        key: `p:${p.id}`, kind: "provider", id: p.id, title: safeName(p.displayName, "Local provider"),
         sub: `${p.categoryName ?? "Provider"}${p.startingPrice ? ` · from ${inr(p.startingPrice)}` : ""}`,
         distanceKm: kmBetween(centerLat, centerLng, p.lat, p.lng),
         lat: p.lat, lng: p.lng, photo: p.avatar, tone: isOpen ? "available" : "unavailable", fallback: Briefcase,
-        rating: p.ratingAvg, onOpen: () => onFlyTo(p.lat!, p.lng!),
+        rating: p.ratingAvg,
       });
     }
     for (const r of requests) {
       if (r.lat == null || r.lng == null) continue;
       out.push({
-        key: `r:${r.id}`, kind: "request", title: r.title, sub: r.categoryName || "Request",
+        key: `r:${r.id}`, kind: "request", id: r.id, title: r.title, sub: r.categoryName || "Request",
         distanceKm: kmBetween(centerLat, centerLng, r.lat, r.lng),
-        lat: r.lat, lng: r.lng, onOpen: () => onFlyTo(r.lat!, r.lng!),
+        lat: r.lat, lng: r.lng,
       });
     }
     stories.forEach((s, i) => {
       if (s.lat == null || s.lng == null) return;
       out.push({
-        key: `s:${s.id}`, kind: "story", title: s.authorName || "Story",
+        key: `s:${s.id}`, kind: "story", id: s.id, title: s.authorName || "Story",
         sub: viewedStories.includes(s.id) ? "Seen" : "New story",
         distanceKm: kmBetween(centerLat, centerLng, s.lat, s.lng),
         lat: s.lat, lng: s.lng, photo: s.authorAvatar,
@@ -113,7 +140,50 @@ export function MapCarousel({
     });
     // Nearest first — with unlocatable rows last rather than sorting as 0.
     return out.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
-  }, [businesses, providers, requests, stories, centerLat, centerLng, viewedStories, onFlyTo, onStoryClick]);
+  }, [businesses, providers, requests, stories, centerLat, centerLng, viewedStories, onStoryClick]);
+
+  // Map → carousel: an external selection (a map-pin tap) scrolls the
+  // matching card into view. Skipped when the key matches what THIS
+  // component just synced itself, so the scroll our own settle handler
+  // caused below doesn't bounce back into a second, redundant scroll.
+  useEffect(() => {
+    if (!selected) return;
+    const key = `${selected.kind[0]}:${selected.id}`;
+    if (key === lastSyncedKeyRef.current) return;
+    const el = cardRefs.current.get(key);
+    if (!el) return; // not in this carousel's current rows (filtered out, etc.)
+    lastSyncedKeyRef.current = key;
+    el.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+  }, [selected]);
+
+  useEffect(() => () => {
+    if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+  }, []);
+
+  // Carousel → map: after a scroll gesture settles (debounced, not per-frame
+  // — easing the map on every scroll event would fight the user's own
+  // swipe), find whichever card is now leading the row and select + ease to
+  // it. Cards snap-align "start", so the nearest offsetLeft to the current
+  // scrollLeft is the resting one.
+  function handleScroll() {
+    if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = window.setTimeout(() => {
+      const container = containerRef.current;
+      if (!container) return;
+      let nearest: Row | null = null;
+      let nearestDist = Infinity;
+      for (const r of rows) {
+        const el = cardRefs.current.get(r.key);
+        if (!el) continue;
+        const dist = Math.abs(el.offsetLeft - container.scrollLeft);
+        if (dist < nearestDist) { nearestDist = dist; nearest = r; }
+      }
+      // Settling on the card a map-pin tap just scrolled us to isn't a new
+      // pick — skip it, or every pin tap would re-fire an identical
+      // onSelect/onEaseTo once the resulting scrollIntoView settles.
+      if (nearest && nearest.key !== lastSyncedKeyRef.current) selectRow(nearest);
+    }, SCROLL_SETTLE_MS);
+  }
 
   if (rows.length === 0) {
     return (
@@ -128,21 +198,30 @@ export function MapCarousel({
   }
 
   return (
-    <div className="map-carousel">
-      {rows.map((r) => (
-        <button key={r.key} type="button" className="map-carousel__card map-glass-panel" onClick={r.onOpen}>
-          {r.kind === "request" ? (
-            <span className="map-carousel__dot" style={{ background: pinColors.request }} />
-          ) : (
-            <AvatarPin photo={r.photo} name={r.title} tone={r.tone ?? "closed"} fallback={r.fallback} size={44} />
-          )}
-          <span className="map-carousel__title ellipsis">{r.title}</span>
-          <span className="map-carousel__sub ellipsis">
-            {r.distanceKm != null ? distanceLabel(r.distanceKm, t) : r.sub}
-          </span>
-          {r.rating != null && r.rating > 0 && <Rating value={r.rating} size={9} />}
-        </button>
-      ))}
+    <div className="map-carousel" ref={containerRef} onScroll={handleScroll}>
+      {rows.map((r) => {
+        const isSelected = !!selected && selected.kind === r.kind && selected.id === r.id;
+        return (
+          <button
+            key={r.key}
+            type="button"
+            className={`map-carousel__card map-glass-panel${isSelected ? " map-carousel__card--selected" : ""}`}
+            ref={(el) => { if (el) cardRefs.current.set(r.key, el); else cardRefs.current.delete(r.key); }}
+            onClick={() => (r.kind === "story" ? r.onOpen?.() : selectRow(r))}
+          >
+            {r.kind === "request" ? (
+              <span className="map-carousel__dot" style={{ background: pinColors.request }} />
+            ) : (
+              <AvatarPin photo={r.photo} name={r.title} tone={r.tone ?? "closed"} fallback={r.fallback} size={44} />
+            )}
+            <span className="map-carousel__title ellipsis">{r.title}</span>
+            <span className="map-carousel__sub ellipsis">
+              {r.distanceKm != null ? distanceLabel(r.distanceKm, t) : r.sub}
+            </span>
+            {r.rating != null && r.rating > 0 && <Rating value={r.rating} size={9} />}
+          </button>
+        );
+      })}
     </div>
   );
 }

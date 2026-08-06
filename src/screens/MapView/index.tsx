@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapPinPlus } from "@/components/Icons";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
-import type { MapEvent, MapRef } from "react-map-gl/maplibre";
+import type { MapEvent, MapRef, ViewStateChangeEvent } from "react-map-gl/maplibre";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { discoveryService, requestService, socialService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -21,7 +21,7 @@ import { SearchBar } from "./SearchBar";
 
 import GuestRadiusNotice from "@/components/GuestRadiusNotice";
 import { GUEST_RADIUS_KM } from "@/lib/guestMode";
-import { MapMarkers } from "./MapMarkers";
+import { MapMarkers, type Selected } from "./MapMarkers";
 import { MapCarousel } from "./MapCarousel";
 import { MapFilterStrip, type ResultFilter } from "./MapFilterStrip";
 import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
@@ -136,6 +136,11 @@ export default function MapView() {
 
   const [storyViewer, setStoryViewer] = useState<{ stories: Story[]; idx: number } | null>(null);
 
+  // Which pin/card is selected — one state, driving both the map's Popup
+  // (MapMarkers) and the carousel's scroll position (MapCarousel), so tapping
+  // either surface updates the other (Phase C, MAP_SNAPCHAT_STYLE_PLAN.md §2.1).
+  const [selected, setSelected] = useState<Selected>(null);
+
   // Mapbox is the default basemap whenever a token is configured. The free
   // style is a fallback, not a rotation: the basemap is chosen once per map
   // open and then left alone. An earlier build also swapped down to the free
@@ -155,6 +160,10 @@ export default function MapView() {
   // "Search this area" pill can read the live bounds at the moment it's tapped.
   const mapRef = useRef<MapRef>(null);
   const loadTimerRef = useRef<number | null>(null);
+  // Set for the life of a carousel-driven easeTo (see easeToPoint) — swiping
+  // through already-searched results must never register as "the user
+  // panned," or every swipe would trigger "Search this area" on itself.
+  const suppressViewportMoveRef = useRef(false);
   const transformRequest = useMemo(() => makeMapboxTransformRequest(config.mapboxToken), []);
 
   useEffect(() => {
@@ -309,6 +318,28 @@ export default function MapView() {
     viewport.searchAt({ lat, lng, radiusKm: framingKm });
   }
 
+  // Soft camera pan to a result already on screen — what the carousel drives
+  // as you scroll or tap a card (Phase C). Deliberately NOT flyToPlace: this
+  // is "look at this one," not "search here" — it must never touch
+  // `searched`/re-fetch, or every swipe through the current results would
+  // fire a fresh query. Same easing duration as PickCenterTracker's glide.
+  function easeToPoint(lat: number, lng: number) {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+    suppressViewportMoveRef.current = true;
+    map.easeTo({ center: [lng, lat], duration: 350 });
+    // Cleared on THIS ease's own moveend — not a timer guess — so a genuine
+    // pan starting right after isn't accidentally swallowed too.
+    map.once("moveend", () => { suppressViewportMoveRef.current = false; });
+  }
+
+  // Wraps viewport.onMapMove so a carousel-driven easeTo's moveend/zoomend
+  // doesn't reach it — see easeToPoint and suppressViewportMoveRef above.
+  function handleMapMoveEnd(e: ViewStateChangeEvent) {
+    if (suppressViewportMoveRef.current) return;
+    viewport.onMapMove(e);
+  }
+
   // For "World" use a globally-sorted (newest-first) query with no geo filter
   const { data: bizPage, loading: bizLoading } = useQuery(
     () => isWorld
@@ -442,8 +473,8 @@ export default function MapView() {
         // Tracks where the map IS, so the pill knows when the on-screen results
         // stopped describing what's visible. Deliberately does not trigger a
         // query — see useMapViewport.
-        onMoveEnd={viewport.onMapMove}
-        onZoomEnd={viewport.onMapMove}
+        onMoveEnd={handleMapMoveEnd}
+        onZoomEnd={handleMapMoveEnd}
         ref={mapRef}
         style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
         attributionControl={{ compact: true }}
@@ -500,6 +531,8 @@ export default function MapView() {
           nearbyRequests={nearbyRequests}
           mapStories={mapStories}
           onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
+          selected={selected}
+          onSelect={setSelected}
         />
       </Map>
 
@@ -556,7 +589,9 @@ export default function MapView() {
           providers={shownProviders}
           requests={shownRequests}
           stories={shownStories}
-          onFlyTo={flyToPlace}
+          selected={selected}
+          onSelect={setSelected}
+          onEaseTo={easeToPoint}
           onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
         />
       )}

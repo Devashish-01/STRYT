@@ -184,7 +184,7 @@ shell it ships in — picking an *area* result moves the map only.
 |-------|------|---------------|
 | **A** | ✅ Unified avatar-pin renderer (§2.3), replacing `mapIcons.ts` teardrops | Yes — visible improvement even before the carousel exists |
 | **B** | ✅ `MapCarousel.tsx` + top filter strip, retiring `MapResultsSheet.tsx` | Yes |
-| **C** | Bidirectional carousel↔map sync + the "ignore programmatic moves" fix | Depends on B |
+| **C** | ✅ Bidirectional carousel↔map sync + the "ignore programmatic moves" fix | Depends on B |
 | **D** | ✅ Dual-intent search in the top strip + the location-rewrite fix | Independent, can ship anytime |
 | **E** | Heat layer, with the low-density gate | Last — least useful at current scale |
 | **F** | Desktop vertical-list panel reusing the same cards | After B/C are stable on mobile |
@@ -195,17 +195,39 @@ chip); `MapFilterStrip.tsx` replaces the sheet's filter-chips row, the
 "Within …" radius row and the open-now toggle with one `[Label ▾]` popover
 chip plus a persistent open-now chip. `AvatarPin`/`RingTone` were pulled out
 of `MapMarkers.tsx` into their own file so the carousel's cards and the map's
-pins render through the identical component. Tapping a card calls the same
-`flyToPlace()` the search dropdown (Phase D) uses — it eases the map there,
-it does not navigate to the shop's page and does not yet scroll-sync with the
-map. That two-way binding, plus ignoring carousel-driven map moves so they
-don't trigger "Search this area" on themselves, is still Phase C.
+pins render through the identical component.
 `--map-sheet-peek-h` was renamed to `--map-carousel-h`; the dead
 `.map-layer-toggles*` CSS (unused since `LayerToggles.tsx` was removed in an
 earlier phase) was deleted in the same pass. Desktop lost its 380px docked
 side panel (it targeted the now-deleted `.map-sheet` element) and currently
 renders the same full-bleed layout as mobile — that specific side-panel
 treatment is Phase F, not started.
+
+**Phase C, as shipped:** `selected` (business/provider/request kind+id — the
+same type MapMarkers' Popup already used) moved out of `MapMarkers.tsx` and
+into `MapView/index.tsx` as controlled state, passed to both `MapMarkers`
+and `MapCarousel`. Tapping a card (replacing Phase B's placeholder
+`flyToPlace()` call) and settling a scroll gesture both now call one
+`selectRow()` inside `MapCarousel.tsx`: select + a soft `map.easeTo()`
+(`easeToPoint()` in index.tsx, 350ms — the same duration `PickCenterTracker`
+already used, not `flyToPlace`'s harder `fitBounds` reframe). Tapping a map
+pin sets `selected` from the other side; `MapCarousel` scrolls the matching
+card into view via `scrollIntoView`. Each direction tracks the last row key
+it synced (`lastSyncedKeyRef`) so the resulting echo — a pin tap's
+`scrollIntoView` firing its own settle handler, or a scroll's `onSelect`
+re-triggering the map→carousel effect — doesn't re-fire the same action a
+second time. `index.tsx` gained `suppressViewportMoveRef`: set for the life
+of an `easeToPoint()` call and cleared on that specific `moveend`, so
+`useMapViewport.onMapMove` never sees a carousel-driven pan and can't
+mistake it for the user panning (which would otherwise pop "Search this
+area" on every swipe). Stories are deliberately outside this sync — they
+don't have a Popup/selection state on the map either, so a story card still
+opens the viewer directly, unchanged from Phase B.
+
+Code-level only: `tsc`/`eslint`/`vitest` (127/127)/`build` all pass, but this
+environment has no browser to actually swipe the carousel or tap a pin in —
+the §6 checklist below is still unverified on a real device/browser and
+should get a pass before considering C done-done.
 
 **If time is short: A + D are the highest visible impact for the lowest risk** —
 new pins and working search, without touching the interaction model yet.

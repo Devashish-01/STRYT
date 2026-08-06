@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { ComponentType } from "react";
 import { useNavigate } from "react-router-dom";
 import { Marker, Popup } from "react-map-gl/maplibre";
@@ -26,7 +25,12 @@ import { useI18n } from "@/lib/i18n";
 // vanished while a popup full of stale data stayed floating over the map.
 // Resolving it against the current lists on every render makes the popup
 // strictly a view of something that is still on screen.
-type Selected =
+//
+// Owned by MapView/index.tsx (Phase C, MAP_SNAPCHAT_STYLE_PLAN.md §2.1) —
+// used to live as local state here, but the carousel needs to read and drive
+// the same selection ("one state, two views of it"), so it's a controlled
+// prop now instead.
+export type Selected =
   | { kind: "business"; id: string }
   | { kind: "provider"; id: string }
   | { kind: "request"; id: string }
@@ -74,6 +78,7 @@ function PinMarker({ lng, lat, html, label, onClick }: {
 
 export function MapMarkers({
   layers, filteredBusinesses, filteredProviders, nearbyRequests, mapStories, onStoryClick,
+  selected, onSelect,
 }: {
   layers: Record<Layer, boolean>;
   filteredBusinesses: Business[];
@@ -81,11 +86,12 @@ export function MapMarkers({
   nearbyRequests: RequestPost[];
   mapStories: Story[];
   onStoryClick: (stories: Story[], idx: number) => void;
+  selected: Selected;
+  onSelect: (s: Selected) => void;
 }) {
   const nav = useNavigate();
   const { viewedStories } = useApp();
   const { t } = useI18n();
-  const [selected, setSelected] = useState<Selected>(null);
 
   // Resolve the selection against the CURRENT lists. If the pin is gone —
   // layer toggled off, radius narrowed, refetch dropped it — this is
@@ -114,7 +120,7 @@ export function MapMarkers({
             tone={isBizOpen ? "open" : "closed"}
             fallback={Store}
             label={b.name}
-            onClick={() => setSelected({ kind: "business", id: b.id })}
+            onClick={() => onSelect({ kind: "business", id: b.id })}
           />
         );
       })}
@@ -132,7 +138,7 @@ export function MapMarkers({
             tone={isOpen ? "available" : "unavailable"}
             fallback={Briefcase}
             label={safeName(p.displayName, "Local provider")}
-            onClick={() => setSelected({ kind: "provider", id: p.id })}
+            onClick={() => onSelect({ kind: "provider", id: p.id })}
           />
         );
       })}
@@ -145,7 +151,7 @@ export function MapMarkers({
           lat={r.lat as number}
           html={requestIconHtml}
           label={r.title}
-          onClick={() => setSelected({ kind: "request", id: r.id })}
+          onClick={() => onSelect({ kind: "request", id: r.id })}
         />
       ))}
 
@@ -176,7 +182,7 @@ export function MapMarkers({
           offset={selected?.kind === "request" ? 40 : 30}
           closeButton
           closeOnClick={false}
-          onClose={() => setSelected(null)}
+          onClose={() => onSelect(null)}
         >
           {selectedBusiness && (() => {
             const b = selectedBusiness;
