@@ -182,12 +182,30 @@ shell it ships in — picking an *area* result moves the map only.
 
 | Phase | Work | Ships alone? |
 |-------|------|---------------|
-| **A** | Unified avatar-pin renderer (§2.3), replacing `mapIcons.ts` teardrops | Yes — visible improvement even before the carousel exists |
-| **B** | `MapCarousel.tsx` + top filter strip, retiring `MapResultsSheet.tsx` | Yes |
+| **A** | ✅ Unified avatar-pin renderer (§2.3), replacing `mapIcons.ts` teardrops | Yes — visible improvement even before the carousel exists |
+| **B** | ✅ `MapCarousel.tsx` + top filter strip, retiring `MapResultsSheet.tsx` | Yes |
 | **C** | Bidirectional carousel↔map sync + the "ignore programmatic moves" fix | Depends on B |
-| **D** | Dual-intent search in the top strip + the location-rewrite fix | Independent, can ship anytime |
+| **D** | ✅ Dual-intent search in the top strip + the location-rewrite fix | Independent, can ship anytime |
 | **E** | Heat layer, with the low-density gate | Last — least useful at current scale |
 | **F** | Desktop vertical-list panel reusing the same cards | After B/C are stable on mobile |
+
+**Phase B, as shipped:** `MapCarousel.tsx` renders the snap-scroll card tray
+(no background panel — cards float directly over the map, each its own glass
+chip); `MapFilterStrip.tsx` replaces the sheet's filter-chips row, the
+"Within …" radius row and the open-now toggle with one `[Label ▾]` popover
+chip plus a persistent open-now chip. `AvatarPin`/`RingTone` were pulled out
+of `MapMarkers.tsx` into their own file so the carousel's cards and the map's
+pins render through the identical component. Tapping a card calls the same
+`flyToPlace()` the search dropdown (Phase D) uses — it eases the map there,
+it does not navigate to the shop's page and does not yet scroll-sync with the
+map. That two-way binding, plus ignoring carousel-driven map moves so they
+don't trigger "Search this area" on themselves, is still Phase C.
+`--map-sheet-peek-h` was renamed to `--map-carousel-h`; the dead
+`.map-layer-toggles*` CSS (unused since `LayerToggles.tsx` was removed in an
+earlier phase) was deleted in the same pass. Desktop lost its 380px docked
+side panel (it targeted the now-deleted `.map-sheet` element) and currently
+renders the same full-bleed layout as mobile — that specific side-panel
+treatment is Phase F, not started.
 
 **If time is short: A + D are the highest visible impact for the lowest risk** —
 new pins and working search, without touching the interaction model yet.

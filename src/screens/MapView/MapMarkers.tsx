@@ -9,6 +9,7 @@ import { evaluateProviderAvailability } from "@/utils/availability";
 import type { Story } from "@/types";
 import type { Layer } from "./mapIcons";
 import { pinColors, requestIconHtml } from "./mapIcons";
+import { AvatarPin, MIN_TAP_PX, type RingTone } from "./AvatarPin";
 import type { Business, Provider } from "@/types";
 import type { RequestPost } from "@/types";
 import { displayName as safeName } from "@/lib/publicName";
@@ -30,85 +31,6 @@ type Selected =
   | { kind: "provider"; id: string }
   | { kind: "request"; id: string }
   | null;
-
-/** Minimum comfortable touch target (iOS HIG / Material both land here). */
-const MIN_TAP_PX = 44;
-
-/**
- * The ring state around an avatar pin. One vocabulary shared by every pin type
- * that has an open/closed or available/unavailable state — a business "open"
- * and a provider "available" are the same visual idea (brand-colored ring vs.
- * grey), so they share tones rather than each type inventing its own palette.
- */
-type RingTone = "open" | "closed" | "available" | "unavailable" | "story-new" | "story-seen";
-
-const RING_BACKGROUND: Record<RingTone, string> = {
-  open: "var(--brand-600)",
-  closed: "var(--ink-300)",
-  available: "var(--green-500)",
-  unavailable: "var(--ink-300)",
-  "story-new": "linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))",
-  "story-seen": "var(--ink-400)",
-};
-
-/**
- * One circular-avatar pin renderer shared by businesses, providers and
- * stories (MAP_SNAPCHAT_STYLE_PLAN.md §2.3 — decision D2: every pin is a
- * circular photo, not a generic map-pin icon). Generalized from what used to
- * be a story-only component (StoryAvatar) — businesses and providers get the
- * same ring-around-a-photo treatment stories already had, rather than the
- * teardrop pins from mapIcons.ts.
- *
- * Real JSX rather than an HTML string, same reasoning as before this was
- * generalized: interpolating a user-supplied photo URL into `src`/`alt` inside
- * dangerouslySetInnerHTML is both an escaping risk (a name with a `"` could
- * break out of the attribute) and what forces `'unsafe-inline'` into the CSP.
- * React escapes both, and `onError` is a real listener.
- *
- * Already meets the 44pt minimum tap target at its default size — unlike the
- * teardrop pins it replaces (32×40), this needs no separate hit-area overlay.
- */
-function AvatarPin({ photo, name, tone, fallback: Fallback, size = MIN_TAP_PX }: {
-  photo?: string | null;
-  name?: string | null;
-  tone: RingTone;
-  /** Shown inside the ring when there's no photo — a Store/Briefcase glyph, so a shop with no cover image reads as "a shop with no photo yet", not a blank tinted circle. */
-  fallback?: ComponentType<{ size?: number | string; color?: string }>;
-  size?: number;
-}) {
-  const [broken, setBroken] = useState(false);
-  const showPhoto = !!photo && !broken;
-  return (
-    <span style={{ cursor: "pointer", display: "block" }}>
-      <div
-        style={{
-          width: size, height: size, borderRadius: "50%", padding: 2.5,
-          boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
-          background: RING_BACKGROUND[tone],
-        }}
-      >
-        <div
-          style={{
-            width: "100%", height: "100%", borderRadius: "50%",
-            background: "var(--ink-100)", overflow: "hidden", border: "2px solid #fff",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}
-        >
-          {showPhoto ? (
-            <img
-              src={photo!}
-              alt={name ?? ""}
-              onError={() => setBroken(true)}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          ) : Fallback ? (
-            <Fallback size={Math.round(size * 0.45)} color="var(--ink-400)" />
-          ) : null}
-        </div>
-      </div>
-    </span>
-  );
-}
 
 /** AvatarPin wired into a map <Marker> — center-anchored, since a circle (unlike a teardrop) sits directly on its point rather than pointing down at it. */
 function AvatarMarker({ lng, lat, label, onClick, ...avatar }: {

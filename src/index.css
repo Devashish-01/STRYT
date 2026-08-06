@@ -109,10 +109,12 @@
   --map-over-nav: calc(var(--nav-h) + var(--safe-area-bottom));
   --map-fab-size: 40px;
   --map-fab-gap: 8px;
-  /* Above the sheet at its peek height, which is the only detent the FABs
-     need to clear — taller detents cover the map deliberately. */
-  --map-sheet-peek-h: 148px;
-  --map-fab-bottom: calc(var(--map-sheet-peek-h) + var(--map-over-nav) + 12px);
+  /* Clearance for the floating card carousel at the bottom of the map
+     (MapCarousel.tsx) — the FABs sit just above it. Was the results sheet's
+     peek-detent height before Phase B of MAP_SNAPCHAT_STYLE_PLAN.md replaced
+     the sheet with the carousel; renamed along with it. */
+  --map-carousel-h: 120px;
+  --map-fab-bottom: calc(var(--map-carousel-h) + var(--map-over-nav) + 12px);
   --map-pin-bottom: calc(var(--map-fab-bottom) + var(--map-fab-size) + var(--map-fab-gap));
   --header-h: 56px;
   --safe-area-top: env(safe-area-inset-top, 0px);
@@ -2742,120 +2744,98 @@ button.set-row:active {
      className below rather than redefined here. */
 }
 
-/* ── Map results sheet ──────────────────────────────────────────────────────
-   Absorbs the old places badge, LayerToggles, availability toggle and the
-   modal NearbySheet. Three detents; peek is the default so the map keeps the
-   screen.
+/* ── Map carousel ────────────────────────────────────────────────────────
+   Replaces the old results sheet (MAP_SNAPCHAT_STYLE_PLAN.md, Phase B). No
+   drawer, no background panel — cards float directly over the full-bleed
+   map and snap-scroll like a story tray, per D1 ("browsing moves the map,
+   it doesn't open a panel over it"). Each card is its own glass panel
+   (.map-glass-panel); the strip itself has none.
 
-   dvh, never vh: native has a stable viewport but mobile web's URL bar
-   collapses, and a vh-based sheet jumps by ~60px when it does. */
-.map-sheet {
+   Tapping a card eases the map to that point; it doesn't navigate away, so
+   browsing stays on the map. Swipe-driven map sync is Phase C. */
+.map-carousel {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 8;
   display: flex;
-  flex-direction: column;
-  background: var(--surface);
-  border-radius: 22px 22px 0 0;
-  box-shadow: 0 -8px 32px rgba(26, 21, 48, 0.16);
-  /* Clears the app's bottom nav and the gesture bar. */
-  padding-bottom: calc(var(--map-over-nav, 0px) + var(--safe-area-bottom));
-  transition: height 240ms cubic-bezier(0.32, 0.72, 0, 1);
-  /* The sheet owns vertical gestures inside itself; the map keeps the rest. */
-  touch-action: pan-y;
-  max-height: 92dvh;
-}
-.map-sheet--peek { height: 148px; }
-.map-sheet--half { height: 52dvh; }
-.map-sheet--full { height: 92dvh; }
-
-.map-sheet__grip {
-  padding: 8px 14px 10px;
-  flex-shrink: 0;
-  cursor: grab;
-  /* Drag is claimed here only — the list below scrolls normally. */
-  touch-action: none;
-}
-.map-sheet__grip:active { cursor: grabbing; }
-
-/* A real button, not a decorative bar: tapping cycles detents, so a mouse user
-   never has to drag. */
-.map-sheet__handle {
-  display: block;
-  width: 40px;
-  height: 5px;
-  margin: 0 auto 10px;
-  border-radius: 999px;
-  border: none;
-  background: var(--ink-300);
-  cursor: pointer;
-}
-.map-sheet__handle:active { background: var(--ink-400); }
-
-.map-sheet__filters {
-  display: flex;
-  gap: 7px;
-  padding: 2px 14px 10px;
-  flex-shrink: 0;
-}
-
-/* "Within …" — how far to search. Separate row from the type filters because
-   they answer different questions and mixing them reads as one long soup. */
-.map-sheet__radius {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 14px 10px;
-  flex-shrink: 0;
-}
-.map-sheet__radius-label {
-  flex-shrink: 0;
-  padding-right: 2px;
-}
-
-.map-sheet__list {
-  flex: 1;
-  overflow-y: auto;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--map-chrome-inset);
   -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain; /* don't chain the scroll out to the page */
-  padding: 0 12px;
+  scrollbar-width: none;
+  /* The carousel owns horizontal gestures inside itself; the map keeps the rest. */
+  touch-action: pan-x;
+  padding: 10px var(--map-chrome-inset) calc(var(--map-over-nav, 0px) + var(--safe-area-bottom) + 10px);
+}
+.map-carousel::-webkit-scrollbar { display: none; }
+
+.map-carousel__card {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+  width: 80px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.map-sheet__row {
-  display: flex;
   align-items: center;
-  gap: 11px;
-  width: 100%;
-  min-height: 60px;
-  padding: 9px 10px;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  text-align: left;
+  gap: 5px;
+  padding: 10px 6px;
+  border-radius: 18px;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  transition: transform 0.1s ease;
 }
-.map-sheet__row:active { background: var(--ink-50); }
+.map-carousel__card:active { transform: scale(0.96); }
 
-.map-sheet__thumb {
+.map-carousel__card--empty {
+  width: 220px;
+  padding: 16px 14px;
+  justify-content: center;
+  cursor: default;
+}
+.map-carousel__card--empty:active { transform: none; }
+
+.map-carousel__dot {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
-  object-fit: cover;
-  flex-shrink: 0;
+  border-radius: 50%;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  border: 2px solid #fff;
 }
-.map-sheet__thumb--emoji {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
+
+.map-carousel__title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-900);
+  max-width: 100%;
+}
+
+.map-carousel__sub {
+  font-size: 10px;
+  color: var(--ink-500);
+  max-width: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .map-sheet { transition: none; }
+  .map-carousel__card { transition: none; }
+}
+
+/* ── Map filter strip ────────────────────────────────────────────────────
+   The type filter + "open now" toggle (MAP_SNAPCHAT_STYLE_PLAN.md §2.1,
+   Phase B) — sits directly under the search bar. The old sheet gave the
+   type filter and the search radius a full row each because a drawer had
+   the room; both now live behind the [Label ▾] chip's popover instead. */
+.map-filter-strip {
+  position: absolute;
+  top: calc(var(--map-chrome-inset) + var(--safe-area-top) + 52px);
+  left: var(--map-chrome-inset);
+  z-index: 999;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 /* "Search this area" — floats over the map centre-top, below the search bar.
@@ -2863,7 +2843,9 @@ button.set-row:active {
    hidden it's also removed from the tab order and the a11y tree. */
 .map-search-area {
   position: absolute;
-  top: calc(var(--map-chrome-inset) + var(--safe-area-top) + 104px);
+  /* Clears the search bar (§ .map-screen__search) and MapFilterStrip
+     (starts at +52px) stacked above it. */
+  top: calc(var(--map-chrome-inset) + var(--safe-area-top) + 96px);
   left: 50%;
   z-index: 7;
   display: flex;
@@ -2908,39 +2890,13 @@ button.set-row:active {
   align-items: center;
 }
 
-.map-layer-toggles {
-  position: absolute;
-  top: calc(56px + var(--safe-area-top));
-  left: var(--map-chrome-inset);
-  right: calc(var(--map-chrome-inset) + var(--map-fab-size) + 8px);
-  z-index: 1000;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  mask-image: linear-gradient(to right, #000 92%, transparent);
-  -webkit-mask-image: linear-gradient(to right, #000 92%, transparent);
-}
-
-.map-layer-toggles::-webkit-scrollbar {
-  display: none;
-}
-
-.map-layer-toggles__row {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  width: max-content;
-  padding-right: 16px;
-}
-
 /* Only the guest radius notice uses this now — the places badge and radius
    strip it used to stack are gone. */
 .map-bottom-dock {
   position: absolute;
   left: var(--map-chrome-inset);
   right: var(--map-chrome-inset);
-  bottom: calc(var(--map-sheet-peek-h) + var(--map-over-nav) + 10px);
+  bottom: calc(var(--map-carousel-h) + var(--map-over-nav) + 10px);
   z-index: 1000;
   display: flex;
   flex-direction: column;
@@ -3022,48 +2978,25 @@ button.set-row:active {
 
 .map-screen .maplibregl-ctrl-bottom-right,
 .map-screen .maplibregl-ctrl-bottom-left {
-  bottom: calc(var(--map-sheet-peek-h) + var(--map-over-nav) + 4px) !important;
+  bottom: calc(var(--map-carousel-h) + var(--map-over-nav) + 4px) !important;
 }
 
-/* ── Desktop: the sheet docks as a side panel ──────────────────────────────
-   Same component, same state — only the box it lives in changes. A phone-width
-   sheet stretched across a 1400px browser was the old desktop "treatment". */
+/* ── Desktop ─────────────────────────────────────────────────────────────
+   A left-docked side panel reusing the same carousel cards is Phase F
+   (MAP_SNAPCHAT_STYLE_PLAN.md §5) — not built yet. Until then desktop gets
+   the same full-bleed layout as mobile; only the nav-bar clearance differs. */
 @media (min-width: 768px) {
   .screen.map-screen {
     height: 100dvh !important;
   }
 
   :root {
-    /* No bottom nav on desktop, and the panel no longer sits under the FABs. */
+    /* No bottom nav on desktop — the carousel still docks along the bottom
+       edge the same as mobile, so the FABs still need to clear it. */
     --map-over-nav: var(--safe-area-bottom);
-    --map-fab-bottom: calc(var(--map-over-nav) + 20px);
+    --map-fab-bottom: calc(var(--map-carousel-h) + var(--map-over-nav) + 20px);
     --map-pin-bottom: calc(var(--map-fab-bottom) + var(--map-fab-size) + var(--map-fab-gap));
   }
-
-  .map-sheet,
-  .map-sheet--peek,
-  .map-sheet--half,
-  .map-sheet--full {
-    top: 0;
-    right: auto;
-    width: 380px;
-    height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
-    box-shadow: 4px 0 24px rgba(26, 21, 48, 0.12);
-    padding-bottom: var(--safe-area-bottom);
-    transition: none; /* detents are meaningless docked */
-  }
-
-  /* The grip becomes a static header: nothing to drag to. */
-  .map-sheet__grip { cursor: default; touch-action: auto; }
-  .map-sheet__handle { display: none; }
-
-  /* Keep the map's own chrome clear of the panel. */
-  .map-screen__search { left: calc(380px + var(--map-chrome-inset)); }
-  .map-search-area { left: calc(380px + (100% - 380px) / 2); }
-  .map-screen .maplibregl-ctrl-bottom-left { left: 380px !important; bottom: 4px !important; }
-  .map-screen .maplibregl-ctrl-bottom-right { bottom: 4px !important; }
 }
 
 

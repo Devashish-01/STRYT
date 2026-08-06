@@ -22,7 +22,8 @@ import { SearchBar } from "./SearchBar";
 import GuestRadiusNotice from "@/components/GuestRadiusNotice";
 import { GUEST_RADIUS_KM } from "@/lib/guestMode";
 import { MapMarkers } from "./MapMarkers";
-import MapResultsSheet, { type ResultFilter } from "./MapResultsSheet";
+import { MapCarousel } from "./MapCarousel";
+import { MapFilterStrip, type ResultFilter } from "./MapFilterStrip";
 import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 import { useI18n } from "@/lib/i18n";
@@ -354,8 +355,21 @@ export default function MapView() {
     return distanceKm(centerLat, centerLng, r.lat, r.lng) <= searchRadiusKm;
   });
 
-  // The old "N places" badge counted these; the sheet now derives its own
-  // count from the rows it actually renders, so there's nothing to total here.
+  // Gated the same way the old sheet's props were: a layer that's off isn't
+  // just hidden on the map, it's excluded from the carousel and the filter
+  // chip's counts too — switching to "Shops" means providers/requests/stories
+  // weren't fetched into these lists at all, not merely filtered out below.
+  const shownBusinesses = layers.business ? filteredBusinesses : [];
+  const shownProviders = layers.provider ? filteredProviders : [];
+  const shownRequests = layers.request ? nearbyRequests : [];
+  const shownStories = layers.story ? mapStories : [];
+  const resultCounts: Record<ResultFilter, number> = {
+    all: shownBusinesses.length + shownProviders.length + shownRequests.length + shownStories.length,
+    business: shownBusinesses.length,
+    provider: shownProviders.length,
+    request: shownRequests.length,
+    story: shownStories.length,
+  };
 
   const brandColor = useMemo(() => resolveToken("--brand-600", "#7c2fe8"), []);
   // Ring shows the area the RESULTS came from, so a user who has panned away
@@ -376,10 +390,23 @@ export default function MapView() {
             onPickShop={(shop) => flyToPlace(shop.lat, shop.lng)}
           />
 
-          {/* LayerToggles, the places badge and the RadiusStrip all lived here.
-              They're now inside MapResultsSheet (filters, count) or retired
-              entirely (radius derives from zoom — see useMapViewport). Guests
-              keep their notice; the 1 km cap itself is applied to the searched
+          <MapFilterStrip
+            filter={resultFilter}
+            setFilter={setResultFilter}
+            counts={resultCounts}
+            availOnly={availOnly}
+            setAvailOnly={setAvailOnly}
+            radiusKm={radiusOverride}
+            // Guests are capped at GUEST_RADIUS_KM, so offering the row would be
+            // offering choices that silently don't apply.
+            onRadiusChange={isGuest ? undefined : applyRadius}
+            radiusOptions={RADIUS_OPTIONS}
+          />
+
+          {/* The old "N places" badge and the RadiusStrip are retired (radius
+              derives from zoom by default — see useMapViewport; an explicit
+              override is now inside MapFilterStrip's popover). Guests keep
+              their notice; the 1 km cap itself is applied to the searched
               area, not just to a hidden control. */}
           {isGuest && <div className="map-bottom-dock"><GuestRadiusNotice /></div>}
 
@@ -521,23 +548,15 @@ export default function MapView() {
       )}
 
       {!pin.pickMode && (
-        <MapResultsSheet
+        <MapCarousel
           centerLat={centerLat}
           centerLng={centerLng}
           loading={bizLoading || provLoading}
-          businesses={layers.business ? filteredBusinesses : []}
-          providers={layers.provider ? filteredProviders : []}
-          requests={layers.request ? nearbyRequests : []}
-          stories={layers.story ? mapStories : []}
-          filter={resultFilter}
-          setFilter={setResultFilter}
-          availOnly={availOnly}
-          setAvailOnly={setAvailOnly}
-          radiusKm={radiusOverride}
-          // Guests are capped at GUEST_RADIUS_KM, so offering the row would be
-          // offering choices that silently don't apply.
-          onRadiusChange={isGuest ? undefined : applyRadius}
-          radiusOptions={RADIUS_OPTIONS}
+          businesses={shownBusinesses}
+          providers={shownProviders}
+          requests={shownRequests}
+          stories={shownStories}
+          onFlyTo={flyToPlace}
           onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
         />
       )}
