@@ -2993,11 +2993,14 @@ button.set-row:active {
    older Android WebViews, so this layout silently mispositioned on exactly the
    devices the native build targets. */
 
-/* Required OpenStreetMap credit line — replaces MapLibre's own attribution
-   control (disabled via attributionControl={false} in index.tsx). Deliberately
-   plain: small, low-contrast, no background chip, no button. Still a real
-   link (not unlinked text) so it stays a genuine, durable attribution rather
-   than something that reads as decorative and gets "cleaned up" later. */
+/* Required basemap credit line — replaces MapLibre's own attribution control
+   (disabled via attributionControl={false} in index.tsx). Deliberately plain:
+   small, low-contrast, no background chip, no button. Still real links (not
+   unlinked text) so it stays genuine, durable attribution rather than
+   something that reads as decorative and gets "cleaned up" later. On the free
+   map it's one link; on the Mapbox fallback it's a wrapping span around two
+   (Mapbox requires its own credit alongside OpenStreetMap's), so the color/
+   size/no-underline rules apply to the link(s) either way. */
 .map-attribution {
   position: absolute;
   left: var(--map-chrome-inset);
@@ -3005,10 +3008,20 @@ button.set-row:active {
   z-index: 6;
   font-size: 9px;
   color: var(--ink-400);
-  text-decoration: none;
   pointer-events: auto;
 }
-.map-attribution:hover { color: var(--ink-600); }
+/* Covers both shapes: `.map-attribution` is sometimes the link itself (free
+   map, one credit) and sometimes a wrapping span around two links (Mapbox
+   fallback, which needs its own credit alongside OpenStreetMap's). */
+.map-attribution,
+.map-attribution a {
+  color: inherit;
+  text-decoration: none;
+}
+.map-attribution:hover,
+.map-attribution a:hover {
+  color: var(--ink-600);
+}
 
 /* ── Desktop ─────────────────────────────────────────────────────────────
    Phase F (MAP_SNAPCHAT_STYLE_PLAN.md §5/§2.2): the carousel docks as a

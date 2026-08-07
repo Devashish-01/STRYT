@@ -27,12 +27,24 @@ import { MapFilterStrip, type ResultFilter } from "./MapFilterStrip";
 import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 import { useI18n } from "@/lib/i18n";
+import { mapboxStyleUrl, makeMapboxTransformRequest } from "./mapboxFallback";
 import { useMapViewport } from "./useMapViewport";
 import SearchThisArea from "./SearchThisArea";
 
-// The only basemap this app renders — OpenFreeMap's open-source vector
-// style, built from OpenStreetMap data.
+// The default basemap — OpenFreeMap's open-source vector style, built from
+// OpenStreetMap data. Mapbox is a fallback only (see FALLBACK_TIMEOUT_MS
+// below), used solely if the free map hasn't loaded in time and a token is
+// configured — never the primary provider.
 const FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+
+/**
+ * How long the free map gets to load before this map open gives up on it and
+ * tries Mapbox instead (if a token is configured). Short, not the 30s an
+ * earlier build gave Mapbox as the PRIMARY provider — OpenFreeMap is a lean
+ * vector style that should load quickly under normal conditions, so this is
+ * a safety net for "the free tile host is actually down," not a routine wait.
+ */
+const FALLBACK_TIMEOUT_MS = 8_000;
 
 /**
  * The veil hides only the initial blank-canvas flash. It lifts as soon as the
@@ -165,7 +177,12 @@ export default function MapView() {
   // either surface updates the other (Phase C, MAP_SNAPCHAT_STYLE_PLAN.md §2.1).
   const [selected, setSelected] = useState<Selected>(null);
 
+  const hasMapboxFallback = !!config.mapboxToken;
+  const [mapStyle, setMapStyle] = useState(FREE_MAP_STYLE);
+  const [usingMapbox, setUsingMapbox] = useState(false);
   const [mapReady, setMapReady] = useState(false);
+  const styleLoadedRef = useRef(false);
+  const fallbackTimerRef = useRef<number | null>(null);
   // Needed outside the <Map> subtree (useMap() only works inside it) so the
   // "Search this area" pill can read the live bounds at the moment it's tapped.
   const mapRef = useRef<MapRef>(null);
@@ -173,8 +190,14 @@ export default function MapView() {
   // through already-searched results must never register as "the user
   // panned," or every swipe would trigger "Search this area" on itself.
   const suppressViewportMoveRef = useRef(false);
+  const transformRequest = useMemo(() => makeMapboxTransformRequest(config.mapboxToken), []);
 
   function handleMapLoad(event: MapEvent) {
+    styleLoadedRef.current = true;
+    if (fallbackTimerRef.current) {
+      window.clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
     // Two-finger rotation is off by design. Every marker on this map is
     // upright HTML (`meIconHtml`, MapMarkers), so a rotated bearing leaves the
     // pins tilted against the labels — and users pinching to zoom rotate the
@@ -183,6 +206,25 @@ export default function MapView() {
     event.target.touchZoomRotate?.disableRotation();
     setMapReady(true);
   }
+
+  // The one fallback decision point for this map open — never re-armed, and
+  // nothing else (an onError warning, a slow tile) triggers it early, so a
+  // momentary hiccup can't eject someone off the free map over a false alarm.
+  useEffect(() => {
+    if (!hasMapboxFallback) return;
+    fallbackTimerRef.current = window.setTimeout(() => {
+      if (styleLoadedRef.current) return; // free map came through just in time
+      if (import.meta.env.DEV) {
+        console.warn(`[MapView] OpenFreeMap hadn't loaded in ${FALLBACK_TIMEOUT_MS / 1000}s — falling back to Mapbox.`);
+      }
+      setMapStyle(mapboxStyleUrl(config.mapboxToken));
+      setUsingMapbox(true);
+    }, FALLBACK_TIMEOUT_MS);
+    return () => {
+      if (fallbackTimerRef.current) window.clearTimeout(fallbackTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Lift the veil on a short timer regardless of the style-load event — see
   // MAP_VEIL_MAX_MS. A half-drawn map the user can already pan beats a spinner.
@@ -470,13 +512,15 @@ export default function MapView() {
         </>
       )}
 
-      {/* Full-screen map — OpenFreeMap's open-source basemap. */}
+      {/* Full-screen map — OpenFreeMap's open-source basemap, or Mapbox if it
+          hasn't loaded within FALLBACK_TIMEOUT_MS. */}
       <Map
         // Framed on the USER's location; `searched` then follows wherever they
         // ask. Using `centerLat/Lng` here would re-frame the map every time a
         // new area was searched, fighting the user's own panning.
         initialViewState={{ longitude: homeLng, latitude: homeLat, zoom: 13 }}
-        mapStyle={FREE_MAP_STYLE}
+        mapStyle={mapStyle}
+        transformRequest={transformRequest}
         onLoad={handleMapLoad}
         // Tracks where the map IS, so the pill knows when the on-screen results
         // stopped describing what's visible. Deliberately does not trigger a
@@ -561,18 +605,28 @@ export default function MapView() {
         />
       </Map>
 
-      {/* Required OpenStreetMap/OpenFreeMap credit — a plain link, not the
-          interactive "ⓘ" control MapLibre renders by default (disabled above
-          via attributionControl={false}). Small and low-contrast on purpose,
-          but present: this app has no other basemap to fall back to. */}
-      <a
-        href="https://www.openstreetmap.org/copyright"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="map-attribution"
-      >
-        © OpenStreetMap contributors
-      </a>
+      {/* Required credit — a plain link, not the interactive "ⓘ" control
+          MapLibre renders by default (disabled above via
+          attributionControl={false}). Small and low-contrast on purpose, but
+          present, and switches to Mapbox's own required attribution whenever
+          the fallback is actually active — Mapbox's terms ask for their own
+          credit alongside OpenStreetMap's, not just the latter. */}
+      {usingMapbox ? (
+        <span className="map-attribution">
+          <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noopener noreferrer">© Mapbox</a>
+          {" "}
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap</a>
+        </span>
+      ) : (
+        <a
+          href="https://www.openstreetmap.org/copyright"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="map-attribution"
+        >
+          © OpenStreetMap contributors
+        </a>
+      )}
 
       {/* Covers the initial blank canvas only. Kept mounted and faded out (rather
           than unmounted outright) so the map doesn't pop into view. */}
