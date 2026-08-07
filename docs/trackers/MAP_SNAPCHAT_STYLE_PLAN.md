@@ -187,7 +187,7 @@ shell it ships in — picking an *area* result moves the map only.
 | **C** | ✅ Bidirectional carousel↔map sync + the "ignore programmatic moves" fix | Depends on B |
 | **D** | ✅ Dual-intent search in the top strip + the location-rewrite fix | Independent, can ship anytime |
 | **E** | ✅ Heat layer, with the low-density gate | Last — least useful at current scale |
-| **F** | Desktop vertical-list panel reusing the same cards | After B/C are stable on mobile |
+| **F** | ✅ Desktop vertical-list panel reusing the same cards | After B/C are stable on mobile |
 
 **Phase B, as shipped:** `MapCarousel.tsx` renders the snap-scroll card tray
 (no background panel — cards float directly over the map, each its own glass
@@ -262,10 +262,43 @@ Untunable without a device: the exact radius/intensity zoom curves and the
 cluster of shops — flagged as needing a pass once there's real density to
 look at, same honest caveat §2.4 itself states.
 
-**If time is short: A + D are the highest visible impact for the lowest risk** —
-new pins and working search, without touching the interaction model yet.
-B/C (the carousel swap) is the real redesign and deserves a device pass before
-E and F stack on top of it.
+**Phase F, as shipped:** no new component — `MapCarousel.tsx` is the SAME
+component on both platforms, per §2.2 ("the two platforms share one card
+component even though the container differs"). A `@media (min-width: 768px)`
+block in `index.css` is the only thing that decides which layout renders:
+`.map-carousel` becomes a 380px `left:0` panel (`flex-direction: column`,
+free vertical scroll, opaque `var(--surface)` background + a right-edge
+shadow reviving the old `.map-sheet` docking's look) instead of the
+bottom-docked horizontal strip; `.map-carousel__card` flips to a row (avatar
+left, text right) and drops the mobile glass-chip treatment (blur/border/
+shadow) for a plain hover/selected background tint, appropriate for rows
+sitting inside an already-opaque panel rather than floating over the map.
+The only JSX change was wrapping title/sub/rating in a new
+`.map-carousel__info` span — `display: contents` on mobile (invisible to the
+row layout, exactly as if it weren't there) and `display: flex; flex-
+direction: column;` on desktop, so it becomes the text column beside the
+avatar without needing two different card render paths.
+
+The selection sync from Phase C (`selectRow`, `lastSyncedKeyRef`, the
+map↔carousel effects) needed no new logic — MapCarousel now asks its own
+container `getComputedStyle(...).flexDirection` to tell whether it's
+currently laid out as a row or a column, then picks `offsetLeft`/`scrollLeft`
+vs `offsetTop`/`scrollTop` and `scrollIntoView`'s `inline`/`block` args
+accordingly. Reading the DOM's actual computed layout back like this, rather
+than a second JS breakpoint check, means the JS can never disagree with
+whatever the CSS breakpoint actually decided.
+
+Chrome that anchored off the bottom carousel strip on mobile (the FABs, the
+guest radius dock, maplibre's attribution controls) reverts to a plain
+nav-clearance offset on desktop, since nothing docks at the bottom there any
+more; everything anchored on the left (search bar, filter strip, the
+"Search this area" pill, the bottom-left attribution control) shifts right
+by the new `--map-panel-w` (380px) so it isn't hidden under the panel.
+
+Every phase in this document is now shipped. What's left is the honest
+device-verification pass §6 has been asking for since Phase B — none of A–F
+has been looked at in an actual browser or on an actual phone in this
+environment.
 
 ---
 

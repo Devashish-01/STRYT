@@ -142,6 +142,16 @@ export function MapCarousel({
     return out.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
   }, [businesses, providers, requests, stories, centerLat, centerLng, viewedStories, onStoryClick]);
 
+  // Row on mobile (horizontal snap-scroll), column on desktop (Phase F's
+  // left-docked vertical panel — MAP_SNAPCHAT_STYLE_PLAN.md §2.2) — CSS
+  // alone decides which, via the @media (min-width: 768px) breakpoint on
+  // .map-carousel. Reading it back here (rather than a second JS breakpoint
+  // check) means this can never drift out of sync with whatever the actual
+  // rendered layout is.
+  function isColumnLayout(container: HTMLElement): boolean {
+    return getComputedStyle(container).flexDirection.startsWith("column");
+  }
+
   // Map → carousel: an external selection (a map-pin tap) scrolls the
   // matching card into view. Skipped when the key matches what THIS
   // component just synced itself, so the scroll our own settle handler
@@ -151,9 +161,15 @@ export function MapCarousel({
     const key = `${selected.kind[0]}:${selected.id}`;
     if (key === lastSyncedKeyRef.current) return;
     const el = cardRefs.current.get(key);
-    if (!el) return; // not in this carousel's current rows (filtered out, etc.)
+    const container = containerRef.current;
+    if (!el || !container) return; // not in this carousel's current rows (filtered out, etc.)
     lastSyncedKeyRef.current = key;
-    el.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    const column = isColumnLayout(container);
+    el.scrollIntoView({
+      behavior: "smooth",
+      inline: column ? "nearest" : "start",
+      block: column ? "start" : "nearest",
+    });
   }, [selected]);
 
   useEffect(() => () => {
@@ -163,19 +179,23 @@ export function MapCarousel({
   // Carousel → map: after a scroll gesture settles (debounced, not per-frame
   // — easing the map on every scroll event would fight the user's own
   // swipe), find whichever card is now leading the row and select + ease to
-  // it. Cards snap-align "start", so the nearest offsetLeft to the current
-  // scrollLeft is the resting one.
+  // it. Cards snap-align "start", so the nearest offset to the current
+  // scroll position (along whichever axis is actually scrolling) is the
+  // resting one.
   function handleScroll() {
     if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
     settleTimerRef.current = window.setTimeout(() => {
       const container = containerRef.current;
       if (!container) return;
+      const column = isColumnLayout(container);
       let nearest: Row | null = null;
       let nearestDist = Infinity;
       for (const r of rows) {
         const el = cardRefs.current.get(r.key);
         if (!el) continue;
-        const dist = Math.abs(el.offsetLeft - container.scrollLeft);
+        const dist = column
+          ? Math.abs(el.offsetTop - container.scrollTop)
+          : Math.abs(el.offsetLeft - container.scrollLeft);
         if (dist < nearestDist) { nearestDist = dist; nearest = r; }
       }
       // Settling on the card a map-pin tap just scrolled us to isn't a new
@@ -214,11 +234,17 @@ export function MapCarousel({
             ) : (
               <AvatarPin photo={r.photo} name={r.title} tone={r.tone ?? "closed"} fallback={r.fallback} size={44} />
             )}
-            <span className="map-carousel__title ellipsis">{r.title}</span>
-            <span className="map-carousel__sub ellipsis">
-              {r.distanceKm != null ? distanceLabel(r.distanceKm, t) : r.sub}
+            {/* display:contents on mobile — invisible to the row layout, same
+                as if title/sub/rating sat directly in the card. On desktop
+                (Phase F) this becomes the column that sits beside the avatar
+                in a list row instead of stacking under it. */}
+            <span className="map-carousel__info">
+              <span className="map-carousel__title ellipsis">{r.title}</span>
+              <span className="map-carousel__sub ellipsis">
+                {r.distanceKm != null ? distanceLabel(r.distanceKm, t) : r.sub}
+              </span>
+              {r.rating != null && r.rating > 0 && <Rating value={r.rating} size={9} />}
             </span>
-            {r.rating != null && r.rating > 0 && <Rating value={r.rating} size={9} />}
           </button>
         );
       })}

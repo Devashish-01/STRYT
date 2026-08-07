@@ -2827,6 +2827,15 @@ button.set-row:active {
   max-width: 100%;
 }
 
+/* Groups title/sub/rating for Phase F's desktop row layout without affecting
+   mobile at all — `contents` removes this span from layout entirely, so its
+   children sit directly in `.map-carousel__card`'s column flow exactly as if
+   the wrapper weren't there. Desktop turns it into the text column beside
+   the avatar (see the @media block below). */
+.map-carousel__info {
+  display: contents;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .map-carousel__card { transition: none; }
 }
@@ -2990,20 +2999,113 @@ button.set-row:active {
 }
 
 /* ── Desktop ─────────────────────────────────────────────────────────────
-   A left-docked side panel reusing the same carousel cards is Phase F
-   (MAP_SNAPCHAT_STYLE_PLAN.md §5) — not built yet. Until then desktop gets
-   the same full-bleed layout as mobile; only the nav-bar clearance differs. */
+   Phase F (MAP_SNAPCHAT_STYLE_PLAN.md §5/§2.2): the carousel docks as a
+   380px left panel instead of a bottom strip — same MapCarousel.tsx, same
+   cards, same selection sync (it reads its own layout back via
+   getComputedStyle rather than duplicating this breakpoint in JS); only the
+   container CSS below changes. Everything else that anchors off the bottom
+   strip on mobile (FABs, the guest dock, maplibre attribution) reverts to a
+   plain nav-clearance offset here, since there's no bottom chrome to clear
+   once the panel moves to the side — and everything anchored on the LEFT
+   shifts right by the panel's width so it isn't hidden underneath it. */
 @media (min-width: 768px) {
   .screen.map-screen {
     height: 100dvh !important;
   }
 
   :root {
-    /* No bottom nav on desktop — the carousel still docks along the bottom
-       edge the same as mobile, so the FABs still need to clear it. */
+    --map-panel-w: 380px;
+    /* No bottom nav on desktop, and nothing docks at the bottom any more. */
     --map-over-nav: var(--safe-area-bottom);
-    --map-fab-bottom: calc(var(--map-carousel-h) + var(--map-over-nav) + 20px);
+    --map-fab-bottom: calc(var(--map-over-nav) + 20px);
     --map-pin-bottom: calc(var(--map-fab-bottom) + var(--map-fab-size) + var(--map-fab-gap));
+  }
+
+  .map-bottom-dock {
+    left: calc(var(--map-panel-w) + var(--map-chrome-inset));
+    bottom: calc(var(--map-over-nav) + 10px);
+  }
+
+  .map-screen .maplibregl-ctrl-bottom-right,
+  .map-screen .maplibregl-ctrl-bottom-left {
+    bottom: 4px !important;
+  }
+  .map-screen .maplibregl-ctrl-bottom-left {
+    left: var(--map-panel-w) !important;
+  }
+
+  .map-screen__search {
+    left: calc(var(--map-panel-w) + var(--map-chrome-inset));
+  }
+  .map-filter-strip {
+    left: calc(var(--map-panel-w) + var(--map-chrome-inset));
+  }
+  .map-search-area {
+    left: calc(var(--map-panel-w) + (100% - var(--map-panel-w)) / 2);
+  }
+
+  .map-carousel {
+    left: 0;
+    right: auto;
+    top: 0;
+    bottom: 0;
+    width: var(--map-panel-w);
+    height: 100dvh;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    /* No scroll-snap here on purpose — snap-per-card is a mobile carousel
+       (swipe-to-next) affordance; a desktop sidebar list scrolls freely like
+       any other list. handleScroll's "nearest row" detection in
+       MapCarousel.tsx doesn't depend on snap actually happening either way. */
+    touch-action: pan-y;
+    padding: var(--map-chrome-inset);
+    padding-bottom: calc(var(--map-over-nav) + var(--map-chrome-inset));
+    background: var(--surface);
+    box-shadow: 4px 0 24px rgba(26, 21, 48, 0.12);
+  }
+
+  /* Rows in a docked, opaque panel — not chips floating over the map, so the
+     glass treatment (blur/border/shadow) that made sense on mobile is
+     switched off in favour of a plain hover state instead. */
+  .map-carousel__card {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  /* The avatar/dot is always the card's first child (see MapCarousel.tsx) —
+     pin it at 44px so a long title can't compress it in the row layout. */
+  .map-carousel__card > *:first-child {
+    flex-shrink: 0;
+  }
+  .map-carousel__card:hover { background: var(--ink-50) !important; }
+  .map-carousel__card--selected { background: var(--brand-50) !important; }
+  .map-carousel__card--empty {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .map-carousel__info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+  }
+  .map-carousel__title,
+  .map-carousel__sub {
+    max-width: 100%;
+    width: 100%;
   }
 }
 
