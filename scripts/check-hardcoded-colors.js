@@ -47,6 +47,9 @@ const WHITELISTED_HEX = new Set([
 
   // Native bridge APIs & 2D Canvas poster rendering cannot consume CSS variables
   "8b47f5", "7c2fe8", "6b21cc", "15803d", "7c3aed", "f1f5f9", "0f172a",
+  // MapLibre heatmap paint (WebGL, same "cannot consume CSS variables" class as
+  // above) — resolveToken() fallback for --accent-400 in MapView/index.tsx
+  "ffba2b",
 
 
   // Ambient Weather Themes dynamic gradient stops (useAmbientTheme.ts)

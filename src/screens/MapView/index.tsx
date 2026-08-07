@@ -12,6 +12,7 @@ import { StoryViewer } from "@/components/Stories";
 import type { Story } from "@/types";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { RADIUS_OPTIONS } from "@/utils/constants";
+import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 
 import type { Layer as MapLayer } from "./mapIcons";
 import { meIconHtml } from "./mapIcons";
@@ -48,6 +49,15 @@ const MAPBOX_LOAD_TIMEOUT_MS = 30_000;
  */
 const MAP_VEIL_MAX_MS = 2_500;
 
+/**
+ * Below this many visible businesses, MapLibre's heatmap kernel has nothing
+ * to blend — a couple of points render as isolated soft dots, not a glow,
+ * which reads as broken rather than "not much happening here yet" (Phase E,
+ * MAP_SNAPCHAT_STYLE_PLAN.md §2.4). Skip the layer entirely below this, same
+ * as not showing a chart with one data point.
+ */
+const HEAT_MIN_BUSINESSES = 8;
+
 // haversine, km — same distance math the old Leaflet build used
 // (L.latLng(...).distanceTo(...)), just without the Leaflet dependency.
 function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -70,6 +80,21 @@ function resolveToken(name: string, fallback: string): string {
   return v || fallback;
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+// Blends the heat layer's hue between the brand purple and a warm amber as
+// `lampGlow` rises toward night — "the map glows like a street lamp," not a
+// fixed Snapchat-orange (MAP_SNAPCHAT_STYLE_PLAN.md §2.4/§0). Blended once in
+// JS rather than left as two static color stops because MapLibre's
+// `heatmap-color` expression has no notion of "the ambient theme," only
+// whatever literal colors it's handed.
+function mixRgb(a: [number, number, number], b: [number, number, number], t: number): [number, number, number] {
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t].map(Math.round) as [number, number, number];
+}
+
 // A circle-as-polygon GeoJSON feature — MapLibre has no built-in <Circle>
 // (unlike react-leaflet), so the radius ring is a Source+Layer instead.
 function circleGeoJSON(lat: number, lng: number, radiusKm: number, points = 72): GeoJSON.Feature<GeoJSON.Polygon> {
@@ -88,6 +113,12 @@ export default function MapView() {
   const { user, refreshUser, showToast, isGuest } = useApp();
   const { t, tf } = useI18n();
   const pin = useLocationPinDrop(refreshUser, showToast);
+  // No lat/lng passed in — the heat layer only needs lampGlow (pure time-of-
+  // day), not weather-driven copy, and DesktopSidebar already sets the
+  // precedent for calling this arg-less to skip the weather fetch entirely.
+  // Passing the live searched center here would re-fetch weather on every
+  // pan/search, unlike Home's fixed profile location.
+  const ambientTheme = useAmbientTheme();
   // One filter now drives BOTH the sheet list and which markers are on the map.
   // Previously these were separate (LayerToggles for the map, tabs inside the
   // NearbySheet for the list), so the list could show things the map didn't.
@@ -410,6 +441,53 @@ export default function MapView() {
     [centerLat, centerLng, searchRadiusKm, isWorld]
   );
 
+  // ── Heat layer (Phase E, MAP_SNAPCHAT_STYLE_PLAN.md §2.4) ──────────────
+  // Reuses shownBusinesses — already gated by the business-layer toggle and
+  // availOnly the same way the carousel and filter counts are, so filtering
+  // to "People" or "Open now" also empties the glow instead of leaving it
+  // describing shops that are no longer even shown.
+  const heatPurpleRgb = useMemo(() => hexToRgb(resolveToken("--brand-500", "#8b47f5")), []);
+  const heatAmberRgb = useMemo(() => hexToRgb(resolveToken("--accent-400", "#ffba2b")), []);
+  const showHeat = shownBusinesses.length >= HEAT_MIN_BUSINESSES;
+  // Plain, not memoized — shownBusinesses is itself a fresh array every
+  // render (same as resultCounts above), so a useMemo here would never
+  // actually stabilize; mapping it is cheap enough not to need to.
+  const heatData: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+    type: "FeatureCollection",
+    features: shownBusinesses.map((b) => {
+      const isOpen = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil).isOpenNow;
+      // Open shops read as "happening now"; closed ones still mark the block
+      // as a shopping street, just fainter — providers are excluded entirely
+      // (services aren't "foot traffic" the same way a shop front is).
+      return {
+        type: "Feature" as const,
+        properties: { weight: isOpen ? 2 : 1 },
+        geometry: { type: "Point" as const, coordinates: [b.lng, b.lat] },
+      };
+    }),
+  };
+  const heatPaint = useMemo(() => {
+    const [r, g, b] = mixRgb(heatPurpleRgb, heatAmberRgb, ambientTheme.lampGlow);
+    const rgba = (a: number) => `rgba(${r},${g},${b},${a})`;
+    return {
+      "heatmap-weight": ["get", "weight"],
+      "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 0, 0.8, 14, 2.2],
+      "heatmap-color": [
+        "interpolate", ["linear"], ["heatmap-density"],
+        0, "rgba(0,0,0,0)",
+        0.2, rgba(0.22),
+        0.4, rgba(0.42),
+        0.6, rgba(0.62),
+        0.8, rgba(0.80),
+        1, rgba(0.92),
+      ],
+      "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 10, 14, 16, 34],
+      // Faint by day, fuller at night — the same "the street lights up after
+      // dark" signal the header's own lamp glow already uses.
+      "heatmap-opacity": 0.25 + ambientTheme.lampGlow * 0.45,
+    };
+  }, [heatPurpleRgb, heatAmberRgb, ambientTheme.lampGlow]);
+
   return (
     <div className="screen screen-canvas map-screen" style={{ position: "relative" }}>
       {!pin.pickMode && (
@@ -511,6 +589,20 @@ export default function MapView() {
         <Marker longitude={centerLng} latitude={centerLat} anchor="center">
           <span dangerouslySetInnerHTML={{ __html: meIconHtml }} />
         </Marker>
+
+        {/* Business density + open-now glow — under the radius ring so the
+            ring's boundary still reads clearly on top of it. Hidden below
+            HEAT_MIN_BUSINESSES rather than rendering a sparse, broken-looking
+            scatter of faint dots. */}
+        {showHeat && (
+          <Source id="business-heat" type="geojson" data={heatData}>
+            {/* MapLibre expression arrays don't infer against the style-spec's
+                deeply recursive paint union from a plain object literal — same
+                class of interop friction MapControllers.tsx already casts
+                through `any` for map event typing. */}
+            <Layer id="business-heat-layer" type="heatmap" paint={heatPaint as any} />
+          </Source>
+        )}
 
         {/* Radius ring — hidden for World mode */}
         {radiusRing && (

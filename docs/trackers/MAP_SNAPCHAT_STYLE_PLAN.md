@@ -186,7 +186,7 @@ shell it ships in — picking an *area* result moves the map only.
 | **B** | ✅ `MapCarousel.tsx` + top filter strip, retiring `MapResultsSheet.tsx` | Yes |
 | **C** | ✅ Bidirectional carousel↔map sync + the "ignore programmatic moves" fix | Depends on B |
 | **D** | ✅ Dual-intent search in the top strip + the location-rewrite fix | Independent, can ship anytime |
-| **E** | Heat layer, with the low-density gate | Last — least useful at current scale |
+| **E** | ✅ Heat layer, with the low-density gate | Last — least useful at current scale |
 | **F** | Desktop vertical-list panel reusing the same cards | After B/C are stable on mobile |
 
 **Phase B, as shipped:** `MapCarousel.tsx` renders the snap-scroll card tray
@@ -228,6 +228,39 @@ Code-level only: `tsc`/`eslint`/`vitest` (127/127)/`build` all pass, but this
 environment has no browser to actually swipe the carousel or tap a pin in —
 the §6 checklist below is still unverified on a real device/browser and
 should get a pass before considering C done-done.
+
+**Phase E, as shipped:** a `business-heat` `<Source type="geojson">` +
+`<Layer type="heatmap">` in `index.tsx`, positioned before the radius ring
+(so the ring's boundary still reads on top of the glow) and gated on
+`shownBusinesses.length >= HEAT_MIN_BUSINESSES` (8) — below that it doesn't
+render at all, per §2.4's "don't expect a glow at 3 businesses, gate it in
+code rather than show something that reads as broken." `shownBusinesses` is
+the same array already gated by the business-layer toggle and `availOnly`
+for the carousel/filter counts, so filtering to "People" or "Open now" also
+empties the heat instead of describing shops no longer on screen. Points are
+weighted `2` open-now / `1` closed via a GeoJSON `weight` property read by
+`heatmap-weight: ["get","weight"]`; providers are excluded from the source
+entirely, per §2.4. Color is a single RGB blended once per render between
+`--brand-500` (day) and `--accent-400` (night) using `useAmbientTheme()`'s
+`lampGlow` (0→1, called with no lat/lng — `lampGlow` is pure time-of-day and
+doesn't need `weather`, and passing the live searched center would otherwise
+re-fetch weather on every pan; `DesktopSidebar.tsx` already calls it the same
+arg-less way), then ramped across `heatmap-density` at rising opacity;
+`heatmap-opacity` itself also scales with `lampGlow` (0.25→0.70) so the glow
+is faint by day and fuller at night, the same signal the header's own lamp
+glow already gives. The `heatmap-*` paint object is cast through `any` at the
+`<Layer paint>` prop — MapLibre's style-spec expression types are a deeply
+recursive union that a plain object literal doesn't infer against cleanly;
+`MapControllers.tsx` already casts through `any` for the same class of
+map-library interop friction. `scripts/check-hardcoded-colors.js` needed
+`ffba2b` (the `--accent-400` `resolveToken()` fallback) added to its
+whitelist, in the same "WebGL paint can't consume CSS variables" category the
+`--brand-500`/`--brand-600` fallbacks already sit in.
+
+Untunable without a device: the exact radius/intensity zoom curves and the
+8-business threshold are reasoned defaults, not measured against a real
+cluster of shops — flagged as needing a pass once there's real density to
+look at, same honest caveat §2.4 itself states.
 
 **If time is short: A + D are the highest visible impact for the lowest risk** —
 new pins and working search, without touching the interaction model yet.
