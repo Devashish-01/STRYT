@@ -7,7 +7,6 @@ import { discoveryService, requestService, socialService, userService } from "@/
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { config } from "@/config";
-import { MAPBOX_PRIMARY_MAP_ENABLED } from "@/lib/features";
 import { StoryViewer } from "@/components/Stories";
 import type { Story } from "@/types";
 import { evaluateProviderAvailability } from "@/utils/availability";
@@ -28,24 +27,18 @@ import { MapFilterStrip, type ResultFilter } from "./MapFilterStrip";
 import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 import { useI18n } from "@/lib/i18n";
-import { rememberMapboxFallback, makeMapboxTransformRequest, shouldAttemptMapbox, mapboxStyleUrl } from "./mapboxFallback";
 import { useMapViewport } from "./useMapViewport";
 import SearchThisArea from "./SearchThisArea";
 
-// Free, open-source basemap — the fallback when Mapbox can't be shown.
+// The only basemap this app renders — OpenFreeMap's open-source vector
+// style, built from OpenStreetMap data.
 const FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
 
 /**
- * Mapbox gets this long to finish loading before we give up on it for this
- * map open and drop to the free (lower-detail) basemap, so a user on a bad
- * connection still gets a usable map instead of an indefinite spinner.
- */
-const MAPBOX_LOAD_TIMEOUT_MS = 30_000;
-/**
- * The veil hides only the initial blank-canvas flash — it is NOT tied to the
- * 30s deadline above. Holding a full-screen spinner for half a minute would be
- * worse than showing a partly-drawn map, so it lifts as soon as the style
- * loads or this elapses, whichever comes first, and tiles stream in under it.
+ * The veil hides only the initial blank-canvas flash. It lifts as soon as the
+ * style loads or this elapses, whichever comes first, so a slow connection
+ * gets a partly-drawn, already-pannable map instead of an indefinite spinner,
+ * and tiles keep streaming in underneath it either way.
  */
 const MAP_VEIL_MAX_MS = 2_500;
 
@@ -172,55 +165,16 @@ export default function MapView() {
   // either surface updates the other (Phase C, MAP_SNAPCHAT_STYLE_PLAN.md §2.1).
   const [selected, setSelected] = useState<Selected>(null);
 
-  // Mapbox is the default basemap whenever a token is configured. The free
-  // style is a fallback, not a rotation: the basemap is chosen once per map
-  // open and then left alone. An earlier build also swapped down to the free
-  // style after 30s of inactivity and back up on the next touch — but changing
-  // `mapStyle` tears down and rebuilds every source, layer and marker, so the
-  // map visibly flashed and re-drew the moment the user came back to it. A map
-  // that restyles itself under your finger never feels native, and the saving
-  // was illusory for an active user (it re-billed a Mapbox load on every
-  // return), so the style is now stable for the life of the screen.
-  const canUseMapbox = MAPBOX_PRIMARY_MAP_ENABLED && shouldAttemptMapbox(config.mapboxToken);
-  const mapboxStyle = useMemo(() => mapboxStyleUrl(config.mapboxToken), []);
-  const [mapStyle, setMapStyle] = useState(() => (canUseMapbox ? mapboxStyle : FREE_MAP_STYLE));
-  const [mapReady, setMapReady] = useState(() => !canUseMapbox);
-  const mapboxLoadedRef = useRef(false);
-  const mountedRef = useRef(true);
+  const [mapReady, setMapReady] = useState(false);
   // Needed outside the <Map> subtree (useMap() only works inside it) so the
   // "Search this area" pill can read the live bounds at the moment it's tapped.
   const mapRef = useRef<MapRef>(null);
-  const loadTimerRef = useRef<number | null>(null);
   // Set for the life of a carousel-driven easeTo (see easeToPoint) — swiping
   // through already-searched results must never register as "the user
   // panned," or every swipe would trigger "Search this area" on itself.
   const suppressViewportMoveRef = useRef(false);
-  const transformRequest = useMemo(() => makeMapboxTransformRequest(config.mapboxToken), []);
-
-  useEffect(() => {
-    mountedRef.current = true;
-    if (!config.mapboxToken && import.meta.env.DEV) {
-      console.warn("[MapView] VITE_MAPBOX_TOKEN is missing — copy .env.example to .env and add your Mapbox token to use Mapbox tiles locally.");
-    }
-    if (config.mapboxToken && import.meta.env.DEV) {
-      console.info(`[MapView] Mapbox token loaded — basemap starts on Mapbox; falls back to the free style if it hasn't loaded in ${MAPBOX_LOAD_TIMEOUT_MS / 1000}s.`);
-    }
-    return () => { mountedRef.current = false; };
-  }, []);
-
-  function fallBackToFreeMap() {
-    if (!mountedRef.current || mapboxLoadedRef.current) return;
-    if (!import.meta.env.DEV) rememberMapboxFallback();
-    setMapStyle(FREE_MAP_STYLE);
-    setMapReady(true);
-  }
 
   function handleMapLoad(event: MapEvent) {
-    mapboxLoadedRef.current = true;
-    if (loadTimerRef.current) {
-      window.clearTimeout(loadTimerRef.current);
-      loadTimerRef.current = null;
-    }
     // Two-finger rotation is off by design. Every marker on this map is
     // upright HTML (`meIconHtml`, MapMarkers), so a rotated bearing leaves the
     // pins tilted against the labels — and users pinching to zoom rotate the
@@ -230,35 +184,13 @@ export default function MapView() {
     setMapReady(true);
   }
 
-  function handleMapError(event: unknown) {
-    // MapLibre can emit non-fatal tile/sprite errors while Mapbox is still
-    // loading — don't eject to the free basemap on the first warning; the
-    // timeout below is the single decision point.
-    if (mapboxLoadedRef.current) return;
-    if (import.meta.env.DEV) {
-      console.warn("[MapView] Mapbox load warning (waiting for style or timeout):", event);
-    }
-  }
-
-  useEffect(() => {
-    if (!canUseMapbox) return;
-    loadTimerRef.current = window.setTimeout(fallBackToFreeMap, MAPBOX_LOAD_TIMEOUT_MS);
-    return () => {
-      if (loadTimerRef.current) window.clearTimeout(loadTimerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Lift the veil on a short timer regardless of the 30s style deadline — see
+  // Lift the veil on a short timer regardless of the style-load event — see
   // MAP_VEIL_MAX_MS. A half-drawn map the user can already pan beats a spinner.
   useEffect(() => {
     if (mapReady) return;
     const timer = window.setTimeout(() => setMapReady(true), MAP_VEIL_MAX_MS);
     return () => window.clearTimeout(timer);
   }, [mapReady]);
-
-  const usingMapbox = mapStyle.includes("api.mapbox.com");
-
 
   // Where the map is FRAMED on open — still the user's own location.
   const homeLat = user.lat || config.defaultLocation.lat;
@@ -538,16 +470,14 @@ export default function MapView() {
         </>
       )}
 
-      {/* Full-screen map — Mapbox, or OpenFreeMap if Mapbox couldn't load in time. */}
+      {/* Full-screen map — OpenFreeMap's open-source basemap. */}
       <Map
         // Framed on the USER's location; `searched` then follows wherever they
         // ask. Using `centerLat/Lng` here would re-frame the map every time a
         // new area was searched, fighting the user's own panning.
         initialViewState={{ longitude: homeLng, latitude: homeLat, zoom: 13 }}
-        mapStyle={mapStyle}
-        transformRequest={transformRequest}
+        mapStyle={FREE_MAP_STYLE}
         onLoad={handleMapLoad}
-        onError={handleMapError}
         // Tracks where the map IS, so the pill knows when the on-screen results
         // stopped describing what's visible. Deliberately does not trigger a
         // query — see useMapViewport.
@@ -555,7 +485,10 @@ export default function MapView() {
         onZoomEnd={handleMapMoveEnd}
         ref={mapRef}
         style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
-        attributionControl={{ compact: true }}
+        // MapLibre's own interactive "ⓘ" control is off — replaced below by a
+        // small static credit line. OpenStreetMap's data license (ODbL) still
+        // requires attribution to be visibly present, just not as a button.
+        attributionControl={false}
         // Keep the GL context alive across tab switches. Without this, leaving
         // and re-entering the Map tab re-initialises the whole map — a white
         // flash, then tiles fading back in, every single time.
@@ -628,31 +561,25 @@ export default function MapView() {
         />
       </Map>
 
+      {/* Required OpenStreetMap/OpenFreeMap credit — a plain link, not the
+          interactive "ⓘ" control MapLibre renders by default (disabled above
+          via attributionControl={false}). Small and low-contrast on purpose,
+          but present: this app has no other basemap to fall back to. */}
+      <a
+        href="https://www.openstreetmap.org/copyright"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="map-attribution"
+      >
+        © OpenStreetMap contributors
+      </a>
+
       {/* Covers the initial blank canvas only. Kept mounted and faded out (rather
           than unmounted outright) so the map doesn't pop into view. */}
       <div className={`map-loading-veil${mapReady ? " is-hidden" : ""}`} aria-hidden={mapReady}>
         <div className="map-loading-spinner spin" />
         <span className="tiny semi">Loading map…</span>
       </div>
-
-      {import.meta.env.DEV && canUseMapbox && mapReady && (
-        <div
-          className="tiny semi"
-          style={{
-            position: "absolute",
-            top: "calc(8px + var(--safe-area-top))",
-            right: 8,
-            zIndex: 6,
-            padding: "4px 8px",
-            borderRadius: 8,
-            background: usingMapbox ? "var(--brand-100)" : "var(--delivery-50)",
-            color: usingMapbox ? "var(--brand-800)" : "var(--delivery-600)",
-            pointerEvents: "none",
-          }}
-        >
-          {usingMapbox ? "Mapbox" : "Open map"}
-        </div>
-      )}
 
       {pin.pickMode && (
         <LocationPinDropOverlay

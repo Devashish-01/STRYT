@@ -16,13 +16,3 @@
  * AppointmentSheet.tsx were sitting wired but dark behind this flag.
  */
 export const DELIVERY_AGENT_ENABLED = true;
-
-/**
- * Main map screen (MapView) tries Mapbox's styled tiles first, falling back
- * to the free OpenFreeMap style (src/screens/MapView/index.tsx's original,
- * still-default behavior) if Mapbox hasn't loaded within 30s. Flip
- * to `false` for an instant, code-only revert to the pure-free-map behavior —
- * no other changes needed — if Mapbox ever misbehaves in a way the
- * timeout/error handling doesn't catch.
- */
-export const MAPBOX_PRIMARY_MAP_ENABLED = true;

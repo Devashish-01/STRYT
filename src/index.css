@@ -2993,10 +2993,22 @@ button.set-row:active {
    older Android WebViews, so this layout silently mispositioned on exactly the
    devices the native build targets. */
 
-.map-screen .maplibregl-ctrl-bottom-right,
-.map-screen .maplibregl-ctrl-bottom-left {
-  bottom: calc(var(--map-carousel-h) + var(--map-over-nav) + 4px) !important;
+/* Required OpenStreetMap credit line — replaces MapLibre's own attribution
+   control (disabled via attributionControl={false} in index.tsx). Deliberately
+   plain: small, low-contrast, no background chip, no button. Still a real
+   link (not unlinked text) so it stays a genuine, durable attribution rather
+   than something that reads as decorative and gets "cleaned up" later. */
+.map-attribution {
+  position: absolute;
+  left: var(--map-chrome-inset);
+  bottom: calc(var(--map-carousel-h) + var(--map-over-nav) + 4px);
+  z-index: 6;
+  font-size: 9px;
+  color: var(--ink-400);
+  text-decoration: none;
+  pointer-events: auto;
 }
+.map-attribution:hover { color: var(--ink-600); }
 
 /* ── Desktop ─────────────────────────────────────────────────────────────
    Phase F (MAP_SNAPCHAT_STYLE_PLAN.md §5/§2.2): the carousel docks as a
@@ -3004,7 +3016,7 @@ button.set-row:active {
    cards, same selection sync (it reads its own layout back via
    getComputedStyle rather than duplicating this breakpoint in JS); only the
    container CSS below changes. Everything else that anchors off the bottom
-   strip on mobile (FABs, the guest dock, maplibre attribution) reverts to a
+   strip on mobile (FABs, the guest dock, the attribution line) reverts to a
    plain nav-clearance offset here, since there's no bottom chrome to clear
    once the panel moves to the side — and everything anchored on the LEFT
    shifts right by the panel's width so it isn't hidden underneath it. */
@@ -3026,12 +3038,9 @@ button.set-row:active {
     bottom: calc(var(--map-over-nav) + 10px);
   }
 
-  .map-screen .maplibregl-ctrl-bottom-right,
-  .map-screen .maplibregl-ctrl-bottom-left {
-    bottom: 4px !important;
-  }
-  .map-screen .maplibregl-ctrl-bottom-left {
-    left: var(--map-panel-w) !important;
+  .map-attribution {
+    left: calc(var(--map-panel-w) + var(--map-chrome-inset));
+    bottom: 4px;
   }
 
   .map-screen__search {
