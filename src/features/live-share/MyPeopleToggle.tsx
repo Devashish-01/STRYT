@@ -1,7 +1,9 @@
-import { useRef, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users } from "@/components/Icons";
 import { useApp } from "@/store";
+import { useLongPress } from "@/hooks/useLongPress";
+import { haptics } from "@/lib/haptics";
 import { useLiveShare } from "./useLiveShare";
 import LiveShareExplainer from "./LiveShareExplainer";
 
@@ -41,23 +43,8 @@ export default function MyPeopleToggle({ size = 20 }: { size?: number }) {
   const nav = useNavigate();
   const { showToast } = useApp();
   const { activeShareId, busy, start, stop } = useLiveShare();
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressed = useRef(false);
   const [explaining, setExplaining] = useState(false);
   const sharing = !!activeShareId;
-
-  function clearTimer() {
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-  }
-
-  function onPressStart() {
-    longPressed.current = false;
-    clearTimer();
-    timerRef.current = setTimeout(() => {
-      longPressed.current = true;
-      nav("/safety");
-    }, LONG_PRESS_MS);
-  }
 
   async function beginShare() {
     const id = await start();
@@ -65,12 +52,11 @@ export default function MyPeopleToggle({ size = 20 }: { size?: number }) {
     // null = declined disclosure, no contacts / RPC failure, or cancelled — avoid noisy toast on decline
   }
 
-  async function onPressEnd() {
-    clearTimer();
-    if (longPressed.current) { longPressed.current = false; return; }
+  async function handleTap() {
     if (busy || explaining) return;
     if (sharing) {
       // Stopping is the safe direction — never gated.
+      haptics.selection();
       await stop();
       showToast("Live location sharing stopped");
       return;
@@ -79,6 +65,7 @@ export default function MyPeopleToggle({ size = 20 }: { size?: number }) {
       setExplaining(true);
       return;
     }
+    haptics.selection();
     await beginShare();
   }
 
@@ -90,10 +77,17 @@ export default function MyPeopleToggle({ size = 20 }: { size?: number }) {
     await beginShare();
   }
 
-  function onPressCancel() {
-    clearTimer();
-    longPressed.current = false;
+  function openSettings() {
+    haptics.medium();
+    nav("/safety");
   }
+
+  // Touch+Mouse events (not Pointer Events) — same pairing BottomNav's
+  // account-switcher long-press uses, which is the more reliable one across
+  // Android/iOS WebViews. Explicit 500ms to keep the existing feel rather than
+  // the hook's 450ms default.
+  const { handlers: longPress, wrapTap } = useLongPress(openSettings, LONG_PRESS_MS);
+  const onTap = wrapTap(() => void handleTap());
 
   const style: CSSProperties = {
     background: sharing ? "var(--accent-500)" : "rgba(255,255,255,0.16)",
@@ -116,11 +110,8 @@ export default function MyPeopleToggle({ size = 20 }: { size?: number }) {
     <button
       className="icon-btn"
       style={style}
-      onPointerDown={onPressStart}
-      onPointerUp={() => void onPressEnd()}
-      onPointerLeave={onPressCancel}
-      onPointerCancel={onPressCancel}
-      onContextMenu={(e) => e.preventDefault()}
+      onClick={onTap}
+      {...longPress}
       disabled={busy}
       aria-label={sharing ? "Stop sharing with My People (hold to open My People)" : "Share with My People (hold to open My People)"}
       title="Tap to share · hold to open My People"
