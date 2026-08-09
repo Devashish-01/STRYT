@@ -57,6 +57,11 @@ export interface AppointmentRecord {
    *  create() payloads that pass a real cart; a single-package booking omits this and the
    *  server synthesizes one implicit item for stock reservation. */
   items?: { catalogItemId: string; name: string; price: number; quantity: number }[];
+  /** Snapshot of the target's resolved Business Package at booking time — drives
+   *  the wording ("reservation", "class"…) this row renders with in My Appointments,
+   *  even if the business later changes package. Null for legacy rows and the QR
+   *  self-pay walk-in path; renders as "generic" (today's exact wording). */
+  targetPackageKey?: string | null;
 }
 
 export interface BlockedSlot {

@@ -85,7 +85,8 @@ export default function BusinessAppointments() {
   const blockedSlots = blockedData ?? [];
   // Same resolution the storefront and CatalogManager use, so the owner's
   // console calls a booking whatever the customer-facing page called it.
-  const vocab = BUSINESS_PACKAGES[resolvePackage(b ?? {})].vocabulary;
+  const bizPackageKey = resolvePackage(b ?? {});
+  const vocab = BUSINESS_PACKAGES[bizPackageKey].vocabulary;
   const nounPluralCap = vocab.nounPlural.charAt(0).toUpperCase() + vocab.nounPlural.slice(1);
 
   if (!id) {
@@ -294,6 +295,7 @@ export default function BusinessAppointments() {
         packageName: opts.packageName,
         packagePrice: opts.packagePrice,
         partySize: opts.partySize,
+        targetPackageKey: bizPackageKey,
       });
       showToast("Walk-in booking added");
       setWalkInModal(null);

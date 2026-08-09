@@ -164,6 +164,7 @@ function rowToRecord(r: any): AppointmentRecord {
     deliveryLng: r.delivery_lng ?? null,
     requestedDeliveryWindow: r.requested_delivery_window ?? null,
     deliveryEtaText: r.delivery_eta_text ?? null,
+    targetPackageKey: r.target_package_key ?? null,
   };
 }
 
@@ -286,6 +287,7 @@ export const appointmentService = {
           p_delivery_lng: payload.deliveryLng ?? undefined,
           p_requested_delivery_window: payload.requestedDeliveryWindow ?? undefined,
           p_party_size: payload.partySize ?? undefined,
+          p_target_package_key: payload.targetPackageKey ?? undefined,
         } as any);
         if (error) throw error;
         const record = rowToRecord(data);
@@ -632,6 +634,7 @@ export const appointmentService = {
     packageName?: string;
     packagePrice?: number;
     partySize?: number;
+    targetPackageKey?: string | null;
   }): Promise<AppointmentRecord> {
     const uid = await currentUserId();
     if (!uid) throw new Error("Sign in required to add a walk-in booking.");
@@ -655,6 +658,7 @@ export const appointmentService = {
           p_package_name: payload.packageName ?? undefined,
           p_package_price: payload.packagePrice ?? undefined,
           p_party_size: payload.partySize ?? undefined,
+          p_target_package_key: payload.targetPackageKey ?? undefined,
         } as any);
         if (error) throw error;
         const record = rowToRecord(data);
@@ -693,6 +697,7 @@ export const appointmentService = {
       packageName: payload.packageName,
       packagePrice: payload.packagePrice,
       partySize: payload.partySize ?? 1,
+      targetPackageKey: payload.targetPackageKey ?? null,
       status: "ACCEPTED",
       isWalkIn: true,
       createdAtISO: new Date().toISOString(),

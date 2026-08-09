@@ -1100,6 +1100,7 @@ export default function BusinessDetail() {
           deliveryEnabled={b.deliveryEnabled === true}
           deliveryTime={b.deliveryTime}
           vocabulary={bizTheme.vocabulary}
+          targetPackageKey={bizThemeKey}
           onBooked={() => { if (checkoutMode) setCart({}); }}
           onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); setCheckoutItems(undefined); }}
         />

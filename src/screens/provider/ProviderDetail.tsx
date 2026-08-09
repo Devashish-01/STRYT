@@ -695,6 +695,7 @@ export default function ProviderDetail() {
           depositPercent={(p as any).depositPercent}
           outOfRange={outOfRange}
           vocabulary={bizTheme.vocabulary}
+          targetPackageKey={bizThemeKey}
           onClose={() => setScheduling(false)}
         />
       )}

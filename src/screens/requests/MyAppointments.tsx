@@ -20,6 +20,7 @@ import DeliveryTrackControl from "@/components/delivery/DeliveryTrackControl";
 import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
+import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 
 // A booking counts as "upcoming" while it is still live and in the future.
 function isUpcoming(a: AppointmentRecord): boolean {
@@ -53,6 +54,17 @@ function isDismissible(a: AppointmentRecord): boolean {
   return isUnpaidActionable(a) && !isUpcoming(a);
 }
 
+// Each row snapshots the target's package at booking time (see the
+// target_package_key migration) — so a row keeps whatever wording it was
+// booked with even if the business later changes package. No stored key
+// (legacy rows, or the QR self-pay walk-in path) reads as "generic", i.e.
+// today's exact "appointment" wording.
+function vocabForRow(apt: AppointmentRecord) {
+  const key = apt.targetPackageKey;
+  const resolved = key && (PACKAGE_KEYS as string[]).includes(key) ? (key as BusinessPackageKey) : "generic";
+  return BUSINESS_PACKAGES[resolved].vocabulary;
+}
+
 interface RebookTarget {
   apt: AppointmentRecord;
   mode: "RESCHEDULE" | "AGAIN";
@@ -64,6 +76,12 @@ interface RebookTarget {
   paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
   payeeUpiId?: string | null;
   depositPercent?: number;
+  // The target's CURRENT resolved package (freshest info — may differ from
+  // apt.targetPackageKey if the owner has changed it since the original
+  // booking). Drives the sheet's own wording; a plain re-create (Book again)
+  // stamps the new row with this, while a reschedule's row keeps the
+  // ORIGINAL snapshot server-side regardless (same purchase, just retimed).
+  targetPackageKey: BusinessPackageKey;
 }
 
 export default function MyAppointments() {
@@ -110,7 +128,7 @@ export default function MyAppointments() {
     try {
       await appointmentService.updateStatus(apt.id, "CANCELLED", undefined, "CUSTOMER");
       haptics.warning();
-      showToast("Appointment cancelled");
+      showToast(`${vocabForRow(apt).nounCap} cancelled`);
       refetch();
     } catch {
       showToast("Couldn't cancel. Try again.");
@@ -122,13 +140,13 @@ export default function MyAppointments() {
   // Local-only hide for a stuck unpaid card. Makes NO server change — the
   // booking is untouched; it just disappears from this device's lists
   // (persisted, so it stays gone across reloads).
-  function dismissCard(id: string) {
+  function dismissCard(apt: AppointmentRecord) {
     setDismissedIds((prev) => {
-      const next = new Set(prev).add(id);
+      const next = new Set(prev).add(apt.id);
       persistDismissedCards(next);
       return next;
     });
-    showToast("Appointment dismissed");
+    showToast(`${vocabForRow(apt).nounCap} dismissed`);
   }
 
   // Load the target's live hours + packages, then open the booking sheet.
@@ -148,6 +166,7 @@ export default function MyAppointments() {
           paymentTiming: b.paymentTiming,
           payeeUpiId: b.upiId ?? null,
           depositPercent: (b as any).depositPercent,
+          targetPackageKey: resolvePackage(b),
         });
       } else {
         const p = await providerService.get(apt.targetId);
@@ -162,6 +181,7 @@ export default function MyAppointments() {
           paymentTiming: p.paymentTiming,
           payeeUpiId: p.upiId ?? null,
           depositPercent: (p as any).depositPercent,
+          targetPackageKey: resolvePackage(p),
         });
       }
     } catch (e: any) {
@@ -338,7 +358,7 @@ export default function MyAppointments() {
                         type="button"
                         className="tiny semi"
                         style={{ alignSelf: "flex-start", color: "var(--ink-400)", background: "none", border: "none", cursor: "pointer", padding: "2px 0", textDecoration: "underline" }}
-                        onClick={() => dismissCard(apt.id)}
+                        onClick={() => dismissCard(apt)}
                       >
                         Dismiss
                       </button>
@@ -419,6 +439,8 @@ export default function MyAppointments() {
           depositPercent={rebook.depositPercent}
           rescheduledFromId={rebook.mode === "RESCHEDULE" ? rebook.apt.id : undefined}
           rescheduledFromLabel={rebook.mode === "RESCHEDULE" ? { dateLabel: rebook.apt.dateLabel, timeLabel: rebook.apt.timeLabel } : undefined}
+          vocabulary={BUSINESS_PACKAGES[rebook.targetPackageKey].vocabulary}
+          targetPackageKey={rebook.targetPackageKey}
           onBooked={handleBooked}
           onClose={() => { setRebook(null); refetch(); }}
         />
@@ -430,6 +452,7 @@ export default function MyAppointments() {
           appointment={payingApt}
           businessUpiId={payBizUpiId}
           businessName={payingApt.targetName}
+          vocabulary={vocabForRow(payingApt)}
           onPaid={refetch}
           onClose={() => { setPayingApt(null); setPayBizUpiId(null); }}
         />
@@ -440,7 +463,7 @@ export default function MyAppointments() {
         <div className="overlay" onClick={() => setCancelConfirm(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
-            <h2 className="h2" style={{ marginBottom: 6 }}>Cancel this appointment?</h2>
+            <h2 className="h2" style={{ marginBottom: 6 }}>Cancel this {vocabForRow(cancelConfirm).noun}?</h2>
             <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
               {cancelConfirm.targetName} will be notified. This can't be undone.
               {cancelConfirm.paymentStatus === "PAID" && " You've already paid for this booking — check with them about a refund after cancelling."}
@@ -449,7 +472,7 @@ export default function MyAppointments() {
               <button className="btn btn-block" style={{ background: "var(--red-500)", color: "#fff" }} onClick={() => cancel(cancelConfirm)}>
                 Yes, cancel
               </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setCancelConfirm(null)}>Keep appointment</button>
+              <button className="btn btn-ghost btn-block" onClick={() => setCancelConfirm(null)}>Keep {vocabForRow(cancelConfirm).noun}</button>
             </div>
           </div>
         </div>

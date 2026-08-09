@@ -55,6 +55,10 @@ interface AppointmentSheetProps {
   deliveryTime?: string | null;
   /** The target's package wording ("reservation", "class", "order"…) in place of "appointment". Defaults to the generic package's (today's exact wording) when the caller has no theme in scope. */
   vocabulary?: BizVocabulary;
+  /** The target's resolved package key, stamped onto the created booking as a
+   *  booking-time snapshot so My Appointments can render this row with the
+   *  same wording later, even if the target's package changes afterward. */
+  targetPackageKey?: string | null;
   onClose: () => void;
   /** Fired after a booking is successfully created (before the sheet closes). */
   onBooked?: () => void;
@@ -79,6 +83,7 @@ export function AppointmentSheet({
   deliveryEnabled = false,
   deliveryTime,
   vocabulary = BUSINESS_PACKAGES.generic.vocabulary,
+  targetPackageKey,
   onClose,
   onBooked,
 }: AppointmentSheetProps) {
@@ -324,6 +329,7 @@ export function AppointmentSheet({
             ? requestedWindow.trim()
             : undefined,
         partySize: canPickParty ? partySize : undefined,
+        targetPackageKey,
       });
 
       showToast(
