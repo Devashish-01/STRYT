@@ -9,7 +9,8 @@ import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
 import HoursSelector, { parseAvailability } from "@/components/HoursSelector";
 import { DEFAULT_ONBOARD_WORKING_HOURS, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
-
+import { getBusinessTheme, type BusinessPackageKey } from "@/lib/businessPackages";
+import { PackageConfirmCard } from "@/components/PackageConfirmCard";
 
 const steps = ["Skill", "Area & price", "Portfolio", "Photo"];
 
@@ -44,6 +45,13 @@ export default function ProviderOnboard() {
 
   const serviceCats = (serviceCatsData ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
   const selectedCat = serviceCats.find((c) => c.id === cat);
+  // Business Packages — same live-suggestion + explicit-override pattern as
+  // BusinessOnboard.tsx. A proposed (not-yet-existing) category has no name
+  // to derive from, so it correctly falls through to "generic" — nothing to
+  // confirm there.
+  const bizThemeKey = getBusinessTheme(selectedCat?.name);
+  const [packageOverride, setPackageOverride] = useState<BusinessPackageKey | null>(null);
+  const effectivePackageKey = packageOverride ?? bizThemeKey;
 
   // A clear face photograph (becomes the profile photo) is the only requirement.
   const verifyValid = !!photoFile;
@@ -80,6 +88,9 @@ export default function ProviderOnboard() {
         avatar: photoUrl,
         lat: lat!,
         lng: lng!,
+        // The provider's confirmed/overridden package (PackageConfirmCard,
+        // shown below step 3 when it isn't "generic").
+        packageKey: effectivePackageKey,
       });
       // Upload each portfolio photo and persist it.
       if (created?.id && photos.length > 0) {
@@ -261,6 +272,18 @@ export default function ProviderOnboard() {
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} />
               </label>
             </div>
+
+            {/* The suggested package becomes a real, visible choice right
+                before submit — not silently applied. Skipped for "generic"
+                (including a proposed, not-yet-approved category). */}
+            {bizThemeKey !== "generic" && (
+              <PackageConfirmCard
+                suggested={bizThemeKey}
+                selected={effectivePackageKey}
+                onChange={setPackageOverride}
+                accentColor="var(--green-500)"
+              />
+            )}
           </>
         )}
       </div>

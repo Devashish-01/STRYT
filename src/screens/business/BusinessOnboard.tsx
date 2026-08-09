@@ -11,7 +11,8 @@ import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
 import { DEFAULT_ONBOARD_DAYS_PATTERN, DEFAULT_START_TIME, DEFAULT_ONBOARD_END_TIME, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
 
 import { reverseGeocodeFull } from "@/lib/geocode";
-import { getBusinessTheme, BUSINESS_PACKAGES } from "@/lib/businessPackages";
+import { getBusinessTheme, BUSINESS_PACKAGES, type BusinessPackageKey } from "@/lib/businessPackages";
+import { PackageConfirmCard } from "@/components/PackageConfirmCard";
 
 const steps = ["Basics", "Location", "Photos", "Contact"];
 
@@ -74,6 +75,12 @@ export default function BusinessOnboard() {
     .join(", ");
   const bizThemeKey = getBusinessTheme(selectedCat?.name, subNamesLive);
   const bizTheme = BUSINESS_PACKAGES[bizThemeKey];
+  // Phase 2 — the owner's own explicit pick, once they've opened the confirm
+  // card's picker (PackageConfirmCard). Null = "still following the live
+  // suggestion", which is what makes changing category before that point
+  // keep re-suggesting instead of sticking to a stale choice.
+  const [packageOverride, setPackageOverride] = useState<BusinessPackageKey | null>(null);
+  const effectivePackageKey = packageOverride ?? bizThemeKey;
 
   const canNext = [
     name.trim().length > 1 && !!cat,
@@ -112,6 +119,10 @@ export default function BusinessOnboard() {
         broadcastRadius,
         lat: lat!,
         lng: lng!,
+        // The owner's confirmed/overridden package (PackageConfirmCard,
+        // shown below step 3 when it isn't "generic") — resolvePackage()
+        // reads this first from here on, ahead of re-deriving from category.
+        packageKey: effectivePackageKey,
       });
       if (biz?.id) {
         await businessService.submitForReview(biz.id);
@@ -358,6 +369,19 @@ export default function BusinessOnboard() {
                 any time from Business → Settings once you're live.
               </div>
             </div>
+
+            {/* The suggested package becomes a real, visible choice right
+                before submit — not silently applied. Skipped entirely for
+                "generic": there's nothing to confirm for a category with no
+                matching package. */}
+            {bizThemeKey !== "generic" && (
+              <PackageConfirmCard
+                suggested={bizThemeKey}
+                selected={effectivePackageKey}
+                onChange={setPackageOverride}
+                accentColor="var(--brand-600)"
+              />
+            )}
           </>
         )}
 
