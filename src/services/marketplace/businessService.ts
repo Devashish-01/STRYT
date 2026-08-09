@@ -110,7 +110,7 @@ const BUSINESS_COLUMNS = new Set([
   "viewCount","isFeatured","isVerified","tags","priceForTwo","deliveryTime","offerText",
   "verificationStatus","verificationDocumentUrl","upiId","paymentTiming","depositPercent",
   "email","showPhonePublicly","showEmailPublicly","locationPublic","deliveryEnabled",
-  "defaultSlotCapacity","maxConcurrentBookings",
+  "defaultSlotCapacity","maxConcurrentBookings","packageKey","bookingsEnabled",
 ]);
 
 function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<string>) {

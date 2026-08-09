@@ -7,7 +7,7 @@ import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { CatalogItem } from "@/types";
-import { getBusinessTheme, BUSINESS_THEMES, type BusinessThemeConfig } from "@/lib/businessThemes";
+import { resolvePackage, BUSINESS_PACKAGES, type BusinessPackage } from "@/lib/businessPackages";
 
 export type Kind = "business" | "provider";
 
@@ -19,7 +19,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   const { id = "" } = useParams();
   const { showToast } = useApp();
   const service = serviceFor(kind);
-  const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[]; defaultSlotCapacity?: number; categoryName?: string; subCategory?: string } | undefined>(
+  const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[]; defaultSlotCapacity?: number; categoryName?: string; subCategory?: string; packageKey?: string | null } | undefined>(
     () => (kind === "business" ? businessService.get(id) : providerService.get(id)),
     [id],
     kind === "business" ? `business:${id}` : `provider:${id}`
@@ -42,11 +42,11 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   if (loading) return <div className="screen"><AppBar title={kindTitle} /><ListSkeleton count={3} /></div>;
   if (!entity) return null;
   const catalog: CatalogItem[] = entity.catalog ?? [];
-  // Doctor + Restaurant pilot — same theme the storefront (BusinessDetail.tsx)
-  // computes, so the owner's form and the customer's page agree on what
-  // this business calls its listings.
-  const bizThemeKey = getBusinessTheme(entity.categoryName, entity.subCategory);
-  const bizTheme = BUSINESS_THEMES[bizThemeKey];
+  // Business Packages — same resolution the storefront (BusinessDetail.tsx)
+  // uses, so the owner's form and the customer's page always agree on what
+  // this business/provider calls its listings. Works for providers too now
+  // (previously only businesses ever got a theme).
+  const bizTheme = BUSINESS_PACKAGES[resolvePackage(entity)];
 
   async function remove(item: CatalogItem) {
     await service.deleteCatalogItem(id, item.id);
@@ -64,7 +64,11 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   return (
     <div className="screen">
       <AppBar
-        title={kind === "provider" ? "Services" : bizTheme.catalogManagerTitle}
+        // Every category resolves to a package now, business or provider —
+        // no more hardcoding every provider to "Services" regardless of what
+        // they actually do (a photographer-provider now correctly says
+        // "Packages", not "Services").
+        title={bizTheme.catalogNoun}
         subtitle={catalog.length > 0 ? `${catalog.length} listing${catalog.length === 1 ? "" : "s"}` : "Products, services & items"}
         right={catalog.length > 0 ? <button className="icon-btn" onClick={() => setCreating(true)}><Plus size={20} /></button> : undefined}
       />
@@ -147,7 +151,7 @@ export function ItemEditor({
    *  "blank" has a concrete meaning instead of a generic "business default".
    *  Undefined for providers — see the gating note below. */
   businessDefaultCapacity?: number;
-  bizTheme: BusinessThemeConfig;
+  bizTheme: BusinessPackage;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -160,8 +164,9 @@ export function ItemEditor({
   const [sale, setSale] = useState(item?.salePrice?.toString() ?? "");
   const [image, setImage] = useState(item?.image ?? "");
   const [best, setBest] = useState(item?.bestSeller ?? false);
-  // New items default isFood from the theme (restaurant -> true, medical/
-  // generic -> false); an existing item's own saved value always wins.
+  // New items default isFood from the package's foodToggleMode ("auto-food"
+  // packages like dining/takeaway -> true, everything else -> false); an
+  // existing item's own saved value always wins.
   const [isFood, setIsFood] = useState(item?.isFood ?? bizTheme.foodToggleMode === "auto-food");
   const [isVeg, setIsVeg] = useState(item?.isVeg ?? true);
   const [invType, setInvType] = useState<"INFINITE" | "FINITE">(item?.inventoryType ?? "INFINITE");
@@ -323,9 +328,10 @@ export function ItemEditor({
             </div>
           )}
 
-          {/* Medical theme skips this entirely (a consultation is never a food
-              item) and restaurant skips it too (already defaulted to food
-              above) — only "manual" (generic categories) shows the toggle. */}
+          {/* "auto-nonfood" packages skip this entirely (a consultation is
+              never a food item) and "auto-food" packages skip it too
+              (already defaulted to food above) — only "manual" packages
+              (most categories) show the toggle. */}
           {bizTheme.foodToggleMode === "manual" && (
             <div className="field">
               <label>Is this a food item?</label>

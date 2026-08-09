@@ -924,37 +924,70 @@ textarea.input {
 .spin { animation: spin 0.7s linear infinite; }
 
 /* ============================================================
-   Business category theming (Doctor + Restaurant pilot)
+   Business Packages theming
    ------------------------------------------------------------
-   A scoped accent for a business's OWN pages — storefront and owner-side
-   catalog manager — set via a `data-biz-theme="medical"|"restaurant"`
-   attribute on that page's root (see src/lib/businessThemes.ts). :root gives
-   these vars a brand-purple fallback so they resolve safely anywhere, and
-   the attribute is never emitted for "generic" categories, so untouched
-   businesses can't match these selectors at all. Deliberately NOT a
-   subtree-wide re-skin (see useAmbientTheme.ts's own comments on why the
-   team already walked back a per-role color system once) — only a few
-   elements (primary CTA, active tab, category badge) read these tokens;
-   nav bar and app chrome stay on --brand-* regardless of which business
-   page is open.
+   A scoped accent for a business/provider's OWN pages — storefront and
+   owner-side catalog manager — set via a `data-biz-theme="<package key>"`
+   attribute on that page's root (see src/lib/businessPackages.ts, the
+   `accentTone` field). :root gives these vars a brand-purple fallback so
+   they resolve safely anywhere, and the attribute is never emitted for
+   "generic" categories, so untouched businesses can't match these selectors
+   at all. Deliberately NOT a subtree-wide re-skin (see useAmbientTheme.ts's
+   own comments on why the team already walked back a per-role color system
+   once) — only a few elements (primary CTA, active tab, category badge)
+   read these tokens; nav bar and app chrome stay on --brand-* regardless of
+   which business page is open. Several packages share one accentTone family
+   (e.g. vet + fitness both "green") — grouped below rather than each
+   package getting a bespoke hex, and packages whose accentTone is "purple"
+   (shop, learning, professional, generic) get no override block at all,
+   since that's exactly what the :root default already provides.
    ============================================================ */
 :root {
   --biz-accent: var(--brand-600);
   --biz-accent-strong: var(--brand-700);
   --biz-accent-soft: var(--brand-50);
 }
-[data-biz-theme="medical"] {
+[data-biz-theme="clinic"] {
   --biz-accent: var(--blue-500);
   --biz-accent-strong: var(--blue-700);
   --biz-accent-soft: var(--blue-100);
 }
-[data-biz-theme="restaurant"] {
+[data-biz-theme="diagnostics"] {
+  --biz-accent: var(--delivery-500);
+  --biz-accent-strong: var(--delivery-600);
+  --biz-accent-soft: var(--delivery-50);
+}
+[data-biz-theme="vet"],
+[data-biz-theme="fitness"] {
+  --biz-accent: var(--green-500);
+  --biz-accent-strong: var(--green-600);
+  --biz-accent-soft: var(--green-100);
+}
+[data-biz-theme="pharmacy"],
+[data-biz-theme="homeservice"] {
+  --biz-accent: var(--amber-500);
+  --biz-accent-strong: var(--amber-700);
+  --biz-accent-soft: var(--amber-100);
+}
+[data-biz-theme="dining"] {
   --biz-accent: var(--orange-500);
   --biz-accent-strong: var(--red-600);
   --biz-accent-soft: var(--orange-100);
 }
+[data-biz-theme="takeaway"] {
+  --biz-accent: var(--red-500);
+  --biz-accent-strong: var(--red-600);
+  --biz-accent-soft: var(--red-100);
+}
+[data-biz-theme="salon"],
+[data-biz-theme="events"] {
+  --biz-accent: var(--pink-500);
+  --biz-accent-strong: var(--pink-700);
+  --biz-accent-soft: var(--pink-100);
+}
 
-/* Restaurant catalog — photo-forward grid instead of the default list. */
+/* Photo-forward grid catalog rendering (dining, takeaway, shop, events —
+   see BusinessPackage.catalogRenderMode) instead of the default list. */
 .biz-catalog-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

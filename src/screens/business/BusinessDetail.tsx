@@ -13,8 +13,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, Pill } from "@/components/common";
 import PhotoViewer, { type PhotoViewerItem } from "@/components/PhotoViewer";
-import { catalogLabel, catalogEmptyText } from "@/lib/categoryLabels";
-import { getBusinessTheme, BUSINESS_THEMES, type BusinessThemeConfig } from "@/lib/businessThemes";
+import { resolvePackage, BUSINESS_PACKAGES, type BusinessPackage } from "@/lib/businessPackages";
 import { useApp } from "@/store";
 import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
@@ -162,14 +161,13 @@ export default function BusinessDetail() {
   // hours — the same evaluator providers use. Booking is NOT gated on this.
   const evalRes = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil);
   const isOwner = b.ownerUserId === user.id;
-  // What this business calls its catalogue — Menu / Services / Products —
-  // instead of calling everything a "Menu" (#10).
-  const catLabel = catalogLabel(b.categoryName, b.subCategory);
-  // Doctor + Restaurant pilot — additive to catLabel above, not a
-  // replacement: catLabel still drives the tab word, bizTheme only touches
-  // CTA copy, accent color and catalog render mode.
-  const bizThemeKey = getBusinessTheme(b.categoryName, b.subCategory);
-  const bizTheme = BUSINESS_THEMES[bizThemeKey];
+  // Business Packages (src/lib/businessPackages.ts) — every category resolves
+  // to exactly one package, so this single lookup now drives everything that
+  // used to be split between catalogLabel() (the tab word) and the old
+  // 2-vertical theme (CTA copy, accent, render mode): what this business
+  // calls its catalogue, its CTA copy, its accent color, its layout.
+  const bizThemeKey = resolvePackage(b);
+  const bizTheme = BUSINESS_PACKAGES[bizThemeKey];
   // The customer is beyond the shop's own service radius — surface a
   // non-blocking heads-up in the booking sheet (booking stays allowed).
   const outOfRange =
@@ -611,7 +609,7 @@ export default function BusinessDetail() {
         <div className="row page-pad" style={{ gap: 0, paddingBottom: 0, paddingTop: 12, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
           {([
             // #10 — was hardcoded "Menu", so salons and chemists advertised one too.
-            ["catalog", `${catLabel} (${b.catalog.length})`],
+            ["catalog", `${bizTheme.catalogNoun} (${b.catalog.length})`],
             ["posts", `Posts (${(bizPosts ?? []).length})`],
             ...((b.portfolio ?? []).length > 0 ? [["work", `Work (${(b.portfolio ?? []).length})`]] : []),
             ["about", "About"],
@@ -632,7 +630,7 @@ export default function BusinessDetail() {
               <div className="col center" style={{ padding: "32px 0", gap: 8 }}>
                 <span style={{ fontSize: 32 }}>🛒</span>
                 {/* Matches the tab's own noun, so the two can't disagree. */}
-                <span className="small muted">{catalogEmptyText(catLabel)}</span>
+                <span className="small muted">{bizTheme.catalogEmptyText}</span>
               </div>
             )}
             {bizTheme.catalogRenderMode === "grid" ? (
@@ -1103,10 +1101,10 @@ export default function BusinessDetail() {
 }
 
 /**
- * Restaurant catalog rendering (Doctor + Restaurant pilot) — a photo-forward
- * 2-column grid instead of the default list, reusing the same `cart` state
- * and `add()` handler the list rendering uses so the two modes never drift
- * out of sync with each other.
+ * Photo-forward 2-column grid catalog rendering (used by packages whose
+ * `catalogRenderMode` is `"grid"` — dining, takeaway, shop, events), reusing
+ * the same `cart` state and `add()` handler the list rendering uses so the
+ * two modes never drift out of sync with each other.
  */
 function BizCatalogGrid({
   catalog, cart, add, isOwner, isGuest, bizTheme, onOpenPhoto, onBook,
@@ -1116,7 +1114,7 @@ function BizCatalogGrid({
   add: (itemId: string, delta: number) => void;
   isOwner: boolean;
   isGuest: boolean;
-  bizTheme: BusinessThemeConfig;
+  bizTheme: BusinessPackage;
   onOpenPhoto: (item: CatalogItem) => void;
   onBook: (item: CatalogItem) => void;
 }) {

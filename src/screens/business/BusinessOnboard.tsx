@@ -11,7 +11,7 @@ import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
 import { DEFAULT_ONBOARD_DAYS_PATTERN, DEFAULT_START_TIME, DEFAULT_ONBOARD_END_TIME, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
 
 import { reverseGeocodeFull } from "@/lib/geocode";
-import { getBusinessTheme, BUSINESS_THEMES } from "@/lib/businessThemes";
+import { getBusinessTheme, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 
 const steps = ["Basics", "Location", "Photos", "Contact"];
 
@@ -62,15 +62,18 @@ export default function BusinessOnboard() {
 
   const cats = (categories ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
   const selectedCat = cats.find((c) => c.id === cat);
-  // Doctor + Restaurant pilot — recomputed live as sub-category chips are
-  // toggled, same [subCategory, categoryName] precedence used everywhere
-  // else this theme is read. Copy/hints only here — no new fields.
+  // Business Packages — the suggested package, recomputed live as
+  // sub-category chips are toggled, same [subCategory, categoryName]
+  // precedence used everywhere else this is resolved. Pure derivation here
+  // (not resolvePackage) since there's no entity yet to carry an explicit
+  // packageKey override — that only exists once the confirm step (Phase 2)
+  // lets the owner pick one, which then rides along in the submit payload.
   const subNamesLive = sub
     .map((subId) => selectedCat?.children?.find((c) => c.id === subId)?.name)
     .filter((n): n is string => !!n)
     .join(", ");
   const bizThemeKey = getBusinessTheme(selectedCat?.name, subNamesLive);
-  const bizTheme = BUSINESS_THEMES[bizThemeKey];
+  const bizTheme = BUSINESS_PACKAGES[bizThemeKey];
 
   const canNext = [
     name.trim().length > 1 && !!cat,
@@ -213,11 +216,9 @@ export default function BusinessOnboard() {
                     );
                   })}
                 </div>
-                {bizThemeKey !== "generic" && (
+                {bizTheme.onboardSubcategoryHint && (
                   <span className="tiny muted" style={{ marginTop: 6, display: "block" }}>
-                    {bizThemeKey === "medical"
-                      ? "Pick every specialty this location offers — patients search by these."
-                      : "Pick every cuisine/format this location serves."}
+                    {bizTheme.onboardSubcategoryHint}
                   </span>
                 )}
               </div>
@@ -274,11 +275,7 @@ export default function BusinessOnboard() {
             <div className="field">
               <label>Add photos of your shop</label>
               <span className="tiny muted">
-                {bizThemeKey === "medical"
-                  ? "Show your reception or clinic front — it builds trust before the first visit."
-                  : bizThemeKey === "restaurant"
-                    ? "Show your dining area or best dish — food photos get 3x more views."
-                    : "A great cover photo gets 3x more views."}
+                {bizTheme.onboardPhotoHint ?? "A great cover photo gets 3x more views."}
               </span>
               <div className="row gap-8 wrap" style={{ marginTop: 8 }}>
                 {photos.map((p, idx) => (

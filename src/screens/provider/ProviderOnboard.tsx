@@ -43,6 +43,7 @@ export default function ProviderOnboard() {
   }, [ownedProviderId, nav]);
 
   const serviceCats = (serviceCatsData ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
+  const selectedCat = serviceCats.find((c) => c.id === cat);
 
   // A clear face photograph (becomes the profile photo) is the only requirement.
   const verifyValid = !!photoFile;
@@ -68,6 +69,10 @@ export default function ProviderOnboard() {
       const created = await providerService.create({
         displayName: displayName.trim(),
         categoryId: cat ?? undefined,
+        // Was missing entirely — resolvePackage() (src/lib/businessPackages.ts)
+        // and every themed screen read categoryName off the record, so with
+        // only categoryId ever written, no provider could resolve a package.
+        categoryName: selectedCat?.name || undefined,
         bio,
         startingPrice: Number(price),
         serviceRadiusKm: radius,

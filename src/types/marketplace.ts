@@ -96,6 +96,15 @@ export interface Business {
   catalog: CatalogItem[];
   /** Past-work gallery shown on the public profile — mirrors the provider portfolio. */
   portfolio?: PortfolioItem[];
+  /** The owner's own confirmed/overridden Business Package (src/lib/businessPackages.ts) —
+   *  null/undefined means "not chosen yet", so resolvePackage() falls back to
+   *  deriving one from categoryName/subCategory. */
+  packageKey?: string | null;
+  /** Whether this business takes bookings at all. Null = inherit the resolved
+   *  package's own default (most do; a pure retail shop typically doesn't).
+   *  Distinct from `isOpenNow`, which is a TEMPORARY pause, not a structural
+   *  "this business type doesn't take bookings" — never conflate the two. */
+  bookingsEnabled?: boolean | null;
 }
 
 export interface CatalogItem {
@@ -172,6 +181,13 @@ export interface Provider {
   /** Upfront deposit percentage (0–100) collected at booking when paymentTiming is AT_BOOKING; 0/undefined = full amount up front. */
   depositPercent?: number;
   catalog: CatalogItem[];
+  /** The provider's own confirmed/overridden Business Package (src/lib/businessPackages.ts) —
+   *  null/undefined means "not chosen yet", so resolvePackage() falls back to
+   *  deriving one from categoryName/subCategory. */
+  packageKey?: string | null;
+  /** Whether this provider takes bookings at all. Null = inherit the resolved
+   *  package's own default. Distinct from `isOpenNow`, which is a TEMPORARY pause. */
+  bookingsEnabled?: boolean | null;
 }
 
 export interface PortfolioItem {
