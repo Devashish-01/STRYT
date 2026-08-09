@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { Skeleton, ErrorView } from "@/components/states";
-import { providerService } from "@/services";
+import { providerService, catalogService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { X, Plus } from "@/components/Icons";
@@ -12,12 +12,19 @@ import RadiusSelector from "@/components/RadiusSelector";
 export default function ProviderProfileEditor() {
   const { id = "" } = useParams();
   const { data: p, loading } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
+  // Same top-level-only category source ProviderOnboard.tsx uses — a
+  // provider was never given a way to change this after onboarding at all
+  // (Business's own ProfileEditor.tsx at least had the chip picker, even
+  // though — separately fixed — it wasn't actually being saved).
+  const { data: categoriesData } = useQuery(() => catalogService.byKind("SERVICE"), [], "categories:SERVICE");
+  const cats = categoriesData ?? [];
   const { showToast } = useApp();
   const [bio, setBio] = useState("");
   const [price, setPrice] = useState("");
   const [radius, setRadius] = useState(5);
   const [skills, setSkills] = useState<string[]>([]);
   const [newSkill, setNewSkill] = useState("");
+  const [cat, setCat] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -26,6 +33,7 @@ export default function ProviderProfileEditor() {
     setPrice(p.startingPrice?.toString() ?? "");
     setRadius(p.serviceRadiusKm);
     setSkills(p.skills);
+    setCat(p.categoryId);
   }, [p]);
 
   if (!id) {
@@ -40,7 +48,15 @@ export default function ProviderProfileEditor() {
   async function save() {
     setSaving(true);
     try {
-      await providerService.update(id, { bio, startingPrice: Number(price), serviceRadiusKm: radius, skills });
+      const newCat = cats.find((c) => c.id === cat);
+      await providerService.update(id, {
+        bio, startingPrice: Number(price), serviceRadiusKm: radius, skills,
+        categoryId: cat ?? undefined,
+        // Business Packages resolves from categoryName — without this, a
+        // provider could never correct a wrong package suggestion short of
+        // re-onboarding.
+        categoryName: newCat?.name ?? p?.categoryName,
+      });
       showToast("Profile saved");
     } catch {
       showToast("Couldn't save. Try again.");
@@ -67,6 +83,23 @@ export default function ProviderProfileEditor() {
       <AppBar title="Edit profile" subtitle={p?.displayName} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
         <div className="field"><label>Short bio</label><textarea className="input" value={bio} onChange={(e) => setBio(e.target.value)} /></div>
+
+        <div className="field">
+          <label>Category</label>
+          <div className="row wrap gap-8">
+            {cats.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={`chip ${cat === c.id ? "active" : ""}`}
+                style={cat === c.id ? { background: "var(--green-500)", borderColor: "var(--green-500)" } : undefined}
+                onClick={() => setCat(c.id)}
+              >
+                {c.icon} {c.name.split(" ")[0]}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <div className="field">
           <label>Skills</label>

@@ -8,6 +8,7 @@ import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/se
 import { BadgeCheck, UserPlus, X, Image as ImageIcon, Trash2 } from "@/components/Icons";
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
+import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 
 export default function BusinessSettings() {
   const { id = "" } = useParams();
@@ -51,6 +52,8 @@ export default function BusinessSettings() {
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
   const [defaultEta, setDefaultEta] = useState("");
   const [savingEta, setSavingEta] = useState(false);
+  const [packagePicking, setPackagePicking] = useState(false);
+  const [bookingsOn, setBookingsOn] = useState(true);
 
   function persistMatchingRequests(v: boolean) {
     setRequests(v);
@@ -99,8 +102,14 @@ export default function BusinessSettings() {
       setDefaultEta(business.deliveryTime ?? "");
       setDefaultCapacity(String(business.defaultSlotCapacity ?? 1));
       setCeiling(business.maxConcurrentBookings != null ? String(business.maxConcurrentBookings) : "");
+      // bookingsEnabled null means "inherit the resolved package's own
+      // default" — resolve it once here rather than showing a toggle in an
+      // ambiguous third state.
+      setBookingsOn(business.bookingsEnabled ?? BUSINESS_PACKAGES[resolvePackage(business)].bookingsDefault);
     }
   }, [business]);
+
+  const pkg = BUSINESS_PACKAGES[business ? resolvePackage(business) : "generic"];
 
   if (!id) {
     return (
@@ -223,6 +232,29 @@ export default function BusinessSettings() {
     }
   }
 
+  async function savePackage(key: BusinessPackageKey) {
+    setPackagePicking(false);
+    try {
+      await businessService.update(id, { packageKey: key } as any);
+      showToast(`Page type set to ${BUSINESS_PACKAGES[key].label}`);
+      void refetchBiz();
+    } catch {
+      showToast("Couldn't save — try again");
+    }
+  }
+
+  async function toggleBookingsEnabled(v: boolean) {
+    setBookingsOn(v);
+    try {
+      await businessService.update(id, { bookingsEnabled: v } as any);
+      showToast(v ? "Bookings are on for this page" : "Bookings are off — your page shows products/services only, no booking button");
+      void refetchBiz();
+    } catch {
+      setBookingsOn(!v);
+      showToast("Couldn't save — try again");
+    }
+  }
+
   async function toggleAccepting(v: boolean) {
     setAccepting(v);
     try {
@@ -243,6 +275,24 @@ export default function BusinessSettings() {
 
         <SettingsSection title="Visibility">
           <SettingsToggleRow label="Show business publicly" on={ownerEnabled} onChange={handleToggleVisibility} />
+        </SettingsSection>
+
+        {/* Business Packages — the choice made visible and changeable for
+            good, not just a one-time onboarding moment (PackageConfirmCard). */}
+        <SettingsSection title="Page type">
+          <SettingsRow
+            icon={<span style={{ fontSize: 18, lineHeight: 1 }}>{pkg.icon || "🏪"}</span>}
+            label="Page type"
+            hint="Controls your page's layout, CTA wording, and catalogue form"
+            value={pkg.label}
+            onClick={() => setPackagePicking(true)}
+          />
+          <SettingsToggleRow
+            label="Take bookings"
+            hint={bookingsOn ? "Your page shows a booking button" : "No booking button — products/services only"}
+            on={bookingsOn}
+            onChange={toggleBookingsEnabled}
+          />
         </SettingsSection>
 
         <SettingsSection title="Notifications">
@@ -536,6 +586,38 @@ export default function BusinessSettings() {
               >
                 Keep my business
               </button>
+            </div>
+          </div>
+        )}
+
+        {packagePicking && (
+          <div className="overlay" onClick={() => setPackagePicking(false)}>
+            <div className="sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="sheet-grab" />
+              <h3 className="bold h2" style={{ marginBottom: 4 }}>Choose your page type</h3>
+              <p className="small muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
+                Controls your page's layout, CTA wording, and the owner-side catalogue form.
+              </p>
+              <div className="col gap-8">
+                {PACKAGE_KEYS.map((key) => {
+                  const p = BUSINESS_PACKAGES[key];
+                  const active = pkg.key === key;
+                  return (
+                    <button
+                      key={key}
+                      className="card row gap-10"
+                      style={{ padding: 12, alignItems: "flex-start", textAlign: "left", border: active ? "2px solid var(--brand-600)" : "1px solid var(--line)" }}
+                      onClick={() => savePackage(key)}
+                    >
+                      <span style={{ fontSize: 22, lineHeight: 1 }}>{p.icon || "🏪"}</span>
+                      <span className="grow" style={{ minWidth: 0 }}>
+                        <span className="semi small" style={{ display: "block" }}>{key === "generic" ? "Plain page" : p.label}</span>
+                        <span className="tiny muted" style={{ display: "block", marginTop: 2, lineHeight: 1.4 }}>{p.blurb}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

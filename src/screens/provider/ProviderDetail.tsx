@@ -26,6 +26,8 @@ import { PROVIDER_BADGE_THRESHOLDS } from "@/lib/badges";
 import { displayName as safeName } from "@/lib/publicName";
 import { pushRecentlyViewed } from "@/lib/recentlyViewed";
 import MiniMap from "@/components/MiniMap";
+import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
+import { BizCatalogGrid } from "@/screens/business/BizCatalogGrid";
 
 const Handshake = HandshakeIcon as any;
 
@@ -133,9 +135,24 @@ export default function ProviderDetail() {
   const avail = (availList ?? []).find((a) => a.providerId === p.id);
   const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
   const heroPhoto = p.portfolio[0]?.url;
+  // Business Packages (Phase 3) — providers previously got nothing (this
+  // screen shares zero code with BusinessDetail.tsx). Unlike a business,
+  // whose untouched/"generic" identity is already brand purple (the same
+  // default --biz-accent-* resolves to), a provider's untouched identity is
+  // green — so accent/accentSoft fall back to the literal green this screen
+  // already used everywhere, rather than trusting --biz-accent's :root
+  // default, which would silently repaint every untouched provider purple.
+  const bizThemeKey = resolvePackage(p);
+  const bizTheme = BUSINESS_PACKAGES[bizThemeKey];
+  const accent = bizThemeKey === "generic" ? "var(--green-600)" : "var(--biz-accent-strong)";
+  const accentSoft = bizThemeKey === "generic" ? "var(--green-100)" : "var(--biz-accent-soft)";
+  // Structural "does this provider take bookings at all" — null inherits the
+  // resolved package's own default. Distinct from p.isOpenNow, which is a
+  // temporary pause and still renders its own disabled state below.
+  const bookingsOn = p.bookingsEnabled ?? bizTheme.bookingsDefault;
 
   return (
-    <div className="screen" style={{ position: "relative" }}>
+    <div className="screen" style={{ position: "relative" }} data-biz-theme={bizThemeKey === "generic" ? undefined : bizThemeKey}>
       <div className="screen-scroll" style={{ paddingBottom: 90 }}>
         {isMockTarget(id) && (
           <div style={{ padding: "8px 14px", background: "var(--orange-50)", borderBottom: "1px solid var(--orange-100)" }}>
@@ -266,7 +283,7 @@ export default function ProviderDetail() {
         <div className="row page-pad" style={{ paddingTop: 10, paddingBottom: 0, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
           {([["about", "About"], ["posts", `Posts (${(provPosts ?? []).length})`], ["portfolio", `Work (${p.portfolio.length})`], ["reviews", "Reviews"]] as const).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
-          style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--green-600)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--green-600)" : "2.5px solid transparent" }}>
+          style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? accent : "var(--ink-500)", borderBottom: tab === t ? `2.5px solid ${accent}` : "2.5px solid transparent" }}>
               {label}
             </button>
           ))}
@@ -312,25 +329,49 @@ export default function ProviderDetail() {
               </div>
             </div>
 
-            {/* Catalog */}
+            {/* Catalog — photo grid for packages whose catalogRenderMode is
+                "grid" (e.g. events, for a wedding photographer), otherwise
+                the plain list this screen always used. The grid needs a
+                cart/add pair for BizCatalogGrid's shared signature, but every
+                package reachable by a provider today has showCartStepper
+                false (dining/takeaway/shop — the only "true" packages —
+                aren't provider-selectable categories), so the stepper UI
+                never actually renders and these are safely no-ops. */}
             {(p.catalog ?? []).length > 0 && (
               <div>
-                <div className="semi small" style={{ marginBottom: 8 }}>Catalog</div>
-                <div className="col gap-8">
-                  {(p.catalog ?? []).map((item) => (
-                    <div key={item.id} className="card row gap-12" style={{ padding: 12 }}>
-                      <div className="grow">
-                        <div className="row gap-6">
-                          {item.isFood && item.isVeg != null && <VegDot veg={item.isVeg} />}
-                          <span className="semi small">{item.name}</span>
-                          {item.bestSeller && <span className="badge badge-amber">⭐</span>}
+                {/* "Catalog", not "Catalogue" (bizTheme.catalogNoun's generic
+                    value) — this heading's own original literal, kept exact
+                    for untouched providers. */}
+                <div className="semi small" style={{ marginBottom: 8 }}>{bizThemeKey === "generic" ? "Catalog" : bizTheme.catalogNoun}</div>
+                {bizTheme.catalogRenderMode === "grid" ? (
+                  <BizCatalogGrid
+                    catalog={p.catalog ?? []}
+                    cart={{}}
+                    add={() => {}}
+                    isOwner={isOwner}
+                    isGuest={isGuest}
+                    bizTheme={bizTheme}
+                    bookingsOn={bookingsOn}
+                    onOpenPhoto={(item) => setViewingPhotos({ photos: [{ url: item.image, caption: item.name }], startIndex: 0 })}
+                    onBook={() => setScheduling(true)}
+                  />
+                ) : (
+                  <div className="col gap-8">
+                    {(p.catalog ?? []).map((item) => (
+                      <div key={item.id} className="card row gap-12" style={{ padding: 12 }}>
+                        <div className="grow">
+                          <div className="row gap-6">
+                            {item.isFood && item.isVeg != null && <VegDot veg={item.isVeg} />}
+                            <span className="semi small">{item.name}</span>
+                            {item.bestSeller && <span className="badge badge-amber">⭐</span>}
+                          </div>
+                          {item.description && <div className="tiny muted">{item.description}</div>}
                         </div>
-                        {item.description && <div className="tiny muted">{item.description}</div>}
+                        <div className="bold small" style={{ color: accent }}>{inr(item.salePrice ?? item.price)}</div>
                       </div>
-                      <div className="bold small" style={{ color: "var(--green-600)" }}>{inr(item.salePrice ?? item.price)}</div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -574,16 +615,24 @@ export default function ProviderDetail() {
             >
               <Clock size={17} /> View jobs & appointments
             </button>
-          ) : p.isOpenNow === false ? (
+          ) : !bookingsOn ? null : p.isOpenNow === false ? (
             <button className="btn grow" style={{ background: "var(--ink-50)", color: "var(--ink-400)" }} disabled>
-              <Clock size={17} /> Not accepting appointments right now
+              <Clock size={17} /> {bizTheme.bookingClosedLabel}
             </button>
-          ) : (
+          ) : bizThemeKey === "generic" ? (
             <button
               className={`btn grow ${evalRes.isOpenNow ? "btn-green" : "btn-purple"}`}
               onClick={() => setScheduling(true)}
             >
               {evalRes.isOpenNow ? <><Zap size={17} /> Book now</> : <><Clock size={17} /> Schedule Appointment</>}
+            </button>
+          ) : (
+            <button
+              className="btn grow"
+              style={{ background: accentSoft, color: accent }}
+              onClick={() => setScheduling(true)}
+            >
+              <Clock size={17} /> {bizTheme.primaryCtaLabel}
             </button>
           )}
         </div>

@@ -8,6 +8,7 @@ import { ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/settings";
 import ProviderManageNav from "./ProviderManageNav";
 import { invalidateQueryCache } from "@/hooks/useApi";
+import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 
 export default function ProviderSettings() {
   const { id = "" } = useParams();
@@ -31,6 +32,9 @@ export default function ProviderSettings() {
   const [showEmail, setShowEmail] = useState(false);
   const [locPublic, setLocPublic] = useState(false);
   const [serviceRadiusKm, setServiceRadiusKm] = useState(10);
+  const [pkgKey, setPkgKey] = useState<BusinessPackageKey>("generic");
+  const [packagePicking, setPackagePicking] = useState(false);
+  const [bookingsOn, setBookingsOn] = useState(true);
 
   function persist(patch: Record<string, unknown>) {
     void providerService.update(id, patch as any).catch(() => showToast("Couldn't save — try again"));
@@ -64,6 +68,12 @@ export default function ProviderSettings() {
           setShowEmail(prov.showEmailPublicly === true);
           setLocPublic(prov.locationPublic === true);
           setServiceRadiusKm(prov.serviceRadiusKm ?? 10);
+          const resolved = resolvePackage(prov);
+          setPkgKey(resolved);
+          // bookingsEnabled null means "inherit the resolved package's own
+          // default" — resolve it once here rather than a toggle with an
+          // ambiguous third state.
+          setBookingsOn(prov.bookingsEnabled ?? BUSINESS_PACKAGES[resolved].bookingsDefault);
         }
         setLoading(false);
       })
@@ -104,6 +114,34 @@ export default function ProviderSettings() {
     }
   }
 
+  const pkg = BUSINESS_PACKAGES[pkgKey];
+
+  async function savePackage(key: BusinessPackageKey) {
+    setPackagePicking(false);
+    const prev = pkgKey;
+    setPkgKey(key);
+    try {
+      await providerService.update(id, { packageKey: key } as any);
+      showToast(`Page type set to ${BUSINESS_PACKAGES[key].label}`);
+      invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
+    } catch {
+      setPkgKey(prev);
+      showToast("Couldn't save — try again");
+    }
+  }
+
+  async function toggleBookingsEnabled(v: boolean) {
+    setBookingsOn(v);
+    try {
+      await providerService.update(id, { bookingsEnabled: v } as any);
+      showToast(v ? "Bookings are on for this page" : "Bookings are off — your page shows your catalogue only, no booking button");
+      invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
+    } catch {
+      setBookingsOn(!v);
+      showToast("Couldn't save — try again");
+    }
+  }
+
   if (loading) {
     return (
       <div className="screen with-nav">
@@ -128,6 +166,24 @@ export default function ProviderSettings() {
             hint="Also controls your personal 'Nearby requests' alerts"
             on={matched}
             onChange={persistMatched}
+          />
+        </SettingsSection>
+
+        {/* Business Packages — the choice made visible and changeable for
+            good, not just a one-time onboarding moment (PackageConfirmCard). */}
+        <SettingsSection title="Page type">
+          <SettingsRow
+            icon={<span style={{ fontSize: 18, lineHeight: 1 }}>{pkg.icon || "🏪"}</span>}
+            label="Page type"
+            hint="Controls your page's layout, CTA wording, and catalogue form"
+            value={pkg.key === "generic" ? "Plain page" : pkg.label}
+            onClick={() => setPackagePicking(true)}
+          />
+          <SettingsToggleRow
+            label="Take bookings"
+            hint={bookingsOn ? "Your page shows a booking button" : "No booking button — catalogue only"}
+            on={bookingsOn}
+            onChange={toggleBookingsEnabled}
           />
         </SettingsSection>
 
@@ -171,6 +227,38 @@ export default function ProviderSettings() {
         </SettingsSection>
 
         <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>Exit provider mode</button>
+
+        {packagePicking && (
+          <div className="overlay" onClick={() => setPackagePicking(false)}>
+            <div className="sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="sheet-grab" />
+              <h3 className="bold h2" style={{ marginBottom: 4 }}>Choose your page type</h3>
+              <p className="small muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
+                Controls your page's layout, CTA wording, and the owner-side catalogue form.
+              </p>
+              <div className="col gap-8">
+                {PACKAGE_KEYS.map((key) => {
+                  const p = BUSINESS_PACKAGES[key];
+                  const active = pkgKey === key;
+                  return (
+                    <button
+                      key={key}
+                      className="card row gap-10"
+                      style={{ padding: 12, alignItems: "flex-start", textAlign: "left", border: active ? "2px solid var(--green-500)" : "1px solid var(--line)" }}
+                      onClick={() => savePackage(key)}
+                    >
+                      <span style={{ fontSize: 22, lineHeight: 1 }}>{p.icon || "🏪"}</span>
+                      <span className="grow" style={{ minWidth: 0 }}>
+                        <span className="semi small" style={{ display: "block" }}>{key === "generic" ? "Plain page" : p.label}</span>
+                        <span className="tiny muted" style={{ display: "block", marginTop: 2, lineHeight: 1.4 }}>{p.blurb}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       <ProviderManageNav pid={id} />
     </div>

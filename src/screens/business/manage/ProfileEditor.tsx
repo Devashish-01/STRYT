@@ -109,7 +109,17 @@ export default function ProfileEditor() {
     if (!valid) return;
     setSaving(true);
     try {
-      await businessService.update(id, { name, description: desc, addressLine1: address, city, pincode, phone, whatsapp, broadcastRadius });
+      // categoryId/categoryName were missing here — the chip picker below
+      // updated `cat` and looked selectable, but changing it never actually
+      // persisted anything. Business Packages resolves from categoryName, so
+      // a silently-ignored category change also meant a silently-stuck
+      // package suggestion.
+      const newCat = cats.find((c) => c.id === cat);
+      await businessService.update(id, {
+        name, description: desc, addressLine1: address, city, pincode, phone, whatsapp, broadcastRadius,
+        categoryId: cat ?? undefined,
+        categoryName: newCat?.name ?? b?.categoryName,
+      });
       showToast("Profile saved");
     } catch (err) {
       // Without this the button stayed stuck on "Saving…" and still claimed
