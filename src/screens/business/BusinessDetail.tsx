@@ -1099,6 +1099,7 @@ export default function BusinessDetail() {
           outOfRange={outOfRange}
           deliveryEnabled={b.deliveryEnabled === true}
           deliveryTime={b.deliveryTime}
+          vocabulary={bizTheme.vocabulary}
           onBooked={() => { if (checkoutMode) setCart({}); }}
           onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); setCheckoutItems(undefined); }}
         />

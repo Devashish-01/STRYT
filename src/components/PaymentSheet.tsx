@@ -4,6 +4,7 @@ import { appointmentService } from "@/services/engagement/appointmentService";
 import { useApp } from "@/store";
 import { PaymentMethodPanel } from "@/components/PaymentMethodPanel";
 import type { AppointmentRecord, PaymentMethod } from "@/types";
+import { BUSINESS_PACKAGES, type BizVocabulary } from "@/lib/businessPackages";
 
 interface PaymentSheetProps {
   appointment: AppointmentRecord;
@@ -13,11 +14,13 @@ interface PaymentSheetProps {
    *  this fraction is collected now; the rest is due at the appointment. 0 / undefined
    *  / 100 collect the full amount, exactly as before. */
   depositPercent?: number;
+  /** The target's package wording ("reservation", "class"…) in place of "appointment". Defaults to the generic package's (today's exact wording). */
+  vocabulary?: BizVocabulary;
   onPaid: () => void;
   onClose: () => void;
 }
 
-export function PaymentSheet({ appointment, businessUpiId, businessName, depositPercent, onPaid, onClose }: PaymentSheetProps) {
+export function PaymentSheet({ appointment, businessUpiId, businessName, depositPercent, vocabulary = BUSINESS_PACKAGES.generic.vocabulary, onPaid, onClose }: PaymentSheetProps) {
   const { showToast } = useApp();
 
   const fullPrice = appointment.packagePrice ?? null;
@@ -70,7 +73,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, deposit
         {/* Header */}
         <div className="row between center-v" style={{ marginBottom: 16 }}>
           <div>
-            <div className="bold" style={{ fontSize: 18 }}>Pay for appointment</div>
+            <div className="bold" style={{ fontSize: 18 }}>Pay for {vocabulary.noun}</div>
             <div className="tiny muted" style={{ marginTop: 2 }}>{appointment.targetName}</div>
           </div>
           <button className="icon-btn" onClick={onClose}><X size={20} /></button>
@@ -85,7 +88,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, deposit
                 Deposit now ₹{depositAmount} <span style={{ fontSize: 14, fontWeight: 600, color: "var(--brand-600)" }}>({depositPercent}%)</span>
               </div>
               <div className="tiny muted" style={{ marginTop: 3 }}>
-                Balance ₹{balanceAmount} at appointment{appointment.packageName ? ` · for: ${appointment.packageName}` : ""}
+                Balance ₹{balanceAmount} at {vocabulary.noun}{appointment.packageName ? ` · for: ${appointment.packageName}` : ""}
               </div>
             </>
           ) : appointment.packagePrice ? (
@@ -108,7 +111,7 @@ export function PaymentSheet({ appointment, businessUpiId, businessName, deposit
           businessUpiId={businessUpiId}
           businessName={businessName}
           amount={numAmount}
-          txnNote="Appointment"
+          txnNote={vocabulary.nounCap}
           cashTitle="Pay in cash at the venue"
           claiming={claiming}
           onSubmit={claim}

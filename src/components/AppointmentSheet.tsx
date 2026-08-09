@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/states";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import LocationPicker from "@/components/LocationPicker";
+import { BUSINESS_PACKAGES, type BizVocabulary } from "@/lib/businessPackages";
 
 export interface BookingPackage {
   id: string;
@@ -52,6 +53,8 @@ interface AppointmentSheetProps {
   deliveryEnabled?: boolean;
   /** The shop's typical delivery time, shown as a guide next to the delivery option. */
   deliveryTime?: string | null;
+  /** The target's package wording ("reservation", "class", "order"…) in place of "appointment". Defaults to the generic package's (today's exact wording) when the caller has no theme in scope. */
+  vocabulary?: BizVocabulary;
   onClose: () => void;
   /** Fired after a booking is successfully created (before the sheet closes). */
   onBooked?: () => void;
@@ -75,6 +78,7 @@ export function AppointmentSheet({
   outOfRange,
   deliveryEnabled = false,
   deliveryTime,
+  vocabulary = BUSINESS_PACKAGES.generic.vocabulary,
   onClose,
   onBooked,
 }: AppointmentSheetProps) {
@@ -325,7 +329,7 @@ export function AppointmentSheet({
       showToast(
         isReschedule
           ? `Rescheduled to ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 🔄`
-          : `Appointment scheduled for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`
+          : `${vocabulary.bookedVerb} for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`
       );
 
       if (paymentTiming === "AT_BOOKING") {
@@ -336,7 +340,7 @@ export function AppointmentSheet({
         onClose();
       }
     } catch (err: any) {
-      const msg: string = err?.message || "Couldn't schedule appointment. Try again.";
+      const msg: string = err?.message || `Couldn't complete your ${vocabulary.noun}. Try again.`;
       showToast(msg);
       // Someone took the last spots between load and confirm. Refresh usage in
       // place so the grid tells the truth and the customer can pick again,
@@ -358,6 +362,7 @@ export function AppointmentSheet({
         businessUpiId={payeeUpiId}
         businessName={targetName}
         depositPercent={depositPercent}
+        vocabulary={vocabulary}
         onPaid={() => {
           onBooked?.();
           onClose();
@@ -402,7 +407,7 @@ export function AppointmentSheet({
         <div className="row between center-v" style={{ marginBottom: 16 }}>
           <div>
             <div className="bold large" style={{ fontSize: 18, color: "var(--ink-900)" }}>
-              {isReschedule ? "🔄 Reschedule Appointment" : "📅 Schedule Appointment"}
+              {isReschedule ? `🔄 ${vocabulary.sheetTitleReschedule}` : `📅 ${vocabulary.sheetTitleNew}`}
             </div>
             <div className="tiny muted" style={{ marginTop: 2 }}>
               {isReschedule ? "Pick a new slot with " : "Book a slot with "}
@@ -633,9 +638,9 @@ export function AppointmentSheet({
             <div className="row gap-8 center-v">
               <span style={{ fontSize: 16 }}>⚠️</span>
               <div>
-                <div className="bold small" style={{ color: "var(--red-600)" }}>Daily Appointment Limit Hit</div>
+                <div className="bold small" style={{ color: "var(--red-600)" }}>Daily {vocabulary.nounCap} Limit Hit</div>
                 <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>
-                  You've reached the limit of {DAILY_APPOINTMENT_LIMIT} appointments for this day. Please pick another date.
+                  You've reached the limit of {DAILY_APPOINTMENT_LIMIT} {vocabulary.nounPlural} for this day. Please pick another date.
                 </div>
               </div>
             </div>
@@ -794,7 +799,7 @@ export function AppointmentSheet({
           </label>
           {photoPreview ? (
             <div style={{ position: "relative", width: 100, height: 100, borderRadius: 12, overflow: "hidden", border: "1px solid var(--ink-200)" }}>
-              <img src={photoPreview} alt="Appointment Reference" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img src={photoPreview} alt={`${vocabulary.nounCap} Reference`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               <button
                 type="button"
                 onClick={removePhoto}

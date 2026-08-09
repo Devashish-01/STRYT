@@ -85,6 +85,24 @@ export interface BusinessPackage {
   onboardSubcategoryHint?: string;
   /** Onboarding hint replacing the generic "great cover photo" line. */
   onboardPhotoHint?: string;
+  /** The words the booking flow (AppointmentSheet, PaymentSheet, the owner's
+   *  booking console) uses in place of "appointment" for this package. */
+  vocabulary: BizVocabulary;
+}
+
+export interface BizVocabulary {
+  /** Lowercase singular, used inline: "your {noun}", "cancel this {noun}". */
+  noun: string;
+  /** Capitalized singular, sentence/title-start: "Consultation". */
+  nounCap: string;
+  /** Lowercase plural: "consultations". */
+  nounPlural: string;
+  /** AppointmentSheet header when booking new (no emoji — the caller adds one). */
+  sheetTitleNew: string;
+  /** AppointmentSheet header when rescheduling (no emoji — the caller adds one). */
+  sheetTitleReschedule: string;
+  /** Verb-phrase for the post-booking toast, prepended to " for {date} at {time} 📅". */
+  bookedVerb: string;
 }
 
 /**
@@ -207,6 +225,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "auto-nonfood",
     onboardSubcategoryHint: "Pick every specialty this location offers — patients search by these.",
     onboardPhotoHint: "Show your reception or clinic front — it builds trust before the first visit.",
+    vocabulary: {
+      noun: "consultation", nounCap: "Consultation", nounPlural: "consultations",
+      sheetTitleNew: "Book a Consultation", sheetTitleReschedule: "Reschedule Consultation",
+      bookedVerb: "Consultation booked",
+    },
   },
   diagnostics: {
     key: "diagnostics",
@@ -231,6 +254,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "auto-nonfood",
     onboardSubcategoryHint: "Pick every test category this lab offers.",
     onboardPhotoHint: "Show your reception or sample-collection area — it builds trust before the first visit.",
+    vocabulary: {
+      noun: "test", nounCap: "Test", nounPlural: "tests",
+      sheetTitleNew: "Book a Test", sheetTitleReschedule: "Reschedule Test",
+      bookedVerb: "Test booked",
+    },
   },
   vet: {
     key: "vet",
@@ -255,6 +283,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "auto-nonfood",
     onboardSubcategoryHint: "Pick every service this location offers.",
     onboardPhotoHint: "Show your clinic front or a happy patient — it builds trust before the first visit.",
+    vocabulary: {
+      noun: "visit", nounCap: "Visit", nounPlural: "visits",
+      sheetTitleNew: "Book a Visit", sheetTitleReschedule: "Reschedule Visit",
+      bookedVerb: "Visit booked",
+    },
   },
   pharmacy: {
     key: "pharmacy",
@@ -278,6 +311,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     itemNamePlaceholder: "e.g. Paracetamol 500mg, First Aid Kit, Thermometer",
     foodToggleMode: "manual",
     onboardPhotoHint: "Show your storefront or counter — it builds trust before the first visit.",
+    vocabulary: {
+      noun: "order", nounCap: "Order", nounPlural: "orders",
+      sheetTitleNew: "Place Your Order", sheetTitleReschedule: "Change Order",
+      bookedVerb: "Order placed",
+    },
   },
   dining: {
     key: "dining",
@@ -302,6 +340,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "auto-food",
     onboardSubcategoryHint: "Pick every cuisine/format this location serves.",
     onboardPhotoHint: "Show your dining area or best dish — food photos get 3x more views.",
+    vocabulary: {
+      noun: "reservation", nounCap: "Reservation", nounPlural: "reservations",
+      sheetTitleNew: "Reserve a Table", sheetTitleReschedule: "Change Reservation",
+      bookedVerb: "Table reserved",
+    },
   },
   takeaway: {
     key: "takeaway",
@@ -326,6 +369,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "auto-food",
     onboardSubcategoryHint: "Pick every cuisine/format you offer.",
     onboardPhotoHint: "Show your best dishes — food photos get 3x more views.",
+    vocabulary: {
+      noun: "order", nounCap: "Order", nounPlural: "orders",
+      sheetTitleNew: "Place Your Order", sheetTitleReschedule: "Change Order",
+      bookedVerb: "Order placed",
+    },
   },
   salon: {
     key: "salon",
@@ -350,6 +398,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "manual",
     onboardSubcategoryHint: "Pick every service this location offers.",
     onboardPhotoHint: "Show your salon interior — customers browsing want to see the space.",
+    vocabulary: {
+      noun: "appointment", nounCap: "Appointment", nounPlural: "appointments",
+      sheetTitleNew: "Book Appointment", sheetTitleReschedule: "Reschedule Appointment",
+      bookedVerb: "Appointment booked",
+    },
   },
   shop: {
     key: "shop",
@@ -373,6 +426,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     itemNamePlaceholder: "e.g. Cotton T-Shirt, Phone Case, Notebook Set",
     foodToggleMode: "manual",
     onboardPhotoHint: "Show your storefront or best-selling products.",
+    vocabulary: {
+      noun: "order", nounCap: "Order", nounPlural: "orders",
+      sheetTitleNew: "Place Your Order", sheetTitleReschedule: "Change Order",
+      bookedVerb: "Order placed",
+    },
   },
   homeservice: {
     key: "homeservice",
@@ -397,6 +455,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "manual",
     onboardSubcategoryHint: "Pick every service you offer.",
     onboardPhotoHint: "Show recent work — before/after photos build trust fast.",
+    vocabulary: {
+      noun: "visit", nounCap: "Visit", nounPlural: "visits",
+      sheetTitleNew: "Request a Visit", sheetTitleReschedule: "Reschedule Visit",
+      bookedVerb: "Visit requested",
+    },
   },
   learning: {
     key: "learning",
@@ -421,6 +484,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "manual",
     onboardSubcategoryHint: "Pick every subject/skill this location teaches.",
     onboardPhotoHint: "Show your classroom or a class in session.",
+    vocabulary: {
+      noun: "class", nounCap: "Class", nounPlural: "classes",
+      sheetTitleNew: "Book a Class", sheetTitleReschedule: "Reschedule Class",
+      bookedVerb: "Class booked",
+    },
   },
   fitness: {
     key: "fitness",
@@ -445,6 +513,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "manual",
     onboardSubcategoryHint: "Pick every program this location offers.",
     onboardPhotoHint: "Show your facility or a class in session.",
+    vocabulary: {
+      noun: "session", nounCap: "Session", nounPlural: "sessions",
+      sheetTitleNew: "Book a Session", sheetTitleReschedule: "Reschedule Session",
+      bookedVerb: "Session booked",
+    },
   },
   professional: {
     key: "professional",
@@ -469,6 +542,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "manual",
     onboardSubcategoryHint: "Pick every service you offer.",
     onboardPhotoHint: "Show your office or past work.",
+    vocabulary: {
+      noun: "consultation", nounCap: "Consultation", nounPlural: "consultations",
+      sheetTitleNew: "Request a Consultation", sheetTitleReschedule: "Reschedule Consultation",
+      bookedVerb: "Consultation requested",
+    },
   },
   events: {
     key: "events",
@@ -493,6 +571,11 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     foodToggleMode: "manual",
     onboardSubcategoryHint: "Pick every kind of event you cover.",
     onboardPhotoHint: "Show your best work — real event photos sell packages.",
+    vocabulary: {
+      noun: "booking", nounCap: "Booking", nounPlural: "bookings",
+      sheetTitleNew: "Request a Booking", sheetTitleReschedule: "Change Booking",
+      bookedVerb: "Booking requested",
+    },
   },
   generic: {
     key: "generic",
@@ -515,5 +598,10 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
     itemNounSingular: "listing",
     itemNamePlaceholder: "e.g. Classic Haircut, Phone Case, Sofa Repair",
     foodToggleMode: "manual",
+    vocabulary: {
+      noun: "appointment", nounCap: "Appointment", nounPlural: "appointments",
+      sheetTitleNew: "Schedule Appointment", sheetTitleReschedule: "Reschedule Appointment",
+      bookedVerb: "Appointment scheduled",
+    },
   },
 };

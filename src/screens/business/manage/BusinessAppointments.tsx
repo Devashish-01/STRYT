@@ -28,6 +28,7 @@ import { haptics } from "@/lib/haptics";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
 import { deliveryService } from "@/services";
+import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "DELIVERIES" | "HISTORY" | "CANCELLED";
 
@@ -82,6 +83,10 @@ export default function BusinessAppointments() {
 
   const appointments = useMemo(() => data ?? [], [data]);
   const blockedSlots = blockedData ?? [];
+  // Same resolution the storefront and CatalogManager use, so the owner's
+  // console calls a booking whatever the customer-facing page called it.
+  const vocab = BUSINESS_PACKAGES[resolvePackage(b ?? {})].vocabulary;
+  const nounPluralCap = vocab.nounPlural.charAt(0).toUpperCase() + vocab.nounPlural.slice(1);
 
   if (!id) {
     return (
@@ -127,9 +132,9 @@ export default function BusinessAppointments() {
       }
       if (actionType === "ACCEPT") haptics.success(); else haptics.warning();
       showToast(
-        actionType === "ACCEPT" ? "Appointment accepted 📅"
-        : actionType === "REJECT" ? "Appointment declined."
-        : "Appointment cancelled — customer has been notified."
+        actionType === "ACCEPT" ? `${vocab.nounCap} accepted 📅`
+        : actionType === "REJECT" ? `${vocab.nounCap} declined.`
+        : `${vocab.nounCap} cancelled — customer has been notified.`
       );
       setActiveApt(null);
       setActionType(null);
@@ -137,7 +142,7 @@ export default function BusinessAppointments() {
       setDeliveryEta("");
       refetch();
     } catch {
-      showToast("Couldn't update appointment");
+      showToast(`Couldn't update ${vocab.noun}`);
     } finally {
       setUpdatingStatus(false);
     }
@@ -479,7 +484,7 @@ export default function BusinessAppointments() {
             )}
             {apt.status === "ACCEPTED" && (
               <button type="button" className="btn btn-outline grow btn-sm row gap-4 center" style={{ color: "var(--red-600)", borderColor: "var(--red-100)" }} onClick={() => { setActiveApt(apt); setActionType("CANCEL"); setResponseNote(""); }}>
-                <XIcon size={14} /> Cancel appointment
+                <XIcon size={14} /> Cancel {vocab.noun}
               </button>
             )}
           </div>
@@ -545,7 +550,7 @@ export default function BusinessAppointments() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Appointments" subtitle={`Bookings for ${b?.name ?? "your shop"}`} />
+      <AppBar title={nounPluralCap} subtitle={`Bookings for ${b?.name ?? "your shop"}`} />
 
       {/* Tabs */}
       <div className="hscroll" style={{ paddingTop: 10, paddingBottom: 6 }}>
@@ -605,7 +610,7 @@ export default function BusinessAppointments() {
         {!loading && !error && tab === "UPCOMING" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
             {upcomingList.length === 0 ? (
-              <EmptyState emoji="📅" title="No upcoming appointments" text="New bookings will appear here." />
+              <EmptyState emoji="📅" title={`No upcoming ${vocab.nounPlural}`} text="New bookings will appear here." />
             ) : (
               upcomingList.map(renderAppointmentCard)
             )}
@@ -628,7 +633,7 @@ export default function BusinessAppointments() {
               </div>
             )}
             {deliveryList.length === 0 ? (
-              <EmptyState emoji="🛵" title="No deliveries yet" text="Appointments booked for home delivery will appear here once accepted." />
+              <EmptyState emoji="🛵" title="No deliveries yet" text={`${nounPluralCap} booked for home delivery will appear here once accepted.`} />
             ) : (
               deliveryList.map((apt) => (
                 <div key={apt.id} className="row gap-8" style={{ alignItems: "flex-start" }}>
@@ -657,7 +662,7 @@ export default function BusinessAppointments() {
         {!loading && !error && tab === "HISTORY" && (
           <div className="page-pad col gap-16" style={{ paddingTop: 12 }}>
             {historyList.length === 0 ? (
-              <EmptyState emoji="🕘" title="Nothing here yet" text="Completed and past appointments will appear here." />
+              <EmptyState emoji="🕘" title="Nothing here yet" text={`Completed and past ${vocab.nounPlural} will appear here.`} />
             ) : (
               historyGroups.map(([day, list]) => (
                 <div key={day} className="col gap-10">
@@ -672,7 +677,7 @@ export default function BusinessAppointments() {
         {!loading && !error && tab === "CANCELLED" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
             {cancelledList.length === 0 ? (
-              <EmptyState emoji="🚫" title="No cancelled bookings" text="Cancelled and declined appointments will appear here." />
+              <EmptyState emoji="🚫" title="No cancelled bookings" text={`Cancelled and declined ${vocab.nounPlural} will appear here.`} />
             ) : (
               cancelledList.map((apt) => (
                 <div key={apt.id} className="card col gap-8 queue-row-enter" style={{ padding: 14, opacity: apt.cancelledBy === "CUSTOMER" ? 0.75 : 1 }}>
@@ -704,11 +709,11 @@ export default function BusinessAppointments() {
           <div className="sheet col gap-14" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
             <div className="bold large" style={{ fontSize: 16 }}>
-              {actionType === "ACCEPT" ? "Accept Appointment" : actionType === "REJECT" ? "Decline Appointment" : "Cancel Appointment"}
+              {actionType === "ACCEPT" ? `Accept ${vocab.nounCap}` : actionType === "REJECT" ? `Decline ${vocab.nounCap}` : `Cancel ${vocab.nounCap}`}
             </div>
             <div className="tiny muted">
               {actionType === "CANCEL"
-                ? `Add a reason for cancelling ${activeApt.customerName}'s appointment (the customer will see this).`
+                ? `Add a reason for cancelling ${activeApt.customerName}'s ${vocab.noun} (the customer will see this).`
                 : `Add an optional note to send back to ${activeApt.customerName}.`}
             </div>
 
@@ -789,7 +794,7 @@ export default function BusinessAppointments() {
                 disabled={updatingStatus}
                 onClick={handleUpdateStatus}
               >
-                {updatingStatus ? "Working…" : actionType === "ACCEPT" ? "Confirm" : actionType === "REJECT" ? "Decline" : "Cancel appointment"}
+                {updatingStatus ? "Working…" : actionType === "ACCEPT" ? "Confirm" : actionType === "REJECT" ? "Decline" : `Cancel ${vocab.noun}`}
               </button>
             </div>
           </div>
@@ -806,7 +811,7 @@ export default function BusinessAppointments() {
             </div>
             <div className="tiny muted" style={{ lineHeight: 1.6 }}>
               {paymentAction.action === "CONFIRM"
-                ? `This will mark ${paymentAction.apt.customerName}'s appointment as fully paid. Make sure you've checked your bank app or UPI history before confirming.`
+                ? `This will mark ${paymentAction.apt.customerName}'s ${vocab.noun} as fully paid. Make sure you've checked your bank app or UPI history before confirming.`
                 : `The customer will be notified that you couldn't verify their payment. They can retry. Repeated false claims are tracked.`}
             </div>
             {paymentAction.action === "CONFIRM" && paymentAction.apt.paymentAmount && (

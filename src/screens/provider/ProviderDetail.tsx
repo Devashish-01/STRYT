@@ -694,6 +694,7 @@ export default function ProviderDetail() {
           payeeUpiId={p.upiId}
           depositPercent={(p as any).depositPercent}
           outOfRange={outOfRange}
+          vocabulary={bizTheme.vocabulary}
           onClose={() => setScheduling(false)}
         />
       )}

@@ -171,6 +171,14 @@ describe("BUSINESS_PACKAGES.generic matches today's exact literals", () => {
     expect(g.bookingsDefault).toBe(true);
     expect(g.onboardSubcategoryHint).toBeUndefined();
     expect(g.onboardPhotoHint).toBeUndefined();
+    expect(g.vocabulary).toEqual({
+      noun: "appointment",
+      nounCap: "Appointment",
+      nounPlural: "appointments",
+      sheetTitleNew: "Schedule Appointment",
+      sheetTitleReschedule: "Reschedule Appointment",
+      bookedVerb: "Appointment scheduled",
+    });
   });
 });
 
