@@ -44,6 +44,8 @@
   --amber-800: #92400e;
   --blue-100: #dbeafe;
   --blue-500: #3b82f6;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;  /* already used inline for .badge-blue's text color below — this just names it */
   --orange-50: #fff7ed;
   --orange-100: #ffedd5;
   --orange-500: #f26a00;
@@ -585,7 +587,7 @@ h3, .h3 {
 .badge-pink { background: var(--pink-100); color: var(--pink-700); }
 .badge-red { background: #fee2e2; color: var(--red-600); }
 .badge-gray { background: var(--ink-100); color: var(--ink-600); }
-.badge-blue { background: #dbeafe; color: #1d4ed8; }
+.badge-blue { background: var(--blue-100); color: var(--blue-700); }
 .badge-amber { background: #fef3c7; color: #b45309; }
 .badge-orange { background: var(--orange-100); color: var(--orange-500); }
 .badge-delivery { background: var(--delivery-50); color: var(--delivery-600); }
@@ -920,6 +922,60 @@ textarea.input {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.7s linear infinite; }
+
+/* ============================================================
+   Business category theming (Doctor + Restaurant pilot)
+   ------------------------------------------------------------
+   A scoped accent for a business's OWN pages — storefront and owner-side
+   catalog manager — set via a `data-biz-theme="medical"|"restaurant"`
+   attribute on that page's root (see src/lib/businessThemes.ts). :root gives
+   these vars a brand-purple fallback so they resolve safely anywhere, and
+   the attribute is never emitted for "generic" categories, so untouched
+   businesses can't match these selectors at all. Deliberately NOT a
+   subtree-wide re-skin (see useAmbientTheme.ts's own comments on why the
+   team already walked back a per-role color system once) — only a few
+   elements (primary CTA, active tab, category badge) read these tokens;
+   nav bar and app chrome stay on --brand-* regardless of which business
+   page is open.
+   ============================================================ */
+:root {
+  --biz-accent: var(--brand-600);
+  --biz-accent-strong: var(--brand-700);
+  --biz-accent-soft: var(--brand-50);
+}
+[data-biz-theme="medical"] {
+  --biz-accent: var(--blue-500);
+  --biz-accent-strong: var(--blue-700);
+  --biz-accent-soft: var(--blue-100);
+}
+[data-biz-theme="restaurant"] {
+  --biz-accent: var(--orange-500);
+  --biz-accent-strong: var(--red-600);
+  --biz-accent-soft: var(--orange-100);
+}
+
+/* Restaurant catalog — photo-forward grid instead of the default list. */
+.biz-catalog-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.biz-catalog-grid-card {
+  position: relative;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  background: var(--surface);
+}
+.biz-catalog-grid-img {
+  display: block;
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+}
+.biz-catalog-grid-body {
+  padding: 8px 10px 10px;
+}
 
 /* ============================================================
    "Living Street Light" — brand lockup + ambient seasonal sky

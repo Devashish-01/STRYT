@@ -7,6 +7,7 @@ import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { CatalogItem } from "@/types";
+import { getBusinessTheme, BUSINESS_THEMES, type BusinessThemeConfig } from "@/lib/businessThemes";
 
 export type Kind = "business" | "provider";
 
@@ -18,7 +19,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   const { id = "" } = useParams();
   const { showToast } = useApp();
   const service = serviceFor(kind);
-  const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[]; defaultSlotCapacity?: number } | undefined>(
+  const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[]; defaultSlotCapacity?: number; categoryName?: string; subCategory?: string } | undefined>(
     () => (kind === "business" ? businessService.get(id) : providerService.get(id)),
     [id],
     kind === "business" ? `business:${id}` : `provider:${id}`
@@ -41,6 +42,11 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   if (loading) return <div className="screen"><AppBar title={kindTitle} /><ListSkeleton count={3} /></div>;
   if (!entity) return null;
   const catalog: CatalogItem[] = entity.catalog ?? [];
+  // Doctor + Restaurant pilot — same theme the storefront (BusinessDetail.tsx)
+  // computes, so the owner's form and the customer's page agree on what
+  // this business calls its listings.
+  const bizThemeKey = getBusinessTheme(entity.categoryName, entity.subCategory);
+  const bizTheme = BUSINESS_THEMES[bizThemeKey];
 
   async function remove(item: CatalogItem) {
     await service.deleteCatalogItem(id, item.id);
@@ -58,7 +64,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   return (
     <div className="screen">
       <AppBar
-        title="Catalog"
+        title={kind === "provider" ? "Services" : bizTheme.catalogManagerTitle}
         subtitle={catalog.length > 0 ? `${catalog.length} listing${catalog.length === 1 ? "" : "s"}` : "Products, services & items"}
         right={catalog.length > 0 ? <button className="icon-btn" onClick={() => setCreating(true)}><Plus size={20} /></button> : undefined}
       />
@@ -122,6 +128,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
           targetId={id}
           item={editing}
           businessDefaultCapacity={kind === "business" ? entity.defaultSlotCapacity : undefined}
+          bizTheme={bizTheme}
           onClose={() => { setCreating(false); setEditing(null); }}
           onSaved={() => { setCreating(false); setEditing(null); refetch(); }}
         />
@@ -131,7 +138,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
 }
 
 export function ItemEditor({
-  kind, targetId, item, businessDefaultCapacity, onClose, onSaved,
+  kind, targetId, item, businessDefaultCapacity, bizTheme, onClose, onSaved,
 }: {
   kind: Kind;
   targetId: string;
@@ -140,6 +147,7 @@ export function ItemEditor({
    *  "blank" has a concrete meaning instead of a generic "business default".
    *  Undefined for providers — see the gating note below. */
   businessDefaultCapacity?: number;
+  bizTheme: BusinessThemeConfig;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -152,7 +160,9 @@ export function ItemEditor({
   const [sale, setSale] = useState(item?.salePrice?.toString() ?? "");
   const [image, setImage] = useState(item?.image ?? "");
   const [best, setBest] = useState(item?.bestSeller ?? false);
-  const [isFood, setIsFood] = useState(item?.isFood ?? false);
+  // New items default isFood from the theme (restaurant -> true, medical/
+  // generic -> false); an existing item's own saved value always wins.
+  const [isFood, setIsFood] = useState(item?.isFood ?? bizTheme.foodToggleMode === "auto-food");
   const [isVeg, setIsVeg] = useState(item?.isVeg ?? true);
   const [invType, setInvType] = useState<"INFINITE" | "FINITE">(item?.inventoryType ?? "INFINITE");
   const [qty, setQty] = useState(item?.quantity != null ? String(item.quantity) : "");
@@ -228,7 +238,7 @@ export function ItemEditor({
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
-        <h3 className="bold h2" style={{ marginBottom: 14 }}>{item ? "Edit listing" : "New listing"}</h3>
+        <h3 className="bold h2" style={{ marginBottom: 14 }}>{item ? `Edit ${bizTheme.itemNounSingular}` : `New ${bizTheme.itemNounSingular}`}</h3>
 
         {/* Photo picker */}
         <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--ink-300)", overflow: "hidden", marginBottom: 14, cursor: "pointer", background: "var(--ink-50)" }}>
@@ -244,7 +254,7 @@ export function ItemEditor({
         <div className="col gap-12">
           <div className="field">
             <label>Name *</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Classic Haircut, Phone Case, Sofa Repair" />
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={bizTheme.itemNamePlaceholder} />
           </div>
           <div className="field">
             <label>Description</label>
@@ -281,9 +291,9 @@ export function ItemEditor({
               units that sell out. Blank inherits the business default.
               Business-only: providers are solo operators with no concurrency
               to configure, and the server ignores these fields for them. */}
-          {kind === "business" && (
+          {kind === "business" && bizTheme.showSlotCapacitySection && (
             <div className="field">
-              <label>Bookings at the same time</label>
+              <label>{bizTheme.slotCapacityLabel}</label>
               <div className="row gap-10">
                 <input
                   className="input grow"
@@ -313,13 +323,18 @@ export function ItemEditor({
             </div>
           )}
 
-          <div className="field">
-            <label>Is this a food item?</label>
-            <div className="row gap-8">
-              <button className={`chip ${isFood ? "active" : ""}`} onClick={() => setIsFood(true)} style={{ flex: 1, justifyContent: "center" }}>Food item</button>
-              <button className={`chip ${!isFood ? "active" : ""}`} onClick={() => setIsFood(false)} style={{ flex: 1, justifyContent: "center" }}>Not a food item</button>
+          {/* Medical theme skips this entirely (a consultation is never a food
+              item) and restaurant skips it too (already defaulted to food
+              above) — only "manual" (generic categories) shows the toggle. */}
+          {bizTheme.foodToggleMode === "manual" && (
+            <div className="field">
+              <label>Is this a food item?</label>
+              <div className="row gap-8">
+                <button className={`chip ${isFood ? "active" : ""}`} onClick={() => setIsFood(true)} style={{ flex: 1, justifyContent: "center" }}>Food item</button>
+                <button className={`chip ${!isFood ? "active" : ""}`} onClick={() => setIsFood(false)} style={{ flex: 1, justifyContent: "center" }}>Not a food item</button>
+              </div>
             </div>
-          </div>
+          )}
 
           {isFood && (
             <div className="field">

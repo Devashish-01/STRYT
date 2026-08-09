@@ -14,6 +14,7 @@ import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, Pill } from "@/components/common";
 import PhotoViewer, { type PhotoViewerItem } from "@/components/PhotoViewer";
 import { catalogLabel, catalogEmptyText } from "@/lib/categoryLabels";
+import { getBusinessTheme, BUSINESS_THEMES, type BusinessThemeConfig } from "@/lib/businessThemes";
 import { useApp } from "@/store";
 import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
@@ -164,6 +165,11 @@ export default function BusinessDetail() {
   // What this business calls its catalogue — Menu / Services / Products —
   // instead of calling everything a "Menu" (#10).
   const catLabel = catalogLabel(b.categoryName, b.subCategory);
+  // Doctor + Restaurant pilot — additive to catLabel above, not a
+  // replacement: catLabel still drives the tab word, bizTheme only touches
+  // CTA copy, accent color and catalog render mode.
+  const bizThemeKey = getBusinessTheme(b.categoryName, b.subCategory);
+  const bizTheme = BUSINESS_THEMES[bizThemeKey];
   // The customer is beyond the shop's own service radius — surface a
   // non-blocking heads-up in the booking sheet (booking stays allowed).
   const outOfRange =
@@ -286,7 +292,7 @@ export default function BusinessDetail() {
   }
 
   return (
-    <div className="screen" style={{ position: "relative" }}>
+    <div className="screen" style={{ position: "relative" }} data-biz-theme={bizThemeKey === "generic" ? undefined : bizThemeKey}>
       <div className="screen-scroll" style={{ paddingBottom: cartCount ? 88 : 24 }}>
         {isMockTarget(id) && (
           <div style={{ padding: "8px 14px", background: "var(--orange-50)", borderBottom: "1px solid var(--orange-100)" }}>
@@ -344,7 +350,11 @@ export default function BusinessDetail() {
                   {b.isVerified && <BadgeCheck size={18} color="var(--brand-600)" fill="var(--brand-100)" />}
                   {isOwner && <Pill tone="purple">Owner</Pill>}
                 </div>
-                <p className="small muted" style={{ marginTop: 2 }}>{b.subCategory}</p>
+                {bizThemeKey === "generic" ? (
+                  <p className="small muted" style={{ marginTop: 2 }}>{b.subCategory}</p>
+                ) : (
+                  <div style={{ marginTop: 4 }}><Pill tone={bizTheme.badgeTone}>{bizTheme.icon} {b.subCategory}</Pill></div>
+                )}
               </div>
               <div className="col" style={{ alignItems: "center", gap: 2 }}>
                 <Rating value={b.ratingAvg} size={14} />
@@ -469,15 +479,15 @@ export default function BusinessDetail() {
                 </button>
               ) : b.isOpenNow === false ? (
                 <button className="btn grow btn-sm" style={{ background: "var(--ink-50)", color: "var(--ink-400)" }} disabled>
-                  <Clock size={16} /> Not accepting appointments right now
+                  <Clock size={16} /> {bizTheme.bookingClosedLabel}
                 </button>
               ) : (
                 <button
                   className="btn grow btn-sm"
-                  style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
+                  style={{ background: "var(--biz-accent-soft)", color: "var(--biz-accent-strong)", border: "1px solid var(--brand-200)" }}
                   onClick={() => setScheduling(true)}
                 >
-                  <Clock size={16} /> Book appointment
+                  <Clock size={16} /> {bizTheme.primaryCtaLabel}
                 </button>
               )}
             </div>
@@ -609,7 +619,7 @@ export default function BusinessDetail() {
             ...(!isOwner && !isGuest ? [["mine", mineRows.length > 0 ? `Mine (${mineRows.length})` : "Mine"]] : []),
           ] as [typeof tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
-              style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--brand-700)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent" }}>
+              style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--biz-accent-strong)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--biz-accent-strong)" : "2.5px solid transparent" }}>
               {label}
             </button>
           ))}
@@ -625,7 +635,18 @@ export default function BusinessDetail() {
                 <span className="small muted">{catalogEmptyText(catLabel)}</span>
               </div>
             )}
-            {b.catalog.map((item) => {
+            {bizTheme.catalogRenderMode === "grid" ? (
+              <BizCatalogGrid
+                catalog={b.catalog}
+                cart={cart}
+                add={add}
+                isOwner={isOwner}
+                isGuest={isGuest}
+                bizTheme={bizTheme}
+                onOpenPhoto={(item) => setViewingPhotos({ photos: [{ url: item.image, caption: item.name }], startIndex: 0 })}
+                onBook={(item) => { setSchedulingPkg({ id: item.id, name: item.name, price: item.salePrice ?? item.price }); setScheduling(true); }}
+              />
+            ) : b.catalog.map((item) => {
               const qty = cart[item.id] ?? 0;
               return (
                 <div key={item.id} className="card row gap-12" style={{ alignItems: "flex-start", padding: "14px 14px 18px" }}>
@@ -656,12 +677,12 @@ export default function BusinessDetail() {
                     {item.inventoryType === "FINITE" && item.stockStatus !== "OUT_OF_STOCK" && (item.quantity ?? 0) > 0 && (
                       <span className="badge badge-amber" style={{ marginTop: 6 }}>{item.quantity} left</span>
                     )}
-                    {!isOwner && !isGuest && item.stockStatus !== "OUT_OF_STOCK" && (
+                    {!isOwner && !isGuest && bizTheme.catalogItemCta.show && item.stockStatus !== "OUT_OF_STOCK" && (
                       <button
                         className="btn btn-outline btn-sm"
-                        style={{ marginTop: 8, fontSize: 11, padding: "4px 12px", color: "var(--brand-700)", borderColor: "var(--brand-200)", width: "fit-content" }}
+                        style={{ marginTop: 8, fontSize: 11, padding: "4px 12px", color: "var(--biz-accent-strong)", borderColor: "var(--brand-200)", width: "fit-content" }}
                         onClick={() => { setSchedulingPkg({ id: item.id, name: item.name, price: item.salePrice ?? item.price }); setScheduling(true); }}
-                      >📅 Book appointment</button>
+                      >{bizTheme.catalogItemCta.label}</button>
                     )}
                   </div>
                   <div style={{ position: "relative", width: 110, flexShrink: 0 }}>
@@ -674,8 +695,10 @@ export default function BusinessDetail() {
                     />
                     {/* Guests read the menu and prices but can't build a cart —
                         checkout needs an account, so ADD would be a dead end.
-                        Owners don't order from their own catalog. */}
-                    {isGuest || isOwner ? null : qty === 0 ? (
+                        Owners don't order from their own catalog. Medical
+                        theme also skips this — a consultation isn't
+                        something you buy multiples of. */}
+                    {isGuest || isOwner || !bizTheme.showCartStepper ? null : qty === 0 ? (
                       <button
                         className="btn btn-sm"
                         style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", background: "#fff", color: "var(--green-600)", border: "1.5px solid var(--green-500)", boxShadow: "var(--shadow-sm)", fontWeight: 800, padding: "6px 18px" }}
@@ -745,7 +768,7 @@ export default function BusinessDetail() {
           <div className="page-pad col gap-16" style={{ paddingTop: 18 }}>
             {b.description && <p className="small" style={{ lineHeight: 1.7, color: "var(--ink-700)" }}>{b.description}</p>}
             <div className="card col gap-10" style={{ padding: 16 }}>
-              <div className="small semi" style={{ marginBottom: 6 }}>Hours</div>
+              <div className="small semi" style={{ marginBottom: 6 }}>{bizTheme.hoursLabel}</div>
               <div className="row between small" style={{ padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span className="semi">{formatHoursForDisplay(b.hours)}</span></div>
               <div className="small semi" style={{ marginTop: 10, marginBottom: 6 }}>Address</div>
               <p className="small muted" style={{ lineHeight: 1.5 }}>{b.addressLine1}, {b.city} – {b.pincode}</p>
@@ -1075,6 +1098,78 @@ export default function BusinessDetail() {
           onClose={() => { setScheduling(false); setSchedulingPkg(null); setCheckoutMode(false); setCheckoutNotes(""); setCheckoutItems(undefined); }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Restaurant catalog rendering (Doctor + Restaurant pilot) — a photo-forward
+ * 2-column grid instead of the default list, reusing the same `cart` state
+ * and `add()` handler the list rendering uses so the two modes never drift
+ * out of sync with each other.
+ */
+function BizCatalogGrid({
+  catalog, cart, add, isOwner, isGuest, bizTheme, onOpenPhoto, onBook,
+}: {
+  catalog: CatalogItem[];
+  cart: Record<string, number>;
+  add: (itemId: string, delta: number) => void;
+  isOwner: boolean;
+  isGuest: boolean;
+  bizTheme: BusinessThemeConfig;
+  onOpenPhoto: (item: CatalogItem) => void;
+  onBook: (item: CatalogItem) => void;
+}) {
+  return (
+    <div className="biz-catalog-grid">
+      {catalog.map((item) => {
+        const qty = cart[item.id] ?? 0;
+        return (
+          <div key={item.id} className="biz-catalog-grid-card">
+            <SafeImg
+              src={item.image}
+              alt={item.name}
+              className="biz-catalog-grid-img"
+              style={{ cursor: "pointer" }}
+              onClick={() => onOpenPhoto(item)}
+            />
+            <div className="biz-catalog-grid-body">
+              <div className="row gap-4 center-v" style={{ flexWrap: "wrap", minHeight: 16 }}>
+                {item.isVeg != null && <VegDot veg={item.isVeg} />}
+                {item.bestSeller && <span className="badge badge-amber">⭐</span>}
+              </div>
+              <div className="semi ellipsis" style={{ marginTop: 4, fontSize: 14 }}>{item.name}</div>
+              <div className="row gap-6" style={{ marginTop: 2 }}>
+                <span className="bold small">{inr(item.salePrice ?? item.price)}</span>
+                {item.salePrice && <span className="tiny muted" style={{ textDecoration: "line-through" }}>{inr(item.price)}</span>}
+              </div>
+              {item.stockStatus === "OUT_OF_STOCK" && <span className="badge badge-red" style={{ marginTop: 6 }}>Out of stock</span>}
+              {!isOwner && !isGuest && bizTheme.catalogItemCta.show && item.stockStatus !== "OUT_OF_STOCK" && (
+                <button
+                  className="btn btn-outline btn-sm"
+                  style={{ marginTop: 8, fontSize: 11, padding: "4px 10px", color: "var(--biz-accent-strong)", borderColor: "var(--brand-200)", width: "100%" }}
+                  onClick={() => onBook(item)}
+                >{bizTheme.catalogItemCta.label}</button>
+              )}
+              {!isGuest && !isOwner && bizTheme.showCartStepper && item.stockStatus !== "OUT_OF_STOCK" && (
+                qty === 0 ? (
+                  <button
+                    className="btn btn-sm btn-block"
+                    style={{ marginTop: 8, background: "#fff", color: "var(--green-600)", border: "1.5px solid var(--green-500)", fontWeight: 800 }}
+                    onClick={() => add(item.id, 1)}
+                  >ADD</button>
+                ) : (
+                  <div className="row between" style={{ marginTop: 8, background: "var(--green-500)", borderRadius: 10, color: "#fff" }}>
+                    <button style={{ padding: "6px 9px", color: "#fff" }} onClick={() => add(item.id, -1)}><Minus size={14} /></button>
+                    <span className="bold" style={{ minWidth: 18, textAlign: "center" }}>{qty}</span>
+                    <button style={{ padding: "6px 9px", color: "#fff" }} onClick={() => add(item.id, 1)}><Plus size={14} /></button>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

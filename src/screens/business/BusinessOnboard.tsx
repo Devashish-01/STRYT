@@ -11,6 +11,7 @@ import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
 import { DEFAULT_ONBOARD_DAYS_PATTERN, DEFAULT_START_TIME, DEFAULT_ONBOARD_END_TIME, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
 
 import { reverseGeocodeFull } from "@/lib/geocode";
+import { getBusinessTheme, BUSINESS_THEMES } from "@/lib/businessThemes";
 
 const steps = ["Basics", "Location", "Photos", "Contact"];
 
@@ -61,6 +62,15 @@ export default function BusinessOnboard() {
 
   const cats = (categories ?? []).sort((a, b) => a.slug === "other" ? 1 : b.slug === "other" ? -1 : 0);
   const selectedCat = cats.find((c) => c.id === cat);
+  // Doctor + Restaurant pilot — recomputed live as sub-category chips are
+  // toggled, same [subCategory, categoryName] precedence used everywhere
+  // else this theme is read. Copy/hints only here — no new fields.
+  const subNamesLive = sub
+    .map((subId) => selectedCat?.children?.find((c) => c.id === subId)?.name)
+    .filter((n): n is string => !!n)
+    .join(", ");
+  const bizThemeKey = getBusinessTheme(selectedCat?.name, subNamesLive);
+  const bizTheme = BUSINESS_THEMES[bizThemeKey];
 
   const canNext = [
     name.trim().length > 1 && !!cat,
@@ -203,6 +213,13 @@ export default function BusinessOnboard() {
                     );
                   })}
                 </div>
+                {bizThemeKey !== "generic" && (
+                  <span className="tiny muted" style={{ marginTop: 6, display: "block" }}>
+                    {bizThemeKey === "medical"
+                      ? "Pick every specialty this location offers — patients search by these."
+                      : "Pick every cuisine/format this location serves."}
+                  </span>
+                )}
               </div>
             )}
             <div className="field" style={{ marginTop: 14 }}>
@@ -256,7 +273,13 @@ export default function BusinessOnboard() {
           <>
             <div className="field">
               <label>Add photos of your shop</label>
-              <span className="tiny muted">A great cover photo gets 3x more views.</span>
+              <span className="tiny muted">
+                {bizThemeKey === "medical"
+                  ? "Show your reception or clinic front — it builds trust before the first visit."
+                  : bizThemeKey === "restaurant"
+                    ? "Show your dining area or best dish — food photos get 3x more views."
+                    : "A great cover photo gets 3x more views."}
+              </span>
               <div className="row gap-8 wrap" style={{ marginTop: 8 }}>
                 {photos.map((p, idx) => (
                   <img key={idx} src={p.previewUrl} alt={`Shop photo ${idx + 1}`} className="thumb" style={{ width: 96, height: 96, borderRadius: 12, objectFit: "cover" }} />
@@ -325,7 +348,9 @@ export default function BusinessOnboard() {
                 where they live so the owner isn't left hunting. */}
             <div className="card col gap-14" style={{ padding: 16 }}>
               <div className="bold small row gap-6 center-v" style={{ color: "var(--ink-900)" }}>
-                <Clock size={18} color="var(--brand-700)" /> Working Hours (Availability Timing)
+                {/* Echoes the About-tab heading the storefront (BusinessDetail.tsx)
+                    will show once this business is live, so the two never disagree. */}
+                <Clock size={18} color="var(--brand-700)" /> {bizThemeKey === "generic" ? "Working Hours (Availability Timing)" : bizTheme.hoursLabel}
               </div>
               <span className="tiny muted">
                 Set your real working hours — this is exactly what customers will book against.

@@ -9,6 +9,7 @@ import { haptics } from "@/lib/haptics";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import type { CatalogItem } from "@/types";
 import { ItemEditor, type Kind } from "./CatalogManager";
+import { getBusinessTheme, BUSINESS_THEMES } from "@/lib/businessThemes";
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -31,7 +32,7 @@ const LOW_STOCK_THRESHOLD = 5;
 export function InventoryAlerts({ kind }: { kind: Kind }) {
   const { id = "" } = useParams();
   const { showToast } = useApp();
-  const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[] } | undefined>(
+  const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[]; categoryName?: string; subCategory?: string } | undefined>(
     () => (kind === "business" ? businessService.get(id) : providerService.get(id)),
     [id],
     kind === "business" ? `business:${id}` : `provider:${id}`
@@ -52,6 +53,7 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
   if (!entity) return null;
 
   const catalog: CatalogItem[] = entity.catalog ?? [];
+  const bizTheme = BUSINESS_THEMES[getBusinessTheme(entity.categoryName, entity.subCategory)];
   const isOut = (i: CatalogItem) => i.stockStatus === "OUT_OF_STOCK";
   const isLow = (i: CatalogItem) =>
     i.inventoryType === "FINITE" && !isOut(i) && (i.quantity ?? 0) <= LOW_STOCK_THRESHOLD;
@@ -203,6 +205,7 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
           kind={kind}
           targetId={id}
           item={editing}
+          bizTheme={bizTheme}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); refetch(); }}
         />
