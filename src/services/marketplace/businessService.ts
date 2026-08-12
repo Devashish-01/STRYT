@@ -46,6 +46,12 @@ type QueueOwnerState = {
   waiting: Array<QueueOwnerToken>;
   called: Array<QueueOwnerToken>;
   served: Array<QueueOwnerToken>;
+  /** Whether this business has EVER touched queue settings — a `queue_settings`
+   *  row only gets created the first time setQueueSettings() runs, so this is a
+   *  stable per-business "has used queues" signal, not a per-package guess and
+   *  not tied to whether the queue happens to be open/empty right now. Drives
+   *  whether ManageNav shows a Queue tab at all (see businessPackages plan). */
+  hasEverUsedQueue: boolean;
 };
 
 // queueOwnerState(businessId) is fetched independently — no sharing — by
@@ -326,6 +332,10 @@ export const businessService = {
           ...map(t),
           name: aliasName({ alias: t.customer?.alias, name: t.customer_name, showNamePublicly: t.customer?.show_name_publicly }, "Customer"),
         })),
+        // A row exists only once this business has saved queue settings at
+        // least once — distinct from `isOpen`, which a business can toggle
+        // back off without ever losing "has used queues" status.
+        hasEverUsedQueue: settingsRes.data !== null,
       };
     })();
 

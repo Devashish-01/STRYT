@@ -78,6 +78,7 @@ export default function DesktopSidebar() {
       const base = `/business/${effId}/manage`;
       return [
         { to: base, label: "Home", icon: LayoutDashboard, exact: true },
+        { to: `${base}/profile`, label: "Profile", icon: User },
         { to: `${base}/catalog`, label: "Catalog", icon: LayoutGrid },
         { to: `${base}/inbox`, label: "Inbox", icon: Inbox, badge: chatUnread || undefined },
         { to: `${base}/appointments`, label: "Appointments", icon: CalendarClock },

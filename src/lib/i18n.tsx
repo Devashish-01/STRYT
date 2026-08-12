@@ -79,8 +79,39 @@ const strings: Record<Lang, Record<string, string>> = {
     necessary_setup: "NECESSARY SETUP *",
     optional_settings_title: "OPTIONAL SETTINGS & PREFERENCES",
 
+    // First-run onboarding — the four "light up your street" beats
+    ob_beat1_title: "Is this you?",
+    ob_beat1_sub: "From your Google account — change it any time.",
+    ob_beat1_confirm: "Yes, that's me",
+    ob_beat1_edit: "Use a different name",
+    ob_beat2_title: "Pick your @handle",
+    ob_beat2_sub: "This is how neighbours find you. Your real name stays private.",
+    ob_beat2_pick: "Tap one to claim it",
+    ob_beat2_custom: "Or choose your own",
+    ob_handle_checking: "Checking…",
+    ob_handle_free: "Yours",
+    ob_handle_taken: "Already taken",
+    ob_handle_hint: "3–20 characters: letters, numbers, . or _",
+    ob_beat3_title: "Where's your street?",
+    ob_beat3_sub: "So we can show what's actually near you.",
+    ob_beat3_allow: "Use my location",
+    ob_beat3_locating: "Finding your street…",
+    ob_beat3_search: "Or search for your area",
+    ob_beat3_nearby: "{count} places near {area}",
+    ob_beat3_nearby_none: "You're early here — that's a good thing.",
+    ob_beat3_denied: "Location is off. Search for your area instead, or skip.",
+    ob_beat4_title: "What brings you here?",
+    ob_beat4_sub: "Pick any that fit. We'll put them first — change any time.",
+    ob_beat4_finish: "Light up my street",
+    ob_continue: "Continue",
+    ob_reveal: "Your street is live",
+
     // Home Screen
     search_placeholder: "Search \"biryani\", \"plumber\", \"salon\"…",
+    home_marketplace_title: "On your street",
+    home_quick_ask: "Ask",
+    home_quick_map: "Map",
+    browse_all_categories: "Browse all categories",
     your_day: "Your day",
     my_queues: "My queues",
     need_something: "Need something?",
@@ -359,6 +390,7 @@ const strings: Record<Lang, Record<string, string>> = {
     map_layer_requests: "Requests",
     map_layer_stories: "Stories",
     map_available_only: "⚡ Available",
+    map_open_now: "Open now",
     map_custom_radius_label: "CUSTOM RADIUS",
     map_radius_example: "e.g. 3.7",
     map_snaps_to: "Snaps to",
@@ -382,6 +414,14 @@ const strings: Record<Lang, Record<string, string>> = {
     map_view_profile: "View profile",
     map_view_request: "View request",
     map_view_story: "View story",
+    map_search_this_area: "Search this area",
+    map_searching: "Searching…",
+    map_carousel_empty: "Nothing here yet",
+    map_carousel_empty_hint: "Try Search this area",
+    map_join_queue: "Join Queue",
+    map_chat: "Chat",
+    map_book_slot: "Book Slot",
+    map_submit_bid: "Submit Bid",
   },
   hi: {
     home: "होम",
@@ -459,8 +499,39 @@ const strings: Record<Lang, Record<string, string>> = {
     necessary_setup: "आवश्यक सेटअप *",
     optional_settings_title: "वैकल्पिक सेटिंग्स और प्राथमिकताएं",
 
+    // First-run onboarding — the four "light up your street" beats
+    ob_beat1_title: "क्या यह आप हैं?",
+    ob_beat1_sub: "आपके Google खाते से — कभी भी बदल सकते हैं।",
+    ob_beat1_confirm: "हाँ, यह मैं हूँ",
+    ob_beat1_edit: "दूसरा नाम इस्तेमाल करें",
+    ob_beat2_title: "अपना @हैंडल चुनें",
+    ob_beat2_sub: "पड़ोसी आपको इसी से पहचानेंगे। आपका असली नाम निजी रहेगा।",
+    ob_beat2_pick: "चुनने के लिए टैप करें",
+    ob_beat2_custom: "या अपना खुद का बनाएं",
+    ob_handle_checking: "जाँच रहे हैं…",
+    ob_handle_free: "आपका है",
+    ob_handle_taken: "पहले से लिया गया है",
+    ob_handle_hint: "3–20 अक्षर: letters, numbers, . या _",
+    ob_beat3_title: "आपकी गली कौन सी है?",
+    ob_beat3_sub: "ताकि हम वही दिखाएँ जो सच में आपके पास है।",
+    ob_beat3_allow: "मेरी लोकेशन इस्तेमाल करें",
+    ob_beat3_locating: "आपकी गली ढूँढ रहे हैं…",
+    ob_beat3_search: "या अपना इलाका खोजें",
+    ob_beat3_nearby: "{area} के पास {count} जगहें",
+    ob_beat3_nearby_none: "आप यहाँ पहले हैं — यह अच्छी बात है।",
+    ob_beat3_denied: "लोकेशन बंद है। अपना इलाका खोजें, या छोड़ दें।",
+    ob_beat4_title: "आप किसलिए आए हैं?",
+    ob_beat4_sub: "जो पसंद हों चुनें। हम उन्हें पहले दिखाएँगे — कभी भी बदलें।",
+    ob_beat4_finish: "मेरी गली रोशन करें",
+    ob_continue: "आगे बढ़ें",
+    ob_reveal: "आपकी गली तैयार है",
+
     // Home Screen
     search_placeholder: "खोजें \"बिरयानी\", \"प्लंबर\", \"सैलून\"…",
+    home_marketplace_title: "आपकी गली पर",
+    home_quick_ask: "पूछें",
+    home_quick_map: "नक्शा",
+    browse_all_categories: "सभी श्रेणियाँ देखें",
     your_day: "आपका दिन",
     my_queues: "मेरी कतारें",
     need_something: "कुछ चाहिए?",
@@ -734,6 +805,7 @@ const strings: Record<Lang, Record<string, string>> = {
     map_layer_requests: "अनुरोध",
     map_layer_stories: "स्टोरीज़",
     map_available_only: "⚡ उपलब्ध",
+    map_open_now: "अभी खुला",
     map_custom_radius_label: "कस्टम त्रिज्या",
     map_radius_example: "उदा. 3.7",
     map_snaps_to: "इसमें बदलता है",
@@ -757,6 +829,14 @@ const strings: Record<Lang, Record<string, string>> = {
     map_view_profile: "प्रोफ़ाइल देखें",
     map_view_request: "अनुरोध देखें",
     map_view_story: "स्टोरी देखें",
+    map_search_this_area: "इस क्षेत्र में खोजें",
+    map_searching: "खोज रहे हैं…",
+    map_carousel_empty: "यहाँ अभी कुछ नहीं",
+    map_carousel_empty_hint: "इस क्षेत्र में खोजें आज़माएँ",
+    map_join_queue: "कतार में जुड़ें",
+    map_chat: "चैट",
+    map_book_slot: "स्लॉट बुक करें",
+    map_submit_bid: "बोली जमा करें",
   },
   mr: {
     home: "मुखपृष्ठ",
@@ -834,8 +914,39 @@ const strings: Record<Lang, Record<string, string>> = {
     necessary_setup: "आवश्यक सेटअप *",
     optional_settings_title: "पर्यायी सेटिंग्ज आणि प्राधान्ये",
 
+    // First-run onboarding — the four "light up your street" beats
+    ob_beat1_title: "हे तुम्हीच आहात का?",
+    ob_beat1_sub: "तुमच्या Google खात्यातून — कधीही बदलू शकता.",
+    ob_beat1_confirm: "होय, हा मीच",
+    ob_beat1_edit: "दुसरे नाव वापरा",
+    ob_beat2_title: "तुमचे @हँडल निवडा",
+    ob_beat2_sub: "शेजारी तुम्हाला यानेच ओळखतील. तुमचे खरे नाव खाजगी राहील.",
+    ob_beat2_pick: "निवडण्यासाठी टॅप करा",
+    ob_beat2_custom: "किंवा स्वतःचे बनवा",
+    ob_handle_checking: "तपासत आहोत…",
+    ob_handle_free: "तुमचे आहे",
+    ob_handle_taken: "आधीच घेतले आहे",
+    ob_handle_hint: "3–20 अक्षरे: letters, numbers, . किंवा _",
+    ob_beat3_title: "तुमचा रस्ता कोणता?",
+    ob_beat3_sub: "म्हणजे खरोखर जवळ काय आहे ते दाखवता येईल.",
+    ob_beat3_allow: "माझे लोकेशन वापरा",
+    ob_beat3_locating: "तुमचा रस्ता शोधत आहोत…",
+    ob_beat3_search: "किंवा तुमचा परिसर शोधा",
+    ob_beat3_nearby: "{area} जवळ {count} ठिकाणे",
+    ob_beat3_nearby_none: "तुम्ही इथे पहिले आहात — ही चांगली गोष्ट आहे.",
+    ob_beat3_denied: "लोकेशन बंद आहे. तुमचा परिसर शोधा, किंवा वगळा.",
+    ob_beat4_title: "तुम्ही कशासाठी आलात?",
+    ob_beat4_sub: "आवडतील ते निवडा. आम्ही ते आधी दाखवू — कधीही बदला.",
+    ob_beat4_finish: "माझा रस्ता उजळवा",
+    ob_continue: "पुढे चला",
+    ob_reveal: "तुमचा रस्ता तयार आहे",
+
     // Home Screen
     search_placeholder: "शोधा \"बिर्याणी\", \"प्लंबर\", \"सलून\"…",
+    home_marketplace_title: "तुमच्या रस्त्यावर",
+    home_quick_ask: "विचारा",
+    home_quick_map: "नकाशा",
+    browse_all_categories: "सर्व श्रेणी पहा",
     your_day: "तुमचा दिवस",
     my_queues: "माझ्या रांगा",
     need_something: "काही हवे आहे का?",
@@ -1109,6 +1220,7 @@ const strings: Record<Lang, Record<string, string>> = {
     map_layer_requests: "विनंत्या",
     map_layer_stories: "स्टोरीज",
     map_available_only: "⚡ उपलब्ध",
+    map_open_now: "आता खुले",
     map_custom_radius_label: "सानुकूल त्रिज्या",
     map_radius_example: "उदा. 3.7",
     map_snaps_to: "यामध्ये बदलते",
@@ -1132,6 +1244,14 @@ const strings: Record<Lang, Record<string, string>> = {
     map_view_profile: "प्रोफाइल पहा",
     map_view_request: "विनंती पहा",
     map_view_story: "स्टोरी पहा",
+    map_search_this_area: "या भागात शोधा",
+    map_searching: "शोधत आहे…",
+    map_carousel_empty: "इथे अजून काही नाही",
+    map_carousel_empty_hint: "या भागात शोधा वापरून पहा",
+    map_join_queue: "रांगेत सामील व्हा",
+    map_chat: "चॅट",
+    map_book_slot: "स्लॉट बुक करा",
+    map_submit_bid: "बोली सादर करा",
   },
 };
 
@@ -1147,10 +1267,34 @@ interface I18nCtx {
 }
 const Ctx = createContext<I18nCtx>({ lang: "en", t: (k) => k, tf: (k) => k, setLang: () => {} });
 
+/** The app's language for a device that has never chosen one. Reads the OS/
+ *  browser locale rather than defaulting everyone to English: this app ships
+ *  in Hindi and Marathi for users who are unlikely to go hunting through
+ *  settings to find that out. An explicit choice always wins over this. */
+function deviceLang(): Lang {
+  const tags = typeof navigator === "undefined"
+    ? []
+    : [...(navigator.languages ?? []), navigator.language].filter(Boolean);
+  for (const tag of tags) {
+    const base = tag.toLowerCase().split("-")[0];
+    if (base === "hi" || base === "mr") return base;
+    if (base === "en") return "en";
+  }
+  return "en";
+}
+
+/** Whether this device already carries an explicit language choice. Lets the
+ *  store adopt the language saved on the user's profile on a NEW device
+ *  without overriding a choice made here (see refreshUser in store.tsx). */
+export function hasStoredLang(): boolean {
+  const saved = localStorage.getItem("naya_lang");
+  return !!saved && ["en", "hi", "mr"].includes(saved);
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLang] = useState<Lang>(() => {
     const saved = localStorage.getItem("naya_lang") as Lang | null;
-    return saved && ["en", "hi", "mr"].includes(saved) ? saved : "en";
+    return saved && ["en", "hi", "mr"].includes(saved) ? saved : deviceLang();
   });
 
   function changeLang(l: Lang) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import AvatarRing from "@/components/AvatarRing";
 import {
   Shield,
   Award,
@@ -180,31 +181,20 @@ export default function PublicProfile() {
           }}
         >
           {/* Avatar Ring */}
-          <div
-            style={{
-              position: "relative",
-              width: 92,
-              height: 92,
-              borderRadius: "50%",
-              padding: 3,
-              background: "linear-gradient(135deg, var(--amber-500), var(--pink-500), var(--brand-500))",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
-              marginBottom: 12,
-            }}
-          >
+          <AvatarRing style={{ marginBottom: 12 }}>
             <SafeImg
               src={u.avatar}
               variant="avatar"
               style={{
-                width: 86,
-                height: 86,
+                width: "100%",
+                height: "100%",
                 borderRadius: "50%",
                 objectFit: "cover",
                 border: "2.5px solid #fff",
                 display: "block",
               }}
             />
-          </div>
+          </AvatarRing>
 
           <h1 className="h1" style={{ color: "#fff", letterSpacing: "-0.4px", margin: 0 }}>
             {aliasName(u)}

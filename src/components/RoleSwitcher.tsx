@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Check, Store, Briefcase, User, Plus, ChevronDown, Package } from "@/components/Icons";
-import { SafeImg } from "@/components/common";
-import { useAccountOptions, type AccountOption } from "@/hooks/useAccountOptions";
+import { Store, Briefcase, User, ChevronDown, Package } from "@/components/Icons";
+import { useAccountOptions } from "@/hooks/useAccountOptions";
 import { useLongPress } from "@/hooks/useLongPress";
 import AccountSwitcher from "@/components/AccountSwitcher";
+import { HatSwitcherList } from "@/components/HatSwitcherList";
 
 const PANEL_WIDTH = 260;
 
@@ -47,10 +47,6 @@ export default function RoleSwitcher({
     };
   }, [open]);
 
-  // The panel has no portal and no popper-style collision detection — anchor
-  // it from the right edge instead of the left whenever the trigger sits
-  // close enough to the viewport edge that a fixed 260px-wide panel would
-  // run off-screen.
   useLayoutEffect(() => {
     if (!open || !rootRef.current) return;
     const rect = rootRef.current.getBoundingClientRect();
@@ -96,58 +92,17 @@ export default function RoleSwitcher({
             boxShadow: "0 12px 32px rgba(0,0,0,0.18)", border: "1px solid var(--line)",
           }}
         >
-          <div className="col gap-2">
-            {options.map((opt) => (
-              <OptionRow key={`${opt.type}:${opt.id}`} opt={opt} onClick={() => { pick(opt); setOpen(false); }} />
-            ))}
-          </div>
-
-          <div className="divider" style={{ margin: "8px 0" }} />
-
-          <div className="col gap-1">
-            {canAddBusiness && (
-              <ActionRow emoji="🏪" label="Add a business" onClick={() => { setOpen(false); nav("/onboard/business"); }} />
-            )}
-            {canBecomeProvider && (
-              <ActionRow emoji="🛠️" label="Become a provider" onClick={() => { setOpen(false); nav("/onboard/provider"); }} />
-            )}
-            <ActionRow emoji="🗂️" label="Manage all" onClick={() => { setOpen(false); nav("/manage"); }} />
-          </div>
+          <HatSwitcherList
+            options={options}
+            pick={(opt) => { pick(opt); setOpen(false); }}
+            canAddBusiness={canAddBusiness}
+            canBecomeProvider={canBecomeProvider}
+            onAddBusiness={() => { setOpen(false); nav("/onboard/business"); }}
+            onBecomeProvider={() => { setOpen(false); nav("/onboard/provider"); }}
+            onManageAll={() => { setOpen(false); nav("/manage"); }}
+          />
         </div>
       )}
     </div>
-  );
-}
-
-function OptionRow({ opt, onClick }: { opt: AccountOption; onClick: () => void }) {
-  const Icon = ICONS[opt.type];
-  const color = COLORS[opt.type];
-  return (
-    <button
-      className="row gap-10"
-      style={{ width: "100%", padding: "8px 8px", borderRadius: 10, textAlign: "left", background: opt.active ? "var(--ink-50)" : "transparent" }}
-      onClick={onClick}
-    >
-      <div style={{ position: "relative", flexShrink: 0 }}>
-        <SafeImg src={opt.avatar} variant="avatar" className="avatar" style={{ width: 34, height: 34 }} />
-        <span style={{ position: "absolute", bottom: -2, right: -2, width: 15, height: 15, borderRadius: "50%", background: color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff" }}>
-          <Icon size={9} />
-        </span>
-      </div>
-      <div className="grow" style={{ minWidth: 0 }}>
-        <div className="semi small ellipsis">{opt.name}</div>
-        <div className="tiny muted">{opt.sub}</div>
-      </div>
-      {opt.active && <Check size={16} color={color} style={{ flexShrink: 0 }} />}
-    </button>
-  );
-}
-
-function ActionRow({ emoji, label, onClick }: { emoji: string; label: string; onClick: () => void }) {
-  return (
-    <button className="row gap-10" style={{ width: "100%", padding: "8px 8px", borderRadius: 10, textAlign: "left" }} onClick={onClick}>
-      <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--ink-50)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{emoji}</span>
-      <span className="semi small">{label}</span>
-    </button>
   );
 }

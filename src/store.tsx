@@ -30,6 +30,7 @@ const seedUser: CurrentUser = {
 };
 import { userService } from "@/services/core/userService";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
+import { useI18n, hasStoredLang, type Lang } from "@/lib/i18n";
 import { reverseGeocode } from "@/lib/geocode";
 import { authService } from "@/services/core/authService";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
@@ -202,6 +203,9 @@ interface AppState {
 const Ctx = createContext<AppState | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  // I18nProvider wraps AppProvider (main.tsx), so the language the user saved
+  // on their profile can only be applied from in here — see refreshUser.
+  const { lang, setLang } = useI18n();
   const [user, setUser] = useState<CurrentUser>(seedUser);
   const [area, setArea] = useState("");
   const [dataSaver, setDataSaverState] = useState<boolean>(() => {
@@ -377,6 +381,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
           void userService.update({ timezone: deviceTz }).catch(() => {});
         }
       } catch { /* Intl unavailable — quiet hours falls back server-side */ }
+      // Adopt the language saved on the profile, but only on a device that has
+      // never chosen one — otherwise signing in on a new phone left a Hindi or
+      // Marathi user reading English, because I18nProvider only ever consulted
+      // this device's localStorage. A choice made HERE still wins, so this
+      // can't fight a change made moments before the write lands.
+      //
+      // users.language is a plain text column with no DB constraint pinning it
+      // to a known code — this validation mirrors I18nProvider's own localStorage
+      // guard so an unexpected stored value can't reach setLang() and blow up
+      // every t() call app-wide (strings[unknownLang] is undefined).
+      const VALID_LANGS: Lang[] = ["en", "hi", "mr"];
+      if (!hasStoredLang() && me.language && (VALID_LANGS as string[]).includes(me.language) && me.language !== lang) {
+        setLang(me.language as Lang);
+      }
       setArea(me.area);
       setRoles(me.roles);
       setOwnedBusinessIds(owned.businessIds);
@@ -394,7 +412,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch {
       // leave seed values; a 401 will be handled by the auth layer.
     }
-  }, []);
+  }, [lang, setLang]);
 
   // Keep the profile location fresh: once per app open, if geolocation
   // permission is already granted (never prompt uninvited), silently re-read

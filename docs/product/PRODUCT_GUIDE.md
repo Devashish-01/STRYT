@@ -22,20 +22,17 @@ This model removes registration barriers, encourages cross-role engagement, and 
                                   │   Unified STRYT Account   │
                                   └─────────────┬─────────────┘
                                                 │
-                 ┌──────────────────────────────┼──────────────────────────────┐
-                 ▼                              ▼                              ▼
-      ┌────────────────────┐         ┌────────────────────┐         ┌────────────────────┐
-      │ CUSTOMER (Neighbor)│         │ BUSINESS (Shop)    │         │ PROVIDER (Freelance│
-      └────────────────────┘         └────────────────────┘         └────────────────────┘
-       • Broadcast Request            • Today Triage Console         • Availability Toggle
-       • Bidirectional Neg.           • Live Queue Management        • Prospecting Feed
-       • Booking & Timetable          • Hourly Timetable             • Proposal Templates
-       • Remote Queue Join            • Block Slots & Walk-ins       • Earnings Ledger
-       • Chats & Pre-filled Qs        • Product Catalog              • Fixed-Price Packages
-       • Community Feed & Polls       • Custom Service Packages      • Portfolio Showcase
-       • Ephemeral Stories            • Team Roster                  • KYC Verification
-       • Privacy Toggles              • Loyalty Stamps               • Seller Community Post
-       • Trust Ratings                • KYC Verification             • Direct Chat
+       ┌────────────────────────┬───────────────┴───────────────┬────────────────────────┐
+       ▼                        ▼                               ▼                        ▼
+┌──────────────┐     ┌────────────────────┐          ┌────────────────────┐   ┌────────────────────┐
+│ CUSTOMER     │     │ BUSINESS (Shop)    │          │ PROVIDER           │   │ DELIVERY (Agent)   │
+└──────────────┘     └────────────────────┘          └────────────────────┘   └────────────────────┘
+ • Broadcast Req.     • Today Console                 • Availability       • Job Acceptance
+ • Negotiation        • Live Queue                    • Prospecting        • Pickup/Drop Route
+ • Booking            • Catalog & Packages            • Proposals          • Milestone Status
+ • Remote Queue       • Team Roster                   • Earnings Ledger    • Background GPS
+ • Community Feed     • Order Dispatch                • Portfolio          • Customer Tracking
+ • Ephemeral Stories  • KYC Verification              • Direct Chat        • Duty Toggle
 ```
 
 ---
@@ -197,22 +194,89 @@ Geared towards independent service professionals who travel to jobs, require pro
 
 Backend mechanisms that maintain safety, stability, and trust across the platform.
 
-### 4.1 KYC & Verification Approval
+---
+
+## 4. Delivery Agent Features & Logistics Console
+
+Designed to enable independent local shop dispatches and dedicated delivery personnel.
+
+### 4.1 Order Delivery Console (`DeliveryConsole.tsx`)
+*   **Description:** Mobile-first operational dashboard for delivery partners.
+*   **Detailed Function:**
+    *   **Job Acceptance:** View assigned delivery requests from local businesses.
+    *   **Milestone Updates:** Advance delivery status through `ASSIGNED` ➔ `PICKED_UP` ➔ `DELIVERED`.
+    *   **Embedded Route Navigation:** Open one-tap Google Maps / MapLibre directions to pickup and drop-off points.
+    *   **Duty Status Toggle:** Switch online/offline availability for order assignments.
+
+### 4.2 Merchant Dispatch Hub (`BusinessDeliveries.tsx`)
+*   **Description:** Merchant console for managing order fulfillment.
+*   **Detailed Function:**
+    *   Assign orders to internal store team members or nearby registered delivery agents by phone number or handle.
+    *   Track active deliveries in real-time with status filters.
+
+### 4.3 Public Customer Order Tracking (`TrackingPage.tsx`)
+*   **Description:** Un-guarded, live order tracking page for buyers.
+*   **Detailed Function:**
+    *   Displays real-time order status timeline and agent location.
+    *   Reveals agent name and contact phone number only once the delivery is marked `EN_ROUTE` to protect privacy.
+
+---
+
+## 5. Mobile & Native Platform Features
+
+Built for mobile-first engagement across Web and Android native environments.
+
+### 5.1 Native Android Integration (Capacitor 8)
+*   **Description:** Native Android shell built with `@capacitor/android`.
+*   **Detailed Function:**
+    *   **Native Credential Manager:** Seamless Google Sign-In with zero browser chrome or popup blockage via Firebase native bridge.
+    *   **Background Geolocation (`@capgo/background-geolocation`):** Continuous location tracking for active delivery agents even when the app is minimized or the screen is locked.
+    *   **Native Push Notifications (`@capgo/push-notifications`):** Instant alerts for queue turns, booking status changes, and order delivery updates.
+
+### 5.2 Over-The-Air (OTA) Updates (`@capgo/capacitor-updater`)
+*   **Description:** Instant web bundle sync for native Android installations.
+*   **Detailed Function:**
+    *   Pushes code updates directly to installed user devices via `scripts/publish-ota-update.mjs` without requiring full APK downloads or Play Store re-approval delays.
+
+### 5.3 Direct Web-to-APK Download (`apkDownload.ts`)
+*   **Description:** Standalone Android binary distribution.
+*   **Detailed Function:**
+    *   Provides a persistent "Download Android App" action pill on mobile web browsers, giving users immediate access to the native build.
+
+---
+
+## 6. Authentication Infrastructure & Integration Readiness
+
+### 6.1 Multi-Provider Authentication Engine (`authService.ts`)
+*   **Description:** Unified authentication abstraction wrapping Supabase Auth and native/web identity providers.
+*   **Detailed Function:**
+    *   **Google Sign-In (Live):** Single-click authentication using Firebase Credential Manager bridged to Supabase sessions via `signInWithIdToken`.
+    *   **Phone & SMS OTP Infrastructure (Ready):** Full backend logic for `sendOtp()` and `verifyOtp()`, with built-in E.164 phone normalization (`+91`).
+    *   **SMS Provider Hook Compatibility:** Designed to integrate cleanly with Indian regional CPaaS providers (such as **Message Central**) or global providers (Twilio) using Supabase Auth's **Send SMS Hook** via Supabase Edge Functions.
+    *   **Session Mirroring:** Automatically mirrors Supabase sessions into a lightweight synchronous token store (`tokenStore`) for legacy compatibility.
+
+---
+
+## 7. Admin & Operations Capabilities
+
+Backend mechanisms that maintain safety, stability, and trust across the platform.
+
+### 7.1 KYC & Verification Approval
 *   **Description:** Admin portal for onboarding reviews.
 *   **Detailed Function:**
     *   Review uploaded Aadhaar/PAN documents for businesses and providers, granting or rejecting verification status.
 
-### 4.2 Escrow & Dispute Resolution
+### 7.2 Escrow & Dispute Resolution
 *   **Description:** Mediating transaction deadlocks.
 *   **Detailed Function:**
     *   Admin console can override agreement statuses, release escrowed funds to providers, or refund customers in the event of a dispute.
 
-### 4.3 Bug & Support Ticket Tracking
+### 7.3 Bug & Support Ticket Tracking
 *   **Description:** System reliability reporting.
 *   **Detailed Function:**
     *   Bug reports are tagged automatically by the reporter's active role (`CUSTOMER`, `BUSINESS`, `PROVIDER`) and submitted to the admin console for resolution.
 
-### 4.4 Automated Housekeeping Triggers
+### 7.4 Automated Housekeeping Triggers
 *   **Description:** Automated database triggers that execute self-healing actions.
 *   **Detailed Function:**
     *   **Expired Requests:** Moves past-expiry requests to `EXPIRED`.
@@ -221,7 +285,7 @@ Backend mechanisms that maintain safety, stability, and trust across the platfor
 
 ---
 
-## 📈 Marketing & Business Strategy Insights
+## 8. 📈 Marketing & Business Strategy Insights
 
 ```
                    STRYT HYPERLOCAL TRUST ENGINE

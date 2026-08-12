@@ -96,36 +96,42 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
 }
 
 function CommentRow({ c, nav, onReply, compact, canReply = true }: { c: Comment; nav: (to: string) => void; onReply: () => void; compact?: boolean; canReply?: boolean }) {
-  const size = compact ? 30 : 36;
+  const size = compact ? 32 : 38;
   return (
     <div className="row gap-10" style={{ alignItems: "flex-start" }}>
-      <SafeImg src={c.authorAvatar} variant="avatar" className="avatar" style={{ width: size, height: size, flexShrink: 0 }} />
-      <div className="grow">
-        <div className="row between">
-          <span className="semi small">{c.authorName}</span>
-          <span className="tiny muted">{c.time}</span>
+      <SafeImg src={c.authorAvatar} variant="avatar" className="avatar" style={{ width: size, height: size, flexShrink: 0, borderRadius: "50%", border: "1px solid var(--ink-200)" }} />
+      <div className="grow" style={{ minWidth: 0 }}>
+        <div style={{ background: "var(--ink-50)", padding: "10px 14px", borderRadius: 16, border: "1px solid rgba(226, 225, 240, 0.7)" }}>
+          <div className="row between gap-6">
+            <span className="semi small" style={{ color: "var(--ink-900)", fontSize: 13.5 }}>{c.authorName}</span>
+            <span className="tiny muted">{c.time}</span>
+          </div>
+          <p className="small" style={{ marginTop: 4, lineHeight: 1.45, color: "var(--ink-800)", fontSize: 13.5 }}>{c.body}</p>
+          {c.sharedPhone && (
+            <a
+              href={`tel:${c.sharedPhone}`}
+              className="tiny semi row gap-4"
+              style={{ color: "var(--brand-700)", marginTop: 6, background: "var(--brand-50)", border: "1px solid var(--brand-100)", borderRadius: 10, padding: "4px 9px", width: "fit-content" }}
+            >
+              <Phone size={12} /> {c.sharedPhone}
+              {c.phoneVisibility === "OWNER" && <span className="muted" style={{ fontWeight: 500 }}>· shared with you</span>}
+            </a>
+          )}
+          {c.listingId && (
+            <button
+              className="tiny semi"
+              style={{ color: "var(--brand-700)", marginTop: 6, display: "block" }}
+              onClick={() => nav(c.listingType === "BUSINESS" ? `/business/${c.listingId}` : `/provider/${c.listingId}`)}
+            >
+              → View listing
+            </button>
+          )}
         </div>
-        <p className="small" style={{ marginTop: 3, lineHeight: 1.45 }}>{c.body}</p>
-        {c.sharedPhone && (
-          <a
-            href={`tel:${c.sharedPhone}`}
-            className="tiny semi row gap-4"
-            style={{ color: "var(--brand-700)", marginTop: 5, background: "var(--brand-50)", border: "1px solid var(--brand-100)", borderRadius: 8, padding: "4px 8px", width: "fit-content" }}
-          >
-            <Phone size={12} /> {c.sharedPhone}
-            {c.phoneVisibility === "OWNER" && <span className="muted" style={{ fontWeight: 500 }}>· shared with you</span>}
-          </a>
-        )}
-        {c.listingId && (
-          <button
-            className="tiny semi"
-            style={{ color: "var(--brand-700)", marginTop: 4 }}
-            onClick={() => nav(c.listingType === "BUSINESS" ? `/business/${c.listingId}` : `/provider/${c.listingId}`)}
-          >
-            → View listing
+        {canReply && (
+          <button className="tiny semi" style={{ color: "var(--brand-700)", marginTop: 4, marginLeft: 6, padding: "2px 6px" }} onClick={onReply}>
+            Reply
           </button>
         )}
-        {canReply && <button className="tiny semi" style={{ color: "var(--ink-500)", marginTop: 4 }} onClick={onReply}>Reply</button>}
       </div>
     </div>
   );
@@ -400,17 +406,32 @@ export default function CommunityPostDetail() {
                     key={o.id}
                     disabled={isGuest}
                     onClick={isGuest ? undefined : () => handleVote(o.id)}
-                    style={{ position: "relative", textAlign: "left", padding: "11px 13px", borderRadius: "var(--radius-sm)", border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)", overflow: "hidden", background: "#fff", cursor: isGuest ? "default" : "pointer", opacity: 1 }}
+                    style={{
+                      position: "relative", textAlign: "left", padding: "12px 14px", borderRadius: 14,
+                      border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)",
+                      overflow: "hidden", background: "var(--surface)", cursor: isGuest ? "default" : "pointer",
+                      boxShadow: voted ? "0 2px 10px rgba(139, 71, 245, 0.15)" : "none",
+                      transition: "transform 0.15s ease, border-color 0.2s ease"
+                    }}
                   >
-                    {votedOption && <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: voted ? "var(--brand-100)" : "var(--ink-100)" }} />}
-                    <div className="row between" style={{ position: "relative" }}>
-                      <span className="small semi">{o.label}</span>
-                      {votedOption && <span className="small semi" style={{ color: "var(--brand-700)" }}>{pct}%</span>}
+                    {votedOption && (
+                      <div
+                        style={{
+                          position: "absolute", inset: 0, width: `${pct}%`,
+                          background: voted ? "linear-gradient(90deg, var(--brand-100), var(--brand-50))" : "var(--ink-100)",
+                          transition: "width 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+                          borderRadius: 12
+                        }}
+                      />
+                    )}
+                    <div className="row between" style={{ position: "relative", zIndex: 1 }}>
+                      <span className="small semi" style={{ color: voted ? "var(--brand-900)" : "var(--ink-800)" }}>{o.label}</span>
+                      {votedOption && <span className="small bold tabular-nums" style={{ color: "var(--brand-700)" }}>{pct}%</span>}
                     </div>
                   </button>
                 );
               })}
-              <span className="tiny muted">{totalVotes} votes</span>
+              <span className="tiny muted semi">{totalVotes} {totalVotes === 1 ? "vote" : "votes"}</span>
             </div>
           )}
 

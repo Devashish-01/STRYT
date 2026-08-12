@@ -1,15 +1,17 @@
 import { useNavigate, useLocation } from "react-router-dom";
-import { LayoutDashboard, CalendarClock, Search, Wallet, User } from "@/components/Icons";
+import { LayoutDashboard, CalendarClock, Search, Wallet } from "@/components/Icons";
 import { appointmentService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
+import FooterProfileTab from "@/components/FooterProfileTab";
 
 export default function ProviderManageNav({ pid }: { pid: string }) {
   const nav = useNavigate();
   const loc = useLocation();
   const base = `/provider/${pid}/manage`;
+  const profilePath = `${base}/profile`;
+  const profileSubRoutes = ["/profile", "/edit-profile", "/verify", "/settings", "/availability", "/catalog", "/portfolio", "/inventory", "/inbox"];
+  const profileActive = profileSubRoutes.some((path) => loc.pathname.startsWith(base + path));
 
-  // Surface how many booking requests still need a response as a badge on Jobs,
-  // so the provider always knows there's something waiting without opening it.
   const { data: appts } = useQueryWithRealtime(
     () => appointmentService.listForTarget(pid),
     "appointments",
@@ -18,15 +20,11 @@ export default function ProviderManageNav({ pid }: { pid: string }) {
   );
   const pendingLeads = (appts ?? []).filter((a) => a.status === "PENDING").length;
 
-  // The 5 modes a provider is actually in — Today (triage), Jobs (the calendar),
-  // Find work (prospecting), Money (earnings), Profile (identity hub). See
-  // PROVIDER_DESIGN.md.
   const items = [
     { to: base, label: "Today", icon: LayoutDashboard, exact: true, badge: 0 },
     { to: `${base}/jobs`, label: "Jobs", icon: CalendarClock, badge: pendingLeads },
     { to: `${base}/find-work`, label: "Find work", icon: Search, badge: 0 },
     { to: `${base}/money`, label: "Money", icon: Wallet, badge: 0 },
-    { to: `${base}/profile`, label: "Profile", icon: User, badge: 0 },
   ];
 
   return (
@@ -44,6 +42,7 @@ export default function ProviderManageNav({ pid }: { pid: string }) {
           </button>
         );
       })}
+      <FooterProfileTab profilePath={profilePath} active={profileActive} iconStrokeWidth={profileActive ? 2.6 : 2} />
     </nav>
   );
 }

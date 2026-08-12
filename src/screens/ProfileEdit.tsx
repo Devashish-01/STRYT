@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Camera, MapPin, Navigation, Loader, Search, X, User, Phone, Lock } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService, uploadService } from "@/services";
-import { AppBar } from "@/components/common";
+import { AppBar, SafeImg } from "@/components/common";
+import AvatarRing from "@/components/AvatarRing";
 import { normalizeAlias, isValidAlias } from "@/lib/publicName";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
@@ -204,32 +205,33 @@ export default function ProfileEdit() {
               disabled={uploading}
               onChange={handleAvatarChange}
             />
-            <div
+            <AvatarRing
               onClick={() => !uploading && fileInputRef.current?.click()}
-              style={{ cursor: uploading ? "default" : "pointer" }}
+              ariaLabel="Change profile photo"
+              disabled={uploading}
             >
               {(localPreview || avatar) ? (
-                <img
+                <SafeImg
                   src={localPreview ?? avatar}
                   alt="Profile"
+                  variant="avatar"
                   style={{
-                    width: 92, height: 92, borderRadius: "50%", objectFit: "cover",
-                    border: "3px solid var(--brand-500)",
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                    width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover",
+                    border: "2.5px solid #fff",
+                    display: "block",
                   }}
                 />
               ) : (
                 <div style={{
-                  width: 92, height: 92, borderRadius: "50%",
-                  background: "var(--ink-100)", fontSize: 36, color: "var(--ink-400)",
+                  width: "100%", height: "100%", borderRadius: "50%",
+                  background: "var(--ink-100)", fontSize: 34, color: "var(--ink-400)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  border: "3px solid var(--ink-200)",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+                  border: "2.5px solid #fff",
                 }}>
                   👤
                 </div>
               )}
-            </div>
+            </AvatarRing>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}

@@ -88,6 +88,51 @@ export interface BusinessPackage {
   /** The words the booking flow (AppointmentSheet, PaymentSheet, the owner's
    *  booking console) uses in place of "appointment" for this package. */
   vocabulary: BizVocabulary;
+  /** How the OWNER CONSOLE (dashboard checklist + action tiles + nav label)
+   *  should be shaped for this package. Omit to inherit `generic.console`. */
+  console?: BizConsole;
+}
+
+/**
+ * A thing the OWNER CONSOLE can surface. The package says which of these matter,
+ * in what order, and what to call them; each dashboard owns how one is actually
+ * computed and rendered (a "done" check, a destination). Branching on a
+ * capability id inside a dashboard is fine — branching on a package key is not,
+ * which is what keeps the next vertical a data edit here.
+ */
+export type ConsoleCapability =
+  | "catalog"
+  | "photos"
+  | "hours"
+  | "bookings"
+  | "queue"
+  | "delivery"
+  | "payments"
+  | "verify"
+  | "promote";
+
+export interface ConsoleStep {
+  id: ConsoleCapability;
+  /** Category-worded: "Add your first 3 dishes" vs "Add your first listing". */
+  label: string;
+  hint?: string;
+}
+
+/**
+ * The owner console's shape for this package. Optional: packages that don't
+ * define one fall back to `generic.console` via the same default-to-generic
+ * idiom AppointmentSheet/PaymentSheet already use for `vocabulary`, so an
+ * unauthored vertical keeps exactly today's console.
+ */
+export interface BizConsole {
+  /** Heading over the day-one setup checklist. */
+  setupTitle: string;
+  /** Ordered day-one setup steps. */
+  setup: ConsoleStep[];
+  /** Ordered dashboard quick-action tiles. */
+  actions: ConsoleStep[];
+  /** Business bottom-nav label for the storefront tab. */
+  storeTabLabel: string;
 }
 
 export interface BizVocabulary {
@@ -345,6 +390,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       sheetTitleNew: "Reserve a Table", sheetTitleReschedule: "Change Reservation",
       bookedVerb: "Table reserved",
     },
+    console: {
+      setupTitle: "Get your kitchen ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 dishes", hint: "A menu with photos converts far better than a name list" },
+        { id: "photos", label: "Add a food photo", hint: "Show your dining area or best dish" },
+        { id: "hours", label: "Set opening hours" },
+        { id: "bookings", label: "Turn on table reservations" },
+      ],
+      actions: [
+        { id: "catalog", label: "Menu", hint: "Dishes & prices" },
+        { id: "bookings", label: "Reservations", hint: "Table bookings" },
+        { id: "queue", label: "Waitlist", hint: "Walk-in queue" },
+        { id: "delivery", label: "Delivery", hint: "Orders out for delivery" },
+      ],
+      storeTabLabel: "Menu",
+    },
   },
   takeaway: {
     key: "takeaway",
@@ -373,6 +434,24 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       noun: "order", nounCap: "Order", nounPlural: "orders",
       sheetTitleNew: "Place Your Order", sheetTitleReschedule: "Change Order",
       bookedVerb: "Order placed",
+    },
+    // Takeaway has no tables: `bookingsDefault` is false, so reservations are
+    // absent from both lists and delivery leads instead.
+    console: {
+      setupTitle: "Get your kitchen ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 dishes", hint: "A menu with photos converts far better than a name list" },
+        { id: "photos", label: "Add a food photo", hint: "Show your best dishes" },
+        { id: "hours", label: "Set opening hours" },
+        { id: "delivery", label: "Set up delivery", hint: "Or keep it pickup-only" },
+      ],
+      actions: [
+        { id: "catalog", label: "Menu", hint: "Dishes & prices" },
+        { id: "delivery", label: "Delivery", hint: "Orders out for delivery" },
+        { id: "queue", label: "Pickup queue", hint: "Waiting for collection" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Menu",
     },
   },
   salon: {
@@ -602,6 +681,26 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       noun: "appointment", nounCap: "Appointment", nounPlural: "appointments",
       sheetTitleNew: "Schedule Appointment", sheetTitleReschedule: "Reschedule Appointment",
       bookedVerb: "Appointment scheduled",
+    },
+    // Every label here is the literal the console already showed before this
+    // system reached it — same wording, same order — so an unmapped category's
+    // dashboard is byte-for-byte unchanged. Same contract `generic` is held to
+    // everywhere else in this file.
+    console: {
+      setupTitle: "Finish setting up your shop",
+      setup: [
+        { id: "catalog", label: "Add a catalog item" },
+        { id: "hours", label: "Set your hours" },
+        { id: "verify", label: "Upload verification" },
+        { id: "promote", label: "Post your first update" },
+      ],
+      actions: [
+        { id: "catalog", label: "Catalogue", hint: "What you offer" },
+        { id: "bookings", label: "Bookings", hint: "Your schedule" },
+        { id: "hours", label: "Hours", hint: "When you're open" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Store",
     },
   },
 };

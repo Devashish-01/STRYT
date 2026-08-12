@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   BadgeCheck, Bell, Calendar, Camera, Check, ChevronRight, HelpCircle,
   Megaphone, MessageSquareText, Play, QrCode, Search, Share2, Star,
-  Wallet, X as XIcon, Zap,
+  Users, Wallet, X as XIcon, Zap,
 } from "@/components/Icons";
 import {
   appointmentService, businessService, bustBusinessGetCache, communityService,
@@ -27,6 +27,10 @@ import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 import { SetupChecklist } from "@/components/SetupChecklist";
+import { ConsoleTile, ConsoleTileGrid, CAPABILITY_TONE, CAPABILITY_ICON } from "@/components/console/ConsoleTile";
+import { BUSINESS_PACKAGES, resolvePackage } from "@/lib/businessPackages";
+import { buildConsoleSteps, consoleFor, type CapabilityState } from "@/lib/consoleSteps";
+import type { ConsoleCapability } from "@/lib/businessPackages";
 import Toggle from "@/components/Toggle";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
@@ -176,12 +180,61 @@ export default function ManageDashboard() {
   const isDefaultHours = !business?.hours
     || serializeHoursValue(parseHoursValue(business.hours)) === serializeHoursValue(parseHoursValue(DEFAULT_ONBOARD_WORKING_HOURS));
 
-  const checklistItems = [
-    { label: "Add a catalog item", done: (business?.catalog?.length ?? 0) > 0, onClick: () => nav(`${base}/catalog`) },
-    { label: "Set your hours", done: !isDefaultHours, onClick: () => nav(`${base}/hours`) },
-    { label: "Upload verification", done: !!business?.verificationStatus, onClick: () => nav(`${base}/verify`) },
-    { label: "Post your first update", done: (posts?.length ?? 0) > 0, onClick: () => nav("/community/new", { state: composeState }) },
-  ];
+  // Business Packages — the console's own vocabulary and shape. A restaurant
+  // gets "Add your first 3 dishes" and a Menu/Reservations/Waitlist tile row;
+  // an unmapped ("Plain page") business keeps exactly the wording it had. This
+  // screen never branches on the package key — it only supplies what each
+  // capability DOES, and the package decides which ones appear and in what
+  // order. See src/lib/businessPackages.ts's header rule.
+  const pkg = BUSINESS_PACKAGES[resolvePackage(business ?? {})];
+  const consoleCfg = consoleFor(pkg);
+  // Structural "does this business take bookings at all", distinct from
+  // `isOpenNow` (a temporary pause). Same inherit expression BusinessDetail
+  // already uses — a takeaway shouldn't be shown a reservations console.
+  const bookingsOn = business?.bookingsEnabled ?? pkg.bookingsDefault;
+  const deliveryOn = business?.deliveryEnabled === true;
+
+  const capabilities: Partial<Record<ConsoleCapability, CapabilityState>> = {
+    catalog: {
+      done: (business?.catalog?.length ?? 0) > 0,
+      onClick: () => nav(`${base}/catalog`),
+      value: (business?.catalog?.length ?? 0) > 0 ? `${business!.catalog!.length} listed` : undefined,
+    },
+    photos: {
+      done: (business?.gallery?.length ?? 0) > 0,
+      onClick: () => nav(`${base}/edit-profile`),
+    },
+    hours: { done: !isDefaultHours, onClick: () => nav(`${base}/hours`) },
+    verify: { done: !!business?.verificationStatus, onClick: () => nav(`${base}/verify`) },
+    promote: {
+      done: (posts?.length ?? 0) > 0,
+      onClick: () => nav("/community/new", { state: composeState }),
+    },
+    payments: {
+      onClick: () => nav(`${base}/payments`),
+      value: paymentClaims > 0 ? `${paymentClaims} to confirm` : undefined,
+    },
+    ...(bookingsOn && hasScope("appointments") ? {
+      bookings: {
+        done: !isDefaultHours,
+        onClick: () => nav(`${base}/appointments`),
+        value: upcomingAppointments.length > 0 ? `${upcomingAppointments.length} upcoming` : undefined,
+      },
+    } : {}),
+    ...(hasScope("queue") ? {
+      queue: {
+        done: queue?.isOpen === true,
+        onClick: () => nav(`${base}/queue`),
+        value: (queue?.waiting.length ?? 0) > 0 ? `${queue!.waiting.length} waiting` : undefined,
+      },
+    } : {}),
+    ...(deliveryOn ? {
+      delivery: { done: true, onClick: () => nav(`${base}/deliveries`) },
+    } : {}),
+  };
+
+  const checklistItems = buildConsoleSteps(consoleCfg.setup, capabilities);
+  const actionTiles = buildConsoleSteps(consoleCfg.actions, capabilities);
 
   async function toggleAvailability() {
     const previous = available;
@@ -381,7 +434,29 @@ export default function ManageDashboard() {
 
         {business && isOwner && (
           <section className="page-pad" style={{ paddingTop: 4 }}>
-            <SetupChecklist title="Finish setting up your shop" items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
+            <SetupChecklist title={consoleCfg.setupTitle} items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
+          </section>
+        )}
+
+        {/* Your tools — named by trade. A restaurant reads Menu / Reservations /
+            Waitlist / Delivery; a "Plain page" business reads Catalogue /
+            Bookings / Hours / Payments. Order and wording both come from the
+            package config, never from a key check here. */}
+        {actionTiles.length > 0 && (
+          <section className="page-pad" style={{ paddingTop: 0 }}>
+            <ConsoleTileGrid>
+              {actionTiles.map((t) => (
+                <ConsoleTile
+                  key={t.id}
+                  icon={CAPABILITY_ICON[t.id]}
+                  label={t.label}
+                  sub={t.hint}
+                  tint={CAPABILITY_TONE[t.id].tint}
+                  accent={CAPABILITY_TONE[t.id].accent}
+                  onClick={t.onClick}
+                />
+              ))}
+            </ConsoleTileGrid>
           </section>
         )}
 
@@ -394,21 +469,32 @@ export default function ManageDashboard() {
               <div className="grow"><div className="semi small">{available ? "Open now" : "Mark shop open now"}</div><div className="tiny muted">Visible to nearby customers</div></div>
               <Toggle on={available} />
             </button>
-            <button className="card row gap-12 center-v" onClick={toggleAccepting} style={{ width: "100%", textAlign: "left", marginTop: 10, border: accepting ? "1px solid var(--line)" : "2px solid var(--red-400)" }}>
-              <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: accepting ? "var(--ink-50)" : "var(--red-100)" }}>
-                <Calendar size={21} color={accepting ? "var(--ink-400)" : "var(--red-600)"} />
-              </span>
-              <div className="grow"><div className="semi small">Accepting appointments</div><div className="tiny muted">{accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}</div></div>
-              <Toggle on={accepting} />
-            </button>
+            {/* Only for businesses that structurally take bookings. A takeaway
+                (bookingsDefault false) was previously shown this toggle plus a
+                whole appointments console it can't use. */}
+            {bookingsOn && (
+              <button className="card row gap-12 center-v" onClick={toggleAccepting} style={{ width: "100%", textAlign: "left", marginTop: 10, border: accepting ? "1px solid var(--line)" : "2px solid var(--red-400)" }}>
+                <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: accepting ? "var(--ink-50)" : "var(--red-100)" }}>
+                  <Calendar size={21} color={accepting ? "var(--ink-400)" : "var(--red-600)"} />
+                </span>
+                <div className="grow"><div className="semi small">Accepting {pkg.vocabulary.nounPlural}</div><div className="tiny muted">{accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}</div></div>
+                <Toggle on={accepting} />
+              </button>
+            )}
           </section>
         )}
 
-        {hasScope("queue") && (
+        {/* "Zero is not data" (DESIGN_PRINCIPLES §5) — a brand-new shop with the
+            queue switched off and nobody waiting was shown "Queue · 0 waiting",
+            which reads as broken rather than empty. The Waitlist tile above is
+            the way in until there's something to report. */}
+        {hasScope("queue") && (queue?.isOpen || (queue?.waiting.length ?? 0) > 0) && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="card" style={{ padding: 14, border: queue?.isOpen ? "1px solid var(--blue-200)" : undefined }}>
               <div className="row gap-10 center-v">
-                <span style={{ fontSize: 23 }}>👥</span>
+                <span style={{ width: 40, height: 40, borderRadius: 12, display: "grid", placeItems: "center", background: "var(--amber-100)", color: "var(--amber-700)" }}>
+                  <Users size={20} />
+                </span>
                 <div className="grow">
                   <div className="semi small">Queue · {queue?.waiting.length ?? 0} waiting</div>
                   <div className="tiny muted">{queue?.called.length ? `Serving ${queue.called[0].name}` : queue?.isOpen ? "Ready to call the next customer" : "Queue is currently off"}</div>
@@ -469,7 +555,7 @@ export default function ManageDashboard() {
           </section>
         )}
 
-        {hasScope("appointments") && todayAppointments.length > 0 && (
+        {bookingsOn && hasScope("appointments") && todayAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">Today's appointments</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>View all</button></div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -482,7 +568,7 @@ export default function ManageDashboard() {
           </section>
         )}
 
-        {hasScope("appointments") && upcomingAppointments.length > 0 && (
+        {bookingsOn && hasScope("appointments") && upcomingAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">Upcoming</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>View all</button></div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>

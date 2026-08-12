@@ -13,6 +13,7 @@ import { DEFAULT_ONBOARD_DAYS_PATTERN, DEFAULT_START_TIME, DEFAULT_ONBOARD_END_T
 import { reverseGeocodeFull } from "@/lib/geocode";
 import { getBusinessTheme, BUSINESS_PACKAGES, type BusinessPackageKey } from "@/lib/businessPackages";
 import { PackageConfirmCard } from "@/components/PackageConfirmCard";
+import { OnboardBookingsToggle } from "@/components/OnboardBookingsToggle";
 
 const steps = ["Basics", "Location", "Photos", "Contact"];
 
@@ -81,6 +82,13 @@ export default function BusinessOnboard() {
   // keep re-suggesting instead of sticking to a stale choice.
   const [packageOverride, setPackageOverride] = useState<BusinessPackageKey | null>(null);
   const effectivePackageKey = packageOverride ?? bizThemeKey;
+  // Bookings follows the resolved package until the owner says otherwise —
+  // same null-means-"still following the suggestion" pattern as
+  // packageOverride above. Hardcoding `false` here stored a Dining business as
+  // bookings-off while PackageConfirmCard on this very step advertised
+  // "Bookings on by default", and left its console without a reservations tab.
+  const [bookingsOverride, setBookingsOverride] = useState<boolean | null>(null);
+  const wantsBookings = bookingsOverride ?? BUSINESS_PACKAGES[effectivePackageKey].bookingsDefault;
 
   const canNext = [
     name.trim().length > 1 && !!cat,
@@ -113,7 +121,9 @@ export default function BusinessOnboard() {
         phone,
         openingDate: openDate || undefined,
         offerText: offer || undefined,
-        hours: hoursRaw || undefined,
+        bookingsEnabled: wantsBookings,
+        hours: wantsBookings ? (hoursRaw || undefined) : undefined,
+        ...(wantsBookings ? { isOpenNow: true } : {}),
         coverImage: uploadedUrls[0] || undefined,
         gallery: uploadedUrls.length > 0 ? uploadedUrls : undefined,
         broadcastRadius,
@@ -345,30 +355,26 @@ export default function BusinessOnboard() {
                 />
               </div>
             </div>
-            {/* Deliberately mirrors the Hours settings screen
-                (manage/HoursEditor.tsx) — same card chrome, same icon, same
-                heading, same editor. The editor component was always shared,
-                but the surrounding UI wasn't, so setting hours at signup looked
-                like a different feature from editing them afterwards.
-                The two controls NOT shown here are absent on purpose:
-                "open right now" is meaningless before the shop exists, and
-                holiday hours have nothing to override yet. The footnote says
-                where they live so the owner isn't left hunting. */}
-            <div className="card col gap-14" style={{ padding: 16 }}>
-              <div className="bold small row gap-6 center-v" style={{ color: "var(--ink-900)" }}>
-                {/* Echoes the About-tab heading the storefront (BusinessDetail.tsx)
-                    will show once this business is live, so the two never disagree. */}
-                <Clock size={18} color="var(--brand-700)" /> {bizThemeKey === "generic" ? "Working Hours (Availability Timing)" : bizTheme.hoursLabel}
+            <OnboardBookingsToggle
+              on={wantsBookings}
+              onChange={setBookingsOverride}
+              accentColor="var(--brand-600)"
+            />
+            {wantsBookings && (
+              <div className="card col gap-14" style={{ padding: 16 }}>
+                <div className="bold small row gap-6 center-v" style={{ color: "var(--ink-900)" }}>
+                  <Clock size={18} color="var(--brand-700)" /> {bizThemeKey === "generic" ? "Working Hours (Availability Timing)" : bizTheme.hoursLabel}
+                </div>
+                <span className="tiny muted">
+                  Set your real working hours — this is exactly what customers will book against.
+                </span>
+                <WeeklyHoursEditor initialRaw={hoursRaw} onChange={setHoursRaw} />
+                <div className="tiny muted">
+                  Holiday hours, "open right now" and booking capacity can be set
+                  any time from Business → Settings once you're live.
+                </div>
               </div>
-              <span className="tiny muted">
-                Set your real working hours — this is exactly what customers will book against.
-              </span>
-              <WeeklyHoursEditor initialRaw={hoursRaw} onChange={setHoursRaw} />
-              <div className="tiny muted">
-                Holiday hours, "open right now" and booking capacity can be set
-                any time from Business → Settings once you're live.
-              </div>
-            </div>
+            )}
 
             {/* The suggested package becomes a real, visible choice right
                 before submit — not silently applied. Skipped entirely for

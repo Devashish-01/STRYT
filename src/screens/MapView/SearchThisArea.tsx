@@ -1,4 +1,5 @@
 import { RotateCcw, Loader } from "@/components/Icons";
+import { useI18n } from "@/lib/i18n";
 
 /**
  * "Search this area" — the pill that appears once the map has been moved far
@@ -17,6 +18,7 @@ export default function SearchThisArea({
   busy: boolean;
   onClick: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
@@ -29,7 +31,7 @@ export default function SearchThisArea({
       tabIndex={visible ? 0 : -1}
     >
       {busy ? <Loader size={14} className="spin" /> : <RotateCcw size={14} />}
-      <span>{busy ? "Searching…" : "Search this area"}</span>
+      <span>{busy ? t("map_searching") : t("map_search_this_area")}</span>
     </button>
   );
 }

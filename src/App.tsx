@@ -31,7 +31,6 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 const Splash = lazy(() => import("./screens/Splash"));
 const PhoneEntry = lazy(() => import("./screens/auth/PhoneEntry"));
 const OtpVerify = lazy(() => import("./screens/auth/OtpVerify"));
-const LocationPermission = lazy(() => import("./screens/auth/LocationPermission"));
 const UserOnboard = lazy(() => import("./screens/auth/UserOnboard"));
 const DeletionPending = lazy(() => import("./screens/auth/DeletionPending"));
 const TermsAccept = lazy(() => import("./screens/auth/TermsAccept"));
@@ -106,6 +105,7 @@ const BusinessHub = lazy(() => import("./screens/business/manage/BusinessHub"));
 const CatalogManager = lazy(() => import("./screens/business/manage/CatalogManager"));
 const InventoryAlerts = lazy(() => import("./screens/business/manage/InventoryAlerts"));
 const BusinessPortfolio = lazy(() => import("./screens/business/manage/BusinessPortfolio"));
+const BusinessProfileHub = lazy(() => import("./screens/business/manage/BusinessProfileHub"));
 const ProfileEditor = lazy(() => import("./screens/business/manage/ProfileEditor"));
 const BroadcastRadius = lazy(() => import("./screens/business/manage/BroadcastRadius"));
 const HoursEditor = lazy(() => import("./screens/business/manage/HoursEditor"));
@@ -363,12 +363,12 @@ function ProtectedLayout() {
     return <Navigate to="/auth/onboard" replace />;
   }
 
-  // New user with no location: prompt once, then let them skip freely.
-  const locationSeen = localStorage.getItem("locationPromptShown") === "true";
-  const needsLocation = isAuthed && user.id && !user.lat && !user.area && location.pathname === "/home" && !locationSeen;
-  if (needsLocation) {
-    return <Navigate to="/auth/location" replace />;
-  }
+  // Location used to be a SECOND gate here, bouncing a new user to a dedicated
+  // /auth/location screen on their first /home — even though the onboarding
+  // screen they had just left already offered a location field. Asking twice
+  // read as not listening. It's now beat 3 of onboarding itself, which is also
+  // where the ask can pay for itself (it shows how many places are actually
+  // nearby), so there is nothing left to gate on here.
 
   return <Outlet />;
 }
@@ -583,7 +583,6 @@ export default function App() {
           <Route element={<ProtectedLayout />}>
             <Route path="/auth/terms" element={<TermsAccept />} />
             <Route path="/auth/onboard" element={<UserOnboard />} />
-            <Route path="/auth/location" element={<LocationPermission />} />
             <Route path="/auth/deletion-pending" element={<DeletionPending />} />
 
             <Route path="/profile" element={<Profile />} />
@@ -667,7 +666,8 @@ export default function App() {
 
               {/* Owner-only — FULL delegates and scoped team members are bounced. */}
               <Route element={<RequireOwner />}>
-                <Route path="/business/:id/manage/profile" element={<ProfileEditor />} />
+                <Route path="/business/:id/manage/profile" element={<BusinessProfileHub />} />
+                <Route path="/business/:id/manage/edit-profile" element={<ProfileEditor />} />
                 <Route path="/business/:id/manage/broadcast" element={<BroadcastRadius />} />
                 <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
                 <Route path="/business/:id/manage/payments" element={<BusinessPayments />} />

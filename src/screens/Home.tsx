@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState, type CSSProperties, type ReactNode } from "react";
+import { lazy, Suspense, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "@/components/Icons";
 import { useApp } from "@/store";
@@ -9,6 +9,7 @@ import { BusinessCardSmall, ProviderCardSmall } from "@/components/cards";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
 import { greetingName } from "@/lib/publicName";
+import { buildParentMap, rankByInterests } from "@/lib/interestRank";
 import { getRecentlyViewed } from "@/lib/recentlyViewed";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
 import BrandHome from "@/components/BrandHome";
@@ -101,10 +102,9 @@ export default function Home() {
   const [payingQueueToken, setPayingQueueToken] = useState<MyQueueEntry | null>(null);
   const [recentlyViewed] = useState(getRecentlyViewed);
 
-  // Category taxonomy is still fetched — it's used below only as an "is this
-  // marketplace empty" signal for the getting-started CTA — but the Browse
-  // strip UI itself is intentionally not rendered on the customer Home page.
-  const { data: categories, refetch: refetchCategories } = useQuery(() => catalogService.getCategories(), [], "categories");
+  // Category taxonomy — fetched for the quick-filter browse strip below
+  // AND as an "is this marketplace empty" signal for the getting-started CTA.
+  const { data: categories, error: categoriesError, refetch: refetchCategories } = useQuery(() => catalogService.getCategories(), [], "categories");
   const { data: agreementsList, refetch: refetchAgreements } = useQuery(() => requestService.agreements(), []);
   // Real, always-populated discovery content — the dashboard shouldn't rely
   // solely on conditional "you have an active X" cards to feel complete.
@@ -138,8 +138,15 @@ export default function Home() {
   const agreements = agreementsList ?? [];
   const activeAgreements = agreements.filter((a) => !["COMPLETED", "CANCELLED", "DISPUTED"].includes(a.status));
   const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
-  const nearbyBiz = (nearbyBizPage?.data ?? []).slice(0, 8);
-  const nearbyProv = (nearbyProvPage?.data ?? []).slice(0, 8);
+  // Lead with the categories picked during onboarding, then everything else.
+  // Ranked BEFORE the slice so an interest match that sits 9th by distance can
+  // still reach the rail — ranking after would only reshuffle the 8 nearest
+  // and the personalisation would be invisible in a dense area. A partition,
+  // never a filter: nothing nearby is hidden, and a user with no interests
+  // (everyone who onboarded before this shipped) gets the original order.
+  const parentOf = useMemo(() => buildParentMap(categories ?? []), [categories]);
+  const nearbyBiz = rankByInterests(nearbyBizPage?.data ?? [], user.interestCategoryIds, parentOf).slice(0, 8);
+  const nearbyProv = rankByInterests(nearbyProvPage?.data ?? [], user.interestCategoryIds, parentOf).slice(0, 8);
   // Nothing cached yet for either rail — first paint only (see useQuery's
   // cacheKey). Without this, the "Nearby on your street" section — the main
   // reason to be on this screen — simply didn't render at all while loading,
@@ -404,6 +411,48 @@ export default function Home() {
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Browse Categories */}
+          {categoriesError && (
+            <div className="page-pad" style={{ paddingTop: 14 }}>
+              <button className="row between card" style={{ padding: "12px 14px", width: "100%", textAlign: "left" }} onClick={() => refetchCategories()}>
+                <span className="tiny muted">{t("could_not_load_cats")}</span>
+                <span className="tiny semi" style={{ color: "var(--brand-700)" }}>{t("retry")}</span>
+              </button>
+            </div>
+          )}
+          {(categories ?? []).filter((c) => c.parentId === null && c.slug !== "other").length > 0 && (
+            <div style={{ paddingTop: 14 }}>
+              <div className="row between page-pad" style={{ paddingBottom: 0, paddingTop: 0 }}>
+                <span className="semi" style={{ fontSize: 15 }}>{t("browse")}</span>
+                <button className="see-all" onClick={() => nav("/categories")}>{t("all_categories")}</button>
+              </div>
+              <div className="hscroll" style={{ paddingTop: 8 }}>
+                {(categories ?? [])
+                  .filter((c) => c.parentId === null && c.slug !== "other")
+                  .map((c, idx) => (
+                    <button
+                      key={c.id}
+                      className="col center fade-up"
+                      style={{ gap: 5, flexShrink: 0, width: 64, background: "none", border: "none", cursor: "pointer", animationDelay: `${idx * 35}ms` }}
+                      onClick={() => nav(`/category/${c.id}`)}
+                    >
+                      <div style={{
+                        width: 54, height: 54, borderRadius: 16,
+                        background: `${c.color}1a`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 26,
+                      }}>
+                        {c.icon}
+                      </div>
+                      <span className="tiny semi" style={{ textAlign: "center", lineHeight: 1.2 }}>
+                        {c.name.split(" ")[0]}
+                      </span>
+                    </button>
+                  ))}
               </div>
             </div>
           )}

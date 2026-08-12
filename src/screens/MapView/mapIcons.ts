@@ -1,9 +1,9 @@
 export type Layer = "business" | "provider" | "request" | "story";
 
-export const pinColors: Record<Exclude<Layer, "story">, string> = {
-  business: "var(--orange-500)",
-  provider: "var(--green-500)",
-  request:  "var(--brand-600)",
+/** Request teardrop only — business/provider tones live on RING_BACKGROUND
+ *  in AvatarPin so the pin ring and its popup CTA cannot drift apart. */
+export const pinColors: { request: string } = {
+  request: "var(--brand-600)",
 };
 
 // react-map-gl's <Marker> renders its children directly as the pin's visual

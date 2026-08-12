@@ -8,6 +8,22 @@ export function distanceLabel(km?: number | null, t?: (key: string) => string): 
   return t ? t("nearby") : "nearby";
 }
 
+/**
+ * Formats distance with pedestrian walk-times for hyperlocal context:
+ * - < 1.2 km: "🚶 X min walk (Ym)"
+ * - ≥ 1.2 km: "🚗 X min drive (Y.Y km)"
+ */
+export function pedestrianDistanceLabel(km?: number | null, t?: (key: string) => string): string {
+  if (!km || km <= 0) return t ? t("nearby") : "nearby";
+  if (km < 1.2) {
+    const meters = Math.round(km * 1000);
+    const walkMin = Math.max(1, Math.round(km * 12)); // ~5km/h walking speed
+    return `🚶 ${walkMin} min walk (${meters}m)`;
+  }
+  const driveMin = Math.max(1, Math.round(km * 2.5)); // ~25km/h urban drive speed
+  return `🚗 ${driveMin} min drive (${km.toFixed(1)} km)`;
+}
+
 // Maps the app's selected language to an Intl-compatible locale for date
 // formatting, so a Hindi/Marathi user sees dates rendered in their own script/
 // convention instead of always following the device's browser locale.

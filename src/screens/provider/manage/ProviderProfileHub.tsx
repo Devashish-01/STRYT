@@ -5,6 +5,7 @@ import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { Skeleton, ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow } from "@/components/settings";
+import HatSwitcherCard from "@/components/HatSwitcherCard";
 import ProviderManageNav from "./ProviderManageNav";
 import {
   User, Clock, Image as ImageIcon, BadgeCheck, Settings,
@@ -153,6 +154,8 @@ export default function ProviderProfileHub() {
             </div>
           )}
         </div>
+
+        <HatSwitcherCard showManageLink={false} />
 
         <button
           type="button"

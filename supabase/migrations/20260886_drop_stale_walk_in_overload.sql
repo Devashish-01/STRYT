@@ -1,0 +1,20 @@
+-- ============================================================
+-- Drop the stale appointment_create_walk_in(11-arg) overload
+-- ============================================================
+-- Discovered while verifying 20260885: this database's live
+-- appointment_create_walk_in was still the pre-party-size 11-arg signature —
+-- 20260857_notification_dedup_reschedule_and_walkin_party.sql's DROP+CREATE
+-- of the 12-arg (p_party_size) version was never actually applied here,
+-- despite that file's own header claiming it was applied to production on
+-- 2026-07-27. Because 20260885's `drop function if exists` targeted the
+-- (never-live) 12-arg signature, it was a no-op, and 20260885's `create or
+-- replace` added the correct 13-arg version ALONGSIDE the stale 11-arg one
+-- instead of replacing it — two live overloads instead of one.
+--
+-- The 11-arg overload has no p_party_size or p_target_package_key parameter
+-- names, so PostgREST (which resolves RPC calls by named parameter, not
+-- position) can't match it against the client's calls, which always send
+-- both — so this hasn't been silently misrouting bookings. It's dead code,
+-- not a live bug, but it violates this project's "one signature per
+-- function" convention and should not be left sitting in the schema.
+drop function if exists public.appointment_create_walk_in(text, text, text, text, timestamptz, text, text, text, text, numeric, jsonb);

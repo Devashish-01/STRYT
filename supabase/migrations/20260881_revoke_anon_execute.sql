@@ -66,3 +66,24 @@ revoke execute on function public.sync_request_me_too() from anon;
 -- DEFINER function is anon-callable the moment it exists. Add an explicit
 -- `revoke execute on function ... from anon;` in the same migration unless the
 -- function is genuinely meant to be reachable without a session.
+--
+-- ⚠️ CORRECTION (see 20260887) — the rule above is necessary but NOT sufficient,
+-- and this migration got it wrong. Tracing callers in src/ is only half the
+-- job: RLS policy quals call functions too, and a policy expression is
+-- evaluated as the QUERYING role. If a role that a policy applies to cannot
+-- EXECUTE a function in its qual, Postgres aborts the entire statement at
+-- executor init — before any AND/OR short-circuit, so even an unreachable
+-- branch kills the query.
+--
+-- This file revoked five such functions (is_admin, is_admin(text),
+-- is_society_member, is_society_admin, can_manage_business) and killed all
+-- guest browsing: read_categories/read_businesses/read_providers each subquery
+-- public.users, whose read_users policy called is_admin. can_manage_business
+-- was revoked despite 20260854:13-17 documenting it as a deliberate carve-out
+-- for exactly this reason.
+--
+-- So, before revoking: also grep pg_policies.qual/with_check. If the function
+-- appears there, either scope the policy `TO authenticated` (preferred — anon
+-- then never initializes it, and the revoke can stand) or keep the grant for
+-- the roles the policy applies to. `npm run check-policy-grants` now enforces
+-- this; run it after any grant/revoke/policy change.

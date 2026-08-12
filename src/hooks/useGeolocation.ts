@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 export interface UseGeolocationOptions {
-  /** Coords already saved on the user profile (LocationPermission / Settings). */
+  /** Coords already saved on the user profile (onboarding / Settings). */
   storedLat?: number;
   storedLng?: number;
 }

@@ -1,721 +1,181 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Camera,
-  Loader,
-  LogOut,
-  ArrowRight,
-  User as UserIcon,
-  MapPin,
-  Navigation,
-  Globe,
-  Sliders,
-  X,
-} from "@/components/Icons";
+import { LogOut } from "@/components/Icons";
 import { useApp } from "@/store";
-import { isPhoneName, normalizeAlias, isValidAlias } from "@/lib/publicName";
-import { userService, uploadService } from "@/services";
-import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
-import RadiusSelector from "@/components/RadiusSelector";
-import { nativeGeolocation } from "@/lib/nativeGeolocation";
-import { useI18n, type Lang } from "@/lib/i18n";
+import { useI18n } from "@/lib/i18n";
+import { isUnusableName, normalizeAlias } from "@/lib/publicName";
+import { userService } from "@/services";
+import StreetScene from "@/components/StreetScene";
+import BrandLockup from "@/components/BrandLockup";
+import { BeatIdentity } from "./onboard/BeatIdentity";
+import { BeatHandle } from "./onboard/BeatHandle";
+import { BeatLocation, type PickedPlace } from "./onboard/BeatLocation";
+import { BeatInterests } from "./onboard/BeatInterests";
 
-// Types for onboarding steps
+/**
+ * First-run onboarding — "light up your street".
+ *
+ * Replaces a single page of seven inputs (name, handle, location, avatar
+ * upload, emoji picker, phone, language, radius slider) with four
+ * one-question beats, of which two are a single tap and two are skippable.
+ * Avatar, phone and radius are gone from signup entirely — Google already
+ * supplies an avatar, phone means something at first booking rather than here,
+ * and a radius slider is a settings-screen control that can't mean anything to
+ * someone who hasn't seen the app yet. All three remain in ProfileEdit.
+ *
+ * The progress indicator is the street itself: StreetScene renders exactly
+ * four lamps, so each answered beat lights one. Nothing new was invented for
+ * it — an existing brand asset just became functional.
+ *
+ * Every beat commits as it completes and `onboardingCompletedAt` is written
+ * only at the very end, so abandoning halfway loses nothing and returning
+ * resumes at the right question instead of restarting.
+ */
 
-
-const EMOJI_AVATARS = ["🦊", "🐯", "🐨", "🦉", "🎨", "🚀", "🍕", "🥑", "⚽", "🎯"];
-
-const LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "hi", label: "Hindi (हिंदी)" },
-  { code: "mr", label: "Marathi (मराठी)" },
-];
-
-
+/** Remembers how far an abandoned run got, for the two optional beats. The
+ *  required beats resolve from real saved data instead, so this can never
+ *  skip someone past a question they haven't actually answered. */
+const BEAT_KEY = "ob_beat";
+const TOTAL_BEATS = 4;
 
 export default function UserOnboard() {
   const nav = useNavigate();
   const { user, refreshUser, setArea, showToast, signOut } = useApp();
-  const { t, setLang } = useI18n();
+  const { t } = useI18n();
 
-  // 1. Necessary / Required Setup Fields — never prefill the seed placeholder
-  // or a raw phone number into the name field.
-  const [name, setName] = useState(
-    user.name && user.name !== "New user" && !isPhoneName(user.name) ? user.name : ""
-  );
+  // Resolved once, as the initial state rather than in an effect: an effect
+  // would render beat 1 for a frame before correcting itself, so anyone
+  // resuming would see the flow flick past a question they already answered.
+  // Safe to read `user` here — the router only mounts this screen once the
+  // real profile has loaded (it gates on `user.id`).
+  const [beat, setBeat] = useState(() => {
+    if (isUnusableName(user.name)) return 0;
+    if (!user.alias) return 1;
+    const saved = Number(localStorage.getItem(BEAT_KEY) ?? 2);
+    return Math.min(Math.max(Number.isFinite(saved) ? saved : 2, 2), TOTAL_BEATS - 1);
+  });
+  const [busy, setBusy] = useState(false);
+  const [revealing, setRevealing] = useState(false);
+  // Held locally so a beat can use the freshly-entered value before the
+  // profile round-trip has landed (the handle suggestions need the name).
+  const [name, setName] = useState(user.name);
 
-  // Unique public handle — collected up front at first sign-in (required).
-  const [username, setUsername] = useState(user.alias ?? "");
-
-  // Location setup
-  const [areaInput, setAreaInput] = useState(user.area || "");
-  const [lat, setLat] = useState(user.lat || 0);
-  const [lng, setLng] = useState(user.lng || 0);
-  const [locating, setLocating] = useState(false);
-  const [locQuery, setLocQuery] = useState("");
-  const [locResults, setLocResults] = useState<GeoPlace[]>([]);
-
-  // 2. Optional Settings & Preferences
-  const [avatar, setAvatar] = useState(user.avatar || "");
-  const [phone, setPhone] = useState(user.phone || "");
-  const [language, setLanguage] = useState(user.language || "en");
-  const [radius, setRadius] = useState(user.notificationRadiusKm || 5);
-
-  const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  function selectEmoji(emoji: string) {
-    const bgColors = ["var(--red-400)", "var(--accent-500)", "var(--amber-500)", "var(--green-500)", "var(--blue-500)", "var(--brand-400)", "var(--brand-300)", "var(--pink-500)"];
-    const randomBg = bgColors[Math.floor(Math.random() * bgColors.length)];
-    const svgString = `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><rect width='100%' height='100%' fill='${encodeURIComponent(
-      randomBg
-    )}'/><text x='50%' y='55%' font-size='56' text-anchor='middle' dominant-baseline='central'>${emoji}</text></svg>`;
-    const dataUri = `data:image/svg+xml;utf8,${svgString}`;
-    setAvatar(dataUri);
+  function advance(to: number) {
+    localStorage.setItem(BEAT_KEY, String(to));
+    setBeat(to);
   }
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (fileInputRef.current) fileInputRef.current.value = "";
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      showToast(t("photo_too_large"));
-      return;
-    }
-
-    setUploading(true);
+  /** Wraps a save so one failure can never strand someone mid-flow. */
+  async function step(save: () => Promise<void>, to: number) {
+    setBusy(true);
     try {
-      const url = await uploadService.upload(file, "avatar");
-      setAvatar(url);
-      await userService.update({ avatar: url });
-      await refreshUser();
-      showToast(t("upload_success"));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Upload failed";
-      showToast(msg);
+      await save();
+      advance(to);
+    } catch (err: any) {
+      const isDuplicate = err?.code === "23505" || /duplicate|unique|alias/i.test(err?.message ?? "");
+      showToast(isDuplicate ? t("ob_handle_taken") : err?.message || "Couldn't save. Try again.");
     } finally {
-      setUploading(false);
+      setBusy(false);
     }
   }
 
-  async function searchPlaces(q: string) {
-    setLocQuery(q);
-    if (q.trim().length < 2) {
-      setLocResults([]);
-      return;
-    }
-    try {
-      setLocResults(await forwardGeocode(q));
-    } catch {
-      /* ignore */
-    }
-  }
-
-  function pickPlace(p: GeoPlace) {
-    setLat(p.lat);
-    setLng(p.lng);
-    setAreaInput(p.area);
-    setLocQuery("");
-    setLocResults([]);
-    showToast(t("picked_location_prefix") + p.area);
-  }
-
-  async function getGPSLocation() {
-    setLocating(true);
-    nativeGeolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude } = pos.coords;
-        setLat(latitude);
-        setLng(longitude);
-        try {
-          const areaName = await reverseGeocode(latitude, longitude);
-          if (areaName) setAreaInput(areaName);
-          showToast(t("gps_updated"));
-        } catch {
-          showToast(t("gps_failed"));
-        } finally {
-          setLocating(false);
-        }
-      },
-      () => {
-        setLocating(false);
-        showToast(t("gps_denied"));
-      },
-      { enableHighAccuracy: false, timeout: 8000 }
-    );
-  }
-
-  async function handleSave() {
-    const trimmedName = name.trim();
-
-    if (!trimmedName || trimmedName === "New user") {
-      showToast(t("enter_name_warning"));
-      return;
-    }
-
-    if (!isValidAlias(username)) {
-      showToast("Pick a username: 3–20 letters, numbers, . or _");
-      return;
-    }
-
-    let resolvedLat = lat;
-    let resolvedLng = lng;
-    if (areaInput.trim() && (lat === 0 || lng === 0)) {
-      try {
-        const places = await forwardGeocode(areaInput.trim());
-        if (places.length > 0) {
-          resolvedLat = places[0].lat;
-          resolvedLng = places[0].lng;
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-
-    setSaving(true);
+  async function finish(interestCategoryIds: string[]) {
+    setBusy(true);
     try {
       await userService.update({
-        name: trimmedName,
-        alias: normalizeAlias(username),
-        area: areaInput.trim() || undefined,
-        lat: resolvedLat || undefined,
-        lng: resolvedLng || undefined,
-        avatar: avatar || undefined,
-        phone: phone || undefined,
-        language,
-        notificationRadiusKm: radius,
+        interestCategoryIds,
         onboardingCompletedAt: new Date().toISOString(),
       });
-
-      if (areaInput.trim()) setArea(areaInput.trim());
-      localStorage.setItem("settings_radius", String(radius));
-      localStorage.setItem("locationPromptShown", "true");
+      localStorage.removeItem(BEAT_KEY);
       await refreshUser();
-      showToast(t("account_setup_complete"));
-      nav("/home");
+      // The payoff: all four lamps lit before Home takes over. Kept short, and
+      // skipped outright when the viewer has asked for reduced motion.
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      if (reduced) { nav("/home", { replace: true }); return; }
+      setRevealing(true);
+      setTimeout(() => nav("/home", { replace: true }), 1100);
     } catch (err: any) {
-      // The partial unique index on lower(alias) rejects a taken handle.
-      const isDuplicate = err?.code === "23505" || /duplicate|unique|alias/i.test(err?.message ?? "");
-      showToast(
-        isDuplicate
-          ? `"@${normalizeAlias(username)}" is already taken — try another username`
-          : err instanceof Error ? err.message : "Failed to update profile"
-      );
-    } finally {
-      setSaving(false);
+      showToast(err?.message || "Couldn't save. Try again.");
+      setBusy(false);
     }
   }
 
+  const litCount = revealing ? TOTAL_BEATS : beat;
+
   return (
-    <div
-      className="screen"
-      style={{
-        background: "linear-gradient(160deg, var(--brand-50) 0%, var(--brand-100) 60%, var(--brand-200) 100%)",
-        color: "var(--ink-900)",
-      }}
-    >
-      {/* Glow blobs */}
-      <div
-        style={{
-          position: "absolute",
-          top: "-5%",
-          left: "-10%",
-          width: "250px",
-          height: "250px",
-          background: "rgba(187, 71, 245, 0.15)",
-          borderRadius: "50%",
-          filter: "blur(70px)",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          bottom: "10%",
-          right: "-10%",
-          width: "220px",
-          height: "220px",
-          background: "rgba(255, 149, 0, 0.1)",
-          borderRadius: "50%",
-          filter: "blur(60px)",
-          pointerEvents: "none",
-        }}
-      />
+    <div className="ob-screen">
+      <StreetScene litCount={litCount} />
 
-      <div
-        className="screen-scroll page-pad col"
-        style={{
-          paddingBottom: 48,
-          alignItems: "center",
-          zIndex: 10,
-        }}
-      >
-        {/* Header Bar */}
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "100%", padding: "16px 4px 8px", zIndex: 100 }}>
-          <div style={{ fontWeight: 800, fontSize: 16, color: "var(--brand-700)", letterSpacing: -0.5 }}>STRYT</div>
-        </div>
-
-        <div style={{ textAlign: "center", marginTop: 16, marginBottom: 20, width: "100%" }}>
-          <h1 className="h1" style={{ letterSpacing: -0.5, color: "var(--ink-900)" }}>
-            {t("welcome_to_stryt")}
-          </h1>
-          <p style={{ marginTop: 6, fontSize: 13.5, color: "var(--ink-600)" }}>
-            {t("customize_profile_desc")}
-          </p>
-        </div>
-
-        {/* Premium Live ID Card Preview */}
-        <div 
-          className="profile-preview-card"
-          style={{
-            background: "linear-gradient(135deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.45))",
-            backdropFilter: "blur(20px)",
-            borderRadius: 24,
-            border: "1px solid rgba(255, 255, 255, 0.5)",
-            padding: "24px 20px",
-            boxShadow: "0 16px 36px rgba(160, 32, 224, 0.08)",
-            width: "100%",
-            maxWidth: 320,
-            marginBottom: 24,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            textAlign: "center",
-            position: "relative",
-            overflow: "hidden"
-          }}
-        >
-          <div style={{
-            position: "absolute", top: 0, left: 0, right: 0, height: 4,
-            background: "linear-gradient(90deg, var(--brand-500), var(--orange-500), var(--green-500))"
-          }} />
-
-          {/* Avatar Display */}
-          <div style={{
-            width: 72, height: 72,
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, var(--brand-100), var(--brand-200))",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 34,
-            marginBottom: 12,
-            boxShadow: "0 8px 16px rgba(160,32,224,0.12)",
-            border: "2px solid #fff"
-          }}>
-            {avatar ? (
-              avatar.startsWith("data:") || avatar.startsWith("http") ? (
-                <img src={avatar} alt="Avatar" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover" }} />
-              ) : (
-                avatar
-              )
-            ) : (
-              "👋"
-            )}
-          </div>
-
-          {/* Live Name */}
-          <div style={{ fontWeight: 800, fontSize: 18, color: "var(--ink-900)", wordBreak: "break-word", maxWidth: "100%" }}>
-            {name || t("full_name")}
-          </div>
-
-          {/* Location / Area Info */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 12, fontSize: 10.5, fontWeight: 700, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: 0.5 }}>
-            <span>📍</span> {areaInput || "Not Set"}
-          </div>
-        </div>
-
-        {/* ── 1. Necessary Account Setup Card (REQUIRED *) ── */}
-        <div
-          style={{
-            width: "100%",
-            background: "#fff",
-            border: "1.5px solid var(--brand-300)",
-            borderRadius: 24,
-            padding: 24,
-            boxShadow: "0 8px 24px rgba(160, 32, 224, 0.08)",
-            marginBottom: 20,
-          }}
-        >
-          <div className="row gap-8" style={{ marginBottom: 18, alignItems: "center" }}>
-            <span style={{ fontSize: 11, fontWeight: 900, background: "var(--brand-600)", color: "#fff", padding: "4px 10px", borderRadius: 8, letterSpacing: 0.5 }}>
-              {t("necessary_setup")}
-            </span>
-          </div>
-
-          {/* Name Field */}
-          <div className="field" style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-              {t("full_name")} *
-            </label>
-            <input
-              type="text"
-              className="input"
-              style={{
-                width: "100%",
-                padding: "12px 14px",
-                fontSize: 16,
-                background: "var(--ink-50)",
-                border: "1.5px solid var(--ink-200)",
-                borderRadius: 14,
-                color: "var(--ink-900)",
-                outline: "none",
-              }}
-              placeholder={t("full_name_placeholder")}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={saving}
-              maxLength={40}
-              required
-            />
-          </div>
-
-          {/* Username Field (unique, required) */}
-          <div className="field" style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-              Username *
-            </label>
-            <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 14, top: 13, fontSize: 15, fontWeight: 700, color: "var(--ink-400)" }}>@</span>
-              <input
-                type="text"
-                className="input"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px 12px 30px",
-                  fontSize: 16,
-                  background: "var(--ink-50)",
-                  border: "1.5px solid var(--ink-200)",
-                  borderRadius: 14,
-                  color: "var(--ink-900)",
-                  outline: "none",
-                }}
-                placeholder="yourname"
-                value={username}
-                onChange={(e) => setUsername(normalizeAlias(e.target.value))}
-                disabled={saving}
-                maxLength={20}
-                autoCapitalize="none"
-                autoCorrect="off"
-                spellCheck={false}
-              />
-            </div>
-            <div className="tiny" style={{ marginTop: 5, color: username && !isValidAlias(username) ? "var(--red-500)" : "var(--ink-500)" }}>
-              {username && !isValidAlias(username)
-                ? "3–20 characters: letters, numbers, . or _"
-                : "Your unique public handle — how neighbors find you."}
-            </div>
-          </div>
-
-          {/* Location Area Field (optional but recommended) */}
-          <div className="field">
-            <div className="row space-between" style={{ marginBottom: 6, alignItems: "center" }}>
-              <label style={{ fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-                {t("neighborhood_location")} <span style={{ color: "var(--ink-400)", fontWeight: 600 }}>{t("optional_bracket")}</span>
-              </label>
-              <button
-                type="button"
-                onClick={getGPSLocation}
-                disabled={locating}
-                className="row center gap-4"
-                style={{ background: "none", border: "none", color: "var(--brand-600)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-              >
-                {locating ? <Loader className="spin" size={12} /> : <Navigation size={12} />} {t("gps_auto")}
-              </button>
-            </div>
-
-            <div style={{ position: "relative" }}>
-              <input
-                type="text"
-                className="input"
-                style={{
-                  width: "100%",
-                  padding: "12px 14px 12px 38px",
-                  fontSize: 15,
-                  background: "var(--ink-50)",
-                  border: "1.5px solid var(--ink-200)",
-                  borderRadius: 14,
-                  color: "var(--ink-900)",
-                }}
-                placeholder={t("neighborhood_placeholder")}
-                value={locQuery || areaInput}
-                onChange={(e) => {
-                  setAreaInput(e.target.value);
-                  void searchPlaces(e.target.value);
-                }}
-              />
-              <MapPin size={16} color="var(--brand-600)" style={{ position: "absolute", left: 12, top: 14 }} />
-              {locQuery && (
-                <button
-                  type="button"
-                  onClick={() => { setLocQuery(""); setLocResults([]); }}
-                  style={{ position: "absolute", right: 12, top: 12, background: "none", border: "none", cursor: "pointer" }}
-                >
-                  <X size={16} color="var(--ink-400)" />
-                </button>
-              )}
-            </div>
-
-            {/* Location Search Results dropdown */}
-            {locResults.length > 0 && (
-              <div
-                className="card"
-                style={{
-                  marginTop: 6,
-                  padding: 4,
-                  maxHeight: 180,
-                  overflowY: "auto",
-                  border: "1.5px solid var(--brand-300)",
-                  boxShadow: "var(--shadow-md)",
-                }}
-              >
-                {locResults.map((p, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    className="row gap-8 center-v"
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      textAlign: "left",
-                      background: "none",
-                      border: "none",
-                      borderRadius: 8,
-                      cursor: "pointer",
-                    }}
-                    onClick={() => pickPlace(p)}
-                  >
-                    <MapPin size={14} color="var(--brand-600)" style={{ flexShrink: 0 }} />
-                    <span className="small bold truncate">{p.area}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── 2. Optional Settings & Preferences Card (OPTIONAL) ── */}
-        <div
-          style={{
-            width: "100%",
-            background: "#fff",
-            border: "1px solid var(--ink-200)",
-            borderRadius: 24,
-            padding: 24,
-            boxShadow: "var(--shadow-md)",
-            marginBottom: 32,
-          }}
-        >
-          <div className="row gap-8" style={{ marginBottom: 20, alignItems: "center" }}>
-            <span style={{ fontSize: 11, fontWeight: 800, background: "var(--ink-100)", color: "var(--ink-600)", padding: "4px 10px", borderRadius: 8, letterSpacing: 0.5 }}>
-              {t("optional_settings_title")}
-            </span>
-          </div>
-
-          {/* Photo upload / Emoji Picker */}
-          <div className="col center" style={{ gap: 12, marginBottom: 24 }}>
-            <div style={{ position: "relative" }}>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  width: 90,
-                  height: 90,
-                  borderRadius: "50%",
-                  border: "2.5px solid var(--brand-200)",
-                  background: "var(--ink-50)",
-                  overflow: "hidden",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  position: "relative"
-                }}
-              >
-                {avatar ? (
-                  <img src={avatar} alt="Avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                ) : (
-                  <UserIcon size={32} color="var(--ink-400)" />
-                )}
-                {uploading && (
-                  <div style={{
-                    position: "absolute",
-                    inset: 0,
-                    background: "rgba(0,0,0,0.4)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#fff"
-                  }}>
-                    <Loader className="spin" size={20} />
-                  </div>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  position: "absolute",
-                  bottom: -2,
-                  right: -2,
-                  background: "var(--brand-600)",
-                  border: "2px solid #fff",
-                  borderRadius: "50%",
-                  width: 30,
-                  height: 30,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  cursor: "pointer",
-                  boxShadow: "var(--shadow-sm)"
-                }}
-              >
-                <Camera size={14} />
-              </button>
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/*"
-                style={{ display: "none" }}
-              />
-            </div>
-            <span style={{ fontSize: 12, color: "var(--ink-500)" }}>{t("profile_photo")} {t("optional_bracket")}</span>
-
-            {/* Emoji Quick Picker */}
-            <div className="col gap-6" style={{ width: "100%", marginTop: 4 }}>
-              <span className="tiny semi" style={{ color: "var(--ink-500)", textAlign: "center" }}>{t("or_pick_emoji")}</span>
-              <div className="row gap-6" style={{ flexWrap: "wrap", justifyContent: "center" }}>
-                {EMOJI_AVATARS.map((emoji) => (
-                  <button
-                    key={emoji}
-                    type="button"
-                    onClick={() => selectEmoji(emoji)}
-                    style={{
-                      fontSize: 20,
-                      padding: 6,
-                      borderRadius: 10,
-                      border: "1px solid var(--ink-200)",
-                      background: "var(--ink-50)",
-                      cursor: "pointer",
-                      transition: "all 0.15s"
-                    }}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Optional Mobile Phone */}
-          <div className="field" style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-              {t("mobile_phone")}
-            </label>
-            <input
-              type="tel"
-              className="input"
-              style={{
-                width: "100%",
-                padding: "12px 14px",
-                fontSize: 15,
-                background: "var(--ink-50)",
-                border: "1.5px solid var(--ink-200)",
-                borderRadius: 14,
-                color: "var(--ink-900)",
-              }}
-              placeholder={t("mobile_phone_placeholder")}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-              disabled={saving}
-              maxLength={10}
-            />
-          </div>
-
-          {/* Language & Notification Radius preferences */}
-          <div className="row gap-12" style={{ marginBottom: 20 }}>
-            <div className="field grow">
-              <label style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, fontWeight: 700, fontSize: 13, color: "var(--ink-700)" }}>
-                <Globe size={13} color="var(--brand-600)" /> {t("language")}
-              </label>
-              <select
-                className="input"
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  fontSize: 14,
-                  background: "var(--ink-50)",
-                  border: "1.5px solid var(--ink-200)",
-                  borderRadius: 14,
-                  color: "var(--ink-900)",
-                }}
-                value={language}
-                onChange={(e) => {
-                  const newLang = e.target.value as Lang;
-                  setLanguage(newLang);
-                  setLang(newLang);
-                }}
-              >
-                {LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>{l.label}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="field" style={{ marginBottom: 20 }}>
-            <RadiusSelector
-              value={radius}
-              onChange={setRadius}
-              accentColor="var(--brand-600)"
-              label={t("alert_radius")}
-              description={t("alert_radius_desc")}
-            />
-          </div>
-
-        </div>
-
-        {/* Action Button */}
-        <button
-          className="btn btn-primary btn-block row center gap-8"
-          onClick={handleSave}
-          disabled={saving || !name.trim() || !isValidAlias(username)}
-          style={{ padding: "16px", fontSize: 16, fontWeight: 700, borderRadius: 16, width: "100%", zIndex: 10 }}
-        >
-          {saving ? (
-            <>
-              <Loader className="spin" size={18} /> {t("saving_setup")}
-            </>
-          ) : (
-            <>
-              {t("save_get_started")} <ArrowRight size={18} />
-            </>
-          )}
-        </button>
-
-        {/* Log Out Button */}
-        <button
-          onClick={() => {
-            signOut();
-            nav("/");
-          }}
-          className="row center gap-6"
-          style={{
-            marginTop: 32,
-            background: "none",
-            border: "none",
-            color: "var(--ink-500)",
-            cursor: "pointer",
-            fontSize: 14,
-            fontWeight: 600,
-            zIndex: 10
-          }}
-        >
-          <LogOut size={16} /> {t("sign_out")}
-        </button>
-
+      <div className="ob-top">
+        <BrandLockup glow={0.85} size={22} />
       </div>
+
+      <div className="ob-stage">
+        {revealing ? (
+          <div className="ob-reveal">{t("ob_reveal")}</div>
+        ) : (
+          <>
+            {beat === 0 && (
+              <BeatIdentity
+                name={user.name}
+                avatar={user.avatar}
+                busy={busy}
+                onDone={(n) =>
+                  step(async () => {
+                    await userService.update({ name: n });
+                    setName(n);
+                  }, 1)
+                }
+              />
+            )}
+
+            {beat === 1 && (
+              <BeatHandle
+                name={name}
+                email={user.email}
+                busy={busy}
+                onDone={(alias) =>
+                  step(() => userService.update({ alias: normalizeAlias(alias) }).then(() => {}), 2)
+                }
+              />
+            )}
+
+            {beat === 2 && (
+              <BeatLocation
+                busy={busy}
+                onDone={(p: PickedPlace) =>
+                  step(async () => {
+                    await userService.setLocation(p.lat, p.lng, p.area || undefined);
+                    if (p.area) setArea(p.area);
+                    // Kept so a client still running the previous build can't
+                    // re-prompt with the old standalone location screen.
+                    localStorage.setItem("locationPromptShown", "true");
+                  }, 3)
+                }
+                onSkip={() => {
+                  localStorage.setItem("locationPromptShown", "true");
+                  advance(3);
+                }}
+              />
+            )}
+
+            {beat === 3 && (
+              <BeatInterests
+                initial={user.interestCategoryIds}
+                busy={busy}
+                onDone={finish}
+                onSkip={() => void finish([])}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {!revealing && (
+        <button className="ob-signout" onClick={() => { signOut(); nav("/"); }}>
+          <LogOut size={15} /> {t("sign_out")}
+        </button>
+      )}
     </div>
   );
 }

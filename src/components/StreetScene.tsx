@@ -11,8 +11,23 @@ import type { CSSProperties } from "react";
  * a claim we can't make there. This just says "this is a neighbourhood",
  * which is always true. Sits at the bottom, behind content, pointer-events off,
  * and goes still under prefers-reduced-motion (handled in CSS).
+ *
+ * `litCount` makes the four lamps double as first-run onboarding's progress
+ * indicator — one lamp per step, lighting as each is answered (see
+ * screens/auth/onboard/). It defaults to ALL LIT so every existing caller
+ * (PhoneEntry's hero panel) renders exactly as it always has; only the
+ * onboarding screen passes a value.
  */
-export default function StreetScene({ className, style }: { className?: string; style?: CSSProperties }) {
+export default function StreetScene({
+  className,
+  style,
+  litCount,
+}: {
+  className?: string;
+  style?: CSSProperties;
+  /** How many of the four lamps are lit, left to right. Omit for all four. */
+  litCount?: number;
+}) {
   const { rects, windows } = useMemo(() => {
     const rects: { x: number; w: number; h: number }[] = [];
     const windows: { x: number; y: number; i: number }[] = [];
@@ -66,15 +81,36 @@ export default function StreetScene({ className, style }: { className?: string; 
             />
           ))}
         </g>
-        {/* STRYT street-lamps glowing along the row */}
-        {[130, 470, 780, 1080].map((lx, i) => (
-          <g key={i} transform={`translate(${lx} 0)`}>
-            <circle className="street-lamp-glow" cx={17} cy={47} r={19} fill="var(--accent-400)" opacity={0.24} />
-            <path d="M0 120 L0 60 C0 50 10 46 19 51" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth={3} strokeLinecap="round" />
-            <path d="M12 47 L26 47 L21.5 56 L16.5 56 Z" fill="rgba(0,0,0,0.5)" />
-            <circle cx={19} cy={50} r={2.6} fill="#fff" />
-          </g>
-        ))}
+        {/* STRYT street-lamps glowing along the row. When `litCount` is given
+            these carry onboarding progress: an unlit lamp keeps its post and
+            housing (the street is still there) but loses its halo and dims its
+            bulb, so lighting one reads as the street waking up rather than as
+            an element appearing from nowhere. */}
+        {[130, 470, 780, 1080].map((lx, i) => {
+          const lit = litCount === undefined || i < litCount;
+          return (
+            <g key={i} transform={`translate(${lx} 0)`}>
+              <circle
+                className={lit ? "street-lamp-glow street-lamp-fade" : "street-lamp-fade"}
+                cx={17}
+                cy={47}
+                r={19}
+                fill="var(--accent-400)"
+                opacity={lit ? 0.24 : 0}
+              />
+              <path d="M0 120 L0 60 C0 50 10 46 19 51" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth={3} strokeLinecap="round" />
+              <path d="M12 47 L26 47 L21.5 56 L16.5 56 Z" fill="rgba(0,0,0,0.5)" />
+              <circle
+                cx={19}
+                cy={50}
+                r={2.6}
+                fill="#fff"
+                opacity={lit ? 1 : 0.22}
+                className="street-lamp-fade"
+              />
+            </g>
+          );
+        })}
       </svg>
     </div>
   );

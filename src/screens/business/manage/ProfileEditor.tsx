@@ -9,6 +9,7 @@ import RadiusSelector from "@/components/RadiusSelector";
 import MiniMap from "@/components/MiniMap";
 import LocationPicker from "@/components/LocationPicker";
 import { Camera, MapPin, X } from "@/components/Icons";
+import ManageNav from "./ManageNav";
 
 
 export default function ProfileEditor() {
@@ -144,19 +145,20 @@ export default function ProfileEditor() {
 
   if (loading) {
     return (
-      <div className="screen">
+      <div className="screen with-nav">
         <AppBar title="Edit profile" />
         <div className="page-pad col gap-12" style={{ marginTop: 12 }}>
           <Skeleton h={130} mb={0} />
           <Skeleton h={44} mb={0} />
           <Skeleton h={80} mb={0} />
         </div>
+        <ManageNav bizId={id} />
       </div>
     );
   }
 
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <AppBar title="Edit profile" subtitle={b?.name} />
       {/* paddingBottom clears the sticky "Save changes" bar below —
           ProviderProfileEditor.tsx (this screen's provider twin) already has
@@ -298,6 +300,7 @@ export default function ProfileEditor() {
           </div>
         </div>
       )}
+      <ManageNav bizId={id} />
     </div>
   );
 }

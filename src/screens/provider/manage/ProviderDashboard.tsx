@@ -19,6 +19,9 @@ import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandHome from "@/components/BrandHome";
 import { AccountStatusBanner } from "@/components/AccountStatusBanner";
 import { SetupChecklist } from "@/components/SetupChecklist";
+import { ConsoleTile, ConsoleTileGrid, CAPABILITY_TONE, CAPABILITY_ICON } from "@/components/console/ConsoleTile";
+import { BUSINESS_PACKAGES, resolvePackage, type ConsoleCapability } from "@/lib/businessPackages";
+import { buildConsoleSteps, consoleFor, type CapabilityState } from "@/lib/consoleSteps";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
@@ -161,13 +164,55 @@ export default function ProviderDashboard() {
   const isDefaultAvailability = !p?.availabilityNote
     || serializeHoursValue(parseHoursValue(p.availabilityNote)) === serializeHoursValue(parseHoursValue(DEFAULT_ONBOARD_WORKING_HOURS));
 
-  // Guided setup checklist — shown until every step is done.
-  const checklistItems = [
-    { label: "Add a service to your catalog", done: (p?.catalog?.length ?? 0) > 0, onClick: () => nav(`${base}/catalog`) },
-    { label: "Set your availability", done: !isDefaultAvailability, onClick: () => nav(`${base}/availability`) },
-    { label: "Upload verification", done: !!p?.verificationStatus, onClick: () => nav(`${base}/verify`) },
-    { label: "Post your first community update", done: (provPosts?.length ?? 0) > 0, onClick: () => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } }) },
-  ];
+  // Business Packages — same config that themes the business console, applied
+  // to a provider. A home cook resolves to a food package and gets kitchen
+  // wording; an unmapped provider keeps today's generic wording exactly.
+  const pkg = BUSINESS_PACKAGES[resolvePackage(p ?? {})];
+  const pkgKey = resolvePackage(p ?? {});
+  const consoleCfg = consoleFor(pkg, "provider");
+  const bookingsOn = p?.bookingsEnabled ?? pkg.bookingsDefault;
+
+  // A provider has no queue and no delivery fleet — those capabilities are
+  // simply not supplied, and buildConsoleSteps drops them rather than
+  // rendering a tile that goes nowhere.
+  const capabilities: Partial<Record<ConsoleCapability, CapabilityState>> = {
+    catalog: {
+      done: (p?.catalog?.length ?? 0) > 0,
+      onClick: () => nav(`${base}/catalog`),
+      value: (p?.catalog?.length ?? 0) > 0 ? `${p!.catalog!.length} listed` : undefined,
+    },
+    photos: {
+      done: (p?.portfolio?.length ?? 0) > 0,
+      onClick: () => nav(`${base}/portfolio`),
+    },
+    hours: { done: !isDefaultAvailability, onClick: () => nav(`${base}/availability`) },
+    verify: { done: !!p?.verificationStatus, onClick: () => nav(`${base}/verify`) },
+    promote: {
+      done: (provPosts?.length ?? 0) > 0,
+      onClick: () => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } }),
+    },
+    payments: { onClick: () => nav(`${base}/money`) },
+    ...(bookingsOn ? {
+      bookings: {
+        done: !isDefaultAvailability,
+        onClick: () => nav(`${base}/jobs`),
+        value: upcomingAppts.length > 0 ? `${upcomingAppts.length} upcoming` : undefined,
+      },
+    } : {}),
+  };
+
+  const checklistItems = buildConsoleSteps(consoleCfg.setup, capabilities);
+  const actionTiles = buildConsoleSteps(consoleCfg.actions, capabilities);
+
+  // A provider's untouched identity is GREEN, not brand purple — the same
+  // reason ProviderDetail.tsx overrides its accents for "generic". Letting the
+  // shared CAPABILITY_TONE purple through here would silently repaint every
+  // unmapped provider's console. Themed providers keep the shared tones so a
+  // food provider reads the same as a food business.
+  const tileTone = (cap: ConsoleCapability) =>
+    pkgKey === "generic"
+      ? { tint: "var(--green-100)", accent: "var(--green-600)" }
+      : CAPABILITY_TONE[cap];
 
   async function toggleAvail() {
     const prev = available;
@@ -353,7 +398,26 @@ export default function ProviderDashboard() {
         {/* ── Guided setup checklist — new providers only ── */}
         {p && (
           <div className="page-pad">
-            <SetupChecklist title="Finish setting up your profile" items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
+            <SetupChecklist title={consoleCfg.setupTitle} items={checklistItems} storageKey={`stryt_checklist_dismissed_${id}`} />
+          </div>
+        )}
+
+        {/* Your tools — named by trade, ordered by the package config. */}
+        {actionTiles.length > 0 && (
+          <div className="page-pad" style={{ paddingTop: 0 }}>
+            <ConsoleTileGrid>
+              {actionTiles.map((t) => (
+                <ConsoleTile
+                  key={t.id}
+                  icon={CAPABILITY_ICON[t.id]}
+                  label={t.label}
+                  sub={t.hint}
+                  tint={tileTone(t.id).tint}
+                  accent={tileTone(t.id).accent}
+                  onClick={t.onClick}
+                />
+              ))}
+            </ConsoleTileGrid>
           </div>
         )}
 

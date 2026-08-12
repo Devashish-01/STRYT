@@ -469,15 +469,16 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
 
   return (
     <>
-      <div className="card queue-row-enter">
-        <button className="row gap-10" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`/community/${post.id}`, { state: { post } })}>
+      <div className="card community-card-squircle queue-row-enter" style={{ padding: 16 }}>
+        <button className="row gap-12" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`/community/${post.id}`, { state: { post } })}>
           <SafeImg
             src={post.authorAvatar}
             variant={post.authorType === "business" ? "photo" : "avatar"}
             className="avatar"
             style={{
-              width: 40, height: 40,
-              border: post.authorType === "business" ? "2px solid var(--orange-500)" : post.authorType === "provider" ? "2px solid var(--green-500)" : "none",
+              width: 44, height: 44, borderRadius: "50%",
+              border: post.authorType === "business" ? "2.5px solid var(--orange-500)" : post.authorType === "provider" ? "2.5px solid var(--green-500)" : "2px solid var(--ink-200)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)"
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -490,33 +491,37 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
               }
             }}
           />
-          <div className="grow">
-            <div className="row between">
-              <span className="row gap-6 center-v">
-                <span className="semi small">{post.authorName}</span>
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="row between gap-6">
+              <span className="row gap-6 center-v" style={{ minWidth: 0 }}>
+                <span className="semi small ellipsis" style={{ fontSize: 14.5, color: "var(--ink-900)" }}>{post.authorName}</span>
                 {post.authorType && post.authorType !== "user" && (
-                  <span className={`badge ${post.authorType === "business" ? "badge-orange" : "badge-green"}`} style={{ fontSize: 9, padding: "2px 6px" }}>
+                  <span className={`badge ${post.authorType === "business" ? "badge-orange" : "badge-green"}`} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 8 }}>
                     {post.authorType === "business" ? "🏪 Business" : "🔧 Provider"}
                   </span>
                 )}
               </span>
-              <span className={`badge badge-${M.tone}`}>{M.emoji} {M.label}</span>
+              <span className={`badge badge-${M.tone}`} style={{ fontSize: 11, padding: "3px 9px", borderRadius: 10 }}>{M.emoji} {M.label}</span>
             </div>
-            <span className="tiny muted row gap-4"><MapPin size={11} /> {post.area} • {post.postedAt}</span>
+            <span className="tiny muted row gap-4" style={{ marginTop: 2 }}><MapPin size={11} /> {post.area} • {post.postedAt}</span>
           </div>
         </button>
 
-        <div className="bold" style={{ fontSize: 16, marginTop: 10 }}>
+        <div className="bold" style={{ fontSize: 16.5, marginTop: 12, letterSpacing: "-0.2px", color: "var(--ink-900)" }}>
           {post.title}
-          {post.resolved && <span className="badge badge-green" style={{ marginLeft: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
+          {post.resolved && <span className="badge badge-green" style={{ marginLeft: 8, fontSize: 10 }}><CheckCircle2 size={11} /> Resolved</span>}
         </div>
-        <p className="small" style={{ marginTop: 5, lineHeight: 1.5, color: "var(--ink-700)" }}>{post.body}</p>
+        {post.body && <p className="small" style={{ marginTop: 6, lineHeight: 1.55, color: "var(--ink-700)", fontSize: 13.5 }}>{post.body}</p>}
 
-        {post.image && <SafeImg src={post.image} alt="" className="thumb" style={{ width: "100%", height: 180, borderRadius: 14, marginTop: 10 }} />}
+        {post.image && (
+          <div style={{ borderRadius: 16, overflow: "hidden", marginTop: 12, border: "1px solid var(--ink-200)", boxShadow: "var(--shadow-sm)" }}>
+            <SafeImg src={post.image} alt="" className="thumb" style={{ width: "100%", height: 200, objectFit: "cover" }} />
+          </div>
+        )}
 
         {/* Poll */}
         {post.type === "POLL" && post.pollOptions && (
-          <div className="col gap-8" style={{ marginTop: 12 }}>
+          <div className="col gap-8" style={{ marginTop: 14 }}>
             {post.pollOptions.map((o) => {
               const voted = votedOption === o.id;
               const v = o.votes + (voted && !post.votedOptionId ? 1 : 0);
@@ -526,59 +531,104 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
                   key={o.id}
                   disabled={isGuest}
                   onClick={isGuest ? undefined : () => handleVote(o.id)}
-                  style={{ position: "relative", textAlign: "left", padding: "11px 13px", borderRadius: 10, border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)", overflow: "hidden", background: "#fff", cursor: isGuest ? "default" : "pointer", opacity: 1 }}
+                  style={{
+                    position: "relative", textAlign: "left", padding: "12px 14px", borderRadius: 14,
+                    border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)",
+                    overflow: "hidden", background: "var(--surface)", cursor: isGuest ? "default" : "pointer",
+                    boxShadow: voted ? "0 2px 10px rgba(139, 71, 245, 0.15)" : "none",
+                    transition: "transform 0.15s ease, border-color 0.2s ease"
+                  }}
                 >
-                  {votedOption && <div style={{ position: "absolute", inset: 0, width: `${pct}%`, background: voted ? "var(--brand-100)" : "var(--ink-100)" }} />}
-                  <div className="row between" style={{ position: "relative" }}>
-                    <span className="small semi">{o.label}</span>
-                    {votedOption && <span className="small semi" style={{ color: "var(--brand-700)" }}>{pct}%</span>}
+                  {votedOption && (
+                    <div
+                      style={{
+                        position: "absolute", inset: 0, width: `${pct}%`,
+                        background: voted ? "linear-gradient(90deg, var(--brand-100), var(--brand-50))" : "var(--ink-100)",
+                        transition: "width 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+                        borderRadius: 12
+                      }}
+                    />
+                  )}
+                  <div className="row between" style={{ position: "relative", zIndex: 1 }}>
+                    <span className="small semi" style={{ color: voted ? "var(--brand-900)" : "var(--ink-800)" }}>
+                      {o.label} {voted && <CheckCircle2 size={13} style={{ display: "inline", verticalAlign: "middle", marginLeft: 4 }} color="var(--brand-600)" />}
+                    </span>
+                    {votedOption && <span className="small bold tabular-nums" style={{ color: "var(--brand-700)" }}>{pct}%</span>}
                   </div>
                 </button>
               );
             })}
-            <span className="tiny muted">{totalVotes} votes</span>
+            <span className="tiny muted semi" style={{ marginLeft: 2 }}>{totalVotes} {totalVotes === 1 ? "vote" : "votes"}</span>
           </div>
         )}
 
         {/* Recommendations */}
         {displayRecs && displayRecs.length > 0 && (
-          <div className="col gap-8" style={{ marginTop: 12 }}>
+          <div className="col gap-8" style={{ marginTop: 14 }}>
             {displayRecs.map((rec) => {
               const resolved = recNames?.[rec.listingId];
               return (
-                <button key={rec.listingId} className="row gap-10" style={{ padding: 8, borderRadius: 12, background: "var(--ink-50)", textAlign: "left" }}
-                  onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}>
+                <button
+                  key={rec.listingId}
+                  className="row gap-10"
+                  style={{
+                    padding: 10, borderRadius: 14, background: "var(--ink-50)",
+                    border: "1px solid var(--ink-200)", textAlign: "left",
+                    transition: "transform 0.15s ease, background 0.2s ease"
+                  }}
+                  onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}
+                >
                   <SafeImg src={resolved?.image} variant={rec.listingType === "PROVIDER" ? "avatar" : "photo"} className="thumb" style={{ width: 44, height: 44, borderRadius: 10 }} />
-                  <div className="grow">
-                    <div className="semi small">{resolved?.name ?? "Loading…"}</div>
-                    <div className="tiny muted">{resolved?.sub}</div>
+                  <div className="grow" style={{ minWidth: 0 }}>
+                    <div className="semi small ellipsis" style={{ color: "var(--ink-900)" }}>{resolved?.name ?? "Loading…"}</div>
+                    <div className="tiny muted ellipsis">{resolved?.sub}</div>
                   </div>
-                  <span className="tiny muted">↳ {rec.byName}</span>
+                  <span className="tiny semi" style={{ color: "var(--brand-700)", background: "var(--brand-50)", padding: "3px 8px", borderRadius: 8 }}>↳ {rec.byName}</span>
                 </button>
               );
             })}
           </div>
         )}
 
-        <div className="divider" style={{ margin: "12px 0" }} />
-        {/* Guests see the counts (social proof is the hook) but get no controls:
-            the like button becomes plain text and Recommend disappears. Opening
-            the post to read it is still allowed — that's viewing, not acting. */}
-        <div className="row gap-16">
+        <div className="divider" style={{ margin: "14px 0 12px" }} />
+
+        {/* Action controls */}
+        <div className="row gap-16 center-v">
           {isGuest ? (
             <span className="row gap-6 small semi" style={{ color: "var(--ink-500)" }}>
-              <Heart size={17} /> {likeCount}
+              <Heart size={18} color="var(--ink-400)" /> {likeCount}
             </span>
           ) : (
-            <button className="row gap-6 small semi" style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }} onClick={handleLike}>
-              <Heart size={17} weight={liked ? "fill" : "regular"} /> {likeCount}
+            <button
+              className="row gap-6 small semi"
+              style={{
+                color: liked ? "var(--red-500)" : "var(--ink-600)",
+                background: liked ? "var(--red-50)" : "transparent",
+                padding: "6px 10px", borderRadius: 12,
+                transition: "all 0.2s ease"
+              }}
+              onClick={handleLike}
+            >
+              <Heart size={18} weight={liked ? "fill" : "regular"} className={liked ? "heart-animated" : ""} color={liked ? "var(--red-500)" : "var(--ink-600)"} /> {likeCount}
             </button>
           )}
-          <button className="row gap-6 small semi muted" onClick={() => nav(`/community/${post.id}`, { state: { post } })}>
-            <MessageCircle size={17} /> {post.commentsCount} {post.commentsCount === 1 ? "comment" : "comments"}
+          <button
+            className="row gap-6 small semi"
+            style={{ color: "var(--ink-600)", padding: "6px 10px", borderRadius: 12 }}
+            onClick={() => nav(`/community/${post.id}`, { state: { post } })}
+          >
+            <MessageCircle size={18} color="var(--ink-600)" /> {post.commentsCount} {post.commentsCount === 1 ? "comment" : "comments"}
           </button>
           {!isGuest && post.type === "RECOMMENDATION" && (
-            <button className="row gap-6 small semi" style={{ marginLeft: "auto", color: "var(--brand-700)" }} onClick={() => setRecommendOpen(true)}>
+            <button
+              className="row gap-6 tiny semi"
+              style={{
+                marginLeft: "auto", color: "var(--brand-700)",
+                background: "var(--brand-50)", border: "1px solid var(--brand-100)",
+                padding: "6px 12px", borderRadius: 12, fontWeight: 700
+              }}
+              onClick={() => setRecommendOpen(true)}
+            >
               + Recommend
             </button>
           )}

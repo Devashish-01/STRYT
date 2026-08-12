@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ComponentType } from "react";
+import type { ComponentType, CSSProperties } from "react";
 
 /** Minimum comfortable touch target (iOS HIG / Material both land here). */
 export const MIN_TAP_PX = 44;
@@ -12,12 +12,14 @@ export const MIN_TAP_PX = 44;
  */
 export type RingTone = "open" | "closed" | "available" | "unavailable" | "story-new" | "story-seen";
 
-const RING_BACKGROUND: Record<RingTone, string> = {
+/** Exported so popup CTAs (and anything else that must match a pin's ring)
+ *  read the same tone source — pinColors.business/provider used to drift. */
+export const RING_BACKGROUND: Record<RingTone, string> = {
   open: "var(--brand-600)",
   closed: "var(--ink-300)",
   available: "var(--green-500)",
   unavailable: "var(--ink-300)",
-  "story-new": "linear-gradient(135deg,#ff8400,var(--pink-500),var(--brand-600))",
+  "story-new": "linear-gradient(135deg,var(--accent-500),var(--pink-500),var(--brand-600))",
   "story-seen": "var(--ink-400)",
 };
 
@@ -36,23 +38,30 @@ const RING_BACKGROUND: Record<RingTone, string> = {
  *
  * Already meets the 44pt minimum tap target at its default size.
  */
-export function AvatarPin({ photo, name, tone, fallback: Fallback, size = MIN_TAP_PX }: {
+export function AvatarPin({ photo, name, tone, fallback: Fallback, size = MIN_TAP_PX, badge, livePulse }: {
   photo?: string | null;
   name?: string | null;
   tone: RingTone;
   /** Shown inside the ring when there's no photo — a Store/Briefcase glyph, so a shop with no cover image reads as "a shop with no photo yet", not a blank tinted circle. */
   fallback?: ComponentType<{ size?: number | string; color?: string }>;
   size?: number;
+  /** Optional status pill badge attached at the bottom of the pin (e.g. "🟢 Open • 2 in queue"). */
+  badge?: string | null;
+  /** Enables an ambient pulsing animation ring around the pin for active/live items. */
+  livePulse?: boolean;
 }) {
   const [broken, setBroken] = useState(false);
   const showPhoto = !!photo && !broken;
   return (
-    <span style={{ cursor: "pointer", display: "block" }}>
+    <span style={{ cursor: "pointer", display: "block", position: "relative" }}>
       <div
+        className={livePulse ? "map-pin-pulse" : undefined}
         style={{
           width: size, height: size, borderRadius: "50%", padding: 2.5,
           boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
           background: RING_BACKGROUND[tone],
+          transition: "box-shadow 0.2s ease, transform 0.2s ease",
+          ...(livePulse ? { "--pulse-color": RING_BACKGROUND[tone] } as CSSProperties : {}),
         }}
       >
         <div
@@ -74,6 +83,12 @@ export function AvatarPin({ photo, name, tone, fallback: Fallback, size = MIN_TA
           ) : null}
         </div>
       </div>
+
+      {badge ? (
+        <span className="map-pin-badge">
+          {badge}
+        </span>
+      ) : null}
     </span>
   );
 }

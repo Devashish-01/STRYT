@@ -52,7 +52,7 @@ export function LocationPinDropOverlay({
       {/* Top instruction bar */}
       <div
         style={{
-          position: "absolute", top: "calc(12px + var(--safe-area-top))", left: 16, right: 16, zIndex: 1000,
+          position: "absolute", top: "calc(12px + var(--safe-area-top))", left: "var(--map-chrome-inset)", right: "var(--map-chrome-inset)", zIndex: 1000,
           display: "flex", alignItems: "center", gap: 10,
           background: "#fff", borderRadius: 30, padding: "10px 10px 10px 18px",
           boxShadow: "var(--shadow)",
@@ -102,7 +102,7 @@ export function LocationPinDropOverlay({
         <div
           style={{
             background: "#fff", borderRadius: 20, padding: 16,
-            boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
+            boxShadow: "var(--shadow)",
           }}
         >
         <div className="row gap-8" style={{ alignItems: "center", marginBottom: 14 }}>

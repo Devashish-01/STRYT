@@ -6,7 +6,7 @@
 
 import { precacheAndRoute, cleanupOutdatedCaches } from "workbox-precaching";
 import { registerRoute, NavigationRoute } from "workbox-routing";
-import { NetworkFirst, CacheFirst } from "workbox-strategies";
+import { NetworkFirst, NetworkOnly, CacheFirst } from "workbox-strategies";
 import { ExpirationPlugin } from "workbox-expiration";
 import { clientsClaim } from "workbox-core";
 
@@ -38,18 +38,27 @@ clientsClaim();
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST || []);
 
-// SPA navigation fallback → Network-First with cached index.html fallback
+// Deploy freshness probe — never serve from Cache Storage.
+// ServiceWorkerUpdater fetches this to detect a new Vercel build even if the
+// waiting SW hasn't activated yet. Must stay NetworkOnly (and out of precache).
+registerRoute(
+  ({ url }) => url.origin === self.location.origin && url.pathname === "/version.json",
+  new NetworkOnly()
+);
+
+// SPA navigation fallback → network first; cached shell ONLY when offline.
+//
+// Do NOT race a short timeout against fetch. A 3s timeout used to fall back to
+// the precached index.html while the user was still online — that HTML points
+// at the previous deploy's hashed chunks, so MapView (and everything else)
+// looked "stuck on the old version" after a Vercel deploy on a slow phone.
 registerRoute(
   new NavigationRoute(
     async ({ event }) => {
       try {
-        // Try network first to get the latest index.html from Vercel
-        const networkPromise = fetch(event.request);
-        // Timeout after 3 seconds to avoid hanging on slow/flaky networks
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Timeout")), 3000)
-        );
-        return await Promise.race([networkPromise, timeoutPromise]);
+        const response = await fetch(event.request);
+        if (response && response.ok) return response;
+        throw new Error(`Navigation fetch failed: ${response && response.status}`);
       } catch (error) {
         // Fall back to the cached index.html if offline/network fails.
         // `ignoreSearch` matters: Workbox stores precached entries under a
@@ -61,7 +70,7 @@ registerRoute(
         throw error;
       }
     },
-    { denylist: [/^\/api\//, /^\/supabase\//] }
+    { denylist: [/^\/api\//, /^\/supabase\//, /^\/version\.json$/] }
   )
 );
 

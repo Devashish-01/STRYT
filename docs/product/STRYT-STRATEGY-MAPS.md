@@ -1,6 +1,6 @@
 # STRYT — Strategy Maps
 
-**Date:** 2026-07-19
+**Date:** 2026-08-09
 **Note:** Auto-generated from codebase analysis (grounded in `STRYT-FEATURES.md`) plus current Indian hyperlocal market knowledge — verify with product & leadership before external use.
 
 Two classic strategy frameworks, rebuilt for STRYT:
@@ -210,11 +210,11 @@ Every bullet ends in the **"so what for STRYT."** Where a force cuts both ways, 
 
 ### Suppliers & Other Value-Chain Actors (dependency & lock-in risk)
 - **Supabase — entire backend, data, auth-enforcement, RLS.** The #1 supplier-power risk. *High concentration; pricing/downtime/migration all hit existentially. Mitigated somewhat by Postgres-underneath portability, but monitor cost and portability actively.*
-- **Google / Firebase — sign-in (only live auth) + FCM push (config incomplete).** *STRYT's only live login is Google — an outage/policy change locks users out entirely. The built-but-off phone/email OTP flow is a de-risking asset to prioritize. Native push isn't fully live — a functional gap.*
+- **Google / Firebase — sign-in (live auth via Credential Manager) + FCM push.** *Google Sign-In is live on web & native. Phone/Email OTP infrastructure (`authService.ts`) is fully built and ready to be re-enabled via regional SMS Gateways (e.g., Message Central via Supabase Send SMS Hook) as a single-login de-risking asset.*
 - **OpenStreetMap / Nominatim — maps + geocoding.** *Lower cost, no Google lock-in, but Nominatim has usage limits and thinner India POI data — a conscious quality tradeoff; may need a paid geocoding tier at volume.*
 - **UPI rails / NPCI + UPI apps.** *STRYT depends on UPI reliability and NPCI policy (e.g. any future UPI MDR) for its whole payment UX, but bears none of the processing cost. Low lock-in, high reliance.*
 - **Vercel — hosting + analytics.** *Standard, replaceable, low-risk.*
-- **Google Play / Android + OTA update channel.** *Play policy (payments, data-safety, APK distribution) governs native reach; the OTA-update capability reduces dependence on Play review cycles — a small strategic edge.*
+- **Google Play / Android + OTA update channel (`@capgo/capacitor-updater`).** *Play policy (payments, data-safety, APK distribution) governs native reach; the live OTA-update capability reduces dependence on Play review cycles and enables instant web-bundle sync — a key technical edge.*
 
 ### Stakeholders
 - **Local shop owners** — supply side #1; the harder half of the cold start. *"No commission, live in minutes" is the acquisition lever.*

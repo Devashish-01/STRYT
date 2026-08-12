@@ -12,6 +12,7 @@
     "lint:eslint": "eslint .",
     "check-colors": "node scripts/check-hardcoded-colors.js",
     "check-migrations": "node scripts/check-migration-drift.mjs",
+    "check-policy-grants": "node scripts/check-policy-grants.mjs",
     "audit": "playwright test",
     "audit:report": "playwright show-report",
     "audit:login": "node -e \"require('fs').rmSync('.auth/session.json',{force:true})\" && playwright test --project=setup",

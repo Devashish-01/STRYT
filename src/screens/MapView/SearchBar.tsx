@@ -37,13 +37,15 @@ const MIN_QUERY_LEN = 2;
  * select it there.
  */
 export function SearchBar({
-  centerLat, centerLng, onPickArea, onPickShop,
+  centerLat, centerLng, onPickArea, onPickShop, onResultsVisibleChange,
 }: {
   /** Where to search shops/people FROM — the current map center, not the user's saved location. */
   centerLat: number;
   centerLng: number;
   onPickArea: (area: GeoPlace) => void;
   onPickShop: (item: ShopResult) => void;
+  /** Lets the map parent hide filter chips / SearchThisArea while results are open. */
+  onResultsVisibleChange?: (visible: boolean) => void;
 }) {
   const nav = useNavigate();
   const { t } = useI18n();
@@ -52,6 +54,9 @@ export function SearchBar({
   const [areaResults, setAreaResults] = useState<GeoPlace[]>([]);
   const [shopResults, setShopResults] = useState<ShopResult[]>([]);
   const [searching, setSearching] = useState(false);
+  // Outside-tap dismiss closes the panel without clearing the query — reset
+  // when the debounced query changes so a new keystroke reopens results.
+  const [panelDismissed, setPanelDismissed] = useState(false);
 
   // Same 300ms debounce convention as the full Search screen — a keystroke
   // must not fire a Supabase query AND a geocode lookup on every character.
@@ -59,6 +64,10 @@ export function SearchBar({
     const timer = setTimeout(() => setDebounced(query.trim()), DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [query]);
+
+  useEffect(() => {
+    setPanelDismissed(false);
+  }, [debounced]);
 
   useEffect(() => {
     let active = true;
@@ -105,6 +114,11 @@ export function SearchBar({
     setDebounced("");
     setAreaResults([]);
     setShopResults([]);
+    setPanelDismissed(false);
+  }
+
+  function dismissPanel() {
+    setPanelDismissed(true);
   }
 
   function pickArea(a: GeoPlace) {
@@ -122,7 +136,11 @@ export function SearchBar({
   // actually in flight for a long-enough query — otherwise "Searching…" below
   // could never render, since it lived inside the same hasResults gate as the
   // results it's meant to appear before.
-  const showPanel = hasResults || (searching && debounced.length >= MIN_QUERY_LEN);
+  const showPanel = !panelDismissed && (hasResults || (searching && debounced.length >= MIN_QUERY_LEN));
+
+  useEffect(() => {
+    onResultsVisibleChange?.(showPanel);
+  }, [showPanel, onResultsVisibleChange]);
 
   return (
     <div className="map-screen__search">
@@ -167,66 +185,74 @@ export function SearchBar({
         )}
 
         {showPanel && (
-          <div className="map-glass-panel" style={{
-            position: "absolute", top: "100%", left: 0, right: 0, marginTop: 8,
-            borderRadius: 16, overflow: "hidden", zIndex: 1010,
-            maxHeight: "60vh", overflowY: "auto",
-          }}>
-            {shopResults.length > 0 && (
-              <div>
-                <div className="tiny semi muted" style={{ padding: "10px 16px 4px" }}>
-                  {t("map_search_shops_people")}
+          <>
+            {/* Full-screen tap-catcher — closes the results without clearing the
+                query (same pattern as MapFilterStrip's popover dismiss). */}
+            <div
+              onClick={dismissPanel}
+              style={{ position: "fixed", inset: 0, zIndex: 1009 }}
+            />
+            <div className="map-glass-panel" style={{
+              position: "absolute", top: "100%", left: 0, right: 0, marginTop: 8,
+              borderRadius: 16, overflow: "hidden", zIndex: 1010,
+              maxHeight: "60vh", overflowY: "auto",
+            }}>
+              {shopResults.length > 0 && (
+                <div>
+                  <div className="tiny semi muted" style={{ padding: "10px 16px 4px" }}>
+                    {t("map_search_shops_people")}
+                  </div>
+                  {shopResults.map((s, idx) => (
+                    <button
+                      key={`${s.kind}:${s.id}`}
+                      onClick={() => pickShop(s)}
+                      style={{
+                        width: "100%", padding: "10px 16px", border: "none", background: "none",
+                        textAlign: "left", cursor: "pointer", display: "block",
+                        borderBottom: idx < shopResults.length - 1 ? "1px solid rgba(226, 221, 240, 0.4)" : "none",
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(245, 241, 250, 0.5)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: 13, color: "var(--ink-900)" }}>{s.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 2 }}>
+                        {s.sub}{s.distanceKm != null ? ` · ${distanceLabel(s.distanceKm, t)}` : ""}
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                {shopResults.map((s, idx) => (
-                  <button
-                    key={`${s.kind}:${s.id}`}
-                    onClick={() => pickShop(s)}
-                    style={{
-                      width: "100%", padding: "10px 16px", border: "none", background: "none",
-                      textAlign: "left", cursor: "pointer", display: "block",
-                      borderBottom: idx < shopResults.length - 1 ? "1px solid rgba(226, 221, 240, 0.4)" : "none",
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(245, 241, 250, 0.5)"}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                  >
-                    <div style={{ fontWeight: 600, fontSize: 13, color: "var(--ink-900)" }}>{s.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 2 }}>
-                      {s.sub}{s.distanceKm != null ? ` · ${distanceLabel(s.distanceKm, t)}` : ""}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+              )}
 
-            {areaResults.length > 0 && (
-              <div>
-                <div className="tiny semi muted" style={{ padding: "10px 16px 4px" }}>
-                  {t("map_search_areas")}
+              {areaResults.length > 0 && (
+                <div>
+                  <div className="tiny semi muted" style={{ padding: "10px 16px 4px" }}>
+                    {t("map_search_areas")}
+                  </div>
+                  {areaResults.map((r, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => pickArea(r)}
+                      style={{
+                        width: "100%", padding: "10px 16px", border: "none", background: "none",
+                        textAlign: "left", fontSize: 13, color: "var(--ink-800)",
+                        borderBottom: idx < areaResults.length - 1 ? "1px solid rgba(226, 221, 240, 0.4)" : "none",
+                        cursor: "pointer", display: "block"
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(245, 241, 250, 0.5)"}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                    >
+                      <div style={{ fontWeight: 600, color: "var(--ink-900)" }}>{r.area}</div>
+                      <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.full}</div>
+                    </button>
+                  ))}
                 </div>
-                {areaResults.map((r, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => pickArea(r)}
-                    style={{
-                      width: "100%", padding: "10px 16px", border: "none", background: "none",
-                      textAlign: "left", fontSize: 13, color: "var(--ink-800)",
-                      borderBottom: idx < areaResults.length - 1 ? "1px solid rgba(226, 221, 240, 0.4)" : "none",
-                      cursor: "pointer", display: "block"
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(245, 241, 250, 0.5)"}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
-                  >
-                    <div style={{ fontWeight: 600, color: "var(--ink-900)" }}>{r.area}</div>
-                    <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.full}</div>
-                  </button>
-                ))}
-              </div>
-            )}
+              )}
 
-            {searching && !hasResults && (
-              <div className="tiny muted" style={{ padding: "12px 16px" }}>Searching…</div>
-            )}
-          </div>
+              {searching && !hasResults && (
+                <div className="tiny muted" style={{ padding: "12px 16px" }}>{t("map_searching")}</div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>

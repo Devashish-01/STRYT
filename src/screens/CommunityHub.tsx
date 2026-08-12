@@ -111,58 +111,85 @@ export default function CommunityHub() {
             className="icon-btn"
             onClick={handleBack}
             aria-label="Go back"
+            style={{ borderRadius: "50%", background: "var(--ink-100)" }}
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft size={18} />
           </button>
-          <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
-            <div className="bold" style={{ fontSize: 20, lineHeight: 1.15 }}>Community</div>
-            <div className="tiny muted row gap-4 ellipsis"><MapPin size={11} /> {area}</div>
+          <div className="grow col" style={{ gap: 1, minWidth: 0 }}>
+            <div className="bold" style={{ fontSize: 21, letterSpacing: "-0.4px", lineHeight: 1.15, color: "var(--ink-900)" }}>
+              Community
+            </div>
+            <div
+              className="tiny semi row gap-4 ellipsis"
+              style={{
+                color: "var(--brand-700)",
+                background: "var(--brand-50)",
+                padding: "2px 8px",
+                borderRadius: 12,
+                width: "fit-content",
+                border: "1px solid var(--brand-100)",
+                marginTop: 2
+              }}
+            >
+              <MapPin size={10} /> {area}
+            </div>
           </div>
-          <div className="row gap-6" style={{ flexShrink: 0 }}>
+          <div className="row gap-8" style={{ flexShrink: 0 }}>
             <button
               className="icon-btn"
-              style={{ position: "relative" }}
+              style={{ position: "relative", borderRadius: "50%", background: "var(--ink-100)" }}
               onClick={() => nav("/chats?scope=CUSTOMER")}
               aria-label="Messages"
             >
-              <MessageCircle size={20} />
+              <MessageCircle size={18} />
               {chatUnread > 0 && (
                 <span style={{
-                  position: "absolute", top: 5, right: 5,
-                  width: 8, height: 8, background: "var(--red-500)",
+                  position: "absolute", top: 4, right: 4,
+                  width: 8, height: 8, background: "var(--pink-500)",
                   borderRadius: "50%", border: "2px solid var(--surface)",
+                  boxShadow: "0 0 8px var(--pink-500)"
                 }} />
               )}
             </button>
-            <button className="icon-btn" onClick={() => nav("/search")} aria-label="Search">
-              <SearchIcon size={20} />
+            <button
+              className="icon-btn"
+              style={{ borderRadius: "50%", background: "var(--ink-100)" }}
+              onClick={() => nav("/search")}
+              aria-label="Search"
+            >
+              <SearchIcon size={18} />
             </button>
           </div>
         </div>
 
         <div className="community-hub-actions">
-          <button className="btn btn-primary btn-sm" onClick={goToCompose}>
-            <Plus size={14} /> Post
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={goToCompose}
+            style={{ boxShadow: "var(--shadow-brand)", background: "linear-gradient(135deg, var(--brand-600), var(--brand-800))" }}
+          >
+            <Plus size={15} /> Create Post
           </button>
           <button
             className="btn btn-ghost btn-sm"
-            style={{ border: "1.5px solid var(--ink-200)", fontWeight: 700 }}
+            style={{ border: "1.5px solid var(--ink-200)", background: "var(--surface)", fontWeight: 700, color: "var(--ink-800)" }}
             onClick={() => nav("/ask")}
           >
-            <FileText size={14} /> Request
+            <FileText size={15} /> Request
           </button>
         </div>
 
         {/* Stories bar — neighborhood & business stories reel */}
-        <div style={{ margin: "10px -16px 0", paddingBottom: 6 }}>
+        <div style={{ margin: "12px -16px 0", paddingBottom: 4 }}>
           <StoriesBar />
         </div>
 
-        <div className="row" style={{ gap: 0, marginTop: 12 }}>
-          {([["requests", "📋 Requests"], ["posts", "🏘️ Posts"]] as [HubTab, string][]).map(([t, label]) => (
+        {/* Apple iOS-style Segmented Control */}
+        <div className="segmented-control">
+          {([["posts", "🏘️ Posts"], ["requests", "📋 Requests"]] as [HubTab, string][]).map(([t, label]) => (
             <button
               key={t}
-              className={`hub-tab ${tab === t ? "active" : ""}`}
+              className={`segmented-tab ${tab === t ? "active" : ""}`}
               onClick={() => setTab(t)}
             >
               {label}
@@ -170,14 +197,13 @@ export default function CommunityHub() {
           ))}
         </div>
 
-        {/* Secondary filter strip */}
+        {/* Secondary Samsung / Apple Pill Filter Strip */}
         {tab === "requests" ? (
           <div className="hscroll community-hub-filters">
             {([["all", "All"], ["urgent", "🔥 Urgent"], ["group", "👥 Group buy"], ["recurring", "🔁 Recurring"]] as const).map(([s, label]) => (
               <button
                 key={s}
-                className={`chip ${reqSpecial === s ? "active" : ""}`}
-                style={{ padding: "6px 12px", fontSize: 12 }}
+                className={`chip-pill ${reqSpecial === s ? "active" : ""}`}
                 onClick={() => setReqSpecial(s)}
               >
                 {label}
@@ -189,8 +215,7 @@ export default function CommunityHub() {
             {POST_FILTERS.map((f) => (
               <button
                 key={f}
-                className={`chip ${postFilter === f ? "active" : ""}`}
-                style={{ padding: "6px 12px", fontSize: 12 }}
+                className={`chip-pill ${postFilter === f ? "active" : ""}`}
                 onClick={() => setPostFilter(f)}
               >
                 {POST_LABELS[f]}

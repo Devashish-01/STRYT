@@ -164,23 +164,36 @@ export default function CommunityCompose() {
         )}
 
         <div className="field">
-          <label>What kind of post?</label>
-          <div className="col gap-8">
-            {types.map((t) => (
-              <button
-                key={t.type}
-                className="card row gap-12"
-                style={{ padding: "var(--space-sm)", textAlign: "left", border: type === t.type ? "2px solid var(--brand-600)" : "1.5px solid var(--ink-200)" }}
-                onClick={() => setType(t.type)}
-              >
-                <span style={{ fontSize: 24 }}>{t.emoji}</span>
-                <div className="grow">
-                  <div className="semi small">{t.label}</div>
-                  <div className="tiny muted">{t.hint}</div>
-                </div>
-                <span style={{ width: 18, height: 18, borderRadius: "50%", border: type === t.type ? "5px solid var(--brand-600)" : "2px solid var(--ink-300)" }} />
-              </button>
-            ))}
+          <label className="semi" style={{ fontSize: 14, color: "var(--ink-800)", marginBottom: 8 }}>What kind of post?</label>
+          <div className="col gap-10">
+            {types.map((t) => {
+              const isSel = type === t.type;
+              return (
+                <button
+                  key={t.type}
+                  className="card row gap-12"
+                  style={{
+                    padding: "14px 16px", textAlign: "left", borderRadius: 18,
+                    border: isSel ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
+                    background: isSel ? "var(--brand-50)" : "var(--surface)",
+                    boxShadow: isSel ? "0 4px 14px rgba(139, 71, 245, 0.12)" : "var(--shadow-sm)",
+                    transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
+                  }}
+                  onClick={() => setType(t.type)}
+                >
+                  <span style={{ fontSize: 26, filter: isSel ? "drop-shadow(0 2px 4px rgba(0,0,0,0.15))" : "none" }}>{t.emoji}</span>
+                  <div className="grow">
+                    <div className="bold small" style={{ color: isSel ? "var(--brand-900)" : "var(--ink-900)", fontSize: 14.5 }}>{t.label}</div>
+                    <div className="tiny muted">{t.hint}</div>
+                  </div>
+                  <span style={{
+                    width: 20, height: 20, borderRadius: "50%",
+                    border: isSel ? "6px solid var(--brand-600)" : "2px solid var(--ink-300)",
+                    transition: "all 0.2s ease", flexShrink: 0
+                  }} />
+                </button>
+              );
+            })}
           </div>
         </div>
 

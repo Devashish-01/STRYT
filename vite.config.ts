@@ -10,13 +10,37 @@ import { VitePWA } from "vite-plugin-pwa";
 // previous VITE_APP_VERSION never got set by any workflow, so the one place
 // that referenced it — src/lib/monitoring.ts — always saw null).
 const appVersion = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf-8")).version as string;
+// Unique per deploy even when package.json version is unchanged. Vercel injects
+// the git SHA at build time; local/dev falls back to a timestamp so the PWA
+// freshness check still works against a freshly built dist/.
+const appBuildId =
+  process.env.VERCEL_GIT_COMMIT_SHA ||
+  process.env.CF_PAGES_COMMIT_SHA ||
+  `${appVersion}+${Date.now()}`;
 
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
+    __APP_BUILD_ID__: JSON.stringify(appBuildId),
   },
   plugins: [
     react(),
+    // Emits /version.json so the running PWA can detect a new Vercel deploy
+    // without waiting for the service worker's own update cycle alone.
+    {
+      name: "emit-version-json",
+      generateBundle() {
+        this.emitFile({
+          type: "asset",
+          fileName: "version.json",
+          source: JSON.stringify({
+            version: appVersion,
+            buildId: appBuildId,
+            builtAt: new Date().toISOString(),
+          }),
+        });
+      },
+    },
     VitePWA({
       registerType: "autoUpdate",
       // injectManifest (not generateSW): our own src/sw.js owns push +

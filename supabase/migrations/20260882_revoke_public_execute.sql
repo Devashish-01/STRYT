@@ -22,6 +22,17 @@
 -- get_tracking(text) and resolve_admin_email(text) are deliberately untouched in
 -- both migrations: the public /track/:token page and the pre-sign-in admin login
 -- lookup genuinely run without a session. See 20260881 for the full reasoning.
+--
+-- ⚠️ PARTIALLY REVERTED BY 20260887. The "safe because every one already carries
+-- an explicit authenticated grant" reasoning above only covered functions called
+-- as RPCs from src/. It did not cover functions called from RLS policy quals,
+-- which are evaluated as the querying role — revoking from PUBLIC took EXECUTE
+-- away from `anon` there too and aborted every guest SELECT on categories,
+-- businesses and providers with "permission denied for function is_admin".
+-- 20260887 restores the five in-policy helpers (by scoping their policies TO
+-- authenticated where possible, re-granting where not) and leaves the other ~19
+-- revokes in this file intact — those are the real hardening. See 20260881's
+-- amended footer note.
 
 revoke execute on function public.appointment_create_walk_in(text,text,text,text,timestamp with time zone,text,text,text,text,numeric,jsonb) from public;
 revoke execute on function public.bump_business_metric(text,text) from public;

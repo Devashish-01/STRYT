@@ -58,8 +58,9 @@ export default function OtpVerify() {
       sessionStorage.removeItem("otp_phone");
       signIn();
       // Return to the page the user originally tried to open (a shared deep link),
-      // or /home. The Protected guard still routes brand-new users with no
-      // location to /auth/location based on real profile data.
+      // or /home. The Protected guard still routes brand-new users to
+      // /auth/onboard based on real profile data — location is beat 3 of that
+      // flow now, rather than a separate screen afterwards.
       nav(returnTo.consume(), { replace: true });
     } catch (e) {
       const msg = e instanceof Error && e.message ? e.message : "Couldn't verify. Try again.";

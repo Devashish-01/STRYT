@@ -29,6 +29,9 @@ const USER_COLUMNS = new Set([
   "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
   "showPhonePublicly", "showEmailPublicly", "showCityPublicly", "showRatingPublicly",
   "showNamePublicly", "locationPublic", "onboardingCompletedAt",
+  // First-run onboarding's interest capture. pickColumns + toSnake handle the
+  // rest of the mapping, so this entry is the whole client-side wiring.
+  "interestCategoryIds",
   // Discovery-push preferences + the timezone quiet hours needs. Without these
   // here, pickColumns silently drops them and the toggle appears to save but
   // never reaches the DB — which is how they ended up cosmetic in the first place.
@@ -143,6 +146,33 @@ export const userService = {
     throwIfError(error);
   },
 
+  /**
+   * Which of these @handles are free, as `{ handle: available }`.
+   *
+   * Backs the onboarding handle step: three name-derived suggestions are
+   * checked in ONE round trip before any are shown, and the custom input
+   * reuses this debounced with a single-element array. Without it the only way
+   * to learn a handle was taken was to attempt the write and catch the unique
+   * -index violation — i.e. after the user had already committed to it.
+   *
+   * Case-insensitivity and the exclusion of the caller's own row both live in
+   * the RPC, so this agrees with the `users_alias_unique` index by
+   * construction. Still only advisory: two people can pass this check for the
+   * same handle at once, so the write path must keep handling 23505.
+   */
+  async aliasesAvailable(aliases: string[]): Promise<Record<string, boolean>> {
+    const wanted = aliases.map((a) => a.trim()).filter(Boolean);
+    if (wanted.length === 0) return {};
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("aliases_available", { p_aliases: wanted });
+    throwIfError(error);
+    const out: Record<string, boolean> = {};
+    for (const row of (data ?? []) as { alias: string; available: boolean }[]) {
+      out[row.alias] = row.available;
+    }
+    return out;
+  },
+
   async update(patch: Partial<CurrentUser>) {
     const sb = getSupabase();
     const uid = await currentUserId();
@@ -154,7 +184,7 @@ export const userService = {
     // `.select()` (which asks for `*`). Callers needing the sensitive fields
     // back should re-fetch via get_own_profile() afterward.
     const { data, error } = await sb.from("users").update(toSnake(cleanPatch)).eq("id", uid)
-      .select("id, name, alias, avatar, roles, area, city, rating_avg, rating_count, language, notification_radius_km, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_email_publicly, show_city_publicly, show_rating_publicly, show_name_publicly, location_public, customer_enabled, customer_deleted_at, onboarding_completed_at")
+      .select("id, name, alias, avatar, roles, area, city, rating_avg, rating_count, language, notification_radius_km, created_at, show_posts_publicly, show_asks_publicly, show_badges_publicly, show_phone_publicly, show_email_publicly, show_city_publicly, show_rating_publicly, show_name_publicly, location_public, customer_enabled, customer_deleted_at, onboarding_completed_at, interest_category_ids")
       .maybeSingle();
     throwIfError(error);
 

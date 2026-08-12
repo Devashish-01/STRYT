@@ -6,8 +6,8 @@ import { useApp } from "@/store";
 import { ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow } from "@/components/settings";
 import {
-  BadgeCheck, Globe, HelpCircle, Inbox, LogOut, Megaphone, MessageSquareText,
-  Package, Search, Settings, Star, Store, Users, Wallet,
+  HelpCircle, Inbox, LogOut, Megaphone, MessageSquareText,
+  Package, Search, Star, Users, Wallet,
 } from "@/components/Icons";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import type { QueueOwnerToken } from "@/types";
@@ -81,6 +81,13 @@ export default function BusinessHub() {
     ...(DELIVERY_AGENT_ENABLED && hasActiveDeliveries ? [
       { icon: <Package size={19} color="var(--delivery-600)" />, title: "My deliveries", text: "Runs assigned to you", onClick: () => nav(`${base}/my-deliveries`) },
     ] : []),
+    // ManageNav only shows a Queue tab once a business has actually used
+    // queues once (a queue_settings row exists) — this is the discovery path
+    // for a business that hasn't yet, so the feature isn't hidden behind its
+    // own precondition. Disappears the moment they've saved queue settings once.
+    ...(isOwner && !queue?.hasEverUsedQueue ? [
+      { icon: <Users size={19} color="var(--brand-600)" />, title: "Set up walk-in queue", text: "Let customers join a line without an appointment", onClick: () => nav(`${base}/queue`) },
+    ] : []),
   ];
   const grow: HubLink[] = [
     ...(hasScope("leads") ? [
@@ -90,17 +97,9 @@ export default function BusinessHub() {
       { icon: <Megaphone size={19} color="var(--brand-600)" />, title: "My Community", text: "Post updates and manage your activity", onClick: () => nav(`${base}/community`) },
     ] : []),
   ];
-  const profile: HubLink[] = isOwner ? [
-    { icon: <Store size={19} color="var(--orange-500)" />, title: "Edit profile", text: "Identity, contact and location", onClick: () => nav(`${base}/profile`) },
-    { icon: <Globe size={19} color="var(--blue-500)" />, title: "Service radius", text: "Bookings, posts and stories reach", onClick: () => nav(`${base}/broadcast`) },
-    { icon: <Users size={19} color="var(--green-600)" />, title: "Team & access", text: "Add team members with scoped access", onClick: () => nav("/account/business-access") },
-    { icon: <BadgeCheck size={19} color="var(--green-600)" />, title: "Verification", text: "Documents and badge status", onClick: () => nav(`${base}/verify`) },
-    { icon: <Settings size={19} color="var(--ink-600)" />, title: "Business settings", text: "Business controls and account settings", onClick: () => nav(`${base}/settings`) },
-  ] : [];
-
   return (
     <div className="screen with-nav">
-      <AppBar title="Business" subtitle="Money, customers, growth and profile" />
+      <AppBar title="Business" subtitle="Money, customers, and growth" />
       <div className="screen-scroll">
         <div className="page-pad col gap-18">
           {isOwner && (
@@ -116,7 +115,6 @@ export default function BusinessHub() {
           {operations.length > 0 && <SettingsSection title="Operations">{links(operations)}</SettingsSection>}
           {communication.length > 0 && <SettingsSection title="Customer communication">{links(communication)}</SettingsSection>}
           {grow.length > 0 && <SettingsSection title="Grow">{links(grow)}</SettingsSection>}
-          {profile.length > 0 && <SettingsSection title="Business profile">{links(profile)}</SettingsSection>}
           <button
             type="button"
             className="btn btn-block row center gap-8"

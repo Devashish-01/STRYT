@@ -10,6 +10,24 @@
       ]
     },
     {
+      "source": "/workbox-(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/version.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
       "source": "/",
       "headers": [
         {
@@ -80,7 +98,7 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!stryt\\.apk|sw\\.js|workbox-.*|favicon\\.svg|icon-.*\\.png|manifest\\.webmanifest|assets/.*).*)",
+      "source": "/((?!stryt\\.apk|sw\\.js|workbox-.*|version\\.json|favicon\\.svg|icon-.*\\.png|manifest\\.webmanifest|assets/.*).*)",
       "destination": "/index.html"
     }
   ]

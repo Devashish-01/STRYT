@@ -180,6 +180,47 @@ describe("BUSINESS_PACKAGES.generic matches today's exact literals", () => {
       bookedVerb: "Appointment scheduled",
     });
   });
+
+  // Same guarantee, extended to the owner console: an unmapped ("Plain page")
+  // business must see the checklist wording it already had, in the order it
+  // already had, or the "nothing changes for anyone unmapped" property this
+  // whole file rests on is silently broken.
+  it("keeps the owner console's day-one checklist exactly as it was", () => {
+    const c = BUSINESS_PACKAGES.generic.console;
+    expect(c).toBeDefined();
+    expect(c!.setupTitle).toBe("Finish setting up your shop");
+    expect(c!.setup.map((s) => s.label)).toEqual([
+      "Add a catalog item",
+      "Set your hours",
+      "Upload verification",
+      "Post your first update",
+    ]);
+    expect(c!.storeTabLabel).toBe("Store");
+  });
+});
+
+describe("owner console configs", () => {
+  it("food packages speak the kitchen's words, not the generic ones", () => {
+    const dining = BUSINESS_PACKAGES.dining.console!;
+    expect(dining.storeTabLabel).toBe("Menu");
+    expect(dining.actions.map((a) => a.label)).toEqual([
+      "Menu", "Reservations", "Waitlist", "Delivery",
+    ]);
+    expect(dining.setup[0].label).toContain("dishes");
+  });
+
+  it("takeaway leads with orders/delivery and never offers reservations", () => {
+    const takeaway = BUSINESS_PACKAGES.takeaway.console!;
+    expect(BUSINESS_PACKAGES.takeaway.bookingsDefault).toBe(false);
+    const ids = [...takeaway.setup, ...takeaway.actions].map((s) => s.id);
+    expect(ids).not.toContain("bookings");
+    expect(ids).toContain("delivery");
+  });
+
+  it("only the authored packages carry a console; the rest inherit generic", () => {
+    const authored = PACKAGE_KEYS.filter((k) => BUSINESS_PACKAGES[k].console);
+    expect(authored.sort()).toEqual(["dining", "generic", "takeaway"]);
+  });
 });
 
 describe("catalogue completeness", () => {

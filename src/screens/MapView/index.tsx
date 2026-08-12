@@ -131,6 +131,8 @@ export default function MapView() {
     const saved = localStorage.getItem("settings_map_filter");
     return (saved as ResultFilter) || "all";
   });
+  const [viewMode, setViewMode] = useState<"map" | "list">("map");
+  const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => {
     localStorage.setItem("settings_map_filter", resultFilter);
   }, [resultFilter]);
@@ -415,6 +417,39 @@ export default function MapView() {
     [centerLat, centerLng, searchRadiusKm, isWorld]
   );
 
+  // Compass line connecting user center to currently selected pin
+  const selectedCoords = useMemo(() => {
+    if (!selected) return null;
+    if (selected.kind === "business") {
+      const b = businesses.find((x) => x.id === selected.id);
+      return b && b.lat && b.lng ? { lat: b.lat, lng: b.lng } : null;
+    }
+    if (selected.kind === "provider") {
+      const p = providers.find((x) => x.id === selected.id);
+      return p && p.lat && p.lng ? { lat: p.lat, lng: p.lng } : null;
+    }
+    if (selected.kind === "request") {
+      const r = requests.find((x) => x.id === selected.id);
+      return r && r.lat && r.lng ? { lat: r.lat, lng: r.lng } : null;
+    }
+    return null;
+  }, [selected, businesses, providers, requests]);
+
+  const compassLineGeoJSON = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
+    if (!selectedCoords) return null;
+    return {
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [centerLng, centerLat],
+          [selectedCoords.lng, selectedCoords.lat],
+        ],
+      },
+    };
+  }, [centerLat, centerLng, selectedCoords]);
+
   // ── Heat layer (Phase E, MAP_SNAPCHAT_STYLE_PLAN.md §2.4) ──────────────
   // Reuses shownBusinesses — already gated by the business-layer toggle and
   // availOnly the same way the carousel and filter counts are, so filtering
@@ -471,20 +506,25 @@ export default function MapView() {
             centerLng={centerLng}
             onPickArea={(area) => flyToPlace(area.lat, area.lng)}
             onPickShop={(shop) => flyToPlace(shop.lat, shop.lng)}
+            onResultsVisibleChange={setSearchOpen}
           />
 
-          <MapFilterStrip
-            filter={resultFilter}
-            setFilter={setResultFilter}
-            counts={resultCounts}
-            availOnly={availOnly}
-            setAvailOnly={setAvailOnly}
-            radiusKm={radiusOverride}
-            // Guests are capped at GUEST_RADIUS_KM, so offering the row would be
-            // offering choices that silently don't apply.
-            onRadiusChange={isGuest ? undefined : applyRadius}
-            radiusOptions={RADIUS_OPTIONS}
-          />
+          {!searchOpen && (
+            <MapFilterStrip
+              filter={resultFilter}
+              setFilter={setResultFilter}
+              counts={resultCounts}
+              availOnly={availOnly}
+              setAvailOnly={setAvailOnly}
+              radiusKm={radiusOverride}
+              // Guests are capped at GUEST_RADIUS_KM, so offering the row would be
+              // offering choices that silently don't apply.
+              onRadiusChange={isGuest ? undefined : applyRadius}
+              radiusOptions={RADIUS_OPTIONS}
+              viewMode={viewMode}
+              setViewMode={setViewMode}
+            />
+          )}
 
           {/* The old "N places" badge and the RadiusStrip are retired (radius
               derives from zoom by default — see useMapViewport; an explicit
@@ -493,11 +533,13 @@ export default function MapView() {
               area, not just to a hidden control. */}
           {isGuest && <div className="map-bottom-dock"><GuestRadiusNotice /></div>}
 
-          <SearchThisArea
-            visible={viewport.hasMoved}
-            busy={bizLoading || provLoading}
-            onClick={() => viewport.searchHere(mapRef.current?.getMap())}
-          />
+          {!searchOpen && (
+            <SearchThisArea
+              visible={viewport.hasMoved}
+              busy={bizLoading || provLoading}
+              onClick={() => viewport.searchHere(mapRef.current?.getMap())}
+            />
+          )}
 
           <button
             type="button"
@@ -593,6 +635,22 @@ export default function MapView() {
           </Source>
         )}
 
+        {/* Compass Line connecting user to selected pin */}
+        {compassLineGeoJSON && (
+          <Source id="compass-line" type="geojson" data={compassLineGeoJSON}>
+            <Layer
+              id="compass-line-layer"
+              type="line"
+              paint={{
+                "line-color": brandColor,
+                "line-width": 2.5,
+                "line-dasharray": [2, 2],
+                "line-opacity": 0.85,
+              }}
+            />
+          </Source>
+        )}
+
         <MapMarkers
           layers={layers}
           filteredBusinesses={filteredBusinesses}
@@ -666,6 +724,7 @@ export default function MapView() {
           onSelect={setSelected}
           onEaseTo={easeToPoint}
           onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
+          isListView={viewMode === "list"}
         />
       )}
     </div>

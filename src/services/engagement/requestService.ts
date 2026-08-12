@@ -169,6 +169,14 @@ const AGREEMENT_SELECT =
 let lastSweepAt = 0;
 async function sweepExpired(sb: ReturnType<typeof getSupabase>): Promise<void> {
   if (Date.now() - lastSweepAt < 120_000) return;
+  // Both sweeps are SECURITY DEFINER mutations, deliberately revoked from anon
+  // (20260881/20260882) — a signed-out visitor must never be able to close
+  // other people's agreements or requests. Without this guard every guest page
+  // load fired two RPCs that could only ever come back 401, putting two console
+  // errors on the guest path for work a guest is not allowed to do anyway.
+  // A signed-in user's next call performs the sweep, so nothing goes unswept.
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
   lastSweepAt = Date.now();
   await Promise.all([
     sb.rpc("cancel_expired_agreements"),

@@ -4,32 +4,19 @@ import { Home, Map, MessageSquare, Plus, User, X } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
 import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { useLongPress } from "@/hooks/useLongPress";
-import { contextHomePath } from "@/lib/contextHome";
 import { prefetchMapView } from "@/lib/prefetchRoutes";
-import AccountSwitcher from "./AccountSwitcher";
+import FooterProfileTab from "./FooterProfileTab";
 
 export default function BottomNav() {
   const nav = useNavigate();
   const loc = useLocation();
   const [sheet, setSheet] = useState(false);
-  const [switcher, setSwitcher] = useState(false);
   const { t } = useI18n();
-  const { isGuest, activeContext } = useApp();
+  const { isGuest } = useApp();
   const requireAuth = useRequireAuth();
 
-  // Long-press (or right-click) the Profile tab to jump straight to the account
-  // switcher; a normal tap opens the profile as usual.
-  const { handlers: longPress, wrapTap } = useLongPress(() => setSwitcher(true));
-  // A business/provider-context session can end up on a customer TAB_ROUTE
-  // (e.g. right after posting to community — CommunityCompose used to force
-  // this) — in that case "Profile" should return to their own console, not
-  // the customer profile screen, same as every other "go home" path in the app.
-  const profileTap = wrapTap(() => nav(activeContext.type === "customer" ? "/profile" : contextHomePath(activeContext)));
   const profileActive = loc.pathname === "/profile";
 
-  // A guest has no profile and no account to switch to — the tab becomes a
-  // plain "Sign in" instead of a long-pressable identity control.
   const guestSignInTab = (
     <button
       className="nav-item"
@@ -53,10 +40,6 @@ export default function BottomNav() {
           )}
         </NavLink>
 
-        {/* Second chance to warm the map chunk: if the idle prefetch hasn't run
-            yet (slow start, or the user reached for Map immediately), starting
-            it on finger-down buys the download a head start over the tap. Cheap
-            and idempotent — prefetchMapView() self-limits to one call. */}
         <NavLink
           to="/map"
           className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
@@ -70,9 +53,6 @@ export default function BottomNav() {
           )}
         </NavLink>
 
-        {/* Centre FAB — opens create sheet. Everything inside it (ask, story,
-            community post) is sign-in-only, so gate the sheet itself rather than
-            letting a guest open it and hit three dead ends. */}
         <button
           className="nav-item nav-fab"
           onClick={requireAuth(() => setSheet(true), "Sign in to post on your street")}
@@ -92,21 +72,10 @@ export default function BottomNav() {
         </NavLink>
 
         {isGuest ? guestSignInTab : (
-          <button
-            className={`nav-item ${profileActive ? "active" : ""}`}
-            onClick={profileTap}
-            {...longPress}
-            aria-label={`${t("profile")} — long-press to switch account`}
-          >
-            <User size={22} strokeWidth={profileActive ? 2.6 : 2} />
-            <span>{t("profile")}</span>
-          </button>
+          <FooterProfileTab profilePath="/profile" active={profileActive} />
         )}
       </nav>
 
-      {switcher && <AccountSwitcher onClose={() => setSwitcher(false)} />}
-
-      {/* Create action sheet */}
       {sheet && (
         <>
           <div
@@ -122,7 +91,6 @@ export default function BottomNav() {
             zIndex: 201,
             boxShadow: "0 -4px 24px rgba(0,0,0,0.12)",
           }}>
-            {/* Handle bar */}
             <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--ink-200)", margin: "8px auto 18px" }} />
 
             <div className="row between" style={{ marginBottom: 16 }}>

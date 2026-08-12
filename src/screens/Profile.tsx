@@ -1,21 +1,24 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bell, Settings, Store, Briefcase, FileText,
+  Bell, Settings, Store, FileText,
   ChevronRight, Share2, Pencil,
-  Award, Users, UserCircle, Heart,
-  ArrowLeftRight, MessageSquare, Image, ListChecks, Clock,
+  Award, Users, UserCircle,
+  MessageSquare, Image, ListChecks, Clock,
   Calendar, Globe, Lock, Handshake, MapPin
 } from "@/components/Icons";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { SafeImg } from "@/components/common";
 import { displayName } from "@/lib/publicName";
-import AccountSwitcher from "@/components/AccountSwitcher";
-import { requestService, socialService, businessService, providerService, notificationService, appointmentService } from "@/services";
+import HatSwitcherCard from "@/components/HatSwitcherCard";
+import AvatarRing from "@/components/AvatarRing";
+import AvatarActionSheet from "@/components/AvatarActionSheet";
+import PhotoViewer from "@/components/PhotoViewer";
+import { requestService, socialService, businessService, notificationService, appointmentService } from "@/services";
 import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import type { Role, AgreementStatus } from "@/types";
+import type { AgreementStatus } from "@/types";
 import ShareCard, { type ShareOption } from "@/components/ShareCard";
 import { StoryViewer } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
@@ -35,12 +38,13 @@ type Tile = {
 
 export default function Profile() {
   const nav = useNavigate();
-  const { user, roles, activeRole, setActiveRole, attemptSwitchContext, bookmarks, follows, lists, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
+  const { user, bookmarks, follows, lists, ownedBusinessIds, ownedProviderId, chatUnread } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "customer");
   const { t } = useI18n();
-  const [switcher, setSwitcher] = useState(false);
   const [share, setShare] = useState(false);
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
+  const [avatarSheet, setAvatarSheet] = useState(false);
+  const [viewingAvatarPhoto, setViewingAvatarPhoto] = useState(false);
   const manageBizId = ownedBusinessIds[0];
   const hasSellerProfile = ownedBusinessIds.length > 0 || !!ownedProviderId;
   const hasAlias = !!user.alias;
@@ -85,12 +89,6 @@ export default function Profile() {
   }
 
   const { data: agreementsData } = useQuery(() => requestService.agreements(), []);
-  // Needed to pass business/provider names into attemptSwitchContext so the
-  // RoleSwitcher pill updates immediately when the user taps a role button.
-  const { data: myBizList } = useQuery(() => businessService.mine(), []);
-  const { data: myProvList } = useQuery(() => providerService.mine(), []);
-  const myBiz = (myBizList ?? []).find((b) => b.id === manageBizId);
-  const myProv = (myProvList ?? []).find((p) => p.id === ownedProviderId);
   const { data: followersData } = useQuery(() => user.id ? socialService.followers(user.id) : Promise.resolve([]), [user.id]);
   const followersCount = followersData?.length ?? 0;
   const activeAgreements = (agreementsData ?? []).filter((a) => !TERMINAL.includes(a.status));
@@ -122,12 +120,6 @@ export default function Profile() {
 
   const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id]);
   const highlights = highlightsData ?? [];
-
-  const roleMeta: Record<Role, { label: string; icon: any; tint: string; accent: string }> = {
-    customer:       { label: "Customer",  icon: Heart,     tint: "var(--brand-50)",   accent: "var(--brand-600)" },
-    business_owner: { label: "Business",  icon: Store,     tint: "var(--orange-100)", accent: "var(--orange-500)" },
-    provider:       { label: "Provider",  icon: Briefcase, tint: "var(--green-100)",  accent: "var(--green-600)" },
-  };
 
   // Destinations, split into two labelled groups instead of one undifferentiated
   // 6-up. "Your activity" is things with live state (a count that changes);
@@ -171,11 +163,14 @@ export default function Profile() {
   // current DB has an alias, so this is the rare path.
   const IdentityBlock = () => (
     <div className="pf-identity">
-      <SafeImg
-        src={user.avatar} alt="" variant="avatar" className="avatar pf-avatar"
-      />
-      <div style={{ minWidth: 0 }}>
-        <div className="row gap-6" style={{ minWidth: 0 }}>
+      <AvatarRing size={112} onClick={() => setAvatarSheet(true)} ariaLabel="Profile photo options">
+        <SafeImg
+          src={user.avatar} alt="" variant="avatar"
+          style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "3px solid #fff", display: "block" }}
+        />
+      </AvatarRing>
+      <div style={{ minWidth: 0, width: "100%" }}>
+        <div className="row gap-6 center" style={{ minWidth: 0 }}>
           {/* No pencil icon here any more — it advertised a tap target that
               should not exist on the name itself. */}
           <span className="pf-hero-name ellipsis">
@@ -183,14 +178,14 @@ export default function Profile() {
           </span>
         </div>
         {hasAlias ? (
-          <div className="pf-hero-sub ellipsis">
+          <div className="pf-hero-sub ellipsis center">
             {displayName(user.name)}{user.area ? ` · ${user.area}` : ""}
           </div>
         ) : (
           <button
-            className="pf-hero-sub ellipsis row gap-4 center-v"
+            className="pf-hero-sub ellipsis row gap-4 center"
             onClick={() => nav("/profile/edit")}
-            style={{ background: "none", border: "none", padding: 0, textAlign: "left" }}
+            style={{ background: "none", border: "none", padding: 0, width: "100%" }}
           >
             Set your public @handle
             <Pencil size={12} color="rgba(255,255,255,0.7)" style={{ flexShrink: 0 }} />
@@ -216,19 +211,18 @@ export default function Profile() {
           <div className="pf-hero living-sky-header" style={{ background: ambient.headerGradient }}>
             <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
             <div className="pf-hero-content">
-              <div className="row between" style={{ alignItems: "flex-start" }}>
-                <IdentityBlock />
-                <div className="row gap-8" style={{ flexShrink: 0 }}>
-                  <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Messages">
-                    <MessageSquare size={18} />
-                    {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
-                  </button>
-                  <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
-                    <Bell size={18} />
-                    {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
-                  </button>
-                </div>
+              <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginBottom: 6 }}>
+                <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Messages">
+                  <MessageSquare size={18} />
+                  {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
+                </button>
+                <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
+                  <Bell size={18} />
+                  {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
+                </button>
               </div>
+
+              <IdentityBlock />
 
               {/* Leads with what the row DOES (opens your public profile).
                   The name-privacy state rides along as a status, not as the
@@ -334,85 +328,9 @@ export default function Profile() {
             <TileGrid tiles={youTiles} />
           </div>
 
-          {/* ── Selling ────────────────────────────────────────────────── */}
+          {/* ── Selling / hat switching ── */}
           <div className="page-pad" style={{ paddingBottom: 0 }}>
-            {hasSellerProfile ? (
-              <div className="card">
-                <div className="small semi" style={{ color: "var(--ink-600)", marginBottom: 12 }}>I'm using STRYT as a…</div>
-                <div className="row gap-8">
-                  {(["customer", "business_owner", "provider"] as Role[]).map((r) => {
-                    const has    = roles.includes(r);
-                    const active = activeRole === r;
-                    const M      = roleMeta[r];
-                    const Icon   = M.icon;
-                    return (
-                      <button
-                        key={r}
-                        onClick={() => {
-                          if (!has) {
-                            nav(r === "business_owner" ? "/onboard/business" : "/onboard/provider");
-                          } else if (r === "business_owner") {
-                            const dest = manageBizId ? `/business/${manageBizId}/manage` : "/manage";
-                            const ready = attemptSwitchContext(
-                              { type: "business", id: manageBizId ?? null, name: myBiz?.name ?? "My Business" },
-                              dest
-                            );
-                            if (ready) nav(dest);
-                          } else if (r === "provider") {
-                            const dest = ownedProviderId ? `/provider/${ownedProviderId}/manage` : "/manage";
-                            const ready = attemptSwitchContext(
-                              { type: "provider", id: ownedProviderId ?? null, name: myProv?.displayName ?? "My Provider Profile" },
-                              dest
-                            );
-                            if (ready) nav(dest);
-                          } else {
-                            setActiveRole(r);
-                          }
-                        }}
-                        className={`pf-role${active ? " active" : ""}`}
-                        style={themed(M.tint, M.accent)}
-                      >
-                        <Icon size={22} color={M.accent} />
-                        <span className="tiny semi" style={{ color: active ? M.accent : "var(--ink-600)" }}>{M.label}</span>
-                        {!has && <span className="pf-role-add">+ Add</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-                <button className="pf-subtle-link" onClick={() => setSwitcher(true)}>
-                  <ArrowLeftRight size={13} /> Switch or add another account
-                </button>
-                {/* Parity with desktop — a seller can reach the manage hub
-                    directly, not only via the role buttons above. */}
-                <button className="pf-subtle-link" onClick={() => nav("/manage")}>
-                  <Store size={13} /> Manage business &amp; profile
-                </button>
-              </div>
-            ) : (
-              /* Feedback #1 — "the option to create a business is not coming
-                 and also the provider". Both routes existed, but only as one
-                 generic "Start selling" card pointing at /manage, so neither
-                 word appeared anywhere on this page. Now they're two named
-                 actions going straight to the thing they name. */
-              <div className="col gap-8">
-                <button className="pf-row pf-row-invite" style={themed("var(--surface)", "var(--brand-600)")} onClick={() => nav("/onboard/business")}>
-                  <span className="pf-row-icon"><Store size={19} /></span>
-                  <span className="col grow" style={{ gap: 2 }}>
-                    <span className="semi" style={{ fontSize: 14 }}>Create a business</span>
-                    <span className="tiny" style={{ fontWeight: 500 }}>List your shop so neighbours can find it</span>
-                  </span>
-                  <ChevronRight size={18} color="var(--brand-300)" />
-                </button>
-                <button className="pf-row pf-row-invite" style={themed("var(--surface)", "var(--green-600)")} onClick={() => nav("/onboard/provider")}>
-                  <span className="pf-row-icon"><Briefcase size={19} /></span>
-                  <span className="col grow" style={{ gap: 2 }}>
-                    <span className="semi" style={{ fontSize: 14 }}>Become a provider</span>
-                    <span className="tiny" style={{ fontWeight: 500 }}>Offer your services around the street</span>
-                  </span>
-                  <ChevronRight size={18} color="var(--green-600)" />
-                </button>
-              </div>
-            )}
+            <HatSwitcherCard />
           </div>
 
           {/* Settings — quiet, and last. */}
@@ -471,11 +389,12 @@ export default function Profile() {
             
             {/* Premium Profile Card */}
             <div className="card" style={{ padding: 24, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", borderRadius: 20 }}>
-              <SafeImg
-                src={user.avatar} alt="" variant="avatar" className="avatar"
-                style={{ width: 90, height: 90, border: "4px solid var(--brand-100)", marginBottom: 16, cursor: "pointer" }}
-                onClick={() => nav(`/u/${user.id}`)}
-              />
+              <AvatarRing size={96} onClick={() => setAvatarSheet(true)} ariaLabel="Profile photo options" style={{ marginBottom: 16 }}>
+                <SafeImg
+                  src={user.avatar} alt="" variant="avatar"
+                  style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "3px solid #fff", display: "block" }}
+                />
+              </AvatarRing>
               <div className="row gap-6 center">
                 <span className="bold" style={{ fontSize: 20, color: "var(--ink-900)" }}>
                   {hasAlias ? `@${user.alias}` : displayName(user.name)}
@@ -511,84 +430,7 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Role Switcher */}
-            <div className="card" style={{ padding: 20, borderRadius: 20 }}>
-              <div className="small semi" style={{ color: "var(--ink-600)", marginBottom: 12 }}>I'm using STRYT as a…</div>
-              <div className="row gap-8">
-                {(["customer", "business_owner", "provider"] as Role[]).map((r) => {
-                  const has    = roles.includes(r);
-                  const active = activeRole === r;
-                  const M      = roleMeta[r];
-                  const Icon   = M.icon;
-                  return (
-                    <button
-                      key={r}
-                      onClick={() => {
-                        // Must mirror the mobile branch exactly: entering a
-                        // business/provider console goes through
-                        // attemptSwitchContext, which raises PinGateSheet when
-                        // that console has an entity password set. Navigating
-                        // directly (as this used to) walked straight past the
-                        // password — BusinessAccessGuard only checks access,
-                        // never the password — and left activeContext stale.
-                        if (!has) {
-                          nav(r === "business_owner" ? "/onboard/business" : "/onboard/provider");
-                        } else if (r === "business_owner") {
-                          const dest = manageBizId ? `/business/${manageBizId}/manage` : "/manage";
-                          const ready = attemptSwitchContext(
-                            { type: "business", id: manageBizId ?? null, name: myBiz?.name ?? "My Business" },
-                            dest
-                          );
-                          if (ready) nav(dest);
-                        } else if (r === "provider") {
-                          const dest = ownedProviderId ? `/provider/${ownedProviderId}/manage` : "/manage";
-                          const ready = attemptSwitchContext(
-                            { type: "provider", id: ownedProviderId ?? null, name: myProv?.displayName ?? "My Provider Profile" },
-                            dest
-                          );
-                          if (ready) nav(dest);
-                        } else {
-                          setActiveRole(r);
-                        }
-                      }}
-                      className={`pf-role${active ? " active" : ""}`}
-                      style={themed(M.tint, M.accent)}
-                    >
-                      <Icon size={22} color={M.accent} />
-                      <span className="tiny semi" style={{ color: active ? M.accent : "var(--ink-600)" }}>{M.label}</span>
-                      {!has && <span className="pf-role-add">+ Add</span>}
-                    </button>
-                  );
-                })}
-              </div>
-              {activeRole === "business_owner" && roles.includes("business_owner") && manageBizId && (
-                <button
-                  className="btn btn-ghost btn-block btn-sm"
-                  style={{ marginTop: 12 }}
-                  onClick={() => {
-                    const dest = `/business/${manageBizId}/manage`;
-                    if (attemptSwitchContext({ type: "business", id: manageBizId, name: myBiz?.name ?? "My Business" }, dest)) nav(dest);
-                  }}
-                >
-                  Open business dashboard →
-                </button>
-              )}
-              {activeRole === "provider" && roles.includes("provider") && ownedProviderId && (
-                <button
-                  className="btn btn-ghost btn-block btn-sm"
-                  style={{ marginTop: 12 }}
-                  onClick={() => {
-                    const dest = `/provider/${ownedProviderId}/manage`;
-                    if (attemptSwitchContext({ type: "provider", id: ownedProviderId, name: myProv?.displayName ?? "My Provider Profile" }, dest)) nav(dest);
-                  }}
-                >
-                  Open provider dashboard →
-                </button>
-              )}
-              <button className="pf-subtle-link" onClick={() => setSwitcher(true)}>
-                <ArrowLeftRight size={13} /> Switch or add another account
-              </button>
-            </div>
+            <HatSwitcherCard />
           </div>
 
           {/* Right Column: Stats, Highlights, Actions */}
@@ -713,7 +555,15 @@ export default function Profile() {
       {viewingHighlight !== null && (
         <StoryViewer stories={highlights} startIndex={viewingHighlight} onClose={() => setViewingHighlight(null)} />
       )}
-      {switcher && <AccountSwitcher onClose={() => setSwitcher(false)} />}
+      {avatarSheet && (
+        <AvatarActionSheet
+          onClose={() => setAvatarSheet(false)}
+          onViewPhoto={() => { setAvatarSheet(false); setViewingAvatarPhoto(true); }}
+        />
+      )}
+      {viewingAvatarPhoto && (
+        <PhotoViewer photos={[{ url: user.avatar || PLACEHOLDER_AVATAR }]} startIndex={0} onClose={() => setViewingAvatarPhoto(false)} />
+      )}
       {share && (
         <ShareCard
           title={displayName(user.name)}

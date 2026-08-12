@@ -287,7 +287,12 @@ export function SafeImg({
       src={displaySrc}
       alt={alt}
       className={className}
-      style={style}
+      style={{
+        ...style,
+        // Global `img { max-width: 100% }` collapses fixed-size avatars inside
+        // padded rings/buttons (content-box % resolves against a shrinking parent).
+        ...(variant === "avatar" ? { maxWidth: "none" } : null),
+      }}
       loading="lazy"
       onClick={onClick}
       onError={handleError}

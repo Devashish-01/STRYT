@@ -1,13 +1,13 @@
 # Stryt — Feature & Functionality Overview
 
-**Date of analysis:** 2026-07-18
+**Date of analysis:** 2026-08-09
 **Note:** Auto-generated from codebase analysis — verify with product team before external use.
 
 ---
 
 ## 1. Product Summary
 
-STRYT is a hyperlocal community and marketplace app built for a single neighborhood at a time. On one side, customers browse nearby shops and independent service providers, post open "asks" for things they need and get quotes back, book appointments, join walk-in queues remotely, and keep up with a local social feed — all radius-limited to what's actually near them. On the other side, the same person can also list and run their own shop, or offer their services as an independent provider, from a dedicated management console, without needing a separate account. Every payment in the app is settled directly between the two people via UPI or cash — Stryt never touches the money itself, it just tracks who claimed to have paid and lets the other side confirm it. The app is built for India first (₹ pricing, UPI payments, Hindi/Marathi/English), ships as both a website and a native Android app, and is explicitly designed around trust between real neighbors — real names are private by default, verification badges are only ever granted by a human reviewer, and location history is never stored, only the last known spot.
+STRYT is a hyperlocal community and marketplace app built for a single neighborhood at a time. On one side, customers browse nearby shops and independent service providers, post open "asks" for things they need and get quotes back, book appointments, join walk-in queues remotely, track order deliveries, and keep up with a local social feed — all radius-limited to what's actually near them. On the other side, the same person can also list and run their own shop, or offer their services as an independent provider, from a dedicated management console, without needing a separate account. Every payment in the app is settled directly between the two people via UPI or cash — Stryt never touches the money itself, it just tracks who claimed to have paid and lets the other side confirm it. The app is built for India first (₹ pricing, UPI payments, Hindi/Marathi/English), ships as both a website and a native Android app with OTA updates, and is explicitly designed around trust between real neighbors — real names are private by default, verification badges are only ever granted by a human reviewer, and location history is never stored, only the last known spot.
 
 ---
 
@@ -15,11 +15,12 @@ STRYT is a hyperlocal community and marketplace app built for a single neighborh
 
 - **Guest (signed out)** — Can browse everything within 1 km of their device: shop and provider profiles, requests, and the community feed. Every action that requires an account (booking, messaging, following, joining a queue, posting) shows a single "sign in to continue" prompt instead of a broken button.
 - **Customer** — The default role every signed-in person has. Can browse without a distance limit, book appointments, post requests and accept quotes, join queues, chat, follow people/shops, save favorites, post to the community feed, and manage their own privacy settings.
-- **Business Owner** — A customer who has also listed a shop/outlet. Gets a separate management console to run that listing: catalog, hours, live queue, bookings, payments, staff access, and more. A person can own more than one business.
+- **Business Owner** — A customer who has also listed a shop/outlet. Gets a separate management console to run that listing: catalog, hours, live queue, bookings, payments, staff access, delivery dispatch, and more. A person can own more than one business.
 - **Provider** — A customer who has also set up an independent-service profile (e.g. a plumber, tutor, or freelancer working solo, not a shop). Gets a leaner management console covering their own bookings, services, earnings, and availability. A person can hold exactly one provider profile.
+- **Delivery Agent** — A team member or delivery partner assigned to manage order deliveries (`DeliveryConsole.tsx`). Can accept assigned delivery jobs, update order progress (`ASSIGNED` ➔ `PICKED_UP` ➔ `DELIVERED`), navigate using embedded map routes, and broadcast live GPS progress to customer tracking links (`TrackingPage.tsx`).
 - **Admin / Super Admin** — Internal Stryt staff, signed in through a completely separate admin login. Reviews new listings, approves verification badges, resolves disputes and reports, and can suspend or delete accounts. Super Admin is a stricter tier required specifically for deleting a customer account.
 
-Business Owner and Provider are not separate logins — one person can be a Customer, run a shop, *and* offer services independently, all from the same account, switching between these "hats" from their profile.
+Business Owner, Provider, and Delivery Agent are not separate logins — one person can be a Customer, run a shop, offer services independently, and deliver orders, all from the same account, switching between these "hats" from their profile.
 
 ---
 
@@ -28,10 +29,22 @@ Business Owner and Provider are not separate logins — one person can be a Cust
 ### Module: Getting Started
 
 #### Sign In with Google
-- **What it does:** New and returning users tap one "Continue with Google" button to create or access their account — no separate password to remember.
-- **Where it lives:** The very first screen after the welcome splash.
+- **What it does:** New and returning users tap one "Continue with Google" button to create or access their account — no separate password to remember. Uses native Credential Manager on Android via Firebase and bridged to Supabase sessions.
+- **Where it lives:** The very first screen after the welcome splash (`PhoneEntry.tsx`).
 - **Who can use it:** Everyone, on both the website and the native Android app.
 - **Why it matters:** Removes the biggest friction point in signing up — one tap and you're in.
+
+#### Phone Number & SMS OTP Auth Infrastructure
+- **What it does:** A production-ready phone number authentication pipeline (`authService.sendOtp` & `authService.verifyOtp`, `PhoneEntry.tsx`, `OtpVerify.tsx`). E.164 phone normalization (+91) and profile sync (`ensureProfile`) are fully built. Designed to integrate directly with SMS providers like Message Central or Twilio via Supabase Auth's **Send SMS Hook** for regional cost optimization.
+- **Where it lives:** `src/services/core/authService.ts`, `PhoneEntry.tsx`, `OtpVerify.tsx`.
+- **Who can use it:** Infrastructure is built and tested; can be exposed in the UI as a secondary sign-in method.
+- **Why it matters:** Provides an essential login fallback in India tier 2/3 markets and protects against single-provider lockout.
+
+#### Direct APK Download & OTA Updates
+- **What it does:** Web visitors can download the native Android `.apk` binary directly via a floating header/footer action (`apkDownload.ts`). Installed apps receive instant Over-The-Air (OTA) bundle updates without requiring Play Store app downloads via `@capgo/capacitor-updater`.
+- **Where it lives:** Web login/welcome screens and native app runtime (`scripts/publish-ota-update.mjs`).
+- **Who can use it:** All Android web visitors and installed app users.
+- **Why it matters:** Enables immediate distribution and rapid feature updates without waiting for app store review delays.
 
 #### Look Around First (Guest Browsing)
 - **What it does:** A visitor can explore the app without creating an account at all — shops, providers, requests, and the community feed are all visible, capped to what's within 1 km.
@@ -511,6 +524,28 @@ Business Owner and Provider are not separate logins — one person can be a Cust
 
 ---
 
+### Module: Order Delivery & Logistics Dispatch
+
+#### Store Delivery Dispatch (`BusinessDeliveries.tsx`)
+- **What it does:** Allows business owners and store managers to track store order deliveries, assign delivery jobs to staff or delivery partners, and view active order delivery statuses (`UNASSIGNED` ➔ `ASSIGNED` ➔ `PICKED_UP` ➔ `DELIVERED`).
+- **Where it lives:** Business Console → Deliveries tab (`/business/manage/deliveries`).
+- **Who can use it:** Business owners and authorized store team members.
+- **Why it matters:** Provides full control over store dispatch without relying on expensive third-party delivery platforms.
+
+#### Delivery Agent Console (`DeliveryConsole.tsx`)
+- **What it does:** A dedicated mobile-first operational dashboard for delivery agents to view assigned order jobs, navigate to pickup/delivery destinations via embedded map actions, toggle availability status, and update live order delivery milestones.
+- **Where it lives:** Delivery Console (`/delivery`).
+- **Who can use it:** Assigned delivery agents and store staff.
+- **Why it matters:** Equips local delivery personnel with a streamlined interface designed for fast action on a mobile screen.
+
+#### Live Order Tracking Page (`TrackingPage.tsx`)
+- **What it does:** Generates a real-time, shareable tracking page for customers to watch their order delivery progress, view agent details (name/phone revealed once en route), and track live background GPS coordinates.
+- **Where it lives:** Public customer tracking route (`/track/:deliveryId`).
+- **Who can use it:** Customers and recipient neighbors.
+- **Why it matters:** Gives customers Uber/Swiggy-style delivery visibility and peace of mind.
+
+---
+
 ### Module: Working as a Provider — The Provider Console
 
 #### Set Up Your Provider Profile
@@ -742,7 +777,7 @@ The following exist in the codebase but are **not** available to real users toda
 - **Neighborhood Pulse Hub** — a larger, dedicated version of the "Neighborhood Today" widget already live on Home, combining more local stats into one screen. Built, not linked.
 - **Business Photo Gallery Manager (standalone)** — a dedicated screen for managing a shop's general photo gallery, separate from its Portfolio (past-work) and Catalog photos. Built, not linked.
 - **Business Story Composer (standalone screen)** — posting a Story as a business already works from the dashboard's quick actions; this is a separate, more detailed compose screen for it that isn't currently linked.
-- **Phone Number & Email Sign-In (OTP)** — a complete phone-number and email verification-code sign-in flow exists and works, but is currently turned off in favor of Google Sign-In only; it can be re-enabled without new development.
+- **Phone Number & Email Sign-In (OTP)** — A complete phone-number and email verification-code sign-in flow (`authService.sendOtp`, `authService.verifyOtp`, `PhoneEntry.tsx`, `OtpVerify.tsx`) is built, tested, and normalized to E.164 (+91). Currently disabled in the UI in favor of Google Sign-In only, but ready to connect to SMS providers (e.g., Message Central or Twilio via Supabase Auth's Send SMS Hook) without major code changes.
 - **A More Advanced Staff-Login System** — beyond the "grant access by phone/email/handle" system that's live today (Section 3), a more elaborate system exists behind the scenes where an owner could set up a dedicated shop login ID and password (with optional approval-required and time-limited sessions) for someone who doesn't need their own Stryt account. Built at the technical level, but has no screen for an owner to actually turn it on yet.
 
 ---

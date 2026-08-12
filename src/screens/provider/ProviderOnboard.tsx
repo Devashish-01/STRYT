@@ -9,8 +9,9 @@ import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
 import HoursSelector, { parseAvailability } from "@/components/HoursSelector";
 import { DEFAULT_ONBOARD_WORKING_HOURS, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
-import { getBusinessTheme, type BusinessPackageKey } from "@/lib/businessPackages";
+import { getBusinessTheme, BUSINESS_PACKAGES, type BusinessPackageKey } from "@/lib/businessPackages";
 import { PackageConfirmCard } from "@/components/PackageConfirmCard";
+import { OnboardBookingsToggle } from "@/components/OnboardBookingsToggle";
 
 const steps = ["Skill", "Area & price", "Portfolio", "Photo"];
 
@@ -52,6 +53,10 @@ export default function ProviderOnboard() {
   const bizThemeKey = getBusinessTheme(selectedCat?.name);
   const [packageOverride, setPackageOverride] = useState<BusinessPackageKey | null>(null);
   const effectivePackageKey = packageOverride ?? bizThemeKey;
+  // Same null-means-"follow the package" pattern as BusinessOnboard — see the
+  // comment there for why a hardcoded false was wrong.
+  const [bookingsOverride, setBookingsOverride] = useState<boolean | null>(null);
+  const wantsBookings = bookingsOverride ?? BUSINESS_PACKAGES[effectivePackageKey].bookingsDefault;
 
   // A clear face photograph (becomes the profile photo) is the only requirement.
   const verifyValid = !!photoFile;
@@ -73,7 +78,9 @@ export default function ProviderOnboard() {
       // but writes storage in the new per-day format so the new hours editor / correct "open now"
       // badges apply immediately, without a legacy round-trip.
       const parsedAvailability = parseAvailability(availability);
-      const availabilityValue = serializeHoursValue(expandPatternToWeekly(parsedAvailability.days, parsedAvailability.from, parsedAvailability.to, 30));
+      const availabilityValue = wantsBookings
+        ? serializeHoursValue(expandPatternToWeekly(parsedAvailability.days, parsedAvailability.from, parsedAvailability.to, 30))
+        : undefined;
       const created = await providerService.create({
         displayName: displayName.trim(),
         categoryId: cat ?? undefined,
@@ -84,6 +91,7 @@ export default function ProviderOnboard() {
         bio,
         startingPrice: Number(price),
         serviceRadiusKm: radius,
+        bookingsEnabled: wantsBookings,
         availabilityNote: availabilityValue,
         avatar: photoUrl,
         lat: lat!,
@@ -211,15 +219,22 @@ export default function ProviderOnboard() {
                 description="How far you'll travel to serve, and how far your posts and stories reach nearby customers."
               />
             </div>
-            <div className="field">
-              <HoursSelector
-                value={availability}
-                onChange={setAvailability}
-                accentColor="var(--green-500)"
-                label="Availability timing"
-                description="Specify when you are available for customer bookings"
-              />
-            </div>
+            <OnboardBookingsToggle
+              on={wantsBookings}
+              onChange={setBookingsOverride}
+              accentColor="var(--green-500)"
+            />
+            {wantsBookings && (
+              <div className="field">
+                <HoursSelector
+                  value={availability}
+                  onChange={setAvailability}
+                  accentColor="var(--green-500)"
+                  label="Availability timing"
+                  description="Specify when you are available for customer bookings"
+                />
+              </div>
+            )}
           </>
         )}
 
