@@ -21,6 +21,7 @@ const WHITELISTED_HEX = new Set([
   "eee", "eeeeee",
   "ddd", "dddddd",
   "ccc", "cccccc",
+  "808080", // Pure mid-gray — expected midpoint in mapPalette.test.ts's mixHex blend assertion
 
   // App shell / page background (structural, set in body rule of index.css already)
   "ece5f8",
@@ -69,8 +70,14 @@ function getFiles(dir, fileList = []) {
       getFiles(name, fileList);
     } else {
       if (file.endsWith(".tsx") || file.endsWith(".ts") || file.endsWith(".jsx") || file.endsWith(".js")) {
-        // Exclude test/audit files, node_modules, git, and useAmbientTheme.ts (dedicated dynamic weather gradient stops)
-        if (!name.includes("node_modules") && !name.includes(".git") && !name.includes("useAmbientTheme.ts")) {
+        // Exclude test/audit files, node_modules, git, useAmbientTheme.ts (dedicated
+        // dynamic weather gradient stops), and mapPalette.ts (dedicated basemap
+        // day/night tile colors — MapLibre paint is WebGL and can't read CSS
+        // variables, same reason the heatmap layer's fallback hexes are whitelisted
+        // below, but this file's ~18 literals are a full ramp, not a handful of
+        // token fallbacks, so it gets the same file-level exclusion as the weather
+        // gradients rather than an unreadable wall of individually whitelisted hexes)
+        if (!name.includes("node_modules") && !name.includes(".git") && !name.includes("useAmbientTheme.ts") && !name.includes("mapPalette.ts")) {
           fileList.push(name);
         }
       }

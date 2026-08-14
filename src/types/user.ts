@@ -18,6 +18,18 @@ export type NotificationType =
   | "LOCATION_REQUEST"
   | "LOCATION_APPROVED"
   | "COMMUNITY_COMMENT"
+  // The rest of the community loop (20260896). Before these, liking a post,
+  // answering someone's question with a recommendation, resolving a lost-and-
+  // found, closing a poll, being @mentioned, and an urgent street alert were all
+  // silent — you had to already be looking at the app for any of it to land.
+  | "COMMUNITY_LIKE"
+  | "COMMUNITY_RECOMMENDATION"
+  | "COMMUNITY_RESOLVED"
+  | "COMMUNITY_POLL_ENDED"
+  | "COMMUNITY_MENTION"
+  /** Broadcast to neighbours within radius when an ALERT is posted. Rate-limited
+   *  and capped server-side, and opt-out-able via users.notif_nearby_alerts. */
+  | "NEARBY_ALERT"
   | "REPORT_RESOLVED"
   | "STORY_REACTION"
   | "SAVED_SEARCH_MATCH"
@@ -153,6 +165,11 @@ export interface CurrentUser {
    *  bookings, queue updates, agreements, deliveries, chat and payments are
    *  transactional and always deliver regardless. Default true (opted in). */
   notifNewBusiness?: boolean;
+  /** Receive NEARBY_ALERT broadcasts from neighbours (water cuts, road closures,
+   *  safety notices). Unlike the others this is honoured at notification-INSERT
+   *  time, not only at push time — a broadcast this wide shouldn't fill an
+   *  opted-out neighbour's in-app list either. */
+  notifNearbyAlerts?: boolean;
   notifNearbyRequests?: boolean;
   notifOffers?: boolean;
   /** Deliver without sound. Suppresses the alert, never the notification. */

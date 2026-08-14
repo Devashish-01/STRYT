@@ -9,7 +9,7 @@ this document is now the plan for both. Phase 1 (viewport search) and Phase 4
 
 | # | Question | Decision |
 |---|----------|----------|
-| D1 | Interaction model | **Carousel replaces the sheet.** Full-bleed map; browsing moves the map, it doesn't open a panel over it |
+| D1 | Interaction model | ~~**Carousel replaces the sheet.** Full-bleed map; browsing moves the map, it doesn't open a panel over it~~ — **reversed 2026-08-12, see note after §5.** The carousel itself was never wrong and is unchanged; a draggable sheet now wraps it. |
 | D2 | Pin style | **Every pin is a circular avatar photo** — shops, providers, stories, all one visual language |
 | D3 | Heat layer | **Business density + open-now** |
 
@@ -299,6 +299,26 @@ Every phase in this document is now shipped. What's left is the honest
 device-verification pass §6 has been asking for since Phase B — none of A–F
 has been looked at in an actual browser or on an actual phone in this
 environment.
+
+**D1 reversed, 2026-08-12 — the drag sheet is back, additively.** D1 killed
+`MapResultsSheet.tsx` (a draggable, 3-detent peek/half/full sheet) in favour
+of the fixed-height carousel this doc shipped as Phase B. What replaced the
+sheet's expand/collapse job — the `viewMode: "map" | "list"` toggle — was an
+instant, unanimated cut to a full-screen panel that hid the map entirely,
+worse than either the sheet (which kept the map visible at every detent) or
+the carousel alone (which never covered the map at all). That's the concrete
+defect this reverses, not D1's actual point: the carousel/avatar-pin/heat
+work above is untouched.
+
+The reversal is additive, not a rollback: `MapSheet.tsx` (recovered from `git
+show 7d0e068^:src/screens/MapView/MapResultsSheet.tsx`) supplies only the
+detent state machine and pointer-capture drag — it renders no results of its
+own. `MapCarousel.tsx`, built well after the original sheet was deleted,
+still renders both the tray and the list; the sheet just became the thing
+that animates between them instead of `viewMode` hard-cutting. `--map-carousel-h`
+(a static 120px guess since Phase B) is now measured live off the sheet via
+`ResizeObserver`, so the FABs/guest-notice/attribution that already anchored
+off it follow the sheet through a drag for free.
 
 ---
 

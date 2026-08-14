@@ -330,6 +330,53 @@ export const socialService = {
     return (iFollow ?? 0) > 0 && (followsMe ?? 0) > 0;
   },
 
+  // ── Blocking (20260892) ───────────────────────────────────────
+  // The moderation floor that had to exist before community comments stopped
+  // being mutual-follow-only: a block bars commenting in BOTH directions, so it
+  // can't be used to silence someone and then get the last word.
+  //
+  // RLS lets you read only your own blocks, deliberately — being able to see who
+  // has blocked you turns a safety tool into a signal to make a second account.
+  // So there is no "amIBlockedBy" here by design; the server-side
+  // is_blocked_between() is what the comment gate consults.
+  // `user_blocks` is new in 20260892 and therefore absent from the generated
+  // database.types.ts, so the table handle is cast — the same approach the
+  // codebase already uses for columns the generated types don't know yet.
+  async blockUser(otherUserId: string): Promise<void> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid || !otherUserId || uid === otherUserId) return;
+    const { error } = await (sb.from as any)("user_blocks")
+      .upsert({ blocker_user_id: uid, blocked_user_id: otherUserId }, {
+        onConflict: "blocker_user_id,blocked_user_id",
+        ignoreDuplicates: true,
+      });
+    if (error) throw error;
+  },
+
+  async unblockUser(otherUserId: string): Promise<void> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid || !otherUserId) return;
+    const { error } = await (sb.from as any)("user_blocks")
+      .delete()
+      .eq("blocker_user_id", uid)
+      .eq("blocked_user_id", otherUserId);
+    if (error) throw error;
+  },
+
+  /** Whether the signed-in user has blocked this person (their own list only). */
+  async hasBlocked(otherUserId: string): Promise<boolean> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid || !otherUserId) return false;
+    const { count } = await (sb.from as any)("user_blocks")
+      .select("*", { count: "exact", head: true })
+      .eq("blocker_user_id", uid)
+      .eq("blocked_user_id", otherUserId);
+    return (count ?? 0) > 0;
+  },
+
   // ── Followers of a user (reverse of "who I follow") ─────────────
   async followers(userId: string): Promise<{ id: string; name: string; avatar: string }[]> {
     const sb = getSupabase();

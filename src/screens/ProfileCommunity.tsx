@@ -61,7 +61,7 @@ export function ProfileCommunity({ kind }: { kind: Kind }) {
   const reqList = myRequests ?? [];
 
   return (
-    <div className="screen with-nav">
+    <div className="screen with-nav community-theme">
       <AppBar
         title="My Community"
         subtitle={name}

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ComponentType } from "react";
-import { useNavigate } from "react-router-dom";
-import { Rating, inr } from "@/components/common";
+import { inr } from "@/components/common";
 import { Store, Briefcase } from "@/components/Icons";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability } from "@/utils/availability";
@@ -25,7 +24,10 @@ interface Row {
   photo?: string | null;
   tone?: RingTone;
   fallback?: ComponentType<{ size?: number | string; color?: string }>;
-  rating?: number;
+  /** "square" tells the shop's photo from a provider's/story's circular
+   *  avatar at a glance, matching how the rest of the app already
+   *  differentiates them — omitted (defaults to circle) for everything else. */
+  shape?: "circle" | "square";
   onOpen?: () => void;
 }
 
@@ -60,7 +62,6 @@ export function MapCarousel({
   onStoryClick: (stories: Story[], idx: number) => void;
   isListView?: boolean;
 }) {
-  const nav = useNavigate();
   const { viewedStories } = useApp();
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,7 +95,7 @@ export function MapCarousel({
           photo: b.coverImage,
           tone: isOpen ? "open" : "closed",
           fallback: Store,
-          rating: b.ratingAvg,
+          shape: "square",
         });
       }
     }
@@ -108,14 +109,13 @@ export function MapCarousel({
           kind: "provider",
           id: p.id,
           title: safeName(p.displayName, "Local provider"),
-          sub: p.categoryName || "Provider",
+          sub: p.subCategory || p.categoryName || "Provider",
           distanceKm: dist,
           lat: p.lat,
           lng: p.lng,
           photo: p.avatar,
           tone: isOpen ? "available" : "unavailable",
           fallback: Briefcase,
-          rating: p.ratingAvg,
         });
       }
     }
@@ -232,146 +232,22 @@ export function MapCarousel({
               {r.kind === "request" ? (
                 <span className="map-carousel__dot" style={{ background: pinColors.request }} />
               ) : (
-                <AvatarPin photo={r.photo} name={r.title} tone={r.tone ?? "closed"} fallback={r.fallback} size={44} />
+                <AvatarPin
+                  photo={r.photo}
+                  name={r.title}
+                  tone={r.tone ?? "closed"}
+                  fallback={r.fallback}
+                  shape={r.shape}
+                  size={52}
+                />
               )}
               <span className="map-carousel__info">
                 <span className="map-carousel__title ellipsis">{r.title}</span>
                 <span className="map-carousel__sub ellipsis">
                   {r.distanceKm != null ? pedestrianDistanceLabel(r.distanceKm, t) : r.sub}
                 </span>
-                {r.rating != null && r.rating > 0 && (
-                  <span className="map-carousel__rating">
-                    <Rating value={r.rating} size={9} />
-                  </span>
-                )}
               </span>
             </div>
-
-            {/* Inline Quick Action bar — list / desktop only (CSS hides on tray chips). */}
-            {isSelected && r.kind !== "story" && (
-              <div className="map-carousel__actions">
-                {r.kind === "business" && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        nav(`/business/${r.id}`);
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: "6px 8px",
-                        borderRadius: 10,
-                        background: "var(--brand-600)",
-                        color: "#fff",
-                        border: "none",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 4,
-                      }}
-                    >
-                      🎟️ {t("map_join_queue")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        nav("/chats");
-                      }}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 10,
-                        background: "rgba(139, 71, 245, 0.12)",
-                        color: "var(--brand-700)",
-                        border: "none",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                      }}
-                    >
-                      💬 {t("map_chat")}
-                    </button>
-                  </>
-                )}
-                {r.kind === "provider" && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        nav(`/provider/${r.id}`);
-                      }}
-                      style={{
-                        flex: 1,
-                        padding: "6px 8px",
-                        borderRadius: 10,
-                        background: "var(--green-600)",
-                        color: "#fff",
-                        border: "none",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 4,
-                      }}
-                    >
-                      📅 {t("map_book_slot")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        nav("/chats");
-                      }}
-                      style={{
-                        padding: "6px 10px",
-                        borderRadius: 10,
-                        background: "rgba(22, 163, 74, 0.12)",
-                        color: "var(--green-700)",
-                        border: "none",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                      }}
-                    >
-                      💬 {t("map_chat")}
-                    </button>
-                  </>
-                )}
-                {r.kind === "request" && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      nav(`/request/${r.id}`);
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: "6px 8px",
-                      borderRadius: 10,
-                      background: "var(--brand-600)",
-                      color: "#fff",
-                      border: "none",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 4,
-                    }}
-                  >
-                    🤝 {t("map_submit_bid")}
-                  </button>
-                )}
-              </div>
-            )}
           </button>
         );
       })}

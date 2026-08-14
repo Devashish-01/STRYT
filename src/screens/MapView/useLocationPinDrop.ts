@@ -4,7 +4,15 @@ import { userService } from "@/services";
 
 export interface LatLng { lat: number; lng: number }
 
-export function useLocationPinDrop(refreshUser: () => Promise<void>, showToast: (msg: string) => void) {
+export function useLocationPinDrop(
+  refreshUser: () => Promise<void>,
+  showToast: (msg: string) => void,
+  /** Fired with the confirmed coordinates once the profile write succeeds —
+   *  lets the caller re-run its own live query in the same action. Without
+   *  this, confirming a dropped pin saved the location but results stayed
+   *  keyed to wherever was searched before, same gap Recenter had. */
+  onLocationSet?: (lat: number, lng: number) => void,
+) {
   const [pickMode, setPickMode] = useState(false);
   const [pickCenter, setPickCenter] = useState<{ lat: number; lng: number } | null>(null);
   // Where the map should be sitting when pick mode opens. `null` = wherever the
@@ -61,6 +69,7 @@ export function useLocationPinDrop(refreshUser: () => Promise<void>, showToast: 
       await userService.setLocation(pickCenter.lat, pickCenter.lng, address || "Custom location");
       await refreshUser();
       showToast(`Location set — ${address || "Custom location"}`);
+      onLocationSet?.(pickCenter.lat, pickCenter.lng);
       setPickMode(false);
       setPickCenter(null);
       setPickStart(null);
@@ -70,7 +79,7 @@ export function useLocationPinDrop(refreshUser: () => Promise<void>, showToast: 
     } finally {
       setConfirming(false);
     }
-  }, [pickCenter, address, refreshUser, showToast]);
+  }, [pickCenter, address, refreshUser, showToast, onLocationSet]);
 
   return {
     pickMode, pickCenter, pickStart, address, addressLoading, confirming,

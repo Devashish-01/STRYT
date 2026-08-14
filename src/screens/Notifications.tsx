@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package } from "@/components/Icons";
+import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package, Heart, Sparkles, CheckCircle2, ChartBar, At } from "@/components/Icons";
 import { notificationService } from "@/services";
 import type { NotifScope } from "@/services/engagement/notificationService";
 import { useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
@@ -27,6 +27,15 @@ const meta: Record<NotificationType, { icon: any; color: string; bg: string }> =
   LOCATION_REQUEST: { icon: MapPin, color: "var(--brand-700)", bg: "var(--brand-100)" },
   LOCATION_APPROVED: { icon: MapPin, color: "var(--green-500)", bg: "var(--green-100)" },
   COMMUNITY_COMMENT: { icon: MessageCircle, color: "var(--brand-700)", bg: "var(--brand-100)" },
+  COMMUNITY_LIKE: { icon: Heart, color: "var(--red-500)", bg: "var(--red-50)" },
+  COMMUNITY_RECOMMENDATION: { icon: Sparkles, color: "var(--green-500)", bg: "var(--green-100)" },
+  COMMUNITY_RESOLVED: { icon: CheckCircle2, color: "var(--green-600)", bg: "var(--green-100)" },
+  COMMUNITY_POLL_ENDED: { icon: ChartBar, color: "var(--blue-500)", bg: "var(--blue-100)" },
+  COMMUNITY_MENTION: { icon: At, color: "var(--brand-700)", bg: "var(--brand-100)" },
+  // Red on purpose: this is the one community notification that arrives
+  // unrequested, so it has to read as "something is happening near you" and not
+  // as another engagement ping.
+  NEARBY_ALERT: { icon: Megaphone, color: "var(--red-600)", bg: "var(--red-100)" },
   REPORT_RESOLVED: { icon: Flag, color: "var(--ink-600)", bg: "var(--ink-100)" },
   STORY_REACTION: { icon: PartyPopper, color: "var(--pink-500)", bg: "var(--ink-50)" },
   SAVED_SEARCH_MATCH: { icon: Search, color: "var(--blue-500)", bg: "var(--ink-100)" },

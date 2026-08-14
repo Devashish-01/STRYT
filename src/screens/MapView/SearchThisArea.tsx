@@ -12,9 +12,8 @@ import { useI18n } from "@/lib/i18n";
  *     direction three times.
  */
 export default function SearchThisArea({
-  visible, busy, onClick,
+  busy, onClick,
 }: {
-  visible: boolean;
   busy: boolean;
   onClick: () => void;
 }) {
@@ -22,13 +21,9 @@ export default function SearchThisArea({
   return (
     <button
       type="button"
-      className={`map-search-area${visible ? " is-visible" : ""}`}
+      className="chip-pill map-search-area"
       onClick={onClick}
-      disabled={busy || !visible}
-      // Hidden from assistive tech and from tab order while it's not offered,
-      // rather than unmounted — so it can animate in and out.
-      aria-hidden={!visible}
-      tabIndex={visible ? 0 : -1}
+      disabled={busy}
     >
       {busy ? <Loader size={14} className="spin" /> : <RotateCcw size={14} />}
       <span>{busy ? t("map_searching") : t("map_search_this_area")}</span>

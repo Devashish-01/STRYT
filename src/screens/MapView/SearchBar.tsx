@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search } from "@/components/Icons";
+import { ArrowLeft, ChevronDown, MapPin, Search, X } from "@/components/Icons";
 import { forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { discoveryService } from "@/services";
 import { distanceLabel } from "@/lib/format";
@@ -38,6 +38,7 @@ const MIN_QUERY_LEN = 2;
  */
 export function SearchBar({
   centerLat, centerLng, onPickArea, onPickShop, onResultsVisibleChange,
+  areaLabel, onOpenAreaPicker,
 }: {
   /** Where to search shops/people FROM — the current map center, not the user's saved location. */
   centerLat: number;
@@ -46,6 +47,13 @@ export function SearchBar({
   onPickShop: (item: ShopResult) => void;
   /** Lets the map parent hide filter chips / SearchThisArea while results are open. */
   onResultsVisibleChange?: (visible: boolean) => void;
+  /** Current area name, shown in a compact trigger chip alongside the search
+   *  input — the fastest path to relocating (GPS or a nearby-area tap, one
+   *  sheet, one more tap) instead of typing. Omitted entirely when there's no
+   *  handler, so a caller that doesn't wire it up (there is none today, but
+   *  keeps this component honestly optional) renders exactly as before. */
+  areaLabel?: string;
+  onOpenAreaPicker?: () => void;
 }) {
   const nav = useNavigate();
   const { t } = useI18n();
@@ -151,38 +159,52 @@ export function SearchBar({
       >
         <ArrowLeft size={20} />
       </button>
-      <div style={{ position: "relative", flex: 1 }}>
-        <Search size={16} color="var(--ink-400)" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-        <input
-          type="text"
-          className="input map-glass-panel"
-          value={query}
-          placeholder={t("map_search_location_remotely")}
-          onChange={(e) => setQuery(e.target.value)}
-          style={{
-            width: "100%",
-            borderRadius: 30,
-            padding: "10px 18px",
-            paddingLeft: "42px",
-            paddingRight: query ? "35px" : "18px",
-            fontSize: 14,
-            fontWeight: 500,
-            outline: "none"
-          }}
-        />
-        {query && (
-          <button
-            onClick={clear}
-            aria-label="Clear search"
-            style={{
-              position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
-              border: "none", background: "transparent", color: "var(--ink-400)", cursor: "pointer",
-              fontSize: 18, fontWeight: 700
-            }}
-          >
-            &times;
-          </button>
+
+      {/* ONE glass pill, not two side by side — relocating (area button) and
+          finding something (search field) used to be visually identical
+          floating chips, which read as "two search boxes, which one do I
+          use?" rather than one bar with a leading location control, the way
+          a single considered search field should. */}
+      <div className="map-glass-panel map-search-unified">
+        {onOpenAreaPicker && (
+          <>
+            {/* The fast path: one tap opens LocationPickerSheet (GPS or a
+                tappable nearby-area list, no typing) instead of typing into
+                the field beside it. Truncated hard — this is a leading
+                control, not a place for a long name. */}
+            <button
+              type="button"
+              className="map-search-unified__area"
+              onClick={onOpenAreaPicker}
+            >
+              <MapPin size={13} />
+              <span className="ellipsis">{areaLabel || t("map_set_area")}</span>
+              <ChevronDown size={12} style={{ flexShrink: 0, opacity: 0.55 }} />
+            </button>
+            <span className="map-glass-divider" aria-hidden />
+          </>
         )}
+
+        <div className="map-search-unified__field">
+          <Search size={16} color="var(--ink-400)" style={{ flexShrink: 0 }} />
+          <input
+            type="text"
+            className="map-search-unified__input"
+            value={query}
+            placeholder={t("map_search_location_remotely")}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query && (
+            <button
+              onClick={clear}
+              aria-label="Clear search"
+              className="icon-btn-sm"
+              style={{ flexShrink: 0 }}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
 
         {showPanel && (
           <>
@@ -206,13 +228,10 @@ export function SearchBar({
                     <button
                       key={`${s.kind}:${s.id}`}
                       onClick={() => pickShop(s)}
+                      className="map-search-result-row"
                       style={{
-                        width: "100%", padding: "10px 16px", border: "none", background: "none",
-                        textAlign: "left", cursor: "pointer", display: "block",
                         borderBottom: idx < shopResults.length - 1 ? "1px solid rgba(226, 221, 240, 0.4)" : "none",
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(245, 241, 250, 0.5)"}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                     >
                       <div style={{ fontWeight: 600, fontSize: 13, color: "var(--ink-900)" }}>{s.name}</div>
                       <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 2 }}>
@@ -232,14 +251,11 @@ export function SearchBar({
                     <button
                       key={idx}
                       onClick={() => pickArea(r)}
+                      className="map-search-result-row"
                       style={{
-                        width: "100%", padding: "10px 16px", border: "none", background: "none",
-                        textAlign: "left", fontSize: 13, color: "var(--ink-800)",
+                        fontSize: 13, color: "var(--ink-800)",
                         borderBottom: idx < areaResults.length - 1 ? "1px solid rgba(226, 221, 240, 0.4)" : "none",
-                        cursor: "pointer", display: "block"
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(245, 241, 250, 0.5)"}
-                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
                     >
                       <div style={{ fontWeight: 600, color: "var(--ink-900)" }}>{r.area}</div>
                       <div style={{ fontSize: 11, color: "var(--ink-500)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.full}</div>

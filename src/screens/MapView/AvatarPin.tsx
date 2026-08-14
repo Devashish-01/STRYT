@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ComponentType, CSSProperties } from "react";
+import type { ComponentType } from "react";
 
 /** Minimum comfortable touch target (iOS HIG / Material both land here). */
 export const MIN_TAP_PX = 44;
@@ -13,12 +13,16 @@ export const MIN_TAP_PX = 44;
 export type RingTone = "open" | "closed" | "available" | "unavailable" | "story-new" | "story-seen";
 
 /** Exported so popup CTAs (and anything else that must match a pin's ring)
- *  read the same tone source — pinColors.business/provider used to drift. */
+ *  read the same tone source — pinColors.business/provider used to drift.
+ *  `closed` and `unavailable` are deliberately DIFFERENT greys (not the same
+ *  value, as they used to be) — a shut shop and an offline provider are
+ *  different situations and shouldn't be visually identical on the map. Both
+ *  stay muted, neither competes with an active-state color. */
 export const RING_BACKGROUND: Record<RingTone, string> = {
   open: "var(--brand-600)",
   closed: "var(--ink-300)",
   available: "var(--green-500)",
-  unavailable: "var(--ink-300)",
+  unavailable: "var(--ink-400)",
   "story-new": "linear-gradient(135deg,var(--accent-500),var(--pink-500),var(--brand-600))",
   "story-seen": "var(--ink-400)",
 };
@@ -38,7 +42,7 @@ export const RING_BACKGROUND: Record<RingTone, string> = {
  *
  * Already meets the 44pt minimum tap target at its default size.
  */
-export function AvatarPin({ photo, name, tone, fallback: Fallback, size = MIN_TAP_PX, badge, livePulse }: {
+export function AvatarPin({ photo, name, tone, fallback: Fallback, size = MIN_TAP_PX, badge, shape = "circle" }: {
   photo?: string | null;
   name?: string | null;
   tone: RingTone;
@@ -47,26 +51,30 @@ export function AvatarPin({ photo, name, tone, fallback: Fallback, size = MIN_TA
   size?: number;
   /** Optional status pill badge attached at the bottom of the pin (e.g. "🟢 Open • 2 in queue"). */
   badge?: string | null;
-  /** Enables an ambient pulsing animation ring around the pin for active/live items. */
-  livePulse?: boolean;
+  /** "circle" (default) for every actual map <Marker> — MAP_SNAPCHAT_STYLE_PLAN.md
+   *  §2.3 D2 fixed pins as circular photos, not touched here. "square" is for
+   *  MapCarousel's business cards only, matching how the rest of the app
+   *  already tells a business (rectangular cover photo) from a provider
+   *  (circular avatar) apart — a shape signal that survives having a photo,
+   *  unlike ring color alone. */
+  shape?: "circle" | "square";
 }) {
   const [broken, setBroken] = useState(false);
   const showPhoto = !!photo && !broken;
+  const radius = shape === "square" ? size * 0.28 : "50%";
   return (
     <span style={{ cursor: "pointer", display: "block", position: "relative" }}>
       <div
-        className={livePulse ? "map-pin-pulse" : undefined}
         style={{
-          width: size, height: size, borderRadius: "50%", padding: 2.5,
+          width: size, height: size, borderRadius: radius, padding: 2.5,
           boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
           background: RING_BACKGROUND[tone],
           transition: "box-shadow 0.2s ease, transform 0.2s ease",
-          ...(livePulse ? { "--pulse-color": RING_BACKGROUND[tone] } as CSSProperties : {}),
         }}
       >
         <div
           style={{
-            width: "100%", height: "100%", borderRadius: "50%",
+            width: "100%", height: "100%", borderRadius: radius,
             background: "var(--ink-100)", overflow: "hidden", border: "2px solid #fff",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}

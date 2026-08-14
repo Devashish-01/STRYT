@@ -37,17 +37,16 @@ export type Selected =
   | null;
 
 /** AvatarPin wired into a map <Marker> — center-anchored, since a circle (unlike a teardrop) sits directly on its point rather than pointing down at it. */
-function AvatarMarker({ lng, lat, label, onClick, badge, livePulse, ...avatar }: {
+function AvatarMarker({ lng, lat, label, onClick, badge, ...avatar }: {
   lng: number; lat: number; label: string; onClick: () => void;
   photo?: string | null; name?: string | null; tone: RingTone;
   fallback?: ComponentType<{ size?: number | string; color?: string }>;
   badge?: string | null;
-  livePulse?: boolean;
 }) {
   return (
     <Marker longitude={lng} latitude={lat} anchor="center" onClick={onClick}>
       <span role="button" aria-label={label} style={{ display: "block" }}>
-        <AvatarPin {...avatar} badge={badge} livePulse={livePulse} />
+        <AvatarPin {...avatar} badge={badge} />
       </span>
     </Marker>
   );
@@ -112,11 +111,13 @@ export function MapMarkers({
           closed = grey. No photo yet: a Store glyph, not a blank circle. */}
       {layers.business && filteredBusinesses.map((b) => {
         const isBizOpen = evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil).isOpenNow;
-        const queueCount = (b as any).queueLength ?? 0;
-        const badgeText = isBizOpen
-          ? (queueCount > 0 ? `🟢 ${queueCount} queue` : "🟢 Open")
-          : null;
-        const livePulse = isBizOpen && queueCount > 0;
+        // Was reading `(b as any).queueLength` — not a real field on Business,
+        // so the "N queue" variant was permanently dead behind an unsafe cast.
+        // A real per-business queue count needs queueOwnerState(), which is
+        // one settings+tokens fetch per business — not cheap to run for every
+        // pin on screen, so this stays the plain open/closed signal until a
+        // real count is threaded through cheaply.
+        const badgeText = isBizOpen ? "🟢 Open" : null;
         return (
           <AvatarMarker
             key={b.id}
@@ -128,7 +129,6 @@ export function MapMarkers({
             fallback={Store}
             label={b.name}
             badge={badgeText}
-            livePulse={livePulse}
             onClick={() => onSelect({ kind: "business", id: b.id })}
           />
         );
@@ -149,7 +149,6 @@ export function MapMarkers({
             fallback={Briefcase}
             label={safeName(p.displayName, "Local provider")}
             badge={badgeText}
-            livePulse={isOpen}
             onClick={() => onSelect({ kind: "provider", id: p.id })}
           />
         );
@@ -213,8 +212,9 @@ export function MapMarkers({
                   {b.distanceKm != null && <span style={{ fontSize: 12, color: "var(--ink-500)" }}>{distanceLabel(b.distanceKm, t)}</span>}
                 </div>
                 <button
+                  className="btn btn-sm btn-block"
                   onClick={() => nav(`/business/${b.id}`)}
-                  style={{ marginTop: 8, padding: "6px 12px", background: isBizOpen ? RING_BACKGROUND.open : "var(--ink-500)", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontSize: 13, width: "100%" }}
+                  style={{ marginTop: 8, background: isBizOpen ? RING_BACKGROUND.open : "var(--ink-500)", color: "#fff" }}
                 >
                   {t("map_view_shop")}
                 </button>
@@ -236,8 +236,9 @@ export function MapMarkers({
                 <div style={{ fontSize: 12, color: "var(--ink-600)", marginTop: 2 }}>{p.categoryName} · from {inr(p.startingPrice)}</div>
                 <div style={{ marginTop: 4 }}><Rating value={p.ratingAvg} size={11} /></div>
                 <button
+                  className="btn btn-sm btn-block"
                   onClick={() => nav(`/provider/${p.id}`)}
-                  style={{ marginTop: 8, padding: "6px 12px", background: isOpen ? RING_BACKGROUND.available : "var(--ink-500)", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontSize: 13, width: "100%" }}
+                  style={{ marginTop: 8, background: isOpen ? RING_BACKGROUND.available : "var(--ink-500)", color: "#fff" }}
                 >
                   {t("map_view_profile")}
                 </button>
@@ -255,8 +256,9 @@ export function MapMarkers({
                   {r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : t("budget_open")}
                 </div>
                 <button
+                  className="btn btn-sm btn-block"
                   onClick={() => nav(`/request/${r.id}`)}
-                  style={{ marginTop: 8, padding: "6px 12px", background: pinColors.request, color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", fontSize: 13, width: "100%" }}
+                  style={{ marginTop: 8, background: pinColors.request, color: "#fff" }}
                 >
                   {t("map_view_request")}
                 </button>

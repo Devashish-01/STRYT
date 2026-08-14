@@ -23,6 +23,7 @@ import { Skeleton, ErrorView } from "@/components/states";
 import ShareCard from "@/components/ShareCard";
 import { useApp } from "@/store";
 import { aliasName } from "@/lib/publicName";
+import { postTypeMeta } from "@/lib/communityTypes";
 
 const verifyLabels: Record<string, string> = {
   phone: "Phone",
@@ -468,7 +469,11 @@ export default function PublicProfile() {
                   <div key={p.id} className="card" style={{ borderRadius: 18, opacity: isHidden && isSelf ? 0.7 : 1 }}>
                     <div className="row space-between" style={{ marginBottom: 8, alignItems: "center" }}>
                       <div className="row gap-6 center-v">
-                        <span className="badge badge-blue" style={{ fontSize: 11 }}>{p.type}</span>
+                        {/* Was rendering the raw enum, so a lost-and-found post
+                            read as "LOST_FOUND" on a public profile. */}
+                        <span className={`badge badge-${postTypeMeta(p.type).tone}`} style={{ fontSize: 11 }}>
+                          {postTypeMeta(p.type).emoji} {postTypeMeta(p.type).label}
+                        </span>
                         {isSelf && (
                           <button
                             type="button"

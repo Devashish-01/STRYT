@@ -1,6 +1,6 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MapPin, Clock, BadgeCheck, Zap, Eye, Users, Flame, Repeat, MessageCircle, CheckCircle2 } from "@/components/Icons";
+import { Heart, MapPin, Clock, BadgeCheck, Zap, Eye, Users, Flame, Repeat, MessageCircle, CheckCircle2, ChevronRight, Bookmark, Share2, Flag, EyeOff, Ban, DotsThree } from "@/components/Icons";
 import type { Business, Provider, RequestPost, CommunityPost, CommunityPostType, BookmarkTarget } from "@/types";
 import { Rating, inr, SafeImg } from "./common";
 import { useApp } from "@/store";
@@ -10,10 +10,24 @@ import { distanceLabel } from "@/lib/format";
 import { openProfile } from "@/lib/profileSheet";
 import { GROUP_BUY_PROGRESS_ENABLED } from "@/utils/constants";
 import { REQUEST_STATUS_BADGE } from "@/lib/statusBadges";
-import { communityService, discoveryService } from "@/services";
+import { communityService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { resolveRecommendations, type ResolvedRecommendation } from "@/lib/communityRecommendations";
 import { haptics } from "@/lib/haptics";
+import { COMMUNITY_TYPE_META } from "@/lib/communityTypes";
+import { SEVERITY_TONE, isPollClosed, postMedia, severityMeta, timeLeftLabel } from "@/lib/communityPost";
+import {
+  DOUBLE_TAP_MS,
+  doubleTapAction,
+  isDoubleTap,
+  muteTargetId,
+  postShareSubtitle,
+  postShareUrl,
+  type TapRecord,
+} from "@/lib/postInteractions";
+import ListingPickerSheet from "./ListingPickerSheet";
+import ShareCard from "./ShareCard";
+import ReportSheet from "./ReportSheet";
 
 /* ---------------- Business cards ---------------- */
 
@@ -385,19 +399,79 @@ export function RequestCard({ r, style }: { r: RequestPost; style?: CSSPropertie
 
 /* ---------------- Community card ---------------- */
 
-const COMMUNITY_TYPE_META: Record<CommunityPostType, { label: string; emoji: string; tone: string }> = {
-  LOST_FOUND: { label: "Lost & Found", emoji: "🔍", tone: "amber" },
-  ALERT: { label: "Alert", emoji: "📢", tone: "red" },
-  RECOMMENDATION: { label: "Ask neighbors", emoji: "💬", tone: "purple" },
-  GIVEAWAY: { label: "Giveaway", emoji: "🎁", tone: "green" },
-  POLL: { label: "Poll", emoji: "📊", tone: "blue" },
-  SHOUTOUT: { label: "Shoutout", emoji: "🙌", tone: "purple" },
-};
+/**
+ * Compact one-line-plus summary of a post, for the "list of posts" contexts that
+ * aren't the feed: My Activity, and a provider's Posts tab.
+ *
+ * Those two screens had byte-identical inline markup, and because it was
+ * hand-rolled in each it silently missed everything the feed card gained —
+ * a post's type rendered as the raw enum (`LOST_FOUND`), a multi-photo post
+ * showed nothing but its cover, and a resolved lost-and-found looked
+ * indistinguishable from an open one. This is deliberately NOT CommunityCard:
+ * these are dense list rows, not feed cards, and they shouldn't carry
+ * like/save/share controls.
+ */
+export function PostSummaryRow({ post, onClick }: { post: CommunityPost; onClick: () => void }) {
+  const M = COMMUNITY_TYPE_META[post.type];
+  const media = postMedia(post);
+  const sev = post.type === "ALERT" && post.severity ? severityMeta(post.severity) : null;
+  return (
+    <button className="card col gap-6" style={{ padding: 14, textAlign: "left" }} onClick={onClick}>
+      <div className="row between gap-8 center-v">
+        {/* Falls back to the human label, never the raw enum. */}
+        <span className="semi small ellipsis">{post.title || `${M.emoji} ${M.label}`}</span>
+        <span className="tiny muted" style={{ flexShrink: 0 }}>{post.postedAt}</span>
+      </div>
+      <div className="row gap-6 center-v wrap">
+        <span className={`badge badge-${sev ? SEVERITY_TONE[post.severity!] : M.tone}`} style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 8 }}>
+          {sev ? `${sev.emoji} ${sev.label}` : `${M.emoji} ${M.label}`}
+        </span>
+        {post.resolved && (
+          <span className="badge badge-green" style={{ fontSize: 10.5, padding: "2px 8px", borderRadius: 8 }}>
+            <CheckCircle2 size={10} /> Resolved
+          </span>
+        )}
+      </div>
+      {post.body && <p className="small muted clamp-2" style={{ lineHeight: 1.5 }}>{post.body}</p>}
+      {media.length > 0 && (
+        <div style={{ position: "relative" }}>
+          <SafeImg src={media[0]} alt={post.imageAlt || ""} style={{ width: "100%", height: 150, borderRadius: 12, objectFit: "cover" }} />
+          {media.length > 1 && (
+            <span
+              className="tiny semi"
+              style={{ position: "absolute", top: 8, right: 8, padding: "2px 8px", borderRadius: 9, color: "var(--white)", background: "rgba(26, 21, 48, 0.72)", fontSize: 11 }}
+            >
+              1/{media.length}
+            </span>
+          )}
+        </div>
+      )}
+      <div className="row gap-14 tiny muted" style={{ marginTop: 2 }}>
+        <span className="row gap-4"><Heart size={13} /> {post.likes}</span>
+        <span className="row gap-4"><MessageCircle size={13} /> {post.commentsCount}</span>
+      </div>
+    </button>
+  );
+}
 
-export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefetch?: () => void }) {
+export function CommunityCard({ post, onRefetch, onHide, onMute }: {
+  post: CommunityPost;
+  onRefetch?: () => void;
+  /** Feed asked to be told, so it can drop the row immediately. */
+  onHide?: (postId: string) => void;
+  onMute?: (authorId: string, authorName: string) => void;
+}) {
   const nav = useNavigate();
   const { votes, votePoll, user, showToast, isGuest } = useApp();
   const [recommendOpen, setRecommendOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  // Drives the burst overlay. Keyed by a counter rather than a boolean so a
+  // second double-tap restarts the animation instead of being swallowed while
+  // the first is still running.
+  const [burst, setBurst] = useState(0);
+  const lastTap = useRef<TapRecord | null>(null);
   const M = COMMUNITY_TYPE_META[post.type];
   // Optimistic override for THIS card only, cleared once the server-confirmed
   // value (post.liked/post.likes) catches up — avoids XOR-ing against a value
@@ -410,10 +484,27 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
     if (likeOverride === null) return;
     if (post.liked === likeOverride) setLikeOverride(null);
   }, [post.liked, post.likes, likeOverride]);
+  // Same clear-only-when-the-server-agrees rule for saves.
+  const [saveOverride, setSaveOverride] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (saveOverride === null) return;
+    if ((post.saved ?? false) === saveOverride) setSaveOverride(null);
+  }, [post.saved, saveOverride]);
   const liked = likeOverride ?? post.liked;
   const likeCount = Math.max(0, post.likes + (likeOverride === true && !post.liked ? 1 : 0) - (likeOverride === false && post.liked ? 1 : 0));
+  // The author sees their own tally even when they've hidden it from everyone
+  // else — otherwise "hide like count" would hide it from the one person it's
+  // feedback for.
+  const isPostAuthor = !isGuest && !!user.id && post.authorUserId === user.id;
+  const showLikeCount = !post.hideLikeCount || isPostAuthor;
+  const saved = saveOverride ?? post.saved ?? false;
   const votedOption = votes[post.id] ?? post.votedOptionId;
   const totalVotes = (post.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !post.votedOptionId ? 1 : 0);
+  // Photos read through postMedia() so a pre-migration row (single `image`, no
+  // `media` array) renders identically to a new multi-photo one.
+  const cardMedia = postMedia(post);
+  const pollClosed = isPollClosed(post);
+  const pollCountdown = post.type === "POLL" ? timeLeftLabel(post.pollEndsAt) : null;
 
   // Optimistic override so a new recommendation shows immediately instead of
   // waiting on a full parent refetch — same shape as likeOverride above.
@@ -436,9 +527,60 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
     const next = !liked;
     haptics.selection();
     setLikeOverride(next); // optimistic
+    if (next) setBurst((n) => n + 1);
     communityService.like(post.id, liked).catch(() => {
       setLikeOverride(liked); // revert so the UI never lies
       showToast("Couldn't update like — try again");
+    });
+  }
+
+  /**
+   * Double-tap anywhere on the card body to like it, the gesture people already
+   * expect from a feed. Single-tap still opens the post, so this is layered on
+   * top: the tap that opens the post is only committed if no second tap follows
+   * inside the double-tap window.
+   */
+  function handleCardTap(e: React.MouseEvent) {
+    const record: TapRecord = { time: Date.now(), x: e.clientX, y: e.clientY };
+    const isSecond = isDoubleTap(lastTap.current, record);
+    lastTap.current = isSecond ? null : record;
+
+    if (!isSecond) {
+      // Wait out the double-tap window before treating it as "open the post",
+      // otherwise the first tap of a double-tap would navigate away.
+      const scheduled = record;
+      window.setTimeout(() => {
+        if (lastTap.current === scheduled) {
+          lastTap.current = null;
+          nav(`/community/${post.id}`, { state: { post } });
+        }
+      }, DOUBLE_TAP_MS);
+      return;
+    }
+
+    if (isGuest) {
+      showToast("Sign in to like posts");
+      return;
+    }
+    // Never unlikes — see doubleTapAction. Replays the burst instead, so the
+    // gesture always feels acknowledged.
+    if (doubleTapAction(liked) === "LIKE") {
+      handleLike();
+    } else {
+      haptics.light();
+      setBurst((n) => n + 1);
+    }
+  }
+
+  function handleSave() {
+    const next = !saved;
+    haptics.selection();
+    setSaveOverride(next); // optimistic
+    communityService.toggleSave(post.id, saved).then(() => {
+      showToast(next ? "Saved" : "Removed from saved");
+    }).catch(() => {
+      setSaveOverride(saved); // revert so the UI never lies
+      showToast("Couldn't save — try again");
     });
   }
 
@@ -469,16 +611,22 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
 
   return (
     <>
-      <div className="card community-card-squircle queue-row-enter" style={{ padding: 16 }}>
-        <button className="row gap-12" style={{ width: "100%", textAlign: "left" }} onClick={() => nav(`/community/${post.id}`, { state: { post } })}>
+      <div className="card community-card-squircle queue-row-enter" style={{ position: "relative" }}>
+        {/* Double-tap burst. Keyed so a repeat gesture restarts it. */}
+        {burst > 0 && (
+          <span key={burst} className="like-burst" aria-hidden="true">
+            <Heart size={78} weight="fill" color="var(--red-500)" />
+          </span>
+        )}
+        <button className="row gap-12" style={{ width: "100%", textAlign: "left", background: "transparent", border: "none", padding: 0 }} onClick={handleCardTap}>
           <SafeImg
             src={post.authorAvatar}
             variant={post.authorType === "business" ? "photo" : "avatar"}
             className="avatar"
             style={{
               width: 44, height: 44, borderRadius: "50%",
-              border: post.authorType === "business" ? "2.5px solid var(--orange-500)" : post.authorType === "provider" ? "2.5px solid var(--green-500)" : "2px solid var(--ink-200)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.06)"
+              border: post.authorType === "business" ? "2px solid var(--orange-500)" : post.authorType === "provider" ? "2px solid var(--green-500)" : "2px solid var(--ink-200)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.06)", flexShrink: 0
             }}
             onClick={(e) => {
               e.stopPropagation();
@@ -492,31 +640,115 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
             }}
           />
           <div className="grow" style={{ minWidth: 0 }}>
-            <div className="row between gap-6">
+            <div className="row between gap-6 center-v">
               <span className="row gap-6 center-v" style={{ minWidth: 0 }}>
-                <span className="semi small ellipsis" style={{ fontSize: 14.5, color: "var(--ink-900)" }}>{post.authorName}</span>
+                <span className="semi ellipsis" style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-900)" }}>{post.authorName}</span>
                 {post.authorType && post.authorType !== "user" && (
-                  <span className={`badge ${post.authorType === "business" ? "badge-orange" : "badge-green"}`} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 8 }}>
+                  <span className={`badge ${post.authorType === "business" ? "badge-orange" : "badge-green"}`} style={{ fontSize: 10.5, padding: "2.5px 8px", borderRadius: 8, fontWeight: 600 }}>
                     {post.authorType === "business" ? "🏪 Business" : "🔧 Provider"}
                   </span>
                 )}
               </span>
-              <span className={`badge badge-${M.tone}`} style={{ fontSize: 11, padding: "3px 9px", borderRadius: 10 }}>{M.emoji} {M.label}</span>
+              {/* An alert's severity replaces the generic type badge — "🚨 Urgent"
+                  says more at a glance than "📢 Alert", and it's the one thing a
+                  scanner needs from an alert. */}
+              {post.type === "ALERT" && post.severity ? (
+                <span className={`badge badge-${SEVERITY_TONE[post.severity]}`} style={{ fontSize: 11.5, padding: "3.5px 10px", borderRadius: 12, fontWeight: 700, letterSpacing: "-0.1px" }}>
+                  {severityMeta(post.severity).emoji} {severityMeta(post.severity).label}
+                </span>
+              ) : (
+                <span className={`badge badge-${M.tone}`} style={{ fontSize: 11.5, padding: "3.5px 10px", borderRadius: 12, fontWeight: 600, letterSpacing: "-0.1px" }}>{M.emoji} {M.label}</span>
+              )}
             </div>
-            <span className="tiny muted row gap-4" style={{ marginTop: 2 }}><MapPin size={11} /> {post.area} • {post.postedAt}</span>
+            <span className="tiny muted row gap-4 center-v" style={{ marginTop: 3, fontSize: 12 }}><MapPin size={11} /> {post.area} • {post.postedAt}</span>
           </div>
         </button>
 
-        <div className="bold" style={{ fontSize: 16.5, marginTop: 12, letterSpacing: "-0.2px", color: "var(--ink-900)" }}>
-          {post.title}
-          {post.resolved && <span className="badge badge-green" style={{ marginLeft: 8, fontSize: 10 }}><CheckCircle2 size={11} /> Resolved</span>}
-        </div>
-        {post.body && <p className="small" style={{ marginTop: 6, lineHeight: 1.55, color: "var(--ink-700)", fontSize: 13.5 }}>{post.body}</p>}
+        {/* Overflow. Absolutely positioned so it sits outside the double-tap
+            target — a menu that likes the post when you miss it is worse than
+            no menu. */}
+        {!isGuest && (
+          <button
+            className="icon-btn"
+            aria-label="More options"
+            style={{ position: "absolute", top: 12, right: 12, width: 30, height: 30, color: "var(--ink-500)" }}
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(true); }}
+          >
+            <DotsThree size={20} />
+          </button>
+        )}
 
-        {post.image && (
-          <div style={{ borderRadius: 16, overflow: "hidden", marginTop: 12, border: "1px solid var(--ink-200)", boxShadow: "var(--shadow-sm)" }}>
-            <SafeImg src={post.image} alt="" className="thumb" style={{ width: "100%", height: 200, objectFit: "cover" }} />
+        <button
+          className="bold"
+          style={{ fontSize: 17, marginTop: 14, letterSpacing: "-0.3px", lineHeight: 1.3, color: "var(--ink-900)", display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+          onClick={handleCardTap}
+        >
+          {post.title}
+          {post.resolved && <span className="badge badge-green" style={{ marginLeft: 8, fontSize: 10.5, padding: "2.5px 8px", borderRadius: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
+        </button>
+        {post.body && <p className="small" style={{ marginTop: 8, lineHeight: 1.6, color: "var(--ink-700)", fontSize: 14 }}>{post.body}</p>}
+
+        {/* Structured per-type detail. These used to be buried in the body text
+            where they couldn't be scanned; now they read as facts. */}
+        {(post.lastSeen || post.reward || post.pickupNote) && (
+          <div className="col gap-4" style={{ marginTop: 10 }}>
+            {post.lastSeen && (
+              <span className="tiny row gap-5 center-v" style={{ color: "var(--ink-700)", fontSize: 12.5 }}>
+                <MapPin size={12} color="var(--amber-700)" /> Last seen near <span className="semi">{post.lastSeen}</span>
+              </span>
+            )}
+            {post.reward && (
+              <span className="tiny row gap-5 center-v" style={{ color: "var(--ink-700)", fontSize: 12.5 }}>
+                <span aria-hidden="true">🎁</span> Reward: <span className="semi">{post.reward}</span>
+              </span>
+            )}
+            {post.pickupNote && (
+              <span className="tiny row gap-5 center-v" style={{ color: "var(--ink-700)", fontSize: 12.5 }}>
+                <Clock size={12} color="var(--green-600)" /> Pickup: <span className="semi">{post.pickupNote}</span>
+              </span>
+            )}
           </div>
+        )}
+
+        {/* The place the AUTHOR tagged — a tappable listing, not a name in prose. */}
+        {post.taggedListing && (
+          <button
+            className="row gap-8 center-v"
+            style={{ marginTop: 10, padding: "7px 11px", borderRadius: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)", cursor: "pointer" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              nav(post.taggedListing!.listingType === "BUSINESS" ? `/business/${post.taggedListing!.listingId}` : `/provider/${post.taggedListing!.listingId}`);
+            }}
+          >
+            <span style={{ fontSize: 14 }} aria-hidden="true">{post.taggedListing.listingType === "BUSINESS" ? "🏪" : "👤"}</span>
+            <span className="tiny semi ellipsis" style={{ color: "var(--brand-800)", fontSize: 12.5 }}>{post.taggedListing.name}</span>
+            <ChevronRight size={12} color="var(--brand-600)" />
+          </button>
+        )}
+
+        {cardMedia.length > 0 && (
+          <button
+            style={{ position: "relative", display: "block", width: "100%", padding: 0, border: "1px solid var(--ink-200)", borderRadius: 16, overflow: "hidden", marginTop: 14, boxShadow: "0 2px 8px rgba(0,0,0,0.03)", cursor: "pointer", background: "transparent" }}
+            onClick={() => nav(`/community/${post.id}`, { state: { post } })}
+            aria-label={post.imageAlt || (cardMedia.length > 1 ? `${cardMedia.length} photos` : "Post photo")}
+          >
+            <SafeImg
+              src={cardMedia[0]}
+              alt={post.imageAlt || ""}
+              className="thumb"
+              style={{ width: "100%", maxHeight: 240, height: 220, objectFit: "cover", display: "block" }}
+            />
+            {/* Multi-photo posts say so rather than hiding the rest behind a tap
+                nothing hints at. */}
+            {cardMedia.length > 1 && (
+              <span
+                className="tiny semi"
+                style={{ position: "absolute", top: 10, right: 10, padding: "3px 9px", borderRadius: 10, color: "var(--white)", background: "rgba(26, 21, 48, 0.72)", backdropFilter: "blur(4px)", fontSize: 11.5 }}
+              >
+                1/{cardMedia.length}
+              </span>
+            )}
+          </button>
         )}
 
         {/* Poll */}
@@ -529,14 +761,15 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
               return (
                 <button
                   key={o.id}
-                  disabled={isGuest}
-                  onClick={isGuest ? undefined : () => handleVote(o.id)}
+                  disabled={isGuest || pollClosed}
+                  onClick={isGuest || pollClosed ? undefined : () => handleVote(o.id)}
                   style={{
-                    position: "relative", textAlign: "left", padding: "12px 14px", borderRadius: 14,
+                    position: "relative", textAlign: "left", height: 44, padding: "0 16px", borderRadius: 14,
                     border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)",
-                    overflow: "hidden", background: "var(--surface)", cursor: isGuest ? "default" : "pointer",
-                    boxShadow: voted ? "0 2px 10px rgba(139, 71, 245, 0.15)" : "none",
-                    transition: "transform 0.15s ease, border-color 0.2s ease"
+                    overflow: "hidden", background: "var(--surface)", cursor: isGuest || pollClosed ? "default" : "pointer",
+                    boxShadow: voted ? "0 2px 10px rgba(232, 62, 160, 0.18)" : "none",
+                    transition: "transform 0.15s ease, border-color 0.2s ease",
+                    display: "flex", alignItems: "center"
                   }}
                 >
                   {votedOption && (
@@ -549,8 +782,8 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
                       }}
                     />
                   )}
-                  <div className="row between" style={{ position: "relative", zIndex: 1 }}>
-                    <span className="small semi" style={{ color: voted ? "var(--brand-900)" : "var(--ink-800)" }}>
+                  <div className="row between grow" style={{ position: "relative", zIndex: 1 }}>
+                    <span className="small semi" style={{ color: voted ? "var(--brand-900)" : "var(--ink-800)", fontSize: 13.5 }}>
                       {o.label} {voted && <CheckCircle2 size={13} style={{ display: "inline", verticalAlign: "middle", marginLeft: 4 }} color="var(--brand-600)" />}
                     </span>
                     {votedOption && <span className="small bold tabular-nums" style={{ color: "var(--brand-700)" }}>{pct}%</span>}
@@ -558,7 +791,25 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
                 </button>
               );
             })}
-            <span className="tiny muted semi" style={{ marginLeft: 2 }}>{totalVotes} {totalVotes === 1 ? "vote" : "votes"}</span>
+            {/* A poll with no visible deadline reads as "I'll vote later" and
+                never gets voted on. */}
+            <span className="row between center-v" style={{ marginLeft: 2 }}>
+              <span className="tiny muted semi" style={{ fontSize: 12 }}>{totalVotes} {totalVotes === 1 ? "vote" : "votes"}</span>
+              {pollCountdown && (
+                <span
+                  className="tiny semi row gap-4 center-v"
+                  style={{
+                    fontSize: 11.5,
+                    color: pollClosed ? "var(--ink-500)" : "var(--brand-700)",
+                    background: pollClosed ? "var(--ink-100)" : "var(--brand-50)",
+                    border: `1px solid ${pollClosed ? "var(--ink-200)" : "var(--brand-200)"}`,
+                    padding: "2.5px 9px", borderRadius: 10,
+                  }}
+                >
+                  <Clock size={11} /> {pollCountdown}
+                </span>
+              )}
+            </span>
           </div>
         )}
 
@@ -570,62 +821,96 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
               return (
                 <button
                   key={rec.listingId}
-                  className="row gap-10"
+                  className="row gap-10 center-v"
                   style={{
-                    padding: 10, borderRadius: 14, background: "var(--ink-50)",
+                    padding: "10px 12px", borderRadius: 14, background: "var(--ink-50)",
                     border: "1px solid var(--ink-200)", textAlign: "left",
                     transition: "transform 0.15s ease, background 0.2s ease"
                   }}
                   onClick={() => nav(rec.listingType === "BUSINESS" ? `/business/${rec.listingId}` : `/provider/${rec.listingId}`)}
                 >
-                  <SafeImg src={resolved?.image} variant={rec.listingType === "PROVIDER" ? "avatar" : "photo"} className="thumb" style={{ width: 44, height: 44, borderRadius: 10 }} />
+                  <SafeImg src={resolved?.image} variant={rec.listingType === "PROVIDER" ? "avatar" : "photo"} className="thumb" style={{ width: 42, height: 42, borderRadius: 10, flexShrink: 0 }} />
                   <div className="grow" style={{ minWidth: 0 }}>
-                    <div className="semi small ellipsis" style={{ color: "var(--ink-900)" }}>{resolved?.name ?? "Loading…"}</div>
-                    <div className="tiny muted ellipsis">{resolved?.sub}</div>
+                    <div className="semi small ellipsis" style={{ color: "var(--ink-900)", fontSize: 13.5 }}>{resolved?.name ?? "Loading…"}</div>
+                    <div className="tiny muted ellipsis" style={{ fontSize: 12 }}>{resolved?.sub}</div>
                   </div>
-                  <span className="tiny semi" style={{ color: "var(--brand-700)", background: "var(--brand-50)", padding: "3px 8px", borderRadius: 8 }}>↳ {rec.byName}</span>
+                  <span className="tiny semi" style={{ color: "var(--brand-700)", background: "var(--brand-50)", border: "1px solid var(--brand-150)", padding: "3px 9px", borderRadius: 8, fontSize: 11.5 }}>↳ {rec.byName}</span>
                 </button>
               );
             })}
           </div>
         )}
 
-        <div className="divider" style={{ margin: "14px 0 12px" }} />
+        <div className="divider" style={{ margin: "16px 0 12px" }} />
 
         {/* Action controls */}
-        <div className="row gap-16 center-v">
+        <div className="row gap-8 center-v">
           {isGuest ? (
-            <span className="row gap-6 small semi" style={{ color: "var(--ink-500)" }}>
-              <Heart size={18} color="var(--ink-400)" /> {likeCount}
+            <span className="row gap-6 small semi" style={{ color: "var(--ink-500)", padding: "6px 10px", fontSize: 13 }}>
+              <Heart size={16} color="var(--ink-400)" /> {showLikeCount ? likeCount : ""}
             </span>
           ) : (
             <button
               className="row gap-6 small semi"
               style={{
                 color: liked ? "var(--red-500)" : "var(--ink-600)",
-                background: liked ? "var(--red-50)" : "transparent",
-                padding: "6px 10px", borderRadius: 12,
-                transition: "all 0.2s ease"
+                background: liked ? "var(--red-50)" : "var(--ink-50)",
+                padding: "6px 12px", borderRadius: 12,
+                transition: "all 0.2s ease",
+                fontSize: 13, border: "none", cursor: "pointer"
               }}
               onClick={handleLike}
+              aria-label={liked ? "Unlike this post" : "Like this post"}
             >
-              <Heart size={18} weight={liked ? "fill" : "regular"} className={liked ? "heart-animated" : ""} color={liked ? "var(--red-500)" : "var(--ink-600)"} /> {likeCount}
+              <Heart size={16} weight={liked ? "fill" : "regular"} className={liked ? "heart-animated" : ""} color={liked ? "var(--red-500)" : "var(--ink-600)"} />
+              {/* The author can hide the tally; the button itself always works. */}
+              {showLikeCount ? likeCount : liked ? "Liked" : "Like"}
             </button>
           )}
           <button
             className="row gap-6 small semi"
-            style={{ color: "var(--ink-600)", padding: "6px 10px", borderRadius: 12 }}
+            style={{ color: "var(--ink-600)", background: "var(--ink-50)", padding: "6px 12px", borderRadius: 12, fontSize: 13, border: "none", cursor: "pointer" }}
             onClick={() => nav(`/community/${post.id}`, { state: { post } })}
+            aria-label={`${post.commentsCount} comments — open post`}
           >
-            <MessageCircle size={18} color="var(--ink-600)" /> {post.commentsCount} {post.commentsCount === 1 ? "comment" : "comments"}
+            <MessageCircle size={16} color="var(--ink-600)" /> {post.commentsCount}
           </button>
+
+          {/* Save is private and has no counter, which is the point: it answers
+              "I need this later", not "I appreciated this". */}
+          {!isGuest && (
+            <button
+              className="row gap-6 small semi"
+              style={{
+                color: saved ? "var(--brand-700)" : "var(--ink-600)",
+                background: saved ? "var(--brand-50)" : "var(--ink-50)",
+                padding: "6px 12px", borderRadius: 12, fontSize: 13, border: "none", cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onClick={handleSave}
+              aria-pressed={saved}
+              aria-label={saved ? "Remove from saved" : "Save this post"}
+            >
+              <Bookmark size={16} weight={saved ? "fill" : "regular"} color={saved ? "var(--brand-700)" : "var(--ink-600)"} />
+            </button>
+          )}
+
+          <button
+            className="row gap-6 small semi"
+            style={{ color: "var(--ink-600)", background: "var(--ink-50)", padding: "6px 12px", borderRadius: 12, fontSize: 13, border: "none", cursor: "pointer" }}
+            onClick={() => setSharing(true)}
+            aria-label="Share this post"
+          >
+            <Share2 size={16} color="var(--ink-600)" />
+          </button>
+
           {!isGuest && post.type === "RECOMMENDATION" && (
             <button
               className="row gap-6 tiny semi"
               style={{
                 marginLeft: "auto", color: "var(--brand-700)",
-                background: "var(--brand-50)", border: "1px solid var(--brand-100)",
-                padding: "6px 12px", borderRadius: 12, fontWeight: 700
+                background: "var(--brand-50)", border: "1px solid var(--brand-150)",
+                padding: "6px 12px", borderRadius: 12, fontWeight: 700, fontSize: 12, cursor: "pointer"
               }}
               onClick={() => setRecommendOpen(true)}
             >
@@ -635,53 +920,86 @@ export function CommunityCard({ post, onRefetch }: { post: CommunityPost; onRefe
         </div>
       </div>
 
-      {/* Recommendation picker sheet */}
+      {sharing && (
+        <ShareCard
+          title={post.title}
+          subtitle={postShareSubtitle(post)}
+          image={cardMedia[0] ?? post.authorAvatar}
+          meta={COMMUNITY_TYPE_META[post.type].label}
+          url={postShareUrl(post.id)}
+          onClose={() => setSharing(false)}
+        />
+      )}
+
+      {menuOpen && (
+        <div className="overlay" onClick={() => setMenuOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Post options">
+            <div className="sheet-grab" />
+            <div className="col gap-8">
+              <button
+                className="action-row"
+                onClick={() => { setMenuOpen(false); handleSave(); }}
+              >
+                <Bookmark size={18} weight={saved ? "fill" : "regular"} color="var(--brand-600)" />
+                <span className="semi small grow" style={{ textAlign: "left" }}>{saved ? "Remove from saved" : "Save for later"}</span>
+              </button>
+              <button className="action-row" onClick={() => { setMenuOpen(false); setSharing(true); }}>
+                <Share2 size={18} color="var(--ink-700)" />
+                <span className="semi small grow" style={{ textAlign: "left" }}>Share</span>
+              </button>
+              {!isPostAuthor && (
+                <>
+                  {/* Hide and mute are "show me less", held locally. Report and
+                      block are moderation and go to the server. */}
+                  <button
+                    className="action-row"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onHide?.(post.id);
+                      showToast("Hidden from your feed");
+                    }}
+                  >
+                    <EyeOff size={18} color="var(--ink-700)" />
+                    <span className="semi small grow" style={{ textAlign: "left" }}>Hide this post</span>
+                  </button>
+                  {muteTargetId(post) && (
+                    <button
+                      className="action-row"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onMute?.(muteTargetId(post)!, post.authorName);
+                        showToast(`You'll see fewer posts from ${post.authorName}`);
+                      }}
+                    >
+                      <Ban size={18} color="var(--ink-700)" />
+                      <span className="semi small grow" style={{ textAlign: "left" }}>Mute {post.authorName}</span>
+                    </button>
+                  )}
+                  <button className="action-row" onClick={() => { setMenuOpen(false); setReporting(true); }}>
+                    <Flag size={18} color="var(--red-500)" />
+                    <span className="semi small grow" style={{ textAlign: "left", color: "var(--red-600)" }}>Report post</span>
+                  </button>
+                </>
+              )}
+            </div>
+            <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setMenuOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {reporting && (
+        <ReportSheet targetType="POST" targetId={post.id} name={post.title || "this post"} onClose={() => setReporting(false)} />
+      )}
+
+      {/* Recommendation picker sheet — the shared ListingPickerSheet, also used
+          by the composer's "tag a business" control. */}
       {recommendOpen && (
-        <RecommendSheet
-          onPick={handleRecommend}
+        <ListingPickerSheet
+          title="Recommend a place"
+          onPick={(p) => handleRecommend(p.listingType, p.listingId)}
           onClose={() => setRecommendOpen(false)}
         />
       )}
     </>
-  );
-}
-
-function RecommendSheet({ onPick, onClose }: {
-  onPick: (type: BookmarkTarget, id: string) => void;
-  onClose: () => void;
-}) {
-  const { user } = useApp();
-  const [q, setQ] = useState("");
-  const { data: bizPage } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
-  const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
-  const lq = q.toLowerCase();
-  const filteredBiz = (bizPage?.data ?? []).filter((b) => b.name.toLowerCase().includes(lq));
-  const filteredProv = (provPage?.data ?? []).filter((p) => p.displayName.toLowerCase().includes(lq));
-
-  return (
-    <div className="overlay" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ maxHeight: "70vh", display: "flex", flexDirection: "column" }}>
-        <div className="sheet-grab" />
-        <div className="bold" style={{ fontSize: 17, marginBottom: 12 }}>Recommend a place</div>
-        <input className="input" placeholder="Search businesses or providers…" value={q} onChange={(e) => setQ(e.target.value)} style={{ marginBottom: 12 }} />
-        <div style={{ overflowY: "auto", flex: 1 }}>
-          {filteredBiz.map((b) => (
-            <button key={b.id} className="row gap-12" style={{ width: "100%", padding: "10px 0", borderBottom: "1px solid var(--line)", textAlign: "left" }} onClick={() => onPick("BUSINESS", b.id)}>
-              <SafeImg src={b.coverImage} className="thumb" style={{ width: 40, height: 40, borderRadius: 8 }} />
-              <div className="grow"><div className="semi small">{b.name}</div><div className="tiny muted">{b.subCategory}</div></div>
-            </button>
-          ))}
-          {filteredProv.map((p) => (
-            <button key={p.id} className="row gap-12" style={{ width: "100%", padding: "10px 0", borderBottom: "1px solid var(--line)", textAlign: "left" }} onClick={() => onPick("PROVIDER", p.id)}>
-              <SafeImg src={p.avatar} variant="avatar" className="avatar" style={{ width: 40, height: 40 }} />
-              <div className="grow"><div className="semi small">{safeName(p.displayName, "Local provider")}</div><div className="tiny muted">{p.categoryName}</div></div>
-            </button>
-          ))}
-          {filteredBiz.length === 0 && filteredProv.length === 0 && (
-            <p className="small muted center" style={{ padding: 24 }}>No results for "{q}"</p>
-          )}
-        </div>
-      </div>
-    </div>
   );
 }

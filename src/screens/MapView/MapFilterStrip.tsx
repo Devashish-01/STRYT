@@ -1,8 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { haptics } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
-import { ChevronDown, SlidersHorizontal } from "@/components/Icons";
+import { ChevronDown, ListChecks, Map as MapIcon, SlidersHorizontal, Zap } from "@/components/Icons";
+import type { MapSheetDetent } from "./MapSheet";
+import SearchThisArea from "./SearchThisArea";
 
 /** Ported from the retired MapResultsSheet — this is still the type every
  * caller (index.tsx, MapCarousel) filters and gates layers by. */
@@ -18,20 +20,33 @@ const TYPE_OPTIONS: { id: ResultFilter; label: string }[] = [
 
 /**
  * The map's persistent top-of-screen chrome besides search and the two FABs
- * (MAP_SNAPCHAT_STYLE_PLAN.md §2.1, Phase B) — a type filter and an
- * "open now" toggle, replacing the old sheet's filter-chips row, radius row
- * and header toggle all at once.
+ * (MAP_SNAPCHAT_STYLE_PLAN.md §2.1, Phase B) — one shared glass pill (a
+ * `.map-control-bar`, same technique `SearchBar.tsx`'s merged search+area
+ * pill uses) holding three zones separated by hairline dividers: an
+ * "Open now" toggle, the Filters trigger (type + radius), and the List/Map
+ * toggle.
+ *
+ * "Open now" briefly lived INSIDE the Filters popover as a "Status" section
+ * — cutting the persistent row down to one button. That traded away too
+ * much: it's a toggle people reach for constantly, not a settings menu they
+ * open occasionally, and burying it a tap deeper made it slower to reach for
+ * no real gain. This bar is the resolution — Open now and List/Map stay
+ * exactly as reachable as before (one tap, no popover), just visually
+ * grouped into one considered control instead of competing as loose
+ * separate chips. Only Filters (type + radius, the two things people adjust
+ * far less often) still opens a popover.
  *
  * The filter menu popover is portaled to document.body and positioned fixed
- * from the trigger's rect. Rendering it inside the horizontally-scrolling
- * strip clipped it on WebView/mobile, and mounting a full-screen tap-catcher
- * in the same click that opened the menu immediately closed it again.
+ * from the trigger's rect — rendering it as a normal child clipped it on
+ * WebView/mobile — and mounting a full-screen tap-catcher in the same click
+ * that opened the menu immediately closed it again.
  */
 export function MapFilterStrip({
   filter, setFilter, counts,
   availOnly, setAvailOnly,
   radiusKm, onRadiusChange, radiusOptions = [],
-  viewMode = "map", setViewMode,
+  detent = "peek", onCycleDetent,
+  searchThisArea,
 }: {
   filter: ResultFilter;
   setFilter: (f: ResultFilter) => void;
@@ -42,17 +57,45 @@ export function MapFilterStrip({
   /** Omit to hide the radius section entirely (guests, who are capped). */
   onRadiusChange?: (km: number | null) => void;
   radiusOptions?: { label: string; km: number }[];
-  viewMode?: "map" | "list";
-  setViewMode?: (v: "map" | "list") => void;
+  /** Current results-sheet detent — drives this chip's label/active state. */
+  detent?: MapSheetDetent;
+  /** Advances the sheet to its next detent — the exact same cycle the sheet's
+   *  own grip handle uses (peek → half → full → peek), so tapping this chip
+   *  and tapping the handle are two affordances for one action, not two
+   *  different ones. Omit to hide the chip entirely (unused today, but keeps
+   *  this component honestly optional the way its siblings are). */
+  onCycleDetent?: () => void;
+  /** When `visible`, replaces just the Filters zone of the control bar with
+   *  the "Search this area" CTA — Open now and List/Map, either side of it,
+   *  stay put and stay tappable the whole time. Adding this as its own
+   *  floating row underneath (the original design) cost this screen a whole
+   *  extra row every time it appeared; swapping one zone in an existing bar
+   *  costs nothing. Omit to hide entirely (keeps this optional the way its
+   *  siblings are). */
+  searchThisArea?: { visible: boolean; busy: boolean; onClick: () => void };
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const [needItNow, setNeedItNow] = useState(false);
   const [catcherArmed, setCatcherArmed] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const activeLabel = TYPE_OPTIONS.find((o) => o.id === filter)?.label ?? "All";
+  // Drives the trigger's dot. Deliberately NOT availOnly — that toggle has
+  // its own always-visible state in the control bar now, so it doesn't also
+  // need to light this dot to be noticed.
   const isFiltered = filter !== "all" || radiusKm != null;
+
+  // "Map view" (null) prepended as its own stop, index 0 — a slider needs a
+  // fixed, evenly-spaced set of stops, not 9 discrete buttons. Steps aren't
+  // evenly spaced in km (500m to 100km is most of what people actually use;
+  // "World" is a 20000km outlier) — indexing into stops, not mapping km
+  // linearly onto the track, is what keeps the useful, small-radius end of
+  // the slider from being crushed into an unusable sliver next to World.
+  const radiusStops = useMemo(
+    () => [{ label: "Map view", km: null as number | null }, ...radiusOptions],
+    [radiusOptions],
+  );
+  const radiusIndex = Math.max(0, radiusStops.findIndex((s) => s.km === radiusKm));
 
   const updateMenuPos = () => {
     const el = triggerRef.current;
@@ -89,18 +132,6 @@ export function MapFilterStrip({
     };
   }, [open]);
 
-  const handleNeedItNow = () => {
-    haptics.selection();
-    if (needItNow) {
-      setNeedItNow(false);
-      setAvailOnly(false);
-    } else {
-      setNeedItNow(true);
-      setAvailOnly(true);
-      setFilter("all");
-    }
-  };
-
   const closeMenu = () => setOpen(false);
 
   const menu = open && menuPos && createPortal(
@@ -122,7 +153,7 @@ export function MapFilterStrip({
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="tiny semi muted" style={{ padding: "2px 8px 8px" }}>Show</div>
-        <div className="map-filter-menu__options">
+        <div className="row" style={{ flexWrap: "wrap", gap: 6, padding: "0 2px" }}>
           {TYPE_OPTIONS.map((o) => {
             const selected = filter === o.id;
             return (
@@ -131,15 +162,14 @@ export function MapFilterStrip({
                 type="button"
                 role="option"
                 aria-selected={selected}
-                className={`map-filter-menu__option${selected ? " is-selected" : ""}`}
+                className={`chip-pill${selected ? " active" : ""}`}
                 onClick={() => {
                   haptics.selection();
-                  setNeedItNow(false);
                   setFilter(o.id);
                   closeMenu();
                 }}
               >
-                <span>{o.label}</span>
+                {o.label}
                 {counts[o.id] > 0 && (
                   <span className="map-filter-menu__count">{counts[o.id]}</span>
                 )}
@@ -150,27 +180,31 @@ export function MapFilterStrip({
 
         {onRadiusChange && (
           <>
-            <div className="tiny semi muted" style={{ padding: "12px 8px 8px" }}>Within</div>
-            <div className="row" style={{ flexWrap: "wrap", gap: 6, padding: "0 2px" }}>
-              <button
-                type="button"
-                className={`map-filter-menu__pill${radiusKm == null ? " is-selected" : ""}`}
-                onClick={() => { haptics.selection(); onRadiusChange(null); }}
-                title="Search whatever the map is showing"
-              >
-                Map view
-              </button>
-              {radiusOptions.map((r) => (
-                <button
-                  key={r.km}
-                  type="button"
-                  className={`map-filter-menu__pill${radiusKm === r.km ? " is-selected" : ""}`}
-                  onClick={() => { haptics.selection(); onRadiusChange(r.km); }}
-                >
-                  {r.label}
-                </button>
-              ))}
+            <div className="row between" style={{ padding: "12px 8px 2px", alignItems: "baseline" }}>
+              <span className="tiny semi muted">Within</span>
+              <span className="tiny semi" style={{ color: "var(--brand-600)" }}>
+                {radiusStops[radiusIndex].label}
+              </span>
             </div>
+            <input
+              type="range"
+              className="map-filter-menu__radius-slider"
+              min={0}
+              max={radiusStops.length - 1}
+              step={1}
+              value={radiusIndex}
+              list="map-filter-radius-stops"
+              aria-label="Search radius"
+              aria-valuetext={radiusStops[radiusIndex].label}
+              onChange={(e) => {
+                const idx = Number(e.target.value);
+                haptics.selection();
+                onRadiusChange(radiusStops[idx].km);
+              }}
+            />
+            <datalist id="map-filter-radius-stops">
+              {radiusStops.map((_, i) => <option key={i} value={i} />)}
+            </datalist>
           </>
         )}
       </div>
@@ -179,20 +213,39 @@ export function MapFilterStrip({
   );
 
   return (
-    <div className="map-filter-strip">
-      <div className="map-filter-strip__scroll">
+    <div className="map-glass-panel map-control-bar">
+      {/* Open now — icon-led, one tap, no menu. Every zone in this bar has
+          its own resting pill shape (see .map-control-bar__toggle /
+          .map-filter-menu in index.css) — no divider lines needed between
+          them, the pill boundaries already separate them. Active state
+          layers a stronger brand tint on top of that same shape. */}
+      <button
+        type="button"
+        className={`map-control-bar__toggle${availOnly ? " active" : ""}`}
+        aria-pressed={availOnly}
+        onClick={() => { haptics.selection(); setAvailOnly(!availOnly); }}
+      >
+        <Zap size={15} weight={availOnly ? "fill" : "regular"} />
+        <span>{t("map_open_now")}</span>
+      </button>
+
+      {searchThisArea?.visible ? (
+        <SearchThisArea
+          busy={searchThisArea.busy}
+          onClick={searchThisArea.onClick}
+        />
+      ) : (
         <button
           ref={triggerRef}
           type="button"
           className={[
             "map-filter-menu",
-            "map-glass-panel",
             open ? "is-open" : "",
             isFiltered ? "is-filtered" : "",
           ].filter(Boolean).join(" ")}
           aria-expanded={open}
           aria-haspopup="listbox"
-          aria-label={`Filter: ${activeLabel}`}
+          aria-label={`Filters: ${activeLabel}`}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.preventDefault();
@@ -208,40 +261,19 @@ export function MapFilterStrip({
           {isFiltered && <span className="map-filter-menu__dot" aria-hidden />}
           <ChevronDown size={12} className="map-filter-menu__chevron" />
         </button>
+      )}
 
+      {onCycleDetent && (
         <button
           type="button"
-          className={`chip map-glass-panel${availOnly && !needItNow ? " active" : ""}`}
-          onClick={() => {
-            haptics.selection();
-            setNeedItNow(false);
-            setAvailOnly(!availOnly);
-          }}
+          className={`map-control-bar__toggle${detent !== "peek" ? " active" : ""}`}
+          onClick={onCycleDetent}
         >
-          {t("map_open_now")}
+          {detent === "peek" ? <ListChecks size={15} /> : <MapIcon size={15} weight="fill" />}
+          <span>{detent === "peek" ? "List" : "Map"}</span>
         </button>
+      )}
 
-        <button
-          type="button"
-          className={`chip map-glass-panel${needItNow ? " active" : ""}`}
-          onClick={handleNeedItNow}
-        >
-          ⚡ Need it now
-        </button>
-
-        {setViewMode && (
-          <button
-            type="button"
-            className={`chip map-glass-panel map-filter-strip__list${viewMode === "list" ? " active" : ""}`}
-            onClick={() => {
-              haptics.selection();
-              setViewMode(viewMode === "map" ? "list" : "map");
-            }}
-          >
-            {viewMode === "map" ? "📜 List" : "🗺️ Map"}
-          </button>
-        )}
-      </div>
       {menu}
     </div>
   );

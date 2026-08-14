@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MapPinPlus } from "@/components/Icons";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapEvent, MapRef, ViewStateChangeEvent } from "react-map-gl/maplibre";
+import type { Map as MaplibreMap } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { discoveryService, requestService, socialService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -20,22 +21,36 @@ import { SearchBar } from "./SearchBar";
 
 
 import GuestRadiusNotice from "@/components/GuestRadiusNotice";
+import LocationPickerSheet from "@/components/LocationPickerSheet";
 import { GUEST_RADIUS_KM } from "@/lib/guestMode";
 import { MapMarkers, type Selected } from "./MapMarkers";
 import { MapCarousel } from "./MapCarousel";
+import { MapSheet, NEXT_DETENT, type MapSheetDetent } from "./MapSheet";
+import { haptics } from "@/lib/haptics";
 import { MapFilterStrip, type ResultFilter } from "./MapFilterStrip";
 import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 import { useI18n } from "@/lib/i18n";
 import { mapboxStyleUrl, makeMapboxTransformRequest } from "./mapboxFallback";
 import { useMapViewport } from "./useMapViewport";
-import SearchThisArea from "./SearchThisArea";
+import { paletteFor, retintFor } from "./mapPalette";
 
 // The default basemap — OpenFreeMap's open-source vector style, built from
 // OpenStreetMap data. Mapbox is a fallback only (see FALLBACK_TIMEOUT_MS
 // below), used solely if the free map hasn't loaded in time and a token is
 // configured — never the primary provider.
-const FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+//
+// "liberty" over "positron": positron is deliberately flat/neutral (a good
+// generic basemap, a bad brand surface), while liberty ships more built-in
+// color/contrast for the retint below to work with. Verified before this
+// switch: liberty resolves (200) at the same host — no CSP change needed,
+// vercel.json already allowlists tiles.openfreemap.org — and its layer
+// schema (water/landcover/park/transportation/building/place/…) is exactly
+// what mapPalette.ts's retintFor() dispatches on. If OpenFreeMap ever
+// retires this specific style, the retint below still carries the brand on
+// whatever OpenMapTiles-schema style is loaded — that's the whole point of
+// dispatching on source-layer instead of hardcoding this URL's specifics.
+const FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 
 /**
  * How long the free map gets to load before this map open gives up on it and
@@ -45,6 +60,33 @@ const FREE_MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
  * a safety net for "the free tile host is actually down," not a routine wait.
  */
 const FALLBACK_TIMEOUT_MS = 8_000;
+
+/**
+ * Repaints the loaded style's own layers into the Street Light palette for
+ * the given `lampGlow`. Declarative `<Source>/<Layer>` (the pattern the heat
+ * layer uses) can't reach layers that came IN the style — those only exist
+ * once the style has loaded, so this is imperative `setPaintProperty`, the
+ * first in this codebase. Every call is wrapped: a layer whose type doesn't
+ * support a given property throws in MapLibre, and one unexpected layer must
+ * never take down the whole retint.
+ */
+function applyBasemapRetint(map: MaplibreMap, lampGlow: number) {
+  const layers = map.getStyle()?.layers;
+  if (!layers) return;
+  const palette = paletteFor(lampGlow);
+  for (const layer of layers) {
+    const sourceLayer = "source-layer" in layer ? (layer as { "source-layer"?: string })["source-layer"] : undefined;
+    const patches = retintFor(sourceLayer, layer.type, palette, layer.id);
+    for (const patch of patches) {
+      try {
+        map.setPaintProperty(layer.id, patch.property, patch.value);
+      } catch {
+        // This layer doesn't support the property we guessed for its type —
+        // skip it rather than let one mismatch break every other layer.
+      }
+    }
+  }
+}
 
 /**
  * The veil hides only the initial blank-canvas flash. It lifts as soon as the
@@ -115,9 +157,12 @@ function circleGeoJSON(lat: number, lng: number, radiusKm: number, points = 72):
 }
 
 export default function MapView() {
-  const { user, refreshUser, showToast, isGuest } = useApp();
+  const { user, area, refreshUser, showToast, isGuest } = useApp();
+  const [areaPickerOpen, setAreaPickerOpen] = useState(false);
   const { t, tf } = useI18n();
-  const pin = useLocationPinDrop(refreshUser, showToast);
+  const pin = useLocationPinDrop(refreshUser, showToast, (lat, lng) =>
+    viewport.searchAt({ lat, lng, radiusKm: radiusOverride ?? viewport.searched.radiusKm })
+  );
   // No lat/lng passed in — the heat layer only needs lampGlow (pure time-of-
   // day), not weather-driven copy, and DesktopSidebar already sets the
   // precedent for calling this arg-less to skip the weather fetch entirely.
@@ -131,7 +176,11 @@ export default function MapView() {
     const saved = localStorage.getItem("settings_map_filter");
     return (saved as ResultFilter) || "all";
   });
-  const [viewMode, setViewMode] = useState<"map" | "list">("map");
+  // Replaces the old "map" | "list" toggle — that was a binary, unanimated,
+  // instant cut with no state in between; this is the same idea with a real
+  // drag gesture and a middle ground. "peek" = the tray (old "map" state),
+  // "half"/"full" = the list (old "list" state) at two different heights.
+  const [sheetDetent, setSheetDetent] = useState<MapSheetDetent>("peek");
   const [searchOpen, setSearchOpen] = useState(false);
   useEffect(() => {
     localStorage.setItem("settings_map_filter", resultFilter);
@@ -206,6 +255,11 @@ export default function MapView() {
     // map by a few degrees without meaning to, then can't find north again.
     // `dragRotate`/`touchPitch` below cover the pointer equivalents.
     event.target.touchZoomRotate?.disableRotation();
+    // Applied here (not just in the lampGlow effect below) because this is
+    // the one moment the style is GUARANTEED loaded — `mapReady` also gets
+    // set by the veil timer (MAP_VEIL_MAX_MS) whether or not the style
+    // actually finished, so it can't be trusted alone as "safe to paint".
+    if (!usingMapbox) applyBasemapRetint(event.target, ambientTheme.lampGlow);
     setMapReady(true);
   }
 
@@ -235,6 +289,20 @@ export default function MapView() {
     const timer = window.setTimeout(() => setMapReady(true), MAP_VEIL_MAX_MS);
     return () => window.clearTimeout(timer);
   }, [mapReady]);
+
+  // Re-warms the basemap as lampGlow moves through the day — the initial
+  // paint happens in handleMapLoad (the one moment the style is guaranteed
+  // loaded); this keeps it in step afterward without waiting for a remount.
+  // `isStyleLoaded()` guards against the veil-timer's `mapReady` firing
+  // before the real load event has (see handleMapLoad's comment) — if the
+  // style genuinely isn't ready yet, this quietly skips rather than risking
+  // a setPaintProperty on a style still being parsed.
+  useEffect(() => {
+    if (!mapReady || usingMapbox) return;
+    const map = mapRef.current?.getMap();
+    if (!map || !map.isStyleLoaded()) return;
+    applyBasemapRetint(map, ambientTheme.lampGlow);
+  }, [ambientTheme.lampGlow, mapReady, usingMapbox]);
 
   // Where the map is FRAMED on open — still the user's own location.
   const homeLat = user.lat || config.defaultLocation.lat;
@@ -285,12 +353,20 @@ export default function MapView() {
     if (km == null) return;
     const map = mapRef.current?.getMap();
     if (!map) return;
+    // Same suppression easeToPoint uses: this fitBounds is the radius choice
+    // driving the camera, not the user panning away from it — without this,
+    // a big enough radius jump (its fitBounds crosses a full zoom level) got
+    // read as "moved away from the search," which swapped the Filters
+    // trigger for a redundant "Search this area" button with no way back to
+    // Filters short of tapping it.
+    suppressViewportMoveRef.current = true;
     const latDelta = km / 111;
     const lngDelta = km / (111 * Math.cos((centerLat * Math.PI) / 180) || 1);
     map.fitBounds(
       [[centerLng - lngDelta, centerLat - latDelta], [centerLng + lngDelta, centerLat + latDelta]],
       { padding: 48, duration: 600 },
     );
+    map.once("moveend", () => { suppressViewportMoveRef.current = false; });
   }
   const isWorld = false; // "World" was a radius-strip mode; it retires with the strip (Phase 3).
 
@@ -504,9 +580,11 @@ export default function MapView() {
           <SearchBar
             centerLat={centerLat}
             centerLng={centerLng}
-            onPickArea={(area) => flyToPlace(area.lat, area.lng)}
+            onPickArea={(place) => flyToPlace(place.lat, place.lng)}
             onPickShop={(shop) => flyToPlace(shop.lat, shop.lng)}
             onResultsVisibleChange={setSearchOpen}
+            areaLabel={area}
+            onOpenAreaPicker={() => setAreaPickerOpen(true)}
           />
 
           {!searchOpen && (
@@ -521,8 +599,16 @@ export default function MapView() {
               // offering choices that silently don't apply.
               onRadiusChange={isGuest ? undefined : applyRadius}
               radiusOptions={RADIUS_OPTIONS}
-              viewMode={viewMode}
-              setViewMode={setViewMode}
+              detent={sheetDetent}
+              onCycleDetent={() => {
+                haptics.selection();
+                setSheetDetent((d) => NEXT_DETENT[d]);
+              }}
+              searchThisArea={{
+                visible: viewport.hasMoved,
+                busy: bizLoading || provLoading,
+                onClick: () => viewport.searchHere(mapRef.current?.getMap()),
+              }}
             />
           )}
 
@@ -532,14 +618,6 @@ export default function MapView() {
               their notice; the 1 km cap itself is applied to the searched
               area, not just to a hidden control. */}
           {isGuest && <div className="map-bottom-dock"><GuestRadiusNotice /></div>}
-
-          {!searchOpen && (
-            <SearchThisArea
-              visible={viewport.hasMoved}
-              busy={bizLoading || provLoading}
-              onClick={() => viewport.searchHere(mapRef.current?.getMap())}
-            />
-          )}
 
           <button
             type="button"
@@ -598,7 +676,12 @@ export default function MapView() {
         {/* RadiusController retired with the radius strip: its only job was
             re-framing the map when the strip changed, and nothing changes the
             radius any more — zoom defines the searched area. */}
-        {!pin.pickMode && <RecenterButton radiusKm={initialRadiusKm} />}
+        {!pin.pickMode && (
+          <RecenterButton
+            radiusKm={initialRadiusKm}
+            onRecentered={(lat, lng) => viewport.searchAt({ lat, lng, radiusKm: radiusOverride ?? viewport.searched.radiusKm })}
+          />
+        )}
         {!pin.pickMode && (
           <MapEventsController onLongPress={(lat, lng) => pin.enterPickMode({ lat, lng })} />
         )}
@@ -711,21 +794,32 @@ export default function MapView() {
         />
       )}
 
-      {!pin.pickMode && (
-        <MapCarousel
-          centerLat={centerLat}
-          centerLng={centerLng}
-          loading={bizLoading || provLoading}
-          businesses={shownBusinesses}
-          providers={shownProviders}
-          requests={shownRequests}
-          stories={shownStories}
-          selected={selected}
-          onSelect={setSelected}
-          onEaseTo={easeToPoint}
-          onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
-          isListView={viewMode === "list"}
+      {areaPickerOpen && (
+        <LocationPickerSheet
+          onClose={() => setAreaPickerOpen(false)}
+          onLocationChanged={(lat, lng) =>
+            viewport.searchAt({ lat, lng, radiusKm: radiusOverride ?? viewport.searched.radiusKm })
+          }
         />
+      )}
+
+      {!pin.pickMode && (
+        <MapSheet detent={sheetDetent} onDetentChange={setSheetDetent}>
+          <MapCarousel
+            centerLat={centerLat}
+            centerLng={centerLng}
+            loading={bizLoading || provLoading}
+            businesses={shownBusinesses}
+            providers={shownProviders}
+            requests={shownRequests}
+            stories={shownStories}
+            selected={selected}
+            onSelect={setSelected}
+            onEaseTo={easeToPoint}
+            onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
+            isListView={sheetDetent !== "peek"}
+          />
+        </MapSheet>
       )}
     </div>
   );

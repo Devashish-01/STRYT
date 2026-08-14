@@ -6,6 +6,7 @@ import {
   UserPlus, UserCheck, HandshakeIcon, Plus, Zap, Wallet,
 } from "@/components/Icons";
 import { providerService, socialService, communityService } from "@/services";
+import { PostSummaryRow } from "@/components/cards";
 import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -475,23 +476,7 @@ export default function ProviderDetail() {
               <EmptyState emoji="📣" title="No posts yet" text="This provider hasn't posted to the community yet." />
             ) : (
               (provPosts ?? []).map((post) => (
-                <button
-                  key={post.id}
-                  className="card col gap-6"
-                  style={{ padding: 14, textAlign: "left" }}
-                  onClick={() => nav(`/community/${post.id}`, { state: { post } })}
-                >
-                  <div className="row between">
-                    <span className="semi small">{post.title || post.type}</span>
-                    <span className="tiny muted">{post.postedAt}</span>
-                  </div>
-                  {post.body && <p className="small muted clamp-2" style={{ lineHeight: 1.5 }}>{post.body}</p>}
-                  {post.image && <SafeImg src={post.image} style={{ width: "100%", height: 150, borderRadius: 12, objectFit: "cover" }} />}
-                  <div className="row gap-14 tiny muted" style={{ marginTop: 2 }}>
-                    <span className="row gap-4"><Heart size={13} /> {post.likes}</span>
-                    <span className="row gap-4"><MessageCircle size={13} /> {post.commentsCount}</span>
-                  </div>
-                </button>
+                <PostSummaryRow key={post.id} post={post} onClick={() => nav(`/community/${post.id}`, { state: { post } })} />
               ))
             )}
           </div>

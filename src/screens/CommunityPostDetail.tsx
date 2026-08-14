@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone, Flag, Pencil, Trash2, X, Camera } from "@/components/Icons";
+import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone, Flag, Pencil, Trash2, X, Camera, Clock, ChevronRight, Bookmark, Share2 } from "@/components/Icons";
 import { communityService, businessService, providerService, socialService, uploadService } from "@/services";
+import ShareCard from "@/components/ShareCard";
 import { useQueryWithRealtime, useQuery } from "@/hooks/useApi";
+import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import { ListSkeleton } from "@/components/states";
 import { SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
@@ -12,6 +14,34 @@ import type { CommunityPost, Comment } from "@/types";
 import { openProfile } from "@/lib/profileSheet";
 import { resolveRecommendations, type ResolvedRecommendation } from "@/lib/communityRecommendations";
 import { haptics } from "@/lib/haptics";
+import { COMMUNITY_TYPE_META, MAX_POST_MEDIA, MIN_TITLE_LEN } from "@/lib/communityTypes";
+import {
+  SEVERITY_TONE,
+  addMedia,
+  canAddMedia,
+  isPollClosed,
+  postMedia,
+  removeMediaAt,
+  severityMeta,
+  timeLeftLabel,
+} from "@/lib/communityPost";
+import {
+  gateCopy,
+  localGate,
+  policyBadge,
+  resolveCommentPolicy,
+  type CommentGateReason,
+} from "@/lib/commentPolicy";
+import {
+  COMMENT_REACTIONS,
+  applyMention,
+  mentionQueryAt,
+  parseBody,
+  sortComments,
+  type CommentSort,
+  type MentionQuery,
+} from "@/lib/mentions";
+import { postShareSubtitle, postShareUrl } from "@/lib/postInteractions";
 
 /** Author-only edit sheet — title/details/photo, the same fields CommunityCompose
  *  collects at creation time. Kept local to this file since it's only ever
@@ -21,18 +51,29 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
   const fileRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(post.title);
   const [body, setBody] = useState(post.body ?? "");
-  const [image, setImage] = useState<string | null | undefined>(post.image);
+  // Edits the whole photo list, not just the cover. Editing only `image` while
+  // the card reads `media` would leave the two disagreeing about what the post
+  // shows — postMedia() seeds this from whichever the row actually has.
+  const [media, setMedia] = useState<string[]>(postMedia(post));
+  const [imageAlt, setImageAlt] = useState(post.imageAlt ?? "");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const canSave = title.trim().length > 3 && !saving && !uploading;
+  const canSave = title.trim().length >= MIN_TITLE_LEN && !saving && !uploading;
 
   async function pickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    if (!canAddMedia(media)) {
+      showToast(`Up to ${MAX_POST_MEDIA} photos per post`);
+      return;
+    }
     setUploading(true);
     try {
-      setImage(await uploadService.upload(file, "community"));
+      const url = await uploadService.upload(file, "community");
+      const res = addMedia(media, url);
+      if (res.rejected === "AT_LIMIT") showToast(`Up to ${MAX_POST_MEDIA} photos per post`);
+      else setMedia(res.media);
     } catch {
       showToast("Couldn't upload photo. Try again.");
     } finally {
@@ -43,8 +84,21 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
   async function save() {
     setSaving(true);
     try {
-      await communityService.update(post.id, { title: title.trim(), body: body.trim(), image });
-      onSaved({ ...post, title: title.trim(), body: body.trim(), image: image ?? undefined });
+      const alt = imageAlt.trim();
+      await communityService.update(post.id, {
+        title: title.trim(),
+        body: body.trim(),
+        media,
+        imageAlt: media.length > 0 ? alt : null,
+      });
+      onSaved({
+        ...post,
+        title: title.trim(),
+        body: body.trim(),
+        media,
+        image: media[0],
+        imageAlt: media.length > 0 && alt ? alt : undefined,
+      });
       showToast("Post updated");
     } catch {
       showToast("Couldn't save changes. Try again.");
@@ -68,23 +122,43 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
             <textarea className="input" value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} />
           </div>
           <div className="field">
-            <label>Photo</label>
-            {image ? (
-              <div style={{ position: "relative", width: 100 }}>
-                <img src={image} alt="Photo preview" className="thumb" style={{ width: 100, height: 100, borderRadius: 12, objectFit: "cover" }} />
-                <button className="icon-btn" aria-label="Remove photo" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setImage(null)}><X size={14} /></button>
-              </div>
-            ) : (
-              <button
-                className="col center"
-                style={{ width: 100, height: 100, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, opacity: uploading ? 0.6 : 1 }}
-                disabled={uploading}
-                onClick={() => fileRef.current?.click()}
-              >
-                <Camera size={20} /><span className="tiny">{uploading ? "…" : "Add photo"}</span>
-              </button>
-            )}
+            <label className="row between">
+              <span>Photos</span>
+              <span className="tiny muted tabular-nums">{media.length}/{MAX_POST_MEDIA}</span>
+            </label>
+            <div className="media-strip">
+              {media.map((url, i) => (
+                <div key={url} className={`media-thumb ${i === 0 ? "media-thumb-cover" : ""}`}>
+                  <img src={url} alt={i === 0 ? "Cover photo" : `Photo ${i + 1}`} />
+                  {i === 0 && media.length > 1 && <span className="media-cover-tag">COVER</span>}
+                  <button
+                    type="button"
+                    className="media-thumb-x"
+                    aria-label={`Remove photo ${i + 1}`}
+                    onClick={() => setMedia(removeMediaAt(media, i))}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              {canAddMedia(media) && (
+                <button type="button" className="media-add" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                  <Camera size={20} /><span>{uploading ? "Uploading…" : "Add"}</span>
+                </button>
+              )}
+            </div>
             <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickPhoto} />
+            {media.length > 0 && (
+              <input
+                className="input"
+                style={{ marginTop: 9 }}
+                placeholder="Describe the photo (for screen readers)"
+                aria-label="Photo description for screen readers"
+                value={imageAlt}
+                maxLength={200}
+                onChange={(e) => setImageAlt(e.target.value)}
+              />
+            )}
           </div>
         </div>
         <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={!canSave} onClick={save}>
@@ -95,22 +169,59 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
   );
 }
 
-function CommentRow({ c, nav, onReply, compact, canReply = true }: { c: Comment; nav: (to: string) => void; onReply: () => void; compact?: boolean; canReply?: boolean }) {
+/** A comment body with its @mentions rendered as taps through to the profile.
+ *  Unresolved mentions stay plain text — see parseBody. */
+function CommentBody({ body, mentions }: { body: string; mentions?: { userId: string; alias: string }[] }) {
+  const segments = parseBody(body, mentions ?? []);
+  return (
+    <p className="small" style={{ marginTop: 4, lineHeight: 1.5, color: "var(--ink-800)", fontSize: 13.5, whiteSpace: "pre-wrap" }}>
+      {segments.map((seg, i) =>
+        seg.kind === "mention" && seg.userId ? (
+          <button
+            key={i}
+            className="semi"
+            style={{ color: "var(--brand-700)", background: "none", border: "none", padding: 0, font: "inherit", fontWeight: 600, cursor: "pointer" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              openProfile(seg.userId!, "USER", { name: seg.alias });
+            }}
+          >
+            {seg.text}
+          </button>
+        ) : (
+          <span key={i}>{seg.text}</span>
+        )
+      )}
+    </p>
+  );
+}
+
+function CommentRow({ c, nav, onReply, compact, canReply = true, onReact, canReact = true }: {
+  c: Comment;
+  nav: (to: string) => void;
+  onReply: () => void;
+  compact?: boolean;
+  canReply?: boolean;
+  onReact?: (emoji: string | null) => void;
+  canReact?: boolean;
+}) {
   const size = compact ? 32 : 38;
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const tallies = Object.entries(c.reactions ?? {}).filter(([, n]) => n > 0);
   return (
     <div className="row gap-10" style={{ alignItems: "flex-start" }}>
       <SafeImg src={c.authorAvatar} variant="avatar" className="avatar" style={{ width: size, height: size, flexShrink: 0, borderRadius: "50%", border: "1px solid var(--ink-200)" }} />
       <div className="grow" style={{ minWidth: 0 }}>
         <div style={{ background: "var(--ink-50)", padding: "10px 14px", borderRadius: 16, border: "1px solid rgba(226, 225, 240, 0.7)" }}>
-          <div className="row between gap-6">
-            <span className="semi small" style={{ color: "var(--ink-900)", fontSize: 13.5 }}>{c.authorName}</span>
-            <span className="tiny muted">{c.time}</span>
+          <div className="row between gap-6 center-v">
+            <span className="semi small" style={{ color: "var(--ink-900)", fontSize: 13.5, fontWeight: 600 }}>{c.authorName}</span>
+            <span className="tiny muted" style={{ fontSize: 11.5 }}>{c.time}</span>
           </div>
-          <p className="small" style={{ marginTop: 4, lineHeight: 1.45, color: "var(--ink-800)", fontSize: 13.5 }}>{c.body}</p>
+          <CommentBody body={c.body} mentions={c.mentions} />
           {c.sharedPhone && (
             <a
               href={`tel:${c.sharedPhone}`}
-              className="tiny semi row gap-4"
+              className="tiny semi row gap-4 center-v"
               style={{ color: "var(--brand-700)", marginTop: 6, background: "var(--brand-50)", border: "1px solid var(--brand-100)", borderRadius: 10, padding: "4px 9px", width: "fit-content" }}
             >
               <Phone size={12} /> {c.sharedPhone}
@@ -120,17 +231,72 @@ function CommentRow({ c, nav, onReply, compact, canReply = true }: { c: Comment;
           {c.listingId && (
             <button
               className="tiny semi"
-              style={{ color: "var(--brand-700)", marginTop: 6, display: "block" }}
+              style={{ color: "var(--brand-700)", marginTop: 6, display: "block", background: "none", border: "none", cursor: "pointer" }}
               onClick={() => nav(c.listingType === "BUSINESS" ? `/business/${c.listingId}` : `/provider/${c.listingId}`)}
             >
               → View listing
             </button>
           )}
         </div>
-        {canReply && (
-          <button className="tiny semi" style={{ color: "var(--brand-700)", marginTop: 4, marginLeft: 6, padding: "2px 6px" }} onClick={onReply}>
-            Reply
-          </button>
+        {/* Reaction tallies + the row's own actions. A reaction is the cheap
+            acknowledgement that stops "thanks, this helped" from becoming a
+            full reply and burying the useful answer. */}
+        <div className="row gap-6 center-v wrap" style={{ marginTop: 5, marginLeft: 6 }}>
+          {tallies.map(([emoji, n]) => {
+            const isMine = c.myReaction === emoji;
+            return (
+              <button
+                key={emoji}
+                className="tiny semi row gap-3 center-v"
+                style={{
+                  fontSize: 11.5, padding: "2px 8px", borderRadius: 999, cursor: canReact ? "pointer" : "default",
+                  background: isMine ? "var(--brand-50)" : "var(--ink-100)",
+                  border: `1px solid ${isMine ? "var(--brand-200)" : "var(--ink-200)"}`,
+                  color: isMine ? "var(--brand-800)" : "var(--ink-700)",
+                }}
+                disabled={!canReact}
+                aria-pressed={isMine}
+                aria-label={`${emoji} ${n}${isMine ? ", your reaction" : ""}`}
+                onClick={() => onReact?.(isMine ? null : emoji)}
+              >
+                <span aria-hidden="true">{emoji}</span> {n}
+              </button>
+            );
+          })}
+          {canReact && (
+            <button
+              className="tiny semi"
+              style={{ color: "var(--ink-500)", padding: "2px 7px", background: "none", border: "none", cursor: "pointer", fontSize: 12.5 }}
+              onClick={() => setPickerOpen((v) => !v)}
+              aria-expanded={pickerOpen}
+              aria-label="Add a reaction"
+            >
+              {tallies.length > 0 ? "＋" : "＋ React"}
+            </button>
+          )}
+          {canReply && (
+            <button className="tiny semi" style={{ color: "var(--brand-700)", padding: "2px 6px", background: "none", border: "none", cursor: "pointer" }} onClick={onReply}>
+              Reply
+            </button>
+          )}
+        </div>
+
+        {pickerOpen && canReact && (
+          <div className="row gap-4 center-v" style={{ marginTop: 5, marginLeft: 6, padding: "5px 8px", background: "var(--surface)", border: "1px solid var(--ink-200)", borderRadius: 999, width: "fit-content", boxShadow: "var(--shadow-sm)" }}>
+            {COMMENT_REACTIONS.map((emoji) => (
+              <button
+                key={emoji}
+                style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", padding: "1px 3px", lineHeight: 1 }}
+                aria-label={`React with ${emoji}`}
+                onClick={() => {
+                  setPickerOpen(false);
+                  onReact?.(c.myReaction === emoji ? null : emoji);
+                }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>
@@ -158,18 +324,19 @@ export default function CommunityPostDetail() {
   const { data: fetched } = useQueryWithRealtime(() => communityService.get(id, user.lat || undefined, user.lng || undefined), "community_posts", [id, user.lat, user.lng], `id=eq.${id}`);
   const post: CommunityPost | undefined = fetched ?? state?.post;
 
-  // Whether the signed-in user and the post's author follow each other — gates
-  // commenting alongside allow_comments (the author is always allowed). Runs
-  // only when relevant; the server enforces the same rule via RLS.
+  // Whether this viewer may comment, and if not, why. Asked of the same
+  // function the RLS policy uses (comment_gate_reason -> can_comment_on_post),
+  // which replaced a client-side re-implementation of "comments on + mutual
+  // follow": that version couldn't see the post's chosen policy, distance,
+  // blocks, or the rate limit, so the composer could appear on a thread the
+  // server would reject.
   const authorUserId = post?.authorUserId;
-  const { data: mutualFollow } = useQuery(
-    () => (!isGuest && authorUserId && authorUserId !== user.id)
-      ? socialService.isMutualFollow(authorUserId)
-      : Promise.resolve(false),
-    [authorUserId, user.id, isGuest]
+  const { data: gateReason } = useQuery<CommentGateReason>(
+    () => (isGuest || !post) ? Promise.resolve("SIGN_IN" as CommentGateReason) : communityService.commentGate(id),
+    [id, isGuest, !!post, authorUserId]
   );
 
-  const { data: initialComments, loading: commentsLoading } = useQueryWithRealtime(() => communityService.comments(id), "post_comments", [id], `post_id=eq.${id}`);
+  const { data: initialComments, loading: commentsLoading, refetch: refetchComments } = useQueryWithRealtime(() => communityService.comments(id), "post_comments", [id], `post_id=eq.${id}`);
 
   // Looked up by id directly (not searched against a pre-fetched "nearby"
   // list) — a recommended listing isn't guaranteed to be within the current
@@ -187,6 +354,10 @@ export default function CommunityPostDetail() {
   const [phoneVis, setPhoneVis] = useState<"OWNER" | "PUBLIC">("OWNER");
   const [phoneInput, setPhoneInput] = useState("");
   const [reporting, setReporting] = useState(false);
+  const [commentSort, setCommentSort] = useState<CommentSort>("top");
+  const [mentionQuery, setMentionQuery] = useState<MentionQuery | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [saveOverride, setSaveOverride] = useState<boolean | null>(null);
   const [editing, setEditing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -198,8 +369,64 @@ export default function CommunityPostDetail() {
   // (that was making the like visually revert; see GOAL_LIVE_AUDIT.md #8).
   const [likeOverride, setLikeOverride] = useState<boolean | null>(null);
   const [resolvedOverride, setResolvedOverride] = useState<boolean | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Only queried while a mention is actually being typed.
+  const mentionTerm = mentionQuery?.term ?? null;
+  const { data: mentionResults } = useQuery<{ id: string; name: string; avatar: string }[]>(
+    () => (mentionTerm !== null && !isGuest)
+      ? socialService.searchNeighbors(mentionTerm)
+      : Promise.resolve([]),
+    [mentionTerm, isGuest]
+  );
+
+  function pickMention(alias: string) {
+    if (!mentionQuery) return;
+    const { body, caret } = applyMention(newComment, mentionQuery, alias);
+    setNewComment(body);
+    setMentionQuery(null);
+    // Put the caret back where the typing left off, not at the end of the box.
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(caret, caret);
+    });
+  }
 
   useEffect(() => { if (initialComments) setComments(initialComments); }, [initialComments]);
+
+  // comment_reactions (20260895) has no post_id column, so it can't be scoped
+  // with a `filter` the way post_comments is above — subscribe unfiltered and
+  // only refetch when the changed row is actually one of this thread's
+  // comments. Without this, another viewer's reaction never shows up here
+  // until something else (a new comment) happens to trigger a refetch.
+  const commentIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => { commentIdsRef.current = new Set(comments.map((c) => c.id)); }, [comments]);
+  // refetch's identity isn't stable across renders (useQuery returns a fresh
+  // closure each time) — read it via a ref so the channel below isn't torn
+  // down and rebuilt on every render, only when the post actually changes.
+  const refetchCommentsRef = useRef(refetchComments);
+  refetchCommentsRef.current = refetchComments;
+  useEffect(() => {
+    if (!hasSupabaseEnv) return;
+    const sb = getSupabase();
+    const channel = sb
+      .channel(`rt:comment_reactions:${id}`)
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "comment_reactions" },
+        (payload: any) => {
+          const commentId = payload?.new?.comment_id ?? payload?.old?.comment_id;
+          if (commentId && commentIdsRef.current.has(commentId)) refetchCommentsRef.current();
+        }
+      )
+      .subscribe((status: string) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(`[realtime] "comment_reactions" subscription ${status} — check the supabase_realtime publication for this table.`);
+        }
+      });
+    return () => { sb.removeChannel(channel); };
+  }, [id]);
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [comments]);
   useEffect(() => {
     if (likeOverride === null) return;
@@ -208,28 +435,59 @@ export default function CommunityPostDetail() {
   useEffect(() => { setResolvedOverride(null); }, [post?.resolved]);
 
   if (!post) return (
-    <div className="screen">
-      <div className="appbar"><button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button></div>
+    <div className="screen community-theme">
+      <div className="appbar"><button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeft size={20} /></button></div>
       <ListSkeleton count={3} />
     </div>
   );
 
   // post is guaranteed non-undefined below this line.
   const safePost = post;
-  // Comment gating: comments must be enabled AND the viewer is either the
-  // author or a mutual follower. Drives whether the composer or a muted note
-  // is shown (the post_comments RLS policy is the real enforcement).
-  const allowComments = safePost.allowComments ?? false;
   const isAuthor = !isGuest && !!user.id && safePost.authorUserId === user.id;
-  const canComment = allowComments && (isAuthor || !!mutualFollow);
+  // The author's chosen policy drives the header badge; the gate (which also
+  // accounts for distance, blocks and rate limiting) drives the composer.
+  // Until the gate resolves, EVERYONE/OFF can be predicted with confidence —
+  // neither depends on distance or mutual-follow, so the server can't disagree.
+  // NEIGHBORS/MUTUALS genuinely can't: this screen has no synchronous signal
+  // for "is this viewer a mutual follow / within range" (isMutual below is a
+  // stub, never real data), so guessing there would just swap one flash
+  // ("can't comment" then "you can") for another. gatePending below keeps the
+  // composer's spot neutral instead of asserting a guess.
+  const policy = resolveCommentPolicy(safePost);
+  const gatePending = gateReason === undefined && !isAuthor && (policy === "NEIGHBORS" || policy === "MUTUALS");
+  const canComment = gateReason
+    ? gateReason === "OK"
+    : localGate({ policy, isAuthor, isMutual: false }).ok || isAuthor;
+  const gate = gateCopy(gateReason ?? "OK");
   const liked = likeOverride ?? safePost.liked;
   const likeCount = Math.max(0, safePost.likes + (likeOverride === true && !safePost.liked ? 1 : 0) - (likeOverride === false && safePost.liked ? 1 : 0));
+  const showLikeCount = !safePost.hideLikeCount || isAuthor;
+  const policyBadgeLabel = policyBadge(policy);
+  const saved = saveOverride ?? safePost.saved ?? false;
+  // Reply counts feed the "Top" ranking, so they're computed alongside it.
+  const sortedTopLevel = sortComments(
+    comments
+      .filter((c) => !c.parentId)
+      .map((c) => ({
+        ...c,
+        reactionCount: Object.values(c.reactions ?? {}).reduce((a, b) => a + b, 0),
+        replyCount: comments.filter((r) => r.parentId === c.id).length,
+      })),
+    commentSort
+  );
   const votedOption = votes[safePost.id] ?? safePost.votedOptionId;
   const totalVotes = (safePost.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !safePost.votedOptionId ? 1 : 0);
   const resolved = resolvedOverride ?? safePost.resolved ?? false;
   // "Resolved" only makes sense for these two types — a giveaway/poll/shoutout
   // never had an outstanding thing to resolve.
   const canMarkResolved = isAuthor && (safePost.type === "LOST_FOUND" || safePost.type === "ALERT");
+  const typeMeta = COMMUNITY_TYPE_META[safePost.type];
+  const detailMedia = postMedia(safePost);
+  const pollClosed = isPollClosed(safePost);
+  // Polls show their voting deadline; alerts show when they clear from the feed.
+  const expiryLabel = safePost.type === "POLL"
+    ? timeLeftLabel(safePost.pollEndsAt)
+    : timeLeftLabel(safePost.expiresAt);
 
   async function toggleResolved() {
     const next = !resolved;
@@ -281,6 +539,40 @@ export default function CommunityPostDetail() {
     }
   }
 
+  async function handleSave() {
+    const next = !saved;
+    haptics.selection();
+    setSaveOverride(next); // optimistic
+    try {
+      await communityService.toggleSave(safePost.id, saved);
+      showToast(next ? "Saved" : "Removed from saved");
+    } catch {
+      setSaveOverride(saved); // revert so the UI never lies
+      showToast("Couldn't save — try again");
+    }
+  }
+
+  /** Set/change/clear a reaction. Optimistic, and reverted from the server's own
+   *  copy on failure rather than from a guess. */
+  async function reactTo(c: Comment, emoji: string | null) {
+    haptics.selection();
+    const before = comments;
+    setComments((prev) => prev.map((x) => {
+      if (x.id !== c.id) return x;
+      const tallies = { ...(x.reactions ?? {}) };
+      // One reaction per person, so switching removes the previous one.
+      if (x.myReaction) tallies[x.myReaction] = Math.max(0, (tallies[x.myReaction] ?? 1) - 1);
+      if (emoji) tallies[emoji] = (tallies[emoji] ?? 0) + 1;
+      return { ...x, reactions: tallies, myReaction: emoji };
+    }));
+    try {
+      await communityService.reactToComment(c.id, emoji);
+    } catch (e: any) {
+      setComments(before);
+      showToast(e?.message || "Couldn't react — try again");
+    }
+  }
+
   async function sendComment() {
     const text = newComment.trim();
     if (!text) return;
@@ -329,9 +621,9 @@ export default function CommunityPostDetail() {
   }
 
   return (
-    <div className="screen" style={{ display: "flex", flexDirection: "column" }}>
+    <div className="screen community-theme" style={{ display: "flex", flexDirection: "column" }}>
       <header className="appbar" style={{ borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
-        <button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeft size={20} /></button>
         <span className="bold grow" style={{ fontSize: 16 }}>Post</span>
         {isAuthor && canMarkResolved && (
           <button
@@ -354,6 +646,22 @@ export default function CommunityPostDetail() {
             </button>
           </>
         )}
+        {/* Save and share, matching the feed card — the post you actually opened
+            shouldn't offer fewer actions than its summary did. */}
+        {!isGuest && (
+          <button
+            className="icon-btn"
+            onClick={handleSave}
+            aria-pressed={saved}
+            aria-label={saved ? "Remove from saved" : "Save this post"}
+            style={{ color: saved ? "var(--brand-700)" : undefined }}
+          >
+            <Bookmark size={18} weight={saved ? "fill" : "regular"} />
+          </button>
+        )}
+        <button className="icon-btn" onClick={() => setSharing(true)} aria-label="Share this post">
+          <Share2 size={18} />
+        </button>
         {!isGuest && !isAuthor && (
           <button className="icon-btn" onClick={() => setReporting(true)} aria-label="Report post">
             <Flag size={18} />
@@ -364,14 +672,15 @@ export default function CommunityPostDetail() {
       <div style={{ flex: 1, overflowY: "auto", paddingBottom: 72 }}>
         {/* Post body */}
         <div className="page-pad" style={{ paddingBottom: 0 }}>
-          <div className="row gap-10" style={{ marginBottom: 10 }}>
+          <div className="row gap-12 center-v" style={{ marginBottom: 14 }}>
             <SafeImg
               src={safePost.authorAvatar}
               variant={safePost.authorType === "business" ? "photo" : "avatar"}
               className="avatar"
               style={{
-                width: 40, height: 40,
-                border: safePost.authorType === "business" ? "2px solid var(--orange-500)" : safePost.authorType === "provider" ? "2px solid var(--green-500)" : "none",
+                width: 44, height: 44, borderRadius: "50%",
+                border: safePost.authorType === "business" ? "2px solid var(--orange-500)" : safePost.authorType === "provider" ? "2px solid var(--green-500)" : "2px solid var(--ink-200)",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)", flexShrink: 0,
                 cursor: "pointer",
               }}
               onClick={(e) => {
@@ -385,14 +694,91 @@ export default function CommunityPostDetail() {
                 }
               }}
             />
-            <div className="grow">
-              <div className="semi small">{safePost.authorName}</div>
-              <span className="tiny muted row gap-4"><MapPin size={11} />{safePost.area} • {safePost.postedAt}</span>
+            <div className="grow" style={{ minWidth: 0 }}>
+              <div className="semi small" style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-900)" }}>{safePost.authorName}</div>
+              <span className="tiny muted row gap-4 center-v" style={{ marginTop: 2, fontSize: 12 }}><MapPin size={11} />{safePost.area} • {safePost.postedAt}</span>
             </div>
           </div>
-          <div className="bold" style={{ fontSize: 18 }}>{safePost.title}</div>
-          <p className="small" style={{ marginTop: 6, lineHeight: 1.55, color: "var(--ink-700)" }}>{safePost.body}</p>
-          {safePost.image && <SafeImg src={safePost.image} style={{ width: "100%", height: 200, borderRadius: 14, marginTop: 10, objectFit: "cover" }} />}
+          <div className="row gap-8 center-v wrap" style={{ marginBottom: 8 }}>
+            {safePost.type === "ALERT" && safePost.severity ? (
+              <span className={`badge badge-${SEVERITY_TONE[safePost.severity]}`} style={{ fontSize: 11.5, padding: "3.5px 10px", borderRadius: 12, fontWeight: 700 }}>
+                {severityMeta(safePost.severity).emoji} {severityMeta(safePost.severity).label}
+              </span>
+            ) : (
+              <span className={`badge badge-${typeMeta.tone}`} style={{ fontSize: 11.5, padding: "3.5px 10px", borderRadius: 12, fontWeight: 600 }}>
+                {typeMeta.emoji} {typeMeta.label}
+              </span>
+            )}
+            {/* A time-boxed post says how long it has left, so nobody acts on a
+                notice that's already over. */}
+            {expiryLabel && (
+              <span className="tiny semi row gap-4 center-v" style={{ fontSize: 11.5, color: "var(--ink-600)", background: "var(--ink-100)", border: "1px solid var(--ink-200)", padding: "2.5px 9px", borderRadius: 10 }}>
+                <Clock size={11} /> {expiryLabel}
+              </span>
+            )}
+          </div>
+          <div className="bold" style={{ fontSize: 19, letterSpacing: "-0.4px", lineHeight: 1.3, color: "var(--ink-900)" }}>{safePost.title}</div>
+          {safePost.body && <p className="small" style={{ marginTop: 8, lineHeight: 1.6, color: "var(--ink-700)", fontSize: 14.5 }}>{safePost.body}</p>}
+
+          {/* Structured per-type facts, scannable instead of buried in the body. */}
+          {(safePost.lastSeen || safePost.reward || safePost.pickupNote) && (
+            <div className="col gap-6" style={{ marginTop: 12, padding: "11px 13px", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 14 }}>
+              {safePost.lastSeen && (
+                <span className="small row gap-6 center-v" style={{ color: "var(--ink-800)", fontSize: 13.5 }}>
+                  <MapPin size={13} color="var(--amber-700)" /> Last seen near <span className="semi">{safePost.lastSeen}</span>
+                </span>
+              )}
+              {safePost.reward && (
+                <span className="small row gap-6 center-v" style={{ color: "var(--ink-800)", fontSize: 13.5 }}>
+                  <span aria-hidden="true">🎁</span> Reward: <span className="semi">{safePost.reward}</span>
+                </span>
+              )}
+              {safePost.pickupNote && (
+                <span className="small row gap-6 center-v" style={{ color: "var(--ink-800)", fontSize: 13.5 }}>
+                  <Clock size={13} color="var(--green-600)" /> Pickup: <span className="semi">{safePost.pickupNote}</span>
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* The listing the author tagged (distinct from neighbor-added
+              recommendations rendered further down). */}
+          {safePost.taggedListing && (
+            <button
+              className="row gap-10 center-v"
+              style={{ width: "100%", marginTop: 12, padding: "10px 12px", borderRadius: 14, background: "var(--brand-50)", border: "1px solid var(--brand-200)", textAlign: "left", cursor: "pointer" }}
+              onClick={() => nav(safePost.taggedListing!.listingType === "BUSINESS" ? `/business/${safePost.taggedListing!.listingId}` : `/provider/${safePost.taggedListing!.listingId}`)}
+            >
+              <span style={{ fontSize: 18 }} aria-hidden="true">{safePost.taggedListing.listingType === "BUSINESS" ? "🏪" : "👤"}</span>
+              <div className="grow" style={{ minWidth: 0 }}>
+                <div className="tiny" style={{ color: "var(--brand-700)" }}>{safePost.type === "SHOUTOUT" ? "Shoutout to" : "Tagged"}</div>
+                <div className="semi small ellipsis" style={{ color: "var(--brand-900)" }}>{safePost.taggedListing.name}</div>
+              </div>
+              <ChevronRight size={14} color="var(--brand-600)" />
+            </button>
+          )}
+
+          {/* Photo gallery — a horizontal strip when there's more than one, so a
+              multi-photo post doesn't hide everything after the first. */}
+          {detailMedia.length === 1 && (
+            <SafeImg
+              src={detailMedia[0]}
+              alt={safePost.imageAlt || ""}
+              style={{ width: "100%", maxHeight: 280, borderRadius: 16, marginTop: 14, objectFit: "cover", border: "1px solid var(--ink-200)" }}
+            />
+          )}
+          {detailMedia.length > 1 && (
+            <div className="media-strip" style={{ marginTop: 14 }}>
+              {detailMedia.map((url, i) => (
+                <SafeImg
+                  key={url}
+                  src={url}
+                  alt={i === 0 ? (safePost.imageAlt || "") : `Photo ${i + 1}`}
+                  style={{ width: 232, height: 232, flexShrink: 0, borderRadius: 16, objectFit: "cover", border: "1px solid var(--ink-200)" }}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Poll */}
           {safePost.type === "POLL" && safePost.pollOptions && (
@@ -404,13 +790,13 @@ export default function CommunityPostDetail() {
                 return (
                   <button
                     key={o.id}
-                    disabled={isGuest}
-                    onClick={isGuest ? undefined : () => handleVote(o.id)}
+                    disabled={isGuest || pollClosed}
+                    onClick={isGuest || pollClosed ? undefined : () => handleVote(o.id)}
                     style={{
                       position: "relative", textAlign: "left", padding: "12px 14px", borderRadius: 14,
                       border: voted ? "1.5px solid var(--brand-500)" : "1.5px solid var(--ink-200)",
-                      overflow: "hidden", background: "var(--surface)", cursor: isGuest ? "default" : "pointer",
-                      boxShadow: voted ? "0 2px 10px rgba(139, 71, 245, 0.15)" : "none",
+                      overflow: "hidden", background: "var(--surface)", cursor: isGuest || pollClosed ? "default" : "pointer",
+                      boxShadow: voted ? "0 2px 10px rgba(232, 62, 160, 0.2)" : "none",
                       transition: "transform 0.15s ease, border-color 0.2s ease"
                     }}
                   >
@@ -431,7 +817,10 @@ export default function CommunityPostDetail() {
                   </button>
                 );
               })}
-              <span className="tiny muted semi">{totalVotes} {totalVotes === 1 ? "vote" : "votes"}</span>
+              <span className="row between center-v">
+                <span className="tiny muted semi">{totalVotes} {totalVotes === 1 ? "vote" : "votes"}</span>
+                {pollClosed && <span className="tiny semi" style={{ color: "var(--ink-500)" }}>Voting closed</span>}
+              </span>
             </div>
           )}
 
@@ -460,39 +849,83 @@ export default function CommunityPostDetail() {
             </div>
           )}
 
-          {/* Like row — a guest sees the count as plain text, not a control. */}
+          {/* Like row — a guest sees the count as plain text, not a control.
+              When the author hid the count, the button still works; only the
+              number goes away (the author themselves still sees it). */}
           <div className="divider" style={{ margin: "14px 0" }} />
-          {isGuest ? (
-            <span className="row gap-6 small semi" style={{ color: "var(--ink-500)" }}>
-              <Heart size={18} /> {likeCount} {likeCount === 1 ? "like" : "likes"}
-            </span>
-          ) : (
-            <button className="row gap-6 small semi" style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }} onClick={handleLike}>
-              <Heart size={18} weight={liked ? "fill" : "regular"} /> {likeCount} {likeCount === 1 ? "like" : "likes"}
-            </button>
-          )}
+          <div className="row between center-v">
+            {isGuest ? (
+              <span className="row gap-6 small semi" style={{ color: "var(--ink-500)" }}>
+                <Heart size={18} /> {showLikeCount ? `${likeCount} ${likeCount === 1 ? "like" : "likes"}` : "Like"}
+              </span>
+            ) : (
+              <button
+                className="row gap-6 small semi"
+                style={{ color: liked ? "var(--red-500)" : "var(--ink-500)" }}
+                onClick={handleLike}
+                aria-label={liked ? "Unlike this post" : "Like this post"}
+              >
+                <Heart size={18} weight={liked ? "fill" : "regular"} />
+                {showLikeCount ? `${likeCount} ${likeCount === 1 ? "like" : "likes"}` : liked ? "Liked" : "Like"}
+              </button>
+            )}
+            {/* Readers see the thread's rules before they start typing. */}
+            {policyBadgeLabel && (
+              <span className="tiny semi" style={{ color: "var(--ink-500)", background: "var(--ink-100)", border: "1px solid var(--ink-200)", padding: "3px 9px", borderRadius: 10, fontSize: 11.5 }}>
+                {policyBadgeLabel}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="divider" style={{ margin: "14px 0", borderWidth: 4 }} />
 
         {/* Comments */}
         <div className="page-pad">
-          <div className="semi small muted" style={{ marginBottom: 12 }}>
-            {comments.length} comment{comments.length !== 1 ? "s" : ""}
+          <div className="row between center-v" style={{ marginBottom: 12 }}>
+            <div className="semi small muted">
+              {comments.length} comment{comments.length !== 1 ? "s" : ""}
+            </div>
+            {/* Worth having even on short threads: a long "ask neighbors" thread
+                where the best answer arrived late is unreadable newest-first. */}
+            {comments.length > 1 && (
+              <div className="row gap-4" style={{ background: "var(--ink-100)", padding: 3, borderRadius: 10 }} role="radiogroup" aria-label="Sort comments">
+                {([["top", "Top"], ["newest", "Newest"]] as [CommentSort, string][]).map(([value, label]) => (
+                  <button
+                    key={value}
+                    role="radio"
+                    aria-checked={commentSort === value}
+                    className="tiny semi"
+                    style={{
+                      padding: "4px 11px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 12,
+                      background: commentSort === value ? "var(--surface)" : "transparent",
+                      color: commentSort === value ? "var(--brand-700)" : "var(--ink-600)",
+                      boxShadow: commentSort === value ? "var(--shadow-sm)" : "none",
+                    }}
+                    onClick={() => { haptics.selection(); setCommentSort(value); }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {commentsLoading ? (
             <ListSkeleton count={2} />
           ) : (
             <div className="col gap-16">
-              {comments.filter((c) => !c.parentId).map((c) => {
+              {sortedTopLevel.map((c) => {
+                // Replies stay chronological whatever the top-level sort is — a
+                // reply thread is a conversation, and reordering it by score
+                // would make the exchange unfollowable.
                 const replies = comments.filter((r) => r.parentId === c.id);
                 return (
                   <div key={c.id} className="col gap-12 queue-row-enter">
-                    <CommentRow c={c} nav={nav} onReply={() => startReply(c)} canReply={canComment} />
+                    <CommentRow c={c} nav={nav} onReply={() => startReply(c)} canReply={canComment} canReact={canComment} onReact={(e) => reactTo(c, e)} />
                     {replies.length > 0 && (
                       <div className="col gap-12" style={{ marginLeft: 46, paddingLeft: 10, borderLeft: "2px solid var(--line)" }}>
                         {replies.map((r) => (
-                          <CommentRow key={r.id} c={r} nav={nav} onReply={() => startReply(r)} compact canReply={canComment} />
+                          <CommentRow key={r.id} c={r} nav={nav} onReply={() => startReply(r)} compact canReply={canComment} canReact={canComment} onReact={(e) => reactTo(r, e)} />
                         ))}
                       </div>
                     )}
@@ -515,16 +948,50 @@ export default function CommunityPostDetail() {
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px max(10px, var(--safe-area-bottom))" }}>
           <GuestSignInPrompt message="Sign in to join the conversation" compact />
         </div>
-      ) : !allowComments ? (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "14px 12px max(14px, var(--safe-area-bottom))" }}>
-          <p className="small muted center" style={{ margin: 0 }}>Comments are turned off for this post.</p>
+      ) : gatePending ? (
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: "14px 12px max(14px, var(--safe-area-bottom))" }}>
+          <p className="small muted center" style={{ margin: 0 }}>Checking if you can reply…</p>
         </div>
       ) : !canComment ? (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "14px 12px max(14px, var(--safe-area-bottom))" }}>
-          <p className="small muted center" style={{ margin: 0 }}>Follow each other to comment</p>
+        // One notice, worded by reason. Previously two hardcoded strings
+        // ("Comments are turned off" / "Follow each other to comment") had to
+        // stand in for every situation, so someone simply outside the area was
+        // told to follow the author — advice that wouldn't have helped.
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: "14px 12px max(14px, var(--safe-area-bottom))" }}>
+          <p className="small muted center" style={{ margin: 0 }}>{gate.message}</p>
+          {gateReason === "NOT_MUTUAL" && authorUserId && (
+            <p className="center" style={{ margin: "8px 0 0" }}>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => openProfile(authorUserId, "USER", { name: safePost.authorName, avatar: safePost.authorAvatar })}
+              >
+                View {safePost.authorName}'s profile
+              </button>
+            </p>
+          )}
         </div>
       ) : (
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "10px 12px max(10px, var(--safe-area-bottom))" }}>
+        {/* Mention suggestions. Matched on public alias only, the same rule
+            socialService.searchNeighbors follows — you can't find a neighbor by
+            their real name here, so a mention can't confirm an identity. */}
+        {mentionQuery && (mentionResults?.length ?? 0) > 0 && (
+          <div className="mention-suggest" role="listbox" aria-label="Mention a neighbor">
+            {mentionResults!.slice(0, 5).map((n) => (
+              <button
+                key={n.id}
+                role="option"
+                aria-selected={false}
+                className="mention-suggest-row"
+                onClick={() => pickMention(n.name)}
+              >
+                <SafeImg src={n.avatar} variant="avatar" className="avatar" style={{ width: 28, height: 28, flexShrink: 0 }} />
+                <span className="semi small ellipsis">@{n.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {replyingTo && (
           <div className="row between center-v" style={{ marginBottom: "var(--space-xs)", padding: "6px 10px", background: "var(--brand-50)", borderRadius: 10 }}>
             <span className="tiny" style={{ color: "var(--brand-700)" }}>Replying to <span className="semi">{replyingTo.authorName}</span></span>
@@ -586,17 +1053,34 @@ export default function CommunityPostDetail() {
           style={{ width: 32, height: 32, flexShrink: 0 }}
         />
         <textarea
+          ref={inputRef}
           className="input"
-          placeholder={replyingTo ? "Write a reply…" : "Add a comment…"}
+          placeholder={replyingTo ? "Write a reply…" : "Add a comment… use @ to mention a neighbor"}
           value={newComment}
           rows={1}
           style={{ flex: 1, resize: "none", maxHeight: 80, overflowY: "auto", padding: "8px 12px", borderRadius: 20, lineHeight: 1.4, fontSize: 14 }}
           onChange={(e) => {
             setNewComment(e.target.value);
+            // Read the mention from the caret, not from the whole string, so a
+            // second @mention later in the comment is picked up correctly.
+            setMentionQuery(mentionQueryAt(e.target.value, e.target.selectionStart ?? e.target.value.length));
             e.target.style.height = "auto";
             e.target.style.height = e.target.scrollHeight + "px";
           }}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendComment(); } }}
+          onKeyDown={(e) => {
+            // Enter picks the highlighted suggestion instead of sending, which is
+            // what a visible autocomplete implies.
+            if (e.key === "Escape" && mentionQuery) { setMentionQuery(null); return; }
+            if (e.key === "Enter" && !e.shiftKey) {
+              if (mentionQuery && (mentionResults?.length ?? 0) > 0) {
+                e.preventDefault();
+                pickMention(mentionResults![0].name);
+                return;
+              }
+              e.preventDefault();
+              sendComment();
+            }
+          }}
           disabled={sending}
         />
         <button
@@ -608,6 +1092,17 @@ export default function CommunityPostDetail() {
         </button>
       </div>
       </div>
+      )}
+
+      {sharing && (
+        <ShareCard
+          title={safePost.title}
+          subtitle={postShareSubtitle(safePost)}
+          image={detailMedia[0] ?? safePost.authorAvatar}
+          meta={typeMeta.label}
+          url={postShareUrl(safePost.id)}
+          onClose={() => setSharing(false)}
+        />
       )}
 
       {reporting && (

@@ -49,22 +49,24 @@ export function LocationPinDropOverlay({
   const { t } = useI18n();
   return (
     <>
-      {/* Top instruction bar */}
+      {/* Top instruction bar — glass, matching every other piece of floating
+          chrome on this screen (search bar, filter strip, FABs) instead of a
+          flat opaque white bar, same for the button on it. */}
       <div
+        className="map-glass-panel"
         style={{
           position: "absolute", top: "calc(12px + var(--safe-area-top))", left: "var(--map-chrome-inset)", right: "var(--map-chrome-inset)", zIndex: 1000,
           display: "flex", alignItems: "center", gap: 10,
-          background: "#fff", borderRadius: 30, padding: "10px 10px 10px 18px",
-          boxShadow: "var(--shadow)",
+          borderRadius: 30, padding: "10px 10px 10px 18px",
         }}
       >
         <span className="semi" style={{ fontSize: 13, color: "var(--ink-800)", flex: 1 }}>
           {t("map_pin_instruction")}
         </span>
         <button
-          className="icon-btn"
+          className="icon-btn map-glass-panel"
           onClick={onCancel}
-          style={{ background: "var(--ink-100)", flexShrink: 0 }}
+          style={{ flexShrink: 0 }}
           aria-label={t("search_cancel")}
         >
           <X size={16} />

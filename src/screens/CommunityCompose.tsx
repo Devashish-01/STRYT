@@ -1,11 +1,37 @@
 import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { AppBar, SafeImg } from "@/components/common";
-import { Camera, Plus, X, Store, Wrench, Image } from "@/components/Icons";
+import { SafeImg } from "@/components/common";
+import { Camera, Plus, X, Store, Wrench, Image, MapPin, Check, User, Megaphone, Clock, Tag, ChevronDown, MessageCircle, Eye } from "@/components/Icons";
+import ListingPickerSheet from "@/components/ListingPickerSheet";
+import { CommunityCard } from "@/components/cards";
 import { communityService, uploadService, businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import { useDraft } from "@/hooks/useDraft";
 import { haptics } from "@/lib/haptics";
+import { isDraftMeaningful, validateDraft, type DraftIdentity } from "@/lib/communityDraft";
+import { COMMENT_POLICIES, COMMENT_POLICY_META } from "@/lib/commentPolicy";
+import {
+  addMedia,
+  alertExpiryHours,
+  canAddMedia,
+  draftToCreateInput,
+  draftToPreviewPost,
+  promoteMediaToCover,
+  removeMediaAt,
+} from "@/lib/communityPost";
+import {
+  ALERT_SEVERITIES,
+  COMMUNITY_TYPES,
+  COMMUNITY_TYPE_META,
+  MAX_BODY_LEN,
+  MAX_POLL_OPTIONS,
+  MAX_POST_MEDIA,
+  MAX_TITLE_LEN,
+  MIN_POLL_OPTIONS,
+  PHOTO_FORWARD_TYPES,
+  POLL_DURATIONS,
+} from "@/lib/communityTypes";
 import type { CommunityPostType } from "@/types";
 
 interface SellerContext {
@@ -25,14 +51,14 @@ function readSellerContext(state: unknown): SellerContext | null {
   return null;
 }
 
-const types: { type: CommunityPostType; label: string; emoji: string; hint: string }[] = [
-  { type: "RECOMMENDATION", label: "Ask neighbors", emoji: "💬", hint: "Get recommendations for a place or service" },
-  { type: "LOST_FOUND", label: "Lost & Found", emoji: "🔍", hint: "Report something lost or found nearby" },
-  { type: "ALERT", label: "Alert", emoji: "📢", hint: "Water cut, road closed, safety notice" },
-  { type: "GIVEAWAY", label: "Giveaway", emoji: "🎁", hint: "Give away something for free" },
-  { type: "POLL", label: "Poll", emoji: "📊", hint: "Ask the neighborhood to vote" },
-  { type: "SHOUTOUT", label: "Shoutout", emoji: "🙌", hint: "Thank a local business or neighbor" },
-];
+/** The radius the post will actually reach, mirroring communityService.feed()'s
+ *  own source of truth so the composer can't promise a reach the feed won't
+ *  honour. */
+function reachRadiusKm(): number {
+  const saved = typeof localStorage !== "undefined" ? localStorage.getItem("settings_radius") : null;
+  const parsed = saved ? parseFloat(saved) : NaN;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 5;
+}
 
 export default function CommunityCompose() {
   const nav = useNavigate();
@@ -74,53 +100,104 @@ export default function CommunityCompose() {
   );
   const sellerLat = sellerCtx?.type === "business" ? activeBiz?.lat : sellerCtx?.type === "provider" ? activeProv?.lat : undefined;
   const sellerLng = sellerCtx?.type === "business" ? activeBiz?.lng : sellerCtx?.type === "provider" ? activeProv?.lng : undefined;
+
+  // Drafts are per-identity: a half-written shop announcement must never
+  // reappear under your personal name. Held back until the seller identity
+  // settles, for the same reason submit is.
+  const draftIdentity: DraftIdentity | null = sellerCtxLoading
+    ? null
+    : sellerCtx
+      ? { type: sellerCtx.type, id: sellerCtx.id }
+      : { type: "user", id: user.id || "self" };
+  const { draft, patch, discard, justSaved, restored, acknowledgeRestore } = useDraft(draftIdentity);
+
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  const [uploading, setUploading] = useState(false);
+  const [posting, setPosting] = useState(false);
+  // Collapsed once a type is chosen (progressive disclosure) — reopened by the
+  // chip's "Change" affordance.
+  const [pickerOpen, setPickerOpen] = useState(true);
+  const [leaveConfirm, setLeaveConfirm] = useState(false);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [succeeded, setSucceeded] = useState(false);
+
+  const meta = draft.type ? COMMUNITY_TYPE_META[draft.type] : null;
+  const validation = validateDraft(draft);
+  const canPost = validation.ok && !posting && !uploading && !sellerCtxLoading;
+  const reachKm = reachRadiusKm();
+  const photoForward = !!draft.type && PHOTO_FORWARD_TYPES.includes(draft.type);
+  const policyMeta = COMMENT_POLICY_META[draft.commentPolicy];
+
+  function chooseType(t: CommunityPostType) {
+    haptics.selection();
+    patch({ type: t });
+    setPickerOpen(false);
+    // Land the caret where the writing happens, so choosing a type flows
+    // straight into composing instead of leaving the user to hunt for the field.
+    setTimeout(() => titleRef.current?.focus(), 220);
+  }
 
   async function pickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    if (!canAddMedia(draft.media)) {
+      showToast(`Up to ${MAX_POST_MEDIA} photos per post`);
+      return;
+    }
     setUploading(true);
     try {
       const url = await uploadService.upload(file, "community");
-      setPhotoUrl(url);
+      const res = addMedia(draft.media, url);
+      if (res.rejected === "AT_LIMIT") showToast(`Up to ${MAX_POST_MEDIA} photos per post`);
+      else patch({ media: res.media });
     } catch {
       showToast("Couldn't upload photo. Try again.");
     } finally {
       setUploading(false);
     }
   }
-  const [type, setType] = useState<CommunityPostType | null>(null);
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [pollOpts, setPollOpts] = useState(["", ""]);
-  const [allowComments, setAllowComments] = useState(false); // comments OFF by default
-  const [posting, setPosting] = useState(false);
 
-  const canPost =
-    !!type && title.trim().length > 3 && (type !== "POLL" || pollOpts.filter((o) => o.trim()).length >= 2) && !posting && !sellerCtxLoading;
+  function handleCancel() {
+    // An unconditional discard on Cancel loses real work to a mistap. Anything
+    // worth keeping gets the iOS three-way choice instead — the same rule
+    // autosave uses, so a poll option or a lost-and-found detail counts here too.
+    if (isDraftMeaningful(draft)) {
+      setLeaveConfirm(true);
+      return;
+    }
+    discard();
+    nav(-1);
+  }
 
   async function post() {
-    if (!type) return;
+    if (!draft.type || !canPost) return;
     setPosting(true);
     haptics.medium();
     try {
+      // draftToCreateInput decides which fields this type carries (and nulls the
+      // rest), so switching type mid-compose can't smuggle a stale poll option
+      // or severity into the row.
       const created = await communityService.create({
-        type,
-        title,
-        body,
-        image: photoUrl ?? undefined,
+        ...draftToCreateInput(draft),
         area,
         lat: sellerCtx ? sellerLat : (user.lat || undefined),
         lng: sellerCtx ? sellerLng : (user.lng || undefined),
-        allowComments,
-        pollOptions: type === "POLL" ? pollOpts.filter((o) => o.trim()).map((label, i) => ({ id: `o${i}`, label, votes: 0 })) : undefined,
+        commentPolicy: draft.commentPolicy,
+        hideLikeCount: draft.hideLikeCount,
         ...(sellerCtx ? { authorType: sellerCtx.type, authorRefId: sellerCtx.id, authorName: sellerCtx.name, authorAvatar: sellerCtx.avatar } : {}),
       });
       haptics.success();
+      setPreviewOpen(false);
+      // A beat of confirmation while the navigation is already in flight, so the
+      // 500ms below reads as "it worked" instead of an unexplained pause.
+      setSucceeded(true);
+      discard(); // the draft has become a post; keeping it would re-offer it
       showToast("Posted to community 🏘️");
       // Land on the post itself, not /community-hub — that's a TAB_ROUTE, which
       // forces the customer BottomNav onto a business/provider-context session
@@ -128,168 +205,478 @@ export default function CommunityCompose() {
       // the wrong "hat" right after posting as their business/provider.
       setTimeout(() => nav(`/community/${created.id}`, { replace: true }), 500);
     } catch {
+      // The draft is deliberately left intact here — a failed post is exactly
+      // when losing the text hurts most.
       showToast("Couldn't post. Try again.");
       setPosting(false);
     }
   }
 
+  const identityName = sellerCtx?.name || user.name || "You";
+  const identityClass = sellerCtx?.type === "business"
+    ? "compose-identity compose-identity--business"
+    : sellerCtx?.type === "provider"
+      ? "compose-identity compose-identity--provider"
+      : "compose-identity";
+
   return (
-    <div className="screen">
-      <AppBar title="Post to community" subtitle={area} />
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
-        {sellerCtx && (
-          <div
-            className="card row gap-10 center-v"
-            style={{
-              padding: "var(--space-sm)",
-              background: sellerCtx.type === "business" ? "var(--orange-50)" : "var(--green-100)",
-              border: `1px solid ${sellerCtx.type === "business" ? "var(--orange-100)" : "var(--green-500)"}`,
-            }}
-          >
-            <SafeImg
-              src={sellerCtx.avatar}
-              variant={sellerCtx.type === "provider" ? "avatar" : "photo"}
-              className="thumb"
-              style={{ width: 38, height: 38, borderRadius: 8 }}
-            />
-            <div className="grow">
-              <div className="tiny muted">Posting as</div>
-              <div className="semi small">{sellerCtx.name}</div>
+    <div className="screen compose-screen community-theme">
+      <header className="compose-nav">
+        <button className="compose-nav-btn" onClick={handleCancel}>Cancel</button>
+        <div className="compose-nav-title">
+          {meta ? `${meta.emoji} ${meta.label}` : "New post"}
+        </div>
+        <button
+          className="compose-nav-post"
+          disabled={!canPost}
+          onClick={post}
+          aria-label={validation.ok ? "Post to your street" : validation.message ?? "Post"}
+        >
+          {posting ? "Posting…" : "Post"}
+        </button>
+      </header>
+
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 24 }}>
+        {restored && (
+          <div className="draft-restored" role="status">
+            <span style={{ fontSize: 18 }}>📝</span>
+            <div className="grow" style={{ minWidth: 0 }}>
+              <div className="semi small" style={{ color: "var(--amber-800)" }}>Draft restored</div>
+              <div className="tiny" style={{ color: "var(--amber-700)" }}>Picked up where you left off.</div>
             </div>
-            <span className={`badge row gap-4 center-v ${sellerCtx.type === "business" ? "badge-orange" : "badge-green"}`}>
-              {sellerCtx.type === "business" ? <Store size={11} /> : <Wrench size={11} />}
-              {sellerCtx.type === "business" ? "Business" : "Provider"}
-            </span>
+            <button
+              className="tiny semi"
+              style={{ color: "var(--amber-800)", background: "none", border: "none", cursor: "pointer", padding: "4px 6px" }}
+              onClick={() => { discard(); setPickerOpen(true); }}
+            >
+              Start over
+            </button>
+            <button className="icon-btn" aria-label="Dismiss" onClick={acknowledgeRestore} style={{ width: 26, height: 26 }}>
+              <X size={13} />
+            </button>
           </div>
         )}
 
-        <div className="field">
-          <label className="semi" style={{ fontSize: 14, color: "var(--ink-800)", marginBottom: 8 }}>What kind of post?</label>
-          <div className="col gap-10">
-            {types.map((t) => {
-              const isSel = type === t.type;
-              return (
-                <button
-                  key={t.type}
-                  className="card row gap-12"
-                  style={{
-                    padding: "14px 16px", textAlign: "left", borderRadius: 18,
-                    border: isSel ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
-                    background: isSel ? "var(--brand-50)" : "var(--surface)",
-                    boxShadow: isSel ? "0 4px 14px rgba(139, 71, 245, 0.12)" : "var(--shadow-sm)",
-                    transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)"
-                  }}
-                  onClick={() => setType(t.type)}
-                >
-                  <span style={{ fontSize: 26, filter: isSel ? "drop-shadow(0 2px 4px rgba(0,0,0,0.15))" : "none" }}>{t.emoji}</span>
-                  <div className="grow">
-                    <div className="bold small" style={{ color: isSel ? "var(--brand-900)" : "var(--ink-900)", fontSize: 14.5 }}>{t.label}</div>
-                    <div className="tiny muted">{t.hint}</div>
-                  </div>
-                  <span style={{
-                    width: 20, height: 20, borderRadius: "50%",
-                    border: isSel ? "6px solid var(--brand-600)" : "2px solid var(--ink-300)",
-                    transition: "all 0.2s ease", flexShrink: 0
-                  }} />
-                </button>
-              );
-            })}
+        {/* Identity + reach. Always shown, not only for sellers: "who is this
+            going out as, and how far does it go" is the question people hesitate
+            over before posting, and it was previously invisible for regular
+            members. */}
+        <div className={identityClass}>
+          <SafeImg
+            src={sellerCtx?.avatar || user.avatar}
+            variant={sellerCtx?.type === "business" ? "photo" : "avatar"}
+            className="thumb"
+            style={{ width: 40, height: 40, borderRadius: sellerCtx?.type === "business" ? 10 : "50%", flexShrink: 0 }}
+          />
+          <div className="grow col" style={{ gap: 3, minWidth: 0 }}>
+            <div className="tiny muted">Posting as</div>
+            <div className="semi small ellipsis" style={{ fontSize: 14.5 }}>{identityName}</div>
+            <span className="compose-reach">
+              <MapPin size={11} /> {area || "your street"} · {reachKm} km
+            </span>
           </div>
+          <span className={`badge row gap-4 center-v ${sellerCtx?.type === "business" ? "badge-orange" : sellerCtx?.type === "provider" ? "badge-green" : "badge-purple"}`}>
+            {sellerCtx?.type === "business" ? <Store size={11} /> : sellerCtx?.type === "provider" ? <Wrench size={11} /> : <User size={11} />}
+            {sellerCtx?.type === "business" ? "Business" : sellerCtx?.type === "provider" ? "Provider" : "You"}
+          </span>
         </div>
 
-        {type && (
+        {/* Type picker — a six-tile grid until chosen, one row afterwards. */}
+        <div className="field" style={{ marginBottom: 0 }}>
+          {pickerOpen || !meta ? (
+            <>
+              <span className="compose-section-label" id="flair-label">What kind of post?</span>
+              <div className="flair-grid" role="radiogroup" aria-labelledby="flair-label">
+                {COMMUNITY_TYPES.map((t) => {
+                  const isSel = draft.type === t.type;
+                  return (
+                    <button
+                      key={t.type}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSel}
+                      className={`flair-tile ${isSel ? "active" : ""}`}
+                      onClick={() => chooseType(t.type)}
+                    >
+                      <span className="flair-tile-emoji" aria-hidden="true">{t.emoji}</span>
+                      <span className="flair-tile-label">{t.action}</span>
+                      <span className="flair-tile-hint">{t.hint}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="flair-chip"
+              onClick={() => setPickerOpen(true)}
+              aria-label={`Post type: ${meta.label}. Change`}
+            >
+              <span className="flair-chip-emoji" aria-hidden="true">{meta.emoji}</span>
+              <span className="flair-chip-label">{meta.label}</span>
+              <span className="flair-chip-change">Change</span>
+            </button>
+          )}
+        </div>
+
+        {draft.type && meta && (
           <>
             <div className="field">
-              <label className="row between">
-                <span>Title *</span>
-                <span className="tiny muted">{title.length}/150</span>
+              <label className="row between" htmlFor="compose-title">
+                <span className="compose-section-label" style={{ marginBottom: 0 }}>Title *</span>
+                <span className="tiny muted tabular-nums">{draft.title.length}/{MAX_TITLE_LEN}</span>
               </label>
-              <input className="input" placeholder={type === "RECOMMENDATION" ? "e.g. Reliable dentist near KP?" : "Short and clear"} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} />
+              <input
+                id="compose-title"
+                ref={titleRef}
+                className="input"
+                placeholder={meta.titlePlaceholder}
+                value={draft.title}
+                onChange={(e) => patch({ title: e.target.value })}
+                maxLength={MAX_TITLE_LEN}
+                style={{ padding: "12px 16px", borderRadius: 14, fontSize: 14 }}
+              />
             </div>
+
             <div className="field">
-              <label>Details</label>
-              <textarea className="input" placeholder="Add more context…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} />
-              {body.length > 1600 && (
-                <span className="tiny muted" style={{ textAlign: "right" }}>{body.length}/2000</span>
+              <label className="row between" htmlFor="compose-body">
+                <span className="compose-section-label" style={{ marginBottom: 0 }}>Details</span>
+                {draft.body.length > MAX_BODY_LEN * 0.8 && (
+                  <span className="tiny muted tabular-nums">{draft.body.length}/{MAX_BODY_LEN}</span>
+                )}
+              </label>
+              <textarea
+                id="compose-body"
+                className="input"
+                placeholder={meta.bodyPlaceholder}
+                value={draft.body}
+                onChange={(e) => patch({ body: e.target.value })}
+                maxLength={MAX_BODY_LEN}
+                style={{ padding: "12px 16px", borderRadius: 14, fontSize: 14, minHeight: 90 }}
+              />
+            </div>
+
+
+            {/* ---- Photos: available on EVERY type ----
+                Previously only Lost & Found and Giveaway had a picker, so an
+                alert about a flooded road or a shoutout to a shop — the posts a
+                photo makes credible — couldn't carry one. */}
+            <div className="field">
+              <label className="row between">
+                <span className="compose-section-label" style={{ marginBottom: 0 }}>
+                  Photos
+                  {photoForward && <span className="tiny muted" style={{ fontWeight: 500 }}> · helps a lot here</span>}
+                </span>
+                <span className="tiny muted tabular-nums">{draft.media.length}/{MAX_POST_MEDIA}</span>
+              </label>
+              <div className="media-strip">
+                {draft.media.map((url, i) => (
+                  <div key={url} className={`media-thumb ${i === 0 ? "media-thumb-cover" : ""}`}>
+                    <img src={url} alt={i === 0 ? "Cover photo" : `Photo ${i + 1}`} />
+                    {i === 0 ? (
+                      draft.media.length > 1 && <span className="media-cover-tag">COVER</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="media-thumb-x"
+                        style={{ top: "auto", bottom: 4, left: 4, right: "auto", width: "auto", padding: "2px 7px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}
+                        aria-label={`Make photo ${i + 1} the cover`}
+                        onClick={() => { haptics.selection(); patch({ media: promoteMediaToCover(draft.media, i) }); }}
+                      >
+                        COVER?
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="media-thumb-x"
+                      aria-label={`Remove photo ${i + 1}`}
+                      onClick={() => patch({ media: removeMediaAt(draft.media, i) })}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+                {canAddMedia(draft.media) && (
+                  <>
+                    <button
+                      type="button"
+                      className="media-add"
+                      disabled={uploading}
+                      onClick={() => cameraRef.current?.click()}
+                    >
+                      <Camera size={20} />
+                      <span>{uploading ? "Uploading…" : "Camera"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="media-add"
+                      disabled={uploading}
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <Image size={20} />
+                      <span>{uploading ? "Uploading…" : "Gallery"}</span>
+                    </button>
+                  </>
+                )}
+                <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickPhoto} />
+                <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={pickPhoto} />
+              </div>
+              {/* Alt text only appears once there's a photo to describe. */}
+              {draft.media.length > 0 && (
+                <input
+                  className="input"
+                  style={{ marginTop: 9, padding: "10px 14px", borderRadius: 12, fontSize: 13.5 }}
+                  placeholder="Describe the photo (for screen readers)"
+                  aria-label="Photo description for screen readers"
+                  value={draft.imageAlt}
+                  maxLength={200}
+                  onChange={(e) => patch({ imageAlt: e.target.value })}
+                />
               )}
             </div>
 
-            {/* Comments are OFF by default; posters opt in. When on, only the
-                poster and neighbors who follow each other can comment. */}
-            <div className="field">
-              <button
-                type="button"
-                className="row between align-center"
-                onClick={() => setAllowComments((v) => !v)}
-                style={{ width: "100%", padding: "12px 14px", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 14, cursor: "pointer", textAlign: "left" }}
-                aria-pressed={allowComments}
-              >
-                <div className="col" style={{ gap: 2 }}>
-                  <span className="semi small">Allow comments</span>
-                  <span className="tiny muted">
-                    {allowComments ? "Mutual followers can comment" : "Comments are turned off"}
-                  </span>
+            {/* ---- ALERT: how loud, and how long ---- */}
+            {draft.type === "ALERT" && (
+              <div className="type-module">
+                <div className="type-module-title"><Megaphone size={13} /> How urgent is it?</div>
+                <div className="opt-row" role="radiogroup" aria-label="Alert urgency">
+                  {ALERT_SEVERITIES.map((s) => {
+                    const on = draft.severity === s.value;
+                    const activeClass = s.tone === "red" ? "active-red" : s.tone === "amber" ? "active-amber" : "active-info";
+                    return (
+                      <button
+                        key={s.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        className={`opt-card ${on ? activeClass : ""}`}
+                        onClick={() => { haptics.selection(); patch({ severity: s.value }); }}
+                      >
+                        <span className="opt-card-emoji" aria-hidden="true">{s.emoji}</span>
+                        <span className="opt-card-label">{s.label}</span>
+                        <span className="opt-card-hint">{s.hint}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <span style={{
-                  width: 44, height: 26, borderRadius: 999, flexShrink: 0, position: "relative",
-                  background: allowComments ? "var(--brand-600)" : "var(--ink-300)",
-                  transition: "background 0.15s ease",
-                }}>
-                  <span style={{
-                    position: "absolute", top: 3, left: allowComments ? 21 : 3,
-                    width: 20, height: 20, borderRadius: "50%", background: "#fff",
-                    transition: "left 0.15s ease", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                  }} />
-                </span>
-              </button>
-            </div>
+                {draft.severity && (
+                  <p className="tiny muted" style={{ margin: "9px 0 0", display: "flex", alignItems: "center", gap: 5 }}>
+                    <Clock size={11} /> Clears from the feed automatically after {alertExpiryHours(draft.severity)} hours.
+                  </p>
+                )}
+              </div>
+            )}
 
-            {type === "POLL" && (
-              <div className="field">
-                <label>Poll options</label>
+            {/* ---- POLL: options + a closing time ---- */}
+            {draft.type === "POLL" && (
+              <div className="type-module">
+                <div className="type-module-title">📊 Poll</div>
                 <div className="col gap-8">
-                  {pollOpts.map((o, i) => (
+                  {draft.pollOptions.map((o, i) => (
                     <div key={i} className="row gap-8">
-                      <input className="input grow" placeholder={`Option ${i + 1}`} value={o} onChange={(e) => setPollOpts((p) => p.map((x, j) => (j === i ? e.target.value : x)))} />
-                      {pollOpts.length > 2 && <button className="icon-btn" onClick={() => setPollOpts((p) => p.filter((_, j) => j !== i))}><X size={16} /></button>}
+                      <input
+                        className="input grow"
+                        placeholder={`Option ${i + 1}`}
+                        value={o}
+                        aria-label={`Poll option ${i + 1}`}
+                        onChange={(e) => patch({ pollOptions: draft.pollOptions.map((x, j) => (j === i ? e.target.value : x)) })}
+                      />
+                      {draft.pollOptions.length > MIN_POLL_OPTIONS && (
+                        <button
+                          className="icon-btn"
+                          aria-label={`Remove option ${i + 1}`}
+                          onClick={() => patch({ pollOptions: draft.pollOptions.filter((_, j) => j !== i) })}
+                        >
+                          <X size={16} />
+                        </button>
+                      )}
                     </div>
                   ))}
-                  {pollOpts.length < 4 && (
-                    <button className="btn btn-ghost btn-sm" onClick={() => setPollOpts((p) => [...p, ""])}><Plus size={14} /> Add option</button>
+                  {draft.pollOptions.length < MAX_POLL_OPTIONS && (
+                    <button className="btn btn-ghost btn-sm" onClick={() => patch({ pollOptions: [...draft.pollOptions, ""] })}>
+                      <Plus size={14} /> Add option
+                    </button>
                   )}
+                </div>
+                {/* A poll that never closes never produces a result — and can't
+                    tell its voters what won. */}
+                <div style={{ marginTop: 13 }}>
+                  <span className="compose-section-label" id="poll-duration-label">Voting closes in</span>
+                  <div className="dur-row" role="radiogroup" aria-labelledby="poll-duration-label">
+                    {POLL_DURATIONS.map((d) => (
+                      <button
+                        key={d.hours}
+                        type="button"
+                        role="radio"
+                        aria-checked={draft.pollDurationHours === d.hours}
+                        className={`chip-pill ${draft.pollDurationHours === d.hours ? "active" : ""}`}
+                        onClick={() => { haptics.selection(); patch({ pollDurationHours: d.hours }); }}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
 
-            {(type === "LOST_FOUND" || type === "GIVEAWAY") && (
-              <div className="field">
-                <label>Photo</label>
-                {photoUrl ? (
-                  <div style={{ position: "relative", width: 110 }}>
-                    <img src={photoUrl} alt="Photo preview" className="thumb" style={{ width: 110, height: 110, borderRadius: 12, objectFit: "cover" }} />
-                    <button className="icon-btn" aria-label="Remove photo" style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setPhotoUrl(null)}><X size={14} /></button>
+            {/* ---- LOST & FOUND: where, and any reward ---- */}
+            {draft.type === "LOST_FOUND" && (
+              <div className="type-module">
+                <div className="type-module-title"><MapPin size={13} /> Where & reward</div>
+                <div className="col gap-10">
+                  <input
+                    className="input"
+                    placeholder="Last seen near… (e.g. the park gate)"
+                    aria-label="Last seen location"
+                    value={draft.lastSeen}
+                    maxLength={120}
+                    onChange={(e) => patch({ lastSeen: e.target.value })}
+                  />
+                  <input
+                    className="input"
+                    placeholder="Reward, if any (optional)"
+                    aria-label="Reward"
+                    value={draft.reward}
+                    maxLength={80}
+                    onChange={(e) => patch({ reward: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ---- GIVEAWAY: how to collect it ---- */}
+            {draft.type === "GIVEAWAY" && (
+              <div className="type-module">
+                <div className="type-module-title">🎁 Pickup</div>
+                <input
+                  className="input"
+                  placeholder="When & how to collect (e.g. evenings after 6)"
+                  aria-label="Pickup details"
+                  value={draft.pickupNote}
+                  maxLength={140}
+                  onChange={(e) => patch({ pickupNote: e.target.value })}
+                />
+              </div>
+            )}
+
+            {/* ---- Post settings ----
+                Collapsed by default (Instagram's "Advanced settings" pattern):
+                the defaults are right for most posts, and putting four audience
+                options in the main flow makes every post a decision. The
+                collapsed row still states the current choice, so it's never a
+                setting you have to open to know. */}
+            <div className="field" style={{ marginBottom: 0 }}>
+              <button
+                type="button"
+                className="row between center-v"
+                onClick={() => setSettingsOpen((v) => !v)}
+                aria-expanded={settingsOpen}
+                style={{ width: "100%", padding: "12px 14px", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 14, cursor: "pointer", textAlign: "left" }}
+              >
+                <div className="col" style={{ gap: 2, minWidth: 0 }}>
+                  <span className="semi small">Post settings</span>
+                  <span className="tiny muted ellipsis">
+                    {policyMeta.emoji} {policyMeta.label} can reply
+                    {draft.hideLikeCount ? " · likes hidden" : ""}
+                  </span>
+                </div>
+                <ChevronDown
+                  size={16}
+                  color="var(--ink-500)"
+                  style={{ flexShrink: 0, transform: settingsOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s ease" }}
+                />
+              </button>
+
+              {settingsOpen && (
+                <div className="type-module" style={{ marginTop: 10 }}>
+                  <div className="type-module-title"><MessageCircle size={13} /> Who can reply</div>
+                  <div className="col gap-8" role="radiogroup" aria-label="Who can reply">
+                    {COMMENT_POLICIES.map((p) => {
+                      const on = draft.commentPolicy === p.value;
+                      return (
+                        <button
+                          key={p.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={on}
+                          className="row gap-10 center-v"
+                          style={{
+                            width: "100%", padding: "10px 12px", textAlign: "left", cursor: "pointer",
+                            borderRadius: 13,
+                            border: on ? "1.5px solid var(--brand-600)" : "1.5px solid var(--ink-200)",
+                            background: on ? "var(--brand-50)" : "var(--surface)",
+                          }}
+                          onClick={() => { haptics.selection(); patch({ commentPolicy: p.value }); }}
+                        >
+                          <span style={{ fontSize: 17 }} aria-hidden="true">{p.emoji}</span>
+                          <span className="grow" style={{ minWidth: 0 }}>
+                            <span className="semi small" style={{ display: "block", color: on ? "var(--brand-900)" : "var(--ink-900)" }}>{p.label}</span>
+                            <span className="tiny muted">{p.hint}</span>
+                          </span>
+                          <span style={{
+                            width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+                            border: on ? "5px solid var(--brand-600)" : "2px solid var(--ink-300)",
+                          }} />
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="divider" style={{ margin: "13px 0" }} />
+
+                  <button
+                    type="button"
+                    className="row between center-v"
+                    onClick={() => patch({ hideLikeCount: !draft.hideLikeCount })}
+                    aria-pressed={draft.hideLikeCount}
+                    style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}
+                  >
+                    <span className="col" style={{ gap: 2 }}>
+                      <span className="semi small">Hide like count</span>
+                      <span className="tiny muted">People can still like it — the number stays private</span>
+                    </span>
+                    <span style={{
+                      width: 44, height: 26, borderRadius: 999, flexShrink: 0, position: "relative",
+                      background: draft.hideLikeCount ? "var(--brand-600)" : "var(--ink-300)",
+                      transition: "background 0.15s ease",
+                    }}>
+                      <span style={{
+                        position: "absolute", top: 3, left: draft.hideLikeCount ? 21 : 3,
+                        width: 20, height: 20, borderRadius: "50%", background: "var(--white)",
+                        transition: "left 0.15s ease", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                      }} />
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* ---- ASK / SHOUTOUT: tag the place you mean ----
+                A shoutout that names a business in prose is a dead end; tagging
+                turns it into a link to that listing, which is the whole point of
+                a shoutout on a local app. */}
+            {(draft.type === "RECOMMENDATION" || draft.type === "SHOUTOUT") && (
+              <div className="type-module">
+                <div className="type-module-title"><Tag size={13} /> Tag a place {draft.type === "SHOUTOUT" ? "" : "(optional)"}</div>
+                {draft.taggedListing ? (
+                  <div className="row gap-10 center-v" style={{ padding: "9px 11px", background: "var(--surface)", border: "1px solid var(--ink-200)", borderRadius: 12 }}>
+                    <span style={{ fontSize: 18 }} aria-hidden="true">{draft.taggedListing.listingType === "BUSINESS" ? "🏪" : "👤"}</span>
+                    <span className="semi small grow ellipsis">{draft.taggedListing.name}</span>
+                    <button
+                      className="icon-btn"
+                      aria-label="Remove tagged place"
+                      style={{ width: 26, height: 26 }}
+                      onClick={() => patch({ taggedListing: null })}
+                    >
+                      <X size={13} />
+                    </button>
                   </div>
                 ) : (
-                  <div className="row gap-8">
-                    <button
-                      className="col center"
-                      style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: "var(--space-xxs)", opacity: uploading ? 0.6 : 1 }}
-                      disabled={uploading}
-                      onClick={() => cameraRef.current?.click()}
-                    >
-                      <Camera size={22} /><span className="tiny">{uploading ? "…" : "Camera"}</span>
-                    </button>
-                    <button
-                      className="col center"
-                      style={{ width: 110, height: 110, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: "var(--space-xxs)", opacity: uploading ? 0.6 : 1 }}
-                      disabled={uploading}
-                      onClick={() => fileRef.current?.click()}
-                    >
-                      <Image size={22} /><span className="tiny">{uploading ? "…" : "Gallery"}</span>
-                    </button>
-                    <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickPhoto} />
-                    <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={pickPhoto} />
-                  </div>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setTagPickerOpen(true)}>
+                    <Tag size={14} /> Choose a business or provider
+                  </button>
                 )}
               </div>
             )}
@@ -297,14 +684,119 @@ export default function CommunityCompose() {
         )}
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "12px 12px max(12px, var(--safe-area-bottom))" }}>
-        {sellerCtxLoading && (
-          <p className="tiny muted" style={{ textAlign: "center", marginBottom: 6 }}>Resolving your business/provider identity…</p>
-        )}
-        <button className="btn btn-primary btn-block" disabled={!canPost} onClick={post}>
-          {posting ? "Posting…" : "Post to your street"}
-        </button>
+      <div className="compose-footer">
+        {sellerCtxLoading ? (
+          <p className="compose-hint">Resolving your business/provider identity…</p>
+        ) : !validation.ok && draft.type ? (
+          <p className="compose-hint" role="status">{validation.message}</p>
+        ) : justSaved ? (
+          <p style={{ margin: "0 0 8px", textAlign: "center" }}>
+            <span className="draft-pill" role="status"><Check size={11} /> Draft saved</span>
+          </p>
+        ) : null}
+        <div className="row gap-8">
+          {/* Preview is offered only once the draft is actually postable —
+              a preview of an invalid post would show a card that can't exist. */}
+          {validation.ok && (
+            <button
+              className="btn btn-ghost"
+              style={{ flexShrink: 0, border: "1.5px solid var(--ink-200)", fontWeight: 700 }}
+              onClick={() => { haptics.light(); setPreviewOpen(true); }}
+            >
+              <Eye size={15} /> Preview
+            </button>
+          )}
+          <button className="btn btn-primary grow" disabled={!canPost} onClick={post}>
+            {posting ? "Posting…" : "Post to your street"}
+          </button>
+        </div>
       </div>
+
+      {/* Preview — the real CommunityCard, exactly as the feed will render it. */}
+      {previewOpen && draft.type && (
+        <div className="overlay" onClick={() => setPreviewOpen(false)}>
+          <div
+            className="sheet"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxHeight: "86vh", display: "flex", flexDirection: "column" }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Post preview"
+          >
+            <div className="sheet-grab" />
+            <div className="compose-preview-note">
+              <Eye size={13} /> This is how your post will appear in the feed
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, margin: "0 -4px", padding: "0 4px 4px" }}>
+              <div className="compose-preview">
+                <CommunityCard
+                  post={draftToPreviewPost(
+                    draft,
+                    {
+                      authorName: identityName,
+                      authorAvatar: sellerCtx?.avatar || user.avatar,
+                      authorUserId: user.id,
+                      authorType: sellerCtx?.type ?? "user",
+                      authorRefId: sellerCtx?.id,
+                    },
+                    area
+                  )}
+                />
+              </div>
+            </div>
+            <div className="col gap-8" style={{ marginTop: 14 }}>
+              <button className="btn btn-primary btn-block" disabled={!canPost} onClick={post}>
+                {posting ? "Posting…" : "Looks good — post it"}
+              </button>
+              <button className="btn btn-ghost btn-block" onClick={() => setPreviewOpen(false)}>Keep editing</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {succeeded && (
+        <div className="post-success" role="status" aria-live="polite">
+          <span className="post-success-ring">
+            <Check size={38} weight="bold" />
+          </span>
+          <span className="post-success-label">Posted to {area || "your street"}</span>
+        </div>
+      )}
+
+      {tagPickerOpen && (
+        <ListingPickerSheet
+          title={draft.type === "SHOUTOUT" ? "Who's the shoutout for?" : "Tag a place"}
+          onPick={(picked) => {
+            haptics.selection();
+            patch({ taggedListing: picked });
+            setTagPickerOpen(false);
+          }}
+          onClose={() => setTagPickerOpen(false)}
+        />
+      )}
+
+      {leaveConfirm && (
+        <div className="overlay" onClick={() => setLeaveConfirm(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h2 className="h2" style={{ marginBottom: 6 }}>Keep this draft?</h2>
+            <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
+              We can hold on to what you've written and bring it back next time you post.
+            </p>
+            <div className="col gap-8">
+              <button className="btn btn-primary btn-block" onClick={() => nav(-1)}>Save draft</button>
+              <button
+                className="btn btn-block"
+                style={{ background: "var(--red-500)", color: "var(--white)" }}
+                onClick={() => { discard(); nav(-1); }}
+              >
+                Discard
+              </button>
+              <button className="btn btn-ghost btn-block" onClick={() => setLeaveConfirm(false)}>Keep editing</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

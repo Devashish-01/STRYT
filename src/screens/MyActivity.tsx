@@ -4,6 +4,7 @@ import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
 import { Heart, MessageCircle } from "@/components/Icons";
 import { socialService, communityService } from "@/services";
+import { PostSummaryRow } from "@/components/cards";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { StoryViewer } from "@/components/Stories";
@@ -82,18 +83,7 @@ export default function MyActivity() {
           ) : (
             <div className="col gap-12">
               {posts.map((p) => (
-                <button key={p.id} className="card col gap-6" style={{ padding: 14, textAlign: "left" }} onClick={() => nav(`/community/${p.id}`, { state: { post: p } })}>
-                  <div className="row between">
-                    <span className="semi small">{p.title || p.type}</span>
-                    <span className="tiny muted">{p.postedAt}</span>
-                  </div>
-                  {p.body && <p className="small muted clamp-2" style={{ lineHeight: 1.5 }}>{p.body}</p>}
-                  {p.image && <SafeImg src={p.image} style={{ width: "100%", height: 150, borderRadius: 12, objectFit: "cover" }} />}
-                  <div className="row gap-14 tiny muted" style={{ marginTop: 2 }}>
-                    <span className="row gap-4"><Heart size={13} /> {p.likes}</span>
-                    <span className="row gap-4"><MessageCircle size={13} /> {p.commentsCount}</span>
-                  </div>
-                </button>
+                <PostSummaryRow key={p.id} post={p} onClick={() => nav(`/community/${p.id}`, { state: { post: p } })} />
               ))}
             </div>
           )

@@ -35,7 +35,7 @@ const USER_COLUMNS = new Set([
   // Discovery-push preferences + the timezone quiet hours needs. Without these
   // here, pickColumns silently drops them and the toggle appears to save but
   // never reaches the DB — which is how they ended up cosmetic in the first place.
-  "notifNewBusiness", "notifNearbyRequests", "notifOffers",
+  "notifNewBusiness", "notifNearbyRequests", "notifOffers", "notifNearbyAlerts",
   "notifSilent", "notifQuietHours", "timezone",
 ]);
 

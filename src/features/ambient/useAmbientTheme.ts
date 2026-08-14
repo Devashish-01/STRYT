@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useWeather, type Weather } from "./useWeather";
 import { getDayPart, getSeason, getActiveFestival, type DayPart, type Season } from "./context";
 
@@ -111,12 +111,40 @@ function getHeaderGradient(dayPart: DayPart, weather: Weather | null): string {
   return `linear-gradient(160deg, ${stops.join(", ")})`;
 }
 
+/** How often to check whether the wall clock has crossed a day-part boundary. A
+ *  minute of lag on a change that happens at most 4x/day is unnoticeable, and
+ *  cheaper than scheduling a precise timer per boundary (DST/timezone edge
+ *  cases for free by just re-reading the clock instead of computing "when's
+ *  next"). */
+const DAY_PART_CHECK_MS = 60_000;
+
 export function useAmbientTheme(
   lat?: number,
   lng?: number,
   role: "customer" | "provider" | "business" = "customer"
 ): AmbientTheme {
   const weather = useWeather(lat, lng);
+
+  // The memo below reads `new Date()` (via getDayPart()) but its only real
+  // dependency was `weather` — so `lampGlow`, `greeting`, `headerGradient`
+  // etc. never updated when the clock crossed dusk/dawn on their own; only a
+  // remount or a weather change (itself cached 10 min) recomputed them. Went
+  // unnoticed while lampGlow only tinted a heat layer; became visible once it
+  // started driving the whole map basemap (MapView/index.tsx retint). This
+  // tick exists purely to give the memo a reason to recompute at the moment
+  // the day part actually changes.
+  const [dayPartTick, setDayPartTick] = useState(0);
+  const lastDayPartRef = useRef(getDayPart());
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      const current = getDayPart();
+      if (current !== lastDayPartRef.current) {
+        lastDayPartRef.current = current;
+        setDayPartTick((t) => t + 1);
+      }
+    }, DAY_PART_CHECK_MS);
+    return () => window.clearInterval(id);
+  }, []);
 
   return useMemo(() => {
     const dayPart  = getDayPart();
@@ -271,5 +299,7 @@ export function useAmbientTheme(
     // `role` is a hook parameter but unused inside this memo's computation —
     // see the file-level comment above about collapsing role-specific ramps
     // into one on-brand ambient — so it's intentionally excluded here.
-  }, [weather]);
+    // `dayPartTick` is a deliberate dependency with no direct use in the body
+    // below — see its declaration above for why it needs to be here at all.
+  }, [weather, dayPartTick]);
 }

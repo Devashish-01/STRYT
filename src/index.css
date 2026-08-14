@@ -111,12 +111,25 @@
   --map-over-nav: calc(var(--nav-h) + var(--safe-area-bottom));
   --map-fab-size: 40px;
   --map-fab-gap: 8px;
+  /* The peek sheet's true resting height: grip (15px) + carousel's own
+     vertical padding/card (~95px) + real device nav/safe-area clearance —
+     NOT a guess. The old flat 120px predates both the grip and the
+     --map-over-nav-aware padding .map-carousel now has, so on any device
+     with a real nav bar it under-counted enough to clip the card tray
+     behind the bottom nav (see .map-sheet--peek below). */
+  --map-peek-h: calc(110px + var(--map-over-nav, 0px) + var(--safe-area-bottom, 0px));
   /* Clearance for the floating card carousel at the bottom of the map
-     (MapCarousel.tsx) — the FABs sit just above it. Was the results sheet's
-     peek-detent height before Phase B of MAP_SNAPCHAT_STYLE_PLAN.md replaced
-     the sheet with the carousel; renamed along with it. */
-  --map-carousel-h: 120px;
-  --map-fab-bottom: calc(var(--map-carousel-h) + var(--map-over-nav) + 12px);
+     (MapCarousel.tsx) — the FABs sit just above it. Initialized to the
+     peek height so first paint is already correct; MapSheet.tsx's
+     ResizeObserver then keeps it live-accurate across every detent and
+     mid-drag. */
+  --map-carousel-h: var(--map-peek-h);
+  /* Just --map-carousel-h + a gap, NOT + --map-over-nav again — that was
+     correct back when --map-carousel-h was a flat, nav-EXCLUSIVE 120px
+     guess, but --map-peek-h (above) already bakes --map-over-nav into
+     --map-carousel-h's real value now. Adding it a second time here pushed
+     both FABs ~100px above the sheet on any device with a real nav bar. */
+  --map-fab-bottom: calc(var(--map-carousel-h) + 12px);
   --map-pin-bottom: calc(var(--map-fab-bottom) + var(--map-fab-size) + var(--map-fab-gap));
   --header-h: 56px;
   --safe-area-top: env(safe-area-inset-top, 0px);
@@ -346,50 +359,55 @@ h3, .h3 {
 }
 
 /* --- Community hub mobile header & Apple/Samsung UI system --- */
+/* --- Community hub mobile header & Apple/Samsung UI system --- */
 .community-hub-screen {
   overflow: hidden;
   background: var(--bg);
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 .community-hub-header {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-bottom: 1px solid rgba(226, 225, 240, 0.8);
-  padding: calc(10px + var(--safe-area-top)) 16px 0;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: calc(12px + var(--safe-area-top)) 16px 8px;
   flex-shrink: 0;
   transition: background 0.25s ease, border-color 0.25s ease;
 }
 
 @media (prefers-color-scheme: dark) {
   .community-hub-header {
-    background: rgba(18, 15, 32, 0.82);
-    border-bottom-color: rgba(255, 255, 255, 0.1);
+    background: rgba(18, 15, 32, 0.88);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 }
 
 .community-hub-top {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .community-hub-actions {
   display: flex;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .community-hub-actions .btn {
   flex: 1;
+  height: 40px;
   justify-content: center;
-  border-radius: var(--radius-lg);
+  border-radius: 14px;
+  font-size: 13.5px;
   font-weight: 700;
   letter-spacing: -0.1px;
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, opacity 0.15s ease;
 }
 
 .community-hub-actions .btn:active {
@@ -400,18 +418,19 @@ h3, .h3 {
 .segmented-control {
   display: flex;
   background: var(--ink-100);
-  padding: 3px;
-  border-radius: 14px;
+  padding: 4px;
+  border-radius: 16px;
   position: relative;
-  gap: 2px;
-  margin-top: 12px;
+  gap: 3px;
+  margin-top: 14px;
   user-select: none;
 }
 
 .segmented-tab {
   flex: 1;
-  padding: 8px 12px;
-  border-radius: 11px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
   font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.2px;
@@ -434,23 +453,32 @@ h3, .h3 {
   color: var(--ink-900);
   background: var(--surface);
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
 .community-hub-filters {
-  padding: 10px 0 10px;
+  padding: 10px 16px 12px;
+  margin: 0 -16px;
   display: flex;
-  gap: 6px;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.community-hub-filters::-webkit-scrollbar {
+  display: none;
 }
 
 /* Samsung One UI & Apple HIG Pill Chips */
 .chip-pill {
-  padding: 7px 14px;
-  border-radius: 20px;
-  font-size: 12.5px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: -0.1px;
-  color: var(--ink-600);
+  color: var(--ink-700);
   background: var(--surface);
   border: 1px solid var(--ink-200);
   cursor: pointer;
@@ -458,13 +486,15 @@ h3, .h3 {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  flex-shrink: 0;
 }
 
 .chip-pill:hover {
   border-color: var(--ink-300);
   background: var(--ink-50);
+  color: var(--ink-900);
 }
 
 .chip-pill:active {
@@ -472,11 +502,17 @@ h3, .h3 {
 }
 
 .chip-pill.active {
-  background: var(--brand-700);
+  background: var(--brand-600);
   color: #ffffff;
-  border-color: var(--brand-700);
+  border-color: var(--brand-600);
   font-weight: 700;
-  box-shadow: 0 3px 12px rgba(107, 33, 204, 0.28);
+  box-shadow: 0 3px 12px rgba(107, 33, 204, 0.22);
+}
+/* The shadow above is a literal rgba() (brand-purple), so it doesn't follow the
+   var(--brand-600) override .community-theme applies to the fill — retint it
+   explicitly wherever a chip-pill lives inside the community flow. */
+.community-theme .chip-pill.active {
+  box-shadow: 0 3px 12px rgba(232, 62, 160, 0.28);
 }
 
 /* Heart bounce micro-animation */
@@ -491,22 +527,738 @@ h3, .h3 {
   animation: heartBounce 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+/* Double-tap acknowledgement on a feed card. pointer-events:none so the burst
+   can never swallow the next tap. */
+.like-burst {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: likeBurst 0.72s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  filter: drop-shadow(0 6px 18px rgba(239, 68, 68, 0.4));
+}
+
+@keyframes likeBurst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  22% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  42% { opacity: 1; transform: translate(-50%, -50%) scale(0.94); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.16); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Still confirms the gesture — a double-tap with no feedback reads as "it
+     didn't work" — but with a plain fade instead of the scale bounce. */
+  .like-burst { animation: likeBurstFade 0.5s ease forwards; }
+  .heart-animated { animation: none; }
+}
+
+@keyframes likeBurstFade {
+  0% { opacity: 0; transform: translate(-50%, -50%); }
+  30% { opacity: 1; transform: translate(-50%, -50%); }
+  100% { opacity: 0; transform: translate(-50%, -50%); }
+}
+
+/* ---- @mention suggestions (CommunityPostDetail composer) ----
+   Sits directly above the input so the list and the thing being typed stay
+   visually connected while the keyboard is up. */
+.mention-suggest {
+  max-height: 176px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  box-shadow: var(--shadow);
+  animation: mentionSuggestIn 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mention-suggest-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink-900);
+}
+.mention-suggest-row:active { background: var(--brand-50); }
+@media (hover: hover) {
+  .mention-suggest-row:hover { background: var(--ink-50); }
+}
+
+@keyframes mentionSuggestIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mention-suggest { animation: none; }
+}
+
+/* ---- Feed prompt bar (CommunityHub) ----
+   The feed's own "start a post" affordance. The hub previously led with two
+   buttons labelled "Create Post" and "Request", which name features rather than
+   invite writing; this reads as a place to type, which is what actually prompts
+   a post. */
+.feed-prompt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.feed-prompt:active { transform: scale(0.99); }
+@media (hover: hover) {
+  .feed-prompt:hover { border-color: var(--brand-300); box-shadow: var(--shadow-sm); }
+}
+
+.feed-prompt-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-600);
+  letter-spacing: -0.1px;
+}
+
+.feed-prompt-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--white);
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+  box-shadow: 0 3px 12px rgba(107, 33, 204, 0.2);
+}
+
+/* ---- Pull-to-refresh indicator ----
+   Height is driven by the gesture, so it grows under the finger rather than
+   appearing at a fixed size. */
+.feed-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--brand-700);
+  transition: height 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.feed-refresh-spinner {
+  display: inline-flex;
+}
+.feed-refresh-spinner.spinning {
+  animation: feedRefreshSpin 0.9s linear infinite;
+}
+
+@keyframes feedRefreshSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- "N new posts" pill ----
+   Floats over the feed instead of pushing it: the list must not move until the
+   reader asks it to. */
+.feed-new-pill {
+  position: sticky;
+  top: 8px;
+  z-index: 12;
+  display: block;
+  margin: 8px auto 0;
+  padding: 7px 15px;
+  border: none;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+  color: var(--white);
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+  box-shadow: 0 6px 20px rgba(107, 33, 204, 0.3);
+  cursor: pointer;
+  animation: newPillIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.feed-new-pill:active { transform: scale(0.96); }
+
+@keyframes newPillIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-prompt,
+  .feed-refresh,
+  .feed-new-pill { transition: none; }
+  .feed-prompt:active,
+  .feed-new-pill:active { transform: none; }
+  .feed-new-pill { animation: none; }
+  /* The spinner keeps turning: it communicates "still working", which a static
+     icon cannot, and rotation in place doesn't trigger motion sensitivity the
+     way sliding/parallax does. */
+}
+
 /* Squircle card ambient depth */
 .community-card-squircle {
-  border-radius: 22px !important;
-  border: 1px solid rgba(226, 225, 240, 0.85) !important;
-  box-shadow: 0 4px 20px -4px rgba(26, 21, 48, 0.05) !important;
+  border-radius: 20px !important;
+  padding: 20px 18px !important;
+  border: 1px solid var(--ink-200) !important;
+  box-shadow: 0 4px 20px -4px rgba(26, 21, 48, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease !important;
   background: var(--surface);
 }
 
 .community-card-squircle:hover {
-  box-shadow: 0 8px 30px -4px rgba(26, 21, 48, 0.09) !important;
-  border-color: rgba(139, 71, 245, 0.3) !important;
+  box-shadow: 0 8px 28px -4px rgba(26, 21, 48, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03) !important;
+  border-color: rgba(232, 62, 160, 0.28) !important;
+}
+
+.community-card-squircle:active {
+  transform: scale(0.995) !important;
+}
+
+/* ============================================================
+   Community composer (screens/CommunityCompose.tsx)
+
+   The composer used to be a plain scrolling form whose first screenful was
+   nothing but a six-item type list, so "write a post" opened on a menu rather
+   than on a place to write. This gives it the three-part structure iOS uses for
+   composition (fixed nav bar → content → sticky action), plus a collapsing
+   type "flair" picker so the choice costs one row once it's made.
+   ============================================================ */
+.compose-screen {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* Translucent fixed nav, matching .community-hub-header's material so moving
+   between the feed and the composer doesn't change the chrome. */
+.compose-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: calc(10px + var(--safe-area-top)) 14px 10px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .compose-nav {
+    background: rgba(18, 15, 32, 0.88);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+.compose-nav-btn {
+  height: 34px;
+  padding: 0 4px;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--brand-700);
+  cursor: pointer;
+  border-radius: 10px;
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.compose-nav-btn:active { transform: scale(0.96); opacity: 0.7; }
+
+.compose-nav-title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--ink-900);
+}
+
+/* The primary action lives in the nav AND in the footer: the nav copy is the
+   iOS convention, the footer button is the reachable one on a tall phone. */
+.compose-nav-post {
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--white);
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+  box-shadow: 0 4px 14px rgba(107, 33, 204, 0.22);
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.15s ease;
+}
+.compose-nav-post:active { transform: scale(0.96); }
+.compose-nav-post:disabled {
+  background: var(--ink-200);
+  color: var(--ink-500);
+  box-shadow: none;
+  cursor: default;
+}
+
+/* ---- Identity + audience ---- */
+.compose-identity {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--ink-200);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+.compose-identity--business { background: var(--orange-50); border-color: var(--orange-100); }
+.compose-identity--provider { background: var(--green-100); border-color: var(--green-500); }
+
+.compose-reach {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  padding: 3px 9px;
+  border-radius: 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  color: var(--brand-700);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-200);
+}
+
+/* ---- Type "flair" picker ---- */
+.flair-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.flair-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 13px 13px 14px;
+  border-radius: 18px;
+  text-align: left;
+  background: var(--surface);
+  border: 1.5px solid var(--ink-200);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+.flair-tile:active { transform: scale(0.97); }
+.flair-tile.active {
+  border-color: var(--brand-600);
+  background: var(--brand-50);
+  box-shadow: var(--community-glow, 0 4px 16px rgba(139, 71, 245, 0.14));
+}
+.flair-tile-emoji { font-size: 23px; line-height: 1; }
+.flair-tile-label {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--ink-900);
+}
+.flair-tile.active .flair-tile-label { color: var(--brand-900); }
+/* --ink-600, not --ink-500: at this size --ink-500 (#8a78a3) measures ~3.8:1 on
+   the card surface, under the 4.5:1 AA floor for body text. --ink-600 is ~6.5:1
+   and still reads as secondary next to the label above it. Same reasoning
+   applies to .opt-card-hint and .feed-prompt-text below. */
+.flair-tile-hint {
+  font-size: 11.5px;
+  line-height: 1.35;
+  color: var(--ink-600);
+}
+
+/* Collapsed state — the whole six-tile grid becomes one row once chosen. */
+.flair-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 16px;
+  background: var(--brand-50);
+  border: 1.5px solid var(--brand-200);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s ease;
+}
+.flair-chip:active { transform: scale(0.985); }
+.flair-chip-emoji { font-size: 20px; line-height: 1; }
+.flair-chip-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--brand-900);
+}
+.flair-chip-change {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--brand-700);
+  white-space: nowrap;
+}
+
+/* ---- Sections & footer ---- */
+.compose-section-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+  color: var(--ink-800);
+}
+
+.compose-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  padding: 10px 14px max(12px, var(--safe-area-bottom));
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .compose-footer {
+    background: rgba(18, 15, 32, 0.92);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* Why the blocker is stated instead of only greying the button: a disabled
+   primary action with no reason is the most common "the app is broken"
+   complaint in a composer. */
+.compose-hint {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-500);
+}
+
+.draft-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--green-600);
+  background: var(--green-100);
+  animation: draftPillIn 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes draftPillIn {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.draft-restored {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border-radius: 16px;
+  background: var(--amber-50);
+  border: 1px solid var(--amber-200);
+}
+
+/* ---- Media strip (universal: every post type can carry photos) ---- */
+.media-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.media-strip::-webkit-scrollbar { display: none; }
+
+.media-thumb {
+  position: relative;
+  width: 92px;
+  height: 92px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--ink-200);
+  background: var(--ink-100);
+}
+.media-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.media-thumb-cover {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 2px var(--brand-200);
+}
+/* Which photo leads is an editorial choice, so the cover is labelled rather
+   than merely implied by position. */
+.media-cover-tag {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--white);
+  background: rgba(194, 42, 130, 0.92);
+}
+.media-thumb-x {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  color: var(--white);
+  background: rgba(26, 21, 48, 0.72);
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.media-add {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  height: 92px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  border: 2px dashed var(--ink-300);
+  background: var(--surface);
+  color: var(--ink-500);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s ease, color 0.18s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.media-add:active { transform: scale(0.96); }
+.media-add:disabled { opacity: 0.55; cursor: default; }
+@media (hover: hover) {
+  .media-add:hover { border-color: var(--brand-400); color: var(--brand-700); }
+}
+
+/* ---- Segmented option rows (alert severity, poll duration, comment policy) ---- */
+.opt-row {
+  display: flex;
+  gap: 8px;
+}
+
+.opt-card {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 11px 8px;
+  border-radius: 15px;
+  background: var(--surface);
+  border: 1.5px solid var(--ink-200);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, background 0.18s ease;
+}
+.opt-card:active { transform: scale(0.96); }
+.opt-card-emoji { font-size: 18px; line-height: 1; }
+.opt-card-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: -0.1px;
+  color: var(--ink-900);
+}
+.opt-card-hint {
+  font-size: 10.5px;
+  line-height: 1.3;
+  color: var(--ink-600);
+}
+.opt-card.active { border-color: var(--brand-600); background: var(--brand-50); }
+.opt-card.active .opt-card-label { color: var(--brand-900); }
+.opt-card.active-info { border-color: var(--blue-500); background: var(--blue-100); }
+.opt-card.active-amber { border-color: var(--amber-500); background: var(--amber-50); }
+.opt-card.active-red { border-color: var(--red-500); background: var(--red-50); }
+
+/* Duration pills — the same visual language as the feed's .chip-pill filters,
+   so "pick one of a few" looks the same everywhere in the feature. */
+.dur-row {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+/* ---- Preview sheet ----
+   Renders the real CommunityCard, so the preview can't drift from the feed.
+   Interaction is switched off rather than the handlers being stubbed: a
+   like/vote on a post that doesn't exist yet has nothing to write to. */
+.compose-preview {
+  pointer-events: none;
+  user-select: none;
+}
+
+.compose-preview-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 8px 11px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-800);
+  background: var(--brand-50);
+  border: 1px solid var(--brand-200);
+}
+
+/* ---- Post-succeeded moment ----
+   A brief, single beat of confirmation between "Post" and the post itself.
+   Deliberately not a full-screen takeover: it overlays the composer for ~600ms
+   while the navigation is already in flight. */
+.post-success {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  animation: postSuccessIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .post-success { background: rgba(18, 15, 32, 0.86); }
+}
+
+.post-success-ring {
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--white);
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+  box-shadow: 0 12px 34px rgba(232, 62, 160, 0.4);
+  animation: postSuccessPop 0.46s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.post-success-label {
+  font-size: 15.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--ink-900);
+  animation: postSuccessIn 0.3s 0.08s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes postSuccessIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes postSuccessPop {
+  0% { opacity: 0; transform: scale(0.5); }
+  60% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The confirmation still appears — it carries meaning — it just doesn't move. */
+  .post-success,
+  .post-success-ring,
+  .post-success-label { animation: none; }
+}
+
+/* ---- A type-specific field group, visually attached to its type ---- */
+.type-module {
+  padding: 13px 14px;
+  border-radius: 16px;
+  background: var(--ink-50);
+  border: 1px solid var(--ink-200);
+}
+.type-module-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+  color: var(--ink-600);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compose-nav-btn,
+  .compose-nav-post,
+  .flair-tile,
+  .flair-chip,
+  .media-add,
+  .opt-card { transition: none; }
+  .compose-nav-btn:active,
+  .compose-nav-post:active,
+  .flair-tile:active,
+  .flair-chip:active,
+  .media-add:active,
+  .opt-card:active { transform: none; }
+  .draft-pill { animation: none; }
 }
 
 .page-pad {
-  padding: 16px;
+  padding: 18px 18px 24px;
 }
 
 /* ---------- Utility ---------- */
@@ -572,6 +1324,12 @@ h3, .h3 {
   background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
   color: #fff;
   box-shadow: 0 8px 22px rgba(187, 71, 245, 0.32);
+}
+/* Same reasoning as .chip-pill.active above: the fill follows var(--brand-*)
+   into the pink community theme automatically, but this literal-rgba glow
+   needs its own scoped override. */
+.community-theme .btn-primary {
+  box-shadow: 0 8px 22px rgba(232, 62, 160, 0.34);
 }
 .btn-accent {
   background: linear-gradient(135deg, var(--accent-500), var(--accent-600));
@@ -1077,6 +1835,47 @@ textarea.input {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.7s linear infinite; }
+
+/* ============================================================
+   Community — scoped theme
+   ------------------------------------------------------------
+   The community feature (feed, composer, post detail, and everywhere the
+   shared community card renders) reused --brand-* (royal purple) everywhere —
+   the same purple as "Book now," the bottom nav's active tab, and every other
+   primary button in the app. Community is the app's social feature, and the
+   app already reserves a color for exactly that: --pink-* is documented above
+   as "Live/social accent — Live Pulse dot, story ring, queue-live." Scoping
+   community to it, instead of adding a third palette, makes the accent match
+   what it already means elsewhere in the app.
+
+   Implementation: every community screen's root carries `.community-theme`.
+   Nearly all community CSS reads var(--brand-*) tokens (buttons, chips, the
+   segmented control, badges, focus rings), so overriding those variables here
+   retints the whole flow through inheritance — no need to touch every rule
+   individually, and any future community UI gets the right accent for free
+   just by living under this class. Same "don't re-skin the whole subtree"
+   discipline as the business-package theme below: only community's own
+   screens carry the class, not the bottom nav or anything outside them.
+
+   --community-glow covers the few places a literal rgba() shadow was hardcoded
+   in a rule below (a CSS variable can't be interpolated into another
+   declaration's rgba() color channels) — those rules now read this var instead.
+   ============================================================ */
+.community-theme {
+  --brand-50:  var(--pink-50);
+  --brand-100: var(--pink-100);
+  --brand-150: var(--pink-200);
+  --brand-200: var(--pink-200);
+  --brand-300: var(--pink-300);
+  --brand-400: var(--pink-400);
+  --brand-500: var(--pink-500);
+  --brand-600: var(--pink-600);
+  --brand-700: var(--pink-700);
+  --brand-800: var(--pink-800);
+  --brand-900: var(--pink-900);
+  --shadow-brand: var(--shadow-pink);
+  --community-glow: 0 4px 16px rgba(255, 93, 186, 0.22);
+}
 
 /* ============================================================
    Business Packages theming
@@ -3053,12 +3852,72 @@ button.set-row:active {
    Mobile floating tray = vertical chips (avatar on top, name + distance
    below) — the original Phase B design. List / desktop keep a horizontal
    row layout via the overrides below. */
-.map-carousel {
+/* Structural wrapper only — position, z-index, and per-detent height. No
+   background/radius/shadow here: .map-carousel's own tray (glass chips) and
+   list (opaque panel) styling already provide 100% of the visual chrome for
+   their respective detents, unchanged from before the sheet wrapped them. */
+.map-sheet {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 8;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  transition: height 240ms cubic-bezier(0.32, 0.72, 0, 1);
+  /* The sheet owns vertical drag-to-resize via its grip; everything below
+     (tray horizontal swipe, list vertical scroll) keeps its own gestures. */
+  touch-action: pan-y;
+}
+/* Deliberately --map-peek-h, NOT --map-carousel-h, despite --map-carousel-h
+   starting out equal to it: --map-carousel-h is what MapSheet.tsx's
+   ResizeObserver overwrites with this element's OWN measured height. Sizing
+   the sheet from a variable the sheet itself feeds back into is circular —
+   it can never grow past whatever it starts at, so the card row silently
+   clipped behind the bottom nav no matter how tall it actually needed to
+   be. --map-peek-h is computed independently (:root, above), so it's a
+   real, animatable target height instead of a self-referential guess. */
+.map-sheet--peek { height: var(--map-peek-h); }
+.map-sheet--half { height: 52dvh; }
+.map-sheet--full { height: 92dvh; }
+@media (prefers-reduced-motion: reduce) {
+  .map-sheet { transition: none; }
+}
+
+.map-sheet__grip {
+  flex-shrink: 0;
+  cursor: grab;
+  /* Drag is claimed here only — the tray/list below scrolls normally. */
+  touch-action: none;
+  display: flex;
+  justify-content: center;
+  padding: 7px 0 3px;
+}
+.map-sheet__handle {
+  width: 36px;
+  height: 5px;
+  border-radius: 999px;
+  border: none;
+  cursor: grab;
+  /* Peek: the handle floats over the map itself (no panel behind it yet),
+     so it gets its own visible pill. Half/full: it sits on the list's own
+     opaque panel, where a quieter ink-toned pill (matching every other
+     sheet's .sheet-grab in this app) reads better than a floating one. */
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 4px rgba(26, 21, 48, 0.28);
+}
+.map-sheet--half .map-sheet__handle,
+.map-sheet--full .map-sheet__handle {
+  background: var(--ink-200);
+  box-shadow: none;
+}
+
+.map-carousel {
+  /* Was independently absolute/positioned; now a flex child filling
+     whatever height .map-sheet's current detent gives it. */
+  flex: 1;
+  min-height: 0;
   display: flex;
   gap: 10px;
   overflow-x: auto;
@@ -3076,28 +3935,33 @@ button.set-row:active {
 .map-carousel__card {
   scroll-snap-align: start;
   flex-shrink: 0;
-  width: 88px;
+  width: 152px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: 6px;
-  padding: 10px 8px;
+  padding: 10px;
   border-radius: 18px;
   border: none;
   cursor: pointer;
-  text-align: center;
+  text-align: left;
   transition: transform 0.12s ease, outline-color 0.12s ease;
 }
 .map-carousel__card:active { transform: scale(0.96); }
 
-/* Header block — column on the floating tray, row in list/desktop. */
+/* Header block — a row everywhere now (tray, list, desktop all match), photo
+   left / text right. Used to be a centered column on the tray specifically,
+   back when the tray chip was only 88px wide and had no room for a row. */
 .map-carousel__row {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   width: 100%;
   min-width: 0;
+}
+.map-carousel__row > *:first-child {
+  flex-shrink: 0;
 }
 
 /* The card the map's selection currently matches (Phase C bidirectional
@@ -3122,8 +3986,8 @@ button.set-row:active {
 .map-carousel__card--empty:active { transform: none; }
 
 .map-carousel__dot {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   flex-shrink: 0;
   border-radius: 50%;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
@@ -3131,48 +3995,30 @@ button.set-row:active {
 }
 
 .map-carousel__title {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--ink-900);
   max-width: 100%;
   line-height: 1.2;
-  text-align: center;
+  text-align: left;
 }
 
 .map-carousel__sub {
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--ink-500);
   max-width: 100%;
   line-height: 1.25;
-  text-align: center;
+  text-align: left;
 }
 
 .map-carousel__info {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 2px;
   width: 100%;
   min-width: 0;
   overflow: hidden;
-}
-
-/* Rating / quick-actions are too dense for the 88px story-tray chip —
-   show them in list view and on the desktop side panel only. */
-.map-carousel__rating {
-  display: none;
-}
-.map-carousel__actions {
-  display: none;
-  gap: 6px;
-  margin-top: 8px;
-  width: 100%;
-  padding-top: 6px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
-}
-.map-carousel.is-list-view .map-carousel__rating,
-.map-carousel.is-list-view .map-carousel__actions {
-  display: flex;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3180,62 +4026,73 @@ button.set-row:active {
   .map-carousel__card--selected { transition: none; transform: none; }
 }
 
-/* ── Map filter strip ────────────────────────────────────────────────────
-   The type filter + "open now" toggle (MAP_SNAPCHAT_STYLE_PLAN.md §2.1,
-   Phase B) — sits directly under the search bar. The old sheet gave the
-   type filter and the search radius a full row each because a drawer had
-   the room; both now live behind the [Label ▾] chip's popover instead. */
-.map-filter-strip {
+/* ── Map control bar ─────────────────────────────────────────────────────
+   One shared glass pill for Open now / Filters / List-Map
+   (MAP_SNAPCHAT_STYLE_PLAN.md §2.1, Phase B) — sits directly under the
+   search bar. .map-glass-panel supplies ONE outer background/blur/border/
+   shadow; each of the 3 zones inside gets its OWN small resting pill
+   (`--ink-100`, the same neutral the Filters trigger's icon circle already
+   used) rather than sitting as bare icon+text with no shape at all — the
+   earlier version left Open/List with `background: none` in their resting
+   state, so next to the Filters trigger's own colored active pill they
+   looked like disabled placeholders, not peers in the same control. With a
+   real shape at rest, no divider lines are needed between zones either —
+   the pill boundaries + the `gap` below already separate them.
+
+   Content-hugging, NOT stretched edge-to-edge like the search row above it
+   (no `right` set) — a deliberate asymmetry: full-width primary search bar,
+   compact secondary control cluster beneath it, more map visible to its
+   right. Its 3 zones comfortably fit even a 360px phone, so — unlike the
+   old scrolling chip track this replaces — nothing here needs to scroll or
+   fade out. */
+.map-control-bar {
   position: absolute;
   top: calc(var(--map-chrome-inset) + var(--safe-area-top) + 52px);
   left: var(--map-chrome-inset);
-  right: var(--map-chrome-inset);
   z-index: 999;
-  /* No overflow here — clipping killed the filter popover on WebView/mobile.
-     Horizontal scroll lives on the inner track instead. */
-  pointer-events: none;
-}
-.map-filter-strip__scroll {
   display: flex;
-  gap: 8px;
   align-items: center;
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: visible;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x manipulation;
-  pointer-events: auto;
-  padding-bottom: 2px;
-}
-.map-filter-strip__scroll::-webkit-scrollbar { display: none; }
-.map-filter-strip__scroll > * {
-  flex-shrink: 0;
-}
-.map-filter-strip__list {
-  margin-left: auto;
+  gap: 4px;
+  padding: 4px;
 }
 
-/* Glass chips cannot use global .chip.active (brand-800 + white text):
-   .map-glass-panel forces a white frosted background with !important, so
-   active chips rendered as blank white-on-white pills. Soft brand tint
-   keeps selection visible without fighting the Street Light glass system. */
-.map-filter-strip .chip.map-glass-panel {
-  color: var(--ink-700);
+/* Open now / List-Map — icon-led, one tap, no menu. Explicit 44px (not
+   height:100% of the bar) — the bar's own `padding` above gives it a few
+   px of breathing room from the shared glass edge without shrinking the
+   tap target below 44px. Active state layers a stronger brand tint over
+   the same resting shape (matching .map-filter-menu.is-open/.is-filtered
+   exactly, below) rather than the bar's own background — each zone tints
+   on its own, the restraint a native segmented control uses on its
+   selected segment, not its whole track. */
+.map-control-bar__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 12px;
+  border: none;
+  background: var(--ink-100);
+  border-radius: 999px;
+  color: var(--ink-600);
+  font-size: 13px;
   font-weight: 600;
-  min-height: 44px;
+  cursor: pointer;
+  white-space: nowrap;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s ease, background 0.15s ease;
 }
-.map-filter-strip .chip.map-glass-panel.active {
-  background: color-mix(in srgb, var(--brand-500) 16%, #fff) !important;
-  border-color: color-mix(in srgb, var(--brand-500) 45%, #fff) !important;
+.map-control-bar__toggle.active {
+  background: color-mix(in srgb, var(--brand-500) 14%, #fff);
   color: var(--brand-700);
-  box-shadow: 0 4px 14px rgba(139, 71, 245, 0.14) !important;
+  font-weight: 700;
 }
 
 /* Type filter — filter menu trigger with leading icon + label + chevron.
-   Reads as "what am I looking at", not another toggle chip. Open / filtered
-   states use a quiet brand tint so it stays on the Street Light glass system. */
+   Reads as "what am I looking at", not another toggle chip. Resting state
+   shares the same neutral `--ink-100` pill the toggles use (so all 3 zones
+   read as one family at rest); open/filtered states use a quiet brand tint
+   instead, same restraint as the toggles' own active state. */
 .map-filter-menu {
   display: inline-flex;
   align-items: center;
@@ -3245,6 +4102,7 @@ button.set-row:active {
   padding: 0 12px 0 8px;
   border-radius: 999px;
   border: none;
+  background: var(--ink-100);
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
@@ -3255,6 +4113,10 @@ button.set-row:active {
   -webkit-tap-highlight-color: transparent;
   transition: color 0.15s ease, background 0.15s ease;
 }
+/* White, not --ink-100 — the trigger's own resting background IS ink-100
+   now (matches the toggles beside it), so the icon circle needs to be
+   lighter than its parent to still read as a distinct raised badge
+   instead of disappearing into a same-colored pill. */
 .map-filter-menu__icon {
   display: inline-flex;
   align-items: center;
@@ -3262,7 +4124,7 @@ button.set-row:active {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: var(--ink-100);
+  background: #fff;
   color: var(--ink-600);
   flex-shrink: 0;
   transition: background 0.15s ease, color 0.15s ease;
@@ -3329,65 +4191,76 @@ button.set-row:active {
   padding: 10px;
   touch-action: manipulation;
 }
-.map-filter-menu__options {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.map-filter-menu__option {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  min-height: 44px;
-  padding: 10px 12px;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
-  color: var(--ink-800);
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-.map-filter-menu__option:hover {
-  background: var(--ink-50);
-}
-.map-filter-menu__option.is-selected {
-  background: color-mix(in srgb, var(--brand-500) 12%, #fff);
-  color: var(--brand-700);
-}
+/* The type filter ("Show") is a `.chip-pill` wrap-row — one pill definition
+   for the whole popover, not a bespoke 44px-tall list row per option. 5 rows
+   of list items forced this popover to scroll on every phone; as wrapped
+   pills the same 5 options take 1-2 short rows, so the whole menu is
+   usually visible and tappable without scrolling at all — the actual point
+   of a "fast" filter. */
 .map-filter-menu__count {
   font-size: 11px;
   font-weight: 700;
-  color: var(--ink-400);
-  min-width: 1.25em;
-  text-align: right;
+  opacity: 0.65;
 }
-.map-filter-menu__option.is-selected .map-filter-menu__count {
-  color: var(--brand-500);
+.chip-pill.active .map-filter-menu__count {
+  opacity: 0.85;
 }
-.map-filter-menu__pill {
-  display: inline-flex;
-  align-items: center;
-  min-height: 36px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--ink-200);
-  background: var(--surface);
-  color: var(--ink-700);
-  font-size: 12px;
-  font-weight: 600;
+
+/* Radius ("Within") — was 9 discrete buttons wrapped across 3 rows, which
+   reads like a spec sheet, not a considered control. A slider makes the same
+   9 stops one deliberate gesture instead of a grid to scan; the label above
+   it (not the track) carries the actual value, since a bare track gives no
+   feedback about which of 9 stops you're on. list+datalist gets native tick
+   marks at each stop for free. */
+.map-filter-menu__radius-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  margin: 2px 0 6px;
+  padding: 0 2px;
+  background: transparent;
   cursor: pointer;
   touch-action: manipulation;
 }
-.map-filter-menu__pill.is-selected {
-  border-color: color-mix(in srgb, var(--brand-500) 40%, #fff);
-  background: color-mix(in srgb, var(--brand-500) 12%, #fff);
-  color: var(--brand-700);
+.map-filter-menu__radius-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ink-200);
+}
+.map-filter-menu__radius-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--ink-200);
+}
+.map-filter-menu__radius-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--brand-600);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(139, 71, 245, 0.4);
+  margin-top: -8px;
+  cursor: grab;
+  transition: transform 0.1s ease;
+}
+.map-filter-menu__radius-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--brand-600);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(139, 71, 245, 0.4);
+  cursor: grab;
+  transition: transform 0.1s ease;
+}
+.map-filter-menu__radius-slider:active::-webkit-slider-thumb { transform: scale(1.15); cursor: grabbing; }
+.map-filter-menu__radius-slider:active::-moz-range-thumb { transform: scale(1.15); cursor: grabbing; }
+@media (prefers-reduced-motion: reduce) {
+  .map-filter-menu__radius-slider::-webkit-slider-thumb,
+  .map-filter-menu__radius-slider::-moz-range-thumb { transition: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3396,46 +4269,24 @@ button.set-row:active {
   .map-filter-menu__chevron { transition: none; }
 }
 
-/* "Search this area" — floats over the map centre-top, below the search bar.
-   Kept mounted and animated rather than unmounted so it can ease in/out; while
-   hidden it's also removed from the tab order and the a11y tree. */
+/* "Search this area" — swapped inline into .map-control-bar's Filters zone
+   once the map has panned away from the last search, instead of floating
+   as its own row below the bar. That used to cost this screen a whole
+   separate absolute-positioned pill — one more thing stacked in the chrome
+   at the top of the map — every time it appeared; folding it into the bar
+   that's already there costs nothing extra, and Open now / List-Map either
+   side of it stay put. Shape/sizing come from `.chip-pill` (34px), overridden
+   to the bar's own 44px so it doesn't sit 10px shorter than its neighbours —
+   `.chip-pill`'s height was never meant to compete with a different
+   component's own tap-target convention. Brand-tinted so it still reads as
+   the CTA it is, not just another chip. */
 .map-search-area {
-  position: absolute;
-  /* Clears the search bar (§ .map-screen__search) and MapFilterStrip
-     (starts at +52px) stacked above it. */
-  top: calc(var(--map-chrome-inset) + var(--safe-area-top) + 96px);
-  left: 50%;
-  z-index: 7;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 40px;
-  padding: 9px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface);
+  height: 44px;
+  background: color-mix(in srgb, var(--brand-500) 14%, #fff) !important;
+  border-color: color-mix(in srgb, var(--brand-500) 40%, #fff) !important;
   color: var(--brand-700);
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  box-shadow: 0 6px 20px rgba(26, 21, 48, 0.18);
-  /* translateY doubles as the enter/exit motion; -50% X keeps it centred. */
-  transform: translate(-50%, -10px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 180ms ease, transform 180ms ease;
 }
-.map-search-area.is-visible {
-  opacity: 1;
-  transform: translate(-50%, 0);
-  pointer-events: auto;
-}
-.map-search-area:active { transform: translate(-50%, 0) scale(0.97); }
 .map-search-area:disabled { opacity: 0.75; }
-@media (prefers-reduced-motion: reduce) {
-  .map-search-area { transition: opacity 180ms ease; transform: translate(-50%, 0); }
-  .map-search-area:active { transform: translate(-50%, 0); }
-}
 
 .map-screen__search {
   position: absolute;
@@ -3448,6 +4299,91 @@ button.set-row:active {
   align-items: center;
 }
 
+/* One glass pill for both "where" (area) and "what" (search) instead of two
+   separate floating chips that looked like duplicate search boxes.
+   .map-glass-panel (background/blur/border/shadow) is applied ONCE here, on
+   the shared wrapper — the area button and input inside are unstyled flex
+   children, not each drawing their own competing chrome. */
+.map-search-unified {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  border-radius: 30px;
+  padding-right: 4px;
+}
+/* flex-shrink + max-width so a long area name can't push the search field
+   itself off-screen; `.ellipsis` (global) truncates the label. */
+.map-search-unified__area {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 132px;
+  height: 100%;
+  padding: 12px 8px 12px 16px;
+  background: none;
+  border: none;
+  color: var(--ink-700);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+/* Shared with .map-control-bar below — one hairline-divider definition for
+   every "several zones, one glass pill" bar on this screen, not a
+   per-bar duplicate. */
+.map-glass-divider {
+  width: 1px;
+  height: 22px;
+  flex-shrink: 0;
+  background: var(--ink-200);
+}
+.map-search-unified__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px 0 14px;
+}
+.map-search-unified__input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: none;
+  background: none;
+  outline: none;
+  padding: 13px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-900);
+}
+.map-search-unified__input::placeholder {
+  color: var(--ink-400);
+}
+
+/* A shop/area search result row — real :hover/:active instead of the inline
+   onMouseEnter/onMouseLeave DOM-style mutation this used to be, which also
+   meant no tap feedback at all on a touchscreen (`:hover` never fires there,
+   `:active` does). */
+.map-search-result-row {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  display: block;
+  transition: background-color 120ms ease;
+}
+.map-search-result-row:hover,
+.map-search-result-row:active {
+  background-color: rgba(245, 241, 250, 0.6);
+}
+
 /* Only the guest radius notice (and LocationPinDrop's confirm card) use this
    now — the places badge and radius strip it used to stack are gone.
    z-index 1002 sits above FABs (1001) and list-view carousel (1000) so a
@@ -3456,7 +4392,9 @@ button.set-row:active {
   position: absolute;
   left: var(--map-chrome-inset);
   right: var(--map-chrome-inset);
-  bottom: calc(var(--map-carousel-h) + var(--map-over-nav) + 10px);
+  /* Not + --map-over-nav — --map-carousel-h already includes it (see the
+     --map-fab-bottom comment in :root). */
+  bottom: calc(var(--map-carousel-h) + 10px);
   z-index: 1002;
   display: flex;
   flex-direction: column;
@@ -3494,8 +4432,16 @@ button.set-row:active {
 .map-attribution {
   position: absolute;
   left: var(--map-chrome-inset);
-  bottom: calc(var(--map-carousel-h) + var(--map-over-nav) + 4px);
-  z-index: 6;
+  /* Not + --map-over-nav — --map-carousel-h already includes it (see the
+     --map-fab-bottom comment in :root). */
+  bottom: calc(var(--map-carousel-h) + 4px);
+  /* Above .map-sheet (z-index 8) — its `bottom` offset already tracks the
+     sheet's real height via --map-carousel-h (MapSheet.tsx's ResizeObserver),
+     so this is a hardening for the drag transition specifically: a required
+     OSM credit line must never be covered even for one frame while the
+     offset and the sheet's actual height are momentarily catching up to
+     each other mid-drag. */
+  z-index: 9;
   font-size: 9px;
   color: var(--ink-400);
   pointer-events: auto;
@@ -3549,20 +4495,29 @@ button.set-row:active {
   .map-screen__search {
     left: calc(var(--map-panel-w) + var(--map-chrome-inset));
   }
-  .map-filter-strip {
+  .map-control-bar {
     left: calc(var(--map-panel-w) + var(--map-chrome-inset));
   }
-  .map-search-area {
-    left: calc(var(--map-panel-w) + (100% - var(--map-panel-w)) / 2);
-  }
 
-  .map-carousel {
+  /* Docked sidebar, not a bottom sheet — position/size move here from
+     .map-carousel (which just fills it below); dragging a 100dvh-tall docked
+     panel open/closed makes no sense, so the grip is hidden and detents
+     stop transitioning ("detents are meaningless docked", preserved
+     verbatim from the original deleted sheet's own desktop override). */
+  .map-sheet {
     left: 0;
     right: auto;
     top: 0;
     bottom: 0;
     width: var(--map-panel-w);
     height: 100dvh;
+    transition: none;
+  }
+  .map-sheet__grip {
+    display: none;
+  }
+
+  .map-carousel {
     flex-direction: column;
     overflow-x: hidden;
     overflow-y: auto;
@@ -3631,10 +4586,6 @@ button.set-row:active {
     max-width: 100%;
     width: 100%;
     text-align: left;
-  }
-  .map-carousel__rating,
-  .map-carousel__actions {
-    display: flex;
   }
 }
 
@@ -4385,24 +5336,11 @@ button.set-row:active {
   .ob-locating-orb::after { animation: none; }
 }
 
-/* ---- Map live pulse & status badges ----
-   Pulse color comes from AvatarPin's --pulse-color (RING_BACKGROUND[tone]),
-   so an "available" provider rings green and an open shop rings brand purple.
-   color-mix keeps alpha animatable — rgba() cannot take a CSS variable. */
-@keyframes mapPinPulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--pulse-color, var(--brand-500)) 55%, transparent);
-  }
-  70% {
-    box-shadow: 0 0 0 14px color-mix(in srgb, var(--pulse-color, var(--brand-500)) 0%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--pulse-color, var(--brand-500)) 0%, transparent);
-  }
-}
-.map-pin-pulse {
-  animation: mapPinPulse 2s infinite ease-out;
-}
+/* ---- Map status badges ----
+   A static pill under the pin/card — the ring color (RING_BACKGROUND) is
+   the primary open/closed signal; this just adds the text. No animation:
+   every open pin/card on screen showing one at once read as the whole map
+   "glowing" rather than any single listing standing out. */
 .map-pin-badge {
   position: absolute;
   bottom: -8px;
@@ -4426,13 +5364,13 @@ button.set-row:active {
 
 /* ---- List view overlay for MapCarousel ---- */
 .map-carousel.is-list-view {
-  position: absolute;
-  top: calc(var(--map-chrome-inset) + var(--safe-area-top) + 98px);
-  bottom: calc(var(--map-over-nav, 0px) + var(--safe-area-bottom));
-  left: 0;
-  right: 0;
-  height: auto;
-  max-height: none;
+  /* Position/height/z-index now come from the .map-sheet wrapper (this used
+     to self-position absolutely, computed to clear the search bar/filter
+     strip — .map-sheet's own bottom-anchored, detent-driven height replaces
+     that math). Everything below is this mode's own visual chrome, kept
+     exactly as it was. */
+  flex: 1;
+  min-height: 0;
   flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
@@ -4440,7 +5378,6 @@ button.set-row:active {
   gap: 12px;
   background: rgba(248, 250, 252, 0.96);
   backdrop-filter: blur(18px);
-  z-index: 1000;
   scroll-snap-type: none;
   touch-action: pan-y;
   border-top-left-radius: 24px;

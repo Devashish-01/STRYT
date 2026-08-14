@@ -17,6 +17,7 @@ build + commit checkpoint after each.
 | 8 | Alias-name privacy model | `08_alias_name_privacy.md` | Med | ✅ done |
 | 9 | Delivery-boy at appointment time | `09_delivery_boy_flow.md` | High | ✅ built through P5; DB applied. Flag still `false` pending 2-account E2E |
 | 10 | Free-choice improvements | `10_free_choice_improvements.md` | Low | ✅ advisors reviewed + documented |
+| — | **Server location: Tokyo → Mumbai** | [`../SERVER_LOCATION_MUMBAI.md`](../SERVER_LOCATION_MUMBAI.md) | High | 📋 planned |
 
 See `DONE_SUMMARY.md` for the full outcome.
 

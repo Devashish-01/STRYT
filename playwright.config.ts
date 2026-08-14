@@ -51,6 +51,21 @@ export default defineConfig({
         storageState: SESSION_FILE,
       },
     },
+
+    // Feature lifecycle, phone-sized. Separate from the audit because it walks a
+    // SEQUENCE (compose → publish → engage → resolve) rather than visiting
+    // routes: the failures it catches — a draft that doesn't return, a preview
+    // that doesn't match, a like that reverts — are invisible to a per-route
+    // health check. Run with `npx playwright test --project=community`.
+    {
+      name: "community",
+      dependencies: ["setup"],
+      testMatch: /community\.spec\.ts/,
+      use: {
+        ...devices["Pixel 7"],
+        storageState: SESSION_FILE,
+      },
+    },
   ],
 
   // Auto-start the app before testing and shut it down after. Reuses an already

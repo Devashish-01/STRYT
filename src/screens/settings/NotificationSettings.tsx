@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { AppBar } from "@/components/common";
 import { SettingsSection, SettingsToggleRow } from "@/components/settings";
-import { Moon, Volume2, Store, FileText, Tag } from "@/components/Icons";
+import { Moon, Volume2, Store, FileText, Tag, Megaphone } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService } from "@/services";
 import RadiusSelector from "@/components/RadiusSelector";
@@ -27,6 +27,7 @@ export default function NotificationSettings() {
   const [newBiz, setNewBiz] = useState(user.notifNewBusiness !== false);
   const [reqs, setReqs] = useState(user.notifNearbyRequests !== false);
   const [offers, setOffers] = useState(user.notifOffers !== false);
+  const [nearbyAlerts, setNearbyAlerts] = useState(user.notifNearbyAlerts !== false);
 
   // Re-seed from the server profile once it lands (the initial state above runs
   // before `user` has hydrated on a cold open).
@@ -36,7 +37,8 @@ export default function NotificationSettings() {
     setNewBiz(user.notifNewBusiness !== false);
     setReqs(user.notifNearbyRequests !== false);
     setOffers(user.notifOffers !== false);
-  }, [user.notifSilent, user.notifQuietHours, user.notifNewBusiness, user.notifNearbyRequests, user.notifOffers]);
+    setNearbyAlerts(user.notifNearbyAlerts !== false);
+  }, [user.notifSilent, user.notifQuietHours, user.notifNewBusiness, user.notifNearbyRequests, user.notifOffers, user.notifNearbyAlerts]);
 
   useEffect(() => {
     localStorage.setItem("settings_radius", String(radius));
@@ -99,6 +101,16 @@ export default function NotificationSettings() {
             hint="Discounts from shops around you"
             on={offers}
             onChange={(v) => persist({ notifOffers: v }, setOffers, v, "You'll hear about offers", "Offer alerts off")}
+          />
+          {/* The one community notification that arrives unrequested, so it gets
+              its own switch. Turning it off stops the notification being created
+              at all, not just the sound. */}
+          <SettingsToggleRow
+            icon={<Megaphone size={19} color="var(--red-600)" />}
+            label="Neighbourhood alerts"
+            hint="Water cuts, road closures and safety notices near you"
+            on={nearbyAlerts}
+            onChange={(v) => persist({ notifNearbyAlerts: v }, setNearbyAlerts, v, "You'll hear about nearby alerts", "Neighbourhood alerts off")}
           />
         </SettingsSection>
 

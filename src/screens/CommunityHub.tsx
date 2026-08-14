@@ -1,24 +1,37 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText, ArrowLeft, ArrowUpDown } from "@/components/Icons";
+import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText, ArrowLeft, ArrowUpDown, RefreshCw, Check } from "@/components/Icons";
 import { requestService, communityService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard, CommunityCard } from "@/components/cards";
-import { EmptyState } from "@/components/common";
+import { EmptyState, SafeImg } from "@/components/common";
 import { StoriesBar } from "@/components/Stories";
 import { useApp } from "@/store";
-import { trendingScore } from "@/lib/trending";
+import { POST_FILTERS, filterLabel } from "@/lib/communityTypes";
+import {
+  HIDDEN_POSTS_KEY,
+  MUTED_AUTHORS_KEY,
+  addToIdList,
+  filterFeed,
+  readIdList,
+} from "@/lib/postInteractions";
+import {
+  DEFAULT_FEED_SORT,
+  FEED_SORT_META,
+  appendPage,
+  availableSorts,
+  countUnseen,
+  typeParam,
+  type FeedSort,
+} from "@/lib/feedSort";
+import { haptics } from "@/lib/haptics";
 import type { CommunityPost, CommunityPostType } from "@/types";
 import { useSmartBack } from "@/hooks/useSmartBack";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useRealtimeInserts } from "@/hooks/useRealtimeInserts";
 
 type HubTab = "requests" | "posts";
-
-const POST_FILTERS: ("ALL" | CommunityPostType)[] = ["ALL", "ALERT", "LOST_FOUND", "RECOMMENDATION", "GIVEAWAY", "POLL", "SHOUTOUT"];
-const POST_LABELS: Record<"ALL" | CommunityPostType, string> = {
-  ALL: "All", ALERT: "📢 Alert", LOST_FOUND: "🔍 Lost & Found",
-  RECOMMENDATION: "💬 Ask", GIVEAWAY: "🎁 Giveaway", POLL: "📊 Poll", SHOUTOUT: "🙌 Shoutout",
-};
 
 export default function CommunityHub() {
   const nav = useNavigate();
@@ -27,16 +40,32 @@ export default function CommunityHub() {
   const [tab, setTab] = useState<HubTab>("posts");
   const [postFilter, setPostFilter] = useState<"ALL" | CommunityPostType>("ALL");
   const [reqSpecial, setReqSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
-  const [postSort, setPostSort] = useState<"recent" | "trending">("recent");
+  const [postSort, setPostSort] = useState<FeedSort>(DEFAULT_FEED_SORT);
+  const [sortOpen, setSortOpen] = useState(false);
+  // Seeded from localStorage so a hidden post stays hidden across sessions —
+  // these are a viewer preference, not a moderation record, so they never leave
+  // the device (blocking, which does, lives in socialService).
+  const [hiddenPosts, setHiddenPosts] = useState<string[]>(() => readIdList(HIDDEN_POSTS_KEY, localStorage));
+  const [mutedAuthors, setMutedAuthors] = useState<string[]>(() => readIdList(MUTED_AUTHORS_KEY, localStorage));
 
   const { data: feedPage, loading: reqLoading, error: reqError, refetch: refetchReq } = useQueryWithRealtime(
     () => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }),
     "requests",
     [user.lat, user.lng]
   );
+  // The type filter and the sort are QUERY parameters, not post-fetch
+  // transformations. That's what makes a filtered view paginate (the old client
+  // filter meant "load more" fetched 20 unfiltered posts and discarded most of
+  // them, so CommunityHub only offered it on "ALL") and what makes "trending"
+  // rank the whole feed instead of the page already in memory.
   const { data: postData, loading: postsLoading, error: postsError, refetch: refetchPosts } = useQuery(
-    () => communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }),
-    [user.lat, user.lng]
+    () => communityService.feed({
+      lat: user.lat || undefined,
+      lng: user.lng || undefined,
+      type: typeParam(postFilter),
+      sort: postSort,
+    }),
+    [user.lat, user.lng, postFilter, postSort]
   );
 
   // Pagination: the first page comes from the query above; further pages are
@@ -57,8 +86,17 @@ export default function CommunityHub() {
     if (!postCursor || loadingMorePosts) return;
     setLoadingMorePosts(true);
     try {
-      const next = await communityService.feed({ lat: user.lat || undefined, lng: user.lng || undefined, cursor: postCursor });
-      setExtraPosts((prev) => [...prev, ...(next.data ?? [])]);
+      const next = await communityService.feed({
+        lat: user.lat || undefined,
+        lng: user.lng || undefined,
+        cursor: postCursor,
+        type: typeParam(postFilter),
+        sort: postSort,
+      });
+      // appendPage drops anything already on screen: offset pagination re-serves
+      // rows whenever a post is created between two page fetches, which would
+      // otherwise render twice (and duplicate React keys).
+      setExtraPosts((prev) => appendPage(prev, next.data ?? []));
       setPostCursor(next.page?.next_cursor ?? null);
       setPostsHasMore(next.page?.has_more ?? false);
     } catch {
@@ -68,15 +106,43 @@ export default function CommunityHub() {
     }
   }
 
+  // New posts are counted, never auto-inserted — see useRealtimeInserts.
+  const { newIds, reset: resetNewIds } = useRealtimeInserts("community_posts", { enabled: tab === "posts" });
+
+  async function refreshFeed() {
+    resetNewIds();
+    refetchPosts();
+    refetchReq();
+  }
+
+  const { containerRef, pullDistance, refreshing } = usePullToRefresh<HTMLDivElement>(refreshFeed);
+
   const allRequests = feedPage?.data ?? [];
   let requests = allRequests;
   if (reqSpecial === "urgent")    requests = requests.filter((r) => r.isUrgent);
   if (reqSpecial === "group")     requests = requests.filter((r) => r.isGroupBuy);
   if (reqSpecial === "recurring") requests = requests.filter((r) => r.isRecurring);
 
-  const allPosts = [...(postData?.data ?? []), ...extraPosts];
-  const filteredPosts = postFilter === "ALL" ? allPosts : allPosts.filter((p) => p.type === postFilter);
-  const posts = postSort === "trending" ? [...filteredPosts].sort((a, b) => trendingScore(b) - trendingScore(a)) : filteredPosts;
+  const allPosts = appendPage(postData?.data ?? [], extraPosts);
+  // "Show me less of this" is applied client-side and immediately: the row
+  // disappears on tap rather than after a refetch, which is the whole point of
+  // hiding something.
+  //
+  // Type filtering and ordering are NOT re-applied here — the server already
+  // did both, and re-sorting locally (sortPostsLocally, in lib/feedSort) would
+  // fight it: "trending" scores age against Date.now() on every call, so
+  // re-sorting an already-server-ordered page on every render could reshuffle
+  // it under the reader for no reason.
+  const posts = filterFeed(allPosts, hiddenPosts, mutedAuthors);
+  const unseenCount = countUnseen(newIds, allPosts);
+
+  function hidePost(postId: string) {
+    setHiddenPosts(addToIdList(HIDDEN_POSTS_KEY, postId, localStorage));
+  }
+
+  function muteAuthor(authorId: string) {
+    setMutedAuthors(addToIdList(MUTED_AUTHORS_KEY, authorId, localStorage));
+  }
 
   // A seller viewing the public hub still composes under their active identity.
   const isOwnerContext = activeContext.type !== "customer" && !!activeContext.id;
@@ -104,19 +170,19 @@ export default function CommunityHub() {
   }
 
   return (
-    <div className="screen with-nav community-hub-screen">
+    <div className="screen with-nav community-hub-screen community-theme">
       <header className="community-hub-header">
         <div className="community-hub-top">
           <button
             className="icon-btn"
             onClick={handleBack}
             aria-label="Go back"
-            style={{ borderRadius: "50%", background: "var(--ink-100)" }}
+            style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--ink-100)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             <ArrowLeft size={18} />
           </button>
-          <div className="grow col" style={{ gap: 1, minWidth: 0 }}>
-            <div className="bold" style={{ fontSize: 21, letterSpacing: "-0.4px", lineHeight: 1.15, color: "var(--ink-900)" }}>
+          <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
+            <div className="bold" style={{ fontSize: 22, letterSpacing: "-0.5px", lineHeight: 1.2, color: "var(--ink-900)" }}>
               Community
             </div>
             <div
@@ -124,20 +190,21 @@ export default function CommunityHub() {
               style={{
                 color: "var(--brand-700)",
                 background: "var(--brand-50)",
-                padding: "2px 8px",
+                padding: "2.5px 9px",
                 borderRadius: 12,
                 width: "fit-content",
-                border: "1px solid var(--brand-100)",
-                marginTop: 2
+                border: "1px solid var(--brand-150)",
+                fontSize: 11.5,
+                letterSpacing: "-0.1px"
               }}
             >
-              <MapPin size={10} /> {area}
+              <MapPin size={11} /> {area}
             </div>
           </div>
           <div className="row gap-8" style={{ flexShrink: 0 }}>
             <button
               className="icon-btn"
-              style={{ position: "relative", borderRadius: "50%", background: "var(--ink-100)" }}
+              style={{ width: 38, height: 38, position: "relative", borderRadius: "50%", background: "var(--ink-100)", display: "flex", alignItems: "center", justifyContent: "center" }}
               onClick={() => nav("/chats?scope=CUSTOMER")}
               aria-label="Messages"
             >
@@ -153,7 +220,7 @@ export default function CommunityHub() {
             </button>
             <button
               className="icon-btn"
-              style={{ borderRadius: "50%", background: "var(--ink-100)" }}
+              style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--ink-100)", display: "flex", alignItems: "center", justifyContent: "center" }}
               onClick={() => nav("/search")}
               aria-label="Search"
             >
@@ -162,25 +229,34 @@ export default function CommunityHub() {
           </div>
         </div>
 
-        <div className="community-hub-actions">
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={goToCompose}
-            style={{ boxShadow: "var(--shadow-brand)", background: "linear-gradient(135deg, var(--brand-600), var(--brand-800))" }}
-          >
-            <Plus size={15} /> Create Post
-          </button>
+        {/* Prompt bar — an invitation to write, rather than two buttons naming
+            features. Composes under the active identity, same as the old
+            "Create Post" button did. */}
+        <button className="feed-prompt" style={{ marginTop: 14 }} onClick={goToCompose}>
+          <SafeImg
+            src={activeContext.type === "customer" ? user.avatar : undefined}
+            variant="avatar"
+            className="avatar"
+            style={{ width: 32, height: 32, flexShrink: 0 }}
+          />
+          <span className="feed-prompt-text ellipsis">
+            Share something with {area || "your street"}…
+          </span>
+          <span className="feed-prompt-cta"><Plus size={13} /> Post</span>
+        </button>
+
+        <div className="community-hub-actions" style={{ marginTop: 10 }}>
           <button
             className="btn btn-ghost btn-sm"
-            style={{ border: "1.5px solid var(--ink-200)", background: "var(--surface)", fontWeight: 700, color: "var(--ink-800)" }}
+            style={{ height: 38, gap: 6, borderRadius: 14, border: "1.5px solid var(--ink-200)", background: "var(--surface)", fontWeight: 700, color: "var(--ink-800)", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.02)" }}
             onClick={() => nav("/ask")}
           >
-            <FileText size={15} /> Request
+            <FileText size={15} /> Post a request
           </button>
         </div>
 
         {/* Stories bar — neighborhood & business stories reel */}
-        <div style={{ margin: "12px -16px 0", paddingBottom: 4 }}>
+        <div style={{ margin: "14px -16px 8px", paddingBottom: 2 }}>
           <StoriesBar />
         </div>
 
@@ -218,7 +294,7 @@ export default function CommunityHub() {
                 className={`chip-pill ${postFilter === f ? "active" : ""}`}
                 onClick={() => setPostFilter(f)}
               >
-                {POST_LABELS[f]}
+                {filterLabel(f)}
               </button>
             ))}
           </div>
@@ -226,7 +302,39 @@ export default function CommunityHub() {
       </header>
 
       {/* Content */}
-      <div className="screen-scroll">
+      <div className="screen-scroll" ref={containerRef} style={{ position: "relative" }}>
+        {/* Pull-to-refresh indicator — only ever visible mid-gesture. */}
+        {(pullDistance > 0 || refreshing) && (
+          <div
+            className="feed-refresh"
+            style={{ height: Math.max(pullDistance, refreshing ? 44 : 0) }}
+            role="status"
+            aria-live="polite"
+          >
+            <span className={`feed-refresh-spinner ${refreshing ? "spinning" : ""}`}>
+              <RefreshCw size={16} />
+            </span>
+            <span className="tiny semi">{refreshing ? "Refreshing…" : pullDistance > 60 ? "Release to refresh" : "Pull to refresh"}</span>
+          </div>
+        )}
+
+        {/* "N new posts" — the arrival is announced, never injected. Yanking the
+            list while someone is reading is the most disorienting thing a feed
+            can do, so the reader decides when to jump. */}
+        {tab === "posts" && unseenCount > 0 && (
+          <button
+            className="feed-new-pill"
+            onClick={() => {
+              haptics.light();
+              resetNewIds();
+              refetchPosts();
+              containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          >
+            ▲ {unseenCount} new {unseenCount === 1 ? "post" : "posts"}
+          </button>
+        )}
+
         {tab === "requests" && (
           reqLoading ? <ListSkeleton count={3} /> :
           reqError   ? <ErrorView error={reqError} onRetry={refetchReq} /> :
@@ -242,7 +350,7 @@ export default function CommunityHub() {
               }
             />
           ) : (
-            <div className="col gap-12 page-pad" style={{ paddingBottom: 24 }}>
+            <div className="col gap-16 page-pad" style={{ paddingBottom: 32 }}>
               {requests.map((r) => <RequestCard key={r.id} r={r} />)}
             </div>
           )
@@ -263,19 +371,35 @@ export default function CommunityHub() {
               }
             />
           ) : (
-            <div className="col gap-12 page-pad" style={{ paddingBottom: 24 }}>
+            <div className="col gap-16 page-pad" style={{ paddingBottom: 32 }}>
+              {/* A real sort control, not a two-state toggle. It reads its own
+                  state instead of making you tap to discover the other option. */}
               <button
                 className="row gap-6 center-v tiny semi"
-                style={{ alignSelf: "flex-end", color: "var(--brand-700)" }}
-                onClick={() => setPostSort((s) => (s === "trending" ? "recent" : "trending"))}
+                style={{
+                  alignSelf: "flex-end", color: "var(--brand-700)",
+                  background: "var(--surface)", border: "1px solid var(--ink-200)",
+                  padding: "5px 12px", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                  fontSize: 12.5, cursor: "pointer", transition: "all 0.15s ease"
+                }}
+                onClick={() => setSortOpen(true)}
+                aria-haspopup="dialog"
               >
-                <ArrowUpDown size={13} /> Sort: {postSort === "trending" ? "🔥 Trending nearby" : "Recent"}
+                <ArrowUpDown size={13} /> {FEED_SORT_META[postSort].emoji} {FEED_SORT_META[postSort].label}
               </button>
               {posts.map((p) => (
-                <CommunityCard key={p.id} post={p} onRefetch={refetchPosts} />
+                <CommunityCard
+                  key={p.id}
+                  post={p}
+                  onRefetch={refetchPosts}
+                  onHide={hidePost}
+                  onMute={muteAuthor}
+                />
               ))}
-              {postFilter === "ALL" && postsHasMore && (
-                <button className="btn btn-ghost btn-block" onClick={loadMorePosts} disabled={loadingMorePosts} style={{ marginTop: 4 }}>
+              {/* No longer gated on postFilter === "ALL": the filter is part of
+                  the query now, so the next page is the next page OF THIS FILTER. */}
+              {postsHasMore && (
+                <button className="btn btn-ghost btn-block" onClick={loadMorePosts} disabled={loadingMorePosts} style={{ marginTop: 8 }}>
                   {loadingMorePosts ? "Loading…" : "Load more"}
                 </button>
               )}
@@ -283,6 +407,48 @@ export default function CommunityHub() {
           )
         )}
       </div>
+
+      {sortOpen && (
+        <div className="overlay" onClick={() => setSortOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Sort posts">
+            <div className="sheet-grab" />
+            <div className="bold" style={{ fontSize: 17, marginBottom: 12 }}>Sort posts</div>
+            <div className="col gap-8" role="radiogroup" aria-label="Sort posts">
+              {/* "Nearest" is hidden without a location rather than offered and
+                  silently ignored. */}
+              {availableSorts(!!(user.lat && user.lng)).map((s) => {
+                const on = postSort === s.value;
+                return (
+                  <button
+                    key={s.value}
+                    role="radio"
+                    aria-checked={on}
+                    className="row gap-10 center-v"
+                    style={{
+                      width: "100%", padding: "11px 13px", textAlign: "left", cursor: "pointer", borderRadius: 14,
+                      border: on ? "1.5px solid var(--brand-600)" : "1.5px solid var(--ink-200)",
+                      background: on ? "var(--brand-50)" : "var(--surface)",
+                    }}
+                    onClick={() => {
+                      haptics.selection();
+                      setPostSort(s.value);
+                      setSortOpen(false);
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }} aria-hidden="true">{s.emoji}</span>
+                    <span className="grow" style={{ minWidth: 0 }}>
+                      <span className="semi small" style={{ display: "block", color: on ? "var(--brand-900)" : "var(--ink-900)" }}>{s.label}</span>
+                      <span className="tiny muted">{s.hint}</span>
+                    </span>
+                    {on && <Check size={16} color="var(--brand-600)" />}
+                  </button>
+                );
+              })}
+            </div>
+            <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setSortOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

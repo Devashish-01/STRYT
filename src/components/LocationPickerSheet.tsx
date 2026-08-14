@@ -7,9 +7,14 @@ import { nativeGeolocation } from "@/lib/nativeGeolocation";
 
 interface Props {
   onClose: () => void;
+  /** Fired right before onClose with the picked coordinates — lets a caller
+   *  that has its own live query (the map) re-run it in the same action,
+   *  instead of relying on the profile write above alone. Optional so
+   *  existing callers (Home.tsx) are unaffected. */
+  onLocationChanged?: (lat: number, lng: number) => void;
 }
 
-export default function LocationPickerSheet({ onClose }: Props) {
+export default function LocationPickerSheet({ onClose, onLocationChanged }: Props) {
   const { user, area, refreshUser, showToast, setArea } = useApp();
   const [locating, setLocating] = useState(false);
   const [nearby, setNearby] = useState<GeoPlace[]>([]);
@@ -32,6 +37,7 @@ export default function LocationPickerSheet({ onClose }: Props) {
       await refreshUser();
       setArea(p.area);
       showToast(`Location set — ${p.area} ✓`);
+      onLocationChanged?.(p.lat, p.lng);
       onClose();
     } catch {
       showToast("Couldn't set location");
@@ -49,6 +55,7 @@ export default function LocationPickerSheet({ onClose }: Props) {
           await refreshUser();
           if (areaName) setArea(areaName);
           showToast(`Location set — ${areaName || "current position"} ✓`);
+          onLocationChanged?.(latitude, longitude);
           onClose();
         } catch {
           showToast("Got GPS fix, but couldn't save it — check connection & retry");

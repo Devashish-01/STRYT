@@ -33,7 +33,18 @@ function boundsForRadius(lat: number, lng: number, radiusKm: number): LngLatBoun
 // defines the searched area), so it had nothing left to react to.
 
 // Flies to the current user location and updates their DB coordinates to GPS coords on tap
-export function RecenterButton({ radiusKm }: { radiusKm: number }) {
+export function RecenterButton({
+  radiusKm,
+  onRecentered,
+}: {
+  radiusKm: number;
+  /** Fired with the fresh GPS fix once the camera has moved — lets the
+   *  caller also re-run its live query (viewport.searchAt), which this
+   *  button used to only look like it did: it panned the map, but the
+   *  results underneath stayed keyed to wherever was last searched until a
+   *  second tap on the "Search this area" pill that then popped up. */
+  onRecentered?: (lat: number, lng: number) => void;
+}) {
   const { current: mapRef } = useMap();
   const { user, showToast, refreshUser } = useApp();
   const { t, tf } = useI18n();
@@ -65,9 +76,11 @@ export function RecenterButton({ radiusKm }: { radiusKm: number }) {
               await refreshUser();
               showToast(tf("map_location_set_gps", { area: areaName || "Current Location" }));
               recenterMap(latitude, longitude);
+              onRecentered?.(latitude, longitude);
             } catch (err) {
               showToast(t("map_gps_update_failed"));
               recenterMap(latitude, longitude);
+              onRecentered?.(latitude, longitude);
             }
           },
           (error) => {

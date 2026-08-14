@@ -76,6 +76,7 @@ docs/
 |------|-------------|
 | [CODEBASE_MAP.md](./engineering/CODEBASE_MAP.md) | Repo structure & key modules |
 | [DEPLOYMENT_GUIDE.md](./engineering/DEPLOYMENT_GUIDE.md) | Deploy web + mobile |
+| [MUMBAI_MIGRATION.md](./engineering/MUMBAI_MIGRATION.md) | Tokyo → Mumbai dump/restore runbook |
 | [android_build_steps.md](./engineering/android_build_steps.md) | Android build steps |
 | [debug/PAYMENT_CONFIRMATION_DEBUG.md](./engineering/debug/PAYMENT_CONFIRMATION_DEBUG.md) | Payment flow debugging |
 
@@ -105,6 +106,7 @@ Feature implementation plans (formerly `app-plans/`):
 | File | Description |
 |------|-------------|
 | [00_INDEX.md](./plans/app-plans/00_INDEX.md) | Plans index |
+| [SERVER_LOCATION_MUMBAI.md](./plans/SERVER_LOCATION_MUMBAI.md) | **Plan:** move Supabase Tokyo → Mumbai |
 | [PLAY_STORE_CHECKLIST.md](./plans/app-plans/PLAY_STORE_CHECKLIST.md) | Play Store launch checklist |
 | [DONE_SUMMARY.md](./plans/app-plans/DONE_SUMMARY.md) | Completed plan items |
 | `01_` – `10_*.md` | Individual feature plans |
