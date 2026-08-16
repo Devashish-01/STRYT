@@ -1679,13 +1679,185 @@ textarea.input {
 .provider-nav .nav-item.active .provider-nav-icon { background: var(--green-100); }
 .provider-nav .nav-item:active .provider-nav-icon { transform: scale(0.9); }
 
-/* Hat switcher popover — upward panel above footer Profile tab */
-.hat-switcher-backdrop {
+/* Hat switcher popover & Account Drawer — Modern Mobile Slide-Up Experience */
+.hat-switcher-backdrop,
+.account-drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: 180;
+  background: rgba(15, 10, 30, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  z-index: 850;
+  animation: account-drawer-fade 0.2s ease-out;
 }
+
+.account-drawer-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: var(--maxw);
+  z-index: 851;
+  background: var(--surface);
+  border-radius: 26px 26px 0 0;
+  padding: 12px 18px calc(18px + var(--safe-area-bottom, 0px)) 18px;
+  box-shadow: 0 -12px 48px rgba(20, 10, 45, 0.20);
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
+  max-height: min(85vh, 640px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: account-drawer-slide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.account-drawer-handle {
+  width: 44px;
+  height: 5px;
+  background: var(--ink-200);
+  border-radius: 999px;
+  margin: 2px auto 14px auto;
+  cursor: grab;
+}
+
+.account-drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.account-drawer-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--ink-100);
+  color: var(--ink-600);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.account-drawer-close-btn:hover {
+  background: var(--ink-200);
+  color: var(--ink-900);
+}
+.account-drawer-close-btn:active {
+  transform: scale(0.92);
+}
+
+.account-role-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  text-align: left;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-900);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.account-role-card:hover {
+  background: var(--ink-50);
+  border-color: var(--ink-300);
+}
+
+.account-role-card:active {
+  transform: scale(0.985);
+}
+
+.account-role-card.active {
+  background: var(--brand-50);
+  border-color: var(--brand-500);
+  box-shadow: 0 4px 18px rgba(139, 71, 245, 0.14);
+}
+
+.account-role-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.account-role-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1.5px solid var(--line);
+}
+
+.account-role-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--surface);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+}
+
+.account-role-active-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--brand-100);
+  color: var(--brand-700);
+  flex-shrink: 0;
+}
+
+.account-action-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-800);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.account-action-card:hover {
+  background: var(--ink-50);
+  border-color: var(--ink-300);
+  transform: translateY(-1px);
+}
+
+.account-action-card:active {
+  transform: scale(0.985);
+}
+
+.account-action-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .hat-switcher-popover {
   position: fixed;
   left: 50%;
@@ -1693,21 +1865,36 @@ textarea.input {
   bottom: calc(var(--nav-h) + var(--safe-area-bottom) + 8px);
   width: calc(100% - 24px);
   max-width: calc(var(--maxw) - 24px);
-  padding: 12px;
-  z-index: 181;
+  padding: 14px;
+  z-index: 851;
   max-height: min(70vh, 480px);
   overflow-y: auto;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.16);
-  border-radius: 16px;
-  animation: hat-popover-in 0.2s ease-out;
+  box-shadow: 0 -8px 32px rgba(20, 10, 45, 0.18);
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  animation: account-drawer-slide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
 .hat-switcher-popover-header {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   padding: 0 4px;
 }
-@keyframes hat-popover-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@keyframes account-drawer-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes account-drawer-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .provider-nav-badge {
   position: absolute;
@@ -4049,126 +4236,96 @@ button.set-row:active {
   position: absolute;
   top: calc(var(--map-chrome-inset) + var(--safe-area-top) + 52px);
   left: var(--map-chrome-inset);
+  right: var(--map-chrome-inset);
   z-index: 999;
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 6px 24px rgba(26, 21, 48, 0.12), 0 1px 4px rgba(26, 21, 48, 0.06) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Open now / List-Map — icon-led, one tap, no menu. Explicit 44px (not
-   height:100% of the bar) — the bar's own `padding` above gives it a few
-   px of breathing room from the shared glass edge without shrinking the
-   tap target below 44px. Active state layers a stronger brand tint over
-   the same resting shape (matching .map-filter-menu.is-open/.is-filtered
-   exactly, below) rather than the bar's own background — each zone tints
-   on its own, the restraint a native segmented control uses on its
-   selected segment, not its whole track. */
+/* Open now / Radius / Category / List-Map — 4 unified sleek floating pill segments */
 .map-control-bar__toggle {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 12px;
-  border: none;
-  background: var(--ink-100);
+  gap: 4px;
+  height: 36px;
+  padding: 0 6px;
+  border: 1px solid rgba(226, 221, 240, 0.6);
+  background: rgba(245, 241, 250, 0.75);
   border-radius: 999px;
-  color: var(--ink-600);
-  font-size: 13px;
+  color: var(--ink-700);
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.map-control-bar__toggle.active {
-  background: color-mix(in srgb, var(--brand-500) 14%, #fff);
-  color: var(--brand-700);
-  font-weight: 700;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Type filter — filter menu trigger with leading icon + label + chevron.
-   Reads as "what am I looking at", not another toggle chip. Resting state
-   shares the same neutral `--ink-100` pill the toggles use (so all 3 zones
-   read as one family at rest); open/filtered states use a quiet brand tint
-   instead, same restraint as the toggles' own active state. */
-.map-filter-menu {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 44px;
-  height: 44px;
-  padding: 0 12px 0 8px;
-  border-radius: 999px;
-  border: none;
-  background: var(--ink-100);
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: var(--ink-800);
+.map-control-bar__toggle svg {
+  flex-shrink: 0;
+}
+
+.map-control-bar__toggle span {
   white-space: nowrap;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  transition: color 0.15s ease, background 0.15s ease;
+  letter-spacing: -0.01em;
 }
-/* White, not --ink-100 — the trigger's own resting background IS ink-100
-   now (matches the toggles beside it), so the icon circle needs to be
-   lighter than its parent to still read as a distinct raised badge
-   instead of disappearing into a same-colored pill. */
-.map-filter-menu__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #fff;
-  color: var(--ink-600);
-  flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease;
-  pointer-events: none;
-}
-.map-filter-menu__label {
-  line-height: 1;
-  max-width: 7.5em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-}
-.map-filter-menu__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--brand-500);
-  flex-shrink: 0;
-  pointer-events: none;
-}
-.map-filter-menu__chevron {
+
+.map-chevron {
   color: var(--ink-400);
   flex-shrink: 0;
-  margin-left: -1px;
-  transition: transform 0.15s ease, color 0.15s ease;
+  margin-left: 1px;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), color 0.15s ease;
   pointer-events: none;
 }
-.map-filter-menu.is-open .map-filter-menu__chevron {
+
+.map-chevron.is-open {
   transform: rotate(180deg);
   color: var(--brand-600);
 }
-.map-filter-menu.is-open,
-.map-filter-menu.is-filtered {
-  color: var(--brand-800);
-  background: color-mix(in srgb, var(--brand-500) 10%, #fff) !important;
-  border-color: color-mix(in srgb, var(--brand-500) 28%, #fff) !important;
+
+@media (hover: hover) {
+  .map-control-bar__toggle:hover {
+    background: var(--ink-100);
+    color: var(--ink-900);
+    border-color: var(--ink-300);
+    transform: translateY(-1px);
+  }
 }
-.map-filter-menu.is-open .map-filter-menu__icon,
-.map-filter-menu.is-filtered .map-filter-menu__icon {
-  background: color-mix(in srgb, var(--brand-500) 18%, #fff);
-  color: var(--brand-700);
+
+.map-control-bar__toggle:active {
+  transform: scale(0.96);
 }
-.map-filter-menu.is-filtered:not(.is-open) .map-filter-menu__chevron {
-  color: var(--brand-500);
+
+.map-control-bar__toggle.is-open {
+  background: var(--brand-50) !important;
+  border-color: var(--brand-300) !important;
+  color: var(--brand-700) !important;
+  font-weight: 700;
+}
+
+.map-control-bar__toggle.active {
+  background: var(--brand-600) !important;
+  border-color: var(--brand-600) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: 0 3px 12px rgba(139, 71, 245, 0.32);
+}
+
+.map-control-bar__toggle.active .map-chevron {
+  color: #ffffff;
 }
 
 /* Portaled above the map chrome — fixed so WebView overflow cannot clip it. */
@@ -4179,17 +4336,24 @@ button.set-row:active {
   background: transparent;
   touch-action: manipulation;
 }
+
 .map-filter-menu__popover {
   position: fixed;
   z-index: 10091;
-  min-width: 208px;
-  max-width: min(280px, calc(100vw - 16px));
+  min-width: 220px;
+  max-width: min(290px, calc(100vw - 16px));
   max-height: min(60vh, 420px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: 16px;
-  padding: 10px;
+  border-radius: 20px;
+  padding: 12px;
   touch-action: manipulation;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 12px 36px rgba(26, 21, 48, 0.18) !important;
+  animation: account-drawer-slide 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 /* The type filter ("Show") is a `.chip-pill` wrap-row — one pill definition
    for the whole popover, not a bespoke 44px-tall list row per option. 5 rows
@@ -4263,6 +4427,231 @@ button.set-row:active {
   .map-filter-menu__radius-slider::-moz-range-thumb { transition: none; }
 }
 
+.map-filter-radius-section {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--ink-100);
+  margin-top: 8px;
+  padding-top: 2px;
+}
+
+.map-filter-custom-radius-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--ink-50);
+  border-radius: 12px;
+  margin: 4px 2px 8px;
+}
+
+.map-filter-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid var(--ink-200);
+  border-radius: 999px;
+  padding: 2px 4px;
+}
+
+.map-filter-stepper__btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ink-100);
+  color: var(--ink-800);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: manipulation;
+  transition: all 0.15s ease;
+}
+
+.map-filter-stepper__btn:hover {
+  background: var(--ink-200);
+}
+
+.map-filter-stepper__btn:active {
+  transform: scale(0.92);
+}
+
+/* ==========================================================================
+   ActionIconBadge — 3D Gradient Glass Squircle with Specular Glow
+   ========================================================================== */
+.action-icon-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  color: #ffffff;
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.action-icon-badge--sm {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+}
+
+.action-icon-badge--md {
+  width: 48px;
+  height: 48px;
+  border-radius: 15px;
+}
+
+.action-icon-badge--lg {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+}
+
+/* Specular bevel reflection highlight */
+.action-icon-badge__specular {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.6), inset 0 -1px 2px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.action-icon-badge__glyph {
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+  transition: transform 0.2s ease;
+}
+
+/* Theme Gradients & Radiant Auras */
+.action-icon-badge--amber {
+  background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%);
+  box-shadow: 0 6px 18px rgba(217, 119, 6, 0.32), 0 2px 4px rgba(217, 119, 6, 0.15);
+}
+
+.action-icon-badge--sunset {
+  background: linear-gradient(135deg, #f43f5e 0%, #a855f7 100%);
+  box-shadow: 0 6px 18px rgba(236, 72, 153, 0.32), 0 2px 4px rgba(168, 85, 247, 0.15);
+}
+
+.action-icon-badge--emerald {
+  background: linear-gradient(135deg, #34d399 0%, #059669 100%);
+  box-shadow: 0 6px 18px rgba(5, 150, 105, 0.32), 0 2px 4px rgba(5, 150, 105, 0.15);
+}
+
+.action-icon-badge--indigo {
+  background: linear-gradient(135deg, #818cf8 0%, #3b82f6 100%);
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.32), 0 2px 4px rgba(59, 130, 246, 0.15);
+}
+
+.action-icon-badge--violet {
+  background: linear-gradient(135deg, #a78bfa 0%, #6d28d9 100%);
+  box-shadow: 0 6px 18px rgba(139, 71, 245, 0.35), 0 2px 4px rgba(109, 40, 217, 0.18);
+}
+
+.action-icon-badge--rose {
+  background: linear-gradient(135deg, #fb7185 0%, #e11d48 100%);
+  box-shadow: 0 6px 18px rgba(225, 29, 72, 0.32), 0 2px 4px rgba(225, 29, 72, 0.15);
+}
+
+.action-icon-badge--cyan {
+  background: linear-gradient(135deg, #22d3ee 0%, #0284c7 100%);
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.32), 0 2px 4px rgba(2, 132, 199, 0.15);
+}
+
+/* Action Hub Cards (Create Modal & Action Drawers) */
+.action-hub-card {
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid var(--ink-100);
+  background: #ffffff;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (hover: hover) {
+  .action-hub-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--brand-200);
+    box-shadow: 0 8px 24px rgba(26, 21, 48, 0.08);
+  }
+  .action-hub-card:hover .action-icon-badge {
+    transform: scale(1.06) rotate(-2deg);
+  }
+  .action-hub-card:hover .action-hub-card__arrow {
+    transform: translateX(3px);
+    color: var(--brand-600) !important;
+  }
+}
+
+.action-hub-card:active {
+  transform: scale(0.97);
+  background: var(--ink-50);
+}
+
+.action-hub-card__arrow {
+  transition: transform 0.18s ease, color 0.18s ease;
+  flex-shrink: 0;
+}
+
+/* Bottom Nav Spring Bounce */
+@keyframes navTabBounce {
+  0% { transform: scale(0.85); }
+  55% { transform: scale(1.16) translateY(-2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+.nav-item.active .nav-item__icon {
+  animation: navTabBounce 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: var(--brand-600);
+}
+
+.map-filter-stepper__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+}
+
+.map-filter-stepper__input {
+  width: 42px;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-900);
+  outline: none;
+  padding: 2px 0;
+}
+
+.map-radius-edge-pill {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brand-700);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1.5px solid var(--brand-400);
+  border-radius: 999px;
+  padding: 3px 8px;
+  box-shadow: 0 3px 12px rgba(26, 21, 48, 0.16);
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transform: translateY(-4px);
+  user-select: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .map-filter-menu,
   .map-filter-menu__icon,
@@ -4281,10 +4670,13 @@ button.set-row:active {
    component's own tap-target convention. Brand-tinted so it still reads as
    the CTA it is, not just another chip. */
 .map-search-area {
-  height: 44px;
-  background: color-mix(in srgb, var(--brand-500) 14%, #fff) !important;
-  border-color: color-mix(in srgb, var(--brand-500) 40%, #fff) !important;
-  color: var(--brand-700);
+  height: 38px;
+  border-radius: 999px !important;
+  background: var(--brand-50) !important;
+  border-color: var(--brand-300) !important;
+  color: var(--brand-700) !important;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(139, 71, 245, 0.16);
 }
 .map-search-area:disabled { opacity: 0.75; }
 
@@ -4494,9 +4886,13 @@ button.set-row:active {
 
   .map-screen__search {
     left: calc(var(--map-panel-w) + var(--map-chrome-inset));
+    right: auto;
+    width: min(560px, calc(100% - var(--map-panel-w) - (var(--map-chrome-inset) * 2)));
   }
   .map-control-bar {
     left: calc(var(--map-panel-w) + var(--map-chrome-inset));
+    right: auto;
+    width: min(460px, calc(100% - var(--map-panel-w) - (var(--map-chrome-inset) * 2)));
   }
 
   /* Docked sidebar, not a bottom sheet — position/size move here from

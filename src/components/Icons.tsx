@@ -111,10 +111,11 @@ import {
   ListChecks,
   CircleNotch,
   WifiSlash,
-  Package
+  Package,
+  Target
 } from "@phosphor-icons/react";
 
-export { WifiSlash as WifiOff };
+export { WifiSlash as WifiOff, Target };
 
 // Standard exports
 export {

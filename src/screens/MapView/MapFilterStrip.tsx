@@ -1,8 +1,8 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { haptics } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
-import { ChevronDown, ListChecks, Map as MapIcon, SlidersHorizontal, Zap } from "@/components/Icons";
+import { ChevronDown, ListChecks, Map as MapIcon, Minus, Plus, SlidersHorizontal, Target, Zap } from "@/components/Icons";
 import type { MapSheetDetent } from "./MapSheet";
 import SearchThisArea from "./SearchThisArea";
 
@@ -18,33 +18,19 @@ const TYPE_OPTIONS: { id: ResultFilter; label: string }[] = [
   { id: "story", label: "Stories" },
 ];
 
-/**
- * The map's persistent top-of-screen chrome besides search and the two FABs
- * (MAP_SNAPCHAT_STYLE_PLAN.md §2.1, Phase B) — one shared glass pill (a
- * `.map-control-bar`, same technique `SearchBar.tsx`'s merged search+area
- * pill uses) holding three zones separated by hairline dividers: an
- * "Open now" toggle, the Filters trigger (type + radius), and the List/Map
- * toggle.
- *
- * "Open now" briefly lived INSIDE the Filters popover as a "Status" section
- * — cutting the persistent row down to one button. That traded away too
- * much: it's a toggle people reach for constantly, not a settings menu they
- * open occasionally, and burying it a tap deeper made it slower to reach for
- * no real gain. This bar is the resolution — Open now and List/Map stay
- * exactly as reachable as before (one tap, no popover), just visually
- * grouped into one considered control instead of competing as loose
- * separate chips. Only Filters (type + radius, the two things people adjust
- * far less often) still opens a popover.
- *
- * The filter menu popover is portaled to document.body and positioned fixed
- * from the trigger's rect — rendering it as a normal child clipped it on
- * WebView/mobile — and mounting a full-screen tap-catcher in the same click
- * that opened the menu immediately closed it again.
- */
+const PRESET_RADIUS_OPTIONS = [
+  { label: "1 km", km: 1 },
+  { label: "2 km", km: 2 },
+  { label: "5 km", km: 5 },
+  { label: "10 km", km: 10 },
+  { label: "25 km", km: 25 },
+  { label: "50 km", km: 50 },
+];
+
 export function MapFilterStrip({
   filter, setFilter, counts,
   availOnly, setAvailOnly,
-  radiusKm, onRadiusChange, radiusOptions = [],
+  radiusKm, currentRadiusKm, onRadiusChange, radiusOptions = [],
   detent = "peek", onCycleDetent,
   searchThisArea,
 }: {
@@ -54,75 +40,60 @@ export function MapFilterStrip({
   availOnly: boolean;
   setAvailOnly: (v: boolean) => void;
   radiusKm?: number | null;
+  /** Live viewport-derived search radius in km */
+  currentRadiusKm?: number;
   /** Omit to hide the radius section entirely (guests, who are capped). */
   onRadiusChange?: (km: number | null) => void;
   radiusOptions?: { label: string; km: number }[];
-  /** Current results-sheet detent — drives this chip's label/active state. */
   detent?: MapSheetDetent;
-  /** Advances the sheet to its next detent — the exact same cycle the sheet's
-   *  own grip handle uses (peek → half → full → peek), so tapping this chip
-   *  and tapping the handle are two affordances for one action, not two
-   *  different ones. Omit to hide the chip entirely (unused today, but keeps
-   *  this component honestly optional the way its siblings are). */
   onCycleDetent?: () => void;
-  /** When `visible`, replaces just the Filters zone of the control bar with
-   *  the "Search this area" CTA — Open now and List/Map, either side of it,
-   *  stay put and stay tappable the whole time. Adding this as its own
-   *  floating row underneath (the original design) cost this screen a whole
-   *  extra row every time it appeared; swapping one zone in an existing bar
-   *  costs nothing. Omit to hide entirely (keeps this optional the way its
-   *  siblings are). */
   searchThisArea?: { visible: boolean; busy: boolean; onClick: () => void };
 }) {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [catcherArmed, setCatcherArmed] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const activeLabel = TYPE_OPTIONS.find((o) => o.id === filter)?.label ?? "All";
-  // Drives the trigger's dot. Deliberately NOT availOnly — that toggle has
-  // its own always-visible state in the control bar now, so it doesn't also
-  // need to light this dot to be noticed.
-  const isFiltered = filter !== "all" || radiusKm != null;
 
-  // "Map view" (null) prepended as its own stop, index 0 — a slider needs a
-  // fixed, evenly-spaced set of stops, not 9 discrete buttons. Steps aren't
-  // evenly spaced in km (500m to 100km is most of what people actually use;
-  // "World" is a 20000km outlier) — indexing into stops, not mapping km
-  // linearly onto the track, is what keeps the useful, small-radius end of
-  // the slider from being crushed into an unusable sliver next to World.
-  const radiusStops = useMemo(
-    () => [{ label: "Map view", km: null as number | null }, ...radiusOptions],
-    [radiusOptions],
-  );
-  const radiusIndex = Math.max(0, radiusStops.findIndex((s) => s.km === radiusKm));
+  // Category Popover State
+  const [catOpen, setCatOpen] = useState(false);
+  const [catCatcherArmed, setCatCatcherArmed] = useState(false);
+  const [catMenuPos, setCatMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const catTriggerRef = useRef<HTMLButtonElement>(null);
 
-  const updateMenuPos = () => {
-    const el = triggerRef.current;
+  // Radius Popover State
+  const [radOpen, setRadOpen] = useState(false);
+  const [radCatcherArmed, setRadCatcherArmed] = useState(false);
+  const [radMenuPos, setRadMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [customInputVal, setCustomInputVal] = useState<string>("");
+  const radTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const activeCategoryLabel = TYPE_OPTIONS.find((o) => o.id === filter)?.label ?? "All";
+  const effectiveRadius = radiusKm ?? currentRadiusKm;
+  const radiusLabel = effectiveRadius
+    ? (effectiveRadius < 1 ? `${Math.round(effectiveRadius * 1000)}m` : `${effectiveRadius.toFixed(1).replace(/\.0$/, "")}km`)
+    : "Auto";
+
+  // Category Popover position calculation
+  const updateCatMenuPos = () => {
+    const el = catTriggerRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    // Keep the menu on-screen on narrow phones.
-    const left = Math.min(r.left, Math.max(8, window.innerWidth - 216));
-    setMenuPos({ top: r.bottom + 8, left: Math.max(8, left) });
+    const left = Math.min(r.left, Math.max(8, window.innerWidth - 240));
+    setCatMenuPos({ top: r.bottom + 8, left: Math.max(8, left) });
   };
 
   useLayoutEffect(() => {
-    if (!open) {
-      setMenuPos(null);
+    if (!catOpen) {
+      setCatMenuPos(null);
       return;
     }
-    updateMenuPos();
-  }, [open]);
+    updateCatMenuPos();
+  }, [catOpen]);
 
   useEffect(() => {
-    if (!open) {
-      setCatcherArmed(false);
+    if (!catOpen) {
+      setCatCatcherArmed(false);
       return;
     }
-    // Arm the outside-tap catcher on the next frame so the opening tap
-    // cannot immediately dismiss the menu (common WebView failure mode).
-    const frame = requestAnimationFrame(() => setCatcherArmed(true));
-    const onReposition = () => updateMenuPos();
+    const frame = requestAnimationFrame(() => setCatCatcherArmed(true));
+    const onReposition = () => updateCatMenuPos();
     window.addEventListener("resize", onReposition);
     window.addEventListener("scroll", onReposition, true);
     return () => {
@@ -130,29 +101,69 @@ export function MapFilterStrip({
       window.removeEventListener("resize", onReposition);
       window.removeEventListener("scroll", onReposition, true);
     };
-  }, [open]);
+  }, [catOpen]);
 
-  const closeMenu = () => setOpen(false);
+  // Radius Popover position calculation
+  const updateRadMenuPos = () => {
+    const el = radTriggerRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const left = Math.min(r.left, Math.max(8, window.innerWidth - 290));
+    setRadMenuPos({ top: r.bottom + 8, left: Math.max(8, left) });
+  };
 
-  const menu = open && menuPos && createPortal(
+  useLayoutEffect(() => {
+    if (!radOpen) {
+      setRadMenuPos(null);
+      return;
+    }
+    updateRadMenuPos();
+  }, [radOpen]);
+
+  useEffect(() => {
+    if (!radOpen) {
+      setRadCatcherArmed(false);
+      return;
+    }
+    const frame = requestAnimationFrame(() => setRadCatcherArmed(true));
+    const onReposition = () => updateRadMenuPos();
+    window.addEventListener("resize", onReposition);
+    window.addEventListener("scroll", onReposition, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", onReposition);
+      window.removeEventListener("scroll", onReposition, true);
+    };
+  }, [radOpen]);
+
+  const closeAllMenus = () => {
+    setCatOpen(false);
+    setRadOpen(false);
+    setCustomInputVal("");
+  };
+
+  const currentNumericRadius = radiusKm ?? (currentRadiusKm ? Math.round(currentRadiusKm * 10) / 10 : 5);
+
+  // Category Popover
+  const categoryMenu = catOpen && catMenuPos && createPortal(
     <>
-      {catcherArmed && (
+      {catCatcherArmed && (
         <div
           className="map-filter-menu__catcher"
           onPointerDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            closeMenu();
+            closeAllMenus();
           }}
         />
       )}
       <div
         className="map-glass-panel map-filter-menu__popover"
         role="listbox"
-        style={{ top: menuPos.top, left: menuPos.left }}
+        style={{ top: catMenuPos.top, left: catMenuPos.left, minWidth: 200 }}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <div className="tiny semi muted" style={{ padding: "2px 8px 8px" }}>Show</div>
+        <div className="tiny semi muted" style={{ padding: "2px 8px 8px" }}>Show on Map</div>
         <div className="row" style={{ flexWrap: "wrap", gap: 6, padding: "0 2px" }}>
           {TYPE_OPTIONS.map((o) => {
             const selected = filter === o.id;
@@ -166,7 +177,7 @@ export function MapFilterStrip({
                 onClick={() => {
                   haptics.selection();
                   setFilter(o.id);
-                  closeMenu();
+                  closeAllMenus();
                 }}
               >
                 {o.label}
@@ -177,36 +188,142 @@ export function MapFilterStrip({
             );
           })}
         </div>
+      </div>
+    </>,
+    document.body,
+  );
 
-        {onRadiusChange && (
-          <>
-            <div className="row between" style={{ padding: "12px 8px 2px", alignItems: "baseline" }}>
-              <span className="tiny semi muted">Within</span>
-              <span className="tiny semi" style={{ color: "var(--brand-600)" }}>
-                {radiusStops[radiusIndex].label}
-              </span>
-            </div>
-            <input
-              type="range"
-              className="map-filter-menu__radius-slider"
-              min={0}
-              max={radiusStops.length - 1}
-              step={1}
-              value={radiusIndex}
-              list="map-filter-radius-stops"
-              aria-label="Search radius"
-              aria-valuetext={radiusStops[radiusIndex].label}
-              onChange={(e) => {
-                const idx = Number(e.target.value);
+  // Radius Popover
+  const radiusMenu = radOpen && radMenuPos && onRadiusChange && createPortal(
+    <>
+      {radCatcherArmed && (
+        <div
+          className="map-filter-menu__catcher"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closeAllMenus();
+          }}
+        />
+      )}
+      <div
+        className="map-glass-panel map-filter-menu__popover"
+        role="listbox"
+        style={{ top: radMenuPos.top, left: radMenuPos.left, minWidth: 260 }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <div className="row between" style={{ padding: "2px 6px 8px", alignItems: "center" }}>
+          <span className="tiny semi muted">Coverage Range (Radius)</span>
+          <span className="tiny bold" style={{ color: "var(--brand-600)" }}>
+            {radiusKm == null
+              ? `Auto (${(currentRadiusKm ?? 5).toFixed(1).replace(/\.0$/, "")} km)`
+              : radiusKm < 1
+              ? `${Math.round(radiusKm * 1000)}m`
+              : `${radiusKm.toFixed(1).replace(/\.0$/, "")} km`}
+          </span>
+        </div>
+
+        {/* Quick Presets */}
+        <div className="row" style={{ flexWrap: "wrap", gap: 5, padding: "0 2px 8px" }}>
+          <button
+            type="button"
+            className={`chip-pill${radiusKm == null ? " active" : ""}`}
+            style={{ fontSize: 11, padding: "4px 8px" }}
+            onClick={() => {
+              haptics.selection();
+              onRadiusChange(null);
+            }}
+          >
+            Auto View
+          </button>
+          {PRESET_RADIUS_OPTIONS.map((opt) => (
+            <button
+              key={opt.km}
+              type="button"
+              className={`chip-pill${radiusKm === opt.km ? " active" : ""}`}
+              style={{ fontSize: 11, padding: "4px 8px" }}
+              onClick={() => {
                 haptics.selection();
-                onRadiusChange(radiusStops[idx].km);
+                onRadiusChange(opt.km);
               }}
-            />
-            <datalist id="map-filter-radius-stops">
-              {radiusStops.map((_, i) => <option key={i} value={i} />)}
-            </datalist>
-          </>
-        )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Custom Radius Stepper & Input */}
+        <div className="map-filter-custom-radius-box">
+          <span className="tiny muted" style={{ fontWeight: 600 }}>Custom Range:</span>
+          <div className="map-filter-stepper">
+            <button
+              type="button"
+              className="map-filter-stepper__btn"
+              aria-label="Decrease radius"
+              onClick={() => {
+                haptics.selection();
+                const cur = radiusKm ?? currentRadiusKm ?? 5;
+                const delta = cur > 10 ? 5 : (cur > 2 ? 1 : 0.5);
+                const next = Math.max(0.5, Math.round((cur - delta) * 10) / 10);
+                onRadiusChange(next);
+              }}
+            >
+              <Minus size={12} />
+            </button>
+            <div className="map-filter-stepper__input-wrap">
+              <input
+                type="number"
+                min={0.5}
+                max={100}
+                step={0.5}
+                className="map-filter-stepper__input"
+                value={customInputVal !== "" ? customInputVal : currentNumericRadius}
+                onChange={(e) => {
+                  setCustomInputVal(e.target.value);
+                  const val = parseFloat(e.target.value);
+                  if (Number.isFinite(val) && val > 0 && val <= 200) {
+                    onRadiusChange(val);
+                  }
+                }}
+                onBlur={() => {
+                  setCustomInputVal("");
+                }}
+              />
+              <span className="tiny semi muted">km</span>
+            </div>
+            <button
+              type="button"
+              className="map-filter-stepper__btn"
+              aria-label="Increase radius"
+              onClick={() => {
+                haptics.selection();
+                const cur = radiusKm ?? currentRadiusKm ?? 5;
+                const delta = cur >= 10 ? 5 : (cur >= 2 ? 1 : 0.5);
+                const next = Math.min(100, Math.round((cur + delta) * 10) / 10);
+                onRadiusChange(next);
+              }}
+            >
+              <Plus size={12} />
+            </button>
+          </div>
+        </div>
+
+        {/* Continuous Range Slider */}
+        <input
+          type="range"
+          className="map-filter-menu__radius-slider"
+          min={0.5}
+          max={50}
+          step={0.5}
+          value={currentNumericRadius}
+          aria-label="Custom search radius"
+          onChange={(e) => {
+            const val = parseFloat(e.target.value);
+            if (Number.isFinite(val) && val > 0) {
+              onRadiusChange(val);
+            }
+          }}
+        />
       </div>
     </>,
     document.body,
@@ -214,21 +331,45 @@ export function MapFilterStrip({
 
   return (
     <div className="map-glass-panel map-control-bar">
-      {/* Open now — icon-led, one tap, no menu. Every zone in this bar has
-          its own resting pill shape (see .map-control-bar__toggle /
-          .map-filter-menu in index.css) — no divider lines needed between
-          them, the pill boundaries already separate them. Active state
-          layers a stronger brand tint on top of that same shape. */}
+      {/* 1. Open now toggle */}
       <button
         type="button"
         className={`map-control-bar__toggle${availOnly ? " active" : ""}`}
         aria-pressed={availOnly}
-        onClick={() => { haptics.selection(); setAvailOnly(!availOnly); }}
+        onClick={() => {
+          haptics.selection();
+          setAvailOnly(!availOnly);
+        }}
       >
-        <Zap size={15} weight={availOnly ? "fill" : "regular"} />
+        <Zap size={14} weight={availOnly ? "fill" : "regular"} />
         <span>{t("map_open_now")}</span>
       </button>
 
+      {/* 2. Dedicated Radius / Range button */}
+      {onRadiusChange && (
+        <button
+          ref={radTriggerRef}
+          type="button"
+          className={`map-control-bar__toggle${radOpen ? " is-open" : ""}${radiusKm != null ? " active" : ""}`}
+          aria-expanded={radOpen}
+          aria-haspopup="listbox"
+          aria-label={`Coverage Radius: ${radiusLabel}`}
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            haptics.selection();
+            setCatOpen(false);
+            setRadOpen((v) => !v);
+          }}
+        >
+          <Target size={14} weight={radiusKm != null ? "bold" : "regular"} />
+          <span>{radiusLabel}</span>
+          <ChevronDown size={11} className={`map-chevron${radOpen ? " is-open" : ""}`} />
+        </button>
+      )}
+
+      {/* 3. Category / Type filter button */}
       {searchThisArea?.visible ? (
         <SearchThisArea
           busy={searchThisArea.busy}
@@ -236,45 +377,41 @@ export function MapFilterStrip({
         />
       ) : (
         <button
-          ref={triggerRef}
+          ref={catTriggerRef}
           type="button"
-          className={[
-            "map-filter-menu",
-            open ? "is-open" : "",
-            isFiltered ? "is-filtered" : "",
-          ].filter(Boolean).join(" ")}
-          aria-expanded={open}
+          className={`map-control-bar__toggle${catOpen ? " is-open" : ""}${filter !== "all" ? " active" : ""}`}
+          aria-expanded={catOpen}
           aria-haspopup="listbox"
-          aria-label={`Filters: ${activeLabel}`}
+          aria-label={`Category filter: ${activeCategoryLabel}`}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
             haptics.selection();
-            setOpen((v) => !v);
+            setRadOpen(false);
+            setCatOpen((v) => !v);
           }}
         >
-          <span className="map-filter-menu__icon" aria-hidden>
-            <SlidersHorizontal size={13} />
-          </span>
-          <span className="map-filter-menu__label">{activeLabel}</span>
-          {isFiltered && <span className="map-filter-menu__dot" aria-hidden />}
-          <ChevronDown size={12} className="map-filter-menu__chevron" />
+          <SlidersHorizontal size={14} weight={filter !== "all" ? "bold" : "regular"} />
+          <span>{activeCategoryLabel}</span>
+          <ChevronDown size={11} className={`map-chevron${catOpen ? " is-open" : ""}`} />
         </button>
       )}
 
+      {/* 4. List / Map view mode toggle */}
       {onCycleDetent && (
         <button
           type="button"
           className={`map-control-bar__toggle${detent !== "peek" ? " active" : ""}`}
           onClick={onCycleDetent}
         >
-          {detent === "peek" ? <ListChecks size={15} /> : <MapIcon size={15} weight="fill" />}
+          {detent === "peek" ? <ListChecks size={14} /> : <MapIcon size={14} weight="fill" />}
           <span>{detent === "peek" ? "List" : "Map"}</span>
         </button>
       )}
 
-      {menu}
+      {categoryMenu}
+      {radiusMenu}
     </div>
   );
 }

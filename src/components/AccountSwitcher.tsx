@@ -1,66 +1,236 @@
-import { Check, Store, Briefcase, User, Plus, ChevronRight, Package } from "@/components/Icons";
+import { useEffect } from "react";
+import {
+  Check,
+  Store,
+  Briefcase,
+  User,
+  Plus,
+  ChevronRight,
+  Package,
+  X,
+  LayoutGrid,
+  Sparkles,
+} from "@/components/Icons";
 import { SafeImg } from "./common";
 import { useAccountOptions, type AccountOption } from "@/hooks/useAccountOptions";
+import { haptics } from "@/lib/haptics";
 
-const ICONS = { customer: User, business: Store, provider: Briefcase, delivery: Package } as const;
-const COLORS = { customer: "var(--brand-600)", business: "var(--orange-500)", provider: "var(--green-500)", delivery: "var(--delivery-600)" } as const;
+const ICONS = {
+  customer: User,
+  business: Store,
+  provider: Briefcase,
+  delivery: Package,
+} as const;
+
+const COLORS = {
+  customer: "var(--brand-600)",
+  business: "var(--orange-500)",
+  provider: "var(--green-600)",
+  delivery: "var(--delivery-600)",
+} as const;
+
+const BG_TINTS = {
+  customer: "var(--brand-50)",
+  business: "var(--orange-50)",
+  provider: "var(--green-100)",
+  delivery: "var(--delivery-50)",
+} as const;
 
 export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
   const { options, pick, canAddBusiness, canBecomeProvider, nav } = useAccountOptions();
 
-  return (
-    <div className="overlay" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-grab" />
-        <h3 className="bold h2" style={{ marginBottom: 4 }}>Switch account</h3>
-        <p className="small muted" style={{ marginBottom: 14 }}>One login, all your hats. Pick what you're managing.</p>
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onEsc);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onEsc);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
 
-        <div className="col gap-8">
+  function handleSelect(opt: AccountOption) {
+    haptics.selection();
+    pick(opt);
+    onClose();
+  }
+
+  return (
+    <div className="account-drawer-backdrop" onClick={onClose} aria-label="Dismiss">
+      <div
+        className="account-drawer-sheet"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Switch account"
+      >
+        <div className="account-drawer-handle" />
+
+        <div className="account-drawer-header">
+          <div>
+            <h3 className="bold h3" style={{ margin: 0, color: "var(--ink-900)" }}>
+              Switch Account
+            </h3>
+            <p className="tiny muted" style={{ margin: "3px 0 0", color: "var(--ink-500)" }}>
+              One login, all your hats. Pick what you&apos;re managing.
+            </p>
+          </div>
+          <button
+            className="account-drawer-close-btn"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="col gap-8" style={{ marginBottom: 16 }}>
           {options.map((opt) => (
-            <Row key={`${opt.type}:${opt.id}`} opt={opt} onClick={() => { pick(opt); onClose(); }} />
+            <RoleCard
+              key={`${opt.type}:${opt.id}`}
+              opt={opt}
+              onClick={() => handleSelect(opt)}
+            />
           ))}
         </div>
 
-        <div className="divider" />
+        <div className="divider" style={{ margin: "14px 0" }} />
 
-        {canAddBusiness && (
-          <button className="action-row row gap-12" onClick={() => { onClose(); nav("/onboard/business"); }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--orange-50)", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={20} color="var(--orange-500)" /></div>
-            <span className="semi small grow" style={{ textAlign: "left" }}>Add a business</span>
-            <ChevronRight size={18} color="var(--ink-300)" />
+        <div className="col gap-6">
+          {canAddBusiness && (
+            <button
+              className="account-action-card"
+              onClick={() => {
+                haptics.selection();
+                onClose();
+                nav("/onboard/business");
+              }}
+            >
+              <div
+                className="account-action-icon-wrap"
+                style={{ background: "var(--orange-50)", color: "var(--orange-500)" }}
+              >
+                <Store size={20} />
+              </div>
+              <div className="grow" style={{ textAlign: "left" }}>
+                <div className="semi small" style={{ color: "var(--ink-900)" }}>
+                  Add a business
+                </div>
+                <div className="tiny muted">List your store &amp; catalog on STRYT</div>
+              </div>
+              <Plus size={16} color="var(--orange-500)" />
+            </button>
+          )}
+
+          {canBecomeProvider && (
+            <button
+              className="account-action-card"
+              onClick={() => {
+                haptics.selection();
+                onClose();
+                nav("/onboard/provider");
+              }}
+            >
+              <div
+                className="account-action-icon-wrap"
+                style={{ background: "var(--green-100)", color: "var(--green-600)" }}
+              >
+                <Briefcase size={20} />
+              </div>
+              <div className="grow" style={{ textAlign: "left" }}>
+                <div className="semi small" style={{ color: "var(--ink-900)" }}>
+                  Become a provider
+                </div>
+                <div className="tiny muted">Offer local services &amp; get booked</div>
+              </div>
+              <Sparkles size={16} color="var(--green-600)" />
+            </button>
+          )}
+
+          <button
+            className="account-action-card"
+            onClick={() => {
+              haptics.selection();
+              onClose();
+              nav("/manage");
+            }}
+          >
+            <div
+              className="account-action-icon-wrap"
+              style={{ background: "var(--brand-50)", color: "var(--brand-600)" }}
+            >
+              <LayoutGrid size={20} />
+            </div>
+            <div className="grow" style={{ textAlign: "left" }}>
+              <div className="semi small" style={{ color: "var(--ink-900)" }}>
+                Manage all spaces
+              </div>
+              <div className="tiny muted">Hub for all your businesses and profiles</div>
+            </div>
+            <ChevronRight size={16} color="var(--ink-400)" />
           </button>
-        )}
-        {canBecomeProvider && (
-          <button className="action-row row gap-12" onClick={() => { onClose(); nav("/onboard/provider"); }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center" }}><Plus size={20} color="var(--green-500)" /></div>
-            <span className="semi small grow" style={{ textAlign: "left" }}>Become a provider</span>
-            <ChevronRight size={18} color="var(--ink-300)" />
-          </button>
-        )}
-        <button className="action-row row gap-12" onClick={() => { onClose(); nav("/manage"); }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center" }}>🗂️</div>
-          <span className="semi small grow" style={{ textAlign: "left" }}>Manage all</span>
-          <ChevronRight size={18} color="var(--ink-300)" />
-        </button>
+        </div>
       </div>
     </div>
   );
 }
 
-function Row({ opt, onClick }: { opt: AccountOption; onClick: () => void }) {
+function RoleCard({ opt, onClick }: { opt: AccountOption; onClick: () => void }) {
   const Icon = ICONS[opt.type];
   const color = COLORS[opt.type];
+  const bgTint = BG_TINTS[opt.type];
+
   return (
-    <button className="card row gap-12" style={{ padding: 12, textAlign: "left", border: opt.active ? `2px solid ${color}` : "1px solid var(--line)" }} onClick={onClick}>
-      <div style={{ position: "relative" }}>
-        <SafeImg src={opt.avatar} variant="avatar" className="avatar" style={{ width: 44, height: 44 }} />
-        <span style={{ position: "absolute", bottom: -2, right: -2, width: 18, height: 18, borderRadius: "50%", background: color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #fff" }}><Icon size={14} /></span>
+    <button
+      className={`account-role-card ${opt.active ? "active" : ""}`}
+      style={
+        opt.active
+          ? {
+              background: bgTint,
+              borderColor: color,
+            }
+          : undefined
+      }
+      onClick={onClick}
+    >
+      <div className="account-role-avatar-wrap">
+        <SafeImg
+          src={opt.avatar}
+          variant="avatar"
+          className="account-role-avatar"
+          style={{ width: 42, height: 42 }}
+        />
+        <span
+          className="account-role-badge"
+          style={{ background: color }}
+        >
+          <Icon size={10} />
+        </span>
       </div>
-      <div className="grow">
-        <div className="semi small">{opt.name}</div>
-        <div className="tiny muted">{opt.sub}</div>
+
+      <div className="grow" style={{ minWidth: 0 }}>
+        <div className="semi small ellipsis" style={{ color: "var(--ink-900)", fontWeight: 600 }}>
+          {opt.name}
+        </div>
+        <div className="tiny muted ellipsis" style={{ marginTop: 2 }}>
+          {opt.sub}
+        </div>
       </div>
-      {opt.active && <Check size={20} color={color} />}
+
+      {opt.active ? (
+        <span
+          className="account-role-active-pill"
+          style={{ background: bgTint, color }}
+        >
+          <Check size={12} strokeWidth={3} />
+          Active
+        </span>
+      ) : (
+        <ChevronRight size={16} color="var(--ink-300)" style={{ flexShrink: 0 }} />
+      )}
     </button>
   );
 }

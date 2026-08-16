@@ -595,6 +595,7 @@ export default function MapView() {
               availOnly={availOnly}
               setAvailOnly={setAvailOnly}
               radiusKm={radiusOverride}
+              currentRadiusKm={searchRadiusKm}
               // Guests are capped at GUEST_RADIUS_KM, so offering the row would be
               // offering choices that silently don't apply.
               onRadiusChange={isGuest ? undefined : applyRadius}
@@ -706,16 +707,43 @@ export default function MapView() {
           </Source>
         )}
 
-        {/* Radius ring — hidden for World mode */}
+        {/* Radius ring — visual coverage circle */}
         {radiusRing && (
           <Source id="radius-ring" type="geojson" data={radiusRing}>
-            <Layer id="radius-ring-fill" type="fill" paint={{ "fill-color": brandColor, "fill-opacity": 0.05 }} />
+            <Layer
+              id="radius-ring-fill"
+              type="fill"
+              paint={{ "fill-color": brandColor, "fill-opacity": 0.08 }}
+            />
             <Layer
               id="radius-ring-line"
               type="line"
-              paint={{ "line-color": brandColor, "line-width": 1.5, "line-dasharray": [2, 1.5] }}
+              paint={{
+                "line-color": brandColor,
+                "line-width": 2,
+                "line-dasharray": [3, 2],
+                "line-opacity": 0.85,
+              }}
             />
           </Source>
+        )}
+
+        {/* Northern Edge Range Pill directly on the map */}
+        {radiusRing && searchRadiusKm > 0 && searchRadiusKm < 20000 && (
+          <Marker
+            longitude={centerLng}
+            latitude={centerLat + searchRadiusKm / 111}
+            anchor="bottom"
+          >
+            <div className="map-radius-edge-pill">
+              <span>🎯</span>
+              <span>
+                {searchRadiusKm < 1
+                  ? `${Math.round(searchRadiusKm * 1000)}m range`
+                  : `${searchRadiusKm.toFixed(1).replace(/\.0$/, "")} km range`}
+              </span>
+            </div>
+          </Marker>
         )}
 
         {/* Compass Line connecting user to selected pin */}

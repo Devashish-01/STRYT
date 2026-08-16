@@ -3,8 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { User } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
 import { useLongPress } from "@/hooks/useLongPress";
+import { haptics } from "@/lib/haptics";
 import AccountSwitcher from "@/components/AccountSwitcher";
-import HatSwitcherPopover from "@/components/HatSwitcherPopover";
 
 interface FooterProfileTabProps {
   profilePath: string;
@@ -15,8 +15,8 @@ interface FooterProfileTabProps {
 }
 
 /**
- * Footer Profile tab — tap opens profile hub, long-press opens upward hat
- * popover with a "See all accounts" path to the full AccountSwitcher sheet.
+ * Footer Profile tab — tap opens profile hub, long-press opens the
+ * sleek AccountSwitcher drawer with haptic feedback.
  * Shared by customer BottomNav, business ManageNav, and provider ProviderManageNav.
  */
 export default function FooterProfileTab({
@@ -27,10 +27,12 @@ export default function FooterProfileTab({
 }: FooterProfileTabProps) {
   const nav = useNavigate();
   const { t } = useI18n();
-  const [popover, setPopover] = useState(false);
-  const [fullSwitcher, setFullSwitcher] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const { handlers: longPress, wrapTap } = useLongPress(() => setPopover(true));
+  const { handlers: longPress, wrapTap } = useLongPress(() => {
+    haptics.medium();
+    setDrawerOpen(true);
+  });
   const profileTap = wrapTap(() => nav(profilePath));
   const stroke = iconStrokeWidth ?? (active ? 2.6 : 2);
   const tabLabel = label ?? t("profile");
@@ -47,13 +49,7 @@ export default function FooterProfileTab({
         <span>{tabLabel}</span>
       </button>
 
-      {popover && (
-        <HatSwitcherPopover
-          onClose={() => setPopover(false)}
-          onSeeAll={() => setFullSwitcher(true)}
-        />
-      )}
-      {fullSwitcher && <AccountSwitcher onClose={() => setFullSwitcher(false)} />}
+      {drawerOpen && <AccountSwitcher onClose={() => setDrawerOpen(false)} />}
     </>
   );
 }
