@@ -33,6 +33,7 @@ import { buildConsoleSteps, consoleFor, type CapabilityState } from "@/lib/conso
 import type { ConsoleCapability } from "@/lib/businessPackages";
 import Toggle from "@/components/Toggle";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import AmbientSky from "@/features/ambient/AmbientSky";
 import { useBusinessAccess } from "@/components/BusinessAccessGuard";
 
@@ -192,7 +193,10 @@ export default function ManageDashboard() {
   // `isOpenNow` (a temporary pause). Same inherit expression BusinessDetail
   // already uses — a takeaway shouldn't be shown a reservations console.
   const bookingsOn = business?.bookingsEnabled ?? pkg.bookingsDefault;
-  const deliveryOn = business?.deliveryEnabled === true;
+  // Was driven purely by the business's own setting — with the flag off,
+  // this tile stayed as an unguarded, discoverable path back into the
+  // (now separately gated) BusinessDeliveries route.
+  const deliveryOn = DELIVERY_AGENT_ENABLED && business?.deliveryEnabled === true;
 
   const capabilities: Partial<Record<ConsoleCapability, CapabilityState>> = {
     catalog: {

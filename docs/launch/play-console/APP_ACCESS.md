@@ -4,8 +4,14 @@
 **Console location:** App content → **App access**
 **Prepared:** 4 August 2026
 
+> ⏸ **v1.0 STATUS: delivery is deferred.** `DELIVERY_AGENT_ENABLED` is `false`
+> for this submission — `/delivery`, the "Deliveries" console tab, and every
+> other delivery entry point are unreachable in this build. **Only sections
+> 1-3 below apply to this submission; section 4 is kept for v1.1 and marked
+> ⏸ DEFERRED.**
+
 Play rejects submissions where review cannot reach a declared feature. STRYT
-gates almost everything behind sign-in and gates three consoles behind roles a
+gates almost everything behind sign-in and gates consoles behind roles a
 new account does not have, so this form is not optional — answer
 **"All or some functionality is restricted"** and fill in the table below.
 
@@ -37,8 +43,8 @@ arguing with the reviewer.
 restricted**
 
 Add one instruction set per role. Play allows several; use them — a single
-customer login will not show a reviewer the delivery or business features they
-must assess for the background-location declaration.
+customer login will not show a reviewer the business features they must
+assess for the background-location declaration.
 
 ---
 
@@ -80,7 +86,9 @@ Sign in as above. This account already owns a verified demo business, so no
 onboarding or KYC upload is needed.
 
 Account → switch to the business, or open Home → the business card → "Manage".
-Console sections: Catalog, Hours, Queue, Appointments, Deliveries, Q&A, Inbox.
+Console sections: Catalog, Hours, Queue, Appointments, Q&A, Inbox.
+(Deliveries is not shown in this build — see the status note at the top of
+this file.)
 
 Note: the business console asks for a business password on entry. It is:
     <business password>
@@ -120,6 +128,11 @@ background at any other time.
 ---
 
 ### 4. Background location — delivery run (the second use of the same permission)
+
+> ⏸ **DEFERRED to v1.1 — do not add this instruction set to this submission.**
+> `/delivery` redirects to `/home` with the flag off, so a delivery test
+> account has nothing to show a reviewer right now. Kept below so it's ready
+> to re-add when delivery ships.
 
 | Field | Value |
 |---|---|
@@ -161,10 +174,10 @@ that it is internal-only and gated to STRYT staff.
 
 ## Pre-submission checklist for the review accounts
 
-- [ ] Three Google accounts created, **2FA off**, each signed into once on a real device
+- [ ] Two Google accounts created, **2FA off**, each signed into once on a real device
 - [ ] Customer account: onboarding completed, at least one emergency contact saved
 - [ ] Business account: owns a demo business, business password set and written above
-- [ ] Delivery account: holds an **active** delivery grant, with one order queued to accept
+- [ ] ⏸ DEFERRED to v1.1: delivery account holding an active grant, one order queued
 - [ ] Every password in this file replaced with the real value **before** pasting into the Console
 - [ ] Demo data is safe to be screenshotted by a stranger — no real customer names, numbers, or addresses
 

@@ -19,6 +19,13 @@ tests and a clean build.
 **Run §1 first.** It's the regression pass over everything changed this cycle,
 and it's where breakage is most likely. §2–§9 are the full surface.
 
+> ⏸ **v1.0 STATUS: delivery is deferred.** `DELIVERY_AGENT_ENABLED` is `false`
+> for this release — every delivery-specific block below is marked
+> `⏸ DEFERRED — skip for v1.0` and kept, not deleted, so this plan is ready to
+> reactivate for v1.1. One new v1.0-only check replaces them: confirm
+> `/delivery`, the business "Deliveries" tab, and "my-deliveries" all redirect
+> away instead of opening.
+
 ### Test accounts to prepare
 
 | # | Account | Purpose |
@@ -26,7 +33,7 @@ and it's where breakage is most likely. §2–§9 are the full surface.
 | A1 | Fresh phone number, never used | Sign-up, name/alias, first-run states |
 | A2 | Business owner (owns 1 shop) | Console, settings, delete |
 | A3 | Team member (SCOPED, appointments only) | **Privilege escalation regression** |
-| A4 | Delivery agent (delivery scope) | Runs, duty, cancel |
+| A4 | ⏸ DEFERRED for v1.0 — Delivery agent (delivery scope) | Runs, duty, cancel |
 | A5 | Provider | Provider console |
 | A6 | Customer with bookings + history | Customer flows |
 | A7 | Admin | Admin panel |
@@ -64,6 +71,10 @@ will not catch a regression here.
 
 ### 1.2 Delivery: the cancel path `P0`
 
+> ⏸ DEFERRED — skip for v1.0. `/delivery` redirects to `/home` with the flag
+> off; nothing in this table is reachable. Instead, confirm A4 (or any
+> account) hitting `/delivery` directly gets bounced to `/home`.
+
 | # | Step | Expected |
 |---|------|----------|
 | 1 | A4 → `/delivery`, go **on duty** | Battery sheet appears **here** (§1.7) |
@@ -83,6 +94,8 @@ will not catch a regression here.
 | 15 | Double-tap confirm quickly | Exactly **one** cancel |
 
 ### 1.3 Delivery: runs, position, multi-run `P1`
+
+> ⏸ DEFERRED — skip for v1.0, same reason as §1.2.
 
 | # | Step | Expected |
 |---|------|----------|
@@ -135,6 +148,13 @@ will not catch a regression here.
 | 8 | Customer's past booking with that shop | **Still visible** — history intact |
 
 ### 1.7 Battery prompt re-scoping `P0` (Play risk)
+
+> ⏸ DEFERRED — skip for v1.0. The prompt's only call site is delivery's
+> on-duty toggle, which is unreachable, and the permission itself is
+> commented out of `AndroidManifest.xml`. Replace with one check: as a plain
+> customer, use the app fully — the battery sheet never appears (this is now
+> trivially true, since nothing left can trigger it, but worth confirming
+> nothing else references the event by mistake).
 
 | # | Step | Expected |
 |---|------|----------|
@@ -222,7 +242,7 @@ will not catch a regression here.
 | 3 | Search: shops, providers, empty results | P1 |
 | 4 | Business detail: tabs, photos, reviews, share | P0 |
 | 5 | **Book an appointment** end to end | P0 |
-| 6 | Booking with delivery: address required, ETA shown | P0 |
+| 6 | ⏸ DEFERRED for v1.0 — Booking with delivery: address required, ETA shown | P0 |
 | 7 | Out-of-service-area booking | P1 |
 | 8 | Reschedule / cancel a booking | P0 |
 | 9 | Payment: UPI deep link, mark paid, status | P0 |
@@ -247,7 +267,7 @@ will not catch a regression here.
 | 6 | Inventory: flags, restock | P1 |
 | 7 | Queue: call next, serve, walk-in, close | P1 |
 | 8 | Appointments: accept, reject, complete, no-show, walk-in | P0 |
-| 9 | Deliveries board: assign, reassign, cancel, follow | P0 |
+| 9 | ⏸ DEFERRED for v1.0 — Deliveries board: assign, reassign, cancel, follow | P0 |
 | 10 | Leads/Q&A/requests: respond, quote | P1 |
 | 11 | Hours + special/holiday hours | P0 |
 | 12 | Profile editor, portfolio, broadcast radius | P1 |
@@ -284,12 +304,13 @@ will not catch a regression here.
 
 | # | Check | P |
 |---|-------|---|
-| 1 | Switch customer ↔ business ↔ provider ↔ delivery | P0 |
+| 1 | Switch customer ↔ business ↔ provider | P0 |
 | 2 | Password/PIN gate on entering a console | P0 |
 | 3 | Wrong password, then recovery (owner only) | P0 |
 | 4 | Correct context "home" per hat | P1 |
 | 5 | Deep link while in the wrong hat | P1 |
-| 6 | Delivery hat appears with a standing `delivery` grant, **no active job** | P1 |
+| 6 | ⏸ DEFERRED for v1.0 — Delivery hat appears with a standing `delivery` grant, **no active job** | P1 |
+| 7 | Delivery hat does **not** appear anywhere (role switcher, account sheet), even for an account holding a `delivery` grant | P0 |
 
 ## §8 — Cross-cutting
 

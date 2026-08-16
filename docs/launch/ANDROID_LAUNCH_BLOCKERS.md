@@ -59,23 +59,26 @@ the location picker; no 429 in the console after repeated panning.
 
 ## BLOCKER 1 — `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (highest rejection risk)
 
-`AndroidManifest.xml:76`
+**RESOLVED BY DEFERRAL for v1.0.** `AndroidManifest.xml:76` is now commented
+out, and `DELIVERY_AGENT_ENABLED` (`src/lib/features.ts`) is `false` — the
+permission's only call site (`promptBatteryExemptionForDuty`, reached only
+from delivery's on-duty toggle) is unreachable in this build. There is
+nothing to justify to a reviewer this round because the app never requests
+it.
 
-Google restricts this permission to a **narrow allowlist** of app types. Apps
-that request it outside those categories are rejected, and this is one of the
-most common causes of a Play review failure for delivery/tracking apps.
-
-Your use (keeping a delivery agent's location alive on a run) is arguable but
-**not automatically permitted**. You have three options:
+Original analysis, for when delivery ships in v1.1 — Google restricts this
+permission to a **narrow allowlist** of app types, and this is one of the
+most common causes of a Play review failure for delivery/tracking apps. Your
+use (keeping a delivery agent's location alive on a run) is arguable but
+**not automatically permitted**. Options at that point:
 
 1. Remove it and accept OEM battery-killing (the delivery FGS may be killed on
    Xiaomi/Oppo/Vivo).
 2. Keep it and justify it in the Console under the exemption you're claiming.
 3. Keep it but only *prompt* for it for users who actually take a delivery run
-   — which is the honest framing and easiest to defend.
-
-**This is the single item most likely to get the submission bounced.** Decide
-before you upload.
+   — which is the honest framing and easiest to defend, and what the app
+   already does (see `batteryOptimization.ts`) — so option 3 is already the
+   default for whenever this returns.
 
 ---
 
@@ -93,9 +96,10 @@ drafted and `BackgroundLocationDisclosure.tsx` in the app, so this is prepared �
 but it is a **hard gate**: the submission cannot pass without it, and review
 takes longer because a human watches the video.
 
-Note the feature this serves is My People live-sharing and delivery runs. The
-first-run explainer added this session strengthens the "prominent disclosure"
-case, since the user now sees what's shared and who receives it before it starts.
+Note the feature this serves is My People live-sharing for v1.0 (⏸ delivery
+runs deferred to v1.1 — see BLOCKER 1). The first-run explainer added this
+session strengthens the "prominent disclosure" case, since the user now sees
+what's shared and who receives it before it starts.
 
 ---
 
@@ -111,11 +115,11 @@ Minimum device pass before upload:
 
 - sign up fresh (the new `'New user'` seeding path)
 - book an appointment end to end
-- take a delivery run: accept → en route → arrived → handoff → and **"Can't
-  deliver"**, then confirm you can go off duty
 - toggle My People sharing on and off, confirm the FGS notification appears
 - delete a test business
-- background the app for 10 minutes with a run active, confirm location still posts
+- background the app for 10 minutes with a share active, confirm location still posts
+- confirm `/delivery` and the business "Deliveries" tab are actually gone
+  (⏸ delivery run pass itself deferred to v1.1 — see BLOCKER 1)
 
 ---
 
@@ -163,7 +167,7 @@ From the trackers — none are crashes, all are product gaps:
 | Feedback #17 | Two global responsive defects fixed; per-screen enumeration still needs devices |
 | Feedback #12 | Believed already correct; needs 30s of your confirmation |
 | TMA-007 | No audit trail on team-access grants/revokes |
-| DLV-009 | "Orders awaiting a driver" isn't a queryable state, only an absence |
+| DLV-009 | "Orders awaiting a driver" isn't a queryable state, only an absence — moot for v1.0, delivery is deferred (see BLOCKER 1) |
 
 ---
 

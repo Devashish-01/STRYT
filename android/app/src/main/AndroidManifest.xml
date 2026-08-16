@@ -69,11 +69,14 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <!-- Lets the app prompt the OS "ignore battery optimizations" dialog
-         (BatteryOptimizationPlugin.java) so OEM battery managers don't
-         throttle/kill FCM delivery while the app is backgrounded or the
-         phone is locked. -->
+    <!-- Commented out for the v1.0 submission: this permission's only call
+         site (promptBatteryExemptionForDuty, src/lib/batteryOptimization.ts)
+         is delivery's on-duty toggle, and DELIVERY_AGENT_ENABLED is false
+         for this release (src/lib/features.ts) — so it would be a declared,
+         unused permission, which is exactly the kind of thing Play review
+         flags. Restore alongside DELIVERY_AGENT_ENABLED for v1.1.
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- Capgo plugin marks GPS required; keep the app installable without GPS. -->
     <uses-feature android:name="android.hardware.location.gps" android:required="false" tools:replace="android:required" />

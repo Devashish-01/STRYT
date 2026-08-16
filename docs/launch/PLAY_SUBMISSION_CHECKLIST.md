@@ -24,8 +24,8 @@ Verified against the shipping code and the live database, not from memory.
 
 | Item | Where |
 |---|---|
-| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` prompted **only** on delivery on-duty, never at launch | `src/lib/batteryOptimization.ts` → `DeliveryConsole.tsx:170` |
-| Prominent background-location disclosure before the system dialog, in **both** entry points | `useLiveShare.tsx:142`, `DeliveryConsole.tsx:494` |
+| ⏸ DEFERRED for v1.0 — `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` prompted **only** on delivery on-duty, never at launch (permission itself is commented out of the manifest while `DELIVERY_AGENT_ENABLED` is `false`) | `src/lib/batteryOptimization.ts` → `DeliveryConsole.tsx:170` |
+| Prominent background-location disclosure before the system dialog, in `useLiveShare.tsx` (live for v1.0); `DeliveryConsole.tsx`'s entry point unreachable this release | `useLiveShare.tsx:142`, ⏸ `DeliveryConsole.tsx:494` |
 | Public account-deletion page, reachable without signing in | `legal/account-deletion.md` → `https://stryt.in/legal/account-deletion` |
 | **`purge-deleted-accounts` deployed for the first time** — the scheduled workflow had been calling a function that did not exist (`POST \| 404` in the logs), so the 30-day purge had **never run**. Deleted accounts sat in the grace period indefinitely, contradicting the deletion promise Play is being shown | `supabase/functions/purge-deleted-accounts/` |
 | Payment QRs generated on-device — merchant UPI IDs no longer sent to `api.qrserver.com` | `src/components/ShareCard.tsx` (`qrcode.react`) |
@@ -42,8 +42,9 @@ Each links to the fill-in doc where one exists.
 
 - [ ] **App content → Sensitive permissions → Background location** —
       [`play-console/BACKGROUND_LOCATION_DECLARATION.md`](play-console/BACKGROUND_LOCATION_DECLARATION.md).
-      Needs a **demo video** covering **both** the live share and the delivery
-      run. Human-reviewed, so budget extra turnaround.
+      Needs a **demo video** covering the live share (⏸ delivery run deferred
+      to v1.1 — see the status note at the top of that file). Human-reviewed,
+      so budget extra turnaround.
 - [ ] **App content → Data safety** —
       [`play-console/DATA_SAFETY.md`](play-console/DATA_SAFETY.md). Complete,
       code-derived answers.
@@ -221,10 +222,12 @@ outranks every lint finding.
 
 - [ ] Fresh sign-up through onboarding
 - [ ] Book an appointment end to end
-- [ ] Delivery run: accept → en route → arrived → handoff, then **"Can't
-      deliver"**, then go off duty
+- [ ] ⏸ DEFERRED for v1.0 — Delivery run: accept → en route → arrived →
+      handoff, then **"Can't deliver"**, then go off duty
 - [ ] My People share on/off; confirm the foreground-service notification
-- [ ] Background the app 10 minutes with a run active; confirm location still posts
+- [ ] Background the app 10 minutes with a share active; confirm location still posts
+- [ ] `/delivery`, the business "Deliveries" tab, and "my-deliveries" all
+      redirect away instead of opening
 - [ ] Share sheet → QR tab: **profile and payment QRs both scan** (these are
       newly generated on-device), and "Download QR" produces a scannable PNG
 - [ ] Delete a test business

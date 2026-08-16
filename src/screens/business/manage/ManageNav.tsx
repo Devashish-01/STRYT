@@ -46,13 +46,16 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
   const profilePath = `${base}/profile`;
   const profileActive = profileRoutes.some((path) => location.pathname.startsWith(base + path));
 
-  const items = [
+  // With DELIVERY_AGENT_ENABLED a literal `false`, the delivery entry below
+  // constant-folds to the bare literal `false` (no `{object}` alternative
+  // reachable at all), unlike its siblings which are always `false |
+  // {object}`. Left for `items` itself to infer from `rawItems`, TypeScript
+  // widened that one asymmetric entry to full `boolean` to unify the array —
+  // reintroducing `true` and breaking property access in the `.map` below.
+  // Declaring `NavItem` and filtering into it explicitly sidesteps that.
+  type NavItem = { to: string; label: string; icon: any; active: boolean; badge?: number };
+  const rawItems = [
     { to: base, label: "Home", icon: Home, active: location.pathname === base },
-    // Real per-business usage, not a per-package guess — see businessService's
-    // hasEverUsedQueue. A business that's never touched queue settings has no
-    // tab; BusinessHub's Operations section offers the same destination as a
-    // one-time "Set up walk-in queue" entry instead, so the feature is still
-    // discoverable.
     hasScope("queue") && hasEverUsedQueue && { to: `${base}/queue`, label: "Queue", icon: Users, active: location.pathname.startsWith(`${base}/queue`), badge: queueCount },
     hasScope("appointments") && bookingsOn && { to: `${base}/appointments`, label: "Appointments", icon: CalendarClock, active: location.pathname.startsWith(`${base}/appointments`) },
     DELIVERY_AGENT_ENABLED && hasActiveDeliveries && {
@@ -63,7 +66,8 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
     },
     hasScope("catalog") && { to: `${base}/store`, label: storeTabLabel, icon: Store, active: storeRoutes.some((path) => location.pathname.startsWith(base + path)) },
     { to: `${base}/business`, label: "Business", icon: Briefcase, active: businessRoutes.some((path) => location.pathname.startsWith(base + path)) },
-  ].filter((item): item is Exclude<typeof item, false> => item !== false);
+  ];
+  const items: NavItem[] = rawItems.filter((item): item is NavItem => Boolean(item) && typeof item === "object");
 
   return (
     <nav className="bottom-nav" aria-label="Business console">

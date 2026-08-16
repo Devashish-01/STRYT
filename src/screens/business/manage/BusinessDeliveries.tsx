@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
@@ -17,6 +17,7 @@ import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";
 import { openRoute } from "@/lib/routeLink";
 import DeliveryStatusPill from "@/components/delivery/DeliveryStatusPill";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import ManageNav from "./ManageNav";
 
 const ACTIVE_STATUSES = ["ASSIGNED", "EN_ROUTE", "ARRIVED"] as const;
@@ -126,6 +127,14 @@ export default function BusinessDeliveries() {
     ...agentPoints.map((a) => [a.lat, a.lng] as [number, number]),
     ...stopPoints.map((s) => [s.deliveryLat!, s.deliveryLng!] as [number, number]),
   ];
+
+  // Route itself had no flag check before this — only the dashboard tile/nav
+  // link pointing here did (BusinessHub.tsx, ManageDashboard.tsx), so direct
+  // URL entry stayed reachable with the feature off. Redirect rather than
+  // 404 so a stale bookmark/link lands somewhere real. After all hooks above,
+  // not before — an early return ahead of a hook call violates Rules of
+  // Hooks (hooks must run in the same order every render).
+  if (!DELIVERY_AGENT_ENABLED) return <Navigate to={`/business/${id}/manage`} replace />;
 
   if (!id) {
     return (

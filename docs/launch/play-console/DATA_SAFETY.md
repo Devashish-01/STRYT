@@ -37,14 +37,16 @@ exceptions are documented in `legal/data-retention-policy.md` §3.4.
 | Purposes | App functionality; Personalisation | App functionality |
 
 **Why:** `users.lat` / `users.lng` store a last-known position for nearby
-discovery (`neighborhood_today`, map/Explore). Live share and delivery runs
-stream position while active — `ACCESS_BACKGROUND_LOCATION` +
+discovery (`neighborhood_today`, map/Explore). Live share streams position
+while active — `ACCESS_BACKGROUND_LOCATION` +
 `FOREGROUND_SERVICE_LOCATION` in `android/app/src/main/AndroidManifest.xml:60-68`,
-driven by `src/lib/backgroundLocation.ts`.
+driven by `src/lib/backgroundLocation.ts`. (⏸ Delivery runs are the same
+mechanism but are deferred to v1.1 — `DELIVERY_AGENT_ENABLED` is `false` for
+this submission, see `BACKGROUND_LOCATION_DECLARATION.md`.)
 
 **Sharing — declare this explicitly:** precise location is shared **with other
 users the person chooses** — the contacts they start a My People live share
-with, and, during a delivery run, the shop and the customer on that order. It is
+with. (⏸ v1.1: also the shop and the customer on a delivery run.) It is
 **not** shared with advertisers, data brokers, or analytics providers.
 
 > STRYT stores only the *last known* position, not a movement history. Say so in
@@ -53,7 +55,8 @@ with, and, during a delivery run, the shop and the customer on that order. It is
 
 **Background location declaration:** required separately under App content →
 Sensitive permissions. See `BACKGROUND_LOCATION_DECLARATION.md` in this folder —
-it needs a demo video and covers **two** features (live share *and* delivery).
+it needs a demo video. For v1.0 it covers **one** feature (My People live
+share); delivery is deferred to v1.1.
 
 ---
 
