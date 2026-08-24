@@ -32,13 +32,16 @@ export default function ListingPickerSheet({
 }) {
   const { user } = useApp();
   const [q, setQ] = useState("");
+  const pickerGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
   const { data: bizPage, loading: bizLoading } = useQuery(
     () => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }),
-    [user.lat, user.lng]
+    [user.lat, user.lng],
+    `lists:biz:${pickerGeoKey}`
   );
   const { data: provPage, loading: provLoading } = useQuery(
     () => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }),
-    [user.lat, user.lng]
+    [user.lat, user.lng],
+    `lists:prov:${pickerGeoKey}`
   );
   const lq = q.trim().toLowerCase();
   const filteredBiz = (bizPage?.data ?? []).filter((b) => b.name.toLowerCase().includes(lq));

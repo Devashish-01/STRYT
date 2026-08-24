@@ -22,7 +22,8 @@ export function AccountStatusBanner({ entityType, entityId, status }: AccountSta
 
   const { data: appeals, refetch } = useQuery(
     () => (status === "SUSPENDED" ? appealService.mine(entityType, entityId) : Promise.resolve([])),
-    [entityType, entityId, status]
+    [entityType, entityId, status],
+    status === "SUSPENDED" ? `appeals:mine:${entityType}:${entityId}` : undefined
   );
   const pending = (appeals ?? []).find((a) => a.status === "PENDING");
 

@@ -22,8 +22,9 @@ export default function Lists() {
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🌟");
 
-  const { data: bizPage } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
-  const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng]);
+  const listsGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
+  const { data: bizPage } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng], `lists:biz:${listsGeoKey}`);
+  const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng], `lists:prov:${listsGeoKey}`);
   const businesses = bizPage?.data ?? [];
   const providers = provPage?.data ?? [];
 

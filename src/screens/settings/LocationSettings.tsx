@@ -15,16 +15,16 @@ import type { LocationGrant } from "@/services/engagement/locationService";
  * row that names them, and the empty case says so instead of being blank.
  */
 export default function LocationSettings() {
-  const { showToast } = useApp();
+  const { showToast, user } = useApp();
 
   const { data: pendingData, refetch: refetchPending } = useQueryWithRealtime(
-    () => locationService.pendingForMe(), "location_share_grants", []
+    () => locationService.pendingForMe(), "location_share_grants", [user.id], undefined, `home:pending-loc:${user.id}`
   );
   const { data: activeShares, refetch: refetchActive } = useQueryWithRealtime(
-    () => locationService.sharedByMe(), "location_share_grants", []
+    () => locationService.sharedByMe(), "location_share_grants", [user.id], undefined, `location:active-shares:${user.id}`
   );
   const { data: historyShares, refetch: refetchHistory } = useQueryWithRealtime(
-    () => locationService.shareHistory(), "location_share_grants", []
+    () => locationService.shareHistory(), "location_share_grants", [user.id], undefined, `location:history:${user.id}`
   );
 
   const pending: LocationGrant[] = pendingData ?? [];

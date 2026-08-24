@@ -57,13 +57,16 @@ export default function CategoryListing() {
   const childIds = cat?.children?.map((c) => c.id) ?? [];
   const matchIds = sub ? [sub] : [id, ...childIds];
 
+  const catListingGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
   const { data: bizPage, loading: bizLoading, error: bizError, refetch: refetchBiz } = useQuery(
     () => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined, radius, sort, categoryIds: matchIds }),
-    [user.lat, user.lng, radius, sort, matchIds.join(",")]
+    [user.lat, user.lng, radius, sort, matchIds.join(",")],
+    `catlist:biz:${matchIds.join(",")}:${radius}:${sort}:${catListingGeoKey}`
   );
   const { data: provPage, loading: provLoading, error: provError, refetch: refetchProv } = useQuery(
     () => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined, radius, sort, categoryIds: matchIds }),
-    [user.lat, user.lng, radius, sort, matchIds.join(",")]
+    [user.lat, user.lng, radius, sort, matchIds.join(",")],
+    `catlist:prov:${matchIds.join(",")}:${radius}:${sort}:${catListingGeoKey}`
   );
 
   // Load-more pagination — same extra/cursor/hasMore idiom as Requests.tsx,

@@ -38,14 +38,15 @@ export default function Search() {
   }, [q]);
 
   const query = debounced.toLowerCase();
-  const { data: leaves } = useQuery(() => catalogService.leaves(), []);
+  const { data: leaves } = useQuery(() => catalogService.leaves(), [], "catalog:leaves");
   const { data: results, loading, error, refetch } = useQuery(
     () => (query
       ? discoveryService.search(query, { lat: user.lat || undefined, lng: user.lng || undefined })
       : Promise.resolve(null)),
-    [query, user.lat, user.lng]
+    [query, user.lat, user.lng],
+    query ? `search:${query}:${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}` : undefined
   );
-  const { data: savedSearches, refetch: refetchSaved } = useQuery(() => discoveryService.savedSearches(), []);
+  const { data: savedSearches, refetch: refetchSaved } = useQuery(() => discoveryService.savedSearches(), [user.id], `search:saved:${user.id}`);
   const saved = savedSearches ?? [];
   const isSaved = saved.some((s) => s.query.toLowerCase() === query);
 

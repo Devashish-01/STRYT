@@ -9,8 +9,8 @@ import { ListSkeleton } from "@/components/states";
 export default function ManageHub() {
   const nav = useNavigate();
   const { ownedBusinessIds, ownedProviderId, roles, attemptSwitchContext } = useApp();
-  const { data: myBiz, loading: bizLoading } = useQuery(() => businessService.mine(), [ownedBusinessIds.join(",")]);
-  const { data: myProviders, loading: provLoading } = useQuery(() => providerService.mine(), [ownedProviderId]);
+  const { data: myBiz, loading: bizLoading } = useQuery(() => businessService.mine(), [ownedBusinessIds.join(",")], `my-businesses:${ownedBusinessIds.join(",")}`);
+  const { data: myProviders, loading: provLoading } = useQuery(() => providerService.mine(), [ownedProviderId], `my-providers:${ownedProviderId}`);
 
   const businesses = myBiz ?? [];
   const provider = (myProviders ?? []).find((p) => p.id === ownedProviderId) ?? (myProviders ?? [])[0];

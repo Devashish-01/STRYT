@@ -43,8 +43,8 @@ export default function HatSwitcherCard({ showManageLink = true }: { showManageL
   const hasSellerProfile = ownedBusinessIds.length > 0 || !!ownedProviderId;
   const activeRole = activeRoleFromContext(activeContext.type);
 
-  const { data: myBizList } = useQuery(() => businessService.mine(), []);
-  const { data: myProvList } = useQuery(() => providerService.mine(), []);
+  const { data: myBizList } = useQuery(() => businessService.mine(), [ownedBusinessIds.join(",")], `my-businesses:${ownedBusinessIds.join(",")}`);
+  const { data: myProvList } = useQuery(() => providerService.mine(), [ownedProviderId], `my-providers:${ownedProviderId}`);
   const myBiz = (myBizList ?? []).find((b) => b.id === manageBizId);
   const myProv = (myProvList ?? []).find((p) => p.id === ownedProviderId);
 

@@ -11,7 +11,8 @@ export default function Followers() {
   const { user } = useApp();
   const { data, loading, error, refetch } = useQuery(
     () => socialService.followers(user.id),
-    [user.id]
+    [user.id],
+    `followers:${user.id}`
   );
 
   return (

@@ -19,7 +19,7 @@ export default function Agreements() {
   const [tab, setTab] = useState<"active" | "completed">("active");
   // Realtime: a deal's status changes when the other party confirms / starts /
   // completes — the list should reflect that live, like the single-deal screen.
-  const { data, loading, error, refetch } = useQueryWithRealtime(() => requestService.agreements(), "agreements", []);
+  const { data, loading, error, refetch } = useQueryWithRealtime(() => requestService.agreements(), "agreements", [user.id], undefined, `home:agreements:${user.id}`);
 
   const agreements = data ?? [];
   const TERMINAL: AgreementStatus[] = ["COMPLETED", "CANCELLED", "DISPUTED"];

@@ -49,12 +49,13 @@ export default function BusinessAccess() {
   const nav = useNavigate();
   const { user, activeContext, setContext, attemptSwitchContext, showToast } = useApp();
 
-  const { data: myBiz, loading: bizLoading } = useQuery(() => businessService.mine(), []);
+  const { data: myBiz, loading: bizLoading } = useQuery(() => businessService.mine(), [user.id], `my-businesses:${user.id}`);
   const { data: mySessions, refetch: refetchMySessions } = useQueryWithRealtime(
     () => businessAccessService.mySessions(),
     "business_access_sessions",
     [user.id],
     `grantee_user_id=eq.${user.id}`,
+    `business-access:my-sessions:${user.id}`
   );
   const [manage, setManage] = useState<Business | null>(null);
   const [leaving, setLeaving] = useState<string | null>(null);

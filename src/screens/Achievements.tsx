@@ -9,7 +9,7 @@ import { displayName } from "@/lib/publicName";
 export default function Achievements() {
   const { user } = useApp();
   const { t } = useI18n();
-  const { data, loading } = useQuery(() => socialService.achievements(), []);
+  const { data, loading } = useQuery(() => socialService.achievements(), [user.id], `achievements:${user.id}`);
   const achievements = data ?? [];
   const unlocked = achievements.filter((a) => a.unlocked).length;
 

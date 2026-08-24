@@ -15,10 +15,12 @@ export default function RequireDeliveryAgent() {
   const { data: sessions, loading: sessionsLoading } = useQuery(
     () => businessAccessService.mySessions(),
     [user.id],
+    `business-access:my-sessions:${user.id}`
   );
   const { data: activeCount, loading: countLoading } = useQuery(
     async () => (DELIVERY_AGENT_ENABLED ? deliveryService.countMyActiveDeliveries() : 0),
     [user.id],
+    `delivery:active-count:${user.id}`
   );
 
   if (!DELIVERY_AGENT_ENABLED) return <Navigate to="/home" replace />;

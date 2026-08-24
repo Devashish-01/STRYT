@@ -30,9 +30,11 @@ export function StoriesBar() {
       ? socialService.storiesNearby(user.lat, user.lng, radius)
       : socialService.stories(),
     "stories",
-    [user.lat, user.lng, radius]
+    [user.lat, user.lng, radius],
+    undefined,
+    `stories:nearby:${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}:${radius}`
   );
-  const { data: myStory }  = useQueryWithRealtime(() => socialService.myStory(), "stories", [user.id]);
+  const { data: myStory }  = useQueryWithRealtime(() => socialService.myStory(), "stories", [user.id], undefined, `stories:mine:${user.id}`);
 
   const stories = data ?? [];
 

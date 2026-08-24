@@ -25,8 +25,9 @@ export default function Requests() {
   const [cat, setCat] = useState<string | null>(null);
   const [special, setSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
 
-  const { data: feedPage, loading: feedLoading, error: feedError, refetch } = useQueryWithRealtime(() => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }), "requests", [user.lat, user.lng]);
-  const { data: mineList, loading: mineLoading } = useQueryWithRealtime(() => requestService.mine(user.lat || 0, user.lng || 0), "requests", [user.lat, user.lng]);
+  const reqScreenGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
+  const { data: feedPage, loading: feedLoading, error: feedError, refetch } = useQueryWithRealtime(() => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }), "requests", [user.lat, user.lng], undefined, `requests:feed:${reqScreenGeoKey}`);
+  const { data: mineList, loading: mineLoading } = useQueryWithRealtime(() => requestService.mine(user.lat || 0, user.lng || 0), "requests", [user.lat, user.lng], undefined, `requests:mine:${user.id}`);
 
   // Pagination: the first page comes from the realtime-backed query above; any
   // further pages are appended here via the service's cursor. Without this, a

@@ -16,8 +16,8 @@ const STATUS_LABEL: Record<string, string> = {
  */
 export default function DeliveryAssignControl({ appointmentId, businessId }: { appointmentId: string; businessId: string }) {
   const { showToast } = useApp();
-  const { data: delivery, loading: deliveryLoading, refetch } = useQuery(() => deliveryService.forAppointment(appointmentId), [appointmentId]);
-  const { data: team, loading: teamLoading } = useQuery(() => deliveryService.deliveryTeam(businessId), [businessId]);
+  const { data: delivery, loading: deliveryLoading, refetch } = useQuery(() => deliveryService.forAppointment(appointmentId), [appointmentId], `delivery:for-apt:${appointmentId}`);
+  const { data: team, loading: teamLoading } = useQuery(() => deliveryService.deliveryTeam(businessId), [businessId], `delivery:team:${businessId}`);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
 

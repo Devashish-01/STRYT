@@ -44,8 +44,8 @@ export default function PublicProfile() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast, user, isFollowing, toggleFollow } = useApp();
-  const { data: u, loading, error, refetch } = useQuery(() => userService.publicProfile(id), [id]);
-  const { data: followersData } = useQuery(() => id ? socialService.followers(id) : Promise.resolve([]), [id]);
+  const { data: u, loading, error, refetch } = useQuery(() => userService.publicProfile(id), [id], `public-profile:${id}`);
+  const { data: followersData } = useQuery(() => id ? socialService.followers(id) : Promise.resolve([]), [id], `followers:${id}`);
   const followersCount = followersData?.length ?? 0;
   const [share, setShare] = useState(false);
   const [chatting, setChatting] = useState(false);

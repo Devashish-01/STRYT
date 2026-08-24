@@ -21,10 +21,10 @@ export default function ChatThread() {
   const { user, setChatUnread, showToast } = useApp();
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { data: convs, refetch: refetchConvs } = useQuery(() => chatService.conversations(), []);
+  const { data: convs, refetch: refetchConvs } = useQuery(() => chatService.conversations(), [user.id], `chat:conversations:${user.id}:`);
   const conv: Conversation | undefined = (convs ?? []).find((c) => c.id === id);
 
-  const { data: initial, loading } = useQuery(() => chatService.messages(id), [id]);
+  const { data: initial, loading } = useQuery(() => chatService.messages(id), [id], `chat:messages:${id}`);
   const [messages, setMessages] = useState<Message[]>([]);
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);

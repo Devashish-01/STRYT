@@ -32,7 +32,9 @@ export default function ConversationList() {
   const { data: convs, loading } = useQueryWithRealtime(
     () => chatService.conversations(scope),
     "conversations",
-    [scopeKey]
+    [scopeKey],
+    undefined,
+    `chat:conversations:${user.id}:${scopeKey}`
   );
   const [scanner, setScanner] = useState(false);
   const [searching, setSearching] = useState(false);

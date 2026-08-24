@@ -239,6 +239,7 @@ export default function Explore() {
   // key would let a tab-scoped fetch here silently overwrite their cache entry.
   const categoryKind = tab === "business" ? "BUSINESS" : tab === "provider" ? "SERVICE" : undefined;
   const { data: categories } = useQuery(() => catalogService.getCategories(categoryKind), [categoryKind], `cat_tree:${tab}`);
+  const exploreGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
   const { data: bizPage, loading: bizLoading, error: bizError, refetch: refetchBiz } = useQuery(
     () => discoveryService.businesses({
       category: cat ?? undefined,
@@ -247,7 +248,8 @@ export default function Explore() {
       lat: user.lat || undefined,
       lng: user.lng || undefined,
     }),
-    [cat, sort, radius, user.lat, user.lng]
+    [cat, sort, radius, user.lat, user.lng],
+    `explore:biz:${cat ?? "all"}:${sort}:${radius}:${exploreGeoKey}`
   );
   const { data: provPage, loading: provLoading, error: provError, refetch: refetchProv } = useQuery(
     () => discoveryService.providers({
@@ -257,7 +259,8 @@ export default function Explore() {
       lat: user.lat || undefined,
       lng: user.lng || undefined,
     }),
-    [cat, sort, radius, user.lat, user.lng]
+    [cat, sort, radius, user.lat, user.lng],
+    `explore:prov:${cat ?? "all"}:${sort}:${radius}:${exploreGeoKey}`
   );
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(async () => {

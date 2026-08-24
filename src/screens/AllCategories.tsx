@@ -41,7 +41,7 @@ export default function AllCategories() {
   const { data: categories, loading, error, refetch } = useQuery(() => catalogService.getCategories(), [], "categories");
   const { data: counts, loading: countsLoading } = useQuery(() => {
     return catalogService.getCategoryCounts(user.lat || undefined, user.lng || undefined, radius);
-  }, [user.lat, user.lng, radius]);
+  }, [user.lat, user.lng, radius], `category-counts:${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}:${radius}`);
 
   const sorted = useMemo(() => {
     const all = categories ?? [];

@@ -32,17 +32,19 @@ export function useAccountOptions() {
   const nav = useNavigate();
   const { user, activeContext, setContext, attemptSwitchContext, ownedBusinessIds, ownedProviderId, ownedEntitiesLoaded, roles, showToast } = useApp();
 
-  const { data: myBiz } = useQuery(() => businessService.mine(), []);
-  const { data: myProv } = useQuery(() => providerService.mine(), []);
+  const { data: myBiz } = useQuery(() => businessService.mine(), [user.id], `my-businesses:${user.id}`);
+  const { data: myProv } = useQuery(() => providerService.mine(), [user.id], `my-providers:${user.id}`);
   const { data: mySessions } = useQueryWithRealtime(
     () => businessAccessService.mySessions(),
     "business_access_sessions",
     [user.id],
     user.id ? `grantee_user_id=eq.${user.id}` : undefined,
+    `business-access:my-sessions:${user.id}`
   );
   const { data: activeDeliveryCount } = useQuery(
     async () => (DELIVERY_AGENT_ENABLED ? deliveryService.countMyActiveDeliveries() : 0),
     [user.id],
+    `delivery:active-count:${user.id}`
   );
 
   const owned = (myBiz ?? []).filter((b) => ownedBusinessIds.length === 0 || ownedBusinessIds.includes(b.id));

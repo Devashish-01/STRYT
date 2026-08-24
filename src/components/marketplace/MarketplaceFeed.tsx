@@ -68,10 +68,11 @@ export default function MarketplaceFeed({
   };
   const key = (categoryIds ?? ["nearby"]).join(",");
 
+  const feedGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
   const { data: bizPage, loading: bizLoading, error: bizError, refetch: refetchBiz } =
-    useQuery(() => discoveryService.businesses(params), [key, refreshToken, user.lat, user.lng]);
+    useQuery(() => discoveryService.businesses(params), [key, refreshToken, user.lat, user.lng], `mkt-feed:biz:${key}:${feedGeoKey}`);
   const { data: provPage, loading: provLoading, error: provError, refetch: refetchProv } =
-    useQuery(() => discoveryService.providers(params), [key, refreshToken, user.lat, user.lng]);
+    useQuery(() => discoveryService.providers(params), [key, refreshToken, user.lat, user.lng], `mkt-feed:prov:${key}:${feedGeoKey}`);
 
   const businesses = bizPage?.data ?? [];
   const providers = provPage?.data ?? [];

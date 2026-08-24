@@ -18,17 +18,21 @@ export default function Bookmarks() {
   const [tab, setTab] = useState<Tab>(initialTab);
 
   // Fetch live entity data so bookmarks reflect real DB content
+  const bookmarksGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
   const { data: bizPage, loading: bizLoading } = useQuery(
     () => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }),
-    [user.lat, user.lng]
+    [user.lat, user.lng],
+    `bookmarks:biz:${bookmarksGeoKey}`
   );
   const { data: provPage, loading: provLoading } = useQuery(
     () => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }),
-    [user.lat, user.lng]
+    [user.lat, user.lng],
+    `bookmarks:prov:${bookmarksGeoKey}`
   );
   const { data: reqPage, loading: reqLoading } = useQuery(
     () => requestService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }),
-    [user.lat, user.lng]
+    [user.lat, user.lng],
+    `bookmarks:req:${bookmarksGeoKey}`
   );
 
   const followUserKeys = follows.filter((f) => f.type.toUpperCase() === "USER");
@@ -44,7 +48,7 @@ export default function Bookmarks() {
       })
     );
     return profiles.filter(Boolean);
-  }, [followUserKeys.length]);
+  }, [followUserKeys.length], `bookmarks:followed-users:${user.id}:${followUserKeys.length}`);
 
   const allBiz = bizPage?.data ?? [];
   const allProv = provPage?.data ?? [];

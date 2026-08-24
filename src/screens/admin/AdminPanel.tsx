@@ -180,7 +180,7 @@ function AdminAccount() {
 }
 
 function AdminDashboard() {
-  const { data, loading } = useQuery(() => adminService.overview(), []);
+  const { data, loading } = useQuery(() => adminService.overview(), [], "admin:overview");
   if (loading) return <div className="page-pad"><Skeleton h={120} /></div>;
   const d = data!;
   const cards = [
@@ -313,7 +313,7 @@ function AdminQueue() {
 // decision, it never makes one client-side.
 function AdminVerificationQueue() {
   const { showToast } = useApp();
-  const { data, loading, refetch } = useQuery(() => adminService.verificationQueue(), []);
+  const { data, loading, refetch } = useQuery(() => adminService.verificationQueue(), [], "admin:verification-queue");
   const [reasonById, setReasonById] = useState<Record<string, string>>({});
   const [docsById, setDocsById] = useState<Record<string, string[]>>({});
   const [loadingDocsKey, setLoadingDocsKey] = useState<string | null>(null);
@@ -431,7 +431,7 @@ function fmtCoord(lat: number | null, lng: number | null): string {
 // lat/lng (geom auto-syncs), rejectLocationChange discards them.
 function AdminLocationChanges() {
   const { showToast } = useApp();
-  const { data, loading, refetch } = useQuery(() => adminService.pendingLocationChanges(), []);
+  const { data, loading, refetch } = useQuery(() => adminService.pendingLocationChanges(), [], "admin:location-changes");
   const [reasonById, setReasonById] = useState<Record<string, string>>({});
   const [actingId, setActingId] = useState<string | null>(null);
 
@@ -562,7 +562,7 @@ const BUG_ROLE_META: Record<string, { label: string; color: string }> = {
 };
 
 function AdminBugs() {
-  const { data, loading, refetch } = useQueryWithRealtime(() => adminService.bugReports(), "bug_reports", []);
+  const { data, loading, refetch } = useQueryWithRealtime(() => adminService.bugReports(), "bug_reports", [], undefined, "admin:bug-reports");
   const { showToast } = useApp();
   const [roleFilter, setRoleFilter] = useState<"ALL" | "CUSTOMER" | "BUSINESS" | "PROVIDER">("ALL");
 
@@ -685,7 +685,7 @@ function AdminDisputes() {
 
 function AdminAppeals() {
   const { showToast } = useApp();
-  const { data, loading, refetch } = useQuery(() => appealService.pending(), []);
+  const { data, loading, refetch } = useQuery(() => appealService.pending(), [], "admin:appeals-pending");
   const [noteById, setNoteById] = useState<Record<string, string>>({});
   const [resolvingId, setResolvingId] = useState<string | null>(null);
 

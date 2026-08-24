@@ -16,7 +16,7 @@ import DeliveryStepper from "@/components/delivery/DeliveryStepper";
  * way, so an assigned-but-not-started order discloses nothing about who's coming.
  */
 export default function DeliveryTrackControl({ appointmentId }: { appointmentId: string }) {
-  const { data: d } = useQuery(() => deliveryService.myProgress(appointmentId), [appointmentId]);
+  const { data: d } = useQuery(() => deliveryService.myProgress(appointmentId), [appointmentId], `delivery:my-progress:${appointmentId}`);
 
   if (!d || d.status === "CANCELLED") return null;
 

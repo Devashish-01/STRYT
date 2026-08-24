@@ -48,10 +48,13 @@ export default function CommunityHub() {
   const [hiddenPosts, setHiddenPosts] = useState<string[]>(() => readIdList(HIDDEN_POSTS_KEY, localStorage));
   const [mutedAuthors, setMutedAuthors] = useState<string[]>(() => readIdList(MUTED_AUTHORS_KEY, localStorage));
 
+  const hubGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
   const { data: feedPage, loading: reqLoading, error: reqError, refetch: refetchReq } = useQueryWithRealtime(
     () => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }),
     "requests",
-    [user.lat, user.lng]
+    [user.lat, user.lng],
+    undefined,
+    `hub:req:${hubGeoKey}`
   );
   // The type filter and the sort are QUERY parameters, not post-fetch
   // transformations. That's what makes a filtered view paginate (the old client
@@ -65,7 +68,8 @@ export default function CommunityHub() {
       type: typeParam(postFilter),
       sort: postSort,
     }),
-    [user.lat, user.lng, postFilter, postSort]
+    [user.lat, user.lng, postFilter, postSort],
+    `hub:posts:${postFilter}:${postSort}:${hubGeoKey}`
   );
 
   // Pagination: the first page comes from the query above; further pages are
