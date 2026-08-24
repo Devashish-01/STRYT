@@ -25,7 +25,7 @@ export default function ProviderProfileHub() {
   const base = `/provider/${id}/manage`;
 
   const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
-  const { data: reviews } = useQuery(() => providerService.reviews(id), [id]);
+  const { data: reviews } = useQuery(() => providerService.reviews(id), [id], `provider:${id}:reviews`);
 
   if (!id) {
     return (

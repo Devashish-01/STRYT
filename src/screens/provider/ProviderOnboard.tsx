@@ -18,7 +18,7 @@ const steps = ["Skill", "Area & price", "Portfolio", "Photo"];
 export default function ProviderOnboard() {
   const nav = useNavigate();
   const { user, addRole, showToast, refreshUser, ownedProviderId } = useApp();
-  const { data: serviceCatsData } = useQuery(() => catalogService.byKind("SERVICE"), []);
+  const { data: serviceCatsData } = useQuery(() => catalogService.byKind("SERVICE"), [], "catalog:by-kind:SERVICE");
 
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);

@@ -28,7 +28,8 @@ export default function ProviderFindWork() {
   const { data: p } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { data: sentProposals, loading: sentLoading, refetch: refetchSent } = useQuery(
     () => requestService.myProposals(id),
-    [id]
+    [id],
+    `provider:${id}:sent-proposals`
   );
 
   async function withdraw(proposalId: string) {
@@ -52,7 +53,9 @@ export default function ProviderFindWork() {
       radiusKm: p?.serviceRadiusKm ?? undefined,
     }),
     "requests",
-    [p?.lat, p?.lng, p?.serviceRadiusKm]
+    [p?.lat, p?.lng, p?.serviceRadiusKm],
+    undefined,
+    `provider:${id}:find-work`
   );
 
   if (!id) {

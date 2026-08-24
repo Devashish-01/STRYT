@@ -12,7 +12,7 @@ const quickTags = ["On time", "Great quality", "Polite", "Fair price", "Would re
 export default function RateScreen() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: a, loading } = useQuery(() => requestService.getAgreement(id), [id]);
+  const { data: a, loading } = useQuery(() => requestService.getAgreement(id), [id], `agreement:${id}`);
   const { showToast } = useApp();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);

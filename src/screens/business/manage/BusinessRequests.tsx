@@ -27,11 +27,14 @@ export default function BusinessRequests() {
       radiusKm: b?.broadcastRadius ?? undefined,
     }),
     "requests",
-    [b?.lat, b?.lng, b?.broadcastRadius]
+    [b?.lat, b?.lng, b?.broadcastRadius],
+    undefined,
+    `business:${id}:find-work`
   );
   const { data: sentProposals, loading: sentLoading, refetch: refetchSent } = useQuery(
     () => requestService.myProposals(id),
-    [id]
+    [id],
+    `business:${id}:sent-proposals`
   );
 
   async function withdraw(proposalId: string) {

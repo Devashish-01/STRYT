@@ -23,12 +23,16 @@ export default function ProviderMoney() {
   const { data: analytics, loading: analyticsLoading } = useQueryWithRealtime(
     () => providerService.analytics(id),
     "settlements",
-    [id]
+    [id],
+    undefined,
+    `provider:${id}:analytics`
   );
   const { data: ledger } = useQueryWithRealtime(
     () => providerService.earningsLedger(id),
     "settlements",
-    [id]
+    [id],
+    undefined,
+    `provider:${id}:earnings-ledger`
   );
   const { data: aptsData, refetch: refetchApts } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForTarget(id),

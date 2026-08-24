@@ -22,7 +22,7 @@ const STATUS_LABEL: Record<string, string> = {
 export default function TeamMyDeliveries() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: deliveries, loading, error } = useQuery(() => deliveryService.myDeliveries(), [id]);
+  const { data: deliveries, loading, error } = useQuery(() => deliveryService.myDeliveries(), [id], `delivery:my-deliveries`);
 
   const mine = useMemo(
     () => (deliveries ?? []).filter((d) => d.businessId === id),

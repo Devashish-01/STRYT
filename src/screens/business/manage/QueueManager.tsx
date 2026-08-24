@@ -76,7 +76,8 @@ export default function QueueManager() {
   // first). Separate from the live board so switching tabs is instant.
   const { data: historyData, loading: historyLoading, refetch: refetchHistory } = useQuery(
     () => businessService.queueHistory(businessId),
-    [businessId]
+    [businessId],
+    `queue-history:${businessId}`
   );
 
   useEffect(() => {

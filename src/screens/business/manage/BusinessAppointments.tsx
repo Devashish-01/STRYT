@@ -78,7 +78,8 @@ export default function BusinessAppointments() {
   const [batchAssigning, setBatchAssigning] = useState(false);
   const { data: deliveryTeam } = useQuery(
     () => (DELIVERY_AGENT_ENABLED ? deliveryService.deliveryTeam(id) : Promise.resolve([])),
-    [id]
+    [id],
+    `delivery:team:${id}`
   );
 
   const appointments = useMemo(() => data ?? [], [data]);

@@ -12,7 +12,7 @@ import { haptics } from "@/lib/haptics";
 export default function SubmitProposal() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { data: r, loading: rLoading, error: rError, refetch: refetchR } = useQuery(() => requestService.get(id), [id]);
+  const { data: r, loading: rLoading, error: rError, refetch: refetchR } = useQuery(() => requestService.get(id), [id], `request:${id}`);
   const { showToast, activeContext } = useApp();
   const [price, setPrice] = useState("");
   const [eta, setEta] = useState("");

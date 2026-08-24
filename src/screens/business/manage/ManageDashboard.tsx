@@ -55,18 +55,18 @@ export default function ManageDashboard() {
   const [answer, setAnswer] = useState("");
 
   const { data: business, loading: businessLoading, refetch: refetchBusiness } = useQuery(() => businessService.get(id), [id], `business:${id}`);
-  const { data: posts } = useQuery(() => communityService.byAuthorRef("business", id), [id]);
+  const { data: posts } = useQuery(() => communityService.byAuthorRef("business", id), [id], `business:${id}:posts`);
   const { data: queue, refetch: refetchQueue } = useQueryWithRealtime(
     () => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`, `queue:${id}`,
   );
   const { data: appointments, refetch: refetchAppointments } = useQueryWithRealtime(
-    () => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`,
+    () => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`, `business:${id}:appointments-owner`,
   );
   const { data: questions, refetch: refetchQuestions } = useQueryWithRealtime<QnaItem[]>(
-    () => businessService.qna(id) as Promise<QnaItem[]>, "business_qna", [id], `business_id=eq.${id}`,
+    () => businessService.qna(id) as Promise<QnaItem[]>, "business_qna", [id], `business_id=eq.${id}`, `business:${id}:qna`,
   );
   const { data: reviews } = useQueryWithRealtime(
-    () => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`,
+    () => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `business:${id}:reviews`,
   );
   const { data: requestFeed } = useQueryWithRealtime(
     () => requestService.feed({
@@ -76,6 +76,8 @@ export default function ManageDashboard() {
     }),
     "requests",
     [business?.lat, business?.lng, business?.broadcastRadius],
+    undefined,
+    `business:${id}:find-work`
   );
   const { data: notificationUnread } = useQueryWithRealtime(
     () => notificationService.getUnreadCount({ scope: "BUSINESS", id }), "notifications", [id], undefined, `notif:business:${id}`,

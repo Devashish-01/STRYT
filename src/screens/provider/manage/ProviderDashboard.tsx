@@ -63,18 +63,21 @@ export default function ProviderDashboard() {
   const { data: p, loading: providerLoading, refetch: refetchProvider } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { showToast, user } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "provider");
-  const { data: analytics } = useQuery(() => providerService.analytics(id), [id]);
-  const { data: provPosts } = useQuery(() => communityService.byAuthorRef("provider", id), [id]);
+  const { data: analytics } = useQuery(() => providerService.analytics(id), [id], `provider:${id}:analytics`);
+  const { data: provPosts } = useQuery(() => communityService.byAuthorRef("provider", id), [id], `provider:${id}:posts`);
   const { data: appts, refetch: refetchApts } = useQueryWithRealtime(
     () => appointmentService.listForTarget(id),
     "appointments",
     [id],
-    `target_id=eq.${id}`
+    `target_id=eq.${id}`,
+    `provider:${id}:appointments-owner`
   );
   const { data: reqFeed } = useQueryWithRealtime(
     () => requestService.feed({ lat: p?.lat ?? undefined, lng: p?.lng ?? undefined, radiusKm: p?.serviceRadiusKm ?? undefined }),
     "requests",
-    [p?.lat, p?.lng, p?.serviceRadiusKm]
+    [p?.lat, p?.lng, p?.serviceRadiusKm],
+    undefined,
+    `provider:${id}:find-work`
   );
   const { data: notifUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "PROVIDER", id }), "notifications", [id], undefined, `notif:provider:${id}`);
   const { data: chatUnread } = useQueryWithRealtime(() => chatService.totalUnread({ scope: "PROVIDER", id }), "conversations", [id], undefined, `chat:provider:${id}`);
