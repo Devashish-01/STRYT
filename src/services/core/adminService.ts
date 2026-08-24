@@ -167,7 +167,7 @@ export const adminService = {
     throwIfError(error);
   },
 
-  async queue(type: "business" | "provider" | "category") {
+  async queue(type: "business" | "provider" | "category" | "place") {
     const sb = getSupabase();
 
     if (type === "business") {
@@ -223,6 +223,29 @@ export const adminService = {
           Phone: p.phone || null,
           Area: [p.area, p.city].filter(Boolean).join(", ") || null,
           "Starting price": p.starting_price != null ? String(p.starting_price) : null,
+          Location: p.lat != null && p.lng != null ? `${Number(p.lat).toFixed(5)}, ${Number(p.lng).toFixed(5)}` : null,
+          Submitted: p.created_at ? new Date(p.created_at).toLocaleString() : null,
+        } as Record<string, string | null>,
+      }));
+    }
+
+    if (type === "place") {
+      const { data, error } = await sb
+        .from("places")
+        .select("id, name, category, description, address_line1, city, lat, lng, cover_image, created_at, submitted_by_user_id")
+        .eq("status", "PENDING")
+        .order("created_at", { ascending: true });
+      throwIfError(error);
+      return (data ?? []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        sub: p.category,
+        image: p.cover_image || "",
+        kind: "place" as const,
+        details: {
+          Category: p.category || null,
+          Description: p.description || null,
+          Address: [p.address_line1, p.city].filter(Boolean).join(", ") || null,
           Location: p.lat != null && p.lng != null ? `${Number(p.lat).toFixed(5)}, ${Number(p.lng).toFixed(5)}` : null,
           Submitted: p.created_at ? new Date(p.created_at).toLocaleString() : null,
         } as Record<string, string | null>,
@@ -358,6 +381,20 @@ export const adminService = {
       broadcastKm = data?.service_radius_km ?? 5;
       categoryLabel = data?.category_name ?? "Provider";
       entityName = data?.display_name ?? "A new provider";
+    } else if (type === "place") {
+      table = "places";
+      const { data } = await sb
+        .from("places")
+        .select("submitted_by_user_id, lat, lng, category, name")
+        .eq("id", id)
+        .maybeSingle();
+      ownerId = data?.submitted_by_user_id ?? undefined;
+      entityLat = data?.lat ?? null;
+      entityLng = data?.lng ?? null;
+      // Places have no owner-set broadcast radius column — fixed 10km.
+      broadcastKm = 10;
+      categoryLabel = data?.category ?? "Place";
+      entityName = data?.name ?? "A new place";
     } else if (type === "category") {
       table = "categories";
     } else {
@@ -369,16 +406,13 @@ export const adminService = {
     const { error } = await sb.from(table as "businesses").update({ status: "ACTIVE" }).eq("id", id);
     throwIfError(error);
 
-    // Notify the owner that their listing is live.
+    // Notify the owner/submitter that their listing is live.
     if (ownerId) {
       try {
-        await notificationService.send(
-          ownerId,
-          type === "business" ? "Business Approved ✓" : "Provider Profile Approved ✓",
-          type === "business" ? "Your shop is now live!" : "Your provider profile is now live!",
-          type === "business" ? `/business/${id}/manage` : `/provider/${id}/manage`,
-          "SYSTEM"
-        );
+        const title = type === "business" ? "Business Approved ✓" : type === "provider" ? "Provider Profile Approved ✓" : "Place Approved ✓";
+        const body = type === "business" ? "Your shop is now live!" : type === "provider" ? "Your provider profile is now live!" : "Your suggested place is now live on the map!";
+        const link = type === "business" ? `/business/${id}/manage` : type === "provider" ? `/provider/${id}/manage` : `/place/${id}`;
+        await notificationService.send(ownerId, title, body, link, "SYSTEM");
       } catch (err) {
         console.warn("Failed to send approval notification:", err);
       }
@@ -399,9 +433,9 @@ export const adminService = {
           await notificationService.sendBulk(
             userIds,
             `New ${categoryLabel} near you`,
-            `${entityName} is now open in your area`,
-            type === "business" ? `/business/${id}` : `/provider/${id}`,
-            type === "business" ? "NEW_BUSINESS" : "NEW_PROVIDER"
+            type === "place" ? `${entityName} was just added nearby` : `${entityName} is now open in your area`,
+            type === "business" ? `/business/${id}` : type === "provider" ? `/provider/${id}` : `/place/${id}`,
+            type === "business" ? "NEW_BUSINESS" : type === "provider" ? "NEW_PROVIDER" : "NEW_PLACE"
           );
         }
       } catch (err) {
@@ -425,6 +459,10 @@ export const adminService = {
       table = "providers";
       const { data } = await sb.from("providers").select("user_id").eq("id", id).maybeSingle();
       ownerId = data?.user_id ?? undefined;
+    } else if (type === "place") {
+      table = "places";
+      const { data } = await sb.from("places").select("submitted_by_user_id").eq("id", id).maybeSingle();
+      ownerId = data?.submitted_by_user_id ?? undefined;
     } else if (type === "category") {
       table = "categories";
     } else {
@@ -436,11 +474,13 @@ export const adminService = {
 
     if (ownerId) {
       try {
+        const title = type === "business" ? "Listing Needs Updates" : type === "provider" ? "Profile Needs Updates" : "Place Suggestion Needs Updates";
+        const link = type === "business" ? `/business/${id}/manage` : type === "provider" ? `/provider/${id}/manage` : "/map";
         await notificationService.send(
           ownerId,
-          type === "business" ? "Listing Needs Updates" : "Profile Needs Updates",
-          reason ? `Reason: ${reason}` : "Please review and update your listing.",
-          type === "business" ? `/business/${id}/manage` : `/provider/${id}/manage`,
+          title,
+          reason ? `Reason: ${reason}` : "Please review and update your submission.",
+          link,
           "SYSTEM"
         );
       } catch (err) {

@@ -54,10 +54,9 @@ export default function ManageHub() {
                 </div>
               );
             })}
-            {/* One business per owner (idx_businesses_one_per_owner, a UNIQUE
-                DB constraint) — only offer this once there isn't one already,
-                same as the Provider section below. */}
-            {!bizLoading && businesses.length === 0 && (
+            {/* Up to 5 businesses per owner (trg_enforce_business_owner_limit,
+                a DB trigger) — hide "Add a business" once at the cap. */}
+            {!bizLoading && businesses.length < 5 && (
               <button className="card row gap-12 center" style={{ padding: 16, border: "1.5px dashed var(--ink-300)" }} onClick={() => nav("/onboard/business")}>
                 <Plus size={20} color="var(--orange-500)" /> <span className="semi small">Add a business</span>
               </button>

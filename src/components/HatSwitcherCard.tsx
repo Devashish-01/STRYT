@@ -88,6 +88,15 @@ export default function HatSwitcherCard({ showManageLink = true }: { showManageL
                   if (!has) {
                     nav(r === "business_owner" ? "/onboard/business" : "/onboard/provider");
                   } else if (r === "business_owner") {
+                    // With more than one owned business (up to 5, see
+                    // trg_enforce_business_owner_limit), there's no single
+                    // "the" business to deep-link into — send to the Manage
+                    // hub's list instead, same place the "Manage business &
+                    // profile" link below already goes.
+                    if (ownedBusinessIds.length > 1) {
+                      nav("/manage");
+                      return;
+                    }
                     const dest = manageBizId ? `/business/${manageBizId}/manage` : "/manage";
                     const ready = attemptSwitchContext(
                       { type: "business", id: manageBizId ?? null, name: myBiz?.name ?? "My Business" },

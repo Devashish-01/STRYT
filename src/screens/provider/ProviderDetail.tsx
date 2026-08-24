@@ -43,16 +43,17 @@ export default function ProviderDetail() {
   } = useApp();
 
   const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `provider:${id}`);
-  const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => providerService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
-  const { data: vouches } = useQueryWithRealtime(() => socialService.vouches(id), "vouches", [id], `provider_id=eq.${id}`);
-  const { data: endorsements } = useQueryWithRealtime(() => socialService.endorsements(id), "endorsements", [id], `provider_id=eq.${id}`);
-  const { data: availList } = useQuery(() => socialService.availableNow(), []);
-  const { data: provPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("provider", id), "community_posts", [id], `author_ref_id=eq.${id}`);
-  const { data: highlightsData } = useQuery(() => socialService.highlightsFor("provider", id), [id]);
+  const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => providerService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `provider:${id}:reviews`);
+  const { data: vouches } = useQueryWithRealtime(() => socialService.vouches(id), "vouches", [id], `provider_id=eq.${id}`, `provider:${id}:vouches`);
+  const { data: endorsements } = useQueryWithRealtime(() => socialService.endorsements(id), "endorsements", [id], `provider_id=eq.${id}`, `provider:${id}:endorsements`);
+  const { data: availList } = useQuery(() => socialService.availableNow(), [], "available-now");
+  const { data: provPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("provider", id), "community_posts", [id], `author_ref_id=eq.${id}`, `provider:${id}:posts`);
+  const { data: highlightsData } = useQuery(() => socialService.highlightsFor("provider", id), [id], `provider:${id}:highlights`);
   const highlights = highlightsData ?? [];
   const { data: myAppointments, refetch: refetchMyAppointments } = useQuery(
     () => (user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([])),
-    [user.id]
+    [user.id],
+    `home:appointments:${user.id}`
   );
 
   // Count a profile view once per provider open.

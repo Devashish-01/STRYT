@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Share2, MapPin, Clock, Eye, Zap, BadgeCheck,
   Flag, CheckCircle2, Send, Users, Flame, Repeat, MessageCircle, ArrowRightLeft,
-  Edit3, Trash2, XCircle, X
+  Edit3, Trash2, XCircle, X, Lock, Ticket, ChevronRight
 } from "@/components/Icons";
 import { requestService, chatService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -26,7 +26,19 @@ export default function RequestDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { user, showToast, meToos, isAuthed, isGuest } = useApp();
-  const { data: r, loading, error, refetch } = useQueryWithRealtime(() => requestService.get(id, user.lat || 0, user.lng || 0), "requests", [id], `id=eq.${id}`);
+  const { data: r, loading, error, refetch } = useQueryWithRealtime(
+    async () => {
+      const req = await requestService.get(id, user.lat || 0, user.lng || 0);
+      if (!req?.isGroupBuy) return req;
+      // Pool totals aren't on the requests row (me_too_count counts people,
+      // not pledged units), so they're fetched alongside for group buys only.
+      const pledges = await requestService.groupBuyPledges(id);
+      return { ...req, ...pledges };
+    },
+    "requests",
+    [id],
+    `id=eq.${id}`
+  );
 
   // proposals is a separate table from requests, so the row-level subscription
   // above doesn't cover a new proposal landing — subscribe to it too.
@@ -121,6 +133,26 @@ export default function RequestDetail() {
   const meTooed = meToos.includes(r.id) || r.meTooed;
   const meTooCount = (r.meTooCount ?? 0) + (meTooed && !r.meTooed ? 1 : 0);
 
+  /** Closing a group buy mints one claim pass per pooled member. Deliberately
+   *  non-fatal: the agreement is already committed by the time this runs, so a
+   *  failure here must not read as "accepting failed" — the initiator can
+   *  retry issuance (the RPC is idempotent) rather than being left unsure
+   *  whether they accepted at all. */
+  async function issueTokensIfGroupBuy(agreementId: string | null, p: Proposal, unitPrice?: number) {
+    // Re-checked inside the closure: TS can't carry the outer narrowing of `r`
+    // across a function boundary, and this runs async after an await anyway.
+    if (!agreementId || !r || !r.isGroupBuy) return;
+    try {
+      const count = await requestService.issueGroupBuyTokens(r.id, agreementId, {
+        businessId: p.responderEntityId ?? null,
+        unitPrice: unitPrice ?? p.price,
+      });
+      if (count > 0) showToast(`${count} claim pass${count > 1 ? "es" : ""} issued to the group`);
+    } catch {
+      showToast("Deal accepted, but passes couldn't be issued — open the agreement to retry.");
+    }
+  }
+
   async function acceptProposal(p: Proposal) {
     setAccepted(p.id);
     haptics.medium();
@@ -128,6 +160,7 @@ export default function RequestDetail() {
       const result = await requestService.acceptProposal(p.id);
       haptics.success();
       showToast(`Accepted ${p.responderName}'s offer`);
+      await issueTokensIfGroupBuy(result.agreementId, p);
       setTimeout(() => nav(result.agreementId ? `/agreement/${result.agreementId}` : `/agreements`), 700);
     } catch {
       setAccepted(null);
@@ -144,6 +177,7 @@ export default function RequestDetail() {
       const result = await requestService.acceptProposalCounter(p.id, counter.id);
       haptics.success();
       showToast(`Accepted at ${inr(counter.amount)}`);
+      await issueTokensIfGroupBuy(result.agreementId, p, counter.amount);
       setTimeout(() => nav(result.agreementId ? `/agreement/${result.agreementId}` : `/agreements`), 700);
     } catch {
       setAccepted(null);
@@ -293,16 +327,47 @@ export default function RequestDetail() {
           )}
 
           {/* Group buy progress — hidden while GROUP_BUY_PROGRESS_ENABLED is off */}
-          {GROUP_BUY_PROGRESS_ENABLED && r.isGroupBuy && r.groupBuyTarget && (
-            <div className="card" style={{ marginTop: 14, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
-              <div className="row between tiny" style={{ marginBottom: 6 }}>
-                <span className="semi" style={{ color: "var(--green-600)" }}>{meTooCount} of {r.groupBuyTarget} neighbors in</span>
-                <span className="muted">{r.groupBuyTarget - meTooCount} more unlocks bulk price</span>
+          {GROUP_BUY_PROGRESS_ENABLED && r.isGroupBuy && r.groupBuyTarget && (() => {
+            // Measured in UNITS pledged, not heads — a 100-checkup target is
+            // met by ~40 neighbours pledging 2-3 each, and counting people
+            // would show the pool as far emptier than it really is.
+            const pledged = r.pledgedQuantity ?? meTooCount;
+            const remaining = Math.max(0, r.groupBuyTarget - pledged);
+            const reached = remaining === 0;
+            return (
+              <div className="card" style={{ marginTop: 14, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
+                <div className="row between tiny" style={{ marginBottom: 6 }}>
+                  <span className="semi" style={{ color: "var(--green-600)" }}>{pledged} of {r.groupBuyTarget} pledged</span>
+                  <span className="muted">{reached ? "Target reached 🎉" : `${remaining} more unlocks bulk price`}</span>
+                </div>
+                <div style={{ height: 8, borderRadius: 6, background: "var(--surface)", overflow: "hidden" }}>
+                  <div style={{ width: `${Math.min(100, (pledged / r.groupBuyTarget) * 100)}%`, height: "100%", background: "var(--green-500)", transition: "width .3s" }} />
+                </div>
+                {(r.myPledgeQuantity ?? 0) > 0 && (
+                  <div className="tiny" style={{ color: "var(--green-600)", marginTop: 6 }}>
+                    You pledged {r.myPledgeQuantity} unit{(r.myPledgeQuantity ?? 0) > 1 ? "s" : ""}
+                  </div>
+                )}
               </div>
-              <div style={{ height: 8, borderRadius: 6, background: "var(--surface)", overflow: "hidden" }}>
-                <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),var(--green-500))" }} />
+            );
+          })()}
+
+          {/* Once the initiator closes the deal, every joiner's pass lives on
+              /bulk → My activity. Surfaced here too because this is the screen
+              they were watching while the pool filled. */}
+          {r.isGroupBuy && r.groupAgreementId && (
+            <button
+              className="card row gap-10 center-v"
+              style={{ marginTop: 14, padding: 14, width: "100%", textAlign: "left", background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}
+              onClick={() => nav("/bulk")}
+            >
+              <Ticket size={20} color="var(--brand-700)" style={{ flexShrink: 0 }} />
+              <div className="grow">
+                <div className="semi small" style={{ color: "var(--brand-700)" }}>Deal closed — your claim pass is ready</div>
+                <div className="tiny muted" style={{ marginTop: 1 }}>Open My activity to show your QR code</div>
               </div>
-            </div>
+              <ChevronRight size={16} color="var(--brand-300)" />
+            </button>
           )}
 
           {/* Detail card */}
@@ -315,7 +380,10 @@ export default function RequestDetail() {
           </div>
           <div className="row gap-12 tiny muted" style={{ marginTop: 10 }}>
             <span className="row gap-4"><Eye size={12} /> {r.viewCount} views</span>
-            <span className="row gap-4"><Clock size={12} /> {r.proposals.length} proposals</span>
+            {/* proposalCount, not proposals.length — proposals are RLS-scoped
+                to the requester and each responder, so the array is nearly
+                empty for everyone else. The count is the public aggregate. */}
+            <span className="row gap-4"><Clock size={12} /> {r.proposalCount ?? r.proposals.length} proposals</span>
           </div>
         </div>
 
@@ -324,8 +392,21 @@ export default function RequestDetail() {
         {/* Proposals */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <h3 className="bold h2" style={{ marginBottom: 12 }}>
-            {isMine ? "Offers received" : "Offers"} ({r.proposals.length})
+            {isMine ? "Offers received" : "Offers"} ({r.proposalCount ?? r.proposals.length})
           </h3>
+
+          {/* On a group buy, quoting is private by design — say so, so a
+              neighbour who joined doesn't read the empty list as "nobody has
+              quoted" when in fact several have. */}
+          {r.isGroupBuy && !isMine && (r.proposalCount ?? 0) > 0 && r.proposals.length === 0 && (
+            <div className="card row gap-10" style={{ padding: 12, marginBottom: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
+              <Lock size={16} color="var(--brand-700)" style={{ flexShrink: 0, marginTop: 1 }} />
+              <div className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.5 }}>
+                {r.proposalCount} provider{(r.proposalCount ?? 0) > 1 ? "s have" : " has"} quoted privately.
+                Only {r.requesterName} can see the prices — you'll get a claim pass once they close the deal.
+              </div>
+            </div>
+          )}
 
           {/* Sort — helps the customer compare when several offers arrive */}
           {r.proposals.length > 1 && (

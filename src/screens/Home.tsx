@@ -1,6 +1,7 @@
 import { lazy, Suspense, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare } from "@/components/Icons";
+import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare, Package } from "@/components/Icons";
+import { ActionIconBadge } from "@/components/ActionIconBadge";
 import { useApp } from "@/store";
 import { catalogService, requestService, appointmentService, businessService, locationService, discoveryService, notificationService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -105,20 +106,22 @@ export default function Home() {
   // Category taxonomy — fetched for the quick-filter browse strip below
   // AND as an "is this marketplace empty" signal for the getting-started CTA.
   const { data: categories, error: categoriesError, refetch: refetchCategories } = useQuery(() => catalogService.getCategories(), [], "categories");
-  const { data: agreementsList, refetch: refetchAgreements } = useQuery(() => requestService.agreements(), []);
+  const { data: agreementsList, refetch: refetchAgreements } = useQuery(() => requestService.agreements(), [], `home:agreements:${user.id}`);
   // Real, always-populated discovery content — the dashboard shouldn't rely
   // solely on conditional "you have an active X" cards to feel complete.
   const { data: nearbyBizPage, loading: nearbyBizLoading, refetch: refetchNearbyBiz } = useQuery(
     () => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined, sort: "nearby" }),
-    [user.lat, user.lng]
+    [user.lat, user.lng],
+    `home:nearby-biz:${user.id}`
   );
   const { data: nearbyProvPage, loading: nearbyProvLoading, refetch: refetchNearbyProv } = useQuery(
     () => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined, sort: "nearby" }),
-    [user.lat, user.lng]
+    [user.lat, user.lng],
+    `home:nearby-prov:${user.id}`
   );
-  const { data: myAppointments, refetch: refetchAppointments } = useQuery(() => appointmentService.listForCustomer(user.id), [user.id]);
-  const { data: myQueuesData, refetch: refetchQueues } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined);
-  const { data: pendingLocReqs, refetch: refetchPendingLoc } = useQueryWithRealtime(() => locationService.pendingForMe(), "location_share_grants", []);
+  const { data: myAppointments, refetch: refetchAppointments } = useQuery(() => appointmentService.listForCustomer(user.id), [user.id], `home:appointments:${user.id}`);
+  const { data: myQueuesData, refetch: refetchQueues } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined, `home:queues:${user.id}`);
+  const { data: pendingLocReqs, refetch: refetchPendingLoc } = useQueryWithRealtime(() => locationService.pendingForMe(), "location_share_grants", [], undefined, `home:pending-loc:${user.id}`);
   const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [], undefined, "notif:customer");
 
   const handleRefresh = async () => {
@@ -505,6 +508,23 @@ export default function Home() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Bulk & group buys — a banner rather than a 5th launch tile, since
+              the tile grid is a fixed row of four on desktop. */}
+          <div className="page-pad" style={{ paddingTop: 16 }}>
+            <button
+              className="card row gap-12 center-v"
+              style={{ width: "100%", padding: 14, textAlign: "left", background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}
+              onClick={() => nav("/bulk")}
+            >
+              <ActionIconBadge variant="cyan" icon={Package} size="md" />
+              <div className="grow">
+                <div className="semi small" style={{ color: "var(--ink-900)" }}>Bulk &amp; group buys</div>
+                <div className="tiny muted">Pool with neighbours or grab a wholesale deal</div>
+              </div>
+              <ChevronRight size={18} className="muted" />
+            </button>
           </div>
 
           {/* Nearby on your street — real discovery content, brought to mobile */}

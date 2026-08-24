@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       account_appeals: {
@@ -192,6 +217,10 @@ export type Database = {
           appointment_id: string
           batch_id: string | null
           business_id: string
+          cancel_note: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string
           delivered_at: string | null
           handoff_code: string | null
@@ -208,6 +237,10 @@ export type Database = {
           appointment_id: string
           batch_id?: string | null
           business_id: string
+          cancel_note?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           delivered_at?: string | null
           handoff_code?: string | null
@@ -224,6 +257,10 @@ export type Database = {
           appointment_id?: string
           batch_id?: string | null
           business_id?: string
+          cancel_note?: string | null
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           delivered_at?: string | null
           handoff_code?: string | null
@@ -338,6 +375,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -374,6 +412,7 @@ export type Database = {
           target_id: string
           target_name?: string | null
           target_owner_user_id: string
+          target_package_key?: string | null
           target_type: string
           time_label?: string | null
         }
@@ -410,6 +449,7 @@ export type Database = {
           target_id?: string
           target_name?: string | null
           target_owner_user_id?: string
+          target_package_key?: string | null
           target_type?: string
           time_label?: string | null
         }
@@ -575,6 +615,62 @@ export type Database = {
           {
             foreignKeyName: "bug_reports_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bulk_deals: {
+        Row: {
+          available_quota: number | null
+          business_id: string
+          catalog_item_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          image: string | null
+          moq: number
+          owner_user_id: string
+          regular_price: number
+          status: Database["public"]["Enums"]["entity_status"]
+          tiers: Json
+          title: string
+        }
+        Insert: {
+          available_quota?: number | null
+          business_id: string
+          catalog_item_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image?: string | null
+          moq?: number
+          owner_user_id: string
+          regular_price: number
+          status?: Database["public"]["Enums"]["entity_status"]
+          tiers?: Json
+          title: string
+        }
+        Update: {
+          available_quota?: number | null
+          business_id?: string
+          catalog_item_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          image?: string | null
+          moq?: number
+          owner_user_id?: string
+          regular_price?: number
+          status?: Database["public"]["Enums"]["entity_status"]
+          tiers?: Json
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_deals_owner_user_id_fkey"
+            columns: ["owner_user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -898,6 +994,7 @@ export type Database = {
           aadhaar_doc_url: string | null
           address_line1: string | null
           available_until: string | null
+          bookings_enabled: boolean | null
           boost_reminder_sent: boolean
           boosted_until: string | null
           broadcast_radius: number
@@ -938,6 +1035,7 @@ export type Database = {
           opening_date: string | null
           owner_enabled: boolean
           owner_user_id: string | null
+          package_key: string | null
           pan_doc_url: string | null
           payment_timing: string
           pending_lat: number | null
@@ -971,6 +1069,7 @@ export type Database = {
           aadhaar_doc_url?: string | null
           address_line1?: string | null
           available_until?: string | null
+          bookings_enabled?: boolean | null
           boost_reminder_sent?: boolean
           boosted_until?: string | null
           broadcast_radius?: number
@@ -1011,6 +1110,7 @@ export type Database = {
           opening_date?: string | null
           owner_enabled?: boolean
           owner_user_id?: string | null
+          package_key?: string | null
           pan_doc_url?: string | null
           payment_timing?: string
           pending_lat?: number | null
@@ -1044,6 +1144,7 @@ export type Database = {
           aadhaar_doc_url?: string | null
           address_line1?: string | null
           available_until?: string | null
+          bookings_enabled?: boolean | null
           boost_reminder_sent?: boolean
           boosted_until?: string | null
           broadcast_radius?: number
@@ -1084,6 +1185,7 @@ export type Database = {
           opening_date?: string | null
           owner_enabled?: boolean
           owner_user_id?: string | null
+          package_key?: string | null
           pan_doc_url?: string | null
           payment_timing?: string
           pending_lat?: number | null
@@ -1212,6 +1314,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["category_kind"]
           name: string
+          package_key: string | null
           parent_id: string | null
           rejection_reason: string | null
           slug: string
@@ -1223,6 +1326,7 @@ export type Database = {
           id: string
           kind: Database["public"]["Enums"]["category_kind"]
           name: string
+          package_key?: string | null
           parent_id?: string | null
           rejection_reason?: string | null
           slug: string
@@ -1234,6 +1338,7 @@ export type Database = {
           id?: string
           kind?: Database["public"]["Enums"]["category_kind"]
           name?: string
+          package_key?: string | null
           parent_id?: string | null
           rejection_reason?: string | null
           slug?: string
@@ -1288,6 +1393,42 @@ export type Database = {
         }
         Relationships: []
       }
+      comment_reactions: {
+        Row: {
+          comment_id: string
+          created_at: string
+          emoji: string
+          user_id: string
+        }
+        Insert: {
+          comment_id: string
+          created_at?: string
+          emoji: string
+          user_id: string
+        }
+        Update: {
+          comment_id?: string
+          created_at?: string
+          emoji?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comment_reactions_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "post_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "comment_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       community_posts: {
         Row: {
           allow_comments: boolean
@@ -1298,17 +1439,29 @@ export type Database = {
           author_type: string
           author_user_id: string | null
           body: string | null
+          comment_policy: string
           comments_count: number | null
           created_at: string | null
+          expires_at: string | null
           geom: unknown
+          hide_like_count: boolean
           id: string
           image: string | null
+          image_alt: string | null
+          last_seen: string | null
           lat: number | null
           likes_count: number | null
           lng: number | null
+          media: string[]
+          pickup_note: string | null
+          poll_ended_notified_at: string | null
+          poll_ends_at: string | null
           poll_options: Json | null
           recommendations: Json | null
           resolved: boolean | null
+          reward: string | null
+          severity: string | null
+          tagged_listing: Json | null
           title: string
           type: string
         }
@@ -1321,17 +1474,29 @@ export type Database = {
           author_type?: string
           author_user_id?: string | null
           body?: string | null
+          comment_policy: string
           comments_count?: number | null
           created_at?: string | null
+          expires_at?: string | null
           geom?: unknown
+          hide_like_count?: boolean
           id?: string
           image?: string | null
+          image_alt?: string | null
+          last_seen?: string | null
           lat?: number | null
           likes_count?: number | null
           lng?: number | null
+          media?: string[]
+          pickup_note?: string | null
+          poll_ended_notified_at?: string | null
+          poll_ends_at?: string | null
           poll_options?: Json | null
           recommendations?: Json | null
           resolved?: boolean | null
+          reward?: string | null
+          severity?: string | null
+          tagged_listing?: Json | null
           title: string
           type: string
         }
@@ -1344,17 +1509,29 @@ export type Database = {
           author_type?: string
           author_user_id?: string | null
           body?: string | null
+          comment_policy?: string
           comments_count?: number | null
           created_at?: string | null
+          expires_at?: string | null
           geom?: unknown
+          hide_like_count?: boolean
           id?: string
           image?: string | null
+          image_alt?: string | null
+          last_seen?: string | null
           lat?: number | null
           likes_count?: number | null
           lng?: number | null
+          media?: string[]
+          pickup_note?: string | null
+          poll_ended_notified_at?: string | null
+          poll_ends_at?: string | null
           poll_options?: Json | null
           recommendations?: Json | null
           resolved?: boolean | null
+          reward?: string | null
+          severity?: string | null
+          tagged_listing?: Json | null
           title?: string
           type?: string
         }
@@ -1431,6 +1608,75 @@ export type Database = {
           {
             foreignKeyName: "conversations_participant_b_fkey"
             columns: ["participant_b"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_payments: {
+        Row: {
+          amount: number
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          method: string
+          note: string | null
+          payer_avatar: string | null
+          payer_name: string | null
+          payer_user_id: string
+          reference: string | null
+          status: string
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+        }
+        Insert: {
+          amount: number
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          method: string
+          note?: string | null
+          payer_avatar?: string | null
+          payer_name?: string | null
+          payer_user_id: string
+          reference?: string | null
+          status?: string
+          target_id: string
+          target_name?: string | null
+          target_owner_user_id: string
+          target_type: string
+        }
+        Update: {
+          amount?: number
+          confirmed_at?: string | null
+          created_at?: string
+          id?: string
+          method?: string
+          note?: string | null
+          payer_avatar?: string | null
+          payer_name?: string | null
+          payer_user_id?: string
+          reference?: string | null
+          status?: string
+          target_id?: string
+          target_name?: string | null
+          target_owner_user_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_payments_payer_user_id_fkey"
+            columns: ["payer_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_payments_target_owner_user_id_fkey"
+            columns: ["target_owner_user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -1774,6 +2020,78 @@ export type Database = {
             columns: ["society_id"]
             isOneToOne: false
             referencedRelation: "societies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_buy_tokens: {
+        Row: {
+          agreement_id: string
+          business_id: string | null
+          created_at: string
+          holder_user_id: string
+          id: string
+          issuer_user_id: string
+          item_label: string | null
+          pickup_pin: string | null
+          quantity: number
+          redeemed_at: string | null
+          redeemed_by: string | null
+          request_id: string
+          status: string
+          token_code: string
+          unit_price: number | null
+          valid_until: string | null
+        }
+        Insert: {
+          agreement_id: string
+          business_id?: string | null
+          created_at?: string
+          holder_user_id: string
+          id?: string
+          issuer_user_id: string
+          item_label?: string | null
+          pickup_pin?: string | null
+          quantity?: number
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          request_id: string
+          status?: string
+          token_code: string
+          unit_price?: number | null
+          valid_until?: string | null
+        }
+        Update: {
+          agreement_id?: string
+          business_id?: string | null
+          created_at?: string
+          holder_user_id?: string
+          id?: string
+          issuer_user_id?: string
+          item_label?: string | null
+          pickup_pin?: string | null
+          quantity?: number
+          redeemed_at?: string | null
+          redeemed_by?: string | null
+          request_id?: string
+          status?: string
+          token_code?: string
+          unit_price?: number | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_buy_tokens_holder_user_id_fkey"
+            columns: ["holder_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_buy_tokens_issuer_user_id_fkey"
+            columns: ["issuer_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -2239,6 +2557,98 @@ export type Database = {
           },
         ]
       }
+      places: {
+        Row: {
+          address_line1: string | null
+          best_time_to_visit: string | null
+          category: string
+          city: string | null
+          cover_image: string | null
+          created_at: string
+          description: string | null
+          difficulty: string | null
+          distance_from_city_km: number | null
+          entry_fee: string | null
+          gallery: string[]
+          geom: unknown
+          how_to_reach: string | null
+          id: string
+          lat: number | null
+          lng: number | null
+          name: string
+          opening_hours: string | null
+          parking_info: string | null
+          rejection_reason: string | null
+          safety_tips: string | null
+          status: Database["public"]["Enums"]["entity_status"]
+          submitted_by_user_id: string
+          visit_duration: string | null
+          weather_note: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          best_time_to_visit?: string | null
+          category: string
+          city?: string | null
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          distance_from_city_km?: number | null
+          entry_fee?: string | null
+          gallery?: string[]
+          geom?: unknown
+          how_to_reach?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name: string
+          opening_hours?: string | null
+          parking_info?: string | null
+          rejection_reason?: string | null
+          safety_tips?: string | null
+          status?: Database["public"]["Enums"]["entity_status"]
+          submitted_by_user_id: string
+          visit_duration?: string | null
+          weather_note?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          best_time_to_visit?: string | null
+          category?: string
+          city?: string | null
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          difficulty?: string | null
+          distance_from_city_km?: number | null
+          entry_fee?: string | null
+          gallery?: string[]
+          geom?: unknown
+          how_to_reach?: string | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name?: string
+          opening_hours?: string | null
+          parking_info?: string | null
+          rejection_reason?: string | null
+          safety_tips?: string | null
+          status?: Database["public"]["Enums"]["entity_status"]
+          submitted_by_user_id?: string
+          visit_duration?: string | null
+          weather_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "places_submitted_by_user_id_fkey"
+            columns: ["submitted_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       poll_votes: {
         Row: {
           created_at: string | null
@@ -2317,6 +2727,7 @@ export type Database = {
           id: string
           listing_id: string | null
           listing_type: string | null
+          mentions: Json
           parent_id: string | null
           phone_visibility: string | null
           post_id: string
@@ -2331,6 +2742,7 @@ export type Database = {
           id?: string
           listing_id?: string | null
           listing_type?: string | null
+          mentions?: Json
           parent_id?: string | null
           phone_visibility?: string | null
           post_id: string
@@ -2345,6 +2757,7 @@ export type Database = {
           id?: string
           listing_id?: string | null
           listing_type?: string | null
+          mentions?: Json
           parent_id?: string | null
           phone_visibility?: string | null
           post_id?: string
@@ -2400,6 +2813,39 @@ export type Database = {
           },
           {
             foreignKeyName: "post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_saves: {
+        Row: {
+          created_at: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_saves_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_saves_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -2667,6 +3113,7 @@ export type Database = {
           available_until: string | null
           avatar: string | null
           bio: string | null
+          bookings_enabled: boolean | null
           boost_reminder_sent: boolean
           category_id: string | null
           category_name: string | null
@@ -2688,6 +3135,7 @@ export type Database = {
           lng: number | null
           location_public: boolean | null
           owner_enabled: boolean
+          package_key: string | null
           payment_timing: string
           phone: string | null
           rating_avg: number | null
@@ -2716,6 +3164,7 @@ export type Database = {
           available_until?: string | null
           avatar?: string | null
           bio?: string | null
+          bookings_enabled?: boolean | null
           boost_reminder_sent?: boolean
           category_id?: string | null
           category_name?: string | null
@@ -2737,6 +3186,7 @@ export type Database = {
           lng?: number | null
           location_public?: boolean | null
           owner_enabled?: boolean
+          package_key?: string | null
           payment_timing?: string
           phone?: string | null
           rating_avg?: number | null
@@ -2765,6 +3215,7 @@ export type Database = {
           available_until?: string | null
           avatar?: string | null
           bio?: string | null
+          bookings_enabled?: boolean | null
           boost_reminder_sent?: boolean
           category_id?: string | null
           category_name?: string | null
@@ -2786,6 +3237,7 @@ export type Database = {
           lng?: number | null
           location_public?: boolean | null
           owner_enabled?: boolean
+          package_key?: string | null
           payment_timing?: string
           phone?: string | null
           rating_avg?: number | null
@@ -3092,16 +3544,25 @@ export type Database = {
       request_me_toos: {
         Row: {
           created_at: string | null
+          delivery_address: string | null
+          notes: string | null
+          quantity: number
           request_id: string
           user_id: string
         }
         Insert: {
           created_at?: string | null
+          delivery_address?: string | null
+          notes?: string | null
+          quantity?: number
           request_id: string
           user_id: string
         }
         Update: {
           created_at?: string | null
+          delivery_address?: string | null
+          notes?: string | null
+          quantity?: number
           request_id?: string
           user_id?: string
         }
@@ -3127,6 +3588,7 @@ export type Database = {
           area: string | null
           budget_max: number | null
           budget_min: number | null
+          bulk_price_per_unit: number | null
           category_id: string | null
           category_name: string | null
           created_at: string | null
@@ -3134,7 +3596,9 @@ export type Database = {
           description: string | null
           expires_at: string | null
           expires_in_hrs: number | null
+          fulfillment_type: string | null
           geom: unknown
+          group_agreement_id: string | null
           group_buy_target: number | null
           id: string
           is_anonymous: boolean | null
@@ -3146,6 +3610,7 @@ export type Database = {
           lng: number | null
           me_too_count: number | null
           photos: string[] | null
+          proposal_count: number
           radius_km: number | null
           requester_user_id: string | null
           status: Database["public"]["Enums"]["request_status"] | null
@@ -3157,6 +3622,7 @@ export type Database = {
           area?: string | null
           budget_max?: number | null
           budget_min?: number | null
+          bulk_price_per_unit?: number | null
           category_id?: string | null
           category_name?: string | null
           created_at?: string | null
@@ -3164,7 +3630,9 @@ export type Database = {
           description?: string | null
           expires_at?: string | null
           expires_in_hrs?: number | null
+          fulfillment_type?: string | null
           geom?: unknown
+          group_agreement_id?: string | null
           group_buy_target?: number | null
           id?: string
           is_anonymous?: boolean | null
@@ -3176,6 +3644,7 @@ export type Database = {
           lng?: number | null
           me_too_count?: number | null
           photos?: string[] | null
+          proposal_count?: number
           radius_km?: number | null
           requester_user_id?: string | null
           status?: Database["public"]["Enums"]["request_status"] | null
@@ -3187,6 +3656,7 @@ export type Database = {
           area?: string | null
           budget_max?: number | null
           budget_min?: number | null
+          bulk_price_per_unit?: number | null
           category_id?: string | null
           category_name?: string | null
           created_at?: string | null
@@ -3194,7 +3664,9 @@ export type Database = {
           description?: string | null
           expires_at?: string | null
           expires_in_hrs?: number | null
+          fulfillment_type?: string | null
           geom?: unknown
+          group_agreement_id?: string | null
           group_buy_target?: number | null
           id?: string
           is_anonymous?: boolean | null
@@ -3206,6 +3678,7 @@ export type Database = {
           lng?: number | null
           me_too_count?: number | null
           photos?: string[] | null
+          proposal_count?: number
           radius_km?: number | null
           requester_user_id?: string | null
           status?: Database["public"]["Enums"]["request_status"] | null
@@ -3789,6 +4262,39 @@ export type Database = {
           },
         ]
       }
+      user_blocks: {
+        Row: {
+          blocked_user_id: string
+          blocker_user_id: string
+          created_at: string
+        }
+        Insert: {
+          blocked_user_id: string
+          blocker_user_id: string
+          created_at?: string
+        }
+        Update: {
+          blocked_user_id?: string
+          blocker_user_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_blocks_blocked_user_id_fkey"
+            columns: ["blocked_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocker_user_id_fkey"
+            columns: ["blocker_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_list_items: {
         Row: {
           created_at: string | null
@@ -3947,11 +4453,13 @@ export type Database = {
           customer_enabled: boolean
           email: string | null
           id: string
+          interest_category_ids: string[] | null
           language: string | null
           lat: number | null
           lng: number | null
           location_public: boolean | null
           name: string
+          notif_nearby_alerts: boolean
           notif_nearby_requests: boolean
           notif_new_business: boolean
           notif_offers: boolean
@@ -3997,11 +4505,13 @@ export type Database = {
           customer_enabled?: boolean
           email?: string | null
           id: string
+          interest_category_ids?: string[] | null
           language?: string | null
           lat?: number | null
           lng?: number | null
           location_public?: boolean | null
           name: string
+          notif_nearby_alerts?: boolean
           notif_nearby_requests?: boolean
           notif_new_business?: boolean
           notif_offers?: boolean
@@ -4047,11 +4557,13 @@ export type Database = {
           customer_enabled?: boolean
           email?: string | null
           id?: string
+          interest_category_ids?: string[] | null
           language?: string | null
           lat?: number | null
           lng?: number | null
           location_public?: boolean | null
           name?: string
+          notif_nearby_alerts?: boolean
           notif_nearby_requests?: boolean
           notif_new_business?: boolean
           notif_offers?: boolean
@@ -4267,6 +4779,10 @@ export type Database = {
         Returns: unknown
       }
       _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _user_blocks_exists: {
+        Args: { p_a: string; p_b: string }
+        Returns: boolean
+      }
       _validate_recovery_question: {
         Args: { p_kind: string; p_question_id: string; p_question_text: string }
         Returns: undefined
@@ -4365,11 +4881,13 @@ export type Database = {
           customer_enabled: boolean
           email: string | null
           id: string
+          interest_category_ids: string[] | null
           language: string | null
           lat: number | null
           lng: number | null
           location_public: boolean | null
           name: string
+          notif_nearby_alerts: boolean
           notif_nearby_requests: boolean
           notif_new_business: boolean
           notif_offers: boolean
@@ -4428,11 +4946,13 @@ export type Database = {
           customer_enabled: boolean
           email: string | null
           id: string
+          interest_category_ids: string[] | null
           language: string | null
           lat: number | null
           lng: number | null
           location_public: boolean | null
           name: string
+          notif_nearby_alerts: boolean
           notif_nearby_requests: boolean
           notif_new_business: boolean
           notif_offers: boolean
@@ -4561,6 +5081,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      aliases_available: {
+        Args: { p_aliases: string[] }
+        Returns: {
+          alias: string
+          available: boolean
+        }[]
+      }
       appointment_accept_with_eta: {
         Args: { p_eta_text: string; p_id: string }
         Returns: {
@@ -4596,6 +5123,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -4646,6 +5174,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -4691,6 +5220,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -4718,6 +5248,7 @@ export type Database = {
           p_requested_delivery_window?: string
           p_scheduled_for: string
           p_target_id: string
+          p_target_package_key?: string
           p_target_type: string
           p_time_label: string
         }
@@ -4754,6 +5285,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -4780,6 +5312,7 @@ export type Database = {
           p_party_size?: number
           p_scheduled_for: string
           p_target_id: string
+          p_target_package_key?: string
           p_target_type: string
           p_time_label: string
         }
@@ -4816,6 +5349,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -4868,6 +5402,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -4918,6 +5453,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -4963,6 +5499,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -5008,6 +5545,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -5030,6 +5568,10 @@ export type Database = {
           appointment_id: string
           batch_id: string | null
           business_id: string
+          cancel_note: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string
           delivered_at: string | null
           handoff_code: string | null
@@ -5055,6 +5597,10 @@ export type Database = {
           appointment_id: string
           batch_id: string | null
           business_id: string
+          cancel_note: string | null
+          cancel_reason: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string
           delivered_at: string | null
           handoff_code: string | null
@@ -5101,6 +5647,70 @@ export type Database = {
           package_id: string
           scheduled_for: string
           used_spots: number
+        }[]
+      }
+      bulk_deal_order: {
+        Args: {
+          p_address?: string
+          p_deal_id: string
+          p_fulfillment?: string
+          p_method: string
+          p_quantity: number
+          p_reference?: string
+        }
+        Returns: {
+          cancelled_by: string | null
+          created_at: string | null
+          customer_avatar: string | null
+          customer_name: string | null
+          customer_user_id: string
+          date_label: string | null
+          delivery_address_line: string | null
+          delivery_eta_text: string | null
+          delivery_lat: number | null
+          delivery_lng: number | null
+          fulfillment_type: string
+          id: string
+          is_walk_in: boolean
+          notes: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          party_size: number
+          payment_amount: number | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: string
+          photo_url: string | null
+          requested_delivery_window: string | null
+          rescheduled_from: string | null
+          response_note: string | null
+          scheduled_for: string
+          status: string
+          target_avatar: string | null
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_package_key: string | null
+          target_type: string
+          time_label: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      bulk_deal_quote: {
+        Args: { p_deal_id: string; p_quantity: number }
+        Returns: {
+          meets_moq: boolean
+          quota_ok: boolean
+          regular_total: number
+          saved: number
+          total: number
+          unit_price: number
         }[]
       }
       bump_business_metric: {
@@ -5172,6 +5782,7 @@ export type Database = {
           aadhaar_doc_url: string | null
           address_line1: string | null
           available_until: string | null
+          bookings_enabled: boolean | null
           boost_reminder_sent: boolean
           boosted_until: string | null
           broadcast_radius: number
@@ -5212,6 +5823,7 @@ export type Database = {
           opening_date: string | null
           owner_enabled: boolean
           owner_user_id: string | null
+          package_key: string | null
           pan_doc_url: string | null
           payment_timing: string
           pending_lat: number | null
@@ -5250,6 +5862,11 @@ export type Database = {
       }
       can_comment_on_post: { Args: { p_post_id: string }; Returns: boolean }
       can_manage_business: { Args: { p_business_id: string }; Returns: boolean }
+      can_react_to_comment: { Args: { p_comment_id: string }; Returns: boolean }
+      cancel_delivery: {
+        Args: { p_delivery_id: string; p_note?: string; p_reason: string }
+        Returns: undefined
+      }
       cancel_expired_agreements: { Args: never; Returns: undefined }
       claim_first_admin: { Args: { p_login_id: string }; Returns: undefined }
       clear_entity_password: {
@@ -5260,7 +5877,12 @@ export type Database = {
       close_expired_business_sessions: { Args: never; Returns: undefined }
       close_expired_requests: { Args: never; Returns: undefined }
       close_stale_queue_tokens: { Args: never; Returns: undefined }
+      comment_gate_reason: { Args: { p_post_id: string }; Returns: string }
       community_post_delete: { Args: { p_id: string }; Returns: undefined }
+      community_post_hot_score: {
+        Args: { in_comments: number; in_created_at: string; in_likes: number }
+        Returns: number
+      }
       community_post_set_resolved: {
         Args: { p_id: string; p_resolved: boolean }
         Returns: {
@@ -5272,17 +5894,29 @@ export type Database = {
           author_type: string
           author_user_id: string | null
           body: string | null
+          comment_policy: string
           comments_count: number | null
           created_at: string | null
+          expires_at: string | null
           geom: unknown
+          hide_like_count: boolean
           id: string
           image: string | null
+          image_alt: string | null
+          last_seen: string | null
           lat: number | null
           likes_count: number | null
           lng: number | null
+          media: string[]
+          pickup_note: string | null
+          poll_ended_notified_at: string | null
+          poll_ends_at: string | null
           poll_options: Json | null
           recommendations: Json | null
           resolved: boolean | null
+          reward: string | null
+          severity: string | null
+          tagged_listing: Json | null
           title: string
           type: string
         }
@@ -5298,6 +5932,8 @@ export type Database = {
           p_body?: string
           p_id: string
           p_image?: string
+          p_image_alt?: string
+          p_media?: string[]
           p_title: string
         }
         Returns: {
@@ -5309,17 +5945,29 @@ export type Database = {
           author_type: string
           author_user_id: string | null
           body: string | null
+          comment_policy: string
           comments_count: number | null
           created_at: string | null
+          expires_at: string | null
           geom: unknown
+          hide_like_count: boolean
           id: string
           image: string | null
+          image_alt: string | null
+          last_seen: string | null
           lat: number | null
           likes_count: number | null
           lng: number | null
+          media: string[]
+          pickup_note: string | null
+          poll_ended_notified_at: string | null
+          poll_ends_at: string | null
           poll_options: Json | null
           recommendations: Json | null
           resolved: boolean | null
+          reward: string | null
+          severity: string | null
+          tagged_listing: Json | null
           title: string
           type: string
         }
@@ -5328,6 +5976,58 @@ export type Database = {
           to: "community_posts"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      community_posts_feed: {
+        Args: {
+          in_lat?: number
+          in_limit?: number
+          in_lng?: number
+          in_offset?: number
+          in_radius_km?: number
+          in_sort?: string
+          in_type?: string
+        }
+        Returns: {
+          allow_comments: boolean
+          area: string | null
+          author_avatar: string | null
+          author_name: string
+          author_ref_id: string | null
+          author_type: string
+          author_user_id: string | null
+          body: string | null
+          comment_policy: string
+          comments_count: number | null
+          created_at: string | null
+          expires_at: string | null
+          geom: unknown
+          hide_like_count: boolean
+          id: string
+          image: string | null
+          image_alt: string | null
+          last_seen: string | null
+          lat: number | null
+          likes_count: number | null
+          lng: number | null
+          media: string[]
+          pickup_note: string | null
+          poll_ended_notified_at: string | null
+          poll_ends_at: string | null
+          poll_options: Json | null
+          recommendations: Json | null
+          resolved: boolean | null
+          reward: string | null
+          severity: string | null
+          tagged_listing: Json | null
+          title: string
+          type: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "community_posts"
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
       community_posts_nearby: {
@@ -5347,17 +6047,29 @@ export type Database = {
           author_type: string
           author_user_id: string | null
           body: string | null
+          comment_policy: string
           comments_count: number | null
           created_at: string | null
+          expires_at: string | null
           geom: unknown
+          hide_like_count: boolean
           id: string
           image: string | null
+          image_alt: string | null
+          last_seen: string | null
           lat: number | null
           likes_count: number | null
           lng: number | null
+          media: string[]
+          pickup_note: string | null
+          poll_ended_notified_at: string | null
+          poll_ends_at: string | null
           poll_options: Json | null
           recommendations: Json | null
           resolved: boolean | null
+          reward: string | null
+          severity: string | null
+          tagged_listing: Json | null
           title: string
           type: string
         }[]
@@ -5371,6 +6083,95 @@ export type Database = {
       confirm_handoff: {
         Args: { p_code: string; p_delivery_id: string }
         Returns: boolean
+      }
+      count_my_active_deliveries: {
+        Args: { p_business_id?: string }
+        Returns: number
+      }
+      custom_payment_confirm: {
+        Args: { p_id: string }
+        Returns: {
+          amount: number
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          method: string
+          note: string | null
+          payer_avatar: string | null
+          payer_name: string | null
+          payer_user_id: string
+          reference: string | null
+          status: string
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "custom_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      custom_payment_create: {
+        Args: {
+          p_amount: number
+          p_method: string
+          p_note?: string
+          p_reference?: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: {
+          amount: number
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          method: string
+          note: string | null
+          payer_avatar: string | null
+          payer_name: string | null
+          payer_user_id: string
+          reference: string | null
+          status: string
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "custom_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      custom_payment_reject: {
+        Args: { p_id: string }
+        Returns: {
+          amount: number
+          confirmed_at: string | null
+          created_at: string
+          id: string
+          method: string
+          note: string | null
+          payer_avatar: string | null
+          payer_name: string | null
+          payer_user_id: string
+          reference: string | null
+          status: string
+          target_id: string
+          target_name: string | null
+          target_owner_user_id: string
+          target_type: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "custom_payments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       decide_business_session: {
         Args: { p_approve: boolean; p_session_id: string }
@@ -5398,6 +6199,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      delete_business: { Args: { p_business_id: string }; Returns: undefined }
       disablelongtransactions: { Args: never; Returns: string }
       distance_km: {
         Args: {
@@ -5597,11 +6399,13 @@ export type Database = {
           customer_enabled: boolean
           email: string | null
           id: string
+          interest_category_ids: string[] | null
           language: string | null
           lat: number | null
           lng: number | null
           location_public: boolean | null
           name: string
+          notif_nearby_alerts: boolean
           notif_nearby_requests: boolean
           notif_new_business: boolean
           notif_offers: boolean
@@ -5702,6 +6506,217 @@ export type Database = {
           session_id: string
         }[]
       }
+      group_buy_issue_tokens: {
+        Args: {
+          p_agreement_id: string
+          p_business_id?: string
+          p_request_id: string
+          p_unit_price?: number
+          p_valid_until?: string
+        }
+        Returns: number
+      }
+      group_buy_join:
+        | {
+            Args: {
+              p_notes?: string
+              p_quantity?: number
+              p_request_id: string
+            }
+            Returns: {
+              area: string | null
+              budget_max: number | null
+              budget_min: number | null
+              bulk_price_per_unit: number | null
+              category_id: string | null
+              category_name: string | null
+              created_at: string | null
+              deadline: string | null
+              description: string | null
+              expires_at: string | null
+              expires_in_hrs: number | null
+              fulfillment_type: string | null
+              geom: unknown
+              group_agreement_id: string | null
+              group_buy_target: number | null
+              id: string
+              is_anonymous: boolean | null
+              is_boosted: boolean | null
+              is_group_buy: boolean | null
+              is_recurring: boolean | null
+              is_urgent: boolean | null
+              lat: number | null
+              lng: number | null
+              me_too_count: number | null
+              photos: string[] | null
+              proposal_count: number
+              radius_km: number | null
+              requester_user_id: string | null
+              status: Database["public"]["Enums"]["request_status"] | null
+              sub_category: string | null
+              title: string
+              view_count: number | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "requests"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              p_delivery_address?: string
+              p_notes?: string
+              p_quantity?: number
+              p_request_id: string
+            }
+            Returns: {
+              area: string | null
+              budget_max: number | null
+              budget_min: number | null
+              bulk_price_per_unit: number | null
+              category_id: string | null
+              category_name: string | null
+              created_at: string | null
+              deadline: string | null
+              description: string | null
+              expires_at: string | null
+              expires_in_hrs: number | null
+              fulfillment_type: string | null
+              geom: unknown
+              group_agreement_id: string | null
+              group_buy_target: number | null
+              id: string
+              is_anonymous: boolean | null
+              is_boosted: boolean | null
+              is_group_buy: boolean | null
+              is_recurring: boolean | null
+              is_urgent: boolean | null
+              lat: number | null
+              lng: number | null
+              me_too_count: number | null
+              photos: string[] | null
+              proposal_count: number
+              radius_km: number | null
+              requester_user_id: string | null
+              status: Database["public"]["Enums"]["request_status"] | null
+              sub_category: string | null
+              title: string
+              view_count: number | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "requests"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+      group_buy_leave: {
+        Args: { p_request_id: string }
+        Returns: {
+          area: string | null
+          budget_max: number | null
+          budget_min: number | null
+          bulk_price_per_unit: number | null
+          category_id: string | null
+          category_name: string | null
+          created_at: string | null
+          deadline: string | null
+          description: string | null
+          expires_at: string | null
+          expires_in_hrs: number | null
+          fulfillment_type: string | null
+          geom: unknown
+          group_agreement_id: string | null
+          group_buy_target: number | null
+          id: string
+          is_anonymous: boolean | null
+          is_boosted: boolean | null
+          is_group_buy: boolean | null
+          is_recurring: boolean | null
+          is_urgent: boolean | null
+          lat: number | null
+          lng: number | null
+          me_too_count: number | null
+          photos: string[] | null
+          proposal_count: number
+          radius_km: number | null
+          requester_user_id: string | null
+          status: Database["public"]["Enums"]["request_status"] | null
+          sub_category: string | null
+          title: string
+          view_count: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      group_buy_redemption_stats: {
+        Args: { p_agreement_id: string }
+        Returns: {
+          pending: number
+          redeemed: number
+          total: number
+        }[]
+      }
+      group_buy_token_redeem: {
+        Args: { p_token_code: string }
+        Returns: {
+          agreement_id: string
+          business_id: string | null
+          created_at: string
+          holder_user_id: string
+          id: string
+          issuer_user_id: string
+          item_label: string | null
+          pickup_pin: string | null
+          quantity: number
+          redeemed_at: string | null
+          redeemed_by: string | null
+          request_id: string
+          status: string
+          token_code: string
+          unit_price: number | null
+          valid_until: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "group_buy_tokens"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      group_buy_tokens_for_agreement: {
+        Args: { p_agreement_id: string }
+        Returns: {
+          agreement_id: string
+          business_id: string | null
+          created_at: string
+          holder_user_id: string
+          id: string
+          issuer_user_id: string
+          item_label: string | null
+          pickup_pin: string | null
+          quantity: number
+          redeemed_at: string | null
+          redeemed_by: string | null
+          request_id: string
+          status: string
+          token_code: string
+          unit_price: number | null
+          valid_until: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "group_buy_tokens"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_business_access: {
         Args: { p_business_id: string; p_uid: string }
         Returns: boolean
@@ -5725,6 +6740,10 @@ export type Database = {
       is_admin:
         | { Args: never; Returns: boolean }
         | { Args: { p_user_id: string }; Returns: boolean }
+      is_blocked_between: {
+        Args: { p_other_user_id: string }
+        Returns: boolean
+      }
       is_entity_password_set: { Args: { p_kind: string }; Returns: boolean }
       is_entity_recovery_set: { Args: { p_kind: string }; Returns: boolean }
       is_society_admin: {
@@ -5802,6 +6821,14 @@ export type Database = {
           stops_before: number
         }[]
       }
+      my_duty_blockers: {
+        Args: never
+        Returns: {
+          blocking_batch_id: string
+          blocking_count: number
+          blocking_delivery_id: string
+        }[]
+      }
       neighborhood_today: {
         Args: { in_lat: number; in_lng: number; in_radius_m?: number }
         Returns: Json
@@ -5819,6 +6846,7 @@ export type Database = {
         Args: { p_agreement_id: string; p_recipient_user_id: string }
         Returns: undefined
       }
+      notify_ended_polls: { Args: never; Returns: number }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
         | { Args: { use_typmod?: boolean }; Returns: string }
@@ -5891,6 +6919,7 @@ export type Database = {
           available_until: string | null
           avatar: string | null
           bio: string | null
+          bookings_enabled: boolean | null
           boost_reminder_sent: boolean
           category_id: string | null
           category_name: string | null
@@ -5912,6 +6941,7 @@ export type Database = {
           lng: number | null
           location_public: boolean | null
           owner_enabled: boolean
+          package_key: string | null
           payment_timing: string
           phone: string | null
           rating_avg: number | null
@@ -6019,6 +7049,7 @@ export type Database = {
           target_id: string
           target_name: string | null
           target_owner_user_id: string
+          target_package_key: string | null
           target_type: string
           time_label: string | null
         }
@@ -6683,6 +7714,40 @@ export type Database = {
         Returns: string
       }
       stop_live_share: { Args: never; Returns: undefined }
+      stories_nearby: {
+        Args: {
+          in_lat: number
+          in_limit?: number
+          in_lng: number
+          in_radius_km?: number
+        }
+        Returns: {
+          allowed_user_ids: string[] | null
+          author_avatar: string
+          author_name: string
+          caption: string
+          created_at: string | null
+          cta: string
+          expires_at: string
+          geom: unknown
+          hidden_user_ids: string[] | null
+          id: string
+          image_url: string
+          is_highlighted: boolean
+          lat: number | null
+          lng: number | null
+          owner_id: string
+          owner_type: string
+          user_id: string | null
+          visibility: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "stories"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       suggest_business_login: {
         Args: { p_business_id: string }
         Returns: string
@@ -6694,6 +7759,16 @@ export type Database = {
         Args: {
           p_accuracy?: number
           p_batch_id: string
+          p_heading?: number
+          p_lat: number
+          p_lng: number
+        }
+        Returns: undefined
+      }
+      update_delivery_position: {
+        Args: {
+          p_accuracy?: number
+          p_delivery_id: string
           p_heading?: number
           p_lat: number
           p_lng: number
@@ -6770,7 +7845,13 @@ export type Database = {
         | "IN_PROGRESS"
         | "REVIEW"
       category_kind: "BUSINESS" | "SERVICE" | "BOTH"
-      entity_status: "DRAFT" | "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED"
+      entity_status:
+        | "DRAFT"
+        | "PENDING"
+        | "ACTIVE"
+        | "REJECTED"
+        | "SUSPENDED"
+        | "DELETED"
       proposal_status: "SUBMITTED" | "ACCEPTED" | "REJECTED" | "WITHDRAWN"
       request_status:
         | "OPEN"
@@ -6913,6 +7994,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       agreement_status: [
@@ -6926,7 +8010,14 @@ export const Constants = {
         "REVIEW",
       ],
       category_kind: ["BUSINESS", "SERVICE", "BOTH"],
-      entity_status: ["DRAFT", "PENDING", "ACTIVE", "REJECTED", "SUSPENDED"],
+      entity_status: [
+        "DRAFT",
+        "PENDING",
+        "ACTIVE",
+        "REJECTED",
+        "SUSPENDED",
+        "DELETED",
+      ],
       proposal_status: ["SUBMITTED", "ACCEPTED", "REJECTED", "WITHDRAWN"],
       request_status: [
         "OPEN",

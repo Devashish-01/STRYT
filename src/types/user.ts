@@ -8,6 +8,7 @@ export type BookmarkTarget = "BUSINESS" | "PROVIDER" | "REQUEST";
 export type NotificationType =
   | "NEW_BUSINESS"
   | "NEW_PROVIDER"
+  | "NEW_PLACE"
   | "NEARBY_REQUEST"
   | "PROPOSAL"
   | "AGREEMENT"

@@ -1,4 +1,4 @@
-export type Layer = "business" | "provider" | "request" | "story";
+export type Layer = "business" | "provider" | "request" | "story" | "place";
 
 /** Request teardrop only — business/provider tones live on RING_BACKGROUND
  *  in AvatarPin so the pin ring and its popup CTA cannot drift apart. */

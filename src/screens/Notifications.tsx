@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package, Heart, Sparkles, CheckCircle2, ChartBar, At } from "@/components/Icons";
+import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package, Heart, Sparkles, CheckCircle2, ChartBar, At, Mountains } from "@/components/Icons";
 import { notificationService } from "@/services";
 import type { NotifScope } from "@/services/engagement/notificationService";
 import { useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
@@ -17,6 +17,7 @@ const Handshake = HandshakeIcon as any;
 const meta: Record<NotificationType, { icon: any; color: string; bg: string }> = {
   NEW_BUSINESS: { icon: Store, color: "var(--orange-500)", bg: "var(--orange-50)" },
   NEW_PROVIDER: { icon: Briefcase, color: "var(--green-500)", bg: "var(--green-100)" },
+  NEW_PLACE: { icon: Mountains, color: "var(--brand-700)", bg: "var(--brand-100)" },
   NEARBY_REQUEST: { icon: MessageSquareText, color: "var(--brand-700)", bg: "var(--brand-100)" },
   PROPOSAL: { icon: FileText, color: "var(--blue-500)", bg: "var(--ink-100)" },
   AGREEMENT: { icon: Handshake, color: "var(--green-500)", bg: "var(--green-100)" },

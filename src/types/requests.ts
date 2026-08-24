@@ -1,5 +1,7 @@
 // Service requests, proposals, and the agreements they turn into.
 
+import type { FulfillmentType } from "./bulk";
+
 export type RequestStatus =
   | "OPEN"
   | "IN_PROGRESS"
@@ -46,6 +48,21 @@ export interface RequestPost {
   meTooed?: boolean;
   isGroupBuy?: boolean;
   groupBuyTarget?: number;
+  /** Sum of pledged quantities across all pooled members — distinct from
+   *  meTooCount, which counts PEOPLE. 20 neighbours pledging 2 each is
+   *  meTooCount 20, pledgedQuantity 40; the target is measured in units. */
+  pledgedQuantity?: number;
+  /** The per-unit price the initiator is aiming for. */
+  bulkPricePerUnit?: number | null;
+  fulfillmentType?: FulfillmentType | null;
+  /** Set once the initiator accepts a proposal and passes are issued. */
+  groupAgreementId?: string | null;
+  /** This viewer's own pledge, when they've joined. */
+  myPledgeQuantity?: number | null;
+  /** Public aggregate — how many providers have quoted. The proposals
+   *  themselves are RLS-scoped to requester/responder, so this count is the
+   *  only thing a non-participant can see. */
+  proposalCount?: number;
   isUrgent?: boolean;
   isRecurring?: boolean;
   isAnonymous?: boolean;

@@ -14,6 +14,7 @@ const REQUEST_COLUMNS = new Set([
   "budgetMax","area","lat","lng","radiusKm","deadline","status","isBoosted","viewCount",
   "photos","meTooCount","isGroupBuy","groupBuyTarget","isUrgent","isRecurring",
   "isAnonymous","expiresInHrs","expiresAt",
+  "bulkPricePerUnit","fulfillmentType",
 ]);
 const PROPOSAL_COLUMNS = new Set([
   "requestId","responderUserId","responderType","responderEntityId","responderTagline","price","message",
@@ -391,7 +392,9 @@ export const requestService = {
     return { agreementId: (data as string) ?? null, status: "PENDING" };
   },
 
-  /** Toggle "me too" on a request. Insert if not yet; delete if already done. */
+  /** Toggle "me too" on a request. Insert if not yet; delete if already done.
+   *  Quantity-free — a plain "I want this too" on an ordinary request. Group
+   *  buys use joinGroupBuy() below, which carries a pledged quantity. */
   async meToo(requestId: string): Promise<{ ok: boolean; meTooed: boolean }> {
     const sb = getSupabase();
     const uid = await currentUserId();
@@ -405,13 +408,99 @@ export const requestService = {
       .maybeSingle();
 
     if (existing) {
-      await sb.from("request_me_toos").delete().eq("request_id", requestId).eq("user_id", uid);
+      await sb.rpc("group_buy_leave", { p_request_id: requestId });
       return { ok: true, meTooed: false };
-    } else {
-      await sb.from("request_me_toos").insert({ request_id: requestId, user_id: uid });
-      return { ok: true, meTooed: true };
     }
-    // The DB trigger handles me_too_count update automatically.
+    await sb.rpc("group_buy_join", { p_request_id: requestId, p_quantity: 1 });
+    return { ok: true, meTooed: true };
+  },
+
+  /** Pledge a QUANTITY into a group buy pool ("2 checkups for my family").
+   *  Re-joining with a different number updates the pledge rather than
+   *  stacking, so the pool total can't be inflated by tapping twice. */
+  async joinGroupBuy(requestId: string, quantity: number, notes?: string | null, deliveryAddress?: string | null) {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("group_buy_join", {
+      p_request_id: requestId,
+      p_quantity: quantity,
+      p_notes: notes ?? undefined,
+      p_delivery_address: deliveryAddress ?? undefined,
+    });
+    throwIfError(error);
+    return { ok: true };
+  },
+
+  async leaveGroupBuy(requestId: string) {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("group_buy_leave", { p_request_id: requestId });
+    throwIfError(error);
+    return { ok: true };
+  },
+
+  /** Pool totals for a group buy: units pledged across everyone, plus this
+   *  viewer's own pledge. me_too_count on the request counts PEOPLE; a target
+   *  of "100 patients" is measured in units, so both are needed. */
+  async groupBuyPledges(requestId: string): Promise<{ pledgedQuantity: number; myPledgeQuantity: number | null }> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    const { data, error } = await sb
+      .from("request_me_toos")
+      .select("user_id, quantity")
+      .eq("request_id", requestId);
+    if (error) return { pledgedQuantity: 0, myPledgeQuantity: null };
+    const rows = (data ?? []) as { user_id: string; quantity: number }[];
+    return {
+      pledgedQuantity: rows.reduce((sum, r) => sum + (r.quantity ?? 1), 0),
+      myPledgeQuantity: uid ? (rows.find((r) => r.user_id === uid)?.quantity ?? null) : null,
+    };
+  },
+
+  /** Fill pledgedQuantity/myPledgeQuantity on a list of requests in ONE round
+   *  trip. Doing it per-card would be an N+1 across the whole /bulk feed. */
+  async enrichGroupBuyPledges(requests: RequestPost[]): Promise<RequestPost[]> {
+    const groupBuyIds = requests.filter((r) => r.isGroupBuy).map((r) => r.id);
+    if (groupBuyIds.length === 0) return requests;
+
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    const { data, error } = await sb
+      .from("request_me_toos")
+      .select("request_id, user_id, quantity")
+      .in("request_id", groupBuyIds);
+    if (error) return requests;
+
+    const totals = new Map<string, number>();
+    const mine = new Map<string, number>();
+    for (const row of (data ?? []) as { request_id: string; user_id: string; quantity: number }[]) {
+      const qty = row.quantity ?? 1;
+      totals.set(row.request_id, (totals.get(row.request_id) ?? 0) + qty);
+      if (uid && row.user_id === uid) mine.set(row.request_id, qty);
+    }
+
+    return requests.map((r) =>
+      r.isGroupBuy
+        ? { ...r, pledgedQuantity: totals.get(r.id) ?? 0, myPledgeQuantity: mine.get(r.id) ?? null }
+        : r
+    );
+  },
+
+  /** Initiator closes the deal: mints one QR claim pass per pooled member.
+   *  Idempotent server-side, so a lost response can be safely retried. */
+  async issueGroupBuyTokens(
+    requestId: string,
+    agreementId: string,
+    opts: { businessId?: string | null; unitPrice?: number | null; validUntilISO?: string | null } = {}
+  ): Promise<number> {
+    const sb = getSupabase();
+    const { data, error } = await sb.rpc("group_buy_issue_tokens", {
+      p_request_id: requestId,
+      p_agreement_id: agreementId,
+      p_business_id: opts.businessId ?? undefined,
+      p_unit_price: opts.unitPrice ?? undefined,
+      p_valid_until: opts.validUntilISO ?? undefined,
+    });
+    throwIfError(error);
+    return Number(data ?? 0);
   },
 
   // ── Agreements ──────────────────────────────────────────────────────────────

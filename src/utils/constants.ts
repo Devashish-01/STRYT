@@ -1,9 +1,10 @@
-// Temporary kill-switch: the "me too" join action was never wired to a button
-// anywhere in the UI (toggleMeToo/requestService.meToo exist but have zero call
-// sites), yet the group-buy progress bar + broadcast-quote checkbox still
-// displayed the resulting counts, implying an interaction that doesn't exist.
-// Flip back to true to restore that display once the join button ships for real.
-export const GROUP_BUY_PROGRESS_ENABLED = false;
+// Was off because the "me too" join action had no button anywhere in the UI,
+// so the progress bar was advertising an interaction that didn't exist.
+// That's resolved: JoinGroupBuySheet ships a real quantity-carrying join
+// (requestService.joinGroupBuy → group_buy_join RPC), reachable from the /bulk
+// hub and every GroupBuyCard, so the counts now reflect something a user can
+// actually do.
+export const GROUP_BUY_PROGRESS_ENABLED = true;
 
 export const RADIUS_OPTIONS = [
   { label: "500m", km: 0.5 },

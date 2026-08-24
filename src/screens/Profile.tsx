@@ -51,6 +51,12 @@ export default function Profile() {
 
   const getFirstName = (name: string) => name.split(" ")[0] || "My";
 
+  const { data: myBizList } = useQuery(
+    () => (ownedBusinessIds.length > 0 ? businessService.mine() : Promise.resolve([])),
+    [ownedBusinessIds.join(",")],
+    `profile:my-biz:${user.id}`
+  );
+
   const shareOptions: ShareOption[] = [
     {
       role: "customer",
@@ -64,17 +70,21 @@ export default function Profile() {
   ];
 
   
-  if (ownedBusinessIds.length > 0) {
+  // Up to 5 businesses per owner (trg_enforce_business_owner_limit) — one
+  // share entry per business, not just the first, each with its real name
+  // once myBizList has loaded (falls back to a generic label until then).
+  ownedBusinessIds.forEach((bizId, i) => {
+    const biz = (myBizList ?? []).find((b) => b.id === bizId);
     shareOptions.push({
       role: "business_owner",
-      label: "Shop Profile",
-      url: window.location.origin + "/business/" + ownedBusinessIds[0],
-      title: `${getFirstName(displayName(user.name, "My"))}'s Shop`,
+      label: ownedBusinessIds.length > 1 ? (biz?.name ?? `Shop Profile ${i + 1}`) : "Shop Profile",
+      url: window.location.origin + "/business/" + bizId,
+      title: biz?.name ?? `${getFirstName(displayName(user.name, "My"))}'s Shop`,
       subtitle: "Local Business on Stryt",
-      image: PLACEHOLDER_BUSINESS_COVER,
+      image: biz?.coverImage || PLACEHOLDER_BUSINESS_COVER,
       meta: "Shops & Deals"
     });
-  }
+  });
 
   if (ownedProviderId) {
     shareOptions.push({
@@ -88,37 +98,37 @@ export default function Profile() {
     });
   }
 
-  const { data: agreementsData } = useQuery(() => requestService.agreements(), []);
-  const { data: followersData } = useQuery(() => user.id ? socialService.followers(user.id) : Promise.resolve([]), [user.id]);
+  const { data: agreementsData } = useQuery(() => requestService.agreements(), [], `home:agreements:${user.id}`);
+  const { data: followersData } = useQuery(() => user.id ? socialService.followers(user.id) : Promise.resolve([]), [user.id], `profile:followers:${user.id}`);
   const followersCount = followersData?.length ?? 0;
   const activeAgreements = (agreementsData ?? []).filter((a) => !TERMINAL.includes(a.status));
   const totalAgreements  = agreementsData?.length ?? 0;
 
-  const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined);
+  const { data: myQueuesData } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined, `home:queues:${user.id}`);
   const activeQueues = (myQueuesData ?? []).filter((q) => q.status === "WAITING" || q.status === "CALLED");
 
   // Tile subtitles are only worth showing if they're TRUE — a tile that says
   // "2 upcoming" and is wrong is worse than one that says nothing. So the two
   // counts that need a fetch get one, and everything else uses a static
   // descriptor rather than a number we haven't actually loaded.
-  const { data: myAppointments } = useQuery(() => user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([]), [user.id]);
+  const { data: myAppointments } = useQuery(() => user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([]), [user.id], `home:appointments:${user.id}`);
   const upcomingCount = (myAppointments ?? []).filter(
     (a) => (a.status === "PENDING" || a.status === "ACCEPTED") && new Date(a.scheduledForISO).getTime() > Date.now()
   ).length;
 
-  const { data: myRequests } = useQuery(() => user.id ? requestService.mine() : Promise.resolve([]), [user.id]);
+  const { data: myRequests } = useQuery(() => user.id ? requestService.mine() : Promise.resolve([]), [user.id], `profile:my-requests:${user.id}`);
   const openRequestCount = (myRequests ?? []).filter((r) => r.status === "OPEN").length;
 
   // Mirrors what the Achievements screen itself says in its own subtitle
   // ("X of Y unlocked") so the tile and the destination can't disagree.
-  const { data: achievementsData } = useQuery(() => socialService.achievements(), [user.id]);
+  const { data: achievementsData } = useQuery(() => socialService.achievements(), [user.id], `profile:achievements:${user.id}`);
   const badgeSub = achievementsData
     ? `${achievementsData.filter((a) => a.unlocked).length} of ${achievementsData.length} unlocked`
     : "Your achievements";
 
   const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [], undefined, "notif:customer");
 
-  const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id]);
+  const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id], `profile:highlights:${user.id}`);
   const highlights = highlightsData ?? [];
 
   // Destinations, split into two labelled groups instead of one undifferentiated

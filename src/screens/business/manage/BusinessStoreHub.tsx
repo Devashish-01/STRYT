@@ -3,7 +3,7 @@ import { AppBar, SafeImg } from "@/components/common";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ErrorView, Skeleton } from "@/components/states";
-import { AlertTriangle, ChevronRight, Clock, ExternalLink, FileText, Image, Store } from "@/components/Icons";
+import { AlertTriangle, ChevronRight, Clock, ExternalLink, FileText, Image, Store, Package } from "@/components/Icons";
 import ManageNav from "./ManageNav";
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -23,6 +23,7 @@ export default function BusinessStoreHub() {
   const sections = [
     { icon: <FileText size={20} color="var(--brand-600)" />, title: "Catalog", text: "Services, prices, offers and stock", to: `${base}/catalog` },
     { icon: <AlertTriangle size={20} color="var(--red-600)" />, title: "Inventory management", text: flaggedCount > 0 ? `${flaggedCount} item${flaggedCount === 1 ? "" : "s"} need restocking` : "Out-of-stock and low items", to: `${base}/inventory` },
+    { icon: <Package size={20} color="var(--amber-700)" />, title: "Bulk deals", text: "Wholesale offers, volume pricing & claim passes", to: `${base}/bulk-deals` },
     { icon: <Image size={20} color="var(--pink-500)" />, title: "Portfolio", text: "Show customers your best work", to: `${base}/portfolio` },
     { icon: <Clock size={20} color="var(--blue-500)" />, title: "Hours & Availability", text: "Keep availability and booking hours current", to: `${base}/hours` },
     { icon: <Store size={20} color="var(--orange-500)" />, title: "Edit profile", text: "Name, cover, contact and location", to: `${base}/edit-profile` },

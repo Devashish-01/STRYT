@@ -26,6 +26,7 @@ import { PaymentSheet } from "@/components/PaymentSheet";
 import LivePulseDot from "@/components/LivePulseDot";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { WalkInPaySheet } from "@/components/WalkInPaySheet";
+import { CustomPaySheet } from "@/components/CustomPaySheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS, formatHoursForDisplay } from "@/utils/availability";
 import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
@@ -48,25 +49,28 @@ export default function BusinessDetail() {
   } = useApp();
 
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `business:${id}`);
-  const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
-  const { data: queue } = useQueryWithRealtime(() => businessService.queue(id), "queue_tokens", [id], `business_id=eq.${id}`);
-  const { data: qnaList, refetch: refetchQna } = useQueryWithRealtime(() => businessService.qna(id), "business_qna", [id], `business_id=eq.${id}`);
-  const { data: bizPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("business", id), "community_posts", [id], `author_ref_id=eq.${id}`);
-  const { data: highlightsData } = useQuery(() => socialService.highlightsFor("business", id), [id]);
+  const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `business:${id}:reviews`);
+  const { data: queue } = useQueryWithRealtime(() => businessService.queue(id), "queue_tokens", [id], `business_id=eq.${id}`, `business:${id}:queue`);
+  const { data: qnaList, refetch: refetchQna } = useQueryWithRealtime(() => businessService.qna(id), "business_qna", [id], `business_id=eq.${id}`, `business:${id}:qna`);
+  const { data: bizPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("business", id), "community_posts", [id], `author_ref_id=eq.${id}`, `business:${id}:posts`);
+  const { data: highlightsData } = useQuery(() => socialService.highlightsFor("business", id), [id], `business:${id}:highlights`);
   const highlights = highlightsData ?? [];
   const { data: myAppointments, refetch: refetchMyAppointments } = useQuery(
     () => (user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([])),
-    [user.id]
+    [user.id],
+    `home:appointments:${user.id}`
   );
   const { data: myQueueEntries, refetch: refetchMyQueues } = useQuery(
     () => (user.id ? businessService.myQueues() : Promise.resolve([])),
-    [user.id]
+    [user.id],
+    `home:queues:${user.id}`
   );
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
   const [viewingPhotos, setViewingPhotos] = useState<{ photos: PhotoViewerItem[]; startIndex: number } | null>(null);
   const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
   const [payingQueueTokenId, setPayingQueueTokenId] = useState<string | null>(null);
   const [walkInPaying, setWalkInPaying] = useState(false);
+  const [customPaying, setCustomPaying] = useState(false);
   const [joiningQueue, setJoiningQueue] = useState(false);
   const [partySize, setPartySize] = useState(1);
   const [queueBusy, setQueueBusy] = useState(false);
@@ -428,18 +432,20 @@ export default function BusinessDetail() {
               )}
             </div>
 
-            {/* Always visible for a walk-in with no prior relationship to this
-                business (b.catalog.length check), not just when there's an
-                existing unpaid appointment/queue token — a customer standing
-                in the shop right now needs a way to pay too. */}
-            {!isOwner && !isGuest && !isMockTarget(id) && (payableApt || payableQueue || b.catalog.length > 0) && (
+            {/* Always visible, regardless of any existing appointment/queue/
+                catalog relationship — a customer with none of those still
+                needs a way to pay (walk-in tip, deposit, ad-hoc amount). The
+                first three branches below cover an existing claimable
+                relationship; customPaySheet is the fallback with none. */}
+            {!isOwner && !isGuest && !isMockTarget(id) && (
               <button
                 className="row gap-10"
                 style={{ width: "100%", marginTop: 10, padding: "12px 14px", background: "var(--brand-50)", border: "1.5px solid var(--brand-200)", borderRadius: 14 }}
                 onClick={() => {
                   if (payableApt) setPayingApt(payableApt);
                   else if (payableQueue) setPayingQueueTokenId(payableQueue.tokenId);
-                  else setWalkInPaying(true);
+                  else if (b.catalog.length > 0) setWalkInPaying(true);
+                  else setCustomPaying(true);
                 }}
               >
                 <Wallet size={18} color="var(--brand-700)" />
@@ -1053,6 +1059,16 @@ export default function BusinessDetail() {
           initialCart={cart}
           onPaid={refetchMyAppointments}
           onClose={() => setWalkInPaying(false)}
+        />
+      )}
+      {customPaying && (
+        <CustomPaySheet
+          targetType="BUSINESS"
+          targetId={b.id}
+          targetName={b.name}
+          targetUpiId={b.upiId ?? null}
+          onPaid={() => {}}
+          onClose={() => setCustomPaying(false)}
         />
       )}
 

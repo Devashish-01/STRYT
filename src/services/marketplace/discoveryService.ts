@@ -2,7 +2,7 @@ import { type Page } from "@/lib/apiClient";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { cursorToRange, toPage, throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
-import type { Business, Provider } from "@/types";
+import type { Business, Provider, Place } from "@/types";
 import { haversineKm } from "@/lib/geocode";
 import { clampRadiusForViewer } from "@/lib/guestMode";
 import { config } from "@/config";
@@ -130,6 +130,28 @@ export const discoveryService = {
     const page = toPage<Provider>(data, count, from, limit);
     page.data = page.data.map((prov) => withDistance(prov, userLat, userLng));
     return page;
+  },
+
+  // Plain public select + client-side distance filter, not a PostGIS RPC like
+  // businesses/providers use — admin-vetted public POIs don't carry the same
+  // scraping/privacy motivation that justified hiding lat/lng behind an RPC
+  // for those, and the expected place count is far lower.
+  async places(p: { lat?: number; lng?: number; radius?: number } = {}): Promise<Place[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb.from("places").select("*").eq("status", "ACTIVE");
+    throwIfError(error);
+    const rows = (data ?? []).map((r) => toCamel<Place>(r));
+    if (!p.lat || !p.lng) return rows;
+    const userLat = p.lat, userLng = p.lng;
+    const withDist = rows.map((r) => ({ ...r, distanceKm: (r.lat && r.lng) ? haversineKm(userLat, userLng, r.lat, r.lng) : Infinity }));
+    return p.radius ? withDist.filter((r) => r.distanceKm <= p.radius!) : withDist;
+  },
+
+  async getPlace(id: string): Promise<Place | undefined> {
+    const sb = getSupabase();
+    const { data, error } = await sb.from("places").select("*").eq("id", id).maybeSingle();
+    throwIfError(error);
+    return data ? toCamel<Place>(data) : undefined;
   },
 
   async getBusiness(id: string, lat?: number, lng?: number): Promise<Business | undefined> {

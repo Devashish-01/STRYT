@@ -9,7 +9,7 @@ import { SafeImg } from "@/components/common";
 import {
   Home, Map, Plus, Settings, Bell, LogOut,
   LayoutDashboard, LayoutGrid, Inbox, CalendarClock, ImageIcon,
-  UserCircle, User, Search, Wallet
+  UserCircle, User, Search, Wallet, Package
 } from "@/components/Icons";
 import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandLockup from "@/components/BrandLockup";
@@ -84,6 +84,7 @@ export default function DesktopSidebar() {
         { to: `${base}/appointments`, label: "Appointments", icon: CalendarClock },
         { to: `${base}/queue`, label: "Live Queue", icon: Plus },
         { to: `${base}/offers`, label: "Offers", icon: ImageIcon },
+        { to: `${base}/bulk-deals`, label: "Bulk deals", icon: Package },
         { to: `${base}/settings`, label: "Settings", icon: Settings },
       ];
     }
@@ -109,6 +110,7 @@ export default function DesktopSidebar() {
         { to: "/home", label: t("home") || "Home", icon: Home, exact: true },
         { to: "/explore", label: "Explore", icon: UserCircle },
         { to: "/map", label: t("map") || "Map", icon: Map },
+        { to: "/bulk", label: "Bulk & group buys", icon: Package },
         { to: "/community-hub", label: "Community", icon: ImageIcon },
       ];
     }
@@ -118,6 +120,7 @@ export default function DesktopSidebar() {
       { to: "/home", label: t("home") || "Home", icon: Home, exact: true },
       { to: "/explore", label: "Explore", icon: UserCircle },
       { to: "/map", label: t("map") || "Map", icon: Map },
+      { to: "/bulk", label: "Bulk & group buys", icon: Package },
       { to: "/community-hub", label: "Community", icon: ImageIcon },
       { to: "/notifications", label: "Notifications", icon: Bell, badge: chatUnread || undefined },
       { to: "/queues", label: "My Queues", icon: Plus },

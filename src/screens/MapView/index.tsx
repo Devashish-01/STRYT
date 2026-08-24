@@ -186,14 +186,15 @@ export default function MapView() {
     localStorage.setItem("settings_map_filter", resultFilter);
   }, [resultFilter]);
 
-  // Stories stay OUT of "all" on purpose: they're a separate query, and the
-  // old layer default had them off for the same reason. Picking the Stories
-  // filter is what opts into that cost.
+  // Stories and places stay OUT of "all" on purpose: they're each a separate
+  // query, and the old layer default had stories off for the same reason.
+  // Picking their filter chip explicitly is what opts into that extra fetch.
   const layers = useMemo<Record<MapLayer, boolean>>(() => ({
     business: resultFilter === "all" || resultFilter === "business",
     provider: resultFilter === "all" || resultFilter === "provider",
     request: resultFilter === "all" || resultFilter === "request",
     story: resultFilter === "story",
+    place: resultFilter === "place",
   }), [resultFilter]);
   const [availOnly, setAvailOnly] = useState(() => {
     const saved = localStorage.getItem("settings_map_avail_only");
@@ -423,31 +424,55 @@ export default function MapView() {
     viewport.onMapMove(e);
   }
 
+  // Rounded to ~1km precision so small GPS jitter reuses the same cache entry
+  // instead of missing on every tiny position change.
+  const geoCacheKey = isWorld ? "world" : `${centerLat.toFixed(2)}:${centerLng.toFixed(2)}:${searchRadiusKm}`;
+
   // For "World" use a globally-sorted (newest-first) query with no geo filter
+  //
+  // cacheKey below makes revisiting the Map tab show the last-known pins
+  // instantly (stale-while-revalidate, see useApi.ts) instead of refetching
+  // from a blank slate every mount — the map's own GL instance already
+  // persists across navigation (reuseMaps), the data layer hadn't caught up.
   const { data: bizPage, loading: bizLoading } = useQuery(
     () => isWorld
       ? discoveryService.businesses({ sort: "new" })
       : discoveryService.businesses({ lat: centerLat, lng: centerLng, radius: searchRadiusKm }),
-    [centerLat, centerLng, searchRadiusKm]
+    [centerLat, centerLng, searchRadiusKm],
+    `map:biz:${geoCacheKey}`
   );
   const { data: provPage, loading: provLoading } = useQuery(
     () => isWorld
       ? discoveryService.providers({ sort: "new" })
       : discoveryService.providers({ lat: centerLat, lng: centerLng, radius: searchRadiusKm }),
-    [centerLat, centerLng, searchRadiusKm]
+    [centerLat, centerLng, searchRadiusKm],
+    `map:prov:${geoCacheKey}`
   );
-  const { data: reqPage } = useQuery(() => requestService.feed({ lat: centerLat, lng: centerLng }), [centerLat, centerLng]);
+  const { data: reqPage } = useQuery(
+    () => requestService.feed({ lat: centerLat, lng: centerLng }),
+    [centerLat, centerLng],
+    `map:req:${geoCacheKey}`
+  );
   const { data: nearbyStories } = useQuery(
     () => layers.story
       ? socialService.storiesNearby(centerLat, centerLng, Math.min(searchRadiusKm, 200))
       : Promise.resolve([]),
-    [layers.story, centerLat, centerLng, searchRadiusKm]
+    [layers.story, centerLat, centerLng, searchRadiusKm],
+    layers.story ? `map:story:${geoCacheKey}` : undefined
+  );
+  const { data: nearbyPlaces } = useQuery(
+    () => layers.place
+      ? discoveryService.places({ lat: centerLat, lng: centerLng, radius: isWorld ? undefined : searchRadiusKm })
+      : Promise.resolve([]),
+    [layers.place, centerLat, centerLng, searchRadiusKm, isWorld],
+    layers.place ? `map:place:${geoCacheKey}` : undefined
   );
 
   const businesses = bizPage?.data ?? [];
   const providers  = provPage?.data ?? [];
   const requests   = (reqPage?.data ?? []).filter((r) => r.status === "OPEN");
   const mapStories = (nearbyStories ?? []).filter((s) => s.lat && s.lng);
+  const places     = (nearbyPlaces ?? []).filter((pl) => pl.lat && pl.lng);
 
   const filteredBusinesses = businesses.filter((b) => {
     if (!b.lat || !b.lng) return false;
@@ -477,12 +502,14 @@ export default function MapView() {
   const shownProviders = layers.provider ? filteredProviders : [];
   const shownRequests = layers.request ? nearbyRequests : [];
   const shownStories = layers.story ? mapStories : [];
+  const shownPlaces = layers.place ? places : [];
   const resultCounts: Record<ResultFilter, number> = {
     all: shownBusinesses.length + shownProviders.length + shownRequests.length + shownStories.length,
     business: shownBusinesses.length,
     provider: shownProviders.length,
     request: shownRequests.length,
     story: shownStories.length,
+    place: shownPlaces.length,
   };
 
   const brandColor = useMemo(() => resolveToken("--brand-600", "#7c2fe8"), []);
@@ -508,8 +535,12 @@ export default function MapView() {
       const r = requests.find((x) => x.id === selected.id);
       return r && r.lat && r.lng ? { lat: r.lat, lng: r.lng } : null;
     }
+    if (selected.kind === "place") {
+      const pl = places.find((x) => x.id === selected.id);
+      return pl && pl.lat && pl.lng ? { lat: pl.lat, lng: pl.lng } : null;
+    }
     return null;
-  }, [selected, businesses, providers, requests]);
+  }, [selected, businesses, providers, requests, places]);
 
   const compassLineGeoJSON = useMemo<GeoJSON.Feature<GeoJSON.LineString> | null>(() => {
     if (!selectedCoords) return null;
@@ -768,6 +799,7 @@ export default function MapView() {
           filteredProviders={filteredProviders}
           nearbyRequests={nearbyRequests}
           mapStories={mapStories}
+          filteredPlaces={shownPlaces}
           onStoryClick={(stories, idx) => setStoryViewer({ stories, idx })}
           selected={selected}
           onSelect={setSelected}
@@ -841,6 +873,7 @@ export default function MapView() {
             providers={shownProviders}
             requests={shownRequests}
             stories={shownStories}
+            places={shownPlaces}
             selected={selected}
             onSelect={setSelected}
             onEaseTo={easeToPoint}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { Camera, ChevronRight, Home, Map, Megaphone, MessageSquare, Plus, User, Users, X } from "@/components/Icons";
+import { Camera, ChevronRight, Home, Map, Megaphone, MessageSquare, Package, Plus, User, Users, X } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
 import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -154,6 +154,19 @@ export default function BottomNav() {
                 <div className="grow">
                   <div className="semi small" style={{ color: "var(--ink-900)" }}>Post to community</div>
                   <div className="tiny muted">Alert, shoutout, giveaway or lost & found</div>
+                </div>
+                <ChevronRight size={18} className="action-hub-card__arrow muted" />
+              </button>
+
+              <button
+                className="card action-hub-card row gap-14"
+                style={{ padding: "14px 16px", textAlign: "left", alignItems: "center" }}
+                onClick={() => { setSheet(false); nav("/ask?groupBuy=1"); }}
+              >
+                <ActionIconBadge variant="cyan" icon={Package} size="md" />
+                <div className="grow">
+                  <div className="semi small" style={{ color: "var(--ink-900)" }}>Start a group buy</div>
+                  <div className="tiny muted">Pool with neighbours to unlock a bulk price</div>
                 </div>
                 <ChevronRight size={18} className="action-hub-card__arrow muted" />
               </button>

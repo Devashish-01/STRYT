@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ComponentType } from "react";
 import { inr } from "@/components/common";
-import { Store, Briefcase } from "@/components/Icons";
+import { Store, Briefcase, Mountains, Trophy, Binoculars, MapPin as MapPinIcon } from "@/components/Icons";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { displayName as safeName } from "@/lib/publicName";
@@ -10,11 +10,19 @@ import { useI18n } from "@/lib/i18n";
 import { AvatarPin, type RingTone } from "./AvatarPin";
 import { pinColors } from "./mapIcons";
 import type { Selected } from "./MapMarkers";
-import type { Story, Business, Provider, RequestPost } from "@/types";
+import type { Story, Business, Provider, RequestPost, Place, PlaceCategory } from "@/types";
+
+const PLACE_CATEGORY_ICON: Record<PlaceCategory, ComponentType<{ size?: number | string; color?: string }>> = {
+  MOUNTAIN: Mountains,
+  TREK: Binoculars,
+  SPORTS_VENUE: Trophy,
+  TOURIST_SPOT: MapPinIcon,
+  OTHER: Mountains,
+};
 
 interface Row {
   key: string;
-  kind: "business" | "provider" | "request" | "story";
+  kind: "business" | "provider" | "request" | "story" | "place";
   id: string;
   title: string;
   sub: string;
@@ -45,7 +53,7 @@ function kmBetween(lat1: number, lng1: number, lat2: number, lng2: number): numb
 
 export function MapCarousel({
   centerLat, centerLng, loading,
-  businesses, providers, requests, stories,
+  businesses, providers, requests, stories, places,
   selected, onSelect, onEaseTo, onStoryClick,
   isListView,
 }: {
@@ -56,6 +64,7 @@ export function MapCarousel({
   providers: Provider[];
   requests: RequestPost[];
   stories: Story[];
+  places: Place[];
   selected: Selected;
   onSelect: (s: Selected) => void;
   onEaseTo: (lat: number, lng: number) => void;
@@ -156,9 +165,28 @@ export function MapCarousel({
         });
       }
     }
+    if (places.length > 0) {
+      for (const pl of places) {
+        if (!pl.lat || !pl.lng) continue;
+        const dist = kmBetween(centerLat, centerLng, pl.lat, pl.lng);
+        out.push({
+          key: `pl:${pl.id}`,
+          kind: "place",
+          id: pl.id,
+          title: pl.name,
+          sub: pl.category.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase()),
+          distanceKm: dist,
+          lat: pl.lat,
+          lng: pl.lng,
+          photo: pl.coverImage,
+          tone: "place",
+          fallback: PLACE_CATEGORY_ICON[pl.category] ?? Mountains,
+        });
+      }
+    }
     out.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
     return out;
-  }, [businesses, providers, requests, stories, centerLat, centerLng, viewedStories, onStoryClick]);
+  }, [businesses, providers, requests, stories, places, centerLat, centerLng, viewedStories, onStoryClick]);
 
   function isColumnLayout(container: HTMLElement): boolean {
     return getComputedStyle(container).flexDirection.startsWith("column");

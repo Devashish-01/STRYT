@@ -112,7 +112,12 @@ import {
   CircleNotch,
   WifiSlash,
   Package,
-  Target
+  Target,
+  Mountains,
+  Binoculars,
+  CloudRain,
+  CloudFog,
+  Sun
 } from "@phosphor-icons/react";
 
 export { WifiSlash as WifiOff, Target };
@@ -174,7 +179,12 @@ export {
   X,
   Lock,
   Info,
-  Package
+  Package,
+  Mountains,
+  Binoculars,
+  CloudRain,
+  CloudFog,
+  Sun
 };
 
 // Aliased mappings for Lucide compatibility

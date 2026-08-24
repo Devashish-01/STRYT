@@ -7,11 +7,18 @@ import { copyText } from "@/lib/clipboard";
 
 // The responder's UPI VPA lives on whichever entity they operate as: a provider
 // row (user_id) or a business row (owner_user_id). Look up either.
+//
+// `agreements` only carries `responder_user_id`, not the specific business the
+// deal was actually against, so with multiple businesses per owner (up to 5,
+// trg_enforce_business_owner_limit) there's no way to pick the *correct* one
+// from here — a real fix needs a business/provider id column on `agreements`
+// itself. Until then, order by `created_at` so the pick is at least
+// deterministic (oldest/primary listing) instead of DB-implementation-defined.
 async function fetchUpiForUser(userId: string): Promise<string | null> {
   const sb = getSupabase();
   const [prov, biz] = await Promise.all([
-    sb.from("providers").select("upi_id").eq("user_id", userId).not("upi_id", "is", null).limit(1),
-    sb.from("businesses").select("upi_id").eq("owner_user_id", userId).not("upi_id", "is", null).limit(1),
+    sb.from("providers").select("upi_id").eq("user_id", userId).not("upi_id", "is", null).order("created_at", { ascending: true }).limit(1),
+    sb.from("businesses").select("upi_id").eq("owner_user_id", userId).not("upi_id", "is", null).order("created_at", { ascending: true }).limit(1),
   ]);
   return (prov.data?.[0] as any)?.upi_id ?? (biz.data?.[0] as any)?.upi_id ?? null;
 }

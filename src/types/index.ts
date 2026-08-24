@@ -7,3 +7,4 @@ export * from "./chat";
 export * from "./user";
 export * from "./social";
 export * from "./console";
+export * from "./bulk";

@@ -8,7 +8,7 @@ import SearchThisArea from "./SearchThisArea";
 
 /** Ported from the retired MapResultsSheet — this is still the type every
  * caller (index.tsx, MapCarousel) filters and gates layers by. */
-export type ResultFilter = "all" | "business" | "provider" | "request" | "story";
+export type ResultFilter = "all" | "business" | "provider" | "request" | "story" | "place";
 
 const TYPE_OPTIONS: { id: ResultFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -16,6 +16,7 @@ const TYPE_OPTIONS: { id: ResultFilter; label: string }[] = [
   { id: "provider", label: "People" },
   { id: "request", label: "Asks" },
   { id: "story", label: "Stories" },
+  { id: "place", label: "Places" },
 ];
 
 const PRESET_RADIUS_OPTIONS = [

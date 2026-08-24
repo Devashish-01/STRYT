@@ -8,13 +8,14 @@ import { notificationService } from "@/services/engagement/notificationService";
 import { appealService, type AccountAppeal } from "@/services/core/appealService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ListSkeleton } from "@/components/states";
-import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut, Eye, ExternalLink, MapPin } from "@/components/Icons";
+import { Shield, Check, X, Store, Briefcase, Tag, Flag, Users, TrendingUp, AlertTriangle, KeyRound, LogOut, Eye, ExternalLink, MapPin, Mountains } from "@/components/Icons";
 import MiniMap from "@/components/MiniMap";
+import PlaceRequestForm from "@/screens/places/PlaceRequestForm";
 import { useApp } from "@/store";
 import { getSupabase } from "@/lib/supabaseClient";
 
 type Tab = "dashboard" | "queue" | "verification" | "location" | "disputes" | "appeals" | "reports" | "bugs" | "profiles" | "account";
-type QueueType = "business" | "provider" | "category";
+type QueueType = "business" | "provider" | "category" | "place";
 
 export default function AdminPanel() {
   const nav = useNavigate();
@@ -220,12 +221,13 @@ function AdminDashboard() {
 
 function AdminQueue() {
   const [type, setType] = useState<QueueType>("business");
-  const queueTable = type === "business" ? "businesses" : type === "provider" ? "providers" : "categories";
+  const queueTable = type === "business" ? "businesses" : type === "provider" ? "providers" : type === "place" ? "places" : "categories";
   const { data, loading, refetch } = useQueryWithRealtime<any[]>(() => adminService.queue(type) as any, queueTable, [type], "status=eq.PENDING");
   const { showToast } = useApp();
   const [done, setDone] = useState<string[]>([]);
+  const [addingPlace, setAddingPlace] = useState(false);
 
-  const tabs: [QueueType, string][] = [["business", "Shops"], ["provider", "Providers"], ["category", "Categories"]];
+  const tabs: [QueueType, string][] = [["business", "Shops"], ["provider", "Providers"], ["place", "Places"], ["category", "Categories"]];
 
   async function act(item: any, approve: boolean) {
     if (approve) await adminService.approve(item.kind, item.id);
@@ -236,15 +238,32 @@ function AdminQueue() {
 
   return (
     <>
-      <div className="hscroll" style={{ paddingTop: 12 }}>
-        {tabs.map(([t, label]) => <button key={t} className={`chip ${type === t ? "active" : ""}`} onClick={() => setType(t)}>{label}</button>)}
+      <div className="row between center-v" style={{ paddingTop: 12 }}>
+        <div className="hscroll grow">
+          {tabs.map(([t, label]) => <button key={t} className={`chip ${type === t ? "active" : ""}`} onClick={() => setType(t)}>{label}</button>)}
+        </div>
+        {type === "place" && (
+          <button className="btn btn-sm btn-outline" style={{ flexShrink: 0, marginLeft: 8 }} onClick={() => setAddingPlace(true)}>
+            + Add place
+          </button>
+        )}
       </div>
+      {addingPlace && (
+        <div className="page-pad">
+          <PlaceRequestForm
+            mode="admin-create"
+            embedded
+            onDone={() => { setAddingPlace(false); refetch(); }}
+            onClose={() => setAddingPlace(false)}
+          />
+        </div>
+      )}
       {loading && <ListSkeleton count={3} />}
       {data && (
         <div className="page-pad col gap-12">
           {data.filter((i) => !done.includes(i.id)).length === 0 && <EmptyState emoji="✅" title="Queue clear" text="Nothing pending review." />}
           {data.filter((i) => !done.includes(i.id)).map((item) => {
-            const Icon = type === "business" ? Store : type === "provider" ? Briefcase : Tag;
+            const Icon = type === "business" ? Store : type === "provider" ? Briefcase : type === "place" ? Mountains : Tag;
             return (
               <div key={item.id} className="card">
                 <div className="row gap-12">

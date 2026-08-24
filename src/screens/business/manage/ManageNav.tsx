@@ -36,7 +36,9 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
   const hasEverUsedQueue = !!queue?.hasEverUsedQueue;
   const queueCount = waitingCount ?? queue?.waiting.length ?? 0;
   const base = `/business/${bizId}/manage`;
-  const storeRoutes = ["/store", "/catalog", "/portfolio", "/hours"];
+  // bulk-deals lives under the Store tab: it's a selling surface (pricing and
+  // inventory), not an account-level setting.
+  const storeRoutes = ["/store", "/catalog", "/portfolio", "/hours", "/bulk-deals"];
   const businessRoutes = [
     "/business", "/inbox", "/qna", "/reviews", "/requests", "/community",
   ];

@@ -107,6 +107,47 @@ export interface Business {
   bookingsEnabled?: boolean | null;
 }
 
+export type PlaceCategory = "MOUNTAIN" | "TREK" | "SPORTS_VENUE" | "TOURIST_SPOT" | "OTHER";
+export type PlaceDifficulty = "EASY" | "MODERATE" | "HARD";
+
+// Staff-curated (or user-suggested, pending review) point of interest shown
+// on the Map — no booking/catalog/payment, just discovery info.
+export interface Place {
+  id: string;
+  submittedByUserId: string;
+  name: string;
+  category: PlaceCategory;
+  description?: string | null;
+  addressLine1?: string | null;
+  city?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  coverImage?: string | null;
+  gallery: string[];
+  status: EntityStatus;
+  rejectionReason?: string | null;
+  createdAtISO: string;
+  distanceKm?: number;
+  /** When to go — season, time of day. Free text, e.g. "Oct-Feb, early morning". */
+  bestTimeToVisit?: string | null;
+  /** "Free", or an actual price string — free text so it can say "₹20 per person" etc. */
+  entryFee?: string | null;
+  openingHours?: string | null;
+  /** How long people typically spend there, e.g. "1-2 hours". */
+  visitDuration?: string | null;
+  /** Mainly relevant for TREK/MOUNTAIN, but not restricted to those categories. */
+  difficulty?: PlaceDifficulty | null;
+  /** Transport/route guidance — own vehicle, bus, auto, etc. */
+  howToReach?: string | null;
+  parkingInfo?: string | null;
+  distanceFromCityKm?: number | null;
+  /** Real precautions specific to this place — e.g. drowning risk at a
+   *  waterfall during monsoon, not generic filler. */
+  safetyTips?: string | null;
+  /** Seasonal note, e.g. a waterfall that dries up outside monsoon. */
+  weatherNote?: string | null;
+}
+
 export interface CatalogItem {
   id: string;
   name: string;

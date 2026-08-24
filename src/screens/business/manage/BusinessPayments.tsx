@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, SafeImg, inr } from "@/components/common";
-import { appointmentService, businessService } from "@/services";
+import { appointmentService, businessService, customPaymentService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
-import type { AppointmentRecord, QueueOwnerToken } from "@/types";
+import type { AppointmentRecord, QueueOwnerToken, CustomPayment } from "@/types";
 import ManageNav from "./ManageNav";
 import { useApp } from "@/store";
 
@@ -35,9 +35,17 @@ export default function BusinessPayments() {
     `business_id=eq.${id}`,
     `queue:${id}`
   );
+  const { data: customData, refetch: refetchCustom } = useQueryWithRealtime<CustomPayment[]>(
+    () => customPaymentService.listForTarget("BUSINESS", id),
+    "custom_payments",
+    [id],
+    `target_id=eq.${id}`,
+    `custom-payments:${id}`
+  );
 
   const [processingApt, setProcessingApt] = useState<string | null>(null);
   const [processingQueue, setProcessingQueue] = useState<string | null>(null);
+  const [processingCustom, setProcessingCustom] = useState<string | null>(null);
   const [nudging, setNudging] = useState<string | null>(null);
 
   if (!id) {
@@ -54,9 +62,15 @@ export default function BusinessPayments() {
     ...(queueData?.called ?? []),
     ...(queueData?.served ?? []),
   ];
+  const customPayments = customData ?? [];
 
   const aptClaims = appointments.filter((a) => a.paymentStatus === "PENDING_CONFIRM");
   const queueClaims = queueTokens.filter((t) => t.paymentStatus === "PENDING_CONFIRM");
+  // No "outstanding" bucket for these — unlike an appointment/queue token, a
+  // custom payment has no un-nudged pre-state; it either exists as a claim
+  // (PENDING_CONFIRM) or it doesn't exist yet at all.
+  const customClaims = customPayments.filter((p) => p.status === "PENDING_CONFIRM");
+  const customRecentlyPaid = customPayments.filter((p) => p.status === "PAID").slice(0, 15);
 
   const aptOutstanding = appointments.filter(
     (a) => (a.status === "ACCEPTED" || a.status === "COMPLETED") &&
@@ -110,6 +124,24 @@ export default function BusinessPayments() {
     }
   }
 
+  async function handleCustom(payment: CustomPayment, action: "CONFIRM" | "REJECT") {
+    setProcessingCustom(payment.id);
+    try {
+      if (action === "CONFIRM") {
+        await customPaymentService.confirm(payment.id);
+        showToast("Payment confirmed ✓");
+      } else {
+        await customPaymentService.reject(payment.id);
+        showToast("Payment claim rejected — customer notified.");
+      }
+      refetchCustom();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update payment status. Try again.");
+    } finally {
+      setProcessingCustom(null);
+    }
+  }
+
   async function handleNudgeApt(apt: AppointmentRecord) {
     setNudging(apt.id);
     try {
@@ -134,7 +166,7 @@ export default function BusinessPayments() {
     }
   }
 
-  const claimsCount = aptClaims.length + queueClaims.length;
+  const claimsCount = aptClaims.length + queueClaims.length + customClaims.length;
   const outstandingCount = aptOutstanding.length + queueOutstanding.length;
 
   return (
@@ -144,7 +176,7 @@ export default function BusinessPayments() {
 
         {queueLoading && !queueData && <Skeleton h={80} mb={0} />}
 
-        {claimsCount === 0 && outstandingCount === 0 && aptRecentlyPaid.length === 0 && queueRecentlyPaid.length === 0 && (
+        {claimsCount === 0 && outstandingCount === 0 && aptRecentlyPaid.length === 0 && queueRecentlyPaid.length === 0 && customRecentlyPaid.length === 0 && (
           <div className="card col center" style={{ padding: 28, gap: 6 }}>
             <span style={{ fontSize: 28 }}>💳</span>
             <span className="tiny muted">Payment claims and history will show up here.</span>
@@ -199,6 +231,28 @@ export default function BusinessPayments() {
                   />
                 </div>
               ))}
+              {customClaims.map((p) => (
+                <div key={p.id} className="card col gap-10" style={{ padding: 14 }}>
+                  <div className="row gap-10 center-v">
+                    <SafeImg src={p.payerAvatar ?? undefined} variant="avatar" style={{ width: 38, height: 38 }} />
+                    <div className="grow">
+                      <div className="bold small">{p.payerName || "Customer"}</div>
+                      <div className="tiny muted">{p.note || "Custom payment"}</div>
+                    </div>
+                  </div>
+                  <PaymentStatusCard
+                    paymentStatus={p.status}
+                    paymentMethod={p.method}
+                    paymentAmount={p.amount}
+                    paymentReference={p.reference}
+                    claimantName={p.payerName || "Customer"}
+                    viewerIsPayer={false}
+                    busy={processingCustom === p.id}
+                    onConfirm={() => handleCustom(p, "CONFIRM")}
+                    onReject={() => handleCustom(p, "REJECT")}
+                  />
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -245,7 +299,7 @@ export default function BusinessPayments() {
           </div>
         )}
 
-        {(aptRecentlyPaid.length > 0 || queueRecentlyPaid.length > 0) && (
+        {(aptRecentlyPaid.length > 0 || queueRecentlyPaid.length > 0 || customRecentlyPaid.length > 0) && (
           <div>
             <div className="small semi muted" style={{ marginBottom: 8 }}>Recently paid</div>
             <div className="card" style={{ overflow: "hidden", padding: 0 }}>
@@ -267,6 +321,15 @@ export default function BusinessPayments() {
                     </div>
                   </div>
                   <span className="semi small">{t.paymentAmount != null ? inr(t.paymentAmount) : "—"}</span>
+                </div>
+              ))}
+              {customRecentlyPaid.map((p, i) => (
+                <div key={p.id} className="row between center-v" style={{ padding: "12px 14px", borderTop: (aptRecentlyPaid.length + queueRecentlyPaid.length + i) > 0 ? "1px solid var(--line)" : "none" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="semi small ellipsis">{p.payerName || "Customer"}</div>
+                    <div className="tiny muted ellipsis">{p.note || "Custom payment"}</div>
+                  </div>
+                  <span className="semi small">{inr(p.amount)}</span>
                 </div>
               ))}
             </div>

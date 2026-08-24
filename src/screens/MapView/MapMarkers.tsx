@@ -2,14 +2,14 @@ import type { ComponentType } from "react";
 import { useNavigate } from "react-router-dom";
 import { Marker, Popup } from "react-map-gl/maplibre";
 import { Rating, inr } from "@/components/common";
-import { Store, Briefcase } from "@/components/Icons";
+import { Store, Briefcase, Mountains, Trophy, Binoculars, MapPin as MapPinIcon } from "@/components/Icons";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import type { Story } from "@/types";
 import type { Layer } from "./mapIcons";
 import { pinColors, requestIconHtml } from "./mapIcons";
 import { AvatarPin, MIN_TAP_PX, RING_BACKGROUND, type RingTone } from "./AvatarPin";
-import type { Business, Provider } from "@/types";
+import type { Business, Provider, Place, PlaceCategory } from "@/types";
 import type { RequestPost } from "@/types";
 import { displayName as safeName } from "@/lib/publicName";
 import { distanceLabel } from "@/lib/format";
@@ -34,7 +34,16 @@ export type Selected =
   | { kind: "business"; id: string }
   | { kind: "provider"; id: string }
   | { kind: "request"; id: string }
+  | { kind: "place"; id: string }
   | null;
+
+const PLACE_CATEGORY_ICON: Record<PlaceCategory, ComponentType<{ size?: number | string; color?: string }>> = {
+  MOUNTAIN: Mountains,
+  TREK: Binoculars,
+  SPORTS_VENUE: Trophy,
+  TOURIST_SPOT: MapPinIcon,
+  OTHER: Mountains,
+};
 
 /** AvatarPin wired into a map <Marker> — center-anchored, since a circle (unlike a teardrop) sits directly on its point rather than pointing down at it. */
 function AvatarMarker({ lng, lat, label, onClick, badge, ...avatar }: {
@@ -78,7 +87,7 @@ function PinMarker({ lng, lat, html, label, onClick }: {
 }
 
 export function MapMarkers({
-  layers, filteredBusinesses, filteredProviders, nearbyRequests, mapStories, onStoryClick,
+  layers, filteredBusinesses, filteredProviders, nearbyRequests, mapStories, filteredPlaces, onStoryClick,
   selected, onSelect,
 }: {
   layers: Record<Layer, boolean>;
@@ -86,6 +95,7 @@ export function MapMarkers({
   filteredProviders: Provider[];
   nearbyRequests: RequestPost[];
   mapStories: Story[];
+  filteredPlaces: Place[];
   onStoryClick: (stories: Story[], idx: number) => void;
   selected: Selected;
   onSelect: (s: Selected) => void;
@@ -103,7 +113,9 @@ export function MapMarkers({
     ? filteredProviders.find((p) => p.id === selected.id) : undefined;
   const selectedRequest = selected?.kind === "request"
     ? nearbyRequests.find((r) => r.id === selected.id) : undefined;
-  const selectedPoint = selectedBusiness ?? selectedProvider ?? selectedRequest;
+  const selectedPlace = selected?.kind === "place"
+    ? filteredPlaces.find((pl) => pl.id === selected.id) : undefined;
+  const selectedPoint = selectedBusiness ?? selectedProvider ?? selectedRequest ?? selectedPlace;
 
   return (
     <>
@@ -163,6 +175,23 @@ export function MapMarkers({
           html={requestIconHtml}
           label={r.title}
           onClick={() => onSelect({ kind: "request", id: r.id })}
+        />
+      ))}
+
+      {/* Places — staff-curated/approved points of interest. Cover-photo ring
+          like businesses/providers (they have real photos), one static tone
+          since a place has no open/closed or available/unavailable state. */}
+      {layers.place && filteredPlaces.map((pl) => (
+        <AvatarMarker
+          key={pl.id}
+          lng={pl.lng as number}
+          lat={pl.lat as number}
+          photo={pl.coverImage}
+          name={pl.name}
+          tone="place"
+          fallback={PLACE_CATEGORY_ICON[pl.category] ?? Mountains}
+          label={pl.name}
+          onClick={() => onSelect({ kind: "place", id: pl.id })}
         />
       ))}
 
@@ -261,6 +290,28 @@ export function MapMarkers({
                   style={{ marginTop: 8, background: pinColors.request, color: "#fff" }}
                 >
                   {t("map_view_request")}
+                </button>
+              </div>
+            );
+          })()}
+
+          {selectedPlace && (() => {
+            const pl = selectedPlace;
+            return (
+              <div style={{ minWidth: 180 }}>
+                <strong>{pl.name}</strong>
+                <div style={{ fontSize: 12, color: "var(--ink-600)", marginTop: 2 }}>
+                  {pl.category.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase())}
+                </div>
+                {pl.description && (
+                  <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: 4, maxWidth: 220 }}>{pl.description}</div>
+                )}
+                <button
+                  className="btn btn-sm btn-block"
+                  onClick={() => nav(`/place/${pl.id}`)}
+                  style={{ marginTop: 8, background: RING_BACKGROUND.place, color: "#fff" }}
+                >
+                  View place
                 </button>
               </div>
             );

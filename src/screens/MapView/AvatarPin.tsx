@@ -10,7 +10,7 @@ export const MIN_TAP_PX = 44;
  * and a provider "available" are the same visual idea (brand-colored ring vs.
  * grey), so they share tones rather than each type inventing its own palette.
  */
-export type RingTone = "open" | "closed" | "available" | "unavailable" | "story-new" | "story-seen";
+export type RingTone = "open" | "closed" | "available" | "unavailable" | "story-new" | "story-seen" | "place";
 
 /** Exported so popup CTAs (and anything else that must match a pin's ring)
  *  read the same tone source — pinColors.business/provider used to drift.
@@ -25,6 +25,9 @@ export const RING_BACKGROUND: Record<RingTone, string> = {
   unavailable: "var(--ink-400)",
   "story-new": "linear-gradient(135deg,var(--accent-500),var(--pink-500),var(--brand-600))",
   "story-seen": "var(--ink-400)",
+  // Places have no open/closed or available/unavailable state — one static
+  // tone, distinct from every other pin type so it reads as its own category.
+  place: "var(--amber-700)",
 };
 
 /**

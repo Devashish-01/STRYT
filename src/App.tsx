@@ -70,6 +70,10 @@ const Support = lazy(() => import("./screens/Support"));
 const BusinessDetail = lazy(() => import("./screens/business/BusinessDetail"));
 const ProviderDetail = lazy(() => import("./screens/provider/ProviderDetail"));
 const RequestDetail = lazy(() => import("./screens/requests/RequestDetail"));
+const PlaceDetail = lazy(() => import("./screens/places/PlaceDetail"));
+const PlaceRequestForm = lazy(() => import("./screens/places/PlaceRequestForm"));
+const BulkBuyingHub = lazy(() => import("./screens/BulkBuyingHub"));
+const BulkDealsManager = lazy(() => import("./screens/business/manage/BulkDealsManager"));
 
 // Pillar C flows
 const AskCompose = lazy(() => import("./screens/requests/AskCompose"));
@@ -565,6 +569,8 @@ export default function App() {
             <Route path="/request/:id" element={<RequestDetail />} />
             <Route path="/business/:id" element={<BusinessDetail />} />
             <Route path="/provider/:id" element={<ProviderDetail />} />
+            <Route path="/place/:id" element={<PlaceDetail />} />
+            <Route path="/bulk" element={<BulkBuyingHub />} />
             <Route path="/search" element={<Search />} />
             <Route path="/categories" element={<AllCategories />} />
             <Route path="/category/:id" element={<CategoryListing />} />
@@ -609,6 +615,7 @@ export default function App() {
             <Route path="/support" element={<Support />} />
 
             <Route path="/ask" element={<AskCompose />} />
+            <Route path="/place/new" element={<PlaceRequestForm />} />
             <Route path="/request/:id/propose" element={<SubmitProposal />} />
             <Route path="/agreement/:id" element={<AgreementScreen />} />
             <Route path="/agreements" element={<Agreements />} />
@@ -671,6 +678,7 @@ export default function App() {
                 <Route path="/business/:id/manage/broadcast" element={<BroadcastRadius />} />
                 <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
                 <Route path="/business/:id/manage/payments" element={<BusinessPayments />} />
+                <Route path="/business/:id/manage/bulk-deals" element={<BulkDealsManager />} />
                 <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
                 <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
                 <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />

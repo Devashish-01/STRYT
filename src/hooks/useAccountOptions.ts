@@ -124,12 +124,12 @@ export function useAccountOptions() {
   }
 
   const current = options.find((o) => o.active) ?? options[0];
-  // One business per owner is a hard DB constraint (idx_businesses_one_per_owner,
-  // a UNIQUE index on businesses.owner_user_id) — this just keeps the UI from
-  // ever offering an option that would fail. `owned` (not ownedBusinessIds,
-  // which also carries delegated ids) is the correctly-scoped "do I actually
-  // own one" signal.
-  const canAddBusiness = owned.length === 0;
+  // Up to 5 businesses per owner is a hard DB constraint
+  // (trg_enforce_business_owner_limit on businesses) — this just keeps the UI
+  // from ever offering an option that would fail. `owned` (not
+  // ownedBusinessIds, which also carries delegated ids) is the
+  // correctly-scoped "how many do I actually own" signal.
+  const canAddBusiness = owned.length < 5;
   const canBecomeProvider = !provider && !roles.includes("provider");
 
   return { options, current, pick, canAddBusiness, canBecomeProvider, nav };

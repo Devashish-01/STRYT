@@ -6,9 +6,15 @@ import { useApp } from "@/store";
 
 interface Props {
   onClose: () => void;
+  /** When provided, the raw scanned/entered text is handed to this instead of
+   *  the default deep-link/loyalty-stamp handling below. Lets a caller with
+   *  its own code semantics (e.g. group-buy claim passes) reuse the camera and
+   *  file-upload plumbing without inheriting the navigation behaviour. */
+  onScan?: (code: string) => void;
+  title?: string;
 }
 
-export default function QrScannerSheet({ onClose }: Props) {
+export default function QrScannerSheet({ onClose, onScan, title }: Props) {
   const nav = useNavigate();
   const { showToast, addStamp } = useApp();
   const [tab, setTab] = useState<"camera" | "upload" | "input">("camera");
@@ -22,6 +28,13 @@ export default function QrScannerSheet({ onClose }: Props) {
     try {
       const raw = data.trim();
       if (!raw) return;
+
+      // Caller-supplied handling wins outright — don't also run the deep-link
+      // interpretation below, or a claim-pass code could be misread as a route.
+      if (onScan) {
+        onScan(raw);
+        return;
+      }
 
       // 1. Try JSON parsing (e.g. {"type": "business", "id": "b1"} or {"action": "stamp", "cardId": "c1"})
       if (raw.startsWith("{") && raw.endsWith("}")) {
@@ -203,7 +216,7 @@ export default function QrScannerSheet({ onClose }: Props) {
         <div className="row space-between" style={{ marginBottom: 16, alignItems: "center" }}>
           <div className="row gap-8" style={{ alignItems: "center" }}>
             <QrCode size={20} color="var(--brand-500)" />
-            <h3 className="bold h2" style={{ color: "#fff", margin: 0 }}>Live QR Scanner</h3>
+            <h3 className="bold h2" style={{ color: "#fff", margin: 0 }}>{title ?? "Live QR Scanner"}</h3>
           </div>
           <button
             type="button"

@@ -64,6 +64,26 @@ export interface AppointmentRecord {
   targetPackageKey?: string | null;
 }
 
+// A customer paying a business/provider a self-chosen amount with no
+// appointment/queue/deal relationship attached — see custom_payments table.
+export interface CustomPayment {
+  id: string;
+  targetType: "BUSINESS" | "PROVIDER";
+  targetId: string;
+  targetOwnerUserId: string;
+  targetName?: string | null;
+  payerUserId: string;
+  payerName?: string | null;
+  payerAvatar?: string | null;
+  amount: number;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  reference?: string | null;
+  note?: string | null;
+  createdAtISO: string;
+  confirmedAtISO?: string | null;
+}
+
 export interface BlockedSlot {
   id: string;
   targetId: string;

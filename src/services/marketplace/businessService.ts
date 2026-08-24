@@ -677,12 +677,12 @@ export const businessService = {
     }
     const { data: created, error } = await sb.from("businesses").insert(row).select().maybeSingle();
     if (error) {
-      // idx_businesses_one_per_owner (UNIQUE on owner_user_id) is the real
-      // boundary — the UI hides "Add a business" once you own one, but this
-      // catches any missed entry point or a genuine two-tab race and turns
+      // trg_enforce_business_owner_limit (BEFORE INSERT trigger, cap 5) is the
+      // real boundary — the UI hides "Add a business" once you're at the cap,
+      // but this catches any missed entry point or a genuine race and turns
       // the raw driver error into something a user can actually act on.
-      if (error.code === "23505" || /idx_businesses_one_per_owner/i.test(error.message ?? "")) {
-        throw new Error("You already have a business listed — manage it instead of creating a new one.");
+      if (error.code === "P0001" && /BUSINESS_OWNER_LIMIT_REACHED/i.test(error.message ?? "")) {
+        throw new Error("You've reached the limit of 5 businesses — manage an existing one instead.");
       }
       throwIfError(error);
     }
