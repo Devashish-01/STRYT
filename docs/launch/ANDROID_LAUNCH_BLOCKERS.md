@@ -1,6 +1,13 @@
 # Android Launch Blockers — audit 2026-08-02
 
-**App:** STRYT `in.stryt.app` · v0.1.23 · targetSdk 36 / minSdk 24
+> **Point-in-time snapshot.** `docs/launch/PLAY_SUBMISSION_CHECKLIST.md` is the
+> living doc. As of 25 August 2026, items 4/5/6 in "Should fix, not blocking"
+> below are resolved: `has_business_scope`/`claim_first_admin` anon grants
+> revoked (migrations `20260881`/`20260882`), console.log leaks wrapped in
+> `import.meta.env.DEV`, version is `1.0.13`. `minifyEnabled` is still `false`
+> — deliberate, not forgotten.
+
+**App:** STRYT `in.stryt.app` · v0.1.23 (at time of this audit) · targetSdk 36 / minSdk 24
 **Audited:** build config, manifest, permissions, signing, secret hygiene,
 live Supabase security posture, release pipeline, code hygiene.
 

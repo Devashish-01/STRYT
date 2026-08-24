@@ -199,42 +199,21 @@ Deno.serve(async (req: Request) => {
   // platform gate cannot vet them — which makes this in-handler check the
   // ONLY boundary. It must stay strict.
   //
-  // Three accepted shapes, so this survives the legacy-key retirement in either
-  // direction — deploy before or after the trigger is cut over, both work:
-  //   1. `apikey: <secret key>`. The FUTURE path. New secret keys are not JWTs,
-  //      so they are rejected on Authorization: Bearer and must travel on the
-  //      apikey header.
+  // Two accepted shapes now that the legacy service_role key/JWT secret are
+  // both confirmed disabled (docs/launch/PLAY_SUBMISSION_CHECKLIST.md):
+  //   1. `apikey: <secret key>`. Secret keys are not JWTs, so they are
+  //      rejected on Authorization: Bearer and must travel on the apikey
+  //      header.
   //   2. `Authorization: Bearer <secret key>` — exact match, fast path.
-  //   3. `Authorization: Bearer <authentic service_role JWT>`. The LEGACY path,
-  //      kept only until the legacy service_role key is disabled. A normal
-  //      user's token carries role=authenticated and is rejected, preserving
-  //      the anti-phishing boundary.
-  //
-  // NOTE on shape 3: with verify_jwt=false the gateway no longer verifies the
-  // signature, so this accepts an UNVERIFIED service_role claim. That is
-  // acceptable only because the legacy key is being disabled within the hour —
-  // once Settings -> API Keys shows service_role disabled, DELETE shape 3.
+  // The legacy shape (an unverified `service_role` JWT claim, accepted only
+  // because verify_jwt=false stops the gateway from checking its signature)
+  // was removed once the key it trusted was confirmed dead on both surfaces.
   const authHeader = req.headers.get("Authorization") ?? "";
   const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
   const apiKeyHeader = req.headers.get("apikey") ?? "";
   const serviceKey = secretKey();
 
-  const isServiceRoleJwt = (token: string): boolean => {
-    try {
-      const parts = token.split(".");
-      if (parts.length !== 3) return false;
-      const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-      const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
-      const payload = JSON.parse(atob(padded));
-      return payload?.role === "service_role";
-    } catch {
-      return false;
-    }
-  };
-
-  const authorized =
-    (!!serviceKey && (apiKeyHeader === serviceKey || bearer === serviceKey)) ||
-    isServiceRoleJwt(bearer);
+  const authorized = !!serviceKey && (apiKeyHeader === serviceKey || bearer === serviceKey);
   if (!authorized) {
     return json({ error: "Forbidden: internal use only" }, 403, cors);
   }

@@ -173,10 +173,10 @@ someone submits a verification.
 
 #### After it's off
 
-- [ ] Delete authorization **shape 3** in `supabase/functions/send-push/index.ts`
-      — it accepts an *unverified* `service_role` JWT claim, which is only
-      tolerable while the legacy key still exists. With `verify_jwt = false` the
-      gateway no longer checks the signature.
+- [x] Delete authorization **shape 3** in `supabase/functions/send-push/index.ts`
+      (25 August 2026) — confirmed the DB trigger (`push_on_notification_insert`)
+      only ever sends `apikey`, never `Authorization`, so shape 3 was already
+      dead code before removal. Deployed (v33); shapes 1/2 unaffected.
 - [ ] Check Supabase logs for API traffic you don't recognise. A 25-day public
       exposure window means "possibly already used", not "probably fine".
 - [ ] Consider making the repo **private**. It exposes the full schema,
@@ -186,16 +186,17 @@ someone submits a verification.
 
 ### Also before public launch
 
-- [ ] **Delete two orphaned edge functions** — `create-razorpay-order` and
-      `verify-razorpay-payment` are deployed but have **no source in this repo**,
-      nothing in `src/` calls them (only `screens/future-enhancement/`), and both
-      use the legacy service_role key with `Access-Control-Allow-Origin: *`.
-      Dead code holding full database access.
-- [ ] **Verify the keystore rotation in CI** — the local half is done and the
-      three GitHub secrets are updated. Re-run the Android release workflow and
-      confirm it logs `Keystore size: 2734 bytes` and produces a signed AAB.
-      Then delete `~/stryt-release.keystore.bak`, which still opens with the
-      leaked `stryt123`. Runbook: [`KEYSTORE_ROTATION.md`](KEYSTORE_ROTATION.md).
+- [x] **Delete two orphaned edge functions** — confirmed via `supabase functions
+      list` (25 August 2026) that `create-razorpay-order` and
+      `verify-razorpay-payment` are **no longer deployed**; only the 8 functions
+      with source in this repo remain live.
+- [x] **Verify the keystore rotation in CI** — confirmed 25 August 2026 against
+      the most recent Android release run (`32776374132`): logs
+      `Keystore size: 2734 bytes`, builds versionCode 44 / versionName 1.0.13,
+      and both `assembleRelease` and `bundleRelease` succeeded, producing
+      `stryt.aab`. Still outstanding: delete `~/stryt-release.keystore.bak`
+      locally (can't be verified from the repo — do this on your machine).
+      Runbook: [`KEYSTORE_ROTATION.md`](KEYSTORE_ROTATION.md).
 - [ ] **Enable leaked-password protection** in Supabase Auth settings
       (advisor finding; dashboard-only).
 
