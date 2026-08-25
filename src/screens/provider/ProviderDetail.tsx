@@ -29,6 +29,7 @@ import { pushRecentlyViewed } from "@/lib/recentlyViewed";
 import MiniMap from "@/components/MiniMap";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { BizCatalogGrid } from "@/screens/business/BizCatalogGrid";
+import { useI18n } from "@/lib/i18n";
 
 const Handshake = HandshakeIcon as any;
 
@@ -41,6 +42,7 @@ export default function ProviderDetail() {
     isFollowing, toggleFollow, vouched, toggleVouch, endorsed, toggleEndorse,
     isGuest,
   } = useApp();
+  const { t, tf } = useI18n();
 
   const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `provider:${id}`);
   const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => providerService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `provider:${id}:reviews`);
@@ -105,7 +107,7 @@ export default function ProviderDetail() {
   if (!p) {
     return (
       <div className="screen">
-        <EmptyState emoji="👤" title="Provider not found" text="This profile may no longer be available." />
+        <EmptyState emoji="👤" title={t("provider_not_found")} text={t("provider_not_found_desc")} />
       </div>
     );
   }
@@ -213,14 +215,14 @@ export default function ProviderDetail() {
             />
             <div className="grow">
               <div className="row gap-6 center-v">
-                <span className="bold" style={{ fontSize: 20 }}>{safeName(p.displayName, "Local provider")}</span>
+                <span className="bold" style={{ fontSize: 20 }}>{safeName(p.displayName, t("local_provider_fallback"))}</span>
                 {p.isVerified && <BadgeCheck size={18} color="#fff" />}
-                {isOwner && <Pill tone="purple">Owner</Pill>}
+                {isOwner && <Pill tone="purple">{t("owner_badge")}</Pill>}
               </div>
               <div className="small" style={{ opacity: 0.9 }}>{p.categoryName} • {p.subCategory}</div>
               <div className="row gap-8" style={{ marginTop: 6 }}>
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
-                  <Star size={11} fill="var(--amber-500)" strokeWidth={0} /> {p.ratingCount > 0 ? `${p.ratingAvg} (${p.ratingCount})` : "New"}
+                  <Star size={11} fill="var(--amber-500)" strokeWidth={0} /> {p.ratingCount > 0 ? `${p.ratingAvg} (${p.ratingCount})` : t("new_word")}
                 </span>
                 {p.isNew && <span className="badge badge-new">NEW</span>}
                 {avail && <span className="badge" style={{ background: "#fff", color: "var(--green-500)" }}>⚡ Free till {avail.availableUntil}</span>}
@@ -232,11 +234,11 @@ export default function ProviderDetail() {
         {/* Follow + Book row */}
         <div className="page-pad" style={{ paddingTop: 0, paddingBottom: 0, marginTop: -14 }}>
           <div className="card row" style={{ padding: 14 }}>
-            <Stat value={p.jobsDone.toString()} label="Jobs done" />
+            <Stat value={p.jobsDone.toString()} label={t("jobs_done_label")} />
             <Sep />
-            <Stat value={`${p.serviceRadiusKm} km`} label="Service area" />
+            <Stat value={`${p.serviceRadiusKm} km`} label={t("service_area_label")} />
             <Sep />
-            <Stat value={p.responseTime} label="Responds" />
+            <Stat value={p.responseTime} label={t("responds_label")} />
           </div>
         </div>
 
@@ -255,14 +257,14 @@ export default function ProviderDetail() {
               style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
               onClick={() => toggleFollow("PROVIDER", p.id, p.displayName)}
             >
-              {following ? <><UserCheck size={16} /> Following</> : <><UserPlus size={16} /> Follow</>}
+              {following ? <><UserCheck size={16} /> {t("following")}</> : <><UserPlus size={16} /> {t("follow")}</>}
             </button>
             <button
               className="btn grow btn-sm"
               style={{ background: hasVouched ? "var(--green-100)" : "var(--ink-50)", color: hasVouched ? "var(--green-600)" : "var(--ink-700)" }}
               onClick={() => toggleVouch(p.id)}
             >
-              <ThumbsUp size={15} weight={hasVouched ? "fill" : "regular"} /> {hasVouched ? "Vouched" : "Vouch"}
+              <ThumbsUp size={15} weight={hasVouched ? "fill" : "regular"} /> {hasVouched ? t("vouched") : t("vouch")}
             </button>
           </div>
         )}
@@ -275,7 +277,7 @@ export default function ProviderDetail() {
                 <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,var(--amber-500),var(--amber-500))" }}>
                   <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
                 </div>
-                <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || "Highlight"}</span>
+                <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || t("highlight_word")}</span>
               </button>
             ))}
           </div>
@@ -283,9 +285,9 @@ export default function ProviderDetail() {
 
         {/* Tabs */}
         <div className="row page-pad" style={{ paddingTop: 10, paddingBottom: 0, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
-          {([["about", "About"], ["posts", `Posts (${(provPosts ?? []).length})`], ["portfolio", `Work (${p.portfolio.length})`], ["reviews", "Reviews"]] as const).map(([t, label]) => (
-            <button key={t} onClick={() => setTab(t)} className="semi"
-          style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? accent : "var(--ink-500)", borderBottom: tab === t ? `2.5px solid ${accent}` : "2.5px solid transparent" }}>
+          {([["about", t("tab_about")], ["posts", tf("tab_posts_count", { count: (provPosts ?? []).length })], ["portfolio", tf("tab_work_count", { count: p.portfolio.length })], ["reviews", t("tab_reviews")]] as const).map(([tabKey, label]) => (
+            <button key={tabKey} onClick={() => setTab(tabKey)} className="semi"
+          style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === tabKey ? accent : "var(--ink-500)", borderBottom: tab === tabKey ? `2.5px solid ${accent}` : "2.5px solid transparent" }}>
               {label}
             </button>
           ))}
@@ -299,16 +301,16 @@ export default function ProviderDetail() {
             {(() => {
               const responseHrs = parseInt(p.responseTime ?? "99");
               const badges: { label: string; emoji: string }[] = [
-                ...(p.isVerified ? [{ label: "Verified", emoji: "✓" }] : []),
-                ...(p.ratingAvg >= PROVIDER_BADGE_THRESHOLDS.topRatedMinRating && p.ratingCount >= PROVIDER_BADGE_THRESHOLDS.topRatedMinReviews ? [{ label: "Top Rated", emoji: "⭐" }] : []),
-                ...(!isNaN(responseHrs) && responseHrs <= PROVIDER_BADGE_THRESHOLDS.fastResponderMaxHrs ? [{ label: "Fast Responder", emoji: "⚡" }] : []),
-                ...(p.jobsDone >= PROVIDER_BADGE_THRESHOLDS.jobsMilestone ? [{ label: `${PROVIDER_BADGE_THRESHOLDS.jobsMilestone}+ Jobs`, emoji: "💼" }] : []),
-                ...(p.isNew ? [{ label: "New Provider", emoji: "🌟" }] : []),
+                ...(p.isVerified ? [{ label: t("verified_badge"), emoji: "✓" }] : []),
+                ...(p.ratingAvg >= PROVIDER_BADGE_THRESHOLDS.topRatedMinRating && p.ratingCount >= PROVIDER_BADGE_THRESHOLDS.topRatedMinReviews ? [{ label: t("top_rated_badge"), emoji: "⭐" }] : []),
+                ...(!isNaN(responseHrs) && responseHrs <= PROVIDER_BADGE_THRESHOLDS.fastResponderMaxHrs ? [{ label: t("fast_responder_badge"), emoji: "⚡" }] : []),
+                ...(p.jobsDone >= PROVIDER_BADGE_THRESHOLDS.jobsMilestone ? [{ label: tf("jobs_milestone_badge", { n: PROVIDER_BADGE_THRESHOLDS.jobsMilestone }), emoji: "💼" }] : []),
+                ...(p.isNew ? [{ label: t("new_provider_badge"), emoji: "🌟" }] : []),
               ];
               if (badges.length === 0) return null;
               return (
                 <div>
-                  <div className="semi small" style={{ marginBottom: 8 }}>Badges</div>
+                  <div className="semi small" style={{ marginBottom: 8 }}>{t("badges_label")}</div>
                   <div className="row wrap gap-8">
                     {badges.map((b) => (
                       <span key={b.label} className="badge badge-purple" style={{ padding: "7px 12px" }}>
@@ -321,7 +323,7 @@ export default function ProviderDetail() {
             })()}
 
             <div>
-              <div className="semi small" style={{ marginBottom: 8 }}>Services & skills</div>
+              <div className="semi small" style={{ marginBottom: 8 }}>{t("services_skills_label")}</div>
               <div className="row wrap gap-8">
                 {p.skills.map((s) => (
                   <span key={s} className="row gap-6 badge badge-green" style={{ padding: "7px 12px" }}>
@@ -380,7 +382,7 @@ export default function ProviderDetail() {
             {/* Endorsements */}
             {endorseList.length > 0 && (
               <div>
-                <div className="semi small" style={{ marginBottom: 8 }}>Endorsed by neighbors</div>
+                <div className="semi small" style={{ marginBottom: 8 }}>{t("endorsed_by_neighbors")}</div>
                 <div className="col gap-8">
                   {endorseList.map((e) => {
                     const key = `${p.id}:${e.skill}`;
@@ -399,7 +401,7 @@ export default function ProviderDetail() {
                             style={{ padding: "6px 12px", background: isOn ? "var(--brand-100)" : "var(--ink-50)", color: isOn ? "var(--brand-700)" : "var(--ink-700)" }}
                             onClick={() => toggleEndorse(p.id, e.skill)}
                           >
-                            <ThumbsUp size={13} weight={isOn ? "fill" : "regular"} /> {isOn ? "Endorsed" : "Endorse"}
+                            <ThumbsUp size={13} weight={isOn ? "fill" : "regular"} /> {isOn ? t("endorsed") : t("endorse")}
                           </button>
                         )}
                       </div>
@@ -413,7 +415,7 @@ export default function ProviderDetail() {
             {vouchList.length > 0 && (
               <div className="card">
                 <div className="row between" style={{ marginBottom: 10 }}>
-                  <span className="semi small row gap-6"><Handshake size={16} color="var(--green-500)" /> {vouchList.length + (hasVouched ? 1 : 0)} neighbors vouch for {p.displayName.split(" ")[0]}</span>
+                  <span className="semi small row gap-6"><Handshake size={16} color="var(--green-500)" /> {tf("neighbors_vouch_for", { count: vouchList.length + (hasVouched ? 1 : 0), name: p.displayName.split(" ")[0] })}</span>
                 </div>
                 <div className="row" style={{ marginLeft: 6 }}>
                   {vouchList.slice(0, 6).map((v) => (
@@ -432,9 +434,9 @@ export default function ProviderDetail() {
                 <div className="row gap-8 center-v">
                   <Clock size={16} color="var(--red-600)" />
                   <div>
-                    <div className="bold tiny" style={{ color: "var(--red-700)" }}>Not accepting appointments</div>
+                    <div className="bold tiny" style={{ color: "var(--red-700)" }}>{t("not_accepting_appointments")}</div>
                     <div className="tiny" style={{ color: "var(--red-700)", marginTop: 1 }}>
-                      This provider has paused new bookings for now. You can still message them.
+                      {t("provider_paused_bookings")}
                     </div>
                   </div>
                 </div>
@@ -445,9 +447,9 @@ export default function ProviderDetail() {
                 <div className="row gap-8 center-v">
                   <Clock size={16} color="var(--amber-700)" />
                   <div>
-                    <div className="bold tiny" style={{ color: "var(--amber-700)" }}>Provider Currently Offline</div>
+                    <div className="bold tiny" style={{ color: "var(--amber-700)" }}>{t("provider_offline")}</div>
                     <div className="tiny" style={{ color: "var(--amber-700)", marginTop: 1 }}>
-                      {evalRes.statusText}. You can chat, ask questions, or schedule an appointment for their working hours below.
+                      {tf("provider_offline_desc", { status: evalRes.statusText })}
                     </div>
                   </div>
                 </div>
@@ -457,12 +459,12 @@ export default function ProviderDetail() {
               <div className="row gap-10 small center-v">
                 <Clock size={16} color="var(--green-500)" style={{ flexShrink: 0 }} />
                 <div>
-                  <div className="tiny semi muted" style={{ fontSize: 11, color: "var(--ink-500)" }}>Working Availability Timing</div>
-                  <div className="semi" style={{ color: "var(--ink-900)" }}>{p.availabilityNote ? formatHoursForDisplay(p.availabilityNote) : "Available on request"}</div>
+                  <div className="tiny semi muted" style={{ fontSize: 11, color: "var(--ink-500)" }}>{t("working_availability_timing")}</div>
+                  <div className="semi" style={{ color: "var(--ink-900)" }}>{p.availabilityNote ? formatHoursForDisplay(p.availabilityNote) : t("available_on_request")}</div>
                 </div>
               </div>
               <div className="divider" />
-              <div className="row gap-10 small"><MapPin size={16} color="var(--green-500)" /><span>Serves within {p.serviceRadiusKm} km — bookings from farther away aren&apos;t accepted{p.distanceKm > 0 ? ` • ${p.distanceKm} km from you` : ""}</span></div>
+              <div className="row gap-10 small"><MapPin size={16} color="var(--green-500)" /><span>{tf("serves_within_km", { km: p.serviceRadiusKm })}{p.distanceKm > 0 ? tf("km_from_you", { km: p.distanceKm }) : ""}</span></div>
               {/* Where they're based — one tap opens directions */}
               <div style={{ marginTop: 10 }}>
                 <MiniMap lat={p.lat} lng={p.lng} pinColor="var(--green-500)" height={150} />
@@ -474,7 +476,7 @@ export default function ProviderDetail() {
         {tab === "posts" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 18 }}>
             {(provPosts ?? []).length === 0 ? (
-              <EmptyState emoji="📣" title="No posts yet" text="This provider hasn't posted to the community yet." />
+              <EmptyState emoji="📣" title={t("no_posts_yet")} text={t("provider_no_posts_desc")} />
             ) : (
               (provPosts ?? []).map((post) => (
                 <PostSummaryRow key={post.id} post={post} onClick={() => nav(`/community/${post.id}`, { state: { post } })} />
@@ -486,7 +488,7 @@ export default function ProviderDetail() {
         {tab === "portfolio" && (
           <div className="page-pad" style={{ paddingTop: 18 }}>
             {p.portfolio.length === 0 ? (
-              <EmptyState emoji="🖼️" title="No work samples yet" text="This provider hasn't added portfolio photos." />
+              <EmptyState emoji="🖼️" title={t("no_work_samples")} text={t("provider_no_portfolio_desc")} />
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 {p.portfolio.map((item, i) => (
@@ -510,11 +512,11 @@ export default function ProviderDetail() {
           <div className="page-pad col gap-14" style={{ paddingTop: 18 }}>
             {!isGuest && !isOwner && (
               <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
-                <Star size={16} /> Write a Review
+                <Star size={16} /> {t("write_review")}
               </button>
             )}
             {(reviews ?? []).length === 0 && (
-              <EmptyState emoji="⭐" title="No reviews yet" text={isGuest ? "No one has reviewed this provider yet." : "Be the first to leave a review!"} />
+              <EmptyState emoji="⭐" title={t("no_reviews_yet")} text={isGuest ? t("no_one_reviewed_provider") : t("be_first_review")} />
             )}
             {(reviews ?? []).length > 0 && (
               <div className="card" style={{ padding: "12px 16px" }}>
@@ -530,7 +532,7 @@ export default function ProviderDetail() {
                     <StarRow value={rv.rating} size={12} />
                     {rv.isVerifiedBooking && (
                       <span className="tiny semi row gap-2" style={{ color: "var(--green-600)", alignItems: "center" }}>
-                        <BadgeCheck size={11} /> Verified booking
+                        <BadgeCheck size={11} /> {t("verified_booking")}
                       </span>
                     )}
                   </div>
@@ -544,7 +546,7 @@ export default function ProviderDetail() {
         {!isGuest && !isOwner && (
           <div className="page-pad">
             <button className="row gap-6 tiny muted center" style={{ width: "100%", padding: 10 }} onClick={() => setReport(true)}>
-              <Flag size={13} /> Report this provider
+              <Flag size={13} /> {t("report_provider")}
             </button>
           </div>
         )}
@@ -556,7 +558,7 @@ export default function ProviderDetail() {
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12, zIndex: 30 }}>
         <div className="row gap-10">
           <div className="col" style={{ gap: 0 }}>
-            <span className="tiny muted">Starting</span>
+            <span className="tiny muted">{t("starting_label")}</span>
             <span className="bold" style={{ fontSize: 18, color: "var(--green-600)" }}>{inr(p.startingPrice)}</span>
           </div>
           {isGuest && (
@@ -579,7 +581,7 @@ export default function ProviderDetail() {
             <button
               className="btn btn-outline"
               style={{ flex: 0, color: "var(--brand-700)", borderColor: "var(--brand-200)", background: "var(--brand-50)" }}
-              title="Message"
+              title={t("message")}
               onClick={async () => {
                 if (!p.userId) { showToast("Provider info unavailable"); return; }
                 try {
@@ -599,7 +601,7 @@ export default function ProviderDetail() {
               className="btn btn-green grow"
               onClick={() => nav(`/provider/${p.id}/manage/jobs`)}
             >
-              <Clock size={17} /> View jobs & appointments
+              <Clock size={17} /> {t("view_jobs_appointments")}
             </button>
           ) : !bookingsOn ? null : p.isOpenNow === false ? (
             <button className="btn grow" style={{ background: "var(--ink-50)", color: "var(--ink-400)" }} disabled>
@@ -610,7 +612,7 @@ export default function ProviderDetail() {
               className={`btn grow ${evalRes.isOpenNow ? "btn-green" : "btn-purple"}`}
               onClick={() => setScheduling(true)}
             >
-              {evalRes.isOpenNow ? <><Zap size={17} /> Book now</> : <><Clock size={17} /> Schedule Appointment</>}
+              {evalRes.isOpenNow ? <><Zap size={17} /> {t("book_now")}</> : <><Clock size={17} /> {t("schedule_appointment")}</>}
             </button>
           ) : (
             <button
@@ -631,7 +633,7 @@ export default function ProviderDetail() {
           >
             <Wallet size={18} color="var(--brand-700)" />
             <span className="semi small grow" style={{ textAlign: "left", color: "var(--brand-700)" }}>
-              {payableApt.packagePrice ? `Pay ₹${payableApt.packagePrice} now` : "Pay for your appointment"}
+              {payableApt.packagePrice ? tf("pay_amount_now", { amount: payableApt.packagePrice }) : t("pay_for_appointment")}
             </span>
           </button>
         )}
@@ -654,7 +656,7 @@ export default function ProviderDetail() {
         <PhotoViewer photos={viewingPhotos.photos} startIndex={viewingPhotos.startIndex} onClose={() => setViewingPhotos(null)} />
       )}
       {report && <ReportSheet targetType="PROVIDER" targetId={p.id} name={p.displayName} onClose={() => setReport(false)} />}
-      {share && <ShareCard title={safeName(p.displayName, "Local provider")} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={[p.ratingCount > 0 ? `⭐ ${p.ratingAvg}` : "", p.jobsDone > 0 ? `${p.jobsDone} jobs` : ""].filter(Boolean).join(" • ") || "New provider"} url={window.location.origin + "/provider/" + p.id} onClose={() => setShare(false)} />}
+      {share && <ShareCard title={safeName(p.displayName, t("local_provider_fallback"))} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={[p.ratingCount > 0 ? `⭐ ${p.ratingAvg}` : "", p.jobsDone > 0 ? `${p.jobsDone} jobs` : ""].filter(Boolean).join(" • ") || t("new_provider_badge")} url={window.location.origin + "/provider/" + p.id} onClose={() => setShare(false)} />}
       {reviewing && (
         <ReviewSheet
           targetName={p.displayName}
