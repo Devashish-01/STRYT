@@ -21,6 +21,7 @@ import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards"
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
+import { useI18n } from "@/lib/i18n";
 
 // A booking counts as "upcoming" while it is still live and in the future.
 function isUpcoming(a: AppointmentRecord): boolean {
@@ -87,6 +88,7 @@ interface RebookTarget {
 export default function MyAppointments() {
   const nav = useNavigate();
   const { user, showToast } = useApp();
+  const { t, tf } = useI18n();
   const [tab, setTab] = useState<"UPCOMING" | "PAST">("UPCOMING");
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -222,10 +224,10 @@ export default function MyAppointments() {
           "go find who you want to book with" — Explore is the honest target,
           not a form. */}
       <AppBar
-        title="My Appointments"
-        subtitle="Track and manage your bookings"
+        title={t("my_appointments_title")}
+        subtitle={t("my_appointments_subtitle")}
         right={
-          <button className="icon-btn" onClick={() => nav("/explore")} aria-label="Book a new appointment" title="Book an appointment">
+          <button className="icon-btn" onClick={() => nav("/explore")} aria-label={t("book_new_appointment")} title={t("book_an_appointment")}>
             <Plus size={20} />
           </button>
         }
@@ -234,10 +236,10 @@ export default function MyAppointments() {
       {/* Upcoming / Past tabs */}
       <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 6 }}>
         <button className={`chip ${tab === "UPCOMING" ? "active" : ""}`} onClick={() => setTab("UPCOMING")}>
-          📅 Upcoming{upcomingCount > 0 ? ` (${upcomingCount})` : ""}
+          {t("upcoming_tab")}{upcomingCount > 0 ? ` (${upcomingCount})` : ""}
         </button>
         <button className={`chip ${tab === "PAST" ? "active" : ""}`} onClick={() => setTab("PAST")}>
-          🕘 Past & cancelled
+          {t("past_cancelled_tab")}
         </button>
       </div>
 
@@ -251,11 +253,11 @@ export default function MyAppointments() {
               <EmptyState
                 illustration={<NoAppointmentsIllustration />}
                 emoji="📅"
-                title={tab === "UPCOMING" ? "No upcoming appointments" : "Nothing here yet"}
-                text={tab === "UPCOMING" ? "Book a slot with a shop or provider and it'll show up here." : "Past, declined and cancelled bookings appear here."}
+                title={tab === "UPCOMING" ? t("no_upcoming_appointments") : t("nothing_here_yet")}
+                text={tab === "UPCOMING" ? t("book_slot_shows_here") : t("past_bookings_appear_here")}
                 action={tab === "UPCOMING" ? (
                   <button className="btn btn-primary row gap-6 center" onClick={() => nav("/explore")}>
-                    <Store size={16} /> Find a place to book
+                    <Store size={16} /> {t("find_place_to_book")}
                   </button>
                 ) : undefined}
               />
@@ -284,7 +286,7 @@ export default function MyAppointments() {
                             className={`badge ${apt.paymentStatus === "PAID" ? "badge-green" : "badge-gray"}`}
                             style={{ fontSize: 9, padding: "2px 7px" }}
                           >
-                            {apt.paymentStatus === "PAID" ? "PAID" : "UNPAID"}
+                            {apt.paymentStatus === "PAID" ? t("paid_status") : t("unpaid_status")}
                           </span>
                         )}
                       </div>
@@ -299,7 +301,7 @@ export default function MyAppointments() {
                         )}
                         {apt.notes && (
                           <div className="tiny" style={{ color: "var(--ink-700)" }}>
-                            📝 <strong>Your note:</strong> {apt.notes}
+                            📝 <strong>{t("your_note_label")}</strong> {apt.notes}
                           </div>
                         )}
                         {apt.photoUrl && (
@@ -309,7 +311,7 @@ export default function MyAppointments() {
                             className="row gap-6 center-v"
                             style={{ background: "none", border: "none", color: "var(--brand-700)", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: 0 }}
                           >
-                            <ImageIcon size={14} /> View your attached reference photo
+                            <ImageIcon size={14} /> {t("view_reference_photo")}
                           </button>
                         )}
                       </div>
@@ -346,7 +348,7 @@ export default function MyAppointments() {
                         onClick={() => openPay(apt)}
                       >
                         <CreditCard size={13} />
-                        {loadingPay === apt.id ? "Loading…" : apt.paymentStatus === "REJECTED" ? "Retry payment" : apt.packagePrice ? `Pay ₹${apt.packagePrice}` : "Pay now"}
+                        {loadingPay === apt.id ? t("loading_ellipsis") : apt.paymentStatus === "REJECTED" ? t("retry_payment") : apt.packagePrice ? tf("pay_amount", { amount: apt.packagePrice }) : t("pay_now")}
                       </button>
                     )}
 
@@ -360,7 +362,7 @@ export default function MyAppointments() {
                         style={{ alignSelf: "flex-start", color: "var(--ink-400)", background: "none", border: "none", cursor: "pointer", padding: "2px 0", textDecoration: "underline" }}
                         onClick={() => dismissCard(apt)}
                       >
-                        Dismiss
+                        {t("dismiss_word")}
                       </button>
                     )}
 
@@ -368,8 +370,8 @@ export default function MyAppointments() {
                       <div className="card row gap-10 center-v" style={{ padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)", borderRadius: 10 }}>
                         <CheckCircle2 size={18} color="var(--green-500)" style={{ flexShrink: 0 }} />
                         <div>
-                          <div className="bold tiny" style={{ color: "var(--green-700)" }}>Confirmed</div>
-                          <div className="tiny" style={{ color: "var(--green-600)", marginTop: 1, fontStyle: "italic" }}>Message: "{apt.responseNote}"</div>
+                          <div className="bold tiny" style={{ color: "var(--green-700)" }}>{t("confirmed_word")}</div>
+                          <div className="tiny" style={{ color: "var(--green-600)", marginTop: 1, fontStyle: "italic" }}>{tf("message_quoted", { note: apt.responseNote })}</div>
                         </div>
                       </div>
                     )}
@@ -385,7 +387,7 @@ export default function MyAppointments() {
                             disabled={busy}
                             onClick={() => setCancelConfirm(apt)}
                           >
-                            <XIcon size={14} /> {cancelling === apt.id ? "Cancelling…" : "Cancel"}
+                            <XIcon size={14} /> {cancelling === apt.id ? t("cancelling_ellipsis") : t("cancel_action")}
                           </button>
                           <button
                             type="button"
@@ -393,7 +395,7 @@ export default function MyAppointments() {
                             disabled={busy}
                             onClick={() => openRebook(apt, "RESCHEDULE")}
                           >
-                            <CalendarClock size={14} /> {loadingTarget === apt.id ? "Opening…" : "Reschedule"}
+                            <CalendarClock size={14} /> {loadingTarget === apt.id ? t("opening_ellipsis") : t("reschedule_word")}
                           </button>
                         </>
                       ) : (
@@ -403,7 +405,7 @@ export default function MyAppointments() {
                           disabled={busy}
                           onClick={() => openRebook(apt, "AGAIN")}
                         >
-                          <RotateCcw size={14} /> {loadingTarget === apt.id ? "Opening…" : "Book again"}
+                          <RotateCcw size={14} /> {loadingTarget === apt.id ? t("opening_ellipsis") : t("book_again")}
                         </button>
                       )}
                       <button
@@ -412,7 +414,7 @@ export default function MyAppointments() {
                         style={{ fontSize: 12 }}
                         onClick={() => nav(`/${apt.targetType.toLowerCase()}/${apt.targetId}`)}
                       >
-                        View {apt.targetType === "BUSINESS" ? "Shop" : "Profile"}
+                        {apt.targetType === "BUSINESS" ? t("view_shop") : t("view_profile")}
                       </button>
                     </div>
                   </div>
@@ -463,16 +465,16 @@ export default function MyAppointments() {
         <div className="overlay" onClick={() => setCancelConfirm(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
-            <h2 className="h2" style={{ marginBottom: 6 }}>Cancel this {vocabForRow(cancelConfirm).noun}?</h2>
+            <h2 className="h2" style={{ marginBottom: 6 }}>{tf("cancel_this_noun", { noun: vocabForRow(cancelConfirm).noun })}</h2>
             <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
-              {cancelConfirm.targetName} will be notified. This can't be undone.
-              {cancelConfirm.paymentStatus === "PAID" && " You've already paid for this booking — check with them about a refund after cancelling."}
+              {tf("will_be_notified", { name: cancelConfirm.targetName })}
+              {cancelConfirm.paymentStatus === "PAID" && t("already_paid_refund_notice")}
             </p>
             <div className="col gap-8">
               <button className="btn btn-block" style={{ background: "var(--red-500)", color: "#fff" }} onClick={() => cancel(cancelConfirm)}>
-                Yes, cancel
+                {t("yes_cancel")}
               </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setCancelConfirm(null)}>Keep {vocabForRow(cancelConfirm).noun}</button>
+              <button className="btn btn-ghost btn-block" onClick={() => setCancelConfirm(null)}>{tf("keep_noun", { noun: vocabForRow(cancelConfirm).noun })}</button>
             </div>
           </div>
         </div>
