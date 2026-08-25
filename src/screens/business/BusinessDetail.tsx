@@ -37,6 +37,7 @@ import { pushRecentlyViewed } from "@/lib/recentlyViewed";
 import { MAX_QUEUE_PARTY_SIZE } from "@/lib/queueMath";
 import { haptics } from "@/lib/haptics";
 import MiniMap from "@/components/MiniMap";
+import { useI18n } from "@/lib/i18n";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();
@@ -47,6 +48,7 @@ export default function BusinessDetail() {
     isFollowing, toggleFollow, notifySubs, toggleNotify,
     queuesJoined, joinQueue, isGuest,
   } = useApp();
+  const { t, tf } = useI18n();
 
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `business:${id}`);
   const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `business:${id}:reviews`);
@@ -157,7 +159,7 @@ export default function BusinessDetail() {
   if (!b) {
     return (
       <div className="screen">
-        <EmptyState emoji="🏪" title="Shop not found" text="This business may have closed or moved." />
+        <EmptyState emoji="🏪" title={t("shop_not_found")} text={t("shop_not_found_desc")} />
       </div>
     );
   }
@@ -356,7 +358,7 @@ export default function BusinessDetail() {
                 <div className="row gap-6 center-v">
                   <h1 className="bold h2">{b.name}</h1>
                   {b.isVerified && <BadgeCheck size={18} color="var(--brand-600)" fill="var(--brand-100)" />}
-                  {isOwner && <Pill tone="purple">Owner</Pill>}
+                  {isOwner && <Pill tone="purple">{t("owner_badge")}</Pill>}
                 </div>
                 {bizThemeKey === "generic" ? (
                   <p className="small muted" style={{ marginTop: 2 }}>{b.subCategory}</p>
@@ -366,7 +368,7 @@ export default function BusinessDetail() {
               </div>
               <div className="col" style={{ alignItems: "center", gap: 2 }}>
                 <Rating value={b.ratingAvg} size={14} />
-                <span className="tiny muted">{b.ratingCount} reviews</span>
+                <span className="tiny muted">{b.ratingCount} {t("reviews_suffix")}</span>
               </div>
             </div>
 
@@ -375,7 +377,7 @@ export default function BusinessDetail() {
             <div className="row gap-12 small" style={{ marginTop: 12, color: "var(--ink-600)" }}>
               <span className="row gap-4"><MapPin size={14} /> {distanceLabel(b.distanceKm)}</span>
               <span className="row gap-4"><Clock size={14} color={evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)"} />
-                <span style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>{evalRes.isOpenNow ? "Open now" : "Closed"}</span>
+                <span style={{ color: evalRes.isOpenNow ? "var(--green-500)" : "var(--red-600)", fontWeight: 700 }}>{evalRes.isOpenNow ? t("open_now") : t("closed_status")}</span>
                 {evalRes.isOpenNow && <LivePulseDot style={{ marginLeft: 2 }} />}
               </span>
             </div>
@@ -394,7 +396,7 @@ export default function BusinessDetail() {
                 Everything that needs an *account* (book/message/follow/save) is
                 what's replaced by the prompt below. */}
             <div className="row gap-10" style={{ marginTop: 16 }}>
-              {!isOwner && b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> Call</a>}
+              {!isOwner && b.phone && b.showPhonePublicly !== false && <a href={`tel:${b.phone}`} className="btn btn-primary grow" onClick={() => businessService.recordInteraction(b.id, "CALL").catch(() => {})}><Phone size={17} /> {t("call")}</a>}
               {!isOwner && (
               <button
                 className="btn btn-outline grow"
@@ -406,7 +408,7 @@ export default function BusinessDetail() {
                   window.open(mapsUrl, "_blank");
                 }}
               >
-                <Navigation size={17} /> Directions
+                <Navigation size={17} /> {t("directions")}
               </button>
               )}
               {/* Messaging needs a real identity on both sides — guests don't
@@ -415,7 +417,7 @@ export default function BusinessDetail() {
                 <button
                   className="icon-btn"
                   style={{ background: "var(--brand-50)", color: "var(--brand-700)", width: 48, border: "1.5px solid var(--brand-200)" }}
-                  title="Message"
+                  title={t("message")}
                   onClick={async () => {
                     if (!b.ownerUserId) { showToast("Owner info unavailable"); return; }
                     try {
@@ -450,7 +452,7 @@ export default function BusinessDetail() {
               >
                 <Wallet size={18} color="var(--brand-700)" />
                 <span className="semi small grow" style={{ textAlign: "left", color: "var(--brand-700)" }}>
-                  {payableApt?.packagePrice ? `Pay ₹${payableApt.packagePrice} now` : "Pay now"}
+                  {payableApt?.packagePrice ? tf("pay_amount_now", { amount: payableApt.packagePrice }) : t("pay_now")}
                 </span>
               </button>
             )}
@@ -468,14 +470,14 @@ export default function BusinessDetail() {
                     style={{ background: following ? "var(--brand-100)" : "var(--ink-50)", color: following ? "var(--brand-700)" : "var(--ink-700)" }}
                     onClick={() => toggleFollow("BUSINESS", b.id, b.name)}
                   >
-                    {following ? <><UserCheck size={16} /> Following</> : <><UserPlus size={16} /> Follow</>}
+                    {following ? <><UserCheck size={16} /> {t("following")}</> : <><UserPlus size={16} /> {t("follow")}</>}
                   </button>
                   <button
                     className="btn grow btn-sm"
                     style={{ background: notifying ? "var(--orange-50)" : "var(--ink-50)", color: notifying ? "var(--accent-600)" : "var(--ink-700)" }}
                     onClick={() => toggleNotify(notifyKey)}
                   >
-                    <Bell size={16} weight={notifying ? "fill" : "regular"} /> {notifying ? "Alerts on" : "Notify me"}
+                    <Bell size={16} weight={notifying ? "fill" : "regular"} /> {notifying ? t("alerts_on") : t("notify_me")}
                   </button>
                 </>
               )}
@@ -485,7 +487,7 @@ export default function BusinessDetail() {
                   style={{ background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
                   onClick={() => nav(`/business/${b.id}/manage/appointments`)}
                 >
-                  <Clock size={16} /> View appointments
+                  <Clock size={16} /> {t("view_appointments")}
                 </button>
               ) : !bookingsOn ? null : b.isOpenNow === false ? (
                 <button className="btn grow btn-sm" style={{ background: "var(--ink-50)", color: "var(--ink-400)" }} disabled>
@@ -515,21 +517,21 @@ export default function BusinessDetail() {
                 </div>
                 <div className="grow" style={{ minWidth: 0 }}>
                   <div className="semi small">
-                    {queue.peopleAhead === 0 ? "No wait right now 🎉" : `${queue.peopleAhead} ahead`}
+                    {queue.peopleAhead === 0 ? t("no_wait_now") : tf("people_ahead_count", { count: queue.peopleAhead })}
                   </div>
-                  <div className="tiny muted">{queue.peopleAhead === 0 ? "Walk in anytime" : `~${queue.estWaitMin} min wait`}</div>
+                  <div className="tiny muted">{queue.peopleAhead === 0 ? t("walk_in_anytime") : tf("min_wait", { min: queue.estWaitMin })}</div>
                 </div>
                 {isOwner ? (
                   <button
                     className="btn btn-sm"
                     style={{ flexShrink: 0, background: "var(--brand-50)", color: "var(--brand-700)", border: "1px solid var(--brand-200)" }}
                     onClick={() => nav(`/business/${b.id}/manage/queue`)}
-                  >Manage queue</button>
+                  >{t("manage_queue")}</button>
                 ) : inQueue ? (
                   <span className="badge badge-green">
                     {activeQueueEntry?.status === "CALLED"
-                      ? "🔔 Your turn"
-                      : `You're #${activeQueueEntry?.position || queue.peopleAhead + 1}`}
+                      ? t("your_turn")
+                      : tf("your_queue_number", { n: activeQueueEntry?.position || queue.peopleAhead + 1 })}
                   </span>
                 ) : isGuest ? (
                   // Guests see the live wait (that's the hook) but can't take a
@@ -540,7 +542,7 @@ export default function BusinessDetail() {
                     className="btn btn-primary btn-sm"
                     style={{ flexShrink: 0 }}
                     onClick={() => { setPartySize(1); setJoiningQueue(true); }}
-                  >Join queue</button>
+                  >{t("join_queue")}</button>
                 ) : null}
               </div>
 
@@ -550,8 +552,8 @@ export default function BusinessDetail() {
                 <div className="col gap-10" style={{ paddingTop: 4, borderTop: "1px solid var(--brand-100)" }}>
                   <div className="row between center-v">
                     <div style={{ minWidth: 0 }}>
-                      <div className="semi small">How many in your party?</div>
-                      <div className="tiny muted">Helps the shop estimate the wait</div>
+                      <div className="semi small">{t("party_size_question")}</div>
+                      <div className="tiny muted">{t("party_size_hint")}</div>
                     </div>
                     <div className="row center-v" style={{ background: "#fff", borderRadius: 10, border: "1px solid var(--brand-200)" }}>
                       <button
@@ -576,7 +578,7 @@ export default function BusinessDetail() {
                       className="btn btn-outline btn-sm grow"
                       disabled={queueBusy}
                       onClick={() => { setJoiningQueue(false); setPartySize(1); }}
-                    >Cancel</button>
+                    >{t("cancel_action")}</button>
                     <button
                       className="btn btn-primary btn-sm grow"
                       disabled={queueBusy}
@@ -595,7 +597,7 @@ export default function BusinessDetail() {
                           setQueueBusy(false);
                         }
                       }}
-                    >{queueBusy ? "Joining…" : `Join${partySize > 1 ? ` · ${partySize}` : ""}`}</button>
+                    >{queueBusy ? t("joining_ellipsis") : partySize > 1 ? `${t("join_short")} · ${partySize}` : t("join_short")}</button>
                   </div>
                 </div>
               )}
@@ -622,11 +624,11 @@ export default function BusinessDetail() {
           {([
             // #10 — was hardcoded "Menu", so salons and chemists advertised one too.
             ["catalog", `${bizTheme.catalogNoun} (${b.catalog.length})`],
-            ["posts", `Posts (${(bizPosts ?? []).length})`],
-            ...((b.portfolio ?? []).length > 0 ? [["work", `Work (${(b.portfolio ?? []).length})`]] : []),
-            ["about", "About"],
-            ["reviews", `Reviews`],
-            ...(!isOwner && !isGuest ? [["mine", mineRows.length > 0 ? `Mine (${mineRows.length})` : "Mine"]] : []),
+            ["posts", tf("tab_posts_count", { count: (bizPosts ?? []).length })],
+            ...((b.portfolio ?? []).length > 0 ? [["work", tf("tab_work_count", { count: (b.portfolio ?? []).length })]] : []),
+            ["about", t("tab_about")],
+            ["reviews", t("tab_reviews")],
+            ...(!isOwner && !isGuest ? [["mine", mineRows.length > 0 ? tf("tab_mine_count", { count: mineRows.length }) : t("tab_mine")]] : []),
           ] as [typeof tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)} className="semi"
               style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--biz-accent-strong)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--biz-accent-strong)" : "2.5px solid transparent" }}>
@@ -735,7 +737,7 @@ export default function BusinessDetail() {
         {tab === "posts" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 18 }}>
             {(bizPosts ?? []).length === 0 ? (
-              <EmptyState emoji="📣" title="No posts yet" text="This business hasn't posted to the community yet." />
+              <EmptyState emoji="📣" title={t("no_posts_yet")} text={t("biz_no_posts_desc")} />
             ) : (
               (bizPosts ?? []).map((p) => (
                 <button
@@ -764,7 +766,7 @@ export default function BusinessDetail() {
           <div style={{ paddingTop: 18, paddingBottom: 18 }}>
             {(b.portfolio ?? []).length === 0 ? (
               <div className="page-pad">
-                <EmptyState emoji="🖼️" title="No work samples yet" text="This shop hasn't added portfolio photos." />
+                <EmptyState emoji="🖼️" title={t("no_work_samples")} text={t("no_portfolio_desc")} />
               </div>
             ) : (
               <PhotoAutoScroll
@@ -781,7 +783,7 @@ export default function BusinessDetail() {
             <div className="card col gap-10" style={{ padding: 16 }}>
               <div className="small semi" style={{ marginBottom: 6 }}>{bizTheme.hoursLabel}</div>
               <div className="row between small" style={{ padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span className="semi">{formatHoursForDisplay(b.hours)}</span></div>
-              <div className="small semi" style={{ marginTop: 10, marginBottom: 6 }}>Address</div>
+              <div className="small semi" style={{ marginTop: 10, marginBottom: 6 }}>{t("address_label")}</div>
               <p className="small muted" style={{ lineHeight: 1.5 }}>{b.addressLine1}, {b.city} – {b.pincode}</p>
             </div>
             {/* Real location map — one tap opens turn-by-turn directions */}
@@ -789,7 +791,7 @@ export default function BusinessDetail() {
 
             {/* Q&A */}
             <div>
-              <div className="semi small row gap-6" style={{ marginBottom: 8 }}><HelpCircle size={15} color="var(--blue-500)" /> Questions & Answers</div>
+              <div className="semi small row gap-6" style={{ marginBottom: 8 }}><HelpCircle size={15} color="var(--blue-500)" /> {t("qna_title")}</div>
               {/* Guests read existing Q&A but can't post one — an unanswerable
                   question from an anonymous stranger helps nobody. Owners
                   answer questions, they don't ask themselves one. */}
@@ -797,19 +799,19 @@ export default function BusinessDetail() {
                 <div className="card card-condensed">
                   <textarea
                     className="input"
-                    placeholder="Ask the owner a question…"
+                    placeholder={t("ask_owner_placeholder")}
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
                     style={{ minHeight: 56 }}
                   />
                   <button className="btn btn-primary btn-sm btn-block" style={{ marginTop: 8 }} disabled={question.trim().length < 5 || askingNow} onClick={submitQuestion}>
-                    {askingNow ? "Sending…" : "Ask question"}
+                    {askingNow ? t("sending_ellipsis") : t("ask_question")}
                   </button>
                 </div>
               )}
               {(qnaList ?? []).filter((q) => !q.answer).length > 0 && (
                 <div className="col gap-10" style={{ marginTop: 10 }}>
-                  <div className="tiny semi muted">Waiting for an answer</div>
+                  <div className="tiny semi muted">{t("waiting_for_answer")}</div>
                   {[...(qnaList ?? [])].filter((q) => !q.answer).sort((a, b) => b.upvotes - a.upvotes).map((q) => (
                     <div key={q.id} className="card card-condensed row gap-10">
                       {/* Guests see the upvote count, but can't cast one. Same for owners. */}
@@ -845,7 +847,7 @@ export default function BusinessDetail() {
                       <p className="small" style={{ marginTop: 4 }}>{q.question}</p>
                       <div className="card card-condensed" style={{ marginTop: 8, background: "var(--brand-50)", border: "none" }}>
                         <div className="tiny semi row gap-4" style={{ color: "var(--brand-700)", marginBottom: 2, alignItems: "center" }}>
-                          <BadgeCheck size={12} /> Verified answer
+                          <BadgeCheck size={12} /> {t("verified_answer")}
                         </div>
                         <p className="small">{q.answer}</p>
                       </div>
@@ -863,14 +865,14 @@ export default function BusinessDetail() {
                 Owners don't review their own business. */}
             {!isGuest && !isOwner && (
               <button className="btn btn-outline btn-block" onClick={() => setReviewing(true)}>
-                <Star size={16} /> Write a Review
+                <Star size={16} /> {t("write_review")}
               </button>
             )}
             <div className="card row gap-16" style={{ padding: 18 }}>
               <div className="col center">
                 <span className="bold" style={{ fontSize: 34, lineHeight: 1 }}>{b.ratingAvg}</span>
                 <StarRow value={b.ratingAvg} size={13} />
-                <span className="tiny muted" style={{ marginTop: 2 }}>{b.ratingCount} ratings</span>
+                <span className="tiny muted" style={{ marginTop: 2 }}>{b.ratingCount} {t("ratings_suffix")}</span>
               </div>
               <div className="grow col gap-4">
                 {[5, 4, 3, 2, 1].map((s) => {
@@ -890,7 +892,7 @@ export default function BusinessDetail() {
               </div>
             </div>
             {(reviews ?? []).length === 0 && (
-              <EmptyState emoji="⭐" title="No reviews yet" text={isGuest ? "No one has reviewed this shop yet." : "Be the first to leave a review!"} />
+              <EmptyState emoji="⭐" title={t("no_reviews_yet")} text={isGuest ? t("no_one_reviewed") : t("be_first_review")} />
             )}
             {(reviews ?? []).map((rv) => (
               <div key={rv.id} className="card row gap-12" style={{ alignItems: "flex-start", padding: "14px 14px" }}>
@@ -901,7 +903,7 @@ export default function BusinessDetail() {
                     <StarRow value={rv.rating} size={12} />
                     {rv.isVerifiedBooking && (
                       <span className="tiny semi row gap-2" style={{ color: "var(--green-600)", alignItems: "center" }}>
-                        <BadgeCheck size={11} /> Verified booking
+                        <BadgeCheck size={11} /> {t("verified_booking")}
                       </span>
                     )}
                   </div>
@@ -915,7 +917,7 @@ export default function BusinessDetail() {
         {tab === "mine" && (
           <div className="page-pad col gap-10" style={{ paddingTop: 18 }}>
             {mineRows.length === 0 ? (
-              <EmptyState emoji="🧾" title="Nothing here yet" text="Bookings and queue visits you have with this shop will show up here." />
+              <EmptyState emoji="🧾" title={t("nothing_here_yet")} text={t("biz_mine_empty_desc")} />
             ) : (
               mineRows.map((row) =>
                 row.kind === "appointment" ? (
@@ -947,7 +949,7 @@ export default function BusinessDetail() {
                       viewerIsPayer
                     />
                     <button className="tiny semi" style={{ color: "var(--brand-700)", alignSelf: "flex-start" }} onClick={() => nav("/appointments")}>
-                      View in My Appointments →
+                      {t("view_in_my_appointments")}
                     </button>
                   </div>
                 ) : (
@@ -968,7 +970,7 @@ export default function BusinessDetail() {
                         }`}
                         style={{ fontSize: 10, padding: "3px 9px", flexShrink: 0 }}
                       >
-                        {row.q.status === "WAITING" ? "Waiting" : row.q.status === "CALLED" ? "Called" : row.q.status === "SERVED" ? "Served" : row.q.status === "LEFT" ? "Left" : "Closed"}
+                        {row.q.status === "WAITING" ? t("queue_status_waiting") : row.q.status === "CALLED" ? t("queue_status_called") : row.q.status === "SERVED" ? t("queue_status_served") : row.q.status === "LEFT" ? t("queue_status_left") : t("closed_status")}
                       </span>
                     </div>
                     <PaymentStatusCard
@@ -980,7 +982,7 @@ export default function BusinessDetail() {
                       viewerIsPayer
                     />
                     <button className="tiny semi" style={{ color: "var(--brand-700)", alignSelf: "flex-start" }} onClick={() => nav("/queues")}>
-                      View in My Queues →
+                      {t("view_in_my_queues")}
                     </button>
                   </div>
                 )
@@ -996,7 +998,7 @@ export default function BusinessDetail() {
         {!isGuest && !isOwner && (
           <div className="page-pad">
             <button className="row gap-6 tiny muted center" style={{ width: "100%", padding: 10 }} onClick={() => setReport(true)}>
-              <Flag size={13} /> Report this business
+              <Flag size={13} /> {t("report_business")}
             </button>
           </div>
         )}
@@ -1011,8 +1013,8 @@ export default function BusinessDetail() {
             style={{ boxShadow: "var(--shadow-lg)" }}
             onClick={() => setCartSheet(true)}
           >
-            <span>{cartCount} item{cartCount > 1 ? "s" : ""} • {inr(cartTotal)}</span>
-            <span className="row gap-4">Checkout <ArrowLeft size={16} style={{ transform: "rotate(180deg)" }} /></span>
+            <span>{cartCount} {cartCount > 1 ? t("items_word") : t("item_word")} • {inr(cartTotal)}</span>
+            <span className="row gap-4">{t("checkout")} <ArrowLeft size={16} style={{ transform: "rotate(180deg)" }} /></span>
           </button>
         </div>
       )}
