@@ -45,12 +45,20 @@ function QaCard({ q }: { q: QnaItem }) {
   const [answer, setAnswer] = useState(q.answer ?? "");
   const [answered, setAnswered] = useState(!!q.answer);
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   async function save() {
-    await businessService.answerQuestion(q.id, answer);
-    setAnswered(true);
-    setEditing(false);
-    showToast("Answer posted");
+    setSaving(true);
+    try {
+      await businessService.answerQuestion(q.id, answer);
+      setAnswered(true);
+      setEditing(false);
+      showToast("Answer posted");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't post — try again");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -76,7 +84,7 @@ function QaCard({ q }: { q: QnaItem }) {
       ) : (
         <div style={{ marginTop: 10 }}>
           <textarea className="input" placeholder="Type your answer…" value={answer} onChange={(e) => setAnswer(e.target.value)} style={{ minHeight: 64 }} />
-          <button className="btn btn-primary btn-sm btn-block" style={{ marginTop: 8 }} disabled={answer.trim().length < 2} onClick={save}>Post answer</button>
+          <button className="btn btn-primary btn-sm btn-block" style={{ marginTop: 8 }} disabled={answer.trim().length < 2 || saving} onClick={save}>{saving ? "Posting…" : "Post answer"}</button>
         </div>
       )}
     </div>

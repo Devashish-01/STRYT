@@ -22,6 +22,8 @@ import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import ShareCard from "@/components/ShareCard";
 import { useApp } from "@/store";
+import { REQUEST_STATUS_BADGE } from "@/lib/statusBadges";
+import type { RequestStatus } from "@/types";
 import { aliasName } from "@/lib/publicName";
 import { postTypeMeta } from "@/lib/communityTypes";
 
@@ -523,7 +525,9 @@ export default function PublicProfile() {
                 <div key={r.id} className="card" style={{ borderRadius: 18, cursor: "pointer" }} onClick={() => nav(`/request/${r.id}`)}>
                   <div className="row space-between" style={{ marginBottom: 6, alignItems: "center" }}>
                     <span className="semi small" style={{ color: "var(--brand-700)" }}>{r.categoryName || "Help Needed"}</span>
-                    <span className={`badge ${r.status === "OPEN" ? "badge-green" : "badge-gray"}`} style={{ fontSize: 11 }}>{r.status}</span>
+                    <span className={`badge ${r.status === "OPEN" ? "badge-green" : REQUEST_STATUS_BADGE[r.status as RequestStatus]?.cls ?? "badge-gray"}`} style={{ fontSize: 11 }}>
+                      {r.status === "OPEN" ? "Open" : REQUEST_STATUS_BADGE[r.status as RequestStatus]?.label ?? r.status}
+                    </span>
                   </div>
                   <p className="small clamp-2" style={{ lineHeight: 1.45, color: "var(--ink-800)", margin: 0 }}>{r.description}</p>
                   <div className="row space-between" style={{ marginTop: 12, fontSize: 12, alignItems: "center" }}>

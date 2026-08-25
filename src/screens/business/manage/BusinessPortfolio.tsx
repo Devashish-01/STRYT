@@ -104,9 +104,13 @@ export default function BusinessPortfolio() {
                     className="icon-btn"
                     style={{ width: 28, height: 28, background: "var(--green-500)", color: "#fff", flexShrink: 0 }}
                     onClick={async () => {
-                      await businessService.updatePortfolio(id, item.id, { caption: captionVal });
-                      setEditingCaption(null);
-                      refetch();
+                      try {
+                        await businessService.updatePortfolio(id, item.id, { caption: captionVal });
+                        setEditingCaption(null);
+                        refetch();
+                      } catch (e: any) {
+                        showToast(e?.message || "Couldn't save caption — try again");
+                      }
                     }}
                   >
                     <Check size={14} />
