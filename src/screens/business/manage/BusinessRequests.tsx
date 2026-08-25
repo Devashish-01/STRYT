@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppBar, EmptyState, inr } from "@/components/common";
+import { AppBar, EmptyState, inr, PullToRefreshIndicator } from "@/components/common";
 import { requestService, businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import { PROPOSAL_STATUS_BADGE } from "@/lib/statusBadges";
@@ -36,6 +37,10 @@ export default function BusinessRequests() {
     [id],
     `business:${id}:sent-proposals`
   );
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(async () => {
+    refetch();
+    refetchSent();
+  });
 
   async function withdraw(proposalId: string) {
     setWithdrawing(proposalId);
@@ -81,7 +86,8 @@ export default function BusinessRequests() {
           </button>
         ))}
       </div>
-      <div className="screen-scroll">
+      <div className="screen-scroll" ref={containerRef}>
+        <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
         {tab === "find" ? (
           <>
             <div className="page-pad" style={{ paddingBottom: 0 }}>

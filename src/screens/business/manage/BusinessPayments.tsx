@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { AppBar, SafeImg, inr } from "@/components/common";
+import { AppBar, SafeImg, inr, PullToRefreshIndicator } from "@/components/common";
 import { appointmentService, businessService, customPaymentService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Skeleton } from "@/components/states";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import type { AppointmentRecord, QueueOwnerToken, CustomPayment } from "@/types";
@@ -42,6 +43,12 @@ export default function BusinessPayments() {
     `target_id=eq.${id}`,
     `custom-payments:${id}`
   );
+
+  const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(async () => {
+    refetchApts();
+    refetchQueue();
+    refetchCustom();
+  });
 
   const [processingApt, setProcessingApt] = useState<string | null>(null);
   const [processingQueue, setProcessingQueue] = useState<string | null>(null);
@@ -172,7 +179,8 @@ export default function BusinessPayments() {
   return (
     <div className="screen with-nav">
       <AppBar title="Payments" subtitle={b?.name ? `For ${b.name}` : "Booking & queue payments"} />
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 24 }}>
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 24 }} ref={containerRef}>
+        <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
 
         {queueLoading && !queueData && <Skeleton h={80} mb={0} />}
 
