@@ -26,7 +26,6 @@ export default function ProviderSettings() {
   const [ownerEnabled, setOwnerEnabled] = useState(true);
   const [accepting, setAccepting] = useState(true);
   const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
   const [showPhone, setShowPhone] = useState(true);
   const [showEmail, setShowEmail] = useState(false);
@@ -63,7 +62,6 @@ export default function ProviderSettings() {
           setOwnerEnabled(prov.ownerEnabled !== false);
           setAccepting(prov.isOpenNow !== false);
           setEmail(prov.email ?? "");
-          setDisplayName(prov.displayName ?? "");
           setShowPhone(prov.showPhonePublicly !== false);
           setShowEmail(prov.showEmailPublicly === true);
           setLocPublic(prov.locationPublic === true);

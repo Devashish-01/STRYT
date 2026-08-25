@@ -19,6 +19,7 @@ export default function ProviderProfileEditor() {
   const { data: categoriesData } = useQuery(() => catalogService.byKind("SERVICE"), [], "categories:SERVICE");
   const cats = categoriesData ?? [];
   const { showToast } = useApp();
+  const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [price, setPrice] = useState("");
   const [radius, setRadius] = useState(5);
@@ -29,6 +30,7 @@ export default function ProviderProfileEditor() {
 
   useEffect(() => {
     if (!p) return;
+    setDisplayName(p.displayName ?? "");
     setBio(p.bio);
     setPrice(p.startingPrice?.toString() ?? "");
     setRadius(p.serviceRadiusKm);
@@ -46,10 +48,15 @@ export default function ProviderProfileEditor() {
   }
 
   async function save() {
+    if (displayName.trim().length < 2) {
+      showToast("Enter a display name");
+      return;
+    }
     setSaving(true);
     try {
       const newCat = cats.find((c) => c.id === cat);
       await providerService.update(id, {
+        displayName: displayName.trim(),
         bio, startingPrice: Number(price), serviceRadiusKm: radius, skills,
         categoryId: cat ?? undefined,
         // Business Packages resolves from categoryName — without this, a
@@ -80,8 +87,9 @@ export default function ProviderProfileEditor() {
 
   return (
     <div className="screen">
-      <AppBar title="Edit profile" subtitle={p?.displayName} />
+      <AppBar title="Edit profile" subtitle={displayName || p?.displayName} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+        <div className="field"><label>Display name</label><input className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={80} placeholder="What customers see" /></div>
         <div className="field"><label>Short bio</label><textarea className="input" value={bio} onChange={(e) => setBio(e.target.value)} /></div>
 
         <div className="field">
