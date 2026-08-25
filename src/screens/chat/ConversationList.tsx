@@ -7,20 +7,21 @@ import { ListSkeleton } from "@/components/states";
 import { EmptyState, SafeImg } from "@/components/common";
 import { NoMessagesIllustration, NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 
 // Wraps the html5-qrcode camera library (~340kB) — deferred so it's only
 // fetched when the user actually opens the scanner, not on every visit.
 const QrScannerSheet = lazy(() => import("@/components/QrScannerSheet"));
 
-const SCOPE_LABEL: Record<string, string> = {
-  BUSINESS: "Business inbox",
-  PROVIDER: "Provider inbox",
-  CUSTOMER: "Personal inbox",
-};
-
 export default function ConversationList() {
   const nav = useNavigate();
   const { user } = useApp();
+  const { t, tf } = useI18n();
+  const SCOPE_LABEL: Record<string, string> = {
+    BUSINESS: t("business_inbox"),
+    PROVIDER: t("provider_inbox"),
+    CUSTOMER: t("personal_inbox"),
+  };
   const [params] = useSearchParams();
   const rawScope = params.get("scope");
   const scopeId = params.get("id") ?? undefined;
@@ -56,7 +57,7 @@ export default function ConversationList() {
             className="icon-btn"
             onClick={() => nav(-1)}
             style={{ marginRight: 4 }}
-            aria-label="Go back"
+            aria-label={t("go_back")}
           >
             <ArrowLeft size={20} />
           </button>
@@ -65,14 +66,14 @@ export default function ConversationList() {
           <input
             autoFocus
             className="input grow"
-            placeholder="Search conversations…"
+            placeholder={t("search_conversations_placeholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             style={{ marginRight: 8, height: 38, borderRadius: 10 }}
           />
         ) : (
           <div className="grow" style={{ minWidth: 0 }}>
-            <span className="bold" style={{ fontSize: 20, display: "block", lineHeight: 1.1 }}>Messages</span>
+            <span className="bold" style={{ fontSize: 20, display: "block", lineHeight: 1.1 }}>{t("messages_header")}</span>
             {scope && (
               <span className="tiny muted" style={{ display: "block" }}>{SCOPE_LABEL[scope.scope]}</span>
             )}
@@ -82,14 +83,14 @@ export default function ConversationList() {
           className="icon-btn"
           onClick={() => setScanner(true)}
           style={{ marginRight: 8 }}
-          aria-label="Scan QR Code"
+          aria-label={t("scan_qr_code")}
         >
           <QrCode size={20} />
         </button>
         <button
           className="icon-btn"
           onClick={() => { setSearching((s) => !s); setQuery(""); }}
-          aria-label={searching ? "Close search" : "Search conversations"}
+          aria-label={searching ? t("close_search") : t("search_conversations")}
         >
           {searching ? <X size={20} /> : <Search size={20} />}
         </button>
@@ -102,11 +103,11 @@ export default function ConversationList() {
           <EmptyState
             illustration={<NoMessagesIllustration />}
             emoji="💬"
-            title="No messages yet"
-            text="Tap Message on a business or provider profile to start a conversation."
+            title={t("no_messages_yet")}
+            text={t("no_messages_desc")}
           />
         ) : filtered.length === 0 ? (
-          <EmptyState illustration={<NoResultsIllustration />} emoji="🔍" title="No matches" text={`No conversations match "${query}".`} />
+          <EmptyState illustration={<NoResultsIllustration />} emoji="🔍" title={t("no_matches")} text={tf("no_conversations_match", { query })} />
         ) : (
           <div>
             {filtered.map((c) => {
@@ -157,7 +158,7 @@ export default function ConversationList() {
                   <div className="grow" style={{ minWidth: 0 }}>
                     <div className="row between">
                       <span className={`semi ${unread ? "" : ""}`} style={{ fontSize: 15, fontWeight: unread ? 700 : 600 }}>
-                        {other?.name ?? "Unknown"}
+                        {other?.name ?? t("unknown_word")}
                       </span>
                       <span className="tiny muted">{relativeTime(c.lastMessageAt)}</span>
                     </div>
@@ -172,7 +173,7 @@ export default function ConversationList() {
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {c.lastMessagePreview || "Start a conversation"}
+                      {c.lastMessagePreview || t("start_a_conversation")}
                     </p>
                   </div>
                 </button>
