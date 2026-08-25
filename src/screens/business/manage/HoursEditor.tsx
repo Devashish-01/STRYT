@@ -8,11 +8,13 @@ import { ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
 import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
+import Toggle from "@/components/Toggle";
+import { ListSkeleton } from "@/components/states";
 
 export default function HoursEditor() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
-  const { data: b, refetch: refetchBusiness } = useQuery(() => businessService.get(id), [id], `business:${id}`);
+  const { data: b, loading, error, refetch: refetchBusiness } = useQuery(() => businessService.get(id), [id], `business:${id}`);
 
   const [hoursRaw, setHoursRaw] = useState<string | undefined>(undefined);
   const [special, setSpecial] = useState<{ date: string; note: string }[]>([]);
@@ -36,6 +38,9 @@ export default function HoursEditor() {
       </div>
     );
   }
+
+  if (loading && !b) return <div className="screen"><AppBar title="Hours" /><ListSkeleton count={3} /></div>;
+  if (error && !b) return <div className="screen"><AppBar title="Hours" /><ErrorView error={error} onRetry={refetchBusiness} /></div>;
 
   // Presence toggle: "open right now" is separate from bookable slots — a
   // customer can still book a future working-hour slot when this is off.
@@ -94,11 +99,8 @@ export default function HoursEditor() {
                 <div className="tiny muted">{openNow ? "Customers see your shop as open" : "Turn on when you're open for walk-ins"}</div>
               </div>
             </div>
-            <button
-              onClick={toggleOpenNow}
-              style={{ width: 48, height: 28, borderRadius: 999, background: openNow ? "var(--green-500)" : "var(--ink-200)", position: "relative", border: "none", cursor: "pointer" }}
-            >
-              <span style={{ position: "absolute", top: 3, left: openNow ? 23 : 3, width: 22, height: 22, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+            <button onClick={toggleOpenNow} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }} aria-label="Toggle shop open now">
+              <Toggle on={openNow} />
             </button>
           </div>
           <div className="row gap-6 center-v tiny muted" style={{ marginTop: 10 }}>
@@ -137,7 +139,7 @@ export default function HoursEditor() {
         </div>
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: 12 }}>
         <button className="btn btn-primary btn-block" disabled={saving} onClick={save}>
           {saving ? "Saving…" : "Save Working Timing"}
         </button>

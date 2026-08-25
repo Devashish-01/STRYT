@@ -9,6 +9,7 @@ import { BadgeCheck, UserPlus, X, Image as ImageIcon, Trash2 } from "@/component
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
+import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 
 export default function BusinessSettings() {
   const { id = "" } = useParams();
@@ -199,7 +200,13 @@ export default function BusinessSettings() {
     setDeliveryEnabled(v);
     try {
       await businessService.update(id, { deliveryEnabled: v } as any);
-      showToast(v ? "Home delivery is on — customers can now order delivery" : "Home delivery turned off");
+      showToast(
+        v
+          ? DELIVERY_AGENT_ENABLED
+            ? "Home delivery is on — customers can now order delivery"
+            : "Saved — delivery will switch on for customers once the feature ships"
+          : "Home delivery turned off"
+      );
       void refetchBiz();
     } catch {
       setDeliveryEnabled(!v); // optimistic + revert, per the app-wide write pattern
@@ -320,7 +327,11 @@ export default function BusinessSettings() {
 
         {/* Booking capacity — how many bookings can share one time slot. 1 is
             the classic one-at-a-time rule; per-service overrides live on each
-            catalogue item. */}
+            catalogue item. Gated the same way CatalogManager.tsx gates the
+            equivalent per-item field — businesses whose package doesn't take
+            slot bookings at all (pharmacy, shop, takeaway) were shown this
+            unconditionally before, with nothing behind it to actually use it. */}
+        {pkg.showSlotCapacitySection && (
         <div>
           <div className="profile-eyebrow">Booking capacity</div>
           <div className="card col gap-12" style={{ padding: 14 }}>
@@ -355,13 +366,21 @@ export default function BusinessSettings() {
             </button>
           </div>
         </div>
+        )}
 
         {/* Home delivery — opt-in. Off means the delivery option never appears
-            in the booking sheet for this shop (enforced server-side too). */}
+            in the booking sheet for this shop (enforced server-side too).
+            DELIVERY_AGENT_ENABLED is false this release, so the toggle stays
+            available to pre-configure but the hint is honest that flipping
+            it doesn't do anything customer-facing yet — matching how
+            ManageDashboard.tsx guards its own delivery tile behind the same
+            flag rather than showing something that silently does nothing. */}
         <SettingsSection title="Home delivery">
           <SettingsToggleRow
             label="Offer home delivery"
-            hint="Lets customers choose delivery instead of visiting, and send their address at booking"
+            hint={DELIVERY_AGENT_ENABLED
+              ? "Lets customers choose delivery instead of visiting, and send their address at booking"
+              : "Coming soon — this saves your preference now, but delivery isn't live for customers yet"}
             on={deliveryEnabled}
             onChange={toggleDelivery}
           />

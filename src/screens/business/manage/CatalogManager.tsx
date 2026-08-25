@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { AppBar, VegDot, inr } from "@/components/common";
+import { AppBar, VegDot, inr, EmptyState } from "@/components/common";
 import { Plus, Pencil, Trash2, Camera, Star, Tag } from "@/components/Icons";
 import { businessService, providerService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -49,16 +49,24 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   const bizTheme = BUSINESS_PACKAGES[resolvePackage(entity)];
 
   async function remove(item: CatalogItem) {
-    await service.deleteCatalogItem(id, item.id);
-    showToast("Item removed");
-    refetch();
+    try {
+      await service.deleteCatalogItem(id, item.id);
+      showToast("Item removed");
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't remove — try again");
+    }
   }
 
   async function toggleStock(item: CatalogItem) {
     const next = item.stockStatus === "OUT_OF_STOCK" ? "IN_STOCK" : "OUT_OF_STOCK";
-    await service.updateCatalogItem(id, item.id, { stockStatus: next });
-    showToast(next === "OUT_OF_STOCK" ? "Marked as unavailable" : "Marked as available");
-    refetch();
+    try {
+      await service.updateCatalogItem(id, item.id, { stockStatus: next });
+      showToast(next === "OUT_OF_STOCK" ? "Marked as unavailable" : "Marked as available");
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update — try again");
+    }
   }
 
   return (
@@ -74,14 +82,12 @@ export function CatalogManager({ kind }: { kind: Kind }) {
       />
       <div className="screen-scroll page-pad col gap-12" style={{ paddingBottom: 30 }}>
         {catalog.length === 0 && (
-          <div className="col center" style={{ padding: "48px 20px", gap: 12 }}>
-            <Tag size={36} color="var(--ink-300)" />
-            <div className="semi small" style={{ color: "var(--ink-500)" }}>No listings yet</div>
-            <p className="tiny muted center" style={{ maxWidth: 240, lineHeight: 1.5 }}>
-              Add your products, services, or menu items. Customers see these on your public page.
-            </p>
-            <button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>Add first listing</button>
-          </div>
+          <EmptyState
+            emoji="🏷️"
+            title="No listings yet"
+            text="Add your products, services, or menu items. Customers see these on your public page."
+            action={<button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>Add first listing</button>}
+          />
         )}
         {catalog.map((item) => (
           <div key={item.id} className="card row gap-12" style={{ padding: 12 }}>
@@ -179,7 +185,8 @@ export function ItemEditor({
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const canSave = name.trim().length > 1 && !!price && (invType !== "FINITE" || qty !== "");
+  const saleTooHigh = sale.trim() !== "" && price.trim() !== "" && Number(sale) >= Number(price);
+  const canSave = name.trim().length > 1 && !!price && (invType !== "FINITE" || qty !== "") && !saleTooHigh;
 
   async function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -217,10 +224,14 @@ export function ItemEditor({
         ...(kind === "business" ? {
           slotCapacity: slotCap.trim() ? Math.max(1, Number(slotCap) || 1) : null,
           // Party size can never exceed the slot's own capacity, so clamp
-          // rather than let the server reject a combination the owner just typed.
+          // rather than let the server reject a combination the owner just
+          // typed. When slotCap is left blank the item inherits the
+          // business's default capacity — clamp against THAT, not against
+          // maxParty itself (which was a no-op that let an owner save e.g.
+          // "20 spots" on an item effectively capped at 1).
           maxPartySize: Math.max(
             1,
-            Math.min(Number(maxParty) || 1, slotCap.trim() ? Math.max(1, Number(slotCap) || 1) : Number(maxParty) || 1),
+            Math.min(Number(maxParty) || 1, Math.max(1, Number(slotCap.trim() ? slotCap : businessDefaultCapacity) || 1)),
           ),
         } : {}),
         // Finite items track availability by count: restocking above zero makes
@@ -269,6 +280,7 @@ export function ItemEditor({
             <div className="field grow"><label>Price ₹ *</label><input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} /></div>
             <div className="field grow"><label>Sale price ₹</label><input className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} placeholder="Optional" /></div>
           </div>
+          {saleTooHigh && <div className="tiny" style={{ color: "var(--red-600)" }}>Sale price must be lower than the regular price.</div>}
 
           {/* Inventory mode — countable stock vs an always-available service */}
           <div className="field">
