@@ -10,7 +10,7 @@ import { useI18n } from "@/lib/i18n";
  *  together in the blended /bulk feed. */
 export default function BulkDealCard({ deal, onBook }: { deal: BulkDeal; onBook?: (d: BulkDeal) => void }) {
   const nav = useNavigate();
-  const { t } = useI18n();
+  const { t, tf } = useI18n();
   // Headline saving is quoted at the deal's own MOQ — the cheapest quantity a
   // buyer can actually transact at, so the number on the card is one they can
   // really get rather than a best-case tier they may never reach.
@@ -32,7 +32,7 @@ export default function BulkDealCard({ deal, onBook }: { deal: BulkDeal; onBook?
         )}
         <div className="grow" style={{ minWidth: 0 }}>
           <span className="badge" style={{ background: "var(--amber-50)", color: "var(--amber-800)", fontSize: 9 }}>
-            <Package size={10} /> BULK DEAL
+            <Package size={10} /> {t("bulk_deal_badge")}
           </span>
           <div className="bold small ellipsis" style={{ marginTop: 5 }}>{deal.title}</div>
           {deal.businessName && (
@@ -48,10 +48,10 @@ export default function BulkDealCard({ deal, onBook }: { deal: BulkDeal; onBook?
       </div>
 
       <div className="row gap-8" style={{ flexWrap: "wrap" }}>
-        <span className="badge badge-gray" style={{ fontSize: 10 }}>Min {deal.moq}</span>
+        <span className="badge badge-gray" style={{ fontSize: 10 }}>{tf("min_qty", { n: deal.moq })}</span>
         {atMoq.savedPercent > 0 && (
           <span className="badge" style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 10 }}>
-            Save {atMoq.savedPercent}%
+            {tf("save_percent", { pct: atMoq.savedPercent })}
           </span>
         )}
         {deal.distanceKm != null && (
@@ -80,7 +80,7 @@ export default function BulkDealCard({ deal, onBook }: { deal: BulkDeal; onBook?
           )}
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => onBook?.(deal)}>
-          Book bulk
+          {t("book_bulk")}
         </button>
       </div>
     </div>
