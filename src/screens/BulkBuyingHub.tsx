@@ -14,20 +14,21 @@ import GroupBuyClaimPassModal from "@/components/GroupBuyClaimPassModal";
 import BulkOrderSheet from "@/components/BulkOrderSheet";
 import { RADIUS_OPTIONS } from "@/utils/constants";
 import type { BulkDeal, GroupBuyToken, RequestPost } from "@/types";
+import { useI18n } from "@/lib/i18n";
 
 type Tab = "all" | "deals" | "groups" | "mine";
-
-const TABS: [Tab, string][] = [
-  ["all", "All bulk"],
-  ["deals", "Business deals"],
-  ["groups", "Group buys"],
-  ["mine", "My activity"],
-];
 
 export default function BulkBuyingHub() {
   const nav = useNavigate();
   const { user, isGuest } = useApp();
   const requireAuth = useRequireAuth();
+  const { t } = useI18n();
+  const TABS: [Tab, string][] = [
+    ["all", t("tab_all_bulk")],
+    ["deals", t("tab_business_deals")],
+    ["groups", t("tab_group_buys")],
+    ["mine", t("tab_my_activity")],
+  ];
   const [tab, setTab] = useState<Tab>("all");
   const [radiusKm, setRadiusKm] = useState<number>(10);
   const [joining, setJoining] = useState<RequestPost | null>(null);
@@ -93,8 +94,8 @@ export default function BulkBuyingHub() {
   return (
     <div className="screen with-nav">
       <AppBar
-        title="Bulk & group buys"
-        subtitle="Buy together, save more"
+        title={t("bulk_group_buys_title")}
+        subtitle={t("bulk_group_buys_subtitle")}
       />
       <div className="screen-scroll">
         <div className="page-pad col gap-12" style={{ paddingBottom: 24 }}>
@@ -103,13 +104,13 @@ export default function BulkBuyingHub() {
               className="btn btn-primary btn-sm grow row gap-6 center"
               onClick={requireAuth(() => nav("/ask?groupBuy=1"), "Sign in to start a group buy")}
             >
-              <Users size={14} /> Start group buy
+              <Users size={14} /> {t("start_group_buy")}
             </button>
             <button
               className="btn btn-outline btn-sm grow row gap-6 center"
               onClick={requireAuth(() => nav("/manage"), "Sign in to post a deal")}
             >
-              <Plus size={14} /> Post a deal
+              <Plus size={14} /> {t("post_a_deal")}
             </button>
           </div>
 
@@ -123,7 +124,7 @@ export default function BulkBuyingHub() {
 
           {tab !== "mine" && (
             <div className="row gap-8 center-v">
-              <span className="tiny muted">Within</span>
+              <span className="tiny muted">{t("within_word")}</span>
               <div className="hscroll grow">
                 {RADIUS_OPTIONS.filter((o) => o.km >= 1).map((o) => (
                   <button
@@ -144,7 +145,7 @@ export default function BulkBuyingHub() {
               at the top even when no pool is currently running. */}
           {tab === "all" && !loading && (
             (deals ?? []).length + groupBuys.length === 0 ? (
-              <EmptyState emoji="📦" title="Nothing bulk nearby yet" text="Widen the radius, or start a group buy so neighbours can join in." />
+              <EmptyState emoji="📦" title={t("nothing_bulk_nearby")} text={t("nothing_bulk_nearby_desc")} />
             ) : (
               <div className="col gap-12">
                 {dealCards(deals ?? [])}
@@ -155,7 +156,7 @@ export default function BulkBuyingHub() {
 
           {tab === "deals" && !loading && (
             (deals ?? []).length === 0 ? (
-              <EmptyState emoji="🏷️" title="No bulk deals nearby" text="Businesses near you haven't posted wholesale offers yet." />
+              <EmptyState emoji="🏷️" title={t("no_bulk_deals_nearby")} text={t("no_bulk_deals_desc")} />
             ) : (
               <div className="col gap-12">{dealCards(deals ?? [])}</div>
             )
@@ -163,7 +164,7 @@ export default function BulkBuyingHub() {
 
           {tab === "groups" && !loading && (
             groupBuys.length === 0 ? (
-              <EmptyState emoji="👥" title="No open group buys" text="Start one and your neighbours can pool in with you." />
+              <EmptyState emoji="👥" title={t("no_open_group_buys")} text={t("no_open_group_buys_desc")} />
             ) : (
               <div className="col gap-12">{groupCards(groupBuys)}</div>
             )
@@ -171,12 +172,12 @@ export default function BulkBuyingHub() {
 
           {tab === "mine" && (
             isGuest ? (
-              <EmptyState emoji="🔒" title="Sign in to see your activity" text="Your pledges, passes and posted deals live here." />
+              <EmptyState emoji="🔒" title={t("sign_in_see_activity")} text={t("sign_in_activity_desc")} />
             ) : (
               <div className="col gap-16">
                 {(myTokens ?? []).length > 0 && (
                   <div>
-                    <div className="small semi muted" style={{ marginBottom: 8 }}>Your claim passes</div>
+                    <div className="small semi muted" style={{ marginBottom: 8 }}>{t("your_claim_passes")}</div>
                     <div className="col gap-8">
                       {(myTokens ?? []).map((tk) => (
                         <button key={tk.id} className="card row between center-v" style={{ padding: 12 }} onClick={() => setViewingPass(tk)}>
@@ -185,8 +186,8 @@ export default function BulkBuyingHub() {
                               <Ticket size={18} color="var(--brand-700)" />
                             </div>
                             <div style={{ minWidth: 0, textAlign: "left" }}>
-                              <div className="semi small ellipsis">{tk.itemLabel || "Group buy pass"}</div>
-                              <div className="tiny muted">{tk.quantity} unit{tk.quantity > 1 ? "s" : ""} · {tk.tokenCode}</div>
+                              <div className="semi small ellipsis">{tk.itemLabel || t("group_buy_pass_fallback")}</div>
+                              <div className="tiny muted">{tk.quantity} {tk.quantity > 1 ? t("units_word") : t("unit_word")} · {tk.tokenCode}</div>
                             </div>
                           </div>
                           <span
@@ -197,7 +198,7 @@ export default function BulkBuyingHub() {
                               color: tk.status === "ISSUED" ? "var(--green-600)" : "var(--ink-600)",
                             }}
                           >
-                            {tk.status === "ISSUED" ? "READY" : tk.status}
+                            {tk.status === "ISSUED" ? t("ready_status") : tk.status}
                           </span>
                         </button>
                       ))}
@@ -207,20 +208,20 @@ export default function BulkBuyingHub() {
 
                 {myGroupBuys.length > 0 && (
                   <div>
-                    <div className="small semi muted" style={{ marginBottom: 8 }}>Your group buys</div>
+                    <div className="small semi muted" style={{ marginBottom: 8 }}>{t("your_group_buys")}</div>
                     <div className="col gap-12">{groupCards(myGroupBuys)}</div>
                   </div>
                 )}
 
                 {myDeals.length > 0 && (
                   <div>
-                    <div className="small semi muted" style={{ marginBottom: 8 }}>Your posted deals</div>
+                    <div className="small semi muted" style={{ marginBottom: 8 }}>{t("your_posted_deals")}</div>
                     <div className="col gap-12">{dealCards(myDeals)}</div>
                   </div>
                 )}
 
                 {(myTokens ?? []).length === 0 && myGroupBuys.length === 0 && myDeals.length === 0 && (
-                  <EmptyState emoji="📦" title="Nothing here yet" text="Join a group buy or post a bulk deal and it'll show up here." />
+                  <EmptyState emoji="📦" title={t("nothing_here_yet")} text={t("join_or_post_desc")} />
                 )}
               </div>
             )
