@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { useApp } from "@/store";
-import { discoveryService, requestService, userService } from "@/services";
+import { businessService, providerService, requestService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { BusinessCardWide, ProviderCard, RequestCard } from "@/components/cards";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ListSkeleton } from "@/components/states";
 import { UserCheck, Star } from "@/components/Icons";
+import type { Business, Provider, RequestPost } from "@/types";
 
 type Tab = "BUSINESS" | "PROVIDER" | "REQUEST" | "FOLLOWING";
 
@@ -17,25 +18,38 @@ export default function Bookmarks() {
   const initialTab = (searchParams.get("tab")?.toUpperCase() as Tab) ?? "BUSINESS";
   const [tab, setTab] = useState<Tab>(initialTab);
 
-  // Fetch live entity data so bookmarks reflect real DB content
-  const bookmarksGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
-  const { data: bizPage, loading: bizLoading } = useQuery(
-    () => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }),
-    [user.lat, user.lng],
-    `bookmarks:biz:${bookmarksGeoKey}`
-  );
-  const { data: provPage, loading: provLoading } = useQuery(
-    () => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }),
-    [user.lat, user.lng],
-    `bookmarks:prov:${bookmarksGeoKey}`
-  );
-  const { data: reqPage, loading: reqLoading } = useQuery(
-    () => requestService.feed({ lat: user.lat || undefined, lng: user.lng || undefined }),
-    [user.lat, user.lng],
-    `bookmarks:req:${bookmarksGeoKey}`
-  );
-
+  // Fetched by ID, not from the generic "nearby" discovery feed filtered
+  // client-side — that feed is capped (DEFAULT_LIMIT=20) and radius-scoped,
+  // so a bookmark outside the first page (or a saved request that's since
+  // closed, since feed() only returns OPEN/AGREED) silently vanished from
+  // this screen even though the bookmark itself was untouched. Fetching by
+  // ID means "saved" always shows what's actually saved.
+  const bizIds = Array.from(new Set([
+    ...bookmarks.filter((m) => m.type.toUpperCase() === "BUSINESS").map((m) => m.id),
+    ...follows.filter((f) => f.type.toUpperCase() === "BUSINESS").map((f) => f.id),
+  ]));
+  const provIds = Array.from(new Set([
+    ...bookmarks.filter((m) => m.type.toUpperCase() === "PROVIDER").map((m) => m.id),
+    ...follows.filter((f) => f.type.toUpperCase() === "PROVIDER").map((f) => f.id),
+  ]));
+  const reqIds = Array.from(new Set(bookmarks.filter((m) => m.type.toUpperCase() === "REQUEST").map((m) => m.id)));
   const followUserKeys = follows.filter((f) => f.type.toUpperCase() === "USER");
+
+  const { data: bizData, loading: bizLoading } = useQuery(async () => {
+    const rows = await Promise.all(bizIds.map((id) => businessService.get(id).catch(() => undefined)));
+    return rows.filter((b): b is Business => !!b);
+  }, [bizIds.join(",")], `bookmarks:biz-by-id:${user.id}:${bizIds.join(",")}`);
+
+  const { data: provData, loading: provLoading } = useQuery(async () => {
+    const rows = await Promise.all(provIds.map((id) => providerService.get(id).catch(() => undefined)));
+    return rows.filter((p): p is Provider => !!p);
+  }, [provIds.join(",")], `bookmarks:prov-by-id:${user.id}:${provIds.join(",")}`);
+
+  const { data: reqData, loading: reqLoading } = useQuery(async () => {
+    const rows = await Promise.all(reqIds.map((id) => requestService.get(id).catch(() => undefined)));
+    return rows.filter((r): r is RequestPost => !!r);
+  }, [reqIds.join(",")], `bookmarks:req-by-id:${user.id}:${reqIds.join(",")}`);
+
   const { data: usersData, loading: usersLoading } = useQuery(async () => {
     if (followUserKeys.length === 0) return [];
     const profiles = await Promise.all(
@@ -50,9 +64,9 @@ export default function Bookmarks() {
     return profiles.filter(Boolean);
   }, [followUserKeys.length], `bookmarks:followed-users:${user.id}:${followUserKeys.length}`);
 
-  const allBiz = bizPage?.data ?? [];
-  const allProv = provPage?.data ?? [];
-  const allReq = reqPage?.data ?? [];
+  const allBiz = bizData ?? [];
+  const allProv = provData ?? [];
+  const allReq = reqData ?? [];
   const followUsers = usersData ?? [];
 
   const savedBiz = allBiz.filter((b) => bookmarks.some((m) => m.type.toUpperCase() === "BUSINESS" && m.id === b.id));

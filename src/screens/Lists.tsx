@@ -4,8 +4,9 @@ import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { EmptyListIllustration } from "@/components/illustrations";
 import { Plus, ChevronRight, Users, Store } from "@/components/Icons";
 import { useApp } from "@/store";
-import { discoveryService } from "@/services";
+import { businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
+import type { Business, Provider } from "@/types";
 
 const emojis = ["🌟", "🍽️", "🚨", "🧸", "💎", "🎁", "🏠", "💇", "🛍️", "❤️"];
 
@@ -22,13 +23,24 @@ export default function Lists() {
   const [name, setName] = useState("");
   const [emoji, setEmoji] = useState("🌟");
 
-  const listsGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
-  const { data: bizPage } = useQuery(() => discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng], `lists:biz:${listsGeoKey}`);
-  const { data: provPage } = useQuery(() => discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined }), [user.lat, user.lng], `lists:prov:${listsGeoKey}`);
-  const businesses = bizPage?.data ?? [];
-  const providers = provPage?.data ?? [];
-
   const active = lists.find((l) => l.id === open);
+
+  // Fetched by ID, not the generic "nearby" feed filtered client-side — that
+  // feed is capped and radius-scoped, so a saved item outside it (or just
+  // outside the user's current location radius) would silently never
+  // render here even though it's genuinely in the list.
+  const bizIds = Array.from(new Set((active?.items ?? []).filter((it) => it.type === "BUSINESS").map((it) => it.id)));
+  const provIds = Array.from(new Set((active?.items ?? []).filter((it) => it.type === "PROVIDER").map((it) => it.id)));
+  const { data: bizData } = useQuery(async () => {
+    const rows = await Promise.all(bizIds.map((id) => businessService.get(id).catch(() => undefined)));
+    return rows.filter((b): b is Business => !!b);
+  }, [bizIds.join(",")], `lists:biz-by-id:${active?.id}:${bizIds.join(",")}`);
+  const { data: provData } = useQuery(async () => {
+    const rows = await Promise.all(provIds.map((id) => providerService.get(id).catch(() => undefined)));
+    return rows.filter((p): p is Provider => !!p);
+  }, [provIds.join(",")], `lists:prov-by-id:${active?.id}:${provIds.join(",")}`);
+  const businesses = bizData ?? [];
+  const providers = provData ?? [];
 
   if (active) {
     return (
