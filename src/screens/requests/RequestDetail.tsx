@@ -21,11 +21,13 @@ import { GROUP_BUY_PROGRESS_ENABLED } from "@/utils/constants";
 import { REQUEST_STATUS_BADGE, PROPOSAL_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import AnimatedNumber from "@/components/AnimatedNumber";
+import { useI18n } from "@/lib/i18n";
 
 export default function RequestDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { user, showToast, meToos, isAuthed, isGuest } = useApp();
+  const { t, tf } = useI18n();
   const { data: r, loading, error, refetch } = useQueryWithRealtime(
     async () => {
       const req = await requestService.get(id, user.lat || 0, user.lng || 0);
@@ -100,13 +102,13 @@ export default function RequestDetail() {
   if (!r) {
     return (
       <div className="screen">
-        <EmptyState emoji="📋" title="Request not found" text="This request may have expired or been removed." />
+        <EmptyState emoji="📋" title={t("request_not_found")} text={t("request_not_found_desc")} />
       </div>
     );
   }
 
   const isMine = r.requesterUserId === user.id;
-  const budget = r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)} – ${inr(r.budgetMax)}` : "Open budget";
+  const budget = r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)} – ${inr(r.budgetMax)}` : t("open_budget");
   // Let the customer compare offers the way they think: promoted-first by
   // default, or by lowest quote / highest-rated when weighing options.
   const sortedProposals = [...r.proposals].sort((a, b) => {
@@ -267,7 +269,7 @@ export default function RequestDetail() {
     <div className="screen" style={{ position: "relative" }}>
       <header className="appbar">
         <button className="icon-btn" onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
-        <span className="grow bold" style={{ fontSize: 16 }}>Request</span>
+        <span className="grow bold" style={{ fontSize: 16 }}>{t("request_header")}</span>
         {!isGuest && <button className="icon-btn" onClick={() => setShare(true)}><Share2 size={18} /></button>}
       </header>
 
@@ -297,23 +299,23 @@ export default function RequestDetail() {
           {isMine && (
             <div className="row gap-8" style={{ marginTop: "var(--space-sm)", background: "var(--ink-50)", padding: "var(--space-xs)", borderRadius: 12 }}>
               <button className="btn btn-outline btn-sm grow row center gap-6" onClick={startEdit}>
-                <Edit3 size={14} /> Edit Request
+                <Edit3 size={14} /> {t("edit_request")}
               </button>
               <button className="btn btn-outline btn-sm row center gap-6" style={{ color: "var(--red-500)", borderColor: "var(--red-100)" }} onClick={() => setShowDeleteConfirm(true)}>
-                <Trash2 size={14} /> Delete
+                <Trash2 size={14} /> {t("delete_action")}
               </button>
             </div>
           )}
 
           {/* Title + meta */}
           <div className="row wrap gap-6" style={{ marginTop: 16 }}>
-            {r.isUrgent && <span className="badge badge-red"><Flame size={11} /> Urgent</span>}
-            {r.isBoosted && <span className="badge badge-amber"><Zap size={11} /> Boosted</span>}
-            {r.isGroupBuy && <span className="badge badge-green"><Users size={11} /> Group buy</span>}
-            {r.isRecurring && <span className="badge badge-blue"><Repeat size={11} /> Recurring</span>}
+            {r.isUrgent && <span className="badge badge-red"><Flame size={11} /> {t("urgent_badge")}</span>}
+            {r.isBoosted && <span className="badge badge-amber"><Zap size={11} /> {t("boosted_badge")}</span>}
+            {r.isGroupBuy && <span className="badge badge-green"><Users size={11} /> {t("group_buy_badge")}</span>}
+            {r.isRecurring && <span className="badge badge-blue"><Repeat size={11} /> {t("recurring_badge")}</span>}
             <span className="badge badge-purple">{r.categoryName}</span>
             {r.subCategory && <span className="badge badge-gray">{r.subCategory}</span>}
-            {r.expiresInHrs && <span className="badge badge-gray"><Clock size={11} /> expires in {r.expiresInHrs}h</span>}
+            {r.expiresInHrs && <span className="badge badge-gray"><Clock size={11} /> {tf("expires_in_hrs", { h: r.expiresInHrs })}</span>}
           </div>
           <h1 className="bold h1" style={{ marginTop: 8 }}>{r.title}</h1>
           <p className="small" style={{ marginTop: "var(--space-xs)", lineHeight: 1.6, color: "var(--ink-700)" }}>{r.description}</p>
@@ -337,15 +339,15 @@ export default function RequestDetail() {
             return (
               <div className="card" style={{ marginTop: 14, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
                 <div className="row between tiny" style={{ marginBottom: 6 }}>
-                  <span className="semi" style={{ color: "var(--green-600)" }}>{pledged} of {r.groupBuyTarget} pledged</span>
-                  <span className="muted">{reached ? "Target reached 🎉" : `${remaining} more unlocks bulk price`}</span>
+                  <span className="semi" style={{ color: "var(--green-600)" }}>{tf("pledged_of_target", { pledged, target: r.groupBuyTarget })}</span>
+                  <span className="muted">{reached ? t("target_reached") : tf("more_unlocks_bulk_price", { n: remaining })}</span>
                 </div>
                 <div style={{ height: 8, borderRadius: 6, background: "var(--surface)", overflow: "hidden" }}>
                   <div style={{ width: `${Math.min(100, (pledged / r.groupBuyTarget) * 100)}%`, height: "100%", background: "var(--green-500)", transition: "width .3s" }} />
                 </div>
                 {(r.myPledgeQuantity ?? 0) > 0 && (
                   <div className="tiny" style={{ color: "var(--green-600)", marginTop: 6 }}>
-                    You pledged {r.myPledgeQuantity} unit{(r.myPledgeQuantity ?? 0) > 1 ? "s" : ""}
+                    {t("you_pledged_prefix")} {r.myPledgeQuantity} {(r.myPledgeQuantity ?? 0) > 1 ? t("units_word") : t("unit_word")}
                   </div>
                 )}
               </div>
@@ -363,8 +365,8 @@ export default function RequestDetail() {
             >
               <Ticket size={20} color="var(--brand-700)" style={{ flexShrink: 0 }} />
               <div className="grow">
-                <div className="semi small" style={{ color: "var(--brand-700)" }}>Deal closed — your claim pass is ready</div>
-                <div className="tiny muted" style={{ marginTop: 1 }}>Open My activity to show your QR code</div>
+                <div className="semi small" style={{ color: "var(--brand-700)" }}>{t("deal_closed_ready")}</div>
+                <div className="tiny muted" style={{ marginTop: 1 }}>{t("open_my_activity")}</div>
               </div>
               <ChevronRight size={16} color="var(--brand-300)" />
             </button>
@@ -372,18 +374,18 @@ export default function RequestDetail() {
 
           {/* Detail card */}
           <div className="card row" style={{ padding: 14, marginTop: 14 }}>
-            <Cell label="Budget" value={budget} color="var(--green-500)" />
+            <Cell label={t("budget_label")} value={budget} color="var(--green-500)" />
             <Sep />
-            <Cell label="Needed by" value={r.deadline} />
+            <Cell label={t("needed_by")} value={r.deadline} />
             <Sep />
-            <Cell label="Radius" value={`${r.radiusKm} km`} />
+            <Cell label={t("radius_label")} value={`${r.radiusKm} km`} />
           </div>
           <div className="row gap-12 tiny muted" style={{ marginTop: 10 }}>
-            <span className="row gap-4"><Eye size={12} /> {r.viewCount} views</span>
+            <span className="row gap-4"><Eye size={12} /> {tf("views_suffix", { n: r.viewCount })}</span>
             {/* proposalCount, not proposals.length — proposals are RLS-scoped
                 to the requester and each responder, so the array is nearly
                 empty for everyone else. The count is the public aggregate. */}
-            <span className="row gap-4"><Clock size={12} /> {r.proposalCount ?? r.proposals.length} proposals</span>
+            <span className="row gap-4"><Clock size={12} /> {tf("proposals_suffix", { n: r.proposalCount ?? r.proposals.length })}</span>
           </div>
         </div>
 
@@ -392,7 +394,7 @@ export default function RequestDetail() {
         {/* Proposals */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <h3 className="bold h2" style={{ marginBottom: 12 }}>
-            {isMine ? "Offers received" : "Offers"} ({r.proposalCount ?? r.proposals.length})
+            {isMine ? t("offers_received") : t("offers_label")} ({r.proposalCount ?? r.proposals.length})
           </h3>
 
           {/* On a group buy, quoting is private by design — say so, so a
@@ -402,8 +404,9 @@ export default function RequestDetail() {
             <div className="card row gap-10" style={{ padding: 12, marginBottom: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
               <Lock size={16} color="var(--brand-700)" style={{ flexShrink: 0, marginTop: 1 }} />
               <div className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.5 }}>
-                {r.proposalCount} provider{(r.proposalCount ?? 0) > 1 ? "s have" : " has"} quoted privately.
-                Only {r.requesterName} can see the prices — you'll get a claim pass once they close the deal.
+                {(r.proposalCount ?? 0) > 1
+                  ? tf("group_buy_privacy_other", { count: r.proposalCount ?? 0, name: r.requesterName })
+                  : tf("group_buy_privacy_one", { name: r.requesterName })}
               </div>
             </div>
           )}
@@ -411,7 +414,7 @@ export default function RequestDetail() {
           {/* Sort — helps the customer compare when several offers arrive */}
           {r.proposals.length > 1 && (
             <div className="row gap-8" style={{ marginBottom: 12 }}>
-              {([["best", "Best"], ["price", "Lowest price"], ["rating", "Top rated"]] as [typeof propSort, string][]).map(([key, label]) => (
+              {([["best", t("sort_best")], ["price", t("sort_lowest_price")], ["rating", t("sort_top_rated")]] as [typeof propSort, string][]).map(([key, label]) => (
                 <button
                   key={key}
                   className="chip"
@@ -433,8 +436,8 @@ export default function RequestDetail() {
           {sortedProposals.length === 0 ? (
             <EmptyState
               emoji="⏳"
-              title="No proposals yet"
-              text={isMine ? "Hang tight — nearby providers will respond soon." : isGuest ? "No one has offered on this yet." : "Be the first to send a proposal."}
+              title={t("no_proposals_yet")}
+              text={isMine ? t("no_proposals_mine") : isGuest ? t("no_proposals_guest") : t("no_proposals_other")}
             />
           ) : (
             <div className="col gap-12">
@@ -458,7 +461,7 @@ export default function RequestDetail() {
                     </div>
                     <div className="col" style={{ alignItems: "flex-end", gap: 2 }}>
                       <Rating value={p.responderRating} size={10} />
-                      {p.isBoosted && <span className="badge badge-amber" style={{ fontSize: 9 }}><Zap size={9} /> Boosted</span>}
+                      {p.isBoosted && <span className="badge badge-amber" style={{ fontSize: 9 }}><Zap size={9} /> {t("boosted_badge")}</span>}
                       {/* Server-truth status — the "Accepted"/local-optimistic pill further
                           down only appears mid-tap for isMine+OPEN; this is what still shows
                           the real outcome on every later visit to a decided request. */}
@@ -473,27 +476,27 @@ export default function RequestDetail() {
                   <div className="row between" style={{ marginTop: 12 }}>
                     <div className="row gap-12">
                       <div className="col" style={{ gap: 0 }}>
-                        <span className="tiny muted">Quote</span>
+                        <span className="tiny muted">{t("quote_label")}</span>
                         <span className="bold" style={{ color: "var(--green-500)" }}>{inr(p.price)}</span>
                       </div>
                       <div className="col" style={{ gap: 0 }}>
-                        <span className="tiny muted">ETA</span>
+                        <span className="tiny muted">{t("eta_label")}</span>
                         <span className="semi small">{p.eta}</span>
                       </div>
                     </div>
                     {isMine && r.status === "OPEN" && (
                       accepted === p.id ? (
-                        <span className="badge badge-green"><CheckCircle2 size={13} /> Accepted</span>
+                        <span className="badge badge-green"><CheckCircle2 size={13} /> {t("accepted_badge")}</span>
                       ) : (
                         <div className="row gap-8">
-                          <button className="btn btn-outline btn-sm icon-btn" style={{ width: 36, padding: 0 }} title="Message" onClick={() => messageResponder(p)} disabled={!!accepted || messaging === p.id}>
+                          <button className="btn btn-outline btn-sm icon-btn" style={{ width: 36, padding: 0 }} title={t("message")} onClick={() => messageResponder(p)} disabled={!!accepted || messaging === p.id}>
                             <MessageCircle size={15} />
                           </button>
                           <button className="btn btn-outline btn-sm" onClick={() => setCounterFor(counterFor === p.id ? null : p.id)} disabled={!!accepted}>
-                            <ArrowRightLeft size={14} /> Counter
+                            <ArrowRightLeft size={14} /> {t("counter_action")}
                           </button>
                           <button className="btn btn-green btn-sm" onClick={() => acceptProposal(p)} disabled={!!accepted}>
-                            Accept
+                            {t("accept_action")}
                           </button>
                         </div>
                       )
@@ -504,7 +507,7 @@ export default function RequestDetail() {
                   {(p.counters ?? []).length > 0 && (
                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px dashed var(--ink-200)" }}>
                       <div className="row gap-6 tiny semi muted" style={{ marginBottom: 8 }}>
-                        <ArrowRightLeft size={12} /> Negotiation
+                        <ArrowRightLeft size={12} /> {t("negotiation_label")}
                       </div>
                       {(p.counters ?? []).map((c) => (
                         <div
@@ -522,7 +525,7 @@ export default function RequestDetail() {
                             maxWidth: "75%",
                           }}>
                             <div className="tiny semi" style={{ color: c.by === "requester" ? "var(--brand-700)" : "var(--green-600)" }}>
-                              {c.by === "requester" ? "Requester" : "Provider"} counter: {inr(c.amount)}
+                              {c.by === "requester" ? t("requester_label") : t("provider_label")} {t("counter_word")}: {inr(c.amount)}
                             </div>
                             {c.message && <div className="tiny muted" style={{ marginTop: 2 }}>{c.message}</div>}
                           </div>
@@ -536,7 +539,7 @@ export default function RequestDetail() {
                           style={{ marginTop: 8 }}
                           onClick={() => acceptCounter(p, (p.counters ?? [])[(p.counters ?? []).length - 1])}
                         >
-                          Accept at {inr((p.counters ?? [])[(p.counters ?? []).length - 1].amount)}
+                          {tf("accept_at_amount", { amount: inr((p.counters ?? [])[(p.counters ?? []).length - 1].amount) })}
                         </button>
                       )}
                     </div>
@@ -545,15 +548,15 @@ export default function RequestDetail() {
                   {/* Requester: send counter input */}
                   {counterFor === p.id && (
                     <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
-                      <div className="tiny semi muted" style={{ marginBottom: 8 }}>Propose a different price</div>
+                      <div className="tiny semi muted" style={{ marginBottom: 8 }}>{t("propose_different_price")}</div>
                       <div className="row gap-8">
                         <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
                           <span className="muted" style={{ padding: "10px 0" }}>₹</span>
                           <input className="input" style={{ border: "none", padding: "10px 6px" }} inputMode="numeric" placeholder={`e.g. ${p.price - 50}`} value={counterAmt} onChange={(e) => setCounterAmt(e.target.value.replace(/\D/g, ""))} />
                         </div>
-                        <button className="btn btn-primary btn-sm" disabled={!counterAmt || counterBusy === p.id} onClick={() => void sendCounter(p)}>{counterBusy === p.id ? "Sending…" : "Send"}</button>
+                        <button className="btn btn-primary btn-sm" disabled={!counterAmt || counterBusy === p.id} onClick={() => void sendCounter(p)}>{counterBusy === p.id ? t("sending_ellipsis") : t("send_word")}</button>
                       </div>
-                      <div className="tiny muted" style={{ marginTop: 6 }}>They can accept or counter back.</div>
+                      <div className="tiny muted" style={{ marginTop: 6 }}>{t("can_accept_or_counter")}</div>
                     </div>
                   )}
 
@@ -562,15 +565,15 @@ export default function RequestDetail() {
                     <div style={{ marginTop: 10 }}>
                       {counterBackFor === p.id ? (
                         <div className="card card-condensed" style={{ background: "var(--ink-50)", border: "none" }}>
-                          <div className="tiny semi muted" style={{ marginBottom: 8 }}>Your counter offer</div>
+                          <div className="tiny semi muted" style={{ marginBottom: 8 }}>{t("your_counter_offer")}</div>
                           <div className="row gap-8">
                             <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
                               <span className="muted" style={{ padding: "10px 0" }}>₹</span>
                               <input className="input" style={{ border: "none", padding: "10px 6px" }} inputMode="numeric" placeholder={`e.g. ${p.price}`} value={counterBackAmt} onChange={(e) => setCounterBackAmt(e.target.value.replace(/\D/g, ""))} />
                             </div>
-                            <button className="btn btn-primary btn-sm" disabled={!counterBackAmt || counterBusy === p.id} onClick={() => void sendCounterBack(p)}>{counterBusy === p.id ? "Sending…" : "Send"}</button>
+                            <button className="btn btn-primary btn-sm" disabled={!counterBackAmt || counterBusy === p.id} onClick={() => void sendCounterBack(p)}>{counterBusy === p.id ? t("sending_ellipsis") : t("send_word")}</button>
                           </div>
-                          <button className="tiny muted" style={{ marginTop: 6 }} onClick={() => { setCounterBackFor(null); setCounterBackAmt(""); }}>Cancel</button>
+                          <button className="tiny muted" style={{ marginTop: 6 }} onClick={() => { setCounterBackFor(null); setCounterBackAmt(""); }}>{t("cancel_action")}</button>
                         </div>
                       ) : (
                         <button
@@ -578,7 +581,7 @@ export default function RequestDetail() {
                           style={{ marginTop: 0 }}
                           onClick={() => setCounterBackFor(p.id)}
                         >
-                          <ArrowRightLeft size={13} /> Counter back
+                          <ArrowRightLeft size={13} /> {t("counter_back")}
                         </button>
                       )}
                     </div>
@@ -592,7 +595,7 @@ export default function RequestDetail() {
         {!isMine && !isGuest && (
           <div className="page-pad">
             <button className="row gap-6 tiny muted center" style={{ width: "100%", padding: 10 }} onClick={() => setReport(true)}>
-              <Flag size={13} /> Report this request
+              <Flag size={13} /> {t("report_request")}
             </button>
           </div>
         )}
@@ -607,7 +610,7 @@ export default function RequestDetail() {
             <GuestSignInPrompt message="Sign in to send a proposal" compact />
           ) : (
             <button className="btn btn-primary btn-block" onClick={() => nav(`/request/${r.id}/propose`)}>
-              <Send size={17} /> Send a proposal
+              <Send size={17} /> {t("send_proposal")}
             </button>
           )}
         </div>
@@ -621,38 +624,38 @@ export default function RequestDetail() {
         <div className="sheet-backdrop" onClick={() => setEditing(false)}>
           <div className="sheet col gap-14" style={{ maxHeight: "90vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div className="row between">
-              <span className="bold" style={{ fontSize: 18 }}>Edit Request</span>
+              <span className="bold" style={{ fontSize: 18 }}>{t("edit_request")}</span>
               <button className="icon-btn" onClick={() => setEditing(false)}><X size={18} /></button>
             </div>
 
             <div className="col gap-10">
-              <label className="small semi muted">Title / Headline</label>
-              <input className="input" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="e.g. Need plumber for pipe leakage" />
+              <label className="small semi muted">{t("title_headline_label")}</label>
+              <input className="input" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder={t("title_headline_placeholder")} />
 
-              <label className="small semi muted">Detailed Description</label>
-              <textarea className="input" style={{ minHeight: 90, resize: "vertical" }} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Explain what you need in detail..." />
+              <label className="small semi muted">{t("detailed_description_label")}</label>
+              <textarea className="input" style={{ minHeight: 90, resize: "vertical" }} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={t("detailed_description_placeholder")} />
 
               <div className="row gap-10">
                 <div className="col grow">
-                  <label className="small semi muted">Min Budget (₹)</label>
-                  <input className="input" type="number" value={editMinBudget} onChange={(e) => setEditMinBudget(e.target.value)} placeholder="e.g. 500" />
+                  <label className="small semi muted">{t("min_budget_label")}</label>
+                  <input className="input" type="number" value={editMinBudget} onChange={(e) => setEditMinBudget(e.target.value)} placeholder={t("budget_placeholder_500")} />
                 </div>
                 <div className="col grow">
-                  <label className="small semi muted">Max Budget (₹)</label>
-                  <input className="input" type="number" value={editMaxBudget} onChange={(e) => setEditMaxBudget(e.target.value)} placeholder="e.g. 1500" />
+                  <label className="small semi muted">{t("max_budget_label")}</label>
+                  <input className="input" type="number" value={editMaxBudget} onChange={(e) => setEditMaxBudget(e.target.value)} placeholder={t("budget_placeholder_1500")} />
                 </div>
               </div>
 
               <div className="row between card" style={{ padding: "10px 14px", marginTop: 4 }}>
-                <span className="small semi row gap-6"><Flame size={14} color="var(--red-500)" /> Mark as Urgent</span>
+                <span className="small semi row gap-6"><Flame size={14} color="var(--red-500)" /> {t("mark_as_urgent")}</span>
                 <input type="checkbox" checked={editUrgent} onChange={(e) => setEditUrgent(e.target.checked)} style={{ width: 18, height: 18, cursor: "pointer" }} />
               </div>
             </div>
 
             <div className="row gap-10" style={{ marginTop: 10 }}>
-              <button className="btn btn-outline grow" onClick={() => setEditing(false)}>Cancel</button>
+              <button className="btn btn-outline grow" onClick={() => setEditing(false)}>{t("cancel_action")}</button>
               <button className="btn btn-primary grow" disabled={updating || !editTitle.trim()} onClick={handleSaveEdit}>
-                {updating ? "Saving..." : "Save Changes"}
+                {updating ? t("saving_ellipsis") : t("save_changes")}
               </button>
             </div>
           </div>
@@ -667,13 +670,13 @@ export default function RequestDetail() {
               <Trash2 size={28} />
             </div>
             <div>
-              <h3 className="bold h2">Delete this request?</h3>
-              <p className="small muted" style={{ marginTop: 6, lineHeight: 1.4 }}>Are you sure you want to cancel and delete this request? This action cannot be undone.</p>
+              <h3 className="bold h2">{t("delete_request_question")}</h3>
+              <p className="small muted" style={{ marginTop: 6, lineHeight: 1.4 }}>{t("delete_request_confirm_desc")}</p>
             </div>
             <div className="row gap-10" style={{ width: "100%", marginTop: 8 }}>
-              <button className="btn btn-outline grow" onClick={() => setShowDeleteConfirm(false)}>Keep it</button>
+              <button className="btn btn-outline grow" onClick={() => setShowDeleteConfirm(false)}>{t("keep_it")}</button>
               <button className="btn btn-block grow" style={{ background: "var(--red-500)", color: "#fff" }} disabled={deleting} onClick={handleDeleteRequest}>
-                {deleting ? "Deleting..." : "Yes, Delete"}
+                {deleting ? t("deleting_ellipsis") : t("yes_delete")}
               </button>
             </div>
           </div>
@@ -695,10 +698,14 @@ function Cell({ label, value, color }: { label: string; value: string; color?: s
 // Live "expires in Xh Ym" pill for an OPEN request. Ticks each minute; turns
 // red under an hour; renders nothing once past (the server sweep flips status).
 function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
+  const { t, tf } = useI18n();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(t);
+    // Named to avoid shadowing the t() translation function above — this
+    // scope is isolated to the effect either way, but the rename makes that
+    // obvious rather than relying on it.
+    const timer = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(timer);
   }, []);
   const msLeft = new Date(expiresAt).getTime() - now;
   if (msLeft <= 0) return null;
@@ -707,7 +714,7 @@ function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
   const formatLabel = (min: number) => {
     const h = Math.floor(min / 60);
     const m = min % 60;
-    return h > 0 ? `${h}h ${m}m left` : `${m}m left`;
+    return h > 0 ? tf("hours_mins_left", { h, m }) : tf("mins_left", { m });
   };
   return (
     <span
@@ -725,7 +732,7 @@ function ExpiryCountdown({ expiresAt }: { expiresAt: string }) {
         border: `1px solid ${urgent ? "var(--red-100)" : "var(--brand-200)"}`,
       }}
     >
-      <Clock size={12} /> Expires in <AnimatedNumber value={totalMin} format={formatLabel} durationMs={280} />
+      <Clock size={12} /> {t("expires_in_prefix")} <AnimatedNumber value={totalMin} format={formatLabel} durationMs={280} />
     </span>
   );
 }
