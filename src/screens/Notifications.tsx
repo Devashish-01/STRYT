@@ -11,6 +11,8 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import NotificationRow from "@/components/NotificationRow";
 import { useApp } from "@/store";
 import type { NotificationType, AppNotification } from "@/types";
+import { useI18n } from "@/lib/i18n";
+import { formatDate } from "@/lib/format";
 
 const Handshake = HandshakeIcon as any;
 
@@ -61,8 +63,11 @@ type Section = { label: string; items: AppNotification[] };
 
 /** Groups by calendar day (Today / Yesterday / an older weekday or date) —
  *  the same at-a-glance structure iOS/WhatsApp notification lists use so a
- *  long list doesn't read as one undifferentiated wall of rows. */
-function groupByDay(items: AppNotification[]): Section[] {
+ *  long list doesn't read as one undifferentiated wall of rows. Weekday/date
+ *  labels use the viewer's own language locale (via formatDate's
+ *  LOCALE_BY_LANG), not a hardcoded "en-IN" — a Hindi/Marathi reader gets
+ *  weekday names in their own script, not just the Today/Yesterday labels. */
+function groupByDay(items: AppNotification[], lang: string, todayLabel: string, yesterdayLabel: string): Section[] {
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const today = startOfDay(new Date());
   const yesterday = today - 86_400_000;
@@ -72,10 +77,10 @@ function groupByDay(items: AppNotification[]): Section[] {
     const created = new Date(n.createdAt);
     const day = startOfDay(created);
     const label =
-      day === today ? "Today"
-      : day === yesterday ? "Yesterday"
-      : day > today - 6 * 86_400_000 ? created.toLocaleDateString("en-IN", { weekday: "long" })
-      : created.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: created.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
+      day === today ? todayLabel
+      : day === yesterday ? yesterdayLabel
+      : day > today - 6 * 86_400_000 ? formatDate(n.createdAt, lang, { weekday: "long" })
+      : formatDate(n.createdAt, lang, { day: "numeric", month: "short", year: created.getFullYear() === new Date().getFullYear() ? undefined : "numeric" });
     if (!sections.has(label)) sections.set(label, []);
     sections.get(label)!.push(n);
   }
@@ -85,6 +90,7 @@ function groupByDay(items: AppNotification[]): Section[] {
 export default function Notifications() {
   const nav = useNavigate();
   const { showToast, user } = useApp();
+  const { t, lang } = useI18n();
   const [params] = useSearchParams();
 
   // Scope the feed to the context that opened it: a specific business, a
@@ -106,9 +112,9 @@ export default function Notifications() {
     : scope?.scope === "BUSINESS" ? `notif:business:${scope.id}`
     : scope?.scope === "PROVIDER" ? `notif:provider:${scope.id}`
     : undefined;
-  const subtitle = scope?.scope === "BUSINESS" ? "For this business"
-    : scope?.scope === "PROVIDER" ? "For this service"
-    : scope?.scope === "CUSTOMER" ? "Personal" : undefined;
+  const subtitle = scope?.scope === "BUSINESS" ? t("for_this_business")
+    : scope?.scope === "PROVIDER" ? t("for_this_service")
+    : scope?.scope === "CUSTOMER" ? t("personal_word") : undefined;
 
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => notificationService.list(scope),
@@ -142,7 +148,7 @@ export default function Notifications() {
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
 
-  const sections = useMemo(() => groupByDay(items), [items]);
+  const sections = useMemo(() => groupByDay(items, lang, t("today_word"), t("yesterday_word")), [items, lang, t]);
   const hasUnread = items.some((n) => !n.isRead);
 
   function open(n: AppNotification) {
@@ -185,7 +191,7 @@ export default function Notifications() {
   return (
     <div className="screen screen-boxed">
       <AppBar
-        title="Notifications"
+        title={t("notifications")}
         subtitle={subtitle}
         right={
           hasUnread ? (
@@ -204,7 +210,7 @@ export default function Notifications() {
                 });
               }}
             >
-              Mark all read
+              {t("mark_all_read")}
             </button>
           ) : undefined
         }
@@ -216,7 +222,7 @@ export default function Notifications() {
         ) : error ? (
           <ErrorView error={error} onRetry={refetch} />
         ) : items.length === 0 ? (
-          <EmptyState illustration={<NoNotificationsIllustration />} emoji="🔔" title="All caught up" text="New activity nearby will show up here." />
+          <EmptyState illustration={<NoNotificationsIllustration />} emoji="🔔" title={t("all_caught_up")} text={t("new_activity_desc")} />
         ) : (
           <div>
             {sections.map((section) => (
