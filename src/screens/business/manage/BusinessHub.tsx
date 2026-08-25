@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { AppBar, inr } from "@/components/common";
-import { appointmentService, businessService } from "@/services";
+import { appointmentService, businessService, customPaymentService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { ErrorView } from "@/components/states";
@@ -48,6 +48,7 @@ export default function BusinessHub() {
   const { isOwner, hasScope, hasActiveDeliveries } = useBusinessAccess();
   const base = `/business/${id}/manage`;
   const { data: appointments } = useQueryWithRealtime(() => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`);
+  const { data: customPayments } = useQueryWithRealtime(() => customPaymentService.listForTarget("BUSINESS", id), "custom_payments", [id], `target_id=eq.${id}`, `business:${id}:custom-payments`);
   const { data: queue } = useQueryWithRealtime(() => businessService.queueOwnerState(id), "queue_tokens", [id], `business_id=eq.${id}`, `queue:${id}`);
   const { data: questions } = useQueryWithRealtime(() => businessService.qna(id), "business_qna", [id], `business_id=eq.${id}`);
   const { data: reviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
@@ -55,7 +56,7 @@ export default function BusinessHub() {
   if (!id) return <div className="screen"><AppBar title="Business" /><ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} /></div>;
 
   const queueTokens: QueueOwnerToken[] = [...(queue?.waiting ?? []), ...(queue?.called ?? []), ...(queue?.served ?? [])];
-  const { paymentClaims, paidRecords, recordedAmount } = deriveMoneySummary(appointments ?? [], queueTokens);
+  const { paymentClaims, paidRecords, recordedAmount } = deriveMoneySummary(appointments ?? [], queueTokens, customPayments ?? []);
   const unanswered = (questions ?? []).filter((item) => !item.answer).length;
 
   // A SCOPED team member only sees the sections their grant covers — `leads`

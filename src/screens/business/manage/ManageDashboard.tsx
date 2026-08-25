@@ -7,7 +7,7 @@ import {
 } from "@/components/Icons";
 import {
   appointmentService, businessService, bustBusinessGetCache, communityService,
-  notificationService, requestService,
+  customPaymentService, notificationService, requestService,
 } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
@@ -61,6 +61,9 @@ export default function ManageDashboard() {
   );
   const { data: appointments, refetch: refetchAppointments } = useQueryWithRealtime(
     () => appointmentService.listForTarget(id), "appointments", [id], `target_id=eq.${id}`, `business:${id}:appointments-owner`,
+  );
+  const { data: customPayments } = useQueryWithRealtime(
+    () => customPaymentService.listForTarget("BUSINESS", id), "custom_payments", [id], `target_id=eq.${id}`, `business:${id}:custom-payments`,
   );
   const { data: questions, refetch: refetchQuestions } = useQueryWithRealtime<QnaItem[]>(
     () => businessService.qna(id) as Promise<QnaItem[]>, "business_qna", [id], `business_id=eq.${id}`, `business:${id}:qna`,
@@ -137,13 +140,15 @@ export default function ManageDashboard() {
   const queueTokens: QueueOwnerToken[] = [
     ...(queue?.waiting ?? []), ...(queue?.called ?? []), ...(queue?.served ?? []),
   ];
-  const { appointmentClaims, queueClaims, paymentClaims, paidRecords, recordedAmount: recordedPaid } = deriveMoneySummary(appts, queueTokens);
+  const { appointmentClaims, queueClaims, customClaims, paymentClaims, paidRecords, recordedAmount: recordedPaid } = deriveMoneySummary(appts, queueTokens, customPayments ?? []);
   const unanswered = (questions ?? []).filter((item) => !item.answer);
   // Scoped to what this session can actually act on — a team member without
   // 'appointments' shouldn't see a badge count that includes booking claims
   // they can't open (the items themselves are filtered the same way below).
   const actionCount =
-    (hasScope("appointments") ? pendingAppointments.length + appointmentClaims.length : 0) +
+    // customClaims scoped the same as appointmentClaims: select_custom_payments
+    // RLS requires 'appointments' scope for a delegate, so gate the badge to match.
+    (hasScope("appointments") ? pendingAppointments.length + appointmentClaims.length + customClaims.length : 0) +
     (hasScope("queue") ? queueClaims.length : 0) +
     (hasScope("leads") ? unanswered.length : 0);
   const range = business?.broadcastRadius ?? 5;
