@@ -2,6 +2,20 @@ import { getSupabase } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import type { CustomPayment, PaymentMethod } from "@/types";
 
+// Maps the RPC's bare exception codes (custom_payment_confirm/reject in
+// 20260824_custom_payments.sql) to copy a merchant can actually act on —
+// same pattern appointmentService.createWalkIn already uses for its own
+// RPC's SLOT_FULL/PARTY_SIZE_TOO_LARGE codes. Without this, a race (two
+// people confirming the same claim) surfaced the literal string
+// "INVALID_TRANSITION" in the toast.
+function friendlyCustomPaymentError(err: any): Error {
+  const msg: string = err?.message || "";
+  if (/PAYMENT_NOT_FOUND/i.test(msg)) return new Error("That claim no longer exists.");
+  if (/NOT_TARGET_MANAGER/i.test(msg)) return new Error("You don't have permission to act on this claim.");
+  if (/INVALID_TRANSITION/i.test(msg)) return new Error("Already handled — someone beat you to it.");
+  return new Error(msg || "Couldn't update this claim. Try again.");
+}
+
 function rowToRecord(r: any): CustomPayment {
   return {
     id: r.id,
@@ -51,14 +65,14 @@ export const customPaymentService = {
   async confirm(id: string): Promise<CustomPayment> {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("custom_payment_confirm", { p_id: id });
-    throwIfError(error);
+    if (error) throw friendlyCustomPaymentError(error);
     return rowToRecord(data);
   },
 
   async reject(id: string): Promise<CustomPayment> {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("custom_payment_reject", { p_id: id });
-    throwIfError(error);
+    if (error) throw friendlyCustomPaymentError(error);
     return rowToRecord(data);
   },
 

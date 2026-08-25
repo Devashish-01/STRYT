@@ -196,7 +196,14 @@ async function patchPaymentStatus(
         return record;
       }
     } catch (e: any) {
-      throw new Error(e?.message || "Couldn't update the payment. Please try again.");
+      // appointment_confirm_payment/appointment_reject_payment raise bare
+      // codes — map them to copy a merchant can act on, same as
+      // createWalkIn already does for its own RPC's SLOT_FULL family below.
+      const msg: string = e?.message || "";
+      if (/APPOINTMENT_NOT_FOUND/i.test(msg)) throw new Error("That booking no longer exists.");
+      if (/NOT_TARGET_MANAGER/i.test(msg)) throw new Error("You don't have permission to act on this booking.");
+      if (/INVALID_TRANSITION/i.test(msg)) throw new Error("Already handled — someone beat you to it.");
+      throw new Error(msg || "Couldn't update the payment. Please try again.");
     }
   }
 

@@ -117,6 +117,7 @@ export const adminService = {
       pendingBizRes,
       pendingProvRes,
       pendingCatRes,
+      pendingPlaceRes,
     ] = await Promise.all([
       sb.from("businesses").select("*", { count: "exact", head: true }),
       sb.from("providers").select("*", { count: "exact", head: true }),
@@ -128,6 +129,10 @@ export const adminService = {
       sb.from("businesses").select("*", { count: "exact", head: true }).eq("status", "PENDING"),
       sb.from("providers").select("*", { count: "exact", head: true }).eq("status", "PENDING"),
       sb.from("categories").select("*", { count: "exact", head: true }).eq("status", "PENDING"),
+      // places (20260824_places_to_visit.sql) became a 4th admin queue type
+      // but this pending-review rollup was never updated — a place sitting
+      // in the Queue tab showed "Pending review: 0" on the Overview tab.
+      sb.from("places").select("*", { count: "exact", head: true }).eq("status", "PENDING"),
     ]);
 
     throwIfError(bizRes.error);
@@ -140,9 +145,10 @@ export const adminService = {
     throwIfError(pendingBizRes.error);
     throwIfError(pendingProvRes.error);
     throwIfError(pendingCatRes.error);
+    throwIfError(pendingPlaceRes.error);
 
     const newToday = (bizNewRes.count ?? 0) + (provNewRes.count ?? 0) + (reqNewRes.count ?? 0);
-    const pendingReview = (pendingBizRes.count ?? 0) + (pendingProvRes.count ?? 0) + (pendingCatRes.count ?? 0);
+    const pendingReview = (pendingBizRes.count ?? 0) + (pendingProvRes.count ?? 0) + (pendingCatRes.count ?? 0) + (pendingPlaceRes.count ?? 0);
 
     return {
       businesses: bizRes.count ?? 0,

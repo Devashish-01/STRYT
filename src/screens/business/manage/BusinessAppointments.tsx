@@ -792,8 +792,7 @@ export default function BusinessAppointments() {
             <div className="row gap-8 end">
               <button className="btn btn-ghost btn-sm" disabled={updatingStatus} onClick={() => { setActiveApt(null); setActionType(null); }}>Back</button>
               <button
-                className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : "btn-primary"}`}
-                style={actionType === "CANCEL" ? { background: "var(--red-600)", color: "#fff" } : undefined}
+                className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : actionType === "CANCEL" ? "btn-red" : "btn-primary"}`}
                 disabled={updatingStatus}
                 onClick={handleUpdateStatus}
               >
@@ -823,8 +822,7 @@ export default function BusinessAppointments() {
             <div className="row gap-8 end">
               <button className="btn btn-ghost btn-sm" disabled={!!processingPayment} onClick={() => setPaymentAction(null)}>Back</button>
               <button
-                className={`btn btn-sm ${paymentAction.action === "CONFIRM" ? "btn-green" : ""}`}
-                style={paymentAction.action === "REJECT" ? { background: "var(--red-600)", color: "#fff" } : undefined}
+                className={`btn btn-sm ${paymentAction.action === "CONFIRM" ? "btn-green" : "btn-red"}`}
                 disabled={!!processingPayment}
                 onClick={() => handlePaymentAction(paymentAction.apt, paymentAction.action)}
               >
