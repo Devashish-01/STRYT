@@ -8,11 +8,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ListSkeleton } from "@/components/states";
 import { UserCheck, Star } from "@/components/Icons";
 import type { Business, Provider, RequestPost } from "@/types";
+import { useI18n } from "@/lib/i18n";
 
 type Tab = "BUSINESS" | "PROVIDER" | "REQUEST" | "FOLLOWING";
 
 export default function Bookmarks() {
   const { bookmarks, follows, user, toggleFollow } = useApp();
+  const { t } = useI18n();
   const nav = useNavigate();
   const [searchParams] = useSearchParams();
   const initialTab = (searchParams.get("tab")?.toUpperCase() as Tab) ?? "BUSINESS";
@@ -86,22 +88,22 @@ export default function Bookmarks() {
 
   return (
     <div className="screen">
-      <AppBar title="Saved & following" />
+      <AppBar title={t("saved_and_following")} />
       <div
         className="row"
         style={{ borderBottom: "1px solid var(--line)", background: "#fff", overflowX: "auto" }}
       >
         {(
           [
-            ["BUSINESS", "Shops"],
-            ["PROVIDER", "Providers"],
-            ["REQUEST", "Requests"],
-            ["FOLLOWING", "Following"],
+            ["BUSINESS", t("tab_shops")],
+            ["PROVIDER", t("tab_providers")],
+            ["REQUEST", t("tab_requests")],
+            ["FOLLOWING", t("tab_following")],
           ] as [Tab, string][]
-        ).map(([t, label]) => (
+        ).map(([tabKey, label]) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
+            key={tabKey}
+            onClick={() => setTab(tabKey)}
             className="semi"
             style={{
               flex: 1,
@@ -109,11 +111,11 @@ export default function Bookmarks() {
               padding: "12px 0",
               fontSize: 13.5,
               whiteSpace: "nowrap",
-              color: tab === t ? "var(--brand-700)" : "var(--ink-500)",
-              borderBottom: tab === t ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
+              color: tab === tabKey ? "var(--brand-700)" : "var(--ink-500)",
+              borderBottom: tab === tabKey ? "2.5px solid var(--brand-700)" : "2.5px solid transparent",
             }}
           >
-            {label} {counts[t] > 0 && `(${counts[t]})`}
+            {label} {counts[tabKey] > 0 && `(${counts[tabKey]})`}
           </button>
         ))}
       </div>
@@ -148,7 +150,7 @@ export default function Bookmarks() {
                         <div>
                           <div className="bold small">{u.name}</div>
                           <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                            <Star size={11} fill="var(--amber-500)" stroke="none" /> {u.ratingAvg} • 📍 {u.area || "Member"}
+                            <Star size={11} fill="var(--amber-500)" stroke="none" /> {u.ratingAvg} • 📍 {u.area || t("member_word")}
                           </div>
                         </div>
                       </div>
@@ -169,7 +171,7 @@ export default function Bookmarks() {
                           border: "none",
                         }}
                       >
-                        <UserCheck size={14} /> Following
+                        <UserCheck size={14} /> {t("following")}
                       </button>
                     </div>
                   ))}
@@ -183,11 +185,11 @@ export default function Bookmarks() {
               ) : (
                 <EmptyState
                   emoji="➕"
-                  title="Not following anyone yet"
-                  text="Follow shops, providers, and neighbors to see their posts and updates first."
+                  title={t("not_following_anyone")}
+                  text={t("not_following_desc")}
                   action={
                     <button className="btn btn-ghost btn-sm" onClick={() => nav("/explore")}>
-                      Find some
+                      {t("find_some")}
                     </button>
                   }
                 />
@@ -200,14 +202,15 @@ export default function Bookmarks() {
 }
 
 function Empty({ nav }: { nav: ReturnType<typeof useNavigate> }) {
+  const { t } = useI18n();
   return (
     <EmptyState
       emoji="🤍"
-      title="Nothing saved yet"
-      text="Tap the heart on any shop, provider or request to save it here."
+      title={t("nothing_saved_yet")}
+      text={t("nothing_saved_bookmarks_desc")}
       action={
         <button className="btn btn-ghost btn-sm" onClick={() => nav("/explore")}>
-          Explore now
+          {t("explore_now")}
         </button>
       }
     />
