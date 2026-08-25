@@ -7,12 +7,14 @@ import { useApp } from "@/store";
 import { businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import type { Business, Provider } from "@/types";
+import { useI18n } from "@/lib/i18n";
 
 const emojis = ["🌟", "🍽️", "🚨", "🧸", "💎", "🎁", "🏠", "💇", "🛍️", "❤️"];
 
 export default function Lists() {
   const nav = useNavigate();
   const { lists, createList, user } = useApp();
+  const { t, tf } = useI18n();
   // The open list lives in the URL (`?list=<id>`), not component state, so
   // hardware/browser back closes the list instead of leaving the whole screen,
   // and an open list survives a refresh.
@@ -52,7 +54,7 @@ export default function Lists() {
             sharing actually exists. */}
         <AppBar
           title={`${active.emoji} ${active.name}`}
-          subtitle={`${active.items.length} saved`}
+          subtitle={tf("n_saved", { n: active.items.length })}
           onBack={() => setOpen(null)}
         />
         <div className="screen-scroll page-pad col gap-12">
@@ -60,11 +62,11 @@ export default function Lists() {
             <EmptyState
               illustration={<EmptyListIllustration />}
               emoji="📂"
-              title="Nothing saved yet"
-              text="Tap the bookmark on any shop or provider to drop it into this list."
+              title={t("nothing_saved_yet")}
+              text={t("nothing_saved_desc")}
               action={
                 <button className="btn btn-outline row gap-6 center" onClick={() => nav("/explore")}>
-                  <Store size={16} /> Explore nearby
+                  <Store size={16} /> {t("explore_nearby")}
                 </button>
               }
             />
@@ -72,7 +74,7 @@ export default function Lists() {
             active.items.map((it, i) => {
               const b = it.type === "BUSINESS" ? businesses.find((x) => x.id === it.id) : undefined;
               const p = it.type === "PROVIDER" ? providers.find((x) => x.id === it.id) : undefined;
-              const name = b?.name ?? p?.displayName ?? "Item";
+              const name = b?.name ?? p?.displayName ?? t("item_fallback");
               const img = b?.coverImage ?? p?.avatar ?? "";
               const sub = b?.subCategory ?? p?.categoryName ?? "";
               return (
@@ -94,7 +96,7 @@ export default function Lists() {
 
   return (
     <div className="screen">
-      <AppBar title="My lists" right={<button className="icon-btn" onClick={() => setCreating(true)}><Plus size={20} /></button>} />
+      <AppBar title={t("my_lists")} right={<button className="icon-btn" onClick={() => setCreating(true)}><Plus size={20} /></button>} />
       <div className="screen-scroll page-pad col gap-12">
         {creating && (
           <div className="card">
@@ -103,10 +105,10 @@ export default function Lists() {
                 <button key={e} onClick={() => setEmoji(e)} style={{ fontSize: 22, opacity: emoji === e ? 1 : 0.4, transform: emoji === e ? "scale(1.2)" : "scale(1)" }}>{e}</button>
               ))}
             </div>
-            <input className="input" placeholder="List name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            <input className="input" placeholder={t("list_name_placeholder")} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
             <div className="row gap-8" style={{ marginTop: 10 }}>
-              <button className="btn btn-ghost grow btn-sm" onClick={() => { setCreating(false); setName(""); }}>Cancel</button>
-              <button className="btn btn-primary grow btn-sm" disabled={name.trim().length < 2} onClick={() => { createList(name.trim(), emoji); setName(""); setCreating(false); }}>Create</button>
+              <button className="btn btn-ghost grow btn-sm" onClick={() => { setCreating(false); setName(""); }}>{t("cancel_action")}</button>
+              <button className="btn btn-primary grow btn-sm" disabled={name.trim().length < 2} onClick={() => { createList(name.trim(), emoji); setName(""); setCreating(false); }}>{t("create_word")}</button>
             </div>
           </div>
         )}
@@ -120,11 +122,11 @@ export default function Lists() {
           <EmptyState
             illustration={<EmptyListIllustration />}
             emoji="🌟"
-            title="No lists yet"
-            text="Lists are how you group the places you love — a date-night shortlist, weekend errands, the good chai spots."
+            title={t("no_lists_yet")}
+            text={t("no_lists_desc")}
             action={
               <button className="btn btn-primary row gap-6 center" onClick={() => setCreating(true)}>
-                <Plus size={16} /> Create your first list
+                <Plus size={16} /> {t("create_first_list")}
               </button>
             }
           />
@@ -135,7 +137,7 @@ export default function Lists() {
             <div style={{ width: 48, height: 48, borderRadius: 12, background: "var(--brand-50)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>{l.emoji}</div>
             <div className="grow">
               <div className="semi">{l.name}</div>
-              <div className="tiny muted row gap-6">{l.items.length} saved {l.shared && <span className="row gap-4"><Users size={11} /> shared</span>}</div>
+              <div className="tiny muted row gap-6">{tf("n_saved", { n: l.items.length })} {l.shared && <span className="row gap-4"><Users size={11} /> {t("shared_word")}</span>}</div>
             </div>
             <ChevronRight size={18} color="var(--ink-300)" />
           </button>
