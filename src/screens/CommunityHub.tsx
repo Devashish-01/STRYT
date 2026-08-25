@@ -30,12 +30,14 @@ import type { CommunityPost, CommunityPostType } from "@/types";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRealtimeInserts } from "@/hooks/useRealtimeInserts";
+import { useI18n } from "@/lib/i18n";
 
 type HubTab = "requests" | "posts";
 
 export default function CommunityHub() {
   const nav = useNavigate();
   const { area, user, chatUnread, activeContext, showToast } = useApp();
+  const { t, tf } = useI18n();
   const goBack = useSmartBack("/home");
   const [tab, setTab] = useState<HubTab>("posts");
   const [postFilter, setPostFilter] = useState<"ALL" | CommunityPostType>("ALL");
@@ -180,14 +182,14 @@ export default function CommunityHub() {
           <button
             className="icon-btn"
             onClick={handleBack}
-            aria-label="Go back"
+            aria-label={t("go_back")}
             style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--ink-100)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             <ArrowLeft size={18} />
           </button>
           <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
             <div className="bold" style={{ fontSize: 22, letterSpacing: "-0.5px", lineHeight: 1.2, color: "var(--ink-900)" }}>
-              Community
+              {t("community_header")}
             </div>
             <div
               className="tiny semi row gap-4 ellipsis"
@@ -210,7 +212,7 @@ export default function CommunityHub() {
               className="icon-btn"
               style={{ width: 38, height: 38, position: "relative", borderRadius: "50%", background: "var(--ink-100)", display: "flex", alignItems: "center", justifyContent: "center" }}
               onClick={() => nav("/chats?scope=CUSTOMER")}
-              aria-label="Messages"
+              aria-label={t("messages_header")}
             >
               <MessageCircle size={18} />
               {chatUnread > 0 && (
@@ -226,7 +228,7 @@ export default function CommunityHub() {
               className="icon-btn"
               style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--ink-100)", display: "flex", alignItems: "center", justifyContent: "center" }}
               onClick={() => nav("/search")}
-              aria-label="Search"
+              aria-label={t("search_word")}
             >
               <SearchIcon size={18} />
             </button>
@@ -244,9 +246,9 @@ export default function CommunityHub() {
             style={{ width: 32, height: 32, flexShrink: 0 }}
           />
           <span className="feed-prompt-text ellipsis">
-            Share something with {area || "your street"}…
+            {tf("share_with_street", { area: area || t("your_street_fallback") })}
           </span>
-          <span className="feed-prompt-cta"><Plus size={13} /> Post</span>
+          <span className="feed-prompt-cta"><Plus size={13} /> {t("post_word")}</span>
         </button>
 
         <div className="community-hub-actions" style={{ marginTop: 10 }}>
@@ -255,7 +257,7 @@ export default function CommunityHub() {
             style={{ height: 38, gap: 6, borderRadius: 14, border: "1.5px solid var(--ink-200)", background: "var(--surface)", fontWeight: 700, color: "var(--ink-800)", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.02)" }}
             onClick={() => nav("/ask")}
           >
-            <FileText size={15} /> Post a request
+            <FileText size={15} /> {t("post_a_request")}
           </button>
         </div>
 
@@ -266,11 +268,11 @@ export default function CommunityHub() {
 
         {/* Apple iOS-style Segmented Control */}
         <div className="segmented-control">
-          {([["posts", "🏘️ Posts"], ["requests", "📋 Requests"]] as [HubTab, string][]).map(([t, label]) => (
+          {([["posts", t("segment_posts")], ["requests", t("segment_requests")]] as [HubTab, string][]).map(([tabKey, label]) => (
             <button
-              key={t}
-              className={`segmented-tab ${tab === t ? "active" : ""}`}
-              onClick={() => setTab(t)}
+              key={tabKey}
+              className={`segmented-tab ${tab === tabKey ? "active" : ""}`}
+              onClick={() => setTab(tabKey)}
             >
               {label}
             </button>
@@ -280,7 +282,7 @@ export default function CommunityHub() {
         {/* Secondary Samsung / Apple Pill Filter Strip */}
         {tab === "requests" ? (
           <div className="hscroll community-hub-filters">
-            {([["all", "All"], ["urgent", "🔥 Urgent"], ["group", "👥 Group buy"], ["recurring", "🔁 Recurring"]] as const).map(([s, label]) => (
+            {([["all", t("filter_all")], ["urgent", t("filter_urgent")], ["group", t("filter_group_buy")], ["recurring", t("filter_recurring")]] as [typeof reqSpecial, string][]).map(([s, label]) => (
               <button
                 key={s}
                 className={`chip-pill ${reqSpecial === s ? "active" : ""}`}
@@ -318,7 +320,7 @@ export default function CommunityHub() {
             <span className={`feed-refresh-spinner ${refreshing ? "spinning" : ""}`}>
               <RefreshCw size={16} />
             </span>
-            <span className="tiny semi">{refreshing ? "Refreshing…" : pullDistance > 60 ? "Release to refresh" : "Pull to refresh"}</span>
+            <span className="tiny semi">{refreshing ? t("refreshing_ellipsis") : pullDistance > 60 ? t("release_to_refresh") : t("pull_to_refresh")}</span>
           </div>
         )}
 
@@ -335,7 +337,7 @@ export default function CommunityHub() {
               containerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
             }}
           >
-            ▲ {unseenCount} new {unseenCount === 1 ? "post" : "posts"}
+            {unseenCount === 1 ? t("new_post_one") : tf("new_post_other", { n: unseenCount })}
           </button>
         )}
 
@@ -345,11 +347,11 @@ export default function CommunityHub() {
           requests.length === 0 ? (
             <EmptyState
               emoji="📭"
-              title="All quiet nearby"
-              text="No open requests in your area yet. Be the first!"
+              title={t("all_quiet_nearby")}
+              text={t("all_quiet_desc")}
               action={
                 <button className="btn btn-primary btn-sm" onClick={() => nav("/ask")}>
-                  <FileText size={15} /> Post a request
+                  <FileText size={15} /> {t("post_a_request")}
                 </button>
               }
             />
@@ -366,11 +368,11 @@ export default function CommunityHub() {
           posts.length === 0 ? (
             <EmptyState
               emoji="🏘️"
-              title="Nothing posted yet"
-              text="Be the first to share something with your street."
+              title={t("nothing_posted_yet")}
+              text={t("nothing_posted_desc")}
               action={
                 <button className="btn btn-primary btn-sm" onClick={goToCompose}>
-                  <Plus size={15} /> Post something
+                  <Plus size={15} /> {t("post_something")}
                 </button>
               }
             />
@@ -404,7 +406,7 @@ export default function CommunityHub() {
                   the query now, so the next page is the next page OF THIS FILTER. */}
               {postsHasMore && (
                 <button className="btn btn-ghost btn-block" onClick={loadMorePosts} disabled={loadingMorePosts} style={{ marginTop: 8 }}>
-                  {loadingMorePosts ? "Loading…" : "Load more"}
+                  {loadingMorePosts ? t("loading_ellipsis") : t("load_more")}
                 </button>
               )}
             </div>
@@ -414,10 +416,10 @@ export default function CommunityHub() {
 
       {sortOpen && (
         <div className="overlay" onClick={() => setSortOpen(false)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Sort posts">
+          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t("sort_posts")}>
             <div className="sheet-grab" />
-            <div className="bold" style={{ fontSize: 17, marginBottom: 12 }}>Sort posts</div>
-            <div className="col gap-8" role="radiogroup" aria-label="Sort posts">
+            <div className="bold" style={{ fontSize: 17, marginBottom: 12 }}>{t("sort_posts")}</div>
+            <div className="col gap-8" role="radiogroup" aria-label={t("sort_posts")}>
               {/* "Nearest" is hidden without a location rather than offered and
                   silently ignored. */}
               {availableSorts(!!(user.lat && user.lng)).map((s) => {
@@ -449,7 +451,7 @@ export default function CommunityHub() {
                 );
               })}
             </div>
-            <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setSortOpen(false)}>Cancel</button>
+            <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setSortOpen(false)}>{t("cancel_action")}</button>
           </div>
         </div>
       )}
