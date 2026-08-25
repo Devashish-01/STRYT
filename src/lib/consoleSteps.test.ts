@@ -53,11 +53,15 @@ describe("consoleFor", () => {
   });
 
   it("falls back to generic for a package that hasn't authored one", () => {
-    // salon is deliberately unauthored — it must keep today's generic console.
-    expect(BUSINESS_PACKAGES.salon.console).toBeUndefined();
-    expect(consoleFor(BUSINESS_PACKAGES.salon)).toBe(BUSINESS_PACKAGES.generic.console);
+    // Every real package is authored now, so construct a synthetic
+    // non-generic package with no console to keep the `pkg.console ??
+    // genericConsoleFor(kind)` fallback line itself covered — using a real
+    // "generic"-keyed package would short-circuit on the separate
+    // `pkg.key === "generic"` branch above it instead.
+    const unauthored = { ...BUSINESS_PACKAGES.clinic, console: undefined };
+    expect(consoleFor(unauthored)).toBe(BUSINESS_PACKAGES.generic.console);
     // ...and the provider default when asked as a provider.
-    expect(consoleFor(BUSINESS_PACKAGES.salon, "provider").storeTabLabel).toBe("Services");
+    expect(consoleFor(unauthored, "provider").storeTabLabel).toBe("Services");
   });
 
   // The two accounts this feature is meant to be judged on: one owner who

@@ -275,6 +275,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       sheetTitleNew: "Book a Consultation", sheetTitleReschedule: "Reschedule Consultation",
       bookedVerb: "Consultation booked",
     },
+    console: {
+      setupTitle: "Get your clinic ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 services", hint: "Patients search by specialty — list what you treat" },
+        { id: "photos", label: "Add a clinic photo", hint: "Show your reception or clinic front" },
+        { id: "hours", label: "Set consultation hours" },
+        { id: "verify", label: "Upload verification", hint: "Medical registration builds trust" },
+      ],
+      actions: [
+        { id: "catalog", label: "Services", hint: "What you treat" },
+        { id: "bookings", label: "Consultations", hint: "Your schedule" },
+        { id: "queue", label: "Waiting room", hint: "Walk-in patients" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Services",
+    },
   },
   diagnostics: {
     key: "diagnostics",
@@ -303,6 +319,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       noun: "test", nounCap: "Test", nounPlural: "tests",
       sheetTitleNew: "Book a Test", sheetTitleReschedule: "Reschedule Test",
       bookedVerb: "Test booked",
+    },
+    console: {
+      setupTitle: "Get your lab ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 tests", hint: "Patients search by test category — list what you run" },
+        { id: "photos", label: "Add a lab photo", hint: "Show your reception or sample-collection area" },
+        { id: "hours", label: "Set collection hours" },
+        { id: "verify", label: "Upload verification", hint: "Lab accreditation builds trust" },
+      ],
+      actions: [
+        { id: "catalog", label: "Tests", hint: "What you run" },
+        { id: "bookings", label: "Bookings", hint: "Your schedule" },
+        { id: "queue", label: "Waiting room", hint: "Walk-in patients" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Tests",
     },
   },
   vet: {
@@ -333,6 +365,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       sheetTitleNew: "Book a Visit", sheetTitleReschedule: "Reschedule Visit",
       bookedVerb: "Visit booked",
     },
+    console: {
+      setupTitle: "Get your clinic ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 services", hint: "Vaccinations, grooming, checkups — list what you offer" },
+        { id: "photos", label: "Add a clinic photo", hint: "Show your clinic front or a happy patient" },
+        { id: "hours", label: "Set clinic hours" },
+        { id: "verify", label: "Upload verification", hint: "Veterinary registration builds trust" },
+      ],
+      actions: [
+        { id: "catalog", label: "Services", hint: "What you offer" },
+        { id: "bookings", label: "Visits", hint: "Your schedule" },
+        { id: "queue", label: "Waiting room", hint: "Walk-in patients" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Services",
+    },
   },
   pharmacy: {
     key: "pharmacy",
@@ -360,6 +408,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       noun: "order", nounCap: "Order", nounPlural: "orders",
       sheetTitleNew: "Place Your Order", sheetTitleReschedule: "Change Order",
       bookedVerb: "Order placed",
+    },
+    console: {
+      setupTitle: "Get your pharmacy ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 medicines", hint: "A stocked shelf converts far better than a name list" },
+        { id: "photos", label: "Add a storefront photo", hint: "Show your counter or storefront" },
+        { id: "hours", label: "Set store hours" },
+        { id: "verify", label: "Upload verification", hint: "Pharmacy licence builds trust" },
+      ],
+      actions: [
+        { id: "catalog", label: "Medicines", hint: "What you stock" },
+        { id: "hours", label: "Store hours", hint: "When you're open" },
+        { id: "delivery", label: "Delivery", hint: "Orders out for delivery" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Medicines",
     },
   },
   dining: {
@@ -482,6 +546,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       sheetTitleNew: "Book Appointment", sheetTitleReschedule: "Reschedule Appointment",
       bookedVerb: "Appointment booked",
     },
+    console: {
+      setupTitle: "Get your salon ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 services", hint: "A priced menu converts far better than a name list" },
+        { id: "photos", label: "Add a salon photo", hint: "Show your interior — customers browsing want to see the space" },
+        { id: "hours", label: "Set your hours" },
+        { id: "verify", label: "Upload verification" },
+      ],
+      actions: [
+        { id: "catalog", label: "Services", hint: "What you offer" },
+        { id: "bookings", label: "Appointments", hint: "Your schedule" },
+        { id: "queue", label: "Walk-in queue", hint: "Walk-ins without a booking" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Services",
+    },
   },
   shop: {
     key: "shop",
@@ -509,6 +589,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       noun: "order", nounCap: "Order", nounPlural: "orders",
       sheetTitleNew: "Place Your Order", sheetTitleReschedule: "Change Order",
       bookedVerb: "Order placed",
+    },
+    console: {
+      setupTitle: "Get your shop ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 products", hint: "Photos convert far better than a name list" },
+        { id: "photos", label: "Add a storefront photo", hint: "Show your storefront or best-selling products" },
+        { id: "hours", label: "Set store hours" },
+        { id: "verify", label: "Upload verification" },
+      ],
+      actions: [
+        { id: "catalog", label: "Products", hint: "What you sell" },
+        { id: "hours", label: "Store hours", hint: "When you're open" },
+        { id: "delivery", label: "Delivery", hint: "Orders out for delivery" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Products",
     },
   },
   homeservice: {
@@ -539,6 +635,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       sheetTitleNew: "Request a Visit", sheetTitleReschedule: "Reschedule Visit",
       bookedVerb: "Visit requested",
     },
+    console: {
+      setupTitle: "Get your service ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 services", hint: "List what you fix — customers search by service" },
+        { id: "photos", label: "Add a work photo", hint: "Before/after photos build trust fast" },
+        { id: "hours", label: "Set working hours" },
+        { id: "verify", label: "Upload verification" },
+      ],
+      actions: [
+        { id: "catalog", label: "Services", hint: "What you offer" },
+        { id: "bookings", label: "Visit requests", hint: "Your schedule" },
+        { id: "hours", label: "Working hours", hint: "When you're available" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Services",
+    },
   },
   learning: {
     key: "learning",
@@ -567,6 +679,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       noun: "class", nounCap: "Class", nounPlural: "classes",
       sheetTitleNew: "Book a Class", sheetTitleReschedule: "Reschedule Class",
       bookedVerb: "Class booked",
+    },
+    console: {
+      setupTitle: "Get your classes ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 courses", hint: "List every subject/skill you teach" },
+        { id: "photos", label: "Add a classroom photo", hint: "Show your classroom or a class in session" },
+        { id: "hours", label: "Set class hours" },
+        { id: "verify", label: "Upload verification" },
+      ],
+      actions: [
+        { id: "catalog", label: "Courses", hint: "What you teach" },
+        { id: "bookings", label: "Classes", hint: "Your schedule" },
+        { id: "hours", label: "Class hours", hint: "When you teach" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Courses",
     },
   },
   fitness: {
@@ -597,6 +725,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       sheetTitleNew: "Book a Session", sheetTitleReschedule: "Reschedule Session",
       bookedVerb: "Session booked",
     },
+    console: {
+      setupTitle: "Get your gym ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 programs", hint: "Memberships, training, classes — list what you offer" },
+        { id: "photos", label: "Add a facility photo", hint: "Show your facility or a class in session" },
+        { id: "hours", label: "Set your hours" },
+        { id: "verify", label: "Upload verification" },
+      ],
+      actions: [
+        { id: "catalog", label: "Programs", hint: "What you offer" },
+        { id: "bookings", label: "Sessions", hint: "Your schedule" },
+        { id: "hours", label: "Hours", hint: "When you're open" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Programs",
+    },
   },
   professional: {
     key: "professional",
@@ -626,6 +770,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       sheetTitleNew: "Request a Consultation", sheetTitleReschedule: "Reschedule Consultation",
       bookedVerb: "Consultation requested",
     },
+    console: {
+      setupTitle: "Get your practice ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 services", hint: "List what you offer — clients search by service" },
+        { id: "photos", label: "Add an office photo", hint: "Show your office or past work" },
+        { id: "hours", label: "Set office hours" },
+        { id: "verify", label: "Upload verification" },
+      ],
+      actions: [
+        { id: "catalog", label: "Services", hint: "What you offer" },
+        { id: "bookings", label: "Consultations", hint: "Your schedule" },
+        { id: "queue", label: "Waiting room", hint: "Walk-in clients" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Services",
+    },
   },
   events: {
     key: "events",
@@ -654,6 +814,22 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       noun: "booking", nounCap: "Booking", nounPlural: "bookings",
       sheetTitleNew: "Request a Booking", sheetTitleReschedule: "Change Booking",
       bookedVerb: "Booking requested",
+    },
+    console: {
+      setupTitle: "Get your packages ready",
+      setup: [
+        { id: "catalog", label: "Add your first 3 packages", hint: "Real event photos sell packages far better than a name list" },
+        { id: "photos", label: "Add an event photo", hint: "Show your best work" },
+        { id: "hours", label: "Set your hours" },
+        { id: "verify", label: "Upload verification" },
+      ],
+      actions: [
+        { id: "catalog", label: "Packages", hint: "What you offer" },
+        { id: "bookings", label: "Bookings", hint: "Your schedule" },
+        { id: "hours", label: "Hours", hint: "When you're available" },
+        { id: "payments", label: "Payments", hint: "Money received" },
+      ],
+      storeTabLabel: "Packages",
     },
   },
   generic: {

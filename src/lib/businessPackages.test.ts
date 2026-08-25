@@ -217,9 +217,9 @@ describe("owner console configs", () => {
     expect(ids).toContain("delivery");
   });
 
-  it("only the authored packages carry a console; the rest inherit generic", () => {
+  it("every package now carries its own authored console", () => {
     const authored = PACKAGE_KEYS.filter((k) => BUSINESS_PACKAGES[k].console);
-    expect(authored.sort()).toEqual(["dining", "generic", "takeaway"]);
+    expect(authored.sort()).toEqual([...PACKAGE_KEYS].sort());
   });
 });
 
