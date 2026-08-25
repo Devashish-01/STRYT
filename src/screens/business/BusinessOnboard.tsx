@@ -162,7 +162,7 @@ export default function BusinessOnboard() {
             We'll verify your business within ~24 hours. Once approved, <span className="semi" style={{ color: "var(--ink-900)" }}>3,247 nearby users</span> get a silent heads-up that you're open.
           </p>
           <div className="card" style={{ marginTop: 24, width: "100%", textAlign: "left" }}>
-            <div className="row gap-10"><Store size={20} color="var(--orange-500)" /><div><div className="semi small">{name || "Your business"}</div><div className="tiny muted">{selectedCat?.name} â€¢ Under review</div></div></div>
+            <div className="row gap-10"><Store size={20} color="var(--orange-500)" /><div><div className="semi small">{name || "Your business"}</div><div className="tiny muted">{selectedCat?.name} • Under review</div></div></div>
           </div>
         </div>
         <div className="page-pad col gap-10">
@@ -175,7 +175,7 @@ export default function BusinessOnboard() {
 
   return (
     <div className="screen">
-      <AppBar title="List your business" subtitle={`Step ${step + 1} of 4 â€¢ ${steps[step]}`} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
+      <AppBar title="List your business" subtitle={`Step ${step + 1} of 4 • ${steps[step]}`} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
 
       {/* Progress */}
       <div className="row gap-4 page-pad" style={{ paddingTop: 12, paddingBottom: 4 }}>
@@ -200,7 +200,7 @@ export default function BusinessOnboard() {
                   <button className="btn btn-outline btn-sm" style={{ width: "fit-content" }} onClick={refetchCats}>Retry</button>
                 </div>
               ) : catLoading && cats.length === 0 ? (
-                <div className="tiny muted">Loading categoriesâ€¦</div>
+                <div className="tiny muted">Loading categories…</div>
               ) : cats.length === 0 ? (
                 <div className="tiny muted">No categories available. <button className="semi" style={{ color: "var(--brand-700)" }} onClick={refetchCats}>Reload</button></div>
               ) : (
@@ -320,7 +320,7 @@ export default function BusinessOnboard() {
             </div>
             <div className="field">
               <label>Opening offer (optional)</label>
-              <input className="input" placeholder="e.g. 50% OFF up to â‚¹100" value={offer} onChange={(e) => setOffer(e.target.value)} />
+              <input className="input" placeholder="e.g. 50% OFF up to ₹100" value={offer} onChange={(e) => setOffer(e.target.value)} />
             </div>
           </>
         )}
@@ -399,7 +399,7 @@ export default function BusinessOnboard() {
           disabled={!canNext || submitting}
           onClick={() => (step < 3 ? setStep(step + 1) : submit())}
         >
-          {step < 3 ? "Continue" : submitting ? "Submittingâ€¦" : "Submit for review"}
+          {step < 3 ? "Continue" : submitting ? "Submitting…" : "Submit for review"}
         </button>
       </div>
     </div>
