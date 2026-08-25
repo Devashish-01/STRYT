@@ -26,26 +26,27 @@ import { REQUEST_STATUS_BADGE } from "@/lib/statusBadges";
 import type { RequestStatus } from "@/types";
 import { aliasName } from "@/lib/publicName";
 import { postTypeMeta } from "@/lib/communityTypes";
+import { useI18n } from "@/lib/i18n";
 
-const verifyLabels: Record<string, string> = {
-  phone: "Phone",
-  id: "ID",
-  address: "Address",
-  business: "Business",
+const verifyLabelKeys: Record<string, string> = {
+  phone: "verify_label_phone",
+  id: "verify_label_id",
+  address: "verify_label_address",
+  business: "verify_label_business",
 };
 
 type Tab = "posts" | "asks" | "badges";
-
-const TABS: [Tab, string, string][] = [
-  ["posts", "Posts", "💬"],
-  ["asks", "Asks", "📬"],
-  ["badges", "Badges", "🏆"],
-];
 
 export default function PublicProfile() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast, user, isFollowing, toggleFollow } = useApp();
+  const { t, tf } = useI18n();
+  const TABS: [Tab, string, string][] = [
+    ["posts", t("tab_posts_profile"), "💬"],
+    ["asks", t("tab_asks_profile"), "📬"],
+    ["badges", t("tab_badges_profile"), "🏆"],
+  ];
   const { data: u, loading, error, refetch } = useQuery(() => userService.publicProfile(id), [id], `public-profile:${id}`);
   const { data: followersData } = useQuery(() => id ? socialService.followers(id) : Promise.resolve([]), [id], `followers:${id}`);
   const followersCount = followersData?.length ?? 0;
@@ -86,7 +87,7 @@ export default function PublicProfile() {
   // no "get directions to their exact address" feature here by design (see
   // ISS-009). A ballpark distance is consistent with how distance is shown
   // everywhere else in the app.
-  const distanceText = !isSelf && u?.distanceKm !== undefined ? `${u.distanceKm.toFixed(1)} km away` : null;
+  const distanceText = !isSelf && u?.distanceKm !== undefined ? tf("km_away_suffix", { km: u.distanceKm.toFixed(1) }) : null;
 
   function toggleHidePost(postId: string) {
     const isHidden = hiddenPosts.includes(postId);
@@ -118,7 +119,7 @@ export default function PublicProfile() {
   if (loading) {
     return (
       <div className="screen">
-        <AppBar title="Profile" />
+        <AppBar title={t("profile_title")} />
         <div className="col center page-pad" style={{ paddingTop: 32, gap: 14 }}>
           <Skeleton h={96} w={96} r={48} />
           <Skeleton h={22} w="55%" />
@@ -135,7 +136,7 @@ export default function PublicProfile() {
   if (error) {
     return (
       <div className="screen">
-        <AppBar title="Profile" />
+        <AppBar title={t("profile_title")} />
         <ErrorView error={error} onRetry={refetch} />
       </div>
     );
@@ -144,8 +145,8 @@ export default function PublicProfile() {
   if (!u) {
     return (
       <div className="screen">
-        <AppBar title="Profile" />
-        <EmptyState emoji="👤" title="Profile not found" text="This member may no longer be available." />
+        <AppBar title={t("profile_title")} />
+        <EmptyState emoji="👤" title={t("profile_not_found")} text={t("profile_not_found_desc")} />
       </div>
     );
   }
@@ -164,7 +165,7 @@ export default function PublicProfile() {
       <AppBar
         title={aliasName(u)}
         right={
-          <button className="icon-btn" onClick={() => setShare(true)} aria-label="Share QR Code">
+          <button className="icon-btn" onClick={() => setShare(true)} aria-label={t("share_qr_code_label")}>
             <Share2 size={18} />
           </button>
         }
@@ -206,16 +207,16 @@ export default function PublicProfile() {
           <div className="row center gap-6" style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)", flexWrap: "wrap" }}>
             {isSelf || locStatus === "APPROVED" ? (
               <>
-                <span>📍 {u.area || "Neighborhood Member"}{distanceText && ` • ${distanceText}`}</span>
+                <span>📍 {u.area || t("neighborhood_member_fallback")}{distanceText && ` • ${distanceText}`}</span>
                 <span>•</span>
               </>
             ) : (
               <>
-                <span>📍 Location shared upon request only</span>
+                <span>📍 {t("location_shared_on_request")}</span>
                 <span>•</span>
               </>
             )}
-            <span>Member since {u.memberSince}</span>
+            <span>{tf("member_since", { date: u.memberSince })}</span>
           </div>
           {u.phone && (isSelf || u.showPhonePublicly !== false) && (
             <a href={`tel:${u.phone}`} style={{ marginTop: 4, fontSize: 12.5, fontWeight: 700, color: "#fff", opacity: 0.9 }}>
@@ -250,7 +251,7 @@ export default function PublicProfile() {
               }}
             >
               <Star size={12} fill="var(--amber-500)" stroke="none" />
-              {u.ratingCount > 0 ? <>{u.ratingAvg} <span style={{ fontWeight: 400, opacity: 0.75 }}>({u.ratingCount})</span></> : "New"}
+              {u.ratingCount > 0 ? <>{u.ratingAvg} <span style={{ fontWeight: 400, opacity: 0.75 }}>({u.ratingCount})</span></> : t("new_word")}
             </span>
 
             {u.verifications.length > 0 && (
@@ -268,7 +269,7 @@ export default function PublicProfile() {
                   color: "#fff",
                 }}
               >
-                <BadgeCheck size={13} color="var(--green-500)" /> Verified
+                <BadgeCheck size={13} color="var(--green-500)" /> {t("verified_badge")}
               </span>
             )}
           </div>
@@ -295,11 +296,11 @@ export default function PublicProfile() {
               >
                 {following ? (
                   <>
-                    <UserCheck size={16} /> Following
+                    <UserCheck size={16} /> {t("following")}
                   </>
                 ) : (
                   <>
-                    <UserPlus size={16} /> Follow
+                    <UserPlus size={16} /> {t("follow_word")}
                   </>
                 )}
               </button>
@@ -320,7 +321,7 @@ export default function PublicProfile() {
                   border: "1.5px solid rgba(255,255,255,0.3)",
                 }}
               >
-                <MessageSquareText size={16} /> Message
+                <MessageSquareText size={16} /> {t("message")}
               </button>
 
               {/* Share QR */}
@@ -340,7 +341,7 @@ export default function PublicProfile() {
                   cursor: "pointer",
                   flexShrink: 0,
                 }}
-                aria-label="Share profile"
+                aria-label={t("share_profile_label")}
               >
                 <Share2 size={18} />
               </button>
@@ -363,24 +364,24 @@ export default function PublicProfile() {
           >
             <div className="col center grow">
               <span className="bold" style={{ fontSize: 18, color: "var(--brand-700)" }}>{u.helpedCount}</span>
-              <span className="tiny semi muted" style={{ marginTop: 2 }}>Helped</span>
+              <span className="tiny semi muted" style={{ marginTop: 2 }}>{t("helped_label")}</span>
             </div>
             <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
             <div className="col center grow">
               <span className="bold" style={{ fontSize: 18, color: "var(--brand-700)" }}>{requests.length}</span>
-              <span className="tiny semi muted" style={{ marginTop: 2 }}>Requests</span>
+              <span className="tiny semi muted" style={{ marginTop: 2 }}>{t("requests")}</span>
             </div>
             <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
             <div className="col center grow">
               <span className="bold" style={{ fontSize: 18, color: "var(--red-500)" }}>{u.vouchCount}</span>
-              <span className="tiny semi muted" style={{ marginTop: 2 }}>Vouches</span>
+              <span className="tiny semi muted" style={{ marginTop: 2 }}>{t("vouches_label")}</span>
             </div>
             {(isSelf || u.showRatingPublicly !== false) && (
               <>
                 <div style={{ width: 1, height: 28, background: "var(--ink-100)", alignSelf: "center" }} />
                 <div className="col center grow">
                   <span className="bold" style={{ fontSize: 18, color: "var(--blue-500)" }}>{u.ratingAvg}★</span>
-                  <span className="tiny semi muted" style={{ marginTop: 2 }}>Rating</span>
+                  <span className="tiny semi muted" style={{ marginTop: 2 }}>{t("rating_label")}</span>
                 </div>
               </>
             )}
@@ -392,7 +393,7 @@ export default function PublicProfile() {
               onClick={() => { if (isSelf) nav("/followers"); }}
             >
               <span className="bold" style={{ fontSize: 18, color: "var(--green-500)" }}>{followersCount}</span>
-              <span className="tiny semi muted" style={{ marginTop: 2 }}>Followers</span>
+              <span className="tiny semi muted" style={{ marginTop: 2 }}>{t("followers_label")}</span>
             </button>
           </div>
         </div>
@@ -410,14 +411,14 @@ export default function PublicProfile() {
             scrollbarWidth: "none",
           }}
         >
-          {TABS.map(([t, label, emoji]) => {
-            const count = tabCounts[t];
-            const isActive = activeTab === t;
+          {TABS.map(([tabKey, label, emoji]) => {
+            const count = tabCounts[tabKey];
+            const isActive = activeTab === tabKey;
             return (
               <button
-                key={t}
+                key={tabKey}
                 type="button"
-                onClick={() => setActiveTab(t)}
+                onClick={() => setActiveTab(tabKey)}
                 style={{
                   flex: 1,
                   padding: "8px 16px",
@@ -459,11 +460,11 @@ export default function PublicProfile() {
         {activeTab === "posts" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
             {!isSelf && u.showPostsPublicly === false ? (
-              <EmptyState emoji="🔒" title="Posts are private" text="This member has chosen to keep their community posts private." />
+              <EmptyState emoji="🔒" title={t("posts_private_title")} text={t("posts_private_desc")} />
             ) : (() => {
               const displayPosts = isSelf ? posts : posts.filter((p) => !hiddenPosts.includes(p.id));
               if (displayPosts.length === 0) {
-                return <EmptyState emoji="💬" title="No posts visible" text="No public community posts available." />;
+                return <EmptyState emoji="💬" title={t("no_posts_visible")} text={t("no_posts_visible_desc")} />;
               }
               return displayPosts.map((p) => {
                 const isHidden = hiddenPosts.includes(p.id);
@@ -483,7 +484,7 @@ export default function PublicProfile() {
                             className={`badge ${isHidden ? "badge-gray" : "badge-purple"}`}
                             style={{ cursor: "pointer", fontSize: 10, padding: "2px 8px" }}
                           >
-                            {isHidden ? <><Lock size={10} style={{ marginRight: 3 }} /> Hidden from public</> : <><Lock size={10} style={{ marginRight: 3 }} /> Public</>}
+                            {isHidden ? <><Lock size={10} style={{ marginRight: 3 }} /> {t("hidden_from_public")}</> : <><Lock size={10} style={{ marginRight: 3 }} /> {t("public_word")}</>}
                           </button>
                         )}
                       </div>
@@ -493,8 +494,8 @@ export default function PublicProfile() {
                     <p className="small clamp-2" style={{ lineHeight: 1.5, color: "var(--ink-700)", margin: 0 }}>{p.body}</p>
                     <div className="row gap-16 space-between" style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--ink-100)", fontSize: 12, color: "var(--ink-500)", fontWeight: 600 }}>
                       <div className="row gap-16 center-v">
-                        <span className="row gap-4 center-v"><ThumbsUp size={14} color="var(--brand-600)" /> {p.likesCount} likes</span>
-                        <span className="row gap-4 center-v"><MessageCircle size={14} color="var(--brand-600)" /> {p.commentsCount} comments</span>
+                        <span className="row gap-4 center-v"><ThumbsUp size={14} color="var(--brand-600)" /> {tf("likes_suffix", { n: p.likesCount })}</span>
+                        <span className="row gap-4 center-v"><MessageCircle size={14} color="var(--brand-600)" /> {tf("comments_suffix", { n: p.commentsCount })}</span>
                       </div>
                       {isSelf && (
                         <button
@@ -502,7 +503,7 @@ export default function PublicProfile() {
                           onClick={() => toggleHidePost(p.id)}
                           style={{ background: "none", border: "none", color: isHidden ? "var(--brand-700)" : "var(--ink-400)", cursor: "pointer", fontSize: 11, fontWeight: 700 }}
                         >
-                          {isHidden ? "Unhide" : "Hide from profile"}
+                          {isHidden ? t("unhide_word") : t("hide_from_profile")}
                         </button>
                       )}
                     </div>
@@ -517,21 +518,21 @@ export default function PublicProfile() {
         {activeTab === "asks" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
             {!isSelf && u.showAsksPublicly === false ? (
-              <EmptyState emoji="🔒" title="Requests are private" text="This member has chosen to keep their service requests private." />
+              <EmptyState emoji="🔒" title={t("requests_private_title")} text={t("requests_private_desc")} />
             ) : requests.length === 0 ? (
-              <EmptyState emoji="📬" title="No requests posted" text="This member has not posted any public service requests." />
+              <EmptyState emoji="📬" title={t("no_requests_posted")} text={t("no_requests_posted_desc")} />
             ) : (
               requests.map((r) => (
                 <div key={r.id} className="card" style={{ borderRadius: 18, cursor: "pointer" }} onClick={() => nav(`/request/${r.id}`)}>
                   <div className="row space-between" style={{ marginBottom: 6, alignItems: "center" }}>
-                    <span className="semi small" style={{ color: "var(--brand-700)" }}>{r.categoryName || "Help Needed"}</span>
+                    <span className="semi small" style={{ color: "var(--brand-700)" }}>{r.categoryName || t("help_needed_fallback")}</span>
                     <span className={`badge ${r.status === "OPEN" ? "badge-green" : REQUEST_STATUS_BADGE[r.status as RequestStatus]?.cls ?? "badge-gray"}`} style={{ fontSize: 11 }}>
-                      {r.status === "OPEN" ? "Open" : REQUEST_STATUS_BADGE[r.status as RequestStatus]?.label ?? r.status}
+                      {r.status === "OPEN" ? t("open_word") : REQUEST_STATUS_BADGE[r.status as RequestStatus]?.label ?? r.status}
                     </span>
                   </div>
                   <p className="small clamp-2" style={{ lineHeight: 1.45, color: "var(--ink-800)", margin: 0 }}>{r.description}</p>
                   <div className="row space-between" style={{ marginTop: 12, fontSize: 12, alignItems: "center" }}>
-                    <span className="bold" style={{ color: "var(--green-600)" }}>{r.budget ? `Budget: ₹${r.budget}` : "Open budget"}</span>
+                    <span className="bold" style={{ color: "var(--green-600)" }}>{r.budget ? tf("budget_amount_label", { amount: r.budget }) : t("open_budget")}</span>
                     <span style={{ fontSize: 11, color: "var(--ink-400)" }}>{r.date}</span>
                   </div>
                 </div>
@@ -544,20 +545,20 @@ export default function PublicProfile() {
         {activeTab === "badges" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
             {!isSelf && u.showBadgesPublicly === false ? (
-              <EmptyState emoji="🔒" title="Badges are private" text="This member has chosen to keep their trust badges private." />
+              <EmptyState emoji="🔒" title={t("badges_private_title")} text={t("badges_private_desc")} />
             ) : u.badges.length === 0 && u.verifications.length === 0 ? (
-              <EmptyState emoji="🏆" title="No badges earned" text="Member achievements will appear here." />
+              <EmptyState emoji="🏆" title={t("no_badges_earned")} text={t("no_badges_earned_desc")} />
             ) : (
               <div className="col gap-14">
                 {u.verifications.length > 0 && (
                   <div className="card" style={{ borderRadius: 18 }}>
                     <div className="semi small" style={{ marginBottom: 10, color: "var(--ink-900)", display: "flex", alignItems: "center", gap: 6 }}>
-                      <Shield size={16} color="var(--green-600)" /> Verified Trust Attributes
+                      <Shield size={16} color="var(--green-600)" /> {t("verified_trust_attributes")}
                     </div>
                     <div className="row wrap gap-8">
                       {u.verifications.map((v) => (
                         <span key={v} className="badge badge-green" style={{ padding: "6px 14px", fontSize: 12, gap: 5 }}>
-                          <BadgeCheck size={13} /> {verifyLabels[v]} Verified
+                          <BadgeCheck size={13} /> {tf("label_verified", { label: t(verifyLabelKeys[v]) })}
                         </span>
                       ))}
                     </div>
@@ -567,7 +568,7 @@ export default function PublicProfile() {
                 {u.badges.length > 0 && (
                   <div className="card" style={{ borderRadius: 18 }}>
                     <div className="semi small" style={{ marginBottom: 10, color: "var(--ink-900)", display: "flex", alignItems: "center", gap: 6 }}>
-                      <Award size={16} color="var(--brand-600)" /> Earned Community Badges
+                      <Award size={16} color="var(--brand-600)" /> {t("earned_community_badges")}
                     </div>
                     <div className="row wrap gap-8">
                       {u.badges.map((b) => (
@@ -588,9 +589,9 @@ export default function PublicProfile() {
       {share && (
         <ShareCard
           title={aliasName(u)}
-          subtitle="STRYT Member"
+          subtitle={t("stryt_member_subtitle")}
           image={u.avatar}
-          meta={`📍 ${u.area || "Neighborhood"} • ⭐ ${u.ratingAvg}`}
+          meta={`📍 ${u.area || t("neighborhood_fallback")} • ⭐ ${u.ratingAvg}`}
           url={window.location.origin + "/u/" + u.id}
           onClose={() => setShare(false)}
         />
@@ -611,6 +612,7 @@ function LocationShareControl({
   setStatus: (s: any) => void;
 }) {
   const { showToast } = useApp();
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
 
   async function ask() {
@@ -654,20 +656,20 @@ function LocationShareControl({
   if (status === "APPROVED") {
     return (
       <button onClick={reveal} disabled={busy} style={{ ...base, background: "rgba(255,255,255,0.9)", color: "var(--brand-700)" }}>
-        {busy ? <Loader size={13} className="spin" /> : <MapPin size={13} />} View exact location
+        {busy ? <Loader size={13} className="spin" /> : <MapPin size={13} />} {t("view_exact_location")}
       </button>
     );
   }
   if (status === "PENDING") {
     return (
       <span style={{ ...base, background: "rgba(255,255,255,0.16)", color: "#fff", cursor: "default" }}>
-        <Loader size={13} /> Location request pending
+        <Loader size={13} /> {t("location_request_pending")}
       </span>
     );
   }
   return (
     <button onClick={ask} disabled={busy} style={{ ...base, background: "rgba(255,255,255,0.16)", color: "#fff" }}>
-      {busy ? <Loader size={13} className="spin" /> : <MapPin size={13} />} Request exact location
+      {busy ? <Loader size={13} className="spin" /> : <MapPin size={13} />} {t("request_exact_location")}
     </button>
   );
 }
