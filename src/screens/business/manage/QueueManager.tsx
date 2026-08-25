@@ -12,6 +12,8 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
 import type { QueueOwnerToken as Token } from "@/types";
 import ManageNav from "./ManageNav";
+import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
+import { consoleFor } from "@/lib/consoleSteps";
 
 // "12m ago" style label for how long a token has been waiting.
 function waitedLabel(iso: string): string {
@@ -71,6 +73,13 @@ export default function QueueManager() {
     `business_id=eq.${businessId}`,
     `queue:${businessId}`
   );
+  // ManageDashboard's own tile for this destination is package-themed
+  // ("Waitlist" for dining, "Pickup queue" for takeaway) via the same
+  // consoleFor() lookup — this screen was the one place still hardcoding
+  // "Queue" regardless of what the dashboard just called it.
+  const { data: business } = useQuery(() => businessService.get(businessId), [businessId], `business:${businessId}`);
+  const queueLabel = consoleFor(BUSINESS_PACKAGES[resolvePackage(business ?? {})], "business")
+    .actions.find((a) => a.id === "queue")?.label ?? "Queue";
 
   // Full past-queue history for the History tab (SERVED/LEFT/EXPIRED, newest
   // first). Separate from the live board so switching tabs is instant.
@@ -226,7 +235,7 @@ export default function QueueManager() {
   if (!businessId) {
     return (
       <div className="screen">
-        <AppBar title="Queue" />
+        <AppBar title={queueLabel} />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
       </div>
     );
@@ -235,7 +244,7 @@ export default function QueueManager() {
   if (loading) {
     return (
       <div className="screen">
-        <AppBar title="Queue" />
+        <AppBar title={queueLabel} />
         <div className="screen-scroll page-pad col gap-14" style={{ paddingBottom: 30 }}>
           <Skeleton h={64} r={16} mb={0} />
           <Skeleton h={90} r={16} mb={0} />
@@ -278,7 +287,7 @@ export default function QueueManager() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Queue" right={
+      <AppBar title={queueLabel} right={
         <button className="icon-btn" onClick={() => { refetch(); refetchHistory(); }} title="Refresh">
           <RefreshCw size={17} />
         </button>
@@ -342,11 +351,19 @@ export default function QueueManager() {
                 min={2}
                 max={Math.max(120, avgTime)}
                 value={avgTime}
+                // onChange fires continuously while dragging (React's onChange
+                // for a range input is the native 'input' event) — only
+                // update the live display here. The actual write is
+                // committed once on release/key-up, same as the number
+                // input above saves on blur rather than per keystroke.
                 onChange={(e) => {
                   const val = Number(e.target.value);
                   setInputValue(val.toString());
-                  saveAvgTime(val);
+                  setAvgTime(val);
                 }}
+                onMouseUp={(e) => saveAvgTime(Number((e.target as HTMLInputElement).value))}
+                onTouchEnd={(e) => saveAvgTime(Number((e.target as HTMLInputElement).value))}
+                onKeyUp={(e) => saveAvgTime(Number((e.target as HTMLInputElement).value))}
                 style={{ width: "100%", accentColor: "var(--brand-500)", marginTop: 12 }}
               />
               <div className="tiny muted" style={{ marginTop: 4 }}>Drives every customer's live wait estimate.</div>
