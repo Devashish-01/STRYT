@@ -83,7 +83,6 @@ export default function DesktopSidebar() {
         { to: `${base}/inbox`, label: "Inbox", icon: Inbox, badge: chatUnread || undefined },
         { to: `${base}/appointments`, label: "Appointments", icon: CalendarClock },
         { to: `${base}/queue`, label: "Live Queue", icon: Plus },
-        { to: `${base}/offers`, label: "Offers", icon: ImageIcon },
         { to: `${base}/bulk-deals`, label: "Bulk deals", icon: Package },
         { to: `${base}/settings`, label: "Settings", icon: Settings },
       ];

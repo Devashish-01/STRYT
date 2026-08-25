@@ -51,8 +51,14 @@ export default function ProviderAvailability() {
     try {
       const scheduleEval = evaluateProviderAvailability(provider?.availabilityNote, undefined, provider?.availableUntil);
       if (next && !scheduleEval.isOpenNow) {
-        // Turning ON during off-hours: set availableUntil to next day's turnoff time!
-        const turnoff = calculateNextTurnoffTime(noteRaw);
+        // Turning ON during off-hours: set availableUntil to next day's turnoff time.
+        // Uses the SAVED schedule (provider.availabilityNote), matching what
+        // scheduleEval above just checked — not noteRaw, which is the live
+        // WeeklyHoursEditor draft and can differ from what's actually saved
+        // if the provider edited hours but hasn't hit Save yet. Using the
+        // draft here would compute a turnoff time against a schedule that
+        // isn't the one currently in effect.
+        const turnoff = calculateNextTurnoffTime(provider?.availabilityNote);
         const diffHrs = Math.max(1, Math.round((turnoff.getTime() - Date.now()) / (3600 * 1000)));
         await providerService.setAvailability(id, true, diffHrs);
         showToast(`Available until ${turnoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} tomorrow ⚡`);
