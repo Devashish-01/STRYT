@@ -83,6 +83,25 @@ export default function BusinessAppointments() {
   );
 
   const appointments = useMemo(() => data ?? [], [data]);
+  // Precomputed once per data change rather than re-filtering the full
+  // appointments array on every card's render (renderAppointmentCard calls
+  // both of these once per row, across every tab/list — O(n²) over a
+  // season's booking history otherwise). Must sit above the `!id` early
+  // return below — hooks can't run conditionally.
+  const rejectedClaimsByCustomer = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of appointments) {
+      if (a.paymentStatus === "REJECTED") m.set(a.customerId, (m.get(a.customerId) ?? 0) + 1);
+    }
+    return m;
+  }, [appointments]);
+  const noShowsByCustomer = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of appointments) {
+      if (a.status === "NO_SHOW") m.set(a.customerId, (m.get(a.customerId) ?? 0) + 1);
+    }
+    return m;
+  }, [appointments]);
   const blockedSlots = blockedData ?? [];
   // Same resolution the storefront and CatalogManager use, so the owner's
   // console calls a booking whatever the customer-facing page called it.
@@ -234,24 +253,6 @@ export default function BusinessAppointments() {
     }
   }
 
-  // Precomputed once per data change rather than re-filtering the full
-  // appointments array on every card's render (renderAppointmentCard calls
-  // both of these once per row, across every tab/list — O(n²) over a
-  // season's booking history otherwise).
-  const rejectedClaimsByCustomer = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const a of appointments) {
-      if (a.paymentStatus === "REJECTED") m.set(a.customerId, (m.get(a.customerId) ?? 0) + 1);
-    }
-    return m;
-  }, [appointments]);
-  const noShowsByCustomer = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const a of appointments) {
-      if (a.status === "NO_SHOW") m.set(a.customerId, (m.get(a.customerId) ?? 0) + 1);
-    }
-    return m;
-  }, [appointments]);
   const rejectedClaimsCount = (customerId: string): number => rejectedClaimsByCustomer.get(customerId) ?? 0;
   const noShowCount = (customerId: string): number => noShowsByCustomer.get(customerId) ?? 0;
 
