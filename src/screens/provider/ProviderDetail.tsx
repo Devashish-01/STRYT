@@ -222,7 +222,7 @@ export default function ProviderDetail() {
                 <span className="badge" style={{ background: "rgba(255,255,255,0.22)", color: "#fff" }}>
                   <Star size={11} fill="var(--amber-500)" strokeWidth={0} /> {p.ratingCount > 0 ? `${p.ratingAvg} (${p.ratingCount})` : "New"}
                 </span>
-                {p.isNew && <span className="badge" style={{ background: "#ff8400", color: "#fff" }}>NEW</span>}
+                {p.isNew && <span className="badge badge-new">NEW</span>}
                 {avail && <span className="badge" style={{ background: "#fff", color: "var(--green-500)" }}>⚡ Free till {avail.availableUntil}</span>}
               </div>
             </div>

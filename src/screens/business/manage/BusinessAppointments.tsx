@@ -234,13 +234,26 @@ export default function BusinessAppointments() {
     }
   }
 
-  // Count how many previous rejected UPI claims this customer has with this business.
-  function rejectedClaimsCount(customerId: string): number {
-    return appointments.filter((a) => a.customerId === customerId && a.paymentStatus === "REJECTED").length;
-  }
-  function noShowCount(customerId: string): number {
-    return appointments.filter((a) => a.customerId === customerId && a.status === "NO_SHOW").length;
-  }
+  // Precomputed once per data change rather than re-filtering the full
+  // appointments array on every card's render (renderAppointmentCard calls
+  // both of these once per row, across every tab/list — O(n²) over a
+  // season's booking history otherwise).
+  const rejectedClaimsByCustomer = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of appointments) {
+      if (a.paymentStatus === "REJECTED") m.set(a.customerId, (m.get(a.customerId) ?? 0) + 1);
+    }
+    return m;
+  }, [appointments]);
+  const noShowsByCustomer = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of appointments) {
+      if (a.status === "NO_SHOW") m.set(a.customerId, (m.get(a.customerId) ?? 0) + 1);
+    }
+    return m;
+  }, [appointments]);
+  const rejectedClaimsCount = (customerId: string): number => rejectedClaimsByCustomer.get(customerId) ?? 0;
+  const noShowCount = (customerId: string): number => noShowsByCustomer.get(customerId) ?? 0;
 
   async function confirmBlock(opts: { recurring: boolean; reason: string }) {
     if (!blockModal) return;

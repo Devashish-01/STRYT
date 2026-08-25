@@ -15,6 +15,10 @@
   --accent-500: #ff9500;
   --accent-600: #e07800;
 
+  /* Story ring gradient's warm stop — distinct from --accent-500 (#ff9500),
+     kept as its own token rather than duplicated as a raw hex in Stories.tsx */
+  --story-ring-amber: #ff8400;
+
   /* Live/social accent — Live Pulse dot, story ring, queue-live, "Join queue" */
   --pink-50: #fff1f9;
   --pink-100: #ffe0f1;

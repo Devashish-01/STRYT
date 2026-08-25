@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useState } from "react";
-import { AppBar } from "@/components/common";
+import { AppBar, EmptyState } from "@/components/common";
 import { AlertTriangle, ChevronRight, Package, Check, X } from "@/components/Icons";
 import { businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -8,7 +8,7 @@ import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import type { CatalogItem } from "@/types";
-import { ItemEditor, type Kind } from "./CatalogManager";
+import { ItemEditor, serviceFor, type Kind } from "./CatalogManager";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -69,7 +69,7 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
     setBusyId(item.id);
     haptics.selection();
     try {
-      await businessService.updateCatalogItem(id, item.id, changes);
+      await serviceFor(kind).updateCatalogItem(id, item.id, changes);
       showToast(okMsg);
       refetch();
     } catch (e: any) {
@@ -161,13 +161,11 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
       />
       <div className="screen-scroll page-pad col gap-18" style={{ paddingBottom: 30 }}>
         {catalog.length === 0 && (
-          <div className="col center" style={{ padding: "48px 20px", gap: 12 }}>
-            <Package size={36} color="var(--ink-300)" />
-            <div className="semi small" style={{ color: "var(--ink-500)" }}>Nothing in your catalogue yet</div>
-            <p className="tiny muted center" style={{ maxWidth: 250, lineHeight: 1.5 }}>
-              Add products or services from the Catalogue screen and their stock will show up here.
-            </p>
-          </div>
+          <EmptyState
+            emoji="📦"
+            title="Nothing in your catalogue yet"
+            text="Add products or services from the Catalogue screen and their stock will show up here."
+          />
         )}
 
         {outOfStock.length > 0 && (
