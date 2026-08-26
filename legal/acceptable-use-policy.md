@@ -1,7 +1,7 @@
-# STRYT — Acceptable Use Policy
+# STRYT â€” Acceptable Use Policy
 
 **Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 19 July 2026
+**Last Updated:** 26 August 2026
 **Version:** 1.0 (draft for legal review)
 
 This Acceptable Use Policy ("AUP") applies to everyone who uses STRYT (the app, **https://stryt.in**, and the native Android and iOS apps) in any role. It forms part of the [Terms & Conditions](terms-and-conditions.md) and should be read with the [Community Guidelines](community-guidelines.md). Breaching this AUP is a breach of the Terms and may lead to content removal, feature restriction, suspension, or termination, and where appropriate reporting to authorities.
@@ -14,7 +14,7 @@ STRYT is a hyperlocal platform where neighbours discover each other, transact, a
 
 When you use STRYT you agree to:
 - act lawfully, honestly, and safely;
-- treat other Users — customers, sellers, providers, and neighbours — with respect;
+- treat other Users â€” customers, sellers, providers, and neighbours â€” with respect;
 - use each feature only for its intended purpose; and
 - take responsibility for your listings, content, transactions, and conduct.
 
@@ -54,16 +54,17 @@ You must not use STRYT to advertise, solicit, sell, or arrange:
 
 You must not:
 - **Impersonate** any person, business, or provider, or misrepresent your identity, credentials, affiliation, alias, or which "hat" (role) you are acting as.
-- **Manipulate trust systems** — post or solicit fake or incentivised reviews, ratings, vouches, endorsements, Q&A, or "me too"/group-buy signals; rate your own or a competitor's profile; or game leaderboards, achievements, or search ranking.
-- **Abuse the payment records** — falsely tap "I have paid", falsely confirm or reject a payment claim, or use the claim/confirm flow to defraud or mislead the other party.
+- **Manipulate trust systems** â€” post or solicit fake or incentivised reviews, ratings, vouches, endorsements, Q&A, or "me too"/group-buy signals; rate your own or a competitor's profile; or game leaderboards, achievements, or search ranking.
+- **Abuse the payment records** â€” falsely tap "I have paid", falsely confirm or reject a payment claim, or use the claim/confirm flow to defraud or mislead the other party.
 - **Harass or stalk** any User, on- or off-platform, including through messages, reachouts, reviews, comments, or repeated unwanted contact.
-- **Misuse safety features** — use live-location sharing, emergency contacts, one-time location requests, or public tracking links to surveil, track, coerce, harass, lure, or endanger anyone, or to share a person's location without a legitimate, consented purpose.
-- **Harvest data** — scrape, crawl, bulk-collect, or index Users' personal data, contact details, locations, listings, or content, whether by automated means or manually, including data made visible on profiles, listings, or the map.
-- **Circumvent controls** — attempt to bypass authentication, access controls, row-level security, rate limits, verification, moderation, the Switch PIN, or any access restriction; or access Accounts, consoles, admin functions, the database, Edge Functions, or storage you are not authorised to.
-- **Attack the service** — introduce malware; perform denial-of-service, injection, or brute-force attacks; probe, scan, or test vulnerabilities without authorisation; or otherwise disrupt or overload the Platform or its infrastructure.
-- **Evade enforcement** — create Accounts or listings to evade a suspension or ban, or by automated means.
-- **Spam** — misuse notifications, messaging, reachouts, community posts, requests, quotes, or the "request payment" nudge to send unsolicited or excessive communications.
-- **Endanger others in person** — use the Platform to arrange meetings for unlawful, fraudulent, or harmful purposes.
+- **Misuse safety features** â€” use live-location sharing, emergency contacts, one-time location requests, or public tracking links to surveil, track, coerce, harass, lure, or endanger anyone, or to share a person's location without a legitimate, consented purpose.
+- **Harvest data** â€” scrape, crawl, bulk-collect, or index Users' personal data, contact details, locations, listings, or content, whether by automated means or manually, including data made visible on profiles, listings, or the map.
+- **Circumvent controls** â€” attempt to bypass authentication, access controls, row-level security, rate limits, verification, moderation, a Business/Provider password, or any access restriction; or access Accounts, consoles, admin functions, the database, Edge Functions, or storage you are not authorised to.
+- **Attack the service** â€” introduce malware; perform denial-of-service, injection, or brute-force attacks; probe, scan, or test vulnerabilities without authorisation; or otherwise disrupt or overload the Platform or its infrastructure.
+- **Evade enforcement** â€” create Accounts or listings to evade a suspension or ban, or by automated means.
+- **Spam** â€” misuse notifications, messaging, reachouts, community posts, requests, quotes, or the "request payment" nudge to send unsolicited or excessive communications.
+- **Submit fake places** â€” post a "Place to Visit" that does not exist, is a private residence, or is intended to mislead, harass, or endanger anyone.
+- **Endanger others in person** â€” use the Platform to arrange meetings for unlawful, fraudulent, or harmful purposes.
 
 ---
 
@@ -75,7 +76,7 @@ STRYT enables real-world interactions. For your own safety you should meet in pu
 
 ## 6. Security research and vulnerability reporting
 
-If you discover a security vulnerability, report it promptly and privately through **Account ? Help & Support** and do not exploit it, access other Users' data, degrade the service, or publicly disclose it before we have had a reasonable opportunity to address it. Good-faith, responsible reporting that follows this section will not be pursued as a breach.
+If you discover a security vulnerability, report it promptly and privately through **Account â†’ Help & Support** and do not exploit it, access other Users' data, degrade the service, or publicly disclose it before we have had a reasonable opportunity to address it. Good-faith, responsible reporting that follows this section will not be pursued as a breach.
 
 ---
 
@@ -94,7 +95,7 @@ If you discover a security vulnerability, report it promptly and privately throu
 ## 8. Reporting violations
 
 - Use the in-app **Report** option on a profile, listing, request, post, or review.
-- Use **Account ? Help & Support** for other concerns.
+- Use **Account â†’ Help & Support** for other concerns.
 - For grievances and legal notices, see the [Grievance Redressal Policy](grievance-redressal-policy.md).
 
 ---

@@ -1,7 +1,7 @@
 # STRYT — Refund & Cancellation Policy
 
 **Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 19 July 2026
+**Last Updated:** 26 August 2026
 **Version:** 1.0 (draft for legal review)
 
 This Refund & Cancellation Policy forms part of the [Terms & Conditions](terms-and-conditions.md) and must be read with them, the [Merchant & Provider Terms](merchant-terms.md), and the [Grievance Redressal Policy](grievance-redressal-policy.md).
@@ -56,6 +56,14 @@ This Refund & Cancellation Policy forms part of the [Terms & Conditions](terms-a
 
 ### 3.4 Walk-in purchases
 - Walk-in payments are recorded after a direct, in-person transaction. Refunds/returns for walk-in purchases are handled **by the Business directly** per its own practice and applicable law.
+
+### 3.5 Bulk Deals and Group Buys
+- **Bulk Deal orders** (a Business's quantity-tiered wholesale offer) are paid for and refunded the same way as a walk-in purchase — directly by/to the Business, per its own practice.
+- **Group Buys**: pledging a quantity is not a payment and can be withdrawn any time before the pool's initiator accepts a Quote (Terms §11A.2). Once accepted, each participant gets a claim pass; **payment happens when you redeem your pass in person**, directly with the Business. If a Business cannot honour a claim pass (e.g. it is out of stock), any refund or replacement is the Business's responsibility, the same as any other direct Customer–Seller payment.
+- STRYT does not refund a pledge, a claim pass, or a Bulk Deal order, because it never held that money.
+
+### 3.6 Custom / freeform payments
+- A "Pay any amount" payment (a self-chosen amount sent to a Business/Provider with no booking, deal, or queue visit attached) works exactly like the other payment types above: the claim/confirm/reject status is a record only, and any refund is a matter **between you and the Seller directly**, per Section 2.
 
 ---
 

@@ -4,7 +4,7 @@
 
 This page explains our Terms & Conditions in simple words so you can understand the main points quickly. It is **not** a substitute for the full documents. If anything here seems different from the full [Terms & Conditions](terms-and-conditions.md) or a specific policy, the full documents are what legally apply.
 
-**Last updated:** 19 July 2026
+**Last updated:** 26 August 2026
 
 ---
 
@@ -20,7 +20,7 @@ STRYT helps you discover shops and independent service providers near you, ask y
 
 - **You need to be 18 or older** to sign up and use STRYT. It's built for use in India.
 - **You sign in with Google.** Keep that Google account secure — anyone with it can get into your STRYT account.
-- **One account, many roles.** The same account can be a customer, run one or more shops, and offer services as a solo provider. You switch between these "hats" yourself. You can set an optional PIN to protect switching into a shop/provider view on a shared phone.
+- **One account, many roles.** The same account can be a customer, run one or more shops, and offer services as a solo provider. You switch between these "hats" yourself. If you own a shop or offer services, you can set a password that protects switching into that console on a shared phone — it applies to you and to anyone you've given access to.
 
 ---
 
@@ -34,6 +34,7 @@ This is the most important thing to understand:
 - Words like "held" or "release" in a deal are just labels inside the app. **We are not holding any money at any point.**
 - **Because we never hold your money, we can't give refunds.** Any refund is between you and the shop/provider. Pay carefully, check you're paying the right person, and confirm only after you actually get what you paid for.
 - Paid STRYT features (like "Pro" plans, lead packs, or "boosts") are **not on sale in the app right now** — there's no payment gateway wired up.
+- You can also send a shop or provider a **custom "Pay any amount"** payment with no booking attached — it works exactly the same way (direct UPI/cash, claim/confirm/reject, no STRYT refund).
 
 ---
 
@@ -42,6 +43,8 @@ This is the most important thing to understand:
 - **Estimates and wait times are guesses**, not promises. A shop can accept or decline your booking, and control its own queue.
 - Accepting a quote creates a **Deal** with a real neighbour — treat it as a real commitment. Cancelling or not showing up can affect your reputation on STRYT.
 - Cancellations follow the [Refund & Cancellation Policy](refund-cancellation-policy.md). The shop/provider sets its own practical rules too.
+- **Bulk deals and group buys:** shops can post tiered bulk pricing you order directly, or you can pledge to join a neighbour's group buy. Pledging isn't a payment and you can back out any time before the deal is accepted. Once it's accepted (by whoever started the group buy, on everyone's behalf), you get a **QR claim pass** — you pay and collect in person at the shop.
+- Anyone can suggest a **Place to Visit** for the Map (a trek, viewpoint, sports venue, etc.) — it only shows up for others after a STRYT admin reviews and approves it.
 
 ---
 

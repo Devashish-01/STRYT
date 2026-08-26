@@ -26,13 +26,15 @@ Indian Contract Act 1872; Information Technology Act 2000 and the IT (Intermedia
 
 ## Product facts these documents are built on (verified in code)
 
-- **No money custody.** STRYT is not a payment gateway/aggregator/escrow. Payments are direct Customer to Seller via UPI deep-link/QR or cash; the app only records claim/confirm/reject **status**. No Razorpay/gateway is wired. Therefore **STRYT issues no refunds**.
-- **Paid features are dormant.** Pro plans, provider lead packs, boosts, wallet/loyalty/coupons, recurring subscriptions, the society/gate-pass module, phone/email OTP sign-in, and SMS all exist in the code but are **not available to users** — documented as such, not as live offerings.
+- **No money custody.** STRYT is not a payment gateway/aggregator/escrow. Payments are direct Customer to Seller via UPI deep-link/QR or cash; the app only records claim/confirm/reject **status** — including a "Pay any amount" custom payment with no booking attached. No Razorpay/gateway is wired. Therefore **STRYT issues no refunds**.
+- **Places to Visit.** Any signed-in user can submit a non-commercial point of interest (mountain/trek/sports venue/tourist spot/other) for the Map; it stays `PENDING` and visible only to the submitter and admins until a STRYT admin approves it.
+- **Bulk Deals and Group Buys.** Businesses can post quantity-tiered wholesale offers ordered directly. Separately, a Customer's group-buy Request lets others pledge a quantity (non-binding, withdrawable); only the Request's initiator accepts a Quote on the pool's behalf, after which every pledger gets a redeemable QR claim pass paid for and collected in person at the Business — STRYT never pools or holds the money.
+- **Paid features are dormant.** Pro plans, provider lead packs, boosts, wallet/loyalty/coupons, recurring subscriptions, the society/gate-pass module, phone/email OTP sign-in, SMS, and the delivery/dispatch (delivery agent) module all exist in the code but are **not available to users** — documented as such, not as live offerings.
 - **"AI" is statistics.** The price suggestion is SQL aggregation of recent quotes; the deployed `ai-assist` function calls no external LLM and does not process user free-text. (A Gemini key is referenced in config but not wired into the deployed function.)
 - **Auth** is Google Sign-In via Firebase only; guests are capped to ~1 km.
 - **Sensitive data:** optional KYC/verification documents are uploaded and stored; exact location is used but only the **last-known** point is stored (no history); privacy-by-default (real name/contact/location private).
 - **Deletion** = 30-day recoverable grace period, then anonymise user record + delete Auth identity + purge storage/KYC files; blocked while active deals or "held"-status payment records exist; admin actions audit-logged; full customer deletion needs Super Admin + typed confirmation.
-- **Integrations:** Supabase (data/auth/storage), Google/Firebase (auth + FCM push), OpenStreetMap/Nominatim (maps/geocoding), Vercel (hosting + anonymous analytics), SMTP/Gmail (support email to stryt.assistance@gmail.com), Web Push. Domain: **stryt.in**.
+- **Integrations:** Supabase (data/auth/storage), Google/Firebase (auth + FCM push), Mapbox (primary geocoding/place search), OpenStreetMap/Nominatim (fallback geocoding + map tiles), Vercel (hosting + anonymous analytics), SMTP/Gmail (support email to stryt.assistance@gmail.com), Web Push. Domain: **stryt.in**.
 
 ## ⚠️ Must be completed before publication (fill-ins)
 

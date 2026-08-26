@@ -1,7 +1,7 @@
 ﻿# STRYT — Community Guidelines
 
 **Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 19 July 2026
+**Last Updated:** 26 August 2026
 **Version:** 1.0 (draft for legal review)
 
 STRYT is your street, and your people. It works because real neighbours — customers, shopkeepers, and independent providers — treat each other with honesty and respect. These Community Guidelines explain how to behave across the **community feed, stories, reviews, Q&A, messages, requests, and listings**. They sit alongside the stricter, enforceable [Acceptable Use Policy](acceptable-use-policy.md) and form part of the [Terms & Conditions](terms-and-conditions.md). Where these Guidelines and the AUP overlap, the AUP governs enforcement.
@@ -25,6 +25,7 @@ STRYT is your street, and your people. It works because real neighbours — cust
 - Report content or people that break the rules, using the in-app **Report** option.
 - Respect people's privacy and their choice to keep their real name, contact, and location private.
 - Use the safety tools (live location, emergency contacts) responsibly to look after yourself and others.
+- If you suggest a **Place to Visit**, submit somewhere real that you'd genuinely recommend — it goes through admin review before it appears on the Map for others.
 
 ---
 
@@ -38,6 +39,7 @@ STRYT is your street, and your people. It works because real neighbours — cust
 - **No spam or manipulation.** Don't flood feeds, DMs, reachouts, or reviews with unsolicited promotion; don't rig ratings, leaderboards, group-buys, or search.
 - **No impersonation.** Don't pose as another person, business, provider, or as STRYT staff.
 - **No misusing safety features** to track, harass, or endanger anyone.
+- **No fake places.** Don't submit a Place to Visit that doesn't exist, is someone's private home, or is meant as a prank or to mislead people.
 
 ---
 

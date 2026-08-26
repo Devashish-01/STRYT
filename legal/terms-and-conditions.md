@@ -1,7 +1,7 @@
 # STRYT — Terms & Conditions
 
 **Effective Date:** [To be set by STRYT on publication — see Section 54]
-**Last Updated:** 19 July 2026
+**Last Updated:** 26 August 2026
 **Version:** 1.0 (draft for legal review — not yet published)
 
 > **Reviewer's note (delete before publication).** This document was drafted from a direct reading of the STRYT codebase (frontend, Supabase database schema of 72 tables, Edge Functions, and configuration) so that every clause maps to functionality that actually exists in the product. Where the product genuinely does not yet do something (for example, in-app paid subscriptions or a payment gateway), the clause says so rather than inventing terms. Items that only the company can supply — legal entity name, registered address, GST/CIN, and the named Grievance Officer — are listed in **Section 0 (Operator Information)** and must be completed by STRYT and confirmed by qualified Indian legal counsel before this document is published. Do not publish with the bracketed placeholders in Section 0 unfilled.
@@ -65,7 +65,10 @@ In these Terms, unless the context requires otherwise:
 - **"Deal" / "Agreement"** — the tracked arrangement created when a Customer accepts a Quote.
 - **"Appointment" / "Booking"** — a scheduled booking made directly from a Seller's profile.
 - **"Live Queue"** — a Business's virtual walk-in line that Customers may join remotely.
-- **"Content"** — any text, photo, rating, review, comment, story, message, voice input, listing, or other material submitted to the Platform.
+- **"Bulk Deal"** — a Business's quantity-tiered wholesale offer, subject to a minimum order quantity and (optionally) a limited quota.
+- **"Group Buy"** — a Request that other Customers may join by pledging a quantity, resolved when the initiating Customer accepts a Quote on the pool's behalf; each participant then receives a redeemable claim pass (Section 11A).
+- **"Place"** — a non-commercial point of interest (e.g. a mountain, trek, sports venue, or tourist spot) submitted by a User and shown on the Map once approved by a STRYT Admin.
+- **"Content"** — any text, photo, rating, review, comment, story, message, voice input, listing, Place submission, or other material submitted to the Platform.
 - **"UPI"** — the Unified Payments Interface operated under the National Payments Corporation of India (NPCI).
 - **"Verified" / "STRYT Verified"** — a trust badge granted only after a human STRYT reviewer approves documents submitted by a Seller.
 - **"DPDP Act"** — the Digital Personal Data Protection Act, 2023.
@@ -106,7 +109,7 @@ In these Terms, unless the context requires otherwise:
 
 5.4 **One person, multiple roles.** A single Account may simultaneously act as a Customer, own one or more Businesses, and hold one Provider profile. You switch between these roles ("hats") from your profile. You remain responsible for all activity conducted under your Account in every role.
 
-5.5 **Switch PIN.** You may set an optional 4–6 digit Switch PIN that is required to switch **into** a Business or Provider console (never to return to the Customer view). The Switch PIN is a convenience control to protect a console on a shared device; it is not a guarantee of security and does not replace the security of your Google account.
+5.5 **Business/Provider password.** If you own a Business or Provider, you may set a password for that console. The same password gates entry for you and for any Delegated User you grant access to — anyone opening that console, owner or delegate, must enter it (it is never required to return to the Customer view). It is a convenience control to protect a console on a shared device, not a guarantee of security, and does not replace the security of your Google account.
 
 5.6 **Responsibility.** You are responsible for all activity that occurs under your Account. Notify us promptly through Help & Support if you suspect unauthorised use.
 
@@ -196,9 +199,25 @@ In these Terms, unless the context requires otherwise:
 
 ---
 
+## 11A. Bulk Deals and Group Buys
+
+11A.1 **Bulk Deals.** A Business may post a wholesale/bulk offer with quantity-tiered pricing, a minimum order quantity, and (optionally) a limited quota. A Customer orders directly against the Business's stated tiers; the applicable price, minimum quantity, and remaining quota are enforced by STRYT's systems at the time of order, but STRYT does not itself sell the goods and is not a party to the sale (Section 7).
+
+11A.2 **Group Buys — pooling.** A Customer may post a group-buy Request that other Customers can join by pledging a quantity they want. **Pledging is an expression of interest, not a binding commitment to buy** — you may withdraw your pledge at any time before the group buy closes.
+
+11A.3 **Who accepts the deal.** Only the Customer who posted the Request (the "initiator") reviews Quotes and accepts one on behalf of everyone who pledged. Other participants do not see competing quotes and do not separately negotiate; by pledging, you accept that the initiator negotiates and accepts terms for the pool. Accepting a Quote creates a Deal/Agreement as described in Section 13.
+
+11A.4 **Claim passes.** Once the initiator accepts a Quote, every pooled member — including the initiator — receives their own **claim pass** (a redeemable QR code) for their pledged quantity at the agreed price. A claim pass may carry a validity window, after which it expires.
+
+11A.5 **Redemption and payment.** A claim pass is redeemed **in person at the Business**, which scans it to confirm and hand over the goods; a pass can be redeemed once and cannot be reused. Payment for what you redeem is made **directly to the Business**, in the same way as a walk-in purchase (Section 11) or a payment described in Section 13 — STRYT does not collect, pool, or hold payment for a group buy on anyone's behalf.
+
+11A.6 STRYT does not guarantee that a group buy will reach the quantities pledged, that any Seller will quote, or that a Business will have stock to honour a claim pass. Disputes about a Bulk Deal or Group Buy follow Section 13.4 and the Refund & Cancellation Policy. Manipulating pledges, quotas, or claim passes is prohibited (Section 36).
+
+---
+
 ## 12. QR Code Usage
 
-12.1 The Platform generates QR codes that link to a Business, Provider, profile, or Request, and can generate UPI payment QR codes/deep links, and (where enabled) loyalty-stamp QR codes. The Platform also includes an in-app camera scanner for reading STRYT QR codes.
+12.1 The Platform generates QR codes that link to a Business, Provider, profile, or Request, can generate UPI payment QR codes/deep links, **group-buy claim passes** (Section 11A), and (where enabled) loyalty-stamp QR codes. The Platform also includes an in-app camera scanner for reading STRYT QR codes.
 
 12.2 You must only scan QR codes you trust. STRYT is not responsible for QR codes generated, printed, altered, or displayed outside the Platform, or for any payment made by scanning a code that was not generated by the intended recipient.
 
@@ -210,7 +229,7 @@ In these Terms, unless the context requires otherwise:
 
 13.1 **STRYT is not a payment system, payment aggregator, payment gateway, escrow agent, trustee, or money-services business, and does not collect, hold, process, route, or disburse any money between Users.** STRYT is not a "payment system provider" under the Payment and Settlement Systems Act, 2007 and does not require RBI authorisation for the payment functionality described here, because it never comes into possession of Users' funds.
 
-13.2 **How payments actually work.** All payments for Appointments, Deals, Live Queue visits, and walk-in purchases are made **directly between the payer and the Seller**, using either:
+13.2 **How payments actually work.** All payments for Appointments, Deals, Live Queue visits, walk-in purchases, Bulk Deal orders, and Group Buy claim-pass redemptions (Section 11A) are made **directly between the payer and the Seller**, using either:
 
 - (a) **UPI** — via a UPI deep-link or QR code that the Platform generates so the payer can pay using any UPI app (e.g. GPay, PhonePe, Paytm, BHIM); the payment is settled bank-to-bank under NPCI/UPI rules, entirely outside STRYT; or
 - (b) **cash**, handed over in person.
@@ -224,6 +243,14 @@ In these Terms, unless the context requires otherwise:
 13.6 **Payment risk is yours.** You are responsible for verifying the identity of the person you pay, that the UPI ID/QR belongs to the intended recipient, and that you have actually received what you paid for before confirming. STRYT is not liable for payments made to the wrong person, for goods or services not delivered, or for any UPI, bank, or app failure.
 
 13.7 **Paid STRYT features are not currently live.** Certain paid features referenced in the app — such as business "Pro" plans, provider lead packs, and listing "boosts" — are **not currently available for purchase in-app**; no online payment gateway is integrated. If and when such features become purchasable, additional terms and a Refund & Cancellation Policy specific to those STRYT-charged fees will apply and will be presented to you at the point of purchase. Any such fees, until an in-app gateway is live, are handled offline by arrangement.
+
+---
+
+## 13A. Custom / Freeform Payments
+
+13A.1 A Customer may pay a Business or Provider a **self-chosen amount with no prior Appointment, Deal, or Live Queue visit attached** — for example to pay for something arranged in person or over chat. This works exactly like the payments described in Section 13: the Platform generates a UPI deep-link/QR (or the parties agree cash) for a payment made **directly between the payer and the Seller**, and STRYT records only the amount, method, an optional note/reference, and a claim/confirm/reject status.
+
+13A.2 Everything in Section 13 applies equally here: STRYT does not hold, process, or verify this payment; the claim/confirm/reject actions are status labels only, not proof of payment; and STRYT issues no refund for it (see the Refund & Cancellation Policy). A Seller must confirm receipt only after verifying it in their own bank/UPI records, per the Merchant & Provider Terms.
 
 ---
 
@@ -255,6 +282,18 @@ In these Terms, unless the context requires otherwise:
 
 ---
 
+## 16A. Places to Visit
+
+16A.1 Any signed-in User may submit a **Place** — a point of interest such as a mountain, trek, sports venue, tourist spot, or other local landmark — for display on the Map. Unlike a Business or Provider listing, a Place is not a commercial listing: it has no catalogue, booking, or payment attached, and nobody "owns" it in a commercial sense.
+
+16A.2 **A submitted Place does not become publicly visible until a STRYT Admin approves it.** Until approved, only you and STRYT Admins can see your submission and its status. STRYT may approve, reject (with a reason), or later remove or edit the placement of any Place, at its discretion, for accuracy, safety, duplication, or policy reasons.
+
+16A.3 You are responsible for the accuracy of what you submit — the name, category, description, location, and any photos. Do not submit a place that does not exist, a private residence, or a location intended to mislead, harass, or endanger anyone.
+
+16A.4 STRYT does not independently verify a Place's existence, accessibility, safety, legal status (e.g. permitted access, private land), or current condition. Visiting any Place shown on the Map is at your own risk; STRYT is not responsible for conditions at, or your journey to, any Place.
+
+---
+
 ## 17. Reviews and Ratings
 
 17.1 Signed-in Customers may leave a 1–5 star rating and a written review of a Seller. A review tied to a genuine completed booking may be marked with a "Verified booking" badge; other reviews are not so marked.
@@ -269,7 +308,7 @@ In these Terms, unless the context requires otherwise:
 
 ## 18. User Generated Content
 
-18.1 **Definition.** "User Generated Content" (UGC) includes Requests, Quotes, reviews, ratings, community posts, comments, poll votes, stories, highlights, Q&A, chat messages, listing details, catalogue and portfolio items, photos, captions, voice-to-text input, support and bug reports, and any other Content you submit.
+18.1 **Definition.** "User Generated Content" (UGC) includes Requests, Quotes, reviews, ratings, community posts, comments, poll votes, stories, highlights, Q&A, chat messages, listing details, catalogue and portfolio items, Place submissions, photos, captions, voice-to-text input, support and bug reports, and any other Content you submit.
 
 18.2 **Ownership.** You retain ownership of Content you create. STRYT does not claim ownership of your UGC.
 
@@ -339,7 +378,7 @@ In these Terms, unless the context requires otherwise:
 
 ## 25. Third Party Services
 
-25.1 The Platform relies on third-party services, including: **Google Sign-In via Firebase Authentication** (authentication), **Supabase** (backend database, storage, and authentication infrastructure), **OpenStreetMap / Nominatim / Leaflet** (maps and geocoding), **UPI/NPCI** (the payment rails you use directly), **Firebase Cloud Messaging** and browser Web Push (notifications), **Vercel** (hosting and analytics), and an **SMTP email** service (support ticket delivery).
+25.1 The Platform relies on third-party services, including: **Google Sign-In via Firebase Authentication** (authentication), **Supabase** (backend database, storage, and authentication infrastructure), **Mapbox** (primary geocoding and place search), **OpenStreetMap / Nominatim** (fallback geocoding and map tile data), **UPI/NPCI** (the payment rails you use directly), **Firebase Cloud Messaging** and browser Web Push (notifications), **Vercel** (hosting and analytics), and an **SMTP email** service (support ticket delivery).
 
 25.2 Your use of these third-party services may be subject to their own terms and privacy policies. STRYT does not control and is not responsible for third-party services, and their availability or changes may affect the Platform.
 
@@ -442,7 +481,7 @@ Without limiting the Acceptable Use Policy, you must not:
 - (e) misuse the payment claim/confirm system — for example falsely claiming to have paid, or falsely confirming or rejecting a payment;
 - (f) misuse safety features, including live-location sharing, emergency contacts, one-time location requests, or public tracking links, to stalk, harass, surveil, or endanger any person;
 - (g) collect, scrape, harvest, or misuse other Users' personal data, location, or contact details, including data made visible through profiles, listings, or the map;
-- (h) attempt to gain unauthorised access to any Account, console, admin function, database, Edge Function, or storage, or to bypass access controls, verification, rate limits, or the Switch PIN;
+- (h) attempt to gain unauthorised access to any Account, console, admin function, database, Edge Function, or storage, or to bypass access controls, verification, rate limits, or a Business/Provider password;
 - (i) introduce malware, overload, disrupt, or interfere with the Platform or its infrastructure;
 - (j) create Accounts or listings by automated means, or create Accounts to evade a suspension or ban;
 - (k) use the Platform to send unsolicited marketing, or to abuse the notification, messaging, reachout, or "request payment" features; or
@@ -520,7 +559,7 @@ Without limiting the Acceptable Use Policy, you must not:
 
 43.1 STRYT implements reasonable technical and organisational security measures, including access controls (row-level security on the database), rate-limiting on sensitive actions, restricted server-side secrets, and origin-restricted server functions.
 
-43.2 **No absolute security.** No system is completely secure. STRYT does not guarantee that the Platform is free from unauthorised access, vulnerabilities, or data loss. You are responsible for the security of the Google account you sign in with and for keeping your Switch PIN confidential.
+43.2 **No absolute security.** No system is completely secure. STRYT does not guarantee that the Platform is free from unauthorised access, vulnerabilities, or data loss. You are responsible for the security of the Google account you sign in with and for keeping any Business/Provider password you set confidential.
 
 43.3 You must promptly report any security vulnerability or suspected breach through Help & Support and must not exploit, publicise, or misuse it.
 

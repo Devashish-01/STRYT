@@ -1,7 +1,7 @@
 # STRYT — Privacy Policy
 
 **Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 19 July 2026
+**Last Updated:** 26 August 2026
 **Version:** 1.0 (draft for legal review)
 
 > This Privacy Policy was drafted from a direct reading of the STRYT database schema (72 tables), Edge Functions, and client code so that the data categories, flows, and third parties described here reflect what the product actually does. Items only STRYT can confirm (legal entity name, registered address, Data Protection Officer / Grievance Officer identity, and the data-residency region of the hosting project) are marked and must be completed before publication and reviewed by qualified Indian counsel.
@@ -37,8 +37,10 @@ We collect only what the features you use require. Grouped by purpose:
 
 ### 3.2 Location data
 - Your **exact device location (latitude/longitude)** when you grant permission, used to show what's nearby and to set your area; on the native app this may use native GPS.
-- Your area, city, and PIN code derived by **reverse geocoding** through OpenStreetMap/Nominatim.
-- Manual location choices (dropping a pin, setting a remote/"World" location, typed place searches — which are sent to Nominatim to return candidate places).
+- Your area, city, and PIN code derived by **reverse geocoding**, primarily through **Mapbox**, with OpenStreetMap/Nominatim used only as a fallback.
+- Manual location choices (dropping a pin, setting a remote/"World" location, typed place searches — which are sent to **Mapbox** to return candidate places, with Nominatim as a fallback).
+- Map tiles are served by OpenStreetMap-based tile providers (e.g. OpenFreeMap); your approximate map viewport is sent to load the relevant tiles.
+- If you submit a **Place** (a point of interest for the Map — see Section 3.6), the coordinates and address you provide for it.
 - **We store your last-known location, not a location history/trail.**
 
 ### 3.3 Verification / KYC data (sensitive)
@@ -50,11 +52,13 @@ We collect only what the features you use require. Grouped by purpose:
 
 ### 3.5 Transactions and activity
 - Requests/"asks" (including description, budget, optional photos, voice-to-text you dictate, and whether posted anonymously), quotes/proposals and counter-offers, deals/agreements and their status and tracking, appointments/bookings and blocked slots, live-queue tokens and party size, and cart/checkout selections.
-- **Payment records as entered in the app**: method (UPI/cash), amount, an optional reference you type, and the claim/confirm/reject status. **We do not receive or store your bank details, UPI PIN, card numbers, or actual UPI transaction data — those stay with your bank and UPI app** (see Section 6). Records for the not-yet-live paid tiers (subscriptions, pro-payments, settlements) exist in the schema but are not activated for end-user charging.
+- **Bulk Deals and Group Buys**: a Business's bulk-offer listings; the quantity and notes you pledge when you join a Group Buy; and, once a pool's initiator accepts a Quote, your **claim pass** (a QR code, its quantity/price, and its redemption status and time).
+- **Payment records as entered in the app**: method (UPI/cash), amount, an optional note/reference you type, and the claim/confirm/reject status — including **custom/freeform payments** you send a Business or Provider with no booking attached ("Pay any amount"). **We do not receive or store your bank details, UPI PIN, card numbers, or actual UPI transaction data — those stay with your bank and UPI app** (see Section 6). Records for the not-yet-live paid tiers (subscriptions, pro-payments, settlements) exist in the schema but are not activated for end-user charging.
 
 ### 3.6 Social, community, and reputation
 - Community posts, comments, likes, poll votes, stories and who viewed them, follows, bookmarks, saved lists, and saved searches/alerts.
 - Ratings and reviews, vouches, skill endorsements, Q&A and upvotes, leaderboard points, and achievement badges.
+- **Places to Visit** you submit (name, category, description, location, and photos) and their review status (pending/approved/rejected). Until approved, a submission is visible only to you and STRYT Admins.
 
 ### 3.7 Messaging
 - Direct messages between Users, including text and photo attachments, and conversation metadata (participants, timestamps, read/typing status).
@@ -66,6 +70,7 @@ We collect only what the features you use require. Grouped by purpose:
 
 ### 3.9 Device, notifications, and technical data
 - Web-push subscriptions and Firebase Cloud Messaging device tokens (to deliver notifications), your in-app notifications, and technical data such as IP address, device/browser type, and app interactions collected to operate and secure the service.
+- **Camera access** — used only when you actively take a photo (e.g. for a listing, profile, or Content) or scan a QR code; we do not access your camera at any other time.
 - **Client error logs** and listing **view counts** (business/provider view logs) for reliability and analytics.
 
 ### 3.10 Support, moderation, and audit
@@ -141,7 +146,8 @@ As inherent to the features you use — e.g. a Seller sees your name/alias and d
 - **Supabase** — database, authentication, and file storage infrastructure that hosts app data on our behalf.
 - **Google / Firebase** — Google Sign-In (authentication) and Firebase Cloud Messaging (push notifications).
 - **Vercel** — website hosting and anonymous analytics/speed insights.
-- **OpenStreetMap / Nominatim** — geocoding; when you search a place or we reverse-geocode your coordinates, that query/those coordinates are sent to Nominatim to return results.
+- **Mapbox** — primary geocoding and place search; when you search a place or we reverse-geocode your coordinates, that query/those coordinates are sent to Mapbox to return results.
+- **OpenStreetMap / Nominatim** — fallback geocoding, and the source of the underlying map tile data (served via OpenStreetMap-based tile providers such as OpenFreeMap).
 - **Email/SMTP provider** — to deliver support-ticket emails to our support inbox (your reply-to email, category, subject, and message are included).
 - **Web Push services** — the browser's push service to deliver web notifications.
 - **NPCI/UPI and your bank/UPI app** — you interact with these directly to make payments (not a STRYT processor, but essential to the payment you initiate).
@@ -188,7 +194,7 @@ You also have the right to complain to the **Data Protection Board of India** if
 
 12.1 We apply reasonable technical and organisational measures appropriate to the sensitivity of the data, including database **row-level security** (so Users can only access data they're permitted to), rate-limiting on sensitive actions (e.g. verification/admin/login flows), restricted server-side secrets kept out of the browser, origin-restricted server functions, and access controls on stored files.
 
-12.2 No method of transmission or storage is completely secure; we cannot guarantee absolute security. You are responsible for the security of the Google account you sign in with and your Switch PIN.
+12.2 No method of transmission or storage is completely secure; we cannot guarantee absolute security. You are responsible for the security of the Google account you sign in with and any Business/Provider password you set.
 
 12.3 In the event of a personal-data breach, we will follow the notification obligations under the DPDP Act, including notifying the Data Protection Board and affected Data Principals as required.
 

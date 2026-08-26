@@ -1,7 +1,7 @@
 ﻿# STRYT — Merchant & Provider Terms
 
 **Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 19 July 2026
+**Last Updated:** 26 August 2026
 **Version:** 1.0 (draft for legal review)
 
 These Merchant & Provider Terms ("Merchant Terms") apply to every User who lists or operates a **Business** or a **Provider** profile on STRYT, and to any **Delegated User** granted access to a Business. They are additional to, and form part of, the [Terms & Conditions](terms-and-conditions.md). Where these Merchant Terms conflict with the general Terms on a Seller-specific matter, these Merchant Terms prevail for that matter.
@@ -59,11 +59,13 @@ In these Merchant Terms, **"Seller"** means a Business or a Provider; **"you"** 
 
 4.4 Queue wait-time estimates are generated from the average time-per-customer you set; keep it realistic. You are responsible for how you run your queue and manage no-shows.
 
+4.5 If you post a **Bulk Deal**, you are responsible for honouring its stated tiers, minimum order quantity, and quota, and for keeping the remaining quota accurate. If you accept a Quote on a **Group Buy**, you must honour every claim pass issued from it at the agreed price and quantity, for as long as it remains valid; you are responsible for scanning and redeeming passes in good faith and for any shortfall if you cannot fulfil them all.
+
 ---
 
 ## 5. Payments to you
 
-5.1 **You are paid directly by the customer** via UPI (using the UPI ID/QR you configure) or cash. STRYT never holds, processes, or disburses these funds (Terms Section 13).
+5.1 **You are paid directly by the customer** via UPI (using the UPI ID/QR you configure) or cash. STRYT never holds, processes, or disburses these funds (Terms Section 13). A customer may also send you a **custom/freeform payment** with no booking, deal, or queue visit attached ("Pay any amount") — the same rules in this Section apply to it.
 
 5.2 The app's payment claim/confirm/reject flow is a **record only**. **Confirm receipt only after you have actually verified the money in your own bank/UPI records.** Do not confirm on the basis of a screenshot alone. You are responsible for the consequences of confirming or rejecting.
 

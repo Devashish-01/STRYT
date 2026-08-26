@@ -9,7 +9,7 @@
 //
 // Convention: use the publication date of the updated documents, e.g. bump to
 // "2026-09-01" when you next revise them.
-export const LEGAL_VERSION = "2026-07-19";
+export const LEGAL_VERSION = "2026-08-26";
 
 const env = ((import.meta as any).env ?? {}) as Record<string, string | undefined>;
 
