@@ -4,18 +4,19 @@ import { inr } from "@/components/common";
 import { copyText } from "@/lib/clipboard";
 import { useApp } from "@/store";
 import type { GroupBuyToken } from "@/types";
-
-const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  ISSUED: { label: "Ready to use", color: "var(--green-600)", bg: "var(--green-100)" },
-  REDEEMED: { label: "Already used", color: "var(--ink-600)", bg: "var(--ink-100)" },
-  EXPIRED: { label: "Expired", color: "var(--red-600)", bg: "var(--red-50)" },
-};
+import { useI18n } from "@/lib/i18n";
 
 /** The member's QR claim pass. The QR encodes ONLY the token code — never the
  *  holder's identity or price — because a QR gets photographed, forwarded and
  *  screenshotted, and the merchant looks the rest up server-side on scan. */
 export default function GroupBuyClaimPassModal({ token, onClose }: { token: GroupBuyToken; onClose: () => void }) {
   const { showToast } = useApp();
+  const { t, tf } = useI18n();
+  const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
+    ISSUED: { label: t("pass_ready_to_use"), color: "var(--green-600)", bg: "var(--green-100)" },
+    REDEEMED: { label: t("pass_already_used"), color: "var(--ink-600)", bg: "var(--ink-100)" },
+    EXPIRED: { label: t("pass_expired"), color: "var(--red-600)", bg: "var(--red-50)" },
+  };
   const meta = STATUS_META[token.status] ?? STATUS_META.ISSUED;
   const spent = token.status !== "ISSUED";
 
@@ -26,11 +27,11 @@ export default function GroupBuyClaimPassModal({ token, onClose }: { token: Grou
     >
       <div
         className="col"
-        style={{ width: "100%", maxWidth: 360, background: "#fff", borderRadius: 24, padding: 20, animation: "slideUp .25s ease-out", maxHeight: "92vh", overflowY: "auto" }}
+        style={{ width: "100%", maxWidth: 360, background: "var(--surface)", borderRadius: 24, padding: 20, animation: "slideUp .25s ease-out", maxHeight: "92vh", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="row between center-v" style={{ marginBottom: 14 }}>
-          <div className="bold" style={{ fontSize: 17 }}>Your claim pass</div>
+          <div className="bold" style={{ fontSize: 17 }}>{t("your_claim_pass")}</div>
           <button className="icon-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
@@ -54,7 +55,7 @@ export default function GroupBuyClaimPassModal({ token, onClose }: { token: Grou
               bigger than the QR for that reason. */}
           {token.pickupPin && !spent && (
             <div className="col center gap-2" style={{ padding: "10px 18px", borderRadius: 12, background: "var(--amber-50)", border: "1px solid var(--amber-200)" }}>
-              <span className="tiny semi" style={{ color: "var(--amber-800)" }}>Collection PIN</span>
+              <span className="tiny semi" style={{ color: "var(--amber-800)" }}>{t("collection_pin_label")}</span>
               <span className="bold" style={{ fontSize: 26, letterSpacing: 6, fontFamily: "monospace", color: "var(--amber-800)" }}>{token.pickupPin}</span>
             </div>
           )}
@@ -66,36 +67,36 @@ export default function GroupBuyClaimPassModal({ token, onClose }: { token: Grou
               showToast(ok ? "Code copied" : "Couldn't copy");
             }}
           >
-            <Copy size={12} /> Copy code
+            <Copy size={12} /> {t("copy_code")}
           </button>
         </div>
 
         <div className="col gap-8" style={{ marginTop: 16 }}>
           {token.itemLabel && (
             <div className="row between">
-              <span className="tiny muted">Item</span>
+              <span className="tiny muted">{t("item_field_label")}</span>
               <span className="tiny semi" style={{ textAlign: "right", maxWidth: "65%" }}>{token.itemLabel}</span>
             </div>
           )}
           <div className="row between">
-            <span className="tiny muted">Quantity</span>
+            <span className="tiny muted">{t("quantity_label")}</span>
             <span className="tiny semi">{token.quantity}</span>
           </div>
           {token.unitPrice != null && (
             <div className="row between">
-              <span className="tiny muted">Agreed price</span>
-              <span className="tiny semi">{inr(token.unitPrice)} each · {inr(token.unitPrice * token.quantity)} total</span>
+              <span className="tiny muted">{t("agreed_price_label")}</span>
+              <span className="tiny semi">{tf("each_and_total", { each: inr(token.unitPrice), total: inr(token.unitPrice * token.quantity) })}</span>
             </div>
           )}
           {token.validUntilISO && (
             <div className="row between">
-              <span className="tiny muted">Valid until</span>
+              <span className="tiny muted">{t("valid_until_label")}</span>
               <span className="tiny semi">{new Date(token.validUntilISO).toLocaleDateString()}</span>
             </div>
           )}
           {token.redeemedAtISO && (
             <div className="row between">
-              <span className="tiny muted">Used on</span>
+              <span className="tiny muted">{t("used_on_label")}</span>
               <span className="tiny semi">{new Date(token.redeemedAtISO).toLocaleString()}</span>
             </div>
           )}
@@ -104,7 +105,7 @@ export default function GroupBuyClaimPassModal({ token, onClose }: { token: Grou
         {!spent && (
           <div className="card row gap-10" style={{ padding: 12, marginTop: 14, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
             <div className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.5 }}>
-              Show this code to the provider when you collect. It works once — don't share a screenshot.
+              {t("show_code_to_provider_desc")}
             </div>
           </div>
         )}

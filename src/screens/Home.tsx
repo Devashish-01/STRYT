@@ -516,7 +516,7 @@ export default function Home() {
             <button
               className="card row gap-12 center-v"
               style={{ width: "100%", padding: 14, textAlign: "left", background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}
-              onClick={() => nav("/bulk")}
+              onClick={() => nav("/community-hub?view=deals")}
             >
               <ActionIconBadge variant="cyan" icon={Package} size="md" />
               <div className="grow">

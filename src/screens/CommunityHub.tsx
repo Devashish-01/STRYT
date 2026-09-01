@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText, ArrowLeft, ArrowUpDown, RefreshCw, Check } from "@/components/Icons";
-import { requestService, communityService } from "@/services";
+import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText, ArrowLeft, ArrowUpDown, RefreshCw, Check, Ticket } from "@/components/Icons";
+import { requestService, communityService, bulkService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
-import { RequestCard, CommunityCard } from "@/components/cards";
-import { EmptyState, SafeImg } from "@/components/common";
+import { CommunityCard } from "@/components/cards";
+import GroupBuyCard from "@/components/GroupBuyCard";
+import BulkDealCard from "@/components/BulkDealCard";
+import JoinGroupBuySheet from "@/components/JoinGroupBuySheet";
+import BulkOrderSheet from "@/components/BulkOrderSheet";
+import { EmptyState, SafeImg, Section } from "@/components/common";
 import { StoriesBar } from "@/components/Stories";
 import { useApp } from "@/store";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { POST_FILTERS, filterLabel } from "@/lib/communityTypes";
 import {
   HIDDEN_POSTS_KEY,
@@ -25,25 +30,39 @@ import {
   typeParam,
   type FeedSort,
 } from "@/lib/feedSort";
+import { mergeStream } from "@/lib/communityFeed";
+import { RADIUS_OPTIONS } from "@/utils/constants";
 import { haptics } from "@/lib/haptics";
-import type { CommunityPost, CommunityPostType } from "@/types";
+import type { BulkDeal, CommunityPost, CommunityPostType, RequestPost } from "@/types";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRealtimeInserts } from "@/hooks/useRealtimeInserts";
 import { useI18n } from "@/lib/i18n";
 
-type HubTab = "requests" | "posts";
+const DEALS_RADIUS_KM = 10;
 
 export default function CommunityHub() {
   const nav = useNavigate();
-  const { area, user, chatUnread, activeContext, showToast } = useApp();
+  const { area, user, isGuest, chatUnread, activeContext, showToast } = useApp();
   const { t, tf } = useI18n();
+  const requireAuth = useRequireAuth();
   const goBack = useSmartBack("/home");
-  const [tab, setTab] = useState<HubTab>("posts");
-  const [postFilter, setPostFilter] = useState<"ALL" | CommunityPostType>("ALL");
-  const [reqSpecial, setReqSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
+  // "ALL" | a post type | "DEALS" — DEALS switches the body to the full
+  // bulk-deals list (BulkBuyingHub's old "deals" tab), everything else drives
+  // communityService.feed's server-side type filter as before.
+  //
+  // ?view=deals lands straight on the deals view — the deep link
+  // Home's "Bulk & group buys" banner and the desktop sidebar's nav item use
+  // now that they no longer point at a dedicated /bulk screen. Same
+  // lazy-initializer pattern AskCompose uses for its ?groupBuy=1 pre-arm.
+  const [postFilter, setPostFilter] = useState<"ALL" | CommunityPostType | "DEALS">(
+    () => (new URLSearchParams(window.location.search).get("view") === "deals" ? "DEALS" : "ALL")
+  );
   const [postSort, setPostSort] = useState<FeedSort>(DEFAULT_FEED_SORT);
   const [sortOpen, setSortOpen] = useState(false);
+  const [dealsRadiusKm, setDealsRadiusKm] = useState(DEALS_RADIUS_KM);
+  const [joining, setJoining] = useState<RequestPost | null>(null);
+  const [ordering, setOrdering] = useState<BulkDeal | null>(null);
   // Seeded from localStorage so a hidden post stays hidden across sessions —
   // these are a viewer preference, not a moderation record, so they never leave
   // the device (blocking, which does, lives in socialService).
@@ -51,13 +70,26 @@ export default function CommunityHub() {
   const [mutedAuthors, setMutedAuthors] = useState<string[]>(() => readIdList(MUTED_AUTHORS_KEY, localStorage));
 
   const hubGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
-  const { data: feedPage, loading: reqLoading, error: reqError, refetch: refetchReq } = useQueryWithRealtime(
-    () => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }),
+  const isDealsView = postFilter === "DEALS";
+
+  // Group buys — the complete open set in one page (requestService's
+  // "special: group" server filter, unused until now), then enriched with
+  // UNIT pledge totals in one extra round trip. Not paginated: mergeStream
+  // pins this whole set above/interleaved with the paginated post stream,
+  // never a partial slice of it.
+  const { data: groupBuyData, refetch: refetchGroupBuys } = useQueryWithRealtime(
+    async () => {
+      const page = await requestService.feed({ special: "group", lat: user.lat || 0, lng: user.lng || 0 });
+      const open = (page.data ?? []).filter((r) => r.status === "OPEN");
+      return requestService.enrichGroupBuyPledges(open);
+    },
     "requests",
     [user.lat, user.lng],
-    undefined,
-    `hub:req:${hubGeoKey}`
+    "is_group_buy=eq.true",
+    `hub:groupbuys:${hubGeoKey}`
   );
+  const groupBuys = groupBuyData ?? [];
+
   // The type filter and the sort are QUERY parameters, not post-fetch
   // transformations. That's what makes a filtered view paginate (the old client
   // filter meant "load more" fetched 20 unfiltered posts and discarded most of
@@ -67,12 +99,30 @@ export default function CommunityHub() {
     () => communityService.feed({
       lat: user.lat || undefined,
       lng: user.lng || undefined,
-      type: typeParam(postFilter),
+      type: isDealsView ? null : typeParam(postFilter as "ALL" | CommunityPostType),
       sort: postSort,
     }),
     [user.lat, user.lng, postFilter, postSort],
-    `hub:posts:${postFilter}:${postSort}:${hubGeoKey}`
+    isDealsView ? undefined : `hub:posts:${postFilter}:${postSort}:${hubGeoKey}`
   );
+
+  // Business bulk deals — the rail (top 3, "ALL" filter only) and the full
+  // "Deals" view share this one fetch.
+  const { data: dealsData, loading: dealsLoading, refetch: refetchDeals } = useQuery(
+    () => bulkService.deals({ lat: user.lat || undefined, lng: user.lng || undefined, radius: isDealsView ? dealsRadiusKm : undefined }),
+    [user.lat, user.lng, isDealsView, dealsRadiusKm],
+    `hub:deals:${isDealsView ? dealsRadiusKm : "rail"}:${hubGeoKey}`
+  );
+  const deals = dealsData ?? [];
+
+  // Claim-pass banner — a shortcut, not the destination. The full list (issued
+  // + redeemed passes, pools joined but not posted) lives at /community/activity.
+  const { data: myTokens } = useQuery(
+    () => (isGuest ? Promise.resolve([]) : bulkService.myTokens()),
+    [user.id, isGuest],
+    isGuest ? undefined : `bulk:tokens:${user.id}`
+  );
+  const issuedPassCount = (myTokens ?? []).filter((tk) => tk.status === "ISSUED").length;
 
   // Pagination: the first page comes from the query above; further pages are
   // appended here via the service's cursor (same pattern as Requests.tsx) —
@@ -96,7 +146,7 @@ export default function CommunityHub() {
         lat: user.lat || undefined,
         lng: user.lng || undefined,
         cursor: postCursor,
-        type: typeParam(postFilter),
+        type: typeParam(postFilter as "ALL" | CommunityPostType),
         sort: postSort,
       });
       // appendPage drops anything already on screen: offset pagination re-serves
@@ -113,21 +163,16 @@ export default function CommunityHub() {
   }
 
   // New posts are counted, never auto-inserted — see useRealtimeInserts.
-  const { newIds, reset: resetNewIds } = useRealtimeInserts("community_posts", { enabled: tab === "posts" });
+  const { newIds, reset: resetNewIds } = useRealtimeInserts("community_posts", { enabled: !isDealsView });
 
   async function refreshFeed() {
     resetNewIds();
     refetchPosts();
-    refetchReq();
+    refetchGroupBuys();
+    refetchDeals();
   }
 
   const { containerRef, pullDistance, refreshing } = usePullToRefresh<HTMLDivElement>(refreshFeed);
-
-  const allRequests = feedPage?.data ?? [];
-  let requests = allRequests;
-  if (reqSpecial === "urgent")    requests = requests.filter((r) => r.isUrgent);
-  if (reqSpecial === "group")     requests = requests.filter((r) => r.isGroupBuy);
-  if (reqSpecial === "recurring") requests = requests.filter((r) => r.isRecurring);
 
   const allPosts = appendPage(postData?.data ?? [], extraPosts);
   // "Show me less of this" is applied client-side and immediately: the row
@@ -141,6 +186,11 @@ export default function CommunityHub() {
   // it under the reader for no reason.
   const posts = filterFeed(allPosts, hiddenPosts, mutedAuthors);
   const unseenCount = countUnseen(newIds, allPosts);
+  // Group buys only ride along with the "All" post-type filter — a reader who
+  // filtered to "Alerts" asked to see alerts, not a pool for someone's request.
+  const streamGroupBuys = postFilter === "ALL" ? groupBuys : [];
+  const stream = mergeStream(posts, streamGroupBuys, postSort);
+  const dealsRail = postFilter === "ALL" ? deals.slice(0, 3) : [];
 
   function hidePost(postId: string) {
     setHiddenPosts(addToIdList(HIDDEN_POSTS_KEY, postId, localStorage));
@@ -148,6 +198,14 @@ export default function CommunityHub() {
 
   function muteAuthor(authorId: string) {
     setMutedAuthors(addToIdList(MUTED_AUTHORS_KEY, authorId, localStorage));
+  }
+
+  function onJoin(r: RequestPost) {
+    requireAuth(() => setJoining(r), "Sign in to join a group buy")();
+  }
+
+  function onBook(d: BulkDeal) {
+    requireAuth(() => setOrdering(d), "Sign in to order in bulk")();
   }
 
   // A seller viewing the public hub still composes under their active identity.
@@ -266,45 +324,26 @@ export default function CommunityHub() {
           <StoriesBar />
         </div>
 
-        {/* Apple iOS-style Segmented Control */}
-        <div className="segmented-control">
-          {([["posts", t("segment_posts")], ["requests", t("segment_requests")]] as [HubTab, string][]).map(([tabKey, label]) => (
+        {/* Content-type filter strip — "Deals" appended so the full bulk-deals
+            list stays reachable now /bulk is gone; it switches the whole body,
+            same as any other filter, rather than being a second tab system. */}
+        <div className="hscroll community-hub-filters">
+          {POST_FILTERS.map((f) => (
             <button
-              key={tabKey}
-              className={`segmented-tab ${tab === tabKey ? "active" : ""}`}
-              onClick={() => setTab(tabKey)}
+              key={f}
+              className={`chip-pill ${postFilter === f ? "active" : ""}`}
+              onClick={() => setPostFilter(f)}
             >
-              {label}
+              {filterLabel(f)}
             </button>
           ))}
+          <button
+            className={`chip-pill ${isDealsView ? "active" : ""}`}
+            onClick={() => setPostFilter("DEALS")}
+          >
+            {t("deals_chip_label")}
+          </button>
         </div>
-
-        {/* Secondary Samsung / Apple Pill Filter Strip */}
-        {tab === "requests" ? (
-          <div className="hscroll community-hub-filters">
-            {([["all", t("filter_all")], ["urgent", t("filter_urgent")], ["group", t("filter_group_buy")], ["recurring", t("filter_recurring")]] as [typeof reqSpecial, string][]).map(([s, label]) => (
-              <button
-                key={s}
-                className={`chip-pill ${reqSpecial === s ? "active" : ""}`}
-                onClick={() => setReqSpecial(s)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        ) : (
-          <div className="hscroll community-hub-filters">
-            {POST_FILTERS.map((f) => (
-              <button
-                key={f}
-                className={`chip-pill ${postFilter === f ? "active" : ""}`}
-                onClick={() => setPostFilter(f)}
-              >
-                {filterLabel(f)}
-              </button>
-            ))}
-          </div>
-        )}
       </header>
 
       {/* Content */}
@@ -327,7 +366,7 @@ export default function CommunityHub() {
         {/* "N new posts" — the arrival is announced, never injected. Yanking the
             list while someone is reading is the most disorienting thing a feed
             can do, so the reader decides when to jump. */}
-        {tab === "posts" && unseenCount > 0 && (
+        {!isDealsView && unseenCount > 0 && (
           <button
             className="feed-new-pill"
             onClick={() => {
@@ -341,31 +380,56 @@ export default function CommunityHub() {
           </button>
         )}
 
-        {tab === "requests" && (
-          reqLoading ? <ListSkeleton count={3} /> :
-          reqError   ? <ErrorView error={reqError} onRetry={refetchReq} /> :
-          requests.length === 0 ? (
-            <EmptyState
-              emoji="📭"
-              title={t("all_quiet_nearby")}
-              text={t("all_quiet_desc")}
-              action={
-                <button className="btn btn-primary btn-sm" onClick={() => nav("/ask")}>
-                  <FileText size={15} /> {t("post_a_request")}
-                </button>
-              }
-            />
-          ) : (
-            <div className="col gap-16 page-pad" style={{ paddingBottom: 32 }}>
-              {requests.map((r) => <RequestCard key={r.id} r={r} />)}
-            </div>
-          )
+        {/* Claim-pass banner — a shortcut to /community/activity, not a modal
+            opened from here. With >1 pass the banner can't guess which one you
+            want, and activity is the one place that lists all of them anyway. */}
+        {!isDealsView && issuedPassCount > 0 && (
+          <div className="page-pad" style={{ paddingBottom: 0 }}>
+            <button
+              className="card row gap-10 center-v"
+              style={{ width: "100%", padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}
+              onClick={() => nav("/community/activity")}
+            >
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Ticket size={16} color="var(--brand-700)" />
+              </div>
+              <span className="semi small grow" style={{ textAlign: "left", color: "var(--brand-800)" }}>
+                {issuedPassCount === 1 ? t("claim_passes_ready_one") : tf("claim_passes_ready_other", { n: issuedPassCount })}
+              </span>
+            </button>
+          </div>
         )}
 
-        {tab === "posts" && (
+        {isDealsView ? (
+          <div className="page-pad col gap-12" style={{ paddingBottom: 32 }}>
+            <div className="row gap-8 center-v">
+              <span className="tiny muted">{t("within_word")}</span>
+              <div className="hscroll grow">
+                {RADIUS_OPTIONS.filter((o) => o.km >= 1).map((o) => (
+                  <button
+                    key={o.km}
+                    className={`chip ${dealsRadiusKm === o.km ? "active" : ""}`}
+                    onClick={() => setDealsRadiusKm(o.km)}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {dealsLoading ? (
+              <ListSkeleton count={3} />
+            ) : deals.length === 0 ? (
+              <EmptyState emoji="🏷️" title={t("no_bulk_deals_nearby")} text={t("no_bulk_deals_desc")} />
+            ) : (
+              <div className="col gap-12">
+                {deals.map((d) => <BulkDealCard key={d.id} deal={d} onBook={onBook} />)}
+              </div>
+            )}
+          </div>
+        ) : (
           postsLoading ? <ListSkeleton count={3} /> :
           postsError   ? <ErrorView error={postsError} onRetry={refetchPosts} /> :
-          posts.length === 0 ? (
+          stream.length === 0 ? (
             <EmptyState
               emoji="🏘️"
               title={t("nothing_posted_yet")}
@@ -378,6 +442,22 @@ export default function CommunityHub() {
             />
           ) : (
             <div className="col gap-16 page-pad" style={{ paddingBottom: 32 }}>
+              {/* Bulk deals rail — a labelled, horizontal, clearly-commercial
+                  section, never a card inline in the vertical neighbour
+                  stream. Only on the unfiltered view, and only when there's
+                  something to show. */}
+              {dealsRail.length > 0 && (
+                <Section title={t("bulk_deals_from_shops_nearby")} action={t("see_all_word")} onAction={() => setPostFilter("DEALS")}>
+                  <div className="hscroll" style={{ padding: "10px 2px 2px" }}>
+                    {dealsRail.map((d) => (
+                      <div key={d.id} style={{ minWidth: 260, scrollSnapAlign: "start" }}>
+                        <BulkDealCard deal={d} onBook={onBook} />
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
+
               {/* A real sort control, not a two-state toggle. It reads its own
                   state instead of making you tap to discover the other option. */}
               <button
@@ -393,15 +473,19 @@ export default function CommunityHub() {
               >
                 <ArrowUpDown size={13} /> {FEED_SORT_META[postSort].emoji} {FEED_SORT_META[postSort].label}
               </button>
-              {posts.map((p) => (
-                <CommunityCard
-                  key={p.id}
-                  post={p}
-                  onRefetch={refetchPosts}
-                  onHide={hidePost}
-                  onMute={muteAuthor}
-                />
-              ))}
+              {stream.map((item) =>
+                item.kind === "groupbuy" ? (
+                  <GroupBuyCard key={`gb-${item.id}`} req={item.request} onJoin={onJoin} />
+                ) : (
+                  <CommunityCard
+                    key={item.id}
+                    post={item.post}
+                    onRefetch={refetchPosts}
+                    onHide={hidePost}
+                    onMute={muteAuthor}
+                  />
+                )
+              )}
               {/* No longer gated on postFilter === "ALL": the filter is part of
                   the query now, so the next page is the next page OF THIS FILTER. */}
               {postsHasMore && (
@@ -454,6 +538,21 @@ export default function CommunityHub() {
             <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setSortOpen(false)}>{t("cancel_action")}</button>
           </div>
         </div>
+      )}
+
+      {joining && (
+        <JoinGroupBuySheet
+          req={joining}
+          onJoined={() => { refetchGroupBuys(); }}
+          onClose={() => setJoining(null)}
+        />
+      )}
+      {ordering && (
+        <BulkOrderSheet
+          deal={ordering}
+          onOrdered={() => refetchDeals()}
+          onClose={() => setOrdering(null)}
+        />
       )}
     </div>
   );

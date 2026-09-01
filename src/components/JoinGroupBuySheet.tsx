@@ -5,6 +5,7 @@ import { requestService } from "@/services";
 import { useApp } from "@/store";
 import type { RequestPost } from "@/types";
 import { poolProgress } from "@/lib/groupBuy";
+import { useI18n } from "@/lib/i18n";
 
 const MAX_PLEDGE = 50;
 
@@ -15,6 +16,7 @@ export default function JoinGroupBuySheet({
   req, onJoined, onClose,
 }: { req: RequestPost; onJoined?: () => void; onClose: () => void }) {
   const { showToast } = useApp();
+  const { t, tf } = useI18n();
   const alreadyIn = (req.myPledgeQuantity ?? 0) > 0;
   const [qty, setQty] = useState(req.myPledgeQuantity ?? 1);
   const [notes, setNotes] = useState("");
@@ -70,25 +72,27 @@ export default function JoinGroupBuySheet({
     }
   }
 
+  const pledgeLabel = qty === 1 ? tf("pledge_units_one", { n: qty }) : tf("pledge_units_other", { n: qty });
+
   return (
     <div
       style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "flex-end", animation: "fadeIn .2s" }}
       onClick={onClose}
     >
       <div
-        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
+        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "var(--surface)", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="row between center-v" style={{ marginBottom: "var(--space-md)" }}>
           <div style={{ minWidth: 0 }}>
-            <div className="bold" style={{ fontSize: 18 }}>{alreadyIn ? "Update your pledge" : "Join group buy"}</div>
+            <div className="bold" style={{ fontSize: 18 }}>{alreadyIn ? t("update_your_pledge") : t("join_group_buy")}</div>
             <div className="tiny muted ellipsis" style={{ marginTop: 2 }}>{req.title}</div>
           </div>
           <button className="icon-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         <div className="col gap-6" style={{ marginBottom: "var(--space-md)" }}>
-          <label className="tiny semi muted">How many do you need?</label>
+          <label className="tiny semi muted">{t("how_many_units_need")}</label>
           <div className="row gap-12 center-v">
             <button
               className="icon-btn"
@@ -111,8 +115,8 @@ export default function JoinGroupBuySheet({
         {unitPrice != null && (
           <div className="card row between center-v" style={{ padding: 12, marginBottom: "var(--space-md)" }}>
             <div>
-              <div className="tiny muted">Your estimated total</div>
-              <div className="tiny muted" style={{ marginTop: 1 }}>at the target price of {inr(unitPrice)}/unit</div>
+              <div className="tiny muted">{t("your_estimated_total")}</div>
+              <div className="tiny muted" style={{ marginTop: 1 }}>{tf("at_target_price_per_unit", { price: inr(unitPrice) })}</div>
             </div>
             <span className="bold" style={{ color: "var(--green-600)" }}>{inr(unitPrice * qty)}</span>
           </div>
@@ -121,36 +125,36 @@ export default function JoinGroupBuySheet({
         {hasTarget && (
           <div className="card col gap-6" style={{ padding: 12, marginBottom: "var(--space-md)", background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
             <div className="row gap-8 center-v tiny semi" style={{ color: "var(--brand-700)" }}>
-              <Users size={14} /> Pool would reach {projected} of {target}
+              <Users size={14} /> {tf("pool_would_reach", { projected, target })}
             </div>
-            <div style={{ height: 6, borderRadius: 6, background: "#fff", overflow: "hidden" }}>
+            <div style={{ height: 6, borderRadius: 6, background: "var(--surface)", overflow: "hidden" }}>
               <div style={{ width: `${projectedPct}%`, height: "100%", background: "var(--brand-600)" }} />
             </div>
             <div className="tiny muted">
-              Nothing is charged now. You'll get a claim pass once the organiser closes the deal.
+              {t("nothing_charged_now_pass")}
             </div>
           </div>
         )}
 
         {needsAddress && (
           <div style={{ marginBottom: "var(--space-md)" }}>
-            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Delivery address</label>
+            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("delivery_address_label")}</label>
             <input
               className="input"
-              placeholder="Flat / street / landmark"
+              placeholder={t("flat_street_landmark_placeholder")}
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               maxLength={400}
             />
-            <div className="tiny muted" style={{ marginTop: 4 }}>Shared with the chosen provider once the deal closes.</div>
+            <div className="tiny muted" style={{ marginTop: 4 }}>{t("shared_with_provider_on_close")}</div>
           </div>
         )}
 
         <div style={{ marginBottom: "var(--space-md)" }}>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Notes for the organiser (optional)</label>
+          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("notes_for_organiser_optional")}</label>
           <input
             className="input"
-            placeholder="e.g. 2 seniors, prefer morning slot"
+            placeholder={t("notes_organiser_placeholder")}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             maxLength={300}
@@ -158,7 +162,7 @@ export default function JoinGroupBuySheet({
         </div>
 
         <button className="btn btn-primary btn-block" style={{ height: 48, fontSize: 15, fontWeight: 700 }} disabled={busy} onClick={submit}>
-          {busy ? "Saving…" : alreadyIn ? "Update pledge" : `Pledge ${qty} unit${qty > 1 ? "s" : ""}`}
+          {busy ? t("saving_ellipsis") : alreadyIn ? t("update_pledge_btn") : pledgeLabel}
         </button>
 
         {alreadyIn && (
@@ -168,7 +172,7 @@ export default function JoinGroupBuySheet({
             disabled={busy}
             onClick={leave}
           >
-            Leave this group buy
+            {t("leave_this_group_buy")}
           </button>
         )}
       </div>

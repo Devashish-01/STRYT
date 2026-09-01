@@ -65,8 +65,8 @@ export default function BulkDealCard({ deal, onBook }: { deal: BulkDeal; onBook?
         <div className="col gap-4" style={{ padding: "8px 10px", background: "var(--ink-50)", borderRadius: 10 }}>
           {deal.tiers.slice(0, 3).map((tier) => (
             <div key={tier.minQty} className="row between tiny">
-              <span className="muted">{tier.minQty}+ units</span>
-              <span className="semi">{inr(tier.unitPrice)} each</span>
+              <span className="muted">{tf("n_plus_units", { n: tier.minQty })}</span>
+              <span className="semi">{tf("price_each", { price: inr(tier.unitPrice) })}</span>
             </div>
           ))}
         </div>

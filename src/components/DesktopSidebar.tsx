@@ -109,7 +109,7 @@ export default function DesktopSidebar() {
         { to: "/home", label: t("home") || "Home", icon: Home, exact: true },
         { to: "/explore", label: "Explore", icon: UserCircle },
         { to: "/map", label: t("map") || "Map", icon: Map },
-        { to: "/bulk", label: "Bulk & group buys", icon: Package },
+        { to: "/community-hub?view=deals", label: "Bulk & group buys", icon: Package },
         { to: "/community-hub", label: "Community", icon: ImageIcon },
       ];
     }
@@ -119,7 +119,7 @@ export default function DesktopSidebar() {
       { to: "/home", label: t("home") || "Home", icon: Home, exact: true },
       { to: "/explore", label: "Explore", icon: UserCircle },
       { to: "/map", label: t("map") || "Map", icon: Map },
-      { to: "/bulk", label: "Bulk & group buys", icon: Package },
+      { to: "/community-hub?view=deals", label: "Bulk & group buys", icon: Package },
       { to: "/community-hub", label: "Community", icon: ImageIcon },
       { to: "/notifications", label: "Notifications", icon: Bell, badge: chatUnread || undefined },
       { to: "/queues", label: "My Queues", icon: Plus },

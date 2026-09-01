@@ -5,6 +5,7 @@ import { bulkService } from "@/services";
 import { useApp } from "@/store";
 import { PaymentMethodPanel } from "@/components/PaymentMethodPanel";
 import { FULFILLMENT_LABELS, calcBulkTotal, type BulkDeal, type BulkQuote, type FulfillmentType, type PaymentMethod } from "@/types";
+import { useI18n } from "@/lib/i18n";
 
 /** Fulfillment choices a business bulk deal actually supports. A group-buy-only
  *  mode like ON_SITE_CAMP has no meaning for a single buyer's order. */
@@ -14,6 +15,7 @@ export default function BulkOrderSheet({
   deal, onOrdered, onClose,
 }: { deal: BulkDeal; onOrdered?: () => void; onClose: () => void }) {
   const { showToast } = useApp();
+  const { t, tf } = useI18n();
   const [qty, setQty] = useState(deal.moq);
   const [fulfillment, setFulfillment] = useState<FulfillmentType>("STORE_PICKUP");
   const [address, setAddress] = useState("");
@@ -71,12 +73,12 @@ export default function BulkOrderSheet({
       onClick={onClose}
     >
       <div
-        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
+        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "var(--surface)", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="row between center-v" style={{ marginBottom: "var(--space-md)" }}>
           <div style={{ minWidth: 0 }}>
-            <div className="bold" style={{ fontSize: 18 }}>Order in bulk</div>
+            <div className="bold" style={{ fontSize: 18 }}>{t("order_in_bulk")}</div>
             <div className="tiny muted ellipsis" style={{ marginTop: 2 }}>{deal.title}</div>
           </div>
           <button className="icon-btn" onClick={onClose}><X size={20} /></button>
@@ -84,7 +86,7 @@ export default function BulkOrderSheet({
 
         {/* Quantity */}
         <div className="col gap-6" style={{ marginBottom: "var(--space-md)" }}>
-          <label className="tiny semi muted">Quantity <span style={{ fontWeight: 400 }}>(min {deal.moq}{deal.availableQuota != null ? `, ${deal.availableQuota} left` : ""})</span></label>
+          <label className="tiny semi muted">{t("quantity_label")} <span style={{ fontWeight: 400 }}>{deal.availableQuota != null ? tf("qty_min_and_left", { n: deal.moq, left: deal.availableQuota }) : tf("qty_min_only", { n: deal.moq })}</span></label>
           <div className="row gap-12 center-v">
             <button
               className="icon-btn"
@@ -113,9 +115,9 @@ export default function BulkOrderSheet({
               return (
                 <div key={tier.minQty} className="row between tiny">
                   <span className={active ? "semi" : "muted"} style={active ? { color: "var(--green-600)" } : undefined}>
-                    {active ? "✓ " : ""}{tier.minQty}+ units
+                    {active ? "✓ " : ""}{tf("n_plus_units", { n: tier.minQty })}
                   </span>
-                  <span className={active ? "semi" : "muted"}>{inr(tier.unitPrice)} each</span>
+                  <span className={active ? "semi" : "muted"}>{tf("price_each", { price: inr(tier.unitPrice) })}</span>
                 </div>
               );
             })}
@@ -125,13 +127,13 @@ export default function BulkOrderSheet({
         {/* Live total */}
         <div className="card col gap-6" style={{ padding: 14, marginBottom: "var(--space-md)", background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
           <div className="row between center-v">
-            <span className="tiny muted">{qty} × {inr(quote.unitPrice)}</span>
+            <span className="tiny muted">{tf("qty_times_price", { qty, price: inr(quote.unitPrice) })}</span>
             <span className="bold" style={{ fontSize: 20, color: "var(--green-600)" }}>{inr(quote.total)}</span>
           </div>
           {quote.saved > 0 && (
             <div className="row between tiny">
               <span className="muted" style={{ textDecoration: "line-through" }}>{inr(quote.regularTotal)}</span>
-              <span className="semi" style={{ color: "var(--green-600)" }}>You save {inr(quote.saved)}</span>
+              <span className="semi" style={{ color: "var(--green-600)" }}>{tf("you_save_price", { price: inr(quote.saved) })}</span>
             </div>
           )}
         </div>
@@ -140,14 +142,14 @@ export default function BulkOrderSheet({
           <div className="card row gap-10" style={{ padding: 12, marginBottom: "var(--space-md)", background: "var(--red-50)", border: "1px solid var(--red-100)" }}>
             <AlertCircle size={16} color="var(--red-600)" style={{ flexShrink: 0, marginTop: 1 }} />
             <div className="tiny" style={{ color: "var(--red-700)", lineHeight: 1.5 }}>
-              {!quote.meetsMoq ? `Minimum order for this deal is ${deal.moq} units.` : "Not enough stock left for that quantity."}
+              {!quote.meetsMoq ? tf("min_order_is_n_units", { n: deal.moq }) : t("not_enough_stock")}
             </div>
           </div>
         )}
 
         {/* Fulfillment */}
         <div style={{ marginBottom: "var(--space-md)" }}>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>How do you want it?</label>
+          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("how_want_it")}</label>
           <div className="row gap-8">
             {ORDER_FULFILLMENT.map((ft) => (
               <button
@@ -164,7 +166,7 @@ export default function BulkOrderSheet({
             <input
               className="input"
               style={{ marginTop: 8 }}
-              placeholder="Delivery address"
+              placeholder={t("delivery_address_label")}
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               maxLength={400}

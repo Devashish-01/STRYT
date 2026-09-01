@@ -357,14 +357,14 @@ export default function RequestDetail() {
             );
           })()}
 
-          {/* Once the initiator closes the deal, every joiner's pass lives on
-              /bulk → My activity. Surfaced here too because this is the screen
+          {/* Once the initiator closes the deal, every joiner's pass lives at
+              /community/activity. Surfaced here too because this is the screen
               they were watching while the pool filled. */}
           {r.isGroupBuy && r.groupAgreementId && (
             <button
               className="card row gap-10 center-v"
               style={{ marginTop: 14, padding: 14, width: "100%", textAlign: "left", background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}
-              onClick={() => nav("/bulk")}
+              onClick={() => nav("/community/activity")}
             >
               <Ticket size={20} color="var(--brand-700)" style={{ flexShrink: 0 }} />
               <div className="grow">

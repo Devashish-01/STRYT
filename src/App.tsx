@@ -72,7 +72,7 @@ const ProviderDetail = lazy(() => import("./screens/provider/ProviderDetail"));
 const RequestDetail = lazy(() => import("./screens/requests/RequestDetail"));
 const PlaceDetail = lazy(() => import("./screens/places/PlaceDetail"));
 const PlaceRequestForm = lazy(() => import("./screens/places/PlaceRequestForm"));
-const BulkBuyingHub = lazy(() => import("./screens/BulkBuyingHub"));
+const CommunityActivity = lazy(() => import("./screens/CommunityActivity"));
 const BulkDealsManager = lazy(() => import("./screens/business/manage/BulkDealsManager"));
 
 // Pillar C flows
@@ -570,7 +570,13 @@ export default function App() {
             <Route path="/business/:id" element={<BusinessDetail />} />
             <Route path="/provider/:id" element={<ProviderDetail />} />
             <Route path="/place/:id" element={<PlaceDetail />} />
-            <Route path="/bulk" element={<BulkBuyingHub />} />
+            {/* Retired: bulk buying is now part of Community itself (group
+                buys join inline in the feed, deals get their own section).
+                Redirect rather than 404 — kept inside GuestOrAuthLayout so a
+                signed-out visitor following an old /bulk link or bookmark
+                lands on Community, not bounced to sign-in. */}
+            <Route path="/bulk" element={<Navigate to="/community-hub" replace />} />
+            <Route path="/community/activity" element={<CommunityActivity />} />
             <Route path="/search" element={<Search />} />
             <Route path="/categories" element={<AllCategories />} />
             <Route path="/category/:id" element={<CategoryListing />} />

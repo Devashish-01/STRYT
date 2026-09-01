@@ -38,6 +38,11 @@ export interface RequestPost {
   radiusKm: number;
   deadline: string;
   postedAt: string; // relative label
+  /** Raw timestamp behind postedAt's relative label. Already selected as part
+   *  of REQUEST_SELECT's `*` and camelCased by rowToRequest — this just
+   *  exposes it in the type, the same way CommunityPost.createdAtISO does,
+   *  so a group buy can be chronologically interleaved with community posts. */
+  createdAt?: string;
   status: RequestStatus;
   isBoosted: boolean;
   viewCount: number;
