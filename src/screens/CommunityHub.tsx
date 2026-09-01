@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, MapPin, FileText, ArrowLeft, SlidersHorizontal, RefreshCw, Check, ChevronRight, Ticket } from "@/components/Icons";
 import { requestService, communityService, bulkService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import { ListSkeleton, ErrorView } from "@/components/states";
+import { ListSkeleton, ErrorView, PostCardSkeleton } from "@/components/states";
 import { CommunityCard } from "@/components/cards";
 import GroupBuyCard from "@/components/GroupBuyCard";
 import BulkDealCard from "@/components/BulkDealCard";
@@ -183,6 +183,24 @@ export default function CommunityHub() {
       setLoadingMorePosts(false);
     }
   }
+
+  // Pagination advances on scroll proximity, not a tap — a sentinel div 300px
+  // before the end of the list triggers the same loadMorePosts a "Load more"
+  // button used to. Re-observes whenever the cursor changes so a freshly
+  // rendered sentinel (after a page lands) is watched again.
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (isSpecialView || !postsHasMore) return;
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) loadMorePosts(); },
+      { rootMargin: "300px 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpecialView, postsHasMore, postCursor]);
 
   // New posts are counted, never auto-inserted — see useRealtimeInserts.
   const { newIds, reset: resetNewIds } = useRealtimeInserts("community_posts", { enabled: !isSpecialView });
@@ -466,7 +484,7 @@ export default function CommunityHub() {
             )}
           </div>
         ) : (
-          postsLoading ? <ListSkeleton count={3} /> :
+          postsLoading ? <ListSkeleton count={3} type="post" /> :
           postsError   ? <ErrorView error={postsError} onRetry={refetchPosts} /> :
           stream.length === 0 ? (
             <EmptyState
@@ -485,7 +503,7 @@ export default function CommunityHub() {
               }
             />
           ) : (
-            <div className="col gap-16 page-pad" style={{ paddingBottom: 32 }}>
+            <div className="col gap-12 page-pad" style={{ paddingBottom: 32 }}>
               {/* Bulk deals rail — a labelled, horizontal, clearly-commercial
                   section, never a card inline in the vertical neighbour
                   stream. Only on the unfiltered view, and only when there's
@@ -516,11 +534,15 @@ export default function CommunityHub() {
                 )
               )}
               {/* No longer gated on postFilter === "ALL": the filter is part of
-                  the query now, so the next page is the next page OF THIS FILTER. */}
+                  the query now, so the next page is the next page OF THIS FILTER.
+                  No tap required either — the sentinel below fires loadMorePosts
+                  once it nears the viewport (see the IntersectionObserver effect
+                  above); the skeleton is what's actually visible, the 1px div is
+                  just the trigger. */}
               {postsHasMore && (
-                <button className="btn btn-ghost btn-block" onClick={loadMorePosts} disabled={loadingMorePosts} style={{ marginTop: 8 }}>
-                  {loadingMorePosts ? t("loading_ellipsis") : t("load_more")}
-                </button>
+                <div ref={loadMoreRef} style={{ marginTop: 8 }}>
+                  {loadingMorePosts && <PostCardSkeleton />}
+                </div>
               )}
             </div>
           )

@@ -721,23 +721,42 @@ h3, .h3 {
      way sliding/parallax does. */
 }
 
-/* Squircle card ambient depth */
+/* Squircle card — grouped-inset treatment (Phase 3 "card craft"): a resting
+   card reads through its 1px border against --bg, not a shadow, matching
+   iOS's grouped-list depth model of "one elevation level at a time" — a
+   feed of shadowed cards each casting their own light was the thing making
+   this screen feel busier than its content actually is. Shadow only
+   reappears on :active, as real-time press feedback rather than permanent
+   ambient depth. content-visibility skips layout/paint for off-screen
+   cards — cheap, no JS, meaningful on a feed that can run to dozens of
+   these. Not hex-scanned (this file is CSS, not .tsx). */
 .community-card-squircle {
-  border-radius: 20px !important;
-  padding: 20px 18px !important;
-  border: 1px solid var(--ink-200) !important;
-  box-shadow: 0 4px 20px -4px rgba(26, 21, 48, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+  border-radius: var(--radius) !important;
+  padding: var(--space-md) !important;
+  border: 1px solid var(--line) !important;
+  box-shadow: none !important;
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease !important;
   background: var(--surface);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
 }
 
 .community-card-squircle:hover {
-  box-shadow: 0 8px 28px -4px rgba(26, 21, 48, 0.08), 0 2px 6px rgba(0, 0, 0, 0.03) !important;
   border-color: rgba(232, 62, 160, 0.28) !important;
 }
 
 .community-card-squircle:active {
   transform: scale(0.995) !important;
+  box-shadow: var(--shadow-sm) !important;
+}
+
+/* 4-line clamp — a post body was rendering fully unclamped, so a 2000-
+   character post could occupy the entire viewport. Sibling to .clamp-2. */
+.clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* ============================================================

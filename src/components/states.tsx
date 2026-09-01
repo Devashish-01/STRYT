@@ -86,6 +86,25 @@ export function RequestCardSkeleton() {
   );
 }
 
+export function PostCardSkeleton() {
+  return (
+    <div className="card community-card-squircle">
+      <div className="row gap-10" style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <Skeleton h={36} w={36} r={18} />
+        <div className="grow col gap-6" style={{ flexGrow: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+          <Skeleton h={13} w="35%" />
+          <Skeleton h={11} w="25%" />
+        </div>
+      </div>
+      <div style={{ marginTop: 10 }}>
+        <Skeleton h={13} w="100%" mb={6} />
+        <Skeleton h={13} w="90%" mb={6} />
+        <Skeleton h={13} w="60%" />
+      </div>
+    </div>
+  );
+}
+
 export function AppointmentCardSkeleton() {
   return (
     <div className="card col gap-10" style={{ display: "flex", flexDirection: "column", gap: 10, padding: 14 }}>
@@ -118,7 +137,7 @@ export function ExploreSkeleton({ tab = "all" }: { tab?: "all" | "business" | "p
   );
 }
 
-export function ListSkeleton({ count = 4, type = "card" }: { count?: number; type?: "card" | "business" | "provider" | "request" | "appointment" }) {
+export function ListSkeleton({ count = 4, type = "card" }: { count?: number; type?: "card" | "business" | "provider" | "request" | "appointment" | "post" }) {
   const renderItem = (key: number) => {
     switch (type) {
       case "business":
@@ -129,6 +148,8 @@ export function ListSkeleton({ count = 4, type = "card" }: { count?: number; typ
         return <RequestCardSkeleton key={key} />;
       case "appointment":
         return <AppointmentCardSkeleton key={key} />;
+      case "post":
+        return <PostCardSkeleton key={key} />;
       case "card":
       default:
         return <CardSkeleton key={key} />;

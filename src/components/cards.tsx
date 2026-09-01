@@ -697,7 +697,20 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
           {post.title}
           {post.resolved && <span className="badge badge-green" style={{ marginLeft: 8, fontSize: 10.5, padding: "2.5px 8px", borderRadius: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
         </button>
-        {post.body && <p className="small" style={{ marginTop: 8, lineHeight: 1.6, color: "var(--ink-700)", fontSize: 14 }}>{post.body}</p>}
+        {/* Clamped to 4 lines — MAX_BODY_LEN is 2000 chars, and an unclamped
+            body could occupy the whole viewport for one verbose post. A real
+            <button>, not a styled <p>, so it's keyboard/screen-reader
+            reachable the same way the title and author row already are.
+            Tapping the (possibly truncated) text opens the full post. */}
+        {post.body && (
+          <button
+            className="small clamp-4"
+            style={{ marginTop: 8, lineHeight: 1.6, color: "var(--ink-700)", fontSize: 15, display: "block", width: "100%", textAlign: "left", background: "none", border: "none", padding: 0, font: "inherit", cursor: "pointer" }}
+            onClick={handleCardTap}
+          >
+            {post.body}
+          </button>
+        )}
 
         {/* Structured per-type detail. These used to be buried in the body text
             where they couldn't be scanned; now they read as facts. */}
