@@ -189,6 +189,7 @@ egress allowlist, so it is the correct place to audit this from.
 | `tiles.openfreemap.org`, `*.tile.openstreetmap.org` | Map tile requests | No |
 | `nominatim.openstreetmap.org`, `overpass-api.de` | Fallback reverse-geocoding coordinates | No |
 | `api.open-meteo.com` | Coarse coordinates for the weather in the ambient header | No |
+| `fonts.googleapis.com`, `fonts.gstatic.com` | Nothing user-specific — static CSS/font-file requests only, cached by the service worker | No |
 | Vercel Analytics / Speed Insights | Aggregate page + performance events | No — analytics processor |
 
 None of these receive an advertising identifier, and STRYT ships **no ad SDK** —
