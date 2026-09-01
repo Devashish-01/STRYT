@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { haptics } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
 import { ChevronDown, ListChecks, Map as MapIcon, Minus, Plus, SlidersHorizontal, Target, Zap } from "@/components/Icons";
+import { WORLD_RADIUS_KM } from "@/utils/constants";
 import type { MapSheetDetent } from "./MapSheet";
 import SearchThisArea from "./SearchThisArea";
 
@@ -17,15 +18,6 @@ const TYPE_OPTIONS: { id: ResultFilter; label: string }[] = [
   { id: "request", label: "Asks" },
   { id: "story", label: "Stories" },
   { id: "place", label: "Places" },
-];
-
-const PRESET_RADIUS_OPTIONS = [
-  { label: "1 km", km: 1 },
-  { label: "2 km", km: 2 },
-  { label: "5 km", km: 5 },
-  { label: "10 km", km: 10 },
-  { label: "25 km", km: 25 },
-  { label: "50 km", km: 50 },
 ];
 
 export function MapFilterStrip({
@@ -68,7 +60,7 @@ export function MapFilterStrip({
   const activeCategoryLabel = TYPE_OPTIONS.find((o) => o.id === filter)?.label ?? "All";
   const effectiveRadius = radiusKm ?? currentRadiusKm;
   const radiusLabel = effectiveRadius
-    ? (effectiveRadius < 1 ? `${Math.round(effectiveRadius * 1000)}m` : `${effectiveRadius.toFixed(1).replace(/\.0$/, "")}km`)
+    ? (effectiveRadius >= WORLD_RADIUS_KM ? "🌍 World" : effectiveRadius < 1 ? `${Math.round(effectiveRadius * 1000)}m` : `${effectiveRadius.toFixed(1).replace(/\.0$/, "")}km`)
     : "Auto";
 
   // Category Popover position calculation
@@ -218,6 +210,8 @@ export function MapFilterStrip({
           <span className="tiny bold" style={{ color: "var(--brand-600)" }}>
             {radiusKm == null
               ? `Auto (${(currentRadiusKm ?? 5).toFixed(1).replace(/\.0$/, "")} km)`
+              : radiusKm >= WORLD_RADIUS_KM
+              ? "🌍 World"
               : radiusKm < 1
               ? `${Math.round(radiusKm * 1000)}m`
               : `${radiusKm.toFixed(1).replace(/\.0$/, "")} km`}
@@ -237,7 +231,7 @@ export function MapFilterStrip({
           >
             Auto View
           </button>
-          {PRESET_RADIUS_OPTIONS.map((opt) => (
+          {radiusOptions.map((opt) => (
             <button
               key={opt.km}
               type="button"
@@ -275,14 +269,14 @@ export function MapFilterStrip({
               <input
                 type="number"
                 min={0.5}
-                max={100}
+                max={WORLD_RADIUS_KM}
                 step={0.5}
                 className="map-filter-stepper__input"
                 value={customInputVal !== "" ? customInputVal : currentNumericRadius}
                 onChange={(e) => {
                   setCustomInputVal(e.target.value);
                   const val = parseFloat(e.target.value);
-                  if (Number.isFinite(val) && val > 0 && val <= 200) {
+                  if (Number.isFinite(val) && val > 0 && val <= WORLD_RADIUS_KM) {
                     onRadiusChange(val);
                   }
                 }}
@@ -299,8 +293,8 @@ export function MapFilterStrip({
               onClick={() => {
                 haptics.selection();
                 const cur = radiusKm ?? currentRadiusKm ?? 5;
-                const delta = cur >= 10 ? 5 : (cur >= 2 ? 1 : 0.5);
-                const next = Math.min(100, Math.round((cur + delta) * 10) / 10);
+                const delta = cur >= 1000 ? 500 : cur >= 100 ? 50 : cur >= 10 ? 5 : (cur >= 2 ? 1 : 0.5);
+                const next = Math.min(WORLD_RADIUS_KM, Math.round((cur + delta) * 10) / 10);
                 onRadiusChange(next);
               }}
             >

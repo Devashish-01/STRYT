@@ -6,6 +6,8 @@
 // actually do.
 export const GROUP_BUY_PROGRESS_ENABLED = true;
 
+export const WORLD_RADIUS_KM = 20000;
+
 export const RADIUS_OPTIONS = [
   { label: "500m", km: 0.5 },
   { label: "1 km",  km: 1 },
@@ -15,5 +17,5 @@ export const RADIUS_OPTIONS = [
   { label: "25 km", km: 25 },
   { label: "50 km", km: 50 },
   { label: "100 km", km: 100 },
-  { label: "🌍 World", km: 20000 },
+  { label: "🌍 World", km: WORLD_RADIUS_KM },
 ];

@@ -11,7 +11,7 @@ import { config } from "@/config";
 import { StoryViewer } from "@/components/Stories";
 import type { Story } from "@/types";
 import { evaluateProviderAvailability } from "@/utils/availability";
-import { RADIUS_OPTIONS } from "@/utils/constants";
+import { RADIUS_OPTIONS, WORLD_RADIUS_KM } from "@/utils/constants";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 
 import type { Layer as MapLayer } from "./mapIcons";
@@ -369,7 +369,7 @@ export default function MapView() {
     );
     map.once("moveend", () => { suppressViewportMoveRef.current = false; });
   }
-  const isWorld = false; // "World" was a radius-strip mode; it retires with the strip (Phase 3).
+  const isWorld = searchRadiusKm >= WORLD_RADIUS_KM;
 
   // Move the map to an explicitly picked point — a searched area, or a shop
   // from the search dropdown — and make that the SEARCHED area too, not just
@@ -760,7 +760,7 @@ export default function MapView() {
         )}
 
         {/* Northern Edge Range Pill directly on the map */}
-        {radiusRing && searchRadiusKm > 0 && searchRadiusKm < 20000 && (
+        {radiusRing && searchRadiusKm > 0 && searchRadiusKm < WORLD_RADIUS_KM && (
           <Marker
             longitude={centerLng}
             latitude={centerLat + searchRadiusKm / 111}
