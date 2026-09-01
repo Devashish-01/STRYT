@@ -4,6 +4,7 @@ import { inr } from "@/components/common";
 import { requestService } from "@/services";
 import { useApp } from "@/store";
 import type { RequestPost } from "@/types";
+import { poolProgress } from "@/lib/groupBuy";
 
 const MAX_PLEDGE = 50;
 
@@ -21,11 +22,17 @@ export default function JoinGroupBuySheet({
   const [busy, setBusy] = useState(false);
 
   const unitPrice = req.bulkPricePerUnit ?? null;
-  const target = req.groupBuyTarget ?? 0;
-  const pledged = req.pledgedQuantity ?? 0;
+  // pledgedQuantity (units) is authoritative when available; meTooCount
+  // (people) is the fallback — see lib/groupBuy.ts.
+  const { target, pledged, hasTarget } = poolProgress({
+    target: req.groupBuyTarget,
+    pledgedQuantity: req.pledgedQuantity,
+    meTooCount: req.meTooCount,
+  });
   // Show the pool as it WOULD look after this pledge, so the contribution is
   // visible before committing rather than only after.
   const projected = pledged - (req.myPledgeQuantity ?? 0) + qty;
+  const projectedPct = hasTarget ? Math.min(100, (projected / target) * 100) : 0;
 
   // A doorstep group buy is undeliverable without an address — the server
   // rejects it too, this just catches it before a round trip.
@@ -111,13 +118,13 @@ export default function JoinGroupBuySheet({
           </div>
         )}
 
-        {target > 0 && (
+        {hasTarget && (
           <div className="card col gap-6" style={{ padding: 12, marginBottom: "var(--space-md)", background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
             <div className="row gap-8 center-v tiny semi" style={{ color: "var(--brand-700)" }}>
               <Users size={14} /> Pool would reach {projected} of {target}
             </div>
             <div style={{ height: 6, borderRadius: 6, background: "#fff", overflow: "hidden" }}>
-              <div style={{ width: `${Math.min(100, (projected / target) * 100)}%`, height: "100%", background: "var(--brand-600)" }} />
+              <div style={{ width: `${projectedPct}%`, height: "100%", background: "var(--brand-600)" }} />
             </div>
             <div className="tiny muted">
               Nothing is charged now. You'll get a claim pass once the organiser closes the deal.

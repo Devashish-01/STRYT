@@ -4,6 +4,7 @@ import { Users, MapPin, CheckCircle2 } from "@/components/Icons";
 import { FULFILLMENT_LABELS, type RequestPost } from "@/types";
 import { distanceLabel } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
+import { poolProgress } from "@/lib/groupBuy";
 
 /** Customer-initiated demand pool. Brand/violet tone + live progress bar,
  *  deliberately unlike BulkDealCard's amber "buy it now" treatment — the two
@@ -14,12 +15,13 @@ export default function GroupBuyCard({ req, onJoin }: { req: RequestPost; onJoin
 
   // Progress is measured in UNITS, not people — a target of "100 checkups" is
   // met by 40 neighbours pledging 2-3 each, and counting heads would show the
-  // pool as far emptier than it is.
-  const target = req.groupBuyTarget ?? 0;
-  const pledged = req.pledgedQuantity ?? req.meTooCount ?? 0;
-  const pct = target > 0 ? Math.min(100, (pledged / target) * 100) : 0;
-  const remaining = Math.max(0, target - pledged);
-  const joined = (req.myPledgeQuantity ?? 0) > 0;
+  // pool as far emptier than it is. See lib/groupBuy.ts for the one shared formula.
+  const { pledged, target, pct, remaining, joined, hasTarget } = poolProgress({
+    target: req.groupBuyTarget,
+    pledgedQuantity: req.pledgedQuantity,
+    meTooCount: req.meTooCount,
+    myPledgeQuantity: req.myPledgeQuantity,
+  });
 
   return (
     <div className="card col gap-10" style={{ padding: 14, borderLeft: "3px solid var(--brand-600)" }}>
@@ -43,7 +45,7 @@ export default function GroupBuyCard({ req, onJoin }: { req: RequestPost; onJoin
         </div>
       </div>
 
-      {target > 0 && (
+      {hasTarget && (
         <div>
           <div className="row between tiny" style={{ marginBottom: 5 }}>
             <span className="semi" style={{ color: "var(--brand-700)" }}>{tf("pledged_of_target", { pledged, target })}</span>

@@ -65,11 +65,15 @@ export const bulkService = {
   /** Active wholesale offers, nearest first when a location is known. */
   async deals(p: { lat?: number; lng?: number; radius?: number } = {}): Promise<BulkDeal[]> {
     const sb = getSupabase();
+    // Bounded — this was an unbounded select over every ACTIVE deal, tolerable
+    // on a screen nobody opened but not on the Community feed's first paint,
+    // which fetches this on every visit.
     const { data, error } = await sb
       .from("bulk_deals")
       .select(DEAL_SELECT)
       .eq("status", "ACTIVE")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(20);
     throwIfError(error);
     let out = (data ?? []).map((r) => rowToDeal(r, p.lat ?? 0, p.lng ?? 0));
     if (p.lat && p.lng && p.radius) {

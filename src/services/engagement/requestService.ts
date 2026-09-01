@@ -195,7 +195,13 @@ export const requestService = {
     if (p.special === "urgent")  q = q.eq("is_urgent", true);
     if (p.special === "group")   q = q.eq("is_group_buy", true);
     if (p.special === "recurring") q = q.eq("is_recurring", true);
-    const { data, error, count } = await q.order("created_at", { ascending: false }).range(from, to);
+    // Tiebreak on id so rows with an identical created_at (common with seeded
+    // or bulk-inserted data) don't reshuffle between offset pages — the same
+    // reason community_posts_feed orders on cp.id desc as a second key.
+    const { data, error, count } = await q
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
     throwIfError(error);
 
     const saved = localStorage.getItem("settings_radius");
@@ -204,7 +210,16 @@ export const requestService = {
     // device. Non-guests are unaffected.
     const radiusLimit = clampRadiusForViewer(p.radiusKm ?? (saved ? parseFloat(saved) : 5)) ?? 5;
 
-    let rows = (data ?? []).map((r: any) => rowToRequest(r, p.lat, p.lng));
+    // rawRows (this page's full width from the server) drives pagination;
+    // rows (radius-filtered) is what's returned. Using the filtered length for
+    // has_more/next_cursor — as this used to — desyncs the cursor from `count`
+    // (which is the server's unfiltered exact total): the cursor would advance
+    // by fewer rows than the server actually served, so "Load more" re-serves
+    // already-seen rows, and a page that's entirely outside the radius stalls
+    // pagination forever (next_cursor never moves). Same fix communityService
+    // already applies for exactly this reason — see its comment on makePage.
+    const rawRows = (data ?? []).map((r: any) => rowToRequest(r, p.lat, p.lng));
+    let rows = rawRows;
     if (p.lat && p.lng) {
       // A request is only visible within the SMALLER of (a) the viewer's own
       // radius preference and (b) the radius the poster chose for that post —
@@ -214,7 +229,7 @@ export const requestService = {
         return r.distanceKm <= postCap;
       });
     }
-    return makePage(rows, count, from, limit);
+    return { data: rows, page: makePage(rawRows, count, from, limit).page };
   },
 
   async mine(userLat = 0, userLng = 0): Promise<RequestPost[]> {

@@ -9,6 +9,7 @@ import { displayName as safeName } from "@/lib/publicName";
 import { distanceLabel } from "@/lib/format";
 import { openProfile } from "@/lib/profileSheet";
 import { GROUP_BUY_PROGRESS_ENABLED } from "@/utils/constants";
+import { poolProgress } from "@/lib/groupBuy";
 import { REQUEST_STATUS_BADGE } from "@/lib/statusBadges";
 import { communityService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -319,6 +320,16 @@ export function RequestCard({ r, style }: { r: RequestPost; style?: CSSPropertie
     r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget";
   const meTooed = meToos.includes(r.id) || r.meTooed;
   const meTooCount = (r.meTooCount ?? 0) + (meTooed && !r.meTooed ? 1 : 0);
+  // pledgedQuantity (units) is authoritative when the caller ran
+  // enrichGroupBuyPledges; meTooCount (people) is the fallback — see groupBuy.ts.
+  const progress = r.isGroupBuy
+    ? poolProgress({
+        target: r.groupBuyTarget,
+        pledgedQuantity: r.pledgedQuantity,
+        meTooCount,
+        myPledgeQuantity: r.myPledgeQuantity,
+      })
+    : null;
   const isOpen = r.status === "OPEN";
   const statusBadge = REQUEST_STATUS_BADGE[r.status] ?? null;
   const archived = r.status === "EXPIRED" || r.status === "CANCELLED";
@@ -362,14 +373,14 @@ export function RequestCard({ r, style }: { r: RequestPost; style?: CSSPropertie
       </div>
 
       {/* Group buy progress — hidden while GROUP_BUY_PROGRESS_ENABLED is off */}
-      {GROUP_BUY_PROGRESS_ENABLED && r.isGroupBuy && r.groupBuyTarget && (
+      {GROUP_BUY_PROGRESS_ENABLED && progress?.hasTarget && (
         <div style={{ marginTop: 10 }}>
           <div className="row between tiny" style={{ marginBottom: 4 }}>
-            <span className="semi" style={{ color: "var(--green-500)" }}>{meTooCount} of {r.groupBuyTarget} joined</span>
+            <span className="semi" style={{ color: "var(--green-500)" }}>{progress.pledged} of {progress.target} joined</span>
             <span className="muted">unlocks bulk price</span>
           </div>
           <div style={{ height: 7, borderRadius: 6, background: "var(--ink-100)", overflow: "hidden" }}>
-            <div style={{ width: `${Math.min(100, (meTooCount / r.groupBuyTarget) * 100)}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),var(--green-500))" }} />
+            <div style={{ width: `${progress.pct}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),var(--green-500))" }} />
           </div>
         </div>
       )}

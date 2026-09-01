@@ -18,6 +18,7 @@ import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import type { Proposal, ProposalCounter } from "@/types";
 import { openProfile } from "@/lib/profileSheet";
 import { GROUP_BUY_PROGRESS_ENABLED } from "@/utils/constants";
+import { poolProgress } from "@/lib/groupBuy";
 import { REQUEST_STATUS_BADGE, PROPOSAL_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import AnimatedNumber from "@/components/AnimatedNumber";
@@ -328,22 +329,24 @@ export default function RequestDetail() {
             </div>
           )}
 
-          {/* Group buy progress — hidden while GROUP_BUY_PROGRESS_ENABLED is off */}
-          {GROUP_BUY_PROGRESS_ENABLED && r.isGroupBuy && r.groupBuyTarget && (() => {
-            // Measured in UNITS pledged, not heads — a 100-checkup target is
-            // met by ~40 neighbours pledging 2-3 each, and counting people
-            // would show the pool as far emptier than it really is.
-            const pledged = r.pledgedQuantity ?? meTooCount;
-            const remaining = Math.max(0, r.groupBuyTarget - pledged);
-            const reached = remaining === 0;
+          {/* Group buy progress — hidden while GROUP_BUY_PROGRESS_ENABLED is off.
+              Measured in UNITS pledged, not heads — see lib/groupBuy.ts. */}
+          {GROUP_BUY_PROGRESS_ENABLED && r.isGroupBuy && (() => {
+            const progress = poolProgress({
+              target: r.groupBuyTarget,
+              pledgedQuantity: r.pledgedQuantity,
+              meTooCount,
+              myPledgeQuantity: r.myPledgeQuantity,
+            });
+            if (!progress.hasTarget) return null;
             return (
               <div className="card" style={{ marginTop: 14, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
                 <div className="row between tiny" style={{ marginBottom: 6 }}>
-                  <span className="semi" style={{ color: "var(--green-600)" }}>{tf("pledged_of_target", { pledged, target: r.groupBuyTarget })}</span>
-                  <span className="muted">{reached ? t("target_reached") : tf("more_unlocks_bulk_price", { n: remaining })}</span>
+                  <span className="semi" style={{ color: "var(--green-600)" }}>{tf("pledged_of_target", { pledged: progress.pledged, target: progress.target })}</span>
+                  <span className="muted">{progress.complete ? t("target_reached") : tf("more_unlocks_bulk_price", { n: progress.remaining })}</span>
                 </div>
                 <div style={{ height: 8, borderRadius: 6, background: "var(--surface)", overflow: "hidden" }}>
-                  <div style={{ width: `${Math.min(100, (pledged / r.groupBuyTarget) * 100)}%`, height: "100%", background: "var(--green-500)", transition: "width .3s" }} />
+                  <div style={{ width: `${progress.pct}%`, height: "100%", background: "var(--green-500)", transition: "width .3s" }} />
                 </div>
                 {(r.myPledgeQuantity ?? 0) > 0 && (
                   <div className="tiny" style={{ color: "var(--green-600)", marginTop: 6 }}>
