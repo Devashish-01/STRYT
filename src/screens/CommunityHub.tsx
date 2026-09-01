@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, MapPin, MessageCircle, Search as SearchIcon, FileText, ArrowLeft, ArrowUpDown, RefreshCw, Check, Ticket } from "@/components/Icons";
+import { Plus, MapPin, FileText, ArrowLeft, SlidersHorizontal, RefreshCw, Check, ChevronRight, Ticket } from "@/components/Icons";
 import { requestService, communityService, bulkService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -13,7 +13,7 @@ import { EmptyState, SafeImg, Section } from "@/components/common";
 import { StoriesBar } from "@/components/Stories";
 import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
-import { POST_FILTERS, filterLabel } from "@/lib/communityTypes";
+import type { CommunityPostType } from "@/types";
 import {
   HIDDEN_POSTS_KEY,
   MUTED_AUTHORS_KEY,
@@ -23,7 +23,6 @@ import {
 } from "@/lib/postInteractions";
 import {
   DEFAULT_FEED_SORT,
-  FEED_SORT_META,
   appendPage,
   availableSorts,
   countUnseen,
@@ -33,33 +32,48 @@ import {
 import { mergeStream } from "@/lib/communityFeed";
 import { RADIUS_OPTIONS } from "@/utils/constants";
 import { haptics } from "@/lib/haptics";
-import type { BulkDeal, CommunityPost, CommunityPostType, RequestPost } from "@/types";
+import type { BulkDeal, CommunityPost, RequestPost } from "@/types";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRealtimeInserts } from "@/hooks/useRealtimeInserts";
 import { useI18n } from "@/lib/i18n";
 
 const DEALS_RADIUS_KM = 10;
+const WIDEN_RADIUS_KM = 5;
+
+// The two chips ("Alerts", "Lost & Found") that stay on the main row are the
+// most commonly filtered/time-sensitive types; the other four move into the
+// "More" sheet's Show section. Keys map into i18n — see the "Phase 2 header
+// diet" block in lib/i18n.tsx.
+const LONG_TAIL_TYPES: CommunityPostType[] = ["RECOMMENDATION", "GIVEAWAY", "POLL", "SHOUTOUT"];
+const TYPE_LABEL_KEY: Record<CommunityPostType, string> = {
+  RECOMMENDATION: "type_recommendation",
+  LOST_FOUND: "type_lost_found",
+  ALERT: "type_alert",
+  GIVEAWAY: "type_giveaway",
+  POLL: "type_poll",
+  SHOUTOUT: "type_shoutout",
+};
+const SORT_LABEL_KEY: Record<FeedSort, string> = { recent: "sort_label_recent", trending: "sort_label_trending", nearest: "sort_label_nearest" };
+const SORT_HINT_KEY: Record<FeedSort, string> = { recent: "sort_hint_recent", trending: "sort_hint_trending", nearest: "sort_hint_nearest" };
+
+type StreamFilter = "ALL" | CommunityPostType | "DEALS" | "GROUPBUY";
 
 export default function CommunityHub() {
   const nav = useNavigate();
-  const { area, user, isGuest, chatUnread, activeContext, showToast } = useApp();
+  const { area, user, isGuest, activeContext, showToast } = useApp();
   const { t, tf } = useI18n();
   const requireAuth = useRequireAuth();
   const goBack = useSmartBack("/home");
-  // "ALL" | a post type | "DEALS" — DEALS switches the body to the full
-  // bulk-deals list (BulkBuyingHub's old "deals" tab), everything else drives
-  // communityService.feed's server-side type filter as before.
-  //
-  // ?view=deals lands straight on the deals view — the deep link
-  // Home's "Bulk & group buys" banner and the desktop sidebar's nav item use
-  // now that they no longer point at a dedicated /bulk screen. Same
+  // ?view=deals lands straight on the deals view — the deep link Home's
+  // "Bulk & group buys" banner and the desktop sidebar's nav item use now
+  // that they no longer point at a dedicated /bulk screen. Same
   // lazy-initializer pattern AskCompose uses for its ?groupBuy=1 pre-arm.
-  const [postFilter, setPostFilter] = useState<"ALL" | CommunityPostType | "DEALS">(
+  const [postFilter, setPostFilter] = useState<StreamFilter>(
     () => (new URLSearchParams(window.location.search).get("view") === "deals" ? "DEALS" : "ALL")
   );
   const [postSort, setPostSort] = useState<FeedSort>(DEFAULT_FEED_SORT);
-  const [sortOpen, setSortOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [dealsRadiusKm, setDealsRadiusKm] = useState(DEALS_RADIUS_KM);
   const [joining, setJoining] = useState<RequestPost | null>(null);
   const [ordering, setOrdering] = useState<BulkDeal | null>(null);
@@ -71,6 +85,9 @@ export default function CommunityHub() {
 
   const hubGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
   const isDealsView = postFilter === "DEALS";
+  const isGroupBuyOnlyView = postFilter === "GROUPBUY";
+  const isSpecialView = isDealsView || isGroupBuyOnlyView;
+  const isLongTailFilter = LONG_TAIL_TYPES.includes(postFilter as CommunityPostType);
 
   // Group buys — the complete open set in one page (requestService's
   // "special: group" server filter, unused until now), then enriched with
@@ -95,15 +112,20 @@ export default function CommunityHub() {
   // filter meant "load more" fetched 20 unfiltered posts and discarded most of
   // them, so CommunityHub only offered it on "ALL") and what makes "trending"
   // rank the whole feed instead of the page already in memory.
+  //
+  // DEALS/GROUPBUY don't fetch posts at all — those views render their own
+  // fully-fetched lists (deals, groupBuys) instead of the post stream.
   const { data: postData, loading: postsLoading, error: postsError, refetch: refetchPosts } = useQuery(
-    () => communityService.feed({
-      lat: user.lat || undefined,
-      lng: user.lng || undefined,
-      type: isDealsView ? null : typeParam(postFilter as "ALL" | CommunityPostType),
-      sort: postSort,
-    }),
+    () => isSpecialView
+      ? Promise.resolve({ data: [], page: { next_cursor: null, has_more: false } })
+      : communityService.feed({
+          lat: user.lat || undefined,
+          lng: user.lng || undefined,
+          type: typeParam(postFilter as "ALL" | CommunityPostType),
+          sort: postSort,
+        }),
     [user.lat, user.lng, postFilter, postSort],
-    isDealsView ? undefined : `hub:posts:${postFilter}:${postSort}:${hubGeoKey}`
+    isSpecialView ? undefined : `hub:posts:${postFilter}:${postSort}:${hubGeoKey}`
   );
 
   // Business bulk deals — the rail (top 3, "ALL" filter only) and the full
@@ -163,7 +185,7 @@ export default function CommunityHub() {
   }
 
   // New posts are counted, never auto-inserted — see useRealtimeInserts.
-  const { newIds, reset: resetNewIds } = useRealtimeInserts("community_posts", { enabled: !isDealsView });
+  const { newIds, reset: resetNewIds } = useRealtimeInserts("community_posts", { enabled: !isSpecialView });
 
   async function refreshFeed() {
     resetNewIds();
@@ -173,6 +195,16 @@ export default function CommunityHub() {
   }
 
   const { containerRef, pullDistance, refreshing } = usePullToRefresh<HTMLDivElement>(refreshFeed);
+
+  // An empty neighbourhood is usually a radius artifact, not genuinely nothing
+  // happening — communityService/requestService both default to 5km (or a
+  // smaller stored settings_radius). Both read localStorage fresh on every
+  // call, so bumping it here and refetching is enough; no extra dep wiring.
+  function widenRadius() {
+    localStorage.setItem("settings_radius", String(WIDEN_RADIUS_KM));
+    refetchPosts();
+    refetchGroupBuys();
+  }
 
   const allPosts = appendPage(postData?.data ?? [], extraPosts);
   // "Show me less of this" is applied client-side and immediately: the row
@@ -235,18 +267,25 @@ export default function CommunityHub() {
 
   return (
     <div className="screen with-nav community-hub-screen community-theme">
+      {/* Header carries only 4 things now: back · title · filter/sort ·
+          create. Everything else that used to be pinned here (stories,
+          the compose prompt, the "Post a request" button, the filter chip
+          strip) scrolls with the content instead — see the scroll region
+          below. The material (glass blur + hairline) is untouched; it
+          already reads as a proper iOS nav bar, it just had too much
+          stacked underneath it. */}
       <header className="community-hub-header">
         <div className="community-hub-top">
           <button
             className="icon-btn"
             onClick={handleBack}
             aria-label={t("go_back")}
-            style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--ink-100)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
+            style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--ink-100)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={19} />
           </button>
           <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
-            <div className="bold" style={{ fontSize: 22, letterSpacing: "-0.5px", lineHeight: 1.2, color: "var(--ink-900)" }}>
+            <div className="bold" style={{ fontSize: 20, letterSpacing: "-0.4px", lineHeight: 1.2, color: "var(--ink-900)" }}>
               {t("community_header")}
             </div>
             <div
@@ -265,83 +304,21 @@ export default function CommunityHub() {
               <MapPin size={11} /> {area}
             </div>
           </div>
-          <div className="row gap-8" style={{ flexShrink: 0 }}>
-            <button
-              className="icon-btn"
-              style={{ width: 38, height: 38, position: "relative", borderRadius: "50%", background: "var(--ink-100)", display: "flex", alignItems: "center", justifyContent: "center" }}
-              onClick={() => nav("/chats?scope=CUSTOMER")}
-              aria-label={t("messages_header")}
-            >
-              <MessageCircle size={18} />
-              {chatUnread > 0 && (
-                <span style={{
-                  position: "absolute", top: 4, right: 4,
-                  width: 8, height: 8, background: "var(--pink-500)",
-                  borderRadius: "50%", border: "2px solid var(--surface)",
-                  boxShadow: "0 0 8px var(--pink-500)"
-                }} />
-              )}
-            </button>
-            <button
-              className="icon-btn"
-              style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--ink-100)", display: "flex", alignItems: "center", justifyContent: "center" }}
-              onClick={() => nav("/search")}
-              aria-label={t("search_word")}
-            >
-              <SearchIcon size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Prompt bar — an invitation to write, rather than two buttons naming
-            features. Composes under the active identity, same as the old
-            "Create Post" button did. */}
-        <button className="feed-prompt" style={{ marginTop: 14 }} onClick={goToCompose}>
-          <SafeImg
-            src={activeContext.type === "customer" ? user.avatar : undefined}
-            variant="avatar"
-            className="avatar"
-            style={{ width: 32, height: 32, flexShrink: 0 }}
-          />
-          <span className="feed-prompt-text ellipsis">
-            {tf("share_with_street", { area: area || t("your_street_fallback") })}
-          </span>
-          <span className="feed-prompt-cta"><Plus size={13} /> {t("post_word")}</span>
-        </button>
-
-        <div className="community-hub-actions" style={{ marginTop: 10 }}>
           <button
-            className="btn btn-ghost btn-sm"
-            style={{ height: 38, gap: 6, borderRadius: 14, border: "1.5px solid var(--ink-200)", background: "var(--surface)", fontWeight: 700, color: "var(--ink-800)", boxShadow: "0 1px 3px rgba(0, 0, 0, 0.02)" }}
-            onClick={() => nav("/ask")}
+            className="icon-btn"
+            style={{ width: 44, height: 44, borderRadius: "50%", background: isLongTailFilter ? "var(--brand-100)" : "var(--ink-100)", color: isLongTailFilter ? "var(--brand-700)" : "var(--ink-700)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+            onClick={() => setMoreOpen(true)}
+            aria-label={t("filter_and_sort_title")}
           >
-            <FileText size={15} /> {t("post_a_request")}
+            <SlidersHorizontal size={19} />
           </button>
-        </div>
-
-        {/* Stories bar — neighborhood & business stories reel */}
-        <div style={{ margin: "14px -16px 8px", paddingBottom: 2 }}>
-          <StoriesBar />
-        </div>
-
-        {/* Content-type filter strip — "Deals" appended so the full bulk-deals
-            list stays reachable now /bulk is gone; it switches the whole body,
-            same as any other filter, rather than being a second tab system. */}
-        <div className="hscroll community-hub-filters">
-          {POST_FILTERS.map((f) => (
-            <button
-              key={f}
-              className={`chip-pill ${postFilter === f ? "active" : ""}`}
-              onClick={() => setPostFilter(f)}
-            >
-              {filterLabel(f)}
-            </button>
-          ))}
           <button
-            className={`chip-pill ${isDealsView ? "active" : ""}`}
-            onClick={() => setPostFilter("DEALS")}
+            className="icon-btn"
+            style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--brand-600)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+            onClick={goToCompose}
+            aria-label={t("post_word")}
           >
-            {t("deals_chip_label")}
+            <Plus size={20} />
           </button>
         </div>
       </header>
@@ -363,12 +340,66 @@ export default function CommunityHub() {
           </div>
         )}
 
+        {/* Stories — discovery content, not navigation, so it scrolls away
+            like everything else here instead of sitting permanently under
+            the nav bar. */}
+        <div style={{ margin: "0 -16px 4px", paddingTop: 10 }}>
+          <StoriesBar />
+        </div>
+
+        {/* Prompt bar — an invitation to write, rather than a button naming
+            a feature. Composes under the active identity, same as the old
+            "Create Post" button did. The header's + is the always-reachable
+            twin of this once you've scrolled past it. */}
+        <div className="page-pad" style={{ paddingBottom: 0 }}>
+          <button className="feed-prompt" onClick={goToCompose}>
+            <SafeImg
+              src={activeContext.type === "customer" ? user.avatar : undefined}
+              variant="avatar"
+              className="avatar"
+              style={{ width: 32, height: 32, flexShrink: 0 }}
+            />
+            <span className="feed-prompt-text ellipsis">
+              {tf("share_with_street", { area: area || t("your_street_fallback") })}
+            </span>
+            <span className="feed-prompt-cta"><Plus size={13} /> {t("post_word")}</span>
+          </button>
+        </div>
+
+        {/* Filter row — capped at six. The four longer-tail post types live
+            in the "More" sheet's Show section instead of crowding this row;
+            the sheet button picks up an active tint when one of them is the
+            current filter, so there's still a visible signal. */}
+        <div className="hscroll community-hub-filters">
+          <button className={`chip-pill ${postFilter === "ALL" ? "active" : ""}`} onClick={() => setPostFilter("ALL")}>
+            {t("filter_all")}
+          </button>
+          <button className={`chip-pill ${isGroupBuyOnlyView ? "active" : ""}`} onClick={() => setPostFilter("GROUPBUY")}>
+            {t("filter_group_buys")}
+          </button>
+          <button className={`chip-pill ${isDealsView ? "active" : ""}`} onClick={() => setPostFilter("DEALS")}>
+            {t("deals_chip_label")}
+          </button>
+          <button className={`chip-pill ${postFilter === "ALERT" ? "active" : ""}`} onClick={() => setPostFilter("ALERT")}>
+            {t("type_alert")}
+          </button>
+          <button className={`chip-pill ${postFilter === "LOST_FOUND" ? "active" : ""}`} onClick={() => setPostFilter("LOST_FOUND")}>
+            {t("type_lost_found")}
+          </button>
+          <button className={`chip-pill ${isLongTailFilter ? "active" : ""}`} onClick={() => setMoreOpen(true)}>
+            {t("more_ellipsis")}
+          </button>
+        </div>
+
         {/* "N new posts" — the arrival is announced, never injected. Yanking the
             list while someone is reading is the most disorienting thing a feed
-            can do, so the reader decides when to jump. */}
-        {!isDealsView && unseenCount > 0 && (
+            can do, so the reader decides when to jump. Sticky so it stays
+            reachable after scrolling past the header, instead of scrolling
+            away with everything above it. */}
+        {!isSpecialView && unseenCount > 0 && (
           <button
             className="feed-new-pill"
+            style={{ position: "sticky", top: 8, zIndex: 5 }}
             onClick={() => {
               haptics.light();
               resetNewIds();
@@ -383,7 +414,7 @@ export default function CommunityHub() {
         {/* Claim-pass banner — a shortcut to /community/activity, not a modal
             opened from here. With >1 pass the banner can't guess which one you
             want, and activity is the one place that lists all of them anyway. */}
-        {!isDealsView && issuedPassCount > 0 && (
+        {!isSpecialView && issuedPassCount > 0 && (
           <div className="page-pad" style={{ paddingBottom: 0 }}>
             <button
               className="card row gap-10 center-v"
@@ -426,6 +457,14 @@ export default function CommunityHub() {
               </div>
             )}
           </div>
+        ) : isGroupBuyOnlyView ? (
+          <div className="page-pad col gap-12" style={{ paddingBottom: 32 }}>
+            {groupBuys.length === 0 ? (
+              <EmptyState emoji="👥" title={t("no_open_group_buys")} text={t("no_open_group_buys_desc")} />
+            ) : (
+              groupBuys.map((r) => <GroupBuyCard key={r.id} req={r} onJoin={onJoin} />)
+            )}
+          </div>
         ) : (
           postsLoading ? <ListSkeleton count={3} /> :
           postsError   ? <ErrorView error={postsError} onRetry={refetchPosts} /> :
@@ -435,9 +474,14 @@ export default function CommunityHub() {
               title={t("nothing_posted_yet")}
               text={t("nothing_posted_desc")}
               action={
-                <button className="btn btn-primary btn-sm" onClick={goToCompose}>
-                  <Plus size={15} /> {t("post_something")}
-                </button>
+                <div className="col gap-8" style={{ alignItems: "center" }}>
+                  <button className="btn btn-primary btn-sm" onClick={widenRadius}>
+                    {tf("widen_to_n_km", { n: WIDEN_RADIUS_KM })}
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={goToCompose}>
+                    <Plus size={15} /> {t("post_something")}
+                  </button>
+                </div>
               }
             />
           ) : (
@@ -458,21 +502,6 @@ export default function CommunityHub() {
                 </Section>
               )}
 
-              {/* A real sort control, not a two-state toggle. It reads its own
-                  state instead of making you tap to discover the other option. */}
-              <button
-                className="row gap-6 center-v tiny semi"
-                style={{
-                  alignSelf: "flex-end", color: "var(--brand-700)",
-                  background: "var(--surface)", border: "1px solid var(--ink-200)",
-                  padding: "5px 12px", borderRadius: 12, boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-                  fontSize: 12.5, cursor: "pointer", transition: "all 0.15s ease"
-                }}
-                onClick={() => setSortOpen(true)}
-                aria-haspopup="dialog"
-              >
-                <ArrowUpDown size={13} /> {FEED_SORT_META[postSort].emoji} {FEED_SORT_META[postSort].label}
-              </button>
               {stream.map((item) =>
                 item.kind === "groupbuy" ? (
                   <GroupBuyCard key={`gb-${item.id}`} req={item.request} onJoin={onJoin} />
@@ -498,12 +527,36 @@ export default function CommunityHub() {
         )}
       </div>
 
-      {sortOpen && (
-        <div className="overlay" onClick={() => setSortOpen(false)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t("sort_posts")}>
+      {/* Filter & sort — the single sheet the header's filter glyph and the
+          chip row's "More…" both open. Consolidates what used to be two
+          separate sheets (a filter selector that didn't exist, and a
+          sort-only sheet) into one, since both are "how do I see the feed
+          differently" questions. */}
+      {moreOpen && (
+        <div className="overlay" onClick={() => setMoreOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t("filter_and_sort_title")}>
             <div className="sheet-grab" />
-            <div className="bold" style={{ fontSize: 17, marginBottom: 12 }}>{t("sort_posts")}</div>
-            <div className="col gap-8" role="radiogroup" aria-label={t("sort_posts")}>
+            <div className="bold" style={{ fontSize: 17, marginBottom: 14 }}>{t("filter_and_sort_title")}</div>
+
+            <div className="tiny semi muted" style={{ marginBottom: 8 }}>{t("show_section_label")}</div>
+            <div className="row wrap gap-8" style={{ marginBottom: 18 }}>
+              {LONG_TAIL_TYPES.map((type) => (
+                <button
+                  key={type}
+                  className={`chip-pill ${postFilter === type ? "active" : ""}`}
+                  onClick={() => {
+                    haptics.selection();
+                    setPostFilter(type);
+                    setMoreOpen(false);
+                  }}
+                >
+                  {t(TYPE_LABEL_KEY[type])}
+                </button>
+              ))}
+            </div>
+
+            <div className="tiny semi muted" style={{ marginBottom: 8 }}>{t("sort_by_label")}</div>
+            <div className="col gap-8" role="radiogroup" aria-label={t("sort_by_label")} style={{ marginBottom: 18 }}>
               {/* "Nearest" is hidden without a location rather than offered and
                   silently ignored. */}
               {availableSorts(!!(user.lat && user.lng)).map((s) => {
@@ -522,20 +575,31 @@ export default function CommunityHub() {
                     onClick={() => {
                       haptics.selection();
                       setPostSort(s.value);
-                      setSortOpen(false);
+                      if (postFilter === "DEALS" || postFilter === "GROUPBUY") setPostFilter("ALL");
+                      setMoreOpen(false);
                     }}
                   >
                     <span style={{ fontSize: 18 }} aria-hidden="true">{s.emoji}</span>
                     <span className="grow" style={{ minWidth: 0 }}>
-                      <span className="semi small" style={{ display: "block", color: on ? "var(--brand-900)" : "var(--ink-900)" }}>{s.label}</span>
-                      <span className="tiny muted">{s.hint}</span>
+                      <span className="semi small" style={{ display: "block", color: on ? "var(--brand-900)" : "var(--ink-900)" }}>{t(SORT_LABEL_KEY[s.value])}</span>
+                      <span className="tiny muted">{t(SORT_HINT_KEY[s.value])}</span>
                     </span>
                     {on && <Check size={16} color="var(--brand-600)" />}
                   </button>
                 );
               })}
             </div>
-            <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setSortOpen(false)}>{t("cancel_action")}</button>
+
+            <button
+              className="row between center-v"
+              style={{ width: "100%", padding: "11px 13px", borderRadius: 14, border: "1.5px solid var(--ink-200)", background: "var(--surface)" }}
+              onClick={() => { setMoreOpen(false); nav("/requests"); }}
+            >
+              <span className="row gap-8 center-v semi small"><FileText size={15} color="var(--ink-500)" /> {t("browse_all_requests")}</span>
+              <ChevronRight size={16} className="muted" />
+            </button>
+
+            <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setMoreOpen(false)}>{t("cancel_action")}</button>
           </div>
         </div>
       )}
