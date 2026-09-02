@@ -245,19 +245,17 @@ export default function Explore() {
     }
   }
 
-  // Own cache key (not the plain "categories" key AllCategories/CategoryListing
-  // use) — those expect the full unfiltered tree, and the cache is a bare
-  // string->value map with no awareness of the kind filter, so sharing the
-  // key would let a tab-scoped fetch here silently overwrite their cache entry.
-  const categoryKind = tab === "business" ? "BUSINESS" : tab === "provider" ? "SERVICE" : undefined;
-  // Requests has its own dynamic, feed-derived category chips (a different
-  // taxonomy than this catalog tree) — skip the fetch rather than pull data
-  // this tab never renders.
-  const { data: categories } = useQuery(
-    () => tab === "requests" ? Promise.resolve([]) : catalogService.getCategories(categoryKind),
-    [categoryKind, tab],
-    `cat_tree:${tab}`
-  );
+  // Categories are a single universal filter shown once, above the tabs —
+  // one merged tree rather than swapping between a BUSINESS-only and
+  // SERVICE-only list depending on which tab happens to be active, since
+  // picking a category should mean the same thing no matter which tab you
+  // then view it through; the tabs just lens the results, same as radius
+  // already does. Own cache key (not the plain "categories" key
+  // AllCategories/CategoryListing use) — those expect the exact same
+  // unfiltered tree, but the cache is a bare string->value map, so sharing
+  // the key would let either screen's fetch silently overwrite the other's
+  // cache entry.
+  const { data: categories } = useQuery(() => catalogService.getCategories(), [], "cat_tree:explore");
   const exploreGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
   const { data: bizPage, loading: bizLoading, error: bizError, refetch: refetchBiz } = useQuery(
     () => discoveryService.businesses({
@@ -380,21 +378,40 @@ export default function Explore() {
             />
           </div>
 
-          {/* View Tab Selector */}
-          <div className="filter-section">
-            <label className="filter-label">{t("explore_browse_type")}</label>
-            <div className="desktop-tabs">
-              {([["all", t("explore_tab_all")], ["business", t("explore_tab_shops")], ["provider", t("explore_tab_helpers")], ["requests", t("explore_tab_requests")]] as [Tab, string][]).map(([tabKey, label]) => (
-                <button
-                  key={tabKey}
-                  onClick={() => { haptics.selection(); setTab(tabKey); }}
-                  className={`tab-btn ${tab === tabKey ? "active" : ""}`}
-                >
-                  {label}
+          {/* Category + radius come first, above the tab selector — they're
+              universal filters (the same choice regardless of which tab
+              you're then looking at results through), so choosing one here
+              shouldn't reset or vary by tab. The tabs below just lens
+              whatever's already selected. Requests has its own dynamic,
+              feed-derived category chips rendered inline by
+              RequestsFeedPanel instead — never offer a control (this one)
+              that's silently ignored. */}
+          {tab !== "requests" && (
+            <div className="filter-section">
+              <label className="filter-label">{t("explore_categories")}</label>
+              <div className="desktop-categories-list">
+                <button className={`category-item-btn ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>
+                  <span>{t("explore_show_all")}</span>
                 </button>
-              ))}
+                {catTree.map((c) => (
+                  <button
+                    key={c.id}
+                    className={`category-item-btn ${cat === c.id ? "active" : ""}`}
+                    onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}
+                  >
+                    <span style={{ marginRight: 6 }}>{c.icon}</span>
+                    <span>{c.name}</span>
+                  </button>
+                ))}
+                {/* The full category browser (/categories) is a real, working
+                    screen that had ZERO links pointing at it anywhere in the app
+                    — reachable only by typing the URL. This is its way in. */}
+                <button className="category-item-btn" onClick={() => nav("/categories")}>
+                  <span>Browse all categories →</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Radius selector — shared across all four tabs. requestService.feed()
               already reads the same settings_radius key this control writes, so
@@ -410,42 +427,29 @@ export default function Explore() {
             />
           </div>
 
-          {/* Sort and the catalog category browser apply to businesses/
-              providers only — Requests has its own dynamic, feed-derived
-              category chips and no sort concept, both rendered inline by
-              RequestsFeedPanel instead. Never offer a control that's
-              silently ignored. */}
-          {tab !== "requests" && (
-            <>
-              <div className="filter-section">
-                <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
-              </div>
+          {/* View Tab Selector — a lens over the category+radius already
+              chosen above, not a reset of it. */}
+          <div className="filter-section">
+            <label className="filter-label">{t("explore_browse_type")}</label>
+            <div className="desktop-tabs">
+              {([["all", t("explore_tab_all")], ["business", t("explore_tab_shops")], ["provider", t("explore_tab_helpers")], ["requests", t("explore_tab_requests")]] as [Tab, string][]).map(([tabKey, label]) => (
+                <button
+                  key={tabKey}
+                  onClick={() => { haptics.selection(); setTab(tabKey); }}
+                  className={`tab-btn ${tab === tabKey ? "active" : ""}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-              <div className="filter-section">
-                <label className="filter-label">{t("explore_categories")}</label>
-                <div className="desktop-categories-list">
-                  <button className={`category-item-btn ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>
-                    <span>{t("explore_show_all")}</span>
-                  </button>
-                  {catTree.map((c) => (
-                    <button
-                      key={c.id}
-                      className={`category-item-btn ${cat === c.id ? "active" : ""}`}
-                      onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}
-                    >
-                      <span style={{ marginRight: 6 }}>{c.icon}</span>
-                      <span>{c.name}</span>
-                    </button>
-                  ))}
-                  {/* The full category browser (/categories) is a real, working
-                      screen that had ZERO links pointing at it anywhere in the app
-                      — reachable only by typing the URL. This is its way in. */}
-                  <button className="category-item-btn" onClick={() => nav("/categories")}>
-                    <span>Browse all categories →</span>
-                  </button>
-                </div>
-              </div>
-            </>
+          {/* Sort applies to businesses/providers only — Requests has no
+              sort concept of its own, rendered inline by RequestsFeedPanel. */}
+          {tab !== "requests" && (
+            <div className="filter-section">
+              <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
+            </div>
           )}
         </div>
 
@@ -489,6 +493,34 @@ export default function Explore() {
               />
             </div>
 
+            {/* Category + radius, above the tab row — universal filters (the
+                same choice regardless of which tab you're then looking at
+                results through), not something that resets or varies per
+                tab. Requests has its own feed-derived category chips
+                (RequestsFeedPanel) — never offer a control that's silently
+                ignored, so the catalog chips hide there; radius stays,
+                it's shared by all four tabs. */}
+            <div className="row gap-8 center-v" style={{ margin: "0 -16px 10px", padding: "0 16px" }}>
+              {tab !== "requests" ? (
+                <div className="hscroll grow" style={{ padding: 0, margin: 0 }}>
+                  <button className={`chip ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>{t("explore_tab_all")}</button>
+                  {catTree.map((c) => (
+                    <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}>
+                      {c.icon} {c.name.split(" ")[0]}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="grow" />
+              )}
+              <RadiusDropdown
+                value={radius}
+                onChange={setRadius}
+                accentColor="var(--brand-600)"
+                label={t("explore_radius_label")}
+              />
+            </div>
+
             <div className="row" style={{ borderBottom: "1px solid var(--line)", margin: "0 -16px", padding: "0 16px" }}>
               {([["all", t("explore_tab_all")], ["business", t("explore_tab_businesses")], ["provider", t("explore_tab_providers")], ["requests", t("explore_tab_requests")]] as [Tab, string][]).map(([tabKey, label]) => (
                 <button
@@ -511,37 +543,16 @@ export default function Explore() {
 
           <div ref={containerRef} className="explore-listings-scroll">
             <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
-            {/* Mobile Category chips horizontal scroll + compact Radius button (mobile only).
-                Category chips are catalog taxonomy — not relevant to Requests,
-                which has its own feed-derived chips (RequestsFeedPanel).
-                Radius stays: it's a shared control, see the desktop sidebar note. */}
-            <div className="mobile-only">
-              <div className="row gap-8 center-v page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
-                {tab !== "requests" ? (
-                  <div className="hscroll grow" style={{ padding: 0, margin: 0 }}>
-                    <button className={`chip ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>{t("explore_tab_all")}</button>
-                    {catTree.map((c) => (
-                      <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}>
-                        {c.icon} {c.name.split(" ")[0]}
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grow" />
-                )}
-                <RadiusDropdown
-                  value={radius}
-                  onChange={setRadius}
-                  accentColor="var(--brand-600)"
-                  label={t("explore_radius_label")}
-                />
+            {/* Sort (mobile only) — category+radius already live in the header,
+                above the tab row; sort is a "how to order within what's
+                already selected" concern, so it stays down here next to the
+                results it orders. Hidden on Requests, which has no sort
+                concept of its own. */}
+            {tab !== "requests" && (
+              <div className="mobile-only page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
+                <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
               </div>
-              {tab !== "requests" && (
-                <div className="page-pad" style={{ paddingTop: 10, paddingBottom: 0 }}>
-                  <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
-                </div>
-              )}
-            </div>
+            )}
 
             {tab === "requests" ? (
               <RequestsFeedPanel />
