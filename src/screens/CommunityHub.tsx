@@ -57,7 +57,7 @@ const TYPE_LABEL_KEY: Record<CommunityPostType, string> = {
 const SORT_LABEL_KEY: Record<FeedSort, string> = { recent: "sort_label_recent", trending: "sort_label_trending", nearest: "sort_label_nearest" };
 const SORT_HINT_KEY: Record<FeedSort, string> = { recent: "sort_hint_recent", trending: "sort_hint_trending", nearest: "sort_hint_nearest" };
 
-type StreamFilter = "ALL" | CommunityPostType | "DEALS" | "GROUPBUY";
+type StreamFilter = "ALL" | CommunityPostType | "BULK";
 
 export default function CommunityHub() {
   const nav = useNavigate();
@@ -65,12 +65,13 @@ export default function CommunityHub() {
   const { t, tf } = useI18n();
   const requireAuth = useRequireAuth();
   const goBack = useSmartBack("/home");
-  // ?view=deals lands straight on the deals view — the deep link Home's
-  // "Bulk & group buys" banner and the desktop sidebar's nav item use now
-  // that they no longer point at a dedicated /bulk screen. Same
-  // lazy-initializer pattern AskCompose uses for its ?groupBuy=1 pre-arm.
+  // ?view=deals lands straight on the unified Bulk buying view (group buys +
+  // shop deals together) — the deep link Home's "Bulk & group buys" banner
+  // and the desktop sidebar's nav item use now that they no longer point at
+  // a dedicated /bulk screen. Same lazy-initializer pattern AskCompose uses
+  // for its ?groupBuy=1 pre-arm.
   const [postFilter, setPostFilter] = useState<StreamFilter>(
-    () => (new URLSearchParams(window.location.search).get("view") === "deals" ? "DEALS" : "ALL")
+    () => (new URLSearchParams(window.location.search).get("view") === "deals" ? "BULK" : "ALL")
   );
   const [postSort, setPostSort] = useState<FeedSort>(DEFAULT_FEED_SORT);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -84,9 +85,12 @@ export default function CommunityHub() {
   const [mutedAuthors, setMutedAuthors] = useState<string[]>(() => readIdList(MUTED_AUTHORS_KEY, localStorage));
 
   const hubGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
-  const isDealsView = postFilter === "DEALS";
-  const isGroupBuyOnlyView = postFilter === "GROUPBUY";
-  const isSpecialView = isDealsView || isGroupBuyOnlyView;
+  // One unified "Bulk buying" view now, not two separate chips — group buys
+  // (neighbours pooling) and shop deals (tiered bulk pricing) are different
+  // mechanisms but both answer "where do I see bulk buying", so they render
+  // together here, each in its own labelled section.
+  const isBulkView = postFilter === "BULK";
+  const isSpecialView = isBulkView;
   const isLongTailFilter = LONG_TAIL_TYPES.includes(postFilter as CommunityPostType);
 
   // Group buys — the complete open set in one page (requestService's
@@ -113,7 +117,7 @@ export default function CommunityHub() {
   // them, so CommunityHub only offered it on "ALL") and what makes "trending"
   // rank the whole feed instead of the page already in memory.
   //
-  // DEALS/GROUPBUY don't fetch posts at all — those views render their own
+  // BULK doesn't fetch posts at all — that view renders its own
   // fully-fetched lists (deals, groupBuys) instead of the post stream.
   const { data: postData, loading: postsLoading, error: postsError, refetch: refetchPosts } = useQuery(
     () => isSpecialView
@@ -129,11 +133,11 @@ export default function CommunityHub() {
   );
 
   // Business bulk deals — the rail (top 3, "ALL" filter only) and the full
-  // "Deals" view share this one fetch.
+  // "Bulk buying" view's deals section share this one fetch.
   const { data: dealsData, loading: dealsLoading, refetch: refetchDeals } = useQuery(
-    () => bulkService.deals({ lat: user.lat || undefined, lng: user.lng || undefined, radius: isDealsView ? dealsRadiusKm : undefined }),
-    [user.lat, user.lng, isDealsView, dealsRadiusKm],
-    `hub:deals:${isDealsView ? dealsRadiusKm : "rail"}:${hubGeoKey}`
+    () => bulkService.deals({ lat: user.lat || undefined, lng: user.lng || undefined, radius: isBulkView ? dealsRadiusKm : undefined }),
+    [user.lat, user.lng, isBulkView, dealsRadiusKm],
+    `hub:deals:${isBulkView ? dealsRadiusKm : "rail"}:${hubGeoKey}`
   );
   const deals = dealsData ?? [];
 
@@ -379,11 +383,8 @@ export default function CommunityHub() {
           <button className={`chip-pill ${postFilter === "ALL" ? "active" : ""}`} onClick={() => setPostFilter("ALL")}>
             {t("filter_all")}
           </button>
-          <button className={`chip-pill ${isGroupBuyOnlyView ? "active" : ""}`} onClick={() => setPostFilter("GROUPBUY")}>
-            {t("filter_group_buys")}
-          </button>
-          <button className={`chip-pill ${isDealsView ? "active" : ""}`} onClick={() => setPostFilter("DEALS")}>
-            {t("deals_chip_label")}
+          <button className={`chip-pill ${isBulkView ? "active" : ""}`} onClick={() => setPostFilter("BULK")}>
+            {t("filter_bulk_buying")}
           </button>
           <button className={`chip-pill ${postFilter === "ALERT" ? "active" : ""}`} onClick={() => setPostFilter("ALERT")}>
             {t("type_alert")}
@@ -436,39 +437,49 @@ export default function CommunityHub() {
           </div>
         )}
 
-        {isDealsView ? (
-          <div className="page-pad col gap-12" style={{ paddingBottom: 32 }}>
-            <div className="row gap-8 center-v">
-              <span className="tiny muted">{t("within_word")}</span>
-              <div className="hscroll grow">
-                {RADIUS_OPTIONS.filter((o) => o.km >= 1).map((o) => (
-                  <button
-                    key={o.km}
-                    className={`chip ${dealsRadiusKm === o.km ? "active" : ""}`}
-                    onClick={() => setDealsRadiusKm(o.km)}
-                  >
-                    {o.label}
-                  </button>
-                ))}
+        {isBulkView ? (
+          <div style={{ paddingBottom: 32 }}>
+            {/* Two clearly-labelled sections, not one blended list — group
+                buys are neighbours pooling together, deals are a shop's own
+                commercial offer, and conflating them was exactly what the
+                earlier redesign's "deals get their own labelled section"
+                decision was protecting against. This view just gives both
+                one shared entry point instead of two separate chips. */}
+            <Section title={t("tab_group_buys")}>
+              <div className="page-pad col gap-12">
+                {groupBuys.length === 0 ? (
+                  <EmptyState emoji="👥" title={t("no_open_group_buys")} text={t("no_open_group_buys_desc")} />
+                ) : (
+                  groupBuys.map((r) => <GroupBuyCard key={r.id} req={r} onJoin={onJoin} />)
+                )}
               </div>
-            </div>
-            {dealsLoading ? (
-              <ListSkeleton count={3} />
-            ) : deals.length === 0 ? (
-              <EmptyState emoji="🏷️" title={t("no_bulk_deals_nearby")} text={t("no_bulk_deals_desc")} />
-            ) : (
-              <div className="col gap-12">
-                {deals.map((d) => <BulkDealCard key={d.id} deal={d} onBook={onBook} />)}
+            </Section>
+
+            <Section title={t("bulk_deals_from_shops_nearby")}>
+              <div className="page-pad col gap-12">
+                <div className="row gap-8 center-v">
+                  <span className="tiny muted">{t("within_word")}</span>
+                  <div className="hscroll grow">
+                    {RADIUS_OPTIONS.filter((o) => o.km >= 1).map((o) => (
+                      <button
+                        key={o.km}
+                        className={`chip ${dealsRadiusKm === o.km ? "active" : ""}`}
+                        onClick={() => setDealsRadiusKm(o.km)}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {dealsLoading ? (
+                  <ListSkeleton count={3} />
+                ) : deals.length === 0 ? (
+                  <EmptyState emoji="🏷️" title={t("no_bulk_deals_nearby")} text={t("no_bulk_deals_desc")} />
+                ) : (
+                  deals.map((d) => <BulkDealCard key={d.id} deal={d} onBook={onBook} />)
+                )}
               </div>
-            )}
-          </div>
-        ) : isGroupBuyOnlyView ? (
-          <div className="page-pad col gap-12" style={{ paddingBottom: 32 }}>
-            {groupBuys.length === 0 ? (
-              <EmptyState emoji="👥" title={t("no_open_group_buys")} text={t("no_open_group_buys_desc")} />
-            ) : (
-              groupBuys.map((r) => <GroupBuyCard key={r.id} req={r} onJoin={onJoin} />)
-            )}
+            </Section>
           </div>
         ) : (
           postsLoading ? <ListSkeleton count={3} type="post" /> :
@@ -496,7 +507,7 @@ export default function CommunityHub() {
                   stream. Only on the unfiltered view, and only when there's
                   something to show. */}
               {dealsRail.length > 0 && (
-                <Section title={t("bulk_deals_from_shops_nearby")} action={t("see_all_word")} onAction={() => setPostFilter("DEALS")}>
+                <Section title={t("bulk_deals_from_shops_nearby")} action={t("see_all_word")} onAction={() => setPostFilter("BULK")}>
                   <div className="hscroll" style={{ padding: "10px 2px 2px" }}>
                     {dealsRail.map((d) => (
                       <div key={d.id} style={{ minWidth: 260, scrollSnapAlign: "start" }}>
@@ -584,7 +595,7 @@ export default function CommunityHub() {
                     onClick={() => {
                       haptics.selection();
                       setPostSort(s.value);
-                      if (postFilter === "DEALS" || postFilter === "GROUPBUY") setPostFilter("ALL");
+                      if (postFilter === "BULK") setPostFilter("ALL");
                       setMoreOpen(false);
                     }}
                   >
