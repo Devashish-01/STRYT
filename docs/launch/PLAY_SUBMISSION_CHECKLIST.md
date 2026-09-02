@@ -1,12 +1,30 @@
 # Play Store submission checklist
 
-**App:** STRYT · `in.stryt.app` · v1.0.4 · targetSdk 36 / minSdk 24
-**Written:** 4 August 2026 · **Updated:** 5 August 2026
+**App:** STRYT · `in.stryt.app` · targetSdk 36 / minSdk 24
+**Written:** 4 August 2026 · **Updated:** 5 August 2026 · **Reconciled:** 3
+September 2026 (current `package.json` version 1.0.45 — this file's own
+version references had drifted as far back as v1.0.4/v1.0.13; re-checked
+against current code, not rewritten)
 **Supersedes:** `docs/plans/app-plans/PLAY_STORE_CHECKLIST.md`, which is stale —
 it still warns about hardcoded keystore passwords in `build.gradle` (now read
 from env/CI) and a `0.x` version (now 1.0.4).
 
 Verified against the shipping code and the live database, not from memory.
+
+**3 Sep 2026 reconciliation pass — what changed, what's still accurate:**
+- All of "Code — done", "Deliberately not doing", and the Security section's
+  completed items (`[x]`) were re-checked directly against current code and
+  are still true as written — `minifyEnabled=false` is still deliberate,
+  `targetSdk`/`versionCode`/`allowBackup` all still match, the leaked
+  `service_role` key is still confirmed dead on both surfaces. No content
+  changed there.
+- The still-open `[ ]` items (Supabase log review, repo-private decision,
+  leaked-password protection, every Console item, the entire Device pass)
+  are genuinely still open — nothing has closed any of them since 25 August.
+- **New finding, not previously documented anywhere in this repo:**
+  `android/app/google-services.json` is tracked in git despite `.gitignore`
+  listing it (the ignore rule was added after the file was already tracked,
+  so it never took effect) — see the new item under Security below.
 
 ---
 
@@ -183,6 +201,32 @@ someone submits a verification.
       migrations and RLS policy logic. Do this *as well as* the rotation, never
       instead of it — the key is already published and repo visibility cannot
       retract it.
+
+### New — `google-services.json` committed to a public repo (found 3 Sep 2026)
+
+`android/app/google-services.json` is tracked in git
+(`git ls-files -- "*google-services*"` returns it) even though `.gitignore`
+lists both `google-services.json` and `android/app/google-services.json` —
+the ignore rule doesn't retroactively untrack a file that was already
+committed before the rule was added, so it's been silently ineffective.
+Every launch doc and CI comment in this repo assumes this file is
+gitignored/never-committed (`LAUNCH_REPORT.md`, `android-release.yml`'s own
+comments) — this contradicts that assumption.
+
+Content-wise this is low severity: Firebase restricts by package name +
+signing-cert fingerprint, so the file alone doesn't grant access the way a
+`service_role` key would. But given this repo already had one real secret
+leak from exactly this "assumed gitignored, wasn't" failure mode, the
+mismatch between stated posture and actual state is worth closing
+deliberately rather than leaving:
+
+- [ ] **Decide:** either `git rm --cached android/app/google-services.json`
+      (CI already decodes it fresh from a secret at build time — see
+      `android-release.yml` — so removing it from git shouldn't break the
+      release pipeline, but verify that before removing) and confirm the
+      ignore rule actually holds afterward, **or** explicitly accept it as
+      intentionally committed and update the docs that currently assume
+      otherwise so they stop being wrong.
 
 ### Also before public launch
 

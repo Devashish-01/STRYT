@@ -1,10 +1,20 @@
 # STRYT — Manual Test Plan
 
-**Version under test:** 1.0.0
+**Version under test:** 1.0.0 (created) · current `package.json` is 1.0.45 as
+of the 3 Sep 2026 addendum below — still nothing here has been run on a
+device, this plan just grew alongside the code
 **Created:** 2026-08-03
 **Purpose:** the pre-launch device pass. Nothing in this app has been run on a
 phone; every fix from this cycle is verified only by typecheck, lint, 127 unit
 tests and a clean build.
+
+**3 Sep 2026 addendum:** a full-coverage bug-hunt pass re-verified every named
+issue in the older audit docs against current code and fixed what was still
+real (walletService silent write failures, a missing guest-guard on
+CommunityCard's Share button, two compose entry points skipping the
+requireAuth() toast, a daily-appointment-limit race). See §1.11 below for the
+device checks those specific fixes need, and note that §3.2/§3.14 predate this
+session's full rewrite of Explore and Community — read their addenda too.
 
 ---
 
@@ -216,6 +226,30 @@ will not catch a regression here.
 > If §1.10/7 shows CSP errors, revert `Content-Security-Policy` →
 > `Content-Security-Policy-Report-Only` in `vercel.json`. One-word fix.
 
+### 1.11 Pre-Play-Store bug-hunt spot checks (added 3 Sep 2026) `P1`
+
+Everything below was confirmed correct or fixed by re-reading current code
+against a batch of older audit docs (`STRYT_AUDIT_REQUESTS_APPOINTMENTS.md`,
+`GOAL_LIVE_AUDIT.md`, `GUEST_MODE_PLAN.md`) — code-level confirmation, not a
+device confirmation. Cheap to verify live; do it once rather than trust the
+read.
+
+| # | Step | Expected |
+|---|------|----------|
+| 1 | As a **guest** (signed out), open a community post card | Share button is **hidden** — was previously showing for guests, unlike every other Share button in the app (fixed this pass) |
+| 2 | As a guest, tap Community's header **+** and Explore → Requests tab's **"Ask"** button | Both now show **"Sign in to..."** + land back here after sign-in, instead of a silent bounce |
+| 3 | Save a coupon / add a loyalty stamp with the device in **airplane mode** | A visible "Couldn't update — try again" toast, and the optimistic UI (saved state / stamp count) **reverts** — previously a failed write silently reported success (fixed this pass) |
+| 4 | Tap-like a community post several times quickly | Never visually flickers/reverts after settling |
+| 5 | Send yourself a message, read it, go back to the conversation list | Shows **read**, not stuck unread; open a conversation on **business** and **provider** hats — unread counts don't bleed into each other or into the customer badge |
+| 6 | Negotiate a proposal to a counter-offer, accept the **counter** (not the original) | Agreement is created at the **countered price**, not the original ask |
+| 7 | **Requires migration `20260897` applied first** (see below) — try to book a 6th appointment for the same customer on the same day, ideally from two devices/tabs at once | Server rejects the 6th with the daily-limit message; two near-simultaneous attempts can't both slip past the count |
+
+**Before running #7:** confirm `supabase/migrations/20260897_daily_limit_advisory_lock.sql`
+has actually been applied to the live database — a migration file existing in
+the repo is not proof it ran (`CODEBASE_MAP.md` §12 has the standing warning
+on this; two earlier migrations in this project sat committed and unapplied
+long enough to break production before anyone noticed).
+
 ---
 
 ## §2 — Auth & onboarding
@@ -238,7 +272,7 @@ will not catch a regression here.
 | # | Flow | P |
 |---|------|---|
 | 1 | Home launchpad — every tile navigates | P0 |
-| 2 | Explore: filters, sort, categories, infinite scroll | P1 |
+| 2 | Explore: filters, sort, categories, infinite scroll — **this screen was fully restructured 2 Sep 2026**: category + radius are now a single universal filter shown above the tabs (not per-tab), and there's a 4th tab, "Requests" (folded in from the retired standalone `/requests` screen), with its own Nearby/Mine split and urgent/group/recurring filters. Cover all four tabs, not just Business/Provider/All | P1 |
 | 3 | Search: shops, providers, empty results | P1 |
 | 4 | Business detail: tabs, photos, reviews, share | P0 |
 | 5 | **Book an appointment** end to end | P0 |
@@ -250,7 +284,7 @@ will not catch a regression here.
 | 11 | Post a request (`/ask`), receive a proposal, accept | P1 |
 | 12 | Agreement lifecycle → rate | P1 |
 | 13 | Chat: send, receive, unread badge | P1 |
-| 14 | Community: post, comment, story create + view | P2 |
+| 14 | Community: post, comment, story create + view — **this screen was fully redesigned in late Aug/early Sep 2026**: the header/theme changed from a scoped pink accent back to the app's standard purple, the Requests tab was removed from Community entirely (moved to Explore, see §3/2), group buys and business bulk deals now render inline in the main feed with real join/order actions, and there's a new `/community/activity` screen for claim passes + joined pools. Cover the full new surface, not just the pre-redesign basics | P2 |
 | 15 | Bookmarks, follows, lists | P2 |
 | 16 | Notifications: receive, tap → correct deep link | P0 |
 | 17 | Track link `/track/:token` | P1 |
