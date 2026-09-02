@@ -93,6 +93,13 @@ export async function registerPush(userId: string): Promise<void> {
   // Browser Web Push path
   const vapidKey = (import.meta as any).env?.VITE_VAPID_PUBLIC_KEY as string | undefined;
   if (!vapidKey || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  // vite.config.ts's VitePWA devOptions.enabled is deliberately false (SW
+  // caching fought hot-reload during development), so /sw.js isn't a real
+  // servable file under `vite dev` — it 404s through to index.html, and
+  // registering it always fails with a MIME-type SecurityError. That's
+  // expected noise, not a bug; skip the attempt entirely in dev instead of
+  // logging a scary error for something that only ever works in a built app.
+  if (import.meta.env.DEV) return;
 
   try {
     const reg = await navigator.serviceWorker.register("/sw.js");
