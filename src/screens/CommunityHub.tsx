@@ -260,7 +260,7 @@ export default function CommunityHub() {
 
   // A seller viewing the public hub still composes under their active identity.
   const isOwnerContext = activeContext.type !== "customer" && !!activeContext.id;
-  function goToCompose() {
+  const goToCompose = requireAuth(() => {
     nav(
       "/community/new",
       isOwnerContext
@@ -269,7 +269,7 @@ export default function CommunityHub() {
             : { providerId: activeContext.id, providerName: activeContext.name } }
         : undefined
     );
-  }
+  }, "Sign in to post on your street");
 
   function handleBack() {
     if (activeContext.type === "business" && activeContext.id) {

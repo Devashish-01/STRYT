@@ -133,7 +133,7 @@ export const walletService = {
           note: r.note ?? undefined,
         });
       }
-    } catch { /* source unavailable — skip */ }
+    } catch (e) { console.error("wallet: settlements source failed", e); }
 
     // Appointments — paid bookings, either as the owner (earning) or customer (spend).
     try {
@@ -158,7 +158,7 @@ export const walletService = {
           ts: new Date(r.created_at).getTime(),
         });
       }
-    } catch { /* source unavailable — skip */ }
+    } catch (e) { console.error("wallet: appointments source failed", e); }
 
     // Live queue — paid visits, as shop owner (earning) or customer (spend).
     try {
@@ -188,7 +188,7 @@ export const walletService = {
           ts: new Date(r.created_at).getTime(),
         });
       }
-    } catch { /* source unavailable — skip */ }
+    } catch (e) { console.error("wallet: queue source failed", e); }
 
     return out.sort((a, b) => b.ts - a.ts);
   },
@@ -208,10 +208,14 @@ export const walletService = {
         .eq("user_id", uid)
         .eq("card_id", cardId)
         .maybeSingle();
-      await sb.from("user_stamps").upsert(
+      const { error: upsertError } = await sb.from("user_stamps").upsert(
         { user_id: uid, card_id: cardId, stamps: (existing?.stamps ?? 0) + 1, updated_at: new Date().toISOString() },
         { onConflict: "user_id,card_id" }
       );
+      // Both the RPC and this fallback failing is a real write failure, not a
+      // "not deployed yet" case — must throw or the caller's optimistic stamp
+      // count stays incremented with nothing actually persisted.
+      if (upsertError) throw upsertError;
     }
   },
 
@@ -220,26 +224,29 @@ export const walletService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    await sb.from("user_saved_coupons").upsert(
+    const { error } = await sb.from("user_saved_coupons").upsert(
       { user_id: uid, offer_id: offerId },
       { onConflict: "user_id,offer_id" }
     );
+    if (error) throw error;
   },
 
   async unsaveCoupon(offerId: string): Promise<void> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    await sb.from("user_saved_coupons").delete().eq("user_id", uid).eq("offer_id", offerId);
+    const { error } = await sb.from("user_saved_coupons").delete().eq("user_id", uid).eq("offer_id", offerId);
+    if (error) throw error;
   },
 
   // ── Phase 35: business saves/updates their loyalty program ────
   async saveLoyaltyCard(businessId: string, target: number, reward: string, isActive: boolean): Promise<void> {
     const sb = getSupabase();
-    await sb.from("loyalty_cards").upsert(
+    const { error } = await sb.from("loyalty_cards").upsert(
       { business_id: businessId, target, reward, is_active: isActive },
       { onConflict: "business_id" }
     );
+    if (error) throw error;
   },
 
   async getLoyaltyCard(businessId: string): Promise<{ target: number; reward: string; isActive: boolean } | null> {

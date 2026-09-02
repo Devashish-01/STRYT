@@ -7,6 +7,7 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import { useApp } from "@/store";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { useI18n } from "@/lib/i18n";
 import type { RequestPost } from "@/types";
 
@@ -30,6 +31,7 @@ interface RequestsFeedPanelProps {
 export default function RequestsFeedPanel({ categoryName, radius }: RequestsFeedPanelProps) {
   const nav = useNavigate();
   const { area, user, showToast } = useApp();
+  const requireAuth = useRequireAuth();
   const { t } = useI18n();
   const [params] = useSearchParams();
   // `?view=mine` lets a caller (Profile's "My requests" tile) land straight
@@ -77,6 +79,8 @@ export default function RequestsFeedPanel({ categoryName, radius }: RequestsFeed
     }
   }
 
+  const goToAsk = requireAuth(() => nav("/ask"), "Sign in to ask your street");
+
   const feed = [...(feedPage?.data ?? []), ...extra];
   const mine = mineList ?? [];
 
@@ -109,7 +113,7 @@ export default function RequestsFeedPanel({ categoryName, radius }: RequestsFeed
               </button>
             ))}
           </div>
-          <button className="btn btn-primary btn-sm" style={{ marginLeft: 12 }} onClick={() => nav("/ask")}>
+          <button className="btn btn-primary btn-sm" style={{ marginLeft: 12 }} onClick={goToAsk}>
             <Plus size={16} /> {t("ask")}
           </button>
         </div>
@@ -135,7 +139,7 @@ export default function RequestsFeedPanel({ categoryName, radius }: RequestsFeed
             title={view === "mine" ? t("no_requests_yet") : t("all_quiet_nearby")}
             text={view === "mine" ? t("post_first_request_desc") : t("no_open_requests_desc")}
             action={
-              <button className="btn btn-primary btn-sm" onClick={() => nav("/ask")}>
+              <button className="btn btn-primary btn-sm" onClick={goToAsk}>
                 <FileText size={16} /> {t("post_request")}
               </button>
             }

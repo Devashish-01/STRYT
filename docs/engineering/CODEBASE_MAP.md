@@ -52,37 +52,80 @@ so an unused import fails the build.
 
 ## 3. Route map (from `src/App.tsx`)
 
-**Tab/customer core:** `/home` `Home` · `/explore` `Explore` · `/map` `MapView` · `/profile` `Profile` ·
-`/search` `Search` · `/categories` `AllCategories` · `/category/:id` `CategoryListing` ·
-`/notifications` · `/bookmarks` · `/settings` · `/support` · `/wallet` `Wallet` (routed; earnings/ledger) · `/my-activity` `MyActivity` (stories + posts archive)
+Four layout guards gate the tree: `PublicOnlyLayout` (bounces OUT if already signed in),
+fully-unguarded routes, `GuestOrAuthLayout` (browsable signed-out, capped; writes gated per-action via
+`useRequireAuth()`), and `ProtectedLayout` (bounces to `/auth/phone` if signed out).
 
-**Auth:** `/` `Splash` · `/auth/phone` · `/auth/otp` · `/auth/onboard` `UserOnboard` · `/auth/location` · `/auth/deletion-pending`
+**Public-only (`PublicOnlyLayout`):** `/` `Splash` · `/auth/phone` `PhoneEntry` · `/auth/otp` `OtpVerify`
 
-**Detail pages:** `/business/:id` `BusinessDetail` · `/provider/:id` `ProviderDetail` · `/request/:id` `RequestDetail` · `/u/:id` `PublicProfile`
+**Fully public / unguarded:** `/track/:token` `TrackingPage` · `/admin/login` `AdminLogin` ·
+`/legal` `LegalIndex` · `/legal/:slug` `LegalDoc` · `/guide` `GuideIndex` · `/guide/:slug` `GuideDoc`
 
-**Requests / deals / appointments:** `/ask` `AskCompose` · `/request/:id/propose` `SubmitProposal` ·
-`/agreement/:id` · `/agreements` · `/appointments` `MyAppointments` (customer bookings hub) · `/rate/:id`
+**Guest-or-auth browsable (`GuestOrAuthLayout`, see `GUEST_MODE_PLAN.md`):** `/home` `Home` ·
+`/explore` `Explore` · `/requests` → redirects to `/explore?tab=requests` · `/request/:id` `RequestDetail` ·
+`/business/:id` `BusinessDetail` · `/provider/:id` `ProviderDetail` · `/place/:id` `PlaceDetail` ·
+`/bulk` → redirects to `/community-hub` · `/community/activity` `CommunityActivity` · `/search` `Search` ·
+`/categories` `AllCategories` · `/category/:id` `CategoryListing` · `/map` `MapView` ·
+`/community-hub` `CommunityHub` · `/community/:id` `CommunityPostDetail`
 
-**Onboarding:** `/onboard/business` `BusinessOnboard` · `/onboard/provider` `ProviderOnboard` · `/manage` `ManageHub`
+**Protected (`ProtectedLayout`) — auth-adjacent:** `/auth/terms` `TermsAccept` · `/auth/onboard` `UserOnboard`
+(beats in `screens/auth/onboard/`) · `/auth/deletion-pending` `DeletionPending`
 
-**Business console** (`/business/:id/manage/*`): `` (Dashboard) · `catalog` · `portfolio` · `profile` · `hours` ·
-`photos` · `story` · `queue` · `loyalty` · `qna` · `reviews` · `reservations` · **`appointments`** · **`deliveries`** (live
-agent tracking, `appointments` scope) · `inbox` · `promote` · `verify` · `settings` · `requests`
+**Protected — profile/account:** `/profile` `Profile` · `/profile/edit` `ProfileEdit` · `/notifications` ·
+`/bookmarks` · `/followers` `Followers` · `/queues` `MyQueues` · `/my-activity` `MyActivity` ·
+`/account` `AccountSettings` (hub) · `/account/business-access` `BusinessAccess` · `/settings` → redirects to
+`/account` · `/settings/notifications|privacy|discovery|language|security|location|data` (one screen each,
+`screens/settings/`) · `/support` `Support`
 
-**Delivery agent console:** `/delivery` `DeliveryConsole` (own hat, behind `RequireDeliveryAgent` +
-`DELIVERY_AGENT_ENABLED`) — Active/Assigned/History, multi-stop runs, OTP handoff.
-_(The Offers feature was removed; the `offers` table remains only as the backing store for Wallet coupons. Businesses now have a `portfolio` (past-work gallery) mirroring providers, and catalog items support FINITE/INFINITE inventory.)_
+**Protected — requests / deals / appointments:** `/ask` `AskCompose` · `/place/new` `PlaceRequestForm` ·
+`/request/:id/propose` `SubmitProposal` · `/agreement/:id` `AgreementScreen` · `/agreements` `Agreements` ·
+`/appointments` `MyAppointments` (customer bookings hub) · `/rate/:id` `RateScreen`
 
-**Provider console** (`/provider/:id/manage/*`): `` (Dashboard) · `profile` · `availability` · `packages` ·
-`portfolio` · `leads` (leads + appointments) · `settings`
+**Onboarding:** `/onboard/business` `BusinessOnboard` · `/onboard/provider` `ProviderOnboard` ·
+`/manage` `ManageHub`
+
+**Business console** (`/business/:id/manage/*`, behind `BusinessAccessGuard` + `BusinessManageLayout`):
+`` `ManageDashboard` · `business` `BusinessHub` (both self-filter for scoped team members, not hard-gated) ·
+scope **`catalog`**: `store` `BusinessStoreHub` · `catalog` `CatalogManager` · `inventory` `InventoryAlerts` ·
+`portfolio` `BusinessPortfolio` · `hours` `HoursEditor` · scope **`queue`**: `queue` `QueueManager` ·
+scope **`appointments`**: `appointments` `BusinessAppointments` · `deliveries` `BusinessDeliveries` (live
+agent tracking) · `RequireBusinessDeliveryMember`: `my-deliveries` `TeamMyDeliveries` · scope **`leads`**:
+`qna` `QnaManager` · `inbox` `LeadsInbox` · `requests` `BusinessRequests` · **owner-only**
+(`RequireOwner`): `profile` `BusinessProfileHub` · `edit-profile` `ProfileEditor` · `broadcast`
+`BroadcastRadius` · `reviews` `ReviewsManager` · `payments` `BusinessPayments` · `bulk-deals`
+`BulkDealsManager` · `verify` `VerificationCenter` · `settings` `BusinessSettings` · `community`
+`BusinessCommunity` (= `screens/ProfileCommunity.tsx`).
+_(The Offers feature was removed; the `offers` table remains only as the backing store for Wallet coupons —
+Wallet itself is now unrouted, see below. Catalog items support FINITE/INFINITE inventory.)_
+
+**Provider console** (`/provider/:id/manage/*`, behind `ProviderAccessGuard`): `` `ProviderDashboard` ·
+`profile` `ProviderProfileHub` · `edit-profile` `ProviderProfileEditor` · `availability`
+`ProviderAvailability` · `catalog` `ProviderCatalog` · `inventory` `ProviderInventory` · `portfolio`
+`ProviderPortfolio` · `inbox` `LeadsInbox` · `jobs` `ProviderJobs` · `find-work` `ProviderFindWork` ·
+`money` `ProviderMoney` · `community` `ProviderCommunity` · `verify` `ProviderVerification` · `settings`
+`ProviderSettings`
+
+**Delivery agent console:** `/delivery` `DeliveryConsole` (own hat, behind `RequireDeliveryAgent`,
+active `delivery` grant + feature flag) — Active/Assigned/History, multi-stop runs, OTP handoff.
+
+**Safety:** `/safety` `SafetyHub` · `/safety/contacts` `EmergencyContacts` (live location sharing)
 
 **Chat:** `/chats` `ConversationList` · `/chat/:id` `ChatThread`
 
-**Community/social:** `/community-hub` · `/community` · `/community/new` · `/community/:id` · `/story/new` ·
-`/neighborhood` · `/available` `AvailableNow` · `/leaderboard` · `/achievements` · `/lists`
+**Community/social (write actions; the read-only feed/detail routes are listed above under
+guest-browsable):** `/story/new` `StoryCompose` · `/community/new` `CommunityCompose` · `/lists` `Lists` ·
+`/u/:id` `PublicProfile` · `/achievements` `Achievements`
 
-**Wallet/society/subs/pro/admin:** `/wallet` · `/society` · `/subscriptions[/new|/:id]` ·
-`/pro-upgrade/business/:id` · `/admin` · `/track/:token` (public, unguarded)
+**Admin:** `/admin` `AdminPanel`
+
+**Catch-all:** unmatched paths → `ContextHomeRedirect` (home of whatever hat — customer/business/provider —
+is currently active)
+
+**Unrouted — `screens/future-enhancement/`:** `Wallet`, `SocietyScreen`, `SubscriptionManager` /
+`NewSubscription` / `SubscriptionDetail`, `BusinessProUpgrade`, `Neighborhood`, `AvailableNow`,
+`Leaderboard`, `LoyaltySetup`, `Promote`, `PhotosManager`, `StoryComposer` — 13 screens total, shelved
+(no in-app nav link, found during a launch audit) rather than deleted. Not live routes; re-add a lazy
+import + `<Route>` in `App.tsx` to bring one back.
 
 ---
 
@@ -135,34 +178,58 @@ handy for local dev without a backend. Real ids hit Supabase.
 
 ## 6. Services index (`src/services/`)
 
+32 files split into `core/` (account/platform), `marketplace/` (discovery + listings + commerce), and
+`engagement/` (social + ongoing usage) — see the barrel `src/services/index.ts`, which re-exports every
+service so existing `@/services` imports keep resolving unchanged. Two services
+(`appealService`, `leaderboardService`) aren't re-exported by the barrel and are imported by their full
+subfolder path instead (`@/services/core/appealService`, `@/services/marketplace/leaderboardService`).
+
+**`core/`**
+
 | Service | Responsibility | Key methods | Main tables |
 |---|---|---|---|
 | `authService` | Phone/OTP + OAuth, ensure `users` row, logout | login/verify/logout | `users`, auth |
 | `userService` | Current user profile + owned entities | `me()`, `owned()`, `update()` | `users`, `businesses`, `providers` |
+| `uploadService` | File upload to Supabase Storage | `upload(file, folder)` | Storage buckets |
+| `adminService` | Admin panel data | moderation/queries | many |
+| `appealService` | Suspended/banned account appeals (not in the barrel — import directly) | `submit`, `mine`, `pending`, `resolve` | appeal tables |
+| `proService` | Pro plans + lead packs (`PRO_PLANS`, `LEAD_PACKS`) | plans, purchase | pro/billing |
+| `aiService` | AI helpers | — | — |
+| `supportService` | Support tickets | submit | support |
+| `profileControlService` | Privacy / alias / profile visibility | get/set controls | `users` |
+| `entityPasswordService` | Business/provider console passwords (replaced the switch PIN) | `isSet`, `set`, `clear`, `verify` | `users`, `entity_password_attempts` |
+
+**`marketplace/`**
+
+| Service | Responsibility | Key methods | Main tables |
+|---|---|---|---|
 | `catalogService` | Category taxonomy | `getCategories(kind?)` | `categories` |
 | `discoveryService` | Search/feed of businesses+providers | feed/search | `businesses`, `providers` |
 | `businessService` | **Business CRUD + storefront** (catalog, photos, queue, loyalty, Q&A, analytics, boosts, availability, reviews) | see §7 | `businesses`, `catalog_items`, `queue_*`, `ratings`, `leads` |
 | `providerService` | **Provider CRUD + service funnel** (packages, portfolio, availability, leads, analytics, reviews) | see §7 | `providers`, `provider_packages`, `portfolio_items`, `ratings`, `leads` |
+| `customPaymentService` | UPI-deeplink custom payment flow (STRYT has no payment-gateway integration — this is the real service; the old `paymentService` stub named in earlier docs no longer exists) | create/track payment intent | payment tables |
+| `placesService` | User-submitted places (request/approve a new place listing) | `request`, `createAsAdmin`, `get`, `update` | `places` |
+| `bulkService` | Bulk/group-buy deals | `deals`, `dealsForBusiness`, `getDeal`, `createDeal`/`updateDeal`/`deleteDeal`, `quote` | bulk deal tables |
+| `businessAccessService` | Delegated business login (team members, scoped access) | `getConfig`, `setLogin`, `login`, `grantTeamMember`, `updateTeamMemberScopes` | `businesses`, access/session tables |
+| `leaderboardService` | Points leaderboard (not in the barrel — import directly) | `addPoints(userId, points)` | points/leaderboard tables |
+
+**`engagement/`**
+
+| Service | Responsibility | Key methods | Main tables |
+|---|---|---|---|
 | `appointmentService` | **Bookings** (create/list/updateStatus) — Supabase table + localStorage fallback | `create`, `listForCustomer`, `listForTarget`, `updateStatus`, `acceptWithEta`, `createWalkInPayment`, `bookedSlots` (per-slot usage), `slotCapacities` | `appointments`, `catalog_items` |
 | `deliveryService` | **Home delivery** — agent runs, owner tracking, customer progress | `myDeliveries`, `acceptBatch`/`declineBatch`, `updateBatchPosition`, `assignDelivery`/`assignBatch`, `businessDeliveries` (owner), `myProgress` (customer, no coords) | `appointment_deliveries`, `delivery_batches` |
-| `entityPasswordService` | Business/provider console passwords (replaced the switch PIN) | `isSet`, `set`, `clear`, `verify` | `users`, `entity_password_attempts` |
+| `slotBlockService` | Owner-blocked slots/dates (holidays, time off) | `list`, `blockDate`, `blockRecurring`, `unblock` | blocked-slot tables |
 | `requestService` | Requests, proposals, agreements feed | `feed`, `agreements`, propose | `requests`, `proposals`, `agreements` |
 | `communityService` | Community posts/comments/likes | `feed`, `byAuthor`, `like`, `comments`, `addComment` | `community_posts`, `post_likes`, `post_comments` |
 | `socialService` | Vouches, endorsements, available-now list | add/remove vouch/endorsement, `availableNow()` | `vouches`, `endorsements`, `providers` |
 | `chatService` | 1:1 conversations + messages | `getOrCreate`, send, list | `conversations`, `messages` |
 | `notificationService` | In-app notifications | `getUnreadCount`, `markAllRead` | `notifications` |
 | `walletService` | Coupons + loyalty stamps | save/unsave coupon, `addStamp` | `user_saved_coupons`, loyalty tables |
-| `uploadService` | File upload to Supabase Storage | `upload(file, folder)` | Storage buckets |
-| `kycService` | Aadhaar/PAN verification | submit/verify | verification tables |
-| `leaderboardService` | Points leaderboard | fetch board | points/leaderboard views |
 | `societyService` | Society/neighborhood groups | CRUD | society tables |
 | `subscriptionService` | Recurring subscriptions | CRUD | subscriptions |
-| `proService` | Pro plans + lead packs (`PRO_PLANS`, `LEAD_PACKS`) | plans, purchase | pro/billing |
-| `paymentService` | Payment intents (V3 stub) | — | — |
-| `aiService` | AI helpers | — | — |
-| `supportService` | Support tickets | submit | support |
-| `adminService` | Admin panel data | moderation/queries | many |
-| `profileControlService` | Privacy / alias / profile visibility | get/set controls | `users` |
+| `locationService` | Live location sharing grants (safety feature) | `request`, `respond`, `renew`, `revoke`, `getSharedLocation`, `pendingForMe`, `sharedByMe` | location-grant tables |
+| `emergencyService` | Emergency contacts + live share sessions | `candidateContacts`, `listContacts`, `addContact`/`removeContact`, `startShare`/`updateShare`/`stopShare` | contact/share tables |
 
 > If you added a method, add it to the "Key methods" cell. If a service touches a new table, add it to "Main tables".
 
@@ -178,8 +245,9 @@ The most-edited area. Both follow the same service+screen shape.
 **`businessService` only:** catalog (`addCatalogItem`/`update`/`delete`), portfolio (`addPortfolio`/`updatePortfolio`/`deletePortfolio`),
 photos (`addPhoto`/`deletePhoto`/`setCoverPhoto`), queue (`queue`/`queueOwnerState`/`setQueueSettings`/
 `callNextToken`/`serveToken`/`joinQueueToken`), `loyaltyCard`, Q&A (`qna`/`askQuestion`/`answerQuestion`),
-`buyBoost`/`activeBoosts`, `recordInteraction`, `submitForReview`, `team`, `reservations`/`setReservation`.
-⚠️ `reservations`/`setReservation`/`team` are **stubs** (`[]` / `{ok:false}`).
+`buyBoost`/`activeBoosts`, `recordInteraction`, `submitForReview`. (The `Reservations` screen and its
+`reservations`/`setReservation`/`team` stub methods were removed entirely — team access is now
+`businessAccessService`, and there's no reservations feature.)
 
 **`providerService` only:** packages (`packages`/`addPackage`/`deletePackage`), portfolio
 (`addPortfolio`/`updatePortfolio`/`deletePortfolio`), richer `setAvailability(id, availableNow, hours)`.
@@ -198,10 +266,10 @@ A good template for an end-to-end flow.
 |---|---|
 | Booking sheet (date/slot/package/photo, `onBooked` cb) | `src/components/AppointmentSheet.tsx` |
 | Slot generation + open/closed eval | `src/utils/availability.ts` |
-| Service (Supabase `appointments` + local fallback) | `src/services/appointmentService.ts` |
+| Service (Supabase `appointments` + local fallback) | `src/services/engagement/appointmentService.ts` |
 | Customer hub (Upcoming/Past, cancel, reschedule, book-again) | `src/screens/requests/MyAppointments.tsx` |
 | Business owner console | `src/screens/business/manage/BusinessAppointments.tsx` |
-| Provider owner console (Leads + Appointments tabs) | `src/screens/provider/manage/ProviderLeads.tsx` |
+| Provider owner console (bookings/jobs) | `src/screens/provider/manage/ProviderJobs.tsx` |
 | Book buttons | `BusinessDetail.tsx`, `ProviderDetail.tsx` |
 | Home entry (tile + upcoming badge) | `src/screens/Home.tsx` |
 | Type | `AppointmentRecord`, `AppointmentStatus` in `src/types.ts` |
@@ -211,28 +279,52 @@ A good template for an end-to-end flow.
 
 ## 9. Screens map (`src/screens/`)
 
-**Root / customer:** `Home`, `Explore`, `Search`, `MapView`, `AllCategories`, `CategoryListing`,
-`Profile`, `ProfileEdit`, `PublicProfile`, `Notifications`, `Bookmarks`, `Lists`, `Settings`, `Support`,
-`Wallet`, `Leaderboard`, `Achievements`, `Neighborhood`, `AvailableNow`, `Splash`, `Requests`,
-`Community`, `CommunityHub`, `CommunityCompose`, `CommunityPostDetail`, `StoryCompose`, `TrackingPage`.
+**Root / customer:** `AccountSettings`, `Achievements`, `AllCategories`, `Bookmarks`, `BusinessAccess`,
+`CategoryListing`, `CommunityActivity`, `CommunityCompose`, `CommunityHub`, `CommunityPostDetail`,
+`Explore`, `Followers`, `Home`, `Lists`, `ManageHub`, `MapView/` (folder — see below), `MyActivity`,
+`MyQueues`, `Notifications`, `Profile`, `ProfileCommunity`, `ProfileEdit`, `PublicProfile`, `Search`,
+`Splash`, `StoryCompose`, `Support`, `TrackingPage`.
 
-**auth/** `PhoneEntry`, `OtpVerify`, `UserOnboard`, `LocationPermission`, `DeletionPending`.
+**`MapView/`** is a folder, not a file — entry is `index.tsx`, plus `AvatarPin`, `LocationPinDrop`,
+`MapCarousel`, `MapControllers`, `MapFilterStrip`, `MapMarkers`, `MapSheet`, `SearchBar`,
+`SearchThisArea`, `mapIcons.ts`, `mapPalette.ts`, `mapboxFallback.ts`, `useLocationPinDrop.ts`,
+`useMapViewport.ts`, `__tests__/`.
+
+**auth/** `PhoneEntry`, `OtpVerify`, `TermsAccept`, `UserOnboard`, `DeletionPending`;
+**auth/onboard/** (`UserOnboard`'s beats) `BeatFrame`, `BeatHandle`, `BeatIdentity`, `BeatInterests`,
+`BeatLocation`.
 
 **requests/** `AskCompose`, `SubmitProposal`, `AgreementScreen`, `Agreements`, `RequestDetail`,
 `RateScreen`, `MyAppointments`.
 
-**business/** `BusinessDetail`, `BusinessOnboard`; **business/manage/** `ManageDashboard`, `ManageNav`,
-`ProfileEditor`, `HoursEditor`, `CatalogManager`, `PhotosManager`, `StoryComposer`,
-`QueueManager`, `LoyaltySetup`, `QnaManager`, `ReviewsManager`, `Reservations`, `BusinessAppointments`,
-`LeadsInbox`, `Promote`, `VerificationCenter`, `BusinessSettings`, `BusinessRequests`.
+**business/** `BizCatalogGrid`, `BusinessDetail`, `BusinessOnboard`; **business/manage/**
+`ManageDashboard`, `ManageNav`, `BusinessHub`, `BusinessStoreHub`, `BusinessProfileHub`, `ProfileEditor`,
+`BroadcastRadius`, `HoursEditor`, `CatalogManager`, `InventoryAlerts`, `BusinessPortfolio`,
+`QueueManager`, `QnaManager`, `ReviewsManager`, `BusinessAppointments`, `BusinessDeliveries`,
+`TeamMyDeliveries`, `BusinessPayments`, `BulkDealsManager`, `VerificationCenter`, `BusinessSettings`,
+`BusinessRequests`.
 
 **provider/** `ProviderDetail`, `ProviderOnboard`; **provider/manage/** `ProviderDashboard`,
-`ProviderManageNav`, `ProviderProfileEditor`, `ProviderAvailability`, `ProviderPackages`,
-`ProviderPortfolio`, `ProviderLeads`, `ProviderSettings`.
+`ProviderManageNav`, `ProviderProfileHub`, `ProviderProfileEditor`, `ProviderAvailability`,
+`ProviderCatalog`, `ProviderInventory`, `ProviderPortfolio`, `ProviderJobs`, `ProviderFindWork`,
+`ProviderMoney`, `ProviderCommunity`, `ProviderVerification`, `ProviderSettings`.
 
-**chat/** `ConversationList`, `ChatThread`. **society/** `SocietyScreen`.
-**subscriptions/** `SubscriptionManager`, `NewSubscription`, `SubscriptionDetail`.
-**monetization/** `BusinessProUpgrade`. **admin/** `AdminPanel`.
+**settings/** (each row of the `/account` hub opens one of these) `NotificationSettings`,
+`PrivacySettings`, `DiscoverySettings`, `LanguageSettings`, `SecuritySettings`, `LocationSettings`,
+`DataSettings`.
+
+**safety/** `SafetyHub`, `EmergencyContacts` (live location sharing). **places/** `PlaceDetail`,
+`PlaceRequestForm`. **manage/** `LeadsInbox` (shared by both consoles via an `entityType` prop).
+
+**chat/** `ConversationList`, `ChatThread`. **delivery/** `DeliveryConsole`.
+**admin/** `AdminLogin`, `AdminPanel`. **legal/** `LegalIndex`, `LegalDoc`. **guide/** `GuideIndex`,
+`GuideDoc`.
+
+**future-enhancement/** — 13 screens kept but **deliberately unrouted** (no `<Route>` in `App.tsx`, no
+in-app nav link — shelved together after a launch audit, not deleted): `AvailableNow`,
+`BusinessProUpgrade`, `Leaderboard`, `LoyaltySetup`, `Neighborhood`, `NewSubscription`, `PhotosManager`,
+`Promote`, `SocietyScreen`, `StoryComposer`, `SubscriptionDetail`, `SubscriptionManager`, `Wallet`.
+Do not treat these as live screens when tracing a route — re-check §3 first.
 
 ---
 
@@ -329,10 +421,18 @@ For a typical new capability, touch these in order:
 
 ---
 
-*Last mapped: 2026-07-27 — home delivery (per-business `delivery_enabled`, two-way ETA, multi-stop
+*Last mapped: 2026-09-03 — refreshed §3/§6/§9 against the actual current `App.tsx` route table,
+`src/services/**` (32 files across `core/`/`marketplace/`/`engagement/`), and `src/screens/**` (new
+`settings/`, `safety/`, `places/`, `manage/`, `auth/onboard/` folders; `future-enhancement/`'s 13
+deliberately-unrouted screens called out as such). Removed the stale `kycService`/`paymentService`
+entries (neither exists under `src/services/`, confirmed by grep — nothing imports them); added
+`customPaymentService`, `appealService`, `placesService`, `bulkService`, `businessAccessService`,
+`slotBlockService`, `locationService`, `emergencyService`, `leaderboardService` to the index.
+
+Earlier: home delivery (per-business `delivery_enabled`, two-way ETA, multi-stop
 routing via `src/lib/routeLink.ts`, owner live-tracking page, customer restricted to progress-only);
 business/provider console passwords replaced the switch PIN; cart Buy-now vs Book-later
-(`CartCheckoutSheet`). Earlier: offers removed; catalog inventory; business portfolio; alias/privacy
+(`CartCheckoutSheet`). Earlier still: offers removed; catalog inventory; business portfolio; alias/privacy
 model; wallet sourcing + routing; community replies; appointment/queue notifications; My Activity
 archive; native safe-area.*
 

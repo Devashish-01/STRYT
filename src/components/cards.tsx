@@ -919,14 +919,16 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
             </button>
           )}
 
-          <button
-            className="row gap-6 small semi"
-            style={{ color: "var(--ink-600)", background: "var(--ink-50)", padding: "6px 12px", borderRadius: 12, fontSize: 13, border: "none", cursor: "pointer" }}
-            onClick={() => setSharing(true)}
-            aria-label="Share this post"
-          >
-            <Share2 size={16} color="var(--ink-600)" />
-          </button>
+          {!isGuest && (
+            <button
+              className="row gap-6 small semi"
+              style={{ color: "var(--ink-600)", background: "var(--ink-50)", padding: "6px 12px", borderRadius: 12, fontSize: 13, border: "none", cursor: "pointer" }}
+              onClick={() => setSharing(true)}
+              aria-label="Share this post"
+            >
+              <Share2 size={16} color="var(--ink-600)" />
+            </button>
+          )}
 
           {!isGuest && post.type === "RECOMMENDATION" && (
             <button
