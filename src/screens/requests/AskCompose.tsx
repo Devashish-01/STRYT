@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal, Image, RefreshCw, Users } from "@/components/Icons";
-import { FULFILLMENT_LABELS, type FulfillmentType } from "@/types";
+import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, Clock, ChevronDown, SlidersHorizontal, Image, RefreshCw } from "@/components/Icons";
 import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
@@ -117,11 +116,6 @@ export default function AskCompose() {
   const [anon, setAnon] = useState(draft?.anon ?? false);
   const [expiryHrs, setExpiryHrs] = useState(draft?.expiryHrs ?? 24); // auto-expire window; capped at 24h
   const [showAdvanced, setShowAdvanced] = useState(false); // progressive disclosure of advanced options
-  // Group buy — pre-armed when arriving from /bulk's "Start group buy" CTA.
-  const [isGroupBuy, setIsGroupBuy] = useState(() => new URLSearchParams(window.location.search).get("groupBuy") === "1");
-  const [groupBuyTarget, setGroupBuyTarget] = useState("");
-  const [bulkPricePerUnit, setBulkPricePerUnit] = useState("");
-  const [fulfillmentType, setFulfillmentType] = useState<FulfillmentType | null>(null);
   const [posting, setPosting] = useState(false);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -281,16 +275,10 @@ export default function AskCompose() {
         area,
         lat: lat || 0,
         lng: lng || 0,
-        isGroupBuy,
-        groupBuyTarget: isGroupBuy && groupBuyTarget ? Number(groupBuyTarget) : undefined,
-        bulkPricePerUnit: isGroupBuy && bulkPricePerUnit ? Number(bulkPricePerUnit) : undefined,
-        fulfillmentType: isGroupBuy ? fulfillmentType ?? undefined : undefined,
       });
       clearRequestDraft();
       showToast("Request posted! Notifying nearby providers…");
-      // A group buy's natural home is Community (where it's joinable); a
-      // plain request's is Explore's Requests tab.
-      setTimeout(() => nav(isGroupBuy ? "/community-hub" : "/explore?tab=requests"), 600);
+      setTimeout(() => nav("/explore?tab=requests"), 600);
     } catch (e) {
       showToast(e instanceof Error && e.message ? e.message : "Couldn't post. Try again.");
       setPosting(false);
@@ -517,71 +505,6 @@ export default function AskCompose() {
             </div>
           </div>
         </div>
-
-        {/* Group buy — sits ABOVE "more options" rather than inside it: it
-            changes what the post fundamentally is (a pool others join, not a
-            one-off ask), so it shouldn't be buried behind a disclosure. */}
-        <button
-          type="button"
-          className="row gap-12"
-          onClick={() => setIsGroupBuy((v) => !v)}
-          style={{ width: "100%", padding: 14, borderRadius: 12, textAlign: "left", background: isGroupBuy ? "var(--brand-50)" : "var(--ink-50)", border: isGroupBuy ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)", alignItems: "center" }}
-        >
-          <Users size={20} color={isGroupBuy ? "var(--brand-700)" : "var(--ink-500)"} />
-          <span className="col grow" style={{ gap: 2 }}>
-            <span className="semi small" style={{ color: "var(--ink-800)" }}>{t("make_group_buy_label")}</span>
-            <span className="tiny muted">{t("neighbours_pool_desc")}</span>
-          </span>
-          <span style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: isGroupBuy ? "none" : "2px solid var(--ink-300)", background: isGroupBuy ? "var(--brand-600)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
-            {isGroupBuy ? "✓" : ""}
-          </span>
-        </button>
-
-        {isGroupBuy && (
-          <div className="col gap-14" style={{ padding: 14, borderRadius: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
-            <div className="row gap-10">
-              <div className="grow">
-                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("target_quantity_label")}</label>
-                <input
-                  className="input"
-                  inputMode="numeric"
-                  placeholder={t("eg_100_placeholder")}
-                  value={groupBuyTarget}
-                  onChange={(e) => setGroupBuyTarget(e.target.value.replace(/[^0-9]/g, ""))}
-                />
-              </div>
-              <div className="grow">
-                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("target_price_per_unit_label")}</label>
-                <input
-                  className="input"
-                  inputMode="decimal"
-                  placeholder={t("eg_499_placeholder")}
-                  value={bulkPricePerUnit}
-                  onChange={(e) => setBulkPricePerUnit(e.target.value.replace(/[^0-9.]/g, ""))}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("how_fulfilled_label")}</label>
-              <div className="row gap-8" style={{ flexWrap: "wrap" }}>
-                {(Object.keys(FULFILLMENT_LABELS) as FulfillmentType[]).map((ft) => (
-                  <button
-                    key={ft}
-                    type="button"
-                    className="chip"
-                    style={fulfillmentType === ft ? { background: "var(--brand-100)", color: "var(--brand-700)", border: "1.5px solid var(--brand-300)" } : undefined}
-                    onClick={() => setFulfillmentType(fulfillmentType === ft ? null : ft)}
-                  >
-                    {FULFILLMENT_LABELS[ft]}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="tiny muted" style={{ lineHeight: 1.5 }}>
-              {t("providers_quote_privately_desc")}
-            </div>
-          </div>
-        )}
 
         {/* Advanced options — collapsed by default so the core stays simple.
             Defaults (24h expiry, default radius, no scheduling/toggles) are

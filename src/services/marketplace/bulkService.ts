@@ -103,12 +103,30 @@ function rowToPledge(r: any): BulkDealPledge {
 
 const DEAL_SELECT = "*, business:businesses!business_id(name, cover_image, lat, lng, upi_id)";
 
+// Deadline auto-close, mirroring requestService.ts's sweepExpired exactly:
+// opportunistic on read rather than a hard cron dependency, throttled so a
+// busy feed doesn't fire it on every card. Target-hit closing is already
+// server-side (a trigger on bulk_deal_pledges) — this only covers deals
+// whose closes_at deadline has simply passed with nobody watching.
+let lastBulkSweepAt = 0;
+async function sweepExpiredDeals(sb: ReturnType<typeof getSupabase>): Promise<void> {
+  if (Date.now() - lastBulkSweepAt < 120_000) return;
+  // close_expired_bulk_deals is revoked from anon (same posture as
+  // close_expired_requests) — a signed-out visitor can't close other
+  // people's campaigns, so skip the call rather than eat a guaranteed 401.
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+  lastBulkSweepAt = Date.now();
+  await (sb.rpc as any)("close_expired_bulk_deals").catch(() => { lastBulkSweepAt = 0; });
+}
+
 export const bulkService = {
   // ── Business-initiated bulk deals ───────────────────────────
 
   /** Active wholesale offers, nearest first when a location is known. */
   async deals(p: { lat?: number; lng?: number; radius?: number } = {}): Promise<BulkDeal[]> {
     const sb = getSupabase();
+    await sweepExpiredDeals(sb);
     // Bounded — this was an unbounded select over every ACTIVE deal, tolerable
     // on a screen nobody opened but not on the Community feed's first paint,
     // which fetches this on every visit.
@@ -131,6 +149,7 @@ export const bulkService = {
 
   async dealsForBusiness(businessId: string): Promise<BulkDeal[]> {
     const sb = getSupabase();
+    await sweepExpiredDeals(sb);
     const { data, error } = await sb
       .from("bulk_deals")
       .select(DEAL_SELECT)
@@ -142,6 +161,7 @@ export const bulkService = {
 
   async getDeal(id: string): Promise<BulkDeal | undefined> {
     const sb = getSupabase();
+    await sweepExpiredDeals(sb);
     const { data, error } = await sb.from("bulk_deals").select(DEAL_SELECT).eq("id", id).maybeSingle();
     throwIfError(error);
     return data ? rowToDeal(data) : undefined;

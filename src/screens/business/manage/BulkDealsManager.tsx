@@ -2,18 +2,19 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
-import { Plus, QrCode, Trash2, CheckCircle2, X, Minus, Edit3 } from "@/components/Icons";
+import { Plus, QrCode, Trash2, CheckCircle2, X, Edit3 } from "@/components/Icons";
 import { bulkService, businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import QrScannerSheet from "@/components/QrScannerSheet";
 import ManageNav from "./ManageNav";
-import type { BulkDeal, BulkTier, GroupBuyToken } from "@/types";
+import type { BulkDeal, GroupBuyToken } from "@/types";
 
 /** Business console: create/edit wholesale offers, and validate group-buy
  *  claim passes at handover. */
 export default function BulkDealsManager() {
   const { id = "" } = useParams();
+  const nav = useNavigate();
   const { showToast } = useApp();
   const { data: biz } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { data: deals, loading, refetch } = useQuery(
@@ -22,7 +23,6 @@ export default function BulkDealsManager() {
     `bulk:biz-deals:${id}`
   );
 
-  const [composing, setComposing] = useState(false);
   const [editingDeal, setEditingDeal] = useState<BulkDeal | null>(null);
   const [scanning, setScanning] = useState(false);
   const [manualCode, setManualCode] = useState("");
@@ -101,16 +101,19 @@ export default function BulkDealsManager() {
         {/* Deals */}
         <div>
           <div className="row between center-v" style={{ marginBottom: 8 }}>
-            <div className="small semi muted">Your bulk deals</div>
-            <button className="btn btn-primary btn-sm row gap-6" onClick={() => setComposing(true)}>
-              <Plus size={14} /> New deal
+            <div className="small semi muted">Your campaigns</div>
+            <button
+              className="btn btn-primary btn-sm row gap-6"
+              onClick={() => nav("/community/new", { state: { businessId: id, businessName: biz?.name, businessAvatar: biz?.coverImage, bulkBuying: true } })}
+            >
+              <Plus size={14} /> New campaign
             </button>
           </div>
 
           {loading && <ListSkeleton count={2} />}
 
           {!loading && (deals ?? []).length === 0 && (
-            <EmptyState emoji="📦" title="No bulk deals yet" text="Post a wholesale offer with a minimum order quantity and volume discounts." />
+            <EmptyState emoji="📦" title="No campaigns yet" text="Post a bulk-buying campaign — customers pledge a quantity and you fulfil once it's full." />
           )}
 
           <div className="col gap-10">
@@ -121,12 +124,11 @@ export default function BulkDealsManager() {
         </div>
       </div>
 
-      {(composing || editingDeal) && (
+      {editingDeal && (
         <DealComposer
-          businessId={id}
           existing={editingDeal}
-          onSaved={() => { setComposing(false); setEditingDeal(null); refetch(); }}
-          onClose={() => { setComposing(false); setEditingDeal(null); }}
+          onSaved={() => { setEditingDeal(null); refetch(); }}
+          onClose={() => setEditingDeal(null)}
         />
       )}
       {scanning && (
@@ -202,49 +204,32 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
   );
 }
 
-function DealComposer({ businessId, existing, onSaved, onClose }: { businessId: string; existing?: BulkDeal | null; onSaved: () => void; onClose: () => void }) {
+/** Editing an EXISTING campaign only — deliberately narrow. Price, tiers,
+ *  MOQ, deposit and deadline are the terms pledgers already joined under;
+ *  changing them out from underneath a live pool would be unfair to whoever
+ *  already paid a deposit. Title/description/quota carry no such promise, so
+ *  those stay editable here. Creating a new campaign now goes through
+ *  CommunityCompose instead (see the "New campaign" button above). */
+function DealComposer({ existing, onSaved, onClose }: { existing: BulkDeal; onSaved: () => void; onClose: () => void }) {
   const { showToast } = useApp();
-  const editing = !!existing;
-  const [title, setTitle] = useState(existing?.title ?? "");
-  const [description, setDescription] = useState(existing?.description ?? "");
-  const [regularPrice, setRegularPrice] = useState(existing ? String(existing.regularPrice) : "");
-  const [moq, setMoq] = useState(existing ? String(existing.moq) : "10");
-  const [tiers, setTiers] = useState<BulkTier[]>(existing?.tiers?.length ? existing.tiers : [{ minQty: 10, unitPrice: 0 }]);
-  const [quota, setQuota] = useState(existing?.availableQuota != null ? String(existing.availableQuota) : "");
+  const [title, setTitle] = useState(existing.title);
+  const [description, setDescription] = useState(existing.description ?? "");
+  const [quota, setQuota] = useState(existing.availableQuota != null ? String(existing.availableQuota) : "");
   const [busy, setBusy] = useState(false);
 
-  function setTier(i: number, patch: Partial<BulkTier>) {
-    setTiers((prev) => prev.map((t, idx) => (idx === i ? { ...t, ...patch } : t)));
-  }
-
   async function save() {
-    const rp = parseFloat(regularPrice);
-    const m = parseInt(moq, 10);
-    if (!title.trim()) { showToast("Give the deal a name"); return; }
-    if (!Number.isFinite(rp) || rp <= 0) { showToast("Enter the regular price"); return; }
-    if (!Number.isFinite(m) || m < 1) { showToast("Minimum order must be at least 1"); return; }
-
-    const cleanTiers = tiers
-      .filter((t) => t.minQty > 0 && t.unitPrice > 0)
-      .sort((a, b) => a.minQty - b.minQty);
-
-    const payload = {
-      title: title.trim(),
-      description: description.trim() || null,
-      regularPrice: rp,
-      moq: m,
-      tiers: cleanTiers,
-      availableQuota: quota ? parseInt(quota, 10) : null,
-    };
-
+    if (!title.trim()) { showToast("Give the campaign a name"); return; }
     setBusy(true);
     try {
-      if (existing) await bulkService.updateDeal(existing.id, payload);
-      else await bulkService.createDeal(businessId, payload);
-      showToast(existing ? "Deal updated ✓" : "Bulk deal published ✓");
+      await bulkService.updateDeal(existing.id, {
+        title: title.trim(),
+        description: description.trim() || null,
+        availableQuota: quota ? parseInt(quota, 10) : null,
+      });
+      showToast("Campaign updated ✓");
       onSaved();
     } catch (e: any) {
-      showToast(e?.message || "Couldn't publish — try again");
+      showToast(e?.message || "Couldn't save — try again");
     } finally {
       setBusy(false);
     }
@@ -260,13 +245,13 @@ function DealComposer({ businessId, existing, onSaved, onClose }: { businessId: 
         onClick={(e) => e.stopPropagation()}
       >
         <div className="row between center-v" style={{ marginBottom: "var(--space-md)" }}>
-          <div className="bold" style={{ fontSize: 18 }}>{editing ? "Edit bulk deal" : "New bulk deal"}</div>
+          <div className="bold" style={{ fontSize: 18 }}>Edit campaign</div>
           <button className="icon-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         <div className="col gap-14">
           <div>
-            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>What are you selling?</label>
+            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Title</label>
             <input className="input" placeholder="e.g. Alphonso Mango Farm Box" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} />
           </div>
 
@@ -275,64 +260,17 @@ function DealComposer({ businessId, existing, onSaved, onClose }: { businessId: 
             <textarea className="input" style={{ minHeight: 60, resize: "vertical" }} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />
           </div>
 
-          <div className="row gap-10">
-            <div className="grow">
-              <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Regular price (₹)</label>
-              <input className="input" inputMode="decimal" placeholder="1000" value={regularPrice} onChange={(e) => setRegularPrice(e.target.value.replace(/[^0-9.]/g, ""))} />
-            </div>
-            <div style={{ width: 130 }}>
-              <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Min order</label>
-              <input className="input" inputMode="numeric" placeholder="10" value={moq} onChange={(e) => setMoq(e.target.value.replace(/[^0-9]/g, ""))} />
-            </div>
-          </div>
-
-          <div>
-            <div className="row between center-v" style={{ marginBottom: 6 }}>
-              <label className="tiny semi muted">Volume discounts</label>
-              <button
-                className="tiny semi row gap-4"
-                style={{ background: "none", border: "none", color: "var(--brand-700)" }}
-                onClick={() => setTiers((p) => [...p, { minQty: 0, unitPrice: 0 }])}
-              >
-                <Plus size={12} /> Add tier
-              </button>
-            </div>
-            <div className="col gap-8">
-              {tiers.map((t, i) => (
-                <div key={i} className="row gap-8 center-v">
-                  <input
-                    className="input"
-                    style={{ width: 90 }}
-                    inputMode="numeric"
-                    placeholder="Qty"
-                    value={t.minQty || ""}
-                    onChange={(e) => setTier(i, { minQty: parseInt(e.target.value.replace(/[^0-9]/g, ""), 10) || 0 })}
-                  />
-                  <span className="tiny muted">+ at</span>
-                  <input
-                    className="input grow"
-                    inputMode="decimal"
-                    placeholder="Unit price ₹"
-                    value={t.unitPrice || ""}
-                    onChange={(e) => setTier(i, { unitPrice: parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0 })}
-                  />
-                  {tiers.length > 1 && (
-                    <button className="icon-btn" onClick={() => setTiers((p) => p.filter((_, idx) => idx !== i))} aria-label="Remove tier">
-                      <Minus size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
           <div>
             <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Available quota (optional)</label>
             <input className="input" inputMode="numeric" placeholder="Total units you can supply" value={quota} onChange={(e) => setQuota(e.target.value.replace(/[^0-9]/g, ""))} />
           </div>
 
+          <div className="tiny muted" style={{ lineHeight: 1.5 }}>
+            Price, volume tiers, deposit and the closing deadline are locked once a campaign is live — open it from the list to extend the deadline instead.
+          </div>
+
           <button className="btn btn-primary btn-block" style={{ height: 48, fontSize: 15, fontWeight: 700 }} disabled={busy} onClick={save}>
-            {busy ? "Saving…" : editing ? "Save changes" : "Publish deal"}
+            {busy ? "Saving…" : "Save changes"}
           </button>
         </div>
       </div>

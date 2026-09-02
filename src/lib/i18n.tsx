@@ -592,7 +592,7 @@ const strings: Record<Lang, Record<string, string>> = {
     collection_pin_label: "Collection PIN",
 
     // Community Hub — bulk deals rail + claim-pass banner
-    bulk_deals_from_shops_nearby: "Bulk deals from shops nearby",
+    bulk_deals_from_shops_nearby: "Bulk-buying campaigns nearby",
     see_all_word: "See all",
     deals_chip_label: "🏷️ Deals",
     claim_passes_ready_one: "🎟️ Your claim pass is ready",
@@ -1600,7 +1600,7 @@ const strings: Record<Lang, Record<string, string>> = {
     collection_pin_label: "कलेक्शन पिन",
 
     // Community Hub — bulk deals rail + claim-pass banner
-    bulk_deals_from_shops_nearby: "आस-पास की दुकानों के थोक डील",
+    bulk_deals_from_shops_nearby: "आस-पास की थोक-खरीद कैंपेन",
     see_all_word: "सभी देखें",
     deals_chip_label: "🏷️ डील",
     claim_passes_ready_one: "🎟️ आपका क्लेम पास तैयार है",
@@ -2608,7 +2608,7 @@ const strings: Record<Lang, Record<string, string>> = {
     collection_pin_label: "कलेक्शन पिन",
 
     // Community Hub — bulk deals rail + claim-pass banner
-    bulk_deals_from_shops_nearby: "जवळपासच्या दुकानांतील घाऊक डील",
+    bulk_deals_from_shops_nearby: "जवळपासच्या घाऊक-खरेदी कॅम्पेन",
     see_all_word: "सर्व पहा",
     deals_chip_label: "🏷️ डील",
     claim_passes_ready_one: "🎟️ तुमचा क्लेम पास तयार आहे",

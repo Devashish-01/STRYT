@@ -1,16 +1,17 @@
 import { useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SafeImg } from "@/components/common";
-import { Camera, Plus, X, Store, Wrench, Image, MapPin, Check, User, Megaphone, Clock, Tag, ChevronDown, MessageCircle, Eye } from "@/components/Icons";
+import { Camera, Plus, Minus, X, Store, Wrench, Image, MapPin, Check, User, Megaphone, Clock, Tag, ChevronDown, MessageCircle, Eye, Package } from "@/components/Icons";
 import ListingPickerSheet from "@/components/ListingPickerSheet";
 import { CommunityCard } from "@/components/cards";
-import { communityService, uploadService, businessService, providerService } from "@/services";
+import { communityService, uploadService, businessService, providerService, bulkService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { useDraft } from "@/hooks/useDraft";
 import { haptics } from "@/lib/haptics";
 import { isDraftMeaningful, validateDraft, type DraftIdentity } from "@/lib/communityDraft";
 import { COMMENT_POLICIES, COMMENT_POLICY_META } from "@/lib/commentPolicy";
+import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import {
   addMedia,
   alertExpiryHours,
@@ -29,10 +30,11 @@ import {
   MAX_POST_MEDIA,
   MAX_TITLE_LEN,
   MIN_POLL_OPTIONS,
+  MIN_TITLE_LEN,
   PHOTO_FORWARD_TYPES,
   POLL_DURATIONS,
 } from "@/lib/communityTypes";
-import type { CommunityPostType } from "@/types";
+import { FULFILLMENT_LABELS, type CommunityPostType, type FulfillmentType, type BulkTier } from "@/types";
 
 interface SellerContext {
   type: "business" | "provider";
@@ -101,6 +103,32 @@ export default function CommunityCompose() {
   const sellerLat = sellerCtx?.type === "business" ? activeBiz?.lat : sellerCtx?.type === "provider" ? activeProv?.lat : undefined;
   const sellerLng = sellerCtx?.type === "business" ? activeBiz?.lng : sellerCtx?.type === "provider" ? activeProv?.lng : undefined;
 
+  // Own fetch rather than reusing activeBiz: sellerCtx can come from a
+  // dashboard's "Post to community" tile (passedCtx) for a business that
+  // isn't necessarily the caller's activeContext, and package eligibility
+  // has to match the business the campaign will actually post under.
+  const { data: sellerBiz } = useQuery(
+    () => (sellerCtx?.type === "business" ? businessService.get(sellerCtx.id) : Promise.resolve(null)),
+    [sellerCtx?.type, sellerCtx?.id],
+    sellerCtx?.type === "business" ? `business:${sellerCtx.id}` : undefined
+  );
+  // showCartStepper is the same signal BusinessStoreHub's "Bulk deals" tile
+  // gates on — a consultation isn't something you buy 3 of, so 8 of 13
+  // packages have nothing sensible to configure here.
+  const showBulkBuying = sellerCtx?.type === "business" && sellerBiz ? BUSINESS_PACKAGES[resolvePackage(sellerBiz)].showCartStepper : false;
+
+  // Pre-armed when arriving from BulkDealsManager's "New campaign" button —
+  // that screen is only reachable under the same showCartStepper gate this
+  // toggle uses, so trusting the flag here can't strand an ineligible seller.
+  const [isBulkBuying, setIsBulkBuying] = useState(() => !!(loc.state as any)?.bulkBuying);
+  const [regularPrice, setRegularPrice] = useState("");
+  const [campaignMoq, setCampaignMoq] = useState("10");
+  const [campaignTiers, setCampaignTiers] = useState<BulkTier[]>([{ minQty: 10, unitPrice: 0 }]);
+  const [campaignQuota, setCampaignQuota] = useState("");
+  const [depositAmount, setDepositAmount] = useState("");
+  const [closesAt, setClosesAt] = useState("");
+  const [campaignFulfillment, setCampaignFulfillment] = useState<FulfillmentType | null>(null);
+
   // Drafts are per-identity: a half-written shop announcement must never
   // reappear under your personal name. Held back until the seller identity
   // settles, for the same reason submit is.
@@ -126,9 +154,25 @@ export default function CommunityCompose() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [succeeded, setSucceeded] = useState(false);
 
+  function validateCampaign(): { ok: boolean; message: string | null } {
+    const title = draft.title.trim();
+    if (title.length < MIN_TITLE_LEN) return { ok: false, message: `Add a title — at least ${MIN_TITLE_LEN} characters` };
+    const rp = parseFloat(regularPrice);
+    if (!Number.isFinite(rp) || rp <= 0) return { ok: false, message: "Enter the regular price" };
+    const m = parseInt(campaignMoq, 10);
+    if (!Number.isFinite(m) || m < 1) return { ok: false, message: "Target quantity must be at least 1" };
+    if (depositAmount) {
+      const dep = parseFloat(depositAmount);
+      if (!Number.isFinite(dep) || dep <= 0) return { ok: false, message: "Deposit must be a positive amount" };
+      if (dep > rp) return { ok: false, message: "Deposit can't be more than the regular price" };
+    }
+    return { ok: true, message: null };
+  }
+
   const meta = draft.type ? COMMUNITY_TYPE_META[draft.type] : null;
   const validation = validateDraft(draft);
-  const canPost = validation.ok && !posting && !uploading && !sellerCtxLoading;
+  const campaignValidation = isBulkBuying ? validateCampaign() : { ok: true, message: null as string | null };
+  const canPost = (isBulkBuying ? campaignValidation.ok : validation.ok) && !posting && !uploading && !sellerCtxLoading;
   const reachKm = reachRadiusKm();
   const photoForward = !!draft.type && PHOTO_FORWARD_TYPES.includes(draft.type);
   const policyMeta = COMMENT_POLICY_META[draft.commentPolicy];
@@ -212,6 +256,34 @@ export default function CommunityCompose() {
     }
   }
 
+  async function postCampaign() {
+    if (!sellerCtx || sellerCtx.type !== "business" || !canPost) return;
+    setPosting(true);
+    haptics.medium();
+    try {
+      const cleanTiers = campaignTiers.filter((t) => t.minQty > 0 && t.unitPrice > 0).sort((a, b) => a.minQty - b.minQty);
+      const created = await bulkService.createDeal(sellerCtx.id, {
+        title: draft.title.trim(),
+        description: draft.body.trim() || null,
+        image: draft.media[0] ?? null,
+        regularPrice: parseFloat(regularPrice),
+        moq: parseInt(campaignMoq, 10),
+        tiers: cleanTiers,
+        availableQuota: campaignQuota ? parseInt(campaignQuota, 10) : null,
+        depositAmount: depositAmount ? parseFloat(depositAmount) : null,
+        closesAtISO: closesAt ? new Date(closesAt).toISOString() : null,
+        fulfillmentType: campaignFulfillment,
+      });
+      haptics.success();
+      discard();
+      showToast("Campaign published 🎉");
+      setTimeout(() => nav(`/business/${sellerCtx.id}/manage/bulk-deals/${created.id}`, { replace: true }), 500);
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't publish — try again");
+      setPosting(false);
+    }
+  }
+
   const identityName = sellerCtx?.name || user.name || "You";
   const identityClass = sellerCtx?.type === "business"
     ? "compose-identity compose-identity--business"
@@ -224,13 +296,13 @@ export default function CommunityCompose() {
       <header className="compose-nav">
         <button className="compose-nav-btn" onClick={handleCancel}>Cancel</button>
         <div className="compose-nav-title">
-          {meta ? `${meta.emoji} ${meta.label}` : "New post"}
+          {isBulkBuying ? "📦 Bulk-buying campaign" : meta ? `${meta.emoji} ${meta.label}` : "New post"}
         </div>
         <button
           className="compose-nav-post"
           disabled={!canPost}
-          onClick={post}
-          aria-label={validation.ok ? "Post to your street" : validation.message ?? "Post"}
+          onClick={isBulkBuying ? postCampaign : post}
+          aria-label={(isBulkBuying ? campaignValidation.ok : validation.ok) ? "Post" : (isBulkBuying ? campaignValidation.message : validation.message) ?? "Post"}
         >
           {posting ? "Posting…" : "Post"}
         </button>
@@ -281,46 +353,78 @@ export default function CommunityCompose() {
           </span>
         </div>
 
-        {/* Type picker — a six-tile grid until chosen, one row afterwards. */}
-        <div className="field" style={{ marginBottom: 0 }}>
-          {pickerOpen || !meta ? (
-            <>
-              <span className="compose-section-label" id="flair-label">What kind of post?</span>
-              <div className="flair-grid" role="radiogroup" aria-labelledby="flair-label">
-                {COMMUNITY_TYPES.map((t) => {
-                  const isSel = draft.type === t.type;
-                  return (
-                    <button
-                      key={t.type}
-                      type="button"
-                      role="radio"
-                      aria-checked={isSel}
-                      className={`flair-tile ${isSel ? "active" : ""}`}
-                      onClick={() => chooseType(t.type)}
-                    >
-                      <span className="flair-tile-emoji" aria-hidden="true">{t.emoji}</span>
-                      <span className="flair-tile-label">{t.action}</span>
-                      <span className="flair-tile-hint">{t.hint}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          ) : (
-            <button
-              type="button"
-              className="flair-chip"
-              onClick={() => setPickerOpen(true)}
-              aria-label={`Post type: ${meta.label}. Change`}
-            >
-              <span className="flair-chip-emoji" aria-hidden="true">{meta.emoji}</span>
-              <span className="flair-chip-label">{meta.label}</span>
-              <span className="flair-chip-change">Change</span>
-            </button>
-          )}
-        </div>
+        {/* Bulk buying — sits ABOVE the type picker, not buried in settings:
+            it changes what the post fundamentally is (a business campaign
+            others pledge into, not a community post), same reasoning the
+            removed group-buy toggle used in AskCompose. Only a seller
+            identity whose package sells countable units sees this at all. */}
+        {showBulkBuying && (
+          <button
+            type="button"
+            className="row gap-12"
+            onClick={() => {
+              const next = !isBulkBuying;
+              setIsBulkBuying(next);
+              if (next) { patch({ type: null }); setPickerOpen(false); }
+              else setPickerOpen(true);
+            }}
+            style={{ width: "100%", padding: 14, borderRadius: 12, textAlign: "left", background: isBulkBuying ? "var(--brand-50)" : "var(--ink-50)", border: isBulkBuying ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)", alignItems: "center" }}
+          >
+            <Package size={20} color={isBulkBuying ? "var(--brand-700)" : "var(--ink-500)"} />
+            <span className="col grow" style={{ gap: 2 }}>
+              <span className="semi small" style={{ color: "var(--ink-800)" }}>Make this a bulk-buying campaign</span>
+              <span className="tiny muted">Customers pledge a quantity and pay a deposit to join — you fulfil once it's full</span>
+            </span>
+            <span style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: isBulkBuying ? "none" : "2px solid var(--ink-300)", background: isBulkBuying ? "var(--brand-600)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
+              {isBulkBuying ? "✓" : ""}
+            </span>
+          </button>
+        )}
 
-        {draft.type && meta && (
+        {/* Type picker — a six-tile grid until chosen, one row afterwards.
+            Not applicable to a bulk-buying campaign, which isn't one of the
+            six community types. */}
+        {!isBulkBuying && (
+          <div className="field" style={{ marginBottom: 0 }}>
+            {pickerOpen || !meta ? (
+              <>
+                <span className="compose-section-label" id="flair-label">What kind of post?</span>
+                <div className="flair-grid" role="radiogroup" aria-labelledby="flair-label">
+                  {COMMUNITY_TYPES.map((t) => {
+                    const isSel = draft.type === t.type;
+                    return (
+                      <button
+                        key={t.type}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSel}
+                        className={`flair-tile ${isSel ? "active" : ""}`}
+                        onClick={() => chooseType(t.type)}
+                      >
+                        <span className="flair-tile-emoji" aria-hidden="true">{t.emoji}</span>
+                        <span className="flair-tile-label">{t.action}</span>
+                        <span className="flair-tile-hint">{t.hint}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="flair-chip"
+                onClick={() => setPickerOpen(true)}
+                aria-label={`Post type: ${meta.label}. Change`}
+              >
+                <span className="flair-chip-emoji" aria-hidden="true">{meta.emoji}</span>
+                <span className="flair-chip-label">{meta.label}</span>
+                <span className="flair-chip-change">Change</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {(isBulkBuying || (draft.type && meta)) && (
           <>
             <div className="field">
               <label className="row between" htmlFor="compose-title">
@@ -331,7 +435,7 @@ export default function CommunityCompose() {
                 id="compose-title"
                 ref={titleRef}
                 className="input"
-                placeholder={meta.titlePlaceholder}
+                placeholder={isBulkBuying ? "e.g. Alphonso Mango Farm Box" : meta?.titlePlaceholder}
                 value={draft.title}
                 onChange={(e) => patch({ title: e.target.value })}
                 maxLength={MAX_TITLE_LEN}
@@ -349,7 +453,7 @@ export default function CommunityCompose() {
               <textarea
                 id="compose-body"
                 className="input"
-                placeholder={meta.bodyPlaceholder}
+                placeholder={isBulkBuying ? "Describe what's included, quality, sourcing…" : meta?.bodyPlaceholder}
                 value={draft.body}
                 onChange={(e) => patch({ body: e.target.value })}
                 maxLength={MAX_BODY_LEN}
@@ -435,6 +539,107 @@ export default function CommunityCompose() {
                 />
               )}
             </div>
+
+            {/* ---- BULK BUYING: campaign economics, in place of the
+                six-type picker's type-specific modules ---- */}
+            {isBulkBuying && (
+              <div className="type-module">
+                <div className="type-module-title"><Package size={13} /> Campaign details</div>
+                <div className="col gap-12">
+                  <div className="row gap-10">
+                    <div className="grow">
+                      <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Regular price (₹)</label>
+                      <input className="input" inputMode="decimal" placeholder="1000" value={regularPrice} onChange={(e) => setRegularPrice(e.target.value.replace(/[^0-9.]/g, ""))} />
+                    </div>
+                    <div style={{ width: 130 }}>
+                      <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Target qty</label>
+                      <input className="input" inputMode="numeric" placeholder="10" value={campaignMoq} onChange={(e) => setCampaignMoq(e.target.value.replace(/[^0-9]/g, ""))} />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="row between center-v" style={{ marginBottom: 6 }}>
+                      <label className="tiny semi muted">Volume discounts (optional)</label>
+                      <button
+                        type="button"
+                        className="tiny semi row gap-4"
+                        style={{ background: "none", border: "none", color: "var(--brand-700)" }}
+                        onClick={() => setCampaignTiers((p) => [...p, { minQty: 0, unitPrice: 0 }])}
+                      >
+                        <Plus size={12} /> Add tier
+                      </button>
+                    </div>
+                    <div className="col gap-8">
+                      {campaignTiers.map((tier, i) => (
+                        <div key={i} className="row gap-8 center-v">
+                          <input
+                            className="input"
+                            style={{ width: 90 }}
+                            inputMode="numeric"
+                            placeholder="Qty"
+                            value={tier.minQty || ""}
+                            onChange={(e) => {
+                              const v = parseInt(e.target.value.replace(/[^0-9]/g, ""), 10) || 0;
+                              setCampaignTiers((p) => p.map((x, idx) => (idx === i ? { ...x, minQty: v } : x)));
+                            }}
+                          />
+                          <span className="tiny muted">+ at</span>
+                          <input
+                            className="input grow"
+                            inputMode="decimal"
+                            placeholder="Unit price ₹"
+                            value={tier.unitPrice || ""}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0;
+                              setCampaignTiers((p) => p.map((x, idx) => (idx === i ? { ...x, unitPrice: v } : x)));
+                            }}
+                          />
+                          {campaignTiers.length > 1 && (
+                            <button type="button" className="icon-btn" onClick={() => setCampaignTiers((p) => p.filter((_, idx) => idx !== i))} aria-label="Remove tier">
+                              <Minus size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Available quota (optional)</label>
+                    <input className="input" inputMode="numeric" placeholder="Total units you can supply" value={campaignQuota} onChange={(e) => setCampaignQuota(e.target.value.replace(/[^0-9]/g, ""))} />
+                  </div>
+
+                  <div>
+                    <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Deposit to join (optional)</label>
+                    <input className="input" inputMode="decimal" placeholder="e.g. 100 — leave blank for no deposit" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
+                    <div className="tiny muted" style={{ marginTop: 4 }}>The minimum a pledger pays upfront to reserve their spot.</div>
+                  </div>
+
+                  <div>
+                    <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Closing deadline (optional)</label>
+                    <input type="datetime-local" className="input" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} />
+                    <div className="tiny muted" style={{ marginTop: 4 }}>Closes automatically once this passes, or once it hits its target quantity — whichever comes first.</div>
+                  </div>
+
+                  <div>
+                    <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Fulfilment (optional)</label>
+                    <div className="row gap-8" style={{ flexWrap: "wrap" }}>
+                      {(Object.keys(FULFILLMENT_LABELS) as FulfillmentType[]).map((ft) => (
+                        <button
+                          key={ft}
+                          type="button"
+                          className="chip"
+                          style={campaignFulfillment === ft ? { background: "var(--brand-100)", color: "var(--brand-700)", border: "1.5px solid var(--brand-300)" } : undefined}
+                          onClick={() => setCampaignFulfillment(campaignFulfillment === ft ? null : ft)}
+                        >
+                          {FULFILLMENT_LABELS[ft]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ---- ALERT: how loud, and how long ---- */}
             {draft.type === "ALERT" && (
@@ -566,7 +771,10 @@ export default function CommunityCompose() {
                 the defaults are right for most posts, and putting four audience
                 options in the main flow makes every post a decision. The
                 collapsed row still states the current choice, so it's never a
-                setting you have to open to know. */}
+                setting you have to open to know. Not applicable to a bulk-buying
+                campaign — it's a bulk_deals row, not a community_posts row, and
+                has no comment-policy/like-count concept at all. */}
+            {!isBulkBuying && (
             <div className="field" style={{ marginBottom: 0 }}>
               <button
                 type="button"
@@ -652,6 +860,7 @@ export default function CommunityCompose() {
                 </div>
               )}
             </div>
+            )}
 
             {/* ---- ASK / SHOUTOUT: tag the place you mean ----
                 A shoutout that names a business in prose is a dead end; tagging
@@ -687,6 +896,8 @@ export default function CommunityCompose() {
       <div className="compose-footer">
         {sellerCtxLoading ? (
           <p className="compose-hint">Resolving your business/provider identity…</p>
+        ) : isBulkBuying ? (
+          !campaignValidation.ok && <p className="compose-hint" role="status">{campaignValidation.message}</p>
         ) : !validation.ok && draft.type ? (
           <p className="compose-hint" role="status">{validation.message}</p>
         ) : justSaved ? (
@@ -696,8 +907,10 @@ export default function CommunityCompose() {
         ) : null}
         <div className="row gap-8">
           {/* Preview is offered only once the draft is actually postable —
-              a preview of an invalid post would show a card that can't exist. */}
-          {validation.ok && (
+              a preview of an invalid post would show a card that can't exist.
+              Not offered for a campaign — it renders as a BulkDealCard, not
+              the CommunityCard this preview builds. */}
+          {!isBulkBuying && validation.ok && (
             <button
               className="btn btn-ghost"
               style={{ flexShrink: 0, border: "1.5px solid var(--ink-200)", fontWeight: 700 }}
@@ -706,8 +919,8 @@ export default function CommunityCompose() {
               <Eye size={15} /> Preview
             </button>
           )}
-          <button className="btn btn-primary grow" disabled={!canPost} onClick={post}>
-            {posting ? "Posting…" : "Post to your street"}
+          <button className="btn btn-primary grow" disabled={!canPost} onClick={isBulkBuying ? postCampaign : post}>
+            {posting ? "Posting…" : isBulkBuying ? "Publish campaign" : "Post to your street"}
           </button>
         </div>
       </div>
