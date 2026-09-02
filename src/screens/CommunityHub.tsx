@@ -9,7 +9,7 @@ import GroupBuyCard from "@/components/GroupBuyCard";
 import BulkDealCard from "@/components/BulkDealCard";
 import JoinGroupBuySheet from "@/components/JoinGroupBuySheet";
 import BulkOrderSheet from "@/components/BulkOrderSheet";
-import { EmptyState, SafeImg, Section } from "@/components/common";
+import { EmptyState, Section } from "@/components/common";
 import { StoriesBar } from "@/components/Stories";
 import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -365,24 +365,11 @@ export default function CommunityHub() {
           <StoriesBar />
         </div>
 
-        {/* Prompt bar — an invitation to write, rather than a button naming
-            a feature. Composes under the active identity, same as the old
-            "Create Post" button did. The header's + is the always-reachable
-            twin of this once you've scrolled past it. */}
-        <div className="page-pad" style={{ paddingBottom: 0 }}>
-          <button className="feed-prompt" onClick={goToCompose}>
-            <SafeImg
-              src={activeContext.type === "customer" ? user.avatar : undefined}
-              variant="avatar"
-              className="avatar"
-              style={{ width: 32, height: 32, flexShrink: 0 }}
-            />
-            <span className="feed-prompt-text ellipsis">
-              {tf("share_with_street", { area: area || t("your_street_fallback") })}
-            </span>
-            <span className="feed-prompt-cta"><Plus size={13} /> {t("post_word")}</span>
-          </button>
-        </div>
+        {/* No separate "start a post" prompt bar here — the header's + is
+            the one, persistent way to compose, reachable at any scroll
+            position. A second, adjacent invitation to do the exact same
+            thing read as redundant right at first glance, on top of
+            Stories' own "+" a few pixels above it. */}
 
         {/* Filter row — capped at six. The four longer-tail post types live
             in the "More" sheet's Show section instead of crowding this row;
