@@ -512,12 +512,6 @@ h3, .h3 {
   font-weight: 700;
   box-shadow: 0 3px 12px rgba(107, 33, 204, 0.22);
 }
-/* The shadow above is a literal rgba() (brand-purple), so it doesn't follow the
-   var(--brand-600) override .community-theme applies to the fill — retint it
-   explicitly wherever a chip-pill lives inside the community flow. */
-.community-theme .chip-pill.active {
-  box-shadow: 0 3px 12px rgba(232, 62, 160, 0.28);
-}
 
 /* Heart bounce micro-animation */
 @keyframes heartBounce {
@@ -904,7 +898,7 @@ h3, .h3 {
 .flair-tile.active {
   border-color: var(--brand-600);
   background: var(--brand-50);
-  box-shadow: var(--community-glow, 0 4px 16px rgba(139, 71, 245, 0.14));
+  box-shadow: 0 4px 16px rgba(139, 71, 245, 0.14);
 }
 .flair-tile-emoji { font-size: 23px; line-height: 1; }
 .flair-tile-label {
@@ -1347,12 +1341,6 @@ h3, .h3 {
   background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
   color: #fff;
   box-shadow: 0 8px 22px rgba(187, 71, 245, 0.32);
-}
-/* Same reasoning as .chip-pill.active above: the fill follows var(--brand-*)
-   into the pink community theme automatically, but this literal-rgba glow
-   needs its own scoped override. */
-.community-theme .btn-primary {
-  box-shadow: 0 8px 22px rgba(232, 62, 160, 0.34);
 }
 .btn-accent {
   background: linear-gradient(135deg, var(--accent-500), var(--accent-600));
@@ -2045,47 +2033,6 @@ textarea.input {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.7s linear infinite; }
-
-/* ============================================================
-   Community — scoped theme
-   ------------------------------------------------------------
-   The community feature (feed, composer, post detail, and everywhere the
-   shared community card renders) reused --brand-* (royal purple) everywhere —
-   the same purple as "Book now," the bottom nav's active tab, and every other
-   primary button in the app. Community is the app's social feature, and the
-   app already reserves a color for exactly that: --pink-* is documented above
-   as "Live/social accent — Live Pulse dot, story ring, queue-live." Scoping
-   community to it, instead of adding a third palette, makes the accent match
-   what it already means elsewhere in the app.
-
-   Implementation: every community screen's root carries `.community-theme`.
-   Nearly all community CSS reads var(--brand-*) tokens (buttons, chips, the
-   segmented control, badges, focus rings), so overriding those variables here
-   retints the whole flow through inheritance — no need to touch every rule
-   individually, and any future community UI gets the right accent for free
-   just by living under this class. Same "don't re-skin the whole subtree"
-   discipline as the business-package theme below: only community's own
-   screens carry the class, not the bottom nav or anything outside them.
-
-   --community-glow covers the few places a literal rgba() shadow was hardcoded
-   in a rule below (a CSS variable can't be interpolated into another
-   declaration's rgba() color channels) — those rules now read this var instead.
-   ============================================================ */
-.community-theme {
-  --brand-50:  var(--pink-50);
-  --brand-100: var(--pink-100);
-  --brand-150: var(--pink-200);
-  --brand-200: var(--pink-200);
-  --brand-300: var(--pink-300);
-  --brand-400: var(--pink-400);
-  --brand-500: var(--pink-500);
-  --brand-600: var(--pink-600);
-  --brand-700: var(--pink-700);
-  --brand-800: var(--pink-800);
-  --brand-900: var(--pink-900);
-  --shadow-brand: var(--shadow-pink);
-  --community-glow: 0 4px 16px rgba(255, 93, 186, 0.22);
-}
 
 /* ============================================================
    Business Packages theming

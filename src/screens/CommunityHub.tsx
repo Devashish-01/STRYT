@@ -284,7 +284,7 @@ export default function CommunityHub() {
   }
 
   return (
-    <div className="screen with-nav community-hub-screen community-theme">
+    <div className="screen with-nav community-hub-screen">
       {/* Header carries only 4 things now: back · title · filter/sort ·
           create. Everything else that used to be pinned here (stories,
           the compose prompt, the "Post a request" button, the filter chip

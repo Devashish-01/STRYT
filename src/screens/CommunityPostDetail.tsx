@@ -435,7 +435,7 @@ export default function CommunityPostDetail() {
   useEffect(() => { setResolvedOverride(null); }, [post?.resolved]);
 
   if (!post) return (
-    <div className="screen community-theme">
+    <div className="screen">
       <div className="appbar"><button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeft size={20} /></button></div>
       <ListSkeleton count={3} />
     </div>
@@ -621,7 +621,7 @@ export default function CommunityPostDetail() {
   }
 
   return (
-    <div className="screen community-theme" style={{ display: "flex", flexDirection: "column" }}>
+    <div className="screen" style={{ display: "flex", flexDirection: "column" }}>
       <header className="appbar" style={{ borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
         <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeft size={20} /></button>
         <span className="bold grow" style={{ fontSize: 16 }}>Post</span>

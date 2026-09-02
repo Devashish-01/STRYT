@@ -220,7 +220,7 @@ export default function CommunityCompose() {
       : "compose-identity";
 
   return (
-    <div className="screen compose-screen community-theme">
+    <div className="screen compose-screen">
       <header className="compose-nav">
         <button className="compose-nav-btn" onClick={handleCancel}>Cancel</button>
         <div className="compose-nav-title">
