@@ -388,36 +388,32 @@ export default function Explore() {
               universal filters (the same choice regardless of which tab
               you're then looking at results through), so choosing one here
               shouldn't reset or vary by tab. The tabs below just lens
-              whatever's already selected. Requests has its own dynamic,
-              feed-derived category chips rendered inline by
-              RequestsFeedPanel instead — never offer a control (this one)
-              that's silently ignored. */}
-          {tab !== "requests" && (
-            <div className="filter-section">
-              <label className="filter-label">{t("explore_categories")}</label>
-              <div className="desktop-categories-list">
-                <button className={`category-item-btn ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>
-                  <span>{t("explore_show_all")}</span>
+              whatever's already selected — Requests included, it's passed
+              this same selection as a prop (see selectedCategoryName below). */}
+          <div className="filter-section">
+            <label className="filter-label">{t("explore_categories")}</label>
+            <div className="desktop-categories-list">
+              <button className={`category-item-btn ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>
+                <span>{t("explore_show_all")}</span>
+              </button>
+              {catTree.map((c) => (
+                <button
+                  key={c.id}
+                  className={`category-item-btn ${cat === c.id ? "active" : ""}`}
+                  onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}
+                >
+                  <span style={{ marginRight: 6 }}>{c.icon}</span>
+                  <span>{c.name}</span>
                 </button>
-                {catTree.map((c) => (
-                  <button
-                    key={c.id}
-                    className={`category-item-btn ${cat === c.id ? "active" : ""}`}
-                    onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}
-                  >
-                    <span style={{ marginRight: 6 }}>{c.icon}</span>
-                    <span>{c.name}</span>
-                  </button>
-                ))}
-                {/* The full category browser (/categories) is a real, working
-                    screen that had ZERO links pointing at it anywhere in the app
-                    — reachable only by typing the URL. This is its way in. */}
-                <button className="category-item-btn" onClick={() => nav("/categories")}>
-                  <span>Browse all categories →</span>
-                </button>
-              </div>
+              ))}
+              {/* The full category browser (/categories) is a real, working
+                  screen that had ZERO links pointing at it anywhere in the app
+                  — reachable only by typing the URL. This is its way in. */}
+              <button className="category-item-btn" onClick={() => nav("/categories")}>
+                <span>Browse all categories →</span>
+              </button>
             </div>
-          )}
+          </div>
 
           {/* Radius selector — shared across all four tabs. requestService.feed()
               already reads the same settings_radius key this control writes, so
@@ -502,23 +498,17 @@ export default function Explore() {
             {/* Category + radius, above the tab row — universal filters (the
                 same choice regardless of which tab you're then looking at
                 results through), not something that resets or varies per
-                tab. Requests has its own feed-derived category chips
-                (RequestsFeedPanel) — never offer a control that's silently
-                ignored, so the catalog chips hide there; radius stays,
-                it's shared by all four tabs. */}
+                tab. Requests included: it's passed this same selection as a
+                prop (see selectedCategoryName in the render below). */}
             <div className="row gap-8 center-v" style={{ margin: "0 -16px 10px", padding: "0 16px" }}>
-              {tab !== "requests" ? (
-                <div className="hscroll grow" style={{ padding: 0, margin: 0 }}>
-                  <button className={`chip ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>{t("explore_tab_all")}</button>
-                  {catTree.map((c) => (
-                    <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}>
-                      {c.icon} {c.name.split(" ")[0]}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="grow" />
-              )}
+              <div className="hscroll grow" style={{ padding: 0, margin: 0 }}>
+                <button className={`chip ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>{t("explore_tab_all")}</button>
+                {catTree.map((c) => (
+                  <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}>
+                    {c.icon} {c.name.split(" ")[0]}
+                  </button>
+                ))}
+              </div>
               <RadiusDropdown
                 value={radius}
                 onChange={setRadius}
