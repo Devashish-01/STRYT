@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
 import { Plus, QrCode, Trash2, CheckCircle2, X, Minus, Edit3 } from "@/components/Icons";
@@ -115,7 +115,7 @@ export default function BulkDealsManager() {
 
           <div className="col gap-10">
             {(deals ?? []).map((d) => (
-              <DealRow key={d.id} deal={d} onChanged={refetch} onEdit={() => setEditingDeal(d)} />
+              <DealRow key={d.id} deal={d} businessId={id} onChanged={refetch} onEdit={() => setEditingDeal(d)} />
             ))}
           </div>
         </div>
@@ -141,7 +141,8 @@ export default function BulkDealsManager() {
   );
 }
 
-function DealRow({ deal, onChanged, onEdit }: { deal: BulkDeal; onChanged: () => void; onEdit: () => void }) {
+function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; businessId: string; onChanged: () => void; onEdit: () => void }) {
+  const nav = useNavigate();
   const { showToast } = useApp();
   const [busy, setBusy] = useState(false);
 
@@ -158,13 +159,27 @@ function DealRow({ deal, onChanged, onEdit }: { deal: BulkDeal; onChanged: () =>
     }
   }
 
+  const statusLabel = deal.closedAtISO
+    ? deal.closeOutcome === "FULFILLED" ? "Fulfilled" : deal.closeOutcome === "REFUNDED" ? "Refunded" : "Needs a decision"
+    : `${deal.pledgedQuantity ?? 0} of ${deal.moq} pledged`;
+  const statusColor = deal.closedAtISO
+    ? deal.closeOutcome === "FULFILLED" ? "var(--green-600)" : deal.closeOutcome === "REFUNDED" ? "var(--ink-500)" : "var(--amber-700)"
+    : "var(--brand-700)";
+
   return (
     <div className="card col gap-8" style={{ padding: 12 }}>
       <div className="row between center-v">
-        <div style={{ minWidth: 0 }}>
-          <div className="semi small ellipsis">{deal.title}</div>
-          <div className="tiny muted">Min {deal.moq} · {inr(deal.regularPrice)} regular{deal.availableQuota != null ? ` · ${deal.availableQuota} left` : ""}</div>
-        </div>
+        <button
+          className="row between center-v grow"
+          style={{ background: "none", border: "none", padding: 0, textAlign: "left", minWidth: 0 }}
+          onClick={() => nav(`/business/${businessId}/manage/bulk-deals/${deal.id}`)}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div className="semi small ellipsis">{deal.title}</div>
+            <div className="tiny muted">Min {deal.moq} · {inr(deal.regularPrice)} regular{deal.availableQuota != null ? ` · ${deal.availableQuota} left` : ""}</div>
+            <div className="tiny semi" style={{ color: statusColor, marginTop: 2 }}>{statusLabel}</div>
+          </div>
+        </button>
         <div className="row gap-4" style={{ flexShrink: 0 }}>
           <button className="icon-btn" onClick={onEdit} aria-label="Edit deal">
             <Edit3 size={16} color="var(--brand-700)" />

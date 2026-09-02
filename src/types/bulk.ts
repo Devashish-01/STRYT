@@ -70,7 +70,7 @@ export interface BulkDeal {
   myPledgeQuantity?: number | null;
   /** This viewer's own deposit status, when they've joined. Same UNPAID →
    *  PENDING_CONFIRM → PAID/REJECTED shape as an agreement's payment claim. */
-  myDepositStatus?: "UNPAID" | "PENDING_CONFIRM" | "PAID" | "REJECTED" | null;
+  myDepositStatus?: DepositStatus | null;
   /** Joined from businesses for feed display — not a column. */
   businessName?: string | null;
   businessCover?: string | null;
@@ -81,12 +81,17 @@ export interface BulkDeal {
 export type GroupBuyTokenStatus = "ISSUED" | "REDEEMED" | "EXPIRED";
 
 /** The QR claim pass issued to each pooled member once the initiator closes
- *  the deal. Minted and redeemed only via SECURITY DEFINER RPCs. */
+ *  the deal. Minted and redeemed only via SECURITY DEFINER RPCs.
+ *
+ *  Shared by two mint sites: a group buy's agreement (agreementId/requestId
+ *  set, dealId null) and a bulk-deal campaign's close (dealId set, the other
+ *  two null) — exactly one of the two is ever present on a given token. */
 export interface GroupBuyToken {
   id: string;
   tokenCode: string;
-  agreementId: string;
-  requestId: string;
+  agreementId?: string | null;
+  requestId?: string | null;
+  dealId?: string | null;
   holderUserId: string;
   issuerUserId: string;
   businessId?: string | null;
@@ -117,6 +122,26 @@ export interface GroupBuyRedemptionStats {
   total: number;
   redeemed: number;
   pending: number;
+}
+
+export type DepositStatus = "UNPAID" | "PENDING_CONFIRM" | "PAID" | "REJECTED";
+
+/** One pledger's row on a campaign — the business-side roster view.
+ *  pledgerName is looked up via the users alias embed, same trust level as
+ *  an appointment's customer name (business-only, RLS-gated). */
+export interface BulkDealPledge {
+  id: string;
+  dealId: string;
+  userId: string;
+  pledgerName?: string | null;
+  quantity: number;
+  notes?: string | null;
+  deliveryAddress?: string | null;
+  depositMethod?: "UPI" | "CASH" | null;
+  depositStatus: DepositStatus;
+  depositAmount?: number | null;
+  depositReference?: string | null;
+  createdAtISO: string;
 }
 
 /**

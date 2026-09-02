@@ -2,7 +2,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { haversineKm } from "@/lib/geocode";
 import type {
-  BulkDeal, BulkTier, GroupBuyToken, GroupBuyRedemptionStats, PaymentMethod,
+  BulkDeal, BulkTier, BulkDealPledge, GroupBuyToken, GroupBuyRedemptionStats, PaymentMethod,
 } from "@/types";
 
 function rowToDeal(r: any, userLat = 0, userLng = 0): BulkDeal {
@@ -59,6 +59,45 @@ function rowToToken(r: any): GroupBuyToken {
     validUntilISO: r.valid_until ?? null,
     createdAtISO: r.created_at,
     pickupPin: r.pickup_pin ?? null,
+  };
+}
+
+/** bulk_deal_tokens has the same shape as group_buy_tokens minus the
+ *  agreement/request columns — one shared GroupBuyToken type, dealId instead. */
+function rowToBulkDealToken(r: any): GroupBuyToken {
+  return {
+    id: r.id,
+    tokenCode: r.token_code,
+    dealId: r.deal_id,
+    holderUserId: r.holder_user_id,
+    issuerUserId: r.issuer_user_id,
+    businessId: r.business_id ?? null,
+    quantity: Number(r.quantity ?? 1),
+    unitPrice: r.unit_price != null ? Number(r.unit_price) : null,
+    itemLabel: r.item_label ?? null,
+    status: r.status,
+    redeemedAtISO: r.redeemed_at ?? null,
+    redeemedBy: r.redeemed_by ?? null,
+    validUntilISO: r.valid_until ?? null,
+    createdAtISO: r.created_at,
+    pickupPin: r.pickup_pin ?? null,
+  };
+}
+
+function rowToPledge(r: any): BulkDealPledge {
+  return {
+    id: r.id,
+    dealId: r.deal_id,
+    userId: r.user_id,
+    pledgerName: r.pledger?.alias ?? null,
+    quantity: Number(r.quantity ?? 1),
+    notes: r.notes ?? null,
+    deliveryAddress: r.delivery_address ?? null,
+    depositMethod: r.deposit_method ?? null,
+    depositStatus: r.deposit_status,
+    depositAmount: r.deposit_amount != null ? Number(r.deposit_amount) : null,
+    depositReference: r.deposit_reference ?? null,
+    createdAtISO: r.created_at,
   };
 }
 
@@ -221,20 +260,106 @@ export const bulkService = {
     return data;
   },
 
-  // ── Group buy claim passes ──────────────────────────────────
+  // ── Business-side campaign management (Phase 3) ─────────────
 
-  /** This user's own QR passes. RLS scopes it — no client-side filtering. */
+  /** Full pledger roster for the owner's own console — a direct table read,
+   *  not an RPC: read_bulk_deal_pledges' RLS policy already covers the deal
+   *  owner/team via has_business_access, same posture as request_me_toos. */
+  async pledgesForDeal(dealId: string): Promise<BulkDealPledge[]> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.from as any)("bulk_deal_pledges")
+      .select("*, pledger:users!user_id(alias)")
+      .eq("deal_id", dealId)
+      .order("created_at", { ascending: false });
+    throwIfError(error);
+    return ((data ?? []) as any[]).map(rowToPledge);
+  },
+
+  /** Business confirms a pledger's PENDING_CONFIRM deposit. This is also the
+   *  moment that pledge starts counting toward the campaign's auto-close
+   *  target — the server trigger, not this call, decides that. */
+  async confirmDeposit(dealId: string, pledgerUserId: string): Promise<BulkDealPledge> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("bulk_deal_pledge_confirm_deposit", {
+      p_deal_id: dealId,
+      p_pledger_user_id: pledgerUserId,
+    });
+    throwIfError(error);
+    return rowToPledge(data);
+  },
+
+  async rejectDeposit(dealId: string, pledgerUserId: string): Promise<BulkDealPledge> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("bulk_deal_pledge_reject_deposit", {
+      p_deal_id: dealId,
+      p_pledger_user_id: pledgerUserId,
+    });
+    throwIfError(error);
+    return rowToPledge(data);
+  },
+
+  /** Close a campaign. Omit outcome to let the server decide (FULFILLED if
+   *  the paid pool already met MOQ); pass FULFILLED/REFUNDED explicitly for
+   *  the under-target "fulfil anyway" / "refund everyone" decision. */
+  async closeDeal(dealId: string, outcome?: "FULFILLED" | "REFUNDED" | null): Promise<BulkDeal> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("bulk_deal_close", {
+      p_deal_id: dealId,
+      p_outcome: outcome ?? undefined,
+    });
+    throwIfError(error);
+    return rowToDeal(data);
+  },
+
+  /** Push the deadline out — works on a still-open campaign or one that
+   *  closed under target awaiting a decision, not one already resolved. */
+  async extendDeal(dealId: string, newClosesAtISO: string): Promise<BulkDeal> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("bulk_deal_extend", {
+      p_deal_id: dealId,
+      p_new_closes_at: newClosesAtISO,
+    });
+    throwIfError(error);
+    return rowToDeal(data);
+  },
+
+  /** Claim-pass roster for a closed (FULFILLED) campaign. */
+  async tokensForDeal(dealId: string): Promise<GroupBuyToken[]> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("bulk_deal_tokens_for_deal", { p_deal_id: dealId });
+    throwIfError(error);
+    return ((data ?? []) as any[]).map(rowToBulkDealToken);
+  },
+
+  async dealRedemptionStats(dealId: string): Promise<GroupBuyRedemptionStats> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("bulk_deal_redemption_stats", { p_deal_id: dealId });
+    throwIfError(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+      total: Number(row?.total ?? 0),
+      redeemed: Number(row?.redeemed ?? 0),
+      pending: Number(row?.pending ?? 0),
+    };
+  },
+
+  // ── Group buy & bulk deal claim passes ───────────────────────
+
+  /** This user's own QR passes — both a group buy's and a bulk-deal
+   *  campaign's, merged newest-first. RLS scopes each table — no
+   *  client-side filtering needed beyond the merge/sort. */
   async myTokens(): Promise<GroupBuyToken[]> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
-    const { data, error } = await sb
-      .from("group_buy_tokens")
-      .select("*")
-      .eq("holder_user_id", uid)
-      .order("created_at", { ascending: false });
-    throwIfError(error);
-    return (data ?? []).map(rowToToken);
+    const [groupRes, bulkRes] = await Promise.all([
+      sb.from("group_buy_tokens").select("*").eq("holder_user_id", uid).order("created_at", { ascending: false }),
+      (sb.from as any)("bulk_deal_tokens").select("*").eq("holder_user_id", uid).order("created_at", { ascending: false }),
+    ]);
+    throwIfError(groupRes.error);
+    throwIfError(bulkRes.error);
+    const merged = [...(groupRes.data ?? []).map(rowToToken), ...((bulkRes.data ?? []) as any[]).map(rowToBulkDealToken)];
+    return merged.sort((a, b) => new Date(b.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
   },
 
   /** Merchant-side roster of every pass on an agreement. Goes through an RPC,
@@ -249,10 +374,19 @@ export const bulkService = {
   },
 
   /** Merchant scan. Server-side `for update` + status guard means a double
-   *  scan raises ALREADY_REDEEMED instead of handing goods over twice. */
+   *  scan raises ALREADY_REDEEMED instead of handing goods over twice.
+   *  Dispatches by the code's own prefix — STRYT-D- mints from a bulk-deal
+   *  campaign close, plain STRYT- from a group buy's agreement — so one
+   *  scanner (BulkDealsManager's) handles passes from either source. */
   async redeemToken(tokenCode: string): Promise<GroupBuyToken> {
     const sb = getSupabase();
-    const { data, error } = await sb.rpc("group_buy_token_redeem", { p_token_code: tokenCode });
+    const trimmed = tokenCode.trim().toUpperCase();
+    if (trimmed.startsWith("STRYT-D-")) {
+      const { data, error } = await (sb.rpc as any)("bulk_deal_token_redeem", { p_token_code: trimmed });
+      throwIfError(error);
+      return rowToBulkDealToken(data);
+    }
+    const { data, error } = await sb.rpc("group_buy_token_redeem", { p_token_code: trimmed });
     throwIfError(error);
     return rowToToken(data);
   },

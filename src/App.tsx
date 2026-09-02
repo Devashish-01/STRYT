@@ -73,6 +73,7 @@ const PlaceDetail = lazy(() => import("./screens/places/PlaceDetail"));
 const PlaceRequestForm = lazy(() => import("./screens/places/PlaceRequestForm"));
 const CommunityActivity = lazy(() => import("./screens/CommunityActivity"));
 const BulkDealsManager = lazy(() => import("./screens/business/manage/BulkDealsManager"));
+const BulkDealDetail = lazy(() => import("./screens/business/manage/BulkDealDetail"));
 
 // Pillar C flows
 const AskCompose = lazy(() => import("./screens/requests/AskCompose"));
@@ -689,6 +690,7 @@ export default function App() {
                 <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
                 <Route path="/business/:id/manage/payments" element={<BusinessPayments />} />
                 <Route path="/business/:id/manage/bulk-deals" element={<BulkDealsManager />} />
+                <Route path="/business/:id/manage/bulk-deals/:dealId" element={<BulkDealDetail />} />
                 <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
                 <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
                 <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />
