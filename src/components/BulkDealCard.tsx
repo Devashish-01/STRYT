@@ -1,20 +1,25 @@
 import { useNavigate } from "react-router-dom";
 import { SafeImg, inr } from "@/components/common";
-import { Package, Store, MapPin } from "@/components/Icons";
+import { Package, Store, MapPin, CheckCircle2 } from "@/components/Icons";
 import { calcBulkTotal, type BulkDeal } from "@/types";
 import { distanceLabel } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
+import { poolProgress } from "@/lib/groupBuy";
 
-/** Business-initiated wholesale offer. Visually distinct from a group buy
- *  (amber/"deal" tone, MOQ badge, savings table) so the two never blur
- *  together in the blended /bulk feed. */
+/** Business-run bulk-buying campaign. Visually distinct from a group buy
+ *  (amber/"deal" tone) but shares the same pool-progress treatment now that
+ *  both are pledge-and-pool models rather than one being instant-buy. */
 export default function BulkDealCard({ deal, onBook }: { deal: BulkDeal; onBook?: (d: BulkDeal) => void }) {
   const nav = useNavigate();
   const { t, tf } = useI18n();
-  // Headline saving is quoted at the deal's own MOQ — the cheapest quantity a
-  // buyer can actually transact at, so the number on the card is one they can
-  // really get rather than a best-case tier they may never reach.
+  // Headline price is quoted at the campaign's own target quantity — moq
+  // doubles as the pledge target, see types/bulk.ts.
   const atMoq = calcBulkTotal(deal, deal.moq);
+  const { pledged, target, pct, remaining, joined, hasTarget } = poolProgress({
+    target: deal.moq,
+    pledgedQuantity: deal.pledgedQuantity,
+    myPledgeQuantity: deal.myPledgeQuantity,
+  });
 
   return (
     <div className="card col gap-10" style={{ padding: 14, borderLeft: "3px solid var(--amber-500)" }}>
@@ -47,12 +52,26 @@ export default function BulkDealCard({ deal, onBook }: { deal: BulkDeal; onBook?
         </div>
       </div>
 
+      {hasTarget && (
+        <div>
+          <div className="row between tiny" style={{ marginBottom: 5 }}>
+            <span className="semi" style={{ color: "var(--amber-700)" }}>{tf("pledged_of_target", { pledged, target })}</span>
+            <span className="muted">{remaining > 0 ? tf("more_to_unlock", { n: remaining }) : t("target_reached")}</span>
+          </div>
+          <div style={{ height: 8, borderRadius: 6, background: "var(--ink-100)", overflow: "hidden" }}>
+            <div style={{ width: `${pct}%`, height: "100%", background: pct >= 100 ? "var(--green-500)" : "var(--amber-500)", transition: "width .3s" }} />
+          </div>
+        </div>
+      )}
+
       <div className="row gap-8" style={{ flexWrap: "wrap" }}>
-        <span className="badge badge-gray" style={{ fontSize: 10 }}>{tf("min_qty", { n: deal.moq })}</span>
         {atMoq.savedPercent > 0 && (
           <span className="badge" style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 10 }}>
             {tf("save_percent", { pct: atMoq.savedPercent })}
           </span>
+        )}
+        {deal.depositAmount != null && (
+          <span className="badge badge-gray" style={{ fontSize: 10 }}>{tf("deposit_amount_badge", { amount: inr(deal.depositAmount) })}</span>
         )}
         {deal.distanceKm != null && (
           <span className="badge badge-gray row gap-4" style={{ fontSize: 10 }}>
@@ -79,9 +98,15 @@ export default function BulkDealCard({ deal, onBook }: { deal: BulkDeal; onBook?
             <span className="tiny muted" style={{ textDecoration: "line-through" }}>{inr(deal.regularPrice)}</span>
           )}
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => onBook?.(deal)}>
-          {t("book_bulk")}
-        </button>
+        {joined ? (
+          <button className="btn btn-sm" style={{ background: "var(--green-100)", color: "var(--green-600)" }} onClick={() => onBook?.(deal)}>
+            <CheckCircle2 size={14} /> {t("joined_units_prefix")} {deal.myPledgeQuantity} {(deal.myPledgeQuantity ?? 0) > 1 ? t("units_word") : t("unit_word")}
+          </button>
+        ) : (
+          <button className="btn btn-primary btn-sm" onClick={() => onBook?.(deal)}>
+            {t("join_bulk_deal")}
+          </button>
+        )}
       </div>
     </div>
   );

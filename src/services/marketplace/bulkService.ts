@@ -2,8 +2,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { haversineKm } from "@/lib/geocode";
 import type {
-  BulkDeal, BulkTier, BulkQuote, GroupBuyToken, GroupBuyRedemptionStats,
-  FulfillmentType, PaymentMethod,
+  BulkDeal, BulkTier, GroupBuyToken, GroupBuyRedemptionStats, PaymentMethod,
 } from "@/types";
 
 function rowToDeal(r: any, userLat = 0, userLng = 0): BulkDeal {
@@ -28,6 +27,12 @@ function rowToDeal(r: any, userLat = 0, userLng = 0): BulkDeal {
     availableQuota: r.available_quota ?? null,
     status: r.status,
     createdAtISO: r.created_at,
+    fulfillmentType: r.fulfillment_type ?? null,
+    depositAmount: r.deposit_amount != null ? Number(r.deposit_amount) : null,
+    closesAtISO: r.closes_at ?? null,
+    pledgedQuantity: Number(r.pledged_quantity ?? 0),
+    closedAtISO: r.closed_at ?? null,
+    closeOutcome: r.close_outcome ?? null,
     businessName: biz.name ?? null,
     businessCover: biz.cover_image ?? null,
     businessUpiId: biz.upi_id ?? null,
@@ -118,6 +123,9 @@ export const bulkService = {
       moq: deal.moq ?? 1,
       tiers: deal.tiers ?? [],
       available_quota: deal.availableQuota ?? null,
+      fulfillment_type: deal.fulfillmentType ?? null,
+      deposit_amount: deal.depositAmount ?? null,
+      closes_at: deal.closesAtISO ?? null,
     };
     const { data, error } = await sb.from("bulk_deals").insert(row as any).select(DEAL_SELECT).maybeSingle();
     throwIfError(error);
@@ -135,6 +143,9 @@ export const bulkService = {
     if (patch.tiers !== undefined) row.tiers = patch.tiers;
     if (patch.availableQuota !== undefined) row.available_quota = patch.availableQuota;
     if (patch.status !== undefined) row.status = patch.status;
+    if (patch.fulfillmentType !== undefined) row.fulfillment_type = patch.fulfillmentType;
+    if (patch.depositAmount !== undefined) row.deposit_amount = patch.depositAmount;
+    if (patch.closesAtISO !== undefined) row.closes_at = patch.closesAtISO;
     const { data, error } = await sb.from("bulk_deals").update(row as any).eq("id", id).select(DEAL_SELECT).maybeSingle();
     throwIfError(error);
     if (!data) throw new Error("Couldn't save — you may not have permission to change this deal.");
@@ -148,42 +159,63 @@ export const bulkService = {
     return { ok: true };
   },
 
-  // ── Buying a bulk deal ──────────────────────────────────────
+  // ── Pledging into a bulk-buying campaign ────────────────────
 
-  /** Server-side price quote. The sheet shows THIS rather than computing
-   *  locally, so the figure on screen is guaranteed to be the figure charged —
-   *  calcBulkTotal() is the same maths but the server is the authority. */
-  async quote(dealId: string, quantity: number): Promise<BulkQuote> {
+  /** Fill myPledgeQuantity on a list of deals in ONE round trip — same
+   *  reasoning as requestService.enrichGroupBuyPledges. pledgedQuantity
+   *  itself is NOT computed here: it's denormalized on bulk_deals.pledged_quantity
+   *  already, kept in sync server-side by the join/leave RPCs, so rowToDeal
+   *  reads it directly. */
+  async enrichMyPledges(deals: BulkDeal[]): Promise<BulkDeal[]> {
+    if (deals.length === 0) return deals;
     const sb = getSupabase();
-    const { data, error } = await sb.rpc("bulk_deal_quote", { p_deal_id: dealId, p_quantity: quantity });
-    throwIfError(error);
-    const row: any = Array.isArray(data) ? data[0] : data;
-    return {
-      unitPrice: Number(row?.unit_price ?? 0),
-      total: Number(row?.total ?? 0),
-      regularTotal: Number(row?.regular_total ?? 0),
-      saved: Number(row?.saved ?? 0),
-      meetsMoq: Boolean(row?.meets_moq),
-      quotaOk: Boolean(row?.quota_ok),
-    };
+    const uid = await currentUserId();
+    if (!uid) return deals;
+    const { data, error } = await (sb.from as any)("bulk_deal_pledges")
+      .select("deal_id, quantity, deposit_status")
+      .eq("user_id", uid)
+      .in("deal_id", deals.map((d) => d.id));
+    if (error) return deals;
+    const mine = new Map<string, { quantity: number; status: BulkDeal["myDepositStatus"] }>();
+    for (const row of (data ?? []) as { deal_id: string; quantity: number; deposit_status: string }[]) {
+      mine.set(row.deal_id, { quantity: row.quantity, status: row.deposit_status as BulkDeal["myDepositStatus"] });
+    }
+    return deals.map((d) => {
+      const p = mine.get(d.id);
+      return { ...d, myPledgeQuantity: p?.quantity ?? null, myDepositStatus: p?.status ?? null };
+    });
   },
 
-  /** Place a bulk order. Price, MOQ and quota are all enforced server-side
-   *  under a row lock — the client can't name its own discount or oversell. */
-  async order(
-    dealId: string,
-    quantity: number,
-    method: PaymentMethod,
-    opts: { reference?: string | null; fulfillment?: FulfillmentType; address?: string | null } = {}
-  ) {
+  /** Pledge (or re-pledge — upserts) a quantity into a campaign. No payment
+   *  yet: this only reserves the intent, claimDeposit is a separate step. */
+  async pledgeJoin(dealId: string, quantity: number, notes?: string | null, deliveryAddress?: string | null): Promise<BulkDeal> {
     const sb = getSupabase();
-    const { data, error } = await sb.rpc("bulk_deal_order", {
+    const { data, error } = await (sb.rpc as any)("bulk_deal_pledge_join", {
       p_deal_id: dealId,
       p_quantity: quantity,
+      p_notes: notes ?? undefined,
+      p_delivery_address: deliveryAddress ?? undefined,
+    });
+    throwIfError(error);
+    return rowToDeal(data);
+  },
+
+  async pledgeLeave(dealId: string): Promise<BulkDeal> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("bulk_deal_pledge_leave", { p_deal_id: dealId });
+    throwIfError(error);
+    return rowToDeal(data);
+  },
+
+  /** Claim payment of the campaign's flat deposit. Same UNPAID → PENDING_CONFIRM
+   *  shape as agreement_claim_payment — the business confirms/rejects from the
+   *  console, this only records what the pledger says they paid. */
+  async claimDeposit(dealId: string, method: PaymentMethod, reference?: string | null) {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("bulk_deal_pledge_claim_deposit", {
+      p_deal_id: dealId,
       p_method: method,
-      p_reference: opts.reference ?? undefined,
-      p_fulfillment: opts.fulfillment ?? "STORE_PICKUP",
-      p_address: opts.address ?? undefined,
+      p_reference: reference ?? undefined,
     });
     throwIfError(error);
     return data;

@@ -135,8 +135,11 @@ export default function CommunityHub() {
   // Business bulk deals — the rail (top 3, "ALL" filter only) and the full
   // "Bulk buying" view's deals section share this one fetch.
   const { data: dealsData, loading: dealsLoading, refetch: refetchDeals } = useQuery(
-    () => bulkService.deals({ lat: user.lat || undefined, lng: user.lng || undefined, radius: isBulkView ? dealsRadiusKm : undefined }),
-    [user.lat, user.lng, isBulkView, dealsRadiusKm],
+    () =>
+      bulkService
+        .deals({ lat: user.lat || undefined, lng: user.lng || undefined, radius: isBulkView ? dealsRadiusKm : undefined })
+        .then((ds) => (isGuest ? ds : bulkService.enrichMyPledges(ds))),
+    [user.lat, user.lng, isBulkView, dealsRadiusKm, isGuest],
     `hub:deals:${isBulkView ? dealsRadiusKm : "rail"}:${hubGeoKey}`
   );
   const deals = dealsData ?? [];

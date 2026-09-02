@@ -38,13 +38,39 @@ export interface BulkDeal {
   description?: string | null;
   image?: string | null;
   regularPrice: number;
-  /** Minimum order quantity — below this the deal can't be booked at all. */
+  /** Minimum order quantity — below this the deal can't be booked at all.
+   *  Doubles as the campaign's pledge target: the deal auto-closes once
+   *  PAID pledges reach this. */
   moq: number;
   /** Sorted ascending by minQty on read; may be empty (flat bulk price). */
   tiers: BulkTier[];
   availableQuota?: number | null;
   status: string;
   createdAtISO: string;
+  /** Chosen once at creation, same as a group buy's — see FULFILLMENT_LABELS. */
+  fulfillmentType?: FulfillmentType | null;
+  /** Flat amount a pledger pays to join — null means no deposit required. */
+  depositAmount?: number | null;
+  /** Optional deadline; the campaign auto-closes once this passes. */
+  closesAtISO?: string | null;
+  /** Sum of ALL pledged quantities (intent — every deposit_status), for the
+   *  progress bar. The auto-close threshold is a *separate*, PAID-only sum
+   *  computed server-side — this number can be ahead of what's actually
+   *  locked in. */
+  pledgedQuantity?: number;
+  /** Set once the campaign closes (target hit, deadline, or manual). Null =
+   *  still collecting pledges. */
+  closedAtISO?: string | null;
+  /** Set once closedAtISO is set AND the owner has resolved it. Non-null
+   *  closedAtISO with a null outcome means "closed under target, awaiting
+   *  the owner's decision" — that state is derived, not stored separately. */
+  closeOutcome?: "FULFILLED" | "REFUNDED" | null;
+  /** This viewer's own pledge, when they've joined. Not a column — looked
+   *  up per-viewer the same way RequestPost.myPledgeQuantity is. */
+  myPledgeQuantity?: number | null;
+  /** This viewer's own deposit status, when they've joined. Same UNPAID →
+   *  PENDING_CONFIRM → PAID/REJECTED shape as an agreement's payment claim. */
+  myDepositStatus?: "UNPAID" | "PENDING_CONFIRM" | "PAID" | "REJECTED" | null;
   /** Joined from businesses for feed display — not a column. */
   businessName?: string | null;
   businessCover?: string | null;
