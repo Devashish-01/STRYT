@@ -12,13 +12,22 @@ import type { RequestPost } from "@/types";
 
 type View = "nearby" | "mine";
 
+interface RequestsFeedPanelProps {
+  /** Explore's universal category filter, already resolved from a catalog
+   *  id to the name requestService.feed() actually matches on. null = no
+   *  category selected. Only applies to "Nearby" — "Mine" is your own
+   *  posts, not something a neighbourhood-wide category filter should hide. */
+  categoryName: string | null;
+  /** Explore's shared radius control. */
+  radius: number;
+}
+
 // The body of the former standalone /requests screen, now embedded as
 // Explore's "Requests" tab — Explore already supplies the screen shell,
-// header, and (via its shared RadiusDropdown, which writes the same
-// settings_radius key requestService.feed() reads) the search radius, so
-// this panel owns only what's actually specific to browsing requests:
-// the Nearby/Mine split, urgent/group/recurring filters, and pagination.
-export default function RequestsFeedPanel() {
+// header, and (via categoryName/radius above) the universal filters, so
+// this panel owns only what's actually specific to browsing requests: the
+// Nearby/Mine split, urgent/group/recurring filters, and pagination.
+export default function RequestsFeedPanel({ categoryName, radius }: RequestsFeedPanelProps) {
   const nav = useNavigate();
   const { area, user, showToast } = useApp();
   const { t } = useI18n();
@@ -28,11 +37,16 @@ export default function RequestsFeedPanel() {
   // already uses for `?cat=`. Named "view" rather than the old screen's
   // "tab" because Explore's own tab selector now owns that query param.
   const [view, setView] = useState<View>(params.get("view") === "mine" ? "mine" : "nearby");
-  const [cat, setCat] = useState<string | null>(null);
   const [special, setSpecial] = useState<"all" | "urgent" | "group" | "recurring">("all");
 
   const geoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
-  const { data: feedPage, loading: feedLoading, error: feedError, refetch } = useQueryWithRealtime(() => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0 }), "requests", [user.lat, user.lng], undefined, `explore:requests:nearby:${geoKey}`);
+  const { data: feedPage, loading: feedLoading, error: feedError, refetch } = useQueryWithRealtime(
+    () => requestService.feed({ lat: user.lat || 0, lng: user.lng || 0, category: categoryName ?? undefined, radiusKm: radius }),
+    "requests",
+    [user.lat, user.lng, categoryName, radius],
+    undefined,
+    `explore:requests:nearby:${categoryName ?? "all"}:${radius}:${geoKey}`
+  );
   const { data: mineList, loading: mineLoading } = useQueryWithRealtime(() => requestService.mine(user.lat || 0, user.lng || 0), "requests", [user.lat, user.lng], undefined, `explore:requests:mine:${user.id}`);
 
   // Pagination: the first page comes from the realtime-backed query above; any
@@ -52,7 +66,7 @@ export default function RequestsFeedPanel() {
     if (!cursor || loadingMore) return;
     setLoadingMore(true);
     try {
-      const next = await requestService.feed({ lat: user.lat || 0, lng: user.lng || 0, cursor });
+      const next = await requestService.feed({ lat: user.lat || 0, lng: user.lng || 0, cursor, category: categoryName ?? undefined, radiusKm: radius });
       setExtra((prev) => [...prev, ...(next.data ?? [])]);
       setCursor(next.page?.next_cursor ?? null);
       setHasMore(next.page?.has_more ?? false);
@@ -66,8 +80,7 @@ export default function RequestsFeedPanel() {
   const feed = [...(feedPage?.data ?? []), ...extra];
   const mine = mineList ?? [];
 
-  const cats = Array.from(new Set(feed.map((r) => r.categoryName)));
-  let nearby = feed.filter((r) => (cat ? r.categoryName === cat : true));
+  let nearby = feed;
   if (special === "urgent") nearby = nearby.filter((r) => r.isUrgent);
   if (special === "group") nearby = nearby.filter((r) => r.isGroupBuy);
   if (special === "recurring") nearby = nearby.filter((r) => r.isRecurring);
@@ -104,21 +117,11 @@ export default function RequestsFeedPanel() {
       </div>
 
       {view === "nearby" && (
-        <>
-          <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 0 }}>
-            {([["all", t("all")], ["urgent", t("urgent_label")], ["group", t("group_buys")], ["recurring", t("recurring_label")]] as const).map(([s, label]) => (
-              <button key={s} className={`chip ${special === s ? "active" : ""}`} onClick={() => setSpecial(s)}>{label}</button>
-            ))}
-          </div>
-          <div className="hscroll" style={{ paddingTop: 8 }}>
-            <button className={`chip ${!cat ? "active" : ""}`} onClick={() => setCat(null)}>{t("all_categories")}</button>
-            {cats.map((c) => (
-              <button key={c} className={`chip ${cat === c ? "active" : ""}`} onClick={() => setCat(cat === c ? null : c)}>
-                {c}
-              </button>
-            ))}
-          </div>
-        </>
+        <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 0 }}>
+          {([["all", t("all")], ["urgent", t("urgent_label")], ["group", t("group_buys")], ["recurring", t("recurring_label")]] as const).map(([s, label]) => (
+            <button key={s} className={`chip ${special === s ? "active" : ""}`} onClick={() => setSpecial(s)}>{label}</button>
+          ))}
+        </div>
       )}
 
       <div className="col gap-12 page-pad">

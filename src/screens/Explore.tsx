@@ -339,6 +339,12 @@ export default function Explore() {
   const biz = [...(bizPage?.data ?? []), ...extraBiz];
   const prov = [...(provPage?.data ?? []), ...extraProv];
   const catTree = categories ?? [];
+  // requestService.feed()'s category filter matches on category NAME, not
+  // id, so the selected id needs resolving through the same tree — but it IS
+  // the same taxonomy: AskCompose sets a request's categoryName from this
+  // exact catalog tree when the poster picks a category, so the lookup below
+  // is an exact match, not an approximation.
+  const selectedCategoryName = cat ? catTree.find((c) => c.id === cat)?.name ?? null : null;
   const loading = bizLoading || provLoading;
 
   const showBiz = tab === "all" || tab === "business";
@@ -555,7 +561,7 @@ export default function Explore() {
             )}
 
             {tab === "requests" ? (
-              <RequestsFeedPanel />
+              <RequestsFeedPanel categoryName={selectedCategoryName} radius={radius} />
             ) : (
               <>
                 {/* Results Grid Title & Count */}
