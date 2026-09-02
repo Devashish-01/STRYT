@@ -1,0 +1,33 @@
+-- ============================================================
+-- 20260898 — Drop the stale 3-param group_buy_join() overload
+--
+-- 20260826_bulk_buying.sql created group_buy_join(text, integer, text).
+-- 20260827_bulk_checkout.sql later added a delivery-address parameter via
+-- `create or replace function public.group_buy_join(p_request_id text,
+-- p_quantity integer default 1, p_notes text default null,
+-- p_delivery_address text default null)` — but CREATE OR REPLACE only
+-- replaces a function whose parameter list is IDENTICAL. A changed
+-- parameter list creates a second overload instead of replacing the first
+-- (the same "widening a signature needs DROP FUNCTION first" trap
+-- documented in CODEBASE_MAP.md §12 for RETURNS TABLE changes — this is the
+-- parameter-list version of the same mistake). Both
+-- group_buy_join(text, integer, text) and
+-- group_buy_join(text, integer, text, text) have coexisted in the database
+-- ever since.
+--
+-- Every parameter after p_request_id/p_quantity has a default in both
+-- overloads, so any RPC call that omits p_notes and/or p_delivery_address —
+-- which happens routinely: requestService.joinGroupBuy() passes
+-- `p_notes: notes ?? undefined` / `p_delivery_address: deliveryAddress ??
+-- undefined`, and JSON.stringify drops undefined-valued keys entirely
+-- before the request ever reaches Postgres — matches BOTH overloads
+-- equally. Postgres then refuses to guess, raising "Could not choose the
+-- best candidate function" (42725) instead of running either one. This is
+-- what a group-buy initiator hits pledging into their own pool without
+-- typing notes or a delivery address, i.e. the common case.
+--
+-- The 4-param version is a strict superset of the 3-param one (identical
+-- logic, plus DOORSTEP delivery-address enforcement) — drop the stale one.
+-- ============================================================
+
+drop function if exists public.group_buy_join(text, integer, text);
