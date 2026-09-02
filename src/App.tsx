@@ -42,7 +42,6 @@ const GuideDoc = lazy(() => import("./screens/guide/GuideDoc"));
 // Core tabs
 const Home = lazy(() => import("./screens/Home"));
 const Explore = lazy(() => import("./screens/Explore"));
-const Requests = lazy(() => import("./screens/Requests"));
 const Profile = lazy(() => import("./screens/Profile"));
 
 // Discovery
@@ -165,7 +164,7 @@ const DeliveryConsole = lazy(() => import("./screens/delivery/DeliveryConsole"))
 // UPI-deeplink payments only) — screen file stays in future-enhancement/.
 
 // Routes that show the bottom navigation bar
-const TAB_ROUTES = ["/home", "/map", "/notifications", "/explore", "/chats", "/requests", "/community-hub", "/profile"];
+const TAB_ROUTES = ["/home", "/map", "/notifications", "/explore", "/chats", "/community-hub", "/profile"];
 
 // Brief full-screen loader shown while the initial Supabase session resolves
 function AuthSplash() {
@@ -565,7 +564,12 @@ export default function App() {
           <Route element={<GuestOrAuthLayout />}>
             <Route path="/home" element={<Home />} />
             <Route path="/explore" element={<Explore />} />
-            <Route path="/requests" element={<Requests />} />
+            {/* Retired: request browsing is now Explore's "Requests" tab.
+                Redirect rather than 404 — kept inside GuestOrAuthLayout, the
+                same guard /explore already carries, so a signed-out visitor
+                following an old /requests link or bookmark isn't newly
+                bounced to sign-in. */}
+            <Route path="/requests" element={<Navigate to="/explore?tab=requests" replace />} />
             <Route path="/request/:id" element={<RequestDetail />} />
             <Route path="/business/:id" element={<BusinessDetail />} />
             <Route path="/provider/:id" element={<ProviderDetail />} />

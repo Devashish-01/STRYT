@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, MapPin, FileText, ArrowLeft, SlidersHorizontal, RefreshCw, Check, ChevronRight, Ticket } from "@/components/Icons";
+import { Plus, MapPin, ArrowLeft, SlidersHorizontal, RefreshCw, Check, Ticket } from "@/components/Icons";
 import { requestService, communityService, bulkService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView, PostCardSkeleton } from "@/components/states";
@@ -611,15 +611,6 @@ export default function CommunityHub() {
                 );
               })}
             </div>
-
-            <button
-              className="row between center-v"
-              style={{ width: "100%", padding: "11px 13px", borderRadius: 14, border: "1.5px solid var(--ink-200)", background: "var(--surface)" }}
-              onClick={() => { setMoreOpen(false); nav("/requests"); }}
-            >
-              <span className="row gap-8 center-v semi small"><FileText size={15} color="var(--ink-500)" /> {t("browse_all_requests")}</span>
-              <ChevronRight size={16} className="muted" />
-            </button>
 
             <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setMoreOpen(false)}>{t("cancel_action")}</button>
           </div>

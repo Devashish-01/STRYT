@@ -108,7 +108,10 @@ function buildSignals(d: NeighborhoodTodayRaw): TodaySignal[] {
           icon: "🟢",
           tone: "neutral",
           text: `${n(d.providers_available, "provider")} available right now`,
-          deepLink: "/explore?tab=providers",
+          // Singular, matching Explore's actual Tab values — this deep link
+          // did nothing before Explore read ?tab= at all (see the requests
+          // signal below, which is what made that reader necessary).
+          deepLink: "/explore?tab=provider",
         }
       : null,
 
@@ -119,7 +122,7 @@ function buildSignals(d: NeighborhoodTodayRaw): TodaySignal[] {
           icon: "🙋",
           tone: "neutral",
           text: `${d.open_requests} neighbour${d.open_requests === 1 ? " is" : "s are"} asking for help`,
-          deepLink: "/requests",
+          deepLink: "/explore?tab=requests",
         }
       : null,
   ];

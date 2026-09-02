@@ -288,7 +288,9 @@ export default function AskCompose() {
       });
       clearRequestDraft();
       showToast("Request posted! Notifying nearby providers…");
-      setTimeout(() => nav("/requests"), 600);
+      // A group buy's natural home is Community (where it's joinable); a
+      // plain request's is Explore's Requests tab.
+      setTimeout(() => nav(isGroupBuy ? "/community-hub" : "/explore?tab=requests"), 600);
     } catch (e) {
       showToast(e instanceof Error && e.message ? e.message : "Couldn't post. Try again.");
       setPosting(false);

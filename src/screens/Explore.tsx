@@ -6,6 +6,7 @@ import { useQuery } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { ErrorView, ExploreSkeleton } from "@/components/states";
 import { BusinessCardWide, ProviderCard } from "@/components/cards";
+import RequestsFeedPanel from "@/components/RequestsFeedPanel";
 import { EmptyState, PullToRefreshIndicator, ButtonSpinner } from "@/components/common";
 import { NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
@@ -17,8 +18,12 @@ import { useSmartBack } from "@/hooks/useSmartBack";
 import { haptics } from "@/lib/haptics";
 import type { Business, Provider } from "@/types";
 
-type Tab = "all" | "business" | "provider";
+type Tab = "all" | "business" | "provider" | "requests";
 type Sort = "nearby" | "rating" | "new";
+
+function tabFromParam(v: string | null): Tab {
+  return v === "business" || v === "provider" || v === "requests" ? v : "all";
+}
 
 type ExploreItem =
   | { kind: "business"; data: Business }
@@ -173,16 +178,23 @@ export default function Explore() {
   const { area, user, refreshUser, showToast, chatUnread } = useApp();
   const { t, tf } = useI18n();
   const goBack = useSmartBack("/home");
-  const [tab, setTab] = useState<Tab>("all");
+  // ?tab=requests lands straight on the Requests tab — the deep link Profile's
+  // "My requests" tile, AskCompose's post-submit redirect, and the
+  // Neighborhood Today digest signal all use now that request browsing no
+  // longer has its own screen. Same lazy-initializer pattern CommunityHub
+  // uses for its own ?view=deals.
+  const [tab, setTab] = useState<Tab>(() => tabFromParam(searchParams.get("tab")));
   const [cat, setCat] = useState<string | null>(() => searchParams.get("cat"));
 
-  // Re-sync whenever the URL's ?cat= actually changes (e.g. navigating to
+  // Re-sync whenever the URL's ?cat=/?tab= actually change (e.g. navigating to
   // /explore?cat=Y while already mounted on /explore) — searchParams only
-  // gets a new reference on real navigation, never on cat-only local state
-  // changes from the chips below, so this can't fight the chip taps.
+  // gets a new reference on real navigation, never on local state changes
+  // from the chips/tabs below, so this can't fight a tap.
   useEffect(() => {
     const fromUrl = searchParams.get("cat");
     if (fromUrl !== cat) setCat(fromUrl);
+    const tabFromUrl = tabFromParam(searchParams.get("tab"));
+    if (tabFromUrl !== tab) setTab(tabFromUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
   const [sort, setSort] = useState<Sort>("nearby");
@@ -238,7 +250,14 @@ export default function Explore() {
   // string->value map with no awareness of the kind filter, so sharing the
   // key would let a tab-scoped fetch here silently overwrite their cache entry.
   const categoryKind = tab === "business" ? "BUSINESS" : tab === "provider" ? "SERVICE" : undefined;
-  const { data: categories } = useQuery(() => catalogService.getCategories(categoryKind), [categoryKind], `cat_tree:${tab}`);
+  // Requests has its own dynamic, feed-derived category chips (a different
+  // taxonomy than this catalog tree) — skip the fetch rather than pull data
+  // this tab never renders.
+  const { data: categories } = useQuery(
+    () => tab === "requests" ? Promise.resolve([]) : catalogService.getCategories(categoryKind),
+    [categoryKind, tab],
+    `cat_tree:${tab}`
+  );
   const exploreGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
   const { data: bizPage, loading: bizLoading, error: bizError, refetch: refetchBiz } = useQuery(
     () => discoveryService.businesses({
@@ -365,7 +384,7 @@ export default function Explore() {
           <div className="filter-section">
             <label className="filter-label">{t("explore_browse_type")}</label>
             <div className="desktop-tabs">
-              {([["all", t("explore_tab_all")], ["business", t("explore_tab_shops")], ["provider", t("explore_tab_helpers")]] as [Tab, string][]).map(([tabKey, label]) => (
+              {([["all", t("explore_tab_all")], ["business", t("explore_tab_shops")], ["provider", t("explore_tab_helpers")], ["requests", t("explore_tab_requests")]] as [Tab, string][]).map(([tabKey, label]) => (
                 <button
                   key={tabKey}
                   onClick={() => { haptics.selection(); setTab(tabKey); }}
@@ -377,7 +396,9 @@ export default function Explore() {
             </div>
           </div>
 
-          {/* Radius selector */}
+          {/* Radius selector — shared across all four tabs. requestService.feed()
+              already reads the same settings_radius key this control writes, so
+              it governs the Requests tab's results too with no extra wiring. */}
           <div className="filter-section">
             <label className="filter-label">{t("explore_search_radius")}</label>
             <RadiusDropdown
@@ -389,36 +410,43 @@ export default function Explore() {
             />
           </div>
 
-          {/* Sort */}
-          <div className="filter-section">
-            <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
-          </div>
+          {/* Sort and the catalog category browser apply to businesses/
+              providers only — Requests has its own dynamic, feed-derived
+              category chips and no sort concept, both rendered inline by
+              RequestsFeedPanel instead. Never offer a control that's
+              silently ignored. */}
+          {tab !== "requests" && (
+            <>
+              <div className="filter-section">
+                <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
+              </div>
 
-          {/* Categories Sidebar List */}
-          <div className="filter-section">
-            <label className="filter-label">{t("explore_categories")}</label>
-            <div className="desktop-categories-list">
-              <button className={`category-item-btn ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>
-                <span>{t("explore_show_all")}</span>
-              </button>
-              {catTree.map((c) => (
-                <button
-                  key={c.id}
-                  className={`category-item-btn ${cat === c.id ? "active" : ""}`}
-                  onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}
-                >
-                  <span style={{ marginRight: 6 }}>{c.icon}</span>
-                  <span>{c.name}</span>
-                </button>
-              ))}
-              {/* The full category browser (/categories) is a real, working
-                  screen that had ZERO links pointing at it anywhere in the app
-                  — reachable only by typing the URL. This is its way in. */}
-              <button className="category-item-btn" onClick={() => nav("/categories")}>
-                <span>Browse all categories →</span>
-              </button>
-            </div>
-          </div>
+              <div className="filter-section">
+                <label className="filter-label">{t("explore_categories")}</label>
+                <div className="desktop-categories-list">
+                  <button className={`category-item-btn ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>
+                    <span>{t("explore_show_all")}</span>
+                  </button>
+                  {catTree.map((c) => (
+                    <button
+                      key={c.id}
+                      className={`category-item-btn ${cat === c.id ? "active" : ""}`}
+                      onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}
+                    >
+                      <span style={{ marginRight: 6 }}>{c.icon}</span>
+                      <span>{c.name}</span>
+                    </button>
+                  ))}
+                  {/* The full category browser (/categories) is a real, working
+                      screen that had ZERO links pointing at it anywhere in the app
+                      — reachable only by typing the URL. This is its way in. */}
+                  <button className="category-item-btn" onClick={() => nav("/categories")}>
+                    <span>Browse all categories →</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right Side: Main explore listings */}
@@ -462,7 +490,7 @@ export default function Explore() {
             </div>
 
             <div className="row" style={{ borderBottom: "1px solid var(--line)", margin: "0 -16px", padding: "0 16px" }}>
-              {([["all", t("explore_tab_all")], ["business", t("explore_tab_businesses")], ["provider", t("explore_tab_providers")]] as [Tab, string][]).map(([tabKey, label]) => (
+              {([["all", t("explore_tab_all")], ["business", t("explore_tab_businesses")], ["provider", t("explore_tab_providers")], ["requests", t("explore_tab_requests")]] as [Tab, string][]).map(([tabKey, label]) => (
                 <button
                   key={tabKey}
                   onClick={() => { haptics.selection(); setTab(tabKey); }}
@@ -483,17 +511,24 @@ export default function Explore() {
 
           <div ref={containerRef} className="explore-listings-scroll">
             <PullToRefreshIndicator pullDistance={pullDistance} refreshing={refreshing} threshold={threshold} />
-            {/* Mobile Category chips horizontal scroll + compact Radius button (mobile only) */}
+            {/* Mobile Category chips horizontal scroll + compact Radius button (mobile only).
+                Category chips are catalog taxonomy — not relevant to Requests,
+                which has its own feed-derived chips (RequestsFeedPanel).
+                Radius stays: it's a shared control, see the desktop sidebar note. */}
             <div className="mobile-only">
               <div className="row gap-8 center-v page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
-                <div className="hscroll grow" style={{ padding: 0, margin: 0 }}>
-                  <button className={`chip ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>{t("explore_tab_all")}</button>
-                  {catTree.map((c) => (
-                    <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}>
-                      {c.icon} {c.name.split(" ")[0]}
-                    </button>
-                  ))}
-                </div>
+                {tab !== "requests" ? (
+                  <div className="hscroll grow" style={{ padding: 0, margin: 0 }}>
+                    <button className={`chip ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>{t("explore_tab_all")}</button>
+                    {catTree.map((c) => (
+                      <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}>
+                        {c.icon} {c.name.split(" ")[0]}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grow" />
+                )}
                 <RadiusDropdown
                   value={radius}
                   onChange={setRadius}
@@ -501,59 +536,67 @@ export default function Explore() {
                   label={t("explore_radius_label")}
                 />
               </div>
-              <div className="page-pad" style={{ paddingTop: 10, paddingBottom: 0 }}>
-                <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
-              </div>
+              {tab !== "requests" && (
+                <div className="page-pad" style={{ paddingTop: 10, paddingBottom: 0 }}>
+                  <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
+                </div>
+              )}
             </div>
 
-            {/* Results Grid Title & Count */}
-            <div className="listings-grid-header desktop-only">
-              <h2>{tab === "all" ? t("explore_title_all") : tab === "business" ? t("explore_title_business") : t("explore_title_provider")}</h2>
-              <span className="results-count muted small">
-                {loading ? t("explore_searching") : tf("explore_matches_found", { count: (showBiz ? biz.length : 0) + (showProv ? prov.length : 0) })}
-              </span>
-            </div>
-
-            {/* Results */}
-            {loading ? (
-              <ExploreSkeleton tab={tab} />
-            ) : (bizError || provError) ? (
-              <ErrorView error={(bizError || provError)!} onRetry={() => { refetchBiz(); refetchProv(); }} />
+            {tab === "requests" ? (
+              <RequestsFeedPanel />
             ) : (
-              <div className="col gap-14 listings-cards-grid">
-                {empty && (
-                  <EmptyState
-                    illustration={<NoResultsIllustration />}
-                    emoji="🔍"
-                    title={t("explore_empty_title")}
-                    text={t("explore_empty_text")}
-                    action={<button className="btn btn-ghost btn-sm" onClick={() => { setCat(null); setRadius(15); }}>{t("explore_reset_filters")}</button>}
-                  />
-                )}
-                {showBiz && showProv && sort === "nearby" ? (
-                  mergeByDistance(biz, prov).map((item, idx) =>
-                    item.kind === "business" ? (
-                      <BusinessCardWide key={item.data.id} b={item.data} style={{ animationDelay: `${idx * 35}ms` }} entranceClass={extraBizIds.has(item.data.id) ? "queue-row-enter" : "fade-up"} />
-                    ) : (
-                      <ProviderCard key={item.data.id} p={item.data} style={{ animationDelay: `${idx * 35}ms` }} entranceClass={extraProvIds.has(item.data.id) ? "queue-row-enter" : "fade-up"} />
-                    )
-                  )
+              <>
+                {/* Results Grid Title & Count */}
+                <div className="listings-grid-header desktop-only">
+                  <h2>{tab === "all" ? t("explore_title_all") : tab === "business" ? t("explore_title_business") : t("explore_title_provider")}</h2>
+                  <span className="results-count muted small">
+                    {loading ? t("explore_searching") : tf("explore_matches_found", { count: (showBiz ? biz.length : 0) + (showProv ? prov.length : 0) })}
+                  </span>
+                </div>
+
+                {/* Results */}
+                {loading ? (
+                  <ExploreSkeleton tab={tab} />
+                ) : (bizError || provError) ? (
+                  <ErrorView error={(bizError || provError)!} onRetry={() => { refetchBiz(); refetchProv(); }} />
                 ) : (
-                  <>
-                    {showProv && prov.map((p, idx) => <ProviderCard key={p.id} p={p} style={{ animationDelay: `${idx * 35}ms` }} entranceClass={extraProvIds.has(p.id) ? "queue-row-enter" : "fade-up"} />)}
-                    {showBiz && biz.map((b, idx) => <BusinessCardWide key={b.id} b={b} style={{ animationDelay: `${idx * 35}ms` }} entranceClass={extraBizIds.has(b.id) ? "queue-row-enter" : "fade-up"} />)}
-                  </>
+                  <div className="col gap-14 listings-cards-grid">
+                    {empty && (
+                      <EmptyState
+                        illustration={<NoResultsIllustration />}
+                        emoji="🔍"
+                        title={t("explore_empty_title")}
+                        text={t("explore_empty_text")}
+                        action={<button className="btn btn-ghost btn-sm" onClick={() => { setCat(null); setRadius(15); }}>{t("explore_reset_filters")}</button>}
+                      />
+                    )}
+                    {showBiz && showProv && sort === "nearby" ? (
+                      mergeByDistance(biz, prov).map((item, idx) =>
+                        item.kind === "business" ? (
+                          <BusinessCardWide key={item.data.id} b={item.data} style={{ animationDelay: `${idx * 35}ms` }} entranceClass={extraBizIds.has(item.data.id) ? "queue-row-enter" : "fade-up"} />
+                        ) : (
+                          <ProviderCard key={item.data.id} p={item.data} style={{ animationDelay: `${idx * 35}ms` }} entranceClass={extraProvIds.has(item.data.id) ? "queue-row-enter" : "fade-up"} />
+                        )
+                      )
+                    ) : (
+                      <>
+                        {showProv && prov.map((p, idx) => <ProviderCard key={p.id} p={p} style={{ animationDelay: `${idx * 35}ms` }} entranceClass={extraProvIds.has(p.id) ? "queue-row-enter" : "fade-up"} />)}
+                        {showBiz && biz.map((b, idx) => <BusinessCardWide key={b.id} b={b} style={{ animationDelay: `${idx * 35}ms` }} entranceClass={extraBizIds.has(b.id) ? "queue-row-enter" : "fade-up"} />)}
+                      </>
+                    )}
+                    {(canLoadMoreBiz || canLoadMoreProv) && (
+                      <button
+                        className="btn btn-outline btn-block"
+                        disabled={loadingMore}
+                        onClick={() => { if (canLoadMoreBiz) loadMoreBiz(); if (canLoadMoreProv) loadMoreProv(); }}
+                      >
+                        {loadingMore ? t("explore_loading_more") : t("explore_load_more")}
+                      </button>
+                    )}
+                  </div>
                 )}
-                {(canLoadMoreBiz || canLoadMoreProv) && (
-                  <button
-                    className="btn btn-outline btn-block"
-                    disabled={loadingMore}
-                    onClick={() => { if (canLoadMoreBiz) loadMoreBiz(); if (canLoadMoreProv) loadMoreProv(); }}
-                  >
-                    {loadingMore ? t("explore_loading_more") : t("explore_load_more")}
-                  </button>
-                )}
-              </div>
+              </>
             )}
             <div style={{ height: 24 }} />
           </div>

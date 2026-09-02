@@ -139,11 +139,12 @@ export default function Profile() {
   // Map is deliberately excluded — it already lives in the bottom nav.
   const activityTiles: Tile[] = [
     { icon: <Calendar size={20} />, label: t("appointments"), sub: upcomingCount > 0 ? `${upcomingCount} upcoming` : "None upcoming", tint: "var(--brand-50)", accent: "var(--brand-600)", onClick: () => nav("/appointments") },
-    // "My requests" + ?tab=mine: the count below is YOUR open requests
-    // (requestService.mine), so the tile must open that tab — the default
-    // "nearby" tab is everyone else's feed, which made the number and the
-    // destination describe two different lists.
-    { icon: <FileText size={20} />, label: "My requests", sub: openRequestCount > 0 ? `${openRequestCount} open` : "None open", tint: "var(--brand-50)", accent: "var(--brand-700)", onClick: () => nav("/requests?tab=mine") },
+    // "My requests" + ?tab=requests&view=mine: the count below is YOUR open
+    // requests (requestService.mine), so the tile must land Explore's
+    // Requests tab on its "mine" view — the default "nearby" view is
+    // everyone else's feed, which made the number and the destination
+    // describe two different lists.
+    { icon: <FileText size={20} />, label: "My requests", sub: openRequestCount > 0 ? `${openRequestCount} open` : "None open", tint: "var(--brand-50)", accent: "var(--brand-700)", onClick: () => nav("/explore?tab=requests&view=mine") },
     { icon: <Clock size={20} />, label: "Queues", sub: activeQueues.length > 0 ? `${activeQueues.length} active` : "Not in line", tint: "var(--amber-100)", accent: "var(--amber-700)", badge: activeQueues.length || undefined, onClick: () => nav("/queues") },
     { icon: <Award size={20} />, label: t("badges"), sub: badgeSub, tint: "var(--green-100)", accent: "var(--green-600)", onClick: () => nav("/achievements") },
   ];
