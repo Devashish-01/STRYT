@@ -16,6 +16,17 @@ requireAuth() toast, a daily-appointment-limit race). See §1.11 below for the
 device checks those specific fixes need, and note that §3.2/§3.14 predate this
 session's full rewrite of Explore and Community — read their addenda too.
 
+**Later 3 Sep 2026 addendum:** the business bulk-buying campaign model was
+rebuilt this session (pledge + deposit + business-side close/fulfil/refund,
+replacing the old instant-order deal) — this predates and supersedes §3/14 and
+§4/9's descriptions of "bulk deals". Zero device or live-DB testing yet. Full
+step-by-step scripts now live in [`workflows/`](workflows/00_INDEX.md) —
+start with `workflows/06_customer_bulk_buying_campaigns.md` and
+`workflows/16_business_bulk_buying_campaigns.md`, and see
+`workflows/23_cross_cutting_regression_risks.md` item 10. That folder also
+has a literal step-by-step script for every row in §2–§9 below — use it to
+*execute* this table, not just to track it.
+
 ---
 
 ## How to use this
