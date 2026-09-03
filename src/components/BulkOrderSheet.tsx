@@ -140,6 +140,19 @@ export default function BulkOrderSheet({
 
         {view === "PLEDGE" && (
           <>
+            {(deal.description || deal.closesAtISO) && (
+              <div className="col gap-6" style={{ marginBottom: "var(--space-md)" }}>
+                {deal.description && (
+                  <div className="tiny muted" style={{ lineHeight: 1.5 }}>{deal.description}</div>
+                )}
+                {deal.closesAtISO && (
+                  <div className="row gap-6 center-v tiny semi" style={{ color: "var(--brand-700)" }}>
+                    <Clock size={12} /> Closes {new Date(deal.closesAtISO).toLocaleString()}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="col gap-6" style={{ marginBottom: "var(--space-md)" }}>
               <label className="tiny semi muted">{t("how_many_units_need")}</label>
               <div className="row gap-12 center-v">

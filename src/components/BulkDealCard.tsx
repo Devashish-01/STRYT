@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { SafeImg, inr } from "@/components/common";
-import { Package, Store, MapPin, CheckCircle2 } from "@/components/Icons";
+import { Package, Store, MapPin, CheckCircle2, Clock } from "@/components/Icons";
 import { calcBulkTotal, type BulkDeal } from "@/types";
 import { distanceLabel } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
@@ -39,7 +39,21 @@ export default function BulkDealCard({ deal, onBook }: { deal: BulkDeal; onBook?
           <span className="badge" style={{ background: "var(--amber-50)", color: "var(--amber-800)", fontSize: 9 }}>
             <Package size={10} /> {t("bulk_deal_badge")}
           </span>
-          <div className="bold small ellipsis" style={{ marginTop: 5 }}>{deal.title}</div>
+          <button
+            className="bold small ellipsis"
+            style={{ background: "none", border: "none", padding: 0, marginTop: 5, textAlign: "left", display: "block", width: "100%" }}
+            onClick={() => onBook?.(deal)}
+          >
+            {deal.title}
+          </button>
+          {deal.description && (
+            <div
+              className="tiny muted"
+              style={{ marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+            >
+              {deal.description}
+            </div>
+          )}
           {deal.businessName && (
             <button
               className="row gap-4 center-v tiny muted"
@@ -72,6 +86,11 @@ export default function BulkDealCard({ deal, onBook }: { deal: BulkDeal; onBook?
         )}
         {deal.depositAmount != null && (
           <span className="badge badge-gray" style={{ fontSize: 10 }}>{tf("deposit_amount_badge", { amount: inr(deal.depositAmount) })}</span>
+        )}
+        {deal.closesAtISO && (
+          <span className="badge badge-gray row gap-4" style={{ fontSize: 10 }}>
+            <Clock size={10} /> {tf("closes_on_badge", { date: new Date(deal.closesAtISO).toLocaleDateString() })}
+          </span>
         )}
         {deal.distanceKm != null && (
           <span className="badge badge-gray row gap-4" style={{ fontSize: 10 }}>

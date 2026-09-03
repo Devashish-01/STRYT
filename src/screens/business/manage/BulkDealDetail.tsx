@@ -33,6 +33,15 @@ export default function BulkDealDetail() {
     [dealId, deal?.closeOutcome],
     deal?.closeOutcome === "FULFILLED" ? `bulk:deal-stats:${dealId}` : undefined
   );
+  // Per-pledger claim-pass status — the aggregate stat chips above answer "how
+  // many redeemed", not "did Priya specifically pick hers up yet", which is
+  // the question a business actually has while checking the roster.
+  const { data: tokensData } = useQuery(
+    () => (deal?.closeOutcome === "FULFILLED" ? bulkService.tokensForDeal(dealId) : Promise.resolve(null)),
+    [dealId, deal?.closeOutcome],
+    deal?.closeOutcome === "FULFILLED" ? `bulk:deal-tokens:${dealId}` : undefined
+  );
+  const tokenByHolder = new Map((tokensData ?? []).map((tk) => [tk.holderUserId, tk]));
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmingClose, setConfirmingClose] = useState(false);
@@ -202,7 +211,7 @@ export default function BulkDealDetail() {
               </div>
             )}
             {!extending ? (
-              <button className="btn btn-outline btn-sm" onClick={() => setExtending(true)}>Extend deadline</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setExtending(true)}>{deal.closesAtISO ? "Extend deadline" : "Set a deadline"}</button>
             ) : (
               <div className="row gap-8 center-v">
                 <input type="datetime-local" className="input grow" value={extendDate} onChange={(e) => setExtendDate(e.target.value)} />
@@ -218,7 +227,7 @@ export default function BulkDealDetail() {
             <button className="btn btn-primary btn-sm" disabled={closing} onClick={() => close("FULFILLED")}>Fulfil anyway</button>
             <button className="btn btn-sm" style={{ background: "var(--ink-100)" }} disabled={closing} onClick={() => close("REFUNDED")}>Refund everyone</button>
             {!extending ? (
-              <button className="btn btn-outline btn-sm" onClick={() => setExtending(true)}>Extend deadline instead</button>
+              <button className="btn btn-outline btn-sm" onClick={() => setExtending(true)}>{deal.closesAtISO ? "Extend deadline instead" : "Set a deadline instead"}</button>
             ) : (
               <div className="row gap-8 center-v">
                 <input type="datetime-local" className="input grow" value={extendDate} onChange={(e) => setExtendDate(e.target.value)} />
@@ -251,6 +260,15 @@ export default function BulkDealDetail() {
                   </div>
                   {p.notes && <div className="tiny muted">"{p.notes}"</div>}
                   {p.deliveryAddress && <div className="tiny muted">📍 {p.deliveryAddress}</div>}
+                  {outcome === "FULFILLED" && tokenByHolder.has(p.userId) && (() => {
+                    const redeemed = tokenByHolder.get(p.userId)!.status === "REDEEMED";
+                    return (
+                      <div className="row gap-6 center-v tiny" style={{ color: redeemed ? "var(--green-600)" : "var(--amber-700)" }}>
+                        {redeemed ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                        {redeemed ? "Claim pass redeemed" : "Claim pass issued — not redeemed yet"}
+                      </div>
+                    );
+                  })()}
                   {p.depositStatus === "PENDING_CONFIRM" && !isClosed && (
                     <div className="row gap-8" style={{ marginTop: 4 }}>
                       <button className="btn btn-primary btn-sm grow" disabled={busyId === p.id} onClick={() => confirm(p)}>

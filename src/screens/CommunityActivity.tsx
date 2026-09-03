@@ -6,9 +6,11 @@ import { bulkService, requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import GroupBuyCard from "@/components/GroupBuyCard";
+import BulkDealCard from "@/components/BulkDealCard";
 import JoinGroupBuySheet from "@/components/JoinGroupBuySheet";
+import BulkOrderSheet from "@/components/BulkOrderSheet";
 import GroupBuyClaimPassModal from "@/components/GroupBuyClaimPassModal";
-import type { GroupBuyToken, RequestPost } from "@/types";
+import type { BulkDeal, GroupBuyToken, RequestPost } from "@/types";
 import { useI18n } from "@/lib/i18n";
 
 /** Where claim passes and joined pools live now /bulk is gone.
@@ -24,6 +26,7 @@ export default function CommunityActivity() {
   const { t } = useI18n();
   const [viewingPass, setViewingPass] = useState<GroupBuyToken | null>(null);
   const [joining, setJoining] = useState<RequestPost | null>(null);
+  const [ordering, setOrdering] = useState<BulkDeal | null>(null);
 
   const { data: myTokens, refetch: refetchTokens } = useQuery(
     () => (isGuest ? Promise.resolve([]) : bulkService.myTokens()),
@@ -46,6 +49,16 @@ export default function CommunityActivity() {
   );
   const myGroupBuys = myGroupBuyData ?? [];
   const tokens = myTokens ?? [];
+
+  // Campaigns you've pledged into, any state (open/fulfilled/refunded) — so a
+  // pledge's outcome stays reviewable after it drops out of the browse feed.
+  // Bulk deals had no equivalent of myGroupBuys until now.
+  const { data: myCampaignData, refetch: refetchCampaigns } = useQuery(
+    () => (isGuest ? Promise.resolve([]) : bulkService.myPledgedDeals(user.lat || 0, user.lng || 0)),
+    [user.id, isGuest, user.lat, user.lng],
+    isGuest ? undefined : `bulk:mine:deals:${user.id}`
+  );
+  const myCampaigns = myCampaignData ?? [];
 
   return (
     <div className="screen with-nav">
@@ -96,7 +109,16 @@ export default function CommunityActivity() {
                 </div>
               )}
 
-              {tokens.length === 0 && myGroupBuys.length === 0 && (
+              {myCampaigns.length > 0 && (
+                <div>
+                  <div className="small semi muted" style={{ marginBottom: 8 }}>{t("your_campaigns")}</div>
+                  <div className="col gap-12">
+                    {myCampaigns.map((d) => <BulkDealCard key={d.id} deal={d} onBook={setOrdering} />)}
+                  </div>
+                </div>
+              )}
+
+              {tokens.length === 0 && myGroupBuys.length === 0 && myCampaigns.length === 0 && (
                 <EmptyState emoji="📦" title={t("nothing_here_yet")} text={t("join_or_post_desc")} action={
                   <button className="btn btn-primary btn-sm" onClick={() => nav("/community-hub")}>
                     <Users size={14} /> {t("join_group_buy")}
@@ -114,6 +136,13 @@ export default function CommunityActivity() {
           req={joining}
           onJoined={() => { refetchGroupBuys(); refetchTokens(); }}
           onClose={() => setJoining(null)}
+        />
+      )}
+      {ordering && (
+        <BulkOrderSheet
+          deal={ordering}
+          onOrdered={() => { refetchCampaigns(); refetchTokens(); }}
+          onClose={() => setOrdering(null)}
         />
       )}
     </div>

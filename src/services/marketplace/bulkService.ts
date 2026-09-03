@@ -130,10 +130,14 @@ export const bulkService = {
     // Bounded — this was an unbounded select over every ACTIVE deal, tolerable
     // on a screen nobody opened but not on the Community feed's first paint,
     // which fetches this on every visit.
+    // closed_at is a SEPARATE lifecycle axis from status (closing never flips
+    // status away from 'ACTIVE' — see _bulk_deal_close_internal) — without
+    // this filter a Fulfilled/Refunded campaign never leaves the browse feed.
     const { data, error } = await sb
       .from("bulk_deals")
       .select(DEAL_SELECT)
       .eq("status", "ACTIVE")
+      .is("closed_at", null)
       .order("created_at", { ascending: false })
       .limit(20);
     throwIfError(error);
@@ -242,6 +246,40 @@ export const bulkService = {
     return deals.map((d) => {
       const p = mine.get(d.id);
       return { ...d, myPledgeQuantity: p?.quantity ?? null, myDepositStatus: p?.status ?? null };
+    });
+  },
+
+  /** Campaigns this user has pledged into, regardless of the campaign's
+   *  current state — deliberately does NOT filter to ACTIVE/open only like
+   *  deals() does, so a pledge's outcome (fulfilled/refunded) stays
+   *  reviewable here after the campaign closes and drops out of the browse
+   *  feed. Mirrors CommunityActivity's myGroupBuys, which bulk-deal pledges
+   *  had no equivalent of until now. */
+  async myPledgedDeals(userLat = 0, userLng = 0): Promise<BulkDeal[]> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return [];
+    const { data: pledgeRows, error: pledgeErr } = await (sb.from as any)("bulk_deal_pledges")
+      .select("deal_id, quantity, deposit_status")
+      .eq("user_id", uid);
+    if (pledgeErr) return [];
+    const rows = (pledgeRows ?? []) as { deal_id: string; quantity: number; deposit_status: string }[];
+    if (rows.length === 0) return [];
+    const mine = new Map(rows.map((r) => [r.deal_id, r]));
+    const { data, error } = await sb
+      .from("bulk_deals")
+      .select(DEAL_SELECT)
+      .in("id", [...mine.keys()])
+      .order("created_at", { ascending: false });
+    throwIfError(error);
+    return (data ?? []).map((r) => {
+      const deal = rowToDeal(r, userLat, userLng);
+      const p = mine.get(deal.id);
+      return {
+        ...deal,
+        myPledgeQuantity: p?.quantity ?? null,
+        myDepositStatus: (p?.deposit_status as BulkDeal["myDepositStatus"]) ?? null,
+      };
     });
   },
 

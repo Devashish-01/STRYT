@@ -575,6 +575,7 @@ const strings: Record<Lang, Record<string, string>> = {
     left_pledge_toast: "Left the campaign",
     join_bulk_deal: "Join deal",
     deposit_amount_badge: "{amount} deposit",
+    closes_on_badge: "Closes {date}",
     notes_for_business_optional: "Notes for the business (optional)",
     notes_business_placeholder: "e.g. deliver after 6pm",
 
@@ -714,6 +715,7 @@ const strings: Record<Lang, Record<string, string>> = {
     group_buy_pass_fallback: "Group buy pass",
     ready_status: "READY",
     your_group_buys: "Your group buys",
+    your_campaigns: "Your campaigns",
     your_posted_deals: "Your posted deals",
     join_or_post_desc: "Join a group buy or post a bulk deal and it'll show up here.",
 
@@ -1583,6 +1585,7 @@ const strings: Record<Lang, Record<string, string>> = {
     left_pledge_toast: "कैंपेन छोड़ दिया",
     join_bulk_deal: "डील में शामिल हों",
     deposit_amount_badge: "{amount} जमा राशि",
+    closes_on_badge: "{date} को बंद",
     notes_for_business_optional: "बिज़नेस के लिए नोट्स (वैकल्पिक)",
     notes_business_placeholder: "जैसे, शाम 6 बजे के बाद डिलीवर करें",
 
@@ -1722,6 +1725,7 @@ const strings: Record<Lang, Record<string, string>> = {
     group_buy_pass_fallback: "समूह खरीद पास",
     ready_status: "तैयार",
     your_group_buys: "आपकी समूह खरीद",
+    your_campaigns: "आपके कैंपेन",
     your_posted_deals: "आपकी पोस्ट की गई डील्स",
     join_or_post_desc: "समूह खरीद में शामिल हों या थोक डील पोस्ट करें, यह यहां दिखेगा।",
 
@@ -2591,6 +2595,7 @@ const strings: Record<Lang, Record<string, string>> = {
     left_pledge_toast: "कॅम्पेन सोडले",
     join_bulk_deal: "डीलमध्ये सामील व्हा",
     deposit_amount_badge: "{amount} ठेव",
+    closes_on_badge: "{date} रोजी बंद",
     notes_for_business_optional: "व्यवसायासाठी टीप (ऐच्छिक)",
     notes_business_placeholder: "उदा., संध्याकाळी 6 नंतर डिलिव्हर करा",
 
@@ -2730,6 +2735,7 @@ const strings: Record<Lang, Record<string, string>> = {
     group_buy_pass_fallback: "गट खरेदी पास",
     ready_status: "तयार",
     your_group_buys: "तुमची गट खरेदी",
+    your_campaigns: "तुमचे कॅम्पेन",
     your_posted_deals: "तुमच्या पोस्ट केलेल्या डील्स",
     join_or_post_desc: "गट खरेदीत सामील व्हा किंवा घाऊक डील पोस्ट करा, ते इथे दिसेल.",
 

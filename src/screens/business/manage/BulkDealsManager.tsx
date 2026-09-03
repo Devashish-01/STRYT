@@ -54,12 +54,12 @@ export default function BulkDealsManager() {
   }
 
   if (!id) {
-    return <div className="screen"><AppBar title="Bulk deals" /></div>;
+    return <div className="screen"><AppBar title="Bulk-buying campaigns" /></div>;
   }
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Bulk deals" subtitle={biz?.name ? `For ${biz.name}` : "Wholesale offers & claim passes"} />
+      <AppBar title="Bulk-buying campaigns" subtitle={biz?.name ? `For ${biz.name}` : "Pledges, deposits & claim passes"} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 24 }}>
 
         {/* Claim pass validator */}

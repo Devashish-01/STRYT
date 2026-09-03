@@ -607,6 +607,7 @@ export default function CommunityCompose() {
                   <div>
                     <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Available quota (optional)</label>
                     <input className="input" inputMode="numeric" placeholder="Total units you can supply" value={campaignQuota} onChange={(e) => setCampaignQuota(e.target.value.replace(/[^0-9]/g, ""))} />
+                    <div className="tiny muted" style={{ marginTop: 4 }}>Informational for now — shown on the listing, not enforced automatically when someone pledges.</div>
                   </div>
 
                   <div>
