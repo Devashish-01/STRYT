@@ -21,13 +21,11 @@ import type { CommunityPostType } from "@/types";
 /** A printable/downloadable physical thing. Deliberately NOT universal: most
  *  subjects support none, which is the whole point.
  *
- *  Only `counter-stand` exists today. The design's other two —
- *  `lost-found-flyer` (an A4 lamppost flyer, the CORRECT artifact for a
- *  LOST_FOUND post, where a counter stand never was) and `campaign-poster`
- *  (an in-store poster for an open bulk-buying campaign) — widen this union
- *  when their templates land. Until then the resolver returns null for them
- *  rather than promising a template that doesn't exist. */
-export type ShareArtifact = "counter-stand" | null;
+ *  Each is the artifact that genuinely fits its subject — a shop gets till
+ *  signage, a lost pet gets a lamppost flyer with tear-off tabs, an open
+ *  campaign gets an in-store poster. The bug this replaced handed every
+ *  subject the shop's counter stand. */
+export type ShareArtifact = "counter-stand" | "lost-found-flyer" | "campaign-poster" | null;
 
 interface ShareSubjectBase {
   /** Preview-card fields. */
@@ -77,6 +75,11 @@ export interface ShareCapabilities {
   qr: { enabled: boolean; scanLabel: string; caption: string };
   /** Merchant payment QR — a managed business/provider with a UPI id only. */
   paymentQr: boolean;
+  /** Offer "Recommend to neighbours" — opens the composer pre-armed as a
+   *  SHOUTOUT tagging this listing. Someone else's shop only: recommending
+   *  your OWN is just self-promotion, and posting as the business is already
+   *  a separate, better-fitting flow (ProfileCommunity's composer). */
+  recommend: boolean;
   /** The single artifact this subject supports, or null for "no print tab". */
   artifact: ShareArtifact;
 }
@@ -126,6 +129,9 @@ export function shareCapabilities(subject: ShareSubject, origin?: string): Share
         // implicit: only the two dashboards happened to pass upiId, so the
         // rule worked by convention rather than by being stated.
         paymentQr: managed && !!(subject.upiId || subject.paymentQrUrl),
+        // You recommend someone ELSE's shop. Posting about your own is what
+        // the console's "post to community as this business" flow is for.
+        recommend: !managed,
         // The counter stand is signage a shop puts on its own till. A visitor
         // printing it is the bug this gate closes.
         artifact: managed ? "counter-stand" : null,
@@ -141,10 +147,12 @@ export function shareCapabilities(subject: ShareSubject, origin?: string): Share
           caption: "Opens this neighbourhood post on STRYT",
         },
         paymentQr: false,
-        // A LOST_FOUND post's right artifact is an A4 lamppost flyer, never a
-        // counter stand — that template is the next step, so nothing is
-        // offered here yet rather than offering the wrong one.
-        artifact: null,
+        // "Recommend" tags a business/provider listing; a post isn't one.
+        recommend: false,
+        // A lost pet or wallet is the one case where a physical print is the
+        // POINT — a lamppost flyer with tear-off contact tabs. A counter
+        // stand never was. Every other post type prints nothing.
+        artifact: subject.postType === "LOST_FOUND" ? "lost-found-flyer" : null,
       };
 
     case "request":
@@ -154,6 +162,7 @@ export function shareCapabilities(subject: ShareSubject, origin?: string): Share
         // so a printed/saved QR pointing at one is stale almost immediately.
         qr: { enabled: false, scanLabel: "", caption: "" },
         paymentQr: false,
+        recommend: false,
         artifact: null,
       };
 
@@ -166,6 +175,7 @@ export function shareCapabilities(subject: ShareSubject, origin?: string): Share
           caption: "Connect with your neighbour on STRYT",
         },
         paymentQr: false,
+        recommend: false,
         // Printing a poster of another member is not a thing anyone wants.
         artifact: null,
       };
@@ -179,9 +189,10 @@ export function shareCapabilities(subject: ShareSubject, origin?: string): Share
           caption: "Pledge into this bulk-buying campaign on STRYT",
         },
         paymentQr: false,
-        // A campaign poster for the running business is the design's third
-        // artifact — pending its template, same reasoning as the flyer above.
-        artifact: null,
+        recommend: false,
+        // The business running an open campaign putting a poster up in-store
+        // is the whole point of pooling locally.
+        artifact: subject.viewerManages === true ? "campaign-poster" : null,
       };
   }
 }

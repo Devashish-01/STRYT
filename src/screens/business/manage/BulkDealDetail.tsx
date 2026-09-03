@@ -2,11 +2,12 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
-import { CheckCircle2, XCircle, Clock, Users, AlertCircle, Calendar } from "@/components/Icons";
+import { CheckCircle2, XCircle, Clock, Users, AlertCircle, Calendar, Share2 } from "@/components/Icons";
 import { bulkService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { poolProgress } from "@/lib/groupBuy";
+import ShareCard from "@/components/ShareCard";
 import type { BulkDealPledge, DepositStatus } from "@/types";
 
 const DEPOSIT_META: Record<DepositStatus, { label: string; color: string; bg: string }> = {
@@ -44,6 +45,7 @@ export default function BulkDealDetail() {
   const tokenByHolder = new Map((tokensData ?? []).map((tk) => [tk.holderUserId, tk]));
 
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [extending, setExtending] = useState(false);
   const [extendDate, setExtendDate] = useState("");
@@ -132,7 +134,15 @@ export default function BulkDealDetail() {
 
   return (
     <div className="screen">
-      <AppBar title={deal.title} subtitle={`Min ${deal.moq} · ${inr(deal.regularPrice)} regular`} />
+      <AppBar
+        title={deal.title}
+        subtitle={`Min ${deal.moq} · ${inr(deal.regularPrice)} regular`}
+        right={
+          <button className="icon-btn" onClick={() => setSharing(true)} aria-label="Share campaign">
+            <Share2 size={20} />
+          </button>
+        }
+      />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 24 }}>
 
         {/* Status banner */}
@@ -288,6 +298,23 @@ export default function BulkDealDetail() {
           </div>
         </div>
       </div>
+
+      {sharing && (
+        <ShareCard
+          subjects={{
+            kind: "campaign",
+            id: deal.id,
+            businessId: deal.businessId,
+            // This screen is owner-gated, so the in-store poster applies.
+            viewerManages: true,
+            title: deal.title,
+            subtitle: deal.businessName || "Bulk-buying campaign",
+            image: deal.image || deal.businessCover || "",
+            meta: hasTarget ? `${pledged} of ${target} pledged` : undefined,
+          }}
+          onClose={() => setSharing(false)}
+        />
+      )}
     </div>
   );
 }

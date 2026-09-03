@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { SafeImg } from "@/components/common";
 import { Camera, Plus, Minus, X, Store, Wrench, Image, MapPin, Check, User, Megaphone, Clock, Tag, ChevronDown, MessageCircle, Eye, Package } from "@/components/Icons";
@@ -34,7 +34,7 @@ import {
   PHOTO_FORWARD_TYPES,
   POLL_DURATIONS,
 } from "@/lib/communityTypes";
-import { FULFILLMENT_LABELS, type CommunityPostType, type FulfillmentType, type BulkTier } from "@/types";
+import { FULFILLMENT_LABELS, type CommunityPostType, type FulfillmentType, type BulkTier, type PostTag } from "@/types";
 
 interface SellerContext {
   type: "business" | "provider";
@@ -138,6 +138,27 @@ export default function CommunityCompose() {
       ? { type: sellerCtx.type, id: sellerCtx.id }
       : { type: "user", id: user.id || "self" };
   const { draft, patch, discard, justSaved, restored, acknowledgeRestore } = useDraft(draftIdentity);
+
+  // Arriving from a share sheet's "Recommend to neighbours": pre-arm a SHOUTOUT
+  // with that listing already tagged, rather than inventing a repost model —
+  // a shoutout tagging a business IS the app's "tell the street about this
+  // place" post. Applied once, and only after useDraft's own restore effect
+  // has run for this identity (that hook is called above, so its effects fire
+  // first in the same commit) — otherwise a restored draft would clobber it.
+  const prefill = (loc.state as any)?.prefill as
+    | { type?: CommunityPostType; taggedListing?: PostTag }
+    | undefined;
+  const prefillApplied = useRef(false);
+  useEffect(() => {
+    if (!prefill || prefillApplied.current || !draftIdentity) return;
+    prefillApplied.current = true;
+    patch({
+      ...(prefill.type ? { type: prefill.type } : {}),
+      ...(prefill.taggedListing ? { taggedListing: prefill.taggedListing } : {}),
+    });
+    setPickerOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftIdentity?.type, draftIdentity?.id]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);

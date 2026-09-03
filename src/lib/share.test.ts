@@ -37,7 +37,7 @@ describe("shareCapabilities — the counter-stand gate", () => {
     expect(shareCapabilities(shop(), ORIGIN).artifact).toBeNull(); // absent = not managed
   });
 
-  it("never offers a printable artifact for a post, request, person or campaign", () => {
+  it("never offers a counter stand to a non-merchant subject", () => {
     const subjects: ShareSubject[] = [
       { kind: "post", id: "c1", title: "", subtitle: "" },
       { kind: "post", id: "c2", title: "", subtitle: "", postType: "LOST_FOUND" },
@@ -45,7 +45,51 @@ describe("shareCapabilities — the counter-stand gate", () => {
       { kind: "person", id: "u1", title: "", subtitle: "" },
       { kind: "campaign", id: "d1", businessId: "b1", title: "", subtitle: "", viewerManages: true },
     ];
-    for (const s of subjects) expect(shareCapabilities(s, ORIGIN).artifact).toBeNull();
+    for (const s of subjects) expect(shareCapabilities(s, ORIGIN).artifact).not.toBe("counter-stand");
+  });
+});
+
+describe("shareCapabilities — the right artifact per subject", () => {
+  it("gives a LOST_FOUND post a flyer — the one post type a print actually serves", () => {
+    const s: ShareSubject = { kind: "post", id: "c1", title: "", subtitle: "", postType: "LOST_FOUND" };
+    expect(shareCapabilities(s, ORIGIN).artifact).toBe("lost-found-flyer");
+  });
+
+  it("gives every other post type nothing to print", () => {
+    const types = ["ALERT", "GIVEAWAY", "POLL", "SHOUTOUT", "RECOMMENDATION"] as const;
+    for (const postType of types) {
+      const s: ShareSubject = { kind: "post", id: "c1", title: "", subtitle: "", postType };
+      expect(shareCapabilities(s, ORIGIN).artifact).toBeNull();
+    }
+    // No type at all (a feed card that didn't pass one) also prints nothing.
+    expect(shareCapabilities({ kind: "post", id: "c1", title: "", subtitle: "" }, ORIGIN).artifact).toBeNull();
+  });
+
+  it("gives a campaign poster only to the business running it", () => {
+    const base = { kind: "campaign" as const, id: "d1", businessId: "b1", title: "", subtitle: "" };
+    expect(shareCapabilities({ ...base, viewerManages: true }, ORIGIN).artifact).toBe("campaign-poster");
+    expect(shareCapabilities({ ...base, viewerManages: false }, ORIGIN).artifact).toBeNull();
+    expect(shareCapabilities(base, ORIGIN).artifact).toBeNull();
+  });
+});
+
+describe("shareCapabilities — recommend to neighbours", () => {
+  it("is offered for someone else's shop, not your own", () => {
+    // Recommending your own business is self-promotion; the console's
+    // post-as-this-business flow already covers that case properly.
+    expect(shareCapabilities(shop({ viewerManages: false }), ORIGIN).recommend).toBe(true);
+    expect(shareCapabilities(shop(), ORIGIN).recommend).toBe(true);
+    expect(shareCapabilities(shop({ viewerManages: true }), ORIGIN).recommend).toBe(false);
+  });
+
+  it("is never offered for subjects that aren't a taggable listing", () => {
+    const subjects: ShareSubject[] = [
+      { kind: "post", id: "c1", title: "", subtitle: "" },
+      { kind: "request", id: "r1", title: "", subtitle: "" },
+      { kind: "person", id: "u1", title: "", subtitle: "" },
+      { kind: "campaign", id: "d1", businessId: "b1", title: "", subtitle: "" },
+    ];
+    for (const s of subjects) expect(shareCapabilities(s, ORIGIN).recommend).toBe(false);
   });
 });
 

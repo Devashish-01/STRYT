@@ -5234,16 +5234,17 @@ button.set-row:active {
   font-weight: 600;
 }
 
-/* Print styles for Counter Stand QR display */
+/* Print styles for share artifacts — counter stand, lost & found flyer and
+   campaign poster all render through the same modal shell. */
 @media print {
   body * {
     visibility: hidden !important;
   }
-  .printable-counter-stand,
-  .printable-counter-stand * {
+  .printable-artifact,
+  .printable-artifact * {
     visibility: visible !important;
   }
-  .printable-counter-stand {
+  .printable-artifact {
     position: fixed !important;
     left: 50% !important;
     top: 50% !important;
@@ -5256,6 +5257,10 @@ button.set-row:active {
     background: #ffffff !important;
     color: #000000 !important;
     border: none !important;
+    /* Must not clip on paper — the modal scrolls on screen (a flyer is taller
+       than a counter stand), but printing has to emit the whole artifact. */
+    max-height: none !important;
+    overflow: visible !important;
   }
   .no-print {
     display: none !important;
