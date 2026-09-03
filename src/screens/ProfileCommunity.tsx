@@ -26,8 +26,9 @@ type Tab = "posts" | "requests";
 export function ProfileCommunity({ kind }: { kind: Kind }) {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { user } = useApp();
+  const { user, setContext } = useApp();
   const [tab, setTab] = useState<Tab>("posts");
+  const [confirmingFeedSwitch, setConfirmingFeedSwitch] = useState(false);
 
   const { data: profile } = useQuery<any>(
     () => (kind === "business" ? businessService.get(id) : providerService.get(id)),
@@ -55,6 +56,16 @@ export function ProfileCommunity({ kind }: { kind: Kind }) {
         ? { businessId: id, businessName: name, businessAvatar: avatar }
         : { providerId: id, providerName: name, providerAvatar: avatar },
     });
+  }
+
+  // The neighbourhood feed is a customer-hat screen — leaving here switches
+  // the active context away from this business/provider console, which
+  // isn't obvious from the button alone, so it's confirmed first rather than
+  // silently dropping the owner out of the console they're sitting in.
+  function confirmAndGoToFeed() {
+    setContext({ type: "customer", id: null, name: user.name });
+    setConfirmingFeedSwitch(false);
+    nav("/community-hub");
   }
 
   const postList = posts ?? [];
@@ -92,7 +103,7 @@ export function ProfileCommunity({ kind }: { kind: Kind }) {
           <button
             className="btn btn-ghost btn-sm"
             style={{ border: "1.5px solid var(--ink-200)", fontWeight: 700 }}
-            onClick={() => nav("/community-hub")}
+            onClick={() => setConfirmingFeedSwitch(true)}
           >
             <Globe size={14} /> View neighborhood feed
           </button>
@@ -144,6 +155,27 @@ export function ProfileCommunity({ kind }: { kind: Kind }) {
       </div>
 
       {kind === "business" ? <ManageNav bizId={id} /> : <ProviderManageNav pid={id} />}
+
+      {confirmingFeedSwitch && (
+        <div className="overlay" onClick={() => setConfirmingFeedSwitch(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h2 className="h2" style={{ marginBottom: 6 }}>Switch to your customer profile?</h2>
+            <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
+              The neighborhood feed is part of your customer profile, not {name}'s console. You'll be
+              switched out of {name} to view it — you can switch back anytime from the account switcher.
+            </p>
+            <div className="col gap-8">
+              <button className="btn btn-primary btn-block" onClick={confirmAndGoToFeed}>
+                Switch & continue
+              </button>
+              <button className="btn btn-ghost btn-block" onClick={() => setConfirmingFeedSwitch(false)}>
+                Stay here
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
