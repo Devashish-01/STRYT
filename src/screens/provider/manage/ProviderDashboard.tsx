@@ -635,13 +635,18 @@ export default function ProviderDashboard() {
 
       {share && (
         <ShareCard
-          title={p?.displayName || "Service Provider"}
-          subtitle={`${p?.categoryName || "Provider"} • ${p?.subCategory || "Professional"}`}
-          image={p?.avatar || ""}
-          meta={`⭐ ${p?.ratingAvg || 0} (${p?.ratingCount || 0})`}
-          url={window.location.origin + "/provider/" + id}
-          upiId={p?.upiId || undefined}
-          paymentQrUrl={localStorage.getItem("stryt_upi_qr_" + id) || undefined}
+          subjects={{
+            kind: "provider",
+            id,
+            // Behind ProviderAccessGuard — the viewer manages this profile.
+            viewerManages: true,
+            upiId: p?.upiId || undefined,
+            paymentQrUrl: localStorage.getItem("stryt_upi_qr_" + id) || undefined,
+            title: p?.displayName || "Service Provider",
+            subtitle: `${p?.categoryName || "Provider"} • ${p?.subCategory || "Professional"}`,
+            image: p?.avatar || "",
+            meta: `⭐ ${p?.ratingAvg || 0} (${p?.ratingCount || 0})`,
+          }}
           onClose={() => setShare(false)}
         />
       )}

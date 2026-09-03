@@ -1,63 +1,66 @@
 import { useEffect, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-import { MessageCircle, Copy, Link2, Send, Share2, QrCode, Download, Printer, X, Store, MapPin, Camera, Sparkles } from "@/components/Icons";
+import { MessageCircle, Link2, Send, Share2, QrCode, Download, Printer, X, Store, Camera, Sparkles } from "@/components/Icons";
 import AppMark from "@/components/AppMark";
 import { useApp } from "@/store";
 import { copyText } from "@/lib/clipboard";
 import { PLACEHOLDER_AVATAR } from "@/lib/placeholders";
-
-export interface ShareOption {
-  role: string;
-  label: string;
-  url: string;
-  title: string;
-  subtitle: string;
-  image: string;
-  meta?: string;
-}
+import { shareCapabilities, type ShareSubject } from "@/lib/share";
 
 interface Props {
-  title: string;
-  subtitle: string;
-  image: string;
-  meta?: string;
-  /** Shareable URL. Defaults to the current page (which is the listing being shared). */
-  url?: string;
-  options?: ShareOption[];
+  /** What's being shared. Pass an array to render the role-switcher chips
+   *  (Profile's "Personal / Shop / Provider") — each entry carries its OWN
+   *  capabilities, so switching to a shop you manage reveals that shop's
+   *  counter stand and payment QR while your personal profile shows neither.
+   *  Previously the chips swapped the card's text but left every channel
+   *  identical. */
+  subjects: ShareSubject | ShareSubject[];
   onClose: () => void;
-  /** UPI VPA e.g. shop@okaxis — used to generate a payment QR in the QR Code tab */
-  upiId?: string;
-  /** URL of a custom uploaded payment QR image; takes priority over upiId-generated QR */
-  paymentQrUrl?: string;
 }
 
-export default function ShareCard({ title, subtitle, image, meta, url, options, onClose, upiId, paymentQrUrl }: Props) {
+export default function ShareCard({ subjects, onClose }: Props) {
   const { showToast } = useApp();
+  const list = Array.isArray(subjects) ? subjects : [subjects];
+  const [activeIdx, setActiveIdx] = useState(0);
   const [viewMode, setViewMode] = useState<"card" | "qr">("card");
   const [qrMode, setQrMode] = useState<"profile" | "payment">("profile");
-  const [activeOpt, setActiveOpt] = useState<ShareOption | null>(options && options.length > 0 ? options[0] : null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const hasPaymentQr = !!(paymentQrUrl || upiId);
+  const subject = list[Math.min(activeIdx, list.length - 1)];
+  const caps = shareCapabilities(subject);
 
-  const currentTitle = activeOpt ? activeOpt.title : title;
-  const currentSubtitle = activeOpt ? activeOpt.subtitle : subtitle;
-  const currentImage = activeOpt ? activeOpt.image : image;
-  const currentMeta = activeOpt ? activeOpt.meta : meta;
-  const shareUrl = activeOpt ? activeOpt.url : (url ?? (typeof window !== "undefined" ? window.location.href : ""));
+  const currentTitle = subject.title;
+  const currentSubtitle = subject.subtitle;
+  const currentImage = subject.image ?? "";
+  const currentMeta = subject.meta;
+  const shareUrl = caps.url;
   const shareText = `${currentTitle} — ${currentSubtitle}${currentMeta ? ` (${currentMeta})` : ""}`;
+
+  // A merchant's UPI id only exists on the two merchant kinds; reading it off
+  // a narrowed subject keeps the union honest rather than widening the base.
+  const upiId = subject.kind === "business" || subject.kind === "provider" ? subject.upiId ?? undefined : undefined;
+  const paymentQrUrl = subject.kind === "business" || subject.kind === "provider" ? subject.paymentQrUrl ?? undefined : undefined;
+
+  // Switching subject can invalidate the current view/tab — a shop you manage
+  // offers QR + payment, your personal profile offers neither, so land back on
+  // a view that still exists instead of rendering an empty panel.
+  useEffect(() => {
+    if (!caps.qr.enabled) setViewMode("card");
+    if (!caps.paymentQr) setQrMode("profile");
+  }, [caps.qr.enabled, caps.paymentQr]);
 
   // What the QR encodes. Payment mode carries the merchant's UPI VPA, so this
   // string must never leave the device — it used to be handed to a third-party
   // image service (api.qrserver.com), which meant every payment QR shipped a
   // merchant's payment identifier to goqr.me. Rendered locally instead: nothing
   // is transmitted, and the data: URL keeps the download canvas untainted.
-  const qrPayload = (qrMode === "payment" && hasPaymentQr && !paymentQrUrl)
+  const showingPayment = qrMode === "payment" && caps.paymentQr;
+  const qrPayload = (showingPayment && !paymentQrUrl)
     ? `upi://pay?pa=${upiId}&pn=${encodeURIComponent(currentTitle)}`
     : shareUrl;
   // A merchant-uploaded QR image wins over anything we generate.
-  const uploadedQrUrl = qrMode === "payment" && paymentQrUrl ? paymentQrUrl : "";
+  const uploadedQrUrl = showingPayment && paymentQrUrl ? paymentQrUrl : "";
 
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
   const [generatedQrUrl, setGeneratedQrUrl] = useState("");
@@ -65,27 +68,21 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
   // The hidden <QRCodeCanvas> below is a child, so its own draw effect has
   // already run by the time this one fires — the canvas is painted and safe to
   // read. Re-runs whenever the encoded payload changes (profile ⇄ payment tab,
-  // or a different share option).
+  // or a different subject).
   useEffect(() => {
-    if (uploadedQrUrl) return;
+    if (uploadedQrUrl || !caps.qr.enabled) return;
     try {
       setGeneratedQrUrl(qrCanvasRef.current?.toDataURL("image/png") ?? "");
     } catch {
       setGeneratedQrUrl(""); // canvas unavailable — the <img> just renders empty
     }
-  }, [qrPayload, uploadedQrUrl]);
+  }, [qrPayload, uploadedQrUrl, caps.qr.enabled]);
 
   const qrUrlToUse = uploadedQrUrl || generatedQrUrl;
 
   async function copyLink() {
     const ok = await copyText(shareUrl);
     showToast(ok ? "Link copied" : "Couldn't copy link");
-    onClose();
-  }
-
-  async function copyCard() {
-    const ok = await copyText(`${shareText}\n${shareUrl}`);
-    showToast(ok ? "Details copied" : "Couldn't copy");
     onClose();
   }
 
@@ -124,7 +121,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
 
       // Draw background gradient
       const grad = ctx.createLinearGradient(0, 0, 600, 840);
-      if (qrMode === "payment") {
+      if (showingPayment) {
         grad.addColorStop(0, "#16a34a");
         grad.addColorStop(1, "#15803d");
       } else {
@@ -134,11 +131,12 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, 600, 840);
 
-      // Draw STRYT Brand Header
+      // Brand header. Generic on purpose — this PNG used to read
+      // "STRYT LOCAL BUSINESS" even when the subject was a lost-dog post.
       ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
       ctx.font = "bold 22px system-ui, -apple-system, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("STRYT LOCAL BUSINESS", 300, 52);
+      ctx.fillText("STRYT", 300, 52);
 
       // White Card Container
       ctx.fillStyle = "#ffffff";
@@ -159,7 +157,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.src = qrUrlToUse;
-      
+
       await new Promise((resolve) => {
         img.onload = resolve;
         img.onerror = resolve;
@@ -167,22 +165,14 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
 
       ctx.drawImage(img, 120, 210, 360, 360);
 
-      // Instruction Callout
-      ctx.fillStyle = qrMode === "payment" ? "#16a34a" : "#7c3aed";
+      // Instruction callout — says what scanning THIS subject actually does.
+      ctx.fillStyle = showingPayment ? "#16a34a" : "#7c3aed";
       ctx.font = "bold 20px system-ui, -apple-system, sans-serif";
-      ctx.fillText(
-        qrMode === "payment" ? "SCAN WITH ANY UPI APP TO PAY" : "SCAN WITH PHONE CAMERA TO VISIT STORE",
-        300,
-        610
-      );
+      ctx.fillText(showingPayment ? "SCAN WITH ANY UPI APP TO PAY" : caps.qr.scanLabel, 300, 610);
 
       ctx.fillStyle = "#64748b";
       ctx.font = "15px system-ui, -apple-system, sans-serif";
-      ctx.fillText(
-        qrMode === "payment" ? `UPI ID: ${upiId || ""}` : "View Store Catalog, Menu, Services & Special Offers",
-        300,
-        642
-      );
+      ctx.fillText(showingPayment ? `UPI ID: ${upiId || ""}` : caps.qr.caption, 300, 642);
 
       // Footer branding on card
       ctx.fillStyle = "#f1f5f9";
@@ -209,11 +199,18 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
     window.print();
   }
 
+  // Channels are derived, not fixed. "Download QR" needs a QR to exist, and
+  // "Print Stand" needs an artifact — which only a merchant subject the viewer
+  // manages has. Everything else gets link/WhatsApp/native-sheet.
   const channels = [
     { label: "WhatsApp", icon: MessageCircle, color: "#25D366", onClick: shareWhatsApp },
     { label: "Copy link", icon: Link2, color: "var(--brand-700)", onClick: copyLink },
-    { label: "Download QR", icon: Download, color: "var(--purple-600)", onClick: downloadQrImage },
-    { label: "Print Stand", icon: Printer, color: "var(--blue-600)", onClick: () => setShowPrintModal(true) },
+    ...(caps.qr.enabled
+      ? [{ label: "Download QR", icon: Download, color: "var(--purple-600)", onClick: downloadQrImage }]
+      : []),
+    ...(caps.artifact === "counter-stand"
+      ? [{ label: "Print Stand", icon: Printer, color: "var(--blue-600)", onClick: () => setShowPrintModal(true) }]
+      : []),
     { label: "More", icon: Send, color: "var(--orange-500)", onClick: shareMore },
   ];
 
@@ -224,7 +221,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
           which tab is showing so "Download QR" works straight from the card
           view. `marginSize={4}` is the quiet zone the QR spec requires — without
           it scanners struggle against a coloured backdrop. */}
-      {!uploadedQrUrl && (
+      {!uploadedQrUrl && caps.qr.enabled && (
         <div aria-hidden style={{ position: "absolute", width: 0, height: 0, overflow: "hidden", pointerEvents: "none" }}>
           <QRCodeCanvas ref={qrCanvasRef} value={qrPayload} size={500} level="M" marginSize={4} />
         </div>
@@ -237,18 +234,18 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
             <h3 className="bold h2">Share with neighbors</h3>
           </div>
 
-          {/* Option selectors for role profiles */}
-          {options && options.length > 1 && (
+          {/* Subject switcher — only when there's more than one to switch to. */}
+          {list.length > 1 && (
             <div className="row gap-8" style={{ marginBottom: 14, overflowX: "auto", paddingBottom: 4, width: "100%" }}>
-              {options.map((opt) => (
+              {list.map((opt, i) => (
                 <button
-                  key={opt.role}
-                  onClick={() => setActiveOpt(opt)}
+                  key={`${opt.kind}:${opt.id}`}
+                  onClick={() => setActiveIdx(i)}
                   className="chip"
                   style={{
-                    background: activeOpt?.role === opt.role ? "var(--brand-700)" : "#fff",
-                    color: activeOpt?.role === opt.role ? "#fff" : "var(--ink-700)",
-                    borderColor: activeOpt?.role === opt.role ? "var(--brand-700)" : "var(--ink-200)",
+                    background: activeIdx === i ? "var(--brand-700)" : "#fff",
+                    color: activeIdx === i ? "#fff" : "var(--ink-700)",
+                    borderColor: activeIdx === i ? "var(--brand-700)" : "var(--ink-200)",
                     fontSize: 12,
                     padding: "5px 12px",
                     borderRadius: 20,
@@ -257,51 +254,54 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
                     flexShrink: 0
                   }}
                 >
-                  {opt.label}
+                  {opt.label ?? opt.title}
                 </button>
               ))}
             </div>
           )}
 
-          {/* View Mode Toggle: Card vs QR Code */}
-          <div className="row center" style={{ marginBottom: 14 }}>
-            <div style={{
-              background: "var(--ink-100)", borderRadius: 20, padding: 3, display: "flex", gap: 2
-            }}>
-              <button
-                onClick={() => setViewMode("card")}
-                style={{
-                  border: "none", background: viewMode === "card" ? "#fff" : "transparent",
-                  color: viewMode === "card" ? "var(--ink-900)" : "var(--ink-500)",
-                  fontWeight: 600, padding: "6px 16px", borderRadius: 18, fontSize: 13, cursor: "pointer",
-                  boxShadow: viewMode === "card" ? "var(--shadow-sm)" : "none",
-                  transition: "all 0.2s"
-                }}
-              >
-                Details
-              </button>
-              <button
-                onClick={() => setViewMode("qr")}
-                style={{
-                  border: "none", background: viewMode === "qr" ? "#fff" : "transparent",
-                  color: viewMode === "qr" ? "var(--ink-900)" : "var(--ink-500)",
-                  fontWeight: 600, padding: "6px 16px", borderRadius: 18, fontSize: 13, cursor: "pointer",
-                  boxShadow: viewMode === "qr" ? "var(--shadow-sm)" : "none",
-                  transition: "all 0.2s"
-                }}
-              >
-                QR Code
-              </button>
+          {/* View Mode Toggle: Card vs QR Code — QR hidden when the subject
+              has no meaningful one (a request expires within 24h). */}
+          {caps.qr.enabled && (
+            <div className="row center" style={{ marginBottom: 14 }}>
+              <div style={{
+                background: "var(--ink-100)", borderRadius: 20, padding: 3, display: "flex", gap: 2
+              }}>
+                <button
+                  onClick={() => setViewMode("card")}
+                  style={{
+                    border: "none", background: viewMode === "card" ? "#fff" : "transparent",
+                    color: viewMode === "card" ? "var(--ink-900)" : "var(--ink-500)",
+                    fontWeight: 600, padding: "6px 16px", borderRadius: 18, fontSize: 13, cursor: "pointer",
+                    boxShadow: viewMode === "card" ? "var(--shadow-sm)" : "none",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  Details
+                </button>
+                <button
+                  onClick={() => setViewMode("qr")}
+                  style={{
+                    border: "none", background: viewMode === "qr" ? "#fff" : "transparent",
+                    color: viewMode === "qr" ? "var(--ink-900)" : "var(--ink-500)",
+                    fontWeight: 600, padding: "6px 16px", borderRadius: 18, fontSize: 13, cursor: "pointer",
+                    boxShadow: viewMode === "qr" ? "var(--shadow-sm)" : "none",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  QR Code
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Preview Container */}
-          {viewMode === "qr" ? (
+          {viewMode === "qr" && caps.qr.enabled ? (
             <div
               style={{
                 borderRadius: 20,
                 padding: "20px 16px",
-                background: qrMode === "payment" ? "linear-gradient(160deg, var(--green-500), var(--green-700))" : "linear-gradient(160deg, var(--brand-500), var(--brand-800))",
+                background: showingPayment ? "linear-gradient(160deg, var(--green-500), var(--green-700))" : "linear-gradient(160deg, var(--brand-500), var(--brand-800))",
                 color: "#fff",
                 boxShadow: "var(--shadow-md)",
                 display: "flex",
@@ -311,8 +311,9 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
                 textAlign: "center"
               }}
             >
-              {/* Payment / Profile toggle inside QR panel */}
-              {hasPaymentQr && (
+              {/* Payment / Profile toggle — merchant subjects the viewer
+                  manages, with a UPI id actually configured. */}
+              {caps.paymentQr && (
                 <div style={{ background: "rgba(255,255,255,0.15)", borderRadius: 20, padding: 3, display: "flex", gap: 2, marginBottom: 14 }}>
                   <button
                     onClick={() => setQrMode("profile")}
@@ -329,7 +330,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
                 </div>
               )}
 
-              {qrMode === "payment" && hasPaymentQr ? (
+              {showingPayment ? (
                 <>
                   <div style={{ background: "#fff", borderRadius: 16, padding: 12, boxShadow: "var(--shadow)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
                     {/* `|| undefined` so React omits src entirely on the first
@@ -353,7 +354,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
                   <div className="bold" style={{ fontSize: 18 }}>{currentTitle}</div>
                   <div className="small" style={{ opacity: 0.9, marginTop: 2 }}>{currentSubtitle}</div>
                   {currentMeta && <div className="tiny" style={{ opacity: 0.8, marginTop: 4 }}>{currentMeta}</div>}
-                  <div className="tiny semi" style={{ marginTop: 10, opacity: 0.85, letterSpacing: 0.5 }}>SCAN TO OPEN IN STRYT</div>
+                  <div className="tiny semi" style={{ marginTop: 10, opacity: 0.85, letterSpacing: 0.5 }}>{caps.qr.scanLabel}</div>
                 </>
               )}
 
@@ -367,13 +368,15 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
                 >
                   <Download size={15} /> {isGenerating ? "Saving..." : "Download QR"}
                 </button>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => setShowPrintModal(true)}
-                  style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", fontWeight: 700 }}
-                >
-                  <Printer size={15} /> Print Stand
-                </button>
+                {caps.artifact === "counter-stand" && (
+                  <button
+                    className="btn btn-sm"
+                    onClick={() => setShowPrintModal(true)}
+                    style={{ background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.4)", fontWeight: 700 }}
+                  >
+                    <Printer size={15} /> Print Stand
+                  </button>
+                )}
               </div>
             </div>
           ) : (
@@ -421,8 +424,11 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
         </div>
       </div>
 
-      {/* Printable Counter Stand Modal Preview */}
-      {showPrintModal && (
+      {/* Printable Counter Stand — merchant signage, so it only ever renders
+          for a business/provider the viewer actually manages. Its copy
+          ("Official Local Business Scanner", "view our catalog, menu &
+          offers") is finally guaranteed to match its subject. */}
+      {showPrintModal && caps.artifact === "counter-stand" && (
         <div className="overlay" style={{ zIndex: 120 }} onClick={() => setShowPrintModal(false)}>
           <div
             className="sheet printable-counter-stand"
@@ -477,7 +483,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
                 <div className="bold" style={{ fontSize: 24, color: "var(--ink-900)", marginBottom: 4, lineHeight: 1.2 }}>
                   {currentTitle}
                 </div>
-                
+
                 <div className="row center gap-6" style={{ marginBottom: 16 }}>
                   <span className="chip" style={{ background: "var(--brand-50)", color: "var(--brand-700)", borderColor: "var(--brand-200)", fontSize: 12, padding: "3px 10px", fontWeight: 600 }}>
                     <Store size={12} style={{ display: "inline", marginRight: 4 }} />
@@ -513,7 +519,7 @@ export default function ShareCard({ title, subtitle, image, meta, url, options, 
                   <div className="tiny bold row gap-6" style={{ color: "var(--brand-700)", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
                     <Camera size={14} /> How to connect with our store:
                   </div>
-                  
+
                   <div className="col gap-6" style={{ fontSize: 12, color: "var(--ink-700)", lineHeight: 1.35 }}>
                     <div className="row gap-8">
                       <span className="bold" style={{ color: "var(--brand-700)", width: 16 }}>1.</span>

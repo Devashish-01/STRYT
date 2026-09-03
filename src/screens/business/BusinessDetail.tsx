@@ -46,7 +46,7 @@ export default function BusinessDetail() {
     user,
     isBookmarked, toggleBookmark, showToast,
     isFollowing, toggleFollow, notifySubs, toggleNotify,
-    queuesJoined, joinQueue, isGuest,
+    queuesJoined, joinQueue, isGuest, manageableBusinessIds,
   } = useApp();
   const { t, tf } = useI18n();
 
@@ -1081,7 +1081,23 @@ export default function BusinessDetail() {
         <PhotoViewer photos={viewingPhotos.photos} startIndex={viewingPhotos.startIndex} onClose={() => setViewingPhotos(null)} />
       )}
       {report && <ReportSheet targetType="BUSINESS" targetId={b.id} name={b.name} onClose={() => setReport(false)} />}
-      {share && <ShareCard title={b.name} subtitle={b.subCategory} image={b.coverImage} meta={`${b.ratingCount > 0 ? `⭐ ${b.ratingAvg} (${b.ratingCount}) • ` : ""}${b.city}`} url={window.location.origin + "/business/" + b.id} onClose={() => setShare(false)} />}
+      {share && (
+        <ShareCard
+          subjects={{
+            kind: "business",
+            id: b.id,
+            // A visitor gets link/WhatsApp/QR; only someone who manages this
+            // shop is offered its counter stand or payment QR.
+            viewerManages: manageableBusinessIds.includes(b.id),
+            upiId: b.upiId,
+            title: b.name,
+            subtitle: b.subCategory,
+            image: b.coverImage,
+            meta: `${b.ratingCount > 0 ? `⭐ ${b.ratingAvg} (${b.ratingCount}) • ` : ""}${b.city}`,
+          }}
+          onClose={() => setShare(false)}
+        />
+      )}
       {addList && <AddToListSheet type="BUSINESS" id={b.id} onClose={() => setAddList(false)} />}
       {reviewing && (
         <ReviewSheet

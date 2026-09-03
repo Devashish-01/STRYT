@@ -620,7 +620,22 @@ export default function RequestDetail() {
       )}
 
       {report && <ReportSheet targetType="REQUEST" targetId={r.id} name="this request" onClose={() => setReport(false)} />}
-      {share && <ShareCard title={r.title} subtitle={`${r.categoryName} • ${budget}`} image={r.photos[0] ?? PLACEHOLDER_REQUEST_SHARE} meta={`📍 ${r.area} • needed by ${r.deadline}`} onClose={() => setShare(false)} />}
+      {share && (
+        <ShareCard
+          subjects={{
+            kind: "request",
+            // Was passing no url at all and silently falling back to
+            // window.location.href — correct only because this happens to be
+            // the detail screen. Now derived from the subject.
+            id: r.id,
+            title: r.title,
+            subtitle: `${r.categoryName} • ${budget}`,
+            image: r.photos[0] ?? PLACEHOLDER_REQUEST_SHARE,
+            meta: `📍 ${r.area} • needed by ${r.deadline}`,
+          }}
+          onClose={() => setShare(false)}
+        />
+      )}
 
       {/* Edit Request Sheet */}
       {editing && (

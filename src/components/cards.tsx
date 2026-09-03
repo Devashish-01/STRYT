@@ -23,7 +23,6 @@ import {
   isDoubleTap,
   muteTargetId,
   postShareSubtitle,
-  postShareUrl,
   type TapRecord,
 } from "@/lib/postInteractions";
 import ListingPickerSheet from "./ListingPickerSheet";
@@ -948,11 +947,15 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
 
       {sharing && (
         <ShareCard
-          title={post.title}
-          subtitle={postShareSubtitle(post)}
-          image={cardMedia[0] ?? post.authorAvatar}
-          meta={COMMUNITY_TYPE_META[post.type].label}
-          url={postShareUrl(post.id)}
+          subjects={{
+            kind: "post",
+            id: post.id,
+            postType: post.type,
+            title: post.title,
+            subtitle: postShareSubtitle(post),
+            image: cardMedia[0] ?? post.authorAvatar,
+            meta: COMMUNITY_TYPE_META[post.type].label,
+          }}
           onClose={() => setSharing(false)}
         />
       )}

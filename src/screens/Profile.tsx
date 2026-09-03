@@ -19,7 +19,8 @@ import { requestService, socialService, businessService, notificationService, ap
 import { PLACEHOLDER_AVATAR, PLACEHOLDER_AVATAR_ALT, PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import type { AgreementStatus } from "@/types";
-import ShareCard, { type ShareOption } from "@/components/ShareCard";
+import ShareCard from "@/components/ShareCard";
+import type { ShareSubject } from "@/lib/share";
 import { StoryViewer } from "@/components/Stories";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
@@ -57,44 +58,50 @@ export default function Profile() {
     `profile:my-biz:${user.id}`
   );
 
-  const shareOptions: ShareOption[] = [
+  // One subject per identity you can share as. Each carries its OWN
+  // capabilities now, so picking "Shop Profile" surfaces that shop's counter
+  // stand and payment QR while "Personal Profile" correctly offers neither —
+  // previously the chips only swapped the card's text.
+  const shareSubjects: ShareSubject[] = [
     {
-      role: "customer",
+      kind: "person",
+      id: user.id,
       label: "Personal Profile",
-      url: window.location.origin + "/u/" + user.id,
       title: displayName(user.name),
       subtitle: `Customer • ${user.area || "No location"}`,
       image: user.avatar || PLACEHOLDER_AVATAR,
-      meta: (user.ratingCount ?? 0) > 0 ? `⭐ ${user.ratingAvg} (${user.ratingCount})` : "New member"
-    }
+      meta: (user.ratingCount ?? 0) > 0 ? `⭐ ${user.ratingAvg} (${user.ratingCount})` : "New member",
+    },
   ];
 
-  
   // Up to 5 businesses per owner (trg_enforce_business_owner_limit) — one
   // share entry per business, not just the first, each with its real name
   // once myBizList has loaded (falls back to a generic label until then).
   ownedBusinessIds.forEach((bizId, i) => {
     const biz = (myBizList ?? []).find((b) => b.id === bizId);
-    shareOptions.push({
-      role: "business_owner",
+    shareSubjects.push({
+      kind: "business",
+      id: bizId,
+      viewerManages: true, // these are ownedBusinessIds — owned by definition
+      upiId: biz?.upiId,
       label: ownedBusinessIds.length > 1 ? (biz?.name ?? `Shop Profile ${i + 1}`) : "Shop Profile",
-      url: window.location.origin + "/business/" + bizId,
       title: biz?.name ?? `${getFirstName(displayName(user.name, "My"))}'s Shop`,
       subtitle: "Local Business on Stryt",
       image: biz?.coverImage || PLACEHOLDER_BUSINESS_COVER,
-      meta: "Shops & Deals"
+      meta: "Shops & Deals",
     });
   });
 
   if (ownedProviderId) {
-    shareOptions.push({
-      role: "provider",
+    shareSubjects.push({
+      kind: "provider",
+      id: ownedProviderId,
+      viewerManages: true,
       label: "Provider Profile",
-      url: window.location.origin + "/provider/" + ownedProviderId,
       title: displayName(user.name, "Service Provider"),
       subtitle: "Professional Provider on Stryt",
       image: user.avatar || PLACEHOLDER_AVATAR_ALT,
-      meta: "Services & Work"
+      meta: "Services & Work",
     });
   }
 
@@ -576,13 +583,7 @@ export default function Profile() {
         <PhotoViewer photos={[{ url: user.avatar || PLACEHOLDER_AVATAR }]} startIndex={0} onClose={() => setViewingAvatarPhoto(false)} />
       )}
       {share && (
-        <ShareCard
-          title={displayName(user.name)}
-          subtitle={`Customer • ${user.area || "No location"}`}
-          image={user.avatar}
-          options={shareOptions}
-          onClose={() => setShare(false)}
-        />
+        <ShareCard subjects={shareSubjects} onClose={() => setShare(false)} />
       )}
     </div>
   );

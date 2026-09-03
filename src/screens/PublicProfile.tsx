@@ -588,11 +588,14 @@ export default function PublicProfile() {
       {/* Share QR Modal */}
       {share && (
         <ShareCard
-          title={aliasName(u)}
-          subtitle={t("stryt_member_subtitle")}
-          image={u.avatar}
-          meta={`📍 ${u.area || t("neighborhood_fallback")} • ⭐ ${u.ratingAvg}`}
-          url={window.location.origin + "/u/" + u.id}
+          subjects={{
+            kind: "person",
+            id: u.id,
+            title: aliasName(u),
+            subtitle: t("stryt_member_subtitle"),
+            image: u.avatar,
+            meta: `📍 ${u.area || t("neighborhood_fallback")} • ⭐ ${u.ratingAvg}`,
+          }}
           onClose={() => setShare(false)}
         />
       )}

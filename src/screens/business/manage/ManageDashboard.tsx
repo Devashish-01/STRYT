@@ -630,7 +630,24 @@ export default function ManageDashboard() {
       </div>
 
       <ManageNav bizId={id} waitingCount={queue?.waiting.length ?? 0} />
-      {share && <ShareCard title={business?.name || "Business"} subtitle={`${business?.subCategory || "Local business"} · ${business?.city || "STRYT"}`} image={business?.coverImage || ""} meta={`⭐ ${business?.ratingAvg || 0} (${business?.ratingCount || 0})`} url={`${window.location.origin}/business/${id}`} upiId={business?.upiId || undefined} paymentQrUrl={localStorage.getItem(`stryt_upi_qr_${id}`) || undefined} onClose={() => setShare(false)} />}
+      {share && (
+        <ShareCard
+          subjects={{
+            kind: "business",
+            id,
+            // Reached only through BusinessAccessGuard, so the viewer manages
+            // this shop by definition — counter stand and payment QR apply.
+            viewerManages: true,
+            upiId: business?.upiId || undefined,
+            paymentQrUrl: localStorage.getItem(`stryt_upi_qr_${id}`) || undefined,
+            title: business?.name || "Business",
+            subtitle: `${business?.subCategory || "Local business"} · ${business?.city || "STRYT"}`,
+            image: business?.coverImage || "",
+            meta: `⭐ ${business?.ratingAvg || 0} (${business?.ratingCount || 0})`,
+          }}
+          onClose={() => setShare(false)}
+        />
+      )}
     </div>
   );
 }

@@ -41,7 +41,7 @@ import {
   type CommentSort,
   type MentionQuery,
 } from "@/lib/mentions";
-import { postShareSubtitle, postShareUrl } from "@/lib/postInteractions";
+import { postShareSubtitle } from "@/lib/postInteractions";
 
 /** Author-only edit sheet — title/details/photo, the same fields CommunityCompose
  *  collects at creation time. Kept local to this file since it's only ever
@@ -1096,11 +1096,15 @@ export default function CommunityPostDetail() {
 
       {sharing && (
         <ShareCard
-          title={safePost.title}
-          subtitle={postShareSubtitle(safePost)}
-          image={detailMedia[0] ?? safePost.authorAvatar}
-          meta={typeMeta.label}
-          url={postShareUrl(safePost.id)}
+          subjects={{
+            kind: "post",
+            id: safePost.id,
+            postType: safePost.type,
+            title: safePost.title,
+            subtitle: postShareSubtitle(safePost),
+            image: detailMedia[0] ?? safePost.authorAvatar,
+            meta: typeMeta.label,
+          }}
           onClose={() => setSharing(false)}
         />
       )}

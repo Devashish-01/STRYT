@@ -40,7 +40,7 @@ export default function ProviderDetail() {
     user,
     isBookmarked, toggleBookmark, showToast,
     isFollowing, toggleFollow, vouched, toggleVouch, endorsed, toggleEndorse,
-    isGuest,
+    isGuest, ownedProviderId,
   } = useApp();
   const { t, tf } = useI18n();
 
@@ -656,7 +656,20 @@ export default function ProviderDetail() {
         <PhotoViewer photos={viewingPhotos.photos} startIndex={viewingPhotos.startIndex} onClose={() => setViewingPhotos(null)} />
       )}
       {report && <ReportSheet targetType="PROVIDER" targetId={p.id} name={p.displayName} onClose={() => setReport(false)} />}
-      {share && <ShareCard title={safeName(p.displayName, t("local_provider_fallback"))} subtitle={`${p.categoryName} • from ${inr(p.startingPrice)}`} image={p.portfolio[0]?.url ?? p.avatar} meta={[p.ratingCount > 0 ? `⭐ ${p.ratingAvg}` : "", p.jobsDone > 0 ? `${p.jobsDone} jobs` : ""].filter(Boolean).join(" • ") || t("new_provider_badge")} url={window.location.origin + "/provider/" + p.id} onClose={() => setShare(false)} />}
+      {share && (
+        <ShareCard
+          subjects={{
+            kind: "provider",
+            id: p.id,
+            viewerManages: ownedProviderId === p.id,
+            title: safeName(p.displayName, t("local_provider_fallback")),
+            subtitle: `${p.categoryName} • from ${inr(p.startingPrice)}`,
+            image: p.portfolio[0]?.url ?? p.avatar,
+            meta: [p.ratingCount > 0 ? `⭐ ${p.ratingAvg}` : "", p.jobsDone > 0 ? `${p.jobsDone} jobs` : ""].filter(Boolean).join(" • ") || t("new_provider_badge"),
+          }}
+          onClose={() => setShare(false)}
+        />
+      )}
       {reviewing && (
         <ReviewSheet
           targetName={p.displayName}
