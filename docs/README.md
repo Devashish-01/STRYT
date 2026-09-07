@@ -14,6 +14,7 @@ All project documentation lives under `docs/`.
 | **Background location (Play Console)** | [launch/play-console/BACKGROUND_LOCATION_DECLARATION.md](./launch/play-console/BACKGROUND_LOCATION_DECLARATION.md) |
 | **Deploy / build Android** | [engineering/DEPLOYMENT_GUIDE.md](./engineering/DEPLOYMENT_GUIDE.md) |
 | **Understand the codebase** | [engineering/CODEBASE_MAP.md](./engineering/CODEBASE_MAP.md) |
+| **Troubleshoot flows (AI Code Graph)** | [engineering/CODE_GRAPH.md](./engineering/CODE_GRAPH.md) |
 | **Product overview** | [product/PRODUCT_GUIDE.md](./product/PRODUCT_GUIDE.md) |
 | **Legal policies (source)** | [`../legal/README.md`](../legal/README.md) |
 | **In-app user guides (source)** | [`../guide/`](../guide/) |

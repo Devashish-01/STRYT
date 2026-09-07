@@ -98,6 +98,7 @@ background work and battery managers misbehave first.
 | 21 | [Admin panel](21_admin_panel.md) | Verification queue, business approval, disputes |
 | 22 | [Android platform checks](22_android_platform_checks.md) | Permissions, push, deep links, OTA, install |
 | 23 | [Cross-cutting regression risks](23_cross_cutting_regression_risks.md) | This cycle's fixes — team access, delivery cancel, email leak, live-location explainer, battery prompt, map, deploy pipeline |
+| 24 | [Flow-completeness audit](24_flow_completeness_audit.md) | **NEW, 2026-09-05** — proactive sweep for actions that don't fully connect through the rest of the app (missing confirmations, missing notifications, stale state, dead ends). Read this before re-running 01–23 by hand — several are already known-broken. |
 
 ---
 

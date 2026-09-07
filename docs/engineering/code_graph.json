@@ -1,0 +1,378 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "project": {
+    "name": "STRYT",
+    "description": "Hyperlocal marketplace and community PWA connecting neighbors with local businesses and service providers",
+    "architecture": "Mobile-first PWA, multi-tenant tri-hat context model, Supabase-backed React SPA",
+    "stack": {
+      "frontend": "React 18 + TypeScript + Vite",
+      "routing": "react-router-dom v6 (lazy loaded routes)",
+      "state": "React Context (src/store.tsx - useApp)",
+      "backend": "Supabase (PostgreSQL 14.5 + GoTrue Auth + Realtime + Storage)",
+      "styling": "Vanilla CSS design tokens (src/index.css, 480px app-shell)",
+      "maps": "Leaflet + react-leaflet + Mapbox / OpenStreetMap Nominatim"
+    },
+    "conventions": {
+      "db_casing": "snake_case",
+      "app_casing": "camelCase",
+      "casing_mapper": "src/lib/caseMap.ts (toSnake / toCamel)",
+      "strict_mode": "noUnusedLocals enabled in tsconfig (unused imports fail build)",
+      "typecheck_command": "npx tsc --noEmit",
+      "build_command": "npm run build"
+    }
+  },
+  "identity_and_roles": {
+    "tri_hat_model": {
+      "customer": {
+        "context_type": "customer",
+        "role_name": "customer",
+        "routes": ["/home", "/explore", "/categories", "/map", "/community-hub", "/profile"],
+        "table": "users"
+      },
+      "business_owner": {
+        "context_type": "business",
+        "role_name": "business_owner",
+        "routes": ["/business/:id/manage/*"],
+        "table": "businesses",
+        "limit_per_user": 5,
+        "enforced_by": "trg_enforce_business_owner_limit"
+      },
+      "service_provider": {
+        "context_type": "provider",
+        "role_name": "provider",
+        "routes": ["/provider/:id/manage/*"],
+        "table": "providers",
+        "limit_per_user": 1,
+        "enforced_by": "idx_providers_one_per_user"
+      },
+      "delivery_agent": {
+        "context_type": "delivery",
+        "role_name": "delivery",
+        "routes": ["/delivery"],
+        "table": "appointment_deliveries"
+      }
+    },
+    "state_synchronization": {
+      "store_file": "src/store.tsx",
+      "context_state": "activeContext: { type: 'customer'|'business'|'provider', id: string|null, name?: string }",
+      "roles_state": "roles: string[] (from users.roles)",
+      "critical_race_condition": "addRole() in store.tsx:626 must be awaited before refreshUser(). If un-awaited, refreshUser() reads stale DB state and resets roles to ['customer']."
+    }
+  },
+  "security_and_pii_masking": {
+    "description": "Supabase RLS masks private user columns from standard select queries. Raw select('phone, lat, lng') returns null or throws RLS error.",
+    "masked_columns": {
+      "phone": "Private contact number of customers/users",
+      "lat": "Private residential coordinates of customers",
+      "lng": "Private residential coordinates of customers",
+      "emergency_contact": "SOS safety contact number",
+      "emergency_contact_name": "SOS safety contact person"
+    },
+    "security_definer_rpcs": [
+      {
+        "name": "get_own_profile()",
+        "returns": "setof users",
+        "purpose": "Full unmasked user row for auth.uid()",
+        "caller": "src/services/core/userService.ts -> me()"
+      },
+      {
+        "name": "get_own_coords()",
+        "returns": "table(lat float8, lng float8)",
+        "purpose": "Lightweight unmasked coordinates for auth.uid()",
+        "caller": "src/services/core/userService.ts, providerService.ts, businessService.ts"
+      },
+      {
+        "name": "get_own_emergency_contact()",
+        "returns": "table(emergency_contact text, emergency_contact_name text)",
+        "purpose": "SOS emergency contact for auth.uid()",
+        "caller": "src/services/engagement/emergencyService.ts"
+      },
+      {
+        "name": "aliases_available(p_aliases text[])",
+        "returns": "table(alias text, available boolean)",
+        "purpose": "Case-insensitive check for free @handles excluding caller's row",
+        "caller": "src/services/core/userService.ts -> aliasesAvailable()"
+      },
+      {
+        "name": "record_terms_acceptance(p_version text, p_user_agent text)",
+        "returns": "void",
+        "purpose": "Appends audit log and stamps users.terms_accepted_version",
+        "caller": "src/services/core/userService.ts -> acceptTerms()"
+      }
+    ]
+  },
+  "core_tables": {
+    "users": {
+      "file": "src/services/core/userService.ts",
+      "pk": "id",
+      "columns_whitelist": [
+        "name", "alias", "phone", "avatar", "roles", "area", "city", "lat", "lng",
+        "ratingAvg", "ratingCount", "language", "notificationRadiusKm",
+        "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
+        "showPhonePublicly", "showEmailPublicly", "showCityPublicly", "showRatingPublicly",
+        "showNamePublicly", "locationPublic", "onboardingCompletedAt",
+        "interestCategoryIds", "notifNewBusiness", "notifNearbyRequests", "notifOffers",
+        "notifNearbyAlerts", "notifSilent", "notifQuietHours", "timezone"
+      ]
+    },
+    "businesses": {
+      "file": "src/services/marketplace/businessService.ts",
+      "pk": "id",
+      "fk_owner": "owner_user_id -> users.id",
+      "columns_whitelist": [
+        "name", "categoryId", "subCategory", "address", "city", "pincode", "lat", "lng",
+        "phone", "whatsapp", "email", "coverImage", "gallery", "status", "rejectionReason",
+        "isVerified", "verificationStatus", "ratingAvg", "ratingCount", "hours",
+        "startingPrice", "broadcastRadiusKm", "showPhonePublicly", "showEmailPublicly",
+        "upiId", "paymentTiming", "depositPercent", "isOpenNow", "isAvailableNow",
+        "availableUntil", "packageKey", "bookingsEnabled", "brandPrimaryColor"
+      ]
+    },
+    "providers": {
+      "file": "src/services/marketplace/providerService.ts",
+      "pk": "id",
+      "fk_owner": "user_id -> users.id",
+      "columns_whitelist": [
+        "userId", "displayName", "categoryId", "categoryName", "subCategory", "bio", "avatar",
+        "lat", "lng", "serviceRadiusKm", "startingPrice", "availabilityNote", "status",
+        "isVerified", "ratingAvg", "ratingCount", "jobsDone", "responseTime", "isNew", "skills",
+        "phone", "verificationStatus", "verificationDocumentUrl", "paymentTiming",
+        "depositPercent", "email", "upiId", "showPhonePublicly", "showEmailPublicly",
+        "locationPublic", "isOpenNow", "isAvailableNow", "availableUntil", "packageKey",
+        "bookingsEnabled"
+      ]
+    },
+    "catalog_items": {
+      "file": "src/services/marketplace/businessService.ts, providerService.ts",
+      "pk": "id",
+      "fks": { "business_id": "businesses.id", "provider_id": "providers.id" }
+    },
+    "portfolio_items": {
+      "file": "src/services/marketplace/businessService.ts, providerService.ts",
+      "pk": "id",
+      "fks": { "business_id": "businesses.id", "provider_id": "providers.id" }
+    },
+    "appointments": {
+      "file": "src/services/engagement/appointmentService.ts",
+      "pk": "id",
+      "fks": { "customer_user_id": "users.id", "business_id": "businesses.id", "provider_id": "providers.id" }
+    },
+    "community_posts": {
+      "file": "src/services/engagement/communityService.ts",
+      "pk": "id",
+      "fk_author": "author_user_id -> users.id"
+    },
+    "post_comments": {
+      "file": "src/services/engagement/communityService.ts",
+      "pk": "id",
+      "fks": { "post_id": "community_posts.id", "author_user_id": "users.id" },
+      "attached_listing": ["listing_type", "listing_id"]
+    },
+    "post_recommendations": {
+      "file": "src/services/engagement/communityService.ts",
+      "pk": "id",
+      "fks": { "post_id": "community_posts.id", "user_id": "users.id" },
+      "attached_listing": ["listing_type", "listing_id"]
+    }
+  },
+  "flows": {
+    "customer_onboarding": {
+      "entry_route": "/auth/onboard",
+      "container_file": "src/screens/auth/UserOnboard.tsx",
+      "beats": [
+        { "beat": 0, "file": "src/screens/auth/onboard/BeatIdentity.tsx", "purpose": "Confirm display name, avatar, and select language (en/hi/mr)" },
+        { "beat": 1, "file": "src/screens/auth/onboard/BeatHandle.tsx", "purpose": "Pick or type @alias, verified via aliases_available RPC" },
+        { "beat": 2, "file": "src/screens/auth/onboard/BeatLocation.tsx", "purpose": "Acquire GPS or search locality via forwardGeocode, save lat/lng/area" },
+        { "beat": 3, "file": "src/screens/auth/onboard/BeatInterests.tsx", "purpose": "Select top-level category interest IDs to seed Home feed ranking" }
+      ],
+      "completion_action": "userService.update({ interestCategoryIds, onboardingCompletedAt }) -> nav('/home')",
+      "known_blockers": [
+        "Google OAuth seeds real name, causing isUnusableName to return false and skipping Beat 0 and Language Switcher on first login",
+        "Search in BeatLocation is not debounced, triggering 429 Too Many Requests from Nominatim",
+        "ob_beat localStorage key is global and bleeds between accounts on same device"
+      ]
+    },
+    "business_onboarding": {
+      "entry_route": "/onboard/business",
+      "container_file": "src/screens/business/BusinessOnboard.tsx",
+      "steps": [
+        { "step": 0, "fields": ["name", "categoryId", "broadcastRadius"] },
+        { "step": 1, "fields": ["lat", "lng", "address", "city", "pincode"], "component": "LocationPicker.tsx" },
+        { "step": 2, "fields": ["photos (up to 4)", "offer"], "storage_bucket": "business-photo" },
+        { "step": 3, "fields": ["phone", "openDate", "hoursRaw", "packageKey", "bookingsEnabled"] }
+      ],
+      "completion_action": "businessService.create() -> addRole('business_owner') -> nav('/business/:id/manage')",
+      "known_blockers": [
+        "Phone input maxLength=10 truncates +91 numbers to 9 digits before non-digit regex strip",
+        "Operating hours are coupled to bookings toggle, setting hours: null for retail/dining when bookings disabled",
+        "Uploaded photo thumbnails have no delete/trash button, preventing removal of mistaken uploads",
+        "Triggers trg_enforce_business_owner_limit if user owns 5 businesses, rejecting submit with no preflight check"
+      ]
+    },
+    "provider_onboarding": {
+      "entry_route": "/onboard/provider",
+      "container_file": "src/screens/provider/ProviderOnboard.tsx",
+      "steps": [
+        { "step": 0, "fields": ["cat", "newCat", "displayName"] },
+        { "step": 1, "fields": ["price", "bio", "lat", "lng", "radius"] },
+        { "step": 2, "fields": ["photos (portfolio)"], "storage_bucket": "portfolio" },
+        { "step": 3, "fields": ["photoFile (avatar)", "availability", "packageKey", "wantsBookings"], "storage_bucket": "provider-photo" }
+      ],
+      "completion_action": "providerService.create() -> addRole('provider') -> nav('/provider/:id/manage')",
+      "known_blockers": [
+        "Phone number input is completely missing; providers.phone is null, breaking public 'Call' button on ProviderDetail",
+        "Proposing new category sets cat=null, saving categoryId=null and categoryName=null in database",
+        "Portfolio upload failure leaves provider row inserted, bricking retries via idx_providers_one_per_user",
+        "Portfolio thumbnails lack delete/remove buttons"
+      ]
+    },
+    "community_post_flow": {
+      "feed_route": "/community-hub",
+      "detail_route": "/community/:id",
+      "feed_component": "src/components/cards.tsx (CommunityCard)",
+      "detail_component": "src/screens/CommunityPostDetail.tsx",
+      "service_file": "src/services/engagement/communityService.ts",
+      "known_blockers": [
+        "CommunityPostDetail is missing the '+ Recommend' button present on feed cards",
+        "Comment composer lacks 'Attach place/provider' button even though schema and service support listing_type and listing_id",
+        "CommentRow has no Delete button for author or post owner",
+        "Bookmarks.tsx has no 'Community' / 'Posts' tab to view saved posts"
+      ]
+    }
+  },
+  "troubleshooting_rules": [
+    {
+      "id": "RULE-001",
+      "symptom": "Customer cannot call service provider from ProviderDetail screen",
+      "trace": [
+        "ProviderDetail.tsx:184, 570 checks 'p.phone && p.showPhonePublicly !== false'",
+        "providers.phone in DB is NULL",
+        "providerService.create() did not receive phone",
+        "ProviderOnboard.tsx lacks phone state and input"
+      ],
+      "root_cause": "Provider onboarding flow never collects or passes the provider's phone number.",
+      "fix_file": "src/screens/provider/ProviderOnboard.tsx",
+      "fix_action": "Add phone state and input in Step 1/3, pre-fill from user.phone, and pass to providerService.create()."
+    },
+    {
+      "id": "RULE-002",
+      "symptom": "User loses business_owner or provider role after page refresh or reload",
+      "trace": [
+        "BusinessOnboard.tsx / ProviderOnboard.tsx calls addRole('role')",
+        "store.tsx:626 executes 'void userService.update({ roles: next })' (un-awaited fire-and-forget)",
+        "refreshUser() runs immediately in parallel, querying get_own_profile before DB update commits",
+        "refreshUser() overwrites optimistic roles with stale DB roles ['customer']"
+      ],
+      "root_cause": "Race condition caused by fire-and-forget userService.update in addRole().",
+      "fix_file": "src/store.tsx",
+      "fix_action": "Make addRole async or await userService.update() before refreshUser() runs."
+    },
+    {
+      "id": "RULE-003",
+      "symptom": "Phone input blocks user with validation error when pasting +91 or 0 prefix",
+      "trace": [
+        "BusinessOnboard.tsx:196 has input with maxLength={10}",
+        "User types or pastes '+919876543210' (13 chars)",
+        "HTML input truncates to '+919876543' (10 chars)",
+        "onChange regex replace(/\\D/g, '') strips '+' leaving '919876543' (9 digits)",
+        "canNext validation requires length === 10, failing permanently"
+      ],
+      "root_cause": "maxLength={10} is enforced before non-digit characters and country code are stripped.",
+      "fix_file": "src/screens/business/BusinessOnboard.tsx",
+      "fix_action": "Remove raw maxLength or strip leading +91/91/0 in onChange before slicing to 10 digits."
+    },
+    {
+      "id": "RULE-004",
+      "symptom": "Store operating hours disappear on BusinessDetail for retail or dining shops",
+      "trace": [
+        "BusinessOnboard.tsx:219 renders WeeklyHoursEditor only '{wantsBookings && ...}'",
+        "BusinessOnboard.tsx:128 submits 'hours: wantsBookings ? (hoursRaw || undefined) : undefined'",
+        "Retail/dining shops toggle off bookings, sending hours: undefined (NULL in Postgres)",
+        "BusinessDetail.tsx cannot render working hours or evaluate store open status"
+      ],
+      "root_cause": "Store operating hours are wrongly coupled to appointment booking availability.",
+      "fix_file": "src/screens/business/BusinessOnboard.tsx",
+      "fix_action": "Always display WeeklyHoursEditor and submit hoursRaw regardless of wantsBookings."
+    },
+    {
+      "id": "RULE-005",
+      "symptom": "Retrying provider onboarding crashes with 'You already have a provider profile'",
+      "trace": [
+        "ProviderOnboard.tsx:71 submit() calls providerService.create() before photo uploads",
+        "providerService.create() successfully inserts row in providers table",
+        "Promise.all(photos.map(uploadService.upload)) fails due to network or image size",
+        "submit() throws to catch block",
+        "User clicks Submit profile again",
+        "providerService.create() hits Postgres unique index idx_providers_one_per_user"
+      ],
+      "root_cause": "Non-atomic submission: DB row is created before storage uploads complete.",
+      "fix_file": "src/screens/provider/ProviderOnboard.tsx",
+      "fix_action": "Upload portfolio assets before creating provider row, or handle partial upload failure non-fatally."
+    },
+    {
+      "id": "RULE-006",
+      "symptom": "Proposing a custom category in ProviderOnboard creates a listing with NULL category",
+      "trace": [
+        "User types in 'newCat', ProviderOnboard.tsx:183 sets 'cat = null'",
+        "ProviderOnboard.tsx:86 submits 'categoryId: cat ?? undefined'",
+        "selectedCat is undefined, submitting 'categoryName: undefined'",
+        "providers row is saved with category_id = NULL and category_name = NULL"
+      ],
+      "root_cause": "Custom category name from newCat is not passed into providerService.create().",
+      "fix_file": "src/screens/provider/ProviderOnboard.tsx",
+      "fix_action": "Pass categoryName: newCat.trim() to providerService.create() when newCat is present."
+    },
+    {
+      "id": "RULE-007",
+      "symptom": "Location search dropdown blanks out while user types in BeatLocation",
+      "trace": [
+        "BeatLocation.tsx:156 onChange calls search(e.target.value) on every keystroke",
+        "search() immediately invokes forwardGeocode() without debounce",
+        "OpenStreetMap Nominatim enforces 1 req/sec rate limit",
+        "Rapid typing triggers HTTP 429 Too Many Requests",
+        "catch block executes setResults([]), wiping dropdown"
+      ],
+      "root_cause": "Search-as-you-type input lacks debouncing.",
+      "fix_file": "src/screens/auth/onboard/BeatLocation.tsx",
+      "fix_action": "Add 400ms setTimeout debounce with sequence ref before calling forwardGeocode()."
+    },
+    {
+      "id": "RULE-008",
+      "symptom": "Brand-new Google user never sees Language Switcher (Hindi/Marathi) on signup",
+      "trace": [
+        "User signs up via Google OAuth, userService.me() populates user.name",
+        "UserOnboard.tsx:52 evaluates isUnusableName(user.name) as false",
+        "UserOnboard.tsx:53 hits 'if (!user.alias) return 1'",
+        "Beat 0 (BeatIdentity.tsx) is bypassed entirely on first login",
+        "Language switcher on Beat 0 is never rendered"
+      ],
+      "root_cause": "Initial beat logic skips Beat 0 if user.name is valid rather than checking if onboarding was completed.",
+      "fix_file": "src/screens/auth/UserOnboard.tsx",
+      "fix_action": "Base initial beat on scoped localStorage check ob_beat_${user.id} instead of isUnusableName."
+    },
+    {
+      "id": "RULE-009",
+      "symptom": "Uploaded photos cannot be deleted or replaced in Business/Provider onboarding",
+      "trace": [
+        "BusinessOnboard.tsx:80-84 renders <img> thumbnails with no action overlays",
+        "ProviderOnboard.tsx:244-250 renders <img> thumbnails with no action overlays",
+        "User selects incorrect photo from camera/gallery",
+        "No delete/X/trash button exists in component DOM"
+      ],
+      "root_cause": "Missing photo removal affordance in UI thumbnail loop.",
+      "fix_files": ["src/screens/business/BusinessOnboard.tsx", "src/screens/provider/ProviderOnboard.tsx"],
+      "fix_action": "Wrap thumbnail in relative div with absolute close button calling setPhotos(prev => prev.filter(...)) and URL.revokeObjectURL()."
+    },
+    {
+      "id": "RULE-010",
+      "symptom": "Direct select of phone or lat/lng returns null or throws RLS permission error",
+      "trace": [
+        "Developer writes sb.from('users').select('phone, lat, lng').eq('id', uid)",
+        "PostgreSQL RLS policy or view masks sensitive columns (ISS-009)"
+      ],
+      "root_cause": "Sensitive personal data columns are protected and not selectable via standard table queries.",
+      "fix_file": "src/services/core/userService.ts",
+      "fix_action": "Call sb.rpc('get_own_profile') for full profile or sb.rpc('get_own_coords') for coordinates."
+    }
+  ]
+}

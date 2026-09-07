@@ -3,6 +3,8 @@
 > **Purpose:** one file to orient anyone (human or AI) before touching the code.
 > Read this first to know *where* a feature lives and *what* to update to change it.
 >
+> **For End-to-End Tracing & LLM Troubleshooting:** See [CODE_GRAPH.md](./CODE_GRAPH.md) for Mermaid flow graphs, DB RPC linkages, PII masking rules, and symptom-to-root-cause decision trees.
+>
 > **Keep it updated:** whenever you add/rename a **service, screen, route, DB table, or store field**,
 > update the matching table below in the same change. Sections are ordered so you can jump straight
 > to what you need. Line references use `file.ts:line` and may drift — trust the table, verify the line.
