@@ -24,6 +24,7 @@ import type { TablesInsert, TablesUpdate } from "@/lib/dbTypes";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
 import type { Provider, PortfolioItem, Review, CatalogItem } from "@/types";
+import { getRelatableProviderAvatar, enrichProviderPortfolio } from "@/lib/curatedImages";
 import { aliasName } from "@/lib/publicName";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
@@ -94,7 +95,12 @@ export const providerService = {
     if (!uid) return [];
     const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*)").eq("user_id", uid);
     throwIfError(error);
-    return toCamel<Provider[]>(data ?? []);
+    const provs = toCamel<Provider[]>(data ?? []);
+    return provs.map((prov) => ({
+      ...prov,
+      avatar: getRelatableProviderAvatar(prov),
+      portfolio: enrichProviderPortfolio(prov.id, prov.portfolio ?? []),
+    }));
   },
   async get(id: string, lat?: number, lng?: number): Promise<Provider | undefined> {
     const key = `${id}:${lat ?? ""}:${lng ?? ""}`;
@@ -114,7 +120,7 @@ export const providerService = {
         categoryId: "2",
         categoryName: "AC Repair",
         bio: "Certified AC technician with 8+ years of experience. Quick troubleshooting and honest pricing.",
-        avatar: PLACEHOLDER_PROVIDER_AVATAR,
+        avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
         lat: config.defaultLocation.lat,
         lng: config.defaultLocation.lng,
         distanceKm: 0.8,
@@ -130,7 +136,9 @@ export const providerService = {
         isNew: false,
         skills: ["AC installation", "Gas refilling", "Compressor repair", "General servicing"],
         portfolio: [
-          { id: "port_1", title: "AC installation at Koregaon Park office", description: "Dual-inverter split AC installation", imageUrl: PLACEHOLDER_PORTFOLIO_IMAGE }
+          { id: "port_1", caption: "Dual-inverter split AC installation at Koregaon Park office", url: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=75" },
+          { id: "port_2", caption: "Copper piping and outdoor unit condenser mounting", url: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=800&q=75" },
+          { id: "port_3", caption: "Complete jet pump deep coil foam cleaning service", url: "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=800&q=75" }
         ],
         catalog: [],
         phone: "9876543211"
@@ -141,6 +149,8 @@ export const providerService = {
     throwIfError(error);
     if (!data) return undefined;
     const prov = toCamel<Provider>(data);
+    prov.avatar = getRelatableProviderAvatar(prov);
+    prov.portfolio = enrichProviderPortfolio(prov.id, prov.portfolio ?? []);
     prov.distanceKm = (lat && lng && prov.lat && prov.lng) ? haversineKm(lat, lng, prov.lat, prov.lng) : 0;
     return prov;
   },

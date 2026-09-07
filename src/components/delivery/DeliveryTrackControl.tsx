@@ -15,10 +15,25 @@ import DeliveryStepper from "@/components/delivery/DeliveryStepper";
  * The agent's name/phone/photo appear only once THIS delivery is actually under
  * way, so an assigned-but-not-started order discloses nothing about who's coming.
  */
-export default function DeliveryTrackControl({ appointmentId }: { appointmentId: string }) {
+export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }: { appointmentId: string; fallbackEtaText?: string | null }) {
   const { data: d } = useQuery(() => deliveryService.myProgress(appointmentId), [appointmentId], `delivery:my-progress:${appointmentId}`);
 
-  if (!d || d.status === "CANCELLED") return null;
+  // my_delivery_progress returns nothing until an agent is separately
+  // assigned — a later, distinct step from the owner's ETA promise at Accept.
+  // Without this, the customer sees nothing at all for however long that gap
+  // lasts, even though the ETA they were told about is already sitting on
+  // the appointment record.
+  if (!d) {
+    if (!fallbackEtaText) return null;
+    return (
+      <div className="card row gap-8 center-v" style={{ padding: "11px 12px", background: "var(--delivery-50)", border: "none", marginTop: 2 }}>
+        <Package size={15} color="var(--delivery-600)" />
+        <span className="small semi grow" style={{ color: "var(--delivery-600)" }}>Delivery accepted</span>
+        <span className="tiny semi" style={{ color: "var(--delivery-600)" }}>{fallbackEtaText}</span>
+      </div>
+    );
+  }
+  if (d.status === "CANCELLED") return null;
 
   const label =
     d.status === "ASSIGNED" ? "A delivery agent is assigned"

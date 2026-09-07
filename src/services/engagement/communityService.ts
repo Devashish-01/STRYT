@@ -13,7 +13,7 @@ import {
 } from "@/lib/commentPolicy";
 import { normalizeFeedSort, type FeedSort } from "@/lib/feedSort";
 import { extractAliases, isValidReaction } from "@/lib/mentions";
-import type { CommentPolicy, CommunityPostType } from "@/types";
+import type { CommentPolicy, CommunityPostType, PostTag } from "@/types";
 import type { Page } from "@/lib/apiClient";
 
 function makePage<T>(rows: T[], count: number | null, from: number, limit: number): Page<T> {
@@ -124,6 +124,9 @@ export const communityService = {
       type?: CommunityPostType | null;
       /** Server-side ordering. See community_posts_feed (20260894). */
       sort?: FeedSort;
+      /** Keyword search over title + body + author name (20260931). Prefix
+       *  matched, so "electric" finds "electrician". */
+      query?: string;
     } = {}
   ): Promise<Page<CommunityPost>> {
     const sb = getSupabase();
@@ -134,6 +137,7 @@ export const communityService = {
     const { from, to, limit } = cursorToRange(opts.cursor, 20);
     const sort = normalizeFeedSort(opts.sort);
     const typeFilter = opts.type ?? null;
+    const searchQuery = opts.query?.trim() || null;
 
     // 1. Posts. community_posts_feed does the radius, the type filter AND the
     //    ordering server-side, which is what makes "trending" mean the whole
@@ -151,6 +155,7 @@ export const communityService = {
       in_offset: from,
       in_type: typeFilter,
       in_sort: sort,
+      in_query: searchQuery,
     });
     rows = res.data;
     error = res.error;
@@ -161,6 +166,11 @@ export const communityService = {
       // empty community: the old 5-arg RPC for the geo case, a plain select
       // otherwise. Type filtering and non-recent sorts are then applied
       // client-side by the caller, which is exactly what used to happen.
+      //
+      // Search has no fallback — neither legacy path can do it. On such a
+      // deployment the keyword is ignored and the unfiltered feed comes back,
+      // which is a worse answer than the caller asked for but a better one than
+      // an empty screen.
       if (opts.lat && opts.lng) {
         const legacy = await sb.rpc("community_posts_nearby", {
           in_lat: opts.lat,
@@ -443,13 +453,11 @@ export const communityService = {
       try { await sb.from("post_likes").insert({ post_id: postId, user_id: uid }); } catch { /* duplicate */ }
     }
 
-    // Recount from post_likes so the denormalized counter can never drift or go
-    // negative (the old read-modify-write did both under races / bad seed data).
-    const { count } = await sb
-      .from("post_likes")
-      .select("*", { count: "exact", head: true })
-      .eq("post_id", postId);
-    await sb.from("community_posts").update({ likes_count: count ?? 0 }).eq("id", postId);
+    // likes_count is maintained by trg_sync_post_likes_count (20260922), not
+    // from here. The client recount that used to live here could never work:
+    // community_posts' UPDATE policy is `author_user_id = auth.uid()`, so
+    // unless the liker happened to be the post's own author the write matched
+    // zero rows and was silently dropped.
     return !currentlyLiked;
   },
 
@@ -506,14 +514,39 @@ export const communityService = {
       .map((r: any) => mapPost(r, likedIds, {}, {}, undefined, undefined, savedIds));
   },
 
+  /** Cast or CHANGE a vote. `ignoreDuplicates` used to be true, which made the
+   *  upsert a no-op for anyone who had already voted — so a mis-tap was
+   *  permanent, and the option people actually meant never got counted. RLS on
+   *  poll_votes is `auth.uid() = user_id` for ALL commands, so the update this
+   *  now performs is already scoped to the caller's own row. */
   async vote(postId: string, optionId: string): Promise<void> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    await sb.from("poll_votes").upsert(
+    const { error } = await sb.from("poll_votes").upsert(
       { post_id: postId, user_id: uid, option_id: optionId },
-      { onConflict: "post_id,user_id", ignoreDuplicates: true }
+      { onConflict: "post_id,user_id" }
     );
+    throwIfError(error);
+  },
+
+  /** Retract a vote entirely — the tally should be able to go back down, not
+   *  only sideways. */
+  async clearVote(postId: string): Promise<void> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return;
+    const { error } = await sb.from("poll_votes").delete().eq("post_id", postId).eq("user_id", uid);
+    throwIfError(error);
+  },
+
+  /** Author-only, one-way: brings poll_ends_at forward to now (20260932).
+   *  Everything already keyed off that timestamp — isPollClosed, the feed's
+   *  expiry filter, notify_ended_polls — then behaves as if it had expired. */
+  async closePoll(postId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("community_poll_close", { p_id: postId });
+    throwIfError(error);
   },
 
   async comments(postId: string): Promise<Comment[]> {
@@ -526,6 +559,8 @@ export const communityService = {
       .from("post_comments")
       .select("*")
       .eq("post_id", postId)
+      // Pinned answer first, then the thread in the order it was written.
+      .order("pinned_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: true });
     throwIfError(error);
     const rows = data ?? [];
@@ -566,6 +601,8 @@ export const communityService = {
         sharedPhone: canSeePhone ? r.shared_phone : undefined,
         phoneVisibility: r.phone_visibility ?? undefined,
         mentions: Array.isArray(r.mentions) ? r.mentions : [],
+        pinnedAt: r.pinned_at ?? null,
+        editedAt: r.edited_at ?? null,
         reactions: tallies[r.id] ?? {},
         myReaction: mine[r.id] ?? null,
       };
@@ -648,8 +685,9 @@ export const communityService = {
     } as any).select().maybeSingle();
     throwIfError(error);
 
-    const { data: cur } = await sb.from("community_posts").select("comments_count").eq("id", postId).maybeSingle();
-    await sb.from("community_posts").update({ comments_count: ((cur as any)?.comments_count ?? 0) + 1 }).eq("id", postId);
+    // comments_count is maintained by trg_sync_post_comments_count (20260922).
+    // The read-modify-write that used to live here was blocked by RLS for
+    // every commenter who wasn't the post's own author — see that migration.
 
     return {
       id: (created as any).id,
@@ -699,12 +737,19 @@ export const communityService = {
     throwIfError(error);
   },
 
+  /** Atomic append via community_post_add_recommendation (20260927). The old
+   *  read-modify-write here lost concurrent recommendations (second writer
+   *  clobbered the first) AND, being a raw table UPDATE, was blocked by RLS
+   *  entirely for anyone who wasn't the post's author — i.e. for the whole
+   *  point of a RECOMMENDATION post. */
   async recommendListing(postId: string, listingType: "BUSINESS" | "PROVIDER", listingId: string, byName: string): Promise<void> {
     const sb = getSupabase();
-    const { data: post } = await sb.from("community_posts").select("recommendations").eq("id", postId).maybeSingle();
-    const existing = (post as any)?.recommendations ?? [];
-    const updated = [...existing, { listingType, listingId, byName }];
-    const { error } = await sb.from("community_posts").update({ recommendations: updated }).eq("id", postId);
+    const { error } = await (sb.rpc as any)("community_post_add_recommendation", {
+      p_post_id: postId,
+      p_listing_type: listingType,
+      p_listing_id: listingId,
+      p_by_name: byName,
+    });
     throwIfError(error);
   },
 
@@ -717,7 +762,24 @@ export const communityService = {
    *  media[0] on its side, so the two columns can't drift apart. */
   async update(
     postId: string,
-    patch: { title: string; body?: string; image?: string | null; media?: string[]; imageAlt?: string | null }
+    patch: {
+      title: string;
+      body?: string;
+      image?: string | null;
+      media?: string[];
+      imageAlt?: string | null;
+      // Rich per-type fields and audience settings (20260930). Every one is
+      // "omit = leave it alone": the key is only put on the request body when
+      // the caller actually passed it, because the RPC reads SQL NULL as
+      // "unmentioned" and '' as "clear this". Passing null for a field the
+      // sheet doesn't show would silently blank it.
+      lastSeen?: string | null;
+      reward?: string | null;
+      pickupNote?: string | null;
+      taggedListing?: PostTag | null;
+      commentPolicy?: CommentPolicy;
+      hideLikeCount?: boolean;
+    }
   ): Promise<void> {
     const sb = getSupabase();
     const media = patch.media
@@ -733,6 +795,21 @@ export const communityService = {
       // is what an older OTA bundle still calling the 4-arg shape needs.
       ...(media ? { p_media: media } : {}),
       p_image_alt: patch.imageAlt ?? null,
+      // '' is the clear signal for these three, so a null coalesces to '' — but
+      // only when the key was passed at all.
+      ...(patch.lastSeen !== undefined ? { p_last_seen: patch.lastSeen ?? "" } : {}),
+      ...(patch.reward !== undefined ? { p_reward: patch.reward ?? "" } : {}),
+      ...(patch.pickupNote !== undefined ? { p_pickup_note: patch.pickupNote ?? "" } : {}),
+      // tagged_listing can't use the same trick: PostgREST turns a JSON null in
+      // the body into SQL NULL, which the RPC reads as "unmentioned". Untagging
+      // goes through the explicit flag instead.
+      ...(patch.taggedListing !== undefined
+        ? (patch.taggedListing
+            ? { p_tagged_listing: patch.taggedListing }
+            : { p_clear_tagged_listing: true })
+        : {}),
+      ...(patch.commentPolicy !== undefined ? { p_comment_policy: patch.commentPolicy } : {}),
+      ...(patch.hideLikeCount !== undefined ? { p_hide_like_count: patch.hideLikeCount } : {}),
     });
     throwIfError(error);
   },
@@ -749,6 +826,40 @@ export const communityService = {
   async setResolved(postId: string, resolved: boolean): Promise<void> {
     const sb = getSupabase();
     const { error } = await (sb.rpc as any)("community_post_set_resolved", { p_id: postId, p_resolved: resolved });
+    throwIfError(error);
+  },
+
+  /** Delete a comment. Allowed for the comment's own author and for the
+   *  post's author (your words are yours to retract; your post is yours to keep
+   *  clean) — enforced server-side in community_comment_delete (20260929). */
+  async deleteComment(commentId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("community_comment_delete", { p_id: commentId });
+    throwIfError(error);
+  },
+
+  /** Edit your own comment's body. Mentions are deliberately NOT re-extracted
+   *  server-side — see the migration for why. */
+  async updateComment(commentId: string, body: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("community_comment_update", { p_id: commentId, p_body: body });
+    throwIfError(error);
+  },
+
+  /** Post author pins one comment as the accepted answer. */
+  async setCommentPinned(commentId: string, pinned: boolean): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("community_comment_set_pinned", { p_id: commentId, p_pinned: pinned });
+    throwIfError(error);
+  },
+
+  /** Show/hide one of your own posts on your public profile (20260925).
+   *  Replaces the localStorage-only toggle, which hid the post on the author's
+   *  own device and nowhere else. Profile listing only — the post stays in the
+   *  neighbourhood feed and reachable by link. */
+  async setShowOnProfile(postId: string, show: boolean): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("community_post_set_profile_visibility", { p_id: postId, p_show: show });
     throwIfError(error);
   },
 };

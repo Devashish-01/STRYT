@@ -115,6 +115,23 @@ export const emergencyService = {
     throwIfError(error);
   },
 
+  // Who's currently receiving my active share — previously nowhere to see
+  // this at all, only an all-or-nothing stop (flow-completeness audit,
+  // workflow 10).
+  async myShareRecipients(): Promise<{ userId: string; name: string; avatar: string | null }[]> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("my_live_share_recipients");
+    throwIfError(error);
+    return ((data ?? []) as any[]).map((r) => ({ userId: r.recipient_user_id, name: r.recipient_name, avatar: r.recipient_avatar ?? null }));
+  },
+
+  // Drop ONE recipient from an active share without stopping it for everyone.
+  async revokeShareRecipient(recipientUserId: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("revoke_live_share_recipient", { p_recipient_user_id: recipientUserId });
+    throwIfError(error);
+  },
+
   // The read path recipients poll — returns coords only if I'm the sharer or a
   // recipient of this specific session (enforced server-side).
   async getShare(shareId: string): Promise<LiveShareView | null> {

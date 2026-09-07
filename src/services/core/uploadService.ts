@@ -111,6 +111,37 @@ export const uploadService = {
   },
 
   /**
+   * Delete a previously uploaded public file, given the URL `upload()` returned.
+   *
+   * For rolling back orphans: onboarding uploads photos before it inserts the
+   * row, so a failed insert used to leave them in the bucket with nothing
+   * pointing at them and nothing that would ever collect them
+   * (BUSINESS_ONBOARDING #21).
+   *
+   * Resolves `false` rather than throwing for anything it can't act on — a
+   * data-URL from `upload()`'s fallback path (never in storage to begin with),
+   * a URL from some other bucket, or a delete the caller isn't allowed to make.
+   * Callers are cleaning up after an error they're already reporting; a failure
+   * here must not replace that error with a less useful one.
+   */
+  async remove(publicUrl: string): Promise<boolean> {
+    if (!publicUrl || publicUrl.startsWith("data:")) return false;
+    // Public URLs look like …/storage/v1/object/public/<bucket>/<path>. Anything
+    // that doesn't, we didn't write.
+    const marker = `/storage/v1/object/public/${BUCKET}/`;
+    const at = publicUrl.indexOf(marker);
+    if (at === -1) return false;
+    const path = decodeURIComponent(publicUrl.slice(at + marker.length).split("?")[0]);
+    if (!path) return false;
+    try {
+      const { error } = await getSupabase().storage.from(BUCKET).remove([path]);
+      return !error;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
    * Upload a verification document (ID / business proof) to the PRIVATE
    * bucket and return its storage path — not a URL. Only reviewers can ever
    * see the file, via a signed URL minted server-side. No data-URL fallback

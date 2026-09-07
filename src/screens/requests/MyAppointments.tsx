@@ -265,14 +265,25 @@ export default function MyAppointments() {
               list.map((apt) => {
                 const busy = cancelling === apt.id || loadingTarget === apt.id;
                 const payable = isPayable(apt.status);
+                // Held in Upcoming past its own slot time so the "Pay now" CTA
+                // doesn't vanish into Past before it's actually paid — but that
+                // made a booking from last week look identical to one for
+                // tomorrow. Same condition as isDismissible; flagged here so
+                // it reads as "needs payment", not "upcoming".
+                const pastDueUnpaid = tab === "UPCOMING" && isUnpaidActionable(apt) && !isUpcoming(apt);
                 return (
-                  <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14 }}>
+                  <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14, border: pastDueUnpaid ? "1px solid var(--amber-300)" : undefined }}>
                     <div className="row between center-v">
                       <div>
                         <div className="bold small" style={{ color: "var(--ink-900)" }}>{apt.targetName}</div>
                         <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
                           <Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}
                         </div>
+                        {pastDueUnpaid && (
+                          <div className="tiny semi row gap-4 center-v" style={{ marginTop: 3, color: "var(--amber-700)" }}>
+                            {t("date_passed_payment_pending")}
+                          </div>
+                        )}
                       </div>
                       <div className="col gap-4" style={{ alignItems: "flex-end" }}>
                         <span
@@ -322,7 +333,7 @@ export default function MyAppointments() {
                     {/* Delivery tracking — live link + handoff code. Feature-gated, and only
                         for bookings the customer actually asked to have delivered. */}
                     {DELIVERY_AGENT_ENABLED && apt.fulfillmentType === "DELIVERY" && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
-                      <DeliveryTrackControl appointmentId={apt.id} />
+                      <DeliveryTrackControl appointmentId={apt.id} fallbackEtaText={apt.deliveryEtaText} />
                     )}
 
                     {/* Payment status — shown for PENDING too (seller may require

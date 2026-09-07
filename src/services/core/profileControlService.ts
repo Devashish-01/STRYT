@@ -2,6 +2,7 @@ import { getSupabase } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { functionUrl } from "@/config";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
+import { notificationService } from "@/services/engagement/notificationService";
 
 export type ProfileTarget = "CUSTOMER" | "BUSINESS" | "PROVIDER";
 
@@ -181,12 +182,28 @@ export const profileControlService = {
    */
   async updateRequestStatus(requestId: string, status: DeletionRequest["status"]): Promise<void> {
     const sb = getSupabase();
-    const { error } = await sb
+    const { data, error } = await sb
       .from("profile_deletion_requests")
       .update({ status, updated_at: new Date().toISOString() })
-      .eq("id", requestId);
+      .eq("id", requestId)
+      .select("user_id")
+      .maybeSingle();
 
     throwIfError(error);
+
+    if (data?.user_id && status === "REJECTED") {
+      try {
+        await notificationService.send(
+          data.user_id,
+          "Deletion request declined",
+          "STRYT admin didn't approve your account deletion request.",
+          "/settings",
+          "SYSTEM"
+        );
+      } catch (err) {
+        console.warn("Failed to send deletion-request notification:", err);
+      }
+    }
   },
 
   /**

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MapPin, Navigation, Loader, Check } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
@@ -41,6 +41,8 @@ export function BeatLocation({
   const [nearby, setNearby] = useState<{ count: number; more: boolean } | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GeoPlace[]>([]);
+  const [searching, setSearching] = useState(false);
+  const searchRef = useRef<HTMLInputElement | null>(null);
   // Bumped by whichever of GPS or search-select the user acts on most
   // recently, so a slow GPS fix can't land after a manual pick and silently
   // overwrite it — settle() only applies if its token is still current when
@@ -98,14 +100,43 @@ export function BeatLocation({
     );
   }
 
-  async function search(q: string) {
+  // #2 — every keystroke used to fire its own forwardGeocode. Nominatim's
+  // published policy is one request per second and it answers a burst with
+  // HTTP 429, so typing a neighbourhood name at any normal speed got the whole
+  // search rate-limited and the results list simply went blank — the failure
+  // mode looked exactly like "no such place". Debounced, and the in-flight
+  // request is token-guarded so a slow early response can't overwrite a later
+  // one's results.
+  const searchToken = useRef(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
+
+  function search(q: string) {
     setQuery(q);
-    if (q.trim().length < 2) { setResults([]); return; }
-    try {
-      setResults(await forwardGeocode(q));
-    } catch {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const trimmed = q.trim();
+    if (trimmed.length < 2) {
+      searchToken.current++;
       setResults([]);
+      setSearching(false);
+      return;
     }
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      const token = ++searchToken.current;
+      try {
+        const found = await forwardGeocode(trimmed);
+        if (token !== searchToken.current) return;
+        setResults(found);
+      } catch {
+        if (token !== searchToken.current) return;
+        setResults([]);
+      } finally {
+        if (token === searchToken.current) setSearching(false);
+      }
+    }, 400);
   }
 
   const found = place !== null;
@@ -114,10 +145,24 @@ export function BeatLocation({
     <BeatFrame
       title={t("ob_beat3_title")}
       sub={t("ob_beat3_sub")}
-      ctaLabel={found ? t("ob_continue") : locating ? t("ob_beat3_locating") : t("ob_beat3_allow")}
+      // #4 — once permission is denied, "Allow location" is a button that
+      // cannot work: the browser/OS will not re-prompt, so tapping it just
+      // replayed the same error. After a denial the primary action becomes
+      // "search instead", which focuses the field that DOES still work.
+      ctaLabel={found
+        ? t("ob_continue")
+        : locating
+          ? t("ob_beat3_locating")
+          : denied
+            ? t("ob_beat3_search_instead")
+            : t("ob_beat3_allow")}
       ctaDisabled={locating}
       ctaBusy={busy}
-      onCta={() => (found ? onDone(place) : requestGps())}
+      onCta={() => {
+        if (found) { onDone(place); return; }
+        if (denied) { searchRef.current?.focus(); return; }
+        requestGps();
+      }}
       // Hidden once a place is found — skipping a question you've already
       // answered doesn't mean anything, and sits right under Continue where
       // it could be tapped by habit instead.
@@ -146,17 +191,22 @@ export function BeatLocation({
             {locating ? <Loader className="spin" size={30} /> : <Navigation size={30} />}
           </div>
           {denied && <div className="ob-hint bad">{t("ob_beat3_denied")}</div>}
+          {results.length === 0 && query.trim().length >= 2 && !searching && (
+            <div className="ob-hint" style={{ marginTop: 10 }}>{t("ob_beat3_no_results")}</div>
+          )}
 
           <div className="ob-label" style={{ marginTop: 18 }}>{t("ob_beat3_search")}</div>
           <div className="ob-search-field">
             <MapPin size={16} className="ob-search-icon" />
             <input
+              ref={searchRef}
               className="input ob-search-input"
               value={query}
-              onChange={(e) => void search(e.target.value)}
+              onChange={(e) => search(e.target.value)}
               placeholder={t("neighborhood_placeholder")}
               aria-label={t("ob_beat3_search")}
             />
+            {searching && <Loader className="spin" size={14} />}
           </div>
           {results.length > 0 && (
             <div className="ob-results">

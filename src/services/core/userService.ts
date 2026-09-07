@@ -296,7 +296,7 @@ export const userService = {
       sb.from("requests").select("*", { count: "exact", head: true }).eq("requester_user_id", id),
       sb.from("vouches").select("*", { count: "exact", head: true }).eq("from_user_id", id),
       sb.from("ratings").select("id, rating, comment, created_at, ratee_type, ratee_id").eq("rater_user_id", id).order("created_at", { ascending: false }).limit(10),
-      sb.from("community_posts").select("id, title, body, type, area, created_at, likes_count, comments_count").eq("author_user_id", id).order("created_at", { ascending: false }).limit(20),
+      sb.from("community_posts").select("id, title, body, type, area, created_at, likes_count, comments_count, show_on_profile").eq("author_user_id", id).order("created_at", { ascending: false }).limit(20),
       sb.from("requests").select("id, category_name, description, status, budget_max, created_at").eq("requester_user_id", id).order("created_at", { ascending: false }).limit(20),
       sb.from("proposals").select("id, request_id, price, note, created_at").eq("responder_user_id", id).order("created_at", { ascending: false }).limit(20),
     ]);
@@ -378,6 +378,7 @@ export const userService = {
         date: relDate(p.created_at),
         likesCount: p.likes_count ?? 0,
         commentsCount: p.comments_count ?? 0,
+        showOnProfile: p.show_on_profile ?? true,
       })),
       requests: (userRequestsData.data ?? []).map((r: any) => ({
         id: r.id,

@@ -32,7 +32,15 @@ export default function ManageHub() {
                     <SafeImg src={b.coverImage} className="thumb" style={{ width: 56, height: 56, borderRadius: 12 }} />
                     <div className="grow">
                       <div className="row gap-6"><span className="semi">{b.name}</span></div>
-                      <span className="badge badge-green" style={{ marginTop: 3 }}>● Live</span>
+                      {b.status === "PENDING" ? (
+                        <span className="badge badge-gray" style={{ marginTop: 3 }}>Under review</span>
+                      ) : b.status === "REJECTED" ? (
+                        <span className="badge badge-red" style={{ marginTop: 3 }}>Needs changes</span>
+                      ) : b.status === "SUSPENDED" ? (
+                        <span className="badge badge-red" style={{ marginTop: 3 }}>Suspended</span>
+                      ) : (
+                        <span className="badge badge-green" style={{ marginTop: 3 }}>● Live</span>
+                      )}
                     </div>
                     <Store size={20} color="var(--orange-500)" />
                   </div>

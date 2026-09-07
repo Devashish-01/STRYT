@@ -86,7 +86,6 @@ export default function RequestsFeedPanel({ categoryName, radius }: RequestsFeed
 
   let nearby = feed;
   if (special === "urgent") nearby = nearby.filter((r) => r.isUrgent);
-  if (special === "group") nearby = nearby.filter((r) => r.isGroupBuy);
   if (special === "recurring") nearby = nearby.filter((r) => r.isRecurring);
   const list = view === "nearby" ? nearby : mine;
   const loading = view === "nearby" ? feedLoading : mineLoading;
@@ -122,7 +121,7 @@ export default function RequestsFeedPanel({ categoryName, radius }: RequestsFeed
 
       {view === "nearby" && (
         <div className="hscroll" style={{ paddingTop: 12, paddingBottom: 0 }}>
-          {([["all", t("all")], ["urgent", t("urgent_label")], ["group", t("group_buys")], ["recurring", t("recurring_label")]] as const).map(([s, label]) => (
+          {([["all", t("all")], ["urgent", t("urgent_label")], ["recurring", t("recurring_label")]] as const).map(([s, label]) => (
             <button key={s} className={`chip ${special === s ? "active" : ""}`} onClick={() => setSpecial(s)}>{label}</button>
           ))}
         </div>

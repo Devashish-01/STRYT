@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare, Package } from "@/components/Icons";
 import { ActionIconBadge } from "@/components/ActionIconBadge";
 import { useApp } from "@/store";
-import { catalogService, requestService, appointmentService, businessService, locationService, discoveryService, notificationService } from "@/services";
+import { hasNoLocation } from "@/lib/locationPrompt";
+import { catalogService, requestService, appointmentService, businessService, locationService, discoveryService, notificationService, bulkService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { BusinessCardSmall, ProviderCardSmall } from "@/components/cards";
@@ -12,11 +13,12 @@ import AmbientSky from "@/features/ambient/AmbientSky";
 import { greetingName } from "@/lib/publicName";
 import { buildParentMap, rankByInterests } from "@/lib/interestRank";
 import { getRecentlyViewed } from "@/lib/recentlyViewed";
+import { mostUrgentPledge, needsDeposit } from "@/lib/bulkFeed";
 import LocationPickerSheet from "@/components/LocationPickerSheet";
 import BrandHome from "@/components/BrandHome";
 import BrandLockup from "@/components/BrandLockup";
 import MyPeopleToggle from "@/features/live-share/MyPeopleToggle";
-import { SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { SafeImg, PullToRefreshIndicator, inr } from "@/components/common";
 import { Skeleton } from "@/components/states";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
 import { useI18n } from "@/lib/i18n";
@@ -88,13 +90,20 @@ function getWeatherText(code: number): string {
 
 export default function Home() {
   const nav = useNavigate();
-  const { t } = useI18n();
+  const { t, tf } = useI18n();
   const { area: rawArea, chatUnread, user, manageableBusinessIds } = useApp();
   // One business per owner is a hard DB constraint — don't invite someone who
   // already manages a business (owned or delegated) to list a brand-new one.
   const hasAnyBusiness = manageableBusinessIds.length > 0;
   const requireAuth = useRequireAuth();
-  const area = rawArea || t("neighborhood_placeholder");
+  // #5 — this fell back to `t("neighborhood_placeholder")`, which is the
+  // example text for an input box ("e.g. Amanora Park Town, Pune"). Rendered in
+  // the header where the user's own neighbourhood goes, it reads as a real
+  // answer that happens to be wrong — users in Bangalore saw "Pune". The
+  // fallback is now an invitation to set it, and the control that sets it is
+  // the thing it's already attached to.
+  const noLocation = hasNoLocation(user.lat, user.lng);
+  const area = rawArea || t("set_your_area");
 
   const theme = useAmbientTheme(user.lat, user.lng, "customer");
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -121,6 +130,7 @@ export default function Home() {
   );
   const { data: myAppointments, refetch: refetchAppointments } = useQuery(() => appointmentService.listForCustomer(user.id), [user.id], `home:appointments:${user.id}`);
   const { data: myQueuesData, refetch: refetchQueues } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined, `home:queues:${user.id}`);
+  const { data: myBulkPledges, refetch: refetchBulkPledges } = useQuery(() => bulkService.myPledgedDeals(user.lat || 0, user.lng || 0), [user.id, user.lat, user.lng], `home:bulk-pledges:${user.id}`);
   const { data: pendingLocReqs, refetch: refetchPendingLoc } = useQueryWithRealtime(() => locationService.pendingForMe(), "location_share_grants", [], undefined, `home:pending-loc:${user.id}`);
   const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [], undefined, "notif:customer");
 
@@ -133,6 +143,7 @@ export default function Home() {
       refetchAppointments(),
       refetchQueues(),
       refetchPendingLoc(),
+      refetchBulkPledges(),
     ]);
   };
 
@@ -213,6 +224,28 @@ export default function Home() {
       stat: t("in_progress"),
       sub: t("tap_to_track"),
       onClick: () => nav("/agreements"),
+    });
+  }
+  // One card, not one per pledge — mirrors nextAppointment (a single "what
+  // needs attention" summary), not activeQueues (one card per independent
+  // live wait). A pledge doesn't carry that kind of per-item live state, so
+  // multiple simultaneous cards would be clutter, not signal.
+  const urgentPledge = mostUrgentPledge(myBulkPledges ?? []);
+  if (urgentPledge) {
+    const owing = needsDeposit(urgentPledge);
+    todayItems.push({
+      key: `bp:${urgentPledge.id}`,
+      accent: "var(--orange-500)",
+      icon: "📦",
+      kicker: t("your_pledge"),
+      title: urgentPledge.title,
+      stat: owing
+        ? tf("pay_deposit_cta", { amount: inr(urgentPledge.depositAmount ?? 0) })
+        : urgentPledge.closesAtISO
+        ? tf("closes_on_badge", { date: new Date(urgentPledge.closesAtISO).toLocaleDateString() })
+        : t("locked_in_short"),
+      sub: tf("pledged_n_units", { n: urgentPledge.myPledgeQuantity ?? 0 }) + (urgentPledge.businessName ? ` · ${urgentPledge.businessName}` : ""),
+      onClick: () => nav("/community/activity"),
     });
   }
 
@@ -296,6 +329,15 @@ export default function Home() {
             <span className="row gap-6 center-v bold" style={{ fontSize: 16, color: "#fff", background: "rgba(255, 255, 255, 0.16)", backdropFilter: "blur(8px)", padding: "4px 12px", borderRadius: 20, border: "1px solid rgba(255, 255, 255, 0.2)", marginTop: 2 }}>
               <span>📍 {area}</span> <ChevronDown size={15} style={{ opacity: 0.9 }} />
             </span>
+            {/* #8 — skipping location during onboarding leaves the feed
+                unranked. That's a fine choice to make, but it was made
+                invisible: nothing distinguished "nothing nearby" from "we
+                don't know where you are". */}
+            {noLocation && (
+              <span className="tiny" style={{ color: "#fff", opacity: 0.85, fontWeight: 500, marginTop: 3, display: "block" }}>
+                {t("location_off_feed_hint")}
+              </span>
+            )}
             <span className="tiny" style={{ color: "#fff", opacity: 0.82, fontWeight: 500, marginTop: 3, display: "block" }}>
               {theme.ambientSubtitle}
             </span>

@@ -1,0 +1,28 @@
+-- ============================================================
+-- 20260908 — Re-grant has_business_access(text,text) to authenticated
+--
+-- The ACTUAL cause of the recurring 403s on bulk_deal_pledges and
+-- bulk_deal_tokens (not is_admin() — 20260906/20260907 fixed a real but
+-- separate drift, and were verified NOT to be this mechanism by directly
+-- testing is_admin() as authenticated, which succeeded cleanly).
+--
+-- Confirmed live via pg_proc.proacl: has_business_access(text,text) has
+-- EXECUTE for {postgres, service_role} only — no authenticated, no anon —
+-- despite 20260809_business_delegated_login.sql:73 explicitly granting it
+-- to authenticated when it was created. It was revoked at some point after
+-- (almost certainly the 20260881/20260882 sweep that stripped EXECUTE from
+-- ~26 SECURITY DEFINER functions) and never restored: 20260887's own
+-- restoration list only covers is_admin(), can_manage_business(),
+-- neighborhood_today(), get_public_profile() — has_business_access isn't on
+-- it, because 887 was scoped to what ANON needs for guest browsing, not
+-- what AUTHENTICATED-only policies like read_bulk_deal_pledges /
+-- read_bulk_deal_tokens need.
+--
+-- Confirmed via direct simulated query as the real failing user_id
+-- (8adc53c5-d814-43af-9eb7-e77ccf5ccab5): reproduced the exact 403 as
+-- "ERROR: 42501: permission denied for function has_business_access".
+-- Confirmed scope: exactly two live policies reference this function
+-- (read_bulk_deal_pledges, read_bulk_deal_tokens) — no other table affected.
+-- ============================================================
+
+grant execute on function public.has_business_access(text, text) to authenticated;

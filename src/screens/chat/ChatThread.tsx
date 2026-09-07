@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Phone, Image as ImageIcon, Check } from "@/components/Icons";
 import { chatService, inboxScopeFor } from "@/services/engagement/chatService";
 import { uploadService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { SafeImg } from "@/components/common";
 import { Skeleton } from "@/components/states";
 import { useApp } from "@/store";
@@ -21,7 +21,11 @@ export default function ChatThread() {
   const { user, setChatUnread, showToast } = useApp();
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { data: convs, refetch: refetchConvs } = useQuery(() => chatService.conversations(), [user.id], `chat:conversations:${user.id}:`);
+  // Realtime, not plain useQuery — otherwise the other side marking this
+  // thread read while both of you have it open never updates your own
+  // "Seen" checkmark until you leave and reopen the screen. Same table/hook
+  // ConversationList.tsx already uses for its own unread badges.
+  const { data: convs, refetch: refetchConvs } = useQueryWithRealtime(() => chatService.conversations(), "conversations", [user.id], undefined, `chat:conversations:${user.id}:`);
   const conv: Conversation | undefined = (convs ?? []).find((c) => c.id === id);
 
   const { data: initial, loading } = useQuery(() => chatService.messages(id), [id], `chat:messages:${id}`);

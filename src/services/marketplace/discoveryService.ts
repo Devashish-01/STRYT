@@ -6,6 +6,7 @@ import type { Business, Provider, Place } from "@/types";
 import { haversineKm } from "@/lib/geocode";
 import { clampRadiusForViewer } from "@/lib/guestMode";
 import { config } from "@/config";
+import { getRelatableBusinessCover, getRelatableBusinessGallery, getRelatableProviderAvatar } from "@/lib/curatedImages";
 
 export interface SavedSearch {
   id: string;
@@ -80,7 +81,11 @@ export const discoveryService = {
       });
       throwIfError(error);
       const page = toPage<Business>(data as unknown[], null, from, limit);
-      page.data = page.data.map((b) => withDistance(b, userLat, userLng));
+      page.data = page.data.map((b) => ({
+        ...withDistance(b, userLat, userLng),
+        coverImage: getRelatableBusinessCover(b),
+        gallery: getRelatableBusinessGallery(b),
+      }));
       return page;
     }
     let q = sb.from("businesses").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
@@ -91,7 +96,11 @@ export const discoveryService = {
     const { data, error, count } = await q.range(from, to);
     throwIfError(error);
     const page = toPage<Business>(data, count, from, limit);
-    page.data = page.data.map((b) => withDistance(b, userLat, userLng));
+    page.data = page.data.map((b) => ({
+      ...withDistance(b, userLat, userLng),
+      coverImage: getRelatableBusinessCover(b),
+      gallery: getRelatableBusinessGallery(b),
+    }));
     return page;
   },
 
@@ -117,7 +126,10 @@ export const discoveryService = {
       });
       throwIfError(error);
       const page = toPage<Provider>(data as unknown[], null, from, limit);
-      page.data = page.data.map((prov) => withDistance(prov, userLat, userLng));
+      page.data = page.data.map((prov) => ({
+        ...withDistance(prov, userLat, userLng),
+        avatar: getRelatableProviderAvatar(prov),
+      }));
       return page;
     }
     let q = sb.from("providers").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null);
@@ -128,7 +140,10 @@ export const discoveryService = {
     const { data, error, count } = await q.range(from, to);
     throwIfError(error);
     const page = toPage<Provider>(data, count, from, limit);
-    page.data = page.data.map((prov) => withDistance(prov, userLat, userLng));
+    page.data = page.data.map((prov) => ({
+      ...withDistance(prov, userLat, userLng),
+      avatar: getRelatableProviderAvatar(prov),
+    }));
     return page;
   },
 

@@ -103,7 +103,7 @@ export default function ProviderProfileEditor() {
                 style={cat === c.id ? { background: "var(--green-500)", borderColor: "var(--green-500)" } : undefined}
                 onClick={() => setCat(c.id)}
               >
-                {c.icon} {c.name.split(" ")[0]}
+                {c.icon} {c.name}
               </button>
             ))}
           </div>

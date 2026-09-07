@@ -51,6 +51,7 @@ function relDate(iso: string): string {
 export interface AdminReport {
   id: string;
   targetType: string;
+  targetId: string;
   targetName: string;
   reason: string;
   reporter: string;
@@ -284,6 +285,7 @@ export const adminService = {
     return (data ?? []).map((r: any) => ({
       id: r.id,
       targetType: r.target_type,
+      targetId: r.target_id,
       targetName: r.target_name,
       reason: r.reason,
       reporter: r.reporter?.name || "Anonymous",
@@ -294,8 +296,21 @@ export const adminService = {
 
   async resolveReport(id: string, status: string) {
     const sb = getSupabase();
-    const { error } = await sb.from("reports").update({ status }).eq("id", id);
+    const { data, error } = await sb.from("reports").update({ status }).eq("id", id).select("reporter_user_id, target_name").maybeSingle();
     throwIfError(error);
+    if (data?.reporter_user_id) {
+      try {
+        await notificationService.send(
+          data.reporter_user_id,
+          "Your report was reviewed",
+          `Status: ${status.replace(/_/g, " ").toLowerCase()}${data.target_name ? ` — re: ${data.target_name}` : ""}`,
+          "",
+          "SYSTEM"
+        );
+      } catch (err) {
+        console.warn("Failed to send report resolution notification:", err);
+      }
+    }
     return { ok: true };
   },
 
@@ -318,8 +333,21 @@ export const adminService = {
 
   async resolveBugReport(id: string, status: AdminBugReport["status"]) {
     const sb = getSupabase();
-    const { error } = await sb.from("bug_reports").update({ status }).eq("id", id);
+    const { data, error } = await sb.from("bug_reports").update({ status }).eq("id", id).select("user_id").maybeSingle();
     throwIfError(error);
+    if (data?.user_id) {
+      try {
+        await notificationService.send(
+          data.user_id,
+          "Your bug report was reviewed",
+          `Status: ${status.replace(/_/g, " ").toLowerCase()}`,
+          "",
+          "SYSTEM"
+        );
+      } catch (err) {
+        console.warn("Failed to send bug report resolution notification:", err);
+      }
+    }
     return { ok: true };
   },
 

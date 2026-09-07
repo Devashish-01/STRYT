@@ -1,10 +1,12 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
-import { CheckCircle2, XCircle, Clock, Users, AlertCircle, Calendar, Share2 } from "@/components/Icons";
+import { CheckCircle2, XCircle, Clock, Users, AlertCircle, Calendar, Share2, MessageCircle, MapPin } from "@/components/Icons";
 import { bulkService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { chatService } from "@/services/engagement/chatService";
+import { copyText } from "@/lib/clipboard";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { poolProgress } from "@/lib/groupBuy";
 import ShareCard from "@/components/ShareCard";
@@ -22,11 +24,19 @@ const DEPOSIT_META: Record<DepositStatus, { label: string; color: string; bg: st
  *  and the close-campaign decision (fulfil / refund / extend). */
 export default function BulkDealDetail() {
   const { dealId = "" } = useParams();
-  const { showToast } = useApp();
-  const { data: deal, loading, refetch } = useQuery(() => bulkService.getDeal(dealId), [dealId], `bulk:deal:${dealId}`);
-  const { data: pledgesData, refetch: refetchPledges } = useQuery(
+  const nav = useNavigate();
+  const { showToast, user } = useApp();
+  // Both realtime — watching the campaign's own row (pledged_quantity, status,
+  // closed_at) and its pledge roster separately, so this screen updates live
+  // instead of needing a manual reload while a customer pledges or pays.
+  const { data: deal, loading, refetch } = useQueryWithRealtime(
+    () => bulkService.getDeal(dealId), "bulk_deals", [dealId], `id=eq.${dealId}`, `bulk:deal:${dealId}`
+  );
+  const { data: pledgesData, refetch: refetchPledges } = useQueryWithRealtime(
     () => bulkService.pledgesForDeal(dealId),
+    "bulk_deal_pledges",
     [dealId],
+    `deal_id=eq.${dealId}`,
     `bulk:pledges:${dealId}`
   );
   const { data: stats } = useQuery(
@@ -104,6 +114,34 @@ export default function BulkDealDetail() {
       showToast(e?.message || "Couldn't close — try again");
     } finally {
       setClosing(false);
+    }
+  }
+
+  /** Every address this campaign actually has to deliver to, as one block of
+   *  text. The roster shows them one pledge at a time, which is fine for
+   *  checking a single order and useless for actually doing a delivery round.
+   *  Scoped to the pledges that count: PAID only when a deposit was required,
+   *  otherwise all of them — the same rule confirmedQty above uses. */
+  async function copyDeliveryList() {
+    const relevant = pledges.filter((p) => (hasDeposit ? p.depositStatus === "PAID" : true) && p.deliveryAddress);
+    if (relevant.length === 0) { showToast("No delivery addresses to copy yet"); return; }
+    const body = relevant
+      .map((p, i) => `${i + 1}. ${p.pledgerName || "Customer"} — ${p.quantity} unit${p.quantity > 1 ? "s" : ""}\n   ${p.deliveryAddress}${p.notes ? `\n   Note: ${p.notes}` : ""}`)
+      .join("\n\n");
+    const ok = await copyText(`${deal?.title ?? "Campaign"} — ${relevant.length} deliveries\n\n${body}`);
+    showToast(ok ? `Copied ${relevant.length} address${relevant.length > 1 ? "es" : ""}` : "Couldn't copy");
+  }
+
+  // The roster showed a pledger's name, quantity, notes and address but gave
+  // no way to actually reach them — about a deposit reference, a delivery
+  // address, or a collection time. Plain 1:1 thread (no subject): the business
+  // is contacting a customer, not the other way round.
+  async function messagePledger(p: BulkDealPledge) {
+    try {
+      const conv = await chatService.getOrCreate(p.userId);
+      nav(`/chat/${conv.id}`);
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't open chat. Try again.");
     }
   }
 
@@ -248,6 +286,14 @@ export default function BulkDealDetail() {
           </div>
         )}
 
+        {/* Doorstep only — for every other fulfilment method the customers come
+            to you, so there's no round to plan and no list to hand anyone. */}
+        {deal.fulfillmentType === "DOORSTEP" && pledges.some((p) => p.deliveryAddress) && (
+          <button className="btn btn-outline btn-block btn-sm row gap-8 center" onClick={copyDeliveryList}>
+            <MapPin size={15} /> Copy delivery list
+          </button>
+        )}
+
         {/* Pledger roster */}
         <div>
           <div className="row gap-6 center-v small semi muted" style={{ marginBottom: 8 }}>
@@ -266,7 +312,23 @@ export default function BulkDealDetail() {
                       <div className="semi small ellipsis">{p.pledgerName || "Customer"}</div>
                       <div className="tiny muted">{p.quantity} unit{p.quantity > 1 ? "s" : ""}{p.depositAmount != null ? ` · ${inr(p.depositAmount)} deposit` : ""}</div>
                     </div>
-                    <span className="badge" style={{ background: meta.bg, color: meta.color, fontSize: 10, flexShrink: 0 }}>{meta.label}</span>
+                    <div className="row gap-6 center-v" style={{ flexShrink: 0 }}>
+                      <span className="badge" style={{ background: meta.bg, color: meta.color, fontSize: 10 }}>{meta.label}</span>
+                      {/* A team member with catalog scope CAN pledge into a
+                          campaign they help manage (only the owner is blocked
+                          server-side), so they can meet their own row here —
+                          getOrCreate rejects self-chat, so hide it instead. */}
+                      {p.userId !== user.id && (
+                        <button
+                          className="icon-btn"
+                          style={{ width: 30, height: 30, color: "var(--brand-700)" }}
+                          aria-label={`Message ${p.pledgerName || "pledger"}`}
+                          onClick={() => messagePledger(p)}
+                        >
+                          <MessageCircle size={15} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {p.notes && <div className="tiny muted">"{p.notes}"</div>}
                   {p.deliveryAddress && <div className="tiny muted">📍 {p.deliveryAddress}</div>}

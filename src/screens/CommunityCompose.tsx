@@ -7,6 +7,7 @@ import { CommunityCard } from "@/components/cards";
 import { communityService, uploadService, businessService, providerService, bulkService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import LocationPickerSheet from "@/components/LocationPickerSheet";
 import { useDraft } from "@/hooks/useDraft";
 import { haptics } from "@/lib/haptics";
 import { isDraftMeaningful, validateDraft, type DraftIdentity } from "@/lib/communityDraft";
@@ -65,7 +66,23 @@ function reachRadiusKm(): number {
 export default function CommunityCompose() {
   const nav = useNavigate();
   const loc = useLocation();
-  const { area, user, showToast, activeContext } = useApp();
+  const { area, user, showToast, activeContext, ownedBusinessIds, ownedProviderId } = useApp();
+
+  // A locally-chosen identity, overriding both the router-state context and the
+  // app-wide active one. Deliberately local: this is "post as", not "become" —
+  // switching hats for one post shouldn't silently move the whole app into the
+  // shop console. "USER" is the explicit personal choice, distinct from null
+  // ("nothing chosen, fall through to the usual resolution").
+  const [ctxOverride, setCtxOverride] = useState<SellerContext | "USER" | null>(null);
+  const [identityPickerOpen, setIdentityPickerOpen] = useState(false);
+  // Where the post is ABOUT, when that isn't where the author is. An alert
+  // about a burst main two streets over, a dog spotted at the park gate, a
+  // giveaway to collect from the community centre — the incident's location is
+  // the useful one, and anchoring every post to the author's own GPS made
+  // "near the park entrance" a phrase in the body that the radius filter
+  // couldn't act on. Null = use the author's/shop's own coordinates, as before.
+  const [postPlace, setPostPlace] = useState<{ lat: number; lng: number; area: string } | null>(null);
+  const [placePickerOpen, setPlacePickerOpen] = useState(false);
 
   const { data: activeBiz, loading: bizLoading } = useQuery(
     () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
@@ -83,11 +100,11 @@ export default function CommunityCompose() {
   // available instantly; the active-role fallback below resolves async — a
   // fast tap on "Post" before it lands could otherwise post under the wrong
   // identity, so submit is blocked (see canPost) until this settles.
-  const sellerCtxLoading = !passedCtx && (
+  const sellerCtxLoading = !ctxOverride && !passedCtx && (
     (activeContext.type === "business" && !!activeContext.id && bizLoading) ||
     (activeContext.type === "provider" && !!activeContext.id && provLoading)
   );
-  const sellerCtx = passedCtx || (
+  const sellerCtx = ctxOverride === "USER" ? null : ctxOverride || passedCtx || (
     activeContext.type === "business" && activeBiz ? {
       type: "business" as const,
       id: activeBiz.id,
@@ -100,8 +117,7 @@ export default function CommunityCompose() {
       avatar: activeProv.avatar
     } : null
   );
-  const sellerLat = sellerCtx?.type === "business" ? activeBiz?.lat : sellerCtx?.type === "provider" ? activeProv?.lat : undefined;
-  const sellerLng = sellerCtx?.type === "business" ? activeBiz?.lng : sellerCtx?.type === "provider" ? activeProv?.lng : undefined;
+
 
   // Own fetch rather than reusing activeBiz: sellerCtx can come from a
   // dashboard's "Post to community" tile (passedCtx) for a business that
@@ -115,12 +131,54 @@ export default function CommunityCompose() {
   // showCartStepper is the same signal BusinessStoreHub's "Bulk deals" tile
   // gates on — a consultation isn't something you buy 3 of, so 8 of 13
   // packages have nothing sensible to configure here.
+  // Provider twin of sellerBiz, for the same reason: the identity being posted
+  // under isn't necessarily activeContext's.
+  const { data: sellerProv } = useQuery(
+    () => (sellerCtx?.type === "provider" ? providerService.get(sellerCtx.id) : Promise.resolve(null)),
+    [sellerCtx?.type, sellerCtx?.id],
+    sellerCtx?.type === "provider" ? `provider:${sellerCtx.id}` : undefined
+  );
+  // Read from the entity actually being posted under, not from activeContext's.
+  // These used to come off activeBiz/activeProv, which are keyed on the app-wide
+  // context — already wrong for a post started from a dashboard tile for some
+  // other shop, and wrong for every switch made here.
+  const sellerLat = sellerCtx?.type === "business" ? sellerBiz?.lat : sellerCtx?.type === "provider" ? sellerProv?.lat : undefined;
+  const sellerLng = sellerCtx?.type === "business" ? sellerBiz?.lng : sellerCtx?.type === "provider" ? sellerProv?.lng : undefined;
+
   const showBulkBuying = sellerCtx?.type === "business" && sellerBiz ? BUSINESS_PACKAGES[resolvePackage(sellerBiz)].showCartStepper : false;
+
+  // The identities this person can post as. Only ever fetched for someone who
+  // actually has a second hat — a regular member does no work here.
+  const hasOtherIdentities = ownedBusinessIds.length > 0 || !!ownedProviderId;
+  const { data: identityOptions } = useQuery<SellerContext[]>(
+    async () => {
+      if (!hasOtherIdentities) return [];
+      const [bizList, prov] = await Promise.all([
+        Promise.all(ownedBusinessIds.map((id) => businessService.get(id).catch(() => null))),
+        ownedProviderId ? providerService.get(ownedProviderId).catch(() => null) : Promise.resolve(null),
+      ]);
+      const out: SellerContext[] = [];
+      for (const b of bizList) {
+        if (b) out.push({ type: "business", id: b.id, name: b.name, avatar: b.coverImage });
+      }
+      if (prov) out.push({ type: "provider", id: prov.id, name: prov.displayName, avatar: prov.avatar });
+      return out;
+    },
+    [ownedBusinessIds.join(","), ownedProviderId, hasOtherIdentities],
+    hasOtherIdentities ? `compose:identities:${ownedBusinessIds.join(",")}:${ownedProviderId ?? ""}` : undefined
+  );
 
   // Pre-armed when arriving from BulkDealsManager's "New campaign" button —
   // that screen is only reachable under the same showCartStepper gate this
   // toggle uses, so trusting the flag here can't strand an ineligible seller.
   const [isBulkBuying, setIsBulkBuying] = useState(() => !!(loc.state as any)?.bulkBuying);
+  useEffect(() => {
+    // Switching to an identity whose package can't run a campaign has to drop
+    // the campaign, or the form would keep collecting tier/deposit fields for a
+    // post that can no longer be one.
+    if (!showBulkBuying) setIsBulkBuying(false);
+  }, [showBulkBuying]);
+
   const [regularPrice, setRegularPrice] = useState("");
   const [campaignMoq, setCampaignMoq] = useState("10");
   const [campaignTiers, setCampaignTiers] = useState<BulkTier[]>([{ minQty: 10, unitPrice: 0 }]);
@@ -250,9 +308,11 @@ export default function CommunityCompose() {
       // or severity into the row.
       const created = await communityService.create({
         ...draftToCreateInput(draft),
-        area,
-        lat: sellerCtx ? sellerLat : (user.lat || undefined),
-        lng: sellerCtx ? sellerLng : (user.lng || undefined),
+        // A pinned place wins over both the author's GPS and the shop's
+        // premises: it's the only one that was chosen deliberately.
+        area: postPlace?.area || area,
+        lat: postPlace ? postPlace.lat : sellerCtx ? sellerLat : (user.lat || undefined),
+        lng: postPlace ? postPlace.lng : sellerCtx ? sellerLng : (user.lng || undefined),
         commentPolicy: draft.commentPolicy,
         hideLikeCount: draft.hideLikeCount,
         ...(sellerCtx ? { authorType: sellerCtx.type, authorRefId: sellerCtx.id, authorName: sellerCtx.name, authorAvatar: sellerCtx.avatar } : {}),
@@ -364,15 +424,116 @@ export default function CommunityCompose() {
           <div className="grow col" style={{ gap: 3, minWidth: 0 }}>
             <div className="tiny muted">Posting as</div>
             <div className="semi small ellipsis" style={{ fontSize: 14.5 }}>{identityName}</div>
-            <span className="compose-reach">
-              <MapPin size={11} /> {area || "your street"} · {reachKm} km
-            </span>
+            <button
+              type="button"
+              className="compose-reach"
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
+              onClick={() => setPlacePickerOpen(true)}
+              aria-label="Change where this post is about"
+            >
+              <MapPin size={11} /> {postPlace?.area || area || "your street"} · {reachKm} km
+              <span className="semi" style={{ color: "var(--brand-700)", marginLeft: 5 }}>Change</span>
+            </button>
           </div>
-          <span className={`badge row gap-4 center-v ${sellerCtx?.type === "business" ? "badge-orange" : sellerCtx?.type === "provider" ? "badge-green" : "badge-purple"}`}>
-            {sellerCtx?.type === "business" ? <Store size={11} /> : sellerCtx?.type === "provider" ? <Wrench size={11} /> : <User size={11} />}
-            {sellerCtx?.type === "business" ? "Business" : sellerCtx?.type === "provider" ? "Provider" : "You"}
-          </span>
+          <div className="col gap-6" style={{ alignItems: "flex-end", flexShrink: 0 }}>
+            <span className={`badge row gap-4 center-v ${sellerCtx?.type === "business" ? "badge-orange" : sellerCtx?.type === "provider" ? "badge-green" : "badge-purple"}`}>
+              {sellerCtx?.type === "business" ? <Store size={11} /> : sellerCtx?.type === "provider" ? <Wrench size={11} /> : <User size={11} />}
+              {sellerCtx?.type === "business" ? "Business" : sellerCtx?.type === "provider" ? "Provider" : "You"}
+            </span>
+            {(identityOptions?.length ?? 0) > 0 && (
+              <button
+                type="button"
+                className="tiny semi"
+                style={{ color: "var(--brand-700)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                onClick={() => setIdentityPickerOpen(true)}
+              >
+                Switch
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Switching hats mid-draft used to mean cancelling out to the global
+            role switcher and starting over. Drafts are per-identity (see
+            useDraft), so the half-written text follows the identity it was
+            written under rather than leaking across — switching here shows the
+            draft belonging to whoever you switched to, which is the same rule
+            that already applied when arriving under a different hat. */}
+        {postPlace && (
+          <div className="row between center-v" style={{ padding: "8px 11px", background: "var(--brand-50)", border: "1px solid var(--brand-100)", borderRadius: 12 }}>
+            <span className="tiny semi row gap-5 center-v" style={{ color: "var(--brand-800)", minWidth: 0 }}>
+              <MapPin size={12} />
+              <span className="ellipsis">This post is about {postPlace.area || "a pinned spot"}</span>
+            </span>
+            <button
+              type="button"
+              className="tiny semi"
+              style={{ color: "var(--ink-600)", background: "none", border: "none", cursor: "pointer", flexShrink: 0 }}
+              onClick={() => setPostPlace(null)}
+            >
+              Use my location
+            </button>
+          </div>
+        )}
+
+        {placePickerOpen && (
+          <LocationPickerSheet
+            title="Where is this about?"
+            currentLabel={postPlace?.area || area || "Not set"}
+            onPick={(place) => setPostPlace(place)}
+            onClose={() => setPlacePickerOpen(false)}
+          />
+        )}
+
+        {identityPickerOpen && (
+          <div className="overlay" onClick={() => setIdentityPickerOpen(false)}>
+            <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Post as">
+              <div className="sheet-grab" />
+              <h3 className="bold h2" style={{ marginBottom: 4 }}>Post as</h3>
+              <p className="small muted" style={{ marginBottom: 14 }}>
+                Each identity keeps its own draft — your text stays with the one you wrote it under.
+              </p>
+              <div className="col gap-8">
+                {[null, ...(identityOptions ?? [])].map((opt) => {
+                  const on = opt ? sellerCtx?.type === opt.type && sellerCtx?.id === opt.id : !sellerCtx;
+                  return (
+                    <button
+                      key={opt ? `${opt.type}:${opt.id}` : "user"}
+                      type="button"
+                      className="row gap-10 center-v"
+                      style={{
+                        width: "100%", padding: "10px 12px", textAlign: "left", cursor: "pointer", borderRadius: 13,
+                        border: on ? "1.5px solid var(--brand-600)" : "1.5px solid var(--ink-200)",
+                        background: on ? "var(--brand-50)" : "var(--surface)",
+                      }}
+                      onClick={() => {
+                        haptics.selection();
+                        setCtxOverride(opt ?? "USER");
+                        setIdentityPickerOpen(false);
+                      }}
+                    >
+                      <SafeImg
+                        src={opt?.avatar || user.avatar}
+                        variant={opt?.type === "business" ? "photo" : "avatar"}
+                        className="thumb"
+                        style={{ width: 34, height: 34, borderRadius: opt?.type === "business" ? 9 : "50%", flexShrink: 0 }}
+                      />
+                      <span className="grow col" style={{ gap: 2, minWidth: 0 }}>
+                        <span className="semi small ellipsis">{opt ? opt.name : user.name || "You"}</span>
+                        <span className="tiny muted">{opt ? (opt.type === "business" ? "Business" : "Provider") : "Your own name"}</span>
+                      </span>
+                      <span style={{
+                        width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+                        border: on ? "5px solid var(--brand-600)" : "2px solid var(--ink-300)",
+                      }} />
+                    </button>
+                  );
+                })}
+              </div>
+              <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setIdentityPickerOpen(false)}>Cancel</button>
+            </div>
+          </div>
+        )}
 
         {/* Bulk buying — sits ABOVE the type picker, not buried in settings:
             it changes what the post fundamentally is (a business campaign

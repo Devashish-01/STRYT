@@ -5,7 +5,7 @@ import { Skeleton, ErrorView } from "@/components/states";
 import LivePulseDot from "@/components/LivePulseDot";
 import Toggle from "@/components/Toggle";
 import { haptics } from "@/lib/haptics";
-import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle, MapPin, CheckCircle } from "@/components/Icons";
+import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle, MapPin, CheckCircle, UserPlus } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -64,6 +64,10 @@ export default function QueueManager() {
   const [calling, setCalling] = useState(false);
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"LIVE" | "HISTORY">("LIVE");
+  const [walkInOpen, setWalkInOpen] = useState(false);
+  const [walkInName, setWalkInName] = useState("");
+  const [walkInParty, setWalkInParty] = useState("1");
+  const [addingWalkIn, setAddingWalkIn] = useState(false);
   const isInputFocused = useRef(false);
 
   const { data, loading, refetch } = useQueryWithRealtime(
@@ -135,6 +139,23 @@ export default function QueueManager() {
       showToast(e?.message || "Couldn't send payment nudge.");
     } finally {
       setNudging(null);
+    }
+  }
+
+  async function addWalkIn() {
+    if (!walkInName.trim()) { showToast("Enter a name"); return; }
+    setAddingWalkIn(true);
+    try {
+      await businessService.createWalkInQueueToken(businessId, walkInName.trim(), `${parsePartySize(walkInParty) || 1} person${parsePartySize(walkInParty) === 1 ? "" : "s"}`);
+      showToast("Walk-in added to the queue");
+      setWalkInOpen(false);
+      setWalkInName("");
+      setWalkInParty("1");
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't add walk-in");
+    } finally {
+      setAddingWalkIn(false);
     }
   }
 
@@ -314,6 +335,14 @@ export default function QueueManager() {
             <div className="tiny muted">Customers can join from your page</div>
           </div>
           <Toggle on={live} />
+        </button>
+
+        {/* Appointments already had this — the queue console never did
+            (flow-completeness audit, workflow 15). Available regardless of
+            whether the queue is open to customers; a walk-in is the owner
+            adding someone in person. */}
+        <button className="btn btn-outline btn-block row gap-8 center" onClick={() => setWalkInOpen(true)}>
+          <UserPlus size={16} /> Add walk-in
         </button>
 
         {live && (
@@ -540,6 +569,30 @@ export default function QueueManager() {
           </div>
         )}
       </div>
+      {walkInOpen && (
+        <div className="overlay" onClick={() => !addingWalkIn && setWalkInOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h3 className="bold h2" style={{ marginBottom: 12 }}>Add a walk-in</h3>
+            <div className="col gap-10">
+              <div>
+                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Name</label>
+                <input className="input" placeholder="e.g. Rohit" value={walkInName} autoFocus onChange={(e) => setWalkInName(e.target.value)} maxLength={100} />
+              </div>
+              <div>
+                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Party size</label>
+                <input className="input" type="number" min={1} value={walkInParty} onChange={(e) => setWalkInParty(e.target.value)} />
+              </div>
+            </div>
+            <button className="btn btn-primary btn-block" style={{ marginTop: 16, height: 48 }} disabled={addingWalkIn || !walkInName.trim()} onClick={addWalkIn}>
+              {addingWalkIn ? "Adding…" : "Add to queue"}
+            </button>
+            <button className="btn btn-block" style={{ marginTop: 8, background: "transparent" }} onClick={() => setWalkInOpen(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
       <ManageNav bizId={businessId} waitingCount={waiting.length} />
     </div>
   );

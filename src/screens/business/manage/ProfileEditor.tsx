@@ -205,7 +205,7 @@ export default function ProfileEditor() {
           <label>Category</label>
           <div className="row wrap gap-8">
             {cats.map((c) => (
-              <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => setCat(c.id)}>{c.icon} {c.name.split(" ")[0]}</button>
+              <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => setCat(c.id)}>{c.icon} {c.name}</button>
             ))}
           </div>
         </div>

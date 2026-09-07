@@ -523,6 +523,38 @@ function AdminReports() {
     showToast(status === "ACTION_TAKEN" ? "Action taken" : "Dismissed");
   }
 
+  // "Take action" used to only flip the report's own status label — the
+  // reported content itself was never touched (flow-completeness audit,
+  // workflow 21). Real effect per target type now: BUSINESS/PROVIDER reuse
+  // the same suspend toggle AdminProfiles already has; POST hard-deletes
+  // (mirroring the author's own existing delete); REQUEST soft-cancels
+  // (never hard-deleted — a request can have a live agreement chained off
+  // it, same reasoning as delete_business's soft-delete); COMMENT deletes
+  // via admin_delete_comment (20260927), which also clears its replies and
+  // reactions so nothing dangles under a comment that's gone.
+  async function takeAction(r: AdminReport) {
+    try {
+      const sb = getSupabase();
+      if (r.targetType === "BUSINESS" || r.targetType === "PROVIDER") {
+        const table = r.targetType === "BUSINESS" ? "businesses" : "providers";
+        const { error } = await sb.from(table).update({ status: "SUSPENDED" }).eq("id", r.targetId);
+        if (error) throw error;
+      } else if (r.targetType === "POST") {
+        const { error } = await (sb.rpc as any)("admin_delete_post", { p_id: r.targetId });
+        if (error) throw error;
+      } else if (r.targetType === "REQUEST") {
+        const { error } = await (sb.rpc as any)("admin_cancel_request", { p_id: r.targetId });
+        if (error) throw error;
+      } else if (r.targetType === "COMMENT") {
+        const { error } = await (sb.rpc as any)("admin_delete_comment", { p_id: r.targetId });
+        if (error) throw error;
+      }
+      await resolve(r.id, "ACTION_TAKEN");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't take action — try again");
+    }
+  }
+
   return (
     <>
       {loading && <ListSkeleton count={3} />}
@@ -541,7 +573,7 @@ function AdminReports() {
                 {status === "OPEN" || status === "REVIEWING" ? (
                   <div className="row gap-8" style={{ marginTop: 12 }}>
                     <button className="btn btn-outline grow btn-sm" onClick={() => resolve(r.id, "DISMISSED")}>Dismiss</button>
-                    <button className="btn btn-sm grow" style={{ background: "var(--red-500)", color: "#fff" }} onClick={() => resolve(r.id, "ACTION_TAKEN")}>Take action</button>
+                    <button className="btn btn-sm grow" style={{ background: "var(--red-500)", color: "#fff" }} onClick={() => takeAction(r)}>Take action</button>
                   </div>
                 ) : (
                   <span className={`badge ${status === "ACTION_TAKEN" ? "badge-red" : "badge-gray"}`} style={{ marginTop: 10 }}>{status === "ACTION_TAKEN" ? "Action taken" : "Dismissed"}</span>

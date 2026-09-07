@@ -1,5 +1,6 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
+import { notificationService } from "@/services/engagement/notificationService";
 
 export type AppealEntityType = "BUSINESS" | "PROVIDER";
 export type AppealStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -90,6 +91,20 @@ export const appealService = {
       const table = appeal.entityType === "BUSINESS" ? "businesses" : "providers";
       const { error: reactivateError } = await sb.from(table).update({ status: "ACTIVE" }).eq("id", appeal.entityId);
       throwIfError(reactivateError);
+    }
+
+    try {
+      await notificationService.send(
+        appeal.ownerUserId,
+        approve ? "Review request approved ✓" : "Review request declined",
+        approve
+          ? "Your account is active again."
+          : adminNote.trim() || "STRYT admin didn't approve your review request.",
+        appeal.entityType === "BUSINESS" ? `/business/${appeal.entityId}/manage` : `/provider/${appeal.entityId}/manage`,
+        "SYSTEM"
+      );
+    } catch (err) {
+      console.warn("Failed to send appeal resolution notification:", err);
     }
   },
 };

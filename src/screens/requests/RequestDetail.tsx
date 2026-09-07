@@ -17,8 +17,6 @@ import { PLACEHOLDER_REQUEST_SHARE } from "@/lib/placeholders";
 import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import type { Proposal, ProposalCounter } from "@/types";
 import { openProfile } from "@/lib/profileSheet";
-import { GROUP_BUY_PROGRESS_ENABLED } from "@/utils/constants";
-import { poolProgress } from "@/lib/groupBuy";
 import { REQUEST_STATUS_BADGE, PROPOSAL_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import AnimatedNumber from "@/components/AnimatedNumber";
@@ -30,14 +28,7 @@ export default function RequestDetail() {
   const { user, showToast, meToos, isAuthed, isGuest } = useApp();
   const { t, tf } = useI18n();
   const { data: r, loading, error, refetch } = useQueryWithRealtime(
-    async () => {
-      const req = await requestService.get(id, user.lat || 0, user.lng || 0);
-      if (!req?.isGroupBuy) return req;
-      // Pool totals aren't on the requests row (me_too_count counts people,
-      // not pledged units), so they're fetched alongside for group buys only.
-      const pledges = await requestService.groupBuyPledges(id);
-      return { ...req, ...pledges };
-    },
+    () => requestService.get(id, user.lat || 0, user.lng || 0),
     "requests",
     [id],
     `id=eq.${id}`
@@ -136,26 +127,6 @@ export default function RequestDetail() {
   const meTooed = meToos.includes(r.id) || r.meTooed;
   const meTooCount = (r.meTooCount ?? 0) + (meTooed && !r.meTooed ? 1 : 0);
 
-  /** Closing a group buy mints one claim pass per pooled member. Deliberately
-   *  non-fatal: the agreement is already committed by the time this runs, so a
-   *  failure here must not read as "accepting failed" — the initiator can
-   *  retry issuance (the RPC is idempotent) rather than being left unsure
-   *  whether they accepted at all. */
-  async function issueTokensIfGroupBuy(agreementId: string | null, p: Proposal, unitPrice?: number) {
-    // Re-checked inside the closure: TS can't carry the outer narrowing of `r`
-    // across a function boundary, and this runs async after an await anyway.
-    if (!agreementId || !r || !r.isGroupBuy) return;
-    try {
-      const count = await requestService.issueGroupBuyTokens(r.id, agreementId, {
-        businessId: p.responderEntityId ?? null,
-        unitPrice: unitPrice ?? p.price,
-      });
-      if (count > 0) showToast(`${count} claim pass${count > 1 ? "es" : ""} issued to the group`);
-    } catch {
-      showToast("Deal accepted, but passes couldn't be issued — open the agreement to retry.");
-    }
-  }
-
   async function acceptProposal(p: Proposal) {
     setAccepted(p.id);
     haptics.medium();
@@ -163,7 +134,6 @@ export default function RequestDetail() {
       const result = await requestService.acceptProposal(p.id);
       haptics.success();
       showToast(`Accepted ${p.responderName}'s offer`);
-      await issueTokensIfGroupBuy(result.agreementId, p);
       setTimeout(() => nav(result.agreementId ? `/agreement/${result.agreementId}` : `/agreements`), 700);
     } catch {
       setAccepted(null);
@@ -180,7 +150,6 @@ export default function RequestDetail() {
       const result = await requestService.acceptProposalCounter(p.id, counter.id);
       haptics.success();
       showToast(`Accepted at ${inr(counter.amount)}`);
-      await issueTokensIfGroupBuy(result.agreementId, p, counter.amount);
       setTimeout(() => nav(result.agreementId ? `/agreement/${result.agreementId}` : `/agreements`), 700);
     } catch {
       setAccepted(null);
@@ -312,7 +281,7 @@ export default function RequestDetail() {
           <div className="row wrap gap-6" style={{ marginTop: 16 }}>
             {r.isUrgent && <span className="badge badge-red"><Flame size={11} /> {t("urgent_badge")}</span>}
             {r.isBoosted && <span className="badge badge-amber"><Zap size={11} /> {t("boosted_badge")}</span>}
-            {r.isGroupBuy && <span className="badge badge-green"><Users size={11} /> {t("group_buy_badge")}</span>}
+
             {r.isRecurring && <span className="badge badge-blue"><Repeat size={11} /> {t("recurring_badge")}</span>}
             <span className="badge badge-purple">{r.categoryName}</span>
             {r.subCategory && <span className="badge badge-gray">{r.subCategory}</span>}
@@ -327,52 +296,6 @@ export default function RequestDetail() {
                 <SafeImg key={i} src={ph} className="thumb" style={{ width: 120, height: 120, borderRadius: 14, flexShrink: 0 }} />
               ))}
             </div>
-          )}
-
-          {/* Group buy progress — hidden while GROUP_BUY_PROGRESS_ENABLED is off.
-              Measured in UNITS pledged, not heads — see lib/groupBuy.ts. */}
-          {GROUP_BUY_PROGRESS_ENABLED && r.isGroupBuy && (() => {
-            const progress = poolProgress({
-              target: r.groupBuyTarget,
-              pledgedQuantity: r.pledgedQuantity,
-              meTooCount,
-              myPledgeQuantity: r.myPledgeQuantity,
-            });
-            if (!progress.hasTarget) return null;
-            return (
-              <div className="card" style={{ marginTop: 14, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
-                <div className="row between tiny" style={{ marginBottom: 6 }}>
-                  <span className="semi" style={{ color: "var(--green-600)" }}>{tf("pledged_of_target", { pledged: progress.pledged, target: progress.target })}</span>
-                  <span className="muted">{progress.complete ? t("target_reached") : tf("more_unlocks_bulk_price", { n: progress.remaining })}</span>
-                </div>
-                <div style={{ height: 8, borderRadius: 6, background: "var(--surface)", overflow: "hidden" }}>
-                  <div style={{ width: `${progress.pct}%`, height: "100%", background: "var(--green-500)", transition: "width .3s" }} />
-                </div>
-                {(r.myPledgeQuantity ?? 0) > 0 && (
-                  <div className="tiny" style={{ color: "var(--green-600)", marginTop: 6 }}>
-                    {t("you_pledged_prefix")} {r.myPledgeQuantity} {(r.myPledgeQuantity ?? 0) > 1 ? t("units_word") : t("unit_word")}
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* Once the initiator closes the deal, every joiner's pass lives at
-              /community/activity. Surfaced here too because this is the screen
-              they were watching while the pool filled. */}
-          {r.isGroupBuy && r.groupAgreementId && (
-            <button
-              className="card row gap-10 center-v"
-              style={{ marginTop: 14, padding: 14, width: "100%", textAlign: "left", background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}
-              onClick={() => nav("/community/activity")}
-            >
-              <Ticket size={20} color="var(--brand-700)" style={{ flexShrink: 0 }} />
-              <div className="grow">
-                <div className="semi small" style={{ color: "var(--brand-700)" }}>{t("deal_closed_ready")}</div>
-                <div className="tiny muted" style={{ marginTop: 1 }}>{t("open_my_activity")}</div>
-              </div>
-              <ChevronRight size={16} color="var(--brand-300)" />
-            </button>
           )}
 
           {/* Detail card */}
@@ -399,20 +322,6 @@ export default function RequestDetail() {
           <h3 className="bold h2" style={{ marginBottom: 12 }}>
             {isMine ? t("offers_received") : t("offers_label")} ({r.proposalCount ?? r.proposals.length})
           </h3>
-
-          {/* On a group buy, quoting is private by design — say so, so a
-              neighbour who joined doesn't read the empty list as "nobody has
-              quoted" when in fact several have. */}
-          {r.isGroupBuy && !isMine && (r.proposalCount ?? 0) > 0 && r.proposals.length === 0 && (
-            <div className="card row gap-10" style={{ padding: 12, marginBottom: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
-              <Lock size={16} color="var(--brand-700)" style={{ flexShrink: 0, marginTop: 1 }} />
-              <div className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.5 }}>
-                {(r.proposalCount ?? 0) > 1
-                  ? tf("group_buy_privacy_other", { count: r.proposalCount ?? 0, name: r.requesterName })
-                  : tf("group_buy_privacy_one", { name: r.requesterName })}
-              </div>
-            </div>
-          )}
 
           {/* Sort — helps the customer compare when several offers arrive */}
           {r.proposals.length > 1 && (

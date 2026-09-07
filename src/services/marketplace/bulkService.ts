@@ -217,7 +217,7 @@ export const bulkService = {
 
   async deleteDeal(id: string) {
     const sb = getSupabase();
-    const { error } = await sb.from("bulk_deals").delete().eq("id", id);
+    const { error } = await (sb.rpc as any)("bulk_deal_delete", { p_deal_id: id });
     throwIfError(error);
     return { ok: true };
   },
@@ -319,6 +319,23 @@ export const bulkService = {
   },
 
   // ── Business-side campaign management (Phase 3) ─────────────
+
+  /** Every PENDING_CONFIRM deposit across ALL of a business's campaigns — for
+   *  ManageDashboard's "Action needed" list and BusinessPayments' claims
+   *  section, neither of which surfaced these before (flow-completeness
+   *  audit, workflow 16): a pending bulk-deal deposit was invisible anywhere
+   *  a business actually looks for "things to do". Same RLS coverage as
+   *  pledgesForDeal below, joined through to the owning deal for its title. */
+  async pendingDepositsForBusiness(businessId: string): Promise<(BulkDealPledge & { dealTitle: string })[]> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.from as any)("bulk_deal_pledges")
+      .select("*, pledger:users!user_id(alias), deal:bulk_deals!inner(title, business_id)")
+      .eq("deal.business_id", businessId)
+      .eq("deposit_status", "PENDING_CONFIRM")
+      .order("created_at", { ascending: false });
+    throwIfError(error);
+    return ((data ?? []) as any[]).map((r) => ({ ...rowToPledge(r), dealTitle: r.deal?.title ?? "Campaign" }));
+  },
 
   /** Full pledger roster for the owner's own console — a direct table read,
    *  not an RPC: read_bulk_deal_pledges' RLS policy already covers the deal

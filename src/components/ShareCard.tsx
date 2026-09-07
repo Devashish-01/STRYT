@@ -9,6 +9,7 @@ import { copyText } from "@/lib/clipboard";
 import { PLACEHOLDER_AVATAR } from "@/lib/placeholders";
 import { useI18n } from "@/lib/i18n";
 import { shareCapabilities, type ShareSubject } from "@/lib/share";
+import { config } from "@/config";
 
 interface Props {
   /** What's being shared. Pass an array to render the role-switcher chips
@@ -34,7 +35,11 @@ export default function ShareCard({ subjects, onClose }: Props) {
   const [chatOpen, setChatOpen] = useState(false);
 
   const subject = list[Math.min(activeIdx, list.length - 1)];
-  const caps = shareCapabilities(subject);
+  // Always the production host, never window.location.origin — on the native
+  // Android/iOS build that's "https://localhost" (Capacitor's WebView origin),
+  // which produced a dead link in every share channel, QR code, and printed
+  // artifact this card generates.
+  const caps = shareCapabilities(subject, config.apiUrl);
 
   const currentTitle = subject.title;
   const currentSubtitle = subject.subtitle;

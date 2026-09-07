@@ -148,6 +148,20 @@ export interface BizVocabulary {
   sheetTitleReschedule: string;
   /** Verb-phrase for the post-booking toast, prepended to " for {date} at {time} 📅". */
   bookedVerb: string;
+  /** Subtitle prefix in AppointmentSheet (e.g. "Select pickup or visit time with "). */
+  sheetSubtitlePrefix?: string;
+  /** Heading for item/package section in AppointmentSheet. */
+  itemSectionHeading?: string;
+  /** Heading for slot/time section in AppointmentSheet. */
+  slotSectionHeading?: string;
+  /** Heading for notes textarea in AppointmentSheet. */
+  notesHeading?: string;
+  /** Placeholder for notes textarea in AppointmentSheet. */
+  notesPlaceholder?: string;
+  /** Banner text when open right now in AppointmentSheet. */
+  availableNowText?: string;
+  /** Primary button label prefix (e.g. "Confirm Order" vs "Confirm Booking"). */
+  confirmCta?: string;
 }
 
 /**
@@ -498,6 +512,13 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       noun: "order", nounCap: "Order", nounPlural: "orders",
       sheetTitleNew: "Place Your Order", sheetTitleReschedule: "Change Order",
       bookedVerb: "Order placed",
+      sheetSubtitlePrefix: "Select pickup or delivery time with ",
+      itemSectionHeading: "Select Dish",
+      slotSectionHeading: "Select Pickup / Prep Time",
+      notesHeading: "Kitchen & Delivery Instructions (Optional)",
+      notesPlaceholder: "Spice level, extra sauce, packing preferences...",
+      availableNowText: "Kitchen is open right now — pick the earliest time below.",
+      confirmCta: "Place Order",
     },
     // Takeaway has no tables: `bookingsDefault` is false, so reservations are
     // absent from both lists and delivery leads instead.
@@ -589,6 +610,13 @@ export const BUSINESS_PACKAGES: Record<BusinessPackageKey, BusinessPackage> = {
       noun: "order", nounCap: "Order", nounPlural: "orders",
       sheetTitleNew: "Place Your Order", sheetTitleReschedule: "Change Order",
       bookedVerb: "Order placed",
+      sheetSubtitlePrefix: "Select pickup or store visit time with ",
+      itemSectionHeading: "Select an Item",
+      slotSectionHeading: "Select Pickup / Store Visit Time",
+      notesHeading: "Order & Sizing Instructions (Optional)",
+      notesPlaceholder: "Add size, color, alteration, or pickup preferences...",
+      availableNowText: "Open right now — stop by or pick the earliest time below.",
+      confirmCta: "Confirm Order",
     },
     console: {
       setupTitle: "Get your shop ready",

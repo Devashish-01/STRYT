@@ -113,10 +113,20 @@ export function useSocialSlice(showToast: (msg: string) => void) {
     setLikes((p) => (p.includes(postId) ? p.filter((x) => x !== postId) : [...p, postId]));
   }, []);
 
+  /** null retracts the vote — the map entry is deleted rather than set to
+   *  null, so `votes[postId]` reads as absent again and every `?? post.voted`
+   *  fallback behaves as it did before the vote. */
   const votePoll = useCallback(
-    (postId: string, optionId: string) => {
-      setVotes((p) => ({ ...p, [postId]: optionId }));
-      showToast("Vote counted");
+    (postId: string, optionId: string | null) => {
+      setVotes((p) => {
+        if (optionId === null) {
+          const next = { ...p };
+          delete next[postId];
+          return next;
+        }
+        return { ...p, [postId]: optionId };
+      });
+      showToast(optionId === null ? "Vote removed" : "Vote counted");
     },
     [showToast]
   );

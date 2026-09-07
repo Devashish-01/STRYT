@@ -36,6 +36,7 @@ import { authService } from "@/services/core/authService";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
 import { chatService } from "@/services/engagement/chatService";
 import { registerPush } from "@/lib/pushNotifications";
+import { Capacitor } from "@capacitor/core";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import type { BookmarkKey, FollowKey, UserList } from "@/store/sliceTypes";
 import { useToast } from "@/store/useToast";
@@ -67,7 +68,15 @@ interface AppState {
   activeRole: Role;
   roles: Role[];
   setActiveRole: (r: Role) => void;
-  addRole: (r: Role) => void;
+  /**
+   * Grant a role and persist it. **Awaitable, and callers must await it** —
+   * this used to fire `void userService.update(...)` and return immediately,
+   * so an onboarding flow that called `addRole(...)` then `await refreshUser()`
+   * raced its own write: refreshUser read `roles` back from the database before
+   * the update landed and reset it to `['customer']`, silently stripping the
+   * role the user had just earned (BUSINESS_ONBOARDING #19, PROVIDER #6).
+   */
+  addRole: (r: Role) => Promise<void>;
 
   // active context (which "hat" you're wearing)
   activeContext: ActiveContext;
@@ -137,7 +146,8 @@ interface AppState {
   likes: string[];
   toggleLike: (postId: string) => void;
   votes: Record<string, string>; // postId -> optionId
-  votePoll: (postId: string, optionId: string) => void;
+  /** null retracts the caller's vote. */
+  votePoll: (postId: string, optionId: string | null) => void;
 
   // coupons saved
   savedCoupons: string[];
@@ -198,6 +208,13 @@ interface AppState {
   // data saver mode
   dataSaver: boolean;
   setDataSaver: (v: boolean) => void;
+
+  // Notification-permission disclosure — shown once before the OS prompt,
+  // instead of the previous cold PushNotifications.requestPermissions() call
+  // right after sign-in (flow-completeness audit, workflow 22).
+  notifExplainerPending: boolean;
+  confirmNotifExplainer: () => void;
+  dismissNotifExplainer: () => void;
 }
 
 const Ctx = createContext<AppState | null>(null);
@@ -464,10 +481,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const userLocRef = useRef({ lat: 0, lng: 0 });
   useEffect(() => { userLocRef.current = { lat: user.lat, lng: user.lng }; }, [user.lat, user.lng]);
 
+  const NOTIF_EXPLAINED_KEY = "stryt_notif_explained_v1";
+  const [notifExplainerPending, setNotifExplainerPending] = useState(false);
+  const pendingPushUid = useRef<string | null>(null);
+
+  function maybeRegisterPush(uid: string) {
+    // Only native ever shows the OS prompt registerPush gates on — no reason
+    // to interrupt a web session with an explainer for a dialog that will
+    // never appear.
+    const alreadyExplained = (() => { try { return localStorage.getItem(NOTIF_EXPLAINED_KEY) === "1"; } catch { return true; } })();
+    if (Capacitor.isNativePlatform() && !alreadyExplained) {
+      pendingPushUid.current = uid;
+      setNotifExplainerPending(true);
+      return;
+    }
+    void registerPush(uid);
+  }
+
+  function confirmNotifExplainer() {
+    try { localStorage.setItem(NOTIF_EXPLAINED_KEY, "1"); } catch { /* best-effort */ }
+    setNotifExplainerPending(false);
+    if (pendingPushUid.current) void registerPush(pendingPushUid.current);
+    pendingPushUid.current = null;
+  }
+
+  function dismissNotifExplainer() {
+    // Deliberately does NOT set the "explained" flag — same rule as
+    // LiveShareExplainer (confirmed correct in the audit's regression check,
+    // workflow 23): dismissing isn't consent, so this asks again next
+    // sign-in instead of silently falling through to a cold OS prompt with
+    // no explainer at all next time.
+    setNotifExplainerPending(false);
+    pendingPushUid.current = null;
+  }
+
   useEffect(() => {
     if (isAuthed) {
       void refreshUser().finally(() => setProfileReady(true)).then(() => {
-        currentUserId().then((uid) => { if (uid) void registerPush(uid); });
+        currentUserId().then((uid) => { if (uid) maybeRegisterPush(uid); });
         void autoRefreshLocation();
       });
       void hydratePersonalData();
@@ -576,15 +627,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       activeRole,
       roles,
       setActiveRole: setPersistedActiveRole,
-      addRole: (r: Role) => {
-        setRoles((prev) => {
-          if (prev.includes(r)) return prev;
-          const next = [...prev, r];
-          // Persist to DB so refreshUser() doesn't overwrite back to ['customer'].
-          void userService.update({ roles: next });
-          return next;
-        });
+      addRole: async (r: Role) => {
         setPersistedActiveRole(r);
+        if (roles.includes(r)) return;
+        const next = [...roles, r];
+        setRoles(next);
+        // Persisted BEFORE the caller's refreshUser() can run, so the read-back
+        // can't overwrite it. Reading `roles` from the closure rather than a
+        // functional updater is what makes the write awaitable at all — the
+        // updater's return value isn't available to the caller.
+        await userService.update({ roles: next });
       },
       activeContext,
       setContext: setPersistedContext,
@@ -646,6 +698,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       requestGuestLocation,
       dataSaver,
       setDataSaver,
+      notifExplainerPending,
+      confirmNotifExplainer,
+      dismissNotifExplainer,
       signIn: () => setIsAuthed(true),
       signOut: () => {
         tokenStore.clear();
@@ -688,12 +743,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
       chatUnread, toast, isAuthed, authReady, profileReady,
       isGuest, guestLocation, guestLocationStatus, requestGuestLocation,
-      dataSaver, setDataSaver,
+      dataSaver, setDataSaver, notifExplainerPending,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
       joinQueue, createList, addToList, isInAnyList, showToast,
       setPersistedActiveRole, setPersistedContext, setChatUnread, setIsAuthed,
       attemptSwitchContext, confirmPendingSwitch, cancelPendingSwitch, refreshEntityPasswordStatus,
+      confirmNotifExplainer, dismissNotifExplainer,
     ]
   );
 

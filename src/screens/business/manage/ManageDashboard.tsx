@@ -6,7 +6,7 @@ import {
   Users, Wallet, X as XIcon, Zap,
 } from "@/components/Icons";
 import {
-  appointmentService, businessService, bustBusinessGetCache, communityService,
+  appointmentService, businessService, bulkService, bustBusinessGetCache, communityService,
   customPaymentService, notificationService, requestService,
 } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
@@ -64,6 +64,9 @@ export default function ManageDashboard() {
   );
   const { data: customPayments } = useQueryWithRealtime(
     () => customPaymentService.listForTarget("BUSINESS", id), "custom_payments", [id], `target_id=eq.${id}`, `business:${id}:custom-payments`,
+  );
+  const { data: pendingBulkDeposits, refetch: refetchBulkDeposits } = useQueryWithRealtime(
+    () => bulkService.pendingDepositsForBusiness(id), "bulk_deal_pledges", [id], undefined, `business:${id}:bulk-deposits`,
   );
   const { data: questions, refetch: refetchQuestions } = useQueryWithRealtime<QnaItem[]>(
     () => businessService.qna(id) as Promise<QnaItem[]>, "business_qna", [id], `business_id=eq.${id}`, `business:${id}:qna`,
@@ -142,6 +145,7 @@ export default function ManageDashboard() {
   ];
   const { appointmentClaims, queueClaims, customClaims, paymentClaims, paidRecords, recordedAmount: recordedPaid } = deriveMoneySummary(appts, queueTokens, customPayments ?? []);
   const unanswered = (questions ?? []).filter((item) => !item.answer);
+  const bulkDepositClaims = pendingBulkDeposits ?? [];
   // Scoped to what this session can actually act on — a team member without
   // 'appointments' shouldn't see a badge count that includes booking claims
   // they can't open (the items themselves are filtered the same way below).
@@ -150,7 +154,10 @@ export default function ManageDashboard() {
     // RLS requires 'appointments' scope for a delegate, so gate the badge to match.
     (hasScope("appointments") ? pendingAppointments.length + appointmentClaims.length + customClaims.length : 0) +
     (hasScope("queue") ? queueClaims.length : 0) +
-    (hasScope("leads") ? unanswered.length : 0);
+    (hasScope("leads") ? unanswered.length : 0) +
+    // bulk-deal management sits under the 'catalog' scope (write_bulk_deals'
+    // own RLS check), matching BulkDealsManager's own access gate.
+    (hasScope("catalog") ? bulkDepositClaims.length : 0);
   const range = business?.broadcastRadius ?? 5;
   // Read-only reach shown in the header; editing lives on the dedicated
   // Service radius screen (Business hub) now, not on this dashboard.
@@ -336,6 +343,20 @@ export default function ManageDashboard() {
     }
   }
 
+  async function updateBulkDeposit(item: { dealId: string; userId: string }, accept: boolean) {
+    setBusyId(item.userId);
+    try {
+      if (accept) await bulkService.confirmDeposit(item.dealId, item.userId);
+      else await bulkService.rejectDeposit(item.dealId, item.userId);
+      showToast(accept ? "Deposit confirmed" : "Deposit claim rejected");
+      refetchBulkDeposits();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update deposit");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function callNext() {
     const next = queue?.waiting?.[0];
     if (!next) return;
@@ -439,7 +460,7 @@ export default function ManageDashboard() {
       <div className="screen-scroll">
         {isOwner && (
           <div style={{ paddingTop: 12 }}>
-            <AccountStatusBanner entityType="BUSINESS" entityId={id} status={business?.status} />
+            <AccountStatusBanner entityType="BUSINESS" entityId={id} status={business?.status} rejectionReason={business?.rejectionReason} />
           </div>
         )}
 
@@ -549,6 +570,13 @@ export default function ManageDashboard() {
                   <TodayAction key={`queue-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.name} claims ${inr(item.paymentAmount ?? 0)}`} subtitle="Queue payment">
                     <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, true)}>Confirm</button>
                     <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, false)}>Reject</button>
+                  </TodayAction>
+                ))}
+
+                {hasScope("catalog") && bulkDepositClaims.slice(0, 3).map((item) => (
+                  <TodayAction key={`bulk-deposit-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.pledgerName || "A pledger"} claims ${inr(item.depositAmount ?? 0)}`} subtitle={item.dealTitle}>
+                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.userId} onClick={() => updateBulkDeposit(item, true)}>Confirm</button>
+                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.userId} onClick={() => updateBulkDeposit(item, false)}>Reject</button>
                   </TodayAction>
                 ))}
 

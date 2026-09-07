@@ -7,6 +7,8 @@ export type BookmarkTarget = "BUSINESS" | "PROVIDER" | "REQUEST";
 
 export type NotificationType =
   | "NEW_BUSINESS"
+  // Admin-facing: a business is sitting in the review queue (20260933).
+  | "ADMIN_REVIEW_QUEUE"
   | "NEW_PROVIDER"
   | "NEW_PLACE"
   | "NEARBY_REQUEST"
@@ -18,6 +20,8 @@ export type NotificationType =
   | "QUOTE_BROADCAST"
   | "LOCATION_REQUEST"
   | "LOCATION_APPROVED"
+  | "LOCATION_DENIED"
+  | "LOCATION_REVOKED"
   | "COMMUNITY_COMMENT"
   // The rest of the community loop (20260896). Before these, liking a post,
   // answering someone's question with a recommendation, resolving a lost-and-
@@ -28,6 +32,13 @@ export type NotificationType =
   | "COMMUNITY_RESOLVED"
   | "COMMUNITY_POLL_ENDED"
   | "COMMUNITY_MENTION"
+  /** Someone replied to YOUR comment, as distinct from commenting on your post
+   *  (20260926). Nested replies shipped in 20260807 without ever notifying the
+   *  person being replied to. */
+  | "COMMUNITY_REPLY"
+  /** Someone reacted to your comment (20260927). comment_reactions shipped in
+   *  20260895 with no notification trigger, unlike post_likes. */
+  | "COMMUNITY_COMMENT_REACTION"
   /** Broadcast to neighbours within radius when an ALERT is posted. Rate-limited
    *  and capped server-side, and opt-out-able via users.notif_nearby_alerts. */
   | "NEARBY_ALERT"
@@ -39,6 +50,32 @@ export type NotificationType =
   | "APPOINTMENT"
   | "DELIVERY"
   | "BUSINESS_ACCESS"
+  | "PROPOSAL_COUNTER"
+  | "RATING"
+  | "RATING_REPLY"
+  | "BULK_DEAL_PLEDGE"
+  | "BULK_DEAL_DEPOSIT_CLAIMED"
+  // These two were already inserted by 20260900_bulk_deal_campaigns.sql's
+  // confirm/reject_deposit RPCs but were never added here — an orphaned type,
+  // silently rendering as a generic bell, exactly the failure mode
+  // communityNotifications.test.ts exists to catch. Added while touching the
+  // adjacent bulk-deal types above, not part of the flow-completeness audit
+  // fixes themselves.
+  | "BULK_DEAL_DEPOSIT_CONFIRMED"
+  | "BULK_DEAL_DEPOSIT_REJECTED"
+  // The campaign-lifecycle three. BULK_DEAL_UNLOCKED is the "your claim pass is
+  // ready" payoff of the whole bulk-buying feature and had been rendering as a
+  // generic grey bell since 20260900 (gap log #17).
+  | "BULK_DEAL_UNLOCKED"
+  | "BULK_DEAL_REFUNDED"
+  | "BULK_DEAL_EXTENDED"
+  // Found by the same pass, once the drift guard stopped filtering to an
+  // allowlist of prefixes — orphaned since 20260818 / 20260824 respectively.
+  | "LIVE_LOCATION"
+  | "CUSTOM_PAYMENT_RECEIVED"
+  | "CUSTOM_PAYMENT_CONFIRMED"
+  | "CUSTOM_PAYMENT_REJECTED"
+  | "QNA"
   | "SYSTEM";
 
 /** Semantic tone for a notification's status pill / accent — maps to the
@@ -116,7 +153,11 @@ export interface PublicUser {
   badges: string[];
   verifications: ("phone" | "id" | "address" | "business")[];
   reviewsGiven: { id: string; target: string; rating: number; comment: string; date: string }[];
-  posts?: { id: string; title?: string; body: string; type: string; area?: string; date: string; likesCount: number; commentsCount: number; hiddenOnProfile?: boolean }[];
+  /** `showOnProfile` is the real, server-side flag (20260925). The older
+   *  `hiddenOnProfile` was never populated from the DB — the hide control used
+   *  to write only to the viewer's own localStorage, so it hid nothing from
+   *  anyone else (COMMUNITY_POSTS_GAP_LOG #7). */
+  posts?: { id: string; title?: string; body: string; type: string; area?: string; date: string; likesCount: number; commentsCount: number; hiddenOnProfile?: boolean; showOnProfile?: boolean }[];
   requests?: { id: string; categoryName?: string; description: string; status: string; budget?: number; date: string }[];
   proposalsGiven?: { id: string; requestId: string; requestTitle: string; price: number; note: string; date: string }[];
   proposalsReceivedCount?: number;

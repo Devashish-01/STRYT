@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, inr, EmptyState } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
-import { Plus, QrCode, Trash2, CheckCircle2, X, Edit3 } from "@/components/Icons";
+import { Plus, QrCode, Trash2, CheckCircle2, X, Edit3, AlertTriangle } from "@/components/Icons";
 import { bulkService, businessService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import QrScannerSheet from "@/components/QrScannerSheet";
 import ManageNav from "./ManageNav";
@@ -17,9 +17,14 @@ export default function BulkDealsManager() {
   const nav = useNavigate();
   const { showToast } = useApp();
   const { data: biz } = useQuery(() => businessService.get(id), [id], `business:${id}`);
-  const { data: deals, loading, refetch } = useQuery(
+  // Realtime — a customer pledging or paying a deposit while the owner has
+  // this screen open used to need a manual reload to show up, unlike the
+  // directly analogous QueueManager/BusinessRequests.
+  const { data: deals, loading, refetch } = useQueryWithRealtime(
     () => bulkService.dealsForBusiness(id),
+    "bulk_deal_pledges",
     [id],
+    undefined,
     `bulk:biz-deals:${id}`
   );
 
@@ -147,8 +152,11 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
   const nav = useNavigate();
   const { showToast } = useApp();
   const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const hasPledges = (deal.pledgedQuantity ?? 0) > 0;
 
   async function remove() {
+    setConfirmOpen(false);
     setBusy(true);
     try {
       await bulkService.deleteDeal(deal.id);
@@ -186,7 +194,7 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
           <button className="icon-btn" onClick={onEdit} aria-label="Edit deal">
             <Edit3 size={16} color="var(--brand-700)" />
           </button>
-          <button className="icon-btn" disabled={busy} onClick={remove} aria-label="Remove deal">
+          <button className="icon-btn" disabled={busy} onClick={() => setConfirmOpen(true)} aria-label="Remove deal">
             <Trash2 size={16} color="var(--red-600)" />
           </button>
         </div>
@@ -198,6 +206,38 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
               {t.minQty}+ → {inr(t.unitPrice)}
             </span>
           ))}
+        </div>
+      )}
+      {/* Previously an instant, un-confirmed delete — the FK cascade wipes the
+          whole pledge roster with no warning, and (until 20260913) no notice
+          to anyone who'd already paid a deposit into it. */}
+      {confirmOpen && (
+        <div className="overlay" onClick={() => !busy && setConfirmOpen(false)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <div className="row gap-10" style={{ alignItems: "flex-start", marginBottom: 10 }}>
+              <AlertTriangle size={20} color="var(--red-600)" style={{ flexShrink: 0, marginTop: 1 }} />
+              <div>
+                <h3 className="bold h2" style={{ marginBottom: 4 }}>Delete "{deal.title}"?</h3>
+                <p className="small muted">
+                  {hasPledges
+                    ? `${deal.pledgedQuantity} unit${deal.pledgedQuantity === 1 ? "" : "s"} pledged into this campaign. Anyone who already paid a deposit will be notified, but it isn't refunded automatically — sort that out with them directly. This can't be undone.`
+                    : "This can't be undone."}
+                </p>
+              </div>
+            </div>
+            <button
+              className="btn btn-block"
+              style={{ height: 48, background: "var(--red-500)", color: "#fff", fontWeight: 700 }}
+              disabled={busy}
+              onClick={remove}
+            >
+              {busy ? "Deleting…" : "Delete permanently"}
+            </button>
+            <button className="btn btn-block" style={{ marginTop: 8, background: "transparent" }} onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>

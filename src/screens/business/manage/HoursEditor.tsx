@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
-import { Plus, X, Zap, Clock } from "@/components/Icons";
+import { Zap, Clock, Calendar, ChevronRight } from "@/components/Icons";
 import { businessService, bustBusinessGetCache } from "@/services";
 import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
@@ -13,12 +13,11 @@ import { ListSkeleton } from "@/components/states";
 
 export default function HoursEditor() {
   const { id = "" } = useParams();
+  const nav = useNavigate();
   const { showToast } = useApp();
   const { data: b, loading, error, refetch: refetchBusiness } = useQuery(() => businessService.get(id), [id], `business:${id}`);
 
   const [hoursRaw, setHoursRaw] = useState<string | undefined>(undefined);
-  const [special, setSpecial] = useState<{ date: string; note: string }[]>([]);
-  const [newSpecial, setNewSpecial] = useState("");
   const [saving, setSaving] = useState(false);
   const [openNow, setOpenNow] = useState(false);
 
@@ -27,7 +26,6 @@ export default function HoursEditor() {
     if (!b) return;
     setHoursRaw(b.hours);
     setOpenNow(b.isAvailableNow ?? false);
-    setSpecial(b.specialHours ?? []);
   }, [b]);
 
   if (!id) {
@@ -73,7 +71,12 @@ export default function HoursEditor() {
     if (hoursRaw === undefined) return;
     setSaving(true);
     try {
-      await businessService.update(id, { hours: hoursRaw, specialHours: special });
+      await businessService.update(id, { hours: hoursRaw });
+      // Without this, an immediate same-session toggleOpenNow() computes its
+      // auto-clear time against the OLD hours — it reads b?.hours from this
+      // same cached query.
+      invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
+      void refetchBusiness();
       showToast("Hours saved");
     } catch {
       showToast("Couldn't save hours. Try again.");
@@ -119,24 +122,23 @@ export default function HoursEditor() {
           )}
         </div>
 
-        {/* Special / holiday hours */}
-        <div>
-          <div className="small semi muted" style={{ marginBottom: 8 }}>Special / holiday hours</div>
-          <div className="col gap-8">
-            {special.map((s, i) => (
-              <div key={i} className="card row between" style={{ padding: 12 }}>
-                <div><div className="semi small">{s.date}</div><div className="tiny muted">{s.note}</div></div>
-                <button className="icon-btn" style={{ width: 30, height: 30 }} onClick={() => setSpecial((p) => p.filter((_, j) => j !== i))}><X size={15} /></button>
-              </div>
-            ))}
-            <div className="row gap-8">
-              <input className="input grow" placeholder="e.g. Holi (14 Mar) — Closed" value={newSpecial} onChange={(e) => setNewSpecial(e.target.value)} />
-              <button className="btn btn-ghost btn-sm" disabled={!newSpecial.trim()} onClick={() => { setSpecial((p) => [...p, { date: newSpecial, note: "" }]); setNewSpecial(""); }}>
-                <Plus size={16} />
-              </button>
-            </div>
+        {/* Closing for a specific date (holidays, one-off closures) actually
+            blocks bookings — unlike the old freetext "special hours" list
+            here, which only ever saved a display string nobody read anywhere
+            (not in slot generation, not on the public page). That real
+            mechanism lives in the Appointments console. */}
+        <button
+          className="card row gap-12 center-v"
+          style={{ width: "100%", padding: 14, textAlign: "left" }}
+          onClick={() => nav(`/business/${id}/manage/appointments`)}
+        >
+          <Calendar size={20} color="var(--brand-700)" />
+          <div className="grow">
+            <div className="semi small">Block a specific date or time</div>
+            <div className="tiny muted">Closing for a holiday? Block it from the Appointments console so it actually stops new bookings.</div>
           </div>
-        </div>
+          <ChevronRight size={18} className="muted" />
+        </button>
       </div>
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: 12 }}>

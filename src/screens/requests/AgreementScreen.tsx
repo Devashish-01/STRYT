@@ -13,6 +13,7 @@ import type { Agreement, AgreementStatus, JobLiveStatus } from "@/types";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { useI18n } from "@/lib/i18n";
 import { openProfile } from "@/lib/profileSheet";
+import { config } from "@/config";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -721,7 +722,10 @@ export default function AgreementScreen() {
             onClick={async () => {
               let token = agreement.trackingToken;
               if (!token) token = await requestService.generateTrackingToken(agreement!.id);
-              const link = `${window.location.origin}/track/${token}`;
+              // config.apiUrl, not window.location.origin — on native builds
+              // that's "https://localhost" (Capacitor's WebView origin), which
+              // made every copied tracking link dead for whoever it was shared with.
+              const link = `${config.apiUrl}/track/${token}`;
               try { await navigator.clipboard.writeText(link); } catch { /* ignore */ }
               showToast("Tracking link copied — share via WhatsApp");
             }}>

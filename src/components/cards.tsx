@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
-import { Heart, MapPin, Clock, BadgeCheck, Zap, Eye, Users, Flame, Repeat, MessageCircle, CheckCircle2, ChevronRight, Bookmark, Share2, Flag, EyeOff, Ban, DotsThree } from "@/components/Icons";
+import { Heart, MapPin, Clock, BadgeCheck, Zap, Eye, Users, Flame, Repeat, MessageCircle, CheckCircle2, ChevronRight, Bookmark, Share2, Flag, EyeOff, Ban, DotsThree, Pencil, Trash2 } from "@/components/Icons";
 import type { Business, Provider, RequestPost, CommunityPost, CommunityPostType, BookmarkTarget } from "@/types";
 import { Rating, inr, SafeImg } from "./common";
 import { useApp } from "@/store";
@@ -45,12 +45,11 @@ export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: B
       onClick={() => nav(`/business/${b.id}`)}
     >
       <div className="row gap-12" style={{ alignItems: "flex-start" }}>
-        <img
+        <SafeImg
           src={b.coverImage}
           alt={b.name}
           className="thumb"
           style={{ width: 72, height: 72, flexShrink: 0, borderRadius: "var(--radius)", objectFit: "cover" }}
-          loading="lazy"
         />
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="row between">
@@ -117,7 +116,7 @@ export function BusinessCardSmall({ b, style, entranceClass = "fade-up" }: { b: 
       onClick={() => nav(`/business/${b.id}`)}
     >
       <div style={{ position: "relative" }}>
-        <img src={b.coverImage} alt={b.name} className="thumb" style={{ width: "100%", aspectRatio: "16/11", borderRadius: "var(--radius)", objectFit: "cover" }} loading="lazy" />
+        <SafeImg src={b.coverImage} alt={b.name} className="thumb" style={{ width: "100%", aspectRatio: "16/11", borderRadius: "var(--radius)", objectFit: "cover" }} />
         {b.offerText && (
           <div
             style={{
@@ -319,16 +318,6 @@ export function RequestCard({ r, style }: { r: RequestPost; style?: CSSPropertie
     r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : "Open budget";
   const meTooed = meToos.includes(r.id) || r.meTooed;
   const meTooCount = (r.meTooCount ?? 0) + (meTooed && !r.meTooed ? 1 : 0);
-  // pledgedQuantity (units) is authoritative when the caller ran
-  // enrichGroupBuyPledges; meTooCount (people) is the fallback — see groupBuy.ts.
-  const progress = r.isGroupBuy
-    ? poolProgress({
-        target: r.groupBuyTarget,
-        pledgedQuantity: r.pledgedQuantity,
-        meTooCount,
-        myPledgeQuantity: r.myPledgeQuantity,
-      })
-    : null;
   const isOpen = r.status === "OPEN";
   const statusBadge = REQUEST_STATUS_BADGE[r.status] ?? null;
   const archived = r.status === "EXPIRED" || r.status === "CANCELLED";
@@ -357,7 +346,7 @@ export function RequestCard({ r, style }: { r: RequestPost; style?: CSSPropertie
             {statusBadge && <span className={`badge ${statusBadge.cls}`}>{statusBadge.label}</span>}
             {isOpen && r.isUrgent && <span className="badge badge-red"><Flame size={11} /> Urgent</span>}
             {isOpen && r.isBoosted && <span className="badge badge-amber"><Zap size={11} /> Boosted</span>}
-            {r.isGroupBuy && <span className="badge badge-green"><Users size={11} /> Group buy</span>}
+
             {r.isRecurring && <span className="badge badge-blue"><Repeat size={11} /> Recurring</span>}
             <span className="badge badge-purple">{r.categoryName}</span>
             {r.subCategory && <span className="badge badge-gray">{r.subCategory}</span>}
@@ -371,18 +360,6 @@ export function RequestCard({ r, style }: { r: RequestPost; style?: CSSPropertie
         )}
       </div>
 
-      {/* Group buy progress — hidden while GROUP_BUY_PROGRESS_ENABLED is off */}
-      {GROUP_BUY_PROGRESS_ENABLED && progress?.hasTarget && (
-        <div style={{ marginTop: 10 }}>
-          <div className="row between tiny" style={{ marginBottom: 4 }}>
-            <span className="semi" style={{ color: "var(--green-500)" }}>{progress.pledged} of {progress.target} joined</span>
-            <span className="muted">unlocks bulk price</span>
-          </div>
-          <div style={{ height: 7, borderRadius: 6, background: "var(--ink-100)", overflow: "hidden" }}>
-            <div style={{ width: `${progress.pct}%`, height: "100%", background: "linear-gradient(90deg,var(--green-500),var(--green-500))" }} />
-          </div>
-        </div>
-      )}
 
       <div className="divider" style={{ margin: "12px 0" }} />
 
@@ -477,6 +454,16 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // Author lifecycle actions, previously reachable only by opening the post.
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [resolvedBusy, setResolvedBusy] = useState(false);
+  const [resolvedOverride, setResolvedOverride] = useState<boolean | null>(null);
+  // Same clear-only-when-the-server-agrees rule as likeOverride/saveOverride.
+  useEffect(() => {
+    if (resolvedOverride === null) return;
+    if ((post.resolved ?? false) === resolvedOverride) setResolvedOverride(null);
+  }, [post.resolved, resolvedOverride]);
   // Drives the burst overlay. Keyed by a counter rather than a boolean so a
   // second double-tap restarts the animation instead of being swallowed while
   // the first is still running.
@@ -513,6 +500,10 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
   // Photos read through postMedia() so a pre-migration row (single `image`, no
   // `media` array) renders identically to a new multi-photo one.
   const cardMedia = postMedia(post);
+  const isResolved = resolvedOverride ?? post.resolved ?? false;
+  // Same rule the detail screen uses: only these two types ever had an
+  // outstanding thing to resolve. A poll or a shoutout never did.
+  const canMarkResolved = isPostAuthor && (post.type === "LOST_FOUND" || post.type === "ALERT");
   const pollClosed = isPollClosed(post);
   const pollCountdown = post.type === "POLL" ? timeLeftLabel(post.pollEndsAt) : null;
 
@@ -594,13 +585,21 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
     });
   }
 
+  // Tapping your current choice retracts it, tapping another switches — the
+  // same rule as the detail screen, so a mis-tap isn't permanent on whichever
+  // surface it happened.
   function handleVote(optId: string) {
-    if (votedOption) return;
+    const previous = votedOption ?? null;
+    const next = previous === optId ? null : optId;
     haptics.selection();
-    votePoll(post.id, optId); // optimistic
-    communityService.vote(post.id, optId).catch(() => {
-      showToast("Couldn't record your vote — try again");
-    });
+    votePoll(post.id, next); // optimistic
+    const call = next === null ? communityService.clearVote(post.id) : communityService.vote(post.id, next);
+    call
+      .then(() => onRefetch?.())
+      .catch(() => {
+        votePoll(post.id, previous); // revert so the bars never lie
+        showToast("Couldn't record your vote — try again");
+      });
   }
 
   async function handleRecommend(listingType: BookmarkTarget, listingId: string) {
@@ -694,7 +693,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
           onClick={handleCardTap}
         >
           {post.title}
-          {post.resolved && <span className="badge badge-green" style={{ marginLeft: 8, fontSize: 10.5, padding: "2.5px 8px", borderRadius: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
+          {isResolved && <span className="badge badge-green" style={{ marginLeft: 8, fontSize: 10.5, padding: "2.5px 8px", borderRadius: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
         </button>
         {/* Clamped to 4 lines — MAX_BODY_LEN is 2000 chars, and an unclamped
             body could occupy the whole viewport for one verbose post. A real
@@ -960,6 +959,45 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
         />
       )}
 
+      {deleteConfirm && (
+        <div className="overlay" onClick={() => (deleting ? null : setDeleteConfirm(false))}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h2 className="h2" style={{ marginBottom: 6 }}>Delete this post?</h2>
+            <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
+              This removes it and its comments for everyone. This can't be undone.
+            </p>
+            <div className="col gap-8">
+              <button
+                className="btn btn-block"
+                style={{ background: "var(--red-500)", color: "#fff" }}
+                disabled={deleting}
+                onClick={async () => {
+                  setDeleting(true);
+                  try {
+                    await communityService.delete(post.id);
+                    showToast("Post deleted");
+                    setDeleteConfirm(false);
+                    // The row has to leave the feed now — onHide drops it
+                    // locally for feeds that track hidden ids, onRefetch for
+                    // the rest. Whichever the parent passed.
+                    onHide?.(post.id);
+                    onRefetch?.();
+                  } catch (e: any) {
+                    showToast(e?.message || "Couldn't delete — try again");
+                  } finally {
+                    setDeleting(false);
+                  }
+                }}
+              >
+                {deleting ? "Deleting…" : "Yes, delete"}
+              </button>
+              <button className="btn btn-ghost btn-block" disabled={deleting} onClick={() => setDeleteConfirm(false)}>Keep post</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {menuOpen && (
         <div className="overlay" onClick={() => setMenuOpen(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Post options">
@@ -976,6 +1014,50 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
                 <Share2 size={18} color="var(--ink-700)" />
                 <span className="semi small grow" style={{ textAlign: "left" }}>Share</span>
               </button>
+              {isPostAuthor && (
+                <>
+                  {/* The author's own lifecycle actions. Editing still happens
+                      in the detail screen's EditPostSheet — it's a full form,
+                      not a menu row — so this navigates there with it already
+                      open rather than duplicating the sheet on the card. */}
+                  <button
+                    className="action-row"
+                    onClick={() => { setMenuOpen(false); nav(`/community/${post.id}`, { state: { post, openEdit: true } }); }}
+                  >
+                    <Pencil size={18} color="var(--ink-700)" />
+                    <span className="semi small grow" style={{ textAlign: "left" }}>Edit post</span>
+                  </button>
+                  {canMarkResolved && (
+                    <button
+                      className="action-row"
+                      disabled={resolvedBusy}
+                      onClick={async () => {
+                        setMenuOpen(false);
+                        const next = !isResolved;
+                        setResolvedOverride(next); // deliberate single tap — should feel instant
+                        setResolvedBusy(true);
+                        try {
+                          await communityService.setResolved(post.id, next);
+                          showToast(next ? "Marked resolved" : "Reopened");
+                          onRefetch?.();
+                        } catch (e: any) {
+                          setResolvedOverride(!next); // revert so the badge never lies
+                          showToast(e?.message || "Couldn't update — try again");
+                        } finally {
+                          setResolvedBusy(false);
+                        }
+                      }}
+                    >
+                      <CheckCircle2 size={18} color={isResolved ? "var(--ink-700)" : "var(--green-600)"} />
+                      <span className="semi small grow" style={{ textAlign: "left" }}>{isResolved ? "Reopen post" : "Mark as resolved"}</span>
+                    </button>
+                  )}
+                  <button className="action-row" onClick={() => { setMenuOpen(false); setDeleteConfirm(true); }}>
+                    <Trash2 size={18} color="var(--red-500)" />
+                    <span className="semi small grow" style={{ textAlign: "left", color: "var(--red-600)" }}>Delete post</span>
+                  </button>
+                </>
+              )}
               {!isPostAuthor && (
                 <>
                   {/* Hide and mute are "show me less", held locally. Report and

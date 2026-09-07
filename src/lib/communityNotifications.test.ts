@@ -37,18 +37,99 @@ function migrationFiles(): string[] {
   return fs.readdirSync(dir).filter((f) => f.endsWith(".sql")).map((f) => path.join("supabase", "migrations", f));
 }
 
-/** Every notification type any migration inserts, read from the SQL. */
+/** Every notification type any migration inserts, read from the SQL.
+ *
+ *  Scoped to the text of `insert into public.notifications ...` statements,
+ *  rather than scanning whole files for ALL_CAPS literals. The old version did
+ *  the latter, which swept up every status value and error code in the schema,
+ *  so the orphan check below had to narrow the result to an allowlist of known
+ *  prefixes (COMMUNITY_/NEARBY_/QUEUE_/LOCATION_) to stay usable.
+ *
+ *  That allowlist is precisely how BULK_DEAL_UNLOCKED, BULK_DEAL_REFUNDED and
+ *  BULK_DEAL_EXTENDED stayed invisible to this guard while rendering as
+ *  generic grey bells in the app (gap log #17): a whole new prefix silently
+ *  escaped the check that exists to catch exactly that. Identifying types by
+ *  WHERE THEY APPEAR rather than by what they look like needs no allowlist, so
+ *  no future prefix can outrun it.
+ */
+/** Split a SQL expression list on top-level commas — ignoring commas nested in
+ *  parens (`coalesce(a, b)`, `jsonb_build_object(...)`) or inside quotes. */
+function splitTopLevel(s: string): string[] {
+  const out: string[] = [];
+  let depth = 0, inQuote = false, cur = "";
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inQuote) {
+      cur += c;
+      if (c === "'") {
+        if (s[i + 1] === "'") cur += s[++i]; // '' escape, still inside the literal
+        else inQuote = false;
+      }
+      continue;
+    }
+    if (c === "'") { inQuote = true; cur += c; continue; }
+    if (c === "(") depth++;
+    else if (c === ")") depth--;
+    if (c === "," && depth === 0) { out.push(cur.trim()); cur = ""; continue; }
+    cur += c;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+}
+
+/** Every top-level `( ... )` group in `s`, paren- and quote-aware — i.e. the
+ *  individual row tuples of a `values (...), (...)` clause. */
+function topLevelTuples(s: string): string[] {
+  const out: string[] = [];
+  let depth = 0, inQuote = false, start = -1;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inQuote) {
+      if (c === "'") { if (s[i + 1] === "'") i++; else inQuote = false; }
+      continue;
+    }
+    if (c === "'") { inQuote = true; continue; }
+    if (c === "(") { if (depth === 0) start = i + 1; depth++; }
+    else if (c === ")") { depth--; if (depth === 0 && start >= 0) { out.push(s.slice(start, i)); start = -1; } }
+  }
+  return out;
+}
+
 function typesInsertedBySql(): Set<string> {
   const found = new Set<string>();
   for (const file of migrationFiles()) {
     const sql = read(file);
-    // Both insert shapes used in this repo:
-    //   values ( user_id, 'TYPE', ... )
-    //   select uid, 'TYPE', ...
-    // Matched loosely on an ALL_CAPS quoted literal following the recipient, then
-    // filtered against the known union below so unrelated literals can't sneak in.
-    for (const m of sql.matchAll(/'([A-Z][A-Z_]{3,})'/g)) {
-      found.add(m[1]);
+    for (const m of sql.matchAll(/insert\s+into\s+public\.notifications\s*\(([^)]*)\)([\s\S]*?);/gi)) {
+      // Locate `type` by its position in the insert's own column list, then read
+      // the expression at that same index. Scanning the statement for anything
+      // that *looks* like a type instead picks up status values and entity kinds
+      // out of WHERE clauses and CASE expressions in the same statement
+      // ('ACTIVE', 'PENDING', 'BUSINESS', ...) — position is the only reliable
+      // signal here.
+      const cols = m[1].split(",").map((c) => c.trim().toLowerCase());
+      const typeIdx = cols.indexOf("type");
+      if (typeIdx === -1) continue;
+
+      const body = m[2];
+      const valuesAt = body.search(/\bvalues\b/i);
+      const rows: string[][] = [];
+      if (valuesAt !== -1) {
+        // `values (...), (...)` — one tuple per row, each independently indexed.
+        for (const tuple of topLevelTuples(body.slice(valuesAt))) rows.push(splitTopLevel(tuple));
+      } else {
+        // `insert ... select expr1, expr2, ... from ...` — one implicit row.
+        const sel = body.match(/\bselect\b([\s\S]*)/i);
+        if (sel) {
+          const fromAt = splitTopLevel(sel[1]).length ? sel[1].search(/\bfrom\b/i) : -1;
+          rows.push(splitTopLevel(fromAt === -1 ? sel[1] : sel[1].slice(0, fromAt)));
+        }
+      }
+
+      for (const row of rows) {
+        const expr = row[typeIdx];
+        const lit = expr?.match(/^'([A-Z][A-Z_]{2,})'$/);
+        if (lit) found.add(lit[1]);
+      }
     }
   }
   return found;
@@ -105,13 +186,10 @@ describe("the community notification loop is complete", () => {
 describe("no notification type is orphaned", () => {
   it("every type a migration inserts is known to the client", () => {
     const union = new Set(unionTypes());
-    const inserted = typesInsertedBySql();
-    // Only consider literals that look like our notification types, so unrelated
-    // ALL_CAPS strings in SQL (status values, error codes) are ignored.
-    const suspects = [...inserted].filter(
-      (t) => t.startsWith("COMMUNITY_") || t.startsWith("NEARBY_") || t.startsWith("QUEUE_") || t.startsWith("LOCATION_")
-    );
-    const unknown = suspects.filter((t) => !union.has(t));
+    // No prefix allowlist — typesInsertedBySql() is already scoped to
+    // notifications inserts, so every type it returns is genuinely one, and a
+    // brand-new prefix can't slip past the way BULK_DEAL_* did (gap log #17).
+    const unknown = [...typesInsertedBySql()].filter((t) => !union.has(t));
     expect(unknown).toEqual([]);
   });
 

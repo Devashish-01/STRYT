@@ -39,6 +39,7 @@ import {
   Pause,
   Pencil,
   Phone,
+  PushPin,
   Play,
   Plus,
   Power,
@@ -120,7 +121,7 @@ import {
   Sun
 } from "@phosphor-icons/react";
 
-export { WifiSlash as WifiOff, Target };
+export { WifiSlash as WifiOff, Target, PushPin };
 
 // Standard exports
 export {

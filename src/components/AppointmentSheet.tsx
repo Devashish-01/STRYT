@@ -13,6 +13,23 @@ import { PaymentSheet } from "@/components/PaymentSheet";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import LocationPicker from "@/components/LocationPicker";
 import { BUSINESS_PACKAGES, type BizVocabulary } from "@/lib/businessPackages";
+import { inr } from "@/components/common";
+
+function getSlotHour(s: AppointmentSlot): number {
+  if (s.isoTimestamp) {
+    const d = new Date(s.isoTimestamp);
+    if (!isNaN(d.getTime())) return d.getHours();
+  }
+  const match = s.timeLabel.match(/(\d+):(\d+)\s*(AM|PM)/i);
+  if (match) {
+    let h = parseInt(match[1], 10);
+    const isPm = match[3].toUpperCase() === "PM";
+    if (isPm && h < 12) h += 12;
+    if (!isPm && h === 12) h = 0;
+    return h;
+  }
+  return 12;
+}
 
 export interface BookingPackage {
   id: string;
@@ -91,6 +108,7 @@ export function AppointmentSheet({
   const isReschedule = !!rescheduledFromId;
   const [dayOffset, setDayOffset] = useState<number>(0);
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlot | null>(null);
+  const [slotPeriod, setSlotPeriod] = useState<"all" | "morning" | "afternoon" | "evening">("all");
   const [selectedPkg, setSelectedPkg] = useState<BookingPackage | null>(initialPackage ?? null);
   const [notes, setNotes] = useState(initialNotes ?? "");
   // Home delivery is a business-only choice — a provider visit doesn't have a
@@ -213,6 +231,29 @@ export function AppointmentSheet({
     capacity: slotCapacity,
     usedByIso,
   });
+
+  const morningSlots = slots.filter((s) => getSlotHour(s) < 12);
+  const afternoonSlots = slots.filter((s) => {
+    const h = getSlotHour(s);
+    return h >= 12 && h < 17;
+  });
+  const eveningSlots = slots.filter((s) => getSlotHour(s) >= 17);
+
+  const displayedSlots =
+    slotPeriod === "morning"
+      ? morningSlots
+      : slotPeriod === "afternoon"
+      ? afternoonSlots
+      : slotPeriod === "evening"
+      ? eveningSlots
+      : slots;
+
+  const activePrice =
+    items && items.length > 0
+      ? items.reduce((s, it) => s + it.price * it.quantity, 0)
+      : selectedPkg
+      ? selectedPkg.price
+      : null;
 
   // Spots the customer may take right now: capped by the service's max party
   // size and by what's actually left in the chosen slot.
@@ -402,21 +443,24 @@ export function AppointmentSheet({
           background: "#fff",
           borderTopLeftRadius: 24,
           borderTopRightRadius: 24,
-          padding: "20px 20px calc(20px + var(--safe-area-bottom))",
-          maxHeight: "90vh",
-          overflowY: "auto",
+          maxHeight: "92vh",
+          display: "flex",
+          flexDirection: "column",
           animation: "slideUp .25s ease-out",
+          overflow: "hidden",
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="row between center-v" style={{ marginBottom: 16 }}>
+        {/* Fixed Header */}
+        <div className="row between center-v" style={{ padding: "18px 20px 14px", borderBottom: "1px solid var(--ink-100)" }}>
           <div>
             <div className="bold large" style={{ fontSize: 18, color: "var(--ink-900)" }}>
               {isReschedule ? `🔄 ${vocabulary.sheetTitleReschedule}` : `📅 ${vocabulary.sheetTitleNew}`}
             </div>
             <div className="tiny muted" style={{ marginTop: 2 }}>
-              {isReschedule ? "Pick a new slot with " : "Book a slot with "}
+              {isReschedule
+                ? (vocabulary.sheetSubtitlePrefix ? `${vocabulary.sheetSubtitlePrefix.replace(/Select/i, "Change")} ` : "Pick a new slot with ")
+                : (vocabulary.sheetSubtitlePrefix || "Book a slot with ")}
               <strong style={{ color: "var(--brand-700)" }}>{targetName}</strong>
             </div>
           </div>
@@ -425,461 +469,590 @@ export function AppointmentSheet({
           </button>
         </div>
 
-        {/* Reschedule mode — reference card showing what's being replaced. */}
-        {isReschedule && rescheduledFromLabel && (
-          <div className="card card-condensed" style={{ background: "var(--ink-50)", border: "1px solid var(--ink-200)", marginBottom: 16 }}>
-            <div className="row gap-8 center-v">
-              <CalendarIcon size={16} color="var(--ink-500)" />
-              <div>
-                <div className="tiny semi muted">Currently booked</div>
-                <div className="bold small" style={{ color: "var(--ink-700)", marginTop: 1 }}>
-                  {rescheduledFromLabel.dateLabel} at {rescheduledFromLabel.timeLabel}
+        {/* Scrollable Content Body */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 16px" }}>
+          {/* Reschedule mode — reference card showing what's being replaced. */}
+          {isReschedule && rescheduledFromLabel && (
+            <div className="card card-condensed" style={{ background: "var(--ink-50)", border: "1px solid var(--ink-200)", marginBottom: 16 }}>
+              <div className="row gap-8 center-v">
+                <CalendarIcon size={16} color="var(--ink-500)" />
+                <div>
+                  <div className="tiny semi muted">Currently booked</div>
+                  <div className="bold small" style={{ color: "var(--ink-700)", marginTop: 1 }}>
+                    {rescheduledFromLabel.dateLabel} at {rescheduledFromLabel.timeLabel}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {outOfRange && (
-          <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
-            <div className="row gap-8" style={{ alignItems: "flex-start" }}>
-              <span style={{ fontSize: 16, lineHeight: 1.2 }}>⚠️</span>
-              <div>
-                <div className="bold small" style={{ color: "var(--red-600)" }}>Outside service area</div>
-                <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1, lineHeight: 1.5 }}>
-                  You&apos;re outside this {targetType === "BUSINESS" ? "business" : "provider"}&apos;s service area, so booking here isn&apos;t available. Move closer, or contact them directly.
+          {outOfRange && (
+            <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
+              <div className="row gap-8" style={{ alignItems: "flex-start" }}>
+                <span style={{ fontSize: 16, lineHeight: 1.2 }}>⚠️</span>
+                <div>
+                  <div className="bold small" style={{ color: "var(--red-600)" }}>Outside service area</div>
+                  <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1, lineHeight: 1.5 }}>
+                    You&apos;re outside this {targetType === "BUSINESS" ? "business" : "provider"}&apos;s service area, so booking here isn&apos;t available. Move closer, or contact them directly.
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Slot data failed to load — the grid below may be missing occupied slots. */}
-        {loadError && (
-          <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
-            <div className="row gap-8" style={{ alignItems: "flex-start" }}>
-              <span style={{ fontSize: 16, lineHeight: 1.2 }}>⚠️</span>
-              <div>
-                <div className="bold small" style={{ color: "var(--red-600)" }}>Couldn't load current availability</div>
-                <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1, lineHeight: 1.5 }}>
-                  Some slots shown as open may already be taken. Close and reopen to try again, or book carefully.
+          {/* Slot data failed to load — the grid below may be missing occupied slots. */}
+          {loadError && (
+            <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
+              <div className="row gap-8" style={{ alignItems: "flex-start" }}>
+                <span style={{ fontSize: 16, lineHeight: 1.2 }}>⚠️</span>
+                <div>
+                  <div className="bold small" style={{ color: "var(--red-600)" }}>Couldn't load current availability</div>
+                  <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1, lineHeight: 1.5 }}>
+                    Some slots shown as open may already be taken. Close and reopen to try again, or book carefully.
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Availability info card */}
-        {availableNow ? (
-          <div className="card card-condensed" style={{ background: "var(--green-100)", border: "1px solid var(--green-500)", marginBottom: 16 }}>
-            <div className="row gap-8 center-v">
-              <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--green-500)", boxShadow: "0 0 0 3px rgba(22,163,74,0.18)" }} />
-              <div>
-                <div className="bold small" style={{ color: "var(--green-600)" }}>Available now</div>
-                <div className="tiny" style={{ color: "var(--green-700)", marginTop: 1 }}>Pick the earliest slot below — they can take you right away.</div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="card card-condensed" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-100)", marginBottom: 16 }}>
-            <div className="row gap-8 center-v">
-              <Clock size={16} color="var(--brand-700)" />
-              <div>
-                <div className="tiny semi muted">Working Hours Schedule</div>
-                <div className="bold small" style={{ color: "var(--brand-800)", marginTop: 1 }}>
-                  {formatHoursForDisplay(availabilityNote || DEFAULT_WORKING_HOURS)}
+          {/* Availability info card */}
+          {availableNow ? (
+            <div className="card card-condensed" style={{ background: "var(--green-100)", border: "1px solid var(--green-500)", marginBottom: 16 }}>
+              <div className="row gap-8 center-v">
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: "var(--green-500)", boxShadow: "0 0 0 3px rgba(22,163,74,0.18)" }} />
+                <div>
+                  <div className="bold small" style={{ color: "var(--green-600)" }}>Available now</div>
+                  <div className="tiny" style={{ color: "var(--green-700)", marginTop: 1 }}>
+                    {vocabulary.availableNowText || (vocabulary.noun === "order"
+                      ? "Open right now — stop by or pick the earliest time below."
+                      : "Pick the earliest slot below — they can take you right away.")}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="card card-condensed" style={{ background: "var(--brand-50)", border: "1px solid var(--brand-100)", marginBottom: 16 }}>
+              <div className="row gap-8 center-v">
+                <Clock size={16} color="var(--brand-700)" />
+                <div>
+                  <div className="tiny semi muted">Working Hours Schedule</div>
+                  <div className="bold small" style={{ color: "var(--brand-800)", marginTop: 1 }}>
+                    {formatHoursForDisplay(availabilityNote || DEFAULT_WORKING_HOURS)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
-        {/* Fulfillment — visit the store, or have it delivered home */}
-        {canOfferDelivery && (
+          {/* Fulfillment — visit the store, or have it delivered home */}
+          {canOfferDelivery && (
+            <div className="field" style={{ marginBottom: 16 }}>
+              <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
+                How would you like this?
+              </label>
+              <div className="row gap-8">
+                <button
+                  type="button"
+                  onClick={() => setFulfillmentType("IN_STORE")}
+                  className="row gap-8 center grow"
+                  style={{
+                    padding: "12px 10px", borderRadius: 12,
+                    border: fulfillmentType === "IN_STORE" ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
+                    background: fulfillmentType === "IN_STORE" ? "var(--brand-50)" : "#fff",
+                    color: fulfillmentType === "IN_STORE" ? "var(--brand-800)" : "var(--ink-700)",
+                    fontWeight: 600, fontSize: 13,
+                  }}
+                >
+                  <Store size={16} /> Visit the store
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFulfillmentType("DELIVERY")}
+                  className="row gap-8 center grow"
+                  style={{
+                    padding: "12px 10px", borderRadius: 12,
+                    border: fulfillmentType === "DELIVERY" ? "2px solid var(--delivery-600)" : "1px solid var(--ink-200)",
+                    background: fulfillmentType === "DELIVERY" ? "var(--delivery-50)" : "#fff",
+                    color: fulfillmentType === "DELIVERY" ? "var(--delivery-600)" : "var(--ink-700)",
+                    fontWeight: 600, fontSize: 13,
+                  }}
+                >
+                  <Package size={16} /> Home delivery
+                </button>
+              </div>
+
+              {fulfillmentType === "DELIVERY" && (
+                <div className="col gap-8" style={{ marginTop: 12 }}>
+                  {deliveryTime && (
+                    <div className="tiny" style={{ color: "var(--delivery-600)" }}>
+                      Usually delivered in {deliveryTime}.
+                    </div>
+                  )}
+                  <input
+                    className="input"
+                    placeholder="Flat / house no., street, landmark"
+                    value={deliveryAddressLine}
+                    onChange={(e) => setDeliveryAddressLine(e.target.value)}
+                    style={{ fontSize: 13 }}
+                  />
+                  <LocationPicker lat={deliveryLat} lng={deliveryLng} onChange={(lat, lng) => { setDeliveryLat(lat); setDeliveryLng(lng); }} height={140} pinColor="var(--delivery-600)" />
+                  <span className="tiny muted">Tap the map or drag the pin to mark exactly where the agent should come.</span>
+                  <input
+                    className="input"
+                    placeholder="Preferred time, e.g. before 6pm (optional)"
+                    value={requestedWindow}
+                    maxLength={60}
+                    onChange={(e) => setRequestedWindow(e.target.value)}
+                    style={{ fontSize: 13 }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Cart items summary (multi-item checkout) OR Package selector */}
+          {items && items.length > 0 ? (
+            <div className="field" style={{ marginBottom: 16 }}>
+              <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
+                Your Order ({items.reduce((s, it) => s + it.quantity, 0)} {items.reduce((s, it) => s + it.quantity, 0) > 1 ? "items" : "item"})
+              </label>
+              <div className="card col gap-8" style={{ padding: "12px 14px", background: "var(--ink-50)", border: "1px solid var(--ink-200)" }}>
+                {items.map((it, idx) => (
+                  <div key={it.catalogItemId || `${it.name}-${idx}`} className="row between center-v">
+                    <div className="small">
+                      <span className="semi">{it.name}</span>
+                      <span className="tiny muted" style={{ marginLeft: 6 }}>× {it.quantity}</span>
+                    </div>
+                    <div className="semi small">{inr(it.price * it.quantity)}</div>
+                  </div>
+                ))}
+                <div className="row between center-v" style={{ borderTop: "1px dashed var(--ink-200)", paddingTop: 8, marginTop: 4 }}>
+                  <span className="bold small">Total Amount</span>
+                  <span className="bold small" style={{ color: "var(--brand-700)", fontSize: 15 }}>
+                    {inr(items.reduce((s, it) => s + it.price * it.quantity, 0))}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : packages.length > 0 ? (
+            <div className="field" style={{ marginBottom: 16 }}>
+              <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
+                {vocabulary.itemSectionHeading || (vocabulary.noun === "order" ? "Select an Item" : "Choose a package / service")}
+              </label>
+              <div className="col gap-8">
+                {packages.map((pk) => {
+                  const on = selectedPkg?.id === pk.id;
+                  return (
+                    <button
+                      key={pk.id}
+                      type="button"
+                      onClick={() => setSelectedPkg(on ? null : pk)}
+                      className="row gap-10"
+                      style={{
+                        padding: "var(--space-sm)", borderRadius: 12, textAlign: "left",
+                        border: on ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
+                        background: on ? "var(--brand-50)" : "#fff",
+                      }}
+                    >
+                      <span style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, border: on ? "6px solid var(--brand-600)" : "2px solid var(--ink-300)" }} />
+                      <div className="grow">
+                        <div className="semi small">{pk.name}</div>
+                        {pk.duration && <div className="tiny muted">{pk.duration}</div>}
+                      </div>
+                      <div className="bold small" style={{ color: "var(--brand-700)" }}>₹{pk.price}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {/* Date Selector Chips */}
           <div className="field" style={{ marginBottom: 16 }}>
             <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
-              How would you like this?
+              Select Date
             </label>
-            <div className="row gap-8">
-              <button
-                type="button"
-                onClick={() => setFulfillmentType("IN_STORE")}
-                className="row gap-8 center grow"
-                style={{
-                  padding: "12px 10px", borderRadius: 12,
-                  border: fulfillmentType === "IN_STORE" ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
-                  background: fulfillmentType === "IN_STORE" ? "var(--brand-50)" : "#fff",
-                  color: fulfillmentType === "IN_STORE" ? "var(--brand-800)" : "var(--ink-700)",
-                  fontWeight: 600, fontSize: 13,
-                }}
-              >
-                <Store size={16} /> Visit the store
-              </button>
-              <button
-                type="button"
-                onClick={() => setFulfillmentType("DELIVERY")}
-                className="row gap-8 center grow"
-                style={{
-                  padding: "12px 10px", borderRadius: 12,
-                  border: fulfillmentType === "DELIVERY" ? "2px solid var(--delivery-600)" : "1px solid var(--ink-200)",
-                  background: fulfillmentType === "DELIVERY" ? "var(--delivery-50)" : "#fff",
-                  color: fulfillmentType === "DELIVERY" ? "var(--delivery-600)" : "var(--ink-700)",
-                  fontWeight: 600, fontSize: 13,
-                }}
-              >
-                <Package size={16} /> Home delivery
-              </button>
+            <div
+              className="row gap-8"
+              style={{
+                overflowX: "auto",
+                paddingBottom: 6,
+                paddingRight: 16,
+                scrollSnapType: "x mandatory",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              {dates.map((d, idx) => {
+                const isToday = idx === 0;
+                const isTomorrow = idx === 1;
+                const label = isToday
+                  ? "Today"
+                  : isTomorrow
+                  ? "Tomorrow"
+                  : d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
+                const isSelected = dayOffset === idx;
+                const working = isWorkingDay(availabilityNote, d);
+                return (
+                  <button
+                    key={d.toISOString()}
+                    type="button"
+                    disabled={!working}
+                    onClick={() => {
+                      setDayOffset(idx);
+                      setSelectedSlot(null);
+                    }}
+                    className={`chip ${isSelected ? "active" : ""}`}
+                    style={{
+                      flexShrink: 0,
+                      scrollSnapAlign: "start",
+                      padding: "8px 14px",
+                      borderRadius: "var(--radius)",
+                      fontSize: 13,
+                      fontWeight: isSelected ? 700 : 500,
+                      opacity: working ? 1 : 0.4,
+                    }}
+                  >
+                    <CalendarIcon size={13} style={{ marginRight: 4 }} /> {label}
+                  </button>
+                );
+              })}
             </div>
+          </div>
 
-            {fulfillmentType === "DELIVERY" && (
-              <div className="col gap-8" style={{ marginTop: 12 }}>
-                {deliveryTime && (
-                  <div className="tiny" style={{ color: "var(--delivery-600)" }}>
-                    Usually delivered in {deliveryTime}.
+          {/* Daily limit warning */}
+          {hasAptToday && (
+            <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
+              <div className="row gap-8 center-v">
+                <span style={{ fontSize: 16 }}>⚠️</span>
+                <div>
+                  <div className="bold small" style={{ color: "var(--red-600)" }}>Daily {vocabulary.nounCap} Limit Hit</div>
+                  <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>
+                    You've reached the limit of {DAILY_APPOINTMENT_LIMIT} {vocabulary.nounPlural} for this day. Please pick another date.
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Available Time Slots Grid */}
+          <div className="field" style={{ marginBottom: 16 }}>
+            <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
+              {vocabulary.slotSectionHeading || (vocabulary.noun === "order" ? "Select Pickup / Store Visit Time" : "Available Time Slots")}
+              {slots.length > 0 && ` (${slots.filter((s) => s.isAvailable).length} slots)`}
+            </label>
+
+            {/* Time-of-Day Filter Tabs (Morning / Afternoon / Evening) */}
+            {slots.length > 6 && (
+              <div className="row gap-6" style={{ marginBottom: 10, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className={`chip ${slotPeriod === "all" ? "active" : ""}`}
+                  style={{ fontSize: 11.5, padding: "4px 10px", borderRadius: 20 }}
+                  onClick={() => setSlotPeriod("all")}
+                >
+                  All ({slots.filter((s) => s.isAvailable).length})
+                </button>
+                {morningSlots.length > 0 && (
+                  <button
+                    type="button"
+                    className={`chip ${slotPeriod === "morning" ? "active" : ""}`}
+                    style={{ fontSize: 11.5, padding: "4px 10px", borderRadius: 20 }}
+                    onClick={() => setSlotPeriod("morning")}
+                  >
+                    🌅 Morning ({morningSlots.filter((s) => s.isAvailable).length})
+                  </button>
                 )}
-                <input
-                  className="input"
-                  placeholder="Flat / house no., street, landmark"
-                  value={deliveryAddressLine}
-                  onChange={(e) => setDeliveryAddressLine(e.target.value)}
-                  style={{ fontSize: 13 }}
-                />
-                <LocationPicker lat={deliveryLat} lng={deliveryLng} onChange={(lat, lng) => { setDeliveryLat(lat); setDeliveryLng(lng); }} height={140} pinColor="var(--delivery-600)" />
-                <span className="tiny muted">Tap the map or drag the pin to mark exactly where the agent should come.</span>
-                {/* Optional: the customer's half of the two-way ETA. The shop
-                    confirms (or overrides) this with a real ETA on acceptance. */}
-                <input
-                  className="input"
-                  placeholder="Preferred time, e.g. before 6pm (optional)"
-                  value={requestedWindow}
-                  maxLength={60}
-                  onChange={(e) => setRequestedWindow(e.target.value)}
-                  style={{ fontSize: 13 }}
-                />
+                {afternoonSlots.length > 0 && (
+                  <button
+                    type="button"
+                    className={`chip ${slotPeriod === "afternoon" ? "active" : ""}`}
+                    style={{ fontSize: 11.5, padding: "4px 10px", borderRadius: 20 }}
+                    onClick={() => setSlotPeriod("afternoon")}
+                  >
+                    ☀️ Afternoon ({afternoonSlots.filter((s) => s.isAvailable).length})
+                  </button>
+                )}
+                {eveningSlots.length > 0 && (
+                  <button
+                    type="button"
+                    className={`chip ${slotPeriod === "evening" ? "active" : ""}`}
+                    style={{ fontSize: 11.5, padding: "4px 10px", borderRadius: 20 }}
+                    onClick={() => setSlotPeriod("evening")}
+                  >
+                    🌆 Evening ({eveningSlots.filter((s) => s.isAvailable).length})
+                  </button>
+                )}
+              </div>
+            )}
+
+            {loadingApts ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: "var(--space-xs)",
+                }}
+              >
+                <Skeleton h={38} r={12} />
+                <Skeleton h={38} r={12} />
+                <Skeleton h={38} r={12} />
+              </div>
+            ) : slots.length === 0 ? (
+              <div className="card col center" style={{ padding: 20, textAlign: "center", background: "var(--ink-50)" }}>
+                <span style={{ fontSize: 24, marginBottom: 4 }}>😴</span>
+                <span className="semi small">Closed on this date</span>
+                <span className="tiny muted">Please pick another working day above</span>
+              </div>
+            ) : displayedSlots.length === 0 ? (
+              <div className="card col center" style={{ padding: 18, textAlign: "center", background: "var(--ink-50)" }}>
+                <span className="semi small">No slots in the {slotPeriod} period</span>
+                <button
+                  type="button"
+                  className="tiny semi"
+                  style={{ color: "var(--brand-700)", marginTop: 4, background: "none", border: "none", cursor: "pointer" }}
+                  onClick={() => setSlotPeriod("all")}
+                >
+                  Show all available slots ({slots.filter((s) => s.isAvailable).length})
+                </button>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: "var(--space-xs)",
+                  maxHeight: 180,
+                  overflowY: "auto",
+                  paddingRight: 2,
+                }}
+              >
+                {displayedSlots.map((s) => {
+                  const isSelected = selectedSlot?.id === s.id;
+                  const showRemaining = s.capacity > 1 && s.isAvailable && s.remaining <= 3;
+                  const scarce = showRemaining && s.remaining === 1;
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      disabled={!s.isAvailable}
+                      onClick={() => setSelectedSlot(s)}
+                      style={{
+                        padding: showRemaining ? "7px 8px" : "10px 8px",
+                        borderRadius: 12,
+                        border: isSelected
+                          ? "2px solid var(--brand-600)"
+                          : scarce
+                          ? "1px solid var(--amber-500)"
+                          : "1px solid var(--ink-200)",
+                        background: isSelected
+                          ? "var(--brand-50)"
+                          : !s.isAvailable
+                          ? "var(--ink-100)"
+                          : "#fff",
+                        color: isSelected
+                          ? "var(--brand-800)"
+                          : !s.isAvailable
+                          ? "var(--ink-400)"
+                          : "var(--ink-900)",
+                        fontSize: 12.5,
+                        fontWeight: isSelected ? 700 : 500,
+                        cursor: s.isAvailable ? "pointer" : "not-allowed",
+                        display: "flex",
+                        flexDirection: showRemaining ? "column" : "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: showRemaining ? 1 : "var(--space-xxs)",
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      <span className="row center-v" style={{ gap: 3 }}>
+                        {isSelected && <Check size={13} color="var(--brand-600)" />}
+                        {s.timeLabel}
+                      </span>
+                      {showRemaining && (
+                        <span style={{ fontSize: 9.5, fontWeight: 600, color: scarce ? "var(--amber-600)" : "var(--ink-400)" }}>
+                          {s.remaining} left
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
-        )}
 
-        {/* Package selector */}
-        {packages.length > 0 && (
-          <div className="field" style={{ marginBottom: 16 }}>
-            <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
-              Choose a package / service
-            </label>
-            <div className="col gap-8">
-              {packages.map((pk) => {
-                const on = selectedPkg?.id === pk.id;
-                return (
+          {/* Party size */}
+          {canPickParty && (
+            <div className="field" style={{ marginBottom: 16 }}>
+              <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>
+                How many spots?
+              </label>
+              <div className="row gap-12 center-v">
+                <div className="row center-v" style={{ border: "1px solid var(--ink-200)", borderRadius: 12, overflow: "hidden" }}>
                   <button
-                    key={pk.id}
                     type="button"
-                    onClick={() => setSelectedPkg(on ? null : pk)}
-                    className="row gap-10"
-                    style={{
-                      padding: "var(--space-sm)", borderRadius: 12, textAlign: "left",
-                      border: on ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)",
-                      background: on ? "var(--brand-50)" : "#fff",
-                    }}
+                    aria-label="Fewer spots"
+                    disabled={partySize <= 1}
+                    onClick={() => { haptics.selection(); setPartySize((n) => Math.max(1, n - 1)); }}
+                    style={{ width: 42, height: 40, fontSize: 20, fontWeight: 600, color: partySize <= 1 ? "var(--ink-300)" : "var(--ink-700)" }}
                   >
-                    <span style={{ width: 20, height: 20, borderRadius: "50%", flexShrink: 0, border: on ? "6px solid var(--brand-600)" : "2px solid var(--ink-300)" }} />
-                    <div className="grow">
-                      <div className="semi small">{pk.name}</div>
-                      {pk.duration && <div className="tiny muted">{pk.duration}</div>}
-                    </div>
-                    <div className="bold small" style={{ color: "var(--brand-700)" }}>₹{pk.price}</div>
+                    −
                   </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Date Selector Chips */}
-        <div className="field" style={{ marginBottom: 16 }}>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
-            Select Date
-          </label>
-          <div className="row gap-8" style={{ overflowX: "auto", paddingBottom: 4 }}>
-            {dates.map((d, idx) => {
-              const isToday = idx === 0;
-              const isTomorrow = idx === 1;
-              const label = isToday
-                ? "Today"
-                : isTomorrow
-                ? "Tomorrow"
-                : d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
-              const isSelected = dayOffset === idx;
-              const working = isWorkingDay(availabilityNote, d);
-              return (
-                <button
-                  key={d.toISOString()}
-                  type="button"
-                  disabled={!working}
-                  onClick={() => {
-                    setDayOffset(idx);
-                    setSelectedSlot(null);
-                  }}
-                  className={`chip ${isSelected ? "active" : ""}`}
-                  style={{
-                    flexShrink: 0,
-                    padding: "8px 14px",
-                    borderRadius: "var(--radius)",
-                    fontSize: 13,
-                    fontWeight: isSelected ? 700 : 500,
-                    opacity: working ? 1 : 0.4,
-                  }}
-                >
-                  <CalendarIcon size={13} style={{ marginRight: 4 }} /> {label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Daily limit warning */}
-        {hasAptToday && (
-          <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
-            <div className="row gap-8 center-v">
-              <span style={{ fontSize: 16 }}>⚠️</span>
-              <div>
-                <div className="bold small" style={{ color: "var(--red-600)" }}>Daily {vocabulary.nounCap} Limit Hit</div>
-                <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>
-                  You've reached the limit of {DAILY_APPOINTMENT_LIMIT} {vocabulary.nounPlural} for this day. Please pick another date.
+                  <span className="semi" style={{ minWidth: 34, textAlign: "center", fontSize: 15 }}>{partySize}</span>
+                  <button
+                    type="button"
+                    aria-label="More spots"
+                    disabled={partySize >= partyCeiling}
+                    onClick={() => { haptics.selection(); setPartySize((n) => Math.min(partyCeiling, n + 1)); }}
+                    style={{ width: 42, height: 40, fontSize: 20, fontWeight: 600, color: partySize >= partyCeiling ? "var(--ink-300)" : "var(--ink-700)" }}
+                  >
+                    +
+                  </button>
+                </div>
+                <div className="tiny muted">
+                  {selectedSlot
+                    ? `${selectedSlot.remaining} of ${selectedSlot.capacity} left at ${selectedSlot.timeLabel}`
+                    : `Up to ${maxPartySize} per booking`}
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Available Time Slots Grid */}
-        <div className="field" style={{ marginBottom: 16 }}>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 8 }}>
-            Available Working Hours Slots ({slots.filter((s) => s.isAvailable).length} slots)
-          </label>
-          {loadingApts ? (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: "var(--space-xs)",
-              }}
-            >
-              <Skeleton h={38} r={12} />
-              <Skeleton h={38} r={12} />
-              <Skeleton h={38} r={12} />
-            </div>
-          ) : slots.length === 0 ? (
-            <div className="card col center" style={{ padding: 20, textAlign: "center", background: "var(--ink-50)" }}>
-              <span style={{ fontSize: 24, marginBottom: 4 }}>😴</span>
-              <span className="semi small">Closed on this date</span>
-              <span className="tiny muted">Please pick another working day above</span>
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: "var(--space-xs)",
-                maxHeight: 180,
-                overflowY: "auto",
-                paddingRight: 2,
-              }}
-            >
-              {slots.map((s) => {
-                const isSelected = selectedSlot?.id === s.id;
-                // Only surface a count when it's actually informative: a
-                // capacity-1 business (the norm) should look exactly as before,
-                // and a half-empty slot doesn't need a number either.
-                const showRemaining = s.capacity > 1 && s.isAvailable && s.remaining <= 3;
-                const scarce = showRemaining && s.remaining === 1;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    disabled={!s.isAvailable}
-                    onClick={() => setSelectedSlot(s)}
-                    style={{
-                      padding: showRemaining ? "7px 8px" : "10px 8px",
-                      borderRadius: 12,
-                      border: isSelected
-                        ? "2px solid var(--brand-600)"
-                        : scarce
-                        ? "1px solid var(--amber-500)"
-                        : "1px solid var(--ink-200)",
-                      background: isSelected
-                        ? "var(--brand-50)"
-                        : !s.isAvailable
-                        ? "var(--ink-100)"
-                        : "#fff",
-                      color: isSelected
-                        ? "var(--brand-800)"
-                        : !s.isAvailable
-                        ? "var(--ink-400)"
-                        : "var(--ink-900)",
-                      fontSize: 12.5,
-                      fontWeight: isSelected ? 700 : 500,
-                      cursor: s.isAvailable ? "pointer" : "not-allowed",
-                      display: "flex",
-                      flexDirection: showRemaining ? "column" : "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: showRemaining ? 1 : "var(--space-xxs)",
-                      lineHeight: 1.15,
-                    }}
-                  >
-                    <span className="row center-v" style={{ gap: 3 }}>
-                      {isSelected && <Check size={13} color="var(--brand-600)" />}
-                      {s.timeLabel}
-                    </span>
-                    {showRemaining && (
-                      <span style={{ fontSize: 9.5, fontWeight: 600, color: scarce ? "var(--amber-600)" : "var(--ink-400)" }}>
-                        {s.remaining} left
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
           )}
-        </div>
 
-        {/* Party size — only when the chosen service actually allows more than
-            one spot per booking, so a normal 1:1 service shows nothing. */}
-        {canPickParty && (
-          <div className="field" style={{ marginBottom: 16 }}>
+          {/* Special Instructions / Notes */}
+          <div className="field" style={{ marginBottom: 14 }}>
             <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>
-              How many spots?
+              {vocabulary.notesHeading || (vocabulary.noun === "order" ? "Order & Sizing Instructions (Optional)" : "Service Notes / Instructions (Optional)")}
             </label>
-            <div className="row gap-12 center-v">
-              <div className="row center-v" style={{ border: "1px solid var(--ink-200)", borderRadius: 12, overflow: "hidden" }}>
-                <button
-                  type="button"
-                  aria-label="Fewer spots"
-                  disabled={partySize <= 1}
-                  onClick={() => { haptics.selection(); setPartySize((n) => Math.max(1, n - 1)); }}
-                  style={{ width: 42, height: 40, fontSize: 20, fontWeight: 600, color: partySize <= 1 ? "var(--ink-300)" : "var(--ink-700)" }}
-                >
-                  −
-                </button>
-                <span className="semi" style={{ minWidth: 34, textAlign: "center", fontSize: 15 }}>{partySize}</span>
-                <button
-                  type="button"
-                  aria-label="More spots"
-                  disabled={partySize >= partyCeiling}
-                  onClick={() => { haptics.selection(); setPartySize((n) => Math.min(partyCeiling, n + 1)); }}
-                  style={{ width: 42, height: 40, fontSize: 20, fontWeight: 600, color: partySize >= partyCeiling ? "var(--ink-300)" : "var(--ink-700)" }}
-                >
-                  +
-                </button>
-              </div>
-              <div className="tiny muted">
-                {selectedSlot
-                  ? `${selectedSlot.remaining} of ${selectedSlot.capacity} left at ${selectedSlot.timeLabel}`
-                  : `Up to ${maxPartySize} per booking`}
-              </div>
-            </div>
+            <textarea
+              className="input"
+              rows={2}
+              placeholder={vocabulary.notesPlaceholder || (vocabulary.noun === "order" ? "Add size, color, alteration, or pickup preferences..." : "Describe your requirement or service details...")}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              style={{ fontSize: 13, padding: 10, resize: "none" }}
+            />
           </div>
-        )}
 
-        {/* Special Instructions / Notes */}
-        <div className="field" style={{ marginBottom: 14 }}>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>
-            Service Notes / Instructions (Optional)
-          </label>
-          <textarea
-            className="input"
-            rows={2}
-            placeholder="Describe your requirement or service details..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            style={{ fontSize: 13, padding: 10, resize: "none" }}
-          />
-        </div>
-
-        {/* Attach Photograph */}
-        <div className="field" style={{ marginBottom: 20 }}>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>
-            Attach Reference Photograph (Optional)
-          </label>
-          {photoPreview ? (
-            <div style={{ position: "relative", width: 100, height: 100, borderRadius: 12, overflow: "hidden", border: "1px solid var(--ink-200)" }}>
-              <img src={photoPreview} alt={`${vocabulary.nounCap} Reference`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              <button
-                type="button"
-                onClick={removePhoto}
+          {/* Attach Photograph */}
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>
+              Attach Reference Photograph (Optional)
+            </label>
+            {photoPreview ? (
+              <div style={{ position: "relative", width: 100, height: 100, borderRadius: 12, overflow: "hidden", border: "1px solid var(--ink-200)" }}>
+                <img src={photoPreview} alt={`${vocabulary.nounCap} Reference`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <button
+                  type="button"
+                  onClick={removePhoto}
+                  style={{
+                    position: "absolute",
+                    top: 4,
+                    right: 4,
+                    background: "rgba(0,0,0,0.6)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "50%",
+                    width: 24,
+                    height: 24,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ) : (
+              <label
                 style={{
-                  position: "absolute",
-                  top: 4,
-                  right: 4,
-                  background: "rgba(0,0,0,0.6)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: 24,
-                  height: 24,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
+                  gap: "var(--space-xs)",
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: "1.5px dashed var(--ink-300)",
+                  background: "var(--ink-50)",
                   cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: "var(--ink-700)",
                 }}
               >
-                <Trash2 size={13} />
-              </button>
-            </div>
-          ) : (
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "var(--space-xs)",
-                padding: "10px 14px",
-                borderRadius: 12,
-                border: "1.5px dashed var(--ink-300)",
-                background: "var(--ink-50)",
-                cursor: "pointer",
-                fontSize: 13,
-                fontWeight: 600,
-                color: "var(--ink-700)",
-              }}
-            >
-              <Camera size={18} color="var(--brand-600)" />
-              <span>Attach photo (item / haircut / reference)</span>
-              <input type="file" accept="image/*" onChange={handlePhotoSelect} style={{ display: "none" }} />
-            </label>
-          )}
+                <Camera size={18} color="var(--brand-600)" />
+                <span>Attach photo (item / haircut / reference)</span>
+                <input type="file" accept="image/*" onChange={handlePhotoSelect} style={{ display: "none" }} />
+              </label>
+            )}
+          </div>
         </div>
 
-        {/* Pay-at-booking notice */}
-        {paymentTiming === "AT_BOOKING" && !hasAptToday && (
-          <div className="tiny muted center" style={{ marginBottom: 10 }}>
-            This seller requires payment upfront — you'll pay right after confirming.
-          </div>
-        )}
-
-        {/* Confirm Action Button */}
-        <button
-          type="button"
-          className={hasAptToday ? "btn btn-outline btn-block btn-lg" : "btn btn-green btn-block btn-lg"}
-          disabled={!selectedSlot || submitting || uploading || hasAptToday || !deliveryAddressReady || outOfRange}
-          onClick={handleConfirm}
-          style={{ height: 48, fontSize: 15, fontWeight: 700 }}
+        {/* Sticky Footer */}
+        <div
+          style={{
+            padding: "12px 20px calc(14px + var(--safe-area-bottom))",
+            borderTop: "1px solid var(--ink-100)",
+            background: "#fff",
+            boxShadow: "0 -4px 16px rgba(0,0,0,0.06)",
+          }}
         >
-          {submitting || uploading
-            ? "Booking & Uploading..."
-            : outOfRange
-            ? "Outside Service Area"
-            : hasAptToday
-            ? "Daily Limit Exceeded"
-            : selectedSlot
-            ? paymentTiming === "AT_BOOKING"
-              ? `Confirm & Pay for ${selectedSlot.timeLabel}`
-              : isReschedule
-              ? `Reschedule to ${selectedSlot.timeLabel}`
-              : `Confirm Booking for ${selectedSlot.timeLabel}`
-            : "Select a Time Slot"}
-        </button>
+          {/* Order / Booking Summary preview */}
+          {((items && items.length > 0) || selectedPkg || selectedSlot) && (
+            <div className="row between center-v" style={{ marginBottom: 10, fontSize: 13 }}>
+              <div className="ellipsis" style={{ maxWidth: "65%" }}>
+                <span className="semi" style={{ color: "var(--ink-900)" }}>
+                  {items && items.length > 0
+                    ? `${items.reduce((s, it) => s + it.quantity, 0)} items`
+                    : selectedPkg?.name || vocabulary.nounCap}
+                </span>
+                {selectedSlot && (
+                  <span className="tiny muted" style={{ marginLeft: 6 }}>
+                    • {selectedSlot.timeLabel}
+                  </span>
+                )}
+              </div>
+              {activePrice != null && (
+                <div className="bold" style={{ color: "var(--brand-700)", fontSize: 15 }}>
+                  {inr(activePrice)}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Pay-at-booking notice */}
+          {paymentTiming === "AT_BOOKING" && !hasAptToday && (
+            <div className="tiny muted center" style={{ marginBottom: 8, fontSize: 11.5 }}>
+              Payment upfront required — pay right after confirming.
+            </div>
+          )}
+
+          {/* Confirm Action Button */}
+          <button
+            type="button"
+            className={hasAptToday ? "btn btn-outline btn-block btn-lg" : "btn btn-green btn-block btn-lg"}
+            disabled={!selectedSlot || submitting || uploading || hasAptToday || !deliveryAddressReady || outOfRange}
+            onClick={handleConfirm}
+            style={{ height: 48, fontSize: 15, fontWeight: 700 }}
+          >
+            {submitting || uploading
+              ? "Booking & Uploading..."
+              : outOfRange
+              ? "Outside Service Area"
+              : hasAptToday
+              ? "Daily Limit Exceeded"
+              : selectedSlot
+              ? paymentTiming === "AT_BOOKING"
+                ? `Confirm & Pay · ${selectedSlot.timeLabel}`
+                : isReschedule
+                ? `Reschedule to ${selectedSlot.timeLabel}`
+                : vocabulary.confirmCta
+                ? `${vocabulary.confirmCta} · ${selectedSlot.timeLabel}`
+                : vocabulary.noun === "order"
+                ? `Confirm Order · ${selectedSlot.timeLabel}`
+                : `Confirm Booking · ${selectedSlot.timeLabel}`
+              : "Select a Time Slot"}
+          </button>
+        </div>
       </div>
     </div>
   );

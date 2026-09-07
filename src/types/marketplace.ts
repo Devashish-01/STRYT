@@ -53,6 +53,7 @@ export interface Business {
   openingDate: string; // ISO
   isNew: boolean; // opened in last 7 days
   status: EntityStatus;
+  rejectionReason?: string | null;
   coverImage: string;
   gallery: string[];
   ratingAvg: number;

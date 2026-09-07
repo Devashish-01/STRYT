@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package, Heart, Sparkles, CheckCircle2, ChartBar, At, Mountains } from "@/components/Icons";
+import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package, Heart, Sparkles, CheckCircle2, ChartBar, At, Mountains, Star, Ticket, Wallet, Shield } from "@/components/Icons";
 import { notificationService } from "@/services";
 import type { NotifScope } from "@/services/engagement/notificationService";
 import { useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
@@ -18,6 +18,8 @@ const Handshake = HandshakeIcon as any;
 
 const meta: Record<NotificationType, { icon: any; color: string; bg: string }> = {
   NEW_BUSINESS: { icon: Store, color: "var(--orange-500)", bg: "var(--orange-50)" },
+  // Admin-only: something is waiting in the review queue (20260933).
+  ADMIN_REVIEW_QUEUE: { icon: Shield, color: "var(--amber-700)", bg: "var(--amber-50)" },
   NEW_PROVIDER: { icon: Briefcase, color: "var(--green-500)", bg: "var(--green-100)" },
   NEW_PLACE: { icon: Mountains, color: "var(--brand-700)", bg: "var(--brand-100)" },
   NEARBY_REQUEST: { icon: MessageSquareText, color: "var(--brand-700)", bg: "var(--brand-100)" },
@@ -29,12 +31,18 @@ const meta: Record<NotificationType, { icon: any; color: string; bg: string }> =
   QUOTE_BROADCAST: { icon: Megaphone, color: "var(--brand-400)", bg: "var(--brand-100)" },
   LOCATION_REQUEST: { icon: MapPin, color: "var(--brand-700)", bg: "var(--brand-100)" },
   LOCATION_APPROVED: { icon: MapPin, color: "var(--green-500)", bg: "var(--green-100)" },
+  LOCATION_DENIED: { icon: MapPin, color: "var(--red-500)", bg: "var(--red-50)" },
+  LOCATION_REVOKED: { icon: MapPin, color: "var(--ink-600)", bg: "var(--ink-100)" },
   COMMUNITY_COMMENT: { icon: MessageCircle, color: "var(--brand-700)", bg: "var(--brand-100)" },
   COMMUNITY_LIKE: { icon: Heart, color: "var(--red-500)", bg: "var(--red-50)" },
   COMMUNITY_RECOMMENDATION: { icon: Sparkles, color: "var(--green-500)", bg: "var(--green-100)" },
   COMMUNITY_RESOLVED: { icon: CheckCircle2, color: "var(--green-600)", bg: "var(--green-100)" },
   COMMUNITY_POLL_ENDED: { icon: ChartBar, color: "var(--blue-500)", bg: "var(--blue-100)" },
   COMMUNITY_MENTION: { icon: At, color: "var(--brand-700)", bg: "var(--brand-100)" },
+  // Same family as COMMUNITY_COMMENT but a distinct icon — a direct reply is a
+  // different (and more personal) event than a comment on your post.
+  COMMUNITY_REPLY: { icon: MessageSquareText, color: "var(--brand-700)", bg: "var(--brand-100)" },
+  COMMUNITY_COMMENT_REACTION: { icon: Heart, color: "var(--pink-500)", bg: "var(--ink-50)" },
   // Red on purpose: this is the one community notification that arrives
   // unrequested, so it has to read as "something is happening near you" and not
   // as another engagement ping.
@@ -47,6 +55,23 @@ const meta: Record<NotificationType, { icon: any; color: string; bg: string }> =
   APPOINTMENT: { icon: Clock, color: "var(--brand-600)", bg: "var(--brand-50)" },
   DELIVERY: { icon: Package, color: "var(--delivery-600)", bg: "var(--delivery-50)" },
   BUSINESS_ACCESS: { icon: Users, color: "var(--orange-500)", bg: "var(--orange-50)" },
+  PROPOSAL_COUNTER: { icon: FileText, color: "var(--blue-500)", bg: "var(--ink-100)" },
+  RATING: { icon: Star, color: "var(--amber-500)", bg: "var(--amber-50)" },
+  RATING_REPLY: { icon: Star, color: "var(--amber-500)", bg: "var(--amber-50)" },
+  BULK_DEAL_PLEDGE: { icon: Package, color: "var(--orange-500)", bg: "var(--orange-50)" },
+  BULK_DEAL_DEPOSIT_CLAIMED: { icon: Package, color: "var(--amber-500)", bg: "var(--amber-50)" },
+  BULK_DEAL_DEPOSIT_CONFIRMED: { icon: Package, color: "var(--green-500)", bg: "var(--green-100)" },
+  BULK_DEAL_DEPOSIT_REJECTED: { icon: Package, color: "var(--red-500)", bg: "var(--red-50)" },
+  // Ticket, not Package — this one means "your claim pass is ready", which is
+  // the same object the pass modal and the Activity header icon already use.
+  BULK_DEAL_UNLOCKED: { icon: Ticket, color: "var(--green-600)", bg: "var(--green-100)" },
+  BULK_DEAL_REFUNDED: { icon: Package, color: "var(--ink-600)", bg: "var(--ink-100)" },
+  BULK_DEAL_EXTENDED: { icon: Clock, color: "var(--amber-700)", bg: "var(--amber-50)" },
+  LIVE_LOCATION: { icon: MapPin, color: "var(--accent-600)", bg: "var(--amber-100)" },
+  CUSTOM_PAYMENT_RECEIVED: { icon: Wallet, color: "var(--amber-600)", bg: "var(--amber-50)" },
+  CUSTOM_PAYMENT_CONFIRMED: { icon: Wallet, color: "var(--green-500)", bg: "var(--green-100)" },
+  CUSTOM_PAYMENT_REJECTED: { icon: Wallet, color: "var(--red-500)", bg: "var(--red-50)" },
+  QNA: { icon: MessageCircle, color: "var(--brand-700)", bg: "var(--brand-100)" },
   SYSTEM: { icon: Bell, color: "var(--ink-600)", bg: "var(--ink-100)" },
 };
 

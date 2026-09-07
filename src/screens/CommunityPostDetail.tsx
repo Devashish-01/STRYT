@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone, Flag, Pencil, Trash2, X, Camera, Clock, ChevronRight, Bookmark, Share2 } from "@/components/Icons";
+import { ArrowLeft, Heart, Send, CheckCircle2, MapPin, Phone, Flag, Pencil, Trash2, X, Camera, Clock, ChevronRight, Bookmark, Share2, Plus, DotsThree, PushPin, Store } from "@/components/Icons";
 import { communityService, businessService, providerService, socialService, uploadService } from "@/services";
 import ShareCard from "@/components/ShareCard";
 import { useQueryWithRealtime, useQuery } from "@/hooks/useApi";
@@ -10,7 +10,9 @@ import { SafeImg, inr } from "@/components/common";
 import { useApp } from "@/store";
 import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";
-import type { CommunityPost, Comment } from "@/types";
+import PhotoViewer, { type PhotoViewerItem } from "@/components/PhotoViewer";
+import ListingPickerSheet, { type PickedListing } from "@/components/ListingPickerSheet";
+import type { CommunityPost, Comment, CommentPolicy, PostTag } from "@/types";
 import { openProfile } from "@/lib/profileSheet";
 import { resolveRecommendations, type ResolvedRecommendation } from "@/lib/communityRecommendations";
 import { haptics } from "@/lib/haptics";
@@ -26,6 +28,8 @@ import {
   timeLeftLabel,
 } from "@/lib/communityPost";
 import {
+  COMMENT_POLICIES,
+  COMMENT_POLICY_META,
   gateCopy,
   localGate,
   policyBadge,
@@ -58,7 +62,25 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
   const [imageAlt, setImageAlt] = useState(post.imageAlt ?? "");
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Rich per-type fields and audience settings (20260930). These used to be
+  // write-once: set in the composer, then permanently frozen. Closing comments
+  // on a thread that turned nasty is the one that actually matters.
+  const [lastSeen, setLastSeen] = useState(post.lastSeen ?? "");
+  const [reward, setReward] = useState(post.reward ?? "");
+  const [pickupNote, setPickupNote] = useState(post.pickupNote ?? "");
+  const [taggedListing, setTaggedListing] = useState<PostTag | null>(post.taggedListing ?? null);
+  const [tagPickerOpen, setTagPickerOpen] = useState(false);
+  const [commentPolicy, setCommentPolicy] = useState<CommentPolicy>(resolveCommentPolicy(post));
+  const [hideLikeCount, setHideLikeCount] = useState(post.hideLikeCount === true);
+  // Collapsed by default, mirroring the composer's "Post settings" row — the
+  // current choice is stated on the row so it's never a setting you must open
+  // just to read.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const canSave = title.trim().length >= MIN_TITLE_LEN && !saving && !uploading;
+  const policyMeta = COMMENT_POLICY_META[commentPolicy];
+  const showLostFound = post.type === "LOST_FOUND";
+  const showGiveaway = post.type === "GIVEAWAY";
+  const showTag = post.type === "RECOMMENDATION" || post.type === "SHOUTOUT";
 
   async function pickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -85,11 +107,19 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
     setSaving(true);
     try {
       const alt = imageAlt.trim();
+      // Only the fields this post's type actually shows are sent. Passing a
+      // field the sheet never rendered would write the empty string it was
+      // initialised with, silently clearing data the author never saw.
       await communityService.update(post.id, {
         title: title.trim(),
         body: body.trim(),
         media,
         imageAlt: media.length > 0 ? alt : null,
+        ...(showLostFound ? { lastSeen: lastSeen.trim(), reward: reward.trim() } : {}),
+        ...(showGiveaway ? { pickupNote: pickupNote.trim() } : {}),
+        ...(showTag ? { taggedListing } : {}),
+        commentPolicy,
+        hideLikeCount,
       });
       onSaved({
         ...post,
@@ -98,6 +128,14 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
         media,
         image: media[0],
         imageAlt: media.length > 0 && alt ? alt : undefined,
+        ...(showLostFound ? { lastSeen: lastSeen.trim() || null, reward: reward.trim() || null } : {}),
+        ...(showGiveaway ? { pickupNote: pickupNote.trim() || null } : {}),
+        ...(showTag ? { taggedListing } : {}),
+        commentPolicy,
+        // The legacy mirror the RPC keeps in step server-side; kept in step here
+        // too so the screen behind the sheet doesn't disagree until the refetch.
+        allowComments: commentPolicy !== "OFF",
+        hideLikeCount,
       });
       showToast("Post updated");
     } catch {
@@ -160,11 +198,172 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
               />
             )}
           </div>
+
+          {/* Per-type fields, in the same shape and wording the composer uses —
+              an author shouldn't have to relearn the form to correct it. */}
+          {showLostFound && (
+            <div className="field">
+              <label>Where & reward</label>
+              <div className="col gap-10">
+                <input
+                  className="input"
+                  placeholder="Last seen near… (e.g. the park gate)"
+                  aria-label="Last seen location"
+                  value={lastSeen}
+                  maxLength={120}
+                  onChange={(e) => setLastSeen(e.target.value)}
+                />
+                <input
+                  className="input"
+                  placeholder="Reward, if any (optional)"
+                  aria-label="Reward"
+                  value={reward}
+                  maxLength={80}
+                  onChange={(e) => setReward(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {showGiveaway && (
+            <div className="field">
+              <label>Pickup</label>
+              <input
+                className="input"
+                placeholder="When & how to collect (e.g. evenings after 6)"
+                aria-label="Pickup details"
+                value={pickupNote}
+                maxLength={140}
+                onChange={(e) => setPickupNote(e.target.value)}
+              />
+            </div>
+          )}
+
+          {showTag && (
+            <div className="field">
+              <label>Tagged place</label>
+              {taggedListing ? (
+                <div className="row gap-10 center-v" style={{ padding: "9px 11px", background: "var(--surface)", border: "1px solid var(--ink-200)", borderRadius: 12 }}>
+                  <span style={{ fontSize: 18 }} aria-hidden="true">{taggedListing.listingType === "BUSINESS" ? "🏪" : "👤"}</span>
+                  <span className="semi small grow ellipsis">{taggedListing.name}</span>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    aria-label="Remove tagged place"
+                    style={{ width: 26, height: 26 }}
+                    onClick={() => setTaggedListing(null)}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ) : (
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setTagPickerOpen(true)}>
+                  <Plus size={14} /> Choose a business or provider
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="field" style={{ marginBottom: 0 }}>
+            <button
+              type="button"
+              className="row between center-v"
+              onClick={() => setSettingsOpen((v) => !v)}
+              aria-expanded={settingsOpen}
+              style={{ width: "100%", padding: "12px 14px", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 14, cursor: "pointer", textAlign: "left" }}
+            >
+              <div className="col" style={{ gap: 2, minWidth: 0 }}>
+                <span className="semi small">Post settings</span>
+                <span className="tiny muted ellipsis">
+                  {policyMeta.emoji} {policyMeta.label} can reply
+                  {hideLikeCount ? " · likes hidden" : ""}
+                </span>
+              </div>
+              <ChevronRight
+                size={16}
+                color="var(--ink-500)"
+                style={{ flexShrink: 0, transform: settingsOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s ease" }}
+              />
+            </button>
+
+            {settingsOpen && (
+              <div className="col gap-8" style={{ marginTop: 10 }} role="radiogroup" aria-label="Who can reply">
+                {COMMENT_POLICIES.map((pol) => {
+                  const on = commentPolicy === pol.value;
+                  return (
+                    <button
+                      key={pol.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      className="row gap-10 center-v"
+                      style={{
+                        width: "100%", padding: "10px 12px", textAlign: "left", cursor: "pointer",
+                        borderRadius: 13,
+                        border: on ? "1.5px solid var(--brand-600)" : "1.5px solid var(--ink-200)",
+                        background: on ? "var(--brand-50)" : "var(--surface)",
+                      }}
+                      onClick={() => { haptics.selection(); setCommentPolicy(pol.value); }}
+                    >
+                      <span style={{ fontSize: 17 }} aria-hidden="true">{pol.emoji}</span>
+                      <span className="grow" style={{ minWidth: 0 }}>
+                        <span className="semi small" style={{ display: "block", color: on ? "var(--brand-900)" : "var(--ink-900)" }}>{pol.label}</span>
+                        <span className="tiny muted">{pol.hint}</span>
+                      </span>
+                      <span style={{
+                        width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+                        border: on ? "5px solid var(--brand-600)" : "2px solid var(--ink-300)",
+                      }} />
+                    </button>
+                  );
+                })}
+                {commentPolicy === "OFF" && (post.commentsCount ?? 0) > 0 && (
+                  <p className="tiny muted" style={{ lineHeight: 1.5 }}>
+                    Existing replies stay visible — this only stops new ones.
+                  </p>
+                )}
+
+                <div className="divider" style={{ margin: "5px 0" }} />
+
+                <button
+                  type="button"
+                  className="row between center-v"
+                  onClick={() => setHideLikeCount((v) => !v)}
+                  aria-pressed={hideLikeCount}
+                  style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}
+                >
+                  <span className="col" style={{ gap: 2 }}>
+                    <span className="semi small">Hide like count</span>
+                    <span className="tiny muted">People can still like it — the number stays private</span>
+                  </span>
+                  <span style={{
+                    width: 44, height: 26, borderRadius: 999, flexShrink: 0, position: "relative",
+                    background: hideLikeCount ? "var(--brand-600)" : "var(--ink-300)",
+                    transition: "background 0.15s ease",
+                  }}>
+                    <span style={{
+                      position: "absolute", top: 3, left: hideLikeCount ? 21 : 3,
+                      width: 20, height: 20, borderRadius: "50%", background: "var(--white)",
+                      transition: "left 0.15s ease", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                    }} />
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={!canSave} onClick={save}>
           {saving ? "Saving…" : "Save changes"}
         </button>
       </div>
+
+      {tagPickerOpen && (
+        <ListingPickerSheet
+          title={"Tag a place"}
+          onPick={(pick) => { setTaggedListing(pick); setTagPickerOpen(false); }}
+          onClose={() => setTagPickerOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -196,7 +395,26 @@ function CommentBody({ body, mentions }: { body: string; mentions?: { userId: st
   );
 }
 
-function CommentRow({ c, nav, onReply, compact, canReply = true, onReact, canReact = true }: {
+/** A pinned comment sits above everything regardless of the chosen sort —
+ *  "Newest" shouldn't bury the answer the author marked as the answer. Only
+ *  one can be pinned (community_comment_set_pinned clears the rest), so this
+ *  never reorders more than a single row. */
+function hoistPinned<T extends { pinnedAt?: string | null }>(rows: T[]): T[] {
+  const i = rows.findIndex((r) => !!r.pinnedAt);
+  if (i <= 0) return rows;
+  return [rows[i], ...rows.slice(0, i), ...rows.slice(i + 1)];
+}
+
+const MENU_ITEM: CSSProperties = {
+  padding: "8px 10px", borderRadius: 8, background: "none", border: "none",
+  cursor: "pointer", textAlign: "left", width: "100%", fontSize: 13,
+};
+
+function CommentRow({
+  c, nav, onReply, compact, canReply = true, onReact, canReact = true,
+  isMine = false, isPostAuthor = false, canReport = false,
+  onDelete, onEdit, onTogglePin, onReport,
+}: {
   c: Comment;
   nav: (to: string) => void;
   onReply: () => void;
@@ -204,20 +422,92 @@ function CommentRow({ c, nav, onReply, compact, canReply = true, onReact, canRea
   canReply?: boolean;
   onReact?: (emoji: string | null) => void;
   canReact?: boolean;
+  /** The signed-in viewer wrote this comment. */
+  isMine?: boolean;
+  /** The signed-in viewer wrote the POST this comment sits under. */
+  isPostAuthor?: boolean;
+  canReport?: boolean;
+  onDelete?: () => void;
+  /** Resolves once the edit is saved; the row stays in edit mode if the server
+   *  refused it. */
+  onEdit?: (body: string) => Promise<void>;
+  onTogglePin?: () => void;
+  onReport?: () => void;
 }) {
   const size = compact ? 32 : 38;
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editingBody, setEditingBody] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const tallies = Object.entries(c.reactions ?? {}).filter(([, n]) => n > 0);
+  const pinned = !!c.pinnedAt;
+  // Delete: your own words, or anything under your own post — the two
+  // permissions community_comment_delete grants. Pin: the post's author only,
+  // and never on a reply, since the pin sorts to the top of the top-level list
+  // where a reply has no place.
+  const canDelete = !!onDelete && (isMine || isPostAuthor);
+  const canEdit = !!onEdit && isMine;
+  const canPin = !!onTogglePin && isPostAuthor && !compact;
+  const hasMenu = canDelete || canEdit || canPin || (canReport && !isMine);
+
+  async function saveEdit() {
+    const next = (editingBody ?? "").trim();
+    if (!next || next === c.body) { setEditingBody(null); return; }
+    setSavingEdit(true);
+    try {
+      await onEdit?.(next);
+      setEditingBody(null);
+    } catch {
+      // The parent has already surfaced the reason; stay in edit mode so the
+      // typed text isn't thrown away.
+    } finally {
+      setSavingEdit(false);
+    }
+  }
   return (
     <div className="row gap-10" style={{ alignItems: "flex-start" }}>
       <SafeImg src={c.authorAvatar} variant="avatar" className="avatar" style={{ width: size, height: size, flexShrink: 0, borderRadius: "50%", border: "1px solid var(--ink-200)" }} />
       <div className="grow" style={{ minWidth: 0 }}>
-        <div style={{ background: "var(--ink-50)", padding: "10px 14px", borderRadius: 16, border: "1px solid rgba(226, 225, 240, 0.7)" }}>
+        <div style={{
+          background: pinned ? "var(--brand-50)" : "var(--ink-50)",
+          padding: "10px 14px", borderRadius: 16,
+          border: pinned ? "1px solid var(--brand-200)" : "1px solid rgba(226, 225, 240, 0.7)",
+        }}>
+          {pinned && (
+            <span className="tiny semi row gap-4 center-v" style={{ color: "var(--brand-700)", marginBottom: 5, fontSize: 11 }}>
+              <PushPin size={11} weight="fill" /> Pinned by the author
+            </span>
+          )}
           <div className="row between gap-6 center-v">
             <span className="semi small" style={{ color: "var(--ink-900)", fontSize: 13.5, fontWeight: 600 }}>{c.authorName}</span>
-            <span className="tiny muted" style={{ fontSize: 11.5 }}>{c.time}</span>
+            <span className="tiny muted" style={{ fontSize: 11.5 }}>
+              {c.time}{c.editedAt ? " · edited" : ""}
+            </span>
           </div>
-          <CommentBody body={c.body} mentions={c.mentions} />
+          {editingBody !== null ? (
+            <div className="col gap-6" style={{ marginTop: 6 }}>
+              <textarea
+                className="input"
+                style={{ minHeight: 60, fontSize: 13.5 }}
+                value={editingBody}
+                autoFocus
+                aria-label="Edit your comment"
+                onChange={(e) => setEditingBody(e.target.value)}
+              />
+              <div className="row gap-8">
+                <button className="btn btn-outline btn-sm grow" disabled={savingEdit} onClick={() => setEditingBody(null)}>Cancel</button>
+                <button className="btn btn-sm grow" disabled={savingEdit || !editingBody.trim()} onClick={saveEdit}>
+                  {savingEdit ? "Saving…" : "Save"}
+                </button>
+              </div>
+              {/* Mentions stay as originally posted — an edit can't @-ping new
+                  people after the fact. Same rule community_comment_update
+                  enforces server-side. */}
+              <span className="tiny muted" style={{ fontSize: 11 }}>Mentions stay as first posted.</span>
+            </div>
+          ) : (
+            <CommentBody body={c.body} mentions={c.mentions} />
+          )}
           {c.sharedPhone && (
             <a
               href={`tel:${c.sharedPhone}`}
@@ -279,7 +569,46 @@ function CommentRow({ c, nav, onReply, compact, canReply = true, onReact, canRea
               Reply
             </button>
           )}
+          {hasMenu && (
+            <button
+              className="tiny semi"
+              style={{ color: "var(--ink-500)", padding: "0 5px", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-expanded={menuOpen}
+              aria-label="Comment actions"
+            >
+              <DotsThree size={18} weight="bold" />
+            </button>
+          )}
         </div>
+
+        {menuOpen && hasMenu && (
+          <div
+            className="col"
+            style={{ marginTop: 5, marginLeft: 6, padding: 4, background: "var(--surface)", border: "1px solid var(--ink-200)", borderRadius: 12, width: "fit-content", minWidth: 152, boxShadow: "var(--shadow-sm)" }}
+          >
+            {canPin && (
+              <button className="row gap-8 center-v semi" style={MENU_ITEM} onClick={() => { setMenuOpen(false); onTogglePin?.(); }}>
+                <PushPin size={14} /> {pinned ? "Unpin" : "Pin as answer"}
+              </button>
+            )}
+            {canEdit && (
+              <button className="row gap-8 center-v semi" style={MENU_ITEM} onClick={() => { setMenuOpen(false); setEditingBody(c.body); }}>
+                <Pencil size={14} /> Edit
+              </button>
+            )}
+            {canReport && !isMine && (
+              <button className="row gap-8 center-v semi" style={MENU_ITEM} onClick={() => { setMenuOpen(false); onReport?.(); }}>
+                <Flag size={14} /> Report
+              </button>
+            )}
+            {canDelete && (
+              <button className="row gap-8 center-v semi" style={{ ...MENU_ITEM, color: "var(--red-600)" }} onClick={() => { setMenuOpen(false); onDelete?.(); }}>
+                <Trash2 size={14} /> {isMine ? "Delete" : "Remove from my post"}
+              </button>
+            )}
+          </div>
+        )}
 
         {pickerOpen && canReact && (
           <div className="row gap-4 center-v" style={{ marginTop: 5, marginLeft: 6, padding: "5px 8px", background: "var(--surface)", border: "1px solid var(--ink-200)", borderRadius: 999, width: "fit-content", boxShadow: "var(--shadow-sm)" }}>
@@ -306,7 +635,7 @@ function CommentRow({ c, nav, onReply, compact, canReply = true, onReact, canRea
 export default function CommunityPostDetail() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { state } = useLocation() as { state?: { post?: CommunityPost } };
+  const { state } = useLocation() as { state?: { post?: CommunityPost; openEdit?: boolean } };
   const { user, votes, votePoll, showToast, activeContext, isGuest } = useApp();
 
   const { data: activeBiz } = useQuery(
@@ -321,7 +650,7 @@ export default function CommunityPostDetail() {
   );
 
   // Use passed post for instant display; re-fetch in background for freshness.
-  const { data: fetched } = useQueryWithRealtime(() => communityService.get(id, user.lat || undefined, user.lng || undefined), "community_posts", [id, user.lat, user.lng], `id=eq.${id}`);
+  const { data: fetched, refetch: refetchPost } = useQueryWithRealtime(() => communityService.get(id, user.lat || undefined, user.lng || undefined), "community_posts", [id, user.lat, user.lng], `id=eq.${id}`);
   const post: CommunityPost | undefined = fetched ?? state?.post;
 
   // Whether this viewer may comment, and if not, why. Asked of the same
@@ -354,14 +683,42 @@ export default function CommunityPostDetail() {
   const [phoneVis, setPhoneVis] = useState<"OWNER" | "PUBLIC">("OWNER");
   const [phoneInput, setPhoneInput] = useState("");
   const [reporting, setReporting] = useState(false);
+  // #12 — PhotoViewer is used on BusinessDetail/ProviderDetail/PlaceDetail/Profile
+  // but post galleries were the one place photos werent tappable.
+  const [viewingPhotos, setViewingPhotos] = useState<{ photos: PhotoViewerItem[]; startIndex: number } | null>(null);
+  // #1 — the feed card offers "+ Recommend"; the detail page, where you actually
+  // read the thread before contributing, never did.
+  const [recommendOpen, setRecommendOpen] = useState(false);
+  // The business/provider being attached to the comment currently being
+  // written. post_comments.listing_type/listing_id and CommentRow's
+  // "→ View listing" have always supported this; the composer never offered it.
+  const [commentListing, setCommentListing] = useState<PickedListing | null>(null);
+  const [commentListingPicker, setCommentListingPicker] = useState(false);
+
+  async function handleRecommend(listingType: "BUSINESS" | "PROVIDER", listingId: string) {
+    setRecommendOpen(false);
+    try {
+      await communityService.recommendListing(id, listingType, listingId, user.name || "A neighbor");
+      showToast("Recommendation added");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't add recommendation — try again");
+    }
+  }
   const [commentSort, setCommentSort] = useState<CommentSort>("top");
   const [mentionQuery, setMentionQuery] = useState<MentionQuery | null>(null);
   const [sharing, setSharing] = useState(false);
   const [saveOverride, setSaveOverride] = useState<boolean | null>(null);
-  const [editing, setEditing] = useState(false);
+  // Opened straight from the feed card's "Edit post" row, which navigates
+  // here rather than duplicating the whole EditPostSheet form on the card.
+  const [editing, setEditing] = useState(!!state?.openEdit);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [reportingComment, setReportingComment] = useState<Comment | null>(null);
+  const [deletingComment, setDeletingComment] = useState<Comment | null>(null);
+  const [commentDeleteBusy, setCommentDeleteBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [resolvedBusy, setResolvedBusy] = useState(false);
+  const [pollCloseConfirm, setPollCloseConfirm] = useState(false);
+  const [closingPoll, setClosingPoll] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   // Optimistic override for the like button, cleared once the server-confirmed
   // value (post.liked/post.likes) catches up — avoids XOR-ing against a value
@@ -427,6 +784,32 @@ export default function CommunityPostDetail() {
     return () => { sb.removeChannel(channel); };
   }, [id]);
 
+  // Live poll results. The post-row subscription above can't cover these:
+  // vote counts aren't stored on community_posts, they're counted out of
+  // poll_votes inside communityService.get — so casting a vote changes no row
+  // this screen was watching, and the bars sat frozen for everyone else with
+  // the thread open. Only subscribes for POLL posts; nothing else reads it.
+  const refetchPostRef = useRef(refetchPost);
+  refetchPostRef.current = refetchPost;
+  const isPoll = post?.type === "POLL";
+  useEffect(() => {
+    if (!hasSupabaseEnv || !isPoll) return;
+    const sb = getSupabase();
+    const channel = sb
+      .channel(`rt:poll_votes:${id}`)
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "poll_votes", filter: `post_id=eq.${id}` },
+        () => refetchPostRef.current()
+      )
+      .subscribe((status: string) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn(`[realtime] "poll_votes" subscription ${status} — check the supabase_realtime publication for this table.`);
+        }
+      });
+    return () => { sb.removeChannel(channel); };
+  }, [id, isPoll]);
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [comments]);
   useEffect(() => {
     if (likeOverride === null) return;
@@ -444,6 +827,7 @@ export default function CommunityPostDetail() {
   // post is guaranteed non-undefined below this line.
   const safePost = post;
   const isAuthor = !isGuest && !!user.id && safePost.authorUserId === user.id;
+  const isMyComment = (c: Comment) => !isGuest && !!user.id && c.authorUserId === user.id;
   // The author's chosen policy drives the header badge; the gate (which also
   // accounts for distance, blocks and rate limiting) drives the composer.
   // Until the gate resolves, EVERYONE/OFF can be predicted with confidence —
@@ -465,15 +849,17 @@ export default function CommunityPostDetail() {
   const policyBadgeLabel = policyBadge(policy);
   const saved = saveOverride ?? safePost.saved ?? false;
   // Reply counts feed the "Top" ranking, so they're computed alongside it.
-  const sortedTopLevel = sortComments(
-    comments
-      .filter((c) => !c.parentId)
-      .map((c) => ({
-        ...c,
-        reactionCount: Object.values(c.reactions ?? {}).reduce((a, b) => a + b, 0),
-        replyCount: comments.filter((r) => r.parentId === c.id).length,
-      })),
-    commentSort
+  const sortedTopLevel = hoistPinned(
+    sortComments(
+      comments
+        .filter((c) => !c.parentId)
+        .map((c) => ({
+          ...c,
+          reactionCount: Object.values(c.reactions ?? {}).reduce((a, b) => a + b, 0),
+          replyCount: comments.filter((r) => r.parentId === c.id).length,
+        })),
+      commentSort
+    )
   );
   const votedOption = votes[safePost.id] ?? safePost.votedOptionId;
   const totalVotes = (safePost.pollOptions?.reduce((s, o) => s + o.votes, 0) ?? 0) + (votedOption && !safePost.votedOptionId ? 1 : 0);
@@ -528,14 +914,37 @@ export default function CommunityPostDetail() {
     }
   }
 
+  /** Tapping your current choice retracts it; tapping another switches to it.
+   *  This used to bail out entirely once you'd voted, so a mis-tap was
+   *  permanent and the option you meant was never counted. */
   async function handleVote(optId: string) {
-    if (votedOption) return;
+    const previous = votedOption ?? null;
+    const next = previous === optId ? null : optId;
     haptics.selection();
-    votePoll(safePost.id, optId); // optimistic
+    votePoll(safePost.id, next); // optimistic
     try {
-      await communityService.vote(safePost.id, optId);
-    } catch {
-      showToast("Couldn't record your vote — try again");
+      if (next === null) await communityService.clearVote(safePost.id);
+      else await communityService.vote(safePost.id, next);
+      refetchPost();
+    } catch (e: any) {
+      votePoll(safePost.id, previous); // revert so the bars never lie
+      showToast(e?.message || "Couldn't record your vote — try again");
+    }
+  }
+
+  /** One-way, on purpose: a poll that stops and restarts has an unreadable
+   *  tally, because the people who saw "closed" have already moved on. */
+  async function closePollNow() {
+    setClosingPoll(true);
+    try {
+      await communityService.closePoll(safePost.id);
+      showToast("Voting closed");
+      setPollCloseConfirm(false);
+      refetchPost();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't close the poll — try again");
+    } finally {
+      setClosingPoll(false);
     }
   }
 
@@ -573,6 +982,59 @@ export default function CommunityPostDetail() {
     }
   }
 
+  /** Delete a comment (own, or anyone's under your own post). Optimistic —
+   *  the row and its replies go immediately, and come back if the RPC refuses. */
+  async function confirmDeleteComment() {
+    const c = deletingComment;
+    if (!c) return;
+    setCommentDeleteBusy(true);
+    const before = comments;
+    setComments((prev) => prev.filter((x) => x.id !== c.id && x.parentId !== c.id));
+    try {
+      await communityService.deleteComment(c.id);
+      setDeletingComment(null);
+      showToast("Comment deleted");
+    } catch (e: any) {
+      setComments(before);
+      showToast(e?.message || "Couldn't delete — try again");
+    } finally {
+      setCommentDeleteBusy(false);
+    }
+  }
+
+  /** Save an edited comment. Not optimistic: the row keeps the composer open
+   *  until the server confirms, so a rejected edit can't look like it stuck. */
+  async function editComment(c: Comment, body: string) {
+    try {
+      await communityService.updateComment(c.id, body);
+      setComments((prev) => prev.map((x) => (x.id === c.id ? { ...x, body, editedAt: new Date().toISOString() } : x)));
+      showToast("Comment updated");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't save the edit — try again");
+      throw e;
+    }
+  }
+
+  /** Post author marks one comment as the answer. One pin per post, so pinning
+   *  a new one clears the old — mirrored here so the list doesn't briefly show
+   *  two pinned rows before the next fetch. */
+  async function toggleCommentPin(c: Comment) {
+    haptics.selection();
+    const before = comments;
+    const next = !c.pinnedAt;
+    setComments((prev) => prev.map((x) => ({
+      ...x,
+      pinnedAt: x.id === c.id ? (next ? new Date().toISOString() : null) : null,
+    })));
+    try {
+      await communityService.setCommentPinned(c.id, next);
+      showToast(next ? "Pinned as the answer" : "Unpinned");
+    } catch (e: any) {
+      setComments(before);
+      showToast(e?.message || "Couldn't pin — try again");
+    }
+  }
+
   async function sendComment() {
     const text = newComment.trim();
     if (!text) return;
@@ -596,6 +1058,8 @@ export default function CommunityPostDetail() {
       const c = await communityService.addComment(safePost.id, text, {
         sharedPhone: phoneToShare || undefined,
         phoneVisibility: phoneVis,
+        listingType: commentListing?.listingType,
+        listingId: commentListing?.listingId,
         parentId,
         ...customAuthor
       });
@@ -603,6 +1067,7 @@ export default function CommunityPostDetail() {
       setComments((prev) => [...prev, c]);
       setSharePhone(false);
       setReplyingTo(null);
+      setCommentListing(null);
     } catch (e: any) {
       // addComment throws clear, user-facing reasons ("Comments are turned
       // off…" / "You both need to follow each other…") — surface them so the
@@ -764,7 +1229,8 @@ export default function CommunityPostDetail() {
             <SafeImg
               src={detailMedia[0]}
               alt={safePost.imageAlt || ""}
-              style={{ width: "100%", maxHeight: 280, borderRadius: 16, marginTop: 14, objectFit: "cover", border: "1px solid var(--ink-200)" }}
+              style={{ width: "100%", maxHeight: 280, borderRadius: 16, marginTop: 14, objectFit: "cover", border: "1px solid var(--ink-200)", cursor: "zoom-in" }}
+              onClick={() => setViewingPhotos({ photos: detailMedia.map((url) => ({ url })), startIndex: 0 })}
             />
           )}
           {detailMedia.length > 1 && (
@@ -774,7 +1240,8 @@ export default function CommunityPostDetail() {
                   key={url}
                   src={url}
                   alt={i === 0 ? (safePost.imageAlt || "") : `Photo ${i + 1}`}
-                  style={{ width: 232, height: 232, flexShrink: 0, borderRadius: 16, objectFit: "cover", border: "1px solid var(--ink-200)" }}
+                  style={{ width: 232, height: 232, flexShrink: 0, borderRadius: 16, objectFit: "cover", border: "1px solid var(--ink-200)", cursor: "zoom-in" }}
+                  onClick={() => setViewingPhotos({ photos: detailMedia.map((u) => ({ url: u })), startIndex: i })}
                 />
               ))}
             </div>
@@ -818,13 +1285,35 @@ export default function CommunityPostDetail() {
                 );
               })}
               <span className="row between center-v">
-                <span className="tiny muted semi">{totalVotes} {totalVotes === 1 ? "vote" : "votes"}</span>
-                {pollClosed && <span className="tiny semi" style={{ color: "var(--ink-500)" }}>Voting closed</span>}
+                <span className="tiny muted semi">
+                  {totalVotes} {totalVotes === 1 ? "vote" : "votes"}
+                  {votedOption && !pollClosed && <span className="muted"> · tap your choice to change or remove it</span>}
+                </span>
+                {pollClosed
+                  ? <span className="tiny semi" style={{ color: "var(--ink-500)" }}>Voting closed</span>
+                  : isAuthor && (
+                    <button
+                      className="tiny semi"
+                      style={{ color: "var(--brand-700)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                      onClick={() => setPollCloseConfirm(true)}
+                    >
+                      Close voting now
+                    </button>
+                  )}
               </span>
             </div>
           )}
 
           {/* Recommendations */}
+          {safePost.type === "RECOMMENDATION" && !isGuest && (
+            <button
+              className="btn btn-outline btn-sm row gap-6 center"
+              style={{ marginTop: 12 }}
+              onClick={() => setRecommendOpen(true)}
+            >
+              <Plus size={14} /> {"Recommend a place"}
+            </button>
+          )}
           {safePost.recommendations && safePost.recommendations.length > 0 && (
             <div className="col gap-8" style={{ marginTop: 12 }}>
               {safePost.recommendations.map((rec) => {
@@ -921,11 +1410,40 @@ export default function CommunityPostDetail() {
                 const replies = comments.filter((r) => r.parentId === c.id);
                 return (
                   <div key={c.id} className="col gap-12 queue-row-enter">
-                    <CommentRow c={c} nav={nav} onReply={() => startReply(c)} canReply={canComment} canReact={canComment} onReact={(e) => reactTo(c, e)} />
+                    <CommentRow
+                      c={c}
+                      nav={nav}
+                      onReply={() => startReply(c)}
+                      canReply={canComment}
+                      canReact={canComment}
+                      onReact={(e) => reactTo(c, e)}
+                      isMine={isMyComment(c)}
+                      isPostAuthor={isAuthor}
+                      canReport={!isGuest}
+                      onDelete={() => setDeletingComment(c)}
+                      onEdit={(body) => editComment(c, body)}
+                      onTogglePin={() => toggleCommentPin(c)}
+                      onReport={() => setReportingComment(c)}
+                    />
                     {replies.length > 0 && (
                       <div className="col gap-12" style={{ marginLeft: 46, paddingLeft: 10, borderLeft: "2px solid var(--line)" }}>
                         {replies.map((r) => (
-                          <CommentRow key={r.id} c={r} nav={nav} onReply={() => startReply(r)} compact canReply={canComment} canReact={canComment} onReact={(e) => reactTo(r, e)} />
+                          <CommentRow
+                            key={r.id}
+                            c={r}
+                            nav={nav}
+                            onReply={() => startReply(r)}
+                            compact
+                            canReply={canComment}
+                            canReact={canComment}
+                            onReact={(e) => reactTo(r, e)}
+                            isMine={isMyComment(r)}
+                            isPostAuthor={isAuthor}
+                            canReport={!isGuest}
+                            onDelete={() => setDeletingComment(r)}
+                            onEdit={(body) => editComment(r, body)}
+                            onReport={() => setReportingComment(r)}
+                          />
                         ))}
                       </div>
                     )}
@@ -1013,6 +1531,20 @@ export default function CommunityPostDetail() {
               }}
             >
               <Phone size={13} /> {sharePhone ? "Sharing my number" : "Share my number"}
+            </button>
+            {/* "Which shop?" is the single most common reply on an ASK post, and
+                a typed name isn't tappable. Attaching the real listing makes the
+                answer a link — the same PickedListing the composer's own
+                "tag a business" and the post's "+ Recommend" already use. */}
+            <button
+              className="chip"
+              style={{ padding: "5px 11px", fontSize: 12, gap: 5, ...(commentListing ? { background: "var(--brand-600)", borderColor: "var(--brand-600)", color: "#fff" } : {}) }}
+              onClick={() => (commentListing ? setCommentListing(null) : setCommentListingPicker(true))}
+              aria-label={commentListing ? `Remove ${commentListing.name} from this comment` : "Attach a place to this comment"}
+            >
+              <Store size={13} />
+              {commentListing ? <span className="ellipsis" style={{ maxWidth: 130 }}>{commentListing.name}</span> : "Attach a place"}
+              {commentListing && <X size={12} />}
             </button>
             {sharePhone && (
               <>
@@ -1112,6 +1644,24 @@ export default function CommunityPostDetail() {
       {reporting && (
         <ReportSheet targetType="POST" targetId={safePost.id} name={safePost.title || "this post"} onClose={() => setReporting(false)} />
       )}
+      {viewingPhotos && (
+        <PhotoViewer photos={viewingPhotos.photos} startIndex={viewingPhotos.startIndex} onClose={() => setViewingPhotos(null)} />
+      )}
+      {recommendOpen && (
+        <ListingPickerSheet
+          title={"Recommend a place"}
+          onPick={(pick) => handleRecommend(pick.listingType as "BUSINESS" | "PROVIDER", pick.listingId)}
+          onClose={() => setRecommendOpen(false)}
+        />
+      )}
+
+      {commentListingPicker && (
+        <ListingPickerSheet
+          title={"Attach a place to your comment"}
+          onPick={(pick) => { setCommentListing(pick); setCommentListingPicker(false); }}
+          onClose={() => setCommentListingPicker(false)}
+        />
+      )}
 
       {editing && (
         <EditPostSheet
@@ -1119,6 +1669,60 @@ export default function CommunityPostDetail() {
           onClose={() => setEditing(false)}
           onSaved={() => setEditing(false)}
         />
+      )}
+
+      {reportingComment && (
+        <ReportSheet
+          targetType="COMMENT"
+          targetId={reportingComment.id}
+          name={`this comment by ${reportingComment.authorName}`}
+          onClose={() => setReportingComment(null)}
+        />
+      )}
+
+      {pollCloseConfirm && (
+        <div className="overlay" onClick={() => (closingPoll ? null : setPollCloseConfirm(false))}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h2 className="h2" style={{ marginBottom: 6 }}>Close voting now?</h2>
+            <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
+              The results stay visible, but nobody can vote or change their vote after this. It can't be reopened.
+            </p>
+            <div className="col gap-8">
+              <button className="btn btn-primary btn-block" disabled={closingPoll} onClick={closePollNow}>
+                {closingPoll ? "Closing\u2026" : "Yes, close voting"}
+              </button>
+              <button className="btn btn-ghost btn-block" disabled={closingPoll} onClick={() => setPollCloseConfirm(false)}>Keep it open</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletingComment && (
+        <div className="overlay" onClick={() => (commentDeleteBusy ? null : setDeletingComment(null))}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h2 className="h2" style={{ marginBottom: 6 }}>
+              {isMyComment(deletingComment) ? "Delete your comment?" : "Remove this comment?"}
+            </h2>
+            <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
+              {comments.some((r) => r.parentId === deletingComment.id)
+                ? "Its replies go with it. This can't be undone."
+                : "This can't be undone."}
+            </p>
+            <div className="col gap-8">
+              <button
+                className="btn btn-block"
+                style={{ background: "var(--red-500)", color: "#fff" }}
+                disabled={commentDeleteBusy}
+                onClick={confirmDeleteComment}
+              >
+                {commentDeleteBusy ? "Deleting…" : "Yes, delete"}
+              </button>
+              <button className="btn btn-ghost btn-block" disabled={commentDeleteBusy} onClick={() => setDeletingComment(null)}>Keep it</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {deleteConfirm && (

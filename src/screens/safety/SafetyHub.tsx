@@ -5,7 +5,7 @@ import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { useLiveShare } from "@/features/live-share/useLiveShare";
 import { emergencyService, type ContactUser } from "@/services/engagement/emergencyService";
-import { MapPin, ChevronRight, Users } from "@/components/Icons";
+import { MapPin, ChevronRight, Users, X } from "@/components/Icons";
 
 /**
  * My People — start/stop sharing your live location with your emergency
@@ -24,6 +24,15 @@ export default function SafetyHub() {
   const list = contacts ?? [];
   const sharing = !!activeShareId;
 
+  // Previously no way to see who's actually receiving an active share, or to
+  // drop just one of them — only an all-or-nothing stop (flow-completeness
+  // audit, workflow 10).
+  const { data: recipients, refetch: refetchRecipients } = useQuery(
+    () => (sharing ? emergencyService.myShareRecipients() : Promise.resolve([])),
+    [sharing],
+    sharing ? "safety:share-recipients" : undefined
+  );
+
   async function onStart() {
     if (list.length === 0) { nav("/safety/contacts"); return; }
     const id = await start();
@@ -34,6 +43,16 @@ export default function SafetyHub() {
   async function onStop() {
     await stop();
     showToast("Live location sharing stopped");
+  }
+
+  async function onRevokeRecipient(userId: string, name: string) {
+    try {
+      await emergencyService.revokeShareRecipient(userId);
+      showToast(`Stopped sharing with ${name}`);
+      refetchRecipients();
+    } catch {
+      showToast("Couldn't update — try again");
+    }
   }
 
   return (
@@ -78,6 +97,29 @@ export default function SafetyHub() {
             {busy ? "…" : sharing ? "Stop sharing" : "Start sharing"}
           </button>
         </div>
+
+        {/* Who's currently receiving this share — per-person stop, not just
+            all-or-nothing. */}
+        {sharing && (recipients ?? []).length > 0 && (
+          <div className="card" style={{ padding: 14 }}>
+            <div className="small semi muted" style={{ marginBottom: 10 }}>Sharing with</div>
+            <div className="col gap-8">
+              {(recipients ?? []).map((r) => (
+                <div key={r.userId} className="row gap-10 center-v">
+                  <SafeImg src={r.avatar ?? undefined} variant="avatar" style={{ width: 34, height: 34 }} />
+                  <span className="small grow ellipsis">{r.name}</span>
+                  <button
+                    className="btn btn-block btn-sm"
+                    style={{ width: "auto", padding: "6px 10px", background: "none", color: "var(--red-600)" }}
+                    onClick={() => onRevokeRecipient(r.userId, r.name)}
+                  >
+                    <X size={13} /> Stop
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Contacts summary → manage */}
         <button

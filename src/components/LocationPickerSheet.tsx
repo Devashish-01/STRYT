@@ -12,9 +12,23 @@ interface Props {
    *  instead of relying on the profile write above alone. Optional so
    *  existing callers (Home.tsx) are unaffected. */
   onLocationChanged?: (lat: number, lng: number) => void;
+  /**
+   * One-off pick: hand the place back and write NOTHING to the profile.
+   *
+   * The composer needs "where this post is about", which is not the same
+   * question as "where do you live" — an alert about a burst main two streets
+   * over must not move your home location. Without this the sheet always calls
+   * userService.setLocation, so reusing it for a post would have quietly
+   * relocated the author.
+   */
+  onPick?: (place: { lat: number; lng: number; area: string }) => void;
+  /** Overrides the sheet's heading and its "current selection" line, so a
+   *  one-off pick can say what it's actually choosing. */
+  title?: string;
+  currentLabel?: string;
 }
 
-export default function LocationPickerSheet({ onClose, onLocationChanged }: Props) {
+export default function LocationPickerSheet({ onClose, onLocationChanged, onPick, title, currentLabel }: Props) {
   const { user, area, refreshUser, showToast, setArea } = useApp();
   const [locating, setLocating] = useState(false);
   const [nearby, setNearby] = useState<GeoPlace[]>([]);
@@ -32,6 +46,11 @@ export default function LocationPickerSheet({ onClose, onLocationChanged }: Prop
   }, [user.lat, user.lng]);
 
   async function handleSelect(p: GeoPlace) {
+    if (onPick) {
+      onPick({ lat: p.lat, lng: p.lng, area: p.area });
+      onClose();
+      return;
+    }
     try {
       await userService.setLocation(p.lat, p.lng, p.area);
       await refreshUser();
@@ -50,6 +69,12 @@ export default function LocationPickerSheet({ onClose, onLocationChanged }: Prop
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         const areaName = await reverseGeocode(latitude, longitude);
+        if (onPick) {
+          onPick({ lat: latitude, lng: longitude, area: areaName ?? "" });
+          setLocating(false);
+          onClose();
+          return;
+        }
         try {
           await userService.setLocation(latitude, longitude, areaName ?? undefined);
           await refreshUser();
@@ -90,7 +115,7 @@ export default function LocationPickerSheet({ onClose, onLocationChanged }: Prop
         <div className="row between" style={{ marginBottom: 18 }}>
           <div className="row gap-8">
             <MapPin size={20} color="var(--brand-700)" />
-            <h3 className="bold h2" style={{ color: "var(--ink-900)" }}>Select Area</h3>
+            <h3 className="bold h2" style={{ color: "var(--ink-900)" }}>{title ?? "Select Area"}</h3>
           </div>
           <button
             onClick={onClose}
@@ -115,7 +140,7 @@ export default function LocationPickerSheet({ onClose, onLocationChanged }: Prop
         <div style={{ background: "var(--brand-50)", borderRadius: 14, padding: "12px 14px", marginBottom: 16 }}>
           <span className="tiny semi muted" style={{ display: "block" }}>CURRENT SELECTION</span>
           <span className="semi" style={{ fontSize: 15, color: "var(--brand-800)", marginTop: 2, display: "block" }}>
-            📍 {area || "Not set"}
+            📍 {currentLabel ?? area ?? "Not set"}
           </span>
         </div>
 

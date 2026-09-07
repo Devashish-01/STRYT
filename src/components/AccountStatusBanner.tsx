@@ -1,24 +1,36 @@
 import { useState } from "react";
-import { AlertTriangle, X } from "@/components/Icons";
+import { AlertTriangle, X, Clock } from "@/components/Icons";
 import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
 import { appealService, type AppealEntityType } from "@/services/core/appealService";
+import { businessService } from "@/services";
 
 interface AccountStatusBannerProps {
   entityType: AppealEntityType;
   entityId: string;
-  /** Only SUSPENDED renders anything — pass the raw status straight through. */
+  /** SUSPENDED, REJECTED or (businesses only) PENDING render something — pass
+   *  the raw status straight through. */
   status?: string;
+  /** REJECTED only — the admin's reason, shown so the owner knows what to fix. */
+  rejectionReason?: string | null;
 }
 
 /** Shown at the top of the business/provider manage dashboard when the account is
- *  suspended — explains why, and lets the owner raise a review request that lands
- *  in the admin console (AdminAppeals), instead of leaving them with no recourse. */
-export function AccountStatusBanner({ entityType, entityId, status }: AccountStatusBannerProps) {
+ *  suspended or rejected. SUSPENDED explains why and lets the owner raise a review
+ *  request that lands in the admin console (AdminAppeals) — that's an appeal against
+ *  an active suspension. REJECTED is a different mechanism: the listing was never
+ *  approved in the first place, so the fix is resubmitting into the normal review
+ *  queue (businessService.submitForReview), not filing an appeal — conflating the
+ *  two would send a rejected owner's "fix and resubmit" into the wrong queue.
+ *  Businesses only — providers go live immediately at creation with no review
+ *  queue to resubmit into (see below). Previously REJECTED rendered nothing at
+ *  all for either entity type: no reason, no way back. */
+export function AccountStatusBanner({ entityType, entityId, status, rejectionReason }: AccountStatusBannerProps) {
   const { showToast } = useApp();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resubmitting, setResubmitting] = useState(false);
 
   const { data: appeals, refetch } = useQuery(
     () => (status === "SUSPENDED" ? appealService.mine(entityType, entityId) : Promise.resolve([])),
@@ -27,7 +39,22 @@ export function AccountStatusBanner({ entityType, entityId, status }: AccountSta
   );
   const pending = (appeals ?? []).find((a) => a.status === "PENDING");
 
-  if (status !== "SUSPENDED") return null;
+  // Providers go live immediately at creation (no PENDING review queue —
+  // providerService.create sets status: "ACTIVE" directly) and have no
+  // submitForReview equivalent, so a REJECTED provider (only reachable via a
+  // later admin action, not onboarding) has no confirmed recovery flow to
+  // wire here — showing nothing for that case is no worse than before.
+  // Businesses DO have a real PENDING→admin-review pipeline, so REJECTED is
+  // handled below for them specifically.
+  const showRejected = status === "REJECTED" && entityType === "BUSINESS";
+  // #24 — a business sits at PENDING from the moment it's created until an
+  // admin approves it, and during that window it is invisible in discovery.
+  // The console said nothing about this, so the owner saw a working dashboard,
+  // zero views, and no explanation — the commonest reading being "the app is
+  // broken". Providers are excluded because they have no PENDING state at all
+  // (providerService.create inserts ACTIVE).
+  const showPending = status === "PENDING" && entityType === "BUSINESS";
+  if (status !== "SUSPENDED" && !showRejected && !showPending) return null;
 
   async function submit() {
     if (!reason.trim()) return;
@@ -43,6 +70,53 @@ export function AccountStatusBanner({ entityType, entityId, status }: AccountSta
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function resubmit() {
+    setResubmitting(true);
+    try {
+      await businessService.submitForReview(entityId);
+      showToast("Sent back for review");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't resubmit. Try again.");
+    } finally {
+      setResubmitting(false);
+    }
+  }
+
+  if (showPending) {
+    return (
+      <div className="card row gap-10" style={{ padding: 14, margin: "0 16px 12px", background: "var(--amber-50)", border: "1px solid var(--amber-200)", alignItems: "flex-start" }}>
+        <Clock size={20} color="var(--amber-700)" style={{ flexShrink: 0, marginTop: 1 }} />
+        <div>
+          <div className="semi small" style={{ color: "var(--amber-800)" }}>Under review</div>
+          <div className="tiny muted" style={{ marginTop: 2, lineHeight: 1.4 }}>
+            Your listing is with our team — usually about 24 hours. It won't show
+            up in search or the feed until it's approved, but you can keep
+            setting it up here in the meantime.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showRejected) {
+    return (
+      <div className="card col gap-10" style={{ padding: 14, margin: "0 16px 12px", background: "var(--red-50)", border: "1px solid var(--red-100)" }}>
+        <div className="row gap-10" style={{ alignItems: "flex-start" }}>
+          <AlertTriangle size={20} color="var(--red-600)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <div className="semi small" style={{ color: "var(--red-600)" }}>This listing needs changes</div>
+            <div className="tiny muted" style={{ marginTop: 2, lineHeight: 1.4 }}>
+              {rejectionReason || "STRYT admin didn't approve this listing. Update it and send it back for review."}
+            </div>
+          </div>
+        </div>
+        <button className="btn btn-primary btn-sm" disabled={resubmitting} onClick={resubmit}>
+          {resubmitting ? "Sending…" : "Fix & resubmit"}
+        </button>
+      </div>
+    );
   }
 
   return (

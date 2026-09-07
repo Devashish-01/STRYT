@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, SafeImg, inr, PullToRefreshIndicator } from "@/components/common";
-import { appointmentService, businessService, customPaymentService } from "@/services";
+import { appointmentService, bulkService, businessService, customPaymentService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -43,16 +43,25 @@ export default function BusinessPayments() {
     `target_id=eq.${id}`,
     `custom-payments:${id}`
   );
+  const { data: bulkDepositData, refetch: refetchBulkDeposits } = useQueryWithRealtime(
+    () => bulkService.pendingDepositsForBusiness(id),
+    "bulk_deal_pledges",
+    [id],
+    undefined,
+    `bulk-deposits:${id}`
+  );
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(async () => {
     refetchApts();
     refetchQueue();
     refetchCustom();
+    refetchBulkDeposits();
   });
 
   const [processingApt, setProcessingApt] = useState<string | null>(null);
   const [processingQueue, setProcessingQueue] = useState<string | null>(null);
   const [processingCustom, setProcessingCustom] = useState<string | null>(null);
+  const [processingBulk, setProcessingBulk] = useState<string | null>(null);
   const [nudging, setNudging] = useState<string | null>(null);
 
   if (!id) {
@@ -77,6 +86,7 @@ export default function BusinessPayments() {
   // custom payment has no un-nudged pre-state; it either exists as a claim
   // (PENDING_CONFIRM) or it doesn't exist yet at all.
   const customClaims = customPayments.filter((p) => p.status === "PENDING_CONFIRM");
+  const bulkDepositClaims = bulkDepositData ?? [];
   const customRecentlyPaid = customPayments.filter((p) => p.status === "PAID").slice(0, 15);
 
   const aptOutstanding = appointments.filter(
@@ -149,6 +159,24 @@ export default function BusinessPayments() {
     }
   }
 
+  async function handleBulkDeposit(item: { dealId: string; userId: string; pledgerName?: string | null }, action: "CONFIRM" | "REJECT") {
+    setProcessingBulk(item.userId);
+    try {
+      if (action === "CONFIRM") {
+        await bulkService.confirmDeposit(item.dealId, item.userId);
+        showToast("Deposit confirmed ✓");
+      } else {
+        await bulkService.rejectDeposit(item.dealId, item.userId);
+        showToast("Deposit claim rejected — pledger notified.");
+      }
+      refetchBulkDeposits();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update payment status. Try again.");
+    } finally {
+      setProcessingBulk(null);
+    }
+  }
+
   async function handleNudgeApt(apt: AppointmentRecord) {
     setNudging(apt.id);
     try {
@@ -173,7 +201,7 @@ export default function BusinessPayments() {
     }
   }
 
-  const claimsCount = aptClaims.length + queueClaims.length + customClaims.length;
+  const claimsCount = aptClaims.length + queueClaims.length + customClaims.length + bulkDepositClaims.length;
   const outstandingCount = aptOutstanding.length + queueOutstanding.length;
 
   return (
@@ -258,6 +286,30 @@ export default function BusinessPayments() {
                     busy={processingCustom === p.id}
                     onConfirm={() => handleCustom(p, "CONFIRM")}
                     onReject={() => handleCustom(p, "REJECT")}
+                  />
+                </div>
+              ))}
+              {/* Bulk-deal deposit claims — previously invisible anywhere on
+                  this screen (flow-completeness audit, workflow 16). */}
+              {bulkDepositClaims.map((pl) => (
+                <div key={pl.id} className="card col gap-10" style={{ padding: 14 }}>
+                  <div className="row gap-10 center-v">
+                    <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>Bulk deal</span>
+                    <div className="grow">
+                      <div className="bold small">{pl.pledgerName || "A pledger"}</div>
+                      <div className="tiny muted">{pl.dealTitle}</div>
+                    </div>
+                  </div>
+                  <PaymentStatusCard
+                    paymentStatus={pl.depositStatus}
+                    paymentMethod={pl.depositMethod}
+                    paymentAmount={pl.depositAmount}
+                    paymentReference={pl.depositReference}
+                    claimantName={pl.pledgerName || "Pledger"}
+                    viewerIsPayer={false}
+                    busy={processingBulk === pl.userId}
+                    onConfirm={() => handleBulkDeposit({ dealId: pl.dealId, userId: pl.userId, pledgerName: pl.pledgerName }, "CONFIRM")}
+                    onReject={() => handleBulkDeposit({ dealId: pl.dealId, userId: pl.userId, pledgerName: pl.pledgerName }, "REJECT")}
                   />
                 </div>
               ))}

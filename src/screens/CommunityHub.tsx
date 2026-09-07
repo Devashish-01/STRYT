@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, MapPin, ArrowLeft, SlidersHorizontal, RefreshCw, Check, Ticket } from "@/components/Icons";
+import { Plus, MapPin, ArrowLeft, SlidersHorizontal, RefreshCw, Check, Ticket, CheckCircle2, Search, X } from "@/components/Icons";
 import { requestService, communityService, bulkService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView, PostCardSkeleton } from "@/components/states";
 import { CommunityCard } from "@/components/cards";
-import GroupBuyCard from "@/components/GroupBuyCard";
 import BulkDealCard from "@/components/BulkDealCard";
-import JoinGroupBuySheet from "@/components/JoinGroupBuySheet";
 import BulkOrderSheet from "@/components/BulkOrderSheet";
-import { EmptyState, Section } from "@/components/common";
+import { EmptyState, Section, inr } from "@/components/common";
 import { StoriesBar } from "@/components/Stories";
 import { useApp } from "@/store";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -29,13 +27,14 @@ import {
   typeParam,
   type FeedSort,
 } from "@/lib/feedSort";
-import { mergeStream } from "@/lib/communityFeed";
-import { RADIUS_OPTIONS } from "@/utils/constants";
+import { bucketCampaigns, needsDeposit } from "@/lib/bulkFeed";
+import RadiusSelector from "@/components/RadiusSelector";
 import { haptics } from "@/lib/haptics";
 import type { BulkDeal, CommunityPost, RequestPost } from "@/types";
 import { useSmartBack } from "@/hooks/useSmartBack";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRealtimeInserts } from "@/hooks/useRealtimeInserts";
+import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import { useI18n } from "@/lib/i18n";
 
 const DEALS_RADIUS_KM = 10;
@@ -59,6 +58,13 @@ const SORT_HINT_KEY: Record<FeedSort, string> = { recent: "sort_hint_recent", tr
 
 type StreamFilter = "ALL" | CommunityPostType | "BULK";
 
+/** Compact radius for the header chip — matches RadiusSelector's own wording
+ *  so the button and the sheet never disagree about the same number. */
+function radiusLabel(km: number): string {
+  if (km >= 5000) return "🌍";
+  return km === 0.5 ? "500m" : `${km} km`;
+}
+
 export default function CommunityHub() {
   const nav = useNavigate();
   const { area, user, isGuest, activeContext, showToast } = useApp();
@@ -75,8 +81,22 @@ export default function CommunityHub() {
   );
   const [postSort, setPostSort] = useState<FeedSort>(DEFAULT_FEED_SORT);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [dealsRadiusKm, setDealsRadiusKm] = useState(DEALS_RADIUS_KM);
-  const [joining, setJoining] = useState<RequestPost | null>(null);
+  // Keyword search (20260931). searchInput is what's being typed; searchQuery
+  // is what's been asked for. They're separate so every keystroke doesn't
+  // become a request — the debounce below is what joins them.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  // ONE radius for this whole screen. Previously the bulk view kept its own
+  // dealsRadiusKm (default 10km) that never touched `settings_radius` — the
+  // key communityService/requestService actually read — so posts and campaigns
+  // were silently searched at two different distances, and the posts feed
+  // exposed no radius control at all beyond the empty state's "widen" button.
+  const [radiusKm, setRadiusKm] = useState<number>(() => {
+    const saved = typeof localStorage !== "undefined" ? localStorage.getItem("settings_radius") : null;
+    const parsed = saved ? parseFloat(saved) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEALS_RADIUS_KM;
+  });
   const [ordering, setOrdering] = useState<BulkDeal | null>(null);
   // Seeded from localStorage so a hidden post stays hidden across sessions —
   // these are a viewer preference, not a moderation record, so they never leave
@@ -93,23 +113,10 @@ export default function CommunityHub() {
   const isSpecialView = isBulkView;
   const isLongTailFilter = LONG_TAIL_TYPES.includes(postFilter as CommunityPostType);
 
-  // Group buys — the complete open set in one page (requestService's
-  // "special: group" server filter, unused until now), then enriched with
-  // UNIT pledge totals in one extra round trip. Not paginated: mergeStream
-  // pins this whole set above/interleaved with the paginated post stream,
-  // never a partial slice of it.
-  const { data: groupBuyData, refetch: refetchGroupBuys } = useQueryWithRealtime(
-    async () => {
-      const page = await requestService.feed({ special: "group", lat: user.lat || 0, lng: user.lng || 0 });
-      const open = (page.data ?? []).filter((r) => r.status === "OPEN");
-      return requestService.enrichGroupBuyPledges(open);
-    },
-    "requests",
-    [user.lat, user.lng],
-    "is_group_buy=eq.true",
-    `hub:groupbuys:${hubGeoKey}`
-  );
-  const groupBuys = groupBuyData ?? [];
+  useEffect(() => {
+    const id = setTimeout(() => setSearchQuery(searchInput.trim()), 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
 
   // The type filter and the sort are QUERY parameters, not post-fetch
   // transformations. That's what makes a filtered view paginate (the old client
@@ -127,9 +134,12 @@ export default function CommunityHub() {
           lng: user.lng || undefined,
           type: typeParam(postFilter as "ALL" | CommunityPostType),
           sort: postSort,
+          query: searchQuery || undefined,
         }),
-    [user.lat, user.lng, postFilter, postSort],
-    isSpecialView ? undefined : `hub:posts:${postFilter}:${postSort}:${hubGeoKey}`
+    [user.lat, user.lng, postFilter, postSort, searchQuery],
+    // The query is part of the cache key — without it, typing a second search
+    // would be served the first one's cached page.
+    isSpecialView ? undefined : `hub:posts:${postFilter}:${postSort}:${searchQuery}:${hubGeoKey}`
   );
 
   // Business bulk deals — the rail (top 3, "ALL" filter only) and the full
@@ -137,12 +147,15 @@ export default function CommunityHub() {
   const { data: dealsData, loading: dealsLoading, refetch: refetchDeals } = useQuery(
     () =>
       bulkService
-        .deals({ lat: user.lat || undefined, lng: user.lng || undefined, radius: isBulkView ? dealsRadiusKm : undefined })
+        .deals({ lat: user.lat || undefined, lng: user.lng || undefined, radius: isBulkView ? radiusKm : undefined })
         .then((ds) => (isGuest ? ds : bulkService.enrichMyPledges(ds))),
-    [user.lat, user.lng, isBulkView, dealsRadiusKm, isGuest],
-    `hub:deals:${isBulkView ? dealsRadiusKm : "rail"}:${hubGeoKey}`
+    [user.lat, user.lng, isBulkView, radiusKm, isGuest],
+    `hub:deals:${isBulkView ? radiusKm : "rail"}:${hubGeoKey}`
   );
   const deals = dealsData ?? [];
+  // Urgency/momentum buckets, not the distance order the service returns —
+  // see lib/bulkFeed.ts for why distance is the weakest signal here.
+  const buckets = bucketCampaigns(deals);
 
   // Claim-pass banner — a shortcut, not the destination. The full list (issued
   // + redeemed passes, pools joined but not posted) lives at /community/activity.
@@ -177,6 +190,7 @@ export default function CommunityHub() {
         cursor: postCursor,
         type: typeParam(postFilter as "ALL" | CommunityPostType),
         sort: postSort,
+        query: searchQuery || undefined,
       });
       // appendPage drops anything already on screen: offset pagination re-serves
       // rows whenever a post is created between two page fetches, which would
@@ -212,10 +226,29 @@ export default function CommunityHub() {
   // New posts are counted, never auto-inserted — see useRealtimeInserts.
   const { newIds, reset: resetNewIds } = useRealtimeInserts("community_posts", { enabled: !isSpecialView });
 
+  // UPDATE/DELETE, deliberately separate from useRealtimeInserts above. That
+  // hook is INSERT-only by design (new posts are counted into a "N new posts"
+  // banner rather than injected under the reader), so it never noticed an
+  // author deleting a post or marking one resolved — the stale card just sat
+  // there until a manual pull-to-refresh. Refetching is right for these two:
+  // unlike an insert, a row vanishing or changing under you isn't something
+  // the reader chose to defer.
+  useEffect(() => {
+    if (isSpecialView || !hasSupabaseEnv) return;
+    const sb = getSupabase();
+    const channel = sb
+      .channel(`rt-upd:community_posts:${Math.random().toString(36).slice(2, 9)}`)
+      .on("postgres_changes" as any, { event: "UPDATE", schema: "public", table: "community_posts" }, () => refetchPosts())
+      .on("postgres_changes" as any, { event: "DELETE", schema: "public", table: "community_posts" }, () => refetchPosts())
+      .subscribe();
+    return () => { sb.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpecialView]);
+
   async function refreshFeed() {
     resetNewIds();
     refetchPosts();
-    refetchGroupBuys();
+
     refetchDeals();
   }
 
@@ -225,10 +258,18 @@ export default function CommunityHub() {
   // happening — communityService/requestService both default to 5km (or a
   // smaller stored settings_radius). Both read localStorage fresh on every
   // call, so bumping it here and refetching is enough; no extra dep wiring.
-  function widenRadius() {
-    localStorage.setItem("settings_radius", String(WIDEN_RADIUS_KM));
+  /** The single write path for this screen's radius. Persists to the key every
+   *  nearby-query in the app reads, then refetches BOTH feeds — so changing it
+   *  once moves posts and campaigns together instead of only one of them. */
+  function applyRadius(km: number) {
+    setRadiusKm(km);
+    localStorage.setItem("settings_radius", String(km));
     refetchPosts();
-    refetchGroupBuys();
+    refetchDeals();
+  }
+
+  function widenRadius() {
+    applyRadius(Math.max(radiusKm, WIDEN_RADIUS_KM));
   }
 
   const allPosts = appendPage(postData?.data ?? [], extraPosts);
@@ -243,10 +284,7 @@ export default function CommunityHub() {
   // it under the reader for no reason.
   const posts = filterFeed(allPosts, hiddenPosts, mutedAuthors);
   const unseenCount = countUnseen(newIds, allPosts);
-  // Group buys only ride along with the "All" post-type filter — a reader who
-  // filtered to "Alerts" asked to see alerts, not a pool for someone's request.
-  const streamGroupBuys = postFilter === "ALL" ? groupBuys : [];
-  const stream = mergeStream(posts, streamGroupBuys, postSort);
+  const stream = posts;
   const dealsRail = postFilter === "ALL" ? deals.slice(0, 3) : [];
 
   function hidePost(postId: string) {
@@ -255,10 +293,6 @@ export default function CommunityHub() {
 
   function muteAuthor(authorId: string) {
     setMutedAuthors(addToIdList(MUTED_AUTHORS_KEY, authorId, localStorage));
-  }
-
-  function onJoin(r: RequestPost) {
-    requireAuth(() => setJoining(r), "Sign in to join a group buy")();
   }
 
   function onBook(d: BulkDeal) {
@@ -313,8 +347,15 @@ export default function CommunityHub() {
             <div className="bold" style={{ fontSize: 20, letterSpacing: "-0.4px", lineHeight: 1.2, color: "var(--ink-900)" }}>
               {t("community_header")}
             </div>
-            <div
+            {/* Location AND radius, in one always-reachable control. Radius
+                used to be buried in the bulk list (and absent entirely for
+                posts) — but "how far am I looking?" is the question that
+                actually changes what's on screen, so it belongs next to the
+                place name, in the sticky header. */}
+            <button
               className="tiny semi row gap-4 ellipsis"
+              onClick={() => { haptics.selection(); setMoreOpen(true); }}
+              aria-label={t("change_radius")}
               style={{
                 color: "var(--brand-700)",
                 background: "var(--brand-50)",
@@ -323,12 +364,48 @@ export default function CommunityHub() {
                 width: "fit-content",
                 border: "1px solid var(--brand-150)",
                 fontSize: 11.5,
-                letterSpacing: "-0.1px"
+                letterSpacing: "-0.1px",
+                cursor: "pointer",
               }}
             >
-              <MapPin size={11} /> {area}
-            </div>
+              <MapPin size={11} /> {area} · {radiusLabel(radiusKm)}
+            </button>
           </div>
+          {/* Persistent entry to /community/activity — the ONLY other way in
+              was a banner gated on issuedPassCount > 0, so a customer who had
+              only pledged (no claim pass minted yet — that only happens once
+              the campaign closes) had no way at all to check their status.
+              Always visible once signed in; the dot is just a hint, not the
+              only door. */}
+          {!isGuest && (
+            <button
+              className="icon-btn"
+              style={{ width: 44, height: 44, borderRadius: "50%", background: "var(--ink-100)", color: "var(--ink-700)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, position: "relative" }}
+              onClick={() => nav("/community/activity")}
+              aria-label={t("your_activity_label")}
+            >
+              <Ticket size={19} />
+              {issuedPassCount > 0 && (
+                <span style={{ position: "absolute", top: 6, right: 7, width: 8, height: 8, borderRadius: "50%", background: "var(--red-500)", border: "2px solid var(--surface)" }} />
+              )}
+            </button>
+          )}
+          <button
+            className="icon-btn"
+            style={{ width: 44, height: 44, borderRadius: "50%", background: searchOpen || searchQuery ? "var(--brand-100)" : "var(--ink-100)", color: searchOpen || searchQuery ? "var(--brand-700)" : "var(--ink-700)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+            onClick={() => {
+              setSearchOpen((v) => {
+                // Closing the bar has to clear the search too, or the feed stays
+                // silently filtered with nothing on screen saying why.
+                if (v) { setSearchInput(""); setSearchQuery(""); }
+                return !v;
+              });
+            }}
+            aria-expanded={searchOpen}
+            aria-label={t("search_posts_label")}
+          >
+            <Search size={19} />
+          </button>
           <button
             className="icon-btn"
             style={{ width: 44, height: 44, borderRadius: "50%", background: isLongTailFilter ? "var(--brand-100)" : "var(--ink-100)", color: isLongTailFilter ? "var(--brand-700)" : "var(--ink-700)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
@@ -346,6 +423,25 @@ export default function CommunityHub() {
             <Plus size={20} />
           </button>
         </div>
+        {searchOpen && (
+          <div className="row gap-8 center-v" style={{ margin: "8px 2px 0", border: "1.5px solid var(--ink-200)", borderRadius: 999, padding: "0 12px", background: "var(--surface)" }}>
+            <Search size={15} color="var(--ink-400)" />
+            <input
+              className="input"
+              style={{ border: "none", background: "transparent", padding: "9px 0", fontSize: 14 }}
+              autoFocus
+              value={searchInput}
+              placeholder={t("search_posts_placeholder")}
+              aria-label={t("search_posts_label")}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+            {searchInput && (
+              <button className="icon-btn" style={{ width: 26, height: 26 }} aria-label={t("clear_word")} onClick={() => setSearchInput("")}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       {/* Content */}
@@ -441,53 +537,107 @@ export default function CommunityHub() {
         )}
 
         {isBulkView ? (
-          <div style={{ paddingBottom: 32 }}>
-            {/* Two clearly-labelled sections, not one blended list — group
-                buys are neighbours pooling together, deals are a shop's own
-                commercial offer, and conflating them was exactly what the
-                earlier redesign's "deals get their own labelled section"
-                decision was protecting against. This view just gives both
-                one shared entry point instead of two separate chips. */}
-            <Section title={t("tab_group_buys")}>
-              <div className="page-pad col gap-12">
-                {groupBuys.length === 0 ? (
-                  <EmptyState emoji="👥" title={t("no_open_group_buys")} text={t("no_open_group_buys_desc")} />
-                ) : (
-                  groupBuys.map((r) => <GroupBuyCard key={r.id} req={r} onJoin={onJoin} />)
-                )}
-              </div>
-            </Section>
-
-            <Section title={t("bulk_deals_from_shops_nearby")}>
-              <div className="page-pad col gap-12">
-                <div className="row gap-8 center-v">
-                  <span className="tiny muted">{t("within_word")}</span>
-                  <div className="hscroll grow">
-                    {RADIUS_OPTIONS.filter((o) => o.km >= 1).map((o) => (
-                      <button
-                        key={o.km}
-                        className={`chip ${dealsRadiusKm === o.km ? "active" : ""}`}
-                        onClick={() => setDealsRadiusKm(o.km)}
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
+          <div className="page-pad col gap-16" style={{ paddingBottom: 32 }}>
+            {dealsLoading ? (
+              <ListSkeleton count={3} />
+            ) : deals.length === 0 ? (
+              <>
+                <EmptyState emoji="🏷️" title={t("no_bulk_deals_nearby")} text={t("no_bulk_deals_desc")} />
+              </>
+            ) : (
+              <>
+                {/* Orientation in one line, before any scrolling. */}
+                <div className="row gap-6" style={{ flexWrap: "wrap" }}>
+                  <span className="badge" style={{ background: "var(--amber-50)", color: "var(--amber-800)", fontSize: 11 }}>
+                    {tf("n_campaigns_nearby", { n: deals.length })}
+                  </span>
+                  {buckets.mine.length > 0 && (
+                    <span className="badge" style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 11 }}>
+                      {tf("n_you_joined", { n: buckets.mine.length })}
+                    </span>
+                  )}
+                  {buckets.closing.length > 0 && (
+                    <span className="badge" style={{ background: "var(--red-50)", color: "var(--red-600)", fontSize: 11 }}>
+                      {tf("n_closing_soon", { n: buckets.closing.length })}
+                    </span>
+                  )}
                 </div>
-                {dealsLoading ? (
-                  <ListSkeleton count={3} />
-                ) : deals.length === 0 ? (
-                  <EmptyState emoji="🏷️" title={t("no_bulk_deals_nearby")} text={t("no_bulk_deals_desc")} />
-                ) : (
-                  deals.map((d) => <BulkDealCard key={d.id} deal={d} onBook={onBook} />)
+
+                {/* Your pledges — compact action rows, not full cards. The one
+                    thing here that can cost you something is an unpaid deposit:
+                    the server only counts PAID pledges toward a campaign's
+                    target, so an unpaid one is holding no spot at all. That was
+                    invisible anywhere in the browse feed before. */}
+                {buckets.mine.length > 0 && (
+                  <div className="col gap-8">
+                    <div className="row gap-6 center-v small semi muted">
+                      <CheckCircle2 size={14} color="var(--green-600)" /> {t("your_pledges")}
+                    </div>
+                    {buckets.mine.map((d) => {
+                      const owing = needsDeposit(d);
+                      return (
+                        <button
+                          key={d.id}
+                          className="card row gap-10 center-v"
+                          style={{
+                            padding: 12, width: "100%", textAlign: "left",
+                            background: owing ? "var(--amber-50)" : "var(--surface)",
+                            border: owing ? "1px solid var(--amber-500)" : undefined,
+                          }}
+                          onClick={() => onBook(d)}
+                        >
+                          <div className="grow" style={{ minWidth: 0 }}>
+                            <div className="semi small ellipsis">{d.title}</div>
+                            <div className="tiny muted">
+                              {tf("pledged_n_units", { n: d.myPledgeQuantity ?? 0 })}
+                              {d.businessName ? ` · ${d.businessName}` : ""}
+                            </div>
+                          </div>
+                          {owing ? (
+                            <span className="badge" style={{ background: "var(--amber-500)", color: "var(--ink-900)", fontSize: 10, flexShrink: 0 }}>
+                              {tf("pay_deposit_cta", { amount: inr(d.depositAmount ?? 0) })}
+                            </span>
+                          ) : (
+                            <span className="badge" style={{ background: "var(--green-100)", color: "var(--green-600)", fontSize: 10, flexShrink: 0 }}>
+                              {d.myDepositStatus === "PENDING_CONFIRM" ? t("deposit_pending_short") : t("locked_in_short")}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-              </div>
-            </Section>
+
+                {/* Urgency before proximity — a deadline is the only hard
+                    reason to act now, and momentum is what makes a campaign
+                    likely to actually happen. Distance barely matters when
+                    fulfilment is a later batch. */}
+                <BulkGroup title={t("closing_soon")} emoji="⏰" deals={buckets.closing} onBook={onBook} />
+                <BulkGroup title={t("almost_there")} emoji="🔥" deals={buckets.almost} onBook={onBook} />
+                <BulkGroup title={t("open_to_join")} emoji="🛒" deals={buckets.open} onBook={onBook} />
+
+              </>
+            )}
           </div>
         ) : (
           postsLoading ? <ListSkeleton count={3} type="post" /> :
           postsError   ? <ErrorView error={postsError} onRetry={refetchPosts} /> :
           stream.length === 0 ? (
+            // "Nothing matched" and "nobody has posted" are different problems
+            // with different fixes — offering "post something" to a failed
+            // search reads as a non-sequitur.
+            searchQuery ? (
+              <EmptyState
+                emoji="🔍"
+                title={t("no_posts_match_search")}
+                text={t("no_posts_match_search_desc")}
+                action={
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setSearchInput(""); setSearchQuery(""); }}>
+                    {t("clear_search_word")}
+                  </button>
+                }
+              />
+            ) : (
             <EmptyState
               emoji="🏘️"
               title={t("nothing_posted_yet")}
@@ -503,6 +653,7 @@ export default function CommunityHub() {
                 </div>
               }
             />
+            )
           ) : (
             <div className="col gap-12 page-pad" style={{ paddingBottom: 32 }}>
               {/* Bulk deals rail — a labelled, horizontal, clearly-commercial
@@ -521,19 +672,15 @@ export default function CommunityHub() {
                 </Section>
               )}
 
-              {stream.map((item) =>
-                item.kind === "groupbuy" ? (
-                  <GroupBuyCard key={`gb-${item.id}`} req={item.request} onJoin={onJoin} />
-                ) : (
-                  <CommunityCard
-                    key={item.id}
-                    post={item.post}
-                    onRefetch={refetchPosts}
-                    onHide={hidePost}
-                    onMute={muteAuthor}
-                  />
-                )
-              )}
+              {stream.map((post) => (
+                <CommunityCard
+                  key={post.id}
+                  post={post}
+                  onRefetch={refetchPosts}
+                  onHide={hidePost}
+                  onMute={muteAuthor}
+                />
+              ))}
               {/* No longer gated on postFilter === "ALL": the filter is part of
                   the query now, so the next page is the next page OF THIS FILTER.
                   No tap required either — the sentinel below fires loadMorePosts
@@ -560,6 +707,18 @@ export default function CommunityHub() {
           <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t("filter_and_sort_title")}>
             <div className="sheet-grab" />
             <div className="bold" style={{ fontSize: 17, marginBottom: 14 }}>{t("filter_and_sort_title")}</div>
+
+            {/* First in the sheet, because it's the control that changes the
+                most: it drives posts and campaigns alike. RadiusSelector
+                brings its own Custom input + snap preview. */}
+            <div style={{ marginBottom: 18 }}>
+              <RadiusSelector
+                value={radiusKm}
+                onChange={applyRadius}
+                label={t("search_radius")}
+                description={t("radius_applies_to_all")}
+              />
+            </div>
 
             <div className="tiny semi muted" style={{ marginBottom: 8 }}>{t("show_section_label")}</div>
             <div className="row wrap gap-8" style={{ marginBottom: 18 }}>
@@ -618,13 +777,6 @@ export default function CommunityHub() {
         </div>
       )}
 
-      {joining && (
-        <JoinGroupBuySheet
-          req={joining}
-          onJoined={() => { refetchGroupBuys(); }}
-          onClose={() => setJoining(null)}
-        />
-      )}
       {ordering && (
         <BulkOrderSheet
           deal={ordering}
@@ -635,3 +787,22 @@ export default function CommunityHub() {
     </div>
   );
 }
+
+/** One urgency bucket. Renders nothing when empty, so the page never shows a
+ *  heading over a blank space — the old view's single "deals nearby" section
+ *  had to render its own empty state instead. */
+function BulkGroup({
+  title, emoji, deals, onBook,
+}: { title: string; emoji: string; deals: BulkDeal[]; onBook: (d: BulkDeal) => void }) {
+  if (deals.length === 0) return null;
+  return (
+    <div className="col gap-10">
+      <div className="row gap-6 center-v small semi muted">
+        <span aria-hidden>{emoji}</span> {title}
+        <span className="tiny muted" style={{ fontWeight: 500 }}>({deals.length})</span>
+      </div>
+      {deals.map((d) => <BulkDealCard key={d.id} deal={d} onBook={onBook} />)}
+    </div>
+  );
+}
+

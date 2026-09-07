@@ -18,6 +18,7 @@ import {
   Loader,
 } from "@/components/Icons";
 import { userService, chatService, socialService, locationService } from "@/services";
+import { communityService } from "@/services/engagement/communityService";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import ShareCard from "@/components/ShareCard";
@@ -53,14 +54,11 @@ export default function PublicProfile() {
   const [share, setShare] = useState(false);
   const [chatting, setChatting] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("posts");
-  const [hiddenPosts, setHiddenPosts] = useState<string[]>(() => {
-    try {
-      const s = localStorage.getItem("stryt_hidden_posts");
-      return s ? JSON.parse(s) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Which post is mid-toggle — the hidden/shown state itself is server-side
+  // now (community_posts.show_on_profile, 20260925), read straight off the
+  // post. It used to live in the viewer's own localStorage, which meant the
+  // author saw "hidden" while every other visitor still saw the post.
+  const [togglingPost, setTogglingPost] = useState<string | null>(null);
 
   const following = isFollowing("USER", id);
   const isSelf = user.id === id;
@@ -89,14 +87,17 @@ export default function PublicProfile() {
   // everywhere else in the app.
   const distanceText = !isSelf && u?.distanceKm !== undefined ? tf("km_away_suffix", { km: u.distanceKm.toFixed(1) }) : null;
 
-  function toggleHidePost(postId: string) {
-    const isHidden = hiddenPosts.includes(postId);
-    const updated = isHidden ? hiddenPosts.filter((x) => x !== postId) : [...hiddenPosts, postId];
-    setHiddenPosts(updated);
+  async function toggleHidePost(postId: string, currentlyHidden: boolean) {
+    setTogglingPost(postId);
     try {
-      localStorage.setItem("stryt_hidden_posts", JSON.stringify(updated));
-    } catch {}
-    showToast(isHidden ? "Post is now visible on public profile" : "Post hidden from public profile");
+      await communityService.setShowOnProfile(postId, currentlyHidden);
+      showToast(currentlyHidden ? "Post is now visible on public profile" : "Post hidden from public profile");
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update — try again");
+    } finally {
+      setTogglingPost(null);
+    }
   }
 
   async function handleStartChat() {
@@ -462,14 +463,23 @@ export default function PublicProfile() {
             {!isSelf && u.showPostsPublicly === false ? (
               <EmptyState emoji="🔒" title={t("posts_private_title")} text={t("posts_private_desc")} />
             ) : (() => {
-              const displayPosts = isSelf ? posts : posts.filter((p) => !hiddenPosts.includes(p.id));
+              // Server-side flag now, so a hidden post is genuinely hidden from
+              // every other visitor — not just on the author's own device.
+              const displayPosts = isSelf ? posts : posts.filter((p) => p.showOnProfile !== false);
               if (displayPosts.length === 0) {
                 return <EmptyState emoji="💬" title={t("no_posts_visible")} text={t("no_posts_visible_desc")} />;
               }
               return displayPosts.map((p) => {
-                const isHidden = hiddenPosts.includes(p.id);
+                const isHidden = p.showOnProfile === false;
                 return (
-                  <div key={p.id} className="card" style={{ borderRadius: 18, opacity: isHidden && isSelf ? 0.7 : 1 }}>
+                  <div
+                    key={p.id}
+                    className="card"
+                    style={{ borderRadius: 18, opacity: isHidden && isSelf ? 0.7 : 1, cursor: "pointer" }}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => nav(`/community/${p.id}`)}
+                  >
                     <div className="row space-between" style={{ marginBottom: 8, alignItems: "center" }}>
                       <div className="row gap-6 center-v">
                         {/* Was rendering the raw enum, so a lost-and-found post
@@ -480,7 +490,8 @@ export default function PublicProfile() {
                         {isSelf && (
                           <button
                             type="button"
-                            onClick={() => toggleHidePost(p.id)}
+                            onClick={(e) => { e.stopPropagation(); toggleHidePost(p.id, isHidden); }}
+                            disabled={togglingPost === p.id}
                             className={`badge ${isHidden ? "badge-gray" : "badge-purple"}`}
                             style={{ cursor: "pointer", fontSize: 10, padding: "2px 8px" }}
                           >
@@ -500,7 +511,8 @@ export default function PublicProfile() {
                       {isSelf && (
                         <button
                           type="button"
-                          onClick={() => toggleHidePost(p.id)}
+                          onClick={(e) => { e.stopPropagation(); toggleHidePost(p.id, isHidden); }}
+                            disabled={togglingPost === p.id}
                           style={{ background: "none", border: "none", color: isHidden ? "var(--brand-700)" : "var(--ink-400)", cursor: "pointer", fontSize: 11, fontWeight: 700 }}
                         >
                           {isHidden ? t("unhide_word") : t("hide_from_profile")}

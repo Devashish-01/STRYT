@@ -4,6 +4,7 @@ import { businessAccessService } from "@/services";
 import { deliveryService } from "@/services/engagement/deliveryService";
 import type { AccessLevel, Scope } from "@/services/marketplace/businessAccessService";
 import { useApp } from "@/store";
+import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import { Skeleton } from "@/components/states";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { buildScopeLabel, resolveConsoleMode, type ConsoleMode } from "@/lib/teamConsole";
@@ -61,7 +62,7 @@ export function useBusinessAccess() {
  */
 export default function BusinessAccessGuard() {
   const { id = "" } = useParams();
-  const { ownedBusinessIds, ownedEntitiesLoaded, setContext, showToast } = useApp();
+  const { ownedBusinessIds, ownedEntitiesLoaded, setContext, showToast, user } = useApp();
   // Strictly ownership — `ownedBusinessIds` must never contain a delegated
   // grant (see userService.owned). This one line is the whole definition of
   // "owner" for the console: everything RequireOwner protects, and every
@@ -107,6 +108,28 @@ export default function BusinessAccessGuard() {
     });
     return () => { active = false; };
   }, [id, isOwner, ownedEntitiesLoaded, waitedEnough, attempt]);
+
+  // Re-check the moment the owner revokes/re-scopes THIS grantee, instead of
+  // only on mount/route-change. Without this, a team member already inside
+  // the console keeps navigating between manage screens on a revoked grant
+  // until they happen to leave the whole /manage tree and come back — the
+  // guard's own mount-only check never re-runs for a same-tree navigation.
+  useEffect(() => {
+    if (isOwner || !id || !user.id || !hasSupabaseEnv) return;
+    const sb = getSupabase();
+    const channel = sb
+      .channel(`rt:business_access_guard:${id}:${user.id}`)
+      .on(
+        "postgres_changes" as any,
+        { event: "*", schema: "public", table: "business_access_sessions", filter: `business_id=eq.${id}` },
+        (payload: any) => {
+          const row = payload?.new ?? payload?.old;
+          if (row?.grantee_user_id === user.id) setAttempt((a) => a + 1);
+        }
+      )
+      .subscribe();
+    return () => { sb.removeChannel(channel); };
+  }, [id, isOwner, user.id]);
 
   useEffect(() => {
     if (status !== "allowed" || !DELIVERY_AGENT_ENABLED || !id) return;

@@ -2,15 +2,16 @@ import { useState } from "react";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { useApp } from "@/store";
 import { businessService, providerService, requestService, userService } from "@/services";
+import { communityService } from "@/services/engagement/communityService";
 import { useQuery } from "@/hooks/useApi";
-import { BusinessCardWide, ProviderCard, RequestCard } from "@/components/cards";
+import { BusinessCardWide, ProviderCard, RequestCard, CommunityCard } from "@/components/cards";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ListSkeleton } from "@/components/states";
 import { UserCheck, Star } from "@/components/Icons";
 import type { Business, Provider, RequestPost } from "@/types";
 import { useI18n } from "@/lib/i18n";
 
-type Tab = "BUSINESS" | "PROVIDER" | "REQUEST" | "FOLLOWING";
+type Tab = "BUSINESS" | "PROVIDER" | "REQUEST" | "POST" | "FOLLOWING";
 
 export default function Bookmarks() {
   const { bookmarks, follows, user, toggleFollow } = useApp();
@@ -77,14 +78,27 @@ export default function Bookmarks() {
   const followBiz = allBiz.filter((b) => follows.some((f) => f.type.toUpperCase() === "BUSINESS" && f.id === b.id));
   const followProv = allProv.filter((p) => follows.some((f) => f.type.toUpperCase() === "PROVIDER" && f.id === p.id));
 
+  // Saved posts were write-only until now: toggleSave() persisted into
+  // post_saves and communityService.savedPosts() was fully built, but had zero
+  // callers anywhere — nothing in the app could show them back.
+  // Server-backed, unlike the other tabs: saves live in post_saves, not in the
+  // client-side `bookmarks` store, so there are no ids to fetch by.
+  const { data: savedPostsData, loading: postsLoading } = useQuery(
+    () => (user.id ? communityService.savedPosts() : Promise.resolve([])),
+    [user.id],
+    user.id ? `saved-posts:${user.id}` : undefined
+  );
+  const savedPosts = savedPostsData ?? [];
+
   const counts = {
     BUSINESS: savedBiz.length,
     PROVIDER: savedProv.length,
     REQUEST: savedReq.length,
+    POST: savedPosts.length,
     FOLLOWING: followBiz.length + followProv.length + followUsers.length,
   };
 
-  const loading = bizLoading || provLoading || reqLoading || usersLoading;
+  const loading = bizLoading || provLoading || reqLoading || usersLoading || postsLoading;
 
   return (
     <div className="screen">
@@ -98,6 +112,7 @@ export default function Bookmarks() {
             ["BUSINESS", t("tab_shops")],
             ["PROVIDER", t("tab_providers")],
             ["REQUEST", t("tab_requests")],
+            ["POST", t("tab_posts_saved")],
             ["FOLLOWING", t("tab_following")],
           ] as [Tab, string][]
         ).map(([tabKey, label]) => (
@@ -131,6 +146,8 @@ export default function Bookmarks() {
               (savedProv.length ? savedProv.map((p) => <ProviderCard key={p.id} p={p} />) : <Empty nav={nav} />)}
             {tab === "REQUEST" &&
               (savedReq.length ? savedReq.map((r) => <RequestCard key={r.id} r={r} />) : <Empty nav={nav} />)}
+            {tab === "POST" &&
+              (savedPosts.length ? savedPosts.map((p) => <CommunityCard key={p.id} post={p} />) : <Empty nav={nav} />)}
             {tab === "FOLLOWING" &&
               (counts.FOLLOWING > 0 ? (
                 <>

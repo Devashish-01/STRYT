@@ -2,15 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState } from "@/components/common";
 import { Ticket, Users } from "@/components/Icons";
-import { bulkService, requestService } from "@/services";
+import { bulkService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
-import GroupBuyCard from "@/components/GroupBuyCard";
 import BulkDealCard from "@/components/BulkDealCard";
-import JoinGroupBuySheet from "@/components/JoinGroupBuySheet";
 import BulkOrderSheet from "@/components/BulkOrderSheet";
 import GroupBuyClaimPassModal from "@/components/GroupBuyClaimPassModal";
-import type { BulkDeal, GroupBuyToken, RequestPost } from "@/types";
+import type { BulkDeal, GroupBuyToken } from "@/types";
 import { useI18n } from "@/lib/i18n";
 
 /** Where claim passes and joined pools live now /bulk is gone.
@@ -25,7 +23,6 @@ export default function CommunityActivity() {
   const { user, isGuest } = useApp();
   const { t } = useI18n();
   const [viewingPass, setViewingPass] = useState<GroupBuyToken | null>(null);
-  const [joining, setJoining] = useState<RequestPost | null>(null);
   const [ordering, setOrdering] = useState<BulkDeal | null>(null);
 
   const { data: myTokens, refetch: refetchTokens } = useQuery(
@@ -34,21 +31,10 @@ export default function CommunityActivity() {
     isGuest ? undefined : `bulk:tokens:${user.id}`
   );
 
-  // Pools you joined (pledged a quantity) or started — NOT every open group
-  // buy nearby, only the ones this account has a stake in. Requires the same
-  // enrichment CommunityHub uses so units, not heads, drive what's shown.
-  const { data: myGroupBuyData, refetch: refetchGroupBuys } = useQuery(
-    async () => {
-      if (isGuest) return [];
-      const page = await requestService.feed({ special: "group", lat: user.lat || 0, lng: user.lng || 0 });
-      const enriched = await requestService.enrichGroupBuyPledges(page.data ?? []);
-      return enriched.filter((r) => r.requesterUserId === user.id || (r.myPledgeQuantity ?? 0) > 0);
-    },
-    [user.id, isGuest, user.lat, user.lng],
-    isGuest ? undefined : `bulk:mine:groups:${user.id}`
-  );
-  const myGroupBuys = myGroupBuyData ?? [];
   const tokens = myTokens ?? [];
+  // Bulk-deal passes carry dealId (group-buy ones don't) — that's the join
+  // between "Your campaigns" and "Your claim passes" below.
+  const tokenByDeal = new Map(tokens.filter((tk) => tk.dealId).map((tk) => [tk.dealId as string, tk]));
 
   // Campaigns you've pledged into, any state (open/fulfilled/refunded) — so a
   // pledge's outcome stays reviewable after it drops out of the browse feed.
@@ -100,25 +86,27 @@ export default function CommunityActivity() {
                 </div>
               )}
 
-              {myGroupBuys.length > 0 && (
-                <div>
-                  <div className="small semi muted" style={{ marginBottom: 8 }}>{t("your_group_buys")}</div>
-                  <div className="col gap-12">
-                    {myGroupBuys.map((r) => <GroupBuyCard key={r.id} req={r} onJoin={setJoining} />)}
-                  </div>
-                </div>
-              )}
-
               {myCampaigns.length > 0 && (
                 <div>
                   <div className="small semi muted" style={{ marginBottom: 8 }}>{t("your_campaigns")}</div>
                   <div className="col gap-12">
-                    {myCampaigns.map((d) => <BulkDealCard key={d.id} deal={d} onBook={setOrdering} />)}
+                    {/* Linking a fulfilled campaign to the pass it minted —
+                        both lists live on this screen but nothing connected
+                        them, so the customer had to match them up by title. */}
+                    {myCampaigns.map((d) => (
+                      <BulkDealCard
+                        key={d.id}
+                        deal={d}
+                        onBook={setOrdering}
+                        claimToken={tokenByDeal.get(d.id) ?? null}
+                        onViewPass={setViewingPass}
+                      />
+                    ))}
                   </div>
                 </div>
               )}
 
-              {tokens.length === 0 && myGroupBuys.length === 0 && myCampaigns.length === 0 && (
+              {tokens.length === 0 && myCampaigns.length === 0 && (
                 <EmptyState emoji="📦" title={t("nothing_here_yet")} text={t("join_or_post_desc")} action={
                   <button className="btn btn-primary btn-sm" onClick={() => nav("/community-hub")}>
                     <Users size={14} /> {t("join_group_buy")}
@@ -131,13 +119,6 @@ export default function CommunityActivity() {
       </div>
 
       {viewingPass && <GroupBuyClaimPassModal token={viewingPass} onClose={() => setViewingPass(null)} />}
-      {joining && (
-        <JoinGroupBuySheet
-          req={joining}
-          onJoined={() => { refetchGroupBuys(); refetchTokens(); }}
-          onClose={() => setJoining(null)}
-        />
-      )}
       {ordering && (
         <BulkOrderSheet
           deal={ordering}

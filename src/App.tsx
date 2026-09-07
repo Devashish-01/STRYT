@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import UserProfileSheet from "./components/UserProfileSheet";
 import BottomNav from "./components/BottomNav";
 import OfflineBanner from "./components/OfflineBanner";
+import NotificationPermissionExplainer from "./components/NotificationPermissionExplainer";
 import { LiveShareProvider } from "./features/live-share/useLiveShare";
 import LiveShareBanner from "./features/live-share/LiveShareBanner";
 import DesktopSidebar from "./components/DesktopSidebar";
@@ -311,6 +312,12 @@ function ProtectedLayout() {
   }
 
   if (!isAuthed && !isAuthCallback) {
+    // /admin needs its own login, not the customer phone/OTP flow — a
+    // signed-out admin visit used to funnel through sign-up before ever
+    // reaching /admin/login.
+    if (location.pathname.startsWith("/admin")) {
+      return <Navigate to="/admin/login" replace />;
+    }
     returnTo.remember(location.pathname + location.search);
     return <Navigate to="/auth/phone" replace />;
   }
@@ -426,7 +433,7 @@ function isAuthOrPublicScreen(pathname: string): boolean {
 
 export default function App() {
   const location = useLocation();
-  const { toast } = useApp();
+  const { toast, notifExplainerPending, confirmNotifExplainer, dismissNotifExplainer } = useApp();
   const showNav = TAB_ROUTES.includes(location.pathname);
   const showDesktopSidebar = !isAuthOrPublicScreen(location.pathname);
 
@@ -767,6 +774,9 @@ export default function App() {
       <PinGateSheet />
       <BatteryOptimizationSheet />
       {toast && <div className="toast">{toast}</div>}
+      {notifExplainerPending && (
+        <NotificationPermissionExplainer onConfirm={confirmNotifExplainer} onClose={dismissNotifExplainer} />
+      )}
           </LiveShareProvider>
         </div>
       </div>

@@ -13,6 +13,7 @@ import { PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { uploadService } from "@/services/core/uploadService";
 import { leadText } from "@/lib/leadText";
 import { notificationService } from "@/services/engagement/notificationService";
+import { getRelatableBusinessCover, getRelatableBusinessGallery, enrichCatalogItems, enrichBusinessPortfolio } from "@/lib/curatedImages";
 
 // A Postgrest UPDATE that's blocked by RLS (no row satisfies the policy) returns
 // success with zero rows affected, not an error — so throwIfError alone can't
@@ -193,17 +194,26 @@ export const businessService = {
         phone: "9876543210",
         hours: "9 AM - 9 PM",
         status: "ACTIVE",
-        coverImage: PLACEHOLDER_BUSINESS_COVER,
-        gallery: [],
-        ratingAvg: 4.5,
-        ratingCount: 12,
+        coverImage: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80",
+        gallery: [
+          "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=800&q=75",
+          "https://images.unsplash.com/photo-1546470427-e5ac89c8ba3a?auto=format&fit=crop&w=800&q=75"
+        ],
+        ratingAvg: 4.8,
+        ratingCount: 38,
         isOpenNow: true,
         isVerified: true,
         isFeatured: false,
         catalog: [
-          { id: "item_1", name: "Fresh Organic Apple (1kg)", description: "Sweet and crisp organic apples", price: 180, stockStatus: "IN_STOCK" },
-          { id: "item_2", name: "Whole Wheat Bread", description: "Freshly baked whole wheat bread", price: 45, stockStatus: "IN_STOCK" },
-          { id: "item_3", name: "Fresh Milk (1L)", description: "Pasteurized farm fresh milk", price: 60, stockStatus: "IN_STOCK" }
+          { id: "item_1", name: "Fresh Organic Apple (1kg)", description: "Sweet and crisp Shimla organic apples", price: 180, image: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=600&q=75", stockStatus: "IN_STOCK", isVeg: true, bestSeller: true },
+          { id: "item_2", name: "Whole Wheat Artisan Bread", description: "Freshly baked whole wheat rustic bread loaf", price: 55, image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=75", stockStatus: "IN_STOCK", isVeg: true, bestSeller: false },
+          { id: "item_3", name: "Fresh Farm Milk (1L)", description: "Pasteurized organic full-cream farm fresh milk", price: 68, image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=75", stockStatus: "IN_STOCK", isVeg: true, bestSeller: true },
+          { id: "item_4", name: "Organic Bell Peppers (500g)", description: "Crisp red, yellow, and green capsicums", price: 90, image: "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?auto=format&fit=crop&w=600&q=75", stockStatus: "IN_STOCK", isVeg: true, bestSeller: false }
+        ],
+        portfolio: [
+          { id: "mock_p1", url: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=75", caption: "Farm-fresh organic fruits & produce display" },
+          { id: "mock_p2", url: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=75", caption: "Daily fresh artisanal bakery section" },
+          { id: "mock_p3", url: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=800&q=75", caption: "Well-stocked grocery aisles and quick checkout" }
         ]
       } as any;
     }
@@ -216,6 +226,10 @@ export const businessService = {
     throwIfError(error);
     if (!data) return undefined;
     const b = toCamel<Business>(data);
+    b.coverImage = getRelatableBusinessCover(b);
+    b.gallery = getRelatableBusinessGallery(b);
+    b.catalog = enrichCatalogItems(b.id, b.catalog ?? [], b.name, b.categoryName);
+    b.portfolio = enrichBusinessPortfolio(b.id, b.portfolio ?? [], b.name, b.categoryName);
     b.distanceKm = (lat && lng && b.lat && b.lng) ? haversineKm(lat, lng, b.lat, b.lng) : 0;
     return b;
   },
@@ -512,6 +526,23 @@ export const businessService = {
     return { ok: true };
   },
 
+  /** Owner adds a walk-in (no customer account) directly to their own live
+   *  queue — Appointments already had this, the queue console never did
+   *  (flow-completeness audit, workflow 15). customer_user_id is NULL, not
+   *  the owner's own id like appointment_create_walk_in uses — queue_tokens
+   *  has a unique (business_id, customer_user_id) index for active tokens,
+   *  which multiple walk-ins would collide on if they shared an id. */
+  async createWalkInQueueToken(businessId: string, customerName: string, partySize = "1 person") {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("queue_token_create_walk_in", {
+      p_business_id: businessId,
+      p_customer_name: customerName,
+      p_party_size: partySize,
+    });
+    throwIfError(error);
+    return { ok: true };
+  },
+
   // Every queue this customer has joined, across all shops — live position for
   // WAITING/CALLED entries, plus SERVED/LEFT as history.
   async myQueues(): Promise<MyQueueEntry[]> {
@@ -695,7 +726,7 @@ export const businessService = {
     // it visible in discovery. Previously this set ACTIVE directly, which
     // silently skipped the review the onboarding UI promises.
     const sb = getSupabase();
-    const { error } = await sb.from("businesses").update({ status: "PENDING" }).eq("id", id);
+    const { error } = await sb.from("businesses").update({ status: "PENDING", rejection_reason: null }).eq("id", id);
     throwIfError(error);
     return { ok: true, status: "PENDING" };
   },

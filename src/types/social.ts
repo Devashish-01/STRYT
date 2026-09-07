@@ -156,6 +156,12 @@ export interface Comment {
   phoneVisibility?: "OWNER" | "PUBLIC";
   /** Resolved @mentions, so the body can render them as profile links. */
   mentions?: { userId: string; alias: string }[];
+  /** Set when the POST's author pinned this as the accepted/most useful answer
+   *  (20260929). At most one per post — the RPC clears any previous pin. */
+  pinnedAt?: string | null;
+  /** Set when the comment's author edited it, so a silently rewritten comment
+   *  still reads as edited. */
+  editedAt?: string | null;
   /** Reaction tally by emoji, e.g. { "👍": 3 }. */
   reactions?: Record<string, number>;
   /** The emoji the signed-in viewer picked, if any. One per person per comment. */
