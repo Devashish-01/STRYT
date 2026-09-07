@@ -206,17 +206,17 @@ export default function BulkOrderSheet({
         {errorDetail && (
           <div
             className="col gap-4"
-            style={{ padding: 12, marginBottom: "var(--space-md)", background: "var(--red-50, #fef2f2)", border: "1px solid var(--red-500, #ef4444)", borderRadius: 10 }}
+            style={{ padding: 12, marginBottom: "var(--space-md)", background: "var(--red-50)", border: "1px solid var(--red-500)", borderRadius: 10 }}
           >
             <div className="row between center-v">
-              <span className="tiny semi" style={{ color: "var(--red-700, #b91c1c)" }}>{errorDetail.friendly}</span>
+              <span className="tiny semi" style={{ color: "var(--red-700)" }}>{errorDetail.friendly}</span>
               <button className="icon-btn" style={{ width: 24, height: 24 }} onClick={() => setErrorDetail(null)} aria-label="Dismiss error">
                 <X size={14} />
               </button>
             </div>
             {/* Raw server message, kept verbatim — this is what makes a failed
                 attempt screenshot-able and diagnosable without opening DevTools. */}
-            <div className="tiny" style={{ color: "var(--red-700, #b91c1c)", opacity: 0.8, fontFamily: "monospace", wordBreak: "break-word" }}>
+            <div className="tiny" style={{ color: "var(--red-700)", opacity: 0.8, fontFamily: "monospace", wordBreak: "break-word" }}>
               {errorDetail.raw}
             </div>
           </div>

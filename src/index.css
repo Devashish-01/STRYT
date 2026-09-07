@@ -40,6 +40,10 @@
   --red-200: #fecaca;
   --red-500: #ef4444;
   --red-600: #dc2626;
+  /* Referenced by VerificationPanel, AdminPanel, PlaceDetail and the
+     bulk-order error banner, but never defined — those four resolved to no
+     colour at all. Same Tailwind step the rest of this ramp follows. */
+  --red-700: #b91c1c;
   --amber-50: #fffbeb;
   --amber-100: #fef3c7;
   --amber-200: #fde68a;
