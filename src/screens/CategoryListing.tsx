@@ -96,7 +96,11 @@ export default function CategoryListing() {
     setLoadingMoreBiz(true);
     try {
       const next = await discoveryService.businesses({ lat: user.lat || undefined, lng: user.lng || undefined, radius, sort, categoryIds: matchIds, cursor: bizCursor });
-      setExtraBiz((prev) => [...prev, ...next.data]);
+      setExtraBiz((prev) => {
+        const existingIds = new Set([...(bizPage?.data ?? []).map((b) => b.id), ...prev.map((b) => b.id)]);
+        const newItems = next.data.filter((b) => !existingIds.has(b.id));
+        return [...prev, ...newItems];
+      });
       setBizCursor(next.page?.next_cursor ?? null);
       setBizHasMore(next.page?.has_more ?? false);
     } catch {
@@ -110,7 +114,11 @@ export default function CategoryListing() {
     setLoadingMoreProv(true);
     try {
       const next = await discoveryService.providers({ lat: user.lat || undefined, lng: user.lng || undefined, radius, sort, categoryIds: matchIds, cursor: provCursor });
-      setExtraProv((prev) => [...prev, ...next.data]);
+      setExtraProv((prev) => {
+        const existingIds = new Set([...(provPage?.data ?? []).map((p) => p.id), ...prev.map((p) => p.id)]);
+        const newItems = next.data.filter((p) => !existingIds.has(p.id));
+        return [...prev, ...newItems];
+      });
       setProvCursor(next.page?.next_cursor ?? null);
       setProvHasMore(next.page?.has_more ?? false);
     } catch {
@@ -198,6 +206,19 @@ export default function CategoryListing() {
               emoji="🏷️"
               title={t("catlist_empty_title")}
               text={t("catlist_empty_text")}
+              action={
+                sub ? (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => {
+                      haptics.selection();
+                      setSub(null);
+                    }}
+                  >
+                    {tf("catlist_view_all_in", { name: cat.name })}
+                  </button>
+                ) : undefined
+              }
             />
           ) : (
             <>
@@ -207,7 +228,10 @@ export default function CategoryListing() {
                 <button
                   className="btn btn-outline btn-block"
                   disabled={loadingMoreBiz || loadingMoreProv}
-                  onClick={() => { if (bizHasMore) loadMoreBiz(); if (provHasMore) loadMoreProv(); }}
+                  onClick={() => {
+                    if (bizHasMore && !loadingMoreBiz) loadMoreBiz();
+                    if (provHasMore && !loadingMoreProv) loadMoreProv();
+                  }}
                 >
                   {loadingMoreBiz || loadingMoreProv ? t("catlist_loading_more") : t("catlist_load_more")}
                 </button>

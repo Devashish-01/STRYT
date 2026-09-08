@@ -319,11 +319,41 @@ export const appointmentService = {
         if (/PARTY_SIZE_TOO_LARGE/i.test(msg)) {
           throw new Error("That's more spots than this slot allows. Reduce the number and try again.");
         }
+        if (/INVALID_PARTY_SIZE/i.test(msg)) {
+          throw new Error("Please enter a valid party size (1 or more).");
+        }
         if (/INSUFFICIENT_STOCK/i.test(msg)) {
           throw new Error("An item in your order just sold out — please update your cart and try again.");
         }
         if (/OUT_OF_SERVICE_AREA/i.test(msg)) {
           throw new Error(`You're outside this ${payload.targetType === "BUSINESS" ? "business" : "provider"}'s service area — booking isn't available from here.`);
+        }
+        if (/INVALID_APPOINTMENT_TIME/i.test(msg)) {
+          throw new Error("This slot has already passed or is invalid. Please pick an upcoming time.");
+        }
+        if (/NOT_ACCEPTING_APPOINTMENTS/i.test(msg)) {
+          throw new Error("This business is temporarily not accepting new appointments.");
+        }
+        if (/DELIVERY_NOT_OFFERED/i.test(msg)) {
+          throw new Error("Home delivery is not offered for this service. Please choose store visit.");
+        }
+        if (/DELIVERY_ADDRESS_REQUIRED/i.test(msg)) {
+          throw new Error("Please provide a complete delivery address with a pinned map location.");
+        }
+        if (/INVALID_TRANSITION/i.test(msg)) {
+          throw new Error("This booking cannot be rescheduled because its status has changed.");
+        }
+        if (/APPOINTMENT_NOT_FOUND/i.test(msg)) {
+          throw new Error("The original appointment could not be found.");
+        }
+        if (/NOT_YOUR_BOOKING/i.test(msg)) {
+          throw new Error("You can only reschedule your own appointments.");
+        }
+        if (/UNAUTHENTICATED/i.test(msg)) {
+          throw new Error("Please sign in to complete your booking.");
+        }
+        if (/CUSTOMER_NAME_REQUIRED/i.test(msg)) {
+          throw new Error("Customer name is required.");
         }
         // Surface the real reason instead of silently succeeding.
         throw new Error(msg || "Couldn't book the appointment. Please try again.");
@@ -331,11 +361,44 @@ export const appointmentService = {
     }
 
     // Guest or mock/demo target → local-only record.
+    let paymentStatus: AppointmentRecord["paymentStatus"] = payload.paymentStatus ?? "UNPAID";
+    let paymentMethod = payload.paymentMethod ?? null;
+    let paymentAmount = payload.paymentAmount ?? null;
+    let paymentReference = payload.paymentReference ?? null;
+    let packageId = payload.packageId;
+    let packageName = payload.packageName;
+    let packagePrice = payload.packagePrice;
+
+    if (payload.rescheduledFrom) {
+      const existing = getLocalAppointments();
+      const orig = existing.find((a) => a.id === payload.rescheduledFrom);
+      if (orig) {
+        orig.status = "CANCELLED";
+        orig.cancelledBy = "CUSTOMER";
+        orig.responseNote = orig.responseNote || "Rescheduled";
+        upsertLocal(orig);
+        paymentStatus = orig.paymentStatus ?? paymentStatus;
+        paymentMethod = orig.paymentMethod ?? paymentMethod;
+        paymentAmount = orig.paymentAmount ?? paymentAmount;
+        paymentReference = orig.paymentReference ?? paymentReference;
+        packageId = packageId ?? orig.packageId;
+        packageName = packageName ?? orig.packageName;
+        packagePrice = packagePrice ?? orig.packagePrice;
+      }
+    }
+
     const record: AppointmentRecord = {
       ...payload,
       id: "apt_" + Math.random().toString(36).slice(2) + Date.now().toString(36),
       status: "PENDING",
       createdAtISO: new Date().toISOString(),
+      paymentStatus,
+      paymentMethod,
+      paymentAmount,
+      paymentReference,
+      packageId,
+      packageName,
+      packagePrice,
     };
     upsertLocal(record);
     return record;

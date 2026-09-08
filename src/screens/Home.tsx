@@ -429,6 +429,34 @@ export default function Home() {
             <GuestRadiusNotice />
           </div>
 
+          {/* Prompt banner when neighbourhood/GPS is missing */}
+          {noLocation && (
+            <div className="page-pad" style={{ paddingBottom: 0, paddingTop: 10 }}>
+              <button
+                className="card row gap-12 center-v"
+                style={{
+                  width: "100%",
+                  padding: "12px 14px",
+                  textAlign: "left",
+                  background: "var(--brand-50)",
+                  border: "1px solid var(--brand-200)",
+                  cursor: "pointer",
+                  borderRadius: 14,
+                }}
+                onClick={() => setLocationOpen(true)}
+              >
+                <span style={{ fontSize: 20 }}>📍</span>
+                <div className="grow">
+                  <div className="semi small" style={{ color: "var(--brand-900)" }}>{t("set_neighborhood_title")}</div>
+                  <div className="tiny muted">{t("location_off_feed_hint")}</div>
+                </div>
+                <span className="tiny semi" style={{ color: "var(--brand-700)", background: "var(--brand-100)", padding: "4px 10px", borderRadius: 12, flexShrink: 0 }}>
+                  {t("set_location_btn")}
+                </span>
+              </button>
+            </div>
+          )}
+
           {/* ── Your day — consolidated live activity rail ── */}
           {todayItems.length > 0 && (
             <div style={{ paddingTop: 14 }}>
@@ -739,6 +767,33 @@ export default function Home() {
 
           {/* ── Main column — the Launchpad ── */}
           <div className="home-main-col">
+
+            {/* Prompt banner when neighbourhood/GPS is missing on desktop */}
+            {noLocation && (
+              <button
+                className="card row gap-12 center-v"
+                style={{
+                  width: "100%",
+                  padding: "14px 16px",
+                  textAlign: "left",
+                  background: "var(--brand-50)",
+                  border: "1px solid var(--brand-200)",
+                  cursor: "pointer",
+                  borderRadius: 16,
+                  marginBottom: 16,
+                }}
+                onClick={() => setLocationOpen(true)}
+              >
+                <span style={{ fontSize: 22 }}>📍</span>
+                <div className="grow">
+                  <div className="semi small" style={{ color: "var(--brand-900)" }}>{t("set_neighborhood_title")}</div>
+                  <div className="tiny muted">{t("location_off_feed_hint")}</div>
+                </div>
+                <span className="tiny semi" style={{ color: "var(--brand-700)", background: "var(--brand-100)", padding: "5px 12px", borderRadius: 12, flexShrink: 0 }}>
+                  {t("set_location_btn")}
+                </span>
+              </button>
+            )}
 
             {/* Your day — same consolidated live rail as mobile, leading the column */}
             {todayItems.length > 0 && (

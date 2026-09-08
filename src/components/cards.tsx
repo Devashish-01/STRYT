@@ -255,6 +255,7 @@ export function ProviderCardSmall({ p, style, entranceClass = "fade-up" }: { p: 
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark, isGuest } = useApp();
   const saved = isBookmarked("PROVIDER", p.id);
+  const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
   return (
     <div
       className={`card card-interactive ${entranceClass}`}
@@ -288,11 +289,30 @@ export function ProviderCardSmall({ p, style, entranceClass = "fade-up" }: { p: 
         </button>
       )}
       <div className="col center" style={{ textAlign: "center", gap: 6 }}>
-        <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 60, height: 60, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
+        <div style={{ position: "relative" }}>
+          <SafeImg src={p.avatar} alt={p.displayName} variant="avatar" className="avatar" style={{ width: 60, height: 60, borderRadius: "50%", border: "2px solid #fff", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }} />
+          <span
+            style={{
+              position: "absolute",
+              bottom: 1,
+              right: 1,
+              width: 13,
+              height: 13,
+              borderRadius: "50%",
+              background: evalRes.isOpenNow ? "var(--green-500)" : "var(--ink-400)",
+              border: "2px solid #fff",
+            }}
+          />
+        </div>
         <div className="bold small ellipsis" style={{ maxWidth: "100%", fontSize: 13.5 }}>{safeName(p.displayName, "Local provider")}</div>
         <div className="tiny muted ellipsis" style={{ maxWidth: "100%", fontSize: 11 }}>{p.categoryName}</div>
         <Rating value={p.ratingAvg} size={11} />
-        <div className="tiny tabular-nums" style={{ color: "var(--green-500)", fontWeight: 700, marginTop: 1 }}>from {inr(p.startingPrice)}</div>
+        <div className="row gap-4 center-v" style={{ marginTop: 1 }}>
+          <span className="tiny tabular-nums" style={{ color: "var(--green-500)", fontWeight: 700 }}>from {inr(p.startingPrice)}</span>
+          <span className={`badge ${evalRes.isOpenNow ? "badge-green" : "badge-gray"}`} style={{ fontSize: 9, padding: "1px 5px" }}>
+            {evalRes.isOpenNow ? "Available" : "Offline"}
+          </span>
+        </div>
       </div>
     </div>
   );

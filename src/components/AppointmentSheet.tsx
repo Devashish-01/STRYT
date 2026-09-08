@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Calendar as CalendarIcon, Clock, Check, Camera, Image as ImageIcon, Trash2, Store, Package } from "@/components/Icons";
 import { useApp } from "@/store";
 import { generateWorkingSlots, isWorkingDay, type AppointmentSlot, DEFAULT_WORKING_HOURS, formatHoursForDisplay } from "@/utils/availability";
@@ -38,46 +38,34 @@ export interface BookingPackage {
   duration?: string;
 }
 
-interface AppointmentSheetProps {
+export interface AppointmentSheetProps {
   targetId: string;
   targetName: string;
-  targetType: "PROVIDER" | "BUSINESS";
+  targetType: "BUSINESS" | "PROVIDER";
   availabilityNote?: string;
   packages?: BookingPackage[];
+  /** Optional cart items if booking from multi-item catalog checkout */
+  items?: Array<{ catalogItemId: string; name: string; price: number; quantity: number }>;
   availableNow?: boolean;
   initialPackage?: BookingPackage | null;
-  /** Pre-fills the notes field (e.g. an itemized cart list on checkout) — still editable. */
   initialNotes?: string;
-  /** Structured cart line items for a multi-item checkout — drives real per-item stock
-   *  reservation server-side. Omit for a plain single-package booking (the server
-   *  synthesizes one implicit item from packageId/packageName/packagePrice instead). */
-  items?: AppointmentRecord["items"];
-  /** When the seller collects payment. AT_BOOKING prompts payment immediately after booking, before the seller can accept. */
   paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
-  /** Seller's UPI ID, passed through to the post-booking payment step when paymentTiming is AT_BOOKING. */
   payeeUpiId?: string | null;
-  /** Upfront deposit percentage (1–99), passed through to the AT_BOOKING payment step so only a deposit is collected now. */
   depositPercent?: number;
-  /** Id of the appointment being replaced, when this sheet is opened from the reschedule flow. */
+  /** When rescheduling: the existing appointment being replaced. */
   rescheduledFromId?: string;
-  /** Date/time label of the booking being replaced — shown as an on-screen reference so the
-   *  reschedule flow doesn't look identical to booking a brand-new appointment. */
+  /** When rescheduling: human-readable label of the slot being moved. */
   rescheduledFromLabel?: { dateLabel: string; timeLabel: string };
-  /** When true, the viewer is outside this listing's service area — blocks booking. */
+  /** True when the customer is beyond the business's broadcast radius. */
   outOfRange?: boolean;
-  /** Whether THIS business offers home delivery (Business → Settings). Businesses only;
-   *  the DELIVERY option is hidden unless the shop opted in. Also enforced server-side. */
+  /** Business-level opt-in for home delivery. False for providers. */
   deliveryEnabled?: boolean;
-  /** The shop's typical delivery time, shown as a guide next to the delivery option. */
+  /** Expected delivery turnaround from business row (e.g. "30 mins", "1 hour"). */
   deliveryTime?: string | null;
-  /** The target's package wording ("reservation", "class", "order"…) in place of "appointment". Defaults to the generic package's (today's exact wording) when the caller has no theme in scope. */
+  /** Vocabulary override from business package preset. Defaults to generic. */
   vocabulary?: BizVocabulary;
-  /** The target's resolved package key, stamped onto the created booking as a
-   *  booking-time snapshot so My Appointments can render this row with the
-   *  same wording later, even if the target's package changes afterward. */
-  targetPackageKey?: string | null;
+  targetPackageKey?: string;
   onClose: () => void;
-  /** Fired after a booking is successfully created (before the sheet closes). */
   onBooked?: () => void;
 }
 
@@ -87,16 +75,16 @@ export function AppointmentSheet({
   targetType,
   availabilityNote,
   packages = [],
+  items,
   availableNow = false,
   initialPackage,
   initialNotes,
-  items,
   paymentTiming = "AT_APPOINTMENT",
   payeeUpiId,
-  depositPercent,
+  depositPercent = 0,
   rescheduledFromId,
   rescheduledFromLabel,
-  outOfRange,
+  outOfRange = false,
   deliveryEnabled = false,
   deliveryTime,
   vocabulary = BUSINESS_PACKAGES.generic.vocabulary,
@@ -118,12 +106,13 @@ export function AppointmentSheet({
   // DELIVERY for such a shop anyway (DELIVERY_NOT_OFFERED).
   const canOfferDelivery = DELIVERY_AGENT_ENABLED && targetType === "BUSINESS" && deliveryEnabled;
   const [fulfillmentType, setFulfillmentType] = useState<"IN_STORE" | "DELIVERY">("IN_STORE");
-  const [deliveryAddressLine, setDeliveryAddressLine] = useState("");
+  const [deliveryAddressLine, setDeliveryAddressLine] = useState(user?.area || "");
   const [requestedWindow, setRequestedWindow] = useState("");
-  const [deliveryLat, setDeliveryLat] = useState<number | null>(null);
-  const [deliveryLng, setDeliveryLng] = useState<number | null>(null);
+  const [deliveryLat, setDeliveryLat] = useState<number | null>(user?.lat ?? null);
+  const [deliveryLng, setDeliveryLng] = useState<number | null>(user?.lng ?? null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [cachedPhotoUrl, setCachedPhotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -248,17 +237,20 @@ export function AppointmentSheet({
       ? eveningSlots
       : slots;
 
-  const activePrice =
-    items && items.length > 0
-      ? items.reduce((s, it) => s + it.price * it.quantity, 0)
-      : selectedPkg
-      ? selectedPkg.price
-      : null;
-
   // Spots the customer may take right now: capped by the service's max party
   // size and by what's actually left in the chosen slot.
   const partyCeiling = Math.max(1, Math.min(maxPartySize, selectedSlot ? selectedSlot.remaining : maxPartySize));
   const canPickParty = maxPartySize > 1;
+
+  // Declared AFTER canPickParty, which it reads. It used to sit above it and
+  // hit the temporal dead zone — a runtime throw on the ordinary path of
+  // "package selected", not an edge case.
+  const activePrice =
+    items && items.length > 0
+      ? items.reduce((s, it) => s + it.price * it.quantity, 0)
+      : selectedPkg
+      ? selectedPkg.price * (canPickParty ? partySize : 1)
+      : null;
 
   // Switching service changes both capacity and party limits, so a slot or
   // party size chosen under the old service may no longer be valid. Clamp the
@@ -282,14 +274,37 @@ export function AppointmentSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPkg?.id, bookedTimes, slotCapacity]);
 
-  // Default to the first working day rather than always "Today" when today is closed.
+  // Default to the first working day with available slots rather than staying stuck on "Today" after hours.
+  const hasAutoAdvancedRef = useRef(false);
   useEffect(() => {
+    if (hasAutoAdvancedRef.current) return;
     if (dayOffset !== 0) return;
-    if (isWorkingDay(availabilityNote, dates[0])) return;
-    const firstOpen = dates.findIndex((d) => isWorkingDay(availabilityNote, d));
-    if (firstOpen > 0) setDayOffset(firstOpen);
+    const todaySlots = generateWorkingSlots(availabilityNote, dates[0]);
+    const hasAvailableToday = isWorkingDay(availabilityNote, dates[0]) && todaySlots.some((s) => s.isAvailable);
+    if (!hasAvailableToday) {
+      const firstOpen = dates.findIndex((d, idx) => idx > 0 && isWorkingDay(availabilityNote, d));
+      if (firstOpen > 0) {
+        setDayOffset(firstOpen);
+        hasAutoAdvancedRef.current = true;
+      }
+    } else {
+      hasAutoAdvancedRef.current = true;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availabilityNote]);
+
+  // Reset time period filter to 'all' if selected period has no slots on this date (Gap B7)
+  useEffect(() => {
+    if (slotPeriod !== "all") {
+      if (
+        (slotPeriod === "morning" && morningSlots.length === 0) ||
+        (slotPeriod === "afternoon" && afternoonSlots.length === 0) ||
+        (slotPeriod === "evening" && eveningSlots.length === 0)
+      ) {
+        setSlotPeriod("all");
+      }
+    }
+  }, [dayOffset, slotPeriod, morningSlots.length, afternoonSlots.length, eveningSlots.length]);
 
   const isSameDay = (d1: Date, d2: Date) =>
     d1.getFullYear() === d2.getFullYear() &&
@@ -315,13 +330,21 @@ export function AppointmentSheet({
       showToast("Photo must be under 10MB");
       return;
     }
+    if (photoPreview) {
+      try { URL.revokeObjectURL(photoPreview); } catch {}
+    }
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
+    setCachedPhotoUrl(null);
   }
 
   function removePhoto() {
+    if (photoPreview) {
+      try { URL.revokeObjectURL(photoPreview); } catch {}
+    }
     setPhotoFile(null);
     setPhotoPreview(null);
+    setCachedPhotoUrl(null);
   }
 
   const deliveryAddressReady = fulfillmentType !== "DELIVERY" || (deliveryAddressLine.trim().length > 2 && deliveryLat !== null && deliveryLng !== null);
@@ -331,17 +354,28 @@ export function AppointmentSheet({
       showToast("Please select a time slot");
       return;
     }
-    if (!deliveryAddressReady) {
-      showToast("Add your delivery address to continue");
-      return;
+    if (fulfillmentType === "DELIVERY") {
+      if (!deliveryAddressLine.trim()) {
+        showToast("Please enter your delivery address");
+        return;
+      }
+      if (deliveryLat === null || deliveryLng === null) {
+        showToast("Please pin your location on the map to confirm delivery");
+        return;
+      }
     }
     setSubmitting(true);
     let uploadedUrl: string | undefined = undefined;
     try {
       if (photoFile) {
-        setUploading(true);
-        uploadedUrl = await uploadService.upload(photoFile, "appointment");
-        setUploading(false);
+        if (cachedPhotoUrl) {
+          uploadedUrl = cachedPhotoUrl;
+        } else {
+          setUploading(true);
+          uploadedUrl = await uploadService.upload(photoFile, "appointment");
+          setCachedPhotoUrl(uploadedUrl);
+          setUploading(false);
+        }
       }
 
       const created = await appointmentService.create({
@@ -358,7 +392,7 @@ export function AppointmentSheet({
         photoUrl: uploadedUrl,
         packageId: selectedPkg?.id,
         packageName: selectedPkg?.name,
-        packagePrice: selectedPkg?.price,
+        packagePrice: activePrice ?? undefined,
         items,
         rescheduledFrom: rescheduledFromId ?? null,
         fulfillmentType: canOfferDelivery ? fulfillmentType : "IN_STORE",
@@ -379,8 +413,9 @@ export function AppointmentSheet({
           : `${vocabulary.bookedVerb} for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`
       );
 
-      if (paymentTiming === "AT_BOOKING") {
+      if (paymentTiming === "AT_BOOKING" && (!isReschedule || created.paymentStatus !== "PAID")) {
         // Pay now, before the seller can accept — sheet hands off to PaymentSheet below.
+        // For already-paid reschedules, don't demand a second payment.
         setBookedAppointment(created);
       } else {
         onBooked?.();
@@ -470,30 +505,46 @@ export function AppointmentSheet({
         </div>
 
         {/* Scrollable Content Body */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 16px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px 80px" }}>
           {/* Reschedule mode — reference card showing what's being replaced. */}
           {isReschedule && rescheduledFromLabel && (
             <div className="card card-condensed" style={{ background: "var(--ink-50)", border: "1px solid var(--ink-200)", marginBottom: 16 }}>
               <div className="row gap-8 center-v">
                 <CalendarIcon size={16} color="var(--ink-500)" />
-                <div>
+                <div className="grow">
                   <div className="tiny semi muted">Currently booked</div>
                   <div className="bold small" style={{ color: "var(--ink-700)", marginTop: 1 }}>
                     {rescheduledFromLabel.dateLabel} at {rescheduledFromLabel.timeLabel}
                   </div>
+                  {selectedPkg && (
+                    <div className="tiny muted" style={{ marginTop: 2 }}>
+                      {selectedPkg.name} {selectedPkg.price ? `• ${inr(selectedPkg.price)}` : ""}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           )}
 
           {outOfRange && (
-            <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)", marginBottom: 16 }}>
+            <div
+              className="card card-condensed"
+              style={{
+                background: fulfillmentType === "DELIVERY" ? "var(--red-50)" : "var(--amber-50)",
+                border: `1px solid ${fulfillmentType === "DELIVERY" ? "var(--red-100)" : "var(--amber-200)"}`,
+                marginBottom: 16,
+              }}
+            >
               <div className="row gap-8" style={{ alignItems: "flex-start" }}>
-                <span style={{ fontSize: 16, lineHeight: 1.2 }}>⚠️</span>
+                <span style={{ fontSize: 16, lineHeight: 1.2 }}>{fulfillmentType === "DELIVERY" ? "⚠️" : "📍"}</span>
                 <div>
-                  <div className="bold small" style={{ color: "var(--red-600)" }}>Outside service area</div>
-                  <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1, lineHeight: 1.5 }}>
-                    You&apos;re outside this {targetType === "BUSINESS" ? "business" : "provider"}&apos;s service area, so booking here isn&apos;t available. Move closer, or contact them directly.
+                  <div className="bold small" style={{ color: fulfillmentType === "DELIVERY" ? "var(--red-600)" : "var(--amber-800)" }}>
+                    {fulfillmentType === "DELIVERY" ? "Outside delivery area" : "Distance notice"}
+                  </div>
+                  <div className="tiny" style={{ color: fulfillmentType === "DELIVERY" ? "var(--red-600)" : "var(--amber-800)", marginTop: 1, lineHeight: 1.5 }}>
+                    {fulfillmentType === "DELIVERY"
+                      ? `You're outside this ${targetType === "BUSINESS" ? "business" : "provider"}'s delivery range. Switch to in-store visit or contact them directly.`
+                      : `You're further than usual from this ${targetType === "BUSINESS" ? "business" : "provider"}, but you can still book an in-store visit.`}
                   </div>
                 </div>
               </div>
@@ -595,7 +646,15 @@ export function AppointmentSheet({
                     onChange={(e) => setDeliveryAddressLine(e.target.value)}
                     style={{ fontSize: 13 }}
                   />
-                  <LocationPicker lat={deliveryLat} lng={deliveryLng} onChange={(lat, lng) => { setDeliveryLat(lat); setDeliveryLng(lng); }} height={140} pinColor="var(--delivery-600)" />
+                  <LocationPicker
+                    lat={deliveryLat}
+                    lng={deliveryLng}
+                    storedLat={user?.lat ?? undefined}
+                    storedLng={user?.lng ?? undefined}
+                    onChange={(lat, lng) => { setDeliveryLat(lat); setDeliveryLng(lng); }}
+                    height={140}
+                    pinColor="var(--delivery-600)"
+                  />
                   <span className="tiny muted">Tap the map or drag the pin to mark exactly where the agent should come.</span>
                   <input
                     className="input"
@@ -913,6 +972,11 @@ export function AppointmentSheet({
                   {selectedSlot
                     ? `${selectedSlot.remaining} of ${selectedSlot.capacity} left at ${selectedSlot.timeLabel}`
                     : `Up to ${maxPartySize} per booking`}
+                  {partySize > 1 && selectedPkg?.price ? (
+                    <span className="semi" style={{ marginLeft: 6, color: "var(--brand-700)" }}>
+                      • {inr(selectedPkg.price * partySize)} ({inr(selectedPkg.price)}/spot)
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -1030,18 +1094,28 @@ export function AppointmentSheet({
           <button
             type="button"
             className={hasAptToday ? "btn btn-outline btn-block btn-lg" : "btn btn-green btn-block btn-lg"}
-            disabled={!selectedSlot || submitting || uploading || hasAptToday || !deliveryAddressReady || outOfRange}
+            disabled={
+              !selectedSlot ||
+              submitting ||
+              uploading ||
+              hasAptToday ||
+              (fulfillmentType === "DELIVERY" && outOfRange)
+            }
             onClick={handleConfirm}
             style={{ height: 48, fontSize: 15, fontWeight: 700 }}
           >
             {submitting || uploading
               ? "Booking & Uploading..."
-              : outOfRange
-              ? "Outside Service Area"
+              : fulfillmentType === "DELIVERY" && outOfRange
+              ? "Outside Delivery Area"
               : hasAptToday
               ? "Daily Limit Exceeded"
               : selectedSlot
-              ? paymentTiming === "AT_BOOKING"
+              ? fulfillmentType === "DELIVERY" && !deliveryAddressReady
+                ? deliveryAddressLine.trim().length <= 2
+                  ? "Enter Delivery Address"
+                  : "Pin Location on Map"
+                : paymentTiming === "AT_BOOKING"
                 ? `Confirm & Pay · ${selectedSlot.timeLabel}`
                 : isReschedule
                 ? `Reschedule to ${selectedSlot.timeLabel}`
@@ -1052,6 +1126,11 @@ export function AppointmentSheet({
                 : `Confirm Booking · ${selectedSlot.timeLabel}`
               : "Select a Time Slot"}
           </button>
+          {fulfillmentType === "DELIVERY" && !deliveryAddressReady && selectedSlot && (
+            <div className="tiny center" style={{ color: "var(--amber-700)", marginTop: 6 }}>
+              📍 Pin your delivery address on the map above to confirm
+            </div>
+          )}
         </div>
       </div>
     </div>

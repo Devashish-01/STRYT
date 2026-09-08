@@ -131,6 +131,8 @@ const strings: Record<Lang, Record<string, string>> = {
     neighbors_want_location: " neighbor wants to see your location",
     neighbors_want_location_plural: " neighbors want to see your location",
     manage: "Manage",
+    set_neighborhood_title: "Set your neighbourhood",
+    set_location_btn: "Set location",
     browse: "Browse",
     all_categories: "All categories",
     could_not_load_cats: "Couldn't load categories",
@@ -339,6 +341,7 @@ const strings: Record<Lang, Record<string, string>> = {
     catlist_load_more: "Load more",
     catlist_loading_more: "Loading…",
     catlist_load_more_failed: "Couldn't load more — try again",
+    catlist_view_all_in: "View all in {name}",
 
     // Phase 1 multilingual — Search screen. NOTE: the `trending` example-query
     // words themselves (Biryani, Plumber, ...) are intentionally left untranslated
@@ -368,6 +371,10 @@ const strings: Record<Lang, Record<string, string>> = {
     search_get_alerts: "Get alerts",
     search_alert_removed: "Alert removed",
     search_will_notify: "We'll notify you when a \"{query}\" joins nearby",
+    search_filter_open_now: "Open now",
+    search_no_open_results: "No places currently open for \"{query}\"",
+    search_no_open_results_hint: "Try turning off the Open Now filter to see all listings.",
+    search_show_all_places: "Show all places",
     search_alert_update_failed: "Couldn't update alert — try again",
 
     // Phase 1 multilingual — Map screen (index.tsx, NearbySheet, SearchBar,
@@ -1248,6 +1255,8 @@ const strings: Record<Lang, Record<string, string>> = {
     neighbors_want_location: " पड़ोसी आपकी लाइव लोकेशन देखना चाहता है",
     neighbors_want_location_plural: " पड़ोसी आपकी लाइव लोकेशन देखना चाहते हैं",
     manage: "प्रबंधन",
+    set_neighborhood_title: "अपना इलाका सेट करें",
+    set_location_btn: "स्थान सेट करें",
     browse: "ब्राउज़ करें",
     all_categories: "सभी श्रेणियां",
     could_not_load_cats: "श्रेणियां लोड नहीं हो सकीं",
@@ -1456,6 +1465,7 @@ const strings: Record<Lang, Record<string, string>> = {
     catlist_load_more: "और लोड करें",
     catlist_loading_more: "लोड हो रहा है…",
     catlist_load_more_failed: "और लोड नहीं हो सका — फिर कोशिश करें",
+    catlist_view_all_in: "{name} में सभी देखें",
 
     // Phase 1 multilingual — Search screen
     search_input_placeholder: "व्यवसाय, सेवाएं, वस्तुएं खोजें…",
@@ -1481,6 +1491,10 @@ const strings: Record<Lang, Record<string, string>> = {
     search_get_alerts: "अलर्ट पाएं",
     search_alert_removed: "अलर्ट हटाया गया",
     search_will_notify: "हम आपको सूचित करेंगे जब \"{query}\" पास में जुड़े",
+    search_filter_open_now: "अभी खुला है",
+    search_no_open_results: "\"{query}\" के लिए अभी कोई स्थान खुला नहीं है",
+    search_no_open_results_hint: "सभी लिस्टिंग देखने के लिए 'अभी खुला है' फ़िल्टर बंद करें।",
+    search_show_all_places: "सभी स्थान दिखाएं",
     search_alert_update_failed: "अलर्ट अपडेट नहीं हो सका — पुनः प्रयास करें",
 
     // Phase 1 multilingual — Map screen
@@ -2360,6 +2374,8 @@ const strings: Record<Lang, Record<string, string>> = {
     neighbors_want_location: " शेजारी तुमचे लाइव्ह लोकेशन पाहू इच्छितो",
     neighbors_want_location_plural: " शेजारी तुमचे लाइव्ह लोकेशन पाहू इच्छितात",
     manage: "व्यवस्थापन",
+    set_neighborhood_title: "तुमचा परिसर सेट करा",
+    set_location_btn: "स्थान सेट करा",
     browse: "ब्राउझ करा",
     all_categories: "सर्व श्रेणी",
     could_not_load_cats: "श्रेणी लोड होऊ शकल्या नाहीत",
@@ -2568,6 +2584,7 @@ const strings: Record<Lang, Record<string, string>> = {
     catlist_load_more: "आणखी लोड करा",
     catlist_loading_more: "लोड होत आहे…",
     catlist_load_more_failed: "आणखी लोड होऊ शकले नाही — पुन्हा प्रयत्न करा",
+    catlist_view_all_in: "{name} मधील सर्व पहा",
 
     // Phase 1 multilingual — Search screen
     search_input_placeholder: "व्यवसाय, सेवा, वस्तू शोधा…",

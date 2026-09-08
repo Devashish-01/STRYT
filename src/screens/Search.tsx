@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/common";
 import { NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
+import { evaluateProviderAvailability } from "@/utils/availability";
 import type { Business, Provider } from "@/types";
 
 const TREND_KEYS = ["search_trend_1", "search_trend_2", "search_trend_3", "search_trend_4", "search_trend_5", "search_trend_6"] as const;
@@ -28,6 +29,7 @@ export default function Search() {
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [recent, setRecent] = useState<string[]>(loadRecent);
+  const [openOnly, setOpenOnly] = useState(false);
   const { user, showToast } = useApp();
   const { t, tf } = useI18n();
 
@@ -75,7 +77,11 @@ export default function Search() {
     setLoadingMoreBiz(true);
     try {
       const next = await discoveryService.search(query, { lat: user.lat || undefined, lng: user.lng || undefined, bizCursor });
-      setExtraBiz((prev) => [...prev, ...next.businesses.data]);
+      setExtraBiz((prev) => {
+        const existingIds = new Set([...(results?.businesses.data ?? []).map((b) => b.id), ...prev.map((b) => b.id)]);
+        const newItems = next.businesses.data.filter((b) => !existingIds.has(b.id));
+        return [...prev, ...newItems];
+      });
       setBizCursor(next.businesses.page?.next_cursor ?? null);
       setBizHasMore(next.businesses.page?.has_more ?? false);
     } catch {
@@ -89,7 +95,11 @@ export default function Search() {
     setLoadingMoreProv(true);
     try {
       const next = await discoveryService.search(query, { lat: user.lat || undefined, lng: user.lng || undefined, provCursor });
-      setExtraProv((prev) => [...prev, ...next.providers.data]);
+      setExtraProv((prev) => {
+        const existingIds = new Set([...(results?.providers.data ?? []).map((p) => p.id), ...prev.map((p) => p.id)]);
+        const newItems = next.providers.data.filter((p) => !existingIds.has(p.id));
+        return [...prev, ...newItems];
+      });
       setProvCursor(next.providers.page?.next_cursor ?? null);
       setProvHasMore(next.providers.page?.has_more ?? false);
     } catch {
@@ -99,10 +109,17 @@ export default function Search() {
     }
   }
 
-  const bizResults = [...(results?.businesses.data ?? []), ...extraBiz];
-  const provResults = [...(results?.providers.data ?? []), ...extraProv];
+  const rawBizResults = [...(results?.businesses.data ?? []), ...extraBiz];
+  const rawProvResults = [...(results?.providers.data ?? []), ...extraProv];
+  const bizResults = openOnly
+    ? rawBizResults.filter((b) => evaluateProviderAvailability(b.hours, b.isAvailableNow, b.availableUntil).isOpenNow)
+    : rawBizResults;
+  const provResults = openOnly
+    ? rawProvResults.filter((p) => evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil).isOpenNow)
+    : rawProvResults;
   const catResults = query ? (leaves ?? []).filter((c) => c.name.toLowerCase().includes(query)) : [];
   const total = bizResults.length + provResults.length;
+  const rawTotal = rawBizResults.length + rawProvResults.length;
   const searching = !!query && loading;
   const loadingMore = loadingMoreBiz || loadingMoreProv;
   const extraBizIds = new Set(extraBiz.map((b) => b.id));
@@ -224,13 +241,29 @@ export default function Search() {
         ) : error ? (
           <ErrorView error={error} onRetry={refetch} />
         ) : total === 0 && catResults.length === 0 ? (
-          <div className="col center" style={{ gap: 14 }}>
-            <EmptyState illustration={<NoResultsIllustration />} emoji="🤷" title={tf("search_no_results", { query: debounced })} text={t("search_no_results_hint")} />
-            <button className="btn btn-outline btn-sm" onClick={toggleSaveSearch}>
-              <Bell size={15} weight={isSaved ? "fill" : "regular"} />
-              {isSaved ? t("search_alert_on_long") : tf("search_notify_me", { query: debounced })}
-            </button>
-          </div>
+          openOnly && rawTotal > 0 ? (
+            <div className="col center" style={{ gap: 14, padding: "32px 16px" }}>
+              <EmptyState
+                illustration={<NoResultsIllustration />}
+                emoji="🌙"
+                title={tf("search_no_open_results", { query: debounced })}
+                text={t("search_no_open_results_hint")}
+                action={
+                  <button className="btn btn-secondary btn-sm" onClick={() => setOpenOnly(false)}>
+                    {t("search_show_all_places")}
+                  </button>
+                }
+              />
+            </div>
+          ) : (
+            <div className="col center" style={{ gap: 14 }}>
+              <EmptyState illustration={<NoResultsIllustration />} emoji="🤷" title={tf("search_no_results", { query: debounced })} text={t("search_no_results_hint")} />
+              <button className="btn btn-outline btn-sm" onClick={toggleSaveSearch}>
+                <Bell size={15} weight={isSaved ? "fill" : "regular"} />
+                {isSaved ? t("search_alert_on_long") : tf("search_notify_me", { query: debounced })}
+              </button>
+            </div>
+          )
         ) : (
           <div className="page-pad col gap-14">
             {catResults.length > 0 && (
@@ -242,8 +275,17 @@ export default function Search() {
                 ))}
               </div>
             )}
-            <div className="row between align-center">
-              <span className="tiny muted">{tf("search_results_count", { count: total })}</span>
+            <div className="row between align-center wrap gap-8">
+              <div className="row gap-8 align-center">
+                <span className="tiny muted">{tf("search_results_count", { count: total })}</span>
+                <button
+                  className={`chip ${openOnly ? "active" : ""}`}
+                  style={{ padding: "4px 10px", fontSize: 12, height: "auto", cursor: "pointer" }}
+                  onClick={() => setOpenOnly((prev) => !prev)}
+                >
+                  🟢 {t("search_filter_open_now")}
+                </button>
+              </div>
               <button className="tiny semi row gap-4" style={{ color: isSaved ? "var(--brand-700)" : "var(--ink-500)", alignItems: "center" }} onClick={toggleSaveSearch}>
                 <Bell size={13} weight={isSaved ? "fill" : "regular"} /> {isSaved ? t("search_alert_on") : t("search_get_alerts")}
               </button>
@@ -254,7 +296,10 @@ export default function Search() {
               <button
                 className="btn btn-outline btn-block"
                 disabled={loadingMore}
-                onClick={() => { if (bizHasMore) loadMoreBiz(); if (provHasMore) loadMoreProv(); }}
+                onClick={() => {
+                  if (bizHasMore && !loadingMoreBiz) loadMoreBiz();
+                  if (provHasMore && !loadingMoreProv) loadMoreProv();
+                }}
               >
                 {loadingMore ? t("catlist_loading_more") : t("catlist_load_more")}
               </button>

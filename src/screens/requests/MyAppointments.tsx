@@ -447,6 +447,16 @@ export default function MyAppointments() {
           availabilityNote={rebook.availabilityNote}
           packages={rebook.packages}
           availableNow={rebook.availableNow}
+          initialPackage={
+            rebook.apt.packageId || rebook.apt.packageName
+              ? rebook.packages.find((p) => p.id === rebook.apt.packageId || p.name === rebook.apt.packageName) || {
+                  id: rebook.apt.packageId || "pkg_custom",
+                  name: rebook.apt.packageName || "",
+                  price: rebook.apt.packagePrice ?? 0,
+                }
+              : undefined
+          }
+          initialNotes={rebook.apt.notes ?? undefined}
           paymentTiming={rebook.paymentTiming}
           payeeUpiId={rebook.payeeUpiId}
           depositPercent={rebook.depositPercent}
