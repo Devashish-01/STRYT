@@ -250,7 +250,7 @@ export default function ShareCard({ subjects, onClose }: Props) {
     { label: t("whatsapp_word"), icon: MessageCircle, color: "#25D366", onClick: shareWhatsApp },
     { label: t("copy_link"), icon: Link2, color: "var(--ink-600)", onClick: copyLink },
     ...(caps.qr.enabled
-      ? [{ label: t("download_qr"), icon: Download, color: "var(--purple-600)", onClick: downloadQrImage }]
+      ? [{ label: t("download_qr"), icon: Download, color: "var(--brand-600)", onClick: downloadQrImage }]
       : []),
     ...(caps.artifact
       ? [{ label: ARTIFACT_LABEL[caps.artifact], icon: Printer, color: "var(--blue-600)", onClick: () => setShowPrintModal(true) }]
