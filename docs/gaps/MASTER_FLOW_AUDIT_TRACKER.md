@@ -12,8 +12,8 @@
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **0. Onboarding & Identity** | 4 | 3 | 0 | 1 | 🟡 75% |
 | **1. Customer Discovery & Search** | 5 | 0 | 0 | 5 | ⚪ 0% |
-| **2. Booking, Appointments & Scheduling** | 5 | 1 | 0 | 4 | 🟡 20% |
-| **3. Digital Walk-In Queue & Tokens** | 2 | 0 | 0 | 2 | ⚪ 0% |
+| **2. Booking, Appointments & Scheduling** | 5 | 5 | 0 | 0 | 🟢 100% |
+| **3. Digital Walk-In Queue & Tokens** | 2 | 2 | 0 | 0 | 🟢 100% |
 | **4. Custom Requests, Quotes & Agreements** | 3 | 0 | 0 | 3 | ⚪ 0% |
 | **5. Local Delivery Dispatch & Live Tracking** | 3 | 0 | 0 | 3 | ⚪ 0% |
 | **6. 1:1 Direct Messaging & Chat** | 1 | 0 | 0 | 1 | ⚪ 0% |
@@ -22,7 +22,7 @@
 | **9. Community, Social Trust & Reviews** | 5 | 1 | 0 | 4 | 🟡 20% |
 | **10. Safety, Emergency & Location Sharing** | 2 | 0 | 0 | 2 | ⚪ 0% |
 | **11. Account, Multi-Role & Platform Security** | 6 | 0 | 0 | 6 | ⚪ 0% |
-| **TOTAL** | **51** | **6** | **0** | **45** | **~12% Audited** |
+| **TOTAL** | **51** | **12** | **0** | **39** | **~24% Audited** |
 
 ---
 
@@ -75,10 +75,10 @@ For every flow in this tracker, the review process follows this rigorous 6-step 
 | # | Flow Name | Scope | Persona | Primary Route / Components | Services & DB Tables | Status | Gap Log |
 |---|---|---|---|---|---|---|---|
 | **2.1** | **Customer Appointment Booking Sheet** | Big | Customer | `AppointmentSheet.tsx`, `BusinessDetail`, `ProviderDetail` | `appointmentService`, `availability.ts`, `appointments` | 🟢 **Production Ready** | [`APPOINTMENT_BOOKING_GAP_LOG.md`](./APPOINTMENT_BOOKING_GAP_LOG.md) |
-| **2.2** | **Customer Bookings Hub (Upcoming/Past)** | Big | Customer | `/appointments`, `MyAppointments.tsx` | `appointmentService`, `appointments` | ⚪ Ready to Audit | *Pending* |
-| **2.3** | **Business Appointment Calendar Console** | Big | Merchant | `/business/:id/manage/appointments`, `BusinessAppointments.tsx` | `appointmentService`, `appointments` | ⚪ Ready to Audit | *Pending* |
-| **2.4** | **Provider Jobs & Service Bookings** | Big | Provider | `/provider/:id/manage/jobs`, `ProviderJobs.tsx` | `appointmentService`, `appointments` | ⚪ Ready to Audit | *Pending* |
-| **2.5** | **Owner Slot Blocking & Holiday Overrides** | Small | Merchant / Pro | `SlotBlockModal.tsx`, `HoursEditor.tsx` | `slotBlockService`, `business_blocked_slots` | ⚪ Ready to Audit | *Pending* |
+| **2.2** | **Customer Bookings Hub (Upcoming/Past)** | Big | Customer | `/appointments`, `MyAppointments.tsx` | `appointmentService`, `appointments` | 🟡 **Audited** | [`MY_APPOINTMENTS_GAP_LOG.md`](./MY_APPOINTMENTS_GAP_LOG.md) |
+| **2.3** | **Business Appointment Calendar Console** | Big | Merchant | `/business/:id/manage/appointments`, `BusinessAppointments.tsx` | `appointmentService`, `appointments` | 🟡 **Audited** | [`BUSINESS_APPOINTMENTS_GAP_LOG.md`](./BUSINESS_APPOINTMENTS_GAP_LOG.md) |
+| **2.4** | **Provider Jobs & Service Bookings** | Big | Provider | `/provider/:id/manage/jobs`, `ProviderJobs.tsx` | `appointmentService`, `appointments` | 🟡 **Audited** | [`PROVIDER_JOBS_GAP_LOG.md`](./PROVIDER_JOBS_GAP_LOG.md) |
+| **2.5** | **Owner Slot Blocking & Holiday Overrides** | Small | Merchant / Pro | `BlockSlotModal.tsx`, `HoursEditor.tsx`, `DayTimetable.tsx` | `slotBlockService`, `blocked_slots` | 🟡 **Audited** | [`SLOT_BLOCKING_GAP_LOG.md`](./SLOT_BLOCKING_GAP_LOG.md) |
 
 ---
 
@@ -86,8 +86,8 @@ For every flow in this tracker, the review process follows this rigorous 6-step 
 
 | # | Flow Name | Scope | Persona | Primary Route / Components | Services & DB Tables | Status | Gap Log |
 |---|---|---|---|---|---|---|---|
-| **3.1** | **Customer Digital Token & Live Queue** | Big | Customer | `JoinQueueSheet.tsx`, `/queues`, `MyQueues.tsx` | `businessService`, `queue_tokens`, `notifications` | ⚪ Ready to Audit | *Pending* |
-| **3.2** | **Merchant Live Queue Counter Console** | Big | Merchant | `/business/:id/manage/queue`, `QueueManager.tsx` | `businessService`, `queue_settings`, `queue_tokens` | ⚪ Ready to Audit | *Pending* |
+| **3.1** | **Customer Digital Token & Live Queue** | Big | Customer | `BusinessDetail.tsx`, `/queues`, `MyQueues.tsx` | `businessService`, `queue_tokens`, `notifications` | 🟡 **Audited** | [`CUSTOMER_QUEUE_GAP_LOG.md`](./CUSTOMER_QUEUE_GAP_LOG.md) |
+| **3.2** | **Merchant Live Queue Counter Console** | Big | Merchant | `/business/:id/manage/queue`, `QueueManager.tsx` | `businessService`, `queue_settings`, `queue_tokens` | 🟡 **Audited** | [`MERCHANT_QUEUE_GAP_LOG.md`](./MERCHANT_QUEUE_GAP_LOG.md) |
 
 ---
 
