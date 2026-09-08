@@ -151,6 +151,7 @@ const EmergencyContacts = lazy(() => import("./screens/safety/EmergencyContacts"
 const MyActivity = lazy(() => import("./screens/MyActivity"));
 const AccountSettings = lazy(() => import("./screens/AccountSettings"));
 const BusinessAccess = lazy(() => import("./screens/BusinessAccess"));
+const BusinessLogin = lazy(() => import("./screens/business/BusinessLogin"));
 
 // Delivery agent console (Phase 2 — gated behind DELIVERY_AGENT_ENABLED via
 // RequireDeliveryAgent, so the route is inert until the feature ships).
@@ -619,6 +620,11 @@ export default function App() {
             <Route path="/my-activity" element={<MyActivity />} />
             <Route path="/account" element={<AccountSettings />} />
             <Route path="/account/business-access" element={<BusinessAccess />} />
+            {/* Staff entry point for the shared shop login. Inside the authed
+                layout on purpose: business_login_attempt raises UNAUTHENTICATED
+                without a session, because this decides WHICH shop you open, not
+                WHO you are. */}
+            <Route path="/business-login" element={<BusinessLogin />} />
             {/* /settings is now the hub's old address — Home, DesktopSidebar
                 and BusinessAccess all still link to it, so it redirects rather
                 than 404s. Each real setting lives on its own screen below. */}
