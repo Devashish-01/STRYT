@@ -81,13 +81,13 @@ export default function ShareCard({ subjects, onClose }: Props) {
   // read. Re-runs whenever the encoded payload changes (profile ⇄ payment tab,
   // or a different subject).
   useEffect(() => {
-    if (uploadedQrUrl || !caps.qr.enabled) return;
+    if (uploadedQrUrl || (!caps.qr.enabled && !caps.artifact)) return;
     try {
       setGeneratedQrUrl(qrCanvasRef.current?.toDataURL("image/png") ?? "");
     } catch {
       setGeneratedQrUrl(""); // canvas unavailable — the <img> just renders empty
     }
-  }, [qrPayload, uploadedQrUrl, caps.qr.enabled]);
+  }, [qrPayload, uploadedQrUrl, caps.qr.enabled, caps.artifact]);
 
   const qrUrlToUse = uploadedQrUrl || generatedQrUrl;
 
@@ -265,7 +265,7 @@ export default function ShareCard({ subjects, onClose }: Props) {
           which tab is showing so "Download QR" works straight from the card
           view. `marginSize={4}` is the quiet zone the QR spec requires — without
           it scanners struggle against a coloured backdrop. */}
-      {!uploadedQrUrl && caps.qr.enabled && (
+      {!uploadedQrUrl && (caps.qr.enabled || !!caps.artifact) && (
         <div aria-hidden style={{ position: "absolute", width: 0, height: 0, overflow: "hidden", pointerEvents: "none" }}>
           <QRCodeCanvas ref={qrCanvasRef} value={qrPayload} size={500} level="M" marginSize={4} />
         </div>

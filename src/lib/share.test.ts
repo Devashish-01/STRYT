@@ -112,22 +112,22 @@ describe("shareCapabilities — payment QR", () => {
 describe("shareCapabilities — QR meaning", () => {
   it("describes what scanning actually opens, per kind", () => {
     expect(shareCapabilities(shop(), ORIGIN).qr.scanLabel).toBe("SCAN TO OPEN THIS SHOP");
-    expect(shareCapabilities({ kind: "post", id: "c1", title: "", subtitle: "" }, ORIGIN).qr.scanLabel)
-      .toBe("SCAN TO SEE THIS POST");
     expect(shareCapabilities({ kind: "person", id: "u1", title: "", subtitle: "" }, ORIGIN).qr.scanLabel)
       .toBe("SCAN TO OPEN THIS PROFILE");
   });
 
-  it("drops the QR entirely for a request — they expire within 24h", () => {
-    const caps = shareCapabilities({ kind: "request", id: "r1", title: "", subtitle: "" }, ORIGIN);
-    expect(caps.qr.enabled).toBe(false);
+  it("drops the QR entirely for requests and community posts", () => {
+    const reqCaps = shareCapabilities({ kind: "request", id: "r1", title: "", subtitle: "" }, ORIGIN);
+    expect(reqCaps.qr.enabled).toBe(false);
+
+    const postCaps = shareCapabilities({ kind: "post", id: "c1", title: "", subtitle: "" }, ORIGIN);
+    expect(postCaps.qr.enabled).toBe(false);
   });
 
-  it("keeps the QR for everything else", () => {
+  it("keeps the QR for merchants, profiles, and campaigns", () => {
     const kinds: ShareSubject[] = [
       shop(),
       { kind: "provider", id: "p1", title: "", subtitle: "" },
-      { kind: "post", id: "c1", title: "", subtitle: "" },
       { kind: "person", id: "u1", title: "", subtitle: "" },
       { kind: "campaign", id: "d1", businessId: "b1", title: "", subtitle: "" },
     ];

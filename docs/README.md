@@ -14,6 +14,7 @@ All project documentation lives under `docs/`.
 | **Background location (Play Console)** | [launch/play-console/BACKGROUND_LOCATION_DECLARATION.md](./launch/play-console/BACKGROUND_LOCATION_DECLARATION.md) |
 | **Deploy / build Android** | [engineering/DEPLOYMENT_GUIDE.md](./engineering/DEPLOYMENT_GUIDE.md) |
 | **Understand the codebase** | [engineering/CODEBASE_MAP.md](./engineering/CODEBASE_MAP.md) |
+| **Audit & mature flows (Deployment Tracker)** | [gaps/MASTER_FLOW_AUDIT_TRACKER.md](./gaps/MASTER_FLOW_AUDIT_TRACKER.md) |
 | **Troubleshoot flows (AI Code Graph)** | [engineering/CODE_GRAPH.md](./engineering/CODE_GRAPH.md) |
 | **Product overview** | [product/PRODUCT_GUIDE.md](./product/PRODUCT_GUIDE.md) |
 | **Legal policies (source)** | [`../legal/README.md`](../legal/README.md) |
@@ -30,11 +31,29 @@ docs/
 ├── product/                  Features, strategy, product guides
 ├── design/                   UX/UI design docs per role
 ├── engineering/              Codebase, deployment, build, debug
+├── gaps/                     Field-tested gap logs per flow (Customer, Provider, Business, Community, Team)
 ├── analysis/                 Deep-dive audits (app-analysis)
 ├── plans/                    Feature & implementation plans (app-plans)
 ├── audits/                   Reviews, readiness, historical MD_FILES
 └── marketing/                SEO and growth docs
 ```
+
+---
+
+## gaps/
+
+Field-tested defect, omission, and ready-to-use logs per operational domain:
+
+| File | Description |
+|------|-------------|
+| [MASTER_FLOW_AUDIT_TRACKER.md](./gaps/MASTER_FLOW_AUDIT_TRACKER.md) | **Master flow maturity & deployment audit tracker (all 51 flows across 12 domains)** |
+| [CUSTOMER_ONBOARDING_GAP_LOG.md](./gaps/CUSTOMER_ONBOARDING_GAP_LOG.md) | Customer onboarding & first-beat flow audit |
+| [PROVIDER_ONBOARDING_GAP_LOG.md](./gaps/PROVIDER_ONBOARDING_GAP_LOG.md) | Service provider registration & portfolio audit |
+| [BUSINESS_ONBOARDING_GAP_LOG.md](./gaps/BUSINESS_ONBOARDING_GAP_LOG.md) | Merchant onboarding & store setup audit |
+| [COMMUNITY_POSTS_GAP_LOG.md](./gaps/COMMUNITY_POSTS_GAP_LOG.md) | Community feed, comments & post interaction audit |
+| [TEAM_ACCESS_GAP_LOG.md](./gaps/TEAM_ACCESS_GAP_LOG.md) | Business team members, scoped delegation & duty audit |
+| [APPOINTMENT_BOOKING_GAP_LOG.md](./gaps/APPOINTMENT_BOOKING_GAP_LOG.md) | Customer appointment booking sheet, availability & scheduling audit |
+| [GAPS_LOG.md](./gaps/GAPS_LOG.md) | Master gap log across all subsystems |
 
 ---
 

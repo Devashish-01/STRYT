@@ -141,10 +141,12 @@ export function shareCapabilities(subject: ShareSubject, origin?: string): Share
     case "post":
       return {
         url,
+        // Community posts are shared via chat, WhatsApp, or direct link.
+        // A QR code toggle or download option does not make sense for feed posts.
         qr: {
-          enabled: true,
-          scanLabel: "SCAN TO SEE THIS POST",
-          caption: "Opens this neighbourhood post on STRYT",
+          enabled: false,
+          scanLabel: "",
+          caption: "",
         },
         paymentQr: false,
         // "Recommend" tags a business/provider listing; a post isn't one.
