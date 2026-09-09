@@ -125,7 +125,18 @@ export function useQueryWithRealtime<T>(
   cacheKey?: string
 ): QueryState<T> {
   const state = useQuery(fn, deps, cacheKey);
-  const { refetch } = state;
+  // useQuery returns `refetch: () => run(false)` — a fresh closure on every
+  // render. With `refetch` in the effect's dependency array below, the channel
+  // was torn down and re-subscribed on EVERY render, so a screen that
+  // re-rendered while data streamed in spent its life reconnecting and could
+  // miss the events arriving in the gap (CUSTOMER_QUEUE #Q8, MY_APPOINTMENTS
+  // #A8).
+  //
+  // Held in a ref instead: the subscription depends only on what actually
+  // identifies it — table and filter — while still calling the newest refetch.
+  // Same idiom as fnRef/optsRef in useMutation below.
+  const refetchRef = useRef(state.refetch);
+  refetchRef.current = state.refetch;
 
   useEffect(() => {
     if (!hasSupabaseEnv) return;
@@ -147,7 +158,7 @@ export function useQueryWithRealtime<T>(
           ...(filter ? { filter } : {}),
         },
         () => {
-          if (active) refetch();
+          if (active) refetchRef.current();
         }
       )
       .subscribe((status) => {
@@ -164,7 +175,7 @@ export function useQueryWithRealtime<T>(
       active = false;
       sb.removeChannel(channel);
     };
-  }, [tableName, filter, refetch]);
+  }, [tableName, filter]);
 
   return state;
 }

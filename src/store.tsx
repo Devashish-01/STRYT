@@ -204,6 +204,8 @@ interface AppState {
   guestLocation: { lat: number; lng: number } | null;
   guestLocationStatus: "idle" | "asking" | "granted" | "denied";
   requestGuestLocation: () => void;
+  /** Set a guest's location by hand (session-only, never persisted). */
+  setGuestLocation: (loc: { lat: number; lng: number }) => void;
 
   // data saver mode
   dataSaver: boolean;
@@ -269,7 +271,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Gated on authReady so we never flash "guest" during the boot round-trip and
   // ask for their location before we even know if they have a session.
   const isGuest = authReady && !isAuthed;
-  const { guestLocation, guestLocationStatus, requestGuestLocation } = useGuestLocation(isGuest);
+  const { guestLocation, guestLocationStatus, requestGuestLocation, setGuestLocation } = useGuestLocation(isGuest);
 
   // Services are plain modules and can't read this context — push the flag to
   // them so their radius resolvers can clamp guests to 1 km. Must run during
@@ -696,6 +698,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       guestLocation,
       guestLocationStatus,
       requestGuestLocation,
+      setGuestLocation,
       dataSaver,
       setDataSaver,
       notifExplainerPending,
@@ -742,7 +745,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
       chatUnread, toast, isAuthed, authReady, profileReady,
-      isGuest, guestLocation, guestLocationStatus, requestGuestLocation,
+      isGuest, guestLocation, guestLocationStatus, requestGuestLocation, setGuestLocation,
       dataSaver, setDataSaver, notifExplainerPending,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,

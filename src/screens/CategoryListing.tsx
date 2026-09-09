@@ -44,15 +44,14 @@ export default function CategoryListing() {
     return saved ? parseFloat(saved) : (user.notificationRadiusKm || 5);
   });
 
+  // Browse radius only. This used to also write notificationRadiusKm to the
+  // profile, so widening the view to find a specialist silently widened which
+  // alerts you receive — a settings decision made as a side effect of
+  // browsing. localStorage keeps the choice for the next visit; the
+  // notification radius stays where the user actually set it, in Settings.
   useEffect(() => {
     localStorage.setItem("settings_radius", String(radius));
-    if (user.id && radius !== user.notificationRadiusKm) {
-      void userService.update({ notificationRadiusKm: radius }).catch(() => {
-        showToast(t("explore_radius_save_failed"));
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [radius, user.id, user.notificationRadiusKm]);
+  }, [radius]);
 
   const childIds = cat?.children?.map((c) => c.id) ?? [];
   const matchIds = sub ? [sub] : [id, ...childIds];

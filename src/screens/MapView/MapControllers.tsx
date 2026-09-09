@@ -3,9 +3,7 @@ import { Navigation } from "@/components/Icons";
 import { useMap } from "react-map-gl/maplibre";
 import type { LngLatBoundsLike } from "maplibre-gl";
 import { useApp } from "@/store";
-import { reverseGeocode } from "@/lib/geocode";
 import { config } from "@/config";
-import { userService } from "@/services";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { useI18n } from "@/lib/i18n";
 
@@ -46,8 +44,8 @@ export function RecenterButton({
   onRecentered?: (lat: number, lng: number) => void;
 }) {
   const { current: mapRef } = useMap();
-  const { user, showToast, refreshUser } = useApp();
-  const { t, tf } = useI18n();
+  const { user, showToast } = useApp();
+  const { t } = useI18n();
   const lat = user.lat || config.defaultLocation.lat;
   const lng = user.lng || config.defaultLocation.lng;
 
@@ -68,20 +66,19 @@ export function RecenterButton({
       title={t("map_recenter_title")}
       onClick={() => {
         nativeGeolocation.getCurrentPosition(
-          async (pos) => {
+          (pos) => {
             const { latitude, longitude } = pos.coords;
-            try {
-              const areaName = await reverseGeocode(latitude, longitude);
-              await userService.setLocation(latitude, longitude, areaName || "Current Location");
-              await refreshUser();
-              showToast(tf("map_location_set_gps", { area: areaName || "Current Location" }));
-              recenterMap(latitude, longitude);
-              onRecentered?.(latitude, longitude);
-            } catch (err) {
-              showToast(t("map_gps_update_failed"));
-              recenterMap(latitude, longitude);
-              onRecentered?.(latitude, longitude);
-            }
+            // Recentring is a VIEW action. It used to reverse-geocode, call
+            // userService.setLocation() and refreshUser() — permanently moving
+            // the user's stored home location because they panned the map and
+            // wanted to get back. For a guest it was worse: setLocation throws
+            // 401, so the catch fired and every recentre showed a failure toast
+            // even though the map had recentred perfectly well.
+            //
+            // Setting your location is a deliberate act with its own control
+            // (LocationPickerSheet). Looking at the map is not that act.
+            recenterMap(latitude, longitude);
+            onRecentered?.(latitude, longitude);
           },
           (error) => {
             showToast(t("map_gps_unavailable"));

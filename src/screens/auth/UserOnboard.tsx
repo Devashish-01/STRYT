@@ -12,6 +12,7 @@ import { BeatHandle } from "./onboard/BeatHandle";
 import { BeatLocation, type PickedPlace } from "./onboard/BeatLocation";
 import { BeatInterests } from "./onboard/BeatInterests";
 import { LOCATION_SKIPPED_KEY } from "@/lib/locationPrompt";
+import { returnTo } from "@/lib/returnTo";
 
 /**
  * First-run onboarding — "light up your street".
@@ -123,10 +124,15 @@ export default function UserOnboard() {
       await refreshUser();
       // The payoff: all four lamps lit before Home takes over. Kept short, and
       // skipped outright when the viewer has asked for reduced motion.
+      // G1 — this used to hardcode "/home", discarding wherever the guest was
+      // headed when they hit the sign-in wall. PublicOnlyLayout now leaves the
+      // remembered path alone for new users, so this is where it finally gets
+      // honoured. Falls back to "/home" on its own when nothing was remembered.
+      const dest = returnTo.consume();
       const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      if (reduced) { nav("/home", { replace: true }); return; }
+      if (reduced) { nav(dest, { replace: true }); return; }
       setRevealing(true);
-      revealTimer.current = setTimeout(() => nav("/home", { replace: true }), 1100);
+      revealTimer.current = setTimeout(() => nav(dest, { replace: true }), 1100);
     } catch (err: any) {
       showToast(err?.message || "Couldn't save. Try again.");
       setBusy(false);

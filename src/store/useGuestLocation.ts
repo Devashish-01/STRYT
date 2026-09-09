@@ -41,6 +41,24 @@ export function useGuestLocation(enabled: boolean) {
   const [location, setLocation] = useState<GuestLocation | null>(() => readCached());
   const [status, setStatus] = useState<GuestLocationStatus>(() => (readCached() ? "granted" : "idle"));
 
+  /**
+   * Set the guest's location by hand (G3).
+   *
+   * Until now this hook only accepted a GPS fix, so a guest who denied the
+   * permission prompt had no way to say where they were — and
+   * LocationPickerSheet's only path called userService.setLocation(), which
+   * 401s without an account. The result was a visitor pinned to the
+   * discoveryService default (Pune) with no control that could move them (G2).
+   *
+   * Same session-only contract as the GPS path: sessionStorage, never the
+   * database, gone when the tab closes.
+   */
+  const setManual = useCallback((next: GuestLocation) => {
+    try { sessionStorage.setItem(KEY, JSON.stringify(next)); } catch { /* private mode — in-memory is fine */ }
+    setLocation(next);
+    setStatus("granted");
+  }, []);
+
   const request = useCallback(() => {
     setStatus("asking");
     nativeGeolocation.getCurrentPosition(
@@ -76,5 +94,5 @@ export function useGuestLocation(enabled: boolean) {
     try { sessionStorage.removeItem(KEY); } catch { /* ignore */ }
   }, [enabled]);
 
-  return { guestLocation: location, guestLocationStatus: status, requestGuestLocation: request };
+  return { guestLocation: location, guestLocationStatus: status, requestGuestLocation: request, setGuestLocation: setManual };
 }

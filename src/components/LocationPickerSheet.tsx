@@ -29,7 +29,7 @@ interface Props {
 }
 
 export default function LocationPickerSheet({ onClose, onLocationChanged, onPick, title, currentLabel }: Props) {
-  const { user, area, refreshUser, showToast, setArea } = useApp();
+  const { user, area, refreshUser, showToast, setArea, isGuest, setGuestLocation } = useApp();
   const [locating, setLocating] = useState(false);
   const [nearby, setNearby] = useState<GeoPlace[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
@@ -48,6 +48,19 @@ export default function LocationPickerSheet({ onClose, onLocationChanged, onPick
   async function handleSelect(p: GeoPlace) {
     if (onPick) {
       onPick({ lat: p.lat, lng: p.lng, area: p.area });
+      onClose();
+      return;
+    }
+    // G3 — a guest has no account, so userService.setLocation() throws 401 and
+    // the sheet showed "Couldn't set location". That left a visitor whose GPS
+    // was denied permanently pinned to the discoveryService default (Pune) with
+    // no control anywhere that could move them (G2). Guest locations live in
+    // sessionStorage for the tab, exactly like the GPS fix does.
+    if (isGuest) {
+      setGuestLocation({ lat: p.lat, lng: p.lng });
+      setArea(p.area);
+      showToast(`Showing places near ${p.area}`);
+      onLocationChanged?.(p.lat, p.lng);
       onClose();
       return;
     }
@@ -71,6 +84,16 @@ export default function LocationPickerSheet({ onClose, onLocationChanged, onPick
         const areaName = await reverseGeocode(latitude, longitude);
         if (onPick) {
           onPick({ lat: latitude, lng: longitude, area: areaName ?? "" });
+          setLocating(false);
+          onClose();
+          return;
+        }
+        // Same guest branch as handleSelect above — no account to write to.
+        if (isGuest) {
+          setGuestLocation({ lat: latitude, lng: longitude });
+          if (areaName) setArea(areaName);
+          showToast(`Showing places near ${areaName || "you"}`);
+          onLocationChanged?.(latitude, longitude);
           setLocating(false);
           onClose();
           return;

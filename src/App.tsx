@@ -386,13 +386,24 @@ function ProtectedLayout() {
 }
 
 function PublicOnlyLayout() {
-  const { isAuthed, activeContext } = useApp();
+  const { isAuthed, activeContext, user } = useApp();
   const isAuthCallback =
     window.location.hash.includes("access_token=") ||
     window.location.hash.includes("error=") ||
     window.location.search.includes("code=");
 
   if (isAuthed && !isAuthCallback) {
+    // G1 — a BRAND NEW user is about to be bounced to /auth/onboard by
+    // ProtectedLayout's needsOnboard gate. Consuming the remembered path here
+    // would destroy it before onboarding could honour it: the guest who tapped
+    // "Book appointment" on a shop, signed up, and completed four beats used to
+    // land on /home with the shop forgotten — the conversion earned, then
+    // thrown away at the last step. Leave it for UserOnboard.finish() to
+    // consume; an existing user still consumes it here as before.
+    if (user.id && user.onboardingCompletedAt === null) {
+      return <Navigate to="/auth/onboard" replace />;
+    }
+
     // Honour a remembered deep link (e.g. a shared /map link) first. Absent one,
     // returnTo.consume() falls back to "/home" — but for a business/provider
     // owner that's the wrong hat: the sidebar/nav/profile are already rendering

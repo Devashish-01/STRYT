@@ -5,6 +5,7 @@ import { Camera, MapPin, IndianRupee, Sparkles, X, Flame, Repeat, EyeOff, Mic, C
 import { catalogService, requestService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import { hasNoLocation } from "@/lib/locationPrompt";
 import RadiusSelector from "@/components/RadiusSelector";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { loadRequestDraft, saveRequestDraft, clearRequestDraft } from "@/lib/requestDraft";
@@ -255,6 +256,18 @@ export default function AskCompose() {
           );
         });
       }
+      // R1 — this used to fall through to `lat: lat || 0, lng: lng || 0`.
+      // Requests are matched to providers purely by radius, so a request filed
+      // at 0,0 (the Gulf of Guinea) reaches nobody — while the user is told
+      // "Notifying nearby providers" and waits for replies that can never come.
+      // A blocked post that says why beats a ghost post that looks like it
+      // worked.
+      if (hasNoLocation(lat, lng)) {
+        showToast("We couldn't get your location. Set your area from Home first — otherwise nearby providers can't see this request.");
+        setPosting(false);
+        return;
+      }
+
       const selectedCategory = (categories ?? []).find((c) => c.id === cat);
       await requestService.create({
         title,
@@ -273,8 +286,8 @@ export default function AskCompose() {
         expiresAt: new Date(Date.now() + Math.min(expiryHrs, 24) * 3600 * 1000).toISOString(),
         photos: photos.length ? photos : undefined,
         area,
-        lat: lat || 0,
-        lng: lng || 0,
+        lat,
+        lng,
       });
       clearRequestDraft();
       showToast("Request posted! Notifying nearby providers…");
