@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { SettingsSection, SettingsRow } from "@/components/settings";
-import { Download, Trash2, Shield } from "@/components/Icons";
+import { Download, Trash2, Shield, AlertTriangle } from "@/components/Icons";
 import { useApp } from "@/store";
 import { profileControlService, appointmentService, requestService } from "@/services";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
@@ -18,7 +18,7 @@ import { LEGAL_ROUTES } from "@/lib/legal";
 export default function DataSettings() {
   const nav = useNavigate();
   const [params] = useSearchParams();
-  const { user, bookmarks, lists, follows, refreshUser, showToast } = useApp();
+  const { user, bookmarks, lists, follows, refreshUser, showToast, ownedBusinessIds, ownedProviderId } = useApp();
 
   const [exporting, setExporting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -123,6 +123,14 @@ export default function DataSettings() {
               Your account will be scheduled for deletion in {ACCOUNT_DELETION_GRACE_DAYS} days.
               Sign back in before then and it's cancelled automatically — after that it's permanent.
             </p>
+            {((ownedBusinessIds && ownedBusinessIds.length > 0) || !!ownedProviderId) && (
+              <div className="card row gap-8" style={{ padding: "10px 12px", background: "var(--amber-50)", border: "1px solid var(--amber-200)", marginBottom: 12, alignItems: "flex-start" }}>
+                <AlertTriangle size={16} color="var(--amber-700)" style={{ flexShrink: 0, marginTop: 2 }} />
+                <p className="tiny" style={{ color: "var(--amber-800)", lineHeight: 1.4 }}>
+                  Your store and provider listings will be paused and hidden from search during the {ACCOUNT_DELETION_GRACE_DAYS}-day grace period.
+                </p>
+              </div>
+            )}
             <textarea
               className="input"
               style={{ minHeight: 70 }}

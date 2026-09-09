@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { UserPlus, X } from "@/components/Icons";
+import { inr } from "@/components/common";
 
 export interface WalkInPackageOption {
   id: string;
@@ -41,6 +42,11 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
   const capacity = Math.max(1, selectedPkg?.slotCapacity ?? defaultCapacity ?? 1);
   const maxParty = selectedPkg ? Math.min(capacity, Math.max(1, selectedPkg.maxPartySize ?? 1)) : capacity;
   const canPickParty = maxParty > 1;
+  const effectiveParty = canPickParty ? partySize : 1;
+  // package_price is the line TOTAL everywhere else in the app — the customer
+  // booking sheet already sends price × party. Sending the bare unit price here
+  // made a 3-spot walk-in record a single spot's revenue.
+  const totalPrice = selectedPkg ? selectedPkg.price * effectiveParty : undefined;
 
   useEffect(() => {
     setPartySize((n) => Math.max(1, Math.min(n, maxParty)));
@@ -48,7 +54,7 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1250, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div className="card col gap-14" style={{ width: "100%", maxWidth: 400, padding: 20, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+      <div className="card col gap-14" style={{ width: "100%", maxWidth: 400, padding: 20, background: "var(--surface)" }} onClick={(e) => e.stopPropagation()}>
         <div className="row between center-v">
           <div className="bold" style={{ fontSize: 16 }}>Add walk-in booking</div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
@@ -76,7 +82,7 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
                     type="button"
                     onClick={() => setPkgId(on ? null : pk.id)}
                     className="row gap-8 center-v"
-                    style={{ padding: 10, borderRadius: 10, border: on ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)", background: on ? "var(--brand-50)" : "#fff" }}
+                    style={{ padding: 10, borderRadius: 10, border: on ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)", background: on ? "var(--brand-50)" : "var(--surface)" }}
                   >
                     <span className="grow tiny semi">{pk.name}</span>
                     <span className="tiny bold" style={{ color: "var(--brand-700)" }}>₹{pk.price}</span>
@@ -114,7 +120,12 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
                   +
                 </button>
               </div>
-              <div className="tiny muted">Up to {maxParty} at this time</div>
+              <div className="tiny muted">
+                Up to {maxParty} at this time
+                {partySize > 1 && selectedPkg?.price ? (
+                  <> • {inr(selectedPkg.price * partySize)} ({inr(selectedPkg.price)}/spot)</>
+                ) : null}
+              </div>
             </div>
           </div>
         )}
@@ -126,7 +137,7 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
             disabled={submitting || name.trim().length < 2}
             onClick={() => onConfirm({
               name: name.trim(), phone: phone.trim(),
-              packageId: selectedPkg?.id, packageName: selectedPkg?.name, packagePrice: selectedPkg?.price,
+              packageId: selectedPkg?.id, packageName: selectedPkg?.name, packagePrice: totalPrice,
               partySize: canPickParty ? partySize : undefined,
             })}
           >

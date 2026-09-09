@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, MapPin, Navigation, Loader, Search, X, User, Phone, Lock } from "@/components/Icons";
+import { Camera, MapPin, Navigation, Loader, Search, X, User, Phone, Lock, CheckCircle } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService, uploadService } from "@/services";
 import { AppBar, SafeImg } from "@/components/common";
@@ -147,7 +147,7 @@ export default function ProfileEdit() {
       await userService.update({
         name: name.trim(),
         alias: cleanAlias || undefined,
-        phone: phone.trim() || undefined, avatar: avatar || undefined,
+        avatar: avatar || undefined,
         area: areaInput.trim() || undefined, lat: resolvedLat, lng: resolvedLng,
         ...privacy,
       });
@@ -355,15 +355,31 @@ export default function ProfileEdit() {
         <div>
           <SectionHead icon={<Phone size={15} color="var(--brand-600)" />} title="Contact" />
           <div className="field">
-            <label>Main Mobile Number</label>
-            <input
-              className="input"
-              placeholder="10-digit number"
-              inputMode="numeric"
-              maxLength={10}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-            />
+            <div className="row justify-between" style={{ alignItems: "center", marginBottom: 6 }}>
+              <label style={{ margin: 0 }}>Primary Mobile Number</label>
+              <span className="tiny bold" style={{ color: "var(--green-700)", display: "flex", alignItems: "center", gap: 4 }}>
+                <CheckCircle size={13} color="var(--green-600)" /> Verified Login
+              </span>
+            </div>
+            <div style={{ position: "relative" }}>
+              <input
+                className="input"
+                readOnly
+                disabled
+                value={phone ? `+91 ${phone}` : "No phone linked"}
+                style={{
+                  background: "var(--ink-50)",
+                  color: "var(--ink-700)",
+                  cursor: "not-allowed",
+                  borderColor: "var(--line)",
+                  paddingRight: 36,
+                }}
+              />
+              <Lock size={15} color="var(--ink-400)" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }} />
+            </div>
+            <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
+              Your login number is secured via SMS OTP. To protect account ownership, it cannot be changed directly in profile settings.
+            </p>
           </div>
         </div>
 

@@ -181,4 +181,43 @@ export const entityPasswordService = {
     });
     if (error) throw new Error(error.message || "Couldn't reset the password.");
   },
+
+  /** Check whether an entity console session has been unlocked via PIN in this browser session. */
+  isSessionUnlocked(entityId: string): boolean {
+    if (!entityId) return false;
+    try {
+      const raw = sessionStorage.getItem(`stryt_pin_unlocked_${entityId}`);
+      if (!raw) return false;
+      const expiresAt = Number(raw);
+      if (isNaN(expiresAt) || Date.now() > expiresAt) {
+        sessionStorage.removeItem(`stryt_pin_unlocked_${entityId}`);
+        return false;
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  /** Mark an entity console session unlocked for 2 hours. */
+  markSessionUnlocked(entityId: string): void {
+    if (!entityId) return;
+    try {
+      const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+      sessionStorage.setItem(`stryt_pin_unlocked_${entityId}`, String(Date.now() + TWO_HOURS_MS));
+    } catch {
+      // ignore storage errors
+    }
+  },
+
+  /** Clear the session unlock status for an entity. */
+  clearSessionUnlock(entityId: string): void {
+    if (!entityId) return;
+    try {
+      sessionStorage.removeItem(`stryt_pin_unlocked_${entityId}`);
+    } catch {
+      // ignore
+    }
+  },
 };
+

@@ -6464,6 +6464,7 @@ export type Database = {
           show_phone_publicly: boolean
           show_posts_publicly: boolean
           show_rating_publicly: boolean
+          alias: string | null
         }[]
       }
       get_shared_location: {

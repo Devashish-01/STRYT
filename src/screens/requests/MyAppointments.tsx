@@ -37,6 +37,13 @@ function isPayable(status: AppointmentRecord["status"]): boolean {
   return status === "PENDING" || status === "ACCEPTED" || status === "COMPLETED";
 }
 
+// Mirrors the server's own rule: appointment_transition allows a CUSTOMER
+// cancel only from PENDING/ACCEPTED, and reschedule_appointment refuses
+// anything outside that same pair. Anything else is a dead button.
+function canCustomerModify(a: AppointmentRecord): boolean {
+  return a.status === "PENDING" || a.status === "ACCEPTED";
+}
+
 // A booking that can still be paid and still needs the customer to act: payable
 // (PENDING/ACCEPTED/COMPLETED), not yet PAID, and not in a dead-end state
 // (cancelled/declined/no-show). These are kept in Upcoming even after their slot
@@ -77,6 +84,10 @@ interface RebookTarget {
   paymentTiming?: "AT_BOOKING" | "AT_APPOINTMENT";
   payeeUpiId?: string | null;
   depositPercent?: number;
+  // Delivery opt-in carried from the target so a re-booked delivery order can
+  // still be a delivery order. Always false/null for providers.
+  deliveryEnabled?: boolean;
+  deliveryTime?: string | null;
   // The target's CURRENT resolved package (freshest info — may differ from
   // apt.targetPackageKey if the owner has changed it since the original
   // booking). Drives the sheet's own wording; a plain re-create (Book again)
@@ -96,6 +107,8 @@ export default function MyAppointments() {
   const [loadingTarget, setLoadingTarget] = useState<string | null>(null);
   const [payingApt, setPayingApt] = useState<AppointmentRecord | null>(null);
   const [payBizUpiId, setPayBizUpiId] = useState<string | null>(null);
+  const [payDepositPercent, setPayDepositPercent] = useState<number | undefined>(undefined);
+  const [cancelReason, setCancelReason] = useState("");
   const [loadingPay, setLoadingPay] = useState<string | null>(null);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(loadDismissedCards);
   const [cancelConfirm, setCancelConfirm] = useState<AppointmentRecord | null>(null);
@@ -125,10 +138,12 @@ export default function MyAppointments() {
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
 
   async function cancel(apt: AppointmentRecord) {
+    const reason = cancelReason.trim();
     setCancelConfirm(null);
+    setCancelReason("");
     setCancelling(apt.id);
     try {
-      await appointmentService.updateStatus(apt.id, "CANCELLED", undefined, "CUSTOMER");
+      await appointmentService.updateStatus(apt.id, "CANCELLED", reason || undefined, "CUSTOMER");
       haptics.warning();
       showToast(`${vocabForRow(apt).nounCap} cancelled`);
       refetch();
@@ -168,6 +183,8 @@ export default function MyAppointments() {
           paymentTiming: b.paymentTiming,
           payeeUpiId: b.upiId ?? null,
           depositPercent: (b as any).depositPercent,
+          deliveryEnabled: b.deliveryEnabled ?? false,
+          deliveryTime: b.deliveryTime ?? null,
           targetPackageKey: resolvePackage(b),
         });
       } else {
@@ -183,6 +200,8 @@ export default function MyAppointments() {
           paymentTiming: p.paymentTiming,
           payeeUpiId: p.upiId ?? null,
           depositPercent: (p as any).depositPercent,
+          deliveryEnabled: false,
+          deliveryTime: null,
           targetPackageKey: resolvePackage(p),
         });
       }
@@ -197,11 +216,20 @@ export default function MyAppointments() {
     setLoadingPay(apt.id);
     try {
       let upiId: string | null = null;
+      let deposit: number | undefined;
       if (apt.targetType === "BUSINESS") {
         const biz = await businessService.get(apt.targetId);
         upiId = biz?.upiId ?? null;
+        deposit = (biz as any)?.depositPercent;
+      } else {
+        // Independent providers take payment too — skipping this branch left
+        // trainers, tutors and freelancers with no payee to send money to.
+        const prov = await providerService.get(apt.targetId);
+        upiId = prov?.upiId ?? null;
+        deposit = (prov as any)?.depositPercent;
       }
       setPayBizUpiId(upiId);
+      setPayDepositPercent(deposit);
       setPayingApt(apt);
     } catch {
       showToast("Couldn't load payment info. Try again.");
@@ -214,7 +242,15 @@ export default function MyAppointments() {
   // original and creates the new booking in a single transaction), so there's
   // no separate client-side cancel to run — which is what used to strand two
   // live bookings when that best-effort cancel silently failed.
-  function handleBooked() {}
+  function handleBooked() {
+    // Reschedule is atomic server-side, so there's nothing to reconcile — but
+    // Book Again is launched from Past, and its result lands in Upcoming. Move
+    // the customer to where their new booking actually is.
+    if (rebook?.mode === "AGAIN") {
+      setTab("UPCOMING");
+      showToast("Booked — find it under Upcoming");
+    }
+  }
 
   return (
     <div className="screen screen-boxed">
@@ -308,6 +344,7 @@ export default function MyAppointments() {
                         {apt.packageName && (
                           <div className="tiny semi" style={{ color: "var(--brand-700)" }}>
                             📦 {apt.packageName}{apt.packagePrice ? ` • ₹${apt.packagePrice}` : ""}
+                            {(apt.partySize ?? 1) > 1 ? ` • 👥 ${apt.partySize} spots` : ""}
                           </div>
                         )}
                         {apt.notes && (
@@ -389,7 +426,7 @@ export default function MyAppointments() {
 
                     {/* Actions */}
                     <div className="row gap-8" style={{ borderTop: "1px solid var(--line)", paddingTop: 10, marginTop: 2 }}>
-                      {tab === "UPCOMING" ? (
+                      {tab === "UPCOMING" && canCustomerModify(apt) ? (
                         <>
                           <button
                             type="button"
@@ -460,6 +497,10 @@ export default function MyAppointments() {
           paymentTiming={rebook.paymentTiming}
           payeeUpiId={rebook.payeeUpiId}
           depositPercent={rebook.depositPercent}
+          deliveryEnabled={rebook.deliveryEnabled}
+          deliveryTime={rebook.deliveryTime}
+          initialFulfillmentType={rebook.apt.fulfillmentType === "DELIVERY" ? "DELIVERY" : "IN_STORE"}
+          initialPartySize={rebook.apt.partySize ?? 1}
           rescheduledFromId={rebook.mode === "RESCHEDULE" ? rebook.apt.id : undefined}
           rescheduledFromLabel={rebook.mode === "RESCHEDULE" ? { dateLabel: rebook.apt.dateLabel, timeLabel: rebook.apt.timeLabel } : undefined}
           vocabulary={BUSINESS_PACKAGES[rebook.targetPackageKey].vocabulary}
@@ -475,6 +516,7 @@ export default function MyAppointments() {
           appointment={payingApt}
           businessUpiId={payBizUpiId}
           businessName={payingApt.targetName}
+          depositPercent={payDepositPercent}
           vocabulary={vocabForRow(payingApt)}
           onPaid={refetch}
           onClose={() => { setPayingApt(null); setPayBizUpiId(null); }}
@@ -483,7 +525,7 @@ export default function MyAppointments() {
 
       {/* Cancel confirmation */}
       {cancelConfirm && (
-        <div className="overlay" onClick={() => setCancelConfirm(null)}>
+        <div className="overlay" onClick={() => { setCancelConfirm(null); setCancelReason(""); }}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
             <h2 className="h2" style={{ marginBottom: 6 }}>{tf("cancel_this_noun", { noun: vocabForRow(cancelConfirm).noun })}</h2>
@@ -491,11 +533,31 @@ export default function MyAppointments() {
               {tf("will_be_notified", { name: cancelConfirm.targetName })}
               {cancelConfirm.paymentStatus === "PAID" && t("already_paid_refund_notice")}
             </p>
+            {cancelConfirm.paymentStatus === "PENDING_CONFIRM" && (
+              <div
+                className="tiny"
+                style={{ background: "var(--amber-50)", border: "1px solid var(--amber-200)", color: "var(--amber-800)", padding: "8px 10px", borderRadius: 10, marginBottom: "var(--space-sm)", lineHeight: 1.5 }}
+              >
+                ⚠️ Your payment is still waiting to be confirmed. Cancelling now won't withdraw it — settle the refund directly with {cancelConfirm.targetName}.
+              </div>
+            )}
+            <label className="tiny semi muted" style={{ display: "block", marginBottom: 4 }}>
+              Reason (optional — they'll see this)
+            </label>
+            <textarea
+              className="input"
+              rows={2}
+              maxLength={300}
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Something came up…"
+              style={{ width: "100%", marginBottom: "var(--space-md)", resize: "vertical" }}
+            />
             <div className="col gap-8">
-              <button className="btn btn-block" style={{ background: "var(--red-500)", color: "#fff" }} onClick={() => cancel(cancelConfirm)}>
+              <button className="btn btn-block" style={{ background: "var(--red-500)", color: "var(--white)" }} onClick={() => cancel(cancelConfirm)}>
                 {t("yes_cancel")}
               </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setCancelConfirm(null)}>{tf("keep_noun", { noun: vocabForRow(cancelConfirm).noun })}</button>
+              <button className="btn btn-ghost btn-block" onClick={() => { setCancelConfirm(null); setCancelReason(""); }}>{tf("keep_noun", { noun: vocabForRow(cancelConfirm).noun })}</button>
             </div>
           </div>
         </div>

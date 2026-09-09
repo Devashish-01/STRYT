@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Navigate, Outlet, useParams } from "react-router-dom";
+import { Navigate, Outlet, useParams, useNavigate } from "react-router-dom";
 import { useApp } from "@/store";
 import { Skeleton } from "@/components/states";
+import PinEntrySheet from "@/components/PinEntrySheet";
+import { entityPasswordService } from "@/services/core/entityPasswordService";
 
 /**
  * Wraps every /provider/:id/manage* route — the provider-side counterpart to
@@ -14,9 +16,11 @@ import { Skeleton } from "@/components/states";
  */
 export default function ProviderAccessGuard() {
   const { id = "" } = useParams();
-  const { ownedProviderId, ownedEntitiesLoaded, setContext, showToast } = useApp();
+  const nav = useNavigate();
+  const { ownedProviderId, ownedEntitiesLoaded, setContext, showToast, providerPasswordIsSet } = useApp();
   const isOwner = ownedProviderId === id;
 
+  const [pinUnlocked, setPinUnlocked] = useState(() => entityPasswordService.isSessionUnlocked(id));
   const [waitedEnough, setWaitedEnough] = useState(false);
   useEffect(() => {
     if (ownedEntitiesLoaded) return;
@@ -25,6 +29,22 @@ export default function ProviderAccessGuard() {
   }, [ownedEntitiesLoaded]);
 
   if (isOwner) {
+    if (providerPasswordIsSet && !pinUnlocked) {
+      return (
+        <PinEntrySheet
+          mode="verify"
+          kind="provider"
+          entityId={id}
+          onClose={() => {
+            nav("/home", { replace: true });
+          }}
+          onVerified={() => {
+            entityPasswordService.markSessionUnlocked(id);
+            setPinUnlocked(true);
+          }}
+        />
+      );
+    }
     return <Outlet />;
   }
 
@@ -42,3 +62,4 @@ export default function ProviderAccessGuard() {
   showToast("You don't have access to that provider profile");
   return <Navigate to="/home" replace />;
 }
+

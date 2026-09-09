@@ -62,6 +62,12 @@ export interface AppointmentSheetProps {
   deliveryEnabled?: boolean;
   /** Expected delivery turnaround from business row (e.g. "30 mins", "1 hour"). */
   deliveryTime?: string | null;
+  /** Pre-select the fulfillment mode — used when rescheduling or re-booking so a
+   *  delivery order doesn't silently come back as an in-store visit. */
+  initialFulfillmentType?: "IN_STORE" | "DELIVERY";
+  /** Pre-fill the number of spots, for the same reason. Clamped down by the
+   *  existing ceiling effect once the slot's real remaining capacity loads. */
+  initialPartySize?: number;
   /** Vocabulary override from business package preset. Defaults to generic. */
   vocabulary?: BizVocabulary;
   targetPackageKey?: string;
@@ -87,6 +93,8 @@ export function AppointmentSheet({
   outOfRange = false,
   deliveryEnabled = false,
   deliveryTime,
+  initialFulfillmentType,
+  initialPartySize,
   vocabulary = BUSINESS_PACKAGES.generic.vocabulary,
   targetPackageKey,
   onClose,
@@ -105,7 +113,9 @@ export function AppointmentSheet({
   // hasn't turned delivery on can't fulfil it, and appointment_create rejects
   // DELIVERY for such a shop anyway (DELIVERY_NOT_OFFERED).
   const canOfferDelivery = DELIVERY_AGENT_ENABLED && targetType === "BUSINESS" && deliveryEnabled;
-  const [fulfillmentType, setFulfillmentType] = useState<"IN_STORE" | "DELIVERY">("IN_STORE");
+  const [fulfillmentType, setFulfillmentType] = useState<"IN_STORE" | "DELIVERY">(
+    initialFulfillmentType === "DELIVERY" && canOfferDelivery ? "DELIVERY" : "IN_STORE"
+  );
   const [deliveryAddressLine, setDeliveryAddressLine] = useState(user?.area || "");
   const [requestedWindow, setRequestedWindow] = useState("");
   const [deliveryLat, setDeliveryLat] = useState<number | null>(user?.lat ?? null);
@@ -124,7 +134,7 @@ export function AppointmentSheet({
   /** package_id → { capacity, maxPartySize }, resolved server-side against the
    *  business default. Empty for providers (always capacity 1). */
   const [capacities, setCapacities] = useState<Record<string, { capacity: number; maxPartySize: number }>>({});
-  const [partySize, setPartySize] = useState(1);
+  const [partySize, setPartySize] = useState(Math.max(1, initialPartySize ?? 1));
   const [customerAppointments, setCustomerAppointments] = useState<AppointmentRecord[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [loadingApts, setLoadingApts] = useState(true);

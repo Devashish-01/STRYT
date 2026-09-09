@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { Navigate, Outlet, useParams } from "react-router-dom";
+import { Navigate, Outlet, useParams, useNavigate } from "react-router-dom";
 import { businessAccessService } from "@/services";
 import { deliveryService } from "@/services/engagement/deliveryService";
 import type { AccessLevel, Scope } from "@/services/marketplace/businessAccessService";
@@ -8,6 +8,8 @@ import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import { Skeleton } from "@/components/states";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { buildScopeLabel, resolveConsoleMode, type ConsoleMode } from "@/lib/teamConsole";
+import PinEntrySheet from "@/components/PinEntrySheet";
+import { entityPasswordService } from "@/services/core/entityPasswordService";
 
 interface BusinessAccessValue {
   isOwner: boolean;
@@ -62,13 +64,15 @@ export function useBusinessAccess() {
  */
 export default function BusinessAccessGuard() {
   const { id = "" } = useParams();
-  const { ownedBusinessIds, ownedEntitiesLoaded, setContext, showToast, user } = useApp();
+  const nav = useNavigate();
+  const { ownedBusinessIds, ownedEntitiesLoaded, setContext, showToast, user, businessPasswordRequired } = useApp();
   // Strictly ownership — `ownedBusinessIds` must never contain a delegated
   // grant (see userService.owned). This one line is the whole definition of
   // "owner" for the console: everything RequireOwner protects, and every
   // hasScope() check, collapses to true the moment it's wrong.
   const isOwner = ownedBusinessIds.includes(id);
 
+  const [pinUnlocked, setPinUnlocked] = useState(() => entityPasswordService.isSessionUnlocked(id));
   const [status, setStatus] = useState<"checking" | "allowed" | "denied" | "retry">(isOwner ? "allowed" : "checking");
   const [attempt, setAttempt] = useState(0);
   const [waitedEnough, setWaitedEnough] = useState(false);
@@ -180,6 +184,23 @@ export default function BusinessAccessGuard() {
     setContext({ type: "customer", id: null, name: "" });
     showToast("Your access to that business was revoked");
     return <Navigate to="/home" replace />;
+  }
+
+  if (status === "allowed" && !!businessPasswordRequired[id] && !pinUnlocked) {
+    return (
+      <PinEntrySheet
+        mode="verify"
+        kind="business"
+        entityId={id}
+        onClose={() => {
+          nav("/home", { replace: true });
+        }}
+        onVerified={() => {
+          entityPasswordService.markSessionUnlocked(id);
+          setPinUnlocked(true);
+        }}
+      />
+    );
   }
 
   return (

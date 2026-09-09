@@ -102,6 +102,19 @@ export const profileControlService = {
         .update({ customer_enabled: false })
         .eq("id", session.user.id);
       if (userErr) console.warn("Failed to soft-disable user profile:", userErr.message);
+
+      // DEL-1: Auto-pause discoverability on active businesses & providers during 30-day grace period
+      const { error: bizErr } = await sb
+        .from("businesses")
+        .update({ owner_enabled: false })
+        .eq("owner_user_id", session.user.id);
+      if (bizErr) console.warn("Failed to pause owned businesses on deletion request:", bizErr.message);
+
+      const { error: provErr } = await sb
+        .from("providers")
+        .update({ owner_enabled: false })
+        .eq("user_id", session.user.id);
+      if (provErr) console.warn("Failed to pause provider profile on deletion request:", provErr.message);
     }
   },
 
@@ -124,6 +137,17 @@ export const profileControlService = {
       .update({ customer_enabled: true })
       .eq("id", session.user.id);
     throwIfError(userErr);
+
+    // DEL-1: Re-enable discoverability on owned businesses & providers when deletion is cancelled
+    await sb
+      .from("businesses")
+      .update({ owner_enabled: true })
+      .eq("owner_user_id", session.user.id);
+
+    await sb
+      .from("providers")
+      .update({ owner_enabled: true })
+      .eq("user_id", session.user.id);
   },
 
   /**

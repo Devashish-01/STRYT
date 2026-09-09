@@ -24,7 +24,7 @@ export interface OwnedEntities {
 }
 
 const USER_COLUMNS = new Set([
-  "name", "alias", "phone", "avatar", "roles", "area", "city", "lat", "lng",
+  "name", "alias", "avatar", "roles", "area", "city", "lat", "lng",
   "ratingAvg", "ratingCount", "language", "notificationRadiusKm",
   "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
   "showPhonePublicly", "showEmailPublicly", "showCityPublicly", "showRatingPublicly",

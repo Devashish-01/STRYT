@@ -72,12 +72,24 @@ export function PaymentStatusCard({
   }
 
   if (paymentStatus === "PAID") {
+    // A confirmed payment is the only proof a customer has at the counter, so
+    // the method and reference stay on screen instead of collapsing into a
+    // bare "confirmed" tick — that's what staff ask to see.
     return (
-      <div className="card row gap-8" style={{ padding: 12, alignItems: "center" }}>
-        <CheckCircle2 size={16} color="var(--green-500)" />
-        <span className="tiny semi" style={{ color: "var(--green-600)" }}>
-          Payment confirmed{paymentAmount ? ` · ${inr(paymentAmount)}` : ""}
-        </span>
+      <div className="card col gap-4" style={{ padding: 12 }}>
+        <div className="row gap-8" style={{ alignItems: "center" }}>
+          <CheckCircle2 size={16} color="var(--green-500)" />
+          <span className="tiny semi" style={{ color: "var(--green-600)" }}>
+            Payment confirmed{paymentAmount ? ` · ${inr(paymentAmount)}` : ""}
+          </span>
+        </div>
+        {(paymentMethod || paymentReference) && (
+          <div className="tiny muted" style={{ paddingLeft: 24, wordBreak: "break-all" }}>
+            {paymentMethod ? `Paid via ${paymentMethod}` : ""}
+            {paymentMethod && paymentReference ? " • " : ""}
+            {paymentReference ? `Ref: ${paymentReference}` : ""}
+          </div>
+        )}
       </div>
     );
   }

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useApp } from "@/store";
 import PinEntrySheet from "@/components/PinEntrySheet";
 import { PasswordRecoverySheet } from "@/components/entity-password";
+import { entityPasswordService } from "@/services/core/entityPasswordService";
 
 /**
  * Mounted once in App.tsx. Watches pendingContextSwitch (set by
@@ -38,6 +39,9 @@ export default function PinGateSheet() {
     (kind === "business" ? businessRecoveryIsSet : providerRecoveryIsSet);
 
   function finishSwitch() {
+    if (ctx.id) {
+      entityPasswordService.markSessionUnlocked(ctx.id);
+    }
     const dest = confirmPendingSwitch();
     if (dest) nav(dest);
   }

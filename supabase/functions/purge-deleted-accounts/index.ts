@@ -124,6 +124,8 @@ async function purgeCustomerAccount(
 ): Promise<void> {
   const { data: ownedBusinesses } = await sb.from("businesses").select("id").eq("owner_user_id", targetId);
   for (const biz of ownedBusinesses || []) {
+    await sb.from("bulk_deal_campaigns").delete().eq("business_id", biz.id);
+    await sb.from("bulk_deals").delete().eq("business_id", biz.id);
     await sb.from("catalog_items").delete().eq("business_id", biz.id);
     await sb.from("offers").delete().eq("business_id", biz.id);
     await sb.from("stories").delete().eq("owner_id", biz.id).eq("owner_type", "business");
