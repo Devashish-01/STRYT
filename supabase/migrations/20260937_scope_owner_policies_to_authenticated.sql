@@ -1,0 +1,64 @@
+-- ============================================================
+-- 20260937 — GUEST_BROWSING: five RLS policies abort for signed-out visitors.
+--
+-- Found by `npm run check-policy-grants` the first time it was ever actually
+-- run (it self-skips without DATABASE_URL, and DATABASE_URL had never been
+-- set), then confirmed directly:
+--
+--   anon SELECT bulk_deals        → permission denied for function has_business_scope
+--   anon SELECT bulk_deal_pledges → permission denied for function has_business_scope
+--   anon SELECT bulk_deal_tokens  → permission denied for function has_business_access
+--   anon SELECT custom_payments   → permission denied for function has_business_scope
+--   anon SELECT proposals         → permission denied for function has_business_scope
+--
+-- This is 20260887's lesson again, from the other side. Postgres resolves
+-- EXECUTE permission for a policy's qual at executor init — before any AND/OR
+-- short-circuit — so a policy calling a function the current role cannot
+-- execute ABORTS THE WHOLE STATEMENT. Not "returns no rows": an error.
+--
+-- 20260908 fixed this for `authenticated` by regranting EXECUTE. Nobody checked
+-- `anon`. Every one of these policies has an empty `polroles`, i.e. PUBLIC, so
+-- they are initialized for guests too.
+--
+-- The live impact is `bulk_deals`: /community-hub is a public route and
+-- bulkService.deals() selects straight from it, so signed-out bulk-deal
+-- browsing has been failing. `proposals` degrades userService.publicProfile()
+-- — the read sits in a Promise.all whose result is `?? []`-guarded, so the
+-- profile renders with a silently empty "quotes given" list rather than
+-- throwing.
+--
+-- ── Why scoping, not granting ─────────────────────────────────────────
+-- The other repair is `grant execute … to anon`, which is what 20260887 did
+-- for is_admin() and 20260924 for is_blocked_between(). Those were correct
+-- because guests genuinely traverse those policies and the functions
+-- short-circuit to false for a null auth.uid().
+--
+-- These five are different: not one is a policy a guest was ever meant to
+-- satisfy. They express "…or you manage this business", which is meaningless
+-- without a session. Granting anon EXECUTE would let a signed-out caller probe
+-- business-scope membership for arbitrary ids — the exact leak 20260892 called
+-- out when it removed the two-free-parameter form of is_blocked_between.
+--
+-- Scoping is also self-enforcing: Postgres only initializes policies applicable
+-- to the current role, so once a policy is `TO authenticated` the function stays
+-- revoked from anon and can never be reached by that path again.
+--
+-- ── What guests keep ──────────────────────────────────────────────────
+-- bulk_deals keeps `read_bulk_deals`, which is PUBLIC, covers
+-- `status = 'ACTIVE'`, and calls only is_admin() — already granted to anon by
+-- 20260887. Guest browsing is unaffected.
+--
+-- For the other four, anon is simply left with no applicable SELECT policy, so
+-- those reads return zero rows instead of aborting. That matches what the
+-- client already does: bulkService.enrichMyPledges / myPledgedDeals / myTokens
+-- all `return` early on a null uid, and CommunityHub passes `isGuest ? ds : …`.
+-- No guest code path reads them.
+--
+-- `write_bulk_deals` is `FOR ALL`, which is why a plain SELECT initialized it.
+-- ============================================================
+
+alter policy write_bulk_deals        on public.bulk_deals        to authenticated;
+alter policy read_bulk_deal_pledges  on public.bulk_deal_pledges to authenticated;
+alter policy read_bulk_deal_tokens   on public.bulk_deal_tokens  to authenticated;
+alter policy select_custom_payments  on public.custom_payments   to authenticated;
+alter policy read_proposals          on public.proposals         to authenticated;
