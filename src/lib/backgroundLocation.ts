@@ -69,8 +69,8 @@ export const backgroundLocation = {
         await BackgroundGeolocation.start(
           {
             backgroundMessage:
-              "Sharing your live location with My People. Open STRYT to stop.",
-            backgroundTitle: "STRYT live location",
+              "Sharing live location for active deliveries. Open STRYT to view status.",
+            backgroundTitle: "STRYT Live Tracking",
             requestPermissions: false,
             stale: false,
             distanceFilter: 15,

@@ -72,6 +72,7 @@ const meta: Record<NotificationType, { icon: any; color: string; bg: string }> =
   CUSTOM_PAYMENT_CONFIRMED: { icon: Wallet, color: "var(--green-500)", bg: "var(--green-100)" },
   CUSTOM_PAYMENT_REJECTED: { icon: Wallet, color: "var(--red-500)", bg: "var(--red-50)" },
   QNA: { icon: MessageCircle, color: "var(--brand-700)", bg: "var(--brand-100)" },
+  CHAT: { icon: MessageCircle, color: "var(--brand-700)", bg: "var(--brand-100)" },
   SYSTEM: { icon: Bell, color: "var(--ink-600)", bg: "var(--ink-100)" },
 };
 

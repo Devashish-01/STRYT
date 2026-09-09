@@ -150,7 +150,11 @@ Before any sprint is marked complete or committed to git, it must pass all 4 gat
   - [x] 3.5 Auto Schedule Tri-State & Immediate Hours Save (`HRS-1`, `HRS-4`)
   - [x] 3.6 Merchant Queue Concurrency Guard, Individual Call & Persistent Board (`M1`, `M2`, `M4`, `M5`)
   - [x] 3.7 Catalog Nullifiable Fields, Delete Dialog & Cache Busting (`CAT-1`, `CAT-2`, `INV-1`, `INV-2`, `INV-3`)
-- [ ] **Sprint 4: Realtime Engine — Local Delivery & 1:1 Chat (Domains 5 & 6)**
+- [x] **Sprint 4: Realtime Engine — Local Delivery & 1:1 Chat (Domains 5 & 6)** *(Completed)*
+  - [x] 4.1 Customer Realtime Delivery Polling, PIN Reveal & Token Share (`T1`, `T2`, `T3`, `T5`, `T6`)
+  - [x] 4.2 Merchant Delivery Dispatch Sync, Polling Fallback & Spiderweb Fix (`D1`, `D2`, `D3`, `D5`)
+  - [x] 4.3 Rider In-Flight Non-Blocking Dispatch, Fast GPS & Background Notification (`R1`, `R8`, `R12`)
+  - [x] 4.4 1:1 Chat Google Play Moderation, PhotoViewer, Realtime Badge Clear & Push Trigger (`C1`, `C2`, `C3`, `C4`, `C6`, `C7`, `C9`)
 - [ ] **Sprint 5: Custom Requests, Bids & Group Deals (Domains 4 & 7)**
 - [ ] **Sprint 6: Trust, Safety & Google Play Store Hardening (Domains 8–11)**
 

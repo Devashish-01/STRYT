@@ -30,7 +30,7 @@ function getGPS(): Promise<{ lat: number; lng: number } | null> {
     nativeGeolocation.getCurrentPosition(
       (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
       () => res(null),
-      { timeout: 5000 },
+      { timeout: 2500 },
     ),
   );
 }
@@ -335,9 +335,10 @@ export default function DeliveryConsole() {
     }
   }
 
-  // One primary action at a time: a pending run intercepts the whole console until
-  // it's accepted or declined — nothing else competes with that decision.
-  if (pendingBatch) {
+  // Gate NewRunGate only when the courier has NO active deliveries in flight.
+  // If active deliveries exist, do not hijack the console so drop-offs remain workable.
+  const hasActiveWork = activeBatches.length > 0 || soloActive.length > 0;
+  if (pendingBatch && !hasActiveWork) {
     return (
       <div className="screen screen-boxed">
         <NewRunGate
@@ -386,7 +387,7 @@ export default function DeliveryConsole() {
       {/* Header — identity + one-tap switch back to Personal */}
       <div className="row between center-v" style={{ padding: "calc(14px + var(--safe-area-top)) 16px 14px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
         <div className="row gap-10 center-v">
-          <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--delivery-600)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--delivery-600)", color: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
             <Package size={18} />
           </span>
           <div>
@@ -396,6 +397,24 @@ export default function DeliveryConsole() {
         </div>
         <RoleSwitcher enableLongPress />
       </div>
+
+      {/* Non-blocking incoming batch banner while active work is underway */}
+      {pendingBatch && hasActiveWork && (
+        <div className="row between center-v" style={{ background: "var(--brand-50)", borderBottom: "1px solid var(--brand-200)", padding: "10px 16px" }}>
+          <div className="col" style={{ minWidth: 0, paddingRight: 8 }}>
+            <span className="semi small ellipsis" style={{ color: "var(--brand-700)" }}>New run waiting ({pendingBatch.items.length} {pendingBatch.items.length === 1 ? "stop" : "stops"})</span>
+            <span className="tiny muted ellipsis">{pendingBatch.items[0]?.businessName || "Assigned run"}</span>
+          </div>
+          <div className="row gap-6" style={{ flexShrink: 0 }}>
+            <button className="btn btn-sm btn-outline" disabled={decidingBatch === pendingBatch.batchId} onClick={() => declineRun(pendingBatch)}>
+              Decline
+            </button>
+            <button className="btn btn-sm btn-delivery" disabled={decidingBatch === pendingBatch.batchId} onClick={() => acceptRun(pendingBatch)}>
+              Accept
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Duty — glanceable, always visible, not buried in a menu. When it's
           blocked, say so here and point at the job doing the blocking; never
@@ -553,7 +572,7 @@ function NewRunGate({ batch, busy, queuePosition, queueTotal, nextBatch, soloWai
       <div className="col gap-8" style={{ maxHeight: "40vh", overflowY: "auto" }}>
         {batch.items.map((d, i) => (
           <div key={d.id} className="row gap-10 center-v card card-condensed">
-            <span style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--delivery-600)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
+            <span style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--delivery-600)", color: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>
               {i + 1}
             </span>
             <div className="grow" style={{ minWidth: 0 }}>
@@ -829,7 +848,7 @@ function RunCard({ batch, busyId, onAdvance, onVerify, onCantDeliver, showAction
                   opacity: routable ? 1 : 0.55,
                 }}
               >
-                <span style={{ width: 20, height: 20, borderRadius: "50%", background: isSel ? "var(--delivery-600)" : "var(--ink-200)", color: isSel ? "#fff" : "var(--ink-600)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                <span style={{ width: 20, height: 20, borderRadius: "50%", background: isSel ? "var(--delivery-600)" : "var(--ink-200)", color: isSel ? "var(--white)" : "var(--ink-600)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
                   {d.stopOrder ?? "?"}
                 </span>
                 <div className="grow tiny ellipsis" style={{ color: isSel ? "var(--delivery-600)" : "var(--ink-500)" }}>

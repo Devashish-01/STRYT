@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -12,7 +12,7 @@ import CantDeliverSheet from "@/components/delivery/CantDeliverSheet";
 import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
 import { businessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
-import { Package, MapPin, Phone, CheckCircle, Navigation } from "@/components/Icons";
+import { Package, MapPin, Phone, CheckCircle, Navigation, XCircle, Share2 } from "@/components/Icons";
 import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";
 import { openRoute } from "@/lib/routeLink";
@@ -30,6 +30,18 @@ const ACTIVE_STATUSES = ["ASSIGNED", "EN_ROUTE", "ARRIVED"] as const;
  * on, and how far through their run they are. Filterable per agent (who's out
  * right now) and per order.
  */
+function MapController({ center, focusedCoords }: { center: [number, number] | null; focusedCoords?: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (focusedCoords) {
+      map.flyTo(focusedCoords, 15, { duration: 0.8 });
+    } else if (center) {
+      map.panTo(center);
+    }
+  }, [center, focusedCoords, map]);
+  return null;
+}
+
 export default function BusinessDeliveries() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
@@ -77,6 +89,16 @@ export default function BusinessDeliveries() {
     [all],
   );
 
+  // Polling fallback while deliveries are in progress so courier movement during
+  // batched runs refreshes automatically.
+  useEffect(() => {
+    if (active.length === 0) return;
+    const interval = setInterval(() => {
+      refetch();
+    }, 12000);
+    return () => clearInterval(interval);
+  }, [active.length, refetch]);
+
   // Agents currently carrying at least one active stop.
   const agents = useMemo(() => {
     const seen = new Map<string, { id: string; name: string; avatar: string | null; count: number }>();
@@ -90,6 +112,7 @@ export default function BusinessDeliveries() {
   }, [active]);
 
   const visible = agentFilter === "ALL" ? active : active.filter((d) => d.agentUserId === agentFilter);
+  const focusedDelivery = useMemo(() => all.find((d) => d.id === focusedId) ?? null, [all, focusedId]);
 
   // Map: each agent's live position (a batch's shared run position, or a solo
   // delivery's own tracked point) plus every visible stop, joined in route
@@ -123,10 +146,16 @@ export default function BusinessDeliveries() {
           ? [business.lat, business.lng]
           : null;
 
-  const routeLine: [number, number][] = [
-    ...agentPoints.map((a) => [a.lat, a.lng] as [number, number]),
-    ...stopPoints.map((s) => [s.deliveryLat!, s.deliveryLng!] as [number, number]),
-  ];
+  // Polyline should only connect a single selected rider to their assigned stops,
+  // preventing criss-crossing spiderwebs between distinct riders across the city.
+  const routeLine: [number, number][] = useMemo(() => {
+    if (agentFilter === "ALL" || agentPoints.length === 0) return [];
+    const agent = agentPoints[0];
+    return [
+      [agent.lat, agent.lng],
+      ...stopPoints.map((s) => [s.deliveryLat!, s.deliveryLng!] as [number, number]),
+    ];
+  }, [agentFilter, agentPoints, stopPoints]);
 
   // Route itself had no flag check before this — only the dashboard tile/nav
   // link pointing here did (BusinessHub.tsx, ManageDashboard.tsx), so direct
@@ -161,6 +190,14 @@ export default function BusinessDeliveries() {
                 <div style={{ height: 240, borderRadius: 16, overflow: "hidden", border: "1px solid var(--line)" }}>
                   <MapContainer center={mapCenter} zoom={13} style={{ width: "100%", height: "100%" }} zoomControl={false} attributionControl={false}>
                     <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                    <MapController
+                      center={mapCenter}
+                      focusedCoords={
+                        focusedDelivery?.deliveryLat != null && focusedDelivery?.deliveryLng != null
+                          ? [focusedDelivery.deliveryLat, focusedDelivery.deliveryLng]
+                          : null
+                      }
+                    />
                     {business?.lat && business?.lng && (
                       <Marker position={[business.lat, business.lng]} icon={makePinIcon("var(--orange-500)")} />
                     )}
@@ -228,7 +265,11 @@ export default function BusinessDeliveries() {
                   </div>
                   {done.map((d) => (
                     <div key={d.id} className="card row gap-10 center-v" style={{ padding: 11, opacity: 0.72 }}>
-                      <CheckCircle size={16} color={d.status === "DELIVERED" ? "var(--green-500)" : "var(--ink-400)"} />
+                      {d.status === "CANCELLED" ? (
+                        <XCircle size={16} color="var(--red-500)" />
+                      ) : (
+                        <CheckCircle size={16} color={d.status === "DELIVERED" ? "var(--green-500)" : "var(--ink-400)"} />
+                      )}
                       <div className="grow" style={{ minWidth: 0 }}>
                         <div className="semi small ellipsis">{d.customerName}</div>
                         <div className="tiny muted ellipsis">
@@ -269,8 +310,34 @@ function DeliveryRow({ d, focused, businessId, onFocus, onCancel }: {
   onFocus: () => void;
   onCancel: (d: BusinessDeliveryItem) => void;
 }) {
+  const { showToast } = useApp();
+  const [sharing, setSharing] = useState(false);
   const routable = d.deliveryLat != null && d.deliveryLng != null;
   const live = (ACTIVE_STATUSES as readonly string[]).includes(d.status);
+
+  async function handleShare() {
+    if (sharing) return;
+    setSharing(true);
+    try {
+      const token = await deliveryService.createTrackingToken(d.appointmentId);
+      const url = `${window.location.origin}/track/${token}`;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: `Order tracking for ${d.customerName}`, url });
+          return;
+        } catch {
+          // Ignored
+        }
+      }
+      await navigator.clipboard.writeText(url);
+      showToast("Tracking link copied to clipboard");
+    } catch (e: any) {
+      showToast(e?.message || "Could not generate tracking link");
+    } finally {
+      setSharing(false);
+    }
+  }
+
   return (
     <div className="card col gap-9" style={{ padding: 12, border: focused ? "1.5px solid var(--delivery-600)" : undefined }}>
       <button type="button" onClick={onFocus} className="row gap-10 center-v" style={{ width: "100%", textAlign: "left" }}>
@@ -313,22 +380,28 @@ function DeliveryRow({ d, focused, businessId, onFocus, onCancel }: {
         )}
       </div>
 
-      {/* Actions live in the focused row — revealed, not swipe-hidden (this
-          board is used on desktop too, where swipe is undiscoverable).
-          Reassign reuses DeliveryAssignControl rather than a second copy of
-          the picker, so the off-duty tags and the new-handoff-code warning
-          can't drift between the two places an owner can reassign from. */}
+      {/* Actions live in the focused row */}
       {focused && live && (
         <>
           <DeliveryAssignControl appointmentId={d.appointmentId} businessId={businessId} />
-          <button
-            type="button"
-            className="tiny"
-            style={{ alignSelf: "flex-start", minHeight: 32, color: "var(--red-600)" }}
-            onClick={() => onCancel(d)}
-          >
-            Cancel this delivery
-          </button>
+          <div className="row gap-8 center-v">
+            <button
+              type="button"
+              className="btn btn-outline btn-sm grow row gap-6 center"
+              onClick={handleShare}
+              disabled={sharing}
+            >
+              <Share2 size={13} /> Share tracking link
+            </button>
+            <button
+              type="button"
+              className="tiny"
+              style={{ minHeight: 32, color: "var(--red-600)", padding: "0 8px" }}
+              onClick={() => onCancel(d)}
+            >
+              Cancel delivery
+            </button>
+          </div>
         </>
       )}
     </div>

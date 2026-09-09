@@ -128,7 +128,7 @@ export default function ConversationList() {
                     gap: 14,
                     padding: "14px 16px",
                     borderBottom: "1px solid var(--line)",
-                    background: unread ? "var(--brand-50)" : "#fff",
+                    background: unread ? "var(--brand-50)" : "var(--surface)",
                     textAlign: "left",
                   }}
                 >
@@ -149,7 +149,7 @@ export default function ConversationList() {
                         height: 12,
                         borderRadius: "50%",
                         background: "var(--brand-600)",
-                        border: "2px solid #fff",
+                        border: "2px solid var(--surface)",
                       }} />
                     )}
                   </div>

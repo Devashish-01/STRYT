@@ -108,6 +108,8 @@ export interface CustomerDeliveryProgress {
   etaText: string | null;
   /** How many stops the agent has ahead of this one on the current run. */
   stopsBefore: number | null;
+  cancelReason?: CancelReason | null;
+  cancelNote?: string | null;
 }
 
 /** One delivery as the BUSINESS OWNER sees it — adds the agent's real identity
@@ -274,7 +276,22 @@ export const deliveryService = {
       agentRevealed: !!r.agent_revealed,
       etaText: r.eta_text ?? null,
       stopsBefore: r.stops_before ?? null,
+      cancelReason: r.cancel_reason ?? null,
+      cancelNote: r.cancel_note ?? null,
     };
+  },
+
+  /**
+   * Generate (or fetch active) shareable 4-hour tracking token for an appointment.
+   * Can be called by the customer, merchant, or assigned agent.
+   */
+  async createTrackingToken(appointmentId: string): Promise<string> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("appointment_create_tracking_token", {
+      p_appointment_id: appointmentId,
+    });
+    if (error) throw error;
+    return String(data);
   },
 
   /** Agent accepts the whole run at once, persisting the client-computed nearest-neighbor

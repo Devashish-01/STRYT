@@ -13,11 +13,12 @@ const anonSb = createClient(
 );
 
 const STATUS_LABELS: Record<string, { emoji: string; label: string }> = {
+  ASSIGNED:   { emoji: "📦", label: "Order assigned" },
   LEAVING:    { emoji: "🚶", label: "Leaving now" },
   ON_THE_WAY: { emoji: "🛵", label: "On the way" },
   ARRIVED:    { emoji: "📍", label: "Arrived" },
   WORKING:    { emoji: "🔧", label: "Working" },
-  DONE:       { emoji: "✅", label: "Job complete" },
+  DONE:       { emoji: "✅", label: "Delivered" },
 };
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -77,13 +78,14 @@ export default function TrackingPage() {
       setAgreementId(row.agreement_id);
       setProviderLat(row.provider_lat ?? null);
       setProviderLng(row.provider_lng ?? null);
-      setLiveStatus(row.live_status ?? "ON_THE_WAY");
-      setProviderName(row.provider_name ?? "Provider");
+      const deliveryMode = row.stops_before !== null && row.stops_before !== undefined;
+      setIsDelivery(deliveryMode);
+      setLiveStatus(row.live_status ?? (deliveryMode ? "ASSIGNED" : "ON_THE_WAY"));
+      setProviderName(row.provider_name ?? (deliveryMode ? "Delivery agent" : "Provider"));
       setProviderAvatar(row.provider_avatar ?? "");
       setStopsBefore(row.stops_before ?? null);
       setDestLat(row.dest_lat ?? null);
       setDestLng(row.dest_lng ?? null);
-      setIsDelivery(row.stops_before !== null && row.stops_before !== undefined);
       setLoading(false);
     })();
   }, [token]);
@@ -155,7 +157,11 @@ export default function TrackingPage() {
       if (!row) return;
       if (row.provider_lat != null) setProviderLat(row.provider_lat);
       if (row.provider_lng != null) setProviderLng(row.provider_lng);
-      if (row.live_status) setLiveStatus(row.live_status);
+      if (row.live_status) {
+        setLiveStatus(row.live_status);
+      } else if (row.stops_before !== null && row.stops_before !== undefined) {
+        setLiveStatus("ASSIGNED");
+      }
       if (row.stops_before != null) setStopsBefore(row.stops_before);
     }, 15000);
     return () => clearInterval(poll);
@@ -188,7 +194,7 @@ export default function TrackingPage() {
         <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
           <svg width="22" height="22" viewBox="0 0 64 64">
             <rect width="64" height="64" rx="16" fill="var(--brand-600)"/>
-            <path d="M32 13 C23 13 16 20 16 28.8 C16 39.5 32 52 32 52 C32 52 48 39.5 48 28.8 C48 20 41 13 32 13 Z" fill="#fff"/>
+            <path d="M32 13 C23 13 16 20 16 28.8 C16 39.5 32 52 32 52 C32 52 48 39.5 48 28.8 C48 20 41 13 32 13 Z" fill="white"/>
             <path d="M32 39 C25 34 39 24 32 19" stroke="var(--brand-600)" strokeWidth="5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           <span style={{ fontWeight: 800, fontSize: 18, color: "var(--brand-700)", letterSpacing: 0.5 }}>STRYT</span>
@@ -218,7 +224,8 @@ export default function TrackingPage() {
           </div>
           <div style={{ textAlign: "center", color: "var(--ink-500)", fontSize: 13, lineHeight: 1.6 }}>
             Live location isn't shared for deliveries — this page shows progress only.
-            {liveStatus === "ARRIVED" && " Ask your delivery agent for the handoff code to confirm."}
+            {liveStatus === "ARRIVED" && " Your delivery agent has arrived. Show them your 6-digit handoff code when receiving your order."}
+            {liveStatus === "DONE" && " Your delivery has been completed successfully."}
           </div>
         </div>
       ) : (

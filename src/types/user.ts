@@ -76,6 +76,7 @@ export type NotificationType =
   | "CUSTOM_PAYMENT_CONFIRMED"
   | "CUSTOM_PAYMENT_REJECTED"
   | "QNA"
+  | "CHAT"
   | "SYSTEM";
 
 /** Semantic tone for a notification's status pill / accent — maps to the
