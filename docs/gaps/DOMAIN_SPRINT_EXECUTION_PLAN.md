@@ -141,8 +141,16 @@ Before any sprint is marked complete or committed to git, it must pass all 4 gat
   - [x] 1.4 Phone OTP Verification on Edit (`PROF-1`)
   - [x] 1.5 Public Profile Privacy & Alias Guard (`PROF-2`)
   - [x] 1.6 Server Slot Blocking Gate (`SLOT_BLOCKING: S1`)
-- [ ] **Sprint 2: Core Appointments & Scheduling (Domain 2)** *(Next)*
-- [ ] **Sprint 3: Walk-In Queue, Hours & Storefront Presence (Domains 3 & 7)**
+- [ ] **Sprint 2: Core Appointments & Scheduling (Domain 2)** *(In Progress by Claude Opus 5)*
+- [x] **Sprint 3: Walk-In Queue, Hours & Storefront Presence (Domains 3 & 7)** *(Completed)*
+  - [x] 3.1 Clamped Queue Party Size (`Q5`, `M8`)
+  - [x] 3.2 Quick-Pay Filter for Active Tokens (`Q3`)
+  - [x] 3.3 Customer Realtime Position Polling & Cancel Confirmation (`Q2`, `Q7`)
+  - [x] 3.4 Overnight Shift & Accurate Turnoff Calculations (`HRS-2`, `HRS-3`)
+  - [x] 3.5 Auto Schedule Tri-State & Immediate Hours Save (`HRS-1`, `HRS-4`)
+  - [x] 3.6 Merchant Queue Concurrency Guard, Individual Call & Persistent Board (`M1`, `M2`, `M4`, `M5`)
+  - [x] 3.7 Catalog Nullifiable Fields, Delete Dialog & Cache Busting (`CAT-1`, `CAT-2`, `INV-1`, `INV-2`, `INV-3`)
 - [ ] **Sprint 4: Realtime Engine — Local Delivery & 1:1 Chat (Domains 5 & 6)**
 - [ ] **Sprint 5: Custom Requests, Bids & Group Deals (Domains 4 & 7)**
 - [ ] **Sprint 6: Trust, Safety & Google Play Store Hardening (Domains 8–11)**
+
