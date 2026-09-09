@@ -2,8 +2,8 @@ import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, VegDot, inr, EmptyState } from "@/components/common";
 import { Plus, Pencil, Trash2, Camera, Star, Tag } from "@/components/Icons";
-import { businessService, providerService, uploadService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { businessService, providerService, uploadService, bustBusinessGetCache } from "@/services";
+import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { CatalogItem } from "@/types";
@@ -27,6 +27,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
 
   const [editing, setEditing] = useState<CatalogItem | null>(null);
   const [creating, setCreating] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<CatalogItem | null>(null);
 
   const kindTitle = kind === "provider" ? "Services" : "Catalog";
 
@@ -52,6 +53,10 @@ export function CatalogManager({ kind }: { kind: Kind }) {
     try {
       await service.deleteCatalogItem(id, item.id);
       showToast("Item removed");
+      if (kind === "business") {
+        bustBusinessGetCache(id);
+        invalidateQueryCache(`business:${id}`);
+      }
       refetch();
     } catch (e: any) {
       showToast(e?.message || "Couldn't remove — try again");
@@ -63,6 +68,10 @@ export function CatalogManager({ kind }: { kind: Kind }) {
     try {
       await service.updateCatalogItem(id, item.id, { stockStatus: next });
       showToast(next === "OUT_OF_STOCK" ? "Marked as unavailable" : "Marked as available");
+      if (kind === "business") {
+        bustBusinessGetCache(id);
+        invalidateQueryCache(`business:${id}`);
+      }
       refetch();
     } catch (e: any) {
       showToast(e?.message || "Couldn't update — try again");
@@ -126,7 +135,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
             </div>
             <div className="col gap-8">
               <button className="icon-btn" style={{ width: 34, height: 34 }} onClick={() => setEditing(item)}><Pencil size={15} /></button>
-              <button className="icon-btn" style={{ width: 34, height: 34, color: "var(--red-600)" }} onClick={() => remove(item)}><Trash2 size={15} /></button>
+              <button className="icon-btn" style={{ width: 34, height: 34, color: "var(--red-600)" }} onClick={() => setConfirmDelete(item)} title="Delete item"><Trash2 size={15} /></button>
             </div>
           </div>
         ))}
@@ -140,8 +149,38 @@ export function CatalogManager({ kind }: { kind: Kind }) {
           businessDefaultCapacity={kind === "business" ? entity.defaultSlotCapacity : undefined}
           bizTheme={bizTheme}
           onClose={() => { setCreating(false); setEditing(null); }}
-          onSaved={() => { setCreating(false); setEditing(null); refetch(); }}
+          onSaved={() => {
+            if (kind === "business") {
+              bustBusinessGetCache(id);
+              invalidateQueryCache(`business:${id}`);
+            }
+            setCreating(false);
+            setEditing(null);
+            refetch();
+          }}
         />
+      )}
+
+      {confirmDelete && (
+        <div className="overlay" onClick={() => setConfirmDelete(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h3 className="bold h2" style={{ marginBottom: 6 }}>Delete {confirmDelete.name}?</h3>
+            <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
+              This item will be permanently removed from your {bizTheme.catalogNoun.toLowerCase()} list.
+            </p>
+            <div className="col gap-8">
+              <button
+                className="btn btn-block"
+                style={{ background: "var(--red-500)", color: "var(--white)" }}
+                onClick={() => { const it = confirmDelete; setConfirmDelete(null); remove(it); }}
+              >
+                Yes, delete item
+              </button>
+              <button className="btn btn-ghost btn-block" onClick={() => setConfirmDelete(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -188,7 +227,7 @@ export function ItemEditor({
   const saleTooHigh = sale.trim() !== "" && price.trim() !== "" && Number(sale) >= Number(price);
   const canSave = name.trim().length > 1 && !!price && (invType !== "FINITE" || qty !== "") && !saleTooHigh;
 
-  async function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
+    async function pickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
@@ -199,6 +238,7 @@ export function ItemEditor({
       showToast("Upload failed. Try again.");
     } finally {
       setUploading(false);
+      if (e.target) e.target.value = "";
     }
   }
 
@@ -206,12 +246,12 @@ export function ItemEditor({
     setSaving(true);
     try {
       const finiteQty = invType === "FINITE" ? Math.max(0, Number(qty) || 0) : null;
-      const payload: Partial<CatalogItem> = {
+      const payload: any = {
         name,
         description: desc,
         price: Number(price),
-        salePrice: sale ? Number(sale) : undefined,
-        image: image || undefined,
+        salePrice: sale.trim() ? Number(sale) : null,
+        image: image ? image : null,
         bestSeller: best,
         isFood,
         isVeg: isFood ? isVeg : null,
@@ -257,15 +297,27 @@ export function ItemEditor({
         <h3 className="bold h2" style={{ marginBottom: 14 }}>{item ? `Edit ${bizTheme.itemNounSingular}` : `New ${bizTheme.itemNounSingular}`}</h3>
 
         {/* Photo picker */}
-        <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--ink-300)", overflow: "hidden", marginBottom: 14, cursor: "pointer", background: "var(--ink-50)" }}>
-          {image
-            ? <img src={image} alt={name || "Item photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            : <span style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, color: "var(--ink-400)" }}>
-                <Camera size={26} /><span className="tiny">{uploading ? "Uploading…" : "Add photo (optional)"}</span>
-              </span>
-          }
-          <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickImage} disabled={uploading} />
-        </label>
+        <div style={{ position: "relative", marginBottom: 14 }}>
+          <label style={{ display: "block", width: "100%", height: 120, borderRadius: 14, border: "2px dashed var(--line)", overflow: "hidden", cursor: "pointer", background: "var(--ink-50)" }}>
+            {image
+              ? <img src={image} alt={name || "Item photo"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : <span style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, color: "var(--ink-400)" }}>
+                  <Camera size={26} /><span className="tiny">{uploading ? "Uploading…" : "Add photo (optional)"}</span>
+                </span>
+            }
+            <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={pickImage} disabled={uploading} />
+          </label>
+          {image && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs"
+              style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", color: "var(--white)", borderRadius: 6 }}
+              onClick={(e) => { e.stopPropagation(); setImage(""); }}
+            >
+              Remove photo
+            </button>
+          )}
+        </div>
 
         <div className="col gap-12">
           <div className="field">

@@ -34,7 +34,7 @@ import type { AppointmentRecord, CatalogItem, MyQueueEntry } from "@/types";
 import { distanceLabel } from "@/lib/format";
 import { displayName as safeName } from "@/lib/publicName";
 import { pushRecentlyViewed } from "@/lib/recentlyViewed";
-import { MAX_QUEUE_PARTY_SIZE } from "@/lib/queueMath";
+import { MAX_QUEUE_PARTY_SIZE, isQueuePayable } from "@/lib/queueMath";
 import { haptics } from "@/lib/haptics";
 import MiniMap from "@/components/MiniMap";
 import { useI18n } from "@/lib/i18n";
@@ -221,7 +221,7 @@ export default function BusinessDetail() {
     : null;
   const payableQueue = !isOwner && !payableApt
     ? (myQueueEntries ?? []).find(
-        (q) => q.businessId === b.id && q.status !== "LEFT" && (q.paymentStatus ?? "UNPAID") === "UNPAID"
+        (q) => q.businessId === b.id && isQueuePayable(q.status) && (q.paymentStatus ?? "UNPAID") === "UNPAID"
       ) ?? null
     : null;
 

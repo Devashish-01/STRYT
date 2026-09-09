@@ -166,13 +166,16 @@ describe("getDayWindows", () => {
     expect(windows).toHaveLength(1);
   });
 
-  it("sorts multiple ranges by start time regardless of input order", () => {
-    const w = expandPatternToWeekly("Everyday", "09:00 AM", "06:00 PM", 30);
-    w.days.Mon.ranges = [{ from: "14:00", to: "18:00" }, { from: "09:00", to: "13:00" }];
-    expect(getDayWindows(w, "Mon")).toEqual([
-      { fromMin: 9 * 60, toMin: 13 * 60 },
-      { fromMin: 14 * 60, toMin: 18 * 60 },
-    ]);
+  it("handles overnight shifts spanning past midnight across day boundaries", () => {
+    const w = expandPatternToWeekly("Mon–Fri", "09:00 AM", "05:00 PM", 30);
+    // Friday night shift: 22:00 (10 PM) to 02:00 (2 AM Saturday)
+    w.days.Fri.ranges = [{ from: "22:00", to: "02:00" }];
+    const friWindows = getDayWindows(w, "Fri");
+    const satWindows = getDayWindows(w, "Sat");
+    // Friday should have 22:00 to 24:00 (1320 to 1440)
+    expect(friWindows).toEqual([{ fromMin: 22 * 60, toMin: 24 * 60 }]);
+    // Saturday should have 00:00 to 02:00 (0 to 120) spillover
+    expect(satWindows).toEqual([{ fromMin: 0, toMin: 2 * 60 }]);
   });
 });
 
@@ -387,9 +390,17 @@ describe("evaluateProviderAvailability (time-dependent — fake timers)", () => 
 describe("calculateNextTurnoffTime (time-dependent — fake timers)", () => {
   afterEach(() => vi.useRealTimers());
 
-  it("returns tomorrow's closing time for the given hours", () => {
+  it("returns today's closing time when called before closing", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2025, 0, 6, 11, 0, 0)); // Mon 11:00 AM
+    vi.setSystemTime(new Date(2025, 0, 6, 7, 0, 0)); // Mon 7:00 AM (opens at 9 AM, closes at 5 PM)
+    const turnoff = calculateNextTurnoffTime("Mon–Fri from 09:00 AM to 05:00 PM");
+    expect(turnoff.getDate()).toBe(6); // Today (Monday)
+    expect(turnoff.getHours()).toBe(17);
+  });
+
+  it("returns tomorrow's closing time when called after closing", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2025, 0, 6, 20, 0, 0)); // Mon 8:00 PM (closed at 5 PM)
     const turnoff = calculateNextTurnoffTime("Mon–Fri from 09:00 AM to 05:00 PM");
     expect(turnoff.getDate()).toBe(7); // Tuesday
     expect(turnoff.getHours()).toBe(17);
@@ -397,8 +408,9 @@ describe("calculateNextTurnoffTime (time-dependent — fake timers)", () => {
 
   it("falls back to 7 PM when tomorrow has no working window", () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2025, 0, 10, 11, 0, 0)); // Fri — tomorrow is closed Sat
+    vi.setSystemTime(new Date(2025, 0, 10, 20, 0, 0)); // Fri 8:00 PM — tomorrow is closed Sat
     const turnoff = calculateNextTurnoffTime("Mon–Fri from 09:00 AM to 05:00 PM");
+    expect(turnoff.getDate()).toBe(11); // Saturday
     expect(turnoff.getHours()).toBe(19);
   });
 });

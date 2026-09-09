@@ -475,7 +475,24 @@ export const businessService = {
       .maybeSingle();
     throwIfError(fetchErr);
     if (!data) return { ok: false, message: "Queue is empty" };
-    await updateQueueToken(data.id, { status: "CALLED" });
+    // Concurrency guard: only update if still WAITING (prevents multi-staff collision)
+    const { error: updateErr } = await sb
+      .from("queue_tokens")
+      .update({ status: "CALLED" })
+      .eq("id", data.id)
+      .eq("status", "WAITING");
+    throwIfError(updateErr);
+    return { ok: true };
+  },
+
+  async callSpecificToken(tokenId: string) {
+    const sb = getSupabase();
+    const { error } = await sb
+      .from("queue_tokens")
+      .update({ status: "CALLED" })
+      .eq("id", tokenId)
+      .eq("status", "WAITING");
+    throwIfError(error);
     return { ok: true };
   },
 
@@ -762,18 +779,21 @@ export const businessService = {
     const row = { ...toSnake(item), business_id: id };
     const { data, error } = await sb.from("catalog_items").insert(row).select().maybeSingle();
     throwIfError(error);
+    bustBusinessGetCache(id);
     return toCamel<CatalogItem>(data);
   },
   async updateCatalogItem(id: string, itemId: string, patch: Partial<CatalogItem>) {
     const sb = getSupabase();
     const { data, error } = await sb.from("catalog_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
     throwIfError(error);
+    bustBusinessGetCache(id);
     return toCamel<CatalogItem>(data);
   },
   async deleteCatalogItem(id: string, itemId: string) {
     const sb = getSupabase();
     const { error } = await sb.from("catalog_items").delete().eq("id", itemId);
     throwIfError(error);
+    bustBusinessGetCache(id);
     return { ok: true };
   },
 
@@ -929,7 +949,7 @@ export const businessService = {
    * working-hour slots). Mirrors providerService.setAvailability: turning ON
    * during off-hours sets an availableUntil expiry so it auto-clears.
    */
-  async setAvailability(id: string, availableNow: boolean, availableUntil?: string | null) {
+  async setAvailability(id: string, availableNow: boolean | null, availableUntil?: string | null) {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("businesses")

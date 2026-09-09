@@ -20,7 +20,7 @@ export function parsePartySize(label: string | null | undefined): number {
   if (label == null) return 1;
   const m = String(label).match(/\d+/);
   const n = m ? parseInt(m[0], 10) : 1;
-  return Number.isFinite(n) && n > 0 ? n : 1;
+  return Number.isFinite(n) && n > 0 ? Math.min(MAX_QUEUE_PARTY_SIZE, Math.max(1, n)) : 1;
 }
 
 /**

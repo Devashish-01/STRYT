@@ -2,14 +2,15 @@ import { useParams } from "react-router-dom";
 import { useState } from "react";
 import { AppBar, EmptyState } from "@/components/common";
 import { AlertTriangle, ChevronRight, Package, Check, X } from "@/components/Icons";
-import { businessService, providerService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { businessService, providerService, bustBusinessGetCache } from "@/services";
+import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import type { CatalogItem } from "@/types";
 import { ItemEditor, serviceFor, type Kind } from "./CatalogManager";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
+import ManageNav from "./ManageNav";
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -71,6 +72,10 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
     try {
       await serviceFor(kind).updateCatalogItem(id, item.id, changes);
       showToast(okMsg);
+      if (kind === "business") {
+        bustBusinessGetCache(id);
+        invalidateQueryCache(`business:${id}`);
+      }
       refetch();
     } catch (e: any) {
       showToast(e?.message || "Couldn't update — try again");
@@ -139,11 +144,29 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
             {out ? <><Check size={14} /> Back in stock</> : <><X size={14} /> Mark sold out</>}
           </button>
 
-          {finite && !out && (
+          {finite && (
             <div className="row gap-6 center-v">
-              <button type="button" className="btn btn-sm btn-outline" style={{ minWidth: 38 }} disabled={busy} onClick={() => nudge(item, -1)} aria-label="Reduce quantity">−</button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                style={{ minWidth: 38 }}
+                disabled={busy || (item.quantity ?? 0) <= 0}
+                onClick={() => nudge(item, -1)}
+                aria-label="Reduce quantity"
+              >
+                −
+              </button>
               <span className="semi small" style={{ minWidth: 26, textAlign: "center" }}>{item.quantity ?? 0}</span>
-              <button type="button" className="btn btn-sm btn-outline" style={{ minWidth: 38 }} disabled={busy} onClick={() => nudge(item, 1)} aria-label="Increase quantity">+</button>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline"
+                style={{ minWidth: 38 }}
+                disabled={busy}
+                onClick={() => nudge(item, 1)}
+                aria-label="Increase quantity"
+              >
+                +
+              </button>
             </div>
           )}
         </div>
@@ -205,9 +228,17 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
           item={editing}
           bizTheme={bizTheme}
           onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); refetch(); }}
+          onSaved={() => {
+            if (kind === "business") {
+              bustBusinessGetCache(id);
+              invalidateQueryCache(`business:${id}`);
+            }
+            setEditing(null);
+            refetch();
+          }}
         />
       )}
+      {kind === "business" && <ManageNav bizId={id} />}
     </div>
   );
 }

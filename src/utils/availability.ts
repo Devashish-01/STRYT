@@ -193,12 +193,53 @@ export function serializeHoursValue(w: WeeklyHours): string {
   return JSON.stringify(w);
 }
 
-/** Resolves a day's open windows (0–2 of them — 2 means a split shift) in minutes-from-midnight. */
+const PREV_DAY: Record<DayCode, DayCode> = {
+  Mon: "Sun",
+  Tue: "Mon",
+  Wed: "Tue",
+  Thu: "Wed",
+  Fri: "Thu",
+  Sat: "Fri",
+  Sun: "Sat",
+};
+
+/** Resolves a day's open windows (in minutes-from-midnight), handling split shifts and overnight windows. */
 export function getDayWindows(w: WeeklyHours, day: DayCode): { fromMin: number; toMin: number }[] {
+  const windows: { fromMin: number; toMin: number }[] = [];
   const ds = w.days[day];
-  if (!ds || !ds.open || ds.ranges.length === 0) return [];
-  return ds.ranges
-    .map((r) => ({ fromMin: parseTimeToMinutes(r.from), toMin: parseTimeToMinutes(r.to) }))
+
+  if (ds && ds.open && ds.ranges.length > 0) {
+    for (const r of ds.ranges) {
+      const fromMin = parseTimeToMinutes(r.from);
+      const toMin = parseTimeToMinutes(r.to);
+      if (toMin === fromMin) {
+        // Zero-length degenerate range, skip
+        continue;
+      }
+      if (toMin < fromMin) {
+        // Overnight shift (e.g., 22:00 to 02:00, or 09:00 to 00:00 midnight)
+        // For this calendar day, it remains open from fromMin until midnight (1440 min).
+        windows.push({ fromMin, toMin: 1440 });
+      } else {
+        windows.push({ fromMin, toMin });
+      }
+    }
+  }
+
+  // Also check if the previous day had an overnight shift spilling into this day (midnight to toMin)
+  const prevDay = PREV_DAY[day];
+  const prevDs = w.days[prevDay];
+  if (prevDs && prevDs.open && prevDs.ranges.length > 0) {
+    for (const r of prevDs.ranges) {
+      const pFrom = parseTimeToMinutes(r.from);
+      const pTo = parseTimeToMinutes(r.to);
+      if (pTo > 0 && pTo < pFrom) {
+        windows.push({ fromMin: 0, toMin: pTo });
+      }
+    }
+  }
+
+  return windows
     .filter((r) => r.toMin > r.fromMin)
     .sort((a, b) => a.fromMin - b.fromMin);
 }
@@ -333,15 +374,31 @@ export function evaluateProviderAvailability(
   };
 }
 
-/** Calculates the next turnoff timestamp when turning ON during off-hours — the closing time
- *  of tomorrow's last window (previously a naive string-wide " to " scan). */
-export function calculateNextTurnoffTime(availabilityNote?: string): Date {
-  const target = new Date();
-  target.setDate(target.getDate() + 1); // target next day
-
+/** Calculates the next turnoff timestamp when turning ON during off-hours.
+ *  If before today's closing window, targets today's closing; otherwise tomorrow's. */
+export function calculateNextTurnoffTime(availabilityNote?: string, now = new Date()): Date {
+  const currentMin = now.getHours() * 60 + now.getMinutes();
   const w = parseHoursValue(availabilityNote);
-  const windows = getDayWindows(w, JS_DAY_INDEX[target.getDay()]);
-  const toMin = windows.length > 0 ? windows[windows.length - 1].toMin : 19 * 60;
+  const todayDay = JS_DAY_INDEX[now.getDay()];
+  const todayWindows = getDayWindows(w, todayDay);
+
+  if (todayWindows.length > 0) {
+    const lastWindow = todayWindows[todayWindows.length - 1];
+    if (lastWindow.toMin > currentMin) {
+      const target = new Date(now);
+      const toMin = Math.min(lastWindow.toMin, 1439);
+      target.setHours(Math.floor(toMin / 60), toMin % 60, 0, 0);
+      return target;
+    }
+  }
+
+  // Target next day's closing
+  const target = new Date(now);
+  target.setDate(target.getDate() + 1);
+  const tomorrowWindows = getDayWindows(w, JS_DAY_INDEX[target.getDay()]);
+  const toMin = tomorrowWindows.length > 0
+    ? Math.min(tomorrowWindows[tomorrowWindows.length - 1].toMin, 1439)
+    : 19 * 60;
 
   target.setHours(Math.floor(toMin / 60), toMin % 60, 0, 0);
   return target;

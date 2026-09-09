@@ -105,12 +105,22 @@ export default function MyQueues() {
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
 
-  // Leaving a waiting line is low-stakes (direct); cancelling after your turn
-  // has come or after being served is higher-stakes, so it routes through a
-  // confirm sheet first.
+  // Poll every 15s while there is at least one active (WAITING/CALLED) token,
+  // because another customer ahead of you moving changes your position/ETA
+  // without triggering your user-scoped realtime subscription.
+  useEffect(() => {
+    const hasWaiting = (data ?? []).some((q) => q.status === "WAITING" || q.status === "CALLED");
+    if (!hasWaiting) return;
+    const interval = setInterval(() => {
+      refetch();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [data, refetch]);
+
+  // Cancelling or leaving always routes through a confirm sheet so a single
+  // misclick doesn't forfeit a spot in line that the customer waited for.
   function requestCancel(q: MyQueueEntry) {
-    if (q.status === "WAITING") leave(q.tokenId);
-    else setConfirmCancel(q);
+    setConfirmCancel(q);
   }
 
   async function leave(tokenId: string) {
@@ -314,7 +324,7 @@ export default function MyQueues() {
                       </div>
                       <button
                         className="btn btn-sm"
-                        style={{ fontSize: 11, padding: "4px 10px", background: "var(--brand-600)", color: "#fff", borderRadius: 8, flexShrink: 0 }}
+                        style={{ fontSize: 11, padding: "4px 10px", background: "var(--brand-600)", color: "var(--white)", borderRadius: 8, flexShrink: 0 }}
                         onClick={() => setPayingQueue(q)}
                       >
                         Retry
@@ -368,18 +378,20 @@ export default function MyQueues() {
         <div className="overlay" onClick={() => setConfirmCancel(null)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
-            <h2 className="h2" style={{ marginBottom: 6 }}>Cancel this visit?</h2>
+            <h2 className="h2" style={{ marginBottom: 6 }}>
+              {confirmCancel.status === "WAITING" ? "Leave this queue?" : "Cancel this visit?"}
+            </h2>
             <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
               You'll give up your spot at {confirmCancel.businessName}. You can rejoin later, but you'll start at the back of the line.
             </p>
             <div className="col gap-8">
               <button
                 className="btn btn-block"
-                style={{ background: "var(--red-500)", color: "#fff" }}
+                style={{ background: "var(--red-500)", color: "var(--white)" }}
                 disabled={leaving === confirmCancel.tokenId}
                 onClick={() => { const t = confirmCancel; setConfirmCancel(null); leave(t.tokenId); }}
               >
-                Yes, cancel
+                {confirmCancel.status === "WAITING" ? "Yes, leave queue" : "Yes, cancel"}
               </button>
               <button className="btn btn-ghost btn-block" onClick={() => setConfirmCancel(null)}>Keep my spot</button>
             </div>

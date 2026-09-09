@@ -20,13 +20,23 @@ export default function HoursEditor() {
   const [hoursRaw, setHoursRaw] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [openNow, setOpenNow] = useState(false);
+  const [isAuto, setIsAuto] = useState(true);
 
   // Seed form state from live business once loaded.
   useEffect(() => {
     if (!b) return;
     setHoursRaw(b.hours);
-    setOpenNow(b.isAvailableNow ?? false);
+    const auto = b.isAvailableNow == null;
+    setIsAuto(auto);
+    if (auto) {
+      const scheduleEval = evaluateProviderAvailability(b.hours, undefined, b.availableUntil);
+      setOpenNow(scheduleEval.isOpenNow);
+    } else {
+      setOpenNow(Boolean(b.isAvailableNow));
+    }
   }, [b]);
+
+  const isDirty = hoursRaw !== undefined && b?.hours !== undefined && hoursRaw !== b.hours;
 
   if (!id) {
     return (
@@ -40,29 +50,47 @@ export default function HoursEditor() {
   if (loading && !b) return <div className="screen"><AppBar title="Hours" /><ListSkeleton count={3} /></div>;
   if (error && !b) return <div className="screen"><AppBar title="Hours" /><ErrorView error={error} onRetry={refetchBusiness} /></div>;
 
+  async function resumeAutoSchedule() {
+    try {
+      await businessService.setAvailability(id, null, null);
+      showToast("Resumed automatic schedule (following weekly hours)");
+      invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
+      void refetchBusiness();
+    } catch (e: any) {
+      showToast(e?.message ?? "Couldn't resume schedule");
+    }
+  }
+
   // Presence toggle: "open right now" is separate from bookable slots — a
   // customer can still book a future working-hour slot when this is off.
   async function toggleOpenNow() {
     const prev = openNow;
     const next = !openNow;
     setOpenNow(next);
+    setIsAuto(false);
     try {
+      // If merchant edited hours on this screen before toggling, save them so
+      // edits aren't silently discarded (HRS-4).
+      if (isDirty && hoursRaw !== undefined) {
+        await businessService.update(id, { hours: hoursRaw });
+      }
       // Schedule-only eval — passing `next` as isAvailableNow would force "open"
       // and skip the off-hours availableUntil branch.
-      const scheduleEval = evaluateProviderAvailability(b?.hours, undefined, b?.availableUntil);
+      const scheduleEval = evaluateProviderAvailability(hoursRaw ?? b?.hours, undefined, b?.availableUntil);
       if (next && !scheduleEval.isOpenNow) {
         // Turning ON outside working hours → auto-clear at next closing time.
-        const turnoff = calculateNextTurnoffTime(b?.hours);
+        const turnoff = calculateNextTurnoffTime(hoursRaw ?? b?.hours);
         await businessService.setAvailability(id, true, turnoff.toISOString());
         showToast(`Open now — clears at ${turnoff.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ⚡`);
       } else {
         await businessService.setAvailability(id, next, null);
-        showToast(next ? "Shop marked open right now ⚡" : "Shop marked closed");
+        showToast(next ? "Shop manually marked open ⚡" : "Shop manually marked closed");
       }
       invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
       void refetchBusiness();
     } catch (e: any) {
       setOpenNow(prev);
+      setIsAuto(b?.isAvailableNow == null);
       showToast(e?.message ?? "Couldn't update availability");
     }
   }
@@ -98,14 +126,38 @@ export default function HoursEditor() {
             <div className="row gap-10 center-v">
               <Zap size={22} color={openNow ? "var(--green-500)" : "var(--ink-400)"} />
               <div>
-                <div className="semi small">Shop open right now</div>
-                <div className="tiny muted">{openNow ? "Customers see your shop as open" : "Turn on when you're open for walk-ins"}</div>
+                <div className="row gap-6 center-v">
+                  <div className="semi small">Shop open right now</div>
+                  {isAuto ? (
+                    <span className="badge badge-purple" style={{ fontSize: 10, padding: "2px 6px" }}>Auto schedule</span>
+                  ) : (
+                    <span className="badge badge-amber" style={{ fontSize: 10, padding: "2px 6px" }}>Manual override</span>
+                  )}
+                </div>
+                <div className="tiny muted">
+                  {isAuto
+                    ? (openNow ? "Following weekly schedule (Currently Open)" : "Following weekly schedule (Currently Closed)")
+                    : (openNow ? "Manually forced open for walk-ins" : "Manually forced closed")}
+                </div>
               </div>
             </div>
             <button onClick={toggleOpenNow} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }} aria-label="Toggle shop open now">
               <Toggle on={openNow} />
             </button>
           </div>
+          {!isAuto && (
+            <div className="row between center-v" style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--line)" }}>
+              <span className="tiny muted">Manual override is active</span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                style={{ fontSize: 11, color: "var(--brand-700)" }}
+                onClick={resumeAutoSchedule}
+              >
+                Resume schedule (Auto)
+              </button>
+            </div>
+          )}
           <div className="row gap-6 center-v tiny muted" style={{ marginTop: 10 }}>
             <Clock size={12} /> Appointments can still be booked for your working hours even when this is off.
           </div>
@@ -143,7 +195,7 @@ export default function HoursEditor() {
 
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: 12 }}>
         <button className="btn btn-primary btn-block" disabled={saving} onClick={save}>
-          {saving ? "Saving…" : "Save Working Timing"}
+          {saving ? "Saving…" : isDirty ? "Save Working Timing *" : "Save Working Timing"}
         </button>
       </div>
     </div>

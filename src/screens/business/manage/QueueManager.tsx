@@ -9,7 +9,8 @@ import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle, MapPin, Che
 import { useApp } from "@/store";
 import { businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
+import { parsePartySize, weightedWaitMin, MAX_QUEUE_PARTY_SIZE } from "@/lib/queueMath";
+import { getSupabase } from "@/lib/supabaseClient";
 import type { QueueOwnerToken as Token } from "@/types";
 import ManageNav from "./ManageNav";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
@@ -104,6 +105,25 @@ export default function QueueManager() {
     }
   }, [data]);
 
+  // Listen for realtime queue_settings updates (e.g. toggles or avg time changes from another terminal)
+  useEffect(() => {
+    if (!businessId) return;
+    const sb = getSupabase();
+    const sub = sb
+      .channel(`queue_settings_${businessId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "queue_settings", filter: `business_id=eq.${businessId}` },
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+    return () => {
+      sb.removeChannel(sub);
+    };
+  }, [businessId, refetch]);
+
   async function confirmPayment(token: Token) {
     setVerifying(token.id);
     try {
@@ -196,6 +216,26 @@ export default function QueueManager() {
       setWaiting((t) => [first, ...t]);
       setCalled((c) => c.filter((x) => x.id !== first.id));
       showToast(e?.message || "Couldn't call next — try again");
+    } finally {
+      setCalling(false);
+    }
+  }
+
+  async function callToken(token: Token) {
+    if (calling) return;
+    setCalling(true);
+    haptics.medium();
+    // Optimistic: move to called immediately
+    setWaiting((t) => t.filter((x) => x.id !== token.id));
+    setCalled((c) => [...c, token]);
+    try {
+      await businessService.callSpecificToken(token.id);
+      haptics.success();
+      showToast(`🔔 Called ${token.name}`);
+    } catch (e: any) {
+      setWaiting((t) => [...t, token]);
+      setCalled((c) => c.filter((x) => x.id !== token.id));
+      showToast(e?.message || "Couldn't call token — try again");
     } finally {
       setCalling(false);
     }
@@ -345,11 +385,16 @@ export default function QueueManager() {
           <UserPlus size={16} /> Add walk-in
         </button>
 
-        {live && (
-          <>
-            <div className="card">
-              <div className="row between small semi" style={{ alignItems: "center" }}>
-                <span>Avg service time</span>
+        {!live && (
+          <div className="row gap-8 center-v" style={{ padding: "10px 12px", background: "var(--ink-50)", borderRadius: "var(--radius-sm)" }}>
+            <Clock size={15} color="var(--ink-600)" style={{ flexShrink: 0 }} />
+            <span className="tiny muted">New customer joins from the app are paused. You can still manage and serve existing tickets below.</span>
+          </div>
+        )}
+
+        <div className="card">
+          <div className="row between small semi" style={{ alignItems: "center" }}>
+            <span>Avg service time</span>
                 <div className="row gap-4" style={{ alignItems: "center" }}>
                   <input
                     type="number"
@@ -479,14 +524,25 @@ export default function QueueManager() {
                       );
                     })()}
                   </div>
-                  <button
-                    className="icon-btn"
-                    style={{ width: 34, height: 34, color: "var(--green-500)" }}
-                    title="Mark served"
-                    onClick={() => serveToken(t, "waiting")}
-                  >
-                    <Check size={16} />
-                  </button>
+                  <div className="row gap-6 center-v">
+                    <button
+                      className="icon-btn"
+                      style={{ width: 34, height: 34, color: "var(--brand-600)" }}
+                      title="Call this customer"
+                      disabled={calling}
+                      onClick={() => callToken(t)}
+                    >
+                      <Play size={15} />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      style={{ width: 34, height: 34, color: "var(--green-500)" }}
+                      title="Mark served"
+                      onClick={() => serveToken(t, "waiting")}
+                    >
+                      <Check size={16} />
+                    </button>
+                  </div>
                 </div>
               ))}
               {waiting.length === 0 && called.length === 0 && (
@@ -518,8 +574,6 @@ export default function QueueManager() {
                 ))}
               </div>
             )}
-          </>
-        )}
           </>
         )}
 
@@ -581,7 +635,7 @@ export default function QueueManager() {
               </div>
               <div>
                 <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Party size</label>
-                <input className="input" type="number" min={1} value={walkInParty} onChange={(e) => setWalkInParty(e.target.value)} />
+                <input className="input" type="number" min={1} max={MAX_QUEUE_PARTY_SIZE} value={walkInParty} onChange={(e) => setWalkInParty(e.target.value)} />
               </div>
             </div>
             <button className="btn btn-primary btn-block" style={{ marginTop: 16, height: 48 }} disabled={addingWalkIn || !walkInName.trim()} onClick={addWalkIn}>
