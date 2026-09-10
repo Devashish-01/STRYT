@@ -159,6 +159,11 @@ Before any sprint is marked complete or committed to git, it must pass all 4 gat
   - [x] 4.2 Merchant Delivery Dispatch Sync, Polling Fallback & Spiderweb Fix (`D1`, `D2`, `D3`, `D5`)
   - [x] 4.3 Rider In-Flight Non-Blocking Dispatch, Fast GPS & Background Notification (`R1`, `R8`, `R12`)
   - [x] 4.4 1:1 Chat Google Play Moderation, PhotoViewer, Realtime Badge Clear & Push Trigger (`C1`, `C2`, `C3`, `C4`, `C6`, `C7`, `C9`)
-- [ ] **Sprint 5: Custom Requests, Bids & Group Deals (Domains 4 & 7)**
+- [x] **Sprint 5: Custom Requests, Bids & Group Deals (Domains 4 & 7)** *(Completed)*
+  - [x] 5.1 Customer Ask GPS Fallback, Smart Template Answer Append, Speech Stream Cleanup & Category Word Boundary (`R3`, `R4`, `R5`, `R6`, `R7`)
+  - [x] 5.2 Seller Proposals Bilateral Acceptance, Active Proposal Constraint, Quote Templates & Leads Scope (`P1`, `P2`, `P3`, `P4`, `P5`, `P7`, `P8`, `P9`, `P10`)
+  - [x] 5.3 Agreement Negotiation Team Attribution, In-Context 1:1 Chat, 12h Expiry Window, Direct Profile Navigation, RateScreen Role Inversion Fix & Payment Nudge Rate Limit (`A1`, `A2`, `A3`, `A4`, `A5`, `A6`, `A7`, `A8`, `A9`, `A10`, `A11`, `A12`)
+  - [x] 5.4 Bulk Deals No-Deposit Claim Pass Minting, Active Token Delete Guard, Catalog Scope Delegation, Balance Due Collection & Cross-Store Voucher Guard (`BLK-1`, `BLK-2`, `BLK-3`, `BLK-4`, `BLK-5`, `BLK-6`, `BLK-7`)
+  - [x] 5.5 Business Radius Invalidation & Geographic Square-Km Feedback (`RAD-1`, `RAD-2`)
 - [ ] **Sprint 6: Trust, Safety & Google Play Store Hardening (Domains 8–11)**
 
