@@ -5,7 +5,7 @@ import { ListSkeleton } from "@/components/states";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { emergencyService, type ContactUser } from "@/services/engagement/emergencyService";
-import { UserPlus, X } from "@/components/Icons";
+import { UserPlus, X, Search } from "@/components/Icons";
 
 /**
  * Manage the people who receive your live location when you share it. Contacts
@@ -15,13 +15,15 @@ export default function EmergencyContacts() {
   const nav = useNavigate();
   const { showToast } = useApp();
   const [adding, setAdding] = useState(false);
+  const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<ContactUser | null>(null);
 
   const { data: contacts, loading, refetch } = useQuery<ContactUser[]>(
     () => emergencyService.listContacts(), []
   );
   const { data: candidates, loading: candLoading } = useQuery<ContactUser[]>(
-    () => (adding ? emergencyService.candidateContacts() : Promise.resolve([])), [adding]
+    () => (adding ? emergencyService.candidateContacts(search) : Promise.resolve([])), [adding, search]
   );
 
   async function add(id: string) {
@@ -31,8 +33,9 @@ export default function EmergencyContacts() {
       showToast("Emergency contact added");
       await refetch();
       setAdding(false);
-    } catch {
-      showToast("Couldn't add contact");
+      setSearch("");
+    } catch (err: any) {
+      showToast(err?.message || "Couldn't add contact");
     } finally {
       setBusyId(null);
     }
@@ -42,9 +45,10 @@ export default function EmergencyContacts() {
     setBusyId(id);
     try {
       await emergencyService.removeContact(id);
+      showToast("Emergency contact removed");
       await refetch();
-    } catch {
-      showToast("Couldn't remove contact");
+    } catch (err: any) {
+      showToast(err?.message || "Couldn't remove contact");
     } finally {
       setBusyId(null);
     }
@@ -81,7 +85,7 @@ export default function EmergencyContacts() {
                 <button
                   className="btn btn-outline btn-sm"
                   disabled={busyId === c.id}
-                  onClick={() => void remove(c.id)}
+                  onClick={() => setConfirmRemove(c)}
                   style={{ color: "var(--red-600)", borderColor: "var(--red-200)" }}
                 >
                   Remove
@@ -101,13 +105,26 @@ export default function EmergencyContacts() {
           <div className="card" style={{ padding: 12 }}>
             <div className="row" style={{ alignItems: "center", marginBottom: 8 }}>
               <span className="semi grow">Add from your chats</span>
-              <button className="btn-icon" onClick={() => setAdding(false)} aria-label="Close"><X size={18} /></button>
+              <button className="btn-icon" onClick={() => { setAdding(false); setSearch(""); }} aria-label="Close"><X size={18} /></button>
             </div>
+
+            <div style={{ position: "relative", marginBottom: 10 }}>
+              <Search size={15} color="var(--ink-400)" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
+              <input
+                type="search"
+                className="input"
+                placeholder="Search chats by name…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ paddingLeft: 32, height: 36, fontSize: 13 }}
+              />
+            </div>
+
             {candLoading ? (
               <ListSkeleton />
             ) : cands.length === 0 ? (
               <p className="tiny muted" style={{ padding: "8px 2px" }}>
-                No one to add yet — start a chat with someone first, then add them here.
+                {search.trim() ? "No matching contacts found." : "No one to add yet — start a chat with someone first, then add them here."}
               </p>
             ) : (
               <div className="col gap-8">
@@ -125,6 +142,35 @@ export default function EmergencyContacts() {
           </div>
         )}
       </div>
+
+      {confirmRemove && (
+        <div className="overlay" onClick={() => setConfirmRemove(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h3 className="bold h2" style={{ marginBottom: 6 }}>Remove emergency contact?</h3>
+            <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
+              <strong>{confirmRemove.name}</strong> will no longer be able to track your live location when shared.
+            </p>
+            <div className="col gap-8">
+              <button
+                className="btn btn-block"
+                style={{ background: "var(--red-500)", color: "var(--white)" }}
+                disabled={busyId === confirmRemove.id}
+                onClick={() => {
+                  const target = confirmRemove;
+                  setConfirmRemove(null);
+                  void remove(target.id);
+                }}
+              >
+                {busyId === confirmRemove.id ? "Removing…" : "Yes, remove contact"}
+              </button>
+              <button className="btn btn-ghost btn-block" onClick={() => setConfirmRemove(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

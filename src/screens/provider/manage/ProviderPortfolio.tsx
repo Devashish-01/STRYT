@@ -1,11 +1,12 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Camera, Pencil, Trash2, Check } from "@/components/Icons";
-import { providerService, uploadService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { Camera, Pencil, Trash2, Check, X } from "@/components/Icons";
+import { providerService, uploadService, bustProviderGetCache } from "@/services";
+import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
+import type { PortfolioItem } from "@/types";
 import ProviderManageNav from "./ProviderManageNav";
 
 export default function ProviderPortfolio() {
@@ -16,6 +17,7 @@ export default function ProviderPortfolio() {
   const [uploading, setUploading] = useState(false);
   const [editingCaption, setEditingCaption] = useState<string | null>(null);
   const [captionVal, setCaptionVal] = useState("");
+  const [confirmDeleteItem, setConfirmDeleteItem] = useState<PortfolioItem | null>(null);
 
   if (!id) {
     return (
@@ -33,6 +35,8 @@ export default function ProviderPortfolio() {
     try {
       const url = await uploadService.upload(file, "portfolio");
       await providerService.addPortfolio(id, { url, caption: "" });
+      bustProviderGetCache(id);
+      invalidateQueryCache(`provider:${id}`);
       showToast("Added to portfolio");
       refetch();
     } catch {
@@ -46,6 +50,8 @@ export default function ProviderPortfolio() {
   async function deleteItem(itemId: string) {
     try {
       await providerService.deletePortfolio(id, itemId);
+      bustProviderGetCache(id);
+      invalidateQueryCache(`provider:${id}`);
       showToast("Removed from portfolio");
       refetch();
     } catch {
@@ -65,10 +71,11 @@ export default function ProviderPortfolio() {
     );
   }
   if (!p) return null;
+  const realPortfolio = (p.portfolio ?? []).filter((item) => !item.id.startsWith("pp_def_") && !item.id.startsWith("mock_"));
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Portfolio" subtitle={`${p.portfolio.length} sample${p.portfolio.length !== 1 ? "s" : ""}`} />
+      <AppBar title="Portfolio" subtitle={`${realPortfolio.length} sample${realPortfolio.length !== 1 ? "s" : ""}`} />
       <div className="screen-scroll page-pad" style={{ paddingBottom: 20 }}>
         {/* Upload button — real file input */}
         <label style={{ display: "block", marginBottom: 14, cursor: "pointer" }}>
@@ -85,14 +92,14 @@ export default function ProviderPortfolio() {
           />
         </label>
 
-        {p.portfolio.length === 0 && (
+        {realPortfolio.length === 0 && (
           <p className="muted small center" style={{ padding: 40 }}>
             No samples yet. Add photos of your past work to win more jobs.
           </p>
         )}
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          {p.portfolio.map((item) => (
+          {realPortfolio.map((item) => (
             <div key={item.id} style={{ position: "relative" }}>
               <SafeImg src={item.url} className="thumb" style={{ width: "100%", height: 130, borderRadius: 14, objectFit: "cover" }} />
 
@@ -109,20 +116,29 @@ export default function ProviderPortfolio() {
                   />
                   <button
                     className="icon-btn"
-                    style={{ width: 28, height: 28, background: "var(--green-500)", color: "#fff", flexShrink: 0 }}
+                    style={{ width: 28, height: 28, background: "var(--green-500)", color: "var(--white)", flexShrink: 0 }}
                     onClick={async () => {
                       await providerService.updatePortfolio?.(id, item.id, { caption: captionVal });
+                      bustProviderGetCache(id);
+                      invalidateQueryCache(`provider:${id}`);
                       setEditingCaption(null);
                       refetch();
                     }}
                   >
                     <Check size={14} />
                   </button>
+                  <button
+                    className="icon-btn"
+                    style={{ width: 28, height: 28, background: "var(--surface)", color: "var(--ink-500)", flexShrink: 0 }}
+                    onClick={() => setEditingCaption(null)}
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               ) : (
                 <>
                   {item.caption && (
-                    <span className="tiny" style={{ position: "absolute", bottom: 36, left: 8, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,0.7)" }}>
+                    <span className="tiny" style={{ position: "absolute", bottom: 36, left: 8, color: "var(--white)", textShadow: "0 1px 3px rgba(0,0,0,0.7)" }}>
                       {item.caption}
                     </span>
                   )}
@@ -138,7 +154,7 @@ export default function ProviderPortfolio() {
                     <button
                       className="icon-btn"
                       style={{ width: 28, height: 28, background: "rgba(255,255,255,0.92)", color: "var(--red-600)" }}
-                      onClick={() => deleteItem(item.id)}
+                      onClick={() => setConfirmDeleteItem(item)}
                       title="Delete"
                     >
                       <Trash2 size={13} />
@@ -150,6 +166,33 @@ export default function ProviderPortfolio() {
           ))}
         </div>
       </div>
+
+      {confirmDeleteItem && (
+        <div className="overlay" onClick={() => setConfirmDeleteItem(null)}>
+          <div className="sheet" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h3 className="bold h2" style={{ marginBottom: 6 }}>Delete work sample?</h3>
+            <p className="small muted" style={{ marginBottom: 16, lineHeight: 1.5 }}>
+              This photo will be permanently removed from your portfolio gallery.
+            </p>
+            <div className="col gap-8">
+              <button
+                className="btn btn-block"
+                style={{ background: "var(--red-500)", color: "var(--white)" }}
+                onClick={() => {
+                  const it = confirmDeleteItem;
+                  setConfirmDeleteItem(null);
+                  deleteItem(it.id);
+                }}
+              >
+                Yes, delete sample
+              </button>
+              <button className="btn btn-ghost btn-block" onClick={() => setConfirmDeleteItem(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ProviderManageNav pid={id} />
     </div>
   );

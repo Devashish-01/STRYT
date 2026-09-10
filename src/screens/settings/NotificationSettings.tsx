@@ -42,9 +42,11 @@ export default function NotificationSettings() {
 
   useEffect(() => {
     localStorage.setItem("settings_radius", String(radius));
-    if (user.id && radius !== user.notificationRadiusKm) {
+    if (!user.id || radius === user.notificationRadiusKm) return;
+    const timer = setTimeout(() => {
       void userService.update({ notificationRadiusKm: radius }).catch(() => {});
-    }
+    }, 400);
+    return () => clearTimeout(timer);
   }, [radius, user.id, user.notificationRadiusKm]);
 
   /** Optimistic + revert + toast, per DESIGN_PRINCIPLES §6. These write to the

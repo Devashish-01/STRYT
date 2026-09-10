@@ -175,6 +175,8 @@ interface AppState {
   lists: UserList[];
   createList: (name: string, emoji: string) => Promise<string>;
   addToList: (listId: string, type: BookmarkTarget, id: string) => void;
+  deleteList: (listId: string) => Promise<void>;
+  removeFromList: (listId: string, type: BookmarkTarget, id: string) => Promise<void>;
   isInAnyList: (type: BookmarkTarget, id: string) => boolean;
 
   // true once the first post-login refreshUser() attempt has settled (success
@@ -260,7 +262,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     savedCoupons, setSavedCoupons, toggleCoupon,
     extraStamps, addStamp,
     queuesJoined, joinQueue,
-    lists, setLists, createList, addToList, isInAnyList,
+    lists, setLists, createList, addToList, deleteList, removeFromList, isInAnyList,
   } = useCommerceSlice(showToast);
 
   const { chatUnread, setChatUnread } = useNotificationBadges(isAuthed);
@@ -686,6 +688,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       lists,
       createList,
       addToList,
+      deleteList,
+      removeFromList,
       isInAnyList,
       profileReady,
       chatUnread,
@@ -749,7 +753,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       dataSaver, setDataSaver, notifExplainerPending,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,
       toggleLike, votePoll, toggleCoupon, addStamp, toggleEndorse, toggleVouch, toggleNotify,
-      joinQueue, createList, addToList, isInAnyList, showToast,
+      joinQueue, createList, addToList, deleteList, removeFromList, isInAnyList, showToast,
       setPersistedActiveRole, setPersistedContext, setChatUnread, setIsAuthed,
       attemptSwitchContext, confirmPendingSwitch, cancelPendingSwitch, refreshEntityPasswordStatus,
       confirmNotifExplainer, dismissNotifExplainer,

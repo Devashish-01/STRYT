@@ -414,17 +414,19 @@ export const socialService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    await sb.from("vouches").upsert(
+    const { error } = await sb.from("vouches").upsert(
       { from_user_id: uid, provider_id: providerId },
       { onConflict: "from_user_id,provider_id" }
     );
+    if (error) throw error;
   },
 
   async removeVouch(providerId: string): Promise<void> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    await sb.from("vouches").delete().eq("from_user_id", uid).eq("provider_id", providerId);
+    const { error } = await sb.from("vouches").delete().eq("from_user_id", uid).eq("provider_id", providerId);
+    if (error) throw error;
   },
 
   // ── Phase 38: Endorsements ────────────────────────────────────
@@ -438,9 +440,13 @@ export const socialService = {
     if (error) throw error;
     const skillMap: Record<string, { count: number; endorsed: boolean }> = {};
     for (const row of data ?? []) {
-      if (!skillMap[row.skill]) skillMap[row.skill] = { count: 0, endorsed: false };
-      skillMap[row.skill].count++;
-      if (uid && row.from_user_id === uid) skillMap[row.skill].endorsed = true;
+      const skill = (row as any).skill as string;
+      const isMine = (row as any).from_user_id === uid;
+      if (!skillMap[skill]) {
+        skillMap[skill] = { count: 0, endorsed: false };
+      }
+      skillMap[skill].count++;
+      if (isMine) skillMap[skill].endorsed = true;
     }
     return Object.entries(skillMap).map(([skill, s]) => ({ skill, count: s.count, endorsed: s.endorsed }));
   },
@@ -449,17 +455,19 @@ export const socialService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    await sb.from("endorsements").upsert(
+    const { error } = await sb.from("endorsements").upsert(
       { from_user_id: uid, provider_id: providerId, skill },
       { onConflict: "from_user_id,provider_id,skill" }
     );
+    if (error) throw error;
   },
 
   async removeEndorsement(providerId: string, skill: string): Promise<void> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return;
-    await sb.from("endorsements").delete().eq("from_user_id", uid).eq("provider_id", providerId).eq("skill", skill);
+    const { error } = await sb.from("endorsements").delete().eq("from_user_id", uid).eq("provider_id", providerId).eq("skill", skill);
+    if (error) throw error;
   },
 
   // ── Phase 39: Leaderboard ────────────────────────────────────

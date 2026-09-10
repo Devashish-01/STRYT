@@ -5,7 +5,7 @@ import { businessService, bustBusinessGetCache, profileControlService, uploadSer
 import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/settings";
-import { BadgeCheck, UserPlus, X, Image as ImageIcon, Trash2 } from "@/components/Icons";
+import { BadgeCheck, UserPlus, X, Image as ImageIcon, Trash2, Star } from "@/components/Icons";
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
@@ -302,7 +302,13 @@ export default function BusinessSettings() {
           />
         </SettingsSection>
 
-        <SettingsSection title="Notifications">
+        <SettingsSection title="Notifications & Reviews">
+          <SettingsRow
+            icon={<Star size={18} color="var(--amber-500)" />}
+            label="Customer reviews"
+            hint="View and reply to customer feedback"
+            onClick={() => nav(`/business/${id}/manage/reviews`)}
+          />
           <SettingsToggleRow label="New leads" on={leads} onChange={setLeads} />
           <SettingsToggleRow label="New reviews" on={reviewsN} onChange={setReviewsN} />
           <SettingsToggleRow

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { EmptyListIllustration } from "@/components/illustrations";
-import { Plus, ChevronRight, Users, Store } from "@/components/Icons";
+import { Plus, ChevronRight, Users, Store, Trash2 } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService, providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -13,7 +13,7 @@ const emojis = ["🌟", "🍽️", "🚨", "🧸", "💎", "🎁", "🏠", "💇
 
 export default function Lists() {
   const nav = useNavigate();
-  const { lists, createList, user } = useApp();
+  const { lists, createList, deleteList, removeFromList, user } = useApp();
   const { t, tf } = useI18n();
   // The open list lives in the URL (`?list=<id>`), not component state, so
   // hardware/browser back closes the list instead of leaving the whole screen,
@@ -56,6 +56,20 @@ export default function Lists() {
           title={`${active.emoji} ${active.name}`}
           subtitle={tf("n_saved", { n: active.items.length })}
           onBack={() => setOpen(null)}
+          right={
+            <button
+              className="icon-btn"
+              title="Delete list"
+              aria-label="Delete list"
+              onClick={async () => {
+                if (!confirm(`Delete list "${active.name}"?`)) return;
+                await deleteList(active.id);
+                setOpen(null);
+              }}
+            >
+              <Trash2 size={18} color="var(--red-500)" />
+            </button>
+          }
         />
         <div className="screen-scroll page-pad col gap-12">
           {active.items.length === 0 ? (
@@ -71,21 +85,39 @@ export default function Lists() {
               }
             />
           ) : (
-            active.items.map((it, i) => {
+            active.items.map((it) => {
               const b = it.type === "BUSINESS" ? businesses.find((x) => x.id === it.id) : undefined;
               const p = it.type === "PROVIDER" ? providers.find((x) => x.id === it.id) : undefined;
               const name = b?.name ?? p?.displayName ?? t("item_fallback");
               const img = b?.coverImage ?? p?.avatar ?? "";
               const sub = b?.subCategory ?? p?.categoryName ?? "";
               return (
-                <button key={it.id} className="card row gap-12" style={{ padding: 12, textAlign: "left" }} onClick={() => nav(it.type === "BUSINESS" ? `/business/${it.id}` : `/provider/${it.id}`)}>
-                  <SafeImg src={img} variant={it.type === "PROVIDER" ? "avatar" : "photo"} className="thumb" style={{ width: 56, height: 56, borderRadius: 12 }} />
-                  <div className="grow">
-                    <div className="semi small">{name}</div>
-                    <div className="tiny muted">{sub}</div>
-                  </div>
-                  <ChevronRight size={18} color="var(--ink-300)" />
-                </button>
+                <div key={it.id} className="card row gap-12 center-v" style={{ padding: 12 }}>
+                  <button
+                    className="row gap-12 center-v grow"
+                    style={{ background: "none", border: "none", textAlign: "left", cursor: "pointer", padding: 0 }}
+                    onClick={() => nav(it.type === "BUSINESS" ? `/business/${it.id}` : `/provider/${it.id}`)}
+                  >
+                    <SafeImg src={img} variant={it.type === "PROVIDER" ? "avatar" : "photo"} className="thumb" style={{ width: 56, height: 56, borderRadius: 12 }} />
+                    <div className="grow">
+                      <div className="semi small">{name}</div>
+                      <div className="tiny muted">{sub}</div>
+                    </div>
+                    <ChevronRight size={18} color="var(--ink-300)" />
+                  </button>
+                  <button
+                    className="icon-btn"
+                    style={{ padding: 6, flexShrink: 0 }}
+                    title="Remove from list"
+                    aria-label="Remove from list"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void removeFromList(active.id, it.type, it.id);
+                    }}
+                  >
+                    <Trash2 size={16} color="var(--ink-400)" />
+                  </button>
+                </div>
               );
             })
           )}

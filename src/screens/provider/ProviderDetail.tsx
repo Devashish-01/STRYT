@@ -412,23 +412,28 @@ export default function ProviderDetail() {
             )}
 
             {/* Vouches */}
-            {vouchList.length > 0 && (
-              <div className="card">
-                <div className="row between" style={{ marginBottom: 10 }}>
-                  <span className="semi small row gap-6"><Handshake size={16} color="var(--green-500)" /> {tf("neighbors_vouch_for", { count: vouchList.length + (hasVouched ? 1 : 0), name: p.displayName.split(" ")[0] })}</span>
+            {vouchList.length > 0 && (() => {
+              const isUserInVouchList = vouchList.some((v) => v.byUserId === user.id);
+              const displayVouches = hasVouched && !isUserInVouchList
+                ? [...vouchList, { byUserId: user.id, byName: user.name || "You", byAvatar: user.avatar || "", createdAt: new Date().toISOString() }]
+                : !hasVouched && isUserInVouchList
+                  ? vouchList.filter((v) => v.byUserId !== user.id)
+                  : vouchList;
+              return (
+                <div className="card">
+                  <div className="row between" style={{ marginBottom: 10 }}>
+                    <span className="semi small row gap-6">
+                      <Handshake size={16} color="var(--green-500)" /> {tf("neighbors_vouch_for", { count: displayVouches.length, name: p.displayName.split(" ")[0] })}
+                    </span>
+                  </div>
+                  <div className="row" style={{ marginLeft: 6 }}>
+                    {displayVouches.slice(0, 6).map((v) => (
+                      <SafeImg key={v.byUserId} src={v.byAvatar} variant="avatar" className="avatar" style={{ width: 36, height: 36, border: "2px solid var(--white)", marginLeft: -6 }} />
+                    ))}
+                  </div>
                 </div>
-                <div className="row" style={{ marginLeft: 6 }}>
-                  {vouchList.slice(0, 6).map((v) => (
-                    <SafeImg key={v.byUserId} src={v.byAvatar} variant="avatar" className="avatar" style={{ width: 36, height: 36, border: "2px solid #fff", marginLeft: -6 }} />
-                  ))}
-                  {hasVouched && (
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--green-500)", border: "2px solid #fff", marginLeft: -6, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
-                      <Plus size={16} />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+              );
+            })()}
             {p.isOpenNow === false && (
               <div className="card card-condensed" style={{ background: "var(--red-50)", border: "1px solid var(--red-100)" }}>
                 <div className="row gap-8 center-v">
@@ -537,6 +542,12 @@ export default function ProviderDetail() {
                     )}
                   </div>
                   <p className="small" style={{ marginTop: 6, lineHeight: 1.55 }}>{rv.comment}</p>
+                  {rv.ownerReply && (
+                    <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
+                      <div className="tiny semi" style={{ color: "var(--green-700)" }}>{p.displayName} (Provider reply)</div>
+                      <p className="small" style={{ marginTop: 2, lineHeight: 1.45 }}>{rv.ownerReply}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -555,7 +566,7 @@ export default function ProviderDetail() {
       {/* Bottom action bar — a guest still sees the starting price (that's the
           thing they came to find out), but the call/message/book controls are
           replaced by a single sign-in prompt. */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12, zIndex: 30 }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--white)", borderTop: "1px solid var(--line)", padding: 12, zIndex: 30 }}>
         <div className="row gap-10">
           <div className="col" style={{ gap: 0 }}>
             <span className="tiny muted">{t("starting_label")}</span>

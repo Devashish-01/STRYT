@@ -209,6 +209,7 @@ export interface Provider {
   phone: string;
   email?: string;
   upiId?: string;
+  upiQrUrl?: string;
   showPhonePublicly?: boolean;
   showEmailPublicly?: boolean;
   locationPublic?: boolean;
@@ -350,6 +351,8 @@ export interface Lead {
   name: string;
   avatar: string;
   text: string;
+  fromUserId?: string;
+  phone?: string;
   time: string;
   handled: boolean;
 }

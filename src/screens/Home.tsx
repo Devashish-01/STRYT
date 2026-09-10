@@ -132,7 +132,7 @@ export default function Home() {
   const { data: myQueuesData, refetch: refetchQueues } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined, `home:queues:${user.id}`);
   const { data: myBulkPledges, refetch: refetchBulkPledges } = useQuery(() => bulkService.myPledgedDeals(user.lat || 0, user.lng || 0), [user.id, user.lat, user.lng], `home:bulk-pledges:${user.id}`);
   const { data: pendingLocReqs, refetch: refetchPendingLoc } = useQueryWithRealtime(() => locationService.pendingForMe(), "location_share_grants", [], undefined, `home:pending-loc:${user.id}`);
-  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [], undefined, "notif:customer");
+  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [user.id], user.id ? `user_id=eq.${user.id}` : undefined, `notif:customer:${user.id || "guest"}`);
 
   const handleRefresh = async () => {
     await Promise.allSettled([

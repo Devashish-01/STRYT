@@ -9,7 +9,7 @@ import { useBusinessAccess } from "@/components/BusinessAccessGuard";
 import HatSwitcherCard from "@/components/HatSwitcherCard";
 import ManageNav from "./ManageNav";
 import {
-  BadgeCheck, Settings, Wallet, Globe, Store, Users, LogOut,
+  BadgeCheck, Settings, Wallet, Globe, Store, Users, LogOut, Star, ChevronRight,
 } from "@/components/Icons";
 
 // The business identity home: public preview, profile editors, account controls,
@@ -90,6 +90,7 @@ export default function BusinessProfileHub() {
           <SettingsSection title="Profile & identity">
             <SettingsRow icon={<Store size={19} color="var(--orange-500)" />} label="Edit profile" hint="Name, cover, contact and location" onClick={() => nav(`${base}/edit-profile`)} />
             <SettingsRow icon={<Globe size={19} color="var(--blue-500)" />} label="Service radius" hint="Bookings, posts and stories reach" onClick={() => nav(`${base}/broadcast`)} />
+            <SettingsRow icon={<Star size={19} color="var(--amber-500)" />} label="Customer reviews" hint={(b?.ratingCount ?? 0) > 0 ? `${b?.ratingAvg}★ (${b?.ratingCount} reviews)` : "View & reply to reviews"} onClick={() => nav(`${base}/reviews`)} />
             <SettingsRow icon={<BadgeCheck size={19} color="var(--green-600)" />} label="Verification" hint={verifyLabel} onClick={() => nav(`${base}/verify`)} />
           </SettingsSection>
         )}
@@ -103,9 +104,15 @@ export default function BusinessProfileHub() {
         )}
 
         {(reviews ?? []).length > 0 && (
-          <div>
-            <div className="profile-eyebrow">Recent reviews</div>
-            <div className="tiny muted" style={{ marginBottom: 8 }}>{reviews?.length} review{(reviews?.length ?? 0) === 1 ? "" : "s"} — open Business tab to reply</div>
+          <div className="card row between center-v" style={{ padding: 14, cursor: "pointer" }} onClick={() => nav(`${base}/reviews`)}>
+            <div className="row gap-10 center-v">
+              <Star size={20} color="var(--amber-500)" weight="fill" />
+              <div>
+                <div className="semi small">Customer reviews</div>
+                <div className="tiny muted">{reviews?.length} review{(reviews?.length ?? 0) === 1 ? "" : "s"} — tap to view & reply</div>
+              </div>
+            </div>
+            <ChevronRight size={16} className="muted" />
           </div>
         )}
 

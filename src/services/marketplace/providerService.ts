@@ -164,7 +164,7 @@ export const providerService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
-      .select("id, rating, comment, created_at, is_verified_booking, rater:users!rater_user_id(name, alias, avatar, show_name_publicly)")
+      .select("id, rating, comment, created_at, is_verified_booking, owner_reply, rater:users!rater_user_id(name, alias, avatar, show_name_publicly)")
       .eq("ratee_type", "PROVIDER")
       .eq("ratee_id", id)
       .order("created_at", { ascending: false })
@@ -178,6 +178,7 @@ export const providerService = {
       comment: r.comment ?? "",
       date: relDate(r.created_at),
       isVerifiedBooking: !!r.is_verified_booking,
+      ownerReply: r.owner_reply ?? undefined,
     }));
   },
   async update(id: string, patch: Partial<Provider>) {
@@ -186,6 +187,7 @@ export const providerService = {
     const { data, error } = await sb.from("providers").update(toSnake(cols)).eq("id", id).select().maybeSingle();
     throwIfError(error);
     if (!data) throw new Error("Couldn't save — you may not have permission to change this.");
+    bustProviderGetCache(id);
     return toCamel<Provider>(data);
   },
   /**
@@ -210,6 +212,7 @@ export const providerService = {
       })
       .eq("id", id);
     throwIfError(error);
+    bustProviderGetCache(id);
     return { ok: true };
   },
   async create(data: Partial<Provider>) {
@@ -257,18 +260,21 @@ export const providerService = {
     const row = { ...toSnake(item), provider_id: id };
     const { data, error } = await sb.from("catalog_items").insert(row).select().maybeSingle();
     throwIfError(error);
+    bustProviderGetCache(id);
     return toCamel<CatalogItem>(data);
   },
   async updateCatalogItem(id: string, itemId: string, patch: Partial<CatalogItem>) {
     const sb = getSupabase();
     const { data, error } = await sb.from("catalog_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
     throwIfError(error);
+    bustProviderGetCache(id);
     return toCamel<CatalogItem>(data);
   },
   async deleteCatalogItem(id: string, itemId: string) {
     const sb = getSupabase();
     const { error } = await sb.from("catalog_items").delete().eq("id", itemId);
     throwIfError(error);
+    bustProviderGetCache(id);
     return { ok: true };
   },
   /** Bump the provider profile view counter (fire-and-forget). */
@@ -289,6 +295,7 @@ export const providerService = {
     const row = { ...toSnake(item), provider_id: id };
     const { data, error } = await sb.from("portfolio_items").insert(row).select().maybeSingle();
     throwIfError(error);
+    bustProviderGetCache(id);
     return toCamel<PortfolioItem>(data);
   },
 
@@ -296,6 +303,7 @@ export const providerService = {
     const sb = getSupabase();
     const { error } = await sb.from("portfolio_items").delete().eq("id", itemId);
     throwIfError(error);
+    bustProviderGetCache(providerId);
     return { ok: true };
   },
 
@@ -303,12 +311,15 @@ export const providerService = {
     const sb = getSupabase();
     const { data, error } = await sb.from("portfolio_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
     throwIfError(error);
+    bustProviderGetCache(providerId);
     return toCamel<PortfolioItem>(data);
   },
-  async setAvailability(id: string, availableNow: boolean, hours?: number) {
+  async setAvailability(id: string, availableNow: boolean, hoursOrUntil?: number | string) {
     const sb = getSupabase();
-    const availableUntil = availableNow && hours
-      ? new Date(Date.now() + hours * 3600 * 1000).toISOString()
+    const availableUntil = availableNow && hoursOrUntil
+      ? (typeof hoursOrUntil === "string"
+          ? hoursOrUntil
+          : new Date(Date.now() + hoursOrUntil * 3600 * 1000).toISOString())
       : null;
     const patch: Record<string, any> = { is_available_now: availableNow, available_until: availableUntil };
 
@@ -333,13 +344,14 @@ export const providerService = {
     if (!data || data.length === 0) {
       throw new Error("Couldn't save — you may not have permission to change this.");
     }
-    return { ok: true, availableNow, hours };
+    bustProviderGetCache(id);
+    return { ok: true, availableNow, hoursOrUntil };
   },
   async leads(id: string) {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("leads")
-      .select("id, provider_id, kind, note, handled, created_at, from:users!from_user_id(name, avatar)")
+      .select("id, provider_id, from_user_id, kind, note, handled, created_at, from:users!from_user_id(name, alias, avatar, phone, show_phone_publicly)")
       .eq("provider_id", id)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -347,9 +359,11 @@ export const providerService = {
     return (data ?? []).map((l: any) => ({
       id: l.id,
       providerId: l.provider_id,
+      fromUserId: l.from_user_id,
       kind: l.kind,
       name: l.from?.name ?? "Someone",
       avatar: l.from?.avatar ?? "",
+      phone: l.from?.show_phone_publicly ? l.from?.phone : undefined,
       text: leadText(l.kind, l.note),
       time: relDate(l.created_at),
       handled: l.handled,
@@ -369,15 +383,18 @@ export const providerService = {
     const prov = (provRes.data ?? {}) as { user_id?: string; view_count?: number; jobs_done?: number };
     const uid = prov.user_id ?? "__none__";
     const sevenAgo = new Date(Date.now() - 7 * 86400 * 1000).toISOString();
-    const [leadsCntRes, leadsSerRes, proposalsRes, acceptedRes, settleRes, viewsSerRes] = await Promise.all([
+    const [leadsCntRes, leadsSerRes, proposalsRes, acceptedRes, settleRes, apptRes, viewsSerRes] = await Promise.all([
       sb.from("leads").select("*", { count: "exact", head: true }).eq("provider_id", id),
       sb.from("leads").select("created_at").eq("provider_id", id).gte("created_at", sevenAgo),
       sb.from("proposals").select("*", { count: "exact", head: true }).eq("responder_user_id", uid),
       sb.from("agreements").select("*", { count: "exact", head: true }).eq("responder_user_id", uid).in("status", ["ACTIVE", "COMPLETED"]),
       sb.from("settlements").select("amount").eq("user_id", uid),
+      sb.from("appointments").select("price").eq("target_id", id).eq("payment_status", "PAID"),
       sb.from("provider_view_logs").select("viewed_at").eq("provider_id", id).gte("viewed_at", sevenAgo),
     ]);
-    const earnings = (settleRes.data ?? []).reduce((sum: number, s: any) => sum + (s.amount ?? 0), 0);
+    const settleEarnings = (settleRes.data ?? []).reduce((sum: number, s: any) => sum + (s.amount ?? 0), 0);
+    const apptEarnings = (apptRes.data ?? []).reduce((sum: number, a: any) => sum + (a.price ?? 0), 0);
+    const earnings = settleEarnings + apptEarnings;
     return {
       views: prov.view_count ?? 0,
       leads: leadsCntRes.count ?? 0,
@@ -391,9 +408,9 @@ export const providerService = {
   },
 
   /**
-   * Dated settlement history behind the "Earned (offline)" total — one row per
-   * recorded settlement for this provider's owning user, newest first. Feeds the
-   * Money screen's ledger.
+   * Dated settlement history behind the "Earned (offline)" total — combines
+   * custom agreement settlements and direct paid appointment bookings.
+   * Feeds the Money screen's ledger.
    */
   async earningsLedger(id: string): Promise<EarningEntry[]> {
     if (isMockTarget(id)) return [];
@@ -402,14 +419,23 @@ export const providerService = {
     throwIfError(provRes.error);
     const uid = (provRes.data as { user_id?: string } | null)?.user_id;
     if (!uid) return [];
-    const { data, error } = await sb
-      .from("settlements")
-      .select("id, amount, tip, mode, note, created_at, agreement_id")
-      .eq("user_id", uid)
-      .order("created_at", { ascending: false })
-      .limit(100);
-    throwIfError(error);
-    return (data ?? []).map((s: any) => ({
+    const [settleRes, apptRes] = await Promise.all([
+      sb.from("settlements")
+        .select("id, amount, tip, mode, note, created_at, agreement_id")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false })
+        .limit(100),
+      sb.from("appointments")
+        .select("id, price, payment_mode, customer_name, service_name, created_at")
+        .eq("target_id", id)
+        .eq("payment_status", "PAID")
+        .order("created_at", { ascending: false })
+        .limit(100),
+    ]);
+    throwIfError(settleRes.error);
+    throwIfError(apptRes.error);
+
+    const settleEntries: EarningEntry[] = (settleRes.data ?? []).map((s: any) => ({
       id: s.id,
       amount: s.amount ?? 0,
       tip: s.tip ?? 0,
@@ -419,6 +445,22 @@ export const providerService = {
       createdAtISO: s.created_at ?? "",
       agreementId: s.agreement_id ?? "",
     }));
+
+    const apptEntries: EarningEntry[] = (apptRes.data ?? []).map((a: any) => ({
+      id: a.id,
+      amount: a.price ?? 0,
+      tip: 0,
+      mode: a.payment_mode || "CASH",
+      note: [a.customer_name, a.service_name].filter(Boolean).join(" • ") || "Appointment booking",
+      date: a.created_at ? relDate(a.created_at) : "",
+      createdAtISO: a.created_at ?? "",
+      agreementId: "",
+    }));
+
+    const combined = [...settleEntries, ...apptEntries].sort(
+      (a, b) => new Date(b.createdAtISO).getTime() - new Date(a.createdAtISO).getTime()
+    );
+    return combined.slice(0, 100);
   },
 
   /** Submit a star rating + comment for a provider. Trigger recomputes rating_avg/count. */
@@ -446,6 +488,7 @@ export const providerService = {
     if (existing?.id) {
       const { error } = await sb.from("ratings").update({ rating, comment: comment || null, is_verified_booking: isVerifiedBooking }).eq("id", existing.id);
       throwIfError(error);
+      bustProviderGetCache(id);
       return;
     }
     const { error } = await sb.from("ratings").insert({
@@ -456,6 +499,14 @@ export const providerService = {
       comment: comment || null,
       is_verified_booking: isVerifiedBooking,
     });
+    throwIfError(error);
+    bustProviderGetCache(id);
+  },
+
+  /** Reply to a customer review as the provider. */
+  async replyToReview(ratingId: string, reply: string): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await sb.rpc("reply_to_rating", { p_rating_id: ratingId, p_reply: reply });
     throwIfError(error);
   },
 };

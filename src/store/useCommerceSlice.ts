@@ -102,10 +102,48 @@ export function useCommerceSlice(showToast: (msg: string) => void) {
     [lists]
   );
 
+  const deleteList = useCallback(
+    async (listId: string) => {
+      const prev = lists;
+      setLists((p) => p.filter((l) => l.id !== listId));
+      showToast("List deleted");
+      const uid = await currentUserId();
+      if (uid) {
+        const { error } = await getSupabase().from("user_lists").delete().eq("id", listId).eq("user_id", uid);
+        if (error) {
+          setLists(prev);
+          showToast("Couldn't delete list — try again");
+        }
+      }
+    },
+    [lists, showToast]
+  );
+
+  const removeFromList = useCallback(
+    async (listId: string, type: BookmarkTarget, id: string) => {
+      const prev = lists;
+      setLists((p) =>
+        p.map((l) => (l.id === listId ? { ...l, items: l.items.filter((it) => !(it.type === type && it.id === id)) } : l))
+      );
+      showToast("Removed from list");
+      const { error } = await getSupabase()
+        .from("user_list_items")
+        .delete()
+        .eq("list_id", listId)
+        .eq("target_type", type)
+        .eq("target_id", id);
+      if (error) {
+        setLists(prev);
+        showToast("Couldn't remove item — try again");
+      }
+    },
+    [lists, showToast]
+  );
+
   return {
     savedCoupons, setSavedCoupons, toggleCoupon,
     extraStamps, addStamp,
     queuesJoined, joinQueue,
-    lists, setLists, createList, addToList, isInAnyList,
+    lists, setLists, createList, addToList, deleteList, removeFromList, isInAnyList,
   };
 }

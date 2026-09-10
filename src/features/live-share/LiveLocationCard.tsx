@@ -67,9 +67,18 @@ export default function LiveLocationCard({ shareId, endedHint }: { shareId: stri
   }, [ended]);
 
   const name = view?.sharerName ?? "Someone";
+  const isStale = view?.updatedAt ? Date.now() - new Date(view.updatedAt).getTime() > 5 * 60 * 1000 : false;
   const updatedLabel = view?.updatedAt
     ? new Date(view.updatedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
     : "";
+
+  const statusSubtext = ended
+    ? "Sharing has stopped"
+    : !updatedLabel
+    ? "Locating…"
+    : isStale
+    ? `Updated ${updatedLabel} · offline (stale)`
+    : `Updated ${updatedLabel} · live`;
 
   return (
     <div style={{
@@ -77,20 +86,32 @@ export default function LiveLocationCard({ shareId, endedHint }: { shareId: stri
       border: "1px solid var(--line)", background: "var(--surface)",
     }}>
       <div className="row gap-8" style={{ alignItems: "center", padding: "9px 12px" }}>
-        <MapPin size={15} color={ended ? "var(--ink-400)" : "var(--accent-500)"} />
+        <MapPin size={15} color={ended ? "var(--ink-400)" : isStale ? "var(--ink-500)" : "var(--accent-500)"} />
         <div className="grow" style={{ lineHeight: 1.25 }}>
           <div className="semi" style={{ fontSize: 13.5 }}>
             {ended ? "Live location ended" : `${name}'s live location`}
           </div>
           <div className="tiny muted">
-            {ended ? "Sharing has stopped" : updatedLabel ? `Updated ${updatedLabel} · live` : "Locating…"}
+            {statusSubtext}
           </div>
         </div>
         {!ended && (
-          <span style={{
-            width: 8, height: 8, borderRadius: "50%", background: "var(--accent-500)",
-            boxShadow: "0 0 0 0 rgba(255,140,60,0.6)", animation: "livePulseRing 1.6s ease-out infinite",
-          }} />
+          isStale ? (
+            <span
+              title="Location update stale"
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: "var(--ink-300)",
+              }}
+            />
+          ) : (
+            <span style={{
+              width: 8, height: 8, borderRadius: "50%", background: "var(--accent-500)",
+              boxShadow: "0 0 0 0 rgba(255,140,60,0.6)", animation: "livePulseRing 1.6s ease-out infinite",
+            }} />
+          )
         )}
       </div>
       {!ended && (

@@ -908,6 +908,12 @@ export default function BusinessDetail() {
                     )}
                   </div>
                   <p className="small" style={{ marginTop: 6, lineHeight: 1.55 }}>{rv.comment}</p>
+                  {rv.ownerReply && (
+                    <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
+                      <div className="tiny semi" style={{ color: "var(--brand-700)" }}>{b.name} (Owner reply)</div>
+                      <p className="small" style={{ marginTop: 2, lineHeight: 1.45 }}>{rv.ownerReply}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

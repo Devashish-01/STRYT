@@ -39,16 +39,19 @@ export default function Bookmarks() {
   const followUserKeys = follows.filter((f) => f.type.toUpperCase() === "USER");
 
   const { data: bizData, loading: bizLoading } = useQuery(async () => {
+    if (bizIds.length === 0) return [];
     const rows = await Promise.all(bizIds.map((id) => businessService.get(id).catch(() => undefined)));
     return rows.filter((b): b is Business => !!b);
   }, [bizIds.join(",")], `bookmarks:biz-by-id:${user.id}:${bizIds.join(",")}`);
 
   const { data: provData, loading: provLoading } = useQuery(async () => {
+    if (provIds.length === 0) return [];
     const rows = await Promise.all(provIds.map((id) => providerService.get(id).catch(() => undefined)));
     return rows.filter((p): p is Provider => !!p);
   }, [provIds.join(",")], `bookmarks:prov-by-id:${user.id}:${provIds.join(",")}`);
 
   const { data: reqData, loading: reqLoading } = useQuery(async () => {
+    if (reqIds.length === 0) return [];
     const rows = await Promise.all(reqIds.map((id) => requestService.get(id).catch(() => undefined)));
     return rows.filter((r): r is RequestPost => !!r);
   }, [reqIds.join(",")], `bookmarks:req-by-id:${user.id}:${reqIds.join(",")}`);

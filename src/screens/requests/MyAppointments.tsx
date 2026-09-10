@@ -10,8 +10,9 @@ import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store } from "@/components/Icons";
+import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store, Star } from "@/components/Icons";
 import { PaymentSheet } from "@/components/PaymentSheet";
+import ReviewSheet from "@/components/ReviewSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
@@ -112,6 +113,7 @@ export default function MyAppointments() {
   const [loadingPay, setLoadingPay] = useState<string | null>(null);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(loadDismissedCards);
   const [cancelConfirm, setCancelConfirm] = useState<AppointmentRecord | null>(null);
+  const [reviewingApt, setReviewingApt] = useState<AppointmentRecord | null>(null);
 
   const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForCustomer(user.id),
@@ -456,6 +458,16 @@ export default function MyAppointments() {
                           <RotateCcw size={14} /> {loadingTarget === apt.id ? t("opening_ellipsis") : t("book_again")}
                         </button>
                       )}
+                      {apt.status === "COMPLETED" && (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm row gap-4 center"
+                          style={{ color: "var(--amber-600)", borderColor: "var(--amber-300)" }}
+                          onClick={() => setReviewingApt(apt)}
+                        >
+                          <Star size={14} color="var(--amber-500)" weight="fill" /> Rate & Review
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="btn btn-ghost btn-sm"
@@ -565,6 +577,22 @@ export default function MyAppointments() {
 
       {/* Photo Preview Modal */}
       {previewPhoto && <PhotoPreviewModal src={previewPhoto} onClose={() => setPreviewPhoto(null)} />}
+
+      {/* Rate & Review Sheet */}
+      {reviewingApt && (
+        <ReviewSheet
+          targetName={reviewingApt.targetName}
+          onSubmit={async (rating, comment) => {
+            if (reviewingApt.targetType === "PROVIDER") {
+              await providerService.addReview(reviewingApt.targetId, rating, comment);
+            } else {
+              await businessService.addReview(reviewingApt.targetId, rating, comment);
+            }
+            refetch();
+          }}
+          onClose={() => setReviewingApt(null)}
+        />
+      )}
     </div>
   );
 }

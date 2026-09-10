@@ -2,6 +2,7 @@ import { useParams } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { ErrorView } from "@/components/states";
 import VerificationPanel from "@/components/VerificationPanel";
+import ProviderManageNav from "./ProviderManageNav";
 
 export default function ProviderVerification() {
   const { id } = useParams();
@@ -14,9 +15,13 @@ export default function ProviderVerification() {
     );
   }
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <AppBar title="Verification" />
-      <VerificationPanel entityType="PROVIDER" entityId={id} />
+      <div className="screen-scroll">
+        <VerificationPanel entityType="PROVIDER" entityId={id} />
+      </div>
+      <ProviderManageNav pid={id} />
     </div>
   );
 }
+

@@ -59,6 +59,7 @@ export function LiveShareProvider({ children }: { children: ReactNode }) {
     if (watching.current) return;
     watching.current = true;
     void backgroundLocation.start((f) => {
+      if (f.lat === 0 && f.lng === 0) return;
       void emergencyService.updateShare(f.lat, f.lng, f.accuracy, f.heading);
     }).then((mode) => {
       if (mode === "foreground") {
@@ -92,11 +93,22 @@ export function LiveShareProvider({ children }: { children: ReactNode }) {
   const start = useCallback(async (): Promise<string | null> => {
     setBusy(true);
     try {
+      const contacts = await emergencyService.listContacts();
+      if (!contacts || contacts.length === 0) {
+        showToast("Add at least one emergency contact before sharing your location");
+        return null;
+      }
+
       const allowed = await ensureBackgroundDisclosure();
       if (!allowed) return null;
 
       const fix = await firstFix();
-      const id = await emergencyService.startShare(fix?.lat ?? 0, fix?.lng ?? 0);
+      if (!fix || (fix.lat === 0 && fix.lng === 0)) {
+        showToast("Couldn't acquire GPS fix. Please ensure location services are enabled.");
+        return null;
+      }
+
+      const id = await emergencyService.startShare(fix.lat, fix.lng);
       if (id) {
         setActiveShareId(id);
         beginWatch();
@@ -105,7 +117,7 @@ export function LiveShareProvider({ children }: { children: ReactNode }) {
     } finally {
       setBusy(false);
     }
-  }, [beginWatch, ensureBackgroundDisclosure]);
+  }, [beginWatch, ensureBackgroundDisclosure, showToast]);
 
   const stop = useCallback(async (): Promise<void> => {
     setBusy(true);

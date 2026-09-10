@@ -86,7 +86,7 @@ export default function ManageDashboard() {
     `business:${id}:find-work`
   );
   const { data: notificationUnread } = useQueryWithRealtime(
-    () => notificationService.getUnreadCount({ scope: "BUSINESS", id }), "notifications", [id], undefined, `notif:business:${id}`,
+    () => notificationService.getUnreadCount({ scope: "BUSINESS", id }), "notifications", [id, user.id], user.id ? `user_id=eq.${user.id}` : undefined, `notif:business:${id}`,
   );
   const { data: chatUnread } = useQueryWithRealtime(
     () => chatService.totalUnread({ scope: "BUSINESS", id }), "conversations", [id], undefined, `chat:business:${id}`,

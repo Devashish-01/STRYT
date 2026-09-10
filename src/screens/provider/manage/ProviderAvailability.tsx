@@ -61,13 +61,13 @@ export default function ProviderAvailability() {
         const turnoff = calculateNextTurnoffTime(provider?.availabilityNote);
         const diffHrs = Math.max(1, Math.round((turnoff.getTime() - Date.now()) / (3600 * 1000)));
         await providerService.setAvailability(id, true, diffHrs);
-        showToast(`Available until ${turnoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} tomorrow ⚡`);
+        const isTomorrow = turnoff.getDate() !== new Date().getDate();
+        showToast(`Available until ${turnoff.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}${isTomorrow ? " tomorrow" : ""} ⚡`);
       } else {
         await providerService.setAvailability(id, next, hours);
         showToast(next ? `Available right now ⚡` : "Marked offline");
       }
       invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
-      void refetchProvider();
     } catch (e: any) {
       setNow(prev);
       showToast(e?.message ?? "Couldn't update availability");
@@ -79,6 +79,9 @@ export default function ProviderAvailability() {
     setSaving(true);
     try {
       await providerService.update(id, { availabilityNote: noteRaw });
+      bustProviderGetCache(id);
+      invalidateQueryCache(`provider:${id}`);
+      void refetchProvider();
       showToast("Saved availability");
     } catch {
       showToast("Couldn't update availability note");
@@ -101,41 +104,59 @@ export default function ProviderAvailability() {
           </div>
         ) : (
           <>
-            {/* Instant Availability Banner */}
-            <div className="card" style={{ background: effectiveNow ? "var(--green-100)" : "var(--ink-50)", border: "none" }}>
+            {/* Live Availability Switch */}
+            <div
+              className="card col gap-10"
+              style={{
+                padding: 16,
+                background: effectiveNow ? "var(--green-100)" : "var(--surface)",
+                border: effectiveNow ? "1.5px solid var(--green-500)" : "1px solid var(--line)",
+                transition: "background 0.2s ease, border-color 0.2s ease",
+              }}
+            >
               <div className="row between center-v">
-                <div className="row gap-10 center-v">
-                  <Zap size={22} color={effectiveNow ? "var(--green-500)" : "var(--ink-400)"} />
+                <div className="row gap-8 center-v">
+                  <Zap size={20} color={effectiveNow ? "var(--green-500)" : "var(--ink-400)"} />
                   <div>
-                    <div className="row gap-6" style={{ alignItems: "center" }}>
-                      <span className="semi small">Available right now</span>
-                      {effectiveNow && <LivePulseDot />}
+                    <div className="bold small" style={{ color: effectiveNow ? "var(--green-500)" : "var(--ink-900)" }}>
+                      {effectiveNow ? "Available right now ⚡" : "Currently offline"}
                     </div>
-                    <div className="tiny muted">{effectiveNow ? `Surfaced to nearby users for ${hours}h` : "Turn on when ready for immediate jobs"}</div>
+                    <div className="tiny muted">
+                      {effectiveNow
+                        ? "Active and accepting immediate bookings"
+                        : "Toggle on to receive on-demand requests"}
+                    </div>
                   </div>
                 </div>
+
                 <button
+                  type="button"
                   onClick={toggleNow}
                   style={{
-                    width: 48,
+                    width: 52,
                     height: 28,
-                    borderRadius: 999,
+                    borderRadius: 14,
                     background: effectiveNow ? "var(--green-500)" : "var(--ink-200)",
-                    position: "relative",
                     border: "none",
-                    cursor: "pointer"
+                    position: "relative",
+                    cursor: "pointer",
+                    transition: "background 0.2s ease",
+                    padding: 0,
+                    flexShrink: 0,
                   }}
+                  aria-label="Toggle availability"
                 >
                   <span
                     style={{
                       position: "absolute",
                       top: 3,
-                      left: effectiveNow ? 23 : 3,
+                      left: effectiveNow ? 27 : 3,
                       width: 22,
                       height: 22,
                       borderRadius: "50%",
-                      background: "#fff",
-                      transition: "left .2s"
+                      background: "var(--white)",
+                      transition: "left 0.2s ease",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
                     }}
                   />
                 </button>
@@ -151,7 +172,14 @@ export default function ProviderAvailability() {
                     min={1}
                     max={8}
                     value={hours}
-                    onChange={(e) => setHours(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setHours(val);
+                      if (effectiveNow) {
+                        void providerService.setAvailability(id, true, val);
+                        invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
+                      }
+                    }}
                     style={{ width: "100%", accentColor: "var(--green-500)", marginTop: 6 }}
                   />
                 </div>

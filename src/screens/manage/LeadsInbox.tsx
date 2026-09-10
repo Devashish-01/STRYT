@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { businessService, providerService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ErrorView, ListSkeleton } from "@/components/states";
 import { CalendarCheck, Check, HelpCircle, MessageCircle, Navigation, Phone, Tag } from "@/components/Icons";
 import { useApp } from "@/store";
+import { openProfile } from "@/lib/profileSheet";
 import type { Lead } from "@/types";
 import ManageNav from "@/screens/business/manage/ManageNav";
 import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
@@ -37,19 +38,27 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
   const [handled, setHandled] = useState<string[]>([]);
   const isBusiness = entityType === "BUSINESS";
   const service = isBusiness ? businessService : providerService;
-  const { data, loading, error, refetch } = useQuery<Lead[]>(() => service.leads(id) as Promise<Lead[]>, [id]);
+  const filterKey = isBusiness ? "business_id" : "provider_id";
+  const { data, loading, error, refetch } = useQueryWithRealtime<Lead[]>(
+    () => service.leads(id) as Promise<Lead[]>,
+    "leads",
+    [id, entityType],
+    `${filterKey}=eq.${id}`
+  );
 
-  // Previously "mark handled" was the ONLY action — a lead could be dismissed
-  // without ever actually being answered (flow-completeness audit, workflow
-  // 17). The `leads` table has no reference column back to the underlying
-  // business_qna/conversation row, so this can only route to the general
-  // screen, not the specific question/thread — still real progress over a
-  // dead end, just not a precise deep-link. QUESTION only has a destination
-  // for businesses (business_qna is business-only; there's no provider Q&A
-  // manager screen to link to).
   function openLead(lead: Lead) {
-    if (lead.kind === "QUESTION" && isBusiness) nav(`/business/${id}/manage/qna`);
-    else if (lead.kind === "MESSAGE") nav("/chats");
+    if (lead.kind === "QUESTION" && isBusiness) {
+      nav(`/business/${id}/manage/qna`);
+    } else if (lead.kind === "MESSAGE") {
+      if (lead.fromUserId) nav(`/chats?uid=${lead.fromUserId}`);
+      else nav("/chats");
+    } else if (lead.kind === "CALL") {
+      if (lead.phone) {
+        window.location.href = `tel:${lead.phone}`;
+      } else if (lead.fromUserId) {
+        openProfile(lead.fromUserId, "USER", { name: lead.name, avatar: lead.avatar });
+      }
+    }
   }
 
   if (!id) return <div className="screen"><AppBar title="Inbox" /><ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} /></div>;
@@ -82,7 +91,7 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
               const style = meta[lead.kind] || meta.CALL;
               const Icon = style.icon;
               const done = lead.handled || handled.includes(lead.id);
-              const hasDestination = lead.kind === "MESSAGE" || (lead.kind === "QUESTION" && isBusiness);
+              const hasDestination = lead.kind === "MESSAGE" || (lead.kind === "QUESTION" && isBusiness) || (lead.kind === "CALL" && Boolean(lead.phone || lead.fromUserId));
               return (
                 <div
                   key={lead.id}
@@ -90,7 +99,7 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
                   style={{ padding: 12, opacity: done ? .6 : 1, cursor: hasDestination ? "pointer" : "default" }}
                   onClick={hasDestination ? () => openLead(lead) : undefined}
                 >
-                  <div style={{ position: "relative" }}><SafeImg src={lead.avatar} variant="avatar" className="avatar" style={{ width: 42, height: 42 }} /><span style={{ position: "absolute", bottom: -2, right: -2, width: 18, height: 18, borderRadius: "50%", background: style.color, display: "grid", placeItems: "center", border: "2px solid #fff" }}><Icon size={9} color="#fff" /></span></div>
+                  <div style={{ position: "relative" }}><SafeImg src={lead.avatar} variant="avatar" className="avatar" style={{ width: 42, height: 42 }} /><span style={{ position: "absolute", bottom: -2, right: -2, width: 18, height: 18, borderRadius: "50%", background: style.color, display: "grid", placeItems: "center", border: "2px solid var(--white)" }}><Icon size={9} color="var(--white)" /></span></div>
                   <div className="grow"><div className="semi small">{lead.name}</div><div className="tiny muted">{lead.text}</div><div className="tiny" style={{ color: "var(--ink-400)" }}>{lead.time}</div></div>
                   {!done && <button className="icon-btn" aria-label="Mark handled" style={{ width: 34, height: 34, color: "var(--green-500)" }} onClick={(e) => { e.stopPropagation(); markHandled(lead); }}><Check size={16} /></button>}
                 </div>

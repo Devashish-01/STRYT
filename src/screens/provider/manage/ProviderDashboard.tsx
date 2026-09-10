@@ -79,7 +79,7 @@ export default function ProviderDashboard() {
     undefined,
     `provider:${id}:find-work`
   );
-  const { data: notifUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "PROVIDER", id }), "notifications", [id], undefined, `notif:provider:${id}`);
+  const { data: notifUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "PROVIDER", id }), "notifications", [id, user.id], user.id ? `user_id=eq.${user.id}` : undefined, `notif:provider:${id}`);
   const { data: chatUnread } = useQueryWithRealtime(() => chatService.totalUnread({ scope: "PROVIDER", id }), "conversations", [id], undefined, `chat:provider:${id}`);
 
   const [available, setAvailable] = useState(false);
@@ -189,7 +189,17 @@ export default function ProviderDashboard() {
       onClick: () => nav(`${base}/portfolio`),
     },
     hours: { done: !isDefaultAvailability, onClick: () => nav(`${base}/availability`) },
-    verify: { done: !!p?.verificationStatus, onClick: () => nav(`${base}/verify`) },
+    verify: {
+      done: !!(p?.isVerified || p?.verificationStatus === "UNDER_REVIEW"),
+      value: p?.isVerified
+        ? "Verified ✓"
+        : p?.verificationStatus === "UNDER_REVIEW"
+          ? "Under review ⏳"
+          : p?.verificationStatus === "REJECTED"
+            ? "Action needed ⚠️"
+            : undefined,
+      onClick: () => nav(`${base}/verify`),
+    },
     promote: {
       done: (provPosts?.length ?? 0) > 0,
       onClick: () => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } }),

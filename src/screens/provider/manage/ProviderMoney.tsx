@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, SafeImg, inr } from "@/components/common";
 import { providerService, appointmentService, uploadService } from "@/services";
+import { bustProviderGetCache } from "@/services/marketplace/providerService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
-import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
+import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import type { AppointmentRecord } from "@/types";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
@@ -55,13 +56,16 @@ export default function ProviderMoney() {
 
   useEffect(() => {
     if (!id) return;
-    setCustomQrUrl(localStorage.getItem("stryt_upi_qr_" + id) || "");
-  }, [id]);
+    setCustomQrUrl(p?.upiQrUrl || localStorage.getItem("stryt_upi_qr_" + id) || "");
+  }, [id, p?.upiQrUrl]);
   useEffect(() => {
     if (!p) return;
     setUpiId(p.upiId ?? "");
     setPaymentTiming(p.paymentTiming === "AT_BOOKING" ? "AT_BOOKING" : "AT_APPOINTMENT");
     setDepositPercent(String((p as any).depositPercent ?? 0));
+    if (p.upiQrUrl) {
+      setCustomQrUrl(p.upiQrUrl);
+    }
   }, [p]);
 
   if (!id) {
@@ -104,9 +108,16 @@ export default function ProviderMoney() {
   }
 
   async function saveUpi() {
+    const cleaned = upiId.trim();
+    if (cleaned && !/^[\w.-]+@[\w.-]+$/.test(cleaned)) {
+      showToast("Please enter a valid UPI ID (e.g. name@bank)");
+      return;
+    }
     setSavingUpi(true);
     try {
-      await providerService.update(id, { upiId: upiId.trim() || null } as any);
+      await providerService.update(id, { upiId: cleaned || null } as any);
+      bustProviderGetCache(id);
+      invalidateQueryCache(`provider:${id}`);
       showToast("UPI ID saved");
     } catch {
       showToast("Couldn't save UPI ID");
@@ -123,7 +134,10 @@ export default function ProviderMoney() {
       const url = await uploadService.upload(file, "verification");
       localStorage.setItem("stryt_upi_qr_" + id, url);
       setCustomQrUrl(url);
-      showToast("Custom QR code uploaded!");
+      await providerService.update(id, { upiQrUrl: url } as any);
+      bustProviderGetCache(id);
+      invalidateQueryCache(`provider:${id}`);
+      showToast("Custom QR code uploaded & saved!");
     } catch {
       showToast("Failed to upload QR code.");
     } finally {
@@ -132,10 +146,17 @@ export default function ProviderMoney() {
     }
   }
 
-  function clearCustomQr() {
+  async function clearCustomQr() {
     localStorage.removeItem("stryt_upi_qr_" + id);
     setCustomQrUrl("");
-    showToast("Reverted to generated UPI QR");
+    try {
+      await providerService.update(id, { upiQrUrl: null } as any);
+      bustProviderGetCache(id);
+      invalidateQueryCache(`provider:${id}`);
+      showToast("Reverted to generated UPI QR");
+    } catch {
+      showToast("Failed to reset QR code.");
+    }
   }
 
   async function savePaymentTiming(v: "AT_BOOKING" | "AT_APPOINTMENT") {
@@ -272,7 +293,7 @@ export default function ProviderMoney() {
               <div className="tiny muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>Upload your own QR image (bank app screenshot, GPay/PhonePe QR, etc.). This overrides the auto-generated UPI QR on your share card.</div>
               {customQrUrl ? (
                 <div className="col gap-8" style={{ alignItems: "center" }}>
-                  <img src={customQrUrl} alt="Custom Payment QR" style={{ width: 140, height: 140, objectFit: "contain", borderRadius: 8, border: "1px solid var(--line)", background: "#fff", padding: 6 }} />
+                  <img src={customQrUrl} alt="Custom Payment QR" style={{ width: 140, height: 140, objectFit: "contain", borderRadius: 8, border: "1px solid var(--line)", background: "var(--white)", padding: 6 }} />
                   <div className="row gap-8">
                     <label className="btn btn-outline btn-sm row gap-6" style={{ cursor: "pointer" }}>
                       <ImageIcon size={13} /> Change
@@ -307,7 +328,7 @@ export default function ProviderMoney() {
                       padding: "10px 0",
                       borderRadius: 12,
                       border: paymentTiming === t ? "2px solid var(--green-500)" : "1.5px solid var(--ink-200)",
-                      background: paymentTiming === t ? "var(--green-100)" : "#fff",
+                      background: paymentTiming === t ? "var(--green-100)" : "var(--white)",
                       fontWeight: 700,
                       fontSize: 13,
                       color: paymentTiming === t ? "var(--green-600)" : "var(--ink-500)",

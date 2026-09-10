@@ -291,15 +291,20 @@ export const userService = {
     if (!u) return undefined;
     const ur = u as any;
 
-    const [helpedRes, requestsRes, vouchRes, ratingsRes, postsRes, userRequestsData, proposalsGivenData] = await Promise.all([
+    const [helpedRes, requestsRes, userProvidersData, ratingsRes, postsRes, userRequestsData, proposalsGivenData] = await Promise.all([
       sb.from("agreements").select("*", { count: "exact", head: true }).eq("responder_user_id", id).eq("status", "COMPLETED"),
       sb.from("requests").select("*", { count: "exact", head: true }).eq("requester_user_id", id),
-      sb.from("vouches").select("*", { count: "exact", head: true }).eq("from_user_id", id),
+      sb.from("providers").select("id").eq("user_id", id),
       sb.from("ratings").select("id, rating, comment, created_at, ratee_type, ratee_id").eq("rater_user_id", id).order("created_at", { ascending: false }).limit(10),
       sb.from("community_posts").select("id, title, body, type, area, created_at, likes_count, comments_count, show_on_profile").eq("author_user_id", id).order("created_at", { ascending: false }).limit(20),
       sb.from("requests").select("id, category_name, description, status, budget_max, created_at").eq("requester_user_id", id).order("created_at", { ascending: false }).limit(20),
       sb.from("proposals").select("id, request_id, price, note, created_at").eq("responder_user_id", id).order("created_at", { ascending: false }).limit(20),
     ]);
+
+    const ownedProvIds = ((userProvidersData.data ?? []) as any[]).map((p) => p.id);
+    const { count: vouchCount } = ownedProvIds.length
+      ? await sb.from("vouches").select("*", { count: "exact", head: true }).in("provider_id", ownedProvIds)
+      : { count: 0 };
 
     // Resolve request titles for proposals given
     const proposals = (proposalsGivenData.data ?? []) as any[];
@@ -354,12 +359,12 @@ export const userService = {
       ratingCount: ur.rating_count ?? 0,
       helpedCount: helpedRes.count ?? 0,
       requestsCount: requestsRes.count ?? 0,
-      vouchCount: vouchRes.count ?? 0,
+      vouchCount: vouchCount ?? 0,
       badges: [
         ...((helpedRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.goodNeighbor ? ["Good Neighbor"] : []),
         ...((helpedRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.topHelper    ? ["Top Helper"]     : []),
         ...((requestsRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.activeMember ? ["Active Member"] : []),
-        ...((vouchRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.wellVouched   ? ["Well Vouched"]    : []),
+        ...((vouchCount ?? 0) >= PROFILE_BADGE_THRESHOLDS.wellVouched   ? ["Well Vouched"]    : []),
       ],
       verifications: [],
       reviewsGiven: ratings.map((r) => ({

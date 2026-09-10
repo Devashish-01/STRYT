@@ -737,6 +737,7 @@ export default function App() {
               <Route path="/provider/:id/manage/find-work" element={<ProviderFindWork />} />
               <Route path="/provider/:id/manage/money" element={<ProviderMoney />} />
               <Route path="/provider/:id/manage/community" element={<ProviderCommunity />} />
+              <Route path="/provider/:id/manage/reviews" element={<ReviewsManager />} />
               <Route path="/provider/:id/manage/verify" element={<ProviderVerification />} />
               <Route path="/provider/:id/manage/settings" element={<ProviderSettings />} />
             </Route>

@@ -2,12 +2,14 @@ import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, VegDot, inr, EmptyState } from "@/components/common";
 import { Plus, Pencil, Trash2, Camera, Star, Tag } from "@/components/Icons";
-import { businessService, providerService, uploadService, bustBusinessGetCache } from "@/services";
+import { businessService, providerService, uploadService, bustBusinessGetCache, bustProviderGetCache } from "@/services";
 import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { CatalogItem } from "@/types";
 import { resolvePackage, BUSINESS_PACKAGES, type BusinessPackage } from "@/lib/businessPackages";
+import ManageNav from "@/screens/business/manage/ManageNav";
+import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
 
 export type Kind = "business" | "provider";
 
@@ -56,6 +58,9 @@ export function CatalogManager({ kind }: { kind: Kind }) {
       if (kind === "business") {
         bustBusinessGetCache(id);
         invalidateQueryCache(`business:${id}`);
+      } else {
+        bustProviderGetCache(id);
+        invalidateQueryCache(`provider:${id}`);
       }
       refetch();
     } catch (e: any) {
@@ -71,6 +76,9 @@ export function CatalogManager({ kind }: { kind: Kind }) {
       if (kind === "business") {
         bustBusinessGetCache(id);
         invalidateQueryCache(`business:${id}`);
+      } else {
+        bustProviderGetCache(id);
+        invalidateQueryCache(`provider:${id}`);
       }
       refetch();
     } catch (e: any) {
@@ -79,7 +87,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   }
 
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <AppBar
         // Every category resolves to a package now, business or provider —
         // no more hardcoding every provider to "Services" regardless of what
@@ -153,6 +161,9 @@ export function CatalogManager({ kind }: { kind: Kind }) {
             if (kind === "business") {
               bustBusinessGetCache(id);
               invalidateQueryCache(`business:${id}`);
+            } else {
+              bustProviderGetCache(id);
+              invalidateQueryCache(`provider:${id}`);
             }
             setCreating(false);
             setEditing(null);
@@ -182,6 +193,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
           </div>
         </div>
       )}
+      {kind === "business" ? <ManageNav bizId={id} /> : <ProviderManageNav pid={id} />}
     </div>
   );
 }

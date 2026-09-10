@@ -31,7 +31,7 @@ export const emergencyService = {
   // People I can add as emergency contacts: users I've already chatted with,
   // minus those already on my list. Matches the "already connected in-app"
   // privacy model — no user-directory lookup.
-  async candidateContacts(): Promise<ContactUser[]> {
+  async candidateContacts(query?: string): Promise<ContactUser[]> {
     const uid = await currentUserId();
     if (!uid) return [];
     const [convs, existing] = await Promise.all([
@@ -40,14 +40,20 @@ export const emergencyService = {
     ]);
     const taken = new Set(existing.map((c) => c.id));
     const seen = new Set<string>();
+    const q = query?.trim().toLowerCase();
     const out: ContactUser[] = [];
     for (const c of convs) {
       const o = c.otherUser;
       if (!o || o.id === uid || taken.has(o.id) || seen.has(o.id)) continue;
+      if (q && !o.name.toLowerCase().includes(q)) continue;
       seen.add(o.id);
       out.push({ id: o.id, name: o.name, avatar: o.avatar });
     }
     return out;
+  },
+
+  async searchCandidates(query: string): Promise<ContactUser[]> {
+    return this.candidateContacts(query);
   },
 
   // My current emergency contacts, resolved to their profile.

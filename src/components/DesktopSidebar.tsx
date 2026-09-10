@@ -15,6 +15,8 @@ import RoleSwitcher from "@/components/RoleSwitcher";
 import BrandLockup from "@/components/BrandLockup";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { contextHomePath } from "@/lib/contextHome";
+import { useQueryWithRealtime } from "@/hooks/useApi";
+import { notificationService } from "@/services";
 
 export default function DesktopSidebar() {
   const nav = useNavigate();
@@ -31,6 +33,14 @@ export default function DesktopSidebar() {
   } = useApp();
   const requireAuth = useRequireAuth();
   const ambient = useAmbientTheme();
+
+  const { data: notifUnread } = useQueryWithRealtime(
+    () => (user?.id ? notificationService.getUnreadCount({ scope: "CUSTOMER" }) : Promise.resolve(0)),
+    "notifications",
+    [user?.id],
+    user?.id ? `user_id=eq.${user.id}` : undefined,
+    "notif:customer:sidebar"
+  );
 
   // Profile isolation: when actually ON a business/provider console route, the
   // chrome must match THAT console (from the URL), never a stale activeContext
@@ -121,7 +131,7 @@ export default function DesktopSidebar() {
       { to: "/map", label: t("map") || "Map", icon: Map },
       { to: "/community-hub?view=deals", label: "Bulk & group buys", icon: Package },
       { to: "/community-hub", label: "Community", icon: ImageIcon },
-      { to: "/notifications", label: "Notifications", icon: Bell, badge: chatUnread || undefined },
+      { to: "/notifications", label: "Notifications", icon: Bell, badge: notifUnread || undefined },
       { to: "/queues", label: "My Queues", icon: Plus },
       { to: "/profile", label: t("profile") || "Profile", icon: User },
       { to: "/settings", label: "Settings", icon: Settings },

@@ -1,18 +1,28 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { AppBar, StarRow, SafeImg } from "@/components/common";
-import { businessService } from "@/services";
+import { businessService, providerService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
-import { Flag, Reply } from "@/components/Icons";
+import { Flag, Reply, Trash2, Edit3 } from "@/components/Icons";
 import ReportSheet from "@/components/ReportSheet";
+import ManageNav from "./ManageNav";
+import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
 import type { Review } from "@/types";
 
 export default function ReviewsManager() {
   const { id = "" } = useParams();
+  const loc = useLocation();
+  const isProvider = loc.pathname.startsWith("/provider");
   const [filter, setFilter] = useState<number | null>(null);
-  const { data, loading, error, refetch } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`);
+
+  const { data, loading, error, refetch } = useQueryWithRealtime(
+    () => (isProvider ? providerService.reviews(id) : businessService.reviews(id)),
+    "ratings",
+    [id, isProvider],
+    `ratee_id=eq.${id}`
+  );
 
   if (!id) {
     return (
@@ -28,7 +38,7 @@ export default function ReviewsManager() {
   const avg = reviews.length ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1) : "—";
 
   return (
-    <div className="screen">
+    <div className="screen with-nav">
       <AppBar title="Reviews" subtitle={`${avg}★ • ${reviews.length} reviews`} />
       <div className="screen-scroll">
         <div className="hscroll" style={{ paddingTop: 12 }}>
@@ -39,34 +49,67 @@ export default function ReviewsManager() {
         </div>
         {loading && <ListSkeleton count={3} />}
         {error && <ErrorView error={error} onRetry={refetch} />}
-        {!loading && !error && (
-          <div className="page-pad col gap-14">
-            {list.map((r) => <ReviewItem key={r.id} r={r} onReplied={refetch} />)}
+        {!loading && !error && list.length === 0 && (
+          <div className="empty col center" style={{ padding: "48px 16px", textAlign: "center" }}>
+            <span style={{ fontSize: 36 }}>⭐</span>
+            <div className="bold small" style={{ marginTop: 12 }}>No reviews {filter ? `with ${filter} stars` : "yet"}</div>
+            <div className="tiny muted" style={{ marginTop: 4 }}>
+              {filter ? "Try selecting 'All' to see all customer reviews." : "Customer reviews will appear here once submitted."}
+            </div>
+          </div>
+        )}
+        {!loading && !error && list.length > 0 && (
+          <div className="page-pad col gap-14" style={{ paddingBottom: 24 }}>
+            {list.map((r) => (
+              <ReviewItem key={r.id} r={r} isProvider={isProvider} onReplied={refetch} />
+            ))}
           </div>
         )}
       </div>
+      {isProvider ? <ProviderManageNav pid={id} /> : <ManageNav bizId={id} />}
     </div>
   );
 }
 
-function ReviewItem({ r, onReplied }: { r: Review; onReplied: () => void }) {
+function ReviewItem({ r, isProvider, onReplied }: { r: Review; isProvider: boolean; onReplied: () => void }) {
   const { showToast } = useApp();
   const [replying, setReplying] = useState(false);
-  const [reply, setReply] = useState("");
+  const [reply, setReply] = useState(r.ownerReply || "");
   const [posting, setPosting] = useState(false);
   const [reporting, setReporting] = useState(false);
 
   async function postReply() {
     setPosting(true);
     try {
-      await businessService.replyToReview(r.id, reply);
-      showToast("Reply posted");
+      if (isProvider) {
+        await providerService.replyToReview(r.id, reply.trim());
+      } else {
+        await businessService.replyToReview(r.id, reply.trim());
+      }
+      showToast(r.ownerReply ? "Reply updated" : "Reply posted");
       setReplying(false);
       onReplied();
     } catch (e: any) {
       showToast(e?.message || "Couldn't post reply — try again");
     } finally {
       setPosting(false);
+    }
+  }
+
+  async function clearReply() {
+    if (!confirm("Remove your reply to this review?")) return;
+    try {
+      if (isProvider) {
+        await providerService.replyToReview(r.id, "");
+      } else {
+        await businessService.replyToReview(r.id, "");
+      }
+      showToast("Reply removed");
+      setReply("");
+      setReplying(false);
+      onReplied();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't remove reply");
     }
   }
 
@@ -81,23 +124,56 @@ function ReviewItem({ r, onReplied }: { r: Review; onReplied: () => void }) {
       </div>
       <p className="small" style={{ marginTop: 8, lineHeight: 1.45 }}>{r.comment}</p>
 
-      {r.ownerReply ? (
+      {r.ownerReply && !replying ? (
         <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
-          <div className="tiny semi" style={{ color: "var(--brand-700)" }}>Owner reply</div>
-          <p className="small" style={{ marginTop: 2 }}>{r.ownerReply}</p>
+          <div className="row between center-v">
+            <div className="tiny semi" style={{ color: "var(--brand-700)" }}>Your reply</div>
+            <div className="row gap-12 center-v">
+              <button
+                className="tiny semi row gap-4 center-v"
+                style={{ color: "var(--brand-700)", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                onClick={() => {
+                  setReply(r.ownerReply || "");
+                  setReplying(true);
+                }}
+              >
+                <Edit3 size={12} /> Edit
+              </button>
+              <button
+                className="tiny semi muted row gap-4 center-v"
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                onClick={clearReply}
+              >
+                <Trash2 size={12} /> Delete
+              </button>
+            </div>
+          </div>
+          <p className="small" style={{ marginTop: 4 }}>{r.ownerReply}</p>
         </div>
       ) : replying ? (
         <div style={{ marginTop: 10 }}>
-          <textarea className="input" placeholder="Reply publicly…" value={reply} onChange={(e) => setReply(e.target.value)} style={{ minHeight: 60 }} />
+          <textarea
+            className="input"
+            placeholder="Reply publicly…"
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            style={{ minHeight: 60 }}
+          />
           <div className="row gap-8" style={{ marginTop: 8 }}>
-            <button className="btn btn-ghost grow btn-sm" onClick={() => setReplying(false)}>Cancel</button>
-            <button className="btn btn-primary grow btn-sm" disabled={reply.trim().length < 2 || posting} onClick={postReply}>{posting ? "Posting…" : "Post reply"}</button>
+            <button className="btn btn-ghost grow btn-sm" onClick={() => { setReply(r.ownerReply || ""); setReplying(false); }}>Cancel</button>
+            <button className="btn btn-primary grow btn-sm" disabled={reply.trim().length < 2 || posting} onClick={postReply}>
+              {posting ? "Posting…" : r.ownerReply ? "Update reply" : "Post reply"}
+            </button>
           </div>
         </div>
       ) : (
         <div className="row gap-16" style={{ marginTop: 10 }}>
-          <button className="row gap-6 tiny semi" style={{ color: "var(--brand-700)" }} onClick={() => setReplying(true)}><Reply size={14} /> Reply</button>
-          <button className="row gap-6 tiny semi muted" onClick={() => setReporting(true)}><Flag size={14} /> Report</button>
+          <button className="row gap-6 tiny semi" style={{ color: "var(--brand-700)" }} onClick={() => setReplying(true)}>
+            <Reply size={14} /> Reply
+          </button>
+          <button className="row gap-6 tiny semi muted" onClick={() => setReporting(true)}>
+            <Flag size={14} /> Report
+          </button>
         </div>
       )}
 

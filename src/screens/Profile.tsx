@@ -133,7 +133,7 @@ export default function Profile() {
     ? `${achievementsData.filter((a) => a.unlocked).length} of ${achievementsData.length} unlocked`
     : "Your achievements";
 
-  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [], undefined, "notif:customer");
+  const { data: custUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "CUSTOMER" }), "notifications", [user.id], user.id ? `user_id=eq.${user.id}` : undefined, `notif:customer:${user.id || "guest"}`);
 
   const { data: highlightsData } = useQuery(() => socialService.myHighlights(), [user.id], `profile:highlights:${user.id}`);
   const highlights = highlightsData ?? [];
