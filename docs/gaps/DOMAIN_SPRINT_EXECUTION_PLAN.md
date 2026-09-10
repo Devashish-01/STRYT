@@ -165,5 +165,11 @@ Before any sprint is marked complete or committed to git, it must pass all 4 gat
   - [x] 5.3 Agreement Negotiation Team Attribution, In-Context 1:1 Chat, 12h Expiry Window, Direct Profile Navigation, RateScreen Role Inversion Fix & Payment Nudge Rate Limit (`A1`, `A2`, `A3`, `A4`, `A5`, `A6`, `A7`, `A8`, `A9`, `A10`, `A11`, `A12`)
   - [x] 5.4 Bulk Deals No-Deposit Claim Pass Minting, Active Token Delete Guard, Catalog Scope Delegation, Balance Due Collection & Cross-Store Voucher Guard (`BLK-1`, `BLK-2`, `BLK-3`, `BLK-4`, `BLK-5`, `BLK-6`, `BLK-7`)
   - [x] 5.5 Business Radius Invalidation & Geographic Square-Km Feedback (`RAD-1`, `RAD-2`)
-- [ ] **Sprint 6: Trust, Safety & Google Play Store Hardening (Domains 8–11)**
+- [x] **Sprint 6: Trust, Safety & Google Play Store Hardening (Domains 8–11)** *(Completed)*
+  - [x] 6.1 Ratings aggregate recomputation trigger & RLS update policy (`CRAT-1`, `CRAT-2`)
+  - [x] 6.2 Reviews Manager provider support with reply & delete RPCs (`RMGR-3`, `RMGR-4`, `RMGR-7`)
+  - [x] 6.3 Emergency contacts sanitization & location share auto-expiry guard (`LOC-1`, `LOC-3`, `LOC-4`, `ECON-2`)
+  - [x] 6.4 Self-vouch & self-endorsement database rejection guard (`VOUCH-4`)
+  - [x] 6.5 Provider UPI QR code URL database column & persistence (`MONEY-2`)
+  - [x] 6.6 Notification center unread badge count synchronization
 
