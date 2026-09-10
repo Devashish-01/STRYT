@@ -106,6 +106,10 @@ export interface GroupBuyToken {
   /** Only set for CENTRAL_DROP fulfillment — at a society gate there's no
    *  merchant scanner, so the coordinator reads this short PIN instead. */
   pickupPin?: string | null;
+  /** Deposited amount paid by pledger when joining the campaign */
+  depositPaid?: number | null;
+  /** Remaining balance due to be collected upon voucher redemption */
+  balanceDue?: number | null;
 }
 
 /** Server-computed price quote — the authority for what checkout will charge. */

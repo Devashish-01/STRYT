@@ -9,12 +9,13 @@ import { useApp } from "@/store";
 import { GROUP_BUY_PROGRESS_ENABLED } from "@/utils/constants";
 import { haptics } from "@/lib/haptics";
 import { useI18n } from "@/lib/i18n";
+import { loadQuoteTemplates } from "@/lib/quoteTemplates";
 
 export default function SubmitProposal() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { data: r, loading: rLoading, error: rError, refetch: refetchR } = useQuery(() => requestService.get(id), [id], `request:${id}`);
-  const { showToast, activeContext } = useApp();
+  const { showToast, activeContext, user } = useApp();
   const { t, tf } = useI18n();
   const [price, setPrice] = useState("");
   const [eta, setEta] = useState("");
@@ -31,9 +32,20 @@ export default function SubmitProposal() {
     ? { type: activeContext.type as "business" | "provider", id: activeContext.id, name: activeContext.name }
     : null;
 
-  const canSend = Number(price) > 0 && !!eta && message.trim().length > 5 && !sending;
+  const quoteTemplates = respondingAs?.type === "provider" ? loadQuoteTemplates(respondingAs.id) : [];
+
+  const existingProposal = (r?.proposals ?? []).find((p) => {
+    if (p.status !== "SUBMITTED") return false;
+    if (respondingAs) {
+      return p.responderType === respondingAs.type && p.responderEntityId === respondingAs.id;
+    }
+    return p.responderUserId === user.id && p.responderType === "user";
+  });
+
+  const canSend = Number(price) > 0 && !!eta && message.trim().length > 5 && !sending && !existingProposal;
 
   async function send() {
+    if (sending) return;
     setSending(true);
     try {
       await requestService.submitProposal(id, {
@@ -46,8 +58,8 @@ export default function SubmitProposal() {
       });
       showToast(boost ? "Proposal sent & prioritized!" : "Proposal sent!");
       setTimeout(() => nav(-1), 600);
-    } catch {
-      showToast("Couldn't send. Try again.");
+    } catch (e: any) {
+      showToast(e instanceof Error && e.message ? e.message : "Couldn't send proposal. Try again.");
       setSending(false);
     }
   }
@@ -83,10 +95,33 @@ export default function SubmitProposal() {
     );
   }
 
+  if (r.status !== "OPEN") {
+    return (
+      <div className="screen">
+        <AppBar title={t("send_proposal")} subtitle={r.title} />
+        <EmptyState emoji="🔒" title="Request Closed" text="This request is no longer accepting new proposals." />
+      </div>
+    );
+  }
+
+  function formatBudget(min?: number, max?: number) {
+    if (min && max) return `${inr(min)}–${inr(max)}`;
+    if (max) return `Up to ${inr(max)}`;
+    if (min) return `From ${inr(min)}`;
+    return t("open_word");
+  }
+
   return (
     <div className="screen">
       <AppBar title={t("send_proposal")} subtitle={r?.title} />
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 92 }}>
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: "calc(92px + env(safe-area-inset-bottom))" }}>
+        {existingProposal && (
+          <div className="card row gap-10" style={{ padding: "var(--space-sm)", background: "var(--amber-50)", border: "1px solid var(--amber-200)", color: "var(--amber-800)" }}>
+            <Info size={16} color="var(--amber-600)" style={{ flexShrink: 0 }} />
+            <span className="tiny">You already submitted an active proposal ({inr(existingProposal.price)}) for this request.</span>
+          </div>
+        )}
+
         {respondingAs && (
           <div className="card row gap-10" style={{ padding: "var(--space-sm)", background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
             <span className="tiny muted">{t("responding_as")}</span>
@@ -101,7 +136,7 @@ export default function SubmitProposal() {
             </div>
             <p className="tiny muted clamp-2" style={{ marginTop: 4 }}>{r.description}</p>
             <div className="row gap-12 tiny" style={{ marginTop: 8 }}>
-              <span className="muted">{t("budget_colon")} <span className="semi" style={{ color: "var(--green-500)" }}>{r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)}–${inr(r.budgetMax)}` : t("open_word")}</span></span>
+              <span className="muted">{t("budget_colon")} <span className="semi" style={{ color: "var(--green-500)" }}>{formatBudget(r.budgetMin, r.budgetMax)}</span></span>
               <span className="muted">{t("by_colon")} <span className="semi" style={{ color: "var(--ink-900)" }}>{r.deadline}</span></span>
             </div>
           </div>
@@ -109,7 +144,7 @@ export default function SubmitProposal() {
 
         <div className="field">
           <label>{t("your_quote_label")}</label>
-          <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 12px", background: "#fff" }}>
+          <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 12px", background: "var(--surface)" }}>
             <IndianRupee size={18} color="var(--ink-400)" />
             <input className="input" style={{ border: "none", fontSize: 18, fontWeight: 700 }} inputMode="numeric" placeholder="0" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
           </div>
@@ -122,6 +157,27 @@ export default function SubmitProposal() {
 
         <div className="field">
           <label>{t("your_pitch_label")}</label>
+          {quoteTemplates.length > 0 && (
+            <div className="col gap-6" style={{ marginBottom: 8 }}>
+              <span className="tiny muted">Quick templates:</span>
+              <div className="row gap-6 wrap">
+                {quoteTemplates.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    className="badge"
+                    style={{ cursor: "pointer", background: "var(--surface-muted)", border: "1px solid var(--line)", padding: "4px 8px" }}
+                    onClick={() => {
+                      if (tpl.price && !price) setPrice(String(tpl.price));
+                      setMessage(tpl.body);
+                    }}
+                  >
+                    {tpl.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <textarea className="input" placeholder={t("pitch_placeholder")} value={message} onChange={(e) => setMessage(e.target.value)} />
         </div>
 
@@ -139,7 +195,7 @@ export default function SubmitProposal() {
             <div className="semi small">{t("prioritize_offer")} <span className="tiny" style={{ color: "var(--green-600)" }}>· {t("free_word")}</span></div>
             <div className="tiny muted">{t("prioritize_offer_desc")}</div>
           </div>
-          <span style={{ width: 22, height: 22, borderRadius: 6, border: boost ? "none" : "2px solid var(--ink-300)", background: boost ? "var(--amber-500)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
+          <span style={{ width: 22, height: 22, borderRadius: 6, border: boost ? "none" : "2px solid var(--ink-300)", background: boost ? "var(--amber-500)" : "transparent", color: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
             {boost ? "✓" : ""}
           </span>
         </button>
@@ -159,7 +215,7 @@ export default function SubmitProposal() {
               <div className="semi small">{tf("broadcast_to_metoo", { n: r.meTooCount ?? 0 })}</div>
               <div className="tiny muted">{t("broadcast_to_metoo_desc")}</div>
             </div>
-            <span style={{ width: 22, height: 22, borderRadius: 6, border: broadcast ? "none" : "2px solid var(--ink-300)", background: broadcast ? "var(--brand-500)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
+            <span style={{ width: 22, height: 22, borderRadius: 6, border: broadcast ? "none" : "2px solid var(--ink-300)", background: broadcast ? "var(--brand-500)" : "transparent", color: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
               {broadcast ? "✓" : ""}
             </span>
           </button>
@@ -171,7 +227,7 @@ export default function SubmitProposal() {
         </div>
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: "12px 12px calc(12px + env(safe-area-inset-bottom))" }}>
         <button
           className="btn btn-primary btn-block"
           disabled={!canSend}

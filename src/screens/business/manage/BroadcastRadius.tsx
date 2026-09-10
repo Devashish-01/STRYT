@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { Skeleton, ErrorView } from "@/components/states";
-import { businessService } from "@/services";
-import { useQuery } from "@/hooks/useApi";
+import { businessService, bustBusinessGetCache } from "@/services";
+import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import RadiusSelector from "@/components/RadiusSelector";
-import { Loader } from "@/components/Icons";
+import { Loader, MapPin } from "@/components/Icons";
 
 // Dedicated editor for the business's service radius — how far bookings,
 // community posts, and stories reach nearby customers (not general discovery).
@@ -26,6 +26,8 @@ export default function BroadcastRadius() {
     setSaving(true);
     try {
       await businessService.update(id, { broadcastRadius: radius });
+      bustBusinessGetCache(id);
+      invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
       showToast("Service radius updated");
       nav(-1);
     } catch (e) {
@@ -53,6 +55,17 @@ export default function BroadcastRadius() {
               label="Service radius"
               description="Customers within this distance can book you, and see your posts and stories."
             />
+            <div className="card row gap-10 center-v" style={{ padding: 12, background: "var(--brand-50)", border: "1px solid var(--brand-200)" }}>
+              <MapPin size={20} color="var(--brand-600)" style={{ flexShrink: 0 }} />
+              <div>
+                <div className="semi small" style={{ color: "var(--brand-800)" }}>
+                  ~{Math.round(Math.PI * radius * radius)} km² broadcast coverage
+                </div>
+                <div className="tiny muted">
+                  Reaches clients and community members up to {radius} km in any direction.
+                </div>
+              </div>
+            </div>
             <button
               className="btn btn-primary btn-block row center gap-8"
               onClick={save}

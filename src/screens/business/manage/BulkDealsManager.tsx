@@ -39,7 +39,7 @@ export default function BulkDealsManager() {
     if (!trimmed) return;
     setRedeeming(true);
     try {
-      const token = await bulkService.redeemToken(trimmed);
+      const token = await bulkService.redeemToken(trimmed, id);
       setLastRedeemed(token);
       setManualCode("");
       setScanning(false);
@@ -51,7 +51,7 @@ export default function BulkDealsManager() {
       if (/ALREADY_REDEEMED/.test(msg)) showToast("Already used — this pass was claimed before");
       else if (/TOKEN_EXPIRED/.test(msg)) showToast("This pass has expired");
       else if (/TOKEN_NOT_FOUND/.test(msg)) showToast("Unrecognised code");
-      else if (/NOT_AUTHORIZED/.test(msg)) showToast("This pass isn't for your business");
+      else if (/TOKEN_NOT_FOR_THIS_BUSINESS|NOT_AUTHORIZED/.test(msg)) showToast("This pass isn't for your business");
       else showToast(msg || "Couldn't validate — try again");
     } finally {
       setRedeeming(false);
@@ -89,16 +89,24 @@ export default function BulkDealsManager() {
             </button>
           </div>
           {lastRedeemed && (
-            <div className="card row gap-10 center-v" style={{ padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
-              <CheckCircle2 size={18} color="var(--green-600)" style={{ flexShrink: 0 }} />
-              <div style={{ minWidth: 0 }}>
-                <div className="tiny semi" style={{ color: "var(--green-600)" }}>
-                  {lastRedeemed.tokenCode} accepted
-                </div>
-                <div className="tiny muted ellipsis">
-                  {lastRedeemed.itemLabel} · {lastRedeemed.quantity} unit{lastRedeemed.quantity > 1 ? "s" : ""}
+            <div className="card col gap-6" style={{ padding: 10, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
+              <div className="row gap-10 center-v">
+                <CheckCircle2 size={18} color="var(--green-600)" style={{ flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div className="tiny semi" style={{ color: "var(--green-600)" }}>
+                    {lastRedeemed.tokenCode} accepted
+                  </div>
+                  <div className="tiny muted ellipsis">
+                    {lastRedeemed.itemLabel} · {lastRedeemed.quantity} unit{lastRedeemed.quantity > 1 ? "s" : ""}
+                  </div>
                 </div>
               </div>
+              {lastRedeemed.balanceDue != null && lastRedeemed.balanceDue > 0 && (
+                <div className="row between center-v card" style={{ padding: "6px 10px", background: "var(--amber-50)", border: "1px solid var(--amber-200)", marginTop: 4 }}>
+                  <span className="tiny semi" style={{ color: "var(--amber-800)" }}>Balance to collect:</span>
+                  <span className="bold small" style={{ color: "var(--amber-900)" }}>{inr(lastRedeemed.balanceDue)}</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -163,7 +171,12 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
       showToast("Deal removed");
       onChanged();
     } catch (e: any) {
-      showToast(e?.message || "Couldn't remove");
+      const msg = String(e?.message ?? "");
+      if (/CANNOT_DELETE_ACTIVE_TOKENS/.test(msg)) {
+        showToast("Cannot delete: active unredeemed claim passes exist for this campaign.");
+      } else {
+        showToast(e?.message || "Couldn't remove");
+      }
     } finally {
       setBusy(false);
     }
@@ -228,7 +241,7 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
             </div>
             <button
               className="btn btn-block"
-              style={{ height: 48, background: "var(--red-500)", color: "#fff", fontWeight: 700 }}
+              style={{ height: 48, background: "var(--red-500)", color: "var(--surface)", fontWeight: 700 }}
               disabled={busy}
               onClick={remove}
             >
@@ -281,7 +294,7 @@ function DealComposer({ existing, onSaved, onClose }: { existing: BulkDeal; onSa
       onClick={onClose}
     >
       <div
-        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
+        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "var(--surface)", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="row between center-v" style={{ marginBottom: "var(--space-md)" }}>

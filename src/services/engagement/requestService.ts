@@ -134,6 +134,8 @@ function mapAgreement(row: any): Agreement {
     proposalId: row.proposal_id,
     requesterUserId: row.requester_user_id,
     responderUserId: row.responder_user_id,
+    responderEntityId: row.responder_entity_id ?? undefined,
+    responderType: row.responder_type ?? undefined,
     requesterName: row.requester?.name ?? "Requester",
     requesterAvatar: row.requester?.avatar ?? "",
     responderName: row.responder?.name ?? "Responder",
@@ -302,13 +304,15 @@ export const requestService = {
     let responderEntityId = data.responderEntityId as string | undefined;
     let responderName: string | undefined;
     let responderAvatar: string | undefined;
+    let responderTagline: string | undefined;
 
     if (responderType !== "user" && responderEntityId) {
       const table = responderType === "business" ? "businesses" : "providers";
       const ownerCol = responderType === "business" ? "owner_user_id" : "user_id";
       const nameCol = responderType === "business" ? "name" : "display_name";
       const avatarCol = responderType === "business" ? "cover_image" : "avatar";
-      const { data: entity } = await sb.from(table).select(`${ownerCol}, ${nameCol}, ${avatarCol}`).eq("id", responderEntityId).maybeSingle();
+      const taglineCol = responderType === "business" ? "tagline" : "bio";
+      const { data: entity } = await sb.from(table).select(`${ownerCol}, ${nameCol}, ${avatarCol}, ${taglineCol}`).eq("id", responderEntityId).maybeSingle();
       let allowed = !!entity && (entity as any)[ownerCol] === uid;
       if (!allowed && entity && responderType === "business") {
         // Cast: my_business_access_scope isn't in the generated schema types (new RPC).
@@ -319,9 +323,10 @@ export const requestService = {
       if (allowed && entity) {
         responderName = (entity as any)[nameCol] ?? undefined;
         responderAvatar = (entity as any)[avatarCol] ?? "";
+        responderTagline = (entity as any)[taglineCol] ?? undefined;
       } else {
-        responderType = "user";
-        responderEntityId = undefined;
+        // P6: Explicit authorization failure rather than silent identity downgrade
+        throw toApiError({ code: "UNAUTHORIZED_RESPONDER_ENTITY", message: "You do not have permission to respond on behalf of this entity" }, 403);
       }
     } else {
       responderType = "user";
@@ -329,9 +334,10 @@ export const requestService = {
     }
 
     if (responderType === "user") {
-      const { data: me } = await sb.from("users").select("name, avatar").eq("id", uid).maybeSingle();
+      const { data: me } = await sb.from("users").select("name, avatar, bio").eq("id", uid).maybeSingle();
       responderName = firstName((me as any)?.name);
       responderAvatar = (me as any)?.avatar ?? "";
+      responderTagline = (me as any)?.bio ?? undefined;
     }
 
     const row = {
@@ -342,6 +348,7 @@ export const requestService = {
       responder_entity_id: responderEntityId ?? null,
       responder_name: responderName ?? "Responder",
       responder_avatar: responderAvatar ?? "",
+      responder_tagline: responderTagline ?? null,
       status: "SUBMITTED",
     };
     const { data: created, error } = await sb.from("proposals").insert(row).select().maybeSingle();
@@ -413,10 +420,19 @@ export const requestService = {
    *  retired customer group-buy feature but are the only writers of
    *  request_me_toos (the table has no direct write policy), so they stay
    *  even though pooled group buys are gone. */
-  async meToo(requestId: string): Promise<{ ok: boolean; meTooed: boolean }> {
+  async meToo(requestId: string): Promise<{ ok: boolean; meTooed: boolean; count?: number }> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
+
+    try {
+      const { data, error } = await (sb.rpc as any)("me_too_toggle", { p_request_id: requestId });
+      if (!error && data) {
+        return { ok: true, meTooed: (data as any).meTooed, count: (data as any).count };
+      }
+    } catch {
+      // Fallback below
+    }
 
     const { data: existing } = await sb
       .from("request_me_toos")
@@ -426,10 +442,10 @@ export const requestService = {
       .maybeSingle();
 
     if (existing) {
-      await sb.rpc("group_buy_leave", { p_request_id: requestId });
+      await sb.from("request_me_toos").delete().eq("request_id", requestId).eq("user_id", uid);
       return { ok: true, meTooed: false };
     }
-    await sb.rpc("group_buy_join", { p_request_id: requestId, p_quantity: 1 });
+    await sb.from("request_me_toos").insert({ request_id: requestId, user_id: uid, quantity: 1 });
     return { ok: true, meTooed: true };
   },
 
@@ -615,6 +631,14 @@ export const requestService = {
   },
 
   async nudgeAgreementPayment(id: string) {
+    // Enforce a 6-hour client-side cooldown on payment nudges (A10)
+    const lastNudgeKey = `stryt_payment_nudge_${id}`;
+    const lastNudge = localStorage.getItem(lastNudgeKey);
+    if (lastNudge && Date.now() - Number(lastNudge) < 6 * 3600 * 1000) {
+      const waitHours = Math.ceil((6 * 3600 * 1000 - (Date.now() - Number(lastNudge))) / (3600 * 1000));
+      throw new Error(`Payment reminder already sent recently. Please wait ${waitHours}h before sending another.`);
+    }
+
     const sb = getSupabase();
     const { data: ag, error } = await sb
       .from("agreements")
@@ -635,6 +659,9 @@ export const requestService = {
       `/agreement/${id}`,
       "SYSTEM"
     );
+    try {
+      localStorage.setItem(lastNudgeKey, Date.now().toString());
+    } catch {}
     return { ok: true };
   },
 };

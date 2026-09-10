@@ -20,6 +20,8 @@ export interface RequestDraft {
   recurring: boolean;
   anon: boolean;
   expiryHrs: number;
+  fieldVals?: Record<string, string>;
+  templateKey?: string;
 }
 
 /** Read the saved draft, if any (null when unset/malformed/unavailable). */

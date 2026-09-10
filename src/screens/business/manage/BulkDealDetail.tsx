@@ -147,6 +147,11 @@ export default function BulkDealDetail() {
 
   async function extend() {
     if (!extendDate) { showToast("Pick a new closing date"); return; }
+    const picked = new Date(extendDate).getTime();
+    if (isNaN(picked) || picked <= Date.now()) {
+      showToast("Extension deadline must be in the future");
+      return;
+    }
     const iso = new Date(extendDate).toISOString();
     setBusyId("extend");
     try {
@@ -262,7 +267,13 @@ export default function BulkDealDetail() {
               <button className="btn btn-outline btn-sm" onClick={() => setExtending(true)}>{deal.closesAtISO ? "Extend deadline" : "Set a deadline"}</button>
             ) : (
               <div className="row gap-8 center-v">
-                <input type="datetime-local" className="input grow" value={extendDate} onChange={(e) => setExtendDate(e.target.value)} />
+                <input
+                  type="datetime-local"
+                  className="input grow"
+                  min={new Date().toISOString().slice(0, 16)}
+                  value={extendDate}
+                  onChange={(e) => setExtendDate(e.target.value)}
+                />
                 <button className="btn btn-primary btn-sm" disabled={busyId === "extend"} onClick={extend}>Save</button>
                 <button className="btn btn-sm" style={{ background: "none" }} onClick={() => setExtending(false)}>Cancel</button>
               </div>
@@ -278,7 +289,13 @@ export default function BulkDealDetail() {
               <button className="btn btn-outline btn-sm" onClick={() => setExtending(true)}>{deal.closesAtISO ? "Extend deadline instead" : "Set a deadline instead"}</button>
             ) : (
               <div className="row gap-8 center-v">
-                <input type="datetime-local" className="input grow" value={extendDate} onChange={(e) => setExtendDate(e.target.value)} />
+                <input
+                  type="datetime-local"
+                  className="input grow"
+                  min={new Date().toISOString().slice(0, 16)}
+                  value={extendDate}
+                  onChange={(e) => setExtendDate(e.target.value)}
+                />
                 <button className="btn btn-primary btn-sm" disabled={busyId === "extend"} onClick={extend}>Save</button>
                 <button className="btn btn-sm" style={{ background: "none" }} onClick={() => setExtending(false)}>Cancel</button>
               </div>

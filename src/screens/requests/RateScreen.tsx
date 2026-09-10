@@ -13,7 +13,7 @@ export default function RateScreen() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { data: a, loading } = useQuery(() => requestService.getAgreement(id), [id], `agreement:${id}`);
-  const { showToast } = useApp();
+  const { showToast, user } = useApp();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
@@ -42,13 +42,18 @@ export default function RateScreen() {
     );
   }
 
+  const isRequester = user.id === a.requesterUserId;
+  const targetUserId = isRequester ? a.responderUserId : a.requesterUserId;
+  const targetName = isRequester ? a.responderName : a.requesterName;
+  const targetAvatar = isRequester ? a.responderAvatar : a.requesterAvatar;
+
   const labels = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
 
   async function submit() {
     if (rating === 0 || !a) return;
     setSubmitting(true);
     try {
-      await requestService.rate(a.responderUserId, rating, [comment, ...tags].filter(Boolean).join(" • "), tip || undefined, a.id);
+      await requestService.rate(targetUserId, rating, [comment, ...tags].filter(Boolean).join(" • "), tip || undefined, a.id);
       showToast("Thanks! Your rating builds local trust.");
       setTimeout(() => nav("/agreements"), 700);
     } catch (e) {
@@ -60,9 +65,9 @@ export default function RateScreen() {
   return (
     <div className="screen">
       <AppBar title="Rate & review" />
-      <div className="screen-scroll page-pad col" style={{ paddingBottom: 90, alignItems: "center" }}>
-        <SafeImg src={a.responderAvatar} variant="avatar" className="avatar" style={{ width: 80, height: 80, marginTop: 12 }} />
-        <h2 className="bold h2" style={{ marginTop: 12 }}>How was {a.responderName}?</h2>
+      <div className="screen-scroll page-pad col" style={{ paddingBottom: "calc(90px + env(safe-area-inset-bottom))", alignItems: "center" }}>
+        <SafeImg src={targetAvatar} variant="avatar" className="avatar" style={{ width: 80, height: 80, marginTop: 12 }} />
+        <h2 className="bold h2" style={{ marginTop: 12 }}>How was {targetName}?</h2>
         <p className="small muted" style={{ textAlign: "center" }}>{a.requestTitle}</p>
 
         {/* Stars */}
@@ -117,7 +122,7 @@ export default function RateScreen() {
         </div>
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: "12px 12px calc(12px + env(safe-area-inset-bottom))" }}>
         <button
           className="btn btn-primary btn-block"
           disabled={rating === 0 || submitting}

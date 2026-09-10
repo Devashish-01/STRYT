@@ -57,6 +57,7 @@
   --amber-600: #d97706;
   --amber-700: #b45309;
   --amber-800: #92400e;
+  --amber-900: #78350f;
   --blue-100: #dbeafe;
   --blue-200: #bfdbfe;
   --blue-500: #3b82f6;
@@ -94,6 +95,7 @@
 
   --bg: #f6f6fa; /* Soft cool-gray background from brand sheet */
   --surface: #ffffff;
+  --surface-muted: #f8f7fb;
   --line: #e2e1f0; /* Clean, soft purple-tinted border */
 
   /* Spacing system */

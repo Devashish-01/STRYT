@@ -42,6 +42,7 @@ export default function RequestDetail() {
     const channel = sb
       .channel(`rt:proposals:${id}`)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "proposals", filter: `request_id=eq.${id}` }, () => refetch())
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "proposal_counters" }, () => refetch())
       .subscribe();
     return () => { sb.removeChannel(channel); };
     // refetch is a new closure every render (useQueryWithRealtime doesn't
@@ -52,6 +53,7 @@ export default function RequestDetail() {
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
   const [accepted, setAccepted] = useState<string | null>(null);
+  const [proposalToAccept, setProposalToAccept] = useState<Proposal | null>(null);
   const [propSort, setPropSort] = useState<"best" | "price" | "rating">("best");
   const [messaging, setMessaging] = useState<string | null>(null);
   const [counterFor, setCounterFor] = useState<string | null>(null);
@@ -100,7 +102,13 @@ export default function RequestDetail() {
   }
 
   const isMine = r.requesterUserId === user.id;
-  const budget = r.budgetMin && r.budgetMax ? `${inr(r.budgetMin)} – ${inr(r.budgetMax)}` : t("open_budget");
+  const budget = r.budgetMin && r.budgetMax
+    ? `${inr(r.budgetMin)} – ${inr(r.budgetMax)}`
+    : r.budgetMax
+      ? `Up to ${inr(r.budgetMax)}`
+      : r.budgetMin
+        ? `From ${inr(r.budgetMin)}`
+        : t("open_budget");
   // Let the customer compare offers the way they think: promoted-first by
   // default, or by lowest quote / highest-rated when weighing options.
   const sortedProposals = [...r.proposals].sort((a, b) => {
@@ -407,7 +415,7 @@ export default function RequestDetail() {
                           <button className="btn btn-outline btn-sm" onClick={() => setCounterFor(counterFor === p.id ? null : p.id)} disabled={!!accepted}>
                             <ArrowRightLeft size={14} /> {t("counter_action")}
                           </button>
-                          <button className="btn btn-green btn-sm" onClick={() => acceptProposal(p)} disabled={!!accepted}>
+                          <button className="btn btn-green btn-sm" onClick={() => setProposalToAccept(p)} disabled={!!accepted}>
                             {t("accept_action")}
                           </button>
                         </div>
@@ -454,6 +462,17 @@ export default function RequestDetail() {
                           {tf("accept_at_amount", { amount: inr((p.counters ?? [])[(p.counters ?? []).length - 1].amount) })}
                         </button>
                       )}
+                      {/* Responder accepting requester's counter-offer */}
+                      {!isMine && p.responderUserId === user.id && r.status === "OPEN" && !accepted && (p.counters ?? []).length > 0
+                        && (p.counters ?? [])[(p.counters ?? []).length - 1].by === "requester" && (
+                        <button
+                          className="btn btn-green btn-sm btn-block"
+                          style={{ marginTop: 8 }}
+                          onClick={() => acceptCounter(p, (p.counters ?? [])[(p.counters ?? []).length - 1])}
+                        >
+                          {tf("accept_at_amount", { amount: inr((p.counters ?? [])[(p.counters ?? []).length - 1].amount) })}
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -462,7 +481,7 @@ export default function RequestDetail() {
                     <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
                       <div className="tiny semi muted" style={{ marginBottom: 8 }}>{t("propose_different_price")}</div>
                       <div className="row gap-8">
-                        <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
+                        <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "var(--surface)" }}>
                           <span className="muted" style={{ padding: "10px 0" }}>₹</span>
                           <input className="input" style={{ border: "none", padding: "10px 6px" }} inputMode="numeric" placeholder={`e.g. ${p.price - 50}`} value={counterAmt} onChange={(e) => setCounterAmt(e.target.value.replace(/\D/g, ""))} />
                         </div>
@@ -479,7 +498,7 @@ export default function RequestDetail() {
                         <div className="card card-condensed" style={{ background: "var(--ink-50)", border: "none" }}>
                           <div className="tiny semi muted" style={{ marginBottom: 8 }}>{t("your_counter_offer")}</div>
                           <div className="row gap-8">
-                            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
+                            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "var(--surface)" }}>
                               <span className="muted" style={{ padding: "10px 0" }}>₹</span>
                               <input className="input" style={{ border: "none", padding: "10px 6px" }} inputMode="numeric" placeholder={`e.g. ${p.price}`} value={counterBackAmt} onChange={(e) => setCounterBackAmt(e.target.value.replace(/\D/g, ""))} />
                             </div>
@@ -517,7 +536,7 @@ export default function RequestDetail() {
           it, but can't respond — quoting is a commitment to a real neighbour, so
           the button becomes a sign-in prompt. */}
       {!isMine && r.status === "OPEN" && (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "var(--space-sm)", zIndex: 30 }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: "var(--space-sm) var(--space-sm) calc(var(--space-sm) + env(safe-area-inset-bottom))", zIndex: 30 }}>
           {isGuest ? (
             <GuestSignInPrompt message="Sign in to send a proposal" compact />
           ) : (
@@ -525,6 +544,45 @@ export default function RequestDetail() {
               <Send size={17} /> {t("send_proposal")}
             </button>
           )}
+        </div>
+      )}
+
+      {/* Proposal Acceptance Confirmation Sheet */}
+      {proposalToAccept && (
+        <div className="sheet-backdrop" onClick={() => setProposalToAccept(null)}>
+          <div className="sheet col gap-14" style={{ maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div className="row between">
+              <span className="bold" style={{ fontSize: 18 }}>{t("confirm_accept_proposal") || "Accept Proposal"}</span>
+              <button className="icon-btn" onClick={() => setProposalToAccept(null)}><X size={18} /></button>
+            </div>
+            <p className="small muted" style={{ lineHeight: 1.5 }}>
+              You are accepting this proposal. This will create a binding agreement and notify {proposalToAccept.responderName}.
+            </p>
+            <div className="card row between" style={{ background: "var(--surface-muted)", padding: "var(--space-md)" }}>
+              <div className="col gap-4">
+                <span className="bold small">{proposalToAccept.responderName}</span>
+                <span className="tiny muted">{t("eta_label")}: {proposalToAccept.eta}</span>
+              </div>
+              <div className="col right" style={{ gap: 2, textAlign: "right" }}>
+                <span className="tiny muted">{t("quote_label")}</span>
+                <span className="bold" style={{ fontSize: 20, color: "var(--green-500)" }}>{inr(proposalToAccept.price)}</span>
+              </div>
+            </div>
+            <div className="row gap-10" style={{ marginTop: 8 }}>
+              <button className="btn btn-outline grow" onClick={() => setProposalToAccept(null)}>{t("cancel_action")}</button>
+              <button
+                className="btn btn-green grow"
+                disabled={!!accepted}
+                onClick={() => {
+                  const p = proposalToAccept;
+                  setProposalToAccept(null);
+                  acceptProposal(p);
+                }}
+              >
+                {t("confirm_accept") || "Confirm & Accept"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -602,7 +660,7 @@ export default function RequestDetail() {
             </div>
             <div className="row gap-10" style={{ width: "100%", marginTop: 8 }}>
               <button className="btn btn-outline grow" onClick={() => setShowDeleteConfirm(false)}>{t("keep_it")}</button>
-              <button className="btn btn-block grow" style={{ background: "var(--red-500)", color: "#fff" }} disabled={deleting} onClick={handleDeleteRequest}>
+              <button className="btn btn-block grow" style={{ background: "var(--red-500)", color: "var(--surface)" }} disabled={deleting} onClick={handleDeleteRequest}>
                 {deleting ? t("deleting_ellipsis") : t("yes_delete")}
               </button>
             </div>

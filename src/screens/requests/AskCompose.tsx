@@ -100,7 +100,7 @@ export default function AskCompose() {
   const [desc, setDesc] = useState(draft?.desc ?? "");
   const [cat, setCat] = useState<string | null>(draft?.cat ?? null);
   const [subCat, setSubCat] = useState<string | null>(draft?.subCat ?? null);
-  const [fieldVals, setFieldVals] = useState<Record<string, string>>({});
+  const [fieldVals, setFieldVals] = useState<Record<string, string>>(draft?.fieldVals ?? {});
   const [budgetMin, setBudgetMin] = useState(draft?.budgetMin ?? "");
   const [budgetMax, setBudgetMax] = useState(draft?.budgetMax ?? "");
   const [paymentMode, setPaymentMode] = useState<"" | "fixed" | "hourly">(draft?.paymentMode ?? "");
@@ -121,6 +121,17 @@ export default function AskCompose() {
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
+  // Clean up any ongoing microphone session on component unmount (R4)
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {}
+      }
+    };
+  }, []);
+
   function toggleVoice() {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) { showToast("Voice not supported in this browser"); return; }
@@ -132,7 +143,8 @@ export default function AskCompose() {
     }
 
     const rec = new SpeechRecognition();
-    rec.lang = "hi-IN";
+    // Dynamic speech recognition language matching active user locale (R4)
+    rec.lang = lang === "hi" ? "hi-IN" : lang === "mr" ? "mr-IN" : "en-IN";
     rec.interimResults = false;
     rec.maxAlternatives = 1;
     recognitionRef.current = rec;
@@ -141,11 +153,14 @@ export default function AskCompose() {
       const transcript: string = e.results[0][0].transcript;
       setDesc((d) => (d ? d + " " + transcript : transcript));
       if (!title.trim()) setTitle(transcript.slice(0, 150));
-      if ((categories ?? []).length > 0) {
+      // Word boundary matching to prevent spurious category overwrites (R5)
+      if ((categories ?? []).length > 0 && !cat) {
         const lower = transcript.toLowerCase();
-        const matched = (categories ?? []).find(
-          (c) => lower.includes(c.name.toLowerCase()) || lower.includes((c.slug ?? "").toLowerCase())
-        );
+        const matched = (categories ?? []).find((c) => {
+          const nameRegex = new RegExp(`\\b${c.name.toLowerCase()}\\b`, "i");
+          const slugRegex = c.slug ? new RegExp(`\\b${c.slug.toLowerCase().replace(/-/g, "\\s*")}\\b`, "i") : null;
+          return nameRegex.test(lower) || (slugRegex ? slugRegex.test(lower) : false);
+        });
         if (matched) { setCat(matched.id); setSubCat(null); }
       }
     };
@@ -154,6 +169,28 @@ export default function AskCompose() {
 
     rec.start();
     setListening(true);
+  }
+
+  function handleClearDraft() {
+    clearRequestDraft();
+    setTitle("");
+    setDesc("");
+    setCat(null);
+    setSubCat(null);
+    setFieldVals({});
+    setBudgetMin("");
+    setBudgetMax("");
+    setPaymentMode("");
+    setSchedDate("");
+    setSchedSlot("");
+    setRadius(3);
+    setPhotos([]);
+    setUrgent(false);
+    setRecurring(false);
+    setAnon(false);
+    setExpiryHrs(24);
+    setTemplate(null);
+    showToast("Draft cleared");
   }
 
   // Build human-readable deadline string for the API
@@ -237,10 +274,11 @@ export default function AskCompose() {
       saveRequestDraft({
         title, desc, cat, subCat, budgetMin, budgetMax, paymentMode,
         schedDate, schedSlot, radius, photos, urgent, recurring, anon, expiryHrs,
+        fieldVals,
       });
     }, 500);
     return () => clearTimeout(timer);
-  }, [title, desc, cat, subCat, budgetMin, budgetMax, paymentMode, schedDate, schedSlot, radius, photos, urgent, recurring, anon, expiryHrs]);
+  }, [title, desc, cat, subCat, budgetMin, budgetMax, paymentMode, schedDate, schedSlot, radius, photos, urgent, recurring, anon, expiryHrs, fieldVals]);
 
   async function post() {
     setPosting(true);
@@ -268,10 +306,25 @@ export default function AskCompose() {
         return;
       }
 
+      // R3: Append structured smart template answers to description so responders see full details
+      let finalDesc = desc.trim();
+      if (template && Object.keys(fieldVals).length > 0) {
+        const details = Object.entries(fieldVals)
+          .filter(([_, val]) => val && val.trim())
+          .map(([key, val]) => {
+            const fieldDef = template.fields.find((f) => f.key === key);
+            const label = fieldDef?.label || key;
+            return `• ${label}: ${val}`;
+          });
+        if (details.length > 0) {
+          finalDesc = finalDesc ? `${finalDesc}\n\nDetails:\n${details.join("\n")}` : `Details:\n${details.join("\n")}`;
+        }
+      }
+
       const selectedCategory = (categories ?? []).find((c) => c.id === cat);
       await requestService.create({
         title,
-        description: desc,
+        description: finalDesc,
         categoryId: cat,
         categoryName: selectedCategory?.name,
         subCategory: subCat ?? undefined,
@@ -304,7 +357,17 @@ export default function AskCompose() {
 
   return (
     <div className="screen">
-      <AppBar title={t("post_a_request")} subtitle={t("ask_compose_subtitle")} />
+      <AppBar
+        title={t("post_a_request")}
+        subtitle={t("ask_compose_subtitle")}
+        right={
+          (title || desc || cat || photos.length > 0 || Object.keys(fieldVals).length > 0) ? (
+            <button type="button" className="btn btn-ghost btn-xs" onClick={handleClearDraft}>
+              {t("clear_action") || "Clear"}
+            </button>
+          ) : undefined
+        }
+      />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
         <div className="card row gap-10" style={{ padding: "var(--space-sm)", background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
           <Sparkles size={20} color="var(--brand-600)" />

@@ -683,6 +683,8 @@ export default function App() {
                 <Route path="/business/:id/manage/inventory" element={<InventoryAlerts />} />
                 <Route path="/business/:id/manage/portfolio" element={<BusinessPortfolio />} />
                 <Route path="/business/:id/manage/hours" element={<HoursEditor />} />
+                <Route path="/business/:id/manage/bulk-deals" element={<BulkDealsManager />} />
+                <Route path="/business/:id/manage/bulk-deals/:dealId" element={<BulkDealDetail />} />
               </Route>
 
               <Route element={<RequireScope scope="queue" />}>
@@ -713,8 +715,6 @@ export default function App() {
                 <Route path="/business/:id/manage/broadcast" element={<BroadcastRadius />} />
                 <Route path="/business/:id/manage/reviews" element={<ReviewsManager />} />
                 <Route path="/business/:id/manage/payments" element={<BusinessPayments />} />
-                <Route path="/business/:id/manage/bulk-deals" element={<BulkDealsManager />} />
-                <Route path="/business/:id/manage/bulk-deals/:dealId" element={<BulkDealDetail />} />
                 <Route path="/business/:id/manage/verify" element={<VerificationCenter />} />
                 <Route path="/business/:id/manage/settings" element={<BusinessSettings />} />
                 <Route path="/business/:id/manage/community" element={<BusinessCommunity />} />

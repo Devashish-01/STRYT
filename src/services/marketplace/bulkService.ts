@@ -81,6 +81,8 @@ function rowToBulkDealToken(r: any): GroupBuyToken {
     validUntilISO: r.valid_until ?? null,
     createdAtISO: r.created_at,
     pickupPin: r.pickup_pin ?? null,
+    depositPaid: r.deposit_paid != null ? Number(r.deposit_paid) : null,
+    balanceDue: r.balance_due != null ? Number(r.balance_due) : null,
   };
 }
 
@@ -453,11 +455,14 @@ export const bulkService = {
    *  Dispatches by the code's own prefix — STRYT-D- mints from a bulk-deal
    *  campaign close, plain STRYT- from a group buy's agreement — so one
    *  scanner (BulkDealsManager's) handles passes from either source. */
-  async redeemToken(tokenCode: string): Promise<GroupBuyToken> {
+  async redeemToken(tokenCode: string, businessId?: string): Promise<GroupBuyToken> {
     const sb = getSupabase();
     const trimmed = tokenCode.trim().toUpperCase();
     if (trimmed.startsWith("STRYT-D-")) {
-      const { data, error } = await (sb.rpc as any)("bulk_deal_token_redeem", { p_token_code: trimmed });
+      const { data, error } = await (sb.rpc as any)("bulk_deal_token_redeem", {
+        p_token_code: trimmed,
+        ...(businessId ? { p_business_id: businessId } : {}),
+      });
       throwIfError(error);
       return rowToBulkDealToken(data);
     }

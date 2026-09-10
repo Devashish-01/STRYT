@@ -124,6 +124,8 @@ export interface Agreement {
   proposalId: string;
   requesterUserId: string;
   responderUserId: string;
+  responderEntityId?: string;
+  responderType?: string;
   requesterName: string;
   requesterAvatar: string;
   responderName: string;

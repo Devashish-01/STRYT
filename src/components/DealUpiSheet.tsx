@@ -14,8 +14,16 @@ import { copyText } from "@/lib/clipboard";
 // from here — a real fix needs a business/provider id column on `agreements`
 // itself. Until then, order by `created_at` so the pick is at least
 // deterministic (oldest/primary listing) instead of DB-implementation-defined.
-async function fetchUpiForUser(userId: string): Promise<string | null> {
+async function fetchUpiForEntity(userId: string, entityId?: string, entityType?: string): Promise<string | null> {
   const sb = getSupabase();
+  if (entityType === "business" && entityId) {
+    const biz = await sb.from("businesses").select("upi_id").eq("id", entityId).maybeSingle();
+    if (biz.data?.upi_id) return biz.data.upi_id;
+  }
+  if (entityType === "provider" && entityId) {
+    const prov = await sb.from("providers").select("upi_id").eq("id", entityId).maybeSingle();
+    if (prov.data?.upi_id) return prov.data.upi_id;
+  }
   const [prov, biz] = await Promise.all([
     sb.from("providers").select("upi_id").eq("user_id", userId).not("upi_id", "is", null).order("created_at", { ascending: true }).limit(1),
     sb.from("businesses").select("upi_id").eq("owner_user_id", userId).not("upi_id", "is", null).order("created_at", { ascending: true }).limit(1),
@@ -27,21 +35,22 @@ interface Props {
   payeeUserId: string;
   payeeName: string;
   amount: number;
+  responderEntityId?: string;
+  responderType?: string;
   onClose: () => void;
 }
 
 // Deal-flow payment: the requester pays the responder the agreed price over UPI.
-// Same QR/deep-link pattern as the appointment PaymentSheet, driven by the
-// responder's saved UPI ID.
-export default function DealUpiSheet({ payeeUserId, payeeName, amount, onClose }: Props) {
+// Supports direct entity UPI lookup for businesses/providers.
+export default function DealUpiSheet({ payeeUserId, payeeName, amount, responderEntityId, responderType, onClose }: Props) {
   const { showToast } = useApp();
   const [upiId, setUpiId] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
-    fetchUpiForUser(payeeUserId).then((v) => { if (active) setUpiId(v); });
+    fetchUpiForEntity(payeeUserId, responderEntityId, responderType).then((v) => { if (active) setUpiId(v); });
     return () => { active = false; };
-  }, [payeeUserId]);
+  }, [payeeUserId, responderEntityId, responderType]);
 
   const upiLink = upiId
     ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(payeeName)}${amount ? `&am=${amount.toFixed(2)}` : ""}&cu=INR&tn=${encodeURIComponent("STRYT deal")}`
@@ -53,7 +62,7 @@ export default function DealUpiSheet({ payeeUserId, payeeName, amount, onClose }
       onClick={onClose}
     >
       <div
-        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
+        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "var(--surface)", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="row between center-v" style={{ marginBottom: 16 }}>
@@ -90,7 +99,7 @@ export default function DealUpiSheet({ payeeUserId, payeeName, amount, onClose }
             </div>
 
             <div className="col center gap-8">
-              <div style={{ padding: 12, background: "#fff", borderRadius: 16, boxShadow: "var(--shadow-sm)", border: "1px solid var(--ink-100)" }}>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: 16, boxShadow: "var(--shadow-sm)", border: "1px solid var(--ink-100)" }}>
                 <QRCodeSVG value={upiLink} size={180} />
               </div>
             </div>
