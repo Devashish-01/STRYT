@@ -5,7 +5,7 @@ import { businessService, bustBusinessGetCache, profileControlService, uploadSer
 import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/settings";
-import { BadgeCheck, UserPlus, X, Image as ImageIcon, Trash2, Star } from "@/components/Icons";
+import { BadgeCheck, UserPlus, X, Image as ImageIcon, Trash2, Star, MapPin } from "@/components/Icons";
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
@@ -328,6 +328,16 @@ export default function BusinessSettings() {
             hint={accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}
             on={accepting}
             onChange={toggleAccepting}
+          />
+        </SettingsSection>
+
+        <SettingsSection title="Service area & radius">
+          <SettingsRow
+            icon={<MapPin size={18} color="var(--brand-600)" />}
+            label="Service radius"
+            hint="Set how far you take bookings and reach customers"
+            value={business?.broadcastRadius ? `${business.broadcastRadius} km` : "5 km"}
+            onClick={() => nav(`/business/${id}/manage/broadcast`)}
           />
         </SettingsSection>
 

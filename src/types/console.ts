@@ -62,6 +62,9 @@ export interface AppointmentRecord {
    *  even if the business later changes package. Null for legacy rows and the QR
    *  self-pay walk-in path; renders as "generic" (today's exact wording). */
   targetPackageKey?: string | null;
+  /** Set true when the customer booked from outside the business/provider service radius.
+   *  Does not block calendar slots until accepted by the owner/provider. */
+  isOutOfRange?: boolean;
 }
 
 // A customer paying a business/provider a self-chosen amount with no

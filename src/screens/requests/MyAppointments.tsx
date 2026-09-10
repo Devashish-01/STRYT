@@ -10,7 +10,7 @@ import { useApp } from "@/store";
 import type { AppointmentRecord } from "@/types";
 import { AppointmentSheet, type BookingPackage } from "@/components/AppointmentSheet";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS } from "@/utils/availability";
-import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store, Star } from "@/components/Icons";
+import { Calendar, Image as ImageIcon, X as XIcon, CheckCircle2, RotateCcw, CalendarClock, CreditCard, Plus, Store, Star, MapPin } from "@/components/Icons";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import ReviewSheet from "@/components/ReviewSheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
@@ -23,11 +23,36 @@ import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 import { useI18n } from "@/lib/i18n";
+import { formatDate } from "@/lib/format";
 
 // A booking counts as "upcoming" while it is still live and in the future.
 function isUpcoming(a: AppointmentRecord): boolean {
   const future = new Date(a.scheduledForISO).getTime() > Date.now();
   return (a.status === "PENDING" || a.status === "ACCEPTED") && future;
+}
+
+// Formats an appointment date relative to today (Today, Tomorrow, Yesterday, or short localized date).
+function formatAppointmentDate(
+  apt: AppointmentRecord,
+  lang: string,
+  t: (k: string) => string
+): string {
+  if (!apt.scheduledForISO) return apt.dateLabel || "";
+  const d = new Date(apt.scheduledForISO);
+  if (isNaN(d.getTime())) return apt.dateLabel || "";
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const targetDate = new Date(d);
+  targetDate.setHours(0, 0, 0, 0);
+
+  const diffDays = Math.round((targetDate.getTime() - startOfToday.getTime()) / 86400000);
+  if (diffDays === 0) return t("today_word");
+  if (diffDays === 1) return t("tomorrow_word");
+  if (diffDays === -1) return t("yesterday_word");
+
+  return formatDate(apt.scheduledForISO, lang, { weekday: "short", month: "short", day: "numeric" });
 }
 
 // Payment can be claimed/tracked at any of these stages: PENDING (seller may
@@ -45,20 +70,15 @@ function canCustomerModify(a: AppointmentRecord): boolean {
   return a.status === "PENDING" || a.status === "ACCEPTED";
 }
 
-// A booking that can still be paid and still needs the customer to act: payable
-// (PENDING/ACCEPTED/COMPLETED), not yet PAID, and not in a dead-end state
-// (cancelled/declined/no-show). These are kept in Upcoming even after their slot
-// passes so the payment step never silently drops into Past before it's done.
+// A booking that can still be paid: payable (PENDING/ACCEPTED/COMPLETED),
+// not yet PAID, and not in a dead-end state (cancelled/declined/no-show).
 function isUnpaidActionable(a: AppointmentRecord): boolean {
   if (!isPayable(a.status)) return false;
   if (a.status === "CANCELLED" || a.status === "REJECTED" || a.status === "NO_SHOW") return false;
   return (a.paymentStatus ?? "UNPAID") !== "PAID";
 }
 
-// The Dismiss affordance is only for cards being *held back* in Upcoming past
-// their slot time (unpaid-actionable but no longer genuinely upcoming) — e.g. a
-// COMPLETED-but-unpaid booking. A normal future booking is cancelled, not
-// dismissed, so it deliberately gets no Dismiss button.
+// The Dismiss affordance lets customers dismiss old unpaid cards from their Past tab.
 function isDismissible(a: AppointmentRecord): boolean {
   return isUnpaidActionable(a) && !isUpcoming(a);
 }
@@ -100,7 +120,7 @@ interface RebookTarget {
 export default function MyAppointments() {
   const nav = useNavigate();
   const { user, showToast } = useApp();
-  const { t, tf } = useI18n();
+  const { t, tf, lang } = useI18n();
   const [tab, setTab] = useState<"UPCOMING" | "PAST">("UPCOMING");
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -124,14 +144,22 @@ export default function MyAppointments() {
 
   const { upcomingList, pastList } = useMemo(() => {
     const all = data ?? [];
-    // Upcoming = genuinely future live bookings PLUS any unpaid-actionable one
-    // (even if its slot has passed), so the payment step can't vanish into Past.
-    // Dismissed cards are hidden from Upcoming; Past follows the plain split so a
-    // later-PAID booking still surfaces there as a normal historical record.
-    const shouldBeUpcoming = (a: AppointmentRecord) => isUpcoming(a) || isUnpaidActionable(a);
+    // Upcoming = strictly future live bookings (slot is ahead of now, status PENDING or ACCEPTED).
+    // Chronological order: earliest upcoming appointment first.
+    const upcoming = all
+      .filter((a) => isUpcoming(a))
+      .sort((a, b) => new Date(a.scheduledForISO).getTime() - new Date(b.scheduledForISO).getTime());
+
+    // Past = all appointments whose slot time has passed or that are COMPLETED/CANCELLED/REJECTED/NO_SHOW.
+    // Reverse chronological order: most recent visit first.
+    // Unpaid past bookings remain visible here with full payment actions, or can be dismissed locally.
+    const past = all
+      .filter((a) => !isUpcoming(a) && !dismissedIds.has(a.id))
+      .sort((a, b) => new Date(b.scheduledForISO).getTime() - new Date(a.scheduledForISO).getTime());
+
     return {
-      upcomingList: all.filter((a) => shouldBeUpcoming(a) && !dismissedIds.has(a.id)),
-      pastList: all.filter((a) => !shouldBeUpcoming(a)),
+      upcomingList: upcoming,
+      pastList: past,
     };
   }, [data, dismissedIds]);
   const list = tab === "UPCOMING" ? upcomingList : pastList;
@@ -303,19 +331,15 @@ export default function MyAppointments() {
               list.map((apt) => {
                 const busy = cancelling === apt.id || loadingTarget === apt.id;
                 const payable = isPayable(apt.status);
-                // Held in Upcoming past its own slot time so the "Pay now" CTA
-                // doesn't vanish into Past before it's actually paid — but that
-                // made a booking from last week look identical to one for
-                // tomorrow. Same condition as isDismissible; flagged here so
-                // it reads as "needs payment", not "upcoming".
-                const pastDueUnpaid = tab === "UPCOMING" && isUnpaidActionable(apt) && !isUpcoming(apt);
+                // Unpaid notification in Past tab so customers know payment is still due
+                const pastDueUnpaid = tab === "PAST" && isUnpaidActionable(apt);
                 return (
                   <div key={apt.id} className="card col gap-10 queue-row-enter" style={{ padding: 14, border: pastDueUnpaid ? "1px solid var(--amber-300)" : undefined }}>
                     <div className="row between center-v">
                       <div>
                         <div className="bold small" style={{ color: "var(--ink-900)" }}>{apt.targetName}</div>
                         <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
-                          <Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}
+                          <Calendar size={12} color="var(--brand-600)" /> {formatAppointmentDate(apt, lang, t)} at {apt.timeLabel}
                         </div>
                         {pastDueUnpaid && (
                           <div className="tiny semi row gap-4 center-v" style={{ marginTop: 3, color: "var(--amber-700)" }}>
@@ -325,10 +349,12 @@ export default function MyAppointments() {
                       </div>
                       <div className="col gap-4" style={{ alignItems: "flex-end" }}>
                         <span
-                          className={`badge ${APPOINTMENT_STATUS_BADGE[apt.status].cls}`}
+                          className={`badge ${apt.status === "PENDING" && apt.isOutOfRange ? "badge-amber" : APPOINTMENT_STATUS_BADGE[apt.status].cls}`}
                           style={{ fontSize: 10, padding: "3px 9px" }}
                         >
-                          {APPOINTMENT_STATUS_BADGE[apt.status].label}
+                          {apt.status === "PENDING" && apt.isOutOfRange
+                            ? "Out of radius · Pending"
+                            : APPOINTMENT_STATUS_BADGE[apt.status].label}
                         </span>
                         {payable && (
                           <span
@@ -340,6 +366,15 @@ export default function MyAppointments() {
                         )}
                       </div>
                     </div>
+
+                    {apt.isOutOfRange && apt.status === "PENDING" && (
+                      <div className="row gap-6 center-v" style={{ background: "var(--amber-50)", padding: "6px 10px", borderRadius: 8 }}>
+                        <MapPin size={13} color="var(--amber-800)" />
+                        <span className="tiny" style={{ color: "var(--amber-800)" }}>
+                          Out-of-radius request — awaiting confirmation from {apt.targetName}.
+                        </span>
+                      </div>
+                    )}
 
                     {(apt.packageName || apt.notes || apt.photoUrl) && (
                       <div className="col gap-6" style={{ background: "var(--ink-50)", padding: 10, borderRadius: 10 }}>
@@ -514,7 +549,7 @@ export default function MyAppointments() {
           initialFulfillmentType={rebook.apt.fulfillmentType === "DELIVERY" ? "DELIVERY" : "IN_STORE"}
           initialPartySize={rebook.apt.partySize ?? 1}
           rescheduledFromId={rebook.mode === "RESCHEDULE" ? rebook.apt.id : undefined}
-          rescheduledFromLabel={rebook.mode === "RESCHEDULE" ? { dateLabel: rebook.apt.dateLabel, timeLabel: rebook.apt.timeLabel } : undefined}
+          rescheduledFromLabel={rebook.mode === "RESCHEDULE" ? { dateLabel: formatAppointmentDate(rebook.apt, lang, t), timeLabel: rebook.apt.timeLabel } : undefined}
           vocabulary={BUSINESS_PACKAGES[rebook.targetPackageKey].vocabulary}
           targetPackageKey={rebook.targetPackageKey}
           onBooked={handleBooked}

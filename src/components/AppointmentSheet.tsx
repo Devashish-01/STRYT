@@ -420,6 +420,8 @@ export function AppointmentSheet({
       showToast(
         isReschedule
           ? `Rescheduled to ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 🔄`
+          : created?.isOutOfRange
+          ? `Request sent! Awaiting confirmation for ${selectedSlot.dateLabel} 📍`
           : `${vocabulary.bookedVerb} for ${selectedSlot.dateLabel} at ${selectedSlot.timeLabel} 📅`
       );
 
@@ -540,21 +542,19 @@ export function AppointmentSheet({
             <div
               className="card card-condensed"
               style={{
-                background: fulfillmentType === "DELIVERY" ? "var(--red-50)" : "var(--amber-50)",
-                border: `1px solid ${fulfillmentType === "DELIVERY" ? "var(--red-100)" : "var(--amber-200)"}`,
+                background: "var(--amber-50)",
+                border: "1px solid var(--amber-200)",
                 marginBottom: 16,
               }}
             >
               <div className="row gap-8" style={{ alignItems: "flex-start" }}>
-                <span style={{ fontSize: 16, lineHeight: 1.2 }}>{fulfillmentType === "DELIVERY" ? "⚠️" : "📍"}</span>
+                <span style={{ fontSize: 16, lineHeight: 1.2 }}>📍</span>
                 <div>
-                  <div className="bold small" style={{ color: fulfillmentType === "DELIVERY" ? "var(--red-600)" : "var(--amber-800)" }}>
-                    {fulfillmentType === "DELIVERY" ? "Outside delivery area" : "Distance notice"}
+                  <div className="bold small" style={{ color: "var(--amber-800)" }}>
+                    Outside standard service area
                   </div>
-                  <div className="tiny" style={{ color: fulfillmentType === "DELIVERY" ? "var(--red-600)" : "var(--amber-800)", marginTop: 1, lineHeight: 1.5 }}>
-                    {fulfillmentType === "DELIVERY"
-                      ? `You're outside this ${targetType === "BUSINESS" ? "business" : "provider"}'s delivery range. Switch to in-store visit or contact them directly.`
-                      : `You're further than usual from this ${targetType === "BUSINESS" ? "business" : "provider"}, but you can still book an in-store visit.`}
+                  <div className="tiny" style={{ color: "var(--amber-900)", marginTop: 1, lineHeight: 1.5 }}>
+                    You are beyond this {targetType === "BUSINESS" ? "business" : "provider"}&apos;s standard service radius. You can still send this booking as a request. The calendar slot will be reserved once they review and accept.
                   </div>
                 </div>
               </div>
@@ -1108,16 +1108,13 @@ export function AppointmentSheet({
               !selectedSlot ||
               submitting ||
               uploading ||
-              hasAptToday ||
-              (fulfillmentType === "DELIVERY" && outOfRange)
+              hasAptToday
             }
             onClick={handleConfirm}
             style={{ height: 48, fontSize: 15, fontWeight: 700 }}
           >
             {submitting || uploading
               ? "Booking & Uploading..."
-              : fulfillmentType === "DELIVERY" && outOfRange
-              ? "Outside Delivery Area"
               : hasAptToday
               ? "Daily Limit Exceeded"
               : selectedSlot
@@ -1129,6 +1126,8 @@ export function AppointmentSheet({
                 ? `Confirm & Pay · ${selectedSlot.timeLabel}`
                 : isReschedule
                 ? `Reschedule to ${selectedSlot.timeLabel}`
+                : outOfRange
+                ? `Send Request · ${selectedSlot.timeLabel}`
                 : vocabulary.confirmCta
                 ? `${vocabulary.confirmCta} · ${selectedSlot.timeLabel}`
                 : vocabulary.noun === "order"

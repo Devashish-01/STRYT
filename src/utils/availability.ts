@@ -495,6 +495,9 @@ export function generateWorkingSlots(
       const slotEnd = slotStart + slotDuration * 60000;
       const overlapping = existingAppointments.filter(apt => {
         if (apt.status === "CANCELLED" || apt.status === "REJECTED" || apt.status === "NO_SHOW") return false;
+        // Out-of-range requests in PENDING status do NOT block the calendar.
+        // They only lock the slot once exclusively accepted by the owner/provider.
+        if (apt.status === "PENDING" && apt.isOutOfRange) return false;
         try {
           const t = new Date(apt.scheduledForISO).getTime();
           return t >= slotStart && t < slotEnd;

@@ -247,6 +247,33 @@ describe("generateWorkingSlots", () => {
     expect(nineAm.remaining).toBe(1);
   });
 
+  it("ignores out-of-range PENDING appointments so they do not block calendar slots", () => {
+    const hours = everydayHours("09:00 AM", "10:00 AM", 30);
+    const outOfRangePending = fixture({
+      scheduledForISO: new Date(FUTURE_YEAR, 0, 1, 9, 0, 0, 0).toISOString(),
+      status: "PENDING",
+      isOutOfRange: true,
+    });
+    const slots = generateWorkingSlots(hours, targetDate, [outOfRangePending]);
+    const nineAm = slots.find((s) => s.timeLabel === "9:00 AM")!;
+    expect(nineAm.isAvailable).toBe(true);
+    expect(nineAm.remaining).toBe(1);
+  });
+
+  it("locks the slot once an out-of-range appointment is ACCEPTED", () => {
+    const hours = everydayHours("09:00 AM", "10:00 AM", 30);
+    const outOfRangeAccepted = fixture({
+      scheduledForISO: new Date(FUTURE_YEAR, 0, 1, 9, 0, 0, 0).toISOString(),
+      status: "ACCEPTED",
+      isOutOfRange: true,
+    });
+    const slots = generateWorkingSlots(hours, targetDate, [outOfRangeAccepted]);
+    const nineAm = slots.find((s) => s.timeLabel === "9:00 AM")!;
+    expect(nineAm.isAvailable).toBe(false);
+    expect(nineAm.remaining).toBe(0);
+    expect(nineAm.bookedAppointmentIds).toEqual(["apt_1"]);
+  });
+
   it("respects slot capacity > 1, summing party sizes rather than booking count", () => {
     const hours = everydayHours("09:00 AM", "10:00 AM", 30);
     const bookingA = fixture({ id: "a", scheduledForISO: new Date(FUTURE_YEAR, 0, 1, 9, 0, 0, 0).toISOString(), partySize: 2 });

@@ -166,8 +166,13 @@ export default function BusinessAppointments() {
       setResponseNote("");
       setDeliveryEta("");
       refetch();
-    } catch {
-      showToast(`Couldn't update ${vocab.noun}`);
+    } catch (e: any) {
+      const msg = e?.message || "";
+      if (/SLOT_FULL/i.test(msg) || /fully booked/i.test(msg)) {
+        showToast("This slot was booked by another customer in the meantime. Please decline or reschedule.");
+      } else {
+        showToast(e?.message || `Couldn't update ${vocab.noun}`);
+      }
     } finally {
       setUpdatingStatus(false);
     }
@@ -366,6 +371,7 @@ export default function BusinessAppointments() {
               <div className="row gap-6 center-v">
                 <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
                 {apt.isWalkIn && <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>Walk-in</span>}
+                {apt.isOutOfRange && <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px" }}>Out of radius</span>}
               </div>
               <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
                 <Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}
@@ -397,6 +403,18 @@ export default function BusinessAppointments() {
             )}
           </div>
         </div>
+
+        {apt.isOutOfRange && apt.status === "PENDING" && (
+          <div className="row gap-8 center-v" style={{ background: "var(--amber-50)", border: "1px solid var(--amber-200)", padding: "8px 10px", borderRadius: 8 }}>
+            <MapPin size={15} color="var(--amber-800)" style={{ flexShrink: 0 }} />
+            <div>
+              <div className="tiny bold" style={{ color: "var(--amber-800)" }}>Out-of-Radius Request</div>
+              <div className="tiny" style={{ color: "var(--amber-900)", marginTop: 1 }}>
+                Customer booked from outside your standard radius. The calendar slot is not blocked until you accept.
+              </div>
+            </div>
+          </div>
+        )}
 
         {(repeatOffender > 0 || repeatNoShow > 0) && apt.status === "PENDING" && (
           <div className="row gap-6 center-v" style={{ background: "var(--red-50)", padding: "6px 10px", borderRadius: 8 }}>

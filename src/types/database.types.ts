@@ -355,6 +355,7 @@ export type Database = {
           delivery_lng: number | null
           fulfillment_type: string
           id: string
+          is_out_of_range: boolean | null
           is_walk_in: boolean
           notes: string | null
           package_id: string | null
@@ -392,6 +393,7 @@ export type Database = {
           delivery_lng?: number | null
           fulfillment_type?: string
           id?: string
+          is_out_of_range?: boolean | null
           is_walk_in?: boolean
           notes?: string | null
           package_id?: string | null
@@ -429,6 +431,7 @@ export type Database = {
           delivery_lng?: number | null
           fulfillment_type?: string
           id?: string
+          is_out_of_range?: boolean | null
           is_walk_in?: boolean
           notes?: string | null
           package_id?: string | null

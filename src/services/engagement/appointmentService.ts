@@ -236,6 +236,7 @@ function rowToRecord(r: any): AppointmentRecord {
     requestedDeliveryWindow: r.requested_delivery_window ?? null,
     deliveryEtaText: r.delivery_eta_text ?? null,
     targetPackageKey: r.target_package_key ?? null,
+    isOutOfRange: Boolean(r.is_out_of_range),
   };
 }
 
