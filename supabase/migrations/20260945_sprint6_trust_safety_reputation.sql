@@ -317,6 +317,7 @@ begin
 end $$;
 
 -- Update get_live_share to reflect expired sessions as ENDED
+drop function if exists public.get_live_share(text);
 create or replace function public.get_live_share(p_share_id text)
 returns table (
   id             text,
