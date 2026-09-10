@@ -29,6 +29,7 @@ const USER_COLUMNS = new Set([
   "showPostsPublicly", "showAsksPublicly", "showBadgesPublicly",
   "showPhonePublicly", "showEmailPublicly", "showCityPublicly", "showRatingPublicly",
   "showNamePublicly", "locationPublic", "onboardingCompletedAt",
+  "phone",
   // First-run onboarding's interest capture. pickColumns + toSnake handle the
   // rest of the mapping, so this entry is the whole client-side wiring.
   "interestCategoryIds",
@@ -197,7 +198,11 @@ export const userService = {
       if (provErr) console.warn("update (provider sync):", provErr.message);
     }
 
-    return toCamel<CurrentUser>(data);
+    const updated = toCamel<CurrentUser>(data);
+    if (cleanPatch.phone !== undefined) {
+      updated.phone = cleanPatch.phone as string;
+    }
+    return updated;
   },
 
   // Which businesses / provider profile this user owns (drives the Manage hub).

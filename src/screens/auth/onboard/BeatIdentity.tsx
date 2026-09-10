@@ -21,13 +21,15 @@ import { BeatFrame } from "./BeatFrame";
 export function BeatIdentity({
   name,
   avatar,
+  initialPhone,
   busy,
   onDone,
 }: {
   name: string;
   avatar?: string;
+  initialPhone?: string;
   busy?: boolean;
-  onDone: (name: string) => void;
+  onDone: (data: { name: string; phone: string }) => void;
 }) {
   const { t, lang, setLang } = useI18n();
   const derived = isUnusableName(name) ? "" : name.trim();
@@ -35,18 +37,21 @@ export function BeatIdentity({
   // screen never shows a card that says "Is this you?" above an empty name.
   const [editing, setEditing] = useState(!derived);
   const [draft, setDraft] = useState(derived);
+  const [phone, setPhone] = useState(() => (initialPhone ? initialPhone.replace(/\D/g, "").slice(-10) : ""));
 
   const value = draft.trim();
-  const ready = value.length > 0 && !isUnusableName(value);
+  const cleanPhone = phone.replace(/\D/g, "");
+  const phoneValid = cleanPhone.length === 10 && /^[6-9]/.test(cleanPhone);
+  const ready = value.length > 0 && !isUnusableName(value) && phoneValid;
 
   return (
     <BeatFrame
       title={t("ob_beat1_title")}
       sub={t("ob_beat1_sub")}
-      ctaLabel={editing ? t("ob_continue") : t("ob_beat1_confirm")}
+      ctaLabel={editing ? t("ob_continue") : (t("ob_continue") || t("ob_beat1_confirm"))}
       ctaDisabled={!ready}
       ctaBusy={busy}
-      onCta={() => onDone(value)}
+      onCta={() => onDone({ name: value, phone: cleanPhone })}
       footer={
         <div className="ob-langs" role="group" aria-label={t("language")}>
           {(Object.keys(LANG_LABELS) as Lang[]).map((l) => (
@@ -77,13 +82,67 @@ export function BeatIdentity({
         ) : (
           <div className="ob-identity-name">{value}</div>
         )}
-      </div>
 
-      {!editing && (
-        <button type="button" className="ob-inline-link" onClick={() => setEditing(true)}>
-          {t("ob_beat1_edit")}
-        </button>
-      )}
+        {!editing && (
+          <button type="button" className="ob-inline-link" onClick={() => setEditing(true)} style={{ marginTop: -4 }}>
+            {t("ob_beat1_edit")}
+          </button>
+        )}
+
+        {/* Mobile number field */}
+        <div style={{ width: "100%", marginTop: 6, paddingTop: 14, borderTop: "1px solid rgba(255, 255, 255, 0.16)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255, 255, 255, 0.95)" }}>
+              {t("ob_beat1_phone_label")}
+            </span>
+            {cleanPhone.length === 10 && phoneValid && (
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--green-400)" }}>
+                ✓ Valid
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div
+              style={{
+                padding: "10px 14px",
+                background: "rgba(255, 255, 255, 0.16)",
+                border: "1px solid rgba(255, 255, 255, 0.25)",
+                borderRadius: 12,
+                fontWeight: 800,
+                fontSize: 14,
+                color: "#fff",
+                flexShrink: 0,
+              }}
+            >
+              +91
+            </div>
+            <input
+              className="input"
+              type="tel"
+              inputMode="numeric"
+              autoComplete="tel"
+              maxLength={10}
+              placeholder={t("ob_beat1_phone_placeholder")}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+              style={{
+                flex: 1,
+                background: "#fff",
+                color: "var(--ink-900)",
+                fontWeight: 600,
+                fontSize: 15,
+                borderRadius: 12,
+                borderColor: cleanPhone.length > 0 && !phoneValid && cleanPhone.length === 10 ? "var(--red-400)" : undefined,
+              }}
+              aria-label={t("ob_beat1_phone_label")}
+            />
+          </div>
+          <div style={{ fontSize: 11.5, color: "rgba(255, 255, 255, 0.72)", marginTop: 6, textAlign: "left", lineHeight: 1.4 }}>
+            {t("ob_beat1_phone_hint")}
+          </div>
+        </div>
+      </div>
     </BeatFrame>
   );
 }

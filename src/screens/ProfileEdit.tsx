@@ -134,6 +134,11 @@ export default function ProfileEdit() {
       showToast("Alias must be 3–20 chars: letters, numbers, . or _");
       return;
     }
+    const cleanPhone = phone.replace(/\D/g, "").slice(-10);
+    if (phone.trim() && (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone))) {
+      showToast("Please enter a valid 10-digit mobile number");
+      return;
+    }
     let resolvedLat = lat;
     let resolvedLng = lng;
     if (areaInput.trim() && areaInput.trim() !== user.area && (lat === 0 || lat === user.lat)) {
@@ -148,6 +153,7 @@ export default function ProfileEdit() {
         name: name.trim(),
         alias: cleanAlias || undefined,
         avatar: avatar || undefined,
+        phone: cleanPhone || undefined,
         area: areaInput.trim() || undefined, lat: resolvedLat, lng: resolvedLng,
         ...privacy,
       });
@@ -357,28 +363,40 @@ export default function ProfileEdit() {
           <div className="field">
             <div className="row justify-between" style={{ alignItems: "center", marginBottom: 6 }}>
               <label style={{ margin: 0 }}>Primary Mobile Number</label>
-              <span className="tiny bold" style={{ color: "var(--green-700)", display: "flex", alignItems: "center", gap: 4 }}>
-                <CheckCircle size={13} color="var(--green-600)" /> Verified Login
-              </span>
+              {phone && phone.replace(/\D/g, "").length === 10 && (
+                <span className="tiny bold" style={{ color: "var(--green-700)", display: "flex", alignItems: "center", gap: 4 }}>
+                  <CheckCircle size={13} color="var(--green-600)" /> Contact number
+                </span>
+              )}
             </div>
-            <div style={{ position: "relative" }}>
-              <input
-                className="input"
-                readOnly
-                disabled
-                value={phone ? `+91 ${phone}` : "No phone linked"}
+            <div className="row gap-8" style={{ alignItems: "center" }}>
+              <div
                 style={{
+                  padding: "10px 14px",
                   background: "var(--ink-50)",
+                  border: "1.5px solid var(--line)",
+                  borderRadius: "var(--radius-sm)",
+                  fontWeight: 700,
+                  fontSize: 14.5,
                   color: "var(--ink-700)",
-                  cursor: "not-allowed",
-                  borderColor: "var(--line)",
-                  paddingRight: 36,
+                  flexShrink: 0,
                 }}
+              >
+                +91
+              </div>
+              <input
+                className="input grow"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                maxLength={10}
+                placeholder="10-digit mobile number"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
               />
-              <Lock size={15} color="var(--ink-400)" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)" }} />
             </div>
             <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
-              Your login number is secured via SMS OTP. To protect account ownership, it cannot be changed directly in profile settings.
+              Used for delivery coordination, order updates, and service bookings.
             </p>
           </div>
         </div>

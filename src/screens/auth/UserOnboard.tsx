@@ -174,10 +174,11 @@ export default function UserOnboard() {
               <BeatIdentity
                 name={user.name}
                 avatar={user.avatar}
+                initialPhone={user.phone}
                 busy={busy}
-                onDone={(n) =>
+                onDone={({ name: n, phone: p }) =>
                   step(async () => {
-                    await userService.update({ name: n });
+                    await userService.update({ name: n, phone: p });
                     setName(n);
                   }, 1)
                 }
