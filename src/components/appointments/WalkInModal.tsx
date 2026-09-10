@@ -31,6 +31,8 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [pkgId, setPkgId] = useState<string | null>(null);
+  const [customName, setCustomName] = useState("");
+  const [customPrice, setCustomPrice] = useState("");
   const [partySize, setPartySize] = useState(1);
   const dateLabel = date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   const selectedPkg = packages.find((p) => p.id === pkgId);
@@ -43,10 +45,13 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
   const maxParty = selectedPkg ? Math.min(capacity, Math.max(1, selectedPkg.maxPartySize ?? 1)) : capacity;
   const canPickParty = maxParty > 1;
   const effectiveParty = canPickParty ? partySize : 1;
-  // package_price is the line TOTAL everywhere else in the app — the customer
-  // booking sheet already sends price × party. Sending the bare unit price here
-  // made a 3-spot walk-in record a single spot's revenue.
-  const totalPrice = selectedPkg ? selectedPkg.price * effectiveParty : undefined;
+
+  const parsedPrice = Number(customPrice);
+  const effectiveUnitPrice = Number.isFinite(parsedPrice) && parsedPrice > 0
+    ? parsedPrice
+    : (selectedPkg?.price ?? undefined);
+  const totalPrice = effectiveUnitPrice != null ? effectiveUnitPrice * effectiveParty : undefined;
+  const resolvedPackageName = customName.trim() || selectedPkg?.name || (totalPrice ? "Walk-in service" : undefined);
 
   useEffect(() => {
     setPartySize((n) => Math.max(1, Math.min(n, maxParty)));
@@ -70,28 +75,69 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
           <input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d+ ]/g, ""))} placeholder="e.g. 98765 43210" />
         </div>
 
-        {packages.length > 0 && (
-          <div>
-            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Package (optional)</label>
-            <div className="col gap-6">
+        <div>
+          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Service & Price (optional)</label>
+          {packages.length > 0 && (
+            <div className="col gap-6" style={{ marginBottom: 8, maxHeight: 150, overflowY: "auto" }}>
               {packages.map((pk) => {
                 const on = pkgId === pk.id;
                 return (
                   <button
                     key={pk.id}
                     type="button"
-                    onClick={() => setPkgId(on ? null : pk.id)}
+                    onClick={() => {
+                      if (on) {
+                        setPkgId(null);
+                        setCustomPrice("");
+                        setCustomName("");
+                      } else {
+                        setPkgId(pk.id);
+                        setCustomPrice(String(pk.price));
+                        setCustomName(pk.name);
+                      }
+                    }}
                     className="row gap-8 center-v"
                     style={{ padding: 10, borderRadius: 10, border: on ? "2px solid var(--brand-600)" : "1px solid var(--ink-200)", background: on ? "var(--brand-50)" : "var(--surface)" }}
                   >
-                    <span className="grow tiny semi">{pk.name}</span>
+                    <span className="grow tiny semi" style={{ textAlign: "left" }}>{pk.name}</span>
                     <span className="tiny bold" style={{ color: "var(--brand-700)" }}>₹{pk.price}</span>
                   </button>
                 );
               })}
             </div>
+          )}
+
+          {/* Free-handed custom service & number adder */}
+          <div className="row gap-8 center-v">
+            <div className="grow">
+              <input
+                className="input"
+                placeholder="Custom service (e.g. Special cut)"
+                value={customName}
+                onChange={(e) => {
+                  setCustomName(e.target.value);
+                  if (pkgId && e.target.value !== selectedPkg?.name) setPkgId(null);
+                }}
+              />
+            </div>
+            <div style={{ width: 120, position: "relative" }}>
+              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontWeight: 700, color: "var(--ink-500)", fontSize: 13 }}>₹</span>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="Amount"
+                style={{ paddingLeft: 24, fontWeight: 700 }}
+                value={customPrice}
+                onChange={(e) => {
+                  setCustomPrice(e.target.value);
+                  if (pkgId && Number(e.target.value) !== selectedPkg?.price) setPkgId(null);
+                }}
+              />
+            </div>
           </div>
-        )}
+        </div>
 
         {/* Party size — only when this slot can actually hold more than one
             booking, so a normal 1:1 walk-in shows nothing extra. */}
@@ -122,8 +168,8 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
               </div>
               <div className="tiny muted">
                 Up to {maxParty} at this time
-                {partySize > 1 && selectedPkg?.price ? (
-                  <> • {inr(selectedPkg.price * partySize)} ({inr(selectedPkg.price)}/spot)</>
+                {partySize > 1 && totalPrice ? (
+                  <> • {inr(totalPrice)} ({inr(effectiveUnitPrice ?? 0)}/spot)</>
                 ) : null}
               </div>
             </div>
@@ -137,7 +183,7 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
             disabled={submitting || name.trim().length < 2}
             onClick={() => onConfirm({
               name: name.trim(), phone: phone.trim(),
-              packageId: selectedPkg?.id, packageName: selectedPkg?.name, packagePrice: totalPrice,
+              packageId: selectedPkg?.id, packageName: resolvedPackageName, packagePrice: totalPrice,
               partySize: canPickParty ? partySize : undefined,
             })}
           >

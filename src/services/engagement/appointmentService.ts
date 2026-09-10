@@ -27,6 +27,77 @@ export function ownerVisibleCustomerName(apt: AppointmentRecord): string {
   return apt.customerName;
 }
 
+const PHONE_RE = /(?:\+?91[-\s]?|0)?([6-9]\d{4}[-\s]?\d{5})\b/;
+
+export function extractCustomerPhone(note: string | null | undefined): string | null {
+  if (!note) return null;
+  const m = PHONE_RE.exec(note);
+  if (!m) return null;
+  const digits = m[0].replace(/\D/g, "");
+  return digits.length >= 10 ? digits.slice(-10) : null;
+}
+
+export interface CustomerTabGroup {
+  key: string;
+  customerId?: string;
+  customerName: string;
+  customerPhone?: string | null;
+  customerAvatar?: string | null;
+  appointments: AppointmentRecord[];
+  totalOwed: number;
+  visitCount: number;
+  latestDate: string;
+}
+
+/** Group unpaid and rejected appointments by customer for Khata / monthly tab settlements. */
+export function groupCustomerTabs(appointments: AppointmentRecord[]): CustomerTabGroup[] {
+  const unpaid = appointments.filter(
+    (a) =>
+      (a.paymentStatus === "UNPAID" || a.paymentStatus === "REJECTED" || !a.paymentStatus) &&
+      (a.status === "ACCEPTED" || a.status === "COMPLETED") &&
+      (a.packagePrice ?? a.paymentAmount ?? 0) > 0
+  );
+
+  const groups = new Map<string, CustomerTabGroup>();
+
+  for (const apt of unpaid) {
+    const phone = extractCustomerPhone(apt.notes);
+    const key = apt.customerId
+      ? `uid:${apt.customerId}`
+      : phone
+      ? `phone:${phone}`
+      : `name:${apt.customerName.trim().toLowerCase()}`;
+
+    const existing = groups.get(key);
+    const price = apt.packagePrice ?? apt.paymentAmount ?? 0;
+
+    if (existing) {
+      existing.appointments.push(apt);
+      existing.totalOwed += price;
+      existing.visitCount += 1;
+      if (new Date(apt.scheduledForISO).getTime() > new Date(existing.latestDate).getTime()) {
+        existing.latestDate = apt.scheduledForISO;
+      }
+    } else {
+      groups.set(key, {
+        key,
+        customerId: apt.customerId,
+        customerName: ownerVisibleCustomerName(apt),
+        customerPhone: phone,
+        customerAvatar: apt.customerAvatar,
+        appointments: [apt],
+        totalOwed: price,
+        visitCount: 1,
+        latestDate: apt.scheduledForISO,
+      });
+    }
+  }
+
+  return Array.from(groups.values()).sort(
+    (a, b) => new Date(b.latestDate).getTime() - new Date(a.latestDate).getTime()
+  );
+}
+
 // Mock/demo targets have owners that don't exist in the users table, so a DB
 // insert would fail the FK. Those (and signed-out guests) fall back to local.
 export function isMockTarget(id: string): boolean {
@@ -621,7 +692,7 @@ export const appointmentService = {
     return patchPaymentStatus(id, "REJECT");
   },
 
-  /** Owner records payment for an owner-created walk-in; never bypasses a customer's claim. */
+  /** Owner records payment for any managed booking (cash or UPI); never bypasses a customer's claim. */
   async recordWalkInPayment(
     id: string,
     method: PaymentMethod,
@@ -640,6 +711,47 @@ export const appointmentService = {
     const record = rowToRecord(data);
     upsertLocal(record);
     return record;
+  },
+
+  /** Set custom price/amount on an appointment and retain UNPAID status for the customer tab/Khata. */
+  async setUnpaidAmount(id: string, amount: number): Promise<AppointmentRecord | undefined> {
+    const sb = getSupabase();
+    const { data, error } = await (sb.rpc as any)("appointment_set_unpaid_amount", {
+      p_id: id,
+      p_amount: amount,
+    });
+    if (error) {
+      // Direct table fallback if RPC not yet present in runtime DB
+      const { data: updateData, error: updateError } = await sb
+        .from("appointments")
+        .update({ package_price: amount, payment_amount: amount, payment_status: "UNPAID" })
+        .eq("id", id)
+        .select()
+        .single();
+      if (updateError) throw new Error(updateError.message || "Couldn't update amount.");
+      if (!updateData) return undefined;
+      const record = rowToRecord(updateData);
+      upsertLocal(record);
+      return record;
+    }
+    if (!data) return undefined;
+    const record = rowToRecord(data);
+    upsertLocal(record);
+    return record;
+  },
+
+  /** Settle multiple unpaid appointments on a customer's tab/Khata in one flow. */
+  async settleCustomerTab(
+    appointmentIds: string[],
+    method: PaymentMethod = "CASH",
+    reference?: string | null,
+  ): Promise<AppointmentRecord[]> {
+    const settled: AppointmentRecord[] = [];
+    for (const aptId of appointmentIds) {
+      const res = await this.recordWalkInPayment(aptId, method, undefined, reference);
+      if (res) settled.push(res);
+    }
+    return settled;
   },
 
   async updateStatus(

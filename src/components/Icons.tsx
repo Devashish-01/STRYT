@@ -13,6 +13,7 @@ import {
   Check,
   CheckCircle,
   CaretDown as PhosphorCaretDown,
+  CaretUp as PhosphorCaretUp,
   CaretLeft as PhosphorCaretLeft,
   CaretRight as PhosphorCaretRight,
   Circle,
@@ -192,6 +193,7 @@ export {
 export { PhosphorMedal as Award };
 export { PhosphorProhibit as Ban };
 export { PhosphorCaretDown as ChevronDown };
+export { PhosphorCaretUp as ChevronUp };
 export { PhosphorCaretLeft as ChevronLeft };
 export { PhosphorCaretRight as ChevronRight };
 export { PhosphorEnvelope as Mail };

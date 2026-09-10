@@ -7,6 +7,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton } from "@/components/states";
 import type { AppointmentRecord } from "@/types";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
+import { CustomerKhataSection } from "@/components/appointments/CustomerKhataSection";
 import ProviderManageNav from "./ProviderManageNav";
 import { Wallet, Briefcase, Star, QrCode, Image as ImageIcon, X, Calendar } from "@/components/Icons";
 import { useApp } from "@/store";
@@ -226,10 +227,12 @@ export default function ProviderMoney() {
           </div>
         )}
 
+        <CustomerKhataSection appointments={appointments} onRefresh={refetchApts} />
+
         {/* Unpaid / awaiting */}
         {awaitingPayment.length > 0 && (
           <div>
-            <div className="small semi muted" style={{ marginBottom: 8 }}>Awaiting payment ({awaitingPayment.length})</div>
+            <div className="small semi muted" style={{ marginBottom: 8 }}>Single Awaiting Records ({awaitingPayment.length})</div>
             <div className="col gap-8">
               {awaitingPayment.map((apt) => (
                 <div key={apt.id} className="card row between center-v" style={{ padding: 12 }}>

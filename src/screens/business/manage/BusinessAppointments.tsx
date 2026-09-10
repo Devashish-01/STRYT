@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
-import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { useParams, useNavigate } from "react-router-dom";
+import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator, inr } from "@/components/common";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { appointmentService, businessService, slotBlockService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
@@ -9,11 +9,11 @@ import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import {
   Calendar, Check, X as XIcon, Image as ImageIcon, CheckCircle2, AlertTriangle,
-  Share2, IndianRupee, Ban, Package, MapPin,
+  Share2, IndianRupee, Ban, Package, MapPin, MessageCircle,
 } from "@/components/Icons";
 import { haversineKm } from "@/lib/geocode";
-import type { AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
-import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
+import type { AppointmentRecord, BlockedSlot, CancelledBy, PaymentMethod } from "@/types";
+import { dateKey, DEFAULT_WORKING_HOURS, parseTimeToMinutes } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";
 import ManageNav from "./ManageNav";
 import DateStrip from "@/components/appointments/DateStrip";
@@ -23,6 +23,8 @@ import BlockSlotModal from "@/components/appointments/BlockSlotModal";
 import WalkInModal from "@/components/appointments/WalkInModal";
 import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
+import { AppointmentNote } from "@/components/appointments/AppointmentNote";
+import { RecordPaymentModal } from "@/components/appointments/RecordPaymentModal";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
@@ -34,6 +36,7 @@ type ConsoleTab = "TODAY" | "UPCOMING" | "DELIVERIES" | "HISTORY" | "CANCELLED";
 
 export default function BusinessAppointments() {
   const { id = "" } = useParams();
+  const nav = useNavigate();
   const { showToast } = useApp();
   const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
@@ -67,6 +70,7 @@ export default function BusinessAppointments() {
   const [walkInModal, setWalkInModal] = useState<{ date: Date; timeLabel: string } | null>(null);
   const [walkInSubmitting, setWalkInSubmitting] = useState(false);
   const [noShowBusy, setNoShowBusy] = useState<string | null>(null);
+  const [paymentModalApt, setPaymentModalApt] = useState<AppointmentRecord | null>(null);
 
   // Delivery: bulk-assign N eligible appointments to one agent in a single run.
   // ETA the owner confirms when accepting a DELIVERY booking (the business
@@ -192,14 +196,29 @@ export default function BusinessAppointments() {
     }
   }
 
-  async function handleRecordWalkInPayment(apt: AppointmentRecord) {
+  async function handleRecordPaymentSubmit(apt: AppointmentRecord, method: PaymentMethod, amount: number) {
     setProcessingPayment(apt.id);
     try {
-      await appointmentService.recordWalkInPayment(apt.id, "CASH", apt.packagePrice ?? apt.paymentAmount ?? null);
-      showToast("Walk-in cash payment recorded ✓");
+      await appointmentService.recordWalkInPayment(apt.id, method, amount);
+      haptics.success();
+      showToast(`Payment of ${inr(amount)} recorded (${method}) ✓`);
       refetch();
-    } catch {
-      showToast("Couldn't record the payment. Try again.");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't record the payment. Try again.");
+    } finally {
+      setProcessingPayment(null);
+    }
+  }
+
+  async function handleSaveUnpaidTab(apt: AppointmentRecord, amount: number) {
+    setProcessingPayment(apt.id);
+    try {
+      await appointmentService.setUnpaidAmount(apt.id, amount);
+      haptics.success();
+      showToast(`Added ${inr(amount)} to ${ownerVisibleCustomerName(apt)}'s tab 📒`);
+      refetch();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update tab amount.");
     } finally {
       setProcessingPayment(null);
     }
@@ -290,13 +309,8 @@ export default function BusinessAppointments() {
     setWalkInSubmitting(true);
     try {
       const iso = new Date(walkInModal.date);
-      const [, hh, mm, ap] = /(\d+):(\d+)\s?(AM|PM)/i.exec(walkInModal.timeLabel) ?? [];
-      if (hh) {
-        let h = parseInt(hh, 10);
-        if (/pm/i.test(ap) && h < 12) h += 12;
-        if (/am/i.test(ap) && h === 12) h = 0;
-        iso.setHours(h, parseInt(mm, 10), 0, 0);
-      }
+      const mins = parseTimeToMinutes(walkInModal.timeLabel);
+      iso.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
       await appointmentService.createWalkIn({
         targetId: id,
         targetType: "BUSINESS",
@@ -357,6 +371,17 @@ export default function BusinessAppointments() {
                 <Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}
               </div>
             </div>
+            {!apt.isWalkIn && apt.customerId && (
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={`Message ${ownerVisibleCustomerName(apt)}`}
+                title="Message customer"
+                onClick={() => nav(`/chat/${apt.customerId}`)}
+              >
+                <MessageCircle size={16} color="var(--brand-600)" />
+              </button>
+            )}
           </div>
           <div className="col gap-4" style={{ alignItems: "flex-end" }}>
             <span
@@ -390,11 +415,7 @@ export default function BusinessAppointments() {
           </div>
         )}
 
-        {apt.notes && (
-          <div className="tiny" style={{ background: "var(--ink-50)", padding: "var(--space-xs)", borderRadius: 8, color: "var(--ink-700)" }}>
-            💬 <strong>Note:</strong> {apt.notes}
-          </div>
-        )}
+        <AppointmentNote note={apt.notes} />
 
         {apt.photoUrl && (
           <div className="row gap-8 center-v" style={{ marginTop: 2 }}>
@@ -421,18 +442,18 @@ export default function BusinessAppointments() {
 
         {(apt.paymentStatus === "UNPAID" || apt.paymentStatus === "REJECTED") && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
           <div className="card col gap-10" style={{ padding: "var(--space-sm)", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 12, marginTop: 2 }}>
-            <div className="tiny semi muted">Payment is outstanding (Unpaid)</div>
+            <div className="row between center-v">
+              <div className="tiny semi muted">Payment outstanding {apt.packagePrice || apt.paymentAmount ? `(${inr(apt.packagePrice ?? apt.paymentAmount ?? 0)})` : ""}</div>
+              <span className="badge badge-amber" style={{ fontSize: 10 }}>Unpaid</span>
+            </div>
             <div className="row gap-8">
-              {apt.isWalkIn && (apt.packagePrice || apt.paymentAmount) ? (
-                <button className="btn btn-green grow btn-sm" disabled={processingPayment === apt.id} onClick={() => handleRecordWalkInPayment(apt)}>
-                  <CheckCircle2 size={14} /> Record cash received
-                </button>
-              ) : !apt.isWalkIn ? (
+              <button className="btn btn-green grow btn-sm" disabled={processingPayment === apt.id} onClick={() => setPaymentModalApt(apt)}>
+                <CheckCircle2 size={14} /> Record payment
+              </button>
+              {!apt.isWalkIn && (
                 <button className="btn btn-outline grow btn-sm" style={{ color: "var(--amber-700)", borderColor: "var(--amber-200)" }} disabled={processingPayment === apt.id} onClick={() => handleNudgePayment(apt)}>
-                  🔔 Request payment
+                  🔔 Nudge
                 </button>
-              ) : (
-                <span className="tiny muted">Add a priced package before recording walk-in payment.</span>
               )}
             </div>
           </div>
@@ -662,11 +683,11 @@ export default function BusinessAppointments() {
                       style={{
                         marginTop: 14, width: 22, height: 22, borderRadius: 6, flexShrink: 0,
                         border: selectedForBatch.has(apt.id) ? "none" : "2px solid var(--ink-300)",
-                        background: selectedForBatch.has(apt.id) ? "var(--delivery-600)" : "#fff",
+                        background: selectedForBatch.has(apt.id) ? "var(--delivery-600)" : "var(--surface)",
                         display: "flex", alignItems: "center", justifyContent: "center",
                       }}
                     >
-                      {selectedForBatch.has(apt.id) && <Check size={13} color="#fff" />}
+                      {selectedForBatch.has(apt.id) && <Check size={13} color="var(--white)" />}
                     </button>
                   )}
                   <div className="grow">{renderAppointmentCard(apt)}</div>
@@ -881,7 +902,7 @@ export default function BusinessAppointments() {
           style={{
             position: "fixed", left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: "var(--maxw)",
             bottom: "calc(var(--nav-h) + var(--safe-area-bottom))",
-            padding: "10px 16px", background: "var(--delivery-600)", color: "#fff",
+            padding: "10px 16px", background: "var(--delivery-600)", color: "var(--white)",
             boxShadow: "var(--shadow-lg)", zIndex: 60, animation: "slideUp .2s ease-out",
           }}
         >
@@ -889,7 +910,7 @@ export default function BusinessAppointments() {
           <button
             type="button"
             className="btn btn-sm"
-            style={{ background: "#fff", color: "var(--delivery-600)" }}
+            style={{ background: "var(--surface)", color: "var(--delivery-600)" }}
             onClick={() => setBatchAgentPicking(true)}
           >
             Assign to…
@@ -929,6 +950,16 @@ export default function BusinessAppointments() {
             <button className="tiny muted" style={{ alignSelf: "flex-start" }} disabled={batchAssigning} onClick={() => setBatchAgentPicking(false)}>Cancel</button>
           </div>
         </div>
+      )}
+
+      {paymentModalApt && (
+        <RecordPaymentModal
+          apt={paymentModalApt}
+          onClose={() => setPaymentModalApt(null)}
+          onRecordPaid={handleRecordPaymentSubmit}
+          onSaveUnpaidTab={handleSaveUnpaidTab}
+          submitting={processingPayment === paymentModalApt.id}
+        />
       )}
 
       <ManageNav bizId={id} />

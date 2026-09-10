@@ -140,9 +140,13 @@ Before any sprint is marked complete or committed to git, it must pass all 4 gat
   - [x] 1.3 Purge Worker FK Cascade Fix (`DEL-2`)
   - [x] 1.4 Phone OTP Verification on Edit (`PROF-1`)
   - [x] 1.5 Public Profile Privacy & Alias Guard (`PROF-2`)
-  - [x] 1.6 Server Slot Blocking Gate (`SLOT_BLOCKING: S1`)
-- [ ] **Sprint 2: Core Appointments & Scheduling (Domain 2)** *(In Progress by Claude Opus 5)*
-- [x] **Sprint 3: Walk-In Queue, Hours & Storefront Presence (Domains 3 & 7)** *(Completed)*
+- [x] **Sprint 2: Core Appointments & Scheduling (Domain 2)** *(Completed)*
+  - [x] 2.1 Customer Bookings Hub Standardized Errors & Cancellation (`MY_APPOINTMENTS`)
+  - [x] 2.2 Counter Free-Handed Number Adder, Custom Walk-In Pricing & Record Cash (`B2`, `P3`)
+  - [x] 2.3 Customer Khata (Unpaid Tab Ledger) & Customer Search Settlement
+  - [x] 2.4 Time-Slot Parsing Standardized Across Merchant & Provider Consoles (`B4`, `P4`)
+  - [x] 2.5 Provider Console 1:1 Direct Chat Shortcut & Tally Memoization (`P7`)
+  - [x] 2.6 Server Party Size Validation, Line Items & Inventory Scaling (`A4`, `A9`, `B1`)
   - [x] 3.1 Clamped Queue Party Size (`Q5`, `M8`)
   - [x] 3.2 Quick-Pay Filter for Active Tokens (`Q3`)
   - [x] 3.3 Customer Realtime Position Polling & Cancel Confirmation (`Q2`, `Q7`)

@@ -1,16 +1,16 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
-import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator, inr } from "@/components/common";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { appointmentService, providerService, slotBlockService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import type { AppointmentRecord, BlockedSlot, CancelledBy } from "@/types";
+import type { AppointmentRecord, BlockedSlot, CancelledBy, PaymentMethod } from "@/types";
 import ProviderManageNav from "./ProviderManageNav";
-import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2, CheckCircle2, AlertTriangle, IndianRupee } from "@/components/Icons";
+import { Calendar, Check, X as XIcon, Image as ImageIcon, Ban, Share2, CheckCircle2, AlertTriangle, IndianRupee, Package, MessageCircle } from "@/components/Icons";
 import { useApp } from "@/store";
-import { dateKey, DEFAULT_WORKING_HOURS } from "@/utils/availability";
+import { dateKey, DEFAULT_WORKING_HOURS, parseTimeToMinutes } from "@/utils/availability";
 import { copyText } from "@/lib/clipboard";
 import DateStrip from "@/components/appointments/DateStrip";
 import DayTimetable from "@/components/appointments/DayTimetable";
@@ -19,6 +19,8 @@ import BlockSlotModal from "@/components/appointments/BlockSlotModal";
 import WalkInModal from "@/components/appointments/WalkInModal";
 import { PhotoPreviewModal } from "@/components/appointments/PhotoPreviewModal";
 import { CancelAttributionNote } from "@/components/appointments/CancelAttributionNote";
+import { AppointmentNote } from "@/components/appointments/AppointmentNote";
+import { RecordPaymentModal } from "@/components/appointments/RecordPaymentModal";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
@@ -48,6 +50,25 @@ export default function ProviderJobs() {
     refetchApts();
     refetchBlocked();
   });
+  const nav = useNavigate();
+
+  // Tally once per data change instead of re-filtering the whole history for
+  // every card. Must sit above the `!id` early return below — hooks can't run
+  // conditionally.
+  const rejectedClaimsByCustomer = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of aptsData ?? []) {
+      if (a.paymentStatus === "REJECTED") m.set(a.customerId, (m.get(a.customerId) ?? 0) + 1);
+    }
+    return m;
+  }, [aptsData]);
+  const noShowsByCustomer = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of aptsData ?? []) {
+      if (a.status === "NO_SHOW") m.set(a.customerId, (m.get(a.customerId) ?? 0) + 1);
+    }
+    return m;
+  }, [aptsData]);
 
   const [consoleTab, setConsoleTab] = useState<ConsoleTab>("UPCOMING");
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -63,6 +84,7 @@ export default function ProviderJobs() {
   const [blockSubmitting, setBlockSubmitting] = useState(false);
   const [walkInModal, setWalkInModal] = useState<{ date: Date; timeLabel: string } | null>(null);
   const [walkInSubmitting, setWalkInSubmitting] = useState(false);
+  const [paymentModalApt, setPaymentModalApt] = useState<AppointmentRecord | null>(null);
 
   if (!id) {
     return (
@@ -128,22 +150,34 @@ export default function ProviderJobs() {
     }
   }
 
-  // Count how many previous rejected UPI claims this customer has with this provider.
-  function rejectedClaimsCount(customerId: string): number {
-    return appointments.filter((a) => a.customerId === customerId && a.paymentStatus === "REJECTED").length;
-  }
-  function noShowCount(customerId: string): number {
-    return appointments.filter((a) => a.customerId === customerId && a.status === "NO_SHOW").length;
-  }
+  // Count how many previous rejected UPI claims this customer has with this
+  // provider — read off the tally built above, not a fresh scan per card.
+  const rejectedClaimsCount = (customerId: string): number => rejectedClaimsByCustomer.get(customerId) ?? 0;
+  const noShowCount = (customerId: string): number => noShowsByCustomer.get(customerId) ?? 0;
 
-  async function handleRecordWalkInPayment(apt: AppointmentRecord) {
+  async function handleRecordPaymentSubmit(apt: AppointmentRecord, method: PaymentMethod, amount: number) {
     setProcessingPayment(apt.id);
     try {
-      await appointmentService.recordWalkInPayment(apt.id, "CASH", apt.packagePrice ?? apt.paymentAmount ?? null);
-      showToast("Walk-in cash payment recorded ✓");
+      await appointmentService.recordWalkInPayment(apt.id, method, amount);
+      haptics.success();
+      showToast(`Payment of ${inr(amount)} recorded (${method}) ✓`);
       refetchApts();
-    } catch {
-      showToast("Couldn't record the payment. Try again.");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't record the payment. Try again.");
+    } finally {
+      setProcessingPayment(null);
+    }
+  }
+
+  async function handleSaveUnpaidTab(apt: AppointmentRecord, amount: number) {
+    setProcessingPayment(apt.id);
+    try {
+      await appointmentService.setUnpaidAmount(apt.id, amount);
+      haptics.success();
+      showToast(`Added ${inr(amount)} to ${ownerVisibleCustomerName(apt)}'s tab 📒`);
+      refetchApts();
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update tab amount.");
     } finally {
       setProcessingPayment(null);
     }
@@ -206,13 +240,8 @@ export default function ProviderJobs() {
     setWalkInSubmitting(true);
     try {
       const iso = new Date(walkInModal.date);
-      const [, hh, mm, ap] = /(\d+):(\d+)\s?(AM|PM)/i.exec(walkInModal.timeLabel) ?? [];
-      if (hh) {
-        let h = parseInt(hh, 10);
-        if (/pm/i.test(ap) && h < 12) h += 12;
-        if (/am/i.test(ap) && h === 12) h = 0;
-        iso.setHours(h, parseInt(mm, 10), 0, 0);
-      }
+      const mins = parseTimeToMinutes(walkInModal.timeLabel);
+      iso.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
       await appointmentService.createWalkIn({
         targetId: id,
         targetType: "PROVIDER",
@@ -270,6 +299,17 @@ export default function ProviderJobs() {
                 <Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}
               </div>
             </div>
+            {!apt.isWalkIn && apt.customerId && (
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={`Message ${ownerVisibleCustomerName(apt)}`}
+                title="Message client"
+                onClick={() => nav(`/chat/${apt.customerId}`)}
+              >
+                <MessageCircle size={16} color="var(--brand-600)" />
+              </button>
+            )}
           </div>
           <div className="col gap-4" style={{ alignItems: "flex-end" }}>
             <span
@@ -284,6 +324,17 @@ export default function ProviderJobs() {
           </div>
         </div>
 
+        {(apt.packageName || apt.packagePrice) && (
+          <div className="row gap-6 center-v" style={{ background: "var(--ink-50)", padding: "var(--space-xs)", borderRadius: 8 }}>
+            <Package size={13} color="var(--brand-600)" />
+            <span className="tiny semi" style={{ color: "var(--brand-700)" }}>
+              {apt.packageName || "Booked service"}
+              {apt.packagePrice ? ` • ₹${apt.packagePrice}` : ""}
+              {(apt.partySize ?? 1) > 1 ? ` • 👥 ${apt.partySize} spots` : ""}
+            </span>
+          </div>
+        )}
+
         {(repeatOffender > 0 || repeatNoShow > 0) && apt.status === "PENDING" && (
           <div className="row gap-6 center-v" style={{ background: "var(--red-50)", padding: "6px 10px", borderRadius: 8 }}>
             <AlertTriangle size={13} color="var(--red-600)" />
@@ -295,11 +346,7 @@ export default function ProviderJobs() {
           </div>
         )}
 
-        {apt.notes && (
-          <div className="tiny" style={{ background: "var(--ink-50)", padding: "var(--space-xs)", borderRadius: 8, color: "var(--ink-700)" }}>
-            💬 <strong>Note:</strong> {apt.notes}
-          </div>
-        )}
+        <AppointmentNote note={apt.notes} />
 
         {apt.photoUrl && (
           <div className="row gap-8 center-v" style={{ marginTop: 2 }}>
@@ -326,18 +373,18 @@ export default function ProviderJobs() {
 
         {(apt.paymentStatus === "UNPAID" || apt.paymentStatus === "REJECTED") && (apt.status === "ACCEPTED" || apt.status === "COMPLETED") && (
           <div className="card col gap-10" style={{ padding: "var(--space-sm)", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 12, marginTop: 2 }}>
-            <div className="tiny semi muted">Payment is outstanding (Unpaid)</div>
+            <div className="row between center-v">
+              <div className="tiny semi muted">Payment outstanding {apt.packagePrice || apt.paymentAmount ? `(${inr(apt.packagePrice ?? apt.paymentAmount ?? 0)})` : ""}</div>
+              <span className="badge badge-amber" style={{ fontSize: 10 }}>Unpaid</span>
+            </div>
             <div className="row gap-8">
-              {apt.isWalkIn && (apt.packagePrice || apt.paymentAmount) ? (
-                <button className="btn btn-green grow btn-sm" disabled={!!processingPayment} onClick={() => handleRecordWalkInPayment(apt)}>
-                  <CheckCircle2 size={14} /> Record cash received
-                </button>
-              ) : !apt.isWalkIn ? (
+              <button className="btn btn-green grow btn-sm" disabled={!!processingPayment} onClick={() => setPaymentModalApt(apt)}>
+                <CheckCircle2 size={14} /> Record payment
+              </button>
+              {!apt.isWalkIn && (
                 <button className="btn btn-outline grow btn-sm" style={{ color: "var(--amber-700)", borderColor: "var(--amber-200)" }} disabled={!!processingPayment} onClick={() => handleNudgePayment(apt)}>
-                  🔔 Request payment
+                  🔔 Nudge
                 </button>
-              ) : (
-                <span className="tiny muted">Add a priced package before recording walk-in payment.</span>
               )}
             </div>
           </div>
@@ -563,7 +610,7 @@ export default function ProviderJobs() {
               <button className="btn btn-ghost btn-sm" disabled={updatingStatus} onClick={() => { setActiveApt(null); setActionType(null); }}>Back</button>
               <button
                 className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : "btn-primary"}`}
-                style={actionType === "CANCEL" ? { background: "var(--red-600)", color: "#fff" } : undefined}
+                style={actionType === "CANCEL" ? { background: "var(--red-600)", color: "var(--white)" } : undefined}
                 disabled={updatingStatus}
                 onClick={handleUpdateStatus}
               >
@@ -594,7 +641,7 @@ export default function ProviderJobs() {
               <button className="btn btn-ghost btn-sm" disabled={!!processingPayment} onClick={() => setPaymentAction(null)}>Back</button>
               <button
                 className={`btn btn-sm ${paymentAction.action === "CONFIRM" ? "btn-green" : ""}`}
-                style={paymentAction.action === "REJECT" ? { background: "var(--red-600)", color: "#fff" } : undefined}
+                style={paymentAction.action === "REJECT" ? { background: "var(--red-600)", color: "var(--white)" } : undefined}
                 disabled={!!processingPayment}
                 onClick={() => handlePaymentAction(paymentAction.apt, paymentAction.action)}
               >
@@ -630,6 +677,16 @@ export default function ProviderJobs() {
 
       {/* Photo Fullscreen Preview Modal */}
       {previewPhoto && <PhotoPreviewModal src={previewPhoto} onClose={() => setPreviewPhoto(null)} />}
+
+      {paymentModalApt && (
+        <RecordPaymentModal
+          apt={paymentModalApt}
+          onClose={() => setPaymentModalApt(null)}
+          onRecordPaid={handleRecordPaymentSubmit}
+          onSaveUnpaidTab={handleSaveUnpaidTab}
+          submitting={processingPayment === paymentModalApt.id}
+        />
+      )}
 
       <ProviderManageNav pid={id} />
     </div>

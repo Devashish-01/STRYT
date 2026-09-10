@@ -7,6 +7,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { Skeleton } from "@/components/states";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
+import { CustomerKhataSection } from "@/components/appointments/CustomerKhataSection";
 import type { AppointmentRecord, QueueOwnerToken, CustomPayment } from "@/types";
 import ManageNav from "./ManageNav";
 import { useApp } from "@/store";
@@ -317,9 +318,11 @@ export default function BusinessPayments() {
           </div>
         )}
 
+        <CustomerKhataSection appointments={appointments} onRefresh={refetchApts} />
+
         {outstandingCount > 0 && (
           <div>
-            <div className="small semi muted" style={{ marginBottom: 8 }}>Outstanding ({outstandingCount})</div>
+            <div className="small semi muted" style={{ marginBottom: 8 }}>Queue & Single Outstanding ({outstandingCount})</div>
             <div className="col gap-8">
               {aptOutstanding.map((apt) => (
                 <div key={apt.id} className="card row between center-v" style={{ padding: 12 }}>
