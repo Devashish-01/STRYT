@@ -3358,6 +3358,7 @@ export type Database = {
           business_id: string
           is_open: boolean
           last_activity_at: string | null
+          line_changed_at: string | null
           updated_at: string
         }
         Insert: {
@@ -3365,6 +3366,7 @@ export type Database = {
           business_id: string
           is_open?: boolean
           last_activity_at?: string | null
+          line_changed_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -3372,6 +3374,7 @@ export type Database = {
           business_id?: string
           is_open?: boolean
           last_activity_at?: string | null
+          line_changed_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -6975,6 +6978,15 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      queue_waiting_line: {
+        Args: { p_business_ids: string[] }
+        Returns: {
+          business_id: string
+          line_position: number
+          my_token_id: string | null
+          party_size: string
+        }[]
       }
       record_terms_acceptance: {
         Args: { p_user_agent?: string; p_version: string }

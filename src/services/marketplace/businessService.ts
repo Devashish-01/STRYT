@@ -279,15 +279,12 @@ export const businessService = {
       .eq("business_id", id)
       .maybeSingle();
     if (!settings?.is_open) return undefined;
-    // Pull party sizes (not just a count) so the pre-join estimate uses the same
+    // Party sizes (not just a count) so the pre-join estimate uses the same
     // weighted formula as My Queues — a line with big parties reads longer.
-    const { data: waitingRows } = await sb
-      .from("queue_tokens")
-      .select("party_size")
-      .eq("business_id", id)
-      .eq("status", "WAITING")
-      .order("created_at", { ascending: true });
-    const rows = (waitingRows ?? []) as any[];
+    // queue_waiting_line returns positions and party sizes only: this page is
+    // public (guests too), so it must never read other customers' tokens.
+    const { data: waitingRows } = await sb.rpc("queue_waiting_line", { p_business_ids: [id] });
+    const rows = waitingRows ?? [];
     const avg = settings.avg_service_min ?? 8;
     return {
       businessId: id,
@@ -582,18 +579,17 @@ export const businessService = {
     const activeBizIds = Array.from(new Set(
       rows.filter((r) => r.status === "WAITING" || r.status === "CALLED").map((r) => r.business_id)
     ));
-    const waitingByBiz: Record<string, { id: string; party_size?: string }[]> = {};
+    const waitingByBiz: Record<string, { my_token_id: string | null; party_size: string }[]> = {};
     const avgByBiz: Record<string, number> = {};
     if (activeBizIds.length > 0) {
       const [{ data: waitingRows }, { data: settingsRows }] = await Promise.all([
-        sb.from("queue_tokens")
-          .select("id, business_id, party_size")
-          .in("business_id", activeBizIds)
-          .eq("status", "WAITING")
-          .order("created_at", { ascending: true }),
+        // Each line in order, as positions only: my_token_id is set on this
+        // customer's own rows and null on everyone else's, so their position is
+        // found without ever reading another customer's token.
+        sb.rpc("queue_waiting_line", { p_business_ids: activeBizIds }),
         sb.from("queue_settings").select("business_id, avg_service_min").in("business_id", activeBizIds),
       ]);
-      for (const w of (waitingRows ?? []) as any[]) {
+      for (const w of waitingRows ?? []) {
         (waitingByBiz[w.business_id] ??= []).push(w);
       }
       for (const s of (settingsRows ?? []) as any[]) {
@@ -603,7 +599,7 @@ export const businessService = {
 
     return rows.map((r) => {
       const waitingList = waitingByBiz[r.business_id] ?? [];
-      const idx = waitingList.findIndex((w) => w.id === r.id);
+      const idx = waitingList.findIndex((w) => w.my_token_id === r.id);
       const peopleAhead = idx >= 0 ? idx : 0;
       const avg = avgByBiz[r.business_id] ?? 8;
       // Weight the wait by the party sizes of the groups actually ahead of this

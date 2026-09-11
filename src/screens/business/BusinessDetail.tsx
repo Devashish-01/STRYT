@@ -52,7 +52,10 @@ export default function BusinessDetail() {
 
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `business:${id}`);
   const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `business:${id}:reviews`);
-  const { data: queue } = useQueryWithRealtime(() => businessService.queue(id), "queue_tokens", [id], `business_id=eq.${id}`, `business:${id}:queue`);
+  // Live via queue_settings, not queue_tokens: a trigger bumps its
+  // line_changed_at whenever this line moves, and visitors can't read other
+  // customers' tokens (migration 20260957). Also refreshes on open/close.
+  const { data: queue } = useQueryWithRealtime(() => businessService.queue(id), "queue_settings", [id], `business_id=eq.${id}`, `business:${id}:queue`);
   const { data: qnaList, refetch: refetchQna } = useQueryWithRealtime(() => businessService.qna(id), "business_qna", [id], `business_id=eq.${id}`, `business:${id}:qna`);
   const { data: bizPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("business", id), "community_posts", [id], `author_ref_id=eq.${id}`, `business:${id}:posts`);
   const { data: highlightsData } = useQuery(() => socialService.highlightsFor("business", id), [id], `business:${id}:highlights`);
