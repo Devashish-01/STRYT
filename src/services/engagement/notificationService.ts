@@ -1,5 +1,5 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
-import type { AppNotification, NotificationType } from "@/types";
+import type { AppNotification, NotificationType, NotificationMetadata } from "@/types";
 
 function relDate(iso: string): string {
   const d = Math.floor((Date.now() - new Date(iso).getTime()) / 60000); // minutes
@@ -110,7 +110,16 @@ export const notificationService = {
   // here, which would double-push. That single trigger also covers every
   // notification created by Postgres triggers (proposals, agreements, nearby
   // requests, community, etc.), which never had a push path before.
-  async send(userId: string, title: string, body: string, deepLink: string = "", type: NotificationType = "SYSTEM") {
+  async send(
+    userId: string,
+    title: string,
+    body: string,
+    deepLink: string = "",
+    type: NotificationType = "SYSTEM",
+    metadata?: NotificationMetadata | null,
+    entity_type?: string | null,
+    entity_id?: string | null
+  ) {
     const sb = getSupabase();
     const { error } = await sb.from("notifications").insert({
       user_id: userId,
@@ -118,15 +127,36 @@ export const notificationService = {
       body,
       deep_link: deepLink,
       type,
+      metadata: metadata ?? null,
+      entity_type: entity_type ?? null,
+      entity_id: entity_id ?? null,
     });
     if (error) throw error;
     return { ok: true };
   },
 
-  async sendBulk(userIds: string[], title: string, body: string, deepLink: string = "", type: NotificationType = "SYSTEM") {
+  async sendBulk(
+    userIds: string[],
+    title: string,
+    body: string,
+    deepLink: string = "",
+    type: NotificationType = "SYSTEM",
+    metadata?: NotificationMetadata | null,
+    entity_type?: string | null,
+    entity_id?: string | null
+  ) {
     if (userIds.length === 0) return { ok: true };
     const sb = getSupabase();
-    const rows = userIds.map((user_id) => ({ user_id, title, body, deep_link: deepLink, type }));
+    const rows = userIds.map((user_id) => ({
+      user_id,
+      title,
+      body,
+      deep_link: deepLink,
+      type,
+      metadata: metadata ?? null,
+      entity_type: entity_type ?? null,
+      entity_id: entity_id ?? null,
+    }));
     const { error } = await sb.from("notifications").insert(rows);
     if (error) throw error;
     return { ok: true };

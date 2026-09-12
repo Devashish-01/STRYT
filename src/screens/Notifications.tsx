@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package, Heart, Sparkles, CheckCircle2, ChartBar, At, Mountains, Star, Ticket, Wallet, Shield } from "@/components/Icons";
-import { notificationService } from "@/services";
+import { notificationService, appointmentService, deliveryService, bulkService, locationService, customPaymentService, walletService, requestService } from "@/services";
+import { openCalendarEvent } from "@/lib/calendarExport";
 import type { NotifScope } from "@/services/engagement/notificationService";
 import { useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -150,6 +151,10 @@ export default function Notifications() {
   );
   const [items, setItems] = useState<AppNotification[]>([]);
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
+  // Booking being declined from its notification — held while the owner types
+  // an optional reason, which the customer sees in their "Booking declined".
+  const [declining, setDeclining] = useState<{ n: AppNotification; aptId: string } | null>(null);
+  const [declineNote, setDeclineNote] = useState("");
 
   // Ids marked read locally whose UPDATE may not have committed yet. A
   // realtime refetch triggered by ANY notifications change (an unrelated
@@ -214,6 +219,747 @@ export default function Notifications() {
     });
   }
 
+  async function handleAction(action: string, meta: any, n: AppNotification) {
+    if (action === "ACCEPT" && meta?.appointmentId) {
+      const aptId = meta.appointmentId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Confirmed",
+                  tone: "success",
+                  actions: [],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await appointmentService.updateStatus(aptId, "ACCEPTED");
+        showToast(t("notif_apt_accepted_toast"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't accept appointment");
+        refetch();
+      }
+    } else if (action === "DECLINE" && meta?.appointmentId) {
+      setDeclineNote("");
+      setDeclining({ n, aptId: meta.appointmentId });
+    } else if (action === "CALENDAR") {
+      openCalendarEvent({
+        title: `Booking: ${meta?.serviceName || meta?.actorName || "STRYT Appointment"}`,
+        description: `Appointment with ${meta?.actorName || "shop"}. Time: ${meta?.timeLabel || ""}`,
+        startTime: meta?.scheduledFor,
+        uid: meta?.appointmentId,
+      });
+    } else if (action === "RESCHEDULE") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else {
+        nav("/appointments");
+      }
+    } else if (action === "ACCEPT_DELIVERY" && meta?.batchId) {
+      const batchId = meta.batchId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Accepted",
+                  tone: "success",
+                  actions: ["TRACK_DELIVERY"],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await deliveryService.acceptBatch(batchId);
+        showToast(t("notif_dlv_accepted_toast"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't accept delivery run");
+        refetch();
+      }
+    } else if (action === "DECLINE_DELIVERY" && meta?.batchId) {
+      const batchId = meta.batchId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Declined",
+                  tone: "danger",
+                  actions: [],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await deliveryService.declineBatch(batchId);
+        showToast(t("notif_dlv_declined_toast"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't decline delivery run");
+        refetch();
+      }
+    } else if (action === "TRACK_DELIVERY") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else {
+        nav("/appointments");
+      }
+    } else if (action === "CALL_RIDER") {
+      if (meta?.agentPhone) {
+        window.open(`tel:${meta.agentPhone}`, "_self");
+      } else {
+        showToast("Phone number not available");
+      }
+    } else if (action === "CALL_CUSTOMER") {
+      if (meta?.customerPhone) {
+        window.open(`tel:${meta.customerPhone}`, "_self");
+      } else {
+        showToast("Phone number not available");
+      }
+    } else if (action === "REASSIGN_DELIVERY") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else if (meta?.targetId) {
+        nav(`/business/${meta.targetId}/manage/deliveries`);
+      } else {
+        nav("/appointments");
+      }
+    } else if (action === "COPY_OTP") {
+      showToast(t("notif_dlv_otp_copied"));
+    } else if (action === "VIEW_POST" || action === "REPLY_COMMENT") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else {
+        nav("/community");
+      }
+    } else if (action === "SHARE_ALERT") {
+      const shareUrl = window.location.origin + (n.deepLink || "/community");
+      const shareData = {
+        title: n.title,
+        text: `${n.title}: ${n.body}`,
+        url: shareUrl,
+      };
+      if (typeof navigator.share === "function") {
+        void navigator.share(shareData).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(`${n.title}\n${n.body}\n${shareUrl}`);
+        showToast(t("notif_comm_alert_shared"));
+      }
+    } else if (action === "VIEW_RECOMMENDED") {
+      if (meta?.recommendedType === "BUSINESS" && meta?.recommendedId) {
+        nav(`/business/${meta.recommendedId}`);
+      } else if (meta?.recommendedType === "PROVIDER" && meta?.recommendedId) {
+        nav(`/provider/${meta.recommendedId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      } else {
+        nav("/community");
+      }
+    } else if (action === "CONFIRM_DEPOSIT" && meta?.dealId && meta?.pledgerUserId) {
+      const dealId = meta.dealId;
+      const pledgerUserId = meta.pledgerUserId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Deposit Confirmed",
+                  tone: "success",
+                  actions: ["VIEW_DEAL"],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await bulkService.confirmDeposit(dealId, pledgerUserId);
+        showToast(t("notif_bulk_deposit_confirmed_toast"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't confirm deposit");
+        refetch();
+      }
+    } else if (action === "REJECT_DEPOSIT" && meta?.dealId && meta?.pledgerUserId) {
+      const dealId = meta.dealId;
+      const pledgerUserId = meta.pledgerUserId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Deposit Rejected",
+                  tone: "danger",
+                  actions: [],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await bulkService.rejectDeposit(dealId, pledgerUserId);
+        showToast(t("notif_bulk_deposit_rejected_toast"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't reject deposit");
+        refetch();
+      }
+    } else if (action === "VIEW_CLAIM_PASS") {
+      nav("/community/activity");
+    } else if (action === "VIEW_DEAL") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else if (meta?.targetId && meta?.dealId) {
+        nav(`/business/${meta.targetId}/manage/bulk-deals/${meta.dealId}`);
+      } else {
+        nav("/community");
+      }
+    } else if (action === "SHARE_DEAL") {
+      const shareUrl = window.location.origin + (n.deepLink || "/community");
+      const shareData = {
+        title: meta?.dealTitle || n.title,
+        text: `${n.title}: ${n.body}`,
+        url: shareUrl,
+      };
+      if (typeof navigator.share === "function") {
+        void navigator.share(shareData).catch(() => {});
+      } else {
+        navigator.clipboard.writeText(`${n.title}\n${n.body}\n${shareUrl}`);
+        showToast(t("notif_bulk_deal_shared_toast"));
+      }
+    } else if (action === "APPROVE_LOCATION" && meta?.requesterUserId) {
+      const reqId = meta.requesterUserId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Approved (24h)",
+                  tone: "success",
+                  actions: [],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await locationService.respond(reqId, true);
+        showToast(t("notif_loc_approved_toast"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't approve location request");
+        refetch();
+      }
+    } else if (action === "DECLINE_LOCATION" && meta?.requesterUserId) {
+      const reqId = meta.requesterUserId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Declined",
+                  tone: "neutral",
+                  actions: [],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await locationService.respond(reqId, false);
+        showToast(t("notif_loc_declined_toast"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't decline location request");
+        refetch();
+      }
+    } else if (action === "VIEW_ON_MAP") {
+      if (meta?.lat != null && meta?.lng != null) {
+        nav(`/map?lat=${meta.lat}&lng=${meta.lng}`);
+      } else if (meta?.ownerUserId) {
+        nav(`/u/${meta.ownerUserId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      } else {
+        nav("/map");
+      }
+    } else if (action === "TRACK_LIVE") {
+      if (meta?.lat != null && meta?.lng != null) {
+        nav(`/map?lat=${meta.lat}&lng=${meta.lng}&live=${meta.shareId || ""}`);
+      } else if (meta?.conversationId) {
+        nav(`/chat/${meta.conversationId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      } else {
+        nav("/map");
+      }
+    } else if (action === "OPEN_CHAT") {
+      if (meta?.conversationId) {
+        nav(`/chat/${meta.conversationId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      } else {
+        nav("/chats");
+      }
+    } else if (action === "CONFIRM_CUSTOM_PAYMENT" && meta?.paymentId) {
+      const paymentId = meta.paymentId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Confirmed ✓",
+                  tone: "success",
+                  actions: ["VIEW_RECEIPT"],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await customPaymentService.confirm(paymentId);
+        showToast(t("notif_pay_confirmed_toast"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't confirm payment");
+        refetch();
+      }
+    } else if (action === "REJECT_CUSTOM_PAYMENT" && meta?.paymentId) {
+      const paymentId = meta.paymentId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Rejected",
+                  tone: "danger",
+                  actions: [],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await customPaymentService.reject(paymentId);
+        showToast(t("notif_pay_rejected_toast"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't reject payment");
+        refetch();
+      }
+    } else if (action === "VIEW_RECEIPT") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else if (meta?.targetType === "BUSINESS" && meta?.targetId) {
+        nav(`/business/${meta.targetId}/manage/payments`);
+      } else if (meta?.targetType === "PROVIDER" && meta?.targetId) {
+        nav(`/provider/${meta.targetId}/manage/money`);
+      } else {
+        nav("/profile");
+      }
+    } else if (action === "VIEW_STORE") {
+      if (meta?.targetType === "BUSINESS" && meta?.targetId) {
+        nav(`/business/${meta.targetId}`);
+      } else if (meta?.targetType === "PROVIDER" && meta?.targetId) {
+        nav(`/provider/${meta.targetId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "RETRY_PAYMENT") {
+      if (meta?.targetType === "BUSINESS" && meta?.targetId) {
+        nav(`/business/${meta.targetId}`);
+      } else if (meta?.targetType === "PROVIDER" && meta?.targetId) {
+        nav(`/provider/${meta.targetId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "REPLY_RATING") {
+      if (meta?.rateeType === "BUSINESS" && meta?.rateeId) {
+        nav(`/business/${meta.rateeId}/manage/reviews`);
+      } else if (meta?.rateeType === "PROVIDER" && meta?.rateeId) {
+        nav(`/provider/${meta.rateeId}/manage/reviews`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "VIEW_REVIEW") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else if (meta?.targetType === "BUSINESS" && meta?.targetId) {
+        nav(`/business/${meta.targetId}`);
+      } else if (meta?.targetType === "PROVIDER" && meta?.targetId) {
+        nav(`/provider/${meta.targetId}`);
+      }
+    } else if (action === "REVIEW_BUSINESS" || action === "VIEW_ADMIN") {
+      nav("/admin");
+    } else if (action === "VIEW_REPORT_TARGET") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else {
+        nav("/community");
+      }
+    } else if (action === "VIEW_BUSINESS") {
+      const bizId = meta?.businessId || meta?.entityId;
+      if (bizId) {
+        nav(`/business/${bizId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "VIEW_PROVIDER") {
+      const provId = meta?.providerId || meta?.entityId;
+      if (provId) {
+        nav(`/provider/${provId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "VIEW_PLACE") {
+      const plId = meta?.placeId || meta?.entityId;
+      if (plId) {
+        nav(`/place/${plId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "CLAIM_OFFER") {
+      const offerId = meta?.offerId;
+      if (offerId) {
+        setItems((p) =>
+          p.map((x) =>
+            x.id === n.id
+              ? {
+                  ...x,
+                  isRead: true,
+                  metadata: {
+                    ...x.metadata,
+                    statusPill: "Saved to Wallet",
+                    tone: "success",
+                    actions: ["VIEW_STORE"],
+                  },
+                }
+              : x
+          )
+        );
+        if (!n.isRead) void notificationService.markRead(n.id);
+        if (meta?.offerCode) {
+          navigator.clipboard?.writeText(meta.offerCode);
+        }
+        try {
+          await walletService.saveCoupon(offerId);
+          showToast(t("notif_disc_offer_saved_toast", "Coupon saved to your wallet! 🎉"));
+          if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+        } catch (err: any) {
+          showToast(err?.message || "Couldn't save coupon to wallet");
+          refetch();
+        }
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "BOOK_APPOINTMENT") {
+      const provId = meta?.providerId || meta?.entityId;
+      if (provId) {
+        nav(`/provider/${provId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "CALL") {
+      if (meta?.phone) {
+        window.location.href = `tel:${meta.phone}`;
+      }
+    } else if (action === "DIRECTIONS") {
+      if (meta?.lat != null && meta?.lng != null) {
+        window.open(`https://www.google.com/maps/dir/?api=1&destination=${meta.lat},${meta.lng}`, "_blank");
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      } else {
+        nav("/map");
+      }
+    } else if (action === "ACCEPT_QUOTE" && meta?.proposalId) {
+      const propId = meta.proposalId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Accepted ✓",
+                  tone: "success",
+                  actions: ["VIEW_AGREEMENT"],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        const res = await requestService.acceptProposal(propId);
+        showToast(t("notif_prop_accepted_toast", "Quote accepted! Agreement created 🎉"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+        if (res.agreementId) nav(`/agreement/${res.agreementId}`);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't accept quote");
+        refetch();
+      }
+    } else if (action === "ACCEPT_COUNTER" && meta?.proposalId && meta?.counterId) {
+      const propId = meta.proposalId;
+      const counterId = meta.counterId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Counter Accepted ✓",
+                  tone: "success",
+                  actions: ["VIEW_AGREEMENT"],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        const res = await requestService.acceptProposalCounter(propId, counterId);
+        showToast(t("notif_prop_counter_accepted_toast", "Counter-offer accepted! 🎉"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+        if (res.agreementId) nav(`/agreement/${res.agreementId}`);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't accept counter-offer");
+        refetch();
+      }
+    } else if (action === "DECLINE_COUNTER") {
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Declined",
+                  tone: "danger",
+                  actions: [],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      showToast(t("notif_prop_counter_declined_toast", "Counter-offer declined"));
+    } else if (action === "COUNTER_QUOTE") {
+      if (meta?.requestId) {
+        nav(`/request/${meta.requestId}?counter=${meta.proposalId || ""}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "VIEW_QUOTE") {
+      if (meta?.requestId) {
+        nav(`/request/${meta.requestId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "VIEW_AGREEMENT") {
+      const agId = meta?.agreementId || meta?.entityId;
+      if (agId) {
+        nav(`/agreement/${agId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "CONFIRM_PAYMENT" && meta?.agreementId) {
+      const agId = meta.agreementId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Payment Confirmed ✓",
+                  tone: "success",
+                  actions: ["VIEW_AGREEMENT"],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await requestService.confirmAgreementPayment(agId);
+        showToast(t("notif_prop_payment_confirmed_toast", "Payment verified and confirmed ✓"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't confirm payment");
+        refetch();
+      }
+    } else if (action === "REJECT_PAYMENT" && meta?.agreementId) {
+      const agId = meta.agreementId;
+      setItems((p) =>
+        p.map((x) =>
+          x.id === n.id
+            ? {
+                ...x,
+                isRead: true,
+                metadata: {
+                  ...x.metadata,
+                  statusPill: "Payment Rejected",
+                  tone: "danger",
+                  actions: ["VIEW_AGREEMENT"],
+                },
+              }
+            : x
+        )
+      );
+      if (!n.isRead) void notificationService.markRead(n.id);
+      try {
+        await requestService.rejectAgreementPaymentClaim(agId);
+        showToast(t("notif_prop_payment_rejected_toast", "Payment verification rejected"));
+        if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+      } catch (err: any) {
+        showToast(err?.message || "Couldn't reject payment");
+        refetch();
+      }
+    } else if (action === "PAY" && meta?.agreementId) {
+      nav(`/agreement/${meta.agreementId}`);
+    } else if (action === "JOIN_DEAL" && meta?.requestId) {
+      try {
+        await requestService.meToo(meta.requestId);
+        showToast(t("notif_prop_joined_deal_toast", "Joined group deal!"));
+      } catch {
+        // Navigate to request detail
+        nav(`/request/${meta.requestId}`);
+      }
+    } else if (action === "VIEW_REQUEST" || action === "SEND_QUOTE") {
+      if (meta?.requestId) {
+        nav(`/request/${meta.requestId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    } else if (action === "SWITCH_BUSINESS") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else if (meta?.businessId) {
+        nav(`/account/business-access?biz=${meta.businessId}`);
+      } else {
+        nav("/account/business-access");
+      }
+    } else if (action === "RESUBMIT_VERIFY") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else if (meta?.providerId || meta?.targetType === "PROVIDER") {
+        nav(`/provider/${meta.providerId || meta.targetId}/manage/verify`);
+      } else if (meta?.businessId || meta?.targetType === "BUSINESS") {
+        nav(`/business/${meta.businessId || meta.targetId}/manage/verify`);
+      } else {
+        nav("/settings");
+      }
+    } else if (action === "REPLY_CHAT" || action === "OPEN_CHAT") {
+      if (meta?.conversationId) {
+        nav(`/chat/${meta.conversationId}`);
+      } else if (n.deepLink) {
+        nav(n.deepLink);
+      } else {
+        nav("/chat");
+      }
+    } else if (action === "ANSWER_QNA") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else if (meta?.businessId) {
+        nav(`/business/${meta.businessId}/manage/community`);
+      } else {
+        nav("/community");
+      }
+    } else if (action === "VIEW_QNA") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      } else if (meta?.businessId) {
+        nav(`/business/${meta.businessId}`);
+      } else {
+        nav("/community");
+      }
+    } else if (action === "VIEW_DETAILS") {
+      if (n.deepLink) {
+        nav(n.deepLink);
+      }
+    }
+  }
+
+  async function confirmDecline() {
+    if (!declining) return;
+    const { n, aptId } = declining;
+    const note = declineNote.trim();
+    setDeclining(null);
+    setItems((p) =>
+      p.map((x) =>
+        x.id === n.id
+          ? {
+              ...x,
+              isRead: true,
+              metadata: {
+                ...x.metadata,
+                statusPill: "Declined",
+                tone: "danger",
+                actions: [],
+              },
+            }
+          : x
+      )
+    );
+    if (!n.isRead) void notificationService.markRead(n.id);
+    try {
+      // No note → the customer gets the server's "Try another slot." wording.
+      await appointmentService.updateStatus(aptId, "REJECTED", note || undefined);
+      showToast(t("notif_apt_declined_toast"));
+      if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
+    } catch (err: any) {
+      showToast(err?.message || "Couldn't decline appointment");
+      refetch();
+    }
+  }
+
   return (
     <div className="screen screen-boxed">
       <AppBar
@@ -265,6 +1011,7 @@ export default function Notifications() {
                       style={{ animationDelay: exitingIds.has(n.id) ? undefined : `${Math.min(i, 8) * 30}ms` }}
                     >
                       <NotificationRow
+                        type={n.type}
                         icon={<Icon size={20} color={M.color} />}
                         iconBg={M.bg}
                         iconColor={M.color}
@@ -276,6 +1023,7 @@ export default function Notifications() {
                         metadata={n.metadata}
                         onOpen={() => open(n)}
                         onDelete={() => remove(n)}
+                        onAction={(action, meta) => handleAction(action, meta, n)}
                       />
                     </div>
                   );
@@ -285,6 +1033,28 @@ export default function Notifications() {
           </div>
         )}
       </div>
+
+      {declining && (
+        <div className="overlay" onClick={() => setDeclining(null)}>
+          <div className="sheet col gap-14" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <div className="bold" style={{ fontSize: 16 }}>{t("notif_apt_decline_title")}</div>
+            <div className="tiny muted">{t("notif_apt_decline_hint")}</div>
+            <textarea
+              className="input"
+              rows={3}
+              placeholder={t("notif_apt_decline_placeholder")}
+              value={declineNote}
+              onChange={(e) => setDeclineNote(e.target.value)}
+              style={{ fontSize: 13, padding: 10 }}
+            />
+            <div className="row gap-8 end">
+              <button className="btn btn-ghost btn-sm" onClick={() => setDeclining(null)}>{t("back_word")}</button>
+              <button className="btn btn-primary btn-sm" onClick={confirmDecline}>{t("notif_apt_decline")}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

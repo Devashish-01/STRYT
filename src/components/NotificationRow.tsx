@@ -1,8 +1,19 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Trash2 } from "@/components/Icons";
 import { haptics } from "@/lib/haptics";
-import type { NotificationMetadata } from "@/types";
+import type { NotificationMetadata, NotificationType } from "@/types";
 import { NotificationLeadingVisual, NotificationSupportingLine } from "@/components/NotificationContent";
+import AppointmentNotificationCard from "@/components/appointments/AppointmentNotificationCard";
+import DeliveryNotificationCard from "@/components/delivery/DeliveryNotificationCard";
+import NearbyAlertNotificationCard from "@/components/community/NearbyAlertNotificationCard";
+import CommunityNotificationCard from "@/components/community/CommunityNotificationCard";
+import BulkDealNotificationCard from "@/components/bulk/BulkDealNotificationCard";
+import LocationNotificationCard from "@/components/location/LocationNotificationCard";
+import PaymentNotificationCard from "@/components/payments/PaymentNotificationCard";
+import TrustNotificationCard from "@/components/trust/TrustNotificationCard";
+import DiscoveryNotificationCard from "@/components/discovery/DiscoveryNotificationCard";
+import ProposalNotificationCard from "@/components/proposals/ProposalNotificationCard";
+import SystemNotificationCard from "@/components/identity/SystemNotificationCard";
 
 const SWIPE_REVEAL = 76; // px of red "Delete" backdrop revealed at full swipe
 const SWIPE_COMMIT = 46; // px of drag past which releasing commits the delete
@@ -15,6 +26,7 @@ const SWIPE_COMMIT = 46; // px of drag past which releasing commits the delete
  * the caller owns the actual removal (optimistic update + revert-on-failure).
  */
 export default function NotificationRow({
+  type,
   icon,
   iconBg,
   iconColor,
@@ -26,7 +38,9 @@ export default function NotificationRow({
   metadata,
   onOpen,
   onDelete,
+  onAction,
 }: {
+  type?: NotificationType;
   icon: ReactNode;
   iconBg: string;
   iconColor: string;
@@ -41,6 +55,7 @@ export default function NotificationRow({
   metadata?: NotificationMetadata | null;
   onOpen: () => void;
   onDelete: () => void;
+  onAction?: (action: string, metadata: NotificationMetadata) => void;
 }) {
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -128,56 +143,178 @@ export default function NotificationRow({
           if (e.key === "Enter" || e.key === " ") onOpen();
         }}
       >
-        {(() => {
-          const visual = (
-            <NotificationLeadingVisual metadata={metadata} fallbackIcon={icon} fallbackBg={iconBg} />
-          );
-          // The leading visual carries its own .notif-row-icon wrapper (so a
-          // photo/avatar can override sizing/shape); the plain-icon fallback
-          // path needs the unread dot layered on top, which only makes sense
-          // when we're rendering our own wrapper here.
-          if (metadata?.imageUrl || metadata?.avatarUrl || metadata?.emoji) {
-            return (
-              <div style={{ position: "relative", flexShrink: 0 }}>
-                {visual}
-                {unread && <span className="notif-unread-dot" aria-hidden="true" />}
+        {type === "APPOINTMENT" && metadata ? (
+          <AppointmentNotificationCard
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : type === "DELIVERY" && metadata ? (
+          <DeliveryNotificationCard
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : type === "NEARBY_ALERT" && metadata ? (
+          <NearbyAlertNotificationCard
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : (type?.startsWith("COMMUNITY_") || type === "STORY_REACTION") && metadata ? (
+          <CommunityNotificationCard
+            type={type}
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : (type?.startsWith("BULK_DEAL_") || type === "GROUP_BUY_UNLOCKED" || type === "ME_TOO") && metadata ? (
+          <BulkDealNotificationCard
+            type={type}
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : (type === "LIVE_LOCATION" || type?.startsWith("LOCATION_")) && metadata ? (
+          <LocationNotificationCard
+            type={type}
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : type?.startsWith("CUSTOM_PAYMENT_") && metadata ? (
+          <PaymentNotificationCard
+            type={type}
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : (type === "RATING" || type === "RATING_REPLY" || type === "REPORT_RESOLVED" || type === "ADMIN_REVIEW_QUEUE") && metadata ? (
+          <TrustNotificationCard
+            type={type}
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : (type === "NEW_BUSINESS" || type === "NEW_PROVIDER" || type === "NEW_PLACE" || type === "OFFER") && metadata ? (
+          <DiscoveryNotificationCard
+            type={type}
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : (type === "PROPOSAL" || type === "PROPOSAL_COUNTER" || type === "QUOTE_BROADCAST" || type === "AGREEMENT" || type === "NEARBY_REQUEST") && metadata ? (
+          <ProposalNotificationCard
+            type={type}
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : (type === "BUSINESS_ACCESS" || type === "VERIFICATION_DECIDED" || type === "CHAT" || type === "QNA" || type === "SYSTEM") && metadata ? (
+          <SystemNotificationCard
+            type={type}
+            metadata={metadata}
+            title={title}
+            preview={preview}
+            time={time}
+            unread={unread}
+            onAction={onAction}
+            onDelete={onDelete}
+          />
+        ) : (
+          <>
+            {(() => {
+              const visual = (
+                <NotificationLeadingVisual metadata={metadata} fallbackIcon={icon} fallbackBg={iconBg} />
+              );
+              // The leading visual carries its own .notif-row-icon wrapper (so a
+              // photo/avatar can override sizing/shape); the plain-icon fallback
+              // path needs the unread dot layered on top, which only makes sense
+              // when we're rendering our own wrapper here.
+              if (metadata?.imageUrl || metadata?.avatarUrl || metadata?.emoji) {
+                return (
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    {visual}
+                    {unread && <span className="notif-unread-dot" aria-hidden="true" />}
+                  </div>
+                );
+              }
+              return (
+                <div className="notif-row-icon" style={{ background: iconBg }}>
+                  {icon}
+                  {unread && <span className="notif-unread-dot" aria-hidden="true" />}
+                </div>
+              );
+            })()}
+            <div className="notif-row-body">
+              <div className="notif-row-top">
+                <span className={`notif-row-title${unread ? " unread" : ""}`}>{title}</span>
+                <span className="notif-row-time-slot">
+                  <span className="notif-row-time">{time}</span>
+                  <button
+                    className="notif-row-quick-delete"
+                    aria-label="Delete notification"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                    }}
+                    onKeyDown={(e) => {
+                      // Prevent Enter/Space here from bubbling to the row's own
+                      // onKeyDown (which would also fire onOpen — the row is a
+                      // div[role=button], so this nested <button>'s keydown
+                      // otherwise bubbles right into it).
+                      e.stopPropagation();
+                    }}
+                  >
+                    <Trash2 size={15} color={iconColor} />
+                  </button>
+                </span>
               </div>
-            );
-          }
-          return (
-            <div className="notif-row-icon" style={{ background: iconBg }}>
-              {icon}
-              {unread && <span className="notif-unread-dot" aria-hidden="true" />}
+              <p className="notif-row-preview clamp-2">{preview}</p>
+              <NotificationSupportingLine metadata={metadata} />
             </div>
-          );
-        })()}
-        <div className="notif-row-body">
-          <div className="notif-row-top">
-            <span className={`notif-row-title${unread ? " unread" : ""}`}>{title}</span>
-            <span className="notif-row-time-slot">
-              <span className="notif-row-time">{time}</span>
-              <button
-                className="notif-row-quick-delete"
-                aria-label="Delete notification"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-                onKeyDown={(e) => {
-                  // Prevent Enter/Space here from bubbling to the row's own
-                  // onKeyDown (which would also fire onOpen — the row is a
-                  // div[role=button], so this nested <button>'s keydown
-                  // otherwise bubbles right into it).
-                  e.stopPropagation();
-                }}
-              >
-                <Trash2 size={15} color={iconColor} />
-              </button>
-            </span>
-          </div>
-          <p className="notif-row-preview clamp-2">{preview}</p>
-          <NotificationSupportingLine metadata={metadata} />
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

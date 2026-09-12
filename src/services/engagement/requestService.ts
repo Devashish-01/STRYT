@@ -657,7 +657,15 @@ export const requestService = {
       title,
       body,
       `/agreement/${id}`,
-      "SYSTEM"
+      "AGREEMENT",
+      {
+        amount: (ag as any).agreed_price,
+        amountLabel: "Payment Due",
+        statusPill: "Pay Now",
+        tone: "warning",
+        agreementId: id,
+        actions: ["PAY", "VIEW_AGREEMENT"],
+      }
     );
     try {
       localStorage.setItem(lastNudgeKey, Date.now().toString());

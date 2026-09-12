@@ -389,11 +389,15 @@ export const adminService = {
     let categoryLabel = "";
     let entityName = "";
 
+    let entityImage: string | undefined;
+    let entityAddress: string | undefined;
+    let entityPhone: string | undefined;
+
     if (type === "business") {
       table = "businesses";
       const { data } = await sb
         .from("businesses")
-        .select("owner_user_id, lat, lng, broadcast_radius, category_name, name")
+        .select("owner_user_id, lat, lng, broadcast_radius, category_name, name, cover_image, address_line1, phone")
         .eq("id", id)
         .maybeSingle();
       ownerId = data?.owner_user_id ?? undefined;
@@ -402,11 +406,14 @@ export const adminService = {
       broadcastKm = data?.broadcast_radius ?? 5;
       categoryLabel = data?.category_name ?? "Business";
       entityName = data?.name ?? "A new business";
+      entityImage = data?.cover_image ?? undefined;
+      entityAddress = data?.address_line1 ?? undefined;
+      entityPhone = data?.phone ?? undefined;
     } else if (type === "provider") {
       table = "providers";
       const { data } = await sb
         .from("providers")
-        .select("user_id, lat, lng, service_radius_km, category_name, display_name")
+        .select("user_id, lat, lng, service_radius_km, category_name, display_name, avatar, phone")
         .eq("id", id)
         .maybeSingle();
       ownerId = data?.user_id ?? undefined;
@@ -415,11 +422,13 @@ export const adminService = {
       broadcastKm = data?.service_radius_km ?? 5;
       categoryLabel = data?.category_name ?? "Provider";
       entityName = data?.display_name ?? "A new provider";
+      entityImage = data?.avatar ?? undefined;
+      entityPhone = data?.phone ?? undefined;
     } else if (type === "place") {
       table = "places";
       const { data } = await sb
         .from("places")
-        .select("submitted_by_user_id, lat, lng, category, name")
+        .select("submitted_by_user_id, lat, lng, category, name, cover_image, address_line1")
         .eq("id", id)
         .maybeSingle();
       ownerId = data?.submitted_by_user_id ?? undefined;
@@ -429,6 +438,8 @@ export const adminService = {
       broadcastKm = 10;
       categoryLabel = data?.category ?? "Place";
       entityName = data?.name ?? "A new place";
+      entityImage = data?.cover_image ?? undefined;
+      entityAddress = data?.address_line1 ?? undefined;
     } else if (type === "category") {
       table = "categories";
     } else {
@@ -446,7 +457,14 @@ export const adminService = {
         const title = type === "business" ? "Business Approved ✓" : type === "provider" ? "Provider Profile Approved ✓" : "Place Approved ✓";
         const body = type === "business" ? "Your shop is now live!" : type === "provider" ? "Your provider profile is now live!" : "Your suggested place is now live on the map!";
         const link = type === "business" ? `/business/${id}/manage` : type === "provider" ? `/provider/${id}/manage` : `/place/${id}`;
-        await notificationService.send(ownerId, title, body, link, "SYSTEM");
+        await notificationService.send(ownerId, title, body, link, "SYSTEM", {
+          statusPill: "Approved ✓",
+          tone: "brand",
+          imageUrl: entityImage,
+          businessName: type === "business" ? entityName : undefined,
+          providerName: type === "provider" ? entityName : undefined,
+          placeName: type === "place" ? entityName : undefined,
+        });
       } catch (err) {
         console.warn("Failed to send approval notification:", err);
       }
@@ -464,12 +482,38 @@ export const adminService = {
 
         const userIds = ((nearbyIds ?? []) as string[]).filter((uid) => uid !== (ownerId ?? "")).slice(0, 200);
         if (userIds.length > 0) {
+          const meta = {
+            entityId: id,
+            businessId: type === "business" ? id : undefined,
+            providerId: type === "provider" ? id : undefined,
+            placeId: type === "place" ? id : undefined,
+            businessName: type === "business" ? entityName : undefined,
+            providerName: type === "provider" ? entityName : undefined,
+            placeName: type === "place" ? entityName : undefined,
+            category: categoryLabel,
+            imageUrl: entityImage,
+            address: entityAddress,
+            phone: entityPhone,
+            lat: entityLat,
+            lng: entityLng,
+            statusPill: type === "business" ? "Newly Opened" : type === "provider" ? "New Provider" : "New Landmark",
+            tone: type === "provider" ? ("positive" as const) : type === "place" ? ("brand" as const) : ("primary" as const),
+            actions: type === "business"
+              ? (["VIEW_BUSINESS", "DIRECTIONS"] as any)
+              : type === "provider"
+              ? (["VIEW_PROVIDER", "BOOK_APPOINTMENT"] as any)
+              : (["VIEW_PLACE", "DIRECTIONS"] as any),
+          };
+
           await notificationService.sendBulk(
             userIds,
             `New ${categoryLabel} near you`,
             type === "place" ? `${entityName} was just added nearby` : `${entityName} is now open in your area`,
             type === "business" ? `/business/${id}` : type === "provider" ? `/provider/${id}` : `/place/${id}`,
-            type === "business" ? "NEW_BUSINESS" : type === "provider" ? "NEW_PROVIDER" : "NEW_PLACE"
+            type === "business" ? "NEW_BUSINESS" : type === "provider" ? "NEW_PROVIDER" : "NEW_PLACE",
+            meta,
+            type.toUpperCase(),
+            id
           );
         }
       } catch (err) {

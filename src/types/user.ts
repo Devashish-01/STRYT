@@ -75,13 +75,14 @@ export type NotificationType =
   | "CUSTOM_PAYMENT_RECEIVED"
   | "CUSTOM_PAYMENT_CONFIRMED"
   | "CUSTOM_PAYMENT_REJECTED"
+  | "REPORT_RESOLVED"
   | "QNA"
   | "CHAT"
   | "SYSTEM";
 
 /** Semantic tone for a notification's status pill / accent — maps to the
  *  app's existing semantic color tokens (green/red/amber/blue/purple/gray). */
-export type NotificationTone = "success" | "danger" | "warning" | "info" | "brand" | "neutral";
+export type NotificationTone = "success" | "danger" | "warning" | "info" | "brand" | "neutral" | "accent" | "primary" | "positive";
 
 /** Structured, per-type enrichment snapshotted at notification-creation time
  *  (DB trigger or service call) from data that already exists in scope right
@@ -93,6 +94,8 @@ export type NotificationTone = "success" | "danger" | "warning" | "info" | "bran
  *  Always optional — every field must degrade gracefully to plain title/body
  *  when absent (older rows, or a type that hasn't been enriched). */
 export interface NotificationMetadata {
+  /** Allows additional dynamic properties while remaining strictly typed. */
+  [key: string]: any;
   /** Person/business/provider avatar or cover photo for a circular treatment. */
   avatarUrl?: string;
   /** A larger photo for a listing-style thumbnail (business/provider/story cover). */
@@ -116,6 +119,172 @@ export interface NotificationMetadata {
   /** Group-buy / "me too" progress, e.g. { current: 6, target: 10 }. */
   progressCurrent?: number;
   progressTarget?: number;
+  /** Group 1 Appointments: ID of the appointment record. */
+  appointmentId?: string;
+  /** Scheduled ISO timestamp. */
+  scheduledFor?: string;
+  /** Human-readable date label, e.g. "Tomorrow, 12 Sep". */
+  dateLabel?: string;
+  /** Human-readable time label, e.g. "10:30 AM". */
+  timeLabel?: string;
+  /** Reschedule: Original time slot before change, e.g. "11:30 AM". */
+  originalTimeLabel?: string;
+  /** Name of service/package booked. */
+  serviceName?: string;
+  /** Party size / number of guests. */
+  partySize?: number;
+  /** Fulfillment mode: in-store visit or home delivery. */
+  fulfillmentType?: "IN_STORE" | "DELIVERY";
+  /** Group 2 Deliveries & Logistics */
+  deliveryId?: string;
+  batchId?: string;
+  handoffCode?: string;
+  pickupAddress?: string;
+  dropoffAddress?: string;
+  etaText?: string;
+  stopCount?: number;
+  agentName?: string;
+  agentPhone?: string;
+  customerPhone?: string;
+  cancelReason?: string;
+  cancelNote?: string;
+  /** Group 3 Community, Feeds, Street Alerts & Social Interactions */
+  postId?: string;
+  commentId?: string;
+  storyId?: string;
+  severity?: "INFO" | "WARNING" | "URGENT";
+  area?: string;
+  recommendedName?: string;
+  recommendedId?: string;
+  recommendedType?: "BUSINESS" | "PROVIDER";
+  recommendedAvatar?: string;
+  /** Group 4 Bulk Buying Hub, Deals & Group Buying */
+  dealId?: string;
+  dealTitle?: string;
+  tokenCode?: string;
+  quantity?: number;
+  unitPrice?: number;
+  depositAmount?: number;
+  balanceDue?: number;
+  paymentRef?: string;
+  paymentMethod?: string;
+  pledgerUserId?: string;
+  /** Group 5 Live Presence, Radar & Location Approvals */
+  requesterUserId?: string;
+  ownerUserId?: string;
+  shareId?: string;
+  conversationId?: string;
+  lat?: number;
+  lng?: number;
+  /** Group 6 Custom Payments & Direct In-Person Transactions */
+  paymentId?: string;
+  targetName?: string;
+  payerName?: string;
+  note?: string;
+  /** Group 7 Trust, Ratings, Reviews & Safety Reports */
+  rating?: number;
+  ratingId?: string;
+  raterName?: string;
+  comment?: string;
+  replyText?: string;
+  reportId?: string;
+  businessName?: string;
+  /** Group 8 Local Discovery, Places & Category Announcements */
+  businessId?: string;
+  providerId?: string;
+  placeId?: string;
+  offerId?: string;
+  offerCode?: string;
+  offerTitle?: string;
+  discountText?: string;
+  validUntil?: string;
+  address?: string;
+  phone?: string;
+  providerName?: string;
+  placeName?: string;
+  /** Group 9 Proposals, Quotes & Bargain Counteroffers */
+  requestId?: string;
+  requestTitle?: string;
+  proposalId?: string;
+  counterId?: string;
+  agreementId?: string;
+  proposerName?: string;
+  proposerAvatar?: string;
+  quotedPrice?: number;
+  counterPrice?: number;
+  agreedPrice?: number;
+  message?: string;
+  /** Group 10 Identity, Role Management & System Administration */
+  senderId?: string;
+  senderName?: string;
+  question?: string;
+  answer?: string;
+  scopes?: string[];
+  /** Contextual action buttons supported on the notification card. */
+  actions?: (
+    | "ACCEPT"
+    | "DECLINE"
+    | "CALENDAR"
+    | "RESCHEDULE"
+    | "DIRECTIONS"
+    | "PAY"
+    | "ACCEPT_DELIVERY"
+    | "DECLINE_DELIVERY"
+    | "TRACK_DELIVERY"
+    | "CALL_RIDER"
+    | "CALL_CUSTOMER"
+    | "REASSIGN_DELIVERY"
+    | "VIEW_POST"
+    | "SHARE_ALERT"
+    | "REPLY_COMMENT"
+    | "VIEW_RECOMMENDED"
+    | "CONFIRM_DEPOSIT"
+    | "REJECT_DEPOSIT"
+    | "VIEW_DEAL"
+    | "VIEW_CLAIM_PASS"
+    | "SHARE_DEAL"
+    | "APPROVE_LOCATION"
+    | "DECLINE_LOCATION"
+    | "VIEW_ON_MAP"
+    | "TRACK_LIVE"
+    | "OPEN_CHAT"
+    | "CONFIRM_CUSTOM_PAYMENT"
+    | "REJECT_CUSTOM_PAYMENT"
+    | "VIEW_RECEIPT"
+    | "VIEW_STORE"
+    | "RETRY_PAYMENT"
+    | "REPLY_RATING"
+    | "VIEW_REVIEW"
+    | "REVIEW_BUSINESS"
+    | "VIEW_ADMIN"
+    | "VIEW_REPORT_TARGET"
+    | "VIEW_BUSINESS"
+    | "VIEW_PROVIDER"
+    | "VIEW_PLACE"
+    | "CLAIM_OFFER"
+    | "CALL"
+    | "BOOK_APPOINTMENT"
+    | "VIEW_QUOTE"
+    | "ACCEPT_QUOTE"
+    | "COUNTER_QUOTE"
+    | "ACCEPT_COUNTER"
+    | "DECLINE_COUNTER"
+    | "JOIN_DEAL"
+    | "VIEW_AGREEMENT"
+    | "CONFIRM_PAYMENT"
+    | "REJECT_PAYMENT"
+    | "SEND_QUOTE"
+    | "VIEW_REQUEST"
+    | "SWITCH_BUSINESS"
+    | "RESUBMIT_VERIFY"
+    | "REPLY_CHAT"
+    | "ANSWER_QNA"
+    | "VIEW_QNA"
+    | "VIEW_DETAILS"
+  )[];
+  /** Target entity reference for scoping and deep-links. */
+  targetType?: "BUSINESS" | "PROVIDER";
+  targetId?: string;
 }
 
 export interface AppNotification {
