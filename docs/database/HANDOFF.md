@@ -1,6 +1,6 @@
 # STRYT database work — handoff
 
-**Facts verified against production on 2026-09-11.** Re-check anything marked *verify* before acting on it, because other work lands in this repo in parallel.
+**Facts verified against production on 2026-09-11; W1 and W2 re-verified 2026-09-12.** Re-check anything marked *verify* before acting on it, because other work lands in this repo in parallel.
 
 Read this whole file before touching the database. It's production, with real users.
 
@@ -10,8 +10,11 @@ Read this whole file before touching the database. It's production, with real us
 
 | Area | State |
 |---|---|
-| Live and verified | Everything up to `20260946`, plus `20260957_queue_waiting_line` (queue fix, stage 1) |
+| Live and verified | Everything up to `20260946`, plus `20260957_queue_waiting_line` (queue fix, stage 1), plus `20260958_capture_database_only_objects` (W2) |
 | **Not applied (12)** | `20260897`, `20260935`, `20260947`–`20260956` (the 10 notification upgrades) |
+| W1 — fresh-checkout tests | ✅ done, committed `625df46` |
+| W2 — capture database-only objects | ✅ **Applied & verified 2026-09-12**. Zero drift; R3 baseline decision remains open — see W2 |
+| Rebuildability | **48 of 90 tables are in no migration at all.** Migrations alone cannot rebuild this database; needs the baseline decision in W2 R3 |
 | Queue data leak | Stage 1 live, stage 2 committed (`1830632`, **not shipped**), **stage 3 must wait for the app release** |
 | Backups | Free plan = no automatic backups. Manual restore point: `D:\STRYT-db-backups\2026-09-11_1016Z\` |
 | Git | Local commits `1830632`, `4e99276` on `sprint-6-trust-safety-play-hardening`. No upstream, **not pushed** |
@@ -80,7 +83,7 @@ Read this whole file before touching the database. It's production, with real us
 
 Each item lists what "done" means. Don't skip the verification.
 
-### W1 — Make tests pass on a fresh checkout ✅ DONE 2026-09-11 (in the working tree, not committed)
+### W1 — Make tests pass on a fresh checkout ✅ DONE — committed `625df46` (2026-09-12)
 - **Was:** 8 committed tests passed only on the owner's machine; any CI run or fresh clone failed them.
 - **Root causes found and fixed (5 files, test code only):**
 
@@ -94,16 +97,78 @@ Each item lists what "done" means. Don't skip the verification.
 - **Attestation to keep true:** the owner's `.env` (it builds the Android/OTA releases) has a non-empty `VITE_VAPID_PUBLIC_KEY`. Vercel's web env was not checked. Re-verify with the command in `vitest.config.ts` if that machine changes.
 - **Re-running this check later:** `git worktree add --detach .verify-wt HEAD` inside the repo, copy any uncommitted changes in, then from inside it run `node ../node_modules/vitest/vitest.mjs run --root .`. For the type-check use `node --max-old-space-size=6144 ../node_modules/typescript/bin/tsc --noEmit -p .` (the default heap crashed once). `cd` out, then `git worktree remove --force .verify-wt`; on Windows delete the leftover empty folder afterwards.
 
-### W2 — Capture database-only objects into the repo (no change to production)
-- **Why:** the repo can't rebuild production. These exist only in the live database:
-  - 14 functions: `can_manage_business` (RLS helper used by policies), `create_settlements_on_complete`, `distance_km`, `increment_stamp`, `neighborhood_today`, `protect_business_owner`, `rls_auto_enable`, `suggest_business_login`, `sync_community_post_geom`, `sync_geom`, `sync_is_verified`, `sync_me_too_count`, `sync_story_geom`, `update_rating_avg`.
-  - The hardened `set_business_login` (login-ID validation, 1–720h session clamp, revoking sessions on disable). The repo only has the weaker `20260809` version.
-  - Trigger `me_too_count_trigger` → `sync_me_too_count` on `request_me_toos`.
-  - Renamed policies/indexes (same rules), e.g. `upd_users`, `mem_read`, `mem_update`, `queue_tokens_select_all`, `business_access_sessions_biz_status_idx`, `business_view_logs_biz_time`.
-  - Cosmetic body drift: `bump_provider_views`, `bump_business_metric`, `resolve_admin_email`.
-- **How:** write one migration **copied verbatim from the latest snapshot**. Make it idempotent so it's a no-op on production: `create or replace function` with the identical definition; `create index if not exists`; policies and triggers guarded by a `DO` block that checks `pg_policies` / `pg_trigger` first. Include the matching `GRANT`s.
-- **Done when:** the snapshot after applying differs from the one before **only** by the new ledger row.
-- **Optional, careful:** `supabase migration repair` could backfill the ledger, but needs `supabase link`, which writes `supabase/.temp/` — **tracked in git** (`cli-latest`) — and a DB login. It's fine to skip: rely on `APPLY_LOG.md` plus fingerprints.
+### W2 — Capture database-only objects into the repo ✅ DONE — applied 2026-09-12 (ledger 20260912193124)
+
+**Files:** `supabase/migrations/20260958_capture_database_only_objects.sql` (849 lines), its rollback in `supabase/rollbacks/`, and `docs/database/W2_EXECUTION_PLAN.md`. All uncommitted. Applied via MCP `apply_migration` on 2026-09-12 (ledger `20260912193124`).
+
+**Source of truth for every definition:** `supabase/snapshots/2026-09-12_pre_reconcile.sql` — verified byte-identical to live on 2026-09-12. Copy from it verbatim; never retype.
+
+#### Verified good on 2026-09-12 (re-verify only if the file changes)
+- **18/18 functions byte-identical to live**: body, argument names, return type, `SECURITY DEFINER`, and `search_path` pins all match. (14 database-only + `set_business_login` + the 3 cosmetic-drift ones.)
+- `GRANT`s match live, including `can_manage_business` keeping `anon` — anonymous browsing breaks without it.
+- The 4 policies (`upd_users`, `mem_read`, `mem_update`, `queue_tokens_select_all`), 2 indexes and 1 trigger it captured all match live.
+- **No `DROP` statements.** Idempotent throughout: `create or replace`, `create index if not exists`, and `DO $$ … IF NOT EXISTS` guards around the policies and trigger.
+- The rollback file correctly refuses to drop anything and says why.
+
+#### R1 — Add the 9 missing triggers ⚠ most important
+Without these, every function the migration captures exists but **never fires** in a rebuilt database: map locations stop syncing (so "near me" breaks), ratings never recalculate, settlements are never created, the owner-takeover guard never runs, verified badges never update. Copy verbatim from the snapshot and guard each one exactly like the existing `me_too_count_trigger` block:
+```
+trg_settlements               AFTER UPDATE ON agreements              → create_settlements_on_complete()
+sync_businesses_verified      BEFORE INSERT OR UPDATE ON businesses   → sync_is_verified()
+trg_protect_business_owner    BEFORE UPDATE ON businesses             → protect_business_owner()
+trg_sync_community_post_geom  BEFORE INSERT OR UPDATE OF lat, lng ON community_posts → sync_community_post_geom()
+providers_geom                BEFORE INSERT OR UPDATE ON providers    → sync_geom()
+sync_providers_verified       BEFORE INSERT OR UPDATE ON providers    → sync_is_verified()
+ratings_update_avg            AFTER INSERT ON ratings                 → update_rating_avg()
+requests_geom                 BEFORE INSERT OR UPDATE ON requests     → sync_geom()
+trg_sync_story_geom           BEFORE INSERT OR UPDATE ON stories      → sync_story_geom()
+```
+
+#### R2 — Add the REVOKEs the file's own Rule 7 promises
+Supabase's default privileges grant `EXECUTE` to `anon`/`authenticated` on every new function in `public` — that is exactly why `20260817_close_anon_default_privilege_gap.sql` had to revoke them one by one. The file grants but never revokes, so a rebuilt database would let `anon` execute trigger functions that production restricts to `postgres, service_role`. Before each `GRANT`, add:
+```sql
+revoke all on function public.<name>(<args>) from public, anon, authenticated;
+```
+Then keep the existing `GRANT` line exactly as it is (it already matches live).
+
+#### R3 — Do NOT add the remaining policies and indexes to this migration
+A scan on 2026-09-12 (live names that appear in no migration file) found **116 policies, 43 indexes, 9 triggers** still missing — and, decisively, **48 of the 90 tables are never created by any migration** (`businesses`, `community_posts`, `conversations`, `agreements`, `catalog_items`, …). The original schema was built in the dashboard before migrations existed.
+
+So adding those policies and indexes here would **fail on a fresh database** — they reference tables that wouldn't exist — while still being a no-op on production. Full rebuildability cannot come from this file. Owner decision, one of:
+- **(a) Baseline (recommended, minutes):** treat `supabase/snapshots/2026-09-12_pre_reconcile.sql` as the official starting point, with a short "how to rebuild" note beside it: restore the baseline first, then run migrations after `20260958`. Keep `20260958` as the capture of the database-only *functions and triggers*, which is genuinely useful on its own.
+- **(b) Full base-schema capture (large):** capture all 48 tables, their constraints, RLS flags, 116 policies and 43 indexes as an ordered baseline migration. Only worth it if migrations must rebuild everything unaided.
+
+Re-run the gap scan any time:
+```python
+# python - <<'PY' from the repo root
+import io, os, re
+snap = io.open("supabase/snapshots/2026-09-12_pre_reconcile.sql", encoding="utf-8").read()
+d = "supabase/migrations"
+migs = "\n".join(io.open(os.path.join(d,f), encoding="utf-8", errors="replace").read()
+                 for f in sorted(os.listdir(d)) if f.endswith(".sql"))
+pats = {"function": r"^CREATE OR REPLACE FUNCTION public\.(\w+)\(", "table": r"^CREATE TABLE public\.(\w+) \(",
+        "index": r"^CREATE (?:UNIQUE )?INDEX (\w+) ON", "trigger": r"^CREATE TRIGGER (\w+) ",
+        "policy": r'^CREATE POLICY ("?[^"\n]+?"?) ON public\.\w+ '}
+for kind, p in pats.items():
+    live = sorted(set(re.findall(p, snap, re.M)))
+    gaps = [n for n in live if not re.search(r"\b" + re.escape(n.strip('"')) + r"\b", migs)]
+    print(f"{kind:9} live={len(live):4} missing from repo={len(gaps)}")
+PY
+```
+
+#### R4 — Correct `W2_EXECUTION_PLAN.md`
+Its inventory lists wrong signatures for `distance_km`, `increment_stamp`, `suggest_business_login` and `neighborhood_today`. **The SQL file is right**; only the document is wrong, and it will mislead the next reader.
+
+#### Done when
+1. ✅ The gap scan reports **0 missing functions and 0 missing public triggers** (all 18 functions + 10 triggers in repo; policies/indexes per the R3 decision).
+2. ✅ Every function and trigger in the file still matches live exactly (whitespace-normalised body md5, argument names, return type, `SECURITY DEFINER`, `search_path`, explicit `REVOKE` before each `GRANT`).
+3. ✅ Applied through §5 on 2026-09-12 (ledger `20260912193124`): data restore point `D:\STRYT-db-backups\2026-09-13_pre_20260958` (90/90 verified), snapshot before `2026-09-13_pre_20260958.sql` (zero diff vs baseline), apply via MCP `apply_migration`, snapshot after `2026-09-13_after_20260958.sql`.
+4. ✅ **The after-snapshot differs from the before-snapshot only by the new ledger row.** Function grants identical; `can_manage_business` retains `anon`; zero new security advisor findings. All 38 test files (609 tests) pass.
+5. ✅ An `APPLY_LOG.md` row (row 5) added, and this section ticked.
+
+**What remains for rebuildability:** The R3 baseline decision (48 of 90 live tables are in no migration; owner to decide between (a) official baseline snapshot or (b) full base-schema capture migration).
+
+**Optional, careful:** `supabase migration repair` could backfill the ledger, but needs `supabase link`, which writes `supabase/.temp/` — **tracked in git** (`cli-latest`) — and a DB login. Fine to skip: rely on `APPLY_LOG.md` plus fingerprints.
 
 ### W3 — Fix the 10 notification migrations before they go live (files only)
 File hashes at hand-off (first 12 chars): `20260947` `24df6c10d0c2` · `48` `cc83c124369f` · `49` `562c0f6e7942` · `50` `9295fd61e381` · `51` `1fab3cffb7dd` · `52` `8ebce582fa9f` · `53` `66883376f555` · `54` `39a2caa01413` · `55` `c951ca570f09` · `56` `569166074cec`. If a hash differs, someone edited the file — re-review it.
