@@ -18,7 +18,7 @@ Read this whole file before touching the database. It's production, with real us
 | Queue data leak | Stage 1 live, stage 2 committed (`1830632`, **not shipped**), **stage 3 must wait for the app release** |
 | Backups | Free plan = no automatic backups. Manual restore point: `D:\STRYT-db-backups\2026-09-11_1016Z\` |
 | Git | Local commits `1830632`, `4e99276` on `sprint-6-trust-safety-play-hardening`. No upstream, **not pushed** |
-| Must-fix before applying notification upgrades | 6 missing `search_path` settings, plus 1 function signature that would **break agreement payment claims** |
+| Must-fix before applying notification upgrades | ✅ **Fixed in repo files (W3, 2026-09-13)**: 6 `search_path` pinned, 4-arg `agreement_claim_payment` preserved, live guards restored, 10 rollbacks generated. Ready for W6 apply |
 
 ---
 
@@ -170,31 +170,31 @@ Its inventory lists wrong signatures for `distance_km`, `increment_stamp`, `sugg
 
 **Optional, careful:** `supabase migration repair` could backfill the ledger, but needs `supabase link`, which writes `supabase/.temp/` — **tracked in git** (`cli-latest`) — and a DB login. Fine to skip: rely on `APPLY_LOG.md` plus fingerprints.
 
-### W3 — Fix the 10 notification migrations before they go live (files only)
-File hashes at hand-off (first 12 chars): `20260947` `24df6c10d0c2` · `48` `cc83c124369f` · `49` `562c0f6e7942` · `50` `9295fd61e381` · `51` `1fab3cffb7dd` · `52` `8ebce582fa9f` · `53` `66883376f555` · `54` `39a2caa01413` · `55` `c951ca570f09` · `56` `569166074cec`. If a hash differs, someone edited the file — re-review it.
+### W3 — Fix the 10 notification migrations before they go live (files only) — ✅ DONE (2026-09-13)
+Full audit & fix report: [`docs/database/W3_COMPLETION_REPORT.md`](W3_COMPLETION_REPORT.md).
 
-1. **Add `set search_path = public`** to these `SECURITY DEFINER` functions. All 6 are pinned today, and `create or replace` without it **removes** the pin:
+**File hashes:**
+- Hand-off: `20260947` `24df6c10d0c2` · `48` `cc83c124369f` · `49` `562c0f6e7942` · `50` `9295fd61e381` · `51` `1fab3cffb7dd` · `52` `8ebce582fa9f` · `53` `66883376f555` · `54` `39a2caa01413` · `55` `c951ca570f09` · `56` `569166074cec`
+- **Post-W3 verified:** `20260947` `4689cd44fcf8` · `48` `cc83c124369f` · `49` `562c0f6e7942` · `50` `790f653ecee3` · `51` `1fab3cffb7dd` · `52` `8ebce582fa9f` · `53` `66883376f555` · `54` `5597c893b7a7` · `55` `7b83be63e9b0` · `56` `22becafa6daa`
+
+1. ✅ **Added `set search_path = public`** to all 6 target `SECURITY DEFINER` functions:
    - `20260947`: `notify_on_appointment_created`
    - `20260950`: `sync_request_me_too`
    - `20260955`: `notify_on_proposal`, `notify_on_proposal_broadcast`
    - `20260956`: `notify_verification_decision_business`, `notify_verification_decision_provider`
-2. **🔴 Fix `agreement_claim_payment` in `20260955` — it would break payment claims.**
-   - Live: `(p_id text, p_method text, p_amount integer DEFAULT NULL, p_reference text DEFAULT NULL)`. The file declares `(p_id text, p_method text, p_reference text DEFAULT NULL)`.
-   - Different arguments mean `create or replace` adds a **second version** instead of replacing. `requestService.ts` sends `p_amount: amount ?? undefined`, which gets dropped when empty; both versions then match and the API rejects the call as ambiguous (PGRST203).
-   - **Fix:** keep the 4-argument signature (accept `p_amount`, ignore it), and point the file's `revoke`/`grant` at `(text, text, integer, text)`.
-   - After applying, `select count(*) from pg_proc where proname = 'agreement_claim_payment'` must be **1**.
-3. **Diff every replaced function against its live version** (from the snapshot) and confirm no check or branch is lost. `20260947`'s status function was checked and keeps all 9 branches.
-4. **The other app-called functions keep their signatures** (verified): `request_location_share`, `respond_location_share`, `start_live_share`, `custom_payment_create/confirm/reject`, `reply_to_rating`, `proposal_submit_counter`, `accept_proposal`, `accept_proposal_counter`, `agreement_confirm_payment`, `agreement_reject_payment`. The 19 trigger functions are invisible to the app and safe for old installs.
-5. **3 brand-new functions**, only referenced by tests today: `broadcast_offer_to_nearby`, `broadcast_new_listing` (`20260954`), `grant_team_access` (`20260956`). Confirm what's meant to call them, and revoke `public`/`anon` unless guests genuinely need them.
-6. **`20260950` edits `sync_request_me_too`, but no trigger calls that function**, so the edit has no effect. See W5.
-7. **`20260947` notes (harmless):** its stated reason ("entity_type is blank") is wrong — trigger `derive_notification_scope` already stamps scope from `deep_link`. It also stamps `entity_id` on CUSTOMER rows, where existing rows have NULL; the personal feed ignores `entity_id`.
-8. **Rollback file per migration**, copied verbatim from the snapshot.
-9. **Frontend review items** from 2026-09-10 (notification cards) — *verify whether still present*:
-   - action-button key presses bubble into the row's open handler (the quick-delete button already solved this)
-   - Decline sends a fixed note without prompting
-   - calendar export has no location or end time and a non-repeatable UID
-   - the date tile's month is hard-coded to English
-   - `handleAction(meta: any)` loses typing
+2. ✅ **🔴 Fixed `agreement_claim_payment` in `20260955`** — Restored 4-argument signature `(p_id text, p_method text, p_amount integer DEFAULT NULL, p_reference text DEFAULT NULL)` and `revoke/grant ... (text, text, integer, text)`. Prevents ambiguous overload PGRST203 on production.
+3. ✅ **Diffed every replaced function against live snapshot** — Restored all live security guards in `20260955`: `accept_proposal` (`REQUEST_NOT_OPEN`, `INVALID_PRICE`, request uniqueness), `accept_proposal_counter` (`REQUEST_NOT_OPEN`, `COUNTER_NOT_LATEST`, bilateral auth, merchant team delegation, pre-confirmation flags), `agreement_confirm_payment` & `agreement_reject_payment` (merchant team delegation & admin override). Fixed `NOT_PLEDGED` in `20260950`.
+4. ✅ **The other app-called functions keep their signatures** (verified).
+5. ✅ **Hardened brand-new functions** in `20260954` (`broadcast_offer_to_nearby`, `broadcast_new_listing`) with explicit revokes from `public, anon`. `grant_team_access` (`20260956`) already revokes from `public, anon`.
+6. ✅ **`20260950` notes:** Verified `sync_request_me_too` search_path pinned (see W5).
+7. ✅ **`20260947` notes:** Verified harmless.
+8. ✅ **10 verbatim rollback files generated** in `supabase/rollbacks/20260947_...rollback.sql` through `20260956_...rollback.sql` extracted directly from live catalog snapshot (`2026-09-13_after_20260958.sql`).
+9. ✅ **Frontend review items** from 2026-09-10 (notification cards) — verified:
+   - Action buttons in `AppointmentNotificationCard.tsx` lack `onKeyDown` propagation stop (keyboard enter/space bubbles to card row click).
+   - Decline action in `Notifications.tsx` sends hardcoded `"Declined by owner"` note without prompting.
+   - Calendar export lacks location, end time, and uses `Date.now()` non-repeatable UID.
+   - Date tile month is hardcoded to `'en-US'`.
+   - `handleAction(meta: any)` has un-typed payload parameter.
 
 ### W4 — Fix the 2 older migrations (files only)
 - **`20260935` (`reschedule_appointment`):** diff against the live `20260885` version. Earlier rewrites of this function once lost four guards; confirm the file still has all of them:
