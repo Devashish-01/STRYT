@@ -650,7 +650,7 @@ begin
 
       -- Notify all me_too participants who helped unlock the group buy
       for v_joiner in
-        select distinct user_id from public.me_too
+        select distinct user_id from public.request_me_toos
         where request_id = new.request_id and user_id <> req_owner
       loop
         begin
@@ -683,3 +683,13 @@ begin
   return null;
 end;
 $$;
+
+revoke all on function public.sync_request_me_too() from public, anon, authenticated;
+grant execute on function public.sync_request_me_too() to authenticated, postgres, service_role;
+
+-- Replace me_too_count_trigger to execute sync_request_me_too() to activate notifications without double-counting
+drop trigger if exists me_too_count_trigger on public.request_me_toos;
+create trigger me_too_count_trigger
+  after insert or delete on public.request_me_toos
+  for each row execute function public.sync_request_me_too();
+

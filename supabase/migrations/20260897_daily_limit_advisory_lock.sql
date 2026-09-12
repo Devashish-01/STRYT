@@ -53,3 +53,6 @@ end $$;
 
 -- Trigger already points at this function name/columns (20260801) — the
 -- create or replace above is the entire fix, no DROP/CREATE TRIGGER needed.
+
+revoke all on function public.enforce_customer_daily_appointment_limit() from public, anon, authenticated;
+grant execute on function public.enforce_customer_daily_appointment_limit() to postgres, service_role;

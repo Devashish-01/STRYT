@@ -419,4 +419,11 @@ end $function$
 ;
 GRANT EXECUTE ON FUNCTION public.sync_request_me_too() TO authenticated, postgres, service_role;
 
+-- Restore me_too_count_trigger to point back to sync_me_too_count()
+drop trigger if exists me_too_count_trigger on public.request_me_toos;
+create trigger me_too_count_trigger
+  after insert or delete on public.request_me_toos
+  for each row execute function public.sync_me_too_count();
+
 notify pgrst, 'reload schema';
+
