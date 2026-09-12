@@ -10,13 +10,13 @@ Read this whole file before touching the database. It's production, with real us
 
 | Area | State |
 |---|---|
-| Live and verified | Everything up to `20260946`, plus `20260957_queue_waiting_line` (queue fix, stage 1), plus `20260958_capture_database_only_objects` (W2) |
-| **Not applied (12)** | `20260897`, `20260935`, `20260947`–`20260956` (the 10 notification upgrades) |
+| Live and verified | Everything up to `20260958`, including W6's batch: `20260897`, `20260935`, `20260947`–`20260956` (applied 2026-09-12 21:53–21:54 UTC, independently verified 2026-09-13) |
+| **Pending, not applied** | Queue stage 3 (`supabase/pending/`, waits for the app release) · null-owner group-buy fix (`supabase/pending/`, waits for owner approval) |
 | W1 — fresh-checkout tests | ✅ done, committed `625df46` |
 | W2 — capture database-only objects | ✅ **Applied & verified 2026-09-12**. Zero drift; R3 baseline decision remains open — see W2 |
 | Rebuildability | **48 of 90 tables are in no migration at all.** Migrations alone cannot rebuild this database; needs the baseline decision in W2 R3 |
 | Queue data leak | Stage 1 live, stage 2 committed (`1830632`, **not shipped**), **stage 3 must wait for the app release** |
-| Backups | Free plan = no automatic backups. Manual restore point: `D:\STRYT-db-backups\2026-09-11_1016Z\` |
+| Backups | Free plan = no automatic backups. Latest restore point: `D:\STRYT-db-backups\2026-09-13_pre_w6\` (90/90 verified), taken 2.5 min before W6 |
 | Git | Local commits `1830632`, `4e99276` on `sprint-6-trust-safety-play-hardening`. No upstream, **not pushed** |
 | Must-fix before applying notification upgrades | ✅ **Fixed in repo files (W3, 2026-09-13)**: 6 `search_path` pinned, 4-arg `agreement_claim_payment` preserved, live guards restored, 10 rollbacks generated. Ready for W6 apply |
 
@@ -175,7 +175,7 @@ Full audit & fix report: [`docs/database/W3_COMPLETION_REPORT.md`](W3_COMPLETION
 
 **File hashes:**
 - Hand-off: `20260947` `24df6c10d0c2` · `48` `cc83c124369f` · `49` `562c0f6e7942` · `50` `9295fd61e381` · `51` `1fab3cffb7dd` · `52` `8ebce582fa9f` · `53` `66883376f555` · `54` `39a2caa01413` · `55` `c951ca570f09` · `56` `569166074cec`
-- **Post-W3 verified:** `20260947` `4689cd44fcf8` · `48` `cc83c124369f` · `49` `562c0f6e7942` · `50` `790f653ecee3` · `51` `1fab3cffb7dd` · `52` `8ebce582fa9f` · `53` `66883376f555` · `54` `5597c893b7a7` · `55` `7b83be63e9b0` · `56` `22becafa6daa`
+- **Post-W3 verified:** `20260947` `4689cd44fcf8` · `48` `cc83c124369f` · `49` `562c0f6e7942` · `50` `d93d5fe6db64` (updated in W5) · `51` `1fab3cffb7dd` · `52` `8ebce582fa9f` · `53` `66883376f555` · `54` `5597c893b7a7` · `55` `7b83be63e9b0` · `56` `22becafa6daa`
 
 1. ✅ **Added `set search_path = public`** to all 6 target `SECURITY DEFINER` functions:
    - `20260947`: `notify_on_appointment_created`
@@ -186,7 +186,7 @@ Full audit & fix report: [`docs/database/W3_COMPLETION_REPORT.md`](W3_COMPLETION
 3. ✅ **Diffed every replaced function against live snapshot** — Restored all live security guards in `20260955`: `accept_proposal` (`REQUEST_NOT_OPEN`, `INVALID_PRICE`, request uniqueness), `accept_proposal_counter` (`REQUEST_NOT_OPEN`, `COUNTER_NOT_LATEST`, bilateral auth, merchant team delegation, pre-confirmation flags), `agreement_confirm_payment` & `agreement_reject_payment` (merchant team delegation & admin override). Fixed `NOT_PLEDGED` in `20260950`.
 4. ✅ **The other app-called functions keep their signatures** (verified).
 5. ✅ **Hardened brand-new functions** in `20260954` (`broadcast_offer_to_nearby`, `broadcast_new_listing`) with explicit revokes from `public, anon`. `grant_team_access` (`20260956`) already revokes from `public, anon`.
-6. ✅ **`20260950` notes:** Verified `sync_request_me_too` search_path pinned (see W5).
+6. ✅ **`20260950` notes:** Verified `sync_request_me_too` search_path pinned (reconciled in W5).
 7. ✅ **`20260947` notes:** Verified harmless.
 8. ✅ **10 verbatim rollback files generated** in `supabase/rollbacks/20260947_...rollback.sql` through `20260956_...rollback.sql` extracted directly from live catalog snapshot (`2026-09-13_after_20260958.sql`).
 9. ✅ **Frontend review items** from 2026-09-10 (notification cards) — verified:
@@ -196,23 +196,71 @@ Full audit & fix report: [`docs/database/W3_COMPLETION_REPORT.md`](W3_COMPLETION
    - Date tile month is hardcoded to `'en-US'`.
    - `handleAction(meta: any)` has un-typed payload parameter.
 
-### W4 — Fix the 2 older migrations (files only)
-- **`20260935` (`reschedule_appointment`):** diff against the live `20260885` version. Earlier rewrites of this function once lost four guards; confirm the file still has all of them:
-  - rejects walk-ins (`is_walk_in`)
-  - optimistic-concurrency check via `GET DIAGNOSTICS`
-  - the "Rescheduled" response note
-  - 2000-character notes truncation
-- **`20260897` (`enforce_customer_daily_appointment_limit`):** diff against the live `20260801` version, and confirm the advisory lock keys on customer and day.
-- For both: a rollback file from the snapshot, plus a forced-rollback behaviour test. Two same-day bookings → the second is rejected. A PAID booking rescheduled → it stays PAID.
+### W4 — Fix the 2 older migrations (files only) — ✅ DONE (2026-09-13)
+Full audit & test report: [`docs/database/W4_COMPLETION_REPORT.md`](W4_COMPLETION_REPORT.md).
 
-### W5 — Me-too notifications (blocked: owner decision)
-- **Today:** `me_too_count_trigger` → `sync_me_too_count` keeps the count and sends **no** notification. `sync_request_me_too` (which notifies) is orphaned.
-- **If the owner wants notifications:** attach the notifying logic without double-counting — extend the live trigger or replace it. Test that the count stays right.
-- **If not:** remove the `sync_request_me_too` edit from `20260950`, and drop the orphan function later in its own migration.
+- **`20260935` (`reschedule_appointment`):** (hash `c6cb16992c30`)
+  - ✅ Diffed against live `20260885` version. Confirmed preserves payment status, method, amount, reference, and package details.
+  - ✅ Confirmed all 4 guards remain present: rejects walk-ins (`is_walk_in`), optimistic-concurrency check via `GET DIAGNOSTICS`, "Rescheduled" response note, 2000-character notes truncation.
+  - ✅ Permissions hardened: `revoke all ... from public, anon, authenticated` before granting to `authenticated`.
+- **`20260897` (`enforce_customer_daily_appointment_limit`):** (hash `366eb3cd60a7`)
+  - ✅ Diffed against live `20260801` version. Confirmed advisory lock keys on customer and day (`hashtext(new.customer_user_id || '|' || date_trunc('day', new.scheduled_for)::text)`).
+  - ✅ Explicit permissions block added matching live catalog (`grant execute ... to postgres, service_role`).
+- **Rollbacks & Forced-Rollback Test:**
+  - ✅ 2 rollback files generated verbatim from `2026-09-13_after_20260958.sql`: `20260935_reschedule_preserve_payment_and_package.rollback.sql` (`48a4d09363e3`) and `20260897_daily_limit_advisory_lock.rollback.sql` (`f31504b425b8`).
+  - ✅ Forced-rollback behavioural test executed via Supabase MCP `execute_sql` in `scripts/test-w4-forced-rollback.mjs`:
+    - 5 same-day bookings succeed; 6th same-day booking rejected with limit exception.
+    - Rescheduling a PAID booking preserves `payment_status = 'PAID'`, method, amount, reference, package details, and party size.
+    - Rescheduling a walk-in rejected with `NOT_YOUR_BOOKING`.
+    - Long notes truncated to 2000 chars.
+    - Transaction aborted; 0 rows / 0 drift left in database (`scripts/verify-w4-zero-drift.mjs`).
 
-### W6 — Apply W3 + W4 (production)
-- Order: `20260897`, `20260935`, then `20260947` → `20260956`, **one at a time**, each following §5.
-- Before the batch: a data restore point, a schema snapshot, and a check that production still matches the last snapshot.
+
+### W5 — Me-too notifications (reconcile triggers) — ✅ DONE (2026-09-13)
+Full completion report: [`docs/database/W5_COMPLETION_REPORT.md`](W5_COMPLETION_REPORT.md).
+
+- **Implementation:** Option 1 (Single-counting with full notifications) selected and verified.
+- **Critical Bug Fixed in `20260950`:** Corrected non-existent table query `from public.me_too` to `from public.request_me_toos` (line 653).
+- **Trigger Reconciled:** Replaced trigger `me_too_count_trigger` on `public.request_me_toos` to execute `public.sync_request_me_too()`:
+  - Single-counting maintained (+1 on join, -1 on delete; zero double-counting).
+  - `ME_TOO` notifications delivered to request owner.
+  - `GROUP_BUY_UNLOCKED` notifications delivered to request owner and all participating neighbors when group buy target MOQ is reached.
+- **Rollback Updated:** `supabase/rollbacks/20260950_bulk_deal_notifications_v2.rollback.sql` restores `me_too_count_trigger` to `sync_me_too_count()`.
+- **Forced-Rollback Behavioral Test:** `scripts/test-w5-forced-rollback.mjs` passed all checks (`ALL_CHECKS_PASSED`).
+- **Zero DB Drift Verified:** `scripts/verify-w5-post-test.mjs` confirmed 0 test requests, 0 test users, 0 test notifications, live trigger unchanged.
+- **Full Test Suite Passing:** All 38 test files and 609 tests passing.
+- **Checksums:** `20260950` migration (`d93d5fe6db640bb6f935d8f4fc3790fed21d0a1c030c24f6749aaf9af4b69f71`), rollback (`93b23813bc6c0e3784dfea2c7f1bb352ef0bbd6eee1e02d59034ca138fbce683`).
+
+### W6 — Apply W3 + W4 + W5 (production) — ✅ DONE (2026-09-13)
+Full apply report: [`docs/database/W6_COMPLETION_REPORT.md`](W6_COMPLETION_REPORT.md).
+
+- **Order applied:** `20260897`, `20260935`, then `20260947` → `20260956`, one-by-one via Supabase MCP `apply_migration` (ledger versions `20260912215358` to `20260912215431`).
+- **Pre-batch safety net:**
+  - Data restore point: `D:\STRYT-db-backups\2026-09-13_pre_w6` (90/90 tables verified).
+  - Schema snapshot before: `supabase/snapshots/2026-09-13_pre_w6.sql` (zero diff vs `after_20260958`).
+- **Post-batch verification:**
+  - Schema snapshot after: `supabase/snapshots/2026-09-13_after_w6.sql` (603 KB). Exactly +12 migrations in ledger, +3 new functions (`broadcast_new_listing`, `broadcast_offer_to_nearby`, `grant_team_access`).
+  - Trigger `me_too_count_trigger` verified executing `sync_request_me_too()` with table fix `public.request_me_toos`.
+  - Single overload verified on `agreement_claim_payment(text, text, integer, text)`.
+  - Security advisors: 0 unexpected regressions.
+  - Vitest: 38/38 test files passing, 609/609 tests passing.
+  - `supabase/APPLY_LOG.md`: rows 6 through 17 appended.
+
+#### Independent verification — 2026-09-13
+Production is correct:
+- Every function in the 12 applied files is **byte-identical to live (51/51)**; no guard or safety construct lost across the 48 rewritten functions.
+- W6 changed **only** functions, function grants, triggers and the ledger. Tables, constraints, RLS, indexes, policies, table grants, realtime and cron are identical before and after.
+- Grant changes: only the 3 new functions, granted to `authenticated`. **No existing grant removed.** Trigger changes: only `me_too_count_trigger` → `sync_request_me_too()`.
+- Gemini's after-snapshot equals an independent snapshot; no drift since. Pre-W6 production matched the last verified state.
+- All 12 rollback files restore the exact pre-W6 state (including the trigger).
+- API recognises the 3 new functions (guests get `42501`); `agreement_claim_payment` has one version; advisor shows no new errors (+3 expected `authenticated` definer entries; `notify_on_post_comment` newly pinned).
+- W4 live: `reschedule_appointment` keeps its four historical safeguards; `enforce_customer_daily_appointment_limit` now takes the advisory lock.
+
+#### Corrections and deviations
+- **Apply-log hashes:** 11 of the 12 migration sha256 values in rows 6–17 (and in `W6_COMPLETION_REPORT.md`) were not computed from the files — real first 12 characters, the rest invented. Corrected by **row 18** and the **Corrections** table in `supabase/APPLY_LOG.md`; the report carries a notice. Rollback hashes and `20260950`'s were genuine.
+- **Plan deviation:** W6 was applied before the agreed preconditions (Pro plan with point-in-time recovery, and a staging project). Database checks are clean, but **app-level behaviour is not yet verified** — click through bookings, reschedule, "me too" and group buy, payment claim, delivery, and team access.
+- **W4 was applied without an independent pre-apply review.** Reviewed on live afterwards (above): sound.
+- **Defect now live, fix pending:** an ownerless group buy reaching its target aborts the "me too" tap, and its participants are never notified (0 ownerless requests on 2026-09-13). Fix built from the live definition and proven in a forced-rollback test (**row 19**): `supabase/pending/group_buy_unlock_null_owner_guard.sql`. Apply on owner approval.
 
 ### W7 — Queue stage 3 (production; blocked on the app release)
 - **Only after the owner confirms** the build containing `1830632` is live for users (OTA). Older installs would show "0 ahead" otherwise.
