@@ -30,6 +30,17 @@ export default defineConfig({
       //   from vault.decrypted_secrets
       //   where name in ('functions_url','service_role_key');
       PUSH_BACKEND_CONFIGURED: "true",
+
+      // tests/push-delivery — web push also needs VITE_VAPID_PUBLIC_KEY in the
+      // BUILD env (.env on the machine that runs `npm run build`).
+      // webVapidConfigured() reads .env directly whenever it exists; only a
+      // checkout with no .env at all (fresh clone, CI) falls back to this flag.
+      //
+      // Verified 2026-09-11 on the owner's machine, which builds the Android
+      // and OTA releases: .env sets a non-empty VITE_VAPID_PUBLIC_KEY. Vercel's
+      // web build env was NOT checked. Re-verify on the release machine with:
+      //   grep -cE '^VITE_VAPID_PUBLIC_KEY=.+' .env
+      WEB_PUSH_VAPID_CONFIGURED: "true",
     },
   },
 });

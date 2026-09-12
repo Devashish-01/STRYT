@@ -19,7 +19,10 @@ import path from "node:path";
 const ROOT = path.resolve(__dirname, "..", "..");
 
 function read(rel: string): string {
-  return fs.readFileSync(path.join(ROOT, rel), "utf8");
+  // Normalised to LF: a Windows checkout (core.autocrlf=true) has CRLF endings,
+  // and readCode()'s per-line `--.*$` can't strip a comment that ends in "\r",
+  // so a comment that merely mentions send-push would read as a call to it.
+  return fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/\r\n/g, "\n");
 }
 
 /** SQL with `--` comments removed, for assertions about what the migration DOES

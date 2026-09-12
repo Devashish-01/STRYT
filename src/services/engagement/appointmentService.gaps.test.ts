@@ -1,6 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { appointmentService } from "./appointmentService";
 
+// These tests run as a guest (no signed-in user), so bookings stay in
+// localStorage. They used to reach that path only when a real .env let
+// getSupabase() build a client that then found no session — on a fresh checkout
+// or CI getSupabase() threw instead. Saying "nobody is signed in" directly keeps
+// them hermetic: no env, no client, no network.
+vi.mock("@/lib/supabaseClient", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/supabaseClient")>()),
+  currentUserId: async () => null,
+}));
+
 // Mock localStorage for Node test environment
 const store = new Map<string, string>();
 const localStorageMock = {

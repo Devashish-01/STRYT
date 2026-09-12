@@ -105,6 +105,11 @@ export function androidChannelExists(): boolean {
  */
 export function webVapidConfigured(): boolean {
   const env = readIfExists(".env");
+  // No .env at all means a fresh checkout or CI: the build env isn't on this
+  // machine, so there's nothing to probe. Fall back to the verifier's
+  // attestation in vitest.config.ts, the same way liveBackendConfigured() does
+  // for the Supabase half. A .env that exists but lacks the key still fails.
+  if (!env) return process.env.WEB_PUSH_VAPID_CONFIGURED === "true";
   // [ \t] rather than \s so the match cannot span a newline into the next line.
   const m = env.match(/^[ \t]*VITE_VAPID_PUBLIC_KEY[ \t]*=[ \t]*(.*)$/m);
   if (!m) return false;
