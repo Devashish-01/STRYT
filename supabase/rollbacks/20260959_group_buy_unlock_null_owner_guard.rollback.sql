@@ -1,4 +1,4 @@
--- Rollback for group_buy_unlock_null_owner_guard.sql
+-- Rollback for 20260959_group_buy_unlock_null_owner_guard.sql
 -- Restores sync_request_me_too() exactly as live before the fix: copied verbatim
 -- by script from supabase/snapshots/2026-09-13_after_w6.sql, not retyped.
 -- Re-opens the bug: an ownerless group buy reaching its target aborts "me too".

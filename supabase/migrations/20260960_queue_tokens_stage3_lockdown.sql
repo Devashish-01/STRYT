@@ -1,14 +1,5 @@
--- queue_tokens lockdown — stage 3 of 3.  DRAFT: NOT APPLIED.
---
--- ⚠ DO NOT APPLY until the stage 2 app update is live for your users:
---   the build where businessService.queue()/myQueues() use queue_waiting_line()
---   and BusinessDetail live-updates from queue_settings (see migration 20260957).
---   Older installs read other customers' tokens directly; once this runs they
---   show an empty line ("0 ahead") on the business page and in My Queues.
---
--- To apply: move this file into supabase/migrations/ with the next free number,
--- move queue_tokens_stage3_lockdown.rollback.sql into supabase/rollbacks/ under
--- the same name, and follow the rules in supabase/APPLY_LOG.md.
+-- queue_tokens lockdown — stage 3 of 3.
+-- Migration 20260960.
 --
 -- WHAT:
 --   1. Replace queue_tokens_select_all — USING ((true OR …)), i.e. readable by
@@ -22,7 +13,7 @@
 --      touch tokens; close_stale_queue_tokens() is SECURITY DEFINER, so the
 --      guests' opportunistic cleanup call keeps working.
 --
--- Checked against the 2026-09-11 snapshot: walk-in tokens carry the owner's
+-- Checked against the snapshot: walk-in tokens carry the owner's
 -- own id as customer_user_id, so they stay visible; insert-returning reads by
 -- customers stay visible through the first branch.
 

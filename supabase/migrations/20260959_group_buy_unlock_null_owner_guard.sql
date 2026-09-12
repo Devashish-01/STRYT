@@ -1,5 +1,5 @@
 -- sync_request_me_too(): don't let a group buy with no owner break "me too"
--- DRAFT: NOT APPLIED. Found while verifying W5/W6 (docs/database/HANDOFF.md).
+-- Migration 20260959. Found while verifying W5/W6 (docs/database/HANDOFF.md).
 --
 -- WHY: requests.requester_user_id is nullable. When a group buy reaches its
 -- target, the function inserts a GROUP_BUY_UNLOCKED notification for the owner
@@ -15,8 +15,7 @@
 --   2. `user_id <> req_owner` becomes `user_id is distinct from req_owner`.
 -- Counting, the ME_TOO notification, permissions and search_path are unchanged.
 --
--- TO APPLY: move into supabase/migrations/ with the next free number, move the
--- rollback into supabase/rollbacks/ under the same name, follow supabase/APPLY_LOG.md.
+-- Staged in supabase/pending/ and proven there first (APPLY_LOG row 19).
 
 CREATE OR REPLACE FUNCTION public.sync_request_me_too()
  RETURNS trigger

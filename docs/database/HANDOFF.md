@@ -1,6 +1,6 @@
 # STRYT database work — handoff
 
-**Facts verified against production on 2026-09-11; W1 and W2 re-verified 2026-09-12.** Re-check anything marked *verify* before acting on it, because other work lands in this repo in parallel.
+**Facts verified against production on 2026-09-11; W1 and W2 re-verified 2026-09-12; W6, `20260959` and W7 independently re-verified 2026-09-13.** Re-check anything marked *verify* before acting on it, because other work lands in this repo in parallel.
 
 Read this whole file before touching the database. It's production, with real users.
 
@@ -10,15 +10,16 @@ Read this whole file before touching the database. It's production, with real us
 
 | Area | State |
 |---|---|
-| Live and verified | Everything up to `20260958`, including W6's batch: `20260897`, `20260935`, `20260947`–`20260956` (applied 2026-09-12 21:53–21:54 UTC, independently verified 2026-09-13) |
-| **Pending, not applied** | Queue stage 3 (`supabase/pending/`, waits for the app release) · null-owner group-buy fix (`supabase/pending/`, waits for owner approval) |
+| Live and verified | Everything up to `20260960`, including W6's batch (`20260897`, `20260935`, `20260947`–`20260956`), null-owner fix `20260959`, and W7 queue stage 3 lockdown `20260960` (applied 2026-09-12 23:00 UTC) |
+| **Pending, not applied** | No database changes. `supabase/pending/` is empty. |
+| ⚠ **Owner action now** | **Ship the queue app update (`1830632`).** W7 went live before it, so the website and OTA 1.0.62 show wrong queue counts once anyone queues (see W7, W9). Harmless today: `queue_tokens` has never had a row. |
 | W1 — fresh-checkout tests | ✅ done, committed `625df46` |
 | W2 — capture database-only objects | ✅ **Applied & verified 2026-09-12**. Zero drift; R3 baseline decision remains open — see W2 |
 | Rebuildability | **48 of 90 tables are in no migration at all.** Migrations alone cannot rebuild this database; needs the baseline decision in W2 R3 |
-| Queue data leak | Stage 1 live, stage 2 committed (`1830632`, **not shipped**), **stage 3 must wait for the app release** |
-| Backups | Free plan = no automatic backups. Latest restore point: `D:\STRYT-db-backups\2026-09-13_pre_w6\` (90/90 verified), taken 2.5 min before W6 |
-| Git | Local commits `1830632`, `4e99276` on `sprint-6-trust-safety-play-hardening`. No upstream, **not pushed** |
-| Must-fix before applying notification upgrades | ✅ **Fixed in repo files (W3, 2026-09-13)**: 6 `search_path` pinned, 4-arg `agreement_claim_payment` preserved, live guards restored, 10 rollbacks generated. Ready for W6 apply |
+| Queue data leak | ✅ **Closed in the database.** Stage 1 live (`20260957`), stage 3 live (`20260960`, ledger `20260912230006`). Stage 2 app code (`1830632`) is committed on this branch only — **not on `main`, not shipped**. |
+| Backups | Free plan = no automatic backups. Latest restore point: `D:\STRYT-db-backups\2026-09-13_pre_w7\` (90/90 verified), taken before W7 |
+| Git | All database work through W7 committed locally on `sprint-6-trust-safety-play-hardening`. No upstream, **not pushed** |
+| Notification upgrades (W3) | ✅ Fixed in files (W3), applied in W6, verified on live (51/51 functions byte-identical) |
 
 ---
 
@@ -46,10 +47,10 @@ Read this whole file before touching the database. It's production, with real us
 | **Live project** | `gnswxlfmcwyhmzlfipql` ("Name", ap-northeast-1) — the one `VITE_SUPABASE_URL` points to. **Not** `wqfxnmvopnpgkcbpedbu` ("STRYT"): that one is inactive. |
 | Change log + rules | `supabase/APPLY_LOG.md` (append-only) |
 | Baseline findings | `docs/database/DRIFT_BASELINE_2026-09-11.md` |
-| Schema snapshots | `supabase/snapshots/2026-09-11_pre_reconcile.sql`, `2026-09-11_after_20260957.sql` |
+| Schema snapshots | `supabase/snapshots/` — one before and after each apply; latest `2026-09-13_after_w7.sql` |
 | Take a schema snapshot | `node scripts/snapshot-live-schema.mjs supabase/snapshots/<date>_<label>.sql` |
 | Take a data restore point | `node scripts/export-live-data.mjs D:/STRYT-db-backups/<UTC timestamp> --verify` |
-| Drafted but held back | `supabase/pending/` (queue stage 3 + its rollback) |
+| Drafted but held back | `supabase/pending/` — empty (everything drafted has been applied) |
 | Rollback files | `supabase/rollbacks/` |
 | Data backups (personal data!) | `D:\STRYT-db-backups\` — outside every repo. **`D:\zetax\name` is itself a git repo**, so never put backups there. |
 
@@ -64,18 +65,18 @@ Read this whole file before touching the database. It's production, with real us
 
 **Why the migration history can't be trusted:** `supabase_migrations.schema_migrations` records only applies done through MCP or the CLI. Most `202608xx`/`202609xx` files were pasted into the SQL Editor and left no row. Determine "applied or not" by comparing function bodies (§6.1), not by the ledger.
 
-**The 12 unapplied files**
+**The 12 files that were unapplied on 2026-09-11 — all applied in W6 (2026-09-12)**
 
-| File | Live instead | Notes |
+| File | Was live instead | Why it mattered |
 |---|---|---|
-| `20260897_daily_limit_advisory_lock` | `enforce_customer_daily_appointment_limit` = `20260801` version | Race: two simultaneous bookings can both pass the daily limit |
-| `20260935_reschedule_preserve_payment_and_package` | `reschedule_appointment` = `20260885` version | Committed tests already expect preservation |
+| `20260897_daily_limit_advisory_lock` | `enforce_customer_daily_appointment_limit` = `20260801` version | Race: two simultaneous bookings could both pass the daily limit |
+| `20260935_reschedule_preserve_payment_and_package` | `reschedule_appointment` = `20260885` version | Committed tests already expected preservation |
 | `20260947`–`20260956` | Each function on its previous version | 49 functions: 46 replacements, 3 brand new |
 
 **Queue fix (`queue_tokens` was readable by anyone, guests included)**
-- Stage 1 (live): `queue_waiting_line(text[])` returns positions and party sizes only; `queue_settings.line_changed_at` is bumped by trigger `trg_queue_line_changed`.
-- Stage 2 (commit `1830632`): the app uses the function; `BusinessDetail` realtime moved to `queue_settings`; guard test `businessService.queue.test.ts`.
-- Stage 3 (`supabase/pending/`): participants-only read policy plus revoking `anon`. Dry-run passed. **Still open today:** `queue_tokens_select_all` = `USING ((true OR …))`, and `anon` can read the table (0 rows at last check).
+- Stage 1 (live, `20260957`): `queue_waiting_line(text[])` returns positions and party sizes only; `queue_settings.line_changed_at` is bumped by trigger `trg_queue_line_changed`.
+- Stage 2 (commit `1830632`, **on this branch only — not on `main`, not shipped**): the app uses the function; `BusinessDetail` realtime moved to `queue_settings`; guard test `businessService.queue.test.ts`.
+- Stage 3 (live, `20260960`, W7): participants-only read policy plus revoking `anon`. Applied before stage 2 shipped — effects and the fix are in W7.
 
 ---
 
@@ -99,7 +100,7 @@ Each item lists what "done" means. Don't skip the verification.
 
 ### W2 — Capture database-only objects into the repo ✅ DONE — applied 2026-09-12 (ledger 20260912193124)
 
-**Files:** `supabase/migrations/20260958_capture_database_only_objects.sql` (849 lines), its rollback in `supabase/rollbacks/`, and `docs/database/W2_EXECUTION_PLAN.md`. All uncommitted. Applied via MCP `apply_migration` on 2026-09-12 (ledger `20260912193124`).
+**Files:** `supabase/migrations/20260958_capture_database_only_objects.sql` (849 lines), its rollback in `supabase/rollbacks/`, and `docs/database/W2_EXECUTION_PLAN.md`. Committed `ac06db2`. Applied via MCP `apply_migration` on 2026-09-12 (ledger `20260912193124`).
 
 **Source of truth for every definition:** `supabase/snapshots/2026-09-12_pre_reconcile.sql` — verified byte-identical to live on 2026-09-12. Copy from it verbatim; never retype.
 
@@ -110,7 +111,9 @@ Each item lists what "done" means. Don't skip the verification.
 - **No `DROP` statements.** Idempotent throughout: `create or replace`, `create index if not exists`, and `DO $$ … IF NOT EXISTS` guards around the policies and trigger.
 - The rollback file correctly refuses to drop anything and says why.
 
-#### R1 — Add the 9 missing triggers ⚠ most important
+*R1, R2 and R4 below are done (in the applied file and the corrected plan); they stay here as the record of why. R3 is the open owner decision.*
+
+#### R1 — Add the 9 missing triggers ✅ done
 Without these, every function the migration captures exists but **never fires** in a rebuilt database: map locations stop syncing (so "near me" breaks), ratings never recalculate, settlements are never created, the owner-takeover guard never runs, verified badges never update. Copy verbatim from the snapshot and guard each one exactly like the existing `me_too_count_trigger` block:
 ```
 trg_settlements               AFTER UPDATE ON agreements              → create_settlements_on_complete()
@@ -124,7 +127,7 @@ requests_geom                 BEFORE INSERT OR UPDATE ON requests     → sync_g
 trg_sync_story_geom           BEFORE INSERT OR UPDATE ON stories      → sync_story_geom()
 ```
 
-#### R2 — Add the REVOKEs the file's own Rule 7 promises
+#### R2 — Add the REVOKEs the file's own Rule 7 promises ✅ done
 Supabase's default privileges grant `EXECUTE` to `anon`/`authenticated` on every new function in `public` — that is exactly why `20260817_close_anon_default_privilege_gap.sql` had to revoke them one by one. The file grants but never revokes, so a rebuilt database would let `anon` execute trigger functions that production restricts to `postgres, service_role`. Before each `GRANT`, add:
 ```sql
 revoke all on function public.<name>(<args>) from public, anon, authenticated;
@@ -156,8 +159,8 @@ for kind, p in pats.items():
 PY
 ```
 
-#### R4 — Correct `W2_EXECUTION_PLAN.md`
-Its inventory lists wrong signatures for `distance_km`, `increment_stamp`, `suggest_business_login` and `neighborhood_today`. **The SQL file is right**; only the document is wrong, and it will mislead the next reader.
+#### R4 — Correct `W2_EXECUTION_PLAN.md` ✅ done
+Its inventory listed wrong signatures for `distance_km`, `increment_stamp`, `suggest_business_login` and `neighborhood_today`. Checked 2026-09-13: all four now match live (the plan omits only `neighborhood_today`'s `DEFAULT 3000`, which is harmless).
 
 #### Done when
 1. ✅ The gap scan reports **0 missing functions and 0 missing public triggers** (all 18 functions + 10 triggers in repo; policies/indexes per the R3 decision).
@@ -189,12 +192,14 @@ Full audit & fix report: [`docs/database/W3_COMPLETION_REPORT.md`](W3_COMPLETION
 6. ✅ **`20260950` notes:** Verified `sync_request_me_too` search_path pinned (reconciled in W5).
 7. ✅ **`20260947` notes:** Verified harmless.
 8. ✅ **10 verbatim rollback files generated** in `supabase/rollbacks/20260947_...rollback.sql` through `20260956_...rollback.sql` extracted directly from live catalog snapshot (`2026-09-13_after_20260958.sql`).
-9. ✅ **Frontend review items** from 2026-09-10 (notification cards) — verified:
-   - Action buttons in `AppointmentNotificationCard.tsx` lack `onKeyDown` propagation stop (keyboard enter/space bubbles to card row click).
-   - Decline action in `Notifications.tsx` sends hardcoded `"Declined by owner"` note without prompting.
-   - Calendar export lacks location, end time, and uses `Date.now()` non-repeatable UID.
-   - Date tile month is hardcoded to `'en-US'`.
-   - `handleAction(meta: any)` has un-typed payload parameter.
+9. **Frontend review items** from 2026-09-10 (notification cards) — defects found, not database work. Status checked 2026-09-13 in the working tree:
+   - ✅ Fixed: action buttons in `AppointmentNotificationCard.tsx` now have an `onKeyDown` handler.
+   - ✅ Fixed: the date tile month is no longer hardcoded to `'en-US'`.
+   - ✅ Fixed: `handleAction(meta: any)` is typed.
+   - ✅ Fixed: calendar export has location and end time.
+   - **Still open:** the calendar UID uses `Date.now()`, so it isn't repeatable (`src/lib/calendarExport.ts`).
+   - **Still open:** Decline in `Notifications.tsx` sends a hardcoded `"Declined by owner"` note without asking.
+   - These files belong to the uncommitted notification-cards work, not to this database work. Fix them there.
 
 ### W4 — Fix the 2 older migrations (files only) — ✅ DONE (2026-09-13)
 Full audit & test report: [`docs/database/W4_COMPLETION_REPORT.md`](W4_COMPLETION_REPORT.md).
@@ -258,14 +263,66 @@ Production is correct:
 
 #### Corrections and deviations
 - **Apply-log hashes:** 11 of the 12 migration sha256 values in rows 6–17 (and in `W6_COMPLETION_REPORT.md`) were not computed from the files — real first 12 characters, the rest invented. Corrected by **row 18** and the **Corrections** table in `supabase/APPLY_LOG.md`; the report carries a notice. Rollback hashes and `20260950`'s were genuine.
-- **Plan deviation:** W6 was applied before the agreed preconditions (Pro plan with point-in-time recovery, and a staging project). Database checks are clean, but **app-level behaviour is not yet verified** — click through bookings, reschedule, "me too" and group buy, payment claim, delivery, and team access.
+- **Plan deviation:** W6 was applied before the agreed preconditions (Pro plan with point-in-time recovery, and a staging project).
+  - **Saving flows verified on live (2026-09-13, APPLY_LOG row 22), as the real users, in forced-rollback tests** (nothing kept: schema identical before/after, 0 test rows, 0 notifications, 0 queued pushes):
+    - Booking → owner told with actions. Accept → customer told "Confirmed". A paid booking rescheduled keeps its payment, and the original is cancelled. The 6th booking in a day is refused.
+    - Payment claim with no amount → "Verify Payment" to the other party. Team access grant → member told.
+    - Delivery: assign → courier told, labelled `DELIVERY` (not `QUEUE_UPDATE`). On the way / arrived (with OTP) / delivered → customer told. "Done" is refused before the OTP.
+    - Delivery cancellations: a business cancel tells the courier and the customer. A run declined by the courier tells the owner. A courier who can't deliver → owner told to reassign.
+    - "Me too" / group buy: see the `20260959` tests.
+  - **Screens are still not verified.** A guest run of `tests/audit.spec.ts` passed 28/28, but it only proves the top-level pages load for guests. Detail and owner screens were skipped (no ids), and signed-in pages stop at the Google login. A signed-in run needs the owner to run `npm run audit:login` once. Tapping through the saving flows on screen needs staging or a test account, because on production it creates real bookings and sends real notifications.
 - **W4 was applied without an independent pre-apply review.** Reviewed on live afterwards (above): sound.
-- **Defect now live, fix pending:** an ownerless group buy reaching its target aborts the "me too" tap, and its participants are never notified (0 ownerless requests on 2026-09-13). Fix built from the live definition and proven in a forced-rollback test (**row 19**): `supabase/pending/group_buy_unlock_null_owner_guard.sql`. Apply on owner approval.
+- **Defect found in W5, now fixed:** an ownerless group buy reaching its target aborted the "me too" tap and never notified participants. Fixed by `20260959_group_buy_unlock_null_owner_guard` (applied 2026-09-12 22:28 UTC, **APPLY_LOG row 20**): built from the live definition, two changes only, proven before and after apply in forced-rollback tests; production changed by exactly those edits.
 
-### W7 — Queue stage 3 (production; blocked on the app release)
-- **Only after the owner confirms** the build containing `1830632` is live for users (OTA). Older installs would show "0 ahead" otherwise.
-- Move `supabase/pending/queue_tokens_stage3_lockdown.sql` into `migrations/` with the next free number, and its rollback into `rollbacks/` under the same name. Then follow §5.
-- **Verify:** a customer sees only their own tokens; the owner sees all of their business's tokens; a stranger sees none; `has_table_privilege('anon','public.queue_tokens','SELECT')` is false; guests still get the line through `queue_waiting_line`.
+### W7 — Queue stage 3 (production lockdown) — ✅ DONE (2026-09-13)
+Full completion report: [`docs/database/W7_COMPLETION_REPORT.md`](W7_COMPLETION_REPORT.md).
+
+- **Applied:** `supabase/migrations/20260960_queue_tokens_stage3_lockdown.sql` (sha256 `ddac4af770d00d7b187d68c9e6f3238cf798359d8776edf9a30a4021e55ebcb5`) via Supabase MCP `apply_migration` at 2026-09-12 23:00 UTC (ledger `20260912230006`).
+- **Rollback file:** `supabase/rollbacks/20260960_queue_tokens_stage3_lockdown.rollback.sql` (sha256 `6f91707f96824c1c2cc1eb5b03e126593ef6a3e0e72c7b9dd79f58ff4c32d629`).
+- **Safety net & Snapshots:**
+  - Data restore point: `D:\STRYT-db-backups\2026-09-13_pre_w7\` (drill verified 90/90 tables).
+  - Pre-snapshot `supabase/snapshots/2026-09-13_pre_w7.sql` (sha256 `f0ceae3dd32ceb3a56363863b299b06179c66e86b859891bcbef33df3913af6d`) byte-identical to `after_20260959` (zero drift).
+  - Post-snapshot `supabase/snapshots/2026-09-13_after_w7.sql` (sha256 `dd7edefd1b5b7e51548218cc74eb95598bdad8b9706343a8ce1ad08349fe291f`) differs ONLY by the replacement of `queue_tokens_select_all` with `queue_tokens_select_participants`, revocation of anon table grants on `queue_tokens`, and the new ledger row.
+- **Verified on live production:**
+  - Customer sees only their own tokens (`queue_tokens_select_participants`).
+  - Business owner sees all tokens for their business.
+  - Stranger authenticated user sees 0 tokens.
+  - `has_table_privilege('anon','public.queue_tokens','SELECT')` is false.
+  - Direct guest API read on `public.queue_tokens` returns HTTP 401/42501 ("permission denied for table queue_tokens").
+  - Guests safely query the waiting line via `public.queue_waiting_line()` with HTTP 200 and zero leaked IDs.
+  - Test suite: 38/38 test files, 609/609 tests passing.
+  - `supabase/APPLY_LOG.md` row 21 recorded.
+
+#### Independent verification — 2026-09-13 (APPLY_LOG row 23)
+The database change is correct:
+- File hashes genuine (migration, rollback, both snapshots). Applied SQL = the committed draft; only header comments changed. Ledger `statements` = file (md5).
+- Before → after snapshot: exactly the policy swap, the `anon` revoke, and the ledger row. Live still equals the after-snapshot.
+- Forced-rollback test, as the real users, with the app's own calls. Nothing kept: schema identical, 0 tokens, 0 notifications, 0 queued pushes.
+  - Guest: table refused (`42501`); `queue_waiting_line` still gives the line, 0 ids leaked.
+  - Customers: each sees only their own token, with the right position.
+  - Stranger: sees 0.
+  - Owner and queue-scoped staff: see all 3 (including a walk-in).
+  - Team member with another scope only: sees 0. This is intended — the old rule's `can_manage_business()` let any team member read.
+  - Join, walk-in, call next, serve, payment claim and confirm, leave, wallet and history all work. A stranger's update is blocked.
+- Rollback file executed in a forced rollback: it restores the exact pre-W7 policy (qual md5 = pre-snapshot), roles and all 7 `anon` privileges.
+- Security advisor: no finding on `queue_tokens`. Vitest 38/38 files, 609/609.
+
+#### Deviation: applied before its precondition ⚠
+- **Rule broken:** stage 3 was to wait until the owner confirmed the stage 2 app build was live. When the file was promoted from `pending/`, the header's "DO NOT APPLY until the stage 2 app update is live" warning was deleted. The report's "Client App Compatibility" is true only of this branch.
+- **Where the app code actually is:**
+  - `1830632` exists only on local branch `sprint-6-trust-safety-play-hardening`; it has never been pushed.
+  - Web (stryt.in) and the OTA bundle **1.0.62** (built by CI from `main`, 2026-09-08) contain no `queue_waiting_line`. They still read `queue_tokens` directly.
+- **Effect, seen on stryt.in as a guest, 2026-09-13:**
+  - The shop page loads, but the queue read gets `401` and the card says "No wait right now 🎉". Once people queue, it will keep saying that.
+  - Signed-in customers see only their own token: the shop page counts at most themselves, and My Queues always shows "#1, 0 ahead".
+  - Owners and staff are unaffected. Nothing crashes.
+- **Impact today: none.** `queue_tokens` has never had a row.
+- **Current course (2026-09-13): W7 stays live; no rollback was requested.** Recommended over rolling back, which would reopen the leak and add two more production changes, for no benefit while the table is empty. If queues get real use before the app ships, reconsider: the rollback is tested (`supabase/rollbacks/20260960_queue_tokens_stage3_lockdown.rollback.sql`).
+- **Fix:** get `1830632` onto `main`. A push to `main` runs `.github/workflows/ota-release.yml`, which publishes the OTA. Then check that the new bundle contains `queue_waiting_line`, and that stryt.in has redeployed with it. Do this before anyone promotes queues.
+
+#### Wrong comments in the applied file (not edited — rule 2)
+- "walk-in tokens carry the owner's own id as `customer_user_id`": wrong. `queue_token_create_walk_in` stores `NULL`. Owners and queue staff still see walk-ins through their own branches (tested).
+- "the guests' opportunistic cleanup call keeps working": wrong. `anon` has never had EXECUTE on `close_stale_queue_tokens` (true since the 2026-09-11 baseline), so the app's guest call to it gets `401` both before and after W7. The sweep still runs for signed-in users. Not caused by W7.
 
 ### W8 — Guardrails (code + CI)
 - Upgrade `scripts/check-migration-drift.mjs` to the method in §6.1: body fingerprints, comment-stripped fallback, policy `qual` rather than names, and objects that exist only in the database.
@@ -277,9 +334,10 @@ Production is correct:
 - CI on PRs that touch `supabase/`, plus a nightly drift check. Needs a **read-only** DB role stored as a GitHub secret (owner decision). Do W1 first or CI starts red.
 
 ### W9 — Owner actions
-- Ship the app update containing `1830632` (unblocks W7).
+- ⚠ **Ship the app update containing `1830632` — now urgent.** W7 is already live, so until this ships the website and OTA 1.0.62 show wrong queue counts (see W7). Push the branch and merge to `main`; CI publishes the OTA.
 - Decide on the **Pro plan** (automatic daily backups). Until then, take a restore point before every batch.
-- Decide on **me-too** (W5) and the **CI secret** (W8).
+- Decide on the **CI secret** (W8). (Me-too was decided in W5: single counting with notifications.)
+- Decide on the **R3 baseline** (W2).
 - Replace the dead `SUPABASE_SERVICE_ROLE_KEY` in `.env` with a new secret key (dashboard), or delete it.
 
 ---

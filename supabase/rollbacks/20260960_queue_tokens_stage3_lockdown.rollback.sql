@@ -1,4 +1,4 @@
--- Rollback for queue_tokens_stage3_lockdown.sql
+-- Rollback for 20260960_queue_tokens_stage3_lockdown.sql
 --
 -- Restores queue_tokens exactly as it was before stage 3. Both statements below
 -- are copied VERBATIM by script from supabase/snapshots/2026-09-11_pre_reconcile.sql
