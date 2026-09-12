@@ -19,6 +19,7 @@ Never edit or delete a past row; correct it with a new row.
 - **Change freeze since 2026-09-11.** No production changes outside this process until the repo and database are reconciled.
 - **Data backups: the organisation is on the Supabase Free plan, which has no restorable backups** (API: point-in-time recovery off, 0 completed backups). Upgrading to Pro turns on automatic daily backups; until then, take a manual restore point before every risky change: `node scripts/export-live-data.mjs D:/STRYT-db-backups/<UTC timestamp> --verify` (row 4). The output holds personal data, so it must live outside every git repo (the script refuses otherwise). Snapshots in `supabase/snapshots/` cover the schema only.
 - Baseline findings: [`docs/database/DRIFT_BASELINE_2026-09-11.md`](../docs/database/DRIFT_BASELINE_2026-09-11.md).
+- **Remaining work, rules and traps for whoever continues:** [`docs/database/HANDOFF.md`](../docs/database/HANDOFF.md).
 
 ## Pending — do not apply yet
 
