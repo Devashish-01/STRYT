@@ -7,7 +7,9 @@ import type { NotificationMetadata, NotificationType } from "@/types";
 const ROOT = path.resolve(__dirname, "..", "..");
 
 function read(rel: string): string {
-  return fs.readFileSync(path.join(ROOT, rel), "utf8");
+  // Normalised to LF: a Windows checkout (core.autocrlf=true) has CRLF endings,
+  // which the multi-line toContain() expectations below would never match.
+  return fs.readFileSync(path.join(ROOT, rel), "utf8").replace(/\r\n/g, "\n");
 }
 
 describe("Group 6: Custom Payments & In-Person Transaction Notifications", () => {
