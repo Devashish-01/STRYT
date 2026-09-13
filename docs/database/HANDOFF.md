@@ -12,13 +12,13 @@ Read this whole file before touching the database. It's production, with real us
 |---|---|
 | Live and verified | Everything up to `20260960`, including W6's batch (`20260897`, `20260935`, `20260947`–`20260956`), null-owner fix `20260959`, and W7 queue stage 3 lockdown `20260960` (applied 2026-09-12 23:00 UTC) |
 | **Pending, not applied** | No database changes. `supabase/pending/` is empty. |
-| ⚠ **Owner action now** | **Ship the queue app update (`1830632`).** W7 went live before it, so the website and OTA 1.0.62 show wrong queue counts once anyone queues (see W7, W9). Harmless today: `queue_tokens` has never had a row. |
+| Queue app update | ✅ **Shipped 2026-09-13.** OTA **1.0.63** and stryt.in both use `queue_waiting_line`, verified in the published bundle and on the live site. W7's precondition is now met. It was never harmful: `queue_tokens` had no rows. |
 | W1 — fresh-checkout tests | ✅ done, committed `625df46` |
 | W2 — capture database-only objects | ✅ **Applied & verified 2026-09-12**. Zero drift; R3 baseline decision remains open — see W2 |
 | Rebuildability | **48 of 90 tables are in no migration at all.** Migrations alone cannot rebuild this database; needs the baseline decision in W2 R3 |
-| Queue data leak | ✅ **Closed in the database.** Stage 1 live (`20260957`), stage 3 live (`20260960`, ledger `20260912230006`). Stage 2 app code (`1830632`) is committed on this branch only — **not on `main`, not shipped**. |
+| Queue data leak | ✅ **Closed.** Stage 1 live (`20260957`), stage 2 app shipped (`1830632`, OTA 1.0.63 + web), stage 3 live (`20260960`, ledger `20260912230006`). |
 | Backups | Free plan = no automatic backups. Latest restore point: `D:\STRYT-db-backups\2026-09-13_pre_w7\` (90/90 verified), taken before W7 |
-| Git | All database work through W7 committed locally on `sprint-6-trust-safety-play-hardening`. No upstream, **not pushed** |
+| Git | 2026-09-13, on the owner's request: `sprint-6-trust-safety-play-hardening` merged into `main` and pushed (`0ea660e`) → OTA 1.0.63, Android APK/AAB build, web deploy. The branch is also on `origin`. |
 | Notification upgrades (W3) | ✅ Fixed in files (W3), applied in W6, verified on live (51/51 functions byte-identical) |
 
 ---
@@ -75,7 +75,7 @@ Read this whole file before touching the database. It's production, with real us
 
 **Queue fix (`queue_tokens` was readable by anyone, guests included)**
 - Stage 1 (live, `20260957`): `queue_waiting_line(text[])` returns positions and party sizes only; `queue_settings.line_changed_at` is bumped by trigger `trg_queue_line_changed`.
-- Stage 2 (commit `1830632`, **on this branch only — not on `main`, not shipped**): the app uses the function; `BusinessDetail` realtime moved to `queue_settings`; guard test `businessService.queue.test.ts`.
+- Stage 2 (commit `1830632`, shipped 2026-09-13 in OTA 1.0.63 and on stryt.in): the app uses the function; `BusinessDetail` realtime moved to `queue_settings`; guard test `businessService.queue.test.ts`.
 - Stage 3 (live, `20260960`, W7): participants-only read policy plus revoking `anon`. Applied before stage 2 shipped — effects and the fix are in W7.
 
 ---
@@ -197,9 +197,9 @@ Full audit & fix report: [`docs/database/W3_COMPLETION_REPORT.md`](W3_COMPLETION
    - ✅ Fixed: the date tile month is no longer hardcoded to `'en-US'`.
    - ✅ Fixed: `handleAction(meta: any)` is typed.
    - ✅ Fixed: calendar export has location and end time.
-   - **Still open:** the calendar UID uses `Date.now()`, so it isn't repeatable (`src/lib/calendarExport.ts`).
-   - **Still open:** Decline in `Notifications.tsx` sends a hardcoded `"Declined by owner"` note without asking.
-   - These files belong to the uncommitted notification-cards work, not to this database work. Fix them there.
+   - ✅ Fixed 2026-09-13 (`dabd033`): the calendar UID is stable — the appointment id, or a hash of title and start.
+   - ✅ Fixed 2026-09-13 (`dabd033`): Decline asks for an optional reason. A blank reason gets the server's "Try another slot." wording.
+   - Shipped with the notification cards in OTA 1.0.63.
 
 ### W4 — Fix the 2 older migrations (files only) — ✅ DONE (2026-09-13)
 Full audit & test report: [`docs/database/W4_COMPLETION_REPORT.md`](W4_COMPLETION_REPORT.md).
@@ -317,8 +317,12 @@ The database change is correct:
   - Signed-in customers see only their own token: the shop page counts at most themselves, and My Queues always shows "#1, 0 ahead".
   - Owners and staff are unaffected. Nothing crashes.
 - **Impact today: none.** `queue_tokens` has never had a row.
-- **Current course (2026-09-13): W7 stays live; no rollback was requested.** Recommended over rolling back, which would reopen the leak and add two more production changes, for no benefit while the table is empty. If queues get real use before the app ships, reconsider: the rollback is tested (`supabase/rollbacks/20260960_queue_tokens_stage3_lockdown.rollback.sql`).
-- **Fix:** get `1830632` onto `main`. A push to `main` runs `.github/workflows/ota-release.yml`, which publishes the OTA. Then check that the new bundle contains `queue_waiting_line`, and that stryt.in has redeployed with it. Do this before anyone promotes queues.
+- **W7 stayed live; no rollback was requested.** The rollback is tested and kept for emergencies only (`supabase/rollbacks/20260960_queue_tokens_stage3_lockdown.rollback.sql`); it reopens the leak.
+- **Fixed 2026-09-13:** the branch was merged into `main` and pushed (`0ea660e`). Verified afterwards:
+  - OTA **1.0.63** is published (checksum matches the manifest). Its bundle contains `queue_waiting_line` and no direct guest `queue_tokens` read.
+  - stryt.in redeployed with the same code.
+  - Guest visits to both open-queue shop pages no longer get the `queue_tokens` `401`.
+  - Installed apps pick the bundle up through the OTA updater. Any install that never updates keeps the old counting.
 
 #### Wrong comments in the applied file (not edited — rule 2)
 - "walk-in tokens carry the owner's own id as `customer_user_id`": wrong. `queue_token_create_walk_in` stores `NULL`. Owners and queue staff still see walk-ins through their own branches (tested).
@@ -334,7 +338,8 @@ The database change is correct:
 - CI on PRs that touch `supabase/`, plus a nightly drift check. Needs a **read-only** DB role stored as a GitHub secret (owner decision). Do W1 first or CI starts red.
 
 ### W9 — Owner actions
-- ⚠ **Ship the app update containing `1830632` — now urgent.** W7 is already live, so until this ships the website and OTA 1.0.62 show wrong queue counts (see W7). Push the branch and merge to `main`; CI publishes the OTA.
+- ✅ ~~Ship the app update containing `1830632`~~ — shipped 2026-09-13 (OTA 1.0.63 + web; see W7).
+- **Upload the new AAB to Play Console** if the store build should carry it too. CI built it from `0ea660e` as a workflow artifact.
 - Decide on the **Pro plan** (automatic daily backups). Until then, take a restore point before every batch.
 - Decide on the **CI secret** (W8). (Me-too was decided in W5: single counting with notifications.)
 - Decide on the **R3 baseline** (W2).
