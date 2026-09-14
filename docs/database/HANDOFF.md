@@ -334,20 +334,49 @@ The database change is correct:
 - "walk-in tokens carry the owner's own id as `customer_user_id`": wrong. `queue_token_create_walk_in` stores `NULL`. Owners and queue staff still see walk-ins through their own branches (tested).
 - "the guests' opportunistic cleanup call keeps working": wrong. `anon` has never had EXECUTE on `close_stale_queue_tokens` (true since the 2026-09-11 baseline), so the app's guest call to it gets `401` both before and after W7. The sweep still runs for signed-in users. Not caused by W7.
 
-### W8 — Guardrails (code + CI)
-- Upgrade `scripts/check-migration-drift.mjs` to the method in §6.1: body fingerprints, comment-stripped fallback, policy `qual` rather than names, and objects that exist only in the database.
-- Add a migration lint that fails on:
-  - `SECURITY DEFINER` without `search_path`
-  - a missing `REVOKE … FROM public, anon`
-  - `USING (true)` on tables with personal data
-  - edits to already-applied files
-- CI on PRs that touch `supabase/`, plus a nightly drift check. Needs a **read-only** DB role stored as a GitHub secret (owner decision). Do W1 first or CI starts red.
+### W8 — Guardrails (code + CI) — ✅ VERIFIED & HARDENED in P03 (2026-09-14)
+
+- **Migration Linter** (`scripts/lint-migrations.mjs`):
+  - Rule 1: `SECURITY DEFINER` must pin `search_path = public`. Strict across all functions.
+  - Rule 2: Explicit `REVOKE ALL ON FUNCTION ... FROM public, anon` for non-whitelisted functions.
+    - Whitelist: `can_manage_business`, `has_business_scope`, `queue_waiting_line`, `distance_km`, `st_dwithin_meters`.
+  - Rule 3: Bans `USING (true)` / `USING ((true OR …))` on PII tables (`queue_tokens`, `users`, `appointments`, `agreements`, `delivery_batches`, `proposals`, `user_blocks`, `custom_payment_vouchers`, `business_packages`).
+  - Rule 4: Applied migrations are immutable — SHA-256 check against `supabase/APPLY_LOG.md`.
+    - **P03 Defect Fix:** Fixed critical bug in `getAppliedMigrationsFromLog()` where rows with missing hashes wiped genuine hashes for applied migrations `20260950` and `20260960`.
+    - **P03 Tamper Proof:** Deliberately modified an applied migration; linter immediately caught change with exit code 1 (`RULE_4_APPLIED_MIGRATION_MODIFIED`).
+  - CLI: `--all` (full audit), `--staged` (git-staged only), `--file <path>` (single file).
+  - **Package script:** `npm run lint:migrations`
+- **Drift Checker** (`scripts/check-migration-drift.mjs`):
+  - §6.1 body fingerprinting with normalized MD5 (whitespace-collapsed).
+  - §6.1 comment-stripped fallback (isolates comment-only drift from real logic drift).
+  - **Overload-aware signature matching:** functions keyed by `name(normalized_arg_types)` using `pg_get_function_identity_arguments`. Correctly handles `is_admin()` vs `is_admin(text)`, `bulk_deal_token_redeem(text)` vs `bulk_deal_token_redeem(text, text)`. Verified zero false positives.
+  - **PostGIS Filter:** All catalog loaders exclude extension objects via `pg_depend.deptype = 'e'`. None of the ~740 PostGIS functions in `public` trigger false positives.
+  - **P03 Planted Drift Proof:** Modified logic of `accept_proposal(text)`; checker detected drift and exited with code 1.
+  - Multi-transport: Management API (`SUPABASE_PERSONAL_ACCESS_TOKEN`), `DATABASE_URL` (direct pg via `ci_readonly`), `--snapshot` (offline).
+  - Database-only object detection: catalogs unmanaged functions (`_enforce_business_owner_limit()`, `is_admin()`).
+  - **Package script:** `npm run check-drift`
+- **Test Suite** (`tests/lint-migrations.test.ts`): 16 tests covering all 4 rules with must-fail and must-pass fixtures (Vitest).
+- **Least-Privilege CI Role (`ci_readonly`):**
+  - Migration `20260961_ci_readonly_role.sql` created following §5 procedure.
+  - Grants connect on `postgres`, usage on `supabase_migrations`, and select on `supabase_migrations.schema_migrations`.
+  - Catalog reads (`pg_proc`, `pg_policies`, `pg_trigger`) need no grants.
+  - **Proven incapable of reading personal data:** Forced-rollback test verified reading `public.users` throws PostgreSQL error `42501 (insufficient_privilege)`.
+- **CI Workflow** (`.github/workflows/db-guardrails.yml`):
+  - PR trigger on `supabase/**` paths → runs `lint:migrations --all` + lint tests (completely secret-free).
+  - Nightly cron (02:00 UTC) → runs drift check using least-privilege `DATABASE_URL: ${{ secrets.DRIFT_DATABASE_URL }}` (direct pg).
+  - Manual `workflow_dispatch` runs both jobs.
+  - **Zero personal access token required:** `SUPABASE_PERSONAL_ACCESS_TOKEN` completely removed from CI.
 
 ### W9 — Owner actions
 - ✅ ~~Ship the app update containing `1830632`~~ — shipped 2026-09-13 (OTA 1.0.63 + web; see W7).
 - **Upload the new AAB to Play Console** if the store build should carry it too. CI built it from `0ea660e` as a workflow artifact.
 - Decide on the **Pro plan** (automatic daily backups). Until then, take a restore point before every batch.
-- Decide on the **CI secret** (W8). (Me-too was decided in W5: single counting with notifications.)
+- **Set password on `ci_readonly` & provision CI secret** (W8 / P03):
+  1. In Supabase Dashboard → Database → Roles (or once in SQL editor):
+     `alter role ci_readonly with login password '<strong-generated-password>';`
+  2. In GitHub repository Settings → Secrets and variables → Actions:
+     Add repository secret `DRIFT_DATABASE_URL` using the session pooler URL:
+     `postgres://ci_readonly.gnswxlfmcwyhmzlfipql:<password>@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres`
 - Decide on the **R3 baseline** (W2).
 - Replace the dead `SUPABASE_SERVICE_ROLE_KEY` in `.env` with a new secret key (dashboard), or delete it.
 
