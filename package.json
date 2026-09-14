@@ -10,6 +10,8 @@
     "test": "vitest run",
     "lint": "node scripts/check-hardcoded-colors.js && node scripts/check-undefined-tokens.js && tsc --noEmit",
     "lint:eslint": "eslint .",
+    "verify": "npm run lint && eslint . --max-warnings 30 && vitest run && npm run build",
+    "verify:ci:test": "npm run lint && eslint . --max-warnings 30 && vitest run",
     "check-colors": "node scripts/check-hardcoded-colors.js",
     "check-tokens": "node scripts/check-undefined-tokens.js",
     "check-migrations": "node scripts/check-migration-drift.mjs",

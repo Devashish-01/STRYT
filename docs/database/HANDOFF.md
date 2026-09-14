@@ -361,7 +361,7 @@ The database change is correct:
 4. Rollback file, verbatim from the catalog/snapshot.
 5. Forced-rollback test of the behaviour (§6.2), then confirm it left no trace.
 6. Apply with `apply_migration`, **name = the file name without `.sql`**.
-7. Verify (§6.3).
+7. Verify (§6.3) and run `npm run verify` locally (ensures tests, types, lint, and build pass).
 8. Snapshot after; the diff must show only the intended objects.
 9. Add an `APPLY_LOG.md` row: time, file, sha256, method, verification, rollback.
 10. Commit only if the owner asks; never push.
