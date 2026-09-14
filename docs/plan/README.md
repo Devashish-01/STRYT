@@ -64,7 +64,7 @@ Run them **in order**. A phase starts only when the previous one is **Done** (ch
 | [P00](phases/P00_owner_decisions.md) | Owner decisions | Owner (agent prepares) | 1 | ✅ Done |
 | [P01](phases/P01_safety_net_and_repo_hygiene.md) | Safety net & repository hygiene | Agent + owner approvals | 1–2 | ✅ Done |
 | [P02](phases/P02_release_gate_ci.md) | Release gate in CI | Agent + owner (GitHub settings) | 1 | ✅ Done |
-| [P03](phases/P03_verify_db_guardrails.md) | Verify and finish the DB guardrails (W8) | Agent | 1–2 | ⬜ Not started |
+| [P03](phases/P03_verify_db_guardrails.md) | Verify and finish the DB guardrails (W8) | Agent | 1–2 | 🔵 In progress |
 | [P04](phases/P04_database_hardening.md) | Database hardening | Agent | 2 | ⬜ Not started |
 | [P05](phases/P05_authorization_audit.md) | Authorization, storage, edge function & auth-config audit | Agent | 3–4 | ⬜ Not started |
 | [P06](phases/P06_baseline_and_staging.md) | Rebuildable schema baseline & staging environment | Agent + owner | 2–3 | ⬜ Not started |
