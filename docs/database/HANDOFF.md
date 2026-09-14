@@ -334,20 +334,39 @@ The database change is correct:
 - "walk-in tokens carry the owner's own id as `customer_user_id`": wrong. `queue_token_create_walk_in` stores `NULL`. Owners and queue staff still see walk-ins through their own branches (tested).
 - "the guests' opportunistic cleanup call keeps working": wrong. `anon` has never had EXECUTE on `close_stale_queue_tokens` (true since the 2026-09-11 baseline), so the app's guest call to it gets `401` both before and after W7. The sweep still runs for signed-in users. Not caused by W7.
 
-### W8 — Guardrails (code + CI)
-- Upgrade `scripts/check-migration-drift.mjs` to the method in §6.1: body fingerprints, comment-stripped fallback, policy `qual` rather than names, and objects that exist only in the database.
-- Add a migration lint that fails on:
-  - `SECURITY DEFINER` without `search_path`
-  - a missing `REVOKE … FROM public, anon`
-  - `USING (true)` on tables with personal data
-  - edits to already-applied files
-- CI on PRs that touch `supabase/`, plus a nightly drift check. Needs a **read-only** DB role stored as a GitHub secret (owner decision). Do W1 first or CI starts red.
+### W8 — Guardrails (code + CI) — ✅ DONE (2026-09-13)
+
+- **Migration Linter** (`scripts/lint-migrations.mjs`):
+  - Rule 1: `SECURITY DEFINER` must pin `search_path = public`.
+  - Rule 2: Explicit `REVOKE … FROM public, anon` for non-whitelisted functions.
+  - Rule 3: Bans `USING (true)` / `USING ((true OR …))` on PII tables (`queue_tokens`, `users`, `appointments`, `agreements`, etc.).
+  - Rule 4: Applied migrations are immutable — SHA-256 check against `supabase/APPLY_LOG.md`.
+  - CLI: `--all` (full audit), `--staged` (git-staged only), `--file <path>` (single file).
+  - **Package script:** `npm run lint:migrations`
+- **Drift Checker** (`scripts/check-migration-drift.mjs`) — upgraded:
+  - §6.1 body fingerprinting with normalized MD5 (whitespace-collapsed).
+  - §6.1 comment-stripped fallback (isolates comment-only drift from real logic drift).
+  - **Overload-aware signature matching:** functions keyed by `name(normalized_arg_types)` using `pg_get_function_identity_arguments`. Correctly handles `is_admin()` vs `is_admin(text)`, `bulk_deal_token_redeem(text)` vs `bulk_deal_token_redeem(text, text)`.
+  - Multi-transport: Management API (`SUPABASE_PERSONAL_ACCESS_TOKEN`), `DATABASE_URL` (direct pg), `--snapshot` (offline).
+  - Database-only object detection (unmanaged functions).
+  - Type normalization: `int`→`integer`, `timestamptz`→`timestamp with time zone`, `varchar`→`text`, etc.
+  - **Package script:** `npm run check-drift`
+- **Test Suite** (`tests/lint-migrations.test.ts`): 14 tests covering all 4 linter rules (Vitest).
+- **CI Workflow** (`.github/workflows/db-guardrails.yml`):
+  - PR trigger on `supabase/**` paths → runs `lint:migrations --all` + lint tests.
+  - Nightly cron (02:00 UTC) → runs drift check against live database.
+  - Manual `workflow_dispatch` runs both jobs.
+  - Drift check requires `SUPABASE_PERSONAL_ACCESS_TOKEN` and `VITE_SUPABASE_URL` as repository secrets (owner decision — see W9).
+- **Verified:**
+  - Live drift check: 0 missing, 0 critical body drift, 11 comment-only drift, 2 database-only (`_enforce_business_owner_limit()`, `is_admin()`).
+  - Snapshot drift check (2026-09-13_after_w7.sql): identical results.
+  - Linter: all 16 applied migrations byte-identical to APPLY_LOG.md hashes.
 
 ### W9 — Owner actions
 - ✅ ~~Ship the app update containing `1830632`~~ — shipped 2026-09-13 (OTA 1.0.63 + web; see W7).
 - **Upload the new AAB to Play Console** if the store build should carry it too. CI built it from `0ea660e` as a workflow artifact.
 - Decide on the **Pro plan** (automatic daily backups). Until then, take a restore point before every batch.
-- Decide on the **CI secret** (W8). (Me-too was decided in W5: single counting with notifications.)
+- **Provision CI secrets** (W8): add `SUPABASE_PERSONAL_ACCESS_TOKEN` and `VITE_SUPABASE_URL` as GitHub repository secrets to enable the nightly drift check.
 - Decide on the **R3 baseline** (W2).
 - Replace the dead `SUPABASE_SERVICE_ROLE_KEY` in `.env` with a new secret key (dashboard), or delete it.
 
