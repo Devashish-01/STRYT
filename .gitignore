@@ -53,3 +53,6 @@ android/app/client_secret_*.json
 
 # Local database backups/exports — real user PII, never commit
 /backups
+
+# Scratch test files
+scratch/

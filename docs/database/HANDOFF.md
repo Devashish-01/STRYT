@@ -52,7 +52,13 @@ Read this whole file before touching the database. It's production, with real us
 | Take a data restore point | `node scripts/export-live-data.mjs D:/STRYT-db-backups/<UTC timestamp> --verify` |
 | Drafted but held back | `supabase/pending/` — empty (everything drafted has been applied) |
 | Rollback files | `supabase/rollbacks/` |
+| Automated weekly backup | `scripts/backup/weekly-backup.ps1` — runs Sundays at 03:00 UTC via Task Scheduler `\STRYT weekly DB backup` |
+| Backup log | `D:\STRYT-db-backups\backup.log` — timestamps, exit codes, and verify summaries |
 | Data backups (personal data!) | `D:\STRYT-db-backups\` — outside every repo. **`D:\zetax\name` is itself a git repo**, so never put backups there. |
+
+**Backups**
+- `scripts/backup/weekly-backup.ps1`: exports live rows with rollback verification (`export-live-data.mjs --verify`), captures schema snapshot (`snapshot-live-schema.mjs`), logs to `D:\STRYT-db-backups\backup.log`, and retains the 8 most recent `weekly_*` folders (never touching manual restore points).
+- Scheduled in Windows Task Scheduler as `\STRYT weekly DB backup` (Sundays 03:00 UTC).
 
 **Access**
 - Supabase MCP (`execute_sql`, `apply_migration`, `get_advisors`), or the Management API with `SUPABASE_PERSONAL_ACCESS_TOKEN` from `.env` (both scripts use it and never print it).
