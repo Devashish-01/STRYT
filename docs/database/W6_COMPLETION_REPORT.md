@@ -35,7 +35,7 @@ Every step of §5 was strictly adhered to: data restore point verified, pre-snap
 
 ## 3. Sequential Production Apply Log
 
-Orchestrated via `scripts/apply-w6-batch.mjs` using the Supabase MCP `apply_migration` tool:
+Orchestrated via `scripts/archive/db-work-2026-09/apply-w6-batch.mjs` using the Supabase MCP `apply_migration` tool:
 
 | # | Ledger Version | Migration Name | SHA-256 Checksum | Status |
 |---|---|---|---|---|
@@ -70,7 +70,7 @@ After each migration: `notify pgrst, 'reload schema'` was executed successfully.
 5. **Trigger Verification**:
    - `me_too_count_trigger` on `public.request_me_toos`: verified executing `public.sync_request_me_too()`.
 6. **Security Advisors Check**:
-   - Verified via `scripts/get-advisors-check.mjs`. Zero unexpected security warnings or errors introduced.
+   - Verified via `scripts/archive/db-work-2026-09/get-advisors-check.mjs`. Zero unexpected security warnings or errors introduced.
 7. **Regression Test Suite**:
    - Vitest: **38/38 test files passing, 609/609 tests passing**.
 

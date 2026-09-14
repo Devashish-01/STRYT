@@ -63,7 +63,7 @@ All SHA-256 hashes below are computed directly from the byte contents of the fil
 - Cleaned up pending draft files from `supabase/pending/`.
 
 ### Step 4: Forced-Rollback Behavioural Test
-- Executed via `scripts/test-w7-forced-rollback.mjs` on live database inside a single aborted transaction (`RAISE EXCEPTION 'TEST_RESULT: ALL_CHECKS_PASSED'`):
+- Executed via `scripts/archive/db-work-2026-09/test-w7-forced-rollback.mjs` on live database inside a single aborted transaction (`RAISE EXCEPTION 'TEST_RESULT: ALL_CHECKS_PASSED'`):
   - **Check A (`anon` table privilege):** `has_table_privilege('anon', 'public.queue_tokens', 'SELECT')` returned `false`.
   - **Check B (Customer isolation):** Customer 1 saw only their own token (count = 1, `customer_user_id = cust1`).
   - **Check C (Owner visibility):** Business owner saw all tokens for their business (count = 2).
@@ -71,7 +71,7 @@ All SHA-256 hashes below are computed directly from the byte contents of the fil
   - **Check E (Guest RPC):** Anonymous caller to `queue_waiting_line([biz])` retrieved 2 line positions with `my_token_id = NULL` and zero leaked customer IDs.
   - **Check F (Customer RPC):** Customer 1 calling `queue_waiting_line()` retrieved line positions with their own `my_token_id` populated.
 - Result: **`ALL_CHECKS_PASSED`**.
-- Post-test zero-drift verification (`scripts/verify-w7-zero-drift.mjs`):
+- Post-test zero-drift verification (`scripts/archive/db-work-2026-09/verify-w7-zero-drift.mjs`):
   - `test_tokens`: 0
   - `test_businesses`: 0
   - `test_users`: 0
@@ -80,7 +80,7 @@ All SHA-256 hashes below are computed directly from the byte contents of the fil
   - `queued_pushes`: 0
 
 ### Step 5: Application to Live Production
-- Executed via `scripts/apply-w7-migration.mjs` calling Supabase MCP `apply_migration`:
+- Executed via `scripts/archive/db-work-2026-09/apply-w7-migration.mjs` calling Supabase MCP `apply_migration`:
   - Name: `20260960_queue_tokens_stage3_lockdown`
   - Result: `{"success": true}`
   - Ledger version: `20260912230006`
@@ -95,7 +95,7 @@ All SHA-256 hashes below are computed directly from the byte contents of the fil
 - Zero unintended drift across all 90 tables, 248 functions, 69 triggers, 178 indexes, and 211 policies.
 
 ### Step 7: Live Guest API Smoke Test
-- Verified via `scripts/smoke-test-w7-api.mjs`:
+- Verified via `scripts/archive/db-work-2026-09/smoke-test-w7-api.mjs`:
   - `GET /rest/v1/queue_tokens` with publishable anon key: **HTTP 401 / 42501 ("permission denied for table queue_tokens")**.
   - `POST /rest/v1/rpc/queue_waiting_line` with publishable anon key: **HTTP 200 OK**.
 

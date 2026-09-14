@@ -219,12 +219,12 @@ Full audit & test report: [`docs/database/W4_COMPLETION_REPORT.md`](W4_COMPLETIO
   - ✅ Explicit permissions block added matching live catalog (`grant execute ... to postgres, service_role`).
 - **Rollbacks & Forced-Rollback Test:**
   - ✅ 2 rollback files generated verbatim from `2026-09-13_after_20260958.sql`: `20260935_reschedule_preserve_payment_and_package.rollback.sql` (`48a4d09363e3`) and `20260897_daily_limit_advisory_lock.rollback.sql` (`f31504b425b8`).
-  - ✅ Forced-rollback behavioural test executed via Supabase MCP `execute_sql` in `scripts/test-w4-forced-rollback.mjs`:
+  - ✅ Forced-rollback behavioural test executed via Supabase MCP `execute_sql` in `scripts/archive/db-work-2026-09/test-w4-forced-rollback.mjs`:
     - 5 same-day bookings succeed; 6th same-day booking rejected with limit exception.
     - Rescheduling a PAID booking preserves `payment_status = 'PAID'`, method, amount, reference, package details, and party size.
     - Rescheduling a walk-in rejected with `NOT_YOUR_BOOKING`.
     - Long notes truncated to 2000 chars.
-    - Transaction aborted; 0 rows / 0 drift left in database (`scripts/verify-w4-zero-drift.mjs`).
+    - Transaction aborted; 0 rows / 0 drift left in database (`scripts/archive/db-work-2026-09/verify-w4-zero-drift.mjs`).
 
 
 ### W5 — Me-too notifications (reconcile triggers) — ✅ DONE (2026-09-13)
@@ -237,8 +237,8 @@ Full completion report: [`docs/database/W5_COMPLETION_REPORT.md`](W5_COMPLETION_
   - `ME_TOO` notifications delivered to request owner.
   - `GROUP_BUY_UNLOCKED` notifications delivered to request owner and all participating neighbors when group buy target MOQ is reached.
 - **Rollback Updated:** `supabase/rollbacks/20260950_bulk_deal_notifications_v2.rollback.sql` restores `me_too_count_trigger` to `sync_me_too_count()`.
-- **Forced-Rollback Behavioral Test:** `scripts/test-w5-forced-rollback.mjs` passed all checks (`ALL_CHECKS_PASSED`).
-- **Zero DB Drift Verified:** `scripts/verify-w5-post-test.mjs` confirmed 0 test requests, 0 test users, 0 test notifications, live trigger unchanged.
+- **Forced-Rollback Behavioral Test:** `scripts/archive/db-work-2026-09/test-w5-forced-rollback.mjs` passed all checks (`ALL_CHECKS_PASSED`).
+- **Zero DB Drift Verified:** `scripts/archive/db-work-2026-09/verify-w5-post-test.mjs` confirmed 0 test requests, 0 test users, 0 test notifications, live trigger unchanged.
 - **Full Test Suite Passing:** All 38 test files and 609 tests passing.
 - **Checksums:** `20260950` migration (`d93d5fe6db640bb6f935d8f4fc3790fed21d0a1c030c24f6749aaf9af4b69f71`), rollback (`93b23813bc6c0e3784dfea2c7f1bb352ef0bbd6eee1e02d59034ca138fbce683`).
 

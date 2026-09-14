@@ -66,7 +66,7 @@ were audited, verified to retain all live guards, hardened with explicit revokes
 
 ## 4. Forced-Rollback Behavioural Test (§6.2)
 
-Executed via Supabase MCP `execute_sql` in `scripts/test-w4-forced-rollback.mjs` using a single atomic transaction block that terminated with `RAISE EXCEPTION 'TEST_RESULT: ALL_CHECKS_PASSED';`:
+Executed via Supabase MCP `execute_sql` in `scripts/archive/db-work-2026-09/test-w4-forced-rollback.mjs` using a single atomic transaction block that terminated with `RAISE EXCEPTION 'TEST_RESULT: ALL_CHECKS_PASSED';`:
 
 ```text
 =======================================================
@@ -84,7 +84,7 @@ Executed via Supabase MCP `execute_sql` in `scripts/test-w4-forced-rollback.mjs`
 =======================================================
 ```
 
-### Post-Test Zero-Drift Database Verification (`scripts/verify-w4-zero-drift.mjs`):
+### Post-Test Zero-Drift Database Verification (`scripts/archive/db-work-2026-09/verify-w4-zero-drift.mjs`):
 - `test_users`: **0**
 - `test_appts`: **0**
 - `test_biz`: **0**

@@ -66,7 +66,7 @@ Restores live state verbatim:
 
 ## 4. Non-Destructive Forced-Rollback Verification
 
-Executed via Supabase MCP `execute_sql` in `scripts/test-w5-forced-rollback.mjs` inside an explicit transaction block aborted with `RAISE EXCEPTION 'TEST_RESULT: ALL_CHECKS_PASSED'`:
+Executed via Supabase MCP `execute_sql` in `scripts/archive/db-work-2026-09/test-w5-forced-rollback.mjs` inside an explicit transaction block aborted with `RAISE EXCEPTION 'TEST_RESULT: ALL_CHECKS_PASSED'`:
 
 1. **Single-Counting on 1st "Me Too":**
    - Created test request with `group_buy_target = 3` and initial `me_too_count = 0`.
@@ -87,7 +87,7 @@ Executed via Supabase MCP `execute_sql` in `scripts/test-w5-forced-rollback.mjs`
    - Verified `me_too_count = 2` (accurate decrement).
 5. **Forced Rollback & Zero DB Drift:**
    - Transaction raised `TEST_RESULT: ALL_CHECKS_PASSED`.
-   - Confirmed via `scripts/verify-w5-post-test.mjs`:
+   - Confirmed via `scripts/archive/db-work-2026-09/verify-w5-post-test.mjs`:
      - 0 leftover test requests
      - 0 leftover test users
      - 0 leftover test notifications
@@ -98,8 +98,8 @@ Executed via Supabase MCP `execute_sql` in `scripts/test-w5-forced-rollback.mjs`
 ## 5. Verification & Test Results
 
 - **Vitest Suite:** 38 test files, 609 tests passing (0 failures).
-- **Behavioral Verification:** Passed (`scripts/test-w5-forced-rollback.mjs`).
-- **Zero DB Drift Verification:** Passed (`scripts/verify-w5-post-test.mjs`).
+- **Behavioral Verification:** Passed (`scripts/archive/db-work-2026-09/test-w5-forced-rollback.mjs`).
+- **Zero DB Drift Verification:** Passed (`scripts/archive/db-work-2026-09/verify-w5-post-test.mjs`).
 
 ---
 

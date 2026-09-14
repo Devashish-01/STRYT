@@ -110,7 +110,7 @@ As requested in Section 9 of W3 in `HANDOFF.md`, the 5 frontend review items fro
 
 ## 6. Test Suite & Verification Results
 
-- **Automated Phase 2 Verification (`scripts/verify-w3-phase2.mjs`)**:
+- **Automated Phase 2 Verification (`scripts/archive/db-work-2026-09/verify-w3-phase2.mjs`)**:
   - `SECURITY DEFINER` functions without `search_path`: **0**
   - Signature mismatches vs live: **0**
   - Dropped exception guards vs live: **0**
