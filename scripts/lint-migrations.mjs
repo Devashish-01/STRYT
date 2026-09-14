@@ -320,7 +320,19 @@ export function verifyAppliedImmutability(appliedMap = getAppliedMigrationsFromL
     const crlfNormalized = Buffer.from(utf8Str.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n"), "utf8");
     const crlfHash = crypto.createHash("sha256").update(crlfNormalized).digest("hex").toLowerCase();
 
-    const matches = actualHash === expectedHash || lfHash === expectedHash || crlfHash === expectedHash;
+    const aliases = [
+      expectedHash,
+      // 20260958 was committed with 11 mixed CRLF line endings; pure LF checkout has sha256 9b01d537...
+      ...(fileName === "20260958_capture_database_only_objects.sql"
+        ? ["9b01d5375a835e7119298e14b4ce6086185637b2fc377814b5638333de8c06ff"]
+        : []),
+    ];
+
+    const matches =
+      aliases.includes(actualHash) ||
+      aliases.includes(lfHash) ||
+      aliases.includes(crlfHash);
+
     if (!matches) {
       errors.push({
         rule: "RULE_4_APPLIED_MIGRATION_MODIFIED",
