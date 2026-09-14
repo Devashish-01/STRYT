@@ -23,8 +23,8 @@ const ROOT = path.join(__dirname, "..");
 const MIGRATIONS_DIR = path.join(ROOT, "supabase", "migrations");
 const APPLY_LOG_PATH = path.join(ROOT, "supabase", "APPLY_LOG.md");
 
-// All migrations up to 20260960 are applied to production and verified
-export const LATEST_APPLIED_MIGRATION = "20260960_queue_tokens_stage3_lockdown.sql";
+// All migrations up to 20260964 are applied to production and verified
+export const LATEST_APPLIED_MIGRATION = "20260964_drop_obsolete_bulk_deal_token_redeem.sql";
 
 export const PII_TABLES = new Set([
   "users",

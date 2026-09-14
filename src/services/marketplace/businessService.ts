@@ -272,7 +272,11 @@ export const businessService = {
     const sb = getSupabase();
     // Opportunistic cleanup: sweep abandoned/stale queues before reading, so a
     // shop whose owner walked away shows as closed rather than a frozen line.
-    void sb.rpc("close_stale_queue_tokens");
+    // Only signed-in users can execute close_stale_queue_tokens (anon lacks execute grant).
+    const uid = await currentUserId();
+    if (uid) {
+      void sb.rpc("close_stale_queue_tokens");
+    }
     const { data: settings } = await sb
       .from("queue_settings")
       .select("is_open, avg_service_min")
@@ -986,7 +990,7 @@ export const businessService = {
   async recordInteraction(id: string, kind: "CALL" | "DIRECTIONS" | "MESSAGE") {
     const sb = getSupabase();
     const uid = await currentUserId();
-    if (kind === "CALL" || kind === "DIRECTIONS") {
+    if (uid && (kind === "CALL" || kind === "DIRECTIONS")) {
       await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: kind === "CALL" ? "call" : "directions" });
     }
     if (uid) await sb.from("leads").insert({ business_id: id, from_user_id: uid, kind });
@@ -994,7 +998,10 @@ export const businessService = {
   },
   async recordView(id: string) {
     const sb = getSupabase();
-    await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: "view" });
+    const uid = await currentUserId();
+    if (uid) {
+      await sb.rpc("bump_business_metric", { p_business_id: id, p_metric: "view" });
+    }
     return { ok: true };
   },
   // NOTE: team()/addTeamMember()/removeTeamMember() were removed here — they

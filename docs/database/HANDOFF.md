@@ -20,6 +20,7 @@ Read this whole file before touching the database. It's production, with real us
 | Backups | Free plan = no automatic backups. Latest restore point: `D:\STRYT-db-backups\2026-09-13_pre_w7\` (90/90 verified), taken before W7 |
 | Git | 2026-09-13, on the owner's request: `sprint-6-trust-safety-play-hardening` merged into `main` and pushed (`0ea660e`) → OTA 1.0.63, Android APK/AAB build, web deploy. The branch is also on `origin`. |
 | Notification upgrades (W3) | ✅ Fixed in files (W3), applied in W6, verified on live (51/51 functions byte-identical) |
+| Database hardening (P04) | ✅ **Applied & verified 2026-09-15.** Closes findings F1–F6 (`20260962`, `20260963`, `20260964`). Unpinned search paths fixed (0 mutable); 22 functions revoked from anon/public; duplicate overload dropped; guest 401s eliminated in app; accepted risks documented. |
 
 ---
 
@@ -448,3 +449,44 @@ Afterwards, confirm there's no trace: test rows, new notifications, `net.http_re
 - **Policies and indexes were renamed** by a consolidation that isn't in the repo. Compare `pg_policies.qual`, not names. That's how `true OR …` got into `queue_tokens_select_all`.
 - **`src/types/database.types.ts` is stale** (it still lists `bulk_deal_order`, which was dropped). Add new RPCs by hand; don't regenerate the whole file while other work is in flight.
 - **Migration numbers are sequential, not dates** (`202609NN_name.sql`). Use the next free number.
+
+---
+
+## 7. Accepted advisor findings
+
+The following security advisor findings were audited during Phase P04 (2026-09-15) and are recorded as accepted operational risks with technical justification:
+
+### 7.1 `spatial_ref_sys` — RLS disabled (`rls_disabled_in_public`)
+- **Category:** Table Security (`rls_disabled_in_public`)
+- **Object:** `public.spatial_ref_sys`
+- **Ownership:** Extension-owned (`deptype = 'e'` via `postgis`).
+- **Justification:** `spatial_ref_sys` is a standard OGC reference catalog supplied by the PostGIS extension containing public coordinate system projection definitions (EPSG codes, spheroids, proj strings). It contains **zero** customer, user, or application business data. Enabling RLS on extension-owned tables can break internal spatial projection queries (`ST_Transform`) and is discarded or overridden during PostGIS extension updates.
+- **Decision:** Accepted risk. Leave RLS disabled as by-design for PostGIS.
+
+### 7.2 Extensions in `public` schema (`extension_in_public`)
+- **Category:** Schema Architecture (`extension_in_public`)
+- **Objects:** `postgis` (version 3.3.7), `pg_net` (version 0.14.0)
+- **Justification:** Both extensions were installed into the `public` schema during initial database provisioning. Moving `postgis` out of `public` to an `extensions` schema in a live production database requires dropping and recreating dependent user types, table geometry columns (`public.geometry`), spatial indexes, and triggers across `businesses`, `providers`, `places`, `requests`, and `stories`, which introduces unacceptable downtime and migration fragility. `pg_net` is utilized by internal notification triggers.
+- **Decision:** Accepted risk. Do not relocate existing extensions on a live production database.
+
+### 7.3 PostGIS `st_estimatedextent` (`anon_security_definer_function_executable`)
+- **Category:** Function Execution Privilege
+- **Objects:** `public.st_estimatedextent(text, text)`, `public.st_estimatedextent(text, text, text)`, `public.st_estimatedextent(text, text, text, text)` (3 overloads)
+- **Ownership:** Extension-owned by `postgis`.
+- **Justification:** Extension-provided internal analytical functions defined with `SECURITY DEFINER` by upstream PostGIS packaging. Modifying grants on extension objects is non-standard and overwritten by future extension upgrades.
+- **Decision:** Accepted risk. Do not alter extension-managed functions.
+
+### 7.4 Guest-Callable RPCs (`anon_security_definer_function_executable`)
+- **Category:** Function Execution Privilege
+- **Objects:**
+  1. `public.can_manage_business`: Evaluated by RLS policies during anonymous browsing.
+  2. `public.is_admin()`: Evaluated by RLS policies during anonymous browsing (e.g. active listing queries).
+  3. `public.queue_waiting_line`: Safe public waiting line summary returning only line positions and party sizes (zero customer PII).
+  4. `public.get_public_profile`: Returns public persona (alias/badges) respecting user privacy settings.
+  5. `public.get_tracking`: Validates delivery tracking token before returning courier coordinates.
+  6. `public.get_live_share`: Validates live share recipient access before returning live coordinates.
+  7. `public.is_blocked_between`: Evaluated by privacy filters on social content and messaging.
+  8. `public.neighborhood_today`: Aggregates public neighborhood activity feed.
+  9. `public.resolve_admin_email`: Returns email for admin login lookup; rate-limited and logged.
+- **Justification:** All 9 functions are explicitly designed to be called by unauthenticated guests or evaluated within RLS policies during anonymous queries. Each was verified via forced-rollback tests and public API smoke tests to return only authorized, sanitized data.
+- **Decision:** Verified and accepted by design.

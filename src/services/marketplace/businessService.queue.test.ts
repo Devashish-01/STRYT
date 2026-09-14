@@ -24,10 +24,11 @@ const state = {
   myRows: [] as Record<string, unknown>[],
   fromCalls: [] as Call[],
   rpcCalls: [] as { name: string; args: unknown }[],
+  userId: "user-1" as string | null,
 };
 
 vi.mock("@/lib/supabaseClient", () => ({
-  currentUserId: async () => "user-1",
+  currentUserId: async () => state.userId,
   getSupabase: () => ({
     from: (table: string) => {
       const call: Call = { table, filters: [] };
@@ -37,6 +38,8 @@ vi.mock("@/lib/supabaseClient", () => ({
       // the test asserts on WHAT was read, not on call order.
       const builder: any = {
         select: () => builder,
+        insert: () => builder,
+        update: () => builder,
         eq: (col: string, val: unknown) => { call.filters.push([col, val]); return builder; },
         in: (col: string, val: unknown) => { call.filters.push([col, val]); return builder; },
         order: () => builder,
@@ -58,6 +61,7 @@ import { businessService } from "./businessService";
 const tokenReads = () => state.fromCalls.filter((c) => c.table === "queue_tokens");
 
 beforeEach(() => {
+  state.userId = "user-1";
   state.settings = { is_open: true, avg_service_min: 10 };
   state.settingsRows = [{ business_id: "biz-1", avg_service_min: 10 }];
   state.line = [];
@@ -124,3 +128,37 @@ describe("businessService.myQueues() — a customer's position", () => {
     expect(entry.peopleAhead).toBe(0);
   });
 });
+
+describe("businessService guest RPC guards (F5)", () => {
+  it("executes close_stale_queue_tokens on queue() when user is signed in", async () => {
+    state.userId = "user-1";
+    await businessService.queue("biz-1");
+    expect(state.rpcCalls.some((c) => c.name === "close_stale_queue_tokens")).toBe(true);
+  });
+
+  it("skips close_stale_queue_tokens on queue() when guest (userId is null)", async () => {
+    state.userId = null;
+    const info = await businessService.queue("biz-1");
+    expect(state.rpcCalls.some((c) => c.name === "close_stale_queue_tokens")).toBe(false);
+    expect(info?.isOpen).toBe(true);
+  });
+
+  it("bumps metric on recordInteraction and recordView when user is signed in", async () => {
+    state.userId = "user-1";
+    await businessService.recordInteraction("biz-1", "CALL");
+    await businessService.recordView("biz-1");
+    const bumpCalls = state.rpcCalls.filter((c) => c.name === "bump_business_metric");
+    expect(bumpCalls).toHaveLength(2);
+    expect(bumpCalls[0].args).toEqual({ p_business_id: "biz-1", p_metric: "call" });
+    expect(bumpCalls[1].args).toEqual({ p_business_id: "biz-1", p_metric: "view" });
+  });
+
+  it("skips bump_business_metric on recordInteraction and recordView when guest", async () => {
+    state.userId = null;
+    await businessService.recordInteraction("biz-1", "CALL");
+    await businessService.recordView("biz-1");
+    const bumpCalls = state.rpcCalls.filter((c) => c.name === "bump_business_metric");
+    expect(bumpCalls).toHaveLength(0);
+  });
+});
+
