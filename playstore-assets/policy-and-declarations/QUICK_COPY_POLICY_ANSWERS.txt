@@ -1,0 +1,101 @@
+================================================================================
+STRYT - GOOGLE PLAY CONSOLE POLICY & QUESTIONNAIRES QUICK ANSWERS
+================================================================================
+
+1. PRIVACY POLICY URL
+---------------------
+https://stryt.in/legal/privacy-policy
+
+
+2. ACCOUNT DELETION URL
+-----------------------
+https://stryt.in/legal/account-deletion
+(Deletion types: Account deletion and data deletion)
+
+
+3. ADS DECLARATION
+------------------
+Select: "No, my app does not contain ads"
+
+
+4. APP ACCESS (Reviewer Credentials)
+------------------------------------
+Select: "All or some functionality is restricted"
+Add credential set:
+- Name: Customer Standard Account
+- Username / Email: stryt.playtest@gmail.com
+- Password: [password for the dedicated reviewer Google account]
+- Instructions:
+"1. Sign in with Google using the provided test account.
+2. 2-Step Verification is disabled on this account.
+3. The account opens directly onto the Explore / Map home screen.
+4. To test 'My People' live location sharing, open Account -> My People.
+5. Tap 'Start Sharing' to observe the in-app disclosure and system location dialog."
+
+
+5. SENSITIVE PERMISSIONS - BACKGROUND LOCATION
+----------------------------------------------
+Question: "Is background location access required for core functionality?"
+Answer: "Yes"
+Paste description:
+"STRYT uses background location for one user-initiated feature, behind its own in-app disclosure and stoppable at any time.
+
+My People live location share: A user shares their precise location with contacts they explicitly choose, so those contacts can follow them on a map until the user stops sharing. Location must keep updating while the app is backgrounded or the screen is locked, which is the essential utility of the safety feature.
+
+Nearby discovery, maps, and search use while-in-use location only. STRYT stores a last known position, not a historical trail."
+
+
+6. FINANCIAL FEATURES
+---------------------
+Select: "None of the above"
+(Explanation: STRYT is a hyperlocal discovery and communication platform. It does not provide banking, lending, credit, or payment escrow. Payments occur directly peer-to-peer via external UPI apps to merchant VPAs).
+
+
+7. TARGET AUDIENCE
+------------------
+Target age: 18 and over
+Could store listing appeal to children?: No
+
+
+8. CONTENT RATING (IARC)
+------------------------
+Category: Utility, Productivity, Communication, or Other
+Violence / Blood: No
+Sexuality / Nudity: No
+Profanity: No
+Controlled Substances: No
+Can users interact / exchange messages?: Yes (Buyer-seller bargaining proposals)
+Does app share precise location with others?: Yes (User-initiated My People live share)
+Digital Goods Purchases: No
+
+
+9. DATA SAFETY SUMMARY TABLE
+----------------------------
+Global Questions:
+- Collects or shares data?: Yes
+- Encrypted in transit?: Yes (HTTPS/TLS)
+- Deletion mechanism provided?: Yes
+
+Data Types:
+- Location (Approximate & Precise):
+  * Collected: Yes
+  * Shared: Yes (Precise location shared ONLY with user-selected My People contacts)
+  * Ephemeral: No
+  * Required: Optional
+  * Purposes: App functionality, Personalization
+- Personal Info (Name, Email, Phone):
+  * Collected: Yes
+  * Shared: No
+  * Purposes: App functionality, Account management
+- Photos:
+  * Collected: Yes
+  * Shared: Yes (Public profile avatars / business item photos)
+  * Purposes: App functionality
+- Messages:
+  * Collected: Yes
+  * Shared: Yes (Buyer-seller proposals)
+  * Purposes: App functionality
+- Device IDs (FCM Push Token):
+  * Collected: Yes
+  * Shared: No
+  * Purposes: App functionality (Transactional notification delivery)

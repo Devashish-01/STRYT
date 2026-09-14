@@ -1,0 +1,58 @@
+================================================================================
+STRYT - GOOGLE PLAY STORE LISTING (ENGLISH - DEFAULT)
+================================================================================
+
+[APP TITLE] (Max: 30 characters)
+--------------------------------
+STRYT
+
+
+[SHORT DESCRIPTION] (Max: 80 characters)
+----------------------------------------
+Hyperlocal street discovery, appointments, group buying, and community network.
+
+
+[FULL DESCRIPTION] (Max: 4000 characters)
+-----------------------------------------
+Welcome to STRYT — your street, your people, your neighborhood marketplace.
+
+STRYT transforms how you discover, connect, and transact with local shops, skilled service providers, and neighbors in your immediate vicinity. From morning chai and fresh produce to trusted salon bookings and home repairs, STRYT brings the warmth and vitality of Indian street commerce right to your smartphone.
+
+🌟 WHY YOU'LL LOVE STRYT:
+
+📍 HYPERLOCAL DISCOVERY & REAL-TIME MAP
+• Discover nearby stores, food stalls, home-based businesses, and artisans within walking distance.
+• Real-time availability: See who is open right now, view live product catalogs, and check service menus before you step out.
+• Smart neighborhood filtering: Search by groceries, street food, salon, repair, fitness, and more.
+
+🤝 STREET REQUESTS & LIVE BARGAINING
+• Need something specific? Post a street request to nearby shops in seconds.
+• Receive real-time counter-offers and proposals directly from local vendors.
+• Negotiate fair prices with live offers — bringing authentic street bargaining into the digital era without middlemen cuts.
+
+✂️ INSTANT APPOINTMENT BOOKINGS
+• Book haircuts, salon treatments, repair consultations, and wellness sessions with zero waiting.
+• Interactive slot picker: Choose your preferred day and time with real-time slot verification.
+• Instant booking confirmations, reminders, and directions to the vendor's doorstep.
+
+⚡ 100% DIRECT, ZERO-COMMISSION UPI
+• Pay vendors directly with your preferred UPI app — Google Pay, PhonePe, Paytm, BHIM, or any banking app.
+• STRYT takes 0% commission on peer-to-peer transactions. 100% of your money goes straight to the hardworking local merchant.
+• On-device payment QR verification and offline receipts ensure transparent, immediate settlement.
+
+🛡️ "MY PEOPLE" LIVE EMERGENCY SAFETY NETWORK
+• Share your live location with chosen emergency contacts whenever you're on the move.
+• Continuous background location updates ensure your loved ones can see your journey safely even when your phone is locked.
+• Stop sharing instantly with a single tap at any time.
+
+📢 STREET ALERTS & COMMUNITY UPDATES
+• Stay informed with neighborhood broadcasts, flash discounts, street events, and utility alerts.
+• Safe, verified community interactions designed to strengthen local neighborhood bonds.
+
+🔒 PRIVACY & SECURITY FIRST:
+• No annoying advertisements or intrusive ad trackers.
+• Your location is used only for nearby discovery and user-initiated live sharing. We never sell your personal data or track your movement history.
+• End-to-end encrypted transit (HTTPS/TLS) across all communications.
+• Easily manage your data or request account deletion at any time directly in-app or via our transparent web portal.
+
+Download STRYT today and rediscover the pulse of your street!
