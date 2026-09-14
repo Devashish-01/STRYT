@@ -130,25 +130,24 @@
 | `ci.yml` runs on PRs, on pushes to `develop`, and as a reusable workflow | Done | Step 2 & Step 8 |
 | OTA and Android release jobs `need` `verify` | Done | Step 3 & Step 4 grep |
 | Positive and negative PR runs proven | Done | Step 8 (PR #3 pass) & Step 9 (PR #4 fail) |
-| Branch protection on `main` and `develop` requires `verify` | Pending owner settings save | Step 10 instructions |
+| Branch protection on `main` and `develop` requires `verify` | Waived by owner | Owner decision ("we are not doing the pull request thing") |
 | `npm run verify` documented in HANDOFF and CODEBASE_MAP | Done | Step 12 (`4b6c0cf`) |
 
 ## 5. Production / external changes
 
-- Branch `phase/02-ci-gate` pushed to GitHub `origin/phase/02-ci-gate`.
-- Pull Request #3 opened against `develop`.
+- Branch `phase/02-ci-gate` pushed to GitHub `origin/phase/02-ci-gate` and subsequently merged into `develop` (PR #3).
+- Pull Request #3 merged into `develop` (`0b5a00a`).
 - Temporary branch `ci-negative-test` created, pushed, and subsequently deleted from `origin`.
-- PR #4 opened for negative testing, confirmed failing in CI.
+- PR #4 opened for negative testing, confirmed failing in CI, and closed.
 - No database changes applied. `APPLY_LOG.md` unchanged.
 
 ## 6. Decisions requested
 
-None. All steps executed in accordance with `docs/plan/phases/P02_release_gate_ci.md`.
+- **Branch protection rules**: Owner explicitly opted out of GitHub branch protection rules ("we are not doing the pull request thing and 1 has been done so mark this phase done"). Gating for release builds remains active via `needs: verify` in both release workflows.
 
 ## 7. Not done / not verified
 
-- Step 10 branch protection rule requires owner action in GitHub Settings UI because the personal access token lacks repository administration permission.
-- Merge of PR #3 into `develop` requires owner click in GitHub web UI.
+- Step 10: GitHub branch protection rules skipped per owner decision.
 
 ## 8. Found, not fixed
 
