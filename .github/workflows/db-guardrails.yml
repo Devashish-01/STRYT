@@ -5,11 +5,12 @@
 # Triggered:
 #   1. On PRs that touch supabase/** — runs the migration linter (lint:migrations).
 #   2. Nightly at 02:00 UTC — runs the drift checker (check-drift) against
-#      the live Supabase project via the Management API.
+#      the live Supabase project via direct connection using the least-privilege
+#      ci_readonly role.
 #
-# The drift check needs SUPABASE_PERSONAL_ACCESS_TOKEN and VITE_SUPABASE_URL
-# as GitHub repository secrets. Until those are provisioned, the nightly job
-# exits cleanly (the script skips gracefully when credentials are absent).
+# The drift check needs DRIFT_DATABASE_URL as a GitHub repository secret.
+# Until provisioned, the nightly job exits cleanly (the script skips gracefully
+# when credentials are absent).
 
 name: Database Guardrails
 
@@ -77,6 +78,5 @@ jobs:
 
       - name: Run drift check against live database
         env:
-          SUPABASE_PERSONAL_ACCESS_TOKEN: ${{ secrets.SUPABASE_PERSONAL_ACCESS_TOKEN }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          DATABASE_URL: ${{ secrets.DRIFT_DATABASE_URL }}
         run: node scripts/check-migration-drift.mjs

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Migration Linter for STRYT
 //
 // Enforces non-negotiable database guardrails from docs/database/HANDOFF.md:
@@ -72,11 +71,17 @@ export function getAppliedMigrationsFromLog() {
   // 1. Parse main log table
   const lines = content.split(/\r?\n/);
   for (const line of lines) {
+    if (!line.trim().startsWith("|")) continue;
+
     const fileMatch = line.match(/`supabase\/migrations\/([a-zA-Z0-9_]+\.sql)`/);
     if (fileMatch) {
       const fileName = fileMatch[1];
       const hashMatch = line.match(/sha256\s*`([a-f0-9]{64})`/i);
-      applied.set(fileName, hashMatch ? hashMatch[1].toLowerCase() : null);
+      if (hashMatch) {
+        applied.set(fileName, hashMatch[1].toLowerCase());
+      } else if (!applied.has(fileName)) {
+        applied.set(fileName, null);
+      }
     }
   }
 
@@ -280,37 +285,50 @@ export function lintMigrationContent(sql, fileName) {
 }
 
 /**
- * Checks immutability of applied migrations (Rule 4)
+ * Verifies immutability of applied migrations against expected hashes (Rule 4)
  */
-export function checkAppliedImmutability() {
-  const appliedMap = getAppliedMigrationsFromLog();
+export function verifyAppliedImmutability(appliedMap = getAppliedMigrationsFromLog(), migrationsDir = MIGRATIONS_DIR) {
   const errors = [];
 
   for (const [fileName, expectedHash] of appliedMap.entries()) {
-    const filePath = path.join(MIGRATIONS_DIR, fileName);
+    const filePath = path.join(migrationsDir, fileName);
     if (!fs.existsSync(filePath)) {
       errors.push({
         rule: "RULE_4_APPLIED_MIGRATION_MISSING",
-        message: `Applied migration file "${fileName}" recorded in APPLY_LOG.md is missing from ${MIGRATIONS_DIR}.`,
+        message: `Applied migration file "${fileName}" recorded in APPLY_LOG.md is missing from ${migrationsDir}.`,
         file: fileName,
       });
       continue;
     }
 
-    if (expectedHash) {
-      const content = fs.readFileSync(filePath);
-      const actualHash = crypto.createHash("sha256").update(content).digest("hex").toLowerCase();
-      if (actualHash !== expectedHash) {
-        errors.push({
-          rule: "RULE_4_APPLIED_MIGRATION_MODIFIED",
-          message: `Applied migration "${fileName}" was modified! Expected SHA-256 ${expectedHash.slice(0, 12)}..., found ${actualHash.slice(0, 12)}... (Rule 2: An applied file never changes).`,
-          file: fileName,
-        });
-      }
+    if (!expectedHash) {
+      errors.push({
+        rule: "RULE_4_APPLIED_MIGRATION_NO_HASH",
+        message: `Applied migration file "${fileName}" recorded in APPLY_LOG.md has no valid SHA-256 hash.`,
+        file: fileName,
+      });
+      continue;
+    }
+
+    const content = fs.readFileSync(filePath);
+    const actualHash = crypto.createHash("sha256").update(content).digest("hex").toLowerCase();
+    if (actualHash !== expectedHash) {
+      errors.push({
+        rule: "RULE_4_APPLIED_MIGRATION_MODIFIED",
+        message: `Applied migration "${fileName}" was modified! Expected SHA-256 ${expectedHash.slice(0, 12)}..., found ${actualHash.slice(0, 12)}... (Rule 2: An applied file never changes).`,
+        file: fileName,
+      });
     }
   }
 
   return { appliedCount: appliedMap.size, errors };
+}
+
+/**
+ * Checks immutability of applied migrations from APPLY_LOG.md in repo (Rule 4)
+ */
+export function checkAppliedImmutability() {
+  return verifyAppliedImmutability(getAppliedMigrationsFromLog(), MIGRATIONS_DIR);
 }
 
 /**

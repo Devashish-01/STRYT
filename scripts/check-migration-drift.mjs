@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Migration & Schema Drift Guard for STRYT
 //
 // Adheres to docs/database/HANDOFF.md (§W8, §6.1):

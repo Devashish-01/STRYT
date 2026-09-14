@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   lintMigrationContent,
   checkAppliedImmutability,
+  verifyAppliedImmutability,
   splitSqlStatements,
   PII_TABLES,
   ANON_ALLOWED_FUNCTIONS,
@@ -169,6 +170,26 @@ describe("Database Migration Linter (W8 Guardrails)", () => {
       const result = checkAppliedImmutability();
       expect(result.appliedCount).toBeGreaterThan(0);
       expect(result.errors).toHaveLength(0);
+    });
+
+    it("flags an edited applied migration whose content hash does not match expected hash", () => {
+      const tamperedMap = new Map([
+        ["20260960_queue_tokens_stage3_lockdown.sql", "0000000000000000000000000000000000000000000000000000000000000000"]
+      ]);
+      const result = verifyAppliedImmutability(tamperedMap);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0].rule).toBe("RULE_4_APPLIED_MIGRATION_MODIFIED");
+      expect(result.errors[0].message).toContain("was modified");
+    });
+
+    it("flags when an applied migration file is missing from migrations directory", () => {
+      const missingMap = new Map([
+        ["20999999_nonexistent_migration.sql", "1111111111111111111111111111111111111111111111111111111111111111"]
+      ]);
+      const result = verifyAppliedImmutability(missingMap);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0].rule).toBe("RULE_4_APPLIED_MIGRATION_MISSING");
+      expect(result.errors[0].message).toContain("is missing");
     });
   });
 
