@@ -1,12 +1,28 @@
 apply plugin: 'com.android.application'
 
+import groovy.json.JsonSlurper
+
 // Version is injectable from CI so each Play upload gets a monotonically
 // increasing versionCode (Play rejects re-used codes). Pass
 //   -PstrytVersionCode=<int> -PstrytVersionName=<semver>
 // e.g. from the GitHub Actions run number + package.json version. Falls back
-// to sensible defaults for local builds.
-def strytVersionCode = (project.findProperty('strytVersionCode') ?: '1').toString().toInteger()
-def strytVersionName = (project.findProperty('strytVersionName') ?: '1.0').toString()
+// to package.json version for local builds.
+def packageJsonFile = new File(rootProject.projectDir, '../package.json')
+def pkgJson = packageJsonFile.exists() ? new JsonSlurper().parseText(packageJsonFile.text) : null
+def defaultVersionName = (pkgJson?.version ?: '1.0.61').toString()
+
+def defaultVersionCode = 61
+if (defaultVersionName) {
+    try {
+        def parts = defaultVersionName.split('\\.')
+        if (parts.length >= 3) {
+            defaultVersionCode = parts[0].toInteger() * 10000 + parts[1].toInteger() * 100 + parts[2].toInteger()
+        }
+    } catch (Exception ignored) {}
+}
+
+def strytVersionCode = (project.findProperty('strytVersionCode') ?: defaultVersionCode).toString().toInteger()
+def strytVersionName = (project.findProperty('strytVersionName') ?: defaultVersionName).toString()
 
 android {
     namespace = "in.stryt.app"

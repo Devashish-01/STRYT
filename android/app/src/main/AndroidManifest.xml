@@ -2,6 +2,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Package visibility queries for Android 11+ (API 30+) -->
+    <queries>
+        <!-- Dial phone numbers from provider/rider notifications and cards -->
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <!-- UPI Apps (GPay, PhonePe, Paytm, BHIM) -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="upi" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
@@ -32,6 +46,15 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="in.stryt.app" android:host="auth" />
+            </intent-filter>
+
+            <!-- App deep links: in.stryt.app://* and stryt://* -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="stryt" />
+                <data android:scheme="in.stryt.app" />
             </intent-filter>
 
         </activity>
