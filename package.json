@@ -13,6 +13,8 @@
     "check-colors": "node scripts/check-hardcoded-colors.js",
     "check-tokens": "node scripts/check-undefined-tokens.js",
     "check-migrations": "node scripts/check-migration-drift.mjs",
+    "check-drift": "node scripts/check-migration-drift.mjs",
+    "lint:migrations": "node scripts/lint-migrations.mjs",
     "check-policy-grants": "node scripts/check-policy-grants.mjs",
     "audit": "playwright test",
     "audit:report": "playwright show-report",

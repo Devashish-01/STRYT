@@ -1,0 +1,82 @@
+# Database Guardrails CI
+#
+# W8 — Automated enforcement of the rules in docs/database/HANDOFF.md.
+#
+# Triggered:
+#   1. On PRs that touch supabase/** — runs the migration linter (lint:migrations).
+#   2. Nightly at 02:00 UTC — runs the drift checker (check-drift) against
+#      the live Supabase project via the Management API.
+#
+# The drift check needs SUPABASE_PERSONAL_ACCESS_TOKEN and VITE_SUPABASE_URL
+# as GitHub repository secrets. Until those are provisioned, the nightly job
+# exits cleanly (the script skips gracefully when credentials are absent).
+
+name: Database Guardrails
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/**'
+      - 'scripts/lint-migrations.mjs'
+      - 'scripts/check-migration-drift.mjs'
+
+  schedule:
+    # Nightly drift check at 02:00 UTC
+    - cron: '0 2 * * *'
+
+  workflow_dispatch: {}
+
+concurrency:
+  group: db-guardrails-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Job 1: Migration Linter ─────────────────────────────────────────────
+  lint-migrations:
+    name: Lint Migrations
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run migration linter (all migrations)
+        run: node scripts/lint-migrations.mjs --all
+
+      - name: Run migration lint tests
+        run: npx vitest run tests/lint-migrations.test.ts
+
+  # ── Job 2: Drift Checker (nightly + manual) ─────────────────────────────
+  check-drift:
+    name: Check Schema Drift
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run drift check against live database
+        env:
+          SUPABASE_PERSONAL_ACCESS_TOKEN: ${{ secrets.SUPABASE_PERSONAL_ACCESS_TOKEN }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        run: node scripts/check-migration-drift.mjs
