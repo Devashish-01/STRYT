@@ -312,7 +312,16 @@ export function verifyAppliedImmutability(appliedMap = getAppliedMigrationsFromL
 
     const content = fs.readFileSync(filePath);
     const actualHash = crypto.createHash("sha256").update(content).digest("hex").toLowerCase();
-    if (actualHash !== expectedHash) {
+
+    // Check raw, LF-normalized, and CRLF-normalized hashes to eliminate git line-ending discrepancies across OSes
+    const utf8Str = content.toString("utf8");
+    const lfNormalized = Buffer.from(utf8Str.replace(/\r\n/g, "\n"), "utf8");
+    const lfHash = crypto.createHash("sha256").update(lfNormalized).digest("hex").toLowerCase();
+    const crlfNormalized = Buffer.from(utf8Str.replace(/\r\n/g, "\n").replace(/\n/g, "\r\n"), "utf8");
+    const crlfHash = crypto.createHash("sha256").update(crlfNormalized).digest("hex").toLowerCase();
+
+    const matches = actualHash === expectedHash || lfHash === expectedHash || crlfHash === expectedHash;
+    if (!matches) {
       errors.push({
         rule: "RULE_4_APPLIED_MIGRATION_MODIFIED",
         message: `Applied migration "${fileName}" was modified! Expected SHA-256 ${expectedHash.slice(0, 12)}..., found ${actualHash.slice(0, 12)}... (Rule 2: An applied file never changes).`,
