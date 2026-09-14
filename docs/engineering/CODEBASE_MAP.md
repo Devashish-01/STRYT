@@ -25,14 +25,16 @@
 | **Shell** | 480px phone shell (`.app-shell`, `--maxw`) — mobile-first PWA |
 
 ```bash
-npm run dev      # vite dev server
-npm run build    # tsc -b && vite build   ← run before shipping; noUnusedLocals is enforced
-npm run lint     # tsc --noEmit (type check only)
-npm run audit    # playwright e2e
+npm run dev            # vite dev server
+npm run build          # tsc -b && vite build   ← run before shipping; noUnusedLocals is enforced
+npm run lint           # check colors, tokens, tsc --noEmit
+npm run verify         # quality gate: lint, eslint (--max-warnings 30), vitest, build
+npm run verify:ci:test # CI test runner (lint, eslint, vitest) without requiring .env
+npm run audit          # playwright e2e
 ```
 
-**Always run `npm run build` (or `npx tsc --noEmit`) after edits** — the project uses `noUnusedLocals`,
-so an unused import fails the build.
+**Always run `npm run verify` (or `npm run build` / `npx tsc --noEmit`) after edits** — the project uses `noUnusedLocals`,
+so an unused import fails the build, and all PRs and releases are gated on `verify` in CI.
 
 ---
 
