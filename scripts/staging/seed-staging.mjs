@@ -17,7 +17,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { PERSONAS, BUSINESS, PROVIDER, STAGING_AREA } from "./personas.mjs";
+import { PERSONAS, BUSINESS, PROVIDER, SHOP, STAGING_AREA } from "./personas.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PROD = "gnswxlfmcwyhmzlfipql";
@@ -98,6 +98,15 @@ begin
   values (${lit(BUSINESS.id)}, '${owner.id}', ${lit(BUSINESS.name)}, 'test-salon-one', 'c-beauty-salon', 'Unisex Salon',
     'Synthetic staging business — not real.', '1 Test Street', ${lit(STAGING_AREA.city)}, '411001',
     ${STAGING_AREA.lat}, ${STAGING_AREA.lng}, ${lit(owner.phone)}, ${lit(ALL_DAY)}, true, 'ACTIVE', true, 2, now())
+  on conflict (id) do nothing;
+  insert into public.businesses (id, owner_user_id, name, slug, category_id, category_name, sub_category, package_key, description, address_line1, city, pincode,
+    lat, lng, phone, hours, is_open_now, status, bookings_enabled, created_at)
+  values (${lit(SHOP.id)}, '${owner.id}', ${lit(SHOP.name)}, 'test-kirana-one', 'c-retail-kirana', 'Retail Shops', 'Kirana / Grocery', 'shop',
+    'Synthetic staging shop — not real.', '2 Test Street', ${lit(STAGING_AREA.city)}, '411001',
+    ${STAGING_AREA.lat}, ${STAGING_AREA.lng}, ${lit(owner.phone)}, ${lit(ALL_DAY)}, true, 'ACTIVE', false, now())
+  on conflict (id) do nothing;
+  insert into public.catalog_items (id, business_id, name, description, price, stock_status, sort_order, inventory_type) values
+    ('ci_shop_1', ${lit(SHOP.id)}, 'Test Basmati Rice 5kg', 'Synthetic product', 650, 'IN_STOCK', 1, 'INFINITE')
   on conflict (id) do nothing;
   insert into public.catalog_items (id, business_id, name, description, price, stock_status, sort_order, inventory_type, max_party_size) values
     ('ci_test_1', ${lit(BUSINESS.id)}, 'Test Haircut', 'Synthetic item', 300, 'IN_STOCK', 1, 'INFINITE', 4),

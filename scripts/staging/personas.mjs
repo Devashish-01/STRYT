@@ -16,3 +16,5 @@ export const PERSONAS = [
 
 export const BUSINESS = { id: "b_00000000000000000000000000000001", name: "Test Salon One", ownerKey: "owner1" };
 export const PROVIDER = { id: "p_00000000000000000000000000000001", name: "Test Plumber One", userKey: "provider1" };
+/** A retail shop (package "shop": countable products, cart, bulk-buying campaigns) — also owned by owner1. */
+export const SHOP = { id: "b_00000000000000000000000000000002", name: "Test Kirana One", ownerKey: "owner1" };
