@@ -458,7 +458,7 @@ export const deliveryService = {
     // (new table — same typegen gap as the delivery RPCs).
     const { data } = await (sb as any)
       .from("appointment_deliveries")
-      .select("id, appointment_id, status, live_status, handoff_code, handoff_verified, agent_user_id, lat, lng, agent:users!agent_user_id(alias, avatar)")
+      .select("id, appointment_id, status, live_status, handoff_verified, agent_user_id, lat, lng, agent:users!agent_user_id(alias, avatar)")
       .eq("appointment_id", appointmentId)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -470,7 +470,7 @@ export const deliveryService = {
       appointmentId: r.appointment_id,
       status: r.status,
       liveStatus: r.live_status ?? null,
-      handoffCode: r.handoff_code ?? null,
+      handoffCode: null,
       handoffVerified: !!r.handoff_verified,
       agentUserId: r.agent_user_id ?? null,
       agentName: aliasName({ alias: r.agent?.alias }, "Delivery agent"),

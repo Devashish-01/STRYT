@@ -1,0 +1,1556 @@
+{
+ "project": "gnswxlfmcwyhmzlfipql",
+ "generated_at": "2026-09-15T16:41:13.276Z",
+ "tables": [
+  {
+   "table": "account_appeals",
+   "sensitive": [
+    "admin_note"
+   ],
+   "pk": "id",
+   "user_col": "owner_user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "rows": 1,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 0,
+     "errors": null,
+     "update": 1,
+     "visible": 1,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    }
+   }
+  },
+  {
+   "table": "agreements",
+   "sensitive": [
+    "payment_reference",
+    "provider_lat",
+    "provider_lng",
+    "tracking_token"
+   ],
+   "pk": "id",
+   "user_col": "requester_user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": null,
+     "errors": "S:42501 U:42501 D:42501",
+     "update": null,
+     "visible": null,
+     "in_scope": 1,
+     "visible_in_scope": null
+    },
+    "rows": 1,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 1,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    }
+   }
+  },
+  {
+   "table": "appointment_deliveries",
+   "sensitive": [
+    "cancel_note",
+    "handoff_code",
+    "handoff_verified",
+    "lat",
+    "lng"
+   ],
+   "pk": "id",
+   "user_col": "agent_user_id",
+   "has_business": true,
+   "team_scope": "appointments",
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": "S:42501 U:42501",
+     "update": null,
+     "visible": null,
+     "in_scope": 1,
+     "visible_in_scope": null
+    },
+    "rows": 1,
+    "owner": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 1,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    },
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "team_right": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 1,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    },
+    "team_wrong": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "participant": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 1,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    }
+   }
+  },
+  {
+   "table": "appointment_items",
+   "sensitive": [
+    "item_name"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": null,
+     "errors": "S:42501 U:42501 D:42501",
+     "update": null,
+     "visible": null,
+     "in_scope": 11,
+     "visible_in_scope": null
+    },
+    "rows": 11,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 11,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "appointments",
+   "sensitive": [
+    "customer_name",
+    "delivery_address_line",
+    "delivery_lat",
+    "delivery_lng",
+    "notes",
+    "package_name",
+    "payment_reference",
+    "response_note",
+    "target_name"
+   ],
+   "pk": "id",
+   "user_col": "customer_user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": null,
+     "errors": "S:42501 U:42501 D:42501",
+     "update": null,
+     "visible": null,
+     "in_scope": 16,
+     "visible_in_scope": null
+    },
+    "rows": 16,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 16,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 0,
+     "errors": null,
+     "update": 2,
+     "visible": 12,
+     "in_scope": 12,
+     "visible_in_scope": 12
+    }
+   }
+  },
+  {
+   "table": "bulk_deal_pledges",
+   "sensitive": [
+    "delivery_address",
+    "deposit_reference",
+    "notes"
+   ],
+   "pk": "id",
+   "user_col": "user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 2,
+     "visible_in_scope": 0
+    },
+    "rows": 2,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 2,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 2,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    }
+   }
+  },
+  {
+   "table": "bulk_deal_tokens",
+   "sensitive": [
+    "token_code"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": true,
+   "team_scope": "catalog",
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "business_login_credentials",
+   "sensitive": [
+    "password_hash"
+   ],
+   "pk": "business_id",
+   "user_col": null,
+   "has_business": true,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": null,
+     "errors": "S:42501 U:42501 D:42501",
+     "update": null,
+     "visible": null,
+     "in_scope": 0,
+     "visible_in_scope": null
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "business_packages",
+   "sensitive": [
+    "name"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": true,
+   "team_scope": "catalog",
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "business_team_members",
+   "sensitive": [
+    "name",
+    "phone"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": true,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "businesses",
+   "sensitive": [
+    "aadhaar_doc_url",
+    "address_line1",
+    "category_name",
+    "email",
+    "lat",
+    "lng",
+    "name",
+    "pan_doc_url",
+    "pending_lat",
+    "pending_lng",
+    "phone",
+    "show_email_publicly",
+    "show_phone_publicly",
+    "verification_document_url",
+    "verification_documents"
+   ],
+   "pk": "id",
+   "user_col": "owner_user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": "U:42501",
+     "update": null,
+     "visible": 21,
+     "in_scope": 21,
+     "visible_in_scope": 21
+    },
+    "rows": 21,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 21,
+     "in_scope": 21,
+     "visible_in_scope": 21
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 5,
+     "errors": null,
+     "update": 5,
+     "visible": 21,
+     "in_scope": 5,
+     "visible_in_scope": 5
+    }
+   }
+  },
+  {
+   "table": "catalog_items",
+   "sensitive": [
+    "name"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": true,
+   "team_scope": "catalog",
+   "result": {
+    "anon": {
+     "delete": null,
+     "errors": "U:42501 D:42501",
+     "update": null,
+     "visible": 64,
+     "in_scope": 64,
+     "visible_in_scope": 64
+    },
+    "rows": 64,
+    "owner": {
+     "delete": 4,
+     "errors": null,
+     "update": 4,
+     "visible": 64,
+     "in_scope": 4,
+     "visible_in_scope": 4
+    },
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 64,
+     "in_scope": 64,
+     "visible_in_scope": 64
+    },
+    "team_right": {
+     "delete": 4,
+     "errors": null,
+     "update": 4,
+     "visible": 64,
+     "in_scope": 4,
+     "visible_in_scope": 4
+    },
+    "team_wrong": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 64,
+     "in_scope": 4,
+     "visible_in_scope": 4
+    },
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "categories",
+   "sensitive": [
+    "name"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 56,
+     "in_scope": 56,
+     "visible_in_scope": 56
+    },
+    "rows": 56,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 56,
+     "in_scope": 56,
+     "visible_in_scope": 56
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "community_posts",
+   "sensitive": [
+    "author_name",
+    "lat",
+    "lng",
+    "pickup_note"
+   ],
+   "pk": "id",
+   "user_col": "author_user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 2,
+     "in_scope": 2,
+     "visible_in_scope": 2
+    },
+    "rows": 2,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 2,
+     "in_scope": 2,
+     "visible_in_scope": 2
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 2,
+     "errors": null,
+     "update": 2,
+     "visible": 2,
+     "in_scope": 2,
+     "visible_in_scope": 2
+    }
+   }
+  },
+  {
+   "table": "conversations",
+   "sensitive": [
+    "participant_a",
+    "participant_b",
+    "subject_name"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 7,
+     "visible_in_scope": 0
+    },
+    "rows": 7,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 7,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "custom_payments",
+   "sensitive": [
+    "note",
+    "payer_name",
+    "reference",
+    "target_name"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 2,
+     "visible_in_scope": 0
+    },
+    "rows": 2,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 2,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "delivery_batches",
+   "sensitive": [
+    "lat",
+    "lng"
+   ],
+   "pk": "id",
+   "user_col": "agent_user_id",
+   "has_business": true,
+   "team_scope": "appointments",
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "fcm_tokens",
+   "sensitive": [
+    "platform",
+    "token"
+   ],
+   "pk": "user_id",
+   "user_col": "user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 24,
+     "visible_in_scope": 0
+    },
+    "rows": 24,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 24,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 11,
+     "errors": null,
+     "update": 11,
+     "visible": 11,
+     "in_scope": 11,
+     "visible_in_scope": 11
+    }
+   }
+  },
+  {
+   "table": "group_buy_tokens",
+   "sensitive": [
+    "token_code"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": true,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "leads",
+   "sensitive": [
+    "note"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": true,
+   "team_scope": "leads",
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 16,
+     "visible_in_scope": 0
+    },
+    "rows": 16,
+    "owner": {
+     "delete": 0,
+     "errors": null,
+     "update": 10,
+     "visible": 10,
+     "in_scope": 5,
+     "visible_in_scope": 5
+    },
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 16,
+     "visible_in_scope": 0
+    },
+    "team_right": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 5,
+     "visible_in_scope": 0
+    },
+    "team_wrong": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 5,
+     "visible_in_scope": 0
+    },
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "live_shares",
+   "sensitive": [
+    "lat",
+    "lng"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 13,
+     "visible_in_scope": 0
+    },
+    "rows": 13,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 13,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "places",
+   "sensitive": [
+    "address_line1",
+    "lat",
+    "lng",
+    "name",
+    "weather_note"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 22,
+     "in_scope": 22,
+     "visible_in_scope": 22
+    },
+    "rows": 22,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 22,
+     "in_scope": 22,
+     "visible_in_scope": 22
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "post_comments",
+   "sensitive": [
+    "author_name",
+    "phone_visibility",
+    "shared_phone"
+   ],
+   "pk": "id",
+   "user_col": "author_user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 2,
+     "in_scope": 2,
+     "visible_in_scope": 2
+    },
+    "rows": 2,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 2,
+     "in_scope": 2,
+     "visible_in_scope": 2
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 2,
+     "errors": null,
+     "update": 2,
+     "visible": 2,
+     "in_scope": 2,
+     "visible_in_scope": 2
+    }
+   }
+  },
+  {
+   "table": "proposals",
+   "sensitive": [
+    "responder_name"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "rows": 1,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "provider_packages",
+   "sensitive": [
+    "name"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "providers",
+   "sensitive": [
+    "availability_note",
+    "category_name",
+    "display_name",
+    "email",
+    "lat",
+    "lng",
+    "phone",
+    "show_email_publicly",
+    "show_phone_publicly",
+    "verification_document_url",
+    "verification_documents"
+   ],
+   "pk": "id",
+   "user_col": "user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 6,
+     "in_scope": 6,
+     "visible_in_scope": 6
+    },
+    "rows": 6,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 6,
+     "in_scope": 6,
+     "visible_in_scope": 6
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 1,
+     "errors": null,
+     "update": 1,
+     "visible": 6,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    }
+   }
+  },
+  {
+   "table": "queue_tokens",
+   "sensitive": [
+    "customer_name",
+    "payment_reference"
+   ],
+   "pk": "id",
+   "user_col": "customer_user_id",
+   "has_business": true,
+   "team_scope": "queue",
+   "result": {
+    "anon": {
+     "delete": null,
+     "errors": "S:42501 U:42501 D:42501",
+     "update": null,
+     "visible": null,
+     "in_scope": 0,
+     "visible_in_scope": null
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "reports",
+   "sensitive": [
+    "target_name"
+   ],
+   "pk": "id",
+   "user_col": "reporter_user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "rows": 1,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    }
+   }
+  },
+  {
+   "table": "request_me_toos",
+   "sensitive": [
+    "delivery_address",
+    "notes"
+   ],
+   "pk": "request_id",
+   "user_col": "user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 2,
+     "in_scope": 2,
+     "visible_in_scope": 2
+    },
+    "rows": 2,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 2,
+     "in_scope": 2,
+     "visible_in_scope": 2
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 1,
+     "errors": null,
+     "update": 0,
+     "visible": 2,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    }
+   }
+  },
+  {
+   "table": "requests",
+   "sensitive": [
+    "category_name",
+    "lat",
+    "lng"
+   ],
+   "pk": "id",
+   "user_col": "requester_user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 7,
+     "in_scope": 7,
+     "visible_in_scope": 7
+    },
+    "rows": 7,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 7,
+     "in_scope": 7,
+     "visible_in_scope": 7
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 5,
+     "errors": null,
+     "update": 5,
+     "visible": 7,
+     "in_scope": 5,
+     "visible_in_scope": 5
+    }
+   }
+  },
+  {
+   "table": "saved_searches",
+   "sensitive": [
+    "lat",
+    "lng"
+   ],
+   "pk": "id",
+   "user_col": "user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "rows": 1,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 1,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 1,
+     "errors": null,
+     "update": 1,
+     "visible": 1,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    }
+   }
+  },
+  {
+   "table": "settlements",
+   "sensitive": [
+    "note"
+   ],
+   "pk": "id",
+   "user_col": "user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 2,
+     "visible_in_scope": 0
+    },
+    "rows": 2,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 2,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 1,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    }
+   }
+  },
+  {
+   "table": "societies",
+   "sensitive": [
+    "address",
+    "lat",
+    "lng",
+    "name"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 1,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    },
+    "rows": 1,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 1,
+     "in_scope": 1,
+     "visible_in_scope": 1
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "stories",
+   "sensitive": [
+    "author_name",
+    "lat",
+    "lng"
+   ],
+   "pk": "id",
+   "user_col": "user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 5,
+     "in_scope": 5,
+     "visible_in_scope": 5
+    },
+    "rows": 5,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 5,
+     "in_scope": 5,
+     "visible_in_scope": 5
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 3,
+     "errors": null,
+     "update": 3,
+     "visible": 5,
+     "in_scope": 3,
+     "visible_in_scope": 3
+    }
+   }
+  },
+  {
+   "table": "subscription_logs",
+   "sensitive": [
+    "note"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "subscriptions",
+   "sensitive": [
+    "provider_name"
+   ],
+   "pk": "id",
+   "user_col": "requester_user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "support_tickets",
+   "sensitive": [
+    "email"
+   ],
+   "pk": "id",
+   "user_col": "user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "rows": 0,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 0,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  },
+  {
+   "table": "user_lists",
+   "sensitive": [
+    "name"
+   ],
+   "pk": "id",
+   "user_col": "user_id",
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 2,
+     "visible_in_scope": 0
+    },
+    "rows": 2,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 2,
+     "visible_in_scope": 0
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": {
+     "delete": 2,
+     "errors": null,
+     "update": 2,
+     "visible": 2,
+     "in_scope": 2,
+     "visible_in_scope": 2
+    }
+   }
+  },
+  {
+   "table": "users",
+   "sensitive": [
+    "business_password_hash",
+    "business_recovery_answer_hash",
+    "email",
+    "lat",
+    "lng",
+    "name",
+    "phone",
+    "provider_password_hash",
+    "provider_recovery_answer_hash",
+    "show_email_publicly",
+    "show_name_publicly",
+    "show_phone_publicly",
+    "switch_pin_hash"
+   ],
+   "pk": "id",
+   "user_col": null,
+   "has_business": false,
+   "team_scope": null,
+   "result": {
+    "anon": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 0,
+     "in_scope": 29,
+     "visible_in_scope": 0
+    },
+    "rows": 29,
+    "owner": "n/a",
+    "stranger": {
+     "delete": 0,
+     "errors": null,
+     "update": 0,
+     "visible": 29,
+     "in_scope": 29,
+     "visible_in_scope": 29
+    },
+    "team_right": "n/a",
+    "team_wrong": "n/a",
+    "participant": "n/a"
+   }
+  }
+ ]
+}

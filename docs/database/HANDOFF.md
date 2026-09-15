@@ -10,7 +10,8 @@ Read this whole file before touching the database. It's production, with real us
 
 | Area | State |
 |---|---|
-| Live and verified | Everything up to `20260960`, including W6's batch (`20260897`, `20260935`, `20260947`–`20260956`), null-owner fix `20260959`, and W7 queue stage 3 lockdown `20260960` (applied 2026-09-12 23:00 UTC) |
+| Live and verified | Everything up to `20260972`: W6's batch (`20260897`, `20260935`, `20260947`–`20260956`), null-owner fix `20260959`, W7 queue lockdown `20260960`, P03 `20260961`, P04 `20260962`–`20260964`, P05 `20260965`–`20260972` (APPLY_LOG rows 24–35) |
+| ⚠ **Pending** | `supabase/pending/users_phone_column_lockdown.sql` — **after** the app build with `provider_leads()` ships (see P05 below). Until then any signed-in user can read visible users' phone numbers. |
 | **Pending, not applied** | No database changes. `supabase/pending/` is empty. |
 | Queue app update | ✅ **Shipped 2026-09-13.** OTA **1.0.63** and stryt.in both use `queue_waiting_line`, verified in the published bundle and on the live site. W7's precondition is now met. It was never harmful: `queue_tokens` had no rows. |
 | W1 — fresh-checkout tests | ✅ done, committed `625df46` |
@@ -377,9 +378,35 @@ The database change is correct:
      `alter role ci_readonly with login password '<strong-generated-password>';`
   2. In GitHub repository Settings → Secrets and variables → Actions:
      Add repository secret `DRIFT_DATABASE_URL` using the session pooler URL:
-     `postgres://ci_readonly.gnswxlfmcwyhmzlfipql:<password>@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres`
+     `postgres://ci_readonly.gnswxlfmcwyhmzlfipql:<password>@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres`
+     (host checked 2026-09-15 via Management API `config/database/pooler`; it is `aws-1`, not `aws-0`).
+     Status 2026-09-15: `ci_readonly` exists with `rolcanlogin = false`, so CI cannot connect yet. An agent attempt to set
+     LOGIN + a generated password was refused by the tool's permission system (it creates a credential) — owner step.
+- **Release the P05 app changes, then run the pending phone lockdown** (P05 below): `providerService.leads()` →
+  `provider_leads()`, and `deliveryService.forAppointment()` no longer selecting `handoff_code`.
 - Decide on the **R3 baseline** (W2).
 - Replace the dead `SUPABASE_SERVICE_ROLE_KEY` in `.env` with a new secret key (dashboard), or delete it.
+
+### P05 — Authorization audit: independent check and fixes (2026-09-15)
+Antigravity's P05 (rows 28–29) was checked against production; real tests replaced its generated matrix.
+
+**Found and fixed on production** (each with a forced-rollback test before → embedded → live):
+| Row | Migration | Hole |
+|---|---|---|
+| 30 | `20260967_hide_handoff_code_from_rpc_results` | The rider received the customer's delivery OTP in `appointment_update_delivery_status`'s result (staff too, via `assign_delivery`), so a handoff could be confirmed without meeting the customer. |
+| 31 | `20260968_users_sensitive_columns_lockdown` | ISS-009's column REVOKE never worked (table-level SELECT remained): any signed-in user could read other users' **password and recovery-answer hashes**, email, exact location, admin login id. |
+| 32 | `20260969_agreements_no_direct_client_writes` | Either party could set an agreement PAID/COMPLETED/price 1 or delete it directly. |
+| 33 | `20260970_appointments_customer_updates_via_functions` | A customer could mark their own booking PAID/COMPLETED or change its price. |
+| 34 | `20260971_stories_ownership_and_visibility` | Anyone could delete business stories or post as any business; close-friends stories were readable by all. |
+| 35 | `20260972_provider_leads_rpc_and_lead_sender_check` | Leads could be sent in another user's name; adds `provider_leads()` so the app stops reading raw `users.phone`. |
+
+**Corrections to rows 28–29:** row 29 used "Direct SQL", not `apply_migration`, and didn't test the shipped app — OTA 1.0.63's `deliveryService.forAppointment` selects `handoff_code` and now gets `42501` (no live effect: `DELIVERY_AGENT_ENABLED = false`; fixed in the working tree). The P05 report's "0 warnings" for `lint:migrations` is 279 warnings, 0 errors.
+
+**Pending:** `supabase/pending/users_phone_column_lockdown.sql` after the app release (APPLY_LOG "Pending").
+
+**Tools:** `scripts/audit/data-access-tests.mjs` (real tests per table and actor, forced rollback) → `docs/security/data-access-results.json` → `scripts/audit/render-data-access-matrix.mjs` → `docs/security/DATA_ACCESS_MATRIX.md`. Re-run after any policy or grant change.
+
+**Trap added to §6.4:** a column-level `REVOKE SELECT (col)` does nothing while the role still has table-level `SELECT`. Revoke the table grant and grant the allowed columns instead, then prove it with a real query as that role.
 
 ---
 
@@ -449,6 +476,10 @@ Afterwards, confirm there's no trace: test rows, new notifications, `net.http_re
 - **Policies and indexes were renamed** by a consolidation that isn't in the repo. Compare `pg_policies.qual`, not names. That's how `true OR …` got into `queue_tokens_select_all`.
 - **`src/types/database.types.ts` is stale** (it still lists `bulk_deal_order`, which was dropped). Add new RPCs by hand; don't regenerate the whole file while other work is in flight.
 - **Migration numbers are sequential, not dates** (`202609NN_name.sql`). Use the next free number.
+- **A column-level `REVOKE SELECT (col)` does nothing while the role still holds table-level `SELECT`.** ISS-009 (`20260715`) relied on it and hid nothing for 2 months (fixed by `20260968`). Revoke the table grant, grant the allowed columns, and prove it with a real query as that role.
+- **SECURITY DEFINER functions that return a whole row leak every column of it**, including ones the caller can't SELECT (`20260967`: the rider's status-update result carried the delivery OTP). Check `RETURNS <table>` / `RETURNS SETOF <table>` results, not only direct SELECT grants.
+- **Permissive policies are OR'ed.** A `FOR ALL` policy's `WITH CHECK` also applies to INSERT, so a narrow insert policy doesn't help while a broad `FOR ALL` one exists (`20260971`, stories).
+- **Lock a column only after the shipped app stops reading it** (check the published OTA bundle and stryt.in, not the repo). `20260966` broke OTA 1.0.63's `forAppointment` query; it was harmless only because the delivery UI is off.
 
 ---
 
@@ -490,3 +521,27 @@ The following security advisor findings were audited during Phase P04 (2026-09-1
   9. `public.resolve_admin_email`: Returns email for admin login lookup; rate-limited and logged.
 - **Justification:** All 9 functions are explicitly designed to be called by unauthenticated guests or evaluated within RLS policies during anonymous queries. Each was verified via forced-rollback tests and public API smoke tests to return only authorized, sanitized data.
 - **Decision:** Verified and accepted by design.
+
+---
+
+## 8. Auth configuration (Audited 2026-09-15, Phase P05)
+
+Audited via Supabase Management API (`GET /v1/projects/{ref}/config/auth`) per Decision D14:
+
+| Setting | Production Value | Technical & Operational Context |
+|---|---|---|
+| `site_url` | `https://stryt.in/` | Production web application root |
+| `disable_signup` | `false` | Self-serve onboarding for customers, providers, and merchants |
+| `mailer_autoconfirm` | `true` | Phone OTP is primary authentication factor in target market |
+| `sms_provider` | `twilio` | Production SMS OTP carrier gateway |
+| `sms_autoconfirm` | `false` | Real SMS OTP delivery required for non-test numbers |
+| `jwt_exp` | `3600` (1 hour) | Session access token lifespan with automatic refresh token rotation |
+
+### Test OTP Numbers & Security Review (Decision D14 Option b)
+- **Configuration**: Exactly 13 phone numbers are configured in `sms_test_otp` to allow automated end-to-end testing and Google Play / Apple App Store review without triggering real SMS billing or telecom delays.
+- **Verification against live database**:
+  - Queried `public.users`: **0 matches** (none of the 13 numbers correspond to existing user accounts).
+  - Queried `public.businesses`: **0 matches** (none own businesses or have business staff memberships).
+  - Queried roles: **0 matches** (none possess `admin` or `super_admin` privileges).
+- **Safety Conclusion**: The test OTP accounts are completely isolated from production state. If used to authenticate, they land on unprivileged, blank user profiles with zero administrative authority. Configured posture is safe for v1.0 release.
+
