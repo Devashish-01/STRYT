@@ -145,12 +145,27 @@ for (const who of WHO) {
           if (r.status() >= 400 && /supabase\.co/.test(r.url())) failed.push(`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
         });
         page.on("pageerror", (e) => pageErrors.push(e.message));
+        // The error toast disappears after ~2s, so record it whenever it shows up during the load (E2E-005 was a
+        // toast that appeared ~1s after the skeletons were gone and slipped past a one-off check).
+        await page.addInitScript(() => {
+          const seen: string[] = ((window as unknown as { __e2eErrorToasts: string[] }).__e2eErrorToasts = []);
+          const watch = () =>
+            new MutationObserver(() => {
+              const text = document.body?.innerText ?? "";
+              const m = text.match(/Couldn.t load[^\n]*/);
+              if (m && !seen.includes(m[0])) seen.push(m[0]);
+            }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+          if (document.documentElement) watch();
+          else document.addEventListener("DOMContentLoaded", watch);
+        });
 
         await page.goto(row.route);
         const expected = row.lands ?? row.route.split("?")[0];
         await expect(page).toHaveURL((u) => u.pathname === expected, { timeout: 20_000 });
         await expect(page.locator(".skel")).toHaveCount(0, { timeout: 25_000 });
-        await expect(page.getByText(/Couldn.t load/)).toHaveCount(0);
+        await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+        const errorToasts = await page.evaluate(() => (window as unknown as { __e2eErrorToasts?: string[] }).__e2eErrorToasts ?? []);
+        expect(errorToasts, "error toasts shown while loading").toEqual([]);
         expect(pageErrors, "page errors").toEqual([]);
         expect(failed, "failing Supabase calls").toEqual([]);
         await context.close();

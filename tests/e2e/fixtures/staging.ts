@@ -151,7 +151,7 @@ export const knownBug = (reason: string) => test.fixme(process.env.E2E_RUN_FIXME
 export async function expectAfterReload(
   page: Page,
   locator: () => ReturnType<Page["locator"]> | Promise<ReturnType<Page["locator"]>>,
-  timeout = 30_000,
+  timeout = 45_000,
 ) {
   await expect
     .poll(
@@ -160,7 +160,8 @@ export async function expectAfterReload(
         await expect(page.locator(".skel")).toHaveCount(0, { timeout: 15_000 }).catch(() => {});
         const target = await Promise.resolve(locator()).catch(() => null);
         if (!target) return false;
-        return target.first().isVisible({ timeout: 3_000 }).catch(() => false);
+        // Each attempt waits for the screen's data to arrive before deciding to reload again.
+        return target.first().waitFor({ state: "visible", timeout: 8_000 }).then(() => true, () => false);
       },
       { timeout, intervals: [500, 1_000, 2_000] },
     )
