@@ -45,7 +45,9 @@ function readEnv() {
 
 const env = readEnv();
 const TOKEN = env.SUPABASE_PERSONAL_ACCESS_TOKEN;
-const REF = (env.VITE_SUPABASE_URL || "").match(/https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
+// SNAPSHOT_PROJECT_REF (e.g. the staging ref) overrides the project from .env. Default unchanged.
+const REF = process.env.SNAPSHOT_PROJECT_REF || (env.VITE_SUPABASE_URL || "").match(/https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
+if (process.env.SNAPSHOT_PROJECT_REF) console.log(`snapshot project (override): ${REF}`);
 if (!TOKEN || !REF) {
   console.error("Missing SUPABASE_PERSONAL_ACCESS_TOKEN or VITE_SUPABASE_URL in .env");
   process.exit(1);

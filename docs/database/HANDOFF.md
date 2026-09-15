@@ -16,7 +16,8 @@ Read this whole file before touching the database. It's production, with real us
 | Queue app update | ✅ **Shipped 2026-09-13.** OTA **1.0.63** and stryt.in both use `queue_waiting_line`, verified in the published bundle and on the live site. W7's precondition is now met. It was never harmful: `queue_tokens` had no rows. |
 | W1 — fresh-checkout tests | ✅ done, committed `625df46` |
 | W2 — capture database-only objects | ✅ **Applied & verified 2026-09-12**. Zero drift; R3 baseline decision remains open — see W2 |
-| Rebuildability | **48 of 90 tables are in no migration at all.** Migrations alone cannot rebuild this database; needs the baseline decision in W2 R3 |
+| Rebuildability | ✅ **Rebuildable (P06, D7a).** Baseline `supabase/baseline/2026-09-15_*.sql` (cutoff `20260915163940`) + later migrations; proven by rebuilding staging to an identical schema. See `supabase/baseline/README.md`. |
+| Staging | `laswruzdyqehziyupmdm` (ap-south-1): schema = production, synthetic data only, 7 test personas, 8 edge functions. Section "Staging" below. |
 | Queue data leak | ✅ **Closed.** Stage 1 live (`20260957`), stage 2 app shipped (`1830632`, OTA 1.0.63 + web), stage 3 live (`20260960`, ledger `20260912230006`). |
 | Backups | Free plan = no automatic backups. Latest restore point: `D:\STRYT-db-backups\2026-09-13_pre_w7\` (90/90 verified), taken before W7 |
 | Git | 2026-09-13, on the owner's request: `sprint-6-trust-safety-play-hardening` merged into `main` and pushed (`0ea660e`) → OTA 1.0.63, Android APK/AAB build, web deploy. The branch is also on `origin`. |
@@ -384,8 +385,24 @@ The database change is correct:
      LOGIN + a generated password was refused by the tool's permission system (it creates a credential) — owner step.
 - **Release the P05 app changes, then run the pending phone lockdown** (P05 below): `providerService.leads()` →
   `provider_leads()`, and `deliveryService.forAppointment()` no longer selecting `handoff_code`.
-- Decide on the **R3 baseline** (W2).
+- ✅ ~~Decide on the **R3 baseline** (W2)~~ — D7 (a), built and proven in P06 (`supabase/baseline/README.md`).
 - Replace the dead `SUPABASE_SERVICE_ROLE_KEY` in `.env` with a new secret key (dashboard), or delete it.
+
+### Staging (P06, 2026-09-15)
+| What | Where / how |
+|---|---|
+| Project | `laswruzdyqehziyupmdm` ("stryt-staging", **ap-south-1**; D6 said ap-northeast-1 — the project was created in ap-south-1) |
+| Rule | **No production data, ever.** Only synthetic personas and reference data (categories). |
+| Rebuild from repo | `supabase/baseline/README.md` (apply baseline → platform state → later migrations → seed) |
+| Seed | `npm run seed:staging -- --reset` (guarded: refuses any ref but D6's staging ref, before any network call) |
+| Personas | `scripts/staging/personas.mjs` — customer1/2, owner1 (Test Salon One), staff_queue, staff_appointments, provider1 (Test Plumber One), admin1; phone test OTPs configured on staging by `scripts/staging/setup-staging-auth.mjs` |
+| App against staging | `.env.staging` (gitignored) + `npm run dev:staging` / `npm run build:staging` |
+| Sign-in check | `npm run check:staging-signin` (all 7 personas) |
+| E2E | `npm run e2e` (`tests/e2e/README.md`) |
+| Edge functions | all 8 deployed with `npx supabase functions deploy <name> --project-ref laswruzdyqehziyupmdm --use-api`. Staging has no FCM/email/AI provider secrets, so push, support email and AI assist fail there by design. |
+| Snapshot staging | `SNAPSHOT_PROJECT_REF=laswruzdyqehziyupmdm node scripts/snapshot-live-schema.mjs <file>` |
+
+**Keeping staging equal to production:** apply every new migration to staging first (same file, `apply-baseline.mjs` or the Management API), test there, then production. Re-run the parity check after each batch.
 
 ### P05 — Authorization audit: independent check and fixes (2026-09-15)
 Antigravity's P05 (rows 28–29) was checked against production; real tests replaced its generated matrix.

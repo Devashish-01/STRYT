@@ -29,7 +29,14 @@
     "cap:open:ios": "npx cap open ios",
     "cap:run:ios": "npm run build && npx cap run ios",
     "ota:publish": "npm run build && node scripts/publish-ota-update.mjs",
-    "ota:rollback": "node scripts/rollback-ota-update.mjs"
+    "ota:rollback": "node scripts/rollback-ota-update.mjs",
+    "dev:staging": "vite --mode staging",
+    "seed:staging": "node scripts/staging/seed-staging.mjs",
+    "check:staging-signin": "node scripts/staging/check-persona-signin.mjs",
+    "e2e": "playwright test -c playwright.e2e.config.ts",
+    "e2e:ui": "playwright test -c playwright.e2e.config.ts --ui",
+    "build:staging": "vite build --mode staging --outDir dist-staging",
+    "preview:staging": "vite preview --mode staging --outDir dist-staging"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.3.0",
