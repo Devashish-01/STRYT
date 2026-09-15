@@ -172,12 +172,16 @@ export default function CommunityCompose() {
   // that screen is only reachable under the same showCartStepper gate this
   // toggle uses, so trusting the flag here can't strand an ineligible seller.
   const [isBulkBuying, setIsBulkBuying] = useState(() => !!(loc.state as any)?.bulkBuying);
+  // Eligibility is only known once the identity and its business have loaded. Treating "still loading" as "not
+  // eligible" dropped the pre-armed campaign ~0.5s after "New campaign" opened this screen, every time the shop
+  // wasn't already cached — owners could not create campaigns at all (E2E-038).
+  const bulkEligibilityKnown = !sellerCtxLoading && (sellerCtx?.type !== "business" || sellerBiz !== undefined);
   useEffect(() => {
     // Switching to an identity whose package can't run a campaign has to drop
     // the campaign, or the form would keep collecting tier/deposit fields for a
     // post that can no longer be one.
-    if (!showBulkBuying) setIsBulkBuying(false);
-  }, [showBulkBuying]);
+    if (bulkEligibilityKnown && !showBulkBuying) setIsBulkBuying(false);
+  }, [bulkEligibilityKnown, showBulkBuying]);
 
   const [regularPrice, setRegularPrice] = useState("");
   const [campaignMoq, setCampaignMoq] = useState("10");
@@ -544,6 +548,7 @@ export default function CommunityCompose() {
           <button
             type="button"
             className="row gap-12"
+            aria-pressed={isBulkBuying}
             onClick={() => {
               const next = !isBulkBuying;
               setIsBulkBuying(next);
