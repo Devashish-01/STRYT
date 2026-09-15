@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import { loadStagingEnv } from "./fixtures/staging";
 
@@ -10,4 +11,7 @@ export default async function globalSetup() {
     return;
   }
   execFileSync(process.execPath, ["scripts/staging/seed-staging.mjs", "--reset"], { stdio: "inherit" });
+  // Saved persona sessions from before the reseed are now invalid (fixtures/staging.ts stateFor).
+  fs.mkdirSync(".auth", { recursive: true });
+  fs.writeFileSync(".auth/staging-seeded-at", new Date().toISOString());
 }

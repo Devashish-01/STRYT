@@ -68,5 +68,104 @@ export async function personaPage(browser: Browser, key: PersonaKey, contextOpti
   return { context, page };
 }
 
-export const test = base;
+type Personas = {
+  guest: Page;
+  customer: Page;
+  customer2: Page;
+  owner: Page;
+  staffQueue: Page;
+  staffAppointments: Page;
+  provider: Page;
+  admin: Page;
+};
+
+/**
+ * Each persona signs in once per worker through the OTP screen; its storage state is saved to
+ * .auth/staging-<persona>.json and reused by every test's fresh context. Sessions older than 40 minutes are
+ * signed in again, so no context ever loads an expired access token and rotates a refresh token another
+ * context still holds.
+ */
+const SESSION_MAX_AGE_MS = 40 * 60 * 1000;
+const signedInAt = new Map<PersonaKey, number>();
+// A reseed deletes and recreates the auth users, which invalidates every saved session.
+const RESEED_MARKER = path.join(process.cwd(), ".auth", "staging-seeded-at");
+
+export async function stateFor(browser: Browser, key: PersonaKey) {
+  const file = path.join(process.cwd(), ".auth", `staging-${key}.json`);
+  // Reuse a saved session across runs while it is fresh and newer than the last reseed (fewer OTP sign-ins, which
+  // staging auth rate-limits).
+  const savedAt = fs.existsSync(file) ? fs.statSync(file).mtimeMs : 0;
+  const seededAt = fs.existsSync(RESEED_MARKER) ? fs.statSync(RESEED_MARKER).mtimeMs : 0;
+  const at = signedInAt.get(key) ?? (savedAt > seededAt ? savedAt : undefined);
+  if (!at || Date.now() - at > SESSION_MAX_AGE_MS || !fs.existsSync(file)) {
+    // The runner applies the project's `use` options (device, baseURL) to browser.newContext.
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const page = await context.newPage();
+    await signIn(page, key);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    await context.storageState({ path: file });
+    await context.close();
+    signedInAt.set(key, Date.now());
+  }
+  return file;
+}
+
+/** A fresh browser context for the persona (guest = no session). */
+export async function openAs(browser: Browser, key: PersonaKey | "guest") {
+  const storageState = key === "guest" ? { cookies: [], origins: [] } : await stateFor(browser, key);
+  const context = await browser.newContext({ storageState });
+  const page = await context.newPage();
+  return { context, page };
+}
+
+function personaFixture(key: PersonaKey | "guest") {
+  return async ({ browser }: { browser: Browser }, use: (p: Page) => Promise<void>) => {
+    const { context, page } = await openAs(browser, key);
+    await use(page);
+    await context.close();
+  };
+}
+
+export const test = base.extend<Personas>({
+  guest: personaFixture("guest"),
+  customer: personaFixture("customer1"),
+  customer2: personaFixture("customer2"),
+  owner: personaFixture("owner1"),
+  staffQueue: personaFixture("staff_queue"),
+  staffAppointments: personaFixture("staff_appointments"),
+  provider: personaFixture("provider1"),
+  admin: personaFixture("admin1"),
+});
 export { expect };
+
+/**
+ * Marks a test blocked by a known, logged bug (docs/gaps/GAP_LEDGER.csv). It is reported as fixme and skipped;
+ * E2E_RUN_FIXME=1 runs these tests anyway, to prove a bug still reproduces or that a fix closed it.
+ */
+export const knownBug = (reason: string) => test.fixme(process.env.E2E_RUN_FIXME !== "1", reason);
+
+/**
+ * Cross-person propagation: reloads `page` until `locator()` is visible. Another persona's action (often applied
+ * optimistically on their screen first) reaches this persona's screen only after the server write lands.
+ */
+export async function expectAfterReload(
+  page: Page,
+  locator: () => ReturnType<Page["locator"]> | Promise<ReturnType<Page["locator"]>>,
+  timeout = 30_000,
+) {
+  await expect
+    .poll(
+      async () => {
+        await page.reload();
+        await expect(page.locator(".skel")).toHaveCount(0, { timeout: 15_000 }).catch(() => {});
+        const target = await Promise.resolve(locator()).catch(() => null);
+        if (!target) return false;
+        return target.first().isVisible({ timeout: 3_000 }).catch(() => false);
+      },
+      { timeout, intervals: [500, 1_000, 2_000] },
+    )
+    .toBe(true);
+}
+
+/** A short unique suffix so every test creates its own records. */
+export const uid = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;

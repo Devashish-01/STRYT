@@ -29,6 +29,6 @@ Sign in with `signIn(page, "owner1")` or `personaPage(browser, "owner1")` from `
 
 ## Rules
 
-- A test that fails because of a real bug is marked `test.fixme(true, "<GAP_LOG>:<ID> — <one line>")` — never weakened.
+- A test that fails because of a real bug calls `knownBug("<gap id> — <one line>")` (a `test.fixme`) — never weakened. `E2E_RUN_FIXME=1` runs those tests anyway, to show a bug still reproduces or that its fix works.
 - No fixed sleeps; use Playwright auto-waiting and `expect.poll`.
 - Tests create their own records and don't depend on order.

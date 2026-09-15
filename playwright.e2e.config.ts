@@ -34,7 +34,8 @@ export default defineConfig({
     // A production build served by `vite preview`: the dev server compiles on first load and made sign-in flaky.
     command: `npm run build:staging && npm run preview:staging -- --port ${PORT} --strictPort`,
     url: BASE_URL,
-    reuseExistingServer: false,
+    // E2E_REUSE_SERVER=1 reuses a preview already running on the port (local iteration only; CI always builds).
+    reuseExistingServer: !process.env.CI && process.env.E2E_REUSE_SERVER === "1",
     timeout: 420_000,
   },
 });

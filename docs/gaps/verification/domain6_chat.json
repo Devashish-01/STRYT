@@ -1,0 +1,11 @@
+[
+  {"gap_id": "CHAT_MESSAGING:C1", "status": "FIXED", "evidence": "AFTER INSERT trigger tr_notify_on_chat_message -> notify_on_chat_message inserts a CHAT notification for the other participant; staging forced-rollback test 2026-09-16 (notif_to_b=1, notif_to_a=1). Production depends on migration 20260973 (E2E-014) - pending owner approval."},
+  {"gap_id": "CHAT_MESSAGING:C2", "status": "FIXED", "evidence": "src/screens/chat/ChatThread.tsx: More options menu with ReportSheet (reporting state) and toggleBlock (socialService.blockUser/unblockUser); send() refuses when isBlocked. Server side: 20260973 insert policy refuses messages between blocked users (staging test)."},
+  {"gap_id": "CHAT_MESSAGING:C3", "status": "FIXED", "evidence": "ChatThread.tsx realtime subscribe callback calls chatService.markRead for every incoming message from the other user; critical/chat.spec.ts asserts the owner's unread flag clears when the thread is opened."},
+  {"gap_id": "CHAT_MESSAGING:C4", "status": "FIXED", "evidence": "ChatThread.tsx composer bar padding 'calc(10px + var(--safe-area-bottom))' and message list paddingBottom 'calc(90px + var(--safe-area-bottom))'. Keyboard overlap on real devices is P13 device QA."},
+  {"gap_id": "CHAT_MESSAGING:C5", "status": "FIXED", "evidence": "ChatThread.tsx header menu item is labelled 'View contact' (Phone icon + text), no longer a bare phone button that opened the profile."},
+  {"gap_id": "CHAT_MESSAGING:C6", "status": "FIXED", "evidence": "ChatThread.tsx send(): optimistic message (optimistic-<ts>) appended immediately, replaced by the saved row, removed + input and photo restored + toast on failure."},
+  {"gap_id": "CHAT_MESSAGING:C7", "status": "FIXED", "evidence": "ChatThread.tsx image tap sets activePhoto and renders the in-app PhotoViewer; no window.open."},
+  {"gap_id": "CHAT_MESSAGING:C8", "status": "OPEN", "evidence": "src/services/engagement/chatService.ts messages(): select * ... order created_at asc with no limit or cursor; long threads load every message."},
+  {"gap_id": "CHAT_MESSAGING:C9", "status": "FIXED", "evidence": "grep '#fff|#FFF' in src/screens/chat/*.tsx: no matches (2026-09-16)."}
+]

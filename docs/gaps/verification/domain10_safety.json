@@ -1,0 +1,18 @@
+[
+  {"gap_id": "EMERGENCY_CONTACTS:ECON-1", "status": "OPEN", "evidence": "emergencyService.candidateContacts() still lists only people from existing chats (chatService.conversations); no add-by-phone or search. Needs a product decision on adding non-chat contacts (privacy of phone lookup)."},
+  {"gap_id": "EMERGENCY_CONTACTS:ECON-2", "status": "FIXED", "evidence": "start_live_share raises NO_EMERGENCY_CONTACTS when the sharer has none (baseline 2026-09-15); useLiveShare.start() also refuses with a toast before asking for location."},
+  {"gap_id": "EMERGENCY_CONTACTS:ECON-3", "status": "FIXED", "evidence": "EmergencyContacts.tsx Remove opens a confirm sheet 'Remove emergency contact?' with 'Yes, remove contact' / cancel."},
+  {"gap_id": "EMERGENCY_CONTACTS:ECON-4", "status": "OPEN", "evidence": "emergencyService.listContacts(): `if (error) return [];` still shows the empty state on a network/auth error."},
+  {"gap_id": "EMERGENCY_CONTACTS:ECON-5", "status": "OPEN", "evidence": "No cap on emergency_contacts per owner (no constraint/trigger in baseline); start_live_share loops every contact inside one transaction."},
+  {"gap_id": "EMERGENCY_CONTACTS:ECON-6", "status": "OPEN", "evidence": "EmergencyContacts.tsx uses plain useQuery for contacts (no realtime subscription)."},
+  {"gap_id": "EMERGENCY_CONTACTS:ECON-7", "status": "OPEN", "evidence": "Candidate 'Add' buttons are small text buttons without an accessible name beyond 'Add'; touch-target size to be measured in P13 device/accessibility QA."},
+  {"gap_id": "LOCATION_SHARING:LOC-1", "status": "FIXED", "evidence": "start_live_share creates live_shares with expires_at = now() + 8 hours and ends expired ACTIVE sessions before resuming (baseline 2026-09-15)."},
+  {"gap_id": "LOCATION_SHARING:LOC-2", "status": "FIXED", "evidence": "LiveLocationCard.tsx computes isStale when updatedAt is older than 5 minutes and polls get_live_share every 15s; ENDED status tears the map down."},
+  {"gap_id": "LOCATION_SHARING:LOC-3", "status": "FIXED", "evidence": "start_live_share raises INVALID_COORDINATES for null or (0,0); useLiveShare.start() refuses a (0,0) or missing first fix with a toast."},
+  {"gap_id": "LOCATION_SHARING:LOC-4", "status": "FIXED", "evidence": "request_location_share ON CONFLICT keeps APPROVED only while expires_at is in the future, otherwise resets to PENDING (baseline 2026-09-15)."},
+  {"gap_id": "LOCATION_SHARING:LOC-5", "status": "OPEN", "evidence": "revoke_live_share_recipient deletes the recipient and ends their card but never ends the live_shares row when no recipients remain."},
+  {"gap_id": "LOCATION_SHARING:LOC-6", "status": "OPEN", "evidence": "locationService.sharedByMe() filters status = APPROVED only, no expires_at > now()."},
+  {"gap_id": "LOCATION_SHARING:LOC-7", "status": "OPEN", "evidence": "LocationSettings.tsx (3 queries) and Home.tsx subscribe to location_share_grants with filter undefined."},
+  {"gap_id": "LOCATION_SHARING:LOC-8", "status": "OPEN", "evidence": "src/features/live-share/LiveShareBanner.tsx: position fixed, top: 8 with no safe-area inset."},
+  {"gap_id": "LOCATION_SHARING:LOC-9", "status": "OPEN", "evidence": "LiveLocationCard.tsx map-creation effect has no unmount cleanup (map.remove() only runs when the share ends)."}
+]
