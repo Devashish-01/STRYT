@@ -1,0 +1,533 @@
+[
+  {
+    "sig": "admin_recent_users()",
+    "risk": "MEDIUM",
+    "returns": "SETOF users",
+    "isTrigger": false,
+    "appCallers": "src/screens/admin/AdminPanel.tsx",
+    "bodySummary": " begin if not exists (select 1 from public.users where id = auth.uid()::text and 'admin' = any(roles)) then raise exception 'NOT_ADMIN'; end if; return query select * from public.users order by created_at desc limit 30; end ",
+    "bodyFull": "\r\nbegin\r\n  if not exists (select 1 from public.users where id = auth.uid()::text and 'admin' = any(roles)) then\r\n    raise exception 'NOT_ADMIN';\r\n  end if;\r\n  return query select * from public.users order by created_at desc limit 30;\r\nend "
+  },
+  {
+    "sig": "admin_search_users(term text)",
+    "risk": "MEDIUM",
+    "returns": "SETOF users",
+    "isTrigger": false,
+    "appCallers": "src/screens/admin/AdminPanel.tsx",
+    "bodySummary": " begin if not exists (select 1 from public.users where id = auth.uid()::text and 'admin' = any(roles)) then raise exception 'NOT_ADMIN'; end if; return query select * from public.users where name ilike '%' || term || '%' or phone ilike '%' || term || '%' or email ilike '%' || term || '%' limit 20; e",
+    "bodyFull": "\r\nbegin\r\n  if not exists (select 1 from public.users where id = auth.uid()::text and 'admin' = any(roles)) then\r\n    raise exception 'NOT_ADMIN';\r\n  end if;\r\n  return query\r\n    select * from public.users\r\n    where name ilike '%' || term || '%'\r\n       or phone ilike '%' || term || '%'\r\n       or email ilike '%' || term || '%'\r\n    limit 20;\r\nend "
+  },
+  {
+    "sig": "agreement_update_live_status(p_id text, p_status text, p_lat double precision, p_lng double precision)",
+    "risk": "HIGH",
+    "returns": "agreements",
+    "isTrigger": false,
+    "appCallers": "src/services/engagement/requestService.ts",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_agreement public.agreements%rowtype; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; if p_status not in ('CONFIRMED', 'LEAVING', 'ON_THE_WAY', 'ARRIVED', 'WORKING', 'DONE') then raise exception 'INVALID_LIVE_STATUS'; end if; if p_lat ",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_agreement public.agreements%rowtype;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n  if p_status not in ('CONFIRMED', 'LEAVING', 'ON_THE_WAY', 'ARRIVED', 'WORKING', 'DONE') then\n    raise exception 'INVALID_LIVE_STATUS';\n  end if;\n  if p_lat is not null and (p_lat < -90 or p_lat > 90) then raise exception 'INVALID_LATITUDE'; end if;\n  if p_lng is not null and (p_lng < -180 or p_lng > 180) then raise exception 'INVALID_LONGITUDE'; end if;\n\n  select * into v_agreement from public.agreements where id = p_id for update;\n  if not found then raise exception 'AGREEMENT_NOT_FOUND'; end if;\n  if v_uid is distinct from v_agreement.responder_user_id then raise exception 'NOT_RESPONDER'; end if;\n  if v_agreement.status <> 'IN_PROGRESS' then raise exception 'INVALID_TRANSITION'; end if;\n\n  update public.agreements\n  set live_status = p_status,\n      provider_lat = coalesce(p_lat, provider_lat),\n      provider_lng = coalesce(p_lng, provider_lng)\n  where id = p_id and status = 'IN_PROGRESS'\n  returning * into v_agreement;\n  if not found then raise exception 'INVALID_TRANSITION'; end if;\n  return v_agreement;\nend\n"
+  },
+  {
+    "sig": "aliases_available(p_aliases text[])",
+    "risk": "MEDIUM",
+    "returns": "TABLE(alias text, available boolean)",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " select t.candidate as alias, not exists ( select 1 from public.users u where lower(u.alias) = lower(t.candidate) and u.alias is not null and u.alias <> '' and u.id <> coalesce(auth.uid()::text, '') ) as available from unnest(p_aliases) as t(candidate) limit 10; ",
+    "bodyFull": "\r\n  select\r\n    t.candidate as alias,\r\n    not exists (\r\n      select 1\r\n        from public.users u\r\n       where lower(u.alias) = lower(t.candidate)\r\n         and u.alias is not null\r\n         and u.alias <> ''\r\n         and u.id <> coalesce(auth.uid()::text, '')\r\n    ) as available\r\n  from unnest(p_aliases) as t(candidate)\r\n  limit 10;\r\n"
+  },
+  {
+    "sig": "booked_slots(p_target_id text)",
+    "risk": "MEDIUM",
+    "returns": "TABLE(scheduled_for timestamp with time zone, package_id text, used_spots integer)",
+    "isTrigger": false,
+    "appCallers": "src/services/engagement/appointmentService.ts",
+    "bodySummary": " select a.scheduled_for, a.package_id, sum(a.party_size)::int from public.appointments a where a.target_id = p_target_id and ( a.status = 'ACCEPTED' or ( a.status = 'PENDING' and a.created_at > now() - interval '2 hours' and coalesce(a.is_out_of_range, false) = false ) ) group by a.scheduled_for, a.",
+    "bodyFull": "\n  select a.scheduled_for, a.package_id, sum(a.party_size)::int\n  from public.appointments a\n  where a.target_id = p_target_id\n    and (\n      a.status = 'ACCEPTED'\n      or (\n        a.status = 'PENDING'\n        and a.created_at > now() - interval '2 hours'\n        and coalesce(a.is_out_of_range, false) = false\n      )\n    )\n  group by a.scheduled_for, a.package_id;\n"
+  },
+  {
+    "sig": "bulk_deal_pledge_leave(p_deal_id text)",
+    "risk": "HIGH",
+    "returns": "bulk_deals",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_deal public.bulk_deals%rowtype; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; select * into v_deal from public.bulk_deals where id = p_deal_id for update; if not found then raise exception 'DEAL_NOT_FOUND'; end if; if v_deal.closed_",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_deal public.bulk_deals%rowtype;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n\n  select * into v_deal from public.bulk_deals where id = p_deal_id for update;\n  if not found then raise exception 'DEAL_NOT_FOUND'; end if;\n  if v_deal.closed_at is not null then raise exception 'DEAL_CLOSED'; end if;\n\n  delete from public.bulk_deal_pledges where deal_id = p_deal_id and user_id = v_uid;\n\n  update public.bulk_deals\n     set pledged_quantity = (select coalesce(sum(quantity), 0) from public.bulk_deal_pledges where deal_id = p_deal_id)\n   where id = p_deal_id\n  returning * into v_deal;\n\n  return v_deal;\nend\n"
+  },
+  {
+    "sig": "bulk_deal_redemption_stats(p_deal_id text)",
+    "risk": "MEDIUM",
+    "returns": "TABLE(total integer, redeemed integer, pending integer)",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " select count(*)::int, count(*) filter (where status = 'REDEEMED')::int, count(*) filter (where status = 'ISSUED')::int from public.bulk_deal_tokens where deal_id = p_deal_id; ",
+    "bodyFull": "\r\n  select count(*)::int,\r\n         count(*) filter (where status = 'REDEEMED')::int,\r\n         count(*) filter (where status = 'ISSUED')::int\r\n    from public.bulk_deal_tokens\r\n   where deal_id = p_deal_id;\r\n"
+  },
+  {
+    "sig": "bump_business_metric(p_business_id text, p_metric text)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "src/services/marketplace/businessService.ts",
+    "bodySummary": " begin if p_metric = 'view' then update public.businesses set view_count = coalesce(view_count, 0) + 1 where id = p_business_id; insert into public.business_view_logs(business_id) values (p_business_id); elsif p_metric = 'call' then update public.businesses set call_count = coalesce(call_count, 0) +",
+    "bodyFull": "\nbegin\n  if p_metric = 'view' then\n    update public.businesses\n      set view_count = coalesce(view_count, 0) + 1\n      where id = p_business_id;\n\n    insert into public.business_view_logs(business_id)\n      values (p_business_id);\n\n  elsif p_metric = 'call' then\n    update public.businesses\n      set call_count = coalesce(call_count, 0) + 1\n      where id = p_business_id;\n\n  elsif p_metric = 'directions' then\n    update public.businesses\n      set directions_count = coalesce(directions_count, 0) + 1\n      where id = p_business_id;\n  end if;\nend;\n"
+  },
+  {
+    "sig": "bump_provider_views(p_provider_id text)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "src/services/marketplace/providerService.ts",
+    "bodySummary": " BEGIN UPDATE public.providers SET view_count = COALESCE(view_count, 0) + 1 WHERE id = p_provider_id; INSERT INTO public.provider_view_logs (provider_id, viewed_at) VALUES (p_provider_id, now()); END; ",
+    "bodyFull": "\nBEGIN\n  UPDATE public.providers\n     SET view_count = COALESCE(view_count, 0) + 1\n   WHERE id = p_provider_id;\n\n  INSERT INTO public.provider_view_logs (provider_id, viewed_at)\n  VALUES (p_provider_id, now());\nEND;\n"
+  },
+  {
+    "sig": "business_slot_capacities(p_business_id text)",
+    "risk": "MEDIUM",
+    "returns": "TABLE(package_id text, slot_capacity integer, max_party_size integer)",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " select ci.id, greatest(1, coalesce(ci.slot_capacity, (select b.default_slot_capacity from public.businesses b where b.id = p_business_id), 1)), greatest(1, ci.max_party_size) from public.catalog_items ci where ci.business_id = p_business_id; ",
+    "bodyFull": "\n  select ci.id,\n         greatest(1, coalesce(ci.slot_capacity,\n           (select b.default_slot_capacity from public.businesses b where b.id = p_business_id), 1)),\n         greatest(1, ci.max_party_size)\n  from public.catalog_items ci\n  where ci.business_id = p_business_id;\n"
+  },
+  {
+    "sig": "clear_switch_pin(p_current_pin text)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_existing_hash text; begin if v_uid is null then raise exception 'Not authenticated'; end if; select switch_pin_hash into v_existing_hash from public.users where id = v_uid; if v_existing_hash is null then return; end if; if not public.verify_switch_pin(coal",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_existing_hash text;\nbegin\n  if v_uid is null then raise exception 'Not authenticated'; end if;\n  select switch_pin_hash into v_existing_hash from public.users where id = v_uid;\n  if v_existing_hash is null then return; end if;\n  if not public.verify_switch_pin(coalesce(p_current_pin, '')) then\n    raise exception 'Current PIN is incorrect';\n  end if;\n  update public.users set switch_pin_hash = null where id = v_uid;\n  delete from public.switch_pin_attempts where user_id = v_uid;\nend\n"
+  },
+  {
+    "sig": "close_expired_business_sessions()",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "src/services/marketplace/businessAccessService.ts",
+    "bodySummary": " update public.business_access_sessions set status = 'EXPIRED', decided_at = coalesce(decided_at, now()) where status in ('PENDING', 'ACTIVE') and expires_at is not null and expires_at <= now(); ",
+    "bodyFull": "\n  update public.business_access_sessions\n  set status = 'EXPIRED', decided_at = coalesce(decided_at, now())\n  where status in ('PENDING', 'ACTIVE')\n    and expires_at is not null\n    and expires_at <= now();\n"
+  },
+  {
+    "sig": "close_expired_requests()",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "src/services/engagement/requestService.ts",
+    "bodySummary": " update public.requests set status = 'EXPIRED' where status = 'OPEN' and expires_at is not null and expires_at < now(); ",
+    "bodyFull": "\r\n  update public.requests\r\n  set status = 'EXPIRED'\r\n  where status = 'OPEN'\r\n    and expires_at is not null\r\n    and expires_at < now();\r\n"
+  },
+  {
+    "sig": "community_comment_delete(p_id text)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_comment public.post_comments%rowtype; v_post_author text; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; select * into v_comment from public.post_comments where id = p_id; if not found then raise exception 'COMMENT_NOT_FOUND'; end if",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_comment public.post_comments%rowtype;\n  v_post_author text;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n\n  select * into v_comment from public.post_comments where id = p_id;\n  if not found then raise exception 'COMMENT_NOT_FOUND'; end if;\n\n  select author_user_id into v_post_author from public.community_posts where id = v_comment.post_id;\n\n  if v_comment.author_user_id is distinct from v_uid\n     and v_post_author is distinct from v_uid then\n    raise exception 'NOT_ALLOWED';\n  end if;\n\n  -- Replies would otherwise dangle under a parent that no longer exists.\n  delete from public.comment_reactions where comment_id = p_id;\n  delete from public.post_comments where parent_id = p_id;\n  delete from public.post_comments where id = p_id;\n  -- comments_count is corrected by trg_sync_post_comments_count (20260922).\nend\n"
+  },
+  {
+    "sig": "community_comment_set_pinned(p_id text, p_pinned boolean)",
+    "risk": "HIGH",
+    "returns": "post_comments",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_comment public.post_comments%rowtype; v_post_author text; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; select * into v_comment from public.post_comments where id = p_id; if not found then raise exception 'COMMENT_NOT_FOUND'; end if",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_comment public.post_comments%rowtype;\n  v_post_author text;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n\n  select * into v_comment from public.post_comments where id = p_id;\n  if not found then raise exception 'COMMENT_NOT_FOUND'; end if;\n\n  select author_user_id into v_post_author from public.community_posts where id = v_comment.post_id;\n  if v_post_author is distinct from v_uid then raise exception 'NOT_POST_AUTHOR'; end if;\n\n  if coalesce(p_pinned, false) then\n    update public.post_comments set pinned_at = null\n     where post_id = v_comment.post_id and pinned_at is not null;\n    update public.post_comments set pinned_at = now() where id = p_id returning * into v_comment;\n  else\n    update public.post_comments set pinned_at = null where id = p_id returning * into v_comment;\n  end if;\n\n  return v_comment;\nend\n"
+  },
+  {
+    "sig": "community_comment_update(p_id text, p_body text)",
+    "risk": "HIGH",
+    "returns": "post_comments",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_comment public.post_comments%rowtype; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; if length(trim(coalesce(p_body, ''))) < 1 then raise exception 'EMPTY_BODY'; end if; select * into v_comment from public.post_comments where id = p_",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_comment public.post_comments%rowtype;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n  if length(trim(coalesce(p_body, ''))) < 1 then raise exception 'EMPTY_BODY'; end if;\n\n  select * into v_comment from public.post_comments where id = p_id for update;\n  if not found then raise exception 'COMMENT_NOT_FOUND'; end if;\n  if v_comment.author_user_id is distinct from v_uid then raise exception 'NOT_YOUR_COMMENT'; end if;\n\n  update public.post_comments\n     set body = left(trim(p_body), 2000), edited_at = now()\n   where id = p_id\n  returning * into v_comment;\n\n  return v_comment;\nend\n"
+  },
+  {
+    "sig": "community_poll_close(p_id text)",
+    "risk": "HIGH",
+    "returns": "community_posts",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_post public.community_posts%rowtype; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; select * into v_post from public.community_posts where id = p_id for update; if not found then raise exception 'POST_NOT_FOUND'; end if; if v_post.au",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_post public.community_posts%rowtype;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n\n  select * into v_post from public.community_posts where id = p_id for update;\n  if not found then raise exception 'POST_NOT_FOUND'; end if;\n  if v_post.author_user_id is distinct from v_uid then raise exception 'NOT_YOUR_POST'; end if;\n  if v_post.type is distinct from 'POLL' then raise exception 'NOT_A_POLL'; end if;\n\n  update public.community_posts\n     set poll_ends_at = least(coalesce(poll_ends_at, now()), now())\n   where id = p_id\n  returning * into v_post;\n\n  return v_post;\nend\n"
+  },
+  {
+    "sig": "community_post_add_recommendation(p_post_id text, p_listing_type text, p_listing_id text, p_by_name text)",
+    "risk": "HIGH",
+    "returns": "community_posts",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_post public.community_posts%rowtype; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; if p_listing_type not in ('BUSINESS', 'PROVIDER') then raise exception 'INVALID_LISTING_TYPE'; end if; if nullif(trim(coalesce(p_listing_id, '')), ''",
+    "bodyFull": "\ndeclare\n  v_uid  text := auth.uid()::text;\n  v_post public.community_posts%rowtype;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n  if p_listing_type not in ('BUSINESS', 'PROVIDER') then raise exception 'INVALID_LISTING_TYPE'; end if;\n  if nullif(trim(coalesce(p_listing_id, '')), '') is null then raise exception 'INVALID_LISTING'; end if;\n\n  -- Row lock: serialises concurrent recommenders, so the append below always\n  -- reads the array as it stands after any other in-flight append.\n  select * into v_post from public.community_posts where id = p_post_id for update;\n  if not found then raise exception 'POST_NOT_FOUND'; end if;\n\n  update public.community_posts\n     set recommendations = coalesce(recommendations, '[]'::jsonb) || jsonb_build_array(\n           jsonb_build_object(\n             'listingType', p_listing_type,\n             'listingId',   p_listing_id,\n             'byName',      coalesce(nullif(trim(coalesce(p_by_name, '')), ''), 'Someone'),\n             'byUserId',    v_uid\n           ))\n   where id = p_post_id\n  returning * into v_post;\n\n  return v_post;\nend\n"
+  },
+  {
+    "sig": "community_post_delete(p_id text)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_author text; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; select author_user_id into v_author from public.community_posts where id = p_id for update; if not found then raise exception 'POST_NOT_FOUND'; end if; if v_author is distin",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_author text;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n\n  select author_user_id into v_author from public.community_posts where id = p_id for update;\n  if not found then raise exception 'POST_NOT_FOUND'; end if;\n  if v_author is distinct from v_uid then raise exception 'NOT_YOUR_POST'; end if;\n\n  delete from public.post_comments where post_id = p_id;\n  delete from public.post_likes where post_id = p_id;\n  delete from public.poll_votes where post_id = p_id;\n  delete from public.community_posts where id = p_id;\nend\n"
+  },
+  {
+    "sig": "community_post_set_profile_visibility(p_id text, p_show boolean)",
+    "risk": "HIGH",
+    "returns": "community_posts",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_post public.community_posts%rowtype; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; select * into v_post from public.community_posts where id = p_id for update; if not found then raise exception 'POST_NOT_FOUND'; end if; if v_post.au",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_post public.community_posts%rowtype;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n\n  select * into v_post from public.community_posts where id = p_id for update;\n  if not found then raise exception 'POST_NOT_FOUND'; end if;\n  if v_post.author_user_id is distinct from v_uid then raise exception 'NOT_YOUR_POST'; end if;\n\n  update public.community_posts\n     set show_on_profile = coalesce(p_show, true)\n   where id = p_id\n  returning * into v_post;\n\n  return v_post;\nend\n"
+  },
+  {
+    "sig": "community_post_set_resolved(p_id text, p_resolved boolean)",
+    "risk": "HIGH",
+    "returns": "community_posts",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_post public.community_posts%rowtype; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; select * into v_post from public.community_posts where id = p_id for update; if not found then raise exception 'POST_NOT_FOUND'; end if; if v_post.au",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_post public.community_posts%rowtype;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n\n  select * into v_post from public.community_posts where id = p_id for update;\n  if not found then raise exception 'POST_NOT_FOUND'; end if;\n  if v_post.author_user_id is distinct from v_uid then raise exception 'NOT_YOUR_POST'; end if;\n\n  update public.community_posts set resolved = p_resolved where id = p_id returning * into v_post;\n  return v_post;\nend\n"
+  },
+  {
+    "sig": "community_post_update(p_id text, p_title text, p_body text, p_image text, p_media text[], p_image_alt text, p_last_seen text, p_reward text, p_pickup_note text, p_tagged_listing jsonb, p_clear_tagged_listing boolean, p_comment_policy text, p_hide_like_count boolean)",
+    "risk": "HIGH",
+    "returns": "community_posts",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_post public.community_posts%rowtype; v_media text[]; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; select * into v_post from public.community_posts where id = p_id for update; if not found then raise exception 'POST_NOT_FOUND'; end ",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_post public.community_posts%rowtype;\n  v_media text[];\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n\n  select * into v_post from public.community_posts where id = p_id for update;\n  if not found then raise exception 'POST_NOT_FOUND'; end if;\n  if v_post.author_user_id is distinct from v_uid then raise exception 'NOT_YOUR_POST'; end if;\n  if nullif(trim(coalesce(p_title, '')), '') is null then raise exception 'TITLE_REQUIRED'; end if;\n\n  if p_comment_policy is not null\n     and p_comment_policy not in ('EVERYONE', 'NEIGHBORS', 'MUTUALS', 'OFF') then\n    raise exception 'INVALID_COMMENT_POLICY';\n  end if;\n\n  -- p_media null = \"caller didn't say\", so fall back to the single p_image it\n  -- did send (that's the pre-media client, still shipping in an older app\n  -- build / OTA bundle). An explicitly empty array means \"remove the photos\".\n  v_media := coalesce(\n    p_media,\n    case when nullif(p_image, '') is null then '{}'::text[] else array[p_image] end\n  );\n  if coalesce(array_length(v_media, 1), 0) > 4 then\n    raise exception 'TOO_MANY_PHOTOS';\n  end if;\n\n  update public.community_posts\n     set title     = left(trim(p_title), 150),\n         body      = nullif(left(trim(coalesce(p_body, '')), 2000), ''),\n         media     = v_media,\n         -- image stays the first photo so older read paths keep working.\n         image     = v_media[1],\n         image_alt = nullif(trim(coalesce(p_image_alt, '')), ''),\n\n         last_seen = case when p_last_seen is null then last_seen\n                          else nullif(left(trim(p_last_seen), 120), '') end,\n         reward    = case when p_reward is null then reward\n                          else nullif(left(trim(p_reward), 80), '') end,\n         pickup_note = case when p_pickup_note is null then pickup_note\n                            else nullif(left(trim(p_pickup_note), 140), '') end,\n         -- The flag is the explicit \"untag it\"; a NULL payload without it just\n         -- means the caller never mentioned the field.\n         tagged_listing = case\n                            when coalesce(p_clear_tagged_listing, false) then null\n                            when p_tagged_listing is null then tagged_listing\n                            when jsonb_typeof(p_tagged_listing) = 'null' then null\n                            else p_tagged_listing\n                          end,\n         comment_policy = coalesce(p_comment_policy, comment_policy),\n         -- allow_comments is the legacy mirror resolveCommentPolicy() falls\n         -- back to. Kept consistent here so a post edited to OFF doesn't read\n         -- as \"on\" to any path still looking at the boolean.\n         allow_comments = case\n                            when p_comment_policy is null then allow_comments\n                            when p_comment_policy = 'OFF' then false\n                            else true\n                          end,\n         hide_like_count = coalesce(p_hide_like_count, hide_like_count)\n   where id = p_id\n   returning * into v_post;\n\n  return v_post;\nend\n"
+  },
+  {
+    "sig": "get_entity_recovery_question(p_kind text)",
+    "risk": "MEDIUM",
+    "returns": "TABLE(question_id text, question_text text)",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_qid text; v_qtext text; begin if v_uid is null then return; end if; if p_kind not in ('business', 'provider') then return; end if; if p_kind = 'business' then select business_recovery_question_id, business_recovery_question_text into v_qid, v_qtext from pub",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_qid text;\n  v_qtext text;\nbegin\n  if v_uid is null then\n    return;\n  end if;\n  if p_kind not in ('business', 'provider') then\n    return;\n  end if;\n\n  if p_kind = 'business' then\n    select business_recovery_question_id, business_recovery_question_text\n      into v_qid, v_qtext\n      from public.users\n     where id = v_uid\n       and business_recovery_answer_hash is not null;\n  else\n    select provider_recovery_question_id, provider_recovery_question_text\n      into v_qid, v_qtext\n      from public.users\n     where id = v_uid\n       and provider_recovery_answer_hash is not null;\n  end if;\n\n  if v_qid is null then\n    return;\n  end if;\n\n  question_id := v_qid;\n  question_text := case when v_qid = 'custom' then v_qtext else null end;\n  return next;\nend;\n"
+  },
+  {
+    "sig": "get_live_share(p_share_id text)",
+    "risk": "MEDIUM",
+    "returns": "TABLE(id text, sharer_user_id text, sharer_name text, sharer_avatar text, status text, lat double precision, lng double precision, accuracy double precision, heading double precision, updated_at timestamp with time zone, started_at timestamp with time zone, ended_at timestamp with time zone)",
+    "isTrigger": false,
+    "appCallers": "src/services/engagement/emergencyService.ts",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_is_recipient boolean := false; v_is_sharer boolean := false; begin if v_uid is null then return; end if; select exists ( select 1 from public.live_shares s where s.id = p_share_id and s.sharer_user_id = v_uid ) into v_is_sharer; if not v_is_sharer then sele",
+    "bodyFull": "\r\ndeclare\r\n  v_uid text := auth.uid()::text;\r\n  v_is_recipient boolean := false;\r\n  v_is_sharer    boolean := false;\r\nbegin\r\n  if v_uid is null then return; end if;\r\n\r\n  select exists (\r\n    select 1 from public.live_shares s\r\n    where s.id = p_share_id and s.sharer_user_id = v_uid\r\n  ) into v_is_sharer;\r\n\r\n  if not v_is_sharer then\r\n    select exists (\r\n      select 1 from public.live_share_recipients r\r\n      where r.share_id = p_share_id and r.recipient_user_id = v_uid\r\n    ) into v_is_recipient;\r\n  end if;\r\n\r\n  if not v_is_sharer and not v_is_recipient then\r\n    return;\r\n  end if;\r\n\r\n  return query\r\n  select\r\n    s.id,\r\n    s.sharer_user_id,\r\n    u.name as sharer_name,\r\n    u.avatar as sharer_avatar,\r\n    case\r\n      when s.status = 'ACTIVE' and s.expires_at <= now() then 'ENDED'\r\n      else s.status\r\n    end as status,\r\n    s.lat,\r\n    s.lng,\r\n    s.accuracy,\r\n    s.heading,\r\n    s.updated_at,\r\n    s.started_at,\r\n    case\r\n      when s.status = 'ACTIVE' and s.expires_at <= now() then s.expires_at\r\n      else s.ended_at\r\n    end as ended_at\r\n  from public.live_shares s\r\n  left join public.users u on u.id = s.sharer_user_id\r\n  where s.id = p_share_id;\r\nend "
+  },
+  {
+    "sig": "get_nearby_user_ids(p_lat double precision, p_lng double precision, p_radius_km double precision)",
+    "risk": "MEDIUM",
+    "returns": "SETOF text",
+    "isTrigger": false,
+    "appCallers": "src/services/core/adminService.ts",
+    "bodySummary": " select id from public.users where lat is not null and lng is not null and lat between p_lat - (least(p_radius_km, 50) / 111.0) and p_lat + (least(p_radius_km, 50) / 111.0) and lng between p_lng - (least(p_radius_km, 50) / 111.0) and p_lng + (least(p_radius_km, 50) / 111.0); ",
+    "bodyFull": "\r\n  select id from public.users\r\n   where lat is not null and lng is not null\r\n     and lat between p_lat - (least(p_radius_km, 50) / 111.0) and p_lat + (least(p_radius_km, 50) / 111.0)\r\n     and lng between p_lng - (least(p_radius_km, 50) / 111.0) and p_lng + (least(p_radius_km, 50) / 111.0);\r\n"
+  },
+  {
+    "sig": "get_own_coords()",
+    "risk": "MEDIUM",
+    "returns": "TABLE(lat double precision, lng double precision)",
+    "isTrigger": false,
+    "appCallers": "src/services/engagement/communityService.ts; src/services/marketplace/businessService.ts; src/services/marketplace/providerService.ts",
+    "bodySummary": " select lat, lng from public.users where id = auth.uid()::text; ",
+    "bodyFull": "\r\n  select lat, lng from public.users where id = auth.uid()::text;\r\n"
+  },
+  {
+    "sig": "get_own_profile()",
+    "risk": "MEDIUM",
+    "returns": "SETOF users",
+    "isTrigger": false,
+    "appCallers": "src/services/core/userService.ts",
+    "bodySummary": " select * from public.users where id = auth.uid()::text; ",
+    "bodyFull": "\r\n  select * from public.users where id = auth.uid()::text;\r\n"
+  },
+  {
+    "sig": "get_public_profile(target_id text)",
+    "risk": "MEDIUM",
+    "returns": "TABLE(id text, name text, phone text, avatar text, area text, rating_avg numeric, rating_count integer, created_at timestamp with time zone, show_posts_publicly boolean, show_asks_publicly boolean, show_badges_publicly boolean, show_phone_publicly boolean, show_city_publicly boolean, show_rating_publicly boolean, distance_km numeric, email text, show_email_publicly boolean, show_name_publicly boolean, alias text)",
+    "isTrigger": false,
+    "appCallers": "src/services/core/userService.ts",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_is_self_or_admin boolean; v_my_lat double precision; v_my_lng double precision; begin select (u.id = v_uid) or ('admin' = any(u.roles)) into v_is_self_or_admin from public.users u where u.id = v_uid; select u.lat, u.lng into v_my_lat, v_my_lng from public.u",
+    "bodyFull": "\r\ndeclare\r\n  v_uid text := auth.uid()::text;\r\n  v_is_self_or_admin boolean;\r\n  v_my_lat double precision;\r\n  v_my_lng double precision;\r\nbegin\r\n  select (u.id = v_uid) or ('admin' = any(u.roles))\r\n    into v_is_self_or_admin\r\n    from public.users u where u.id = v_uid;\r\n\r\n  select u.lat, u.lng into v_my_lat, v_my_lng from public.users u where u.id = v_uid;\r\n\r\n  return query\r\n    select\r\n      u.id,\r\n      case when v_is_self_or_admin or coalesce(u.show_name_publicly, false) then u.name else null end,\r\n      case when v_is_self_or_admin or u.show_phone_publicly then u.phone else null end,\r\n      u.avatar,\r\n      case when v_is_self_or_admin or u.show_city_publicly then u.area else null end,\r\n      u.rating_avg,\r\n      u.rating_count,\r\n      u.created_at,\r\n      u.show_posts_publicly,\r\n      u.show_asks_publicly,\r\n      u.show_badges_publicly,\r\n      u.show_phone_publicly,\r\n      u.show_city_publicly,\r\n      u.show_rating_publicly,\r\n      case when v_my_lat is null or v_my_lng is null or u.lat is null or u.lng is null then null\r\n           else round((2 * 6371 * asin(sqrt(\r\n             sin(radians(u.lat - v_my_lat) / 2) ^ 2 +\r\n             cos(radians(v_my_lat)) * cos(radians(u.lat)) * sin(radians(u.lng - v_my_lng) / 2) ^ 2\r\n           )))::numeric, 1)\r\n      end,\r\n      case when v_is_self_or_admin or coalesce(u.show_email_publicly, false) then u.email else null end,\r\n      coalesce(u.show_email_publicly, false),\r\n      coalesce(u.show_name_publicly, false),\r\n      u.alias\r\n    from public.users u\r\n    where u.id = target_id\r\n      and (v_is_self_or_admin or (u.customer_enabled = true and u.customer_deleted_at is null) or u.id = v_uid);\r\nend "
+  },
+  {
+    "sig": "group_buy_join(p_request_id text, p_quantity integer, p_notes text, p_delivery_address text)",
+    "risk": "HIGH",
+    "returns": "requests",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_req public.requests%rowtype; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; if p_quantity is null or p_quantity < 1 then raise exception 'INVALID_QUANTITY'; end if; select * into v_req from public.requests where id = p_request_id; if",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_req public.requests%rowtype;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n  if p_quantity is null or p_quantity < 1 then raise exception 'INVALID_QUANTITY'; end if;\n\n  select * into v_req from public.requests where id = p_request_id;\n  if not found then raise exception 'REQUEST_NOT_FOUND'; end if;\n  if v_req.status <> 'OPEN' then raise exception 'REQUEST_CLOSED'; end if;\n\n  -- A doorstep group buy is undeliverable without an address, so it's\n  -- required at pledge time rather than chased down after the deal closes.\n  if v_req.fulfillment_type = 'DOORSTEP'\n     and nullif(trim(coalesce(p_delivery_address, '')), '') is null then\n    raise exception 'DELIVERY_ADDRESS_REQUIRED';\n  end if;\n\n  insert into public.request_me_toos (request_id, user_id, quantity, notes, delivery_address)\n  values (p_request_id, v_uid, p_quantity,\n          nullif(left(trim(coalesce(p_notes,'')), 300), ''),\n          nullif(left(trim(coalesce(p_delivery_address,'')), 400), ''))\n  on conflict (request_id, user_id) do update\n    set quantity = excluded.quantity,\n        notes = excluded.notes,\n        delivery_address = excluded.delivery_address;\n\n  update public.requests\n     set me_too_count = (select count(*) from public.request_me_toos where request_id = p_request_id)\n   where id = p_request_id\n  returning * into v_req;\n\n  return v_req;\nend\n"
+  },
+  {
+    "sig": "group_buy_leave(p_request_id text)",
+    "risk": "HIGH",
+    "returns": "requests",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_req public.requests%rowtype; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; delete from public.request_me_toos where request_id = p_request_id and user_id = v_uid; update public.requests set me_too_count = (select count(*) from publi",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_req public.requests%rowtype;\nbegin\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\n  delete from public.request_me_toos where request_id = p_request_id and user_id = v_uid;\n  update public.requests\n     set me_too_count = (select count(*) from public.request_me_toos where request_id = p_request_id)\n   where id = p_request_id\n  returning * into v_req;\n  return v_req;\nend\n"
+  },
+  {
+    "sig": "group_buy_redemption_stats(p_agreement_id text)",
+    "risk": "MEDIUM",
+    "returns": "TABLE(total integer, redeemed integer, pending integer)",
+    "isTrigger": false,
+    "appCallers": "src/services/marketplace/bulkService.ts",
+    "bodySummary": " select count(*)::integer, count(*) filter (where status = 'REDEEMED')::integer, count(*) filter (where status = 'ISSUED')::integer from public.group_buy_tokens where agreement_id = p_agreement_id; ",
+    "bodyFull": "\n  select count(*)::integer,\n         count(*) filter (where status = 'REDEEMED')::integer,\n         count(*) filter (where status = 'ISSUED')::integer\n    from public.group_buy_tokens\n   where agreement_id = p_agreement_id;\n"
+  },
+  {
+    "sig": "increment_stamp(p_card_id text, p_user_id text)",
+    "risk": "HIGH",
+    "returns": "jsonb",
+    "isTrigger": false,
+    "appCallers": "src/services/engagement/walletService.ts",
+    "bodySummary": " DECLARE v_target int := 10; v_reward text := ''; v_stamps int := 0; v_earned bool := false; BEGIN SELECT target, COALESCE(reward, '') INTO v_target, v_reward FROM public.loyalty_cards WHERE id = p_card_id AND is_active = true LIMIT 1; IF NOT FOUND THEN RETURN jsonb_build_object('stamps', 0, 'needed",
+    "bodyFull": "\nDECLARE\n  v_target int := 10;\n  v_reward text := '';\n  v_stamps int := 0;\n  v_earned bool := false;\nBEGIN\n  SELECT target, COALESCE(reward, '')\n    INTO v_target, v_reward\n    FROM public.loyalty_cards\n   WHERE id = p_card_id AND is_active = true\n   LIMIT 1;\n\n  IF NOT FOUND THEN\n    RETURN jsonb_build_object('stamps', 0, 'needed', 10, 'rewardEarned', false, 'reward', '');\n  END IF;\n\n  INSERT INTO public.user_stamps (user_id, card_id, stamps, updated_at)\n  VALUES (p_user_id, p_card_id, 1, now())\n  ON CONFLICT (user_id, card_id)\n  DO UPDATE SET stamps = user_stamps.stamps + 1, updated_at = now()\n  RETURNING stamps INTO v_stamps;\n\n  IF v_stamps >= v_target THEN\n    v_earned := true;\n    UPDATE public.user_stamps\n       SET stamps = v_stamps % v_target, updated_at = now()\n     WHERE user_id = p_user_id AND card_id = p_card_id;\n    v_stamps := v_stamps % v_target;\n  END IF;\n\n  RETURN jsonb_build_object(\n    'stamps',      v_stamps,\n    'needed',      v_target,\n    'rewardEarned', v_earned,\n    'reward',      v_reward\n  );\nEND;\n"
+  },
+  {
+    "sig": "me_too_toggle(p_request_id text)",
+    "risk": "HIGH",
+    "returns": "jsonb",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_req public.requests%rowtype; v_exists boolean; v_count integer; begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; select * into v_req from public.requests where id = p_request_id; if not found then raise exception 'REQUEST_NOT_FOUND'; e",
+    "bodyFull": "\r\ndeclare\r\n  v_uid text := auth.uid()::text;\r\n  v_req public.requests%rowtype;\r\n  v_exists boolean;\r\n  v_count integer;\r\nbegin\r\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\r\n\r\n  select * into v_req from public.requests where id = p_request_id;\r\n  if not found then raise exception 'REQUEST_NOT_FOUND'; end if;\r\n  if v_req.status <> 'OPEN' then raise exception 'REQUEST_CLOSED'; end if;\r\n\r\n  select exists(\r\n    select 1 from public.request_me_toos\r\n    where request_id = p_request_id and user_id = v_uid\r\n  ) into v_exists;\r\n\r\n  if v_exists then\r\n    delete from public.request_me_toos\r\n    where request_id = p_request_id and user_id = v_uid;\r\n\r\n    select count(*) into v_count\r\n    from public.request_me_toos where request_id = p_request_id;\r\n\r\n    update public.requests set me_too_count = v_count where id = p_request_id;\r\n    return jsonb_build_object('ok', true, 'meTooed', false, 'count', v_count);\r\n  else\r\n    insert into public.request_me_toos (request_id, user_id, quantity)\r\n    values (p_request_id, v_uid, 1)\r\n    on conflict (request_id, user_id) do nothing;\r\n\r\n    select count(*) into v_count\r\n    from public.request_me_toos where request_id = p_request_id;\r\n\r\n    update public.requests set me_too_count = v_count where id = p_request_id;\r\n    return jsonb_build_object('ok', true, 'meTooed', true, 'count', v_count);\r\n  end if;\r\nend;\r\n"
+  },
+  {
+    "sig": "my_live_share_recipients()",
+    "risk": "MEDIUM",
+    "returns": "TABLE(recipient_user_id text, recipient_name text, recipient_avatar text)",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " select r.recipient_user_id, u.name, u.avatar from public.live_share_recipients r join public.live_shares s on s.id = r.share_id join public.users u on u.id = r.recipient_user_id where s.sharer_user_id = auth.uid()::text and s.status = 'ACTIVE'; ",
+    "bodyFull": "\n  select r.recipient_user_id, u.name, u.avatar\n  from public.live_share_recipients r\n  join public.live_shares s on s.id = r.share_id\n  join public.users u on u.id = r.recipient_user_id\n  where s.sharer_user_id = auth.uid()::text and s.status = 'ACTIVE';\n"
+  },
+  {
+    "sig": "notification_push_health()",
+    "risk": "MEDIUM",
+    "returns": "TABLE(pg_net_installed boolean, functions_url_configured boolean, service_role_key_configured boolean, trigger_installed boolean)",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " select exists(select 1 from pg_extension where extname = 'pg_net') as pg_net_installed, coalesce(current_setting('app.settings.functions_url', true), '') <> '' as functions_url_configured, coalesce(current_setting('app.settings.service_role_key', true), '') <> '' as service_role_key_configured, exi",
+    "bodyFull": "\r\n  select\r\n    exists(select 1 from pg_extension where extname = 'pg_net') as pg_net_installed,\r\n    coalesce(current_setting('app.settings.functions_url', true), '') <> '' as functions_url_configured,\r\n    coalesce(current_setting('app.settings.service_role_key', true), '') <> '' as service_role_key_configured,\r\n    exists(\r\n      select 1\r\n        from pg_trigger t\r\n        join pg_class c on c.oid = t.tgrelid\r\n        join pg_namespace n on n.oid = c.relnamespace\r\n       where n.nspname = 'public'\r\n         and c.relname = 'notifications'\r\n         and t.tgname = 'trg_push_on_notification'\r\n         and not t.tgisinternal\r\n    ) as trigger_installed;\r\n"
+  },
+  {
+    "sig": "notify_admins_business_pending()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare v_admin record; begin if new.status is distinct from 'PENDING' then return new; end if; if TG_OP = 'UPDATE' and old.status is not distinct from 'PENDING' then return new; end if; for v_admin in select id from public.users where 'admin' = any(roles) loop begin insert into public.notification",
+    "bodyFull": "\ndeclare\n  v_admin record;\nbegin\n  if new.status is distinct from 'PENDING' then return new; end if;\n  if TG_OP = 'UPDATE' and old.status is not distinct from 'PENDING' then return new; end if;\n\n  for v_admin in\n    select id from public.users where 'admin' = any(roles)\n  loop\n    begin\n      insert into public.notifications (\n        user_id, type, title, body, deep_link, entity_type, entity_id, metadata\n      ) values (\n        v_admin.id,\n        'ADMIN_REVIEW_QUEUE',\n        'Business awaiting review: ' || coalesce(new.name, 'Store'),\n        coalesce(new.name, 'A business') ||\n          coalesce(' · ' || nullif(new.city, ''), '') ||\n          ' is waiting for admin verification.',\n        '/admin',\n        'BUSINESS',\n        new.id,\n        jsonb_build_object(\n          'businessName', new.name,\n          'category', new.category,\n          'imageUrl', new.cover_url,\n          'targetId', new.id,\n          'targetType', 'BUSINESS',\n          'statusPill', 'Pending Approval',\n          'tone', 'warning',\n          'actions', jsonb_build_array('REVIEW_BUSINESS', 'VIEW_ADMIN')\n        )\n      );\n    exception when others then null;\n    end;\n  end loop;\n\n  return new;\nend\n"
+  },
+  {
+    "sig": "notify_on_chat_message()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare v_recipient text; v_sender_name text; v_sender_avatar text; begin select user_id into v_recipient from public.conversation_participants where conversation_id = NEW.conversation_id and user_id <> NEW.sender_id limit 1; if v_recipient is null then return NEW; end if; if public._user_blocks_ex",
+    "bodyFull": "\ndeclare\n  v_recipient text;\n  v_sender_name text;\n  v_sender_avatar text;\nbegin\n  select user_id into v_recipient\n  from public.conversation_participants\n  where conversation_id = NEW.conversation_id\n    and user_id <> NEW.sender_id\n  limit 1;\n\n  if v_recipient is null then return NEW; end if;\n\n  if public._user_blocks_exists(NEW.sender_id, v_recipient) then return NEW; end if;\n\n  select coalesce(name, alias, 'Someone'), avatar\n    into v_sender_name, v_sender_avatar\n    from public.users\n   where id = NEW.sender_id;\n\n  begin\n    insert into public.notifications (\n      user_id,\n      type,\n      title,\n      body,\n      deep_link,\n      metadata\n    ) values (\n      v_recipient,\n      'CHAT',\n      coalesce(v_sender_name, 'New message'),\n      case when NEW.image_url is not null and (NEW.body is null or NEW.body = '') then '📷 Sent a photo' else substring(NEW.body from 1 for 100) end,\n      '/chat/' || NEW.conversation_id,\n      jsonb_build_object(\n        'conversationId', NEW.conversation_id,\n        'senderId', NEW.sender_id,\n        'senderName', v_sender_name,\n        'avatarUrl', v_sender_avatar,\n        'statusPill', 'New Message',\n        'tone', 'brand',\n        'actions', jsonb_build_array('REPLY_CHAT', 'OPEN_CHAT')\n      )\n    );\n  exception when others then null; end;\n\n  return NEW;\nend;\n"
+  },
+  {
+    "sig": "notify_on_comment_mention()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare v_post_title text; begin if coalesce(jsonb_array_length(coalesce(new.mentions, '[]'::jsonb)), 0) = 0 then return new; end if; select title into v_post_title from public.community_posts where id = new.post_id; insert into public.notifications (user_id, type, title, body, deep_link, metadata)",
+    "bodyFull": "\r\ndeclare\r\n  v_post_title text;\r\nbegin\r\n  if coalesce(jsonb_array_length(coalesce(new.mentions, '[]'::jsonb)), 0) = 0 then\r\n    return new;\r\n  end if;\r\n\r\n  select title into v_post_title from public.community_posts where id = new.post_id;\r\n\r\n  insert into public.notifications (user_id, type, title, body, deep_link, metadata)\r\n  select\r\n    m ->> 'userId',\r\n    'COMMUNITY_MENTION',\r\n    coalesce(new.author_name, 'Someone') || ' mentioned you',\r\n    'In a comment on \"' || left(coalesce(v_post_title, 'a post'), 50) || '\": \"' || left(new.body, 60) || '\"',\r\n    '/community/' || new.post_id,\r\n    jsonb_build_object('actorName', new.author_name, 'avatarUrl', new.author_avatar, 'tone', 'brand')\r\n  from jsonb_array_elements(new.mentions) m\r\n  where nullif(m ->> 'userId', '') is not null\r\n    -- Mentioning yourself is filtered client-side too; belt and braces.\r\n    and m ->> 'userId' <> coalesce(new.author_user_id, '')\r\n    -- A block in either direction means no notification, matching the comment\r\n    -- gate: an @mention must not become a way to reach someone who blocked you.\r\n    -- Calls the internal pair-checker (20260892) directly: neither side here\r\n    -- is necessarily auth.uid() (this trigger can fire for a comment inserted\r\n    -- by any source), so the caller-bound is_blocked_between(text) wrapper\r\n    -- doesn't apply.\r\n    and not public._user_blocks_exists(m ->> 'userId', coalesce(new.author_user_id, ''));\r\n  return new;\r\nend\r\n"
+  },
+  {
+    "sig": "notify_on_comment_reaction()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare v_comment public.post_comments%rowtype; begin select * into v_comment from public.post_comments where id = new.comment_id; if not found or v_comment.author_user_id is null then return new; end if; -- Reacting to your own comment is not news. if v_comment.author_user_id = new.user_id then re",
+    "bodyFull": "\ndeclare\n  v_comment public.post_comments%rowtype;\nbegin\n  select * into v_comment from public.post_comments where id = new.comment_id;\n  if not found or v_comment.author_user_id is null then return new; end if;\n  -- Reacting to your own comment is not news.\n  if v_comment.author_user_id = new.user_id then return new; end if;\n\n  insert into public.notifications (user_id, type, title, body, deep_link, metadata)\n  values (\n    v_comment.author_user_id,\n    'COMMUNITY_COMMENT_REACTION',\n    new.emoji || ' on your comment',\n    'Someone reacted ' || new.emoji || ' to: \"' || left(v_comment.body, 60) || '\"',\n    '/community/' || v_comment.post_id,\n    jsonb_build_object('tone', 'brand')\n  );\n  return new;\nend "
+  },
+  {
+    "sig": "notify_on_nearby_alert()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare ALERT_FANOUT_CAP constant integer := 500; ALERT_RATE_LIMIT constant integer := 2; ALERT_RATE_WINDOW constant interval := interval '1 hour'; v_radius_km double precision := 5; v_lat_delta double precision; v_recent integer; begin if new.type <> 'ALERT' or new.geom is null or new.author_user_",
+    "bodyFull": "\ndeclare\n  ALERT_FANOUT_CAP  constant integer  := 500;\n  ALERT_RATE_LIMIT  constant integer  := 2;\n  ALERT_RATE_WINDOW constant interval := interval '1 hour';\n\n  v_radius_km double precision := 5;\n  v_lat_delta double precision;\n  v_recent    integer;\nbegin\n  if new.type <> 'ALERT' or new.geom is null or new.author_user_id is null then\n    return new;\n  end if;\n\n  perform pg_advisory_xact_lock(hashtextextended('alert_rate:' || new.author_user_id, 0));\n\n  select count(*) into v_recent\n    from public.community_posts\n   where author_user_id = new.author_user_id\n     and type = 'ALERT'\n     and id <> new.id\n     and created_at > now() - ALERT_RATE_WINDOW;\n  if v_recent >= ALERT_RATE_LIMIT then\n    return new;\n  end if;\n\n  if new.author_type = 'business' then\n    select least(v_radius_km, greatest(coalesce(nullif(b.broadcast_radius, 0), 5), 0))\n      into v_radius_km from public.businesses b where b.id = new.author_ref_id;\n  elsif new.author_type = 'provider' then\n    select least(v_radius_km, greatest(coalesce(nullif(p.service_radius_km, 0), 5), 0))\n      into v_radius_km from public.providers p where p.id = new.author_ref_id;\n  end if;\n\n  v_lat_delta := coalesce(v_radius_km, 5) / 111.0;\n\n  insert into public.notifications (user_id, type, title, body, deep_link, metadata)\n  select\n    u.id,\n    'NEARBY_ALERT',\n    case coalesce(new.severity, 'INFO')\n      when 'URGENT'  then '🚨 Urgent Street Alert'\n      when 'WARNING' then '⚠️ Nearby Warning'\n      else 'ℹ️ Neighbourhood Notice'\n    end,\n    left(new.title, 90),\n    '/community/' || new.id,\n    jsonb_build_object(\n      'postId', new.id,\n      'actorName', new.author_name,\n      'avatarUrl', new.author_avatar,\n      'severity', coalesce(new.severity, 'INFO'),\n      'area', new.area,\n      'tone', case coalesce(new.severity, 'INFO')\n                when 'URGENT' then 'danger'\n                when 'WARNING' then 'warning'\n                else 'info' end,\n      'statusPill', coalesce(new.severity, 'INFO'),\n      'actions', jsonb_build_array('VIEW_POST', 'SHARE_ALERT')\n    )\n  from public.users u\n  where u.id <> new.author_user_id\n    and u.notif_nearby_alerts\n    and u.lat is not null\n    and u.lng is not null\n    and u.lat between new.lat - v_lat_delta and new.lat + v_lat_delta\n    and u.lng between new.lng - v_lat_delta and new.lng + v_lat_delta\n    and ST_DWithin(\n      ST_SetSRID(ST_MakePoint(u.lng, u.lat), 4326)::geography,\n      new.geom,\n      coalesce(v_radius_km, 5) * 1000\n    )\n    and not public._user_blocks_exists(u.id, new.author_user_id)\n  order by ST_Distance(ST_SetSRID(ST_MakePoint(u.lng, u.lat), 4326)::geography, new.geom)\n  limit ALERT_FANOUT_CAP;\n\n  return new;\nend\n"
+  },
+  {
+    "sig": "notify_on_post_like()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare v_post public.community_posts%rowtype; v_actor text; v_avatar text; v_entity_type text; v_entity_id text; begin select * into v_post from public.community_posts where id = new.post_id; if not found or v_post.author_user_id is null or v_post.author_user_id = new.user_id then return new; end ",
+    "bodyFull": "\ndeclare\n  v_post        public.community_posts%rowtype;\n  v_actor       text;\n  v_avatar      text;\n  v_entity_type text;\n  v_entity_id   text;\nbegin\n  select * into v_post from public.community_posts where id = new.post_id;\n  if not found or v_post.author_user_id is null or v_post.author_user_id = new.user_id then\n    return new;\n  end if;\n\n  select coalesce(nullif(alias, ''), 'A neighbour'), avatar\n    into v_actor, v_avatar\n    from public.users where id = new.user_id;\n\n  if v_post.author_type = 'business' and v_post.author_ref_id is not null then\n    v_entity_type := 'BUSINESS';\n    v_entity_id   := v_post.author_ref_id;\n  elsif v_post.author_type = 'provider' and v_post.author_ref_id is not null then\n    v_entity_type := 'PROVIDER';\n    v_entity_id   := v_post.author_ref_id;\n  end if;\n\n  insert into public.notifications (user_id, type, title, body, deep_link, metadata, entity_type, entity_id)\n  values (\n    v_post.author_user_id,\n    'COMMUNITY_LIKE',\n    'Someone liked your post',\n    coalesce(v_actor, 'A neighbour') || ' liked \"' || left(v_post.title, 50) || '\"',\n    '/community/' || new.post_id,\n    jsonb_build_object(\n      'postId', new.post_id,\n      'actorName', v_actor,\n      'avatarUrl', v_avatar,\n      'tone', 'brand',\n      'actions', jsonb_build_array('VIEW_POST')\n    ),\n    v_entity_type,\n    v_entity_id\n  );\n  return new;\nend\n"
+  },
+  {
+    "sig": "notify_on_post_resolved()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare v_title text := left(new.title, 50); begin if coalesce(new.resolved, false) = coalesce(old.resolved, false) or not coalesce(new.resolved, false) then return new; end if; insert into public.notifications (user_id, type, title, body, deep_link, metadata) select u.uid, 'COMMUNITY_RESOLVED', ca",
+    "bodyFull": "\ndeclare\n  v_title text := left(new.title, 50);\nbegin\n  if coalesce(new.resolved, false) = coalesce(old.resolved, false) or not coalesce(new.resolved, false) then\n    return new;\n  end if;\n\n  insert into public.notifications (user_id, type, title, body, deep_link, metadata)\n  select\n    u.uid,\n    'COMMUNITY_RESOLVED',\n    case when new.type = 'LOST_FOUND' then 'Good news — it was found' else 'That alert is over' end,\n    '\"' || v_title || '\" was marked resolved',\n    '/community/' || new.id,\n    jsonb_build_object(\n      'postId', new.id,\n      'tone', 'success',\n      'statusPill', 'Resolved',\n      'actions', jsonb_build_array('VIEW_POST')\n    )\n  from (\n    select author_user_id as uid from public.post_comments where post_id = new.id\n    union\n    select user_id as uid from public.post_likes where post_id = new.id\n  ) u\n  where u.uid is not null\n    and u.uid <> coalesce(new.author_user_id, '');\n  return new;\nend\n"
+  },
+  {
+    "sig": "notify_on_qna_answered()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare v_biz_name text; begin if new.answer is not null and old.answer is null then select name into v_biz_name from public.businesses where id = new.business_id; begin insert into public.notifications ( user_id, type, title, body, deep_link, metadata ) values ( new.asker_user_id, 'QNA', 'Your que",
+    "bodyFull": "\ndeclare\n  v_biz_name text;\nbegin\n  if new.answer is not null and old.answer is null then\n    select name into v_biz_name from public.businesses where id = new.business_id;\n    begin\n      insert into public.notifications (\n        user_id,\n        type,\n        title,\n        body,\n        deep_link,\n        metadata\n      ) values (\n        new.asker_user_id,\n        'QNA',\n        'Your question was answered',\n        coalesce(v_biz_name, 'The business') || ' replied: \"' || left(new.answer, 120) || '\"',\n        '/business/' || new.business_id,\n        jsonb_build_object(\n          'businessId', new.business_id,\n          'businessName', v_biz_name,\n          'question', new.question,\n          'answer', new.answer,\n          'statusPill', 'Answered ✓',\n          'tone', 'success',\n          'actions', jsonb_build_array('VIEW_QNA', 'VIEW_STORE')\n        )\n      );\n    exception when others then null;\n    end;\n  end if;\n  return new;\nend "
+  },
+  {
+    "sig": "recompute_rating_aggregates()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare v_type text := coalesce(new.ratee_type, old.ratee_type); v_id text := coalesce(new.ratee_id, old.ratee_id); v_avg numeric(3,2); v_count int; begin select coalesce(round(avg(rating), 2), 0), count(*) into v_avg, v_count from public.ratings where ratee_type = v_type and ratee_id = v_id; if v_",
+    "bodyFull": "\r\ndeclare\r\n  v_type text := coalesce(new.ratee_type, old.ratee_type);\r\n  v_id text := coalesce(new.ratee_id, old.ratee_id);\r\n  v_avg numeric(3,2);\r\n  v_count int;\r\nbegin\r\n  select coalesce(round(avg(rating), 2), 0), count(*)\r\n  into v_avg, v_count\r\n  from public.ratings\r\n  where ratee_type = v_type and ratee_id = v_id;\r\n\r\n  if v_type = 'BUSINESS' then\r\n    update public.businesses\r\n    set rating_avg = v_avg, rating_count = v_count\r\n    where id = v_id;\r\n  elsif v_type = 'PROVIDER' then\r\n    update public.providers\r\n    set rating_avg = v_avg, rating_count = v_count\r\n    where id = v_id;\r\n  elsif v_type = 'USER' then\r\n    update public.users\r\n    set rating_avg = v_avg, rating_count = v_count\r\n    where id = v_id;\r\n  end if;\r\n\r\n  return coalesce(new, old);\r\nend "
+  },
+  {
+    "sig": "record_terms_acceptance(p_version text, p_user_agent text)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_version text := nullif(trim(coalesce(p_version, '')), ''); begin if v_uid is null then raise exception 'UNAUTHENTICATED'; end if; if v_version is null then raise exception 'VERSION_REQUIRED'; end if; insert into public.terms_acceptances (user_id, version, u",
+    "bodyFull": "\r\ndeclare\r\n  v_uid text := auth.uid()::text;\r\n  v_version text := nullif(trim(coalesce(p_version, '')), '');\r\nbegin\r\n  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;\r\n  if v_version is null then raise exception 'VERSION_REQUIRED'; end if;\r\n\r\n  insert into public.terms_acceptances (user_id, version, user_agent)\r\n  values (\r\n    v_uid,\r\n    left(v_version, 40),\r\n    nullif(left(trim(coalesce(p_user_agent, '')), 400), '')\r\n  );\r\n\r\n  update public.users\r\n     set terms_accepted_version = left(v_version, 40),\r\n         terms_accepted_at = now()\r\n   where id = v_uid;\r\nend\r\n"
+  },
+  {
+    "sig": "reserve_catalog_item(p_item_id text)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " update public.catalog_items set quantity = greatest(coalesce(quantity, 0) - 1, 0), stock_status = case when coalesce(quantity, 0) - 1 <= 0 then 'OUT_OF_STOCK' else stock_status end where id::text = p_item_id and inventory_type = 'FINITE' and coalesce(quantity, 0) > 0; ",
+    "bodyFull": "\r\n  update public.catalog_items\r\n     set quantity = greatest(coalesce(quantity, 0) - 1, 0),\r\n         stock_status = case when coalesce(quantity, 0) - 1 <= 0 then 'OUT_OF_STOCK' else stock_status end\r\n   where id::text = p_item_id\r\n     and inventory_type = 'FINITE'\r\n     and coalesce(quantity, 0) > 0;\r\n"
+  },
+  {
+    "sig": "reserve_catalog_items(p_items jsonb)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_item record; v_row public.catalog_items%rowtype; begin if p_items is null then return; end if; for v_item in select * from jsonb_to_recordset(p_items) as x(catalog_item_id text, quantity int) loop if v_item.catalog_item_id is null or coalesce(v_item.quantity, 0) <= 0 then continue; end if",
+    "bodyFull": "\ndeclare\n  v_item record;\n  v_row public.catalog_items%rowtype;\nbegin\n  if p_items is null then return; end if;\n\n  for v_item in\n    select * from jsonb_to_recordset(p_items) as x(catalog_item_id text, quantity int)\n  loop\n    if v_item.catalog_item_id is null or coalesce(v_item.quantity, 0) <= 0 then\n      continue;\n    end if;\n\n    select * into v_row from public.catalog_items\n      where id::text = v_item.catalog_item_id\n      for update;\n\n    if not found or v_row.inventory_type is distinct from 'FINITE' then\n      continue;\n    end if;\n\n    if coalesce(v_row.quantity, 0) < v_item.quantity then\n      raise exception 'INSUFFICIENT_STOCK: %', v_row.name;\n    end if;\n\n    update public.catalog_items\n       set quantity = v_row.quantity - v_item.quantity,\n           stock_status = case when v_row.quantity - v_item.quantity <= 0 then 'OUT_OF_STOCK' else stock_status end\n     where id = v_row.id;\n  end loop;\nend\n"
+  },
+  {
+    "sig": "resolve_admin_email(p_login_id text)",
+    "risk": "HIGH",
+    "returns": "text",
+    "isTrigger": false,
+    "appCallers": "src/lib/adminAuth.ts",
+    "bodySummary": " declare v_key text := lower(trim(coalesce(p_login_id, ''))); v_attempt public.admin_login_resolve_attempts%rowtype; v_email text; v_next_fail_count integer; v_max_attempts constant integer := 5; v_window constant interval := interval '15 minutes'; begin if v_key = '' then return null; end if; selec",
+    "bodyFull": "\ndeclare\n  v_key text := lower(trim(coalesce(p_login_id, '')));\n  v_attempt public.admin_login_resolve_attempts%rowtype;\n  v_email text;\n  v_next_fail_count integer;\n  v_max_attempts constant integer := 5;\n  v_window constant interval := interval '15 minutes';\nbegin\n  if v_key = '' then return null; end if;\n  select * into v_attempt from public.admin_login_resolve_attempts where login_id = v_key for update;\n  if v_attempt.locked_until is not null and v_attempt.locked_until > now() then return null; end if;\n  select au.email into v_email from public.users u join auth.users au on au.id::text = u.id where u.admin_login_id = v_key and u.roles @> array['admin'] limit 1;\n  if v_email is not null then\n    delete from public.admin_login_resolve_attempts where login_id = v_key;\n    return v_email;\n  end if;\n  v_next_fail_count := case when v_attempt.login_id is null or v_attempt.last_attempt_at <= now() - v_window or v_attempt.locked_until is not null then 1 else v_attempt.fail_count + 1 end;\n  insert into public.admin_login_resolve_attempts (login_id, fail_count, last_attempt_at, locked_until)\n  values (v_key, v_next_fail_count, now(), case when v_next_fail_count >= v_max_attempts then now() + v_window else null end)\n  on conflict (login_id) do update set fail_count = excluded.fail_count, last_attempt_at = excluded.last_attempt_at, locked_until = excluded.locked_until;\n  return null;\nend\n"
+  },
+  {
+    "sig": "revoke_live_share_recipient(p_recipient_user_id text)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_share text; v_message_id text; begin if v_uid is null then return; end if; select id into v_share from public.live_shares where sharer_user_id = v_uid and status = 'ACTIVE'; if v_share is null then return; end if; select message_id into v_message_id from pu",
+    "bodyFull": "\ndeclare\n  v_uid   text := auth.uid()::text;\n  v_share text;\n  v_message_id text;\nbegin\n  if v_uid is null then return; end if;\n\n  select id into v_share from public.live_shares\n    where sharer_user_id = v_uid and status = 'ACTIVE';\n  if v_share is null then return; end if;\n\n  select message_id into v_message_id from public.live_share_recipients\n    where share_id = v_share and recipient_user_id = p_recipient_user_id;\n  if v_message_id is null then return; end if;\n\n  delete from public.live_share_recipients\n    where share_id = v_share and recipient_user_id = p_recipient_user_id;\n\n  update public.messages\n    set meta = coalesce(meta, '{}'::jsonb) || jsonb_build_object('status', 'ENDED')\n    where id = v_message_id;\nend "
+  },
+  {
+    "sig": "set_admin_login_id(p_new_id text)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "src/services/core/adminService.ts",
+    "bodySummary": " begin if not exists (select 1 from public.users where id = auth.uid()::text and roles @> array['admin']) then raise exception 'Only an admin can change the admin login ID.'; end if; if exists (select 1 from public.users where admin_login_id = p_new_id and id <> auth.uid()::text) then raise exceptio",
+    "bodyFull": "\r\nbegin\r\n  if not exists (select 1 from public.users where id = auth.uid()::text and roles @> array['admin']) then\r\n    raise exception 'Only an admin can change the admin login ID.';\r\n  end if;\r\n  if exists (select 1 from public.users where admin_login_id = p_new_id and id <> auth.uid()::text) then\r\n    raise exception 'That admin ID is already taken.';\r\n  end if;\r\n  update public.users set admin_login_id = p_new_id where id = auth.uid()::text;\r\nend "
+  },
+  {
+    "sig": "set_switch_pin(p_new_pin text, p_current_pin text)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_existing_hash text; begin if v_uid is null then raise exception 'Not authenticated'; end if; if p_new_pin !~ '^\\d{4,6}$' then raise exception 'PIN must be 4 to 6 digits'; end if; select switch_pin_hash into v_existing_hash from public.users where id = v_uid",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_existing_hash text;\nbegin\n  if v_uid is null then raise exception 'Not authenticated'; end if;\n  if p_new_pin !~ '^\\d{4,6}$' then raise exception 'PIN must be 4 to 6 digits'; end if;\n  select switch_pin_hash into v_existing_hash from public.users where id = v_uid;\n  if v_existing_hash is not null then\n    if not public.verify_switch_pin(coalesce(p_current_pin, '')) then\n      raise exception 'Current PIN is incorrect';\n    end if;\n  end if;\n  update public.users set switch_pin_hash = crypt(p_new_pin, gen_salt('bf')) where id = v_uid;\n  delete from public.switch_pin_attempts where user_id = v_uid;\nend\n"
+  },
+  {
+    "sig": "stop_live_share()",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "src/services/engagement/emergencyService.ts",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_share text; r record; begin if v_uid is null then return; end if; select id into v_share from public.live_shares where sharer_user_id = v_uid and status = 'ACTIVE'; if v_share is null then return; end if; update public.live_shares set status = 'ENDED', ende",
+    "bodyFull": "\ndeclare v_uid text := auth.uid()::text; v_share text; r record;\nbegin\n  if v_uid is null then return; end if;\n  select id into v_share from public.live_shares where sharer_user_id = v_uid and status = 'ACTIVE';\n  if v_share is null then return; end if;\n  update public.live_shares set status = 'ENDED', ended_at = now() where id = v_share;\n  for r in select message_id from public.live_share_recipients where share_id = v_share loop\n    update public.messages set meta = coalesce(meta, '{}'::jsonb) || jsonb_build_object('status', 'ENDED') where id = r.message_id;\n  end loop;\nend "
+  },
+  {
+    "sig": "sweep_stale_appointment_holds()",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " update public.appointments set status = 'CANCELLED', cancelled_by = 'SYSTEM', response_note = coalesce(response_note, 'Hold expired — booking was not accepted in time') where status = 'PENDING' and created_at <= now() - interval '2 hours' and scheduled_for > now(); ",
+    "bodyFull": "\n  update public.appointments\n  set status = 'CANCELLED',\n      cancelled_by = 'SYSTEM',\n      response_note = coalesce(response_note, 'Hold expired — booking was not accepted in time')\n  where status = 'PENDING'\n    and created_at <= now() - interval '2 hours'\n    and scheduled_for > now();\n"
+  },
+  {
+    "sig": "sync_post_comments_count()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare v_post text; begin -- NEW is unassigned on DELETE and OLD on INSERT — referencing the wrong one -- raises \"record is not assigned yet\", so branch on TG_OP rather than -- coalesce(new, old). if TG_OP = 'DELETE' then v_post := old.post_id; else v_post := new.post_id; end if; update public.com",
+    "bodyFull": "\ndeclare v_post text;\nbegin\n  -- NEW is unassigned on DELETE and OLD on INSERT — referencing the wrong one\n  -- raises \"record is not assigned yet\", so branch on TG_OP rather than\n  -- coalesce(new, old).\n  if TG_OP = 'DELETE' then v_post := old.post_id; else v_post := new.post_id; end if;\n\n  update public.community_posts\n     set comments_count = (select count(*) from public.post_comments where post_id = v_post)\n   where id = v_post;\n\n  return case when TG_OP = 'DELETE' then old else new end;\nend\n"
+  },
+  {
+    "sig": "sync_post_likes_count()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " declare v_post text; begin if TG_OP = 'DELETE' then v_post := old.post_id; else v_post := new.post_id; end if; update public.community_posts set likes_count = (select count(*) from public.post_likes where post_id = v_post) where id = v_post; return case when TG_OP = 'DELETE' then old else new end; ",
+    "bodyFull": "\ndeclare v_post text;\nbegin\n  if TG_OP = 'DELETE' then v_post := old.post_id; else v_post := new.post_id; end if;\n\n  update public.community_posts\n     set likes_count = (select count(*) from public.post_likes where post_id = v_post)\n   where id = v_post;\n\n  return case when TG_OP = 'DELETE' then old else new end;\nend\n"
+  },
+  {
+    "sig": "sync_request_proposal_count()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " begin if tg_op = 'INSERT' then update public.requests set proposal_count = proposal_count + 1 where id = new.request_id; elsif tg_op = 'DELETE' then update public.requests set proposal_count = greatest(0, proposal_count - 1) where id = old.request_id; end if; return null; end ",
+    "bodyFull": "\nbegin\n  if tg_op = 'INSERT' then\n    update public.requests set proposal_count = proposal_count + 1 where id = new.request_id;\n  elsif tg_op = 'DELETE' then\n    update public.requests set proposal_count = greatest(0, proposal_count - 1) where id = old.request_id;\n  end if;\n  return null;\nend\n"
+  },
+  {
+    "sig": "tg_delivery_batch_in_progress()",
+    "risk": "HIGH",
+    "returns": "trigger",
+    "isTrigger": true,
+    "appCallers": "",
+    "bodySummary": " begin if new.batch_id is null then return new; end if; if new.status = 'ASSIGNED' then return new; end if; if old.status is not distinct from new.status then return new; end if; update public.delivery_batches set status = 'IN_PROGRESS' where id = new.batch_id and status = 'ACCEPTED'; return new; en",
+    "bodyFull": "\nbegin\n  if new.batch_id is null then return new; end if;\n  if new.status = 'ASSIGNED' then return new; end if;\n  if old.status is not distinct from new.status then return new; end if;\n\n  update public.delivery_batches\n     set status = 'IN_PROGRESS'\n   where id = new.batch_id\n     and status = 'ACCEPTED';\n\n  return new;\nend "
+  },
+  {
+    "sig": "update_live_share(p_lat double precision, p_lng double precision, p_accuracy double precision, p_heading double precision)",
+    "risk": "HIGH",
+    "returns": "void",
+    "isTrigger": false,
+    "appCallers": "src/services/engagement/emergencyService.ts",
+    "bodySummary": " declare v_uid text := auth.uid()::text; begin if v_uid is null then return; end if; update public.live_shares set lat = p_lat, lng = p_lng, accuracy = p_accuracy, heading = p_heading, updated_at = now() where sharer_user_id = v_uid and status = 'ACTIVE'; end ",
+    "bodyFull": "\ndeclare v_uid text := auth.uid()::text;\nbegin\n  if v_uid is null then return; end if;\n  update public.live_shares\n    set lat = p_lat, lng = p_lng, accuracy = p_accuracy, heading = p_heading, updated_at = now()\n    where sharer_user_id = v_uid and status = 'ACTIVE';\nend "
+  },
+  {
+    "sig": "verify_switch_pin(p_pin text)",
+    "risk": "HIGH",
+    "returns": "boolean",
+    "isTrigger": false,
+    "appCallers": "",
+    "bodySummary": " declare v_uid text := auth.uid()::text; v_hash text; v_attempt public.switch_pin_attempts%rowtype; v_matches boolean; v_max_attempts constant integer := 5; v_window constant interval := interval '15 minutes'; v_dummy_hash constant text := '$2a$10$CXSUxhkNpnbyeflgDI/sMei3m6s9krMAI2wx72jT.YBXr.Agkk6H",
+    "bodyFull": "\ndeclare\n  v_uid text := auth.uid()::text;\n  v_hash text;\n  v_attempt public.switch_pin_attempts%rowtype;\n  v_matches boolean;\n  v_max_attempts constant integer := 5;\n  v_window constant interval := interval '15 minutes';\n  v_dummy_hash constant text := '$2a$10$CXSUxhkNpnbyeflgDI/sMei3m6s9krMAI2wx72jT.YBXr.Agkk6H2';\nbegin\n  if v_uid is null then return false; end if;\n  select * into v_attempt from public.switch_pin_attempts where user_id = v_uid for update;\n  if v_attempt.locked_until is not null and v_attempt.locked_until > now() then return false; end if;\n  select switch_pin_hash into v_hash from public.users where id = v_uid;\n  v_matches := crypt(coalesce(p_pin, ''), coalesce(v_hash, v_dummy_hash)) = coalesce(v_hash, v_dummy_hash);\n  if v_hash is not null and v_matches then\n    delete from public.switch_pin_attempts where user_id = v_uid;\n    return true;\n  end if;\n  insert into public.switch_pin_attempts (user_id, fail_count, last_attempt_at, locked_until)\n  values (v_uid, 1, now(), null)\n  on conflict (user_id) do update\n  set fail_count = case when switch_pin_attempts.last_attempt_at <= now() - v_window or switch_pin_attempts.locked_until is not null then 1 else switch_pin_attempts.fail_count + 1 end,\n      last_attempt_at = now(),\n      locked_until = case when (case when switch_pin_attempts.last_attempt_at <= now() - v_window or switch_pin_attempts.locked_until is not null then 1 else switch_pin_attempts.fail_count + 1 end) >= v_max_attempts then now() + v_window else null end;\n  return false;\nend\n"
+  }
+]

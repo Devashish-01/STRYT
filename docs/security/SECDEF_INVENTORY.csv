@@ -1,0 +1,220 @@
+signature,returns,anon_exec,auth_exec,search_path_pinned,references_auth_uid,ownership_check,writes,used_by_policy,used_by_trigger,used_by_cron,app_callers,edge_callers,risk
+"_bulk_deal_close_internal(p_deal_id text, p_trigger text, p_outcome text)",void,false,false,true,false,true,true,false,false,false,,,LOW
+_enforce_business_owner_limit(),trigger,false,true,true,false,true,false,false,true,false,,,LOW
+"_user_blocks_exists(p_a text, p_b text)",boolean,false,false,true,false,false,false,messages.insert_own_messages,false,false,,,LOW
+"_verify_entity_password(p_kind text, p_owner_user_id text, p_password text)",boolean,false,false,true,false,true,true,false,false,false,,,LOW
+"_verify_entity_recovery_answer(p_kind text, p_owner_user_id text, p_answer text)",boolean,false,false,true,false,true,true,false,false,false,,,LOW
+"accept_delivery_batch(p_batch_id text, p_stop_order text[])",delivery_batches,false,true,true,true,true,true,false,false,false,,,LOW
+accept_proposal(p_proposal_id text),text,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+"accept_proposal_at_price(p_proposal_id text, p_final_price integer)",text,false,true,true,true,true,false,false,false,false,,,LOW
+"accept_proposal_counter(p_proposal_id text, p_counter_id text)",text,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+admin_cancel_request(p_id text),void,false,true,true,true,true,true,false,false,false,,,LOW
+admin_delete_comment(p_id text),void,false,true,true,true,true,true,false,false,false,,,LOW
+admin_delete_post(p_id text),void,false,true,true,true,true,true,false,false,false,,,LOW
+admin_recent_users(),SETOF users,false,true,true,true,false,false,false,false,false,src/screens/admin/AdminPanel.tsx,,MEDIUM
+"admin_resolve_agreement_dispute(p_id text, p_resolution text)",void,false,true,true,true,true,true,false,false,false,src/services/core/adminService.ts,,LOW
+admin_search_users(term text),SETOF users,false,true,true,true,false,false,false,false,false,src/screens/admin/AdminPanel.tsx,,MEDIUM
+agreement_cancel(p_id text),void,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+"agreement_claim_payment(p_id text, p_method text, p_amount integer, p_reference text)",void,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+agreement_complete(p_id text),void,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+agreement_confirm(p_id text),agreements,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+agreement_confirm_payment(p_id text),void,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+agreement_create_tracking_token(p_id text),uuid,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+"agreement_dispute(p_id text, p_reason text)",void,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+agreement_reject_payment(p_id text),void,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+agreement_start_work(p_id text),void,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+agreement_submit_review(p_id text),void,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+"agreement_update_live_status(p_id text, p_status text, p_lat double precision, p_lng double precision)",agreements,false,true,true,true,false,true,false,false,false,src/services/engagement/requestService.ts,,HIGH
+aliases_available(p_aliases text[]),"TABLE(alias text, available boolean)",false,true,true,true,false,false,false,false,false,,,MEDIUM
+"appointment_accept_with_eta(p_id text, p_eta_text text)",appointments,false,true,true,true,true,true,false,false,false,,,LOW
+"appointment_claim_payment(p_id text, p_method text, p_amount numeric, p_reference text)",appointments,false,true,true,true,true,true,false,false,false,src/services/engagement/appointmentService.ts,,LOW
+appointment_confirm_payment(p_id text),appointments,false,true,true,true,true,true,false,false,false,,,LOW
+"appointment_create(p_target_type text, p_target_id text, p_scheduled_for timestamp with time zone, p_date_label text, p_time_label text, p_notes text, p_photo_url text, p_package_id text, p_package_name text, p_package_price numeric, p_items jsonb, p_fulfillment_type text, p_delivery_address_line text, p_delivery_lat double precision, p_delivery_lng double precision, p_requested_delivery_window text, p_party_size integer, p_target_package_key text)",appointments,false,true,true,true,true,true,false,false,false,src/services/engagement/appointmentService.ts,,LOW
+appointment_create_tracking_token(p_appointment_id text),uuid,false,true,true,true,true,true,false,false,false,,,LOW
+"appointment_create_walk_in(p_target_type text, p_target_id text, p_customer_name text, p_customer_phone text, p_scheduled_for timestamp with time zone, p_date_label text, p_time_label text, p_package_id text, p_package_name text, p_package_price numeric, p_items jsonb, p_party_size integer, p_target_package_key text)",appointments,false,true,true,true,true,true,false,false,false,src/services/engagement/appointmentService.ts,,LOW
+"appointment_create_walk_in_payment(p_target_id text, p_package_name text, p_package_price numeric, p_method text, p_reference text, p_items jsonb)",appointments,false,true,true,true,true,true,false,false,false,,,LOW
+"appointment_record_walk_in_payment(p_id text, p_method text, p_amount numeric, p_reference text)",appointments,false,true,true,true,true,true,false,false,false,src/services/engagement/appointmentService.ts,,LOW
+appointment_reject_payment(p_id text),appointments,false,true,true,true,true,true,false,false,false,,,LOW
+"appointment_set_unpaid_amount(p_id text, p_amount numeric)",appointments,false,true,true,true,true,true,false,false,false,,,LOW
+"appointment_transition(p_id text, p_status text, p_response_note text)",appointments,false,true,true,true,true,true,false,false,false,src/services/engagement/appointmentService.ts,,LOW
+"appointment_update_delivery_status(p_delivery_id text, p_status text, p_lat double precision, p_lng double precision)",appointment_deliveries,false,true,true,true,true,true,false,false,false,,,LOW
+"assign_delivery(p_appointment_id text, p_agent_user_id text)",appointment_deliveries,false,true,true,true,true,true,false,false,false,,,LOW
+"assign_delivery_batch(p_appointment_ids text[], p_agent_user_id text)",delivery_batches,false,true,true,true,true,true,false,false,false,,,LOW
+booked_slots(p_target_id text),"TABLE(scheduled_for timestamp with time zone, package_id text, used_spots integer)",false,true,true,false,false,false,false,false,false,src/services/engagement/appointmentService.ts,,MEDIUM
+"broadcast_new_listing(p_type text, p_id text)",integer,false,true,true,false,true,true,false,false,false,,,LOW
+"broadcast_offer_to_nearby(p_offer_id text, p_radius_km double precision)",integer,false,true,true,false,true,true,false,false,false,,,LOW
+"bulk_deal_close(p_deal_id text, p_outcome text)",bulk_deals,false,true,true,true,true,false,false,false,false,,,LOW
+bulk_deal_delete(p_deal_id text),void,false,true,true,true,true,true,false,false,false,,,LOW
+"bulk_deal_extend(p_deal_id text, p_new_closes_at timestamp with time zone)",bulk_deals,false,true,true,true,true,true,false,false,false,,,LOW
+"bulk_deal_pledge_claim_deposit(p_deal_id text, p_method text, p_reference text)",bulk_deal_pledges,false,true,true,true,true,true,false,false,false,,,LOW
+"bulk_deal_pledge_confirm_deposit(p_deal_id text, p_pledger_user_id text)",bulk_deal_pledges,false,true,true,true,true,true,false,false,false,,,LOW
+"bulk_deal_pledge_join(p_deal_id text, p_quantity integer, p_notes text, p_delivery_address text)",bulk_deals,false,true,true,true,true,true,false,false,false,,,LOW
+bulk_deal_pledge_leave(p_deal_id text),bulk_deals,false,true,true,true,false,true,false,false,false,,,HIGH
+"bulk_deal_pledge_reject_deposit(p_deal_id text, p_pledger_user_id text)",bulk_deal_pledges,false,true,true,true,true,true,false,false,false,,,LOW
+bulk_deal_redemption_stats(p_deal_id text),"TABLE(total integer, redeemed integer, pending integer)",false,true,true,false,false,false,false,false,false,,,MEDIUM
+"bulk_deal_token_redeem(p_token_code text, p_business_id text)",bulk_deal_tokens,false,true,true,true,true,true,false,false,false,,,LOW
+bulk_deal_tokens_for_deal(p_deal_id text),SETOF bulk_deal_tokens,false,true,true,true,true,false,false,false,false,,,LOW
+"bump_business_metric(p_business_id text, p_metric text)",void,false,true,true,false,false,true,false,false,false,src/services/marketplace/businessService.ts,,HIGH
+bump_provider_views(p_provider_id text),void,false,true,true,false,false,true,false,false,false,src/services/marketplace/providerService.ts,,HIGH
+bump_queue_line_changed(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+business_active_deliveries(p_business_id text),"TABLE(id text, appointment_id text, status text, live_status text, agent_user_id text, agent_name text, agent_avatar text, agent_phone text, customer_name text, delivery_address_line text, delivery_lat double precision, delivery_lng double precision, delivery_eta_text text, scheduled_for timestamp with time zone, date_label text, time_label text, batch_id text, stop_order integer, batch_status text, agent_lat double precision, agent_lng double precision, agent_heading double precision, handoff_verified boolean, created_at timestamp with time zone, delivered_at timestamp with time zone)",false,true,true,true,true,false,false,false,false,,,LOW
+"business_login_attempt(p_login_id text, p_password text)","TABLE(status text, business_id text, session_id uuid, business_name text)",false,true,true,true,true,true,false,false,false,src/services/marketplace/businessAccessService.ts,,LOW
+business_slot_capacities(p_business_id text),"TABLE(package_id text, slot_capacity integer, max_party_size integer)",false,true,true,false,false,false,false,false,false,,,MEDIUM
+can_comment_on_post(p_post_id text),boolean,false,true,true,true,false,false,post_comments.insert_own_post_comment,false,false,,,LOW
+can_manage_business(p_business_id text),boolean,true,true,true,true,true,false,false,false,false,,,LOW
+can_react_to_comment(p_comment_id text),boolean,false,true,true,false,false,false,comment_reactions.insert_own_comment_reaction; comment_reactions.update_own_comment_reaction,false,false,,,LOW
+"cancel_delivery(p_delivery_id text, p_reason text, p_note text)",void,false,true,true,true,true,true,false,false,false,,,LOW
+cancel_expired_agreements(),void,false,true,true,false,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+check_bulk_deal_target_and_close(p_deal_id text),void,false,false,true,false,false,false,false,false,false,,,LOW
+check_self_vouch(),trigger,false,true,true,false,false,false,false,true,false,,,LOW
+claim_first_admin(p_login_id text),void,false,true,true,true,false,false,false,false,false,src/services/core/adminService.ts,,LOW
+"clear_entity_password(p_kind text, p_current_password text)",void,false,true,true,true,true,true,false,false,false,,,LOW
+clear_switch_pin(p_current_pin text),void,false,true,true,true,false,true,false,false,false,,,HIGH
+close_expired_bulk_deals(),void,false,true,true,false,false,false,false,false,true,,,LOW
+close_expired_business_sessions(),void,false,true,true,false,false,true,false,false,true,src/services/marketplace/businessAccessService.ts,,HIGH
+close_expired_requests(),void,false,true,true,false,false,true,false,false,false,src/services/engagement/requestService.ts,,HIGH
+close_stale_queue_tokens(),void,false,true,true,false,true,true,false,false,false,src/services/marketplace/businessService.ts,,LOW
+comment_gate_reason(p_post_id text),text,false,true,true,true,false,false,false,false,false,,,LOW
+community_comment_delete(p_id text),void,false,true,true,true,false,true,false,false,false,,,HIGH
+"community_comment_set_pinned(p_id text, p_pinned boolean)",post_comments,false,true,true,true,false,true,false,false,false,,,HIGH
+"community_comment_update(p_id text, p_body text)",post_comments,false,true,true,true,false,true,false,false,false,,,HIGH
+community_poll_close(p_id text),community_posts,false,true,true,true,false,true,false,false,false,,,HIGH
+"community_post_add_recommendation(p_post_id text, p_listing_type text, p_listing_id text, p_by_name text)",community_posts,false,true,true,true,false,true,false,false,false,,,HIGH
+community_post_delete(p_id text),void,false,true,true,true,false,true,false,false,false,,,HIGH
+"community_post_set_profile_visibility(p_id text, p_show boolean)",community_posts,false,true,true,true,false,true,false,false,false,,,HIGH
+"community_post_set_resolved(p_id text, p_resolved boolean)",community_posts,false,true,true,true,false,true,false,false,false,,,HIGH
+"community_post_update(p_id text, p_title text, p_body text, p_image text, p_media text[], p_image_alt text, p_last_seen text, p_reward text, p_pickup_note text, p_tagged_listing jsonb, p_clear_tagged_listing boolean, p_comment_policy text, p_hide_like_count boolean)",community_posts,false,true,true,true,false,true,false,false,false,,,HIGH
+"confirm_handoff(p_delivery_id text, p_code text)",boolean,false,true,true,true,true,true,false,false,false,,,LOW
+count_my_active_deliveries(p_business_id text),integer,false,true,true,true,true,false,false,false,false,,,LOW
+create_settlements_on_complete(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+custom_payment_confirm(p_id text),custom_payments,false,true,true,true,true,true,false,false,false,src/services/marketplace/customPaymentService.ts,,LOW
+"custom_payment_create(p_target_type text, p_target_id text, p_amount numeric, p_method text, p_note text, p_reference text)",custom_payments,false,true,true,true,true,true,false,false,false,src/services/marketplace/customPaymentService.ts,,LOW
+custom_payment_reject(p_id text),custom_payments,false,true,true,true,true,true,false,false,false,src/services/marketplace/customPaymentService.ts,,LOW
+"decide_business_session(p_session_id uuid, p_approve boolean)",void,false,true,true,true,true,true,false,false,false,src/services/marketplace/businessAccessService.ts,,LOW
+decline_delivery_batch(p_batch_id text),delivery_batches,false,true,true,true,true,true,false,false,false,,,LOW
+delete_business(p_business_id text),void,false,true,true,true,true,true,false,false,false,,,LOW
+enforce_business_location_freeze(),trigger,false,true,true,false,true,false,false,true,false,,,LOW
+enforce_places_status_freeze(),trigger,false,true,true,false,true,false,false,true,false,,,LOW
+enforce_queue_open_on_join(),trigger,false,false,true,false,true,false,false,true,false,,,LOW
+expire_tokens_on_queue_close(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+get_delivery_duty(),boolean,false,true,true,true,false,false,false,false,false,,,LOW
+get_entity_recovery_question(p_kind text),"TABLE(question_id text, question_text text)",false,true,true,true,false,false,false,false,false,,,MEDIUM
+get_live_share(p_share_id text),"TABLE(id text, sharer_user_id text, sharer_name text, sharer_avatar text, status text, lat double precision, lng double precision, accuracy double precision, heading double precision, updated_at timestamp with time zone, started_at timestamp with time zone, ended_at timestamp with time zone)",true,true,true,true,false,false,false,false,false,src/services/engagement/emergencyService.ts,,MEDIUM
+"get_nearby_user_ids(p_lat double precision, p_lng double precision, p_radius_km double precision)",SETOF text,false,true,true,false,true,false,false,false,false,src/services/core/adminService.ts,,LOW
+get_own_coords(),"TABLE(lat double precision, lng double precision)",false,true,true,true,false,false,false,false,false,src/services/engagement/communityService.ts; src/services/marketplace/businessService.ts; src/services/marketplace/providerService.ts,,MEDIUM
+get_own_profile(),SETOF users,false,true,true,true,false,false,false,false,false,src/services/core/userService.ts,,MEDIUM
+get_public_profile(target_id text),"TABLE(id text, name text, phone text, avatar text, area text, rating_avg numeric, rating_count integer, created_at timestamp with time zone, show_posts_publicly boolean, show_asks_publicly boolean, show_badges_publicly boolean, show_phone_publicly boolean, show_city_publicly boolean, show_rating_publicly boolean, distance_km numeric, email text, show_email_publicly boolean, show_name_publicly boolean, alias text)",true,true,true,true,false,false,false,false,false,src/services/core/userService.ts,,MEDIUM
+get_shared_location(p_target text),"TABLE(lat double precision, lng double precision)",false,true,true,true,true,false,false,false,false,src/services/engagement/locationService.ts,,LOW
+get_tracking(p_token text),"TABLE(agreement_id text, provider_lat double precision, provider_lng double precision, live_status text, provider_name text, provider_avatar text, stops_before integer, dest_lat double precision, dest_lng double precision)",true,true,true,false,true,false,false,false,false,src/screens/TrackingPage.tsx,,LOW
+"grant_business_access(p_business_id text, p_identifier text)","TABLE(session_id uuid, grantee_name text)",false,true,true,true,true,true,false,false,false,src/services/marketplace/businessAccessService.ts,,LOW
+"grant_team_access(p_business_id text, p_identifier text, p_scopes text[])","TABLE(session_id uuid, grantee_name text)",false,true,true,true,true,true,false,false,false,,,LOW
+"grant_team_member_access(p_business_id text, p_identifier text, p_scopes text[])","TABLE(session_id uuid, grantee_name text)",false,true,true,true,true,true,false,false,false,,,LOW
+"group_buy_issue_tokens(p_request_id text, p_agreement_id text, p_business_id text, p_unit_price numeric, p_valid_until timestamp with time zone)",integer,false,true,true,true,true,true,false,false,false,,,LOW
+"group_buy_join(p_request_id text, p_quantity integer, p_notes text, p_delivery_address text)",requests,false,true,true,true,false,true,false,false,false,,,HIGH
+group_buy_leave(p_request_id text),requests,false,true,true,true,false,true,false,false,false,,,HIGH
+group_buy_redemption_stats(p_agreement_id text),"TABLE(total integer, redeemed integer, pending integer)",false,true,true,false,false,false,false,false,false,src/services/marketplace/bulkService.ts,,MEDIUM
+group_buy_token_redeem(p_token_code text),group_buy_tokens,false,true,true,true,true,true,false,false,false,src/services/marketplace/bulkService.ts,,LOW
+group_buy_tokens_for_agreement(p_agreement_id text),SETOF group_buy_tokens,false,true,true,true,true,false,false,false,false,src/services/marketplace/bulkService.ts,,LOW
+handle_new_auth_user(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+"has_business_access(p_business_id text, p_uid text)",boolean,false,true,true,false,true,false,bulk_deal_pledges.read_bulk_deal_pledges; bulk_deal_tokens.read_bulk_deal_tokens,false,false,,,LOW
+"has_business_full_access(p_business_id text, p_uid text)",boolean,false,true,true,false,true,false,loyalty_cards.delegated_access_loyalty; businesses.admin_upd_businesses,false,false,,,LOW
+"has_business_scope(p_business_id text, p_uid text, p_scope text)",boolean,false,true,true,false,true,false,appointment_deliveries.appointment_deliveries_select; custom_payments.select_custom_payments; appointments.appt_select; appointments.appt_update; blocked_slots.blocked_slots_write; business_portfolio_items.delegated_access_biz_portfolio; business_qna.upd_qna; catalog_items.delegated_access_catalog; offers.write_offers; queue_settings.delegated_access_queue_settings; queue_tokens.queue_tokens_owner_update; bulk_deals.write_bulk_deals; proposals.read_proposals; agreements.read_agreements; queue_tokens.delegated_access_queue_tokens; business_qna.delegated_access_qna; delivery_batches.delivery_batches_select; delivery_agent_duty.delivery_agent_duty_select,false,false,,,LOW
+"increment_stamp(p_card_id text, p_user_id text)",jsonb,false,true,true,true,false,true,false,false,false,src/services/engagement/walletService.ts,,HIGH
+is_admin(),boolean,true,true,true,true,false,false,users.read_users; custom_payments.select_custom_payments; places.select_places; places.insert_places; places.update_places_admin; bulk_deals.read_bulk_deals; group_buy_tokens.read_group_buy_tokens; bulk_deals.write_bulk_deals; proposals.read_proposals; profile_deletion_requests.update_deletion_requests_admin; bulk_deal_pledges.read_bulk_deal_pledges; bulk_deal_tokens.read_bulk_deal_tokens; businesses.read_businesses; profile_deletion_requests.delete_own_deletion_requests; profile_deletion_requests.read_own_deletion_requests; providers.read_providers,false,false,,,LOW
+is_admin(p_user_id text),boolean,false,true,true,false,false,false,users.read_users; custom_payments.select_custom_payments; places.select_places; places.insert_places; places.update_places_admin; bulk_deals.read_bulk_deals; group_buy_tokens.read_group_buy_tokens; bulk_deals.write_bulk_deals; proposals.read_proposals; profile_deletion_requests.update_deletion_requests_admin; bulk_deal_pledges.read_bulk_deal_pledges; bulk_deal_tokens.read_bulk_deal_tokens; businesses.read_businesses; profile_deletion_requests.delete_own_deletion_requests; profile_deletion_requests.read_own_deletion_requests; providers.read_providers,false,false,,,LOW
+is_blocked_between(p_other_user_id text),boolean,true,true,true,true,false,false,community_posts.Allow read access to community_posts for all,false,false,,,LOW
+is_entity_password_set(p_kind text),boolean,false,true,true,true,false,false,false,false,false,,,LOW
+is_entity_recovery_set(p_kind text),boolean,false,true,true,true,false,false,false,false,false,,,LOW
+"is_society_admin(p_society_id uuid, p_user_id text)",boolean,false,true,true,false,false,false,society_members.mem_update; society_members.delete_society_members,false,false,,,LOW
+"is_society_member(p_society_id uuid, p_user_id text)",boolean,false,true,true,false,false,false,society_members.mem_read,false,false,,,LOW
+is_switch_pin_set(),boolean,false,true,true,true,false,false,false,false,false,,,LOW
+me_too_toggle(p_request_id text),jsonb,false,true,true,true,false,true,false,false,false,,,HIGH
+my_business_access_scope(p_business_id text),"TABLE(access_level text, scopes text[])",false,true,true,true,true,false,false,false,false,,,LOW
+my_business_access_status(p_business_id text),boolean,false,true,true,true,true,false,false,false,false,,,LOW
+my_delegated_business_password_status(),"TABLE(business_id text, required boolean)",false,true,true,true,true,false,false,false,false,,,LOW
+my_delegated_businesses(),SETOF text,false,true,true,true,true,false,false,false,false,src/services/core/userService.ts,,LOW
+my_deliveries(),"TABLE(id text, appointment_id text, business_id text, business_name text, customer_name text, customer_area text, delivery_address_line text, delivery_lat double precision, delivery_lng double precision, scheduled_for timestamp with time zone, date_label text, time_label text, status text, live_status text, handoff_code text, handoff_verified boolean, lat double precision, lng double precision, batch_id text, stop_order integer, batch_status text, batch_lat double precision, batch_lng double precision, created_at timestamp with time zone, delivered_at timestamp with time zone)",false,true,true,true,true,false,false,false,false,,,LOW
+my_delivery_progress(p_appointment_id text),"TABLE(id text, status text, live_status text, handoff_code text, handoff_verified boolean, agent_name text, agent_phone text, agent_avatar text, agent_revealed boolean, eta_text text, stops_before integer, cancel_reason text, cancel_note text)",false,true,true,true,true,false,false,false,false,,,LOW
+my_duty_blockers(),"TABLE(blocking_count integer, blocking_delivery_id text, blocking_batch_id text)",false,true,true,true,true,false,false,false,false,,,LOW
+my_live_share_recipients(),"TABLE(recipient_user_id text, recipient_name text, recipient_avatar text)",false,true,true,true,false,false,false,false,false,,,MEDIUM
+"neighborhood_today(in_lat double precision, in_lng double precision, in_radius_m integer)",json,true,true,true,false,false,false,false,false,false,src/features/neighborhood-today/useNeighborhoodToday.ts,,LOW
+notification_push_health(),"TABLE(pg_net_installed boolean, functions_url_configured boolean, service_role_key_configured boolean, trigger_installed boolean)",false,true,true,false,false,false,false,false,false,,,MEDIUM
+notify_admins_business_pending(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+"notify_agreement_confirm(p_agreement_id text, p_recipient_user_id text)",void,false,true,true,true,true,true,false,false,false,,,LOW
+notify_ended_polls(),integer,false,false,true,false,false,true,false,false,true,,,LOW
+notify_on_agreement(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+notify_on_appointment_created(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+notify_on_appointment_status(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+notify_on_chat_message(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_on_comment_mention(),trigger,false,false,true,true,false,true,false,true,false,,,LOW
+notify_on_comment_reaction(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_on_nearby_alert(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_on_post_comment(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_on_post_like(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_on_post_recommendation(),trigger,false,true,true,false,true,true,false,true,false,,,LOW
+notify_on_post_resolved(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_on_proposal(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+notify_on_proposal_broadcast(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+notify_on_qna_answered(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_on_qna_asked(),trigger,false,true,true,false,true,true,false,true,false,,,LOW
+notify_on_queue_called(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+notify_on_queue_payment_status(),trigger,false,true,true,false,true,true,false,true,false,,,LOW
+notify_on_rating(),trigger,false,true,true,false,true,true,false,true,false,,,LOW
+notify_on_report_resolved(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_on_request(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+notify_on_story_reaction(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_saved_search_matches_business(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_saved_search_matches_provider(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+notify_verification_decision_business(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+notify_verification_decision_provider(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+on_queue_token_update(),trigger,false,false,true,false,true,true,false,true,false,,,LOW
+"proposal_submit_counter(p_proposal_id text, p_amount numeric, p_message text)",proposal_counters,false,true,true,true,true,true,false,false,false,src/services/engagement/requestService.ts,,LOW
+protect_business_owner(),trigger,false,false,true,true,true,false,false,true,false,,,LOW
+push_on_notification_insert(),trigger,false,false,true,false,false,false,false,true,false,,supabase/functions/send-push/index.ts,LOW
+qna_to_lead(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+"queue_token_create_walk_in(p_business_id text, p_customer_name text, p_party_size text)",queue_tokens,false,true,true,true,true,true,false,false,false,,,LOW
+queue_waiting_line(p_business_ids text[]),"TABLE(business_id text, line_position integer, party_size text, my_token_id uuid)",true,true,true,true,true,false,false,false,false,src/services/marketplace/businessService.ts,,LOW
+recompute_rating_aggregates(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+"record_terms_acceptance(p_version text, p_user_agent text)",void,false,true,true,true,false,true,false,false,false,,,HIGH
+renew_location_share(p_requester text),void,false,true,true,true,true,true,false,false,false,src/services/engagement/locationService.ts,,LOW
+"reply_to_rating(p_rating_id text, p_reply text)",ratings,false,true,true,true,true,true,false,false,false,src/services/marketplace/businessService.ts; src/services/marketplace/providerService.ts,,LOW
+request_location_share(p_owner text),void,false,true,true,true,true,true,false,false,false,src/services/engagement/locationService.ts,,LOW
+"reschedule_appointment(p_original_id text, p_scheduled_for timestamp with time zone, p_date_label text, p_time_label text, p_notes text, p_photo_url text, p_package_id text, p_package_name text, p_package_price numeric)",appointments,false,true,true,true,true,true,false,false,false,src/services/engagement/appointmentService.ts,,LOW
+reserve_catalog_item(p_item_id text),void,false,false,true,false,false,true,false,false,false,,,LOW
+reserve_catalog_items(p_items jsonb),void,false,false,true,false,false,true,false,false,false,,,LOW
+"reset_entity_password_via_recovery(p_kind text, p_answer text, p_new_password text)",void,false,true,true,true,true,true,false,false,false,,,LOW
+resolve_admin_email(p_login_id text),text,true,true,true,false,false,true,false,false,false,src/lib/adminAuth.ts,,HIGH
+"respond_location_share(p_requester text, p_approve boolean)",void,false,true,true,true,true,true,false,false,false,src/services/engagement/locationService.ts,,LOW
+revoke_business_session(p_session_id uuid),void,false,true,true,true,true,true,false,false,false,src/services/marketplace/businessAccessService.ts,,LOW
+revoke_live_share_recipient(p_recipient_user_id text),void,false,true,true,true,false,true,false,false,false,,,HIGH
+revoke_location_share(p_requester text),void,false,true,true,true,true,true,false,false,false,,,LOW
+rls_auto_enable(),event_trigger,false,true,true,false,false,false,false,false,false,,,LOW
+set_admin_login_id(p_new_id text),void,false,true,true,true,false,true,false,false,false,src/services/core/adminService.ts,,HIGH
+"set_business_login(p_business_id text, p_login_id text, p_password text, p_require_approval boolean, p_session_hours integer, p_enabled boolean)",void,false,true,true,true,true,true,false,false,false,src/services/marketplace/businessAccessService.ts,,LOW
+set_delivery_duty(p_on_duty boolean),boolean,false,true,true,true,true,true,false,false,false,,,LOW
+"set_entity_password(p_kind text, p_new_password text, p_current_password text)",void,false,true,true,true,true,true,false,false,false,,,LOW
+"set_entity_recovery(p_kind text, p_question_id text, p_question_text text, p_answer text, p_current_password text)",void,false,true,true,true,true,true,false,false,false,,,LOW
+"set_switch_pin(p_new_pin text, p_current_pin text)",void,false,true,true,true,false,true,false,false,false,,,HIGH
+"setup_entity_password_with_recovery(p_kind text, p_new_password text, p_question_id text, p_question_text text, p_answer text)",void,false,true,true,true,true,true,false,false,false,,,LOW
+"start_live_share(p_lat double precision, p_lng double precision)",text,false,true,true,true,true,true,false,false,false,src/services/engagement/emergencyService.ts,,LOW
+stop_live_share(),void,false,true,true,true,false,true,false,false,false,src/services/engagement/emergencyService.ts,,HIGH
+suggest_business_login(p_business_id text),text,false,true,true,true,true,false,false,false,false,src/services/marketplace/businessAccessService.ts,,LOW
+sweep_my_appointments(),void,false,true,true,true,true,true,false,false,false,src/services/engagement/appointmentService.ts,,LOW
+sweep_stale_appointment_holds(),void,false,true,true,false,false,true,false,false,false,,,HIGH
+sync_me_too_count(),trigger,false,false,true,false,false,true,false,false,false,,,LOW
+sync_post_comments_count(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+sync_post_likes_count(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+sync_request_me_too(),trigger,false,true,true,false,true,true,false,true,false,,,LOW
+sync_request_proposal_count(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+tg_complete_appointment_on_delivery(),trigger,false,true,true,false,false,false,false,true,false,,,LOW
+tg_delivery_batch_in_progress(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+trg_bulk_deal_pledge_check_target(),trigger,false,true,true,false,false,false,false,true,false,,,LOW
+"update_delivery_batch_position(p_batch_id text, p_lat double precision, p_lng double precision, p_accuracy double precision, p_heading double precision)",void,false,true,true,true,true,true,false,false,false,,,LOW
+"update_delivery_position(p_delivery_id text, p_lat double precision, p_lng double precision, p_accuracy double precision, p_heading double precision)",void,false,true,true,true,true,true,false,false,false,,,LOW
+"update_live_share(p_lat double precision, p_lng double precision, p_accuracy double precision, p_heading double precision)",void,false,true,true,true,false,true,false,false,false,src/services/engagement/emergencyService.ts,,HIGH
+update_rating_avg(),trigger,false,false,true,false,false,true,false,true,false,,,LOW
+"update_team_member_scopes(p_session_id uuid, p_scopes text[])",void,false,true,true,true,true,true,false,false,false,,,LOW
+"verify_business_password(p_business_id text, p_password text)",boolean,false,true,true,true,true,false,false,false,false,,,LOW
+"verify_provider_password(p_provider_id text, p_password text)",boolean,false,true,true,true,false,false,false,false,false,,,LOW
+verify_switch_pin(p_pin text),boolean,false,true,true,true,false,true,false,false,false,,,HIGH
+withdraw_proposal(p_proposal_id text),proposals,false,true,true,true,true,true,false,false,false,,,LOW

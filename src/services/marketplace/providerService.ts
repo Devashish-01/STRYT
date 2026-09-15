@@ -349,21 +349,19 @@ export const providerService = {
   },
   async leads(id: string) {
     const sb = getSupabase();
-    const { data, error } = await sb
-      .from("leads")
-      .select("id, provider_id, from_user_id, kind, note, handled, created_at, from:users!from_user_id(name, alias, avatar, phone, show_phone_publicly)")
-      .eq("provider_id", id)
-      .order("created_at", { ascending: false })
-      .limit(100);
+    // provider_leads() (20260972) returns the sender's phone only when they share it.
+    // Don't embed users.phone here: the raw number would reach the browser even when
+    // hidden, and users.phone is being locked to the owner (supabase/pending/).
+    const { data, error } = await (sb.rpc as any)("provider_leads", { p_provider_id: id });
     throwIfError(error);
-    return (data ?? []).map((l: any) => ({
+    return ((data ?? []) as any[]).map((l) => ({
       id: l.id,
       providerId: l.provider_id,
       fromUserId: l.from_user_id,
       kind: l.kind,
-      name: l.from?.name ?? "Someone",
-      avatar: l.from?.avatar ?? "",
-      phone: l.from?.show_phone_publicly ? l.from?.phone : undefined,
+      name: l.from_name ?? "Someone",
+      avatar: l.from_avatar ?? "",
+      phone: l.from_phone ?? undefined,
       text: leadText(l.kind, l.note),
       time: relDate(l.created_at),
       handled: l.handled,
