@@ -13,7 +13,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
-import { PERSONAS } from "./personas.mjs";
+import { PERSONAS, NEWCOMER_PHONES } from "./personas.mjs";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PROD = "gnswxlfmcwyhmzlfipql";
@@ -53,7 +53,9 @@ fs.writeFileSync(envFile, [
 ].join("\n"));
 console.log(".env.staging written (values not printed); gitignored:", !!fs.readFileSync(path.join(ROOT, ".gitignore"), "utf8").match(/^\.env\*$/m));
 
-const phones = PERSONAS.filter((p) => p.phone).map((p) => `${p.phone.replace("+", "")}=${otp}`).join(",");
+const phones = [...PERSONAS.map((p) => p.phone).filter(Boolean), ...NEWCOMER_PHONES]
+  .map((phone) => `${phone.replace("+", "")}=${otp}`)
+  .join(",");
 await api("PATCH", "/config/auth", {
   site_url: "http://localhost:5173",
   uri_allow_list: "http://localhost:5173/**,http://localhost:4173/**,http://127.0.0.1:5173/**",
