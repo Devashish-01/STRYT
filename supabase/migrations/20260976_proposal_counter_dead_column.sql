@@ -1,0 +1,108 @@
+-- Counter-offers fail for everyone (E2E-023): proposal_submit_counter ends with
+--   update public.proposals set updated_at = now() where id = p_proposal_id;
+-- but proposals has no updated_at column, so every call raised 42703 after inserting the counter and the whole
+-- transaction rolled back. The statement only "touched" the proposal; nothing reads updated_at, and RequestDetail
+-- already subscribes to proposal_counters in realtime, so the line is removed. Everything else is the live definition.
+-- Found by the P07 request-proposal-agreement journey; scripts/audit/function-dead-refs.mjs now checks UPDATE/INSERT
+-- column lists and reports nothing else.
+-- Rollback: supabase/rollbacks/20260976_proposal_counter_dead_column.rollback.sql
+
+CREATE OR REPLACE FUNCTION public.proposal_submit_counter(p_proposal_id text, p_amount numeric, p_message text DEFAULT NULL::text)
+ RETURNS proposal_counters
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_uid text := auth.uid()::text;
+  v_proposal public.proposals%rowtype;
+  v_request public.requests%rowtype;
+  v_counter public.proposal_counters%rowtype;
+  v_other text;
+  v_is_requester boolean;
+  v_entity_type text;
+  v_entity_id text;
+  v_meta jsonb;
+begin
+  if v_uid is null then raise exception 'UNAUTHENTICATED'; end if;
+  if p_amount is null or p_amount <= 0 then raise exception 'INVALID_AMOUNT'; end if;
+
+  select * into v_proposal from public.proposals
+  where id = p_proposal_id for update;
+  if not found then raise exception 'PROPOSAL_NOT_FOUND'; end if;
+
+  select * into v_request from public.requests
+  where id = v_proposal.request_id for update;
+  if not found then raise exception 'REQUEST_NOT_FOUND'; end if;
+
+  if v_uid not in (v_request.requester_user_id, v_proposal.responder_user_id)
+     and not (v_proposal.responder_type = 'business' and public.has_business_scope(v_proposal.responder_entity_id, v_uid, 'leads'))
+     and not (v_proposal.responder_type = 'provider' and exists(select 1 from public.providers p where p.id = v_proposal.responder_entity_id and p.user_id = v_uid))
+     and not public.is_admin(v_uid) then
+    raise exception 'NOT_A_PARTY';
+  end if;
+
+  if v_request.status <> 'OPEN' or v_proposal.status <> 'SUBMITTED' then
+    raise exception 'NEGOTIATION_CLOSED';
+  end if;
+
+  insert into public.proposal_counters (proposal_id, by_user_id, amount, message)
+  values (p_proposal_id, v_uid, p_amount, left(coalesce(p_message, ''), 1000))
+  returning * into v_counter;
+
+
+  v_is_requester := (v_uid = v_request.requester_user_id);
+  v_other := case when v_is_requester then v_proposal.responder_user_id else v_request.requester_user_id end;
+
+  -- Scoping for responder when counter is sent to them
+  if not v_is_requester then
+    v_entity_type := null;
+    v_entity_id := null;
+  else
+    v_entity_type := case when v_proposal.responder_type in ('business', 'provider') then upper(v_proposal.responder_type) else null end;
+    v_entity_id := v_proposal.responder_entity_id;
+  end if;
+
+  v_meta := jsonb_build_object(
+    'requestId', v_request.id,
+    'requestTitle', coalesce(v_request.title, 'Request'),
+    'proposalId', p_proposal_id,
+    'counterId', v_counter.id,
+    'amount', p_amount,
+    'counterPrice', p_amount,
+    'amountLabel', 'Counter-offer',
+    'message', coalesce(p_message, ''),
+    'statusPill', 'Counter-offer',
+    'tone', 'warning',
+    'actions', jsonb_build_array('ACCEPT_COUNTER', 'DECLINE_COUNTER', 'VIEW_QUOTE')
+  );
+
+  begin
+    insert into public.notifications (
+      user_id,
+      type,
+      title,
+      body,
+      deep_link,
+      metadata,
+      entity_type,
+      entity_id
+    ) values (
+      v_other,
+      'PROPOSAL_COUNTER',
+      'New counter-offer: ₹' || p_amount::text,
+      coalesce(p_message, 'Counter-offer on "' || left(coalesce(v_request.title, 'your request'), 50) || '"'),
+      '/request/' || v_request.id,
+      v_meta,
+      v_entity_type,
+      v_entity_id
+    );
+  exception when others then null;
+  end;
+
+  return v_counter;
+end;
+$function$;
+
+revoke all on function public.proposal_submit_counter(p_proposal_id text, p_amount numeric, p_message text) from public, anon;
+grant execute on function public.proposal_submit_counter(p_proposal_id text, p_amount numeric, p_message text) to authenticated;
