@@ -44,6 +44,11 @@ export default function RateScreen() {
 
   const isRequester = user.id === a.requesterUserId;
   const targetUserId = isRequester ? a.responderUserId : a.requesterUserId;
+  // The requester rates whoever made the offer — the provider or shop it was sent as, when there was one.
+  const ratee: { type: "USER" | "PROVIDER" | "BUSINESS"; id: string } =
+    isRequester && a.responderEntityId && (a.responderType === "provider" || a.responderType === "business")
+      ? { type: a.responderType === "provider" ? "PROVIDER" : "BUSINESS", id: a.responderEntityId }
+      : { type: "USER", id: targetUserId };
   const targetName = isRequester ? a.responderName : a.requesterName;
   const targetAvatar = isRequester ? a.responderAvatar : a.requesterAvatar;
 
@@ -53,7 +58,7 @@ export default function RateScreen() {
     if (rating === 0 || !a) return;
     setSubmitting(true);
     try {
-      await requestService.rate(targetUserId, rating, [comment, ...tags].filter(Boolean).join(" • "), tip || undefined, a.id);
+      await requestService.rate(ratee, rating, [comment, ...tags].filter(Boolean).join(" • "), tip || undefined, a.id);
       showToast("Thanks! Your rating builds local trust.");
       setTimeout(() => nav("/agreements"), 700);
     } catch (e) {
@@ -73,7 +78,7 @@ export default function RateScreen() {
         {/* Stars */}
         <div className="row gap-8" style={{ marginTop: 20 }}>
           {[1, 2, 3, 4, 5].map((i) => (
-            <button key={i} onClick={() => setRating(i)} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(0)}>
+            <button key={i} aria-label={`${i} star${i > 1 ? "s" : ""}`} aria-pressed={i <= rating} onClick={() => setRating(i)} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(0)}>
               <Star
                 size={42}
                 weight={i <= (hover || rating) ? "fill" : "regular"}

@@ -5,7 +5,7 @@ import { toCamel, toSnake } from "@/lib/caseMap";
 import type { RequestPost, Proposal, Agreement, ProposalCounter } from "@/types";
 import { leaderboardService } from "@/services/marketplace/leaderboardService";
 import { clampRadiusForViewer, isGuestMode } from "@/lib/guestMode";
-import { firstName, aliasName } from "@/lib/publicName";
+import { firstName, aliasName, greetingName } from "@/lib/publicName";
 import { notificationService } from "@/services/engagement/notificationService";
 
 // Columns that exist on the requests table.
@@ -125,6 +125,20 @@ function makePage<T>(rows: T[], count: number | null, from: number, limit: numbe
   };
 }
 
+/**
+ * The name/avatar the responder made the offer under (a provider's or shop's public identity, or the person's first
+ * name) — from the accepted proposal. The agreement otherwise showed the responder's personal account name, so a
+ * customer who hired "Test Plumber One" saw "Test Provider One" (E2E-026). agreements.proposal_id has no foreign key,
+ * so this is a second, batched read.
+ */
+async function withOfferIdentity(sb: ReturnType<typeof getSupabase>, rows: any[]): Promise<any[]> {
+  const ids = Array.from(new Set(rows.map((r) => r.proposal_id).filter(Boolean)));
+  if (ids.length === 0) return rows;
+  const { data } = await sb.from("proposals").select("id, responder_name, responder_avatar").in("id", ids);
+  const byId = new Map((data ?? []).map((p: any) => [p.id, p]));
+  return rows.map((r) => ({ ...r, offer: byId.get(r.proposal_id) }));
+}
+
 /** Map a DB agreements row (with nested requester/responder user objects) → Agreement. */
 function mapAgreement(row: any): Agreement {
   return {
@@ -138,8 +152,8 @@ function mapAgreement(row: any): Agreement {
     responderType: row.responder_type ?? undefined,
     requesterName: row.requester?.name ?? "Requester",
     requesterAvatar: row.requester?.avatar ?? "",
-    responderName: row.responder?.name ?? "Responder",
-    responderAvatar: row.responder?.avatar ?? "",
+    responderName: row.offer?.responder_name || row.responder?.name || "Responder",
+    responderAvatar: row.offer?.responder_avatar || row.responder?.avatar || "",
     agreedPrice: row.agreed_price,
     terms: row.terms ?? "",
     scheduledFor: row.scheduled_for ?? "",
@@ -334,10 +348,12 @@ export const requestService = {
     }
 
     if (responderType === "user") {
-      const { data: me } = await sb.from("users").select("name, avatar, bio").eq("id", uid).maybeSingle();
-      responderName = firstName((me as any)?.name);
+      // users has no `bio` column: selecting it failed with 400, so every proposal sent as a person was labelled
+      // "Neighbor" with no avatar (E2E-020). First name as before, then alias, then the neutral fallback.
+      const { data: me, error: meError } = await sb.from("users").select("name, alias, avatar").eq("id", uid).maybeSingle();
+      throwIfError(meError);
+      responderName = greetingName(me as { name?: string | null; alias?: string | null } | null);
       responderAvatar = (me as any)?.avatar ?? "";
-      responderTagline = (me as any)?.bio ?? undefined;
     }
 
     const row = {
@@ -462,7 +478,7 @@ export const requestService = {
       .or(`requester_user_id.eq.${uid},responder_user_id.eq.${uid}`)
       .order("created_at", { ascending: false });
     throwIfError(error);
-    return (data ?? []).map(mapAgreement);
+    return (await withOfferIdentity(sb, data ?? [])).map(mapAgreement);
   },
 
   async getAgreement(id: string): Promise<Agreement | undefined> {
@@ -474,7 +490,9 @@ export const requestService = {
       .eq("id", id)
       .maybeSingle();
     throwIfError(error);
-    return data ? mapAgreement(data) : undefined;
+    if (!data) return undefined;
+    const [row] = await withOfferIdentity(sb, [data]);
+    return mapAgreement(row);
   },
 
   async confirmAgreement(id: string) {
@@ -585,14 +603,19 @@ export const requestService = {
     return { ok: true };
   },
 
-  async rate(rateeId: string, rating: number, comment: string, tip?: number, agreementId?: string) {
+  /**
+   * Rate the other side of an agreement. `ratee` is who did (or asked for) the job: the provider or shop the offer was
+   * made under, or a person. Agreement ratings used to be filed against the responder's personal account only, so a
+   * provider's or shop's profile, reviews and rating average never received the ratings for its own jobs (E2E-027).
+   */
+  async rate(ratee: { type: "USER" | "PROVIDER" | "BUSINESS"; id: string }, rating: number, comment: string, tip?: number, agreementId?: string) {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
     const { error } = await sb.from("ratings").insert({
       rater_user_id: uid,
-      ratee_type: "USER",
-      ratee_id: rateeId,
+      ratee_type: ratee.type,
+      ratee_id: ratee.id,
       rating,
       comment,
       tip: tip ?? null,
@@ -642,13 +665,15 @@ export const requestService = {
     const sb = getSupabase();
     const { data: ag, error } = await sb
       .from("agreements")
-      .select("id, request_title, agreed_price, requester_user_id, responder:users!responder_user_id(name)")
+      .select("id, request_title, agreed_price, requester_user_id, proposal_id, responder:users!responder_user_id(name)")
       .eq("id", id)
       .maybeSingle();
     throwIfError(error);
     if (!ag) throw new Error("Agreement not found");
-    
-    const responderName = (ag as any).responder?.name || "the provider";
+
+    // Same identity as the agreement screen: the name the offer was made under (E2E-026).
+    const [withOffer] = await withOfferIdentity(sb, [ag]);
+    const responderName = withOffer.offer?.responder_name || (ag as any).responder?.name || "the provider";
     const title = "Payment Requested 🔔";
     const body = `${responderName} requested payment of ₹${ag.agreed_price} for "${ag.request_title}".`;
     

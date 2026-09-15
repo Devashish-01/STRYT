@@ -10,6 +10,7 @@ import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { buildScopeLabel, resolveConsoleMode, type ConsoleMode } from "@/lib/teamConsole";
 import PinEntrySheet from "@/components/PinEntrySheet";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
+import { useAdoptConsoleContext } from "@/hooks/useAdoptConsoleContext";
 
 interface BusinessAccessValue {
   isOwner: boolean;
@@ -78,6 +79,7 @@ export default function BusinessAccessGuard() {
   const [waitedEnough, setWaitedEnough] = useState(false);
   const [scope, setScope] = useState<{ accessLevel: AccessLevel; scopes: Scope[] }>({ accessLevel: "FULL", scopes: [] });
   const [hasActiveDeliveries, setHasActiveDeliveries] = useState(false);
+  useAdoptConsoleContext("business", id, status === "allowed" && (!businessPasswordRequired[id] || pinUnlocked));
 
   useEffect(() => {
     if (ownedEntitiesLoaded) return;

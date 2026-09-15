@@ -4,6 +4,7 @@ import { useApp } from "@/store";
 import { Skeleton } from "@/components/states";
 import PinEntrySheet from "@/components/PinEntrySheet";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
+import { useAdoptConsoleContext } from "@/hooks/useAdoptConsoleContext";
 
 /**
  * Wraps every /provider/:id/manage* route — the provider-side counterpart to
@@ -22,6 +23,7 @@ export default function ProviderAccessGuard() {
 
   const [pinUnlocked, setPinUnlocked] = useState(() => entityPasswordService.isSessionUnlocked(id));
   const [waitedEnough, setWaitedEnough] = useState(false);
+  useAdoptConsoleContext("provider", id, isOwner && (!providerPasswordIsSet || pinUnlocked));
   useEffect(() => {
     if (ownedEntitiesLoaded) return;
     const timer = window.setTimeout(() => setWaitedEnough(true), 2500);

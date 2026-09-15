@@ -214,7 +214,9 @@ export const adminService = {
       // real person offering services.
       const { data, error } = await sb
         .from("providers")
-        .select("id, display_name, category_name, avatar, bio, phone, area, city, starting_price, lat, lng, created_at")
+        // providers has no area/city columns (the request failed with 400 and the queue looked empty; E2E-021):
+        // a provider's place is its pin plus service radius.
+        .select("id, display_name, category_name, sub_category, avatar, bio, phone, service_radius_km, starting_price, lat, lng, created_at")
         .eq("status", "PENDING")
         .order("created_at", { ascending: true });
       throwIfError(error);
@@ -228,7 +230,8 @@ export const adminService = {
           Category: p.category_name || null,
           About: p.bio || null,
           Phone: p.phone || null,
-          Area: [p.area, p.city].filter(Boolean).join(", ") || null,
+          Speciality: p.sub_category || null,
+          "Service radius": p.service_radius_km != null ? `${p.service_radius_km} km` : null,
           "Starting price": p.starting_price != null ? String(p.starting_price) : null,
           Location: p.lat != null && p.lng != null ? `${Number(p.lat).toFixed(5)}, ${Number(p.lng).toFixed(5)}` : null,
           Submitted: p.created_at ? new Date(p.created_at).toLocaleString() : null,

@@ -4,7 +4,8 @@ import {
   Zap, Share2, Bell, Calendar, FileText, QrCode, Megaphone, Camera,
   BadgeCheck, MessageSquareText, Check, X as XIcon, ChevronRight, Wallet, Search,
 } from "@/components/Icons";
-import { providerService, bustProviderGetCache, communityService, appointmentService, notificationService, requestService } from "@/services";
+import { providerService, bustProviderGetCache, communityService, appointmentService, notificationService, requestService, catalogService } from "@/services";
+import { requestMatchesCategory } from "@/lib/categoryMatch";
 import { chatService } from "@/services/engagement/chatService";
 import { SafeImg, inr, AppBar } from "@/components/common";
 import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
@@ -64,6 +65,7 @@ export default function ProviderDashboard() {
   const { showToast, user } = useApp();
   const ambient = useAmbientTheme(user.lat, user.lng, "provider");
   const { data: analytics } = useQuery(() => providerService.analytics(id), [id], `provider:${id}:analytics`);
+  const { data: categoryParents } = useQuery(() => catalogService.parentMap(), [], "catalog:parent-map");
   const { data: provPosts } = useQuery(() => communityService.byAuthorRef("provider", id), [id], `provider:${id}:posts`);
   const { data: appts, refetch: refetchApts } = useQueryWithRealtime(
     () => appointmentService.listForTarget(id),
@@ -156,7 +158,7 @@ export default function ProviderDashboard() {
 
   const matchingRequests = ((reqFeed?.data ?? []) as RequestPost[])
     .filter((r) => r.status === "OPEN")
-    .filter((r) => !r.categoryId || !p?.categoryId || r.categoryId === p.categoryId);
+    .filter((r) => requestMatchesCategory(r.categoryId, p?.categoryId, categoryParents ?? {}));
 
   const totalEarned = analytics?.earnings ?? 0;
   const requiresPaymentFirst = (a: AppointmentRecord) => p?.paymentTiming === "AT_BOOKING" && a.paymentStatus !== "PAID";

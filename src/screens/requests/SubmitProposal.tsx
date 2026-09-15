@@ -185,6 +185,7 @@ export default function SubmitProposal() {
         <button
           type="button"
           className="card row gap-12"
+          aria-pressed={boost}
           style={{ padding: 14, border: boost ? "2px solid var(--amber-500)" : "1.5px solid var(--ink-200)", textAlign: "left" }}
           onClick={() => { haptics.selection(); setBoost((v) => !v); }}
         >

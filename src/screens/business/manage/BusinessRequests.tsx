@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, inr, PullToRefreshIndicator } from "@/components/common";
-import { requestService, businessService } from "@/services";
+import { requestService, businessService, catalogService } from "@/services";
+import { requestMatchesCategory } from "@/lib/categoryMatch";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { ListSkeleton, ErrorView } from "@/components/states";
@@ -21,6 +22,7 @@ export default function BusinessRequests() {
   const [tab, setTab] = useState<"find" | "sent">("find");
   const [withdrawing, setWithdrawing] = useState<string | null>(null);
   const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
+  const { data: categoryParents } = useQuery(() => catalogService.parentMap(), [], "catalog:parent-map");
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
       lat: b?.lat ?? undefined,
@@ -72,7 +74,7 @@ export default function BusinessRequests() {
   const range = b?.broadcastRadius ?? 5;
   const items = ((data?.data ?? []) as RequestPost[])
     .filter((r) => r.status === "OPEN")
-    .filter((r) => !r.categoryId || !b?.categoryId || r.categoryId === b.categoryId)
+    .filter((r) => requestMatchesCategory(r.categoryId, b?.categoryId, categoryParents ?? {}))
     .filter((r) => !r.lat || !r.lng || r.distanceKm <= range);
 
   return (

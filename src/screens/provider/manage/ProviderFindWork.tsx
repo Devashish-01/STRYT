@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, inr } from "@/components/common";
-import { requestService, providerService } from "@/services";
+import { requestService, providerService, catalogService } from "@/services";
+import { requestMatchesCategory } from "@/lib/categoryMatch";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { RequestCard } from "@/components/cards";
@@ -46,6 +47,7 @@ export default function ProviderFindWork() {
       setWithdrawing(null);
     }
   }
+  const { data: categoryParents } = useQuery(() => catalogService.parentMap(), [], "catalog:parent-map");
   const { data, loading, error, refetch } = useQueryWithRealtime(
     () => requestService.feed({
       lat: p?.lat ?? undefined,
@@ -71,7 +73,7 @@ export default function ProviderFindWork() {
   // it's actually for (falls through when the request carries no category).
   const items = ((data?.data ?? []) as RequestPost[])
     .filter((r) => r.status === "OPEN")
-    .filter((r) => !r.categoryId || !p?.categoryId || r.categoryId === p.categoryId);
+    .filter((r) => requestMatchesCategory(r.categoryId, p?.categoryId, categoryParents ?? {}));
 
   return (
     <div className="screen with-nav">

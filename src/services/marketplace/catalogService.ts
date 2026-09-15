@@ -36,6 +36,12 @@ export const catalogService = {
     return tree.filter((c) => c.kind === kind || c.kind === "BOTH");
   },
 
+  /** Category id → parent id (null for a top-level group). Used to match requests to responders (categoryMatch.ts). */
+  async parentMap(): Promise<Record<string, string | null>> {
+    const flat = await fetchAllCategories();
+    return Object.fromEntries(flat.map((c) => [c.id, c.parentId ?? null]));
+  },
+
   async leaves(): Promise<Category[]> {
     const flat = await fetchAllCategories();
     return flat.filter((c) => c.parentId != null);
