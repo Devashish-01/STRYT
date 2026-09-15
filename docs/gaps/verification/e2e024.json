@@ -1,0 +1,1 @@
+[{"gap_id": "E2E-024", "status": "FIXED", "evidence": "Migration 20260977 (builds on 20260975): targeted inserts first, nearby broadcast skips users already notified for the same requestId. Staging forced-rollback + live test 2026-09-16: matching plumber/salon 2 -> 1 notification per request, non-matching users unchanged (1). Production apply pending owner approval."}]

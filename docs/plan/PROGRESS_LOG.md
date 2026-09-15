@@ -99,3 +99,21 @@ the staging preview, remove the matching `knownBug(...)` marks, re-run the specs
   008/009/010/011/013/015/016 so the specs now prove the fixes; the first-visit warm-up in `fixtures/staging.ts` was
   dropped (E2E-008 fixed). Full unit suite 634/634. Full E2E run on a fresh reseed in progress
   (`full_run1`).
+- 2026-09-16 — Full E2E run on rebuilt staging: 127/128 (the failure was the first-visit test counting a same-document
+  route change as a reload; switched to document `load` events, 3/3 green). `npm run verify` exit 0. Ledger: 15 E2E
+  rows FIXED with run evidence. Emergency live-location sharing proven broken on production by the same trigger as
+  E2E-014 (added to APPLY_LOG). Committed locally on `phase/07-e2e`: d85f100 (app fixes), 8c41317 (DB migrations,
+  staging only), a429fb2 (E2E suite + ledger). **Push was refused by the tool — owner to push or allow.**
+- 2026-09-16 — Request journey found **E2E-019 (P0)**: requests carry a top-level category, shops/providers a
+  speciality, and every match (notification trigger + 3 console screens) compared ids exactly, so no responder was ever
+  notified or shown a request (production data confirms). App fix `src/lib/categoryMatch.ts` (+6 unit tests) in
+  ProviderFindWork, ProviderDashboard, BusinessRequests; migration `20260975` for `notify_on_request` — staging applied
+  (ledger 20260915203103) and tested; production pending owner (APPLY_LOG). Staging seed: test plumber now
+  `c-home-plumb`. Commits so far are local only (push refused by the tool).
+- 2026-09-16 — More bugs from the request journey, all fixed in the working tree (not yet committed):
+  **E2E-020** proposals from a person always "Neighbor" (`users.bio` doesn't exist) → `requestService.submitProposal`;
+  **E2E-021** admin pending-provider queue always empty (`providers.area/city` don't exist) → `adminService`;
+  **E2E-022** a console opened from a notification/link kept the personal context, so proposals went out as a
+  customer → `src/hooks/useAdoptConsoleContext.ts` in both console guards. New audit `scripts/audit/select-columns.mjs`
+  (every literal select vs the staging catalog; now 0 unknown columns). Rate-screen stars and the proposal
+  "Prioritize" toggle got accessible state. Rebuilding the staging preview to write the request-proposal-agreement spec.

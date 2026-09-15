@@ -111,7 +111,8 @@ begin
     from (values ('${persona("staff_queue").id}', array['queue']), ('${persona("staff_appointments").id}', array['appointments'])) v(g, s)
    where not exists (select 1 from public.business_access_sessions x where x.business_id = ${lit(BUSINESS.id)} and x.grantee_user_id = v.g);
 
-  select id, name into v_service, v_service_name from public.categories where kind::text in ('SERVICE','BOTH') order by id limit 1;
+  -- A real speciality, as onboarding stores it (requests carry the top-level group c-home; E2E-019).
+  select id, name into v_service, v_service_name from public.categories where id = 'c-home-plumb';
   insert into public.providers (id, user_id, display_name, category_id, category_name, bio, lat, lng, service_radius_km, starting_price,
     status, phone, bookings_enabled, is_open_now, created_at)
   values (${lit(PROVIDER.id)}, '${prov.id}', ${lit(PROVIDER.name)}, v_service, v_service_name, 'Synthetic staging provider — not real.',
