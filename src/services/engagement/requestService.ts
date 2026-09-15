@@ -325,8 +325,11 @@ export const requestService = {
       const ownerCol = responderType === "business" ? "owner_user_id" : "user_id";
       const nameCol = responderType === "business" ? "name" : "display_name";
       const avatarCol = responderType === "business" ? "cover_image" : "avatar";
-      const taglineCol = responderType === "business" ? "tagline" : "bio";
-      const { data: entity } = await sb.from(table).select(`${ownerCol}, ${nameCol}, ${avatarCol}, ${taglineCol}`).eq("id", responderEntityId).maybeSingle();
+      // businesses has no `tagline` column: the lookup failed, `entity` came back null, and every shop replying as its
+      // business was refused as UNAUTHORIZED_RESPONDER_ENTITY (E2E-035). A shop's short blurb is its description.
+      const taglineCol = responderType === "business" ? "description" : "bio";
+      const { data: entity, error: entityError } = await sb.from(table).select(`${ownerCol}, ${nameCol}, ${avatarCol}, ${taglineCol}`).eq("id", responderEntityId).maybeSingle();
+      throwIfError(entityError);
       let allowed = !!entity && (entity as any)[ownerCol] === uid;
       if (!allowed && entity && responderType === "business") {
         // Cast: my_business_access_scope isn't in the generated schema types (new RPC).
@@ -337,7 +340,8 @@ export const requestService = {
       if (allowed && entity) {
         responderName = (entity as any)[nameCol] ?? undefined;
         responderAvatar = (entity as any)[avatarCol] ?? "";
-        responderTagline = (entity as any)[taglineCol] ?? undefined;
+        const tagline = ((entity as any)[taglineCol] ?? "") as string;
+        responderTagline = tagline ? tagline.slice(0, 140) : undefined;
       } else {
         // P6: Explicit authorization failure rather than silent identity downgrade
         throw toApiError({ code: "UNAUTHORIZED_RESPONDER_ENTITY", message: "You do not have permission to respond on behalf of this entity" }, 403);

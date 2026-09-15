@@ -2,6 +2,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { notificationService } from "@/services/engagement/notificationService";
 import { functionUrl } from "@/config";
+import { formatHoursForDisplay } from "@/utils/availability";
 
 export type VerificationTargetType = "BUSINESS" | "PROVIDER";
 export type VerificationDecision = "APPROVE" | "REJECT" | "SUSPEND";
@@ -54,6 +55,8 @@ export interface AdminReport {
   targetId: string;
   targetName: string;
   reason: string;
+  /** What the reporter wrote. Moderators never saw it before (E2E-030). */
+  details: string;
   reporter: string;
   status: "OPEN" | "REVIEWING" | "ACTION_TAKEN" | "DISMISSED";
   time: string;
@@ -201,7 +204,8 @@ export const adminService = {
           Address: [b.address_line1, b.city, b.pincode].filter(Boolean).join(", ") || null,
           Phone: b.phone || null,
           Email: b.email || null,
-          Hours: b.hours || null,
+          // Stored as a JSON schedule; moderators saw the raw JSON (E2E-032).
+          Hours: b.hours ? formatHoursForDisplay(b.hours) : null,
           "Opening date": b.opening_date || null,
           Location: b.lat != null && b.lng != null ? `${Number(b.lat).toFixed(5)}, ${Number(b.lng).toFixed(5)}` : null,
           Submitted: b.created_at ? new Date(b.created_at).toLocaleString() : null,
@@ -291,6 +295,7 @@ export const adminService = {
       targetId: r.target_id,
       targetName: r.target_name,
       reason: r.reason,
+      details: (r.details ?? "").trim(),
       reporter: r.reporter?.name || "Anonymous",
       status: r.status as AdminReport["status"],
       time: relDate(r.created_at),

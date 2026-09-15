@@ -121,7 +121,7 @@ export default function DataSettings() {
             <h3 className="bold h2">Delete account?</h3>
             <p className="small muted" style={{ margin: "8px 0 14px", lineHeight: 1.5 }}>
               Your account will be scheduled for deletion in {ACCOUNT_DELETION_GRACE_DAYS} days.
-              Sign back in before then and it's cancelled automatically — after that it's permanent.
+              Sign back in before then and tap “Keep account &amp; continue” to cancel it — after that it's permanent.
             </p>
             {((ownedBusinessIds && ownedBusinessIds.length > 0) || !!ownedProviderId) && (
               <div className="card row gap-8" style={{ padding: "10px 12px", background: "var(--amber-50)", border: "1px solid var(--amber-200)", marginBottom: 12, alignItems: "flex-start" }}>

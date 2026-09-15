@@ -586,7 +586,8 @@ export default function RequestDetail() {
         </div>
       )}
 
-      {report && <ReportSheet targetType="REQUEST" targetId={r.id} name="this request" onClose={() => setReport(false)} />}
+      {/* The name is what moderators see; "this request" told them nothing (E2E-036). */}
+      {report && <ReportSheet targetType="REQUEST" targetId={r.id} name={r.title || "this request"} onClose={() => setReport(false)} />}
       {share && (
         <ShareCard
           subjects={{

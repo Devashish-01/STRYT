@@ -269,7 +269,8 @@ function AppShellSkeleton() {
  * being asked to sign in is the entire point of guest mode.
  */
 function GuestOrAuthLayout() {
-  const { isAuthed, authReady, profileReady } = useApp();
+  const { isAuthed, authReady, profileReady, user } = useApp();
+  const location = useLocation();
 
   const isAuthCallback =
     window.location.hash.includes("access_token=") ||
@@ -286,6 +287,24 @@ function GuestOrAuthLayout() {
   // so a signed-in user's experience of these routes is unchanged.
   if (isAuthed && !profileReady) {
     return <AppShellSkeleton />;
+  }
+
+  // A signed-in user gets the same account gates here as on ProtectedLayout routes. These screens (Home, Explore,
+  // shop/provider pages, Search, Map) are where most actions start, and they used to skip every gate: an account
+  // scheduled for deletion kept booking and messaging from Home, and a user who hadn't accepted the current terms
+  // or finished first-login onboarding never saw those screens (E2E-029). Same order as ProtectedLayout.
+  if (isAuthed && user.id) {
+    if (user.deletionScheduledAt) {
+      return <Navigate to="/auth/deletion-pending" replace />;
+    }
+    if (user.termsAcceptedVersion !== undefined && user.termsAcceptedVersion !== LEGAL_VERSION) {
+      return <Navigate to="/auth/terms" replace />;
+    }
+    if (user.onboardingCompletedAt === null) {
+      // Onboarding's finish() consumes this, so a shared shop link opened by a brand-new user lands back on the shop.
+      returnTo.remember(location.pathname + location.search);
+      return <Navigate to="/auth/onboard" replace />;
+    }
   }
 
   return <Outlet />;

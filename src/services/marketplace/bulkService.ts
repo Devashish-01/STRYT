@@ -119,7 +119,15 @@ async function sweepExpiredDeals(sb: ReturnType<typeof getSupabase>): Promise<vo
   const { data: { session } } = await sb.auth.getSession();
   if (!session) return;
   lastBulkSweepAt = Date.now();
-  await (sb.rpc as any)("close_expired_bulk_deals").catch(() => { lastBulkSweepAt = 0; });
+  // The query builder is a thenable without .catch(): calling .catch on it threw a TypeError that rejected every
+  // deal read made while this sweep ran — the "Couldn't load" toast on bulk-deal screens and the Community hub
+  // (E2E-005). A failed sweep must never fail the read; retry on the next call instead.
+  try {
+    const { error } = await (sb.rpc as any)("close_expired_bulk_deals");
+    if (error) lastBulkSweepAt = 0;
+  } catch {
+    lastBulkSweepAt = 0;
+  }
 }
 
 export const bulkService = {

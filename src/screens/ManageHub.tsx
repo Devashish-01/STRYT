@@ -46,7 +46,8 @@ export default function ManageHub() {
                   </div>
                   <div className="row gap-12 tiny muted" style={{ marginTop: 12 }}>
                     <span className="row gap-4"><Eye size={12} /> {b.viewCount.toLocaleString()}</span>
-                    <span className="row gap-4"><Phone size={12} /> 142</span>
+                    {/* Was a hard-coded "142" on every business (E2E-034). */}
+                    <span className="row gap-4"><Phone size={12} /> {(b.callCount ?? 0).toLocaleString()}</span>
                     <span className="row gap-4"><Star size={12} fill="var(--amber-500)" strokeWidth={0} /> {b.ratingAvg}</span>
                   </div>
                   <button

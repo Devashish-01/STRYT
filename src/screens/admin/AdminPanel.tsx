@@ -570,6 +570,7 @@ function AdminReports() {
                 </div>
                 <div className="semi small" style={{ marginTop: 8 }}>{r.targetName}</div>
                 <div className="tiny muted">{r.targetType} • reported by {r.reporter}</div>
+                {r.details && <p className="small" style={{ marginTop: 6, whiteSpace: "pre-wrap" }}>{r.details}</p>}
                 {status === "OPEN" || status === "REVIEWING" ? (
                   <div className="row gap-8" style={{ marginTop: 12 }}>
                     <button className="btn btn-outline grow btn-sm" onClick={() => resolve(r.id, "DISMISSED")}>Dismiss</button>

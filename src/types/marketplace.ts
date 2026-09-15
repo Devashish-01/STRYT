@@ -59,6 +59,8 @@ export interface Business {
   ratingAvg: number;
   ratingCount: number;
   viewCount: number;
+  /** Taps on Call from the public page (businesses.call_count). */
+  callCount?: number | null;
   isFeatured: boolean;
   /** Paid placement (boosts table) — MUST be labeled "Promoted" wherever it affects ranking. */
   isBoosted?: boolean;
