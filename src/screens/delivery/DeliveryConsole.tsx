@@ -424,6 +424,7 @@ export default function DeliveryConsole() {
         className="row between center-v"
         style={{ width: "100%", padding: "10px 16px", borderBottom: "1px solid var(--line)", background: onDuty ? "var(--surface)" : "var(--ink-50)", opacity: dutyBlocked ? 0.75 : 1 }}
         onClick={dutyBlocked ? () => setTab("ACTIVE") : toggleDuty}
+        aria-pressed={onDuty}
         disabled={dutyBusy}
         aria-label={dutyBlocked ? "Can't go off duty yet — show active deliveries" : undefined}
       >

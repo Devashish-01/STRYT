@@ -61,18 +61,6 @@ async function compressImage(file: File): Promise<File> {
   });
 }
 
-async function fileToDataUrl(file: File): Promise<string> {
-  let f = file;
-  if (f.type.startsWith("image/")) {
-    f = await compressImage(f);
-  }
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
-    reader.readAsDataURL(f);
-  });
-}
 
 // Private bucket for verification documents (government ID, business docs).
 // NEVER public — no getPublicUrl, no anon/authenticated SELECT policy. Only
@@ -94,20 +82,16 @@ export const uploadService = {
     const contentType = f?.type ?? "image/jpeg";
     const path = randomPath(uid, kind, contentType);
     const sb = getSupabase();
-    try {
-      const { error } = await sb.storage.from(BUCKET).upload(path, f, {
-        contentType,
-        upsert: true,
-      });
-      if (!error) {
-        const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
-        if (data?.publicUrl) return data.publicUrl;
-      }
-      console.warn("Storage upload error, falling back to data URL:", error?.message);
-    } catch (err) {
-      console.warn("Storage upload failed, falling back to data URL:", err);
+    // Plain insert, never upsert: every path is random, and an upsert needs SELECT/UPDATE rights on
+    // storage.objects that the bucket policies (rightly) don't grant — it was refused with "new row violates
+    // row-level security policy" on every upload. The old code then stored the image as a base64 data URL in the
+    // database row instead, hiding the failure (E2E-015). A failed upload is now an error the screen shows.
+    const { error } = await sb.storage.from(BUCKET).upload(path, f, { contentType, upsert: false });
+    if (error) {
+      throw toApiError({ code: "UPLOAD_FAILED", message: "Couldn't upload the photo. Check your connection and try again." }, 500);
     }
-    return await fileToDataUrl(f);
+    const { data } = sb.storage.from(BUCKET).getPublicUrl(path);
+    return data.publicUrl;
   },
 
   /**
@@ -119,7 +103,7 @@ export const uploadService = {
    * (BUSINESS_ONBOARDING #21).
    *
    * Resolves `false` rather than throwing for anything it can't act on — a
-   * data-URL from `upload()`'s fallback path (never in storage to begin with),
+   * data-URL left by the removed upload fallback (never in storage to begin with),
    * a URL from some other bucket, or a delete the caller isn't allowed to make.
    * Callers are cleaning up after an error they're already reporting; a failure
    * here must not replace that error with a less useful one.
@@ -159,10 +143,8 @@ export const uploadService = {
     const contentType = f?.type ?? "image/jpeg";
     const path = randomPath(uid, kind, contentType);
     const sb = getSupabase();
-    const { error } = await sb.storage.from(PRIVATE_BUCKET).upload(path, f, {
-      contentType,
-      upsert: true,
-    });
+    // Plain insert (see upload()): verification-docs grants INSERT only, so an upsert was refused (E2E-015).
+    const { error } = await sb.storage.from(PRIVATE_BUCKET).upload(path, f, { contentType, upsert: false });
     if (error) throw toApiError({ code: "UPLOAD_FAILED", message: error.message || "Couldn't upload document" }, 500);
     return path;
   },

@@ -42,6 +42,10 @@ export const hasSupabaseEnv = Boolean(url && anonKey);
  */
 export async function currentUserId(): Promise<string | null> {
   const sb = getSupabase();
-  const { data } = await sb.auth.getUser();
-  return data.user?.id ?? null;
+  // The session this device holds, not a round-trip to /auth/v1/user: getUser() returned null on any network
+  // hiccup, so signed-in writes silently took guest/local-only paths (E2E-009: a booking was "confirmed" but
+  // never saved), and every screen made dozens of extra auth calls. Access is still decided server-side from the
+  // JWT on each request; this id only addresses the caller's own rows.
+  const { data } = await sb.auth.getSession();
+  return data.session?.user?.id ?? null;
 }

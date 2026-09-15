@@ -43,6 +43,8 @@ export default function ReviewSheet({ targetName, onSubmit, onClose }: Props) {
           {[1, 2, 3, 4, 5].map((i) => (
             <button
               key={i}
+              aria-label={`${i} star${i > 1 ? "s" : ""}`}
+              aria-pressed={i <= rating}
               onClick={() => setRating(i)}
               onMouseEnter={() => setHover(i)}
               onMouseLeave={() => setHover(0)}

@@ -169,12 +169,18 @@ export default function AppointmentNotificationCard({
           )}
         </div>
 
-        {/* Reason / Decline note if present */}
-        {metadata.reason && (
+        {/* Reason / Decline note. Without a reason, a declined or cancelled booking shows the server's own sentence
+            ("… couldn't take your 5:00 PM. Try another slot.") — otherwise the customer got a bare "Declined"
+            with no idea what to do next (E2E-010). */}
+        {metadata.reason ? (
           <p className="notif-reason" style={{ marginTop: 6, marginBottom: 0 }}>
             {metadata.reason}
           </p>
-        )}
+        ) : metadata.tone === "danger" && metadata.serviceName && preview ? (
+          <p className="notif-reason" style={{ marginTop: 6, marginBottom: 0 }}>
+            {preview}
+          </p>
+        ) : null}
       </div>
 
       {/* Action Buttons Bar */}

@@ -280,7 +280,12 @@ export const providerService = {
   /** Bump the provider profile view counter (fire-and-forget). */
   async recordView(id: string) {
     const sb = getSupabase();
-    await sb.rpc("bump_provider_views", { p_provider_id: id });
+    // bump_provider_views is for signed-in viewers only; a guest call is a 401 on every provider page (E2E-003).
+    // Same rule as businessService.recordView.
+    const uid = await currentUserId();
+    if (uid) {
+      await sb.rpc("bump_provider_views", { p_provider_id: id });
+    }
     return { ok: true };
   },
   /** Log a trackable interaction (call/message) so it shows up in the leads trend. */
@@ -387,11 +392,13 @@ export const providerService = {
       sb.from("proposals").select("*", { count: "exact", head: true }).eq("responder_user_id", uid),
       sb.from("agreements").select("*", { count: "exact", head: true }).eq("responder_user_id", uid).in("status", ["ACTIVE", "COMPLETED"]),
       sb.from("settlements").select("amount").eq("user_id", uid),
-      sb.from("appointments").select("price").eq("target_id", id).eq("payment_status", "PAID"),
+      // appointments has no `price`: the amount actually paid is payment_amount, the listed price package_price (E2E-006).
+      sb.from("appointments").select("payment_amount, package_price").eq("target_id", id).eq("payment_status", "PAID"),
       sb.from("provider_view_logs").select("viewed_at").eq("provider_id", id).gte("viewed_at", sevenAgo),
     ]);
     const settleEarnings = (settleRes.data ?? []).reduce((sum: number, s: any) => sum + (s.amount ?? 0), 0);
-    const apptEarnings = (apptRes.data ?? []).reduce((sum: number, a: any) => sum + (a.price ?? 0), 0);
+    throwIfError(apptRes.error);
+    const apptEarnings = (apptRes.data ?? []).reduce((sum: number, a: any) => sum + Number(a.payment_amount ?? a.package_price ?? 0), 0);
     const earnings = settleEarnings + apptEarnings;
     return {
       views: prov.view_count ?? 0,
@@ -424,7 +431,7 @@ export const providerService = {
         .order("created_at", { ascending: false })
         .limit(100),
       sb.from("appointments")
-        .select("id, price, payment_mode, customer_name, service_name, created_at")
+        .select("id, payment_amount, package_price, payment_method, customer_name, package_name, created_at")
         .eq("target_id", id)
         .eq("payment_status", "PAID")
         .order("created_at", { ascending: false })
@@ -446,10 +453,10 @@ export const providerService = {
 
     const apptEntries: EarningEntry[] = (apptRes.data ?? []).map((a: any) => ({
       id: a.id,
-      amount: a.price ?? 0,
+      amount: Number(a.payment_amount ?? a.package_price ?? 0),
       tip: 0,
-      mode: a.payment_mode || "CASH",
-      note: [a.customer_name, a.service_name].filter(Boolean).join(" • ") || "Appointment booking",
+      mode: a.payment_method || "CASH",
+      note: [a.customer_name, a.package_name].filter(Boolean).join(" • ") || "Appointment booking",
       date: a.created_at ? relDate(a.created_at) : "",
       createdAtISO: a.created_at ?? "",
       agreementId: "",

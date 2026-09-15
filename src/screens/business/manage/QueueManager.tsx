@@ -362,7 +362,7 @@ export default function QueueManager() {
 
         {view === "LIVE" && (
           <>
-        <button
+        <button aria-pressed={live}
           className="card row between"
           style={{ padding: 14, border: live ? "2px solid var(--green-500)" : "1px solid var(--line)" }}
           onClick={toggleLive}

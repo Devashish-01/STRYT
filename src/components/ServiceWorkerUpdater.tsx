@@ -44,7 +44,18 @@ export default function ServiceWorkerUpdater() {
       reloading = true;
       window.location.reload();
     };
-    const onControllerChange = () => reloadOnce();
+    // Only an update needs the reload: a new worker replacing an older one can leave this tab running old JS against
+    // newly cached assets. On a first visit nothing controlled the page — it already runs the current build — and
+    // reloading when the first worker claimed it (~1.5s after load) wiped whatever the visitor had started, such
+    // as an open booking sheet or a typed OTP (E2E-008).
+    let hadController = !!navigator.serviceWorker.controller;
+    const onControllerChange = () => {
+      if (!hadController) {
+        hadController = true;
+        return;
+      }
+      reloadOnce();
+    };
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
 
     /** Fetch the deploy stamp Vercel just published; reload if we are behind. */

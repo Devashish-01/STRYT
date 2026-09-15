@@ -494,7 +494,7 @@ export default function ManageDashboard() {
 
         {isOwner && (
           <section className="page-pad">
-            <button className="card row gap-12 center-v" onClick={toggleAvailability} style={{ width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)" }}>
+            <button aria-pressed={available} className="card row gap-12 center-v" onClick={toggleAvailability} style={{ width: "100%", textAlign: "left", border: available ? "2px solid var(--green-500)" : "1px solid var(--line)" }}>
               <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: available ? "var(--green-100)" : "var(--ink-50)" }}>
                 <Zap size={21} color={available ? "var(--green-600)" : "var(--ink-400)"} weight={available ? "fill" : "regular"} />
               </span>
@@ -505,7 +505,7 @@ export default function ManageDashboard() {
                 (bookingsDefault false) was previously shown this toggle plus a
                 whole appointments console it can't use. */}
             {bookingsOn && (
-              <button className="card row gap-12 center-v" onClick={toggleAccepting} style={{ width: "100%", textAlign: "left", marginTop: 10, border: accepting ? "1px solid var(--line)" : "2px solid var(--red-400)" }}>
+              <button aria-pressed={accepting} className="card row gap-12 center-v" onClick={toggleAccepting} style={{ width: "100%", textAlign: "left", marginTop: 10, border: accepting ? "1px solid var(--line)" : "2px solid var(--red-400)" }}>
                 <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: accepting ? "var(--ink-50)" : "var(--red-100)" }}>
                   <Calendar size={21} color={accepting ? "var(--ink-400)" : "var(--red-600)"} />
                 </span>

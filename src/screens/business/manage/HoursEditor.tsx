@@ -141,7 +141,7 @@ export default function HoursEditor() {
                 </div>
               </div>
             </div>
-            <button onClick={toggleOpenNow} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }} aria-label="Toggle shop open now">
+            <button aria-pressed={openNow} onClick={toggleOpenNow} style={{ background: "none", border: "none", padding: 0, cursor: "pointer" }} aria-label="Toggle shop open now">
               <Toggle on={openNow} />
             </button>
           </div>

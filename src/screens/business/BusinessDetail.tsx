@@ -511,18 +511,25 @@ export default function BusinessDetail() {
         </div>
 
         {/* Live queue */}
-        {queue && queue.isOpen && (
+        {queue && queue.isOpen && (() => {
+          // A customer already in the line sees the people ahead of *them*; everyone else sees the whole line.
+          // (queue.peopleAhead counts every waiting token, including this customer's own: "1 ahead · You're #1",
+          // E2E-011.)
+          const mine = activeQueueEntry && activeQueueEntry.status === "WAITING" ? activeQueueEntry : null;
+          const ahead = mine ? mine.peopleAhead : queue.peopleAhead;
+          const waitMin = mine ? mine.estWaitMin ?? queue.estWaitMin : queue.estWaitMin;
+          return (
           <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
-            <div className="card col gap-12" style={{ padding: 14, background: queue.peopleAhead === 0 ? "var(--green-100)" : "var(--brand-50)", border: "none" }}>
+            <div className="card col gap-12" style={{ padding: 14, background: ahead === 0 ? "var(--green-100)" : "var(--brand-50)", border: "none" }}>
               <div className="row gap-12 center-v">
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <Users size={20} color={queue.peopleAhead === 0 ? "var(--green-500)" : "var(--brand-700)"} />
+                  <Users size={20} color={ahead === 0 ? "var(--green-500)" : "var(--brand-700)"} />
                 </div>
                 <div className="grow" style={{ minWidth: 0 }}>
                   <div className="semi small">
-                    {queue.peopleAhead === 0 ? t("no_wait_now") : tf("people_ahead_count", { count: queue.peopleAhead })}
+                    {ahead === 0 ? t("no_wait_now") : tf("people_ahead_count", { count: ahead })}
                   </div>
-                  <div className="tiny muted">{queue.peopleAhead === 0 ? t("walk_in_anytime") : tf("min_wait", { min: queue.estWaitMin })}</div>
+                  <div className="tiny muted">{ahead === 0 ? t("walk_in_anytime") : tf("min_wait", { min: waitMin })}</div>
                 </div>
                 {isOwner ? (
                   <button
@@ -606,7 +613,8 @@ export default function BusinessDetail() {
               )}
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Highlights — stories the owner saved past their normal expiry */}
         {highlights.length > 0 && (

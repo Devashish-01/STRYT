@@ -39,6 +39,7 @@ function Toggle({ on, onClick, size = "md" }: { on: boolean; onClick: () => void
   return (
     <button
       type="button"
+      aria-pressed={on}
       onClick={onClick}
       style={{ width: w, height: h, borderRadius: 999, background: on ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0, border: "none", cursor: "pointer" }}
     >

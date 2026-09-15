@@ -415,7 +415,7 @@ function ScopeToggleList({ scopes, onToggle }: { scopes: Scope[]; onToggle: (s: 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       {ALL_SCOPES.map((s, idx) => (
-        <button
+        <button aria-pressed={scopes.includes(s)}
           key={s}
           type="button"
           className="row gap-12 center-v"

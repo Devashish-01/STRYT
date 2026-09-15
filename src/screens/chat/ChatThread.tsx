@@ -66,8 +66,16 @@ export default function ChatThread() {
     socialService.hasBlocked(other.id).then(setIsBlocked).catch(() => {});
   }, [other?.id]);
 
+  // The effect below must run once per open thread, not once per conversations refetch: it used to depend on the
+  // `conv` object, which is new on every refetch — markRead → refetch → new conv → markRead… (~45 requests/second,
+  // realtime re-subscribed each time; E2E-013). It reads the latest conversation through this ref instead.
+  const convRef = useRef<Conversation | undefined>(conv);
+  convRef.current = conv;
+  const convReady = !!conv;
+
   // Mark as read + subscribe to realtime (messages + typing) when conv is available.
   useEffect(() => {
+    const conv = convRef.current;
     if (!conv) return;
     chatService.markRead(id, conv).then(() => {
       const scope = inboxScopeFor(conv, user.id);
@@ -83,8 +91,9 @@ export default function ChatThread() {
         return [...prev, msg];
       });
       // In-thread real-time message read auto-acknowledgment
-      if (msg.senderId !== user.id && conv) {
-        void chatService.markRead(id, conv);
+      const latest = convRef.current;
+      if (msg.senderId !== user.id && latest) {
+        void chatService.markRead(id, latest);
       }
     });
 
@@ -102,7 +111,7 @@ export default function ChatThread() {
       if (typingHideTimer.current) clearTimeout(typingHideTimer.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, conv, user.id, setChatUnread]);
+  }, [id, convReady, user.id, setChatUnread]);
 
   // Auto-scroll to bottom on new message.
   useEffect(() => {

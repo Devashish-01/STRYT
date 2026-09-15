@@ -303,7 +303,8 @@ export const userService = {
       sb.from("ratings").select("id, rating, comment, created_at, ratee_type, ratee_id").eq("rater_user_id", id).order("created_at", { ascending: false }).limit(10),
       sb.from("community_posts").select("id, title, body, type, area, created_at, likes_count, comments_count, show_on_profile").eq("author_user_id", id).order("created_at", { ascending: false }).limit(20),
       sb.from("requests").select("id, category_name, description, status, budget_max, created_at").eq("requester_user_id", id).order("created_at", { ascending: false }).limit(20),
-      sb.from("proposals").select("id, request_id, price, note, created_at").eq("responder_user_id", id).order("created_at", { ascending: false }).limit(20),
+      // proposals keeps the responder's note in `message` (there is no `note` column; E2E-004).
+      sb.from("proposals").select("id, request_id, price, message, created_at").eq("responder_user_id", id).order("created_at", { ascending: false }).limit(20),
     ]);
 
     const ownedProvIds = ((userProvidersData.data ?? []) as any[]).map((p) => p.id);
@@ -403,7 +404,7 @@ export const userService = {
         requestId: p.request_id,
         requestTitle: reqTitlesMap.get(p.request_id) || "Help Request",
         price: p.price ?? 0,
-        note: p.note ?? "",
+        note: p.message ?? "",
         date: relDate(p.created_at),
       })),
       proposalsReceivedCount: propRecCount ?? 0,

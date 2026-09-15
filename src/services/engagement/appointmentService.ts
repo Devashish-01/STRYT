@@ -319,6 +319,12 @@ export const appointmentService = {
       }
     }
 
+    // A real shop only ever gets server bookings. Without a session a "local" booking would tell the customer
+    // they're booked while the owner never sees it (E2E-009) — refuse instead, so they can retry.
+    if (!uid && !isMockTarget(payload.targetId)) {
+      throw new Error("Couldn't confirm you're signed in. Check your connection and try again.");
+    }
+
     // Real target + signed-in customer → persist to the shared appointments
     // table so the owner sees it and status changes propagate back.
     if (uid && !isMockTarget(payload.targetId)) {
@@ -432,7 +438,7 @@ export const appointmentService = {
       }
     }
 
-    // Guest or mock/demo target → local-only record.
+    // Mock/demo target → local-only record.
     let paymentStatus: AppointmentRecord["paymentStatus"] = payload.paymentStatus ?? "UNPAID";
     let paymentMethod = payload.paymentMethod ?? null;
     let paymentAmount = payload.paymentAmount ?? null;
@@ -779,6 +785,11 @@ export const appointmentService = {
           return record;
         }
       } catch (e: any) {
+        // The booking moved on elsewhere (accepted from the console, cancelled by the customer…): say so instead of
+        // showing the raw code (E2E-007).
+        if (/INVALID_TRANSITION/i.test(e?.message ?? "")) {
+          throw new Error("This booking was already updated. Refresh to see its current status.");
+        }
         throw new Error(e?.message || "Couldn't update the appointment. Please try again.");
       }
     }

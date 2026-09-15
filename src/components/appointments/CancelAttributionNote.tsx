@@ -13,7 +13,10 @@ export function CancelAttributionNote({ apt, viewpoint }: { apt: AppointmentReco
           {apt.responseNote ? (
             <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1, fontStyle: "italic" }}>Reason: "{apt.responseNote}"</div>
           ) : (
-            <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>No specific reason was provided.</div>
+            <div className="tiny" style={{ color: "var(--red-600)", marginTop: 1 }}>
+              {/* The owner's decline dialog promises a blank reason asks the customer to try another slot (E2E-010). */}
+              {viewpoint === "OWNER" ? "No specific reason was provided." : "No reason given — try another slot."}
+            </div>
           )}
         </div>
       </div>

@@ -40,6 +40,38 @@ function applyScope(q: any, scope?: NotifScope) {
   return q.or("entity_type.is.null,entity_type.eq.CUSTOMER");
 }
 
+const HANDLED_BOOKING: Record<string, { statusPill: string; tone: string }> = {
+  ACCEPTED: { statusPill: "Confirmed", tone: "success" },
+  REJECTED: { statusPill: "Declined", tone: "danger" },
+  CANCELLED: { statusPill: "Cancelled", tone: "danger" },
+  COMPLETED: { statusPill: "Completed", tone: "success" },
+  NO_SHOW: { statusPill: "No-show", tone: "danger" },
+};
+
+/**
+ * A booking request notification keeps its Accept/Decline buttons in its stored metadata forever, so once the
+ * booking was handled anywhere else (the console, another device, a teammate) the buttons stayed and tapping them
+ * failed with INVALID_TRANSITION (E2E-007). This looks up the live status of those bookings in one query and shows
+ * handled ones as handled. Best effort: if the lookup fails the list is returned unchanged.
+ */
+async function reconcileBookingActions(sb: ReturnType<typeof getSupabase>, items: AppNotification[]): Promise<AppNotification[]> {
+  const pending = items.filter((n) => {
+    const actions = (n.metadata?.actions ?? []) as string[];
+    return !!n.metadata?.appointmentId && (actions.includes("ACCEPT") || actions.includes("DECLINE"));
+  });
+  if (pending.length === 0) return items;
+  const ids = Array.from(new Set(pending.map((n) => String(n.metadata!.appointmentId))));
+  const { data, error } = await sb.from("appointments").select("id, status").in("id", ids);
+  if (error || !data) return items;
+  const statusById = new Map(data.map((a: { id: string; status: string }) => [a.id, a.status]));
+  return items.map((n) => {
+    const status = n.metadata?.appointmentId ? statusById.get(String(n.metadata.appointmentId)) : undefined;
+    const handled = status ? HANDLED_BOOKING[status] : undefined;
+    if (!handled || !pending.includes(n)) return n;
+    return { ...n, metadata: { ...n.metadata, ...handled, actions: [] } } as AppNotification;
+  });
+}
+
 export const notificationService = {
   async list(scope?: NotifScope): Promise<AppNotification[]> {
     const sb = getSupabase();
@@ -49,7 +81,7 @@ export const notificationService = {
     q = applyScope(q, scope);
     const { data, error } = await q.order("created_at", { ascending: false }).limit(50);
     if (error) throw error;
-    return (data ?? []).map(toNotif);
+    return reconcileBookingActions(sb, (data ?? []).map(toNotif));
   },
 
   async getUnreadCount(scope?: NotifScope): Promise<number> {

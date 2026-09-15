@@ -34,7 +34,7 @@ describe("appointmentService booking gaps coverage (B3 to B10)", () => {
       const totalPackagePrice = unitPrice * partySize;
 
       const created = await appointmentService.create({
-        targetId: "b_yoga_studio",
+        targetId: "biz_mock_yoga_studio",
         targetName: "Prana Yoga Studio",
         targetType: "BUSINESS",
         customerId: "cust_yoga_1",
@@ -51,6 +51,24 @@ describe("appointmentService booking gaps coverage (B3 to B10)", () => {
       expect(created.partySize).toBe(3);
       expect(created.packagePrice).toBe(1200);
       expect(created.status).toBe("PENDING");
+    });
+  });
+
+  describe("E2E-009: no device-only bookings for real shops", () => {
+    it("refuses to book a real shop when there is no session instead of saving a local-only booking", async () => {
+      await expect(
+        appointmentService.create({
+          targetId: "b_real_shop_1",
+          targetName: "Real Shop",
+          targetType: "BUSINESS",
+          customerId: "cust_1",
+          customerName: "Riya Sen",
+          scheduledForISO: new Date(Date.now() + 86400000).toISOString(),
+          dateLabel: "Tomorrow",
+          timeLabel: "10:00 AM",
+        }),
+      ).rejects.toThrow(/Couldn't confirm you're signed in/);
+      expect(localStorage.getItem("stryt_appointments")).toBeNull();
     });
   });
 
