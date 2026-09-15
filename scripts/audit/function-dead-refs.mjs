@@ -49,11 +49,13 @@ for (const f of fns) {
     if (!names.has(n)) report(f.proname, `missing relation/function public.${n}`);
   }
 
-  for (const m of src.matchAll(/select\s+([a-z0-9_,\s]+?)\s+into\s+[a-z0-9_,\s]+?\s+from\s+public\.([a-z_]+)\s/gi)) {
+  // "select a, b into x, y from public.t" and plain "select a, b from public.t" (e.g. "for m in select … from") —
+  // simple identifier lists only; anything with expressions is skipped rather than guessed at.
+  for (const m of src.matchAll(/select\s+([a-z0-9_,\s]+?)(?:\s+into\s+[a-z0-9_,\s]+?)?\s+from\s+public\.([a-z_]+)\s/gi)) {
     const t = m[2].toLowerCase();
     if (!colset[t]) continue;
     for (const c of m[1].split(",").map((x) => x.trim().toLowerCase())) {
-      if (IDENT.test(c) && !colset[t].has(c) && c !== "count" && c !== "exists") report(f.proname, `missing column ${t}.${c} (select)`);
+      if (IDENT.test(c) && !colset[t].has(c) && !["count", "exists", "distinct", "1"].includes(c)) report(f.proname, `missing column ${t}.${c} (select)`);
     }
   }
 

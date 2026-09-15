@@ -1,0 +1,180 @@
+-- Bulk-buying campaigns can never close as fulfilled (E2E-039). When the confirmation that fills a campaign runs
+-- _bulk_deal_close_internal, the claim-pass loop selects bulk_deal_pledges.deposit_amount_paid — a column that has never
+-- existed (the pledge's deposit is deposit_amount) — so the whole confirmation fails with 42703: the last deposit stays
+-- "awaiting confirm", no campaign closes, and no claim pass is ever minted. Found by the P07 bulk-deal journey;
+-- the static dead-reference audit now also checks "for … in select <columns> from" lists.
+-- Live definition with only those two references changed. Grants unchanged (internal helper).
+-- Rollback: supabase/rollbacks/20260979_bulk_deal_close_deposit_column.rollback.sql
+
+CREATE OR REPLACE FUNCTION public._bulk_deal_close_internal(p_deal_id text, p_trigger text, p_outcome text DEFAULT NULL::text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  v_deal public.bulk_deals%rowtype;
+  v_paid_qty integer;
+  v_unit_price numeric;
+  v_tier jsonb;
+  v_deposit_paid numeric;
+  v_balance_due numeric;
+  v_token_code text;
+  m record;
+begin
+  select * into v_deal from public.bulk_deals where id = p_deal_id for update;
+  if not found then raise exception 'DEAL_NOT_FOUND'; end if;
+  if v_deal.closed_at is not null then return; end if; -- already closed
+
+  -- Count pledges where deposit was PAID OR deal had no deposit requirement
+  select coalesce(sum(quantity), 0) into v_paid_qty
+    from public.bulk_deal_pledges
+   where deal_id = p_deal_id
+     and (v_deal.deposit_amount is null or v_deal.deposit_amount = 0 or deposit_status = 'PAID');
+
+  if p_outcome is null and v_paid_qty >= v_deal.moq then
+    p_outcome := 'FULFILLED';
+  end if;
+
+  update public.bulk_deals set closed_at = now(), close_outcome = p_outcome where id = p_deal_id;
+
+  if p_outcome = 'FULFILLED' then
+    select t into v_tier
+      from jsonb_array_elements(coalesce(v_deal.tiers, '[]'::jsonb)) as t
+     where (t->>'minQty')::numeric <= v_paid_qty
+     order by (t->>'minQty')::numeric desc
+     limit 1;
+    v_unit_price := coalesce((v_tier->>'unitPrice')::numeric, v_deal.regular_price);
+
+    for m in
+      select user_id, quantity, deposit_amount
+        from public.bulk_deal_pledges
+       where deal_id = p_deal_id
+         and (v_deal.deposit_amount is null or v_deal.deposit_amount = 0 or deposit_status = 'PAID')
+    loop
+      v_deposit_paid := coalesce(m.deposit_amount, 0);
+      v_balance_due := greatest(0, (m.quantity * coalesce(v_unit_price, 0)) - v_deposit_paid);
+      v_token_code := 'STRYT-D-' || upper(substr(md5(gen_random_uuid()::text), 1, 4)) || '-' || upper(substr(md5(gen_random_uuid()::text), 1, 4));
+
+      insert into public.bulk_deal_tokens (
+        token_code, deal_id, holder_user_id, issuer_user_id, business_id,
+        quantity, unit_price, item_label, deposit_paid, balance_due
+      ) values (
+        v_token_code,
+        p_deal_id, m.user_id, v_deal.owner_user_id, v_deal.business_id,
+        m.quantity, v_unit_price, v_deal.title, v_deposit_paid, v_balance_due
+      )
+      on conflict (deal_id, holder_user_id) do update
+        set unit_price = excluded.unit_price,
+            deposit_paid = excluded.deposit_paid,
+            balance_due = excluded.balance_due
+      returning token_code into v_token_code;
+
+      begin
+        insert into public.notifications (user_id, type, title, body, deep_link, metadata)
+        values (
+          m.user_id,
+          'BULK_DEAL_UNLOCKED',
+          'Claim pass ready — "' || left(v_deal.title, 60) || '"',
+          'The campaign closed and hit its target — your claim pass is ready.',
+          '/community/activity',
+          jsonb_build_object(
+            'dealId', p_deal_id,
+            'dealTitle', v_deal.title,
+            'tokenCode', v_token_code,
+            'quantity', m.quantity,
+            'unitPrice', v_unit_price,
+            'depositAmount', v_deposit_paid,
+            'balanceDue', v_balance_due,
+            'targetId', v_deal.business_id,
+            'targetType', 'BUSINESS',
+            'statusPill', 'Claim Pass Ready',
+            'tone', 'success',
+            'actions', jsonb_build_array('VIEW_CLAIM_PASS', 'SHARE_DEAL')
+          )
+        );
+      exception when others then null;
+      end;
+    end loop;
+
+    -- Notify business owner of campaign success
+    begin
+      insert into public.notifications (user_id, type, title, body, deep_link, entity_type, entity_id, metadata)
+      values (
+        v_deal.owner_user_id,
+        'BULK_DEAL_UNLOCKED',
+        'Campaign target achieved! 🎉',
+        '"' || left(v_deal.title, 60) || '" reached its target (' || v_paid_qty || ' units). Claim passes issued to pledgers.',
+        '/business/' || v_deal.business_id || '/manage/bulk-deals/' || v_deal.id,
+        'BUSINESS',
+        v_deal.business_id,
+        jsonb_build_object(
+          'dealId', p_deal_id,
+          'dealTitle', v_deal.title,
+          'quantity', v_paid_qty,
+          'progressCurrent', v_paid_qty,
+          'progressTarget', v_deal.moq,
+          'targetId', v_deal.business_id,
+          'targetType', 'BUSINESS',
+          'statusPill', 'Target Hit',
+          'tone', 'success',
+          'actions', jsonb_build_array('VIEW_DEAL')
+        )
+      );
+    exception when others then null;
+    end;
+
+  elsif p_outcome = 'REFUNDED' then
+    for m in select user_id from public.bulk_deal_pledges where deal_id = p_deal_id and deposit_status = 'PAID' loop
+      begin
+        insert into public.notifications (user_id, type, title, body, deep_link, metadata)
+        values (
+          m.user_id,
+          'BULK_DEAL_REFUNDED',
+          '"' || left(v_deal.title, 60) || '" didn''t reach its target',
+          'The business will refund your deposit directly.',
+          '/business/' || v_deal.business_id,
+          jsonb_build_object(
+            'dealId', p_deal_id,
+            'dealTitle', v_deal.title,
+            'targetId', v_deal.business_id,
+            'targetType', 'BUSINESS',
+            'statusPill', 'Campaign Closed',
+            'tone', 'neutral',
+            'actions', jsonb_build_array('VIEW_DEAL')
+          )
+        );
+      exception when others then null;
+      end;
+    end loop;
+
+    -- Notify business owner of refund requirement
+    begin
+      insert into public.notifications (user_id, type, title, body, deep_link, entity_type, entity_id, metadata)
+      values (
+        v_deal.owner_user_id,
+        'BULK_DEAL_REFUNDED',
+        'Campaign closed — target not met',
+        '"' || left(v_deal.title, 60) || '" closed without reaching MOQ. Please ensure any collected deposits are refunded.',
+        '/business/' || v_deal.business_id || '/manage/bulk-deals/' || v_deal.id,
+        'BUSINESS',
+        v_deal.business_id,
+        jsonb_build_object(
+          'dealId', p_deal_id,
+          'dealTitle', v_deal.title,
+          'progressCurrent', v_paid_qty,
+          'progressTarget', v_deal.moq,
+          'targetId', v_deal.business_id,
+          'targetType', 'BUSINESS',
+          'statusPill', 'Closed (Unmet)',
+          'tone', 'neutral',
+          'actions', jsonb_build_array('VIEW_DEAL')
+        )
+      );
+    exception when others then null;
+    end;
+  end if;
+end;
+$function$;
+
+revoke all on function public._bulk_deal_close_internal(p_deal_id text, p_trigger text, p_outcome text) from public, anon, authenticated;
