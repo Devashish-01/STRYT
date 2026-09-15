@@ -62,12 +62,14 @@ describe("Group 9: Proposals, Quotes & Bargain Counteroffers Notifications", () 
     expect(sql).toContain("'Payment Rejected'");
   });
 
-  it("requestService.nudgePayment sends AGREEMENT notification with rich payment metadata", () => {
+  it("agreement payment nudge sends AGREEMENT notification with rich payment metadata (server-side, 20260980)", () => {
     const ts = read("src/services/engagement/requestService.ts");
+    const sql = read("supabase/migrations/20260980_notifications_insert_authorized.sql");
 
-    expect(ts).toContain("amountLabel: \"Payment Due\"");
-    expect(ts).toContain("statusPill: \"Pay Now\"");
-    expect(ts).toContain("actions: [\"PAY\", \"VIEW_AGREEMENT\"]");
+    expect(ts).toContain("requestPaymentNudge(\"AGREEMENT\", id)");
+    expect(sql).toContain("'amountLabel', 'Payment Due'");
+    expect(sql).toContain("'statusPill', 'Pay Now'");
+    expect(sql).toContain("jsonb_build_array('PAY', 'VIEW_AGREEMENT')");
   });
 
   it("contains all required translation keys across EN, HI, and MR", () => {

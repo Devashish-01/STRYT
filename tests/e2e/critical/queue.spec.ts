@@ -1,39 +1,5 @@
-import type { Page } from "@playwright/test";
 import { test, expect, expectAfterReload } from "../fixtures/staging";
-import { BUSINESS } from "../../../scripts/staging/personas.mjs";
-
-const B = `/business/${BUSINESS.id}`;
-const QUEUE = `${B}/manage/queue`;
-
-/** Leaves the queue if a previous run left this customer in it (the suite never depends on order). */
-async function leaveIfQueued(page: Page) {
-  await page.goto("/queues");
-  await expect(page.getByRole("button", { name: /^⏳ Active/ })).toBeVisible();
-  await expect(page.locator(".skel")).toHaveCount(0);
-  const leave = page.getByRole("button", { name: /^(Leave queue|Cancel visit)$/ });
-  for (let n = await leave.count(); n > 0; n--) {
-    await leave.first().click();
-    await page.getByRole("button", { name: /^Yes, (leave queue|cancel)$/ }).click();
-    await expect(page.getByText("Left the queue")).toBeVisible();
-    await expect(leave).toHaveCount(n - 1);
-  }
-  // The card goes optimistically; confirm the server agrees.
-  await expect
-    .poll(async () => {
-      await page.reload();
-      await expect(page.getByRole("button", { name: /^⏳ Active/ })).toBeVisible();
-      await expect(page.locator(".skel")).toHaveCount(0);
-      return leave.count();
-    }, { timeout: 45_000 })
-    .toBe(0);
-}
-
-async function join(page: Page) {
-  await page.goto(B);
-  await page.getByRole("button", { name: "Join queue" }).click();
-  await page.getByRole("button", { name: "Join", exact: true }).click();
-  await expect(page.getByText(/You're #\d/)).toBeVisible();
-}
+import { SALON as B, QUEUE, leaveIfQueued, joinQueue as join } from "../fixtures/queue";
 
 // Customer joins → a guest sees the right number ahead → owner calls next → customer is told it's their turn →
 // owner marks arrived and served → customer claims a cash payment → owner confirms → the visit is paid.

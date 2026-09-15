@@ -7,7 +7,8 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { businessService } from "@/services";
 import { useApp } from "@/store";
-import { ArrowUpDown, Clock, Users, X, CreditCard, CheckCircle2, AlertCircle } from "@/components/Icons";
+import { ArrowUpDown, Clock, Users, X, CreditCard, CheckCircle2, AlertCircle, Navigation, MessageCircle } from "@/components/Icons";
+import { useMessageUser } from "@/hooks/useMessageUser";
 import { QueuePaymentSheet } from "@/components/QueuePaymentSheet";
 import { isQueuePayable as isPayable } from "@/lib/queueMath";
 import { loadDismissedCards, persistDismissedCards } from "@/lib/dismissedCards";
@@ -60,6 +61,7 @@ function etaClock(min: number): string {
 export default function MyQueues() {
   const nav = useNavigate();
   const { showToast, user } = useApp();
+  const messageUser = useMessageUser();
   const { data, loading, error, refetch } = useQueryWithRealtime(() => businessService.myQueues(), "queue_tokens", [user.id], user.id ? `customer_user_id=eq.${user.id}` : undefined);
   const [tab, setTab] = useState<"ACTIVE" | "HISTORY">("ACTIVE");
   const [sortByName, setSortByName] = useState(false);
@@ -99,7 +101,7 @@ export default function MyQueues() {
 
   const all = data ?? [];
   const active = all.filter((q) => isActiveEntry(q) && !removedIds.has(q.tokenId) && !dismissedIds.has(q.tokenId));
-  const history = all.filter((q) => !isActiveEntry(q));
+  const history = all.filter((q) => !isActiveEntry(q) || dismissedIds.has(q.tokenId));
   const list = tab === "ACTIVE" ? [...active] : [...history];
   if (tab === "ACTIVE" && sortByName) list.sort((a, b) => a.businessName.localeCompare(b.businessName));
 
@@ -239,8 +241,12 @@ export default function MyQueues() {
                         )}
                         {isCalled && <span className="badge badge-green">🔔 It's your turn — head in now!</span>}
                         {q.status === "SERVED" && <span className="badge badge-gray">✓ Served</span>}
-                        {q.status === "LEFT" && <span className="badge badge-gray">You cancelled</span>}
-                        {q.status === "EXPIRED" && <span className="badge badge-gray">Queue closed by shop</span>}
+                        {q.status === "LEFT" && (
+                          <span className="badge badge-gray">{q.closedReason === "NO_SHOW" ? "Missed your turn" : "You cancelled"}</span>
+                        )}
+                        {q.status === "EXPIRED" && (
+                          <span className="badge badge-gray">{q.closedReason === "SHOP_CLOSED" || !q.closedReason ? "Queue closed by shop" : "Expired"}</span>
+                        )}
                         {isPayable(q.status) && (
                           <span
                             className={`badge ${
@@ -268,6 +274,32 @@ export default function MyQueues() {
                       </button>
                     )}
                   </div>
+
+                  {isCalled && (q.businessLat != null || q.businessOwnerId) && (
+                    <div className="row gap-8" style={{ marginTop: "var(--space-sm)" }}>
+                      {q.businessLat != null && q.businessLng != null && (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm grow row gap-6 center"
+                          onClick={() => {
+                            const origin = user.lat && user.lng ? `${user.lat},${user.lng}` : "";
+                            window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${q.businessLat},${q.businessLng}&travelmode=walking`, "_blank");
+                          }}
+                        >
+                          <Navigation size={14} /> Directions
+                        </button>
+                      )}
+                      {q.businessOwnerId && q.businessOwnerId !== user.id && (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm grow row gap-6 center"
+                          onClick={() => messageUser(q.businessOwnerId!, { type: "business", id: q.businessId, name: q.businessName, avatar: q.businessImage, ownerUserId: q.businessOwnerId! })}
+                        >
+                          <MessageCircle size={14} /> Message shop
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   {/* Live ETA banner — only while genuinely waiting */}
                   {q.status === "WAITING" && (
@@ -345,7 +377,7 @@ export default function MyQueues() {
                   {/* Served but payment still owed: a subtle local-only dismiss.
                       Distinct from the X above (which leaves/cancels server-side) —
                       this just hides the card on this device. */}
-                  {isServedUnpaid(q) && (
+                  {isServedUnpaid(q) && !dismissedIds.has(q.tokenId) && (
                     <button
                       type="button"
                       className="tiny semi"

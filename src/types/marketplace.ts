@@ -285,6 +285,11 @@ export interface MyQueueEntry {
   paymentStatus?: PaymentStatus;
   paymentAmount?: number | null;
   paymentReference?: string | null;
+  /** Why the token closed: NO_SHOW (removed by the shop), SHOP_CLOSED, STALE, DAY_ROLLOVER; null otherwise. */
+  closedReason?: string | null;
+  businessLat?: number | null;
+  businessLng?: number | null;
+  businessOwnerId?: string | null;
 }
 
 /** A queue token as seen by the business owner console (QueueManager). */
@@ -296,6 +301,8 @@ export interface QueueOwnerToken {
   /** Set once the business confirms the customer has physically shown up — independent
    *  of "Done" (service complete), so a no-show can be told apart from a completed visit. */
   arrivedAt?: string | null;
+  /** Null for walk-ins the owner added (no account to message). */
+  customerUserId?: string | null;
   paymentStatus?: PaymentStatus;
   paymentMethod?: PaymentMethod | null;
   paymentAmount?: number | null;
@@ -309,6 +316,7 @@ export interface QueueHistoryToken {
   partySize: string;
   joinedAtISO: string;
   status: QueueTokenStatus;
+  closedReason?: string | null;
   paymentStatus?: PaymentStatus;
   paymentMethod?: PaymentMethod | null;
   paymentAmount?: number | null;

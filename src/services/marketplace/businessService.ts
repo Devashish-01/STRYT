@@ -313,7 +313,7 @@ export const businessService = {
       const [settingsRes, tokensRes, servedRes] = await Promise.all([
         sb.from("queue_settings").select("is_open, avg_service_min").eq("business_id", businessId).maybeSingle(),
         sb.from("queue_tokens")
-          .select("id, customer_name, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference")
+          .select("id, customer_name, customer_user_id, party_size, status, created_at, arrived_at, payment_status, payment_method, payment_amount, payment_reference")
           .eq("business_id", businessId)
           .in("status", ["WAITING", "CALLED"])
           .order("created_at", { ascending: true }),
@@ -331,6 +331,7 @@ export const businessService = {
         partySize: t.party_size,
         joinedAtISO: t.created_at,
         arrivedAt: t.arrived_at ?? null,
+        customerUserId: t.customer_user_id ?? null,
         paymentStatus: t.payment_status ?? "UNPAID",
         paymentMethod: t.payment_method ?? null,
         paymentAmount: t.payment_amount ?? null,
@@ -370,7 +371,7 @@ export const businessService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("queue_tokens")
-      .select("id, customer_name, party_size, status, created_at, payment_status, payment_method, payment_amount")
+      .select("id, customer_name, party_size, status, closed_reason, created_at, payment_status, payment_method, payment_amount")
       .eq("business_id", businessId)
       .in("status", ["SERVED", "LEFT", "EXPIRED"])
       .order("created_at", { ascending: false })
@@ -382,6 +383,7 @@ export const businessService = {
       partySize: t.party_size,
       joinedAtISO: t.created_at,
       status: t.status,
+      closedReason: t.closed_reason ?? null,
       paymentStatus: t.payment_status ?? "UNPAID",
       paymentMethod: t.payment_method ?? null,
       paymentAmount: t.payment_amount ?? null,
@@ -407,29 +409,9 @@ export const businessService = {
     return { ok: true };
   },
 
-  /** Nudge a served customer to pay — mirrors appointmentService.nudgePayment's
-   *  shape (a plain notification insert, no RPC needed for queue payments). */
+  /** Nudge a served customer to pay — server-checked and rate-limited (20260980). */
   async nudgeQueuePayment(tokenId: string) {
-    const sb = getSupabase();
-    const { data: token, error } = await sb
-      .from("queue_tokens")
-      .select("id, customer_user_id, payment_amount, businesses!business_id(name)")
-      .eq("id", tokenId)
-      .maybeSingle();
-    if (error) throw error;
-    if (!token) throw new Error("Queue entry not found");
-    if (!(token as any).customer_user_id) throw new Error("No customer linked to this entry");
-
-    const shopName = (token as any).businesses?.name || "the shop";
-    const amountStr = (token as any).payment_amount ? ` ₹${(token as any).payment_amount}` : "";
-    await notificationService.send(
-      (token as any).customer_user_id,
-      "Payment Requested 🔔",
-      `${shopName} requested payment${amountStr} for your visit.`,
-      "/queues",
-      "SYSTEM"
-    );
-    return { ok: true };
+    return notificationService.requestPaymentNudge("QUEUE", tokenId);
   },
 
   /** Customer undoes their own unconfirmed payment claim, reverting to UNPAID
@@ -463,37 +445,44 @@ export const businessService = {
     return { ok: true };
   },
 
-  async callNextToken(businessId: string) {
+  /** Calls the oldest waiting customer. The update only matches a row that is still WAITING, so when two counters
+   *  press "Call next" together one of them updates nothing — that one moves on to the next customer instead of
+   *  reporting a call that didn't happen (MERCHANT_QUEUE M2). Returns who was actually called. */
+  async callNextToken(businessId: string): Promise<{ ok: true; tokenId: string; name: string } | { ok: false; message: string }> {
     const sb = getSupabase();
-    // Fetch the oldest WAITING token for this business
-    const { data, error: fetchErr } = await sb
-      .from("queue_tokens")
-      .select("id")
-      .eq("business_id", businessId)
-      .eq("status", "WAITING")
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    throwIfError(fetchErr);
-    if (!data) return { ok: false, message: "Queue is empty" };
-    // Concurrency guard: only update if still WAITING (prevents multi-staff collision)
-    const { error: updateErr } = await sb
-      .from("queue_tokens")
-      .update({ status: "CALLED" })
-      .eq("id", data.id)
-      .eq("status", "WAITING");
-    throwIfError(updateErr);
-    return { ok: true };
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data, error: fetchErr } = await sb
+        .from("queue_tokens")
+        .select("id")
+        .eq("business_id", businessId)
+        .eq("status", "WAITING")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      throwIfError(fetchErr);
+      if (!data) return { ok: false, message: "Queue is empty" };
+      const { data: called, error: updateErr } = await sb
+        .from("queue_tokens")
+        .update({ status: "CALLED" })
+        .eq("id", data.id)
+        .eq("status", "WAITING")
+        .select("id, customer_name");
+      throwIfError(updateErr);
+      if (called && called.length > 0) return { ok: true, tokenId: called[0].id, name: called[0].customer_name };
+    }
+    return { ok: false, message: "The queue is changing fast — refresh and try again." };
   },
 
   async callSpecificToken(tokenId: string) {
     const sb = getSupabase();
-    const { error } = await sb
+    const { data, error } = await sb
       .from("queue_tokens")
       .update({ status: "CALLED" })
       .eq("id", tokenId)
-      .eq("status", "WAITING");
+      .eq("status", "WAITING")
+      .select("id");
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error("Someone else already called or served this customer.");
     return { ok: true };
   },
 
@@ -544,6 +533,13 @@ export const businessService = {
     return { ok: true };
   },
 
+  /** Shop removes a called customer who didn't turn up. Recorded as a no-show, so the owner isn't told "<customer>
+   *  left" about their own action and the customer is told their place was released (MERCHANT_QUEUE M3, 20260980). */
+  async removeNoShowToken(tokenId: string) {
+    await updateQueueToken(tokenId, { status: "LEFT", closed_reason: "NO_SHOW" });
+    return { ok: true };
+  },
+
   /** Owner adds a walk-in (no customer account) directly to their own live
    *  queue — Appointments already had this, the queue console never did
    *  (flow-completeness audit, workflow 15). customer_user_id is NULL, not
@@ -572,7 +568,7 @@ export const businessService = {
     try { await sb.rpc("close_stale_queue_tokens"); } catch { /* cleanup is best-effort */ }
     const { data, error } = await sb
       .from("queue_tokens")
-      .select("id, business_id, status, party_size, created_at, payment_status, payment_method, payment_amount, payment_reference, businesses!business_id(name, cover_image, upi_id)")
+      .select("id, business_id, status, closed_reason, party_size, created_at, payment_status, payment_method, payment_amount, payment_reference, businesses!business_id(name, cover_image, upi_id, lat, lng, owner_user_id)")
       .eq("customer_user_id", uid)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -625,6 +621,10 @@ export const businessService = {
         paymentMethod: r.payment_method ?? null,
         paymentAmount: r.payment_amount ?? null,
         paymentReference: r.payment_reference ?? null,
+        closedReason: r.closed_reason ?? null,
+        businessLat: r.businesses?.lat ?? null,
+        businessLng: r.businesses?.lng ?? null,
+        businessOwnerId: r.businesses?.owner_user_id ?? null,
       };
     });
   },

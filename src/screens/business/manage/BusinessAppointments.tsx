@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator, inr } from "@/components/common";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useMessageUser } from "@/hooks/useMessageUser";
 import { appointmentService, businessService, slotBlockService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -36,8 +37,8 @@ type ConsoleTab = "TODAY" | "UPCOMING" | "DELIVERIES" | "HISTORY" | "CANCELLED";
 
 export default function BusinessAppointments() {
   const { id = "" } = useParams();
-  const nav = useNavigate();
   const { showToast } = useApp();
+  const messageUser = useMessageUser();
   const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
     () => appointmentService.listForTarget(id),
@@ -383,7 +384,7 @@ export default function BusinessAppointments() {
                 className="icon-btn"
                 aria-label={`Message ${ownerVisibleCustomerName(apt)}`}
                 title="Message customer"
-                onClick={() => nav(`/chat/${apt.customerId}`)}
+                onClick={() => messageUser(apt.customerId!)}
               >
                 <MessageCircle size={16} color="var(--brand-600)" />
               </button>

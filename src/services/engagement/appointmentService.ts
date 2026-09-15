@@ -941,29 +941,8 @@ export const appointmentService = {
     return record;
   },
 
+  /** Owner/staff "Request payment" — server-checked and rate-limited (20260980). */
   async nudgePayment(id: string) {
-    const sb = getSupabase();
-    const { data: apt, error } = await sb
-      .from("appointments")
-      .select("id, customer_user_id, target_name, date_label, time_label, package_price")
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    if (!apt) throw new Error("Appointment not found");
-    if (!(apt as any).customer_user_id) throw new Error("No customer linked to this appointment");
-    
-    const shopName = (apt as any).target_name || "the shop";
-    const amountStr = (apt as any).package_price ? ` ₹${(apt as any).package_price}` : "";
-    const title = "Payment Requested 🔔";
-    const body = `${shopName} requested payment${amountStr} for your booking on ${(apt as any).date_label} at ${(apt as any).time_label}.`;
-    
-    await notificationService.send(
-      (apt as any).customer_user_id,
-      title,
-      body,
-      `/appointments`,
-      "SYSTEM"
-    );
-    return { ok: true };
+    return notificationService.requestPaymentNudge("APPOINTMENT", id);
   },
 };

@@ -63,7 +63,7 @@ export function PaymentMethodPanel({
                 padding: "12px 0",
                 borderRadius: 14,
                 border: method === m ? `2px solid ${m === "UPI" ? "var(--brand-600)" : "var(--green-500)"}` : "1.5px solid var(--ink-200)",
-                background: method === m ? (m === "UPI" ? "var(--brand-50)" : "var(--green-100)") : "#fff",
+                background: method === m ? (m === "UPI" ? "var(--brand-50)" : "var(--green-100)") : "var(--surface)",
                 fontWeight: 700,
                 color: method === m ? (m === "UPI" ? "var(--brand-700)" : "var(--green-600)") : "var(--ink-500)",
                 fontSize: 14,
@@ -90,7 +90,7 @@ export function PaymentMethodPanel({
           </div>
 
           <div className="col center gap-8">
-            <div style={{ padding: 12, background: "#fff", borderRadius: 16, boxShadow: "var(--shadow-sm)", border: "1px solid var(--ink-100)" }}>
+            <div style={{ padding: 12, background: "var(--white)", borderRadius: 16, boxShadow: "var(--shadow-sm)", border: "1px solid var(--ink-100)" }}>
               <QRCodeSVG value={upiBase} size={180} />
             </div>
             <div className="tiny muted center" style={{ maxWidth: 200, lineHeight: 1.5 }}>Scan from another device to pay</div>
@@ -117,7 +117,7 @@ export function PaymentMethodPanel({
                     key={app.name}
                     href={app.scheme(upiBase)}
                     className="btn row gap-8 center"
-                    style={{ background: app.color, color: "#fff", fontWeight: 700, borderRadius: 12, textDecoration: "none", padding: "11px 0", fontSize: 13 }}
+                    style={{ background: app.color, color: "var(--white)", fontWeight: 700, borderRadius: 12, textDecoration: "none", padding: "11px 0", fontSize: 13 }}
                   >
                     <span style={{ fontWeight: 900, fontSize: 15 }}>{app.icon}</span> {app.name}
                   </a>
@@ -165,7 +165,7 @@ export function PaymentMethodPanel({
           </div>
           <button
             className="btn btn-block"
-            style={{ background: "var(--green-500)", color: "#fff", fontWeight: 700, height: 48, fontSize: 15 }}
+            style={{ background: "var(--green-500)", color: "var(--white)", fontWeight: 700, height: 48, fontSize: 15 }}
             disabled={claiming}
             onClick={() => onSubmit("CASH", null)}
           >

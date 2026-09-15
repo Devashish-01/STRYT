@@ -364,7 +364,7 @@ export default function ManageDashboard() {
     try {
       const result = await businessService.callNextToken(id);
       if (!result.ok) throw new Error(result.message);
-      showToast(`Called ${next.name}`);
+      showToast(`Called ${result.name}`);
       refetchQueue();
     } catch (error: any) {
       showToast(error?.message ?? "Couldn't call next");

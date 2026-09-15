@@ -42,6 +42,11 @@ test("booking: customer books, owner accepts, customer sees the confirmation", a
   // Persists after reload.
   await customer.reload();
   await expect(customer.locator("div.card").filter({ hasText: note }).last().getByText(reply)).toBeVisible();
+
+  // Owner can message the customer from the booking (E2E-041: the button used to open an empty thread).
+  await card.getByRole("button", { name: /^Message / }).click();
+  await expect(owner).toHaveURL(/\/chat\/cv_/);
+  await expect(owner.getByRole("button", { name: /View profile/ })).toBeVisible();
 });
 
 // E2E-009: if the app can't confirm the session during Confirm Booking (a network blip on the auth check), it must

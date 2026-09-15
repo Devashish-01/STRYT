@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator, inr } from "@/components/common";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useMessageUser } from "@/hooks/useMessageUser";
 import { appointmentService, providerService, slotBlockService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -34,6 +35,7 @@ type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 export default function ProviderJobs() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
+  const messageUser = useMessageUser();
   const { data: p } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
 
   const { data: aptsData, loading: aptsLoading, error: aptsError, refetch: refetchApts } = useQueryWithRealtime<AppointmentRecord[]>(
@@ -50,7 +52,6 @@ export default function ProviderJobs() {
     refetchApts();
     refetchBlocked();
   });
-  const nav = useNavigate();
 
   // Tally once per data change instead of re-filtering the whole history for
   // every card. Must sit above the `!id` early return below — hooks can't run
@@ -311,7 +312,7 @@ export default function ProviderJobs() {
                 className="icon-btn"
                 aria-label={`Message ${ownerVisibleCustomerName(apt)}`}
                 title="Message client"
-                onClick={() => nav(`/chat/${apt.customerId}`)}
+                onClick={() => messageUser(apt.customerId!)}
               >
                 <MessageCircle size={16} color="var(--brand-600)" />
               </button>

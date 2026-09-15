@@ -657,48 +657,10 @@ export const requestService = {
     return data as string;
   },
 
+  /** Provider "Request payment" on an agreement. The server checks the caller is the responder (or their team),
+   *  that payment is still owed and a 6-hour cooldown, and sends the AGREEMENT notification with its Pay Now
+   *  metadata (20260980; the cooldown used to live only in this device's localStorage). */
   async nudgeAgreementPayment(id: string) {
-    // Enforce a 6-hour client-side cooldown on payment nudges (A10)
-    const lastNudgeKey = `stryt_payment_nudge_${id}`;
-    const lastNudge = localStorage.getItem(lastNudgeKey);
-    if (lastNudge && Date.now() - Number(lastNudge) < 6 * 3600 * 1000) {
-      const waitHours = Math.ceil((6 * 3600 * 1000 - (Date.now() - Number(lastNudge))) / (3600 * 1000));
-      throw new Error(`Payment reminder already sent recently. Please wait ${waitHours}h before sending another.`);
-    }
-
-    const sb = getSupabase();
-    const { data: ag, error } = await sb
-      .from("agreements")
-      .select("id, request_title, agreed_price, requester_user_id, proposal_id, responder:users!responder_user_id(name)")
-      .eq("id", id)
-      .maybeSingle();
-    throwIfError(error);
-    if (!ag) throw new Error("Agreement not found");
-
-    // Same identity as the agreement screen: the name the offer was made under (E2E-026).
-    const [withOffer] = await withOfferIdentity(sb, [ag]);
-    const responderName = withOffer.offer?.responder_name || (ag as any).responder?.name || "the provider";
-    const title = "Payment Requested 🔔";
-    const body = `${responderName} requested payment of ₹${ag.agreed_price} for "${ag.request_title}".`;
-    
-    await notificationService.send(
-      (ag as any).requester_user_id,
-      title,
-      body,
-      `/agreement/${id}`,
-      "AGREEMENT",
-      {
-        amount: (ag as any).agreed_price,
-        amountLabel: "Payment Due",
-        statusPill: "Pay Now",
-        tone: "warning",
-        agreementId: id,
-        actions: ["PAY", "VIEW_AGREEMENT"],
-      }
-    );
-    try {
-      localStorage.setItem(lastNudgeKey, Date.now().toString());
-    } catch {}
-    return { ok: true };
+    return notificationService.requestPaymentNudge("AGREEMENT", id);
   },
 };

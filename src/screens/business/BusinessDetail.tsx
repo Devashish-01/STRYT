@@ -345,7 +345,7 @@ export default function BusinessDetail() {
                 <img
                   key={i}
                   src={g.url}
-                  style={{ width: 40, height: 40, borderRadius: 8, border: "2px solid #fff", objectFit: "cover", cursor: "pointer" }}
+                  style={{ width: 40, height: 40, borderRadius: 8, border: "2px solid var(--surface)", objectFit: "cover", cursor: "pointer" }}
                   onClick={() => setViewingPhotos({ photos: galleryPhotos, startIndex: i })}
                 />
               ))}
@@ -522,7 +522,7 @@ export default function BusinessDetail() {
           <div className="page-pad" style={{ paddingTop: 8, paddingBottom: 0 }}>
             <div className="card col gap-12" style={{ padding: 14, background: ahead === 0 ? "var(--green-100)" : "var(--brand-50)", border: "none" }}>
               <div className="row gap-12 center-v">
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Users size={20} color={ahead === 0 ? "var(--green-500)" : "var(--brand-700)"} />
                 </div>
                 <div className="grow" style={{ minWidth: 0 }}>
@@ -565,7 +565,7 @@ export default function BusinessDetail() {
                       <div className="semi small">{t("party_size_question")}</div>
                       <div className="tiny muted">{t("party_size_hint")}</div>
                     </div>
-                    <div className="row center-v" style={{ background: "#fff", borderRadius: 10, border: "1px solid var(--brand-200)" }}>
+                    <div className="row center-v" style={{ background: "var(--surface)", borderRadius: 10, border: "1px solid var(--brand-200)" }}>
                       <button
                         className="stepper-btn"
                         style={{ padding: "6px 12px", color: partySize <= 1 ? "var(--ink-300)" : "var(--brand-700)" }}
@@ -622,7 +622,7 @@ export default function BusinessDetail() {
             {highlights.map((h, i) => (
               <button key={h.id} className="col center" style={{ gap: 6, width: 68, flexShrink: 0 }} onClick={() => setViewingHighlight(i)}>
                 <div style={{ width: 60, height: 60, borderRadius: "50%", padding: 2.5, background: "linear-gradient(135deg,var(--amber-500),var(--amber-500))" }}>
-                  <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }} />
+                  <SafeImg src={h.image} variant="photo" style={{ width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover", border: "2px solid var(--surface)" }} />
                 </div>
                 <span className="tiny semi ellipsis" style={{ maxWidth: 62, textAlign: "center" }}>{h.caption || t("highlight_word")}</span>
               </button>
@@ -725,17 +725,17 @@ export default function BusinessDetail() {
                     {isGuest || isOwner || !bizTheme.showCartStepper ? null : qty === 0 ? (
                       <button
                         className="btn btn-sm"
-                        style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", background: "#fff", color: "var(--green-600)", border: "1.5px solid var(--green-500)", boxShadow: "var(--shadow-sm)", fontWeight: 800, padding: "6px 18px" }}
+                        style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", background: "var(--surface)", color: "var(--green-600)", border: "1.5px solid var(--green-500)", boxShadow: "var(--shadow-sm)", fontWeight: 800, padding: "6px 18px" }}
                         disabled={item.stockStatus === "OUT_OF_STOCK"}
                         onClick={() => add(item.id, 1)}
                       >
                         ADD
                       </button>
                     ) : (
-                      <div className="row" style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", background: "var(--green-500)", borderRadius: 10, color: "#fff", boxShadow: "var(--shadow-sm)" }}>
-                        <button style={{ padding: "6px 9px", color: "#fff" }} onClick={() => add(item.id, -1)}><Minus size={14} /></button>
+                      <div className="row" style={{ position: "absolute", bottom: -10, left: "50%", transform: "translateX(-50%)", background: "var(--green-500)", borderRadius: 10, color: "var(--white)", boxShadow: "var(--shadow-sm)" }}>
+                        <button style={{ padding: "6px 9px", color: "var(--white)" }} onClick={() => add(item.id, -1)}><Minus size={14} /></button>
                         <span className="bold" style={{ minWidth: 18, textAlign: "center" }}>{qty}</span>
-                        <button style={{ padding: "6px 9px", color: "#fff" }} onClick={() => add(item.id, 1)}><Plus size={14} /></button>
+                        <button style={{ padding: "6px 9px", color: "var(--white)" }} onClick={() => add(item.id, 1)}><Plus size={14} /></button>
                       </div>
                     )}
                   </div>

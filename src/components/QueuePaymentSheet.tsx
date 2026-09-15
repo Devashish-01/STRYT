@@ -24,6 +24,11 @@ export function QueuePaymentSheet({ tokenId, businessName, businessUpiId, onPaid
   const numAmount = parseFloat(amount) || null;
 
   async function claim(method: PaymentMethod, reference: string | null) {
+    // The business verifies a claim against what it received, so an empty or zero amount can't be confirmed (Q6).
+    if (!numAmount || numAmount <= 0) {
+      showToast("Enter the amount you paid");
+      return;
+    }
     setClaiming(true);
     try {
       await businessService.claimQueuePayment(tokenId, method, numAmount, reference);
@@ -43,7 +48,7 @@ export function QueuePaymentSheet({ tokenId, businessName, businessUpiId, onPaid
       onClick={onClose}
     >
       <div
-        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
+        style={{ width: "100%", maxWidth: 480, margin: "0 auto", background: "var(--surface)", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: "20px 20px calc(20px + var(--safe-area-bottom))", maxHeight: "92vh", overflowY: "auto", animation: "slideUp .25s ease-out" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

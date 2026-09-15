@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
+import { useMessageUser } from "@/hooks/useMessageUser";
 import { AppBar } from "@/components/common";
 import { Skeleton, ErrorView } from "@/components/states";
 import LivePulseDot from "@/components/LivePulseDot";
 import Toggle from "@/components/Toggle";
 import { haptics } from "@/lib/haptics";
-import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle, MapPin, CheckCircle, UserPlus } from "@/components/Icons";
+import { Users, Play, Check, RefreshCw, Bell, Clock, X, AlertCircle, MapPin, CheckCircle, UserPlus, MessageCircle } from "@/components/Icons";
 import { useApp } from "@/store";
 import { businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -54,7 +55,9 @@ function etaClock(min: number): string {
 export default function QueueManager() {
   const { id: businessId = "" } = useParams<{ id: string }>();
   const { showToast } = useApp();
+  const messageUser = useMessageUser();
   const [live, setLive] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [avgTime, setAvgTime] = useState(8);
   const [inputValue, setInputValue] = useState("8");
   const [waiting, setWaiting] = useState<Token[]>([]);
@@ -179,7 +182,18 @@ export default function QueueManager() {
     }
   }
 
+  // Closing the queue expires everyone still waiting and every called customer who hasn't arrived, unless a
+  // payment is in progress (expire_tokens_on_queue_close) — so ask first when that would remove anyone (M1).
+  const removedOnClose = [...waiting, ...called.filter((t) => !t.arrivedAt)].filter(
+    (t) => t.paymentStatus !== "PENDING_CONFIRM" && t.paymentStatus !== "PAID",
+  ).length;
+
   async function toggleLive() {
+    if (live && removedOnClose > 0 && !confirmClose) {
+      setConfirmClose(true);
+      return;
+    }
+    setConfirmClose(false);
     const next = !live;
     setLive(next);
     try {
@@ -209,13 +223,16 @@ export default function QueueManager() {
     setWaiting((t) => t.slice(1));
     setCalled((c) => [...c, first]);
     try {
-      await businessService.callNextToken(businessId);
+      const result = await businessService.callNextToken(businessId);
+      if (!result.ok) throw new Error(result.message);
       haptics.success();
-      showToast(`🔔 Called ${first.name}`);
+      showToast(`🔔 Called ${result.name}`);
+      if (result.tokenId !== first.id) refetch();
     } catch (e: any) {
       setWaiting((t) => [first, ...t]);
       setCalled((c) => c.filter((x) => x.id !== first.id));
       showToast(e?.message || "Couldn't call next — try again");
+      refetch();
     } finally {
       setCalling(false);
     }
@@ -236,6 +253,7 @@ export default function QueueManager() {
       setWaiting((t) => [...t, token]);
       setCalled((c) => c.filter((x) => x.id !== token.id));
       showToast(e?.message || "Couldn't call token — try again");
+      refetch();
     } finally {
       setCalling(false);
     }
@@ -285,8 +303,8 @@ export default function QueueManager() {
   async function removeToken(token: Token) {
     animateOut(token.id, () => setCalled((c) => c.filter((x) => x.id !== token.id)));
     try {
-      await businessService.leaveQueueToken(token.id);
-      showToast(`Removed ${token.name}`);
+      await businessService.removeNoShowToken(token.id);
+      showToast(`Removed ${token.name} — marked as a no-show`);
     } catch (e: any) {
       showToast(e?.message || "Couldn't remove — try again");
       refetch();
@@ -334,10 +352,10 @@ export default function QueueManager() {
           <span className="tiny semi" style={{ color: "var(--amber-700)", flex: 1 }}>
             Claims {t.paymentMethod ?? ""} payment{t.paymentAmount ? ` · ₹${t.paymentAmount}` : ""}
           </span>
-          <button className="btn btn-sm" style={{ fontSize: 10, padding: "3px 8px", background: "var(--green-500)", color: "#fff", borderRadius: 6 }} disabled={verifying === t.id} onClick={() => confirmPayment(t)}>
+          <button className="btn btn-sm" style={{ fontSize: 10, padding: "3px 8px", background: "var(--green-500)", color: "var(--white)", borderRadius: 6 }} disabled={verifying === t.id} onClick={() => confirmPayment(t)}>
             Confirm
           </button>
-          <button className="btn btn-sm" style={{ fontSize: 10, padding: "3px 8px", background: "var(--red-600)", color: "#fff", borderRadius: 6 }} disabled={verifying === t.id} onClick={() => rejectPayment(t)}>
+          <button className="btn btn-sm" style={{ fontSize: 10, padding: "3px 8px", background: "var(--red-600)", color: "var(--white)", borderRadius: 6 }} disabled={verifying === t.id} onClick={() => rejectPayment(t)}>
             Reject
           </button>
         </div>
@@ -466,7 +484,7 @@ export default function QueueManager() {
                   return (
                   <div key={t.id} className={`card col gap-6${exitingIds.has(t.id) ? " queue-row-exit" : " queue-row-enter"}`} style={{ padding: 12, border: arrived ? "2px solid var(--green-500)" : "2px solid var(--brand-500)", background: arrived ? "var(--green-100)" : "var(--brand-50)" }}>
                     <div className="row gap-12">
-                      <span style={{ width: 34, height: 34, borderRadius: "50%", background: arrived ? "var(--green-500)" : "var(--brand-500)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <span style={{ width: 34, height: 34, borderRadius: "50%", background: arrived ? "var(--green-500)" : "var(--brand-500)", color: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                         {arrived ? <CheckCircle size={16} /> : <Bell size={16} />}
                       </span>
                       <div className="grow" style={{ minWidth: 0 }}>
@@ -485,7 +503,12 @@ export default function QueueManager() {
                           <MapPin size={15} /> Arrived
                         </button>
                       )}
-                      <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} title="Remove (no-show)" onClick={() => removeToken(t)}>
+                      {t.customerUserId && (
+                        <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--brand-600)" }} aria-label={`Message ${t.name}`} title="Message customer" onClick={() => messageUser(t.customerUserId!)}>
+                          <MessageCircle size={15} />
+                        </button>
+                      )}
+                      <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} title="Remove (no-show)" aria-label={`Remove ${t.name} (no-show)`} onClick={() => removeToken(t)}>
                         <X size={15} />
                       </button>
                     </div>
@@ -600,7 +623,7 @@ export default function QueueManager() {
                     className={`badge ${t.status === "SERVED" ? "badge-green" : "badge-gray"}`}
                     style={{ fontSize: 9, padding: "2px 7px", flexShrink: 0 }}
                   >
-                    {t.status === "SERVED" ? "Served" : t.status === "LEFT" ? "Left" : "Closed"}
+                    {t.status === "SERVED" ? "Served" : t.status === "LEFT" ? (t.closedReason === "NO_SHOW" ? "No-show" : "Left") : "Closed"}
                   </span>
                 </div>
                 {t.paymentStatus === "PAID" && (
@@ -623,6 +646,24 @@ export default function QueueManager() {
           </div>
         )}
       </div>
+      {confirmClose && (
+        <div className="overlay" onClick={() => setConfirmClose(false)}>
+          <div className="sheet" role="dialog" aria-label="Close the queue?" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h3 className="bold h2" style={{ marginBottom: 8 }}>Close the queue?</h3>
+            <p className="small muted" style={{ marginBottom: 16 }}>
+              {removedOnClose === 1 ? "1 customer" : `${removedOnClose} customers`} still in line will be removed and notified.
+              Customers who have arrived or have a payment in progress stay on your board.
+            </p>
+            <button className="btn btn-block" style={{ height: 48, background: "var(--red-600)", color: "var(--white)" }} onClick={toggleLive}>
+              Close queue and remove {removedOnClose}
+            </button>
+            <button className="btn btn-block" style={{ marginTop: 8, background: "transparent" }} onClick={() => setConfirmClose(false)}>
+              Keep queue open
+            </button>
+          </div>
+        </div>
+      )}
       {walkInOpen && (
         <div className="overlay" onClick={() => !addingWalkIn && setWalkInOpen(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>

@@ -142,6 +142,8 @@ export const notificationService = {
   // here, which would double-push. That single trigger also covers every
   // notification created by Postgres triggers (proposals, agreements, nearby
   // requests, community, etc.), which never had a push path before.
+  // Only the recipient themselves or an admin may insert (20260980, E2E-040); anything addressed to someone else goes
+  // through a server function that checks the sender's right to send it.
   async send(
     userId: string,
     title: string,
@@ -193,4 +195,30 @@ export const notificationService = {
     if (error) throw error;
     return { ok: true };
   },
+
+  /** "Request payment" from a shop, provider or their team. The server checks the caller manages the booking, queue
+   *  visit or agreement, that payment is still owed, and the cooldown (10 min; 6 h for agreements), and writes the
+   *  text itself. */
+  async requestPaymentNudge(kind: PaymentNudgeKind, id: string) {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("request_payment_nudge", { p_kind: kind, p_id: id });
+    if (error) {
+      const code = String(error.message ?? "");
+      const message = code.includes("NUDGE_COOLDOWN")
+        ? `A payment reminder was already sent in the last ${kind === "AGREEMENT" ? "6 hours" : "10 minutes"}.`
+        : code.includes("ALREADY_PAID")
+          ? "This is already paid."
+          : code.includes("NO_CUSTOMER")
+            ? "No customer account is linked to this entry."
+            : code.includes("NOT_ALLOWED")
+              ? "Only the business or provider handling this can request payment."
+              : code.includes("NOT_FOUND")
+                ? "This entry no longer exists."
+                : "Couldn't send the payment reminder. Try again.";
+      throw new Error(message);
+    }
+    return { ok: true };
+  },
 };
+
+export type PaymentNudgeKind = "APPOINTMENT" | "QUEUE" | "AGREEMENT";

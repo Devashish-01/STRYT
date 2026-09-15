@@ -4,73 +4,39 @@
 Plan: `docs/plan/README.md` and `docs/plan/phases/P00…P15`. Rules: `docs/plan/AGENT_RULES.md`, database rules:
 `docs/database/HANDOFF.md` (§5 procedure for every production change).
 
-## Where things stand (2026-09-16)
+## Where things stand (2026-09-16, late)
 
 | Phase | State |
 |---|---|
-| P03 DB guardrails | Done (owner step: `ci_readonly` login + `DRIFT_DATABASE_URL` secret) |
-| P04 DB hardening | Done, merged to `develop` |
-| P05 Authorization audit | Done, merged to `develop` (6 holes fixed on production) |
-| P06 Baseline + staging | Done, merged to `develop` (staging `laswruzdyqehziyupmdm` = production copy) |
-| **P07 E2E suite** | **In progress** on branch `phase/07-e2e` (not committed yet) |
-| P08 Gap ledger | Started: `docs/gaps/GAP_LEDGER.csv` built (446 rows from the gap logs + E2E-### rows) |
-| **P09 Fix gaps** | **Started early**: E2E findings being fixed in the working tree (see table below) |
+| P03–P06 | Done, merged to `develop` |
+| **P07 E2E suite** | Full run #1 green: **134 passed, 0 failed** (with reseed, 9.8 min). 17 critical journeys (queue console added); breadth spec 103 screens; `tests/e2e/COVERAGE.md` maps all 52 flows. Left: action specs for screen-only flows, 2 more consecutive green full runs, P07 report. |
+| **P08 gap ledger** | 487 rows. Verified domains: booking (2), queue (3), chat (6), safety (10) — 0 unverified left in each; 41 E2E rows. 361 legacy rows still UNVERIFIED. |
+| **P09 fixes** | 102 FIXED (app + 8 DB migrations on staging), 19 OPEN, 4 DECISION, 1 DEFERRED. |
 | P10–P12 | Not started |
-| P13–P15 | Owner-led (device QA, accounts, store/legal) |
+| P13–P15 | Owner-led |
 
-### P07 — what exists
+All work is committed on `phase/07-e2e` (local; push refused by the tool — owner to push).
 
-- Infra: `playwright.e2e.config.ts`, `tests/e2e/global-setup.ts` (staging guard + reseed), `tests/e2e/fixtures/`
-  - `staging.ts` — personas as page fixtures (`customer`, `customer2`, `owner`, `staffQueue`, `staffAppointments`,
-    `provider`, `admin`, `guest`); sessions saved in `.auth/` and reused until a reseed; `knownBug(id)` marks a test
-    blocked by a logged bug (`E2E_RUN_FIXME=1` runs them anyway); `expectAfterReload()` for cross-person updates.
-  - `db.ts` — read-only staging queries (Management API, read-only transaction).
-  - `booking.ts` — booking-sheet helpers.
-- Breadth: `tests/e2e/flows/screens.spec.ts` — 103 screens × 7 personas (land where expected, load, no page errors, no
-  failing API calls). `flows/first-visit.spec.ts` (E2E-008).
-- Critical journeys done (8/16) in `tests/e2e/critical/`: booking-accept, booking-decline-reason,
-  booking-reschedule-paid, booking-daily-limit, queue, team-access, guest-wall, chat, ratings-reviews (partial).
-- Remaining journeys: request-proposal-agreement, me-too-group-buy, bulk-deal, account-deletion, admin-moderation,
-  business-onboarding, customer-onboarding. Then per-flow action specs, `tests/e2e/COVERAGE.md`, 3 green runs, report.
-- Run: `npm run e2e` (builds staging app, reseeds, runs). Fast local loop against an already-running preview on 5174:
-  `E2E_REUSE_SERVER=1 E2E_SKIP_SEED=1 npx playwright test -c playwright.e2e.config.ts <spec>`.
+### Waiting on the owner
 
-### Bugs found by the E2E work (all in `docs/gaps/GAP_LEDGER.csv`)
+1. **Apply on production, in order: `20260973` → `20260980`** (`supabase/APPLY_LOG.md` → Pending). Broken for every
+   production user today: chat send + emergency live share (73), owner review replies, story reactions, provider
+   recommendations (74), request notifications to shops/providers (75, 77), counter-offers (76), bulk campaigns never
+   close (79); plus the admin audit trail (78). A read-only production scan shows exactly the 6 broken functions these
+   fix and nothing else. `20260980` additionally closes a notification-spoofing hole (E2E-040) and must ship together
+   with the app change that moves payment reminders to the new server function.
+2. Push `phase/07-e2e`; release to `main` (ships every app fix), then the pending phone-column lockdown.
+3. Decisions: **E2E-028** restore or retire "Me too"; **E2E-037** what "Take action" does for reported reviews/users.
+4. `ci_readonly` login + `DRIFT_DATABASE_URL` secret; Sentry, Play Console, lawyer, testers, devices (P13–P15).
+5. Migrate existing base64 image rows to storage (E2E-015 follow-up, production writes).
 
-| Id | Sev | What | Fix state |
-|---|---|---|---|
-| E2E-001 | P3 | OTP boxes drop a digit on very fast per-box typing | open |
-| E2E-002 | P3 | `is_entity_recovery_set` 401 right after sign-in | open (root cause not proven) |
-| E2E-003 | P2 | Guest provider page → 401 `bump_provider_views` | **fixed in app** (`providerService.recordView`) |
-| E2E-004 | P1 | Public profile quotes query uses `proposals.note` | **fixed in app** (`userService`) |
-| E2E-005 | P2 | Random "Couldn't load" toast | likely caused by E2E-008; verify after rebuild |
-| E2E-006 | P0 | Provider dashboard/Money query non-existent `appointments` columns | **fixed in app** (`providerService`) |
-| E2E-007 | P2 | Handled booking notification still offers Accept/Decline; raw `INVALID_TRANSITION` | **fixed in app** (`notificationService` reconcile + friendly error) |
-| E2E-008 | P2 | First visit reloads the page when the service worker takes control | **fixed in app** (`ServiceWorkerUpdater`) |
-| E2E-009 | P0 | Booking "confirmed" but only saved on the device when the auth check blips | **fixed in app** (`currentUserId` uses local session; `appointmentService.create` refuses) + unit test |
-| E2E-010 | P2 | Blank decline never tells the customer to try another slot | **fixed in app** (notification card + `CancelAttributionNote`) |
-| E2E-011 | P2 | Shop page tells a queued customer "1 ahead · You're #1" | **fixed in app** (`BusinessDetail` queue card) |
-| E2E-012 | P3 | Toggles/stars don't expose state to screen readers | **fixed in app** (`aria-pressed`, star labels) |
-| E2E-013 | P0 | Open chat loops ~45 requests/second | **fixed in app** (`ChatThread` effect) |
-| E2E-014 | P0 | **Nobody can send chat messages** (policy calls a revoked function; trigger reads a missing table) | migration `20260973` — **staging applied; production needs owner approval** |
-| E2E-015 | P1 | Every image upload refused (upsert) and stored as base64 in DB rows since 2026-07-17; KYC doc uploads broken | **fixed in app** (`uploadService` plain insert, no data-URL fallback). Existing 36 data-URL rows still need migrating |
-| E2E-016 | P1 | Owners can't reply to reviews | migration `20260974` — **staging applied; production needs owner approval** |
-| E2E-017 | P1 | Story reactions fail | migration `20260974` (same) |
-| E2E-018 | P2 | Recommending a provider on a post fails | migration `20260974` (same) |
+### Bugs found (see `docs/gaps/GAP_LEDGER.csv` for evidence)
 
-App fixes are in the working tree, **not yet built into the staging preview, not committed, not released**. Next: rebuild
-the staging preview, remove the matching `knownBug(...)` marks, re-run the specs to prove each fix, run `npm run verify`.
-
-## Waiting on the owner (decisions / access)
-
-1. **Apply `20260973` then `20260974` on production** (chat send, review replies, story reactions, provider
-   recommendations are broken for all users today). Everything is prepared: `supabase/APPLY_LOG.md` → *Pending*.
-   The agent's tool now refuses production writes, tests and reads, so a fresh restore point + snapshot are part of
-   the apply.
-2. Release to `main` (ships P05 app changes + these fixes), then the pending phone-column lockdown.
-3. `ci_readonly` DB login + `DRIFT_DATABASE_URL` GitHub secret (P03).
-4. Accounts/legal: Sentry, Play Console, lawyer review, 12+ closed testers, device testing (P13–P15).
-5. Migrate the existing base64 image rows to storage (E2E-015) — needs production writes.
+E2E-001…039. Highlights beyond the earlier list: E2E-019 requests never reached shops/providers (category level),
+E2E-022 console deep links kept the personal identity, E2E-026/027 agreement name and ratings went to the person not
+the provider, E2E-029 account gates skipped on Home/Explore/shop pages (incl. terms clickwrap), E2E-031 no admin audit
+trail, E2E-033 190 unlabeled form fields (a11y, OPEN), E2E-035 shops couldn't send proposals, E2E-038 "New campaign"
+lost its form, E2E-039 campaigns never closed.
 
 ## Rules in force
 
@@ -117,3 +83,19 @@ the staging preview, remove the matching `knownBug(...)` marks, re-run the specs
   customer → `src/hooks/useAdoptConsoleContext.ts` in both console guards. New audit `scripts/audit/select-columns.mjs`
   (every literal select vs the staging catalog; now 0 unknown columns). Rate-screen stars and the proposal
   "Prioritize" toggle got accessible state. Rebuilding the staging preview to write the request-proposal-agreement spec.
+- 2026-09-16 — Journeys added: account deletion, admin moderation (with audit assertions), business onboarding,
+  customer onboarding (newcomer numbers on staging auth), bulk deal (new seeded shop Test Kirana One). Bugs found and
+  fixed on the way: E2E-005 (real root cause: .catch on a query builder), E2E-029…039. Migrations 20260978 (audit
+  log) and 20260979 (bulk close) applied on staging. Static audits: `select-columns.mjs` (0 unknown), extended
+  `function-dead-refs.mjs` (staging 0; production = the 6 fixed functions). Full E2E run #1 started.
+- 2026-09-16 — Full E2E run #1 green (134 passed, 0 failed, reseeded). P08 verification of the booking domain (41
+  rows) and the queue domain (19 rows) — both now have no unverified rows. Two new bugs found while verifying the
+  queue: **E2E-040** (P1 security) any signed-in user could write an in-app notification *and* a push into anyone's
+  inbox with any text — the insert policy only checked that the caller was signed in; **E2E-041** "Message customer"
+  on a booking, job or pledge opened an empty chat thread that could not send. Migration `20260980` (built via §5,
+  forced-rollback tested, applied to staging) restricts notification inserts to yourself or an admin and moves the
+  three "Request payment" reminders to `request_payment_nudge()` with a manager check and a server-side cooldown
+  (MERCHANT_QUEUE M7), and fixes no-show attribution (M3). App side: `useMessageUser` hook, queue-close confirmation
+  (M1), honest "Call next" under two counters (M2), payment claims need an amount (Q6), dismissed served-unpaid cards
+  move to History (Q4), directions/message on a called card (Q9), colour tokens (Q10/M9). New specs
+  `critical/queue-console` and `critical/notifications-authorized`; booking-accept now checks the message button.
