@@ -67,7 +67,7 @@ Run them **in order**. A phase starts only when the previous one is **Done** (ch
 | [P03](phases/P03_verify_db_guardrails.md) | Verify and finish the DB guardrails (W8) | Agent | 1–2 | ✅ Done — owner step open: `ci_readonly` LOGIN + `DRIFT_DATABASE_URL` secret (HANDOFF W9) |
 | [P04](phases/P04_database_hardening.md) | Database hardening | Agent | 2 | ✅ Done |
 | [P05](phases/P05_authorization_audit.md) | Authorization, storage, edge function & auth-config audit | Agent | 3–4 | ✅ Done (independently checked and completed 2026-09-15; see report §6) |
-| [P06](phases/P06_baseline_and_staging.md) | Rebuildable schema baseline & staging environment | Agent + owner | 2–3 | ⬜ Not started |
+| [P06](phases/P06_baseline_and_staging.md) | Rebuildable schema baseline & staging environment | Agent + owner | 2–3 | ✅ Done (2026-09-15; executed by Claude — see report for deviations) |
 | [P07](phases/P07_e2e_test_suite.md) | End-to-end test suite on staging | Agent | 4–6 | ⬜ Not started |
 | [P08](phases/P08_gap_ledger.md) | Gap ledger: verify all 426 findings | Agent | 13 (one per domain) | ⬜ Not started |
 | [P09](phases/P09_close_functional_gaps.md) | Close functional gaps | Agent | 14+ | ⬜ Not started |

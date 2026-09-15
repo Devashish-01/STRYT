@@ -56,3 +56,8 @@ android/app/client_secret_*.json
 
 # Scratch test files
 scratch/
+
+# E2E (staging) outputs
+playwright-report-e2e
+test-results-e2e
+dist-staging

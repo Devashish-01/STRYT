@@ -32,7 +32,7 @@ Fill in **Answer** and **Date**. The recommendation is a suggestion, not a decis
 * **D3 (Future Enhancement Screens)**: The 13 screens in `src/screens/future-enhancement/` are unlinked stubs. Removing them reduces bundle size and eliminates dead code; git history preserves all components.
 * **D4 (Hardcoded #fff)**: `scripts/check-hardcoded-colors.js` explicitly whitelists pure white/grayscale for SVG fills and alpha composites. Accepted as `NOT_A_BUG`.
 * **D5 (Agreement Attribution)**: Owner selected Option b. New columns `responder_type` and `responder_entity_id` will be added to `agreements` in P04/P09 via an audited database migration.
-* **D6 (Staging Project)**: Dedicated staging project created in `ap-northeast-1`: ref `laswruzdyqehziyupmdm` (`https://laswruzdyqehziyupmdm.supabase.co`).
+* **D6 (Staging Project)**: Dedicated staging project — *correction 2026-09-15 (P06): the Management API reports region `ap-south-1`, not ap-northeast-1; Postgres 17.6, same extensions; no effect on the tests* — ref `laswruzdyqehziyupmdm` (`https://laswruzdyqehziyupmdm.supabase.co`).
 * **D7 (Database Rebuildability)**: Baseline dump from production plus subsequent ordered migrations will establish reproducible staging and local environments (HANDOFF W2 R3).
 * **D8 (CI Database Access)**: A least-privilege PostgreSQL role `ci_readonly` with SELECT permissions on system catalogs will be used in GitHub Actions.
 * **D9 (Translations)**: Consumer-facing app strings in Hindi and Marathi will be reviewed by owner (Devashish). Admin dashboard remains English-only.
