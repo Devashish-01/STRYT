@@ -27,6 +27,9 @@ export default function SecuritySettings() {
   const [pinSheet, setPinSheet] = useState<{ kind: EntityPasswordKind; mode: "set" | "remove" } | null>(null);
   const [recoveryBackfill, setRecoveryBackfill] = useState<EntityPasswordKind | null>(null);
   const [removingPin, setRemovingPin] = useState(false);
+  // Bumped when a recovery question is saved, so the card re-reads its label. recoveryIsSet stays true when the
+  // question merely changes, which used to leave the old prompt on screen until a reload (SEC-6).
+  const [recoveryVersion, setRecoveryVersion] = useState(0);
 
   const needsBusinessRecovery = businessPasswordIsSet && !businessRecoveryIsSet;
   const needsProviderRecovery = providerPasswordIsSet && !providerRecoveryIsSet;
@@ -82,6 +85,7 @@ export default function SecuritySettings() {
             onSetPassword={() => setPinSheet({ kind: "business", mode: "set" })}
             onRemovePassword={() => setPinSheet({ kind: "business", mode: "remove" })}
             onManageRecovery={() => setRecoveryBackfill("business")}
+            recoveryVersion={recoveryVersion}
           />
         )}
 
@@ -96,6 +100,7 @@ export default function SecuritySettings() {
             onSetPassword={() => setPinSheet({ kind: "provider", mode: "set" })}
             onRemovePassword={() => setPinSheet({ kind: "provider", mode: "remove" })}
             onManageRecovery={() => setRecoveryBackfill("provider")}
+            recoveryVersion={recoveryVersion}
           />
         )}
       </div>
@@ -115,7 +120,7 @@ export default function SecuritySettings() {
         <RecoveryBackfillSheet
           kind={recoveryBackfill}
           onClose={() => setRecoveryBackfill(null)}
-          onSaved={() => setRecoveryBackfill(null)}
+          onSaved={() => { setRecoveryVersion((v) => v + 1); setRecoveryBackfill(null); }}
         />
       )}
     </div>
@@ -132,6 +137,7 @@ function EntityPasswordSecurityCard({
   onSetPassword,
   onRemovePassword,
   onManageRecovery,
+  recoveryVersion,
 }: {
   kind: EntityPasswordKind;
   title: string;
@@ -142,6 +148,7 @@ function EntityPasswordSecurityCard({
   onSetPassword: () => void;
   onRemovePassword: () => void;
   onManageRecovery: () => void;
+  recoveryVersion: number;
 }) {
   const [recoveryLabel, setRecoveryLabel] = useState<string | null>(null);
 
@@ -156,7 +163,7 @@ function EntityPasswordSecurityCard({
       setRecoveryLabel(recoveryQuestionLabel(q.questionId, q.questionText));
     });
     return () => { cancelled = true; };
-  }, [kind, passwordIsSet, recoveryIsSet]);
+  }, [kind, passwordIsSet, recoveryIsSet, recoveryVersion]);
 
   return (
     <div className="card col gap-10" style={{ padding: 14 }}>

@@ -133,6 +133,9 @@ export function useAccountOptions() {
   // correctly-scoped "how many do I actually own" signal.
   const canAddBusiness = owned.length < 5;
   const canBecomeProvider = !provider && !roles.includes("provider");
+  // True until every source the option list is built from has answered. Rendering before that flashed a
+  // customer-only list with "Add a business", which people tapped by mistake (ROLE-3).
+  const loading = !ownedEntitiesLoaded || myBiz === undefined || myProv === undefined || mySessions === undefined;
 
-  return { options, current, pick, canAddBusiness, canBecomeProvider, nav };
+  return { options, current, pick, canAddBusiness, canBecomeProvider, loading, nav };
 }

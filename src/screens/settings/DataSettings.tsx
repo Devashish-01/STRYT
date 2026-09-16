@@ -4,7 +4,7 @@ import { AppBar } from "@/components/common";
 import { SettingsSection, SettingsRow } from "@/components/settings";
 import { Download, Trash2, Shield, AlertTriangle } from "@/components/Icons";
 import { useApp } from "@/store";
-import { profileControlService, appointmentService, requestService } from "@/services";
+import { profileControlService } from "@/services";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
 import { LEGAL_ROUTES } from "@/lib/legal";
 
@@ -23,6 +23,7 @@ export default function DataSettings() {
   const [exporting, setExporting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteReason, setDeleteReason] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState("");
   const [submittingDelete, setSubmittingDelete] = useState(false);
 
   // `?action=delete` lets the hub's "Delete account" row open this screen with
@@ -36,17 +37,17 @@ export default function DataSettings() {
   async function exportData() {
     setExporting(true);
     try {
-      const [appointments, myRequests] = await Promise.all([
-        user.id ? appointmentService.listForCustomer(user.id) : Promise.resolve([]),
-        requestService.mine().catch(() => []),
-      ]);
+      // Everything the account holds, not just the parts with a screen (DEL-3): messages, reviews, deals, payments
+      // and emergency contacts are in there too, straight from the tables this user is allowed to read.
+      const bundle = await profileControlService.exportBundle();
       const payload = {
         exportedAt: new Date().toISOString(),
         profile: {
           id: user.id, name: user.name, alias: user.alias, email: user.email,
           phone: user.phone, area: user.area, language: user.language,
         },
-        bookmarks, lists, follows, appointments, requests: myRequests,
+        bookmarks, lists, follows,
+        ...bundle,
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
@@ -71,6 +72,7 @@ export default function DataSettings() {
       await profileControlService.requestDeletion("CUSTOMER", null, deleteReason);
       setShowDeleteModal(false);
       setDeleteReason("");
+      setDeleteConfirm("");
       await refreshUser();
       showToast(`Account scheduled for deletion in ${ACCOUNT_DELETION_GRACE_DAYS} days`);
       nav("/auth/deletion-pending", { replace: true });
@@ -138,6 +140,20 @@ export default function DataSettings() {
               value={deleteReason}
               onChange={(e) => setDeleteReason(e.target.value)}
             />
+            {/* One tap shouldn't end an account on a phone someone left unlocked (DEL-6) — the same typed
+                confirmation the admin console asks for before it deletes a profile. */}
+            <label className="tiny semi muted" style={{ display: "block", margin: "12px 0 6px" }}>
+              Type <span className="bold" style={{ color: "var(--red-600)" }}>DELETE</span> to confirm
+            </label>
+            <input
+              className="input"
+              aria-label="Type DELETE to confirm"
+              autoComplete="off"
+              autoCapitalize="characters"
+              placeholder="DELETE"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+            />
             {/* The same page we declare to Play/App Store as the public
                 account-deletion URL, so what a user reads here and what a
                 reviewer reads in a browser are one document. */}
@@ -157,7 +173,7 @@ export default function DataSettings() {
               <button className="btn btn-outline grow" disabled={submittingDelete} onClick={() => setShowDeleteModal(false)}>
                 Keep my account
               </button>
-              <button className="btn btn-red grow" disabled={submittingDelete} onClick={handleSubmitDeleteRequest}>
+              <button className="btn btn-red grow" disabled={submittingDelete || deleteConfirm.trim().toUpperCase() !== "DELETE"} onClick={handleSubmitDeleteRequest}>
                 {submittingDelete ? "Scheduling…" : "Delete"}
               </button>
             </div>

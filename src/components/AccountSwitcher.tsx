@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from "@/components/Icons";
 import { SafeImg } from "./common";
+import { ListSkeleton } from "./states";
 import { useAccountOptions, type AccountOption } from "@/hooks/useAccountOptions";
 import { haptics } from "@/lib/haptics";
 
@@ -37,7 +38,7 @@ const BG_TINTS = {
 } as const;
 
 export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
-  const { options, pick, canAddBusiness, canBecomeProvider, nav } = useAccountOptions();
+  const { options, pick, canAddBusiness, canBecomeProvider, loading, nav } = useAccountOptions();
 
   useEffect(() => {
     const onEsc = (e: KeyboardEvent) => {
@@ -88,19 +89,23 @@ export default function AccountSwitcher({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="col gap-8" style={{ marginBottom: 16 }}>
-          {options.map((opt) => (
-            <RoleCard
-              key={`${opt.type}:${opt.id}`}
-              opt={opt}
-              onClick={() => handleSelect(opt)}
-            />
-          ))}
+          {loading ? (
+            <ListSkeleton count={2} />
+          ) : (
+            options.map((opt) => (
+              <RoleCard
+                key={`${opt.type}:${opt.id}`}
+                opt={opt}
+                onClick={() => handleSelect(opt)}
+              />
+            ))
+          )}
         </div>
 
         <div className="divider" style={{ margin: "14px 0" }} />
 
         <div className="col gap-6">
-          {canAddBusiness && (
+          {!loading && canAddBusiness && (
             <button
               className="account-action-card"
               onClick={() => {

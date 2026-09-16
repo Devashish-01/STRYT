@@ -92,6 +92,14 @@ async function releaseHeldPaymentsForDeletion(sb: SupabaseClient, userId: string
     .eq("payer_user_id", userId);
 }
 
+/** Deletes and fails loudly. Purge steps used to ignore their errors, so a storefront that refused to delete left
+ *  the account half-erased: auth identity gone, shop still live. */
+// deno-lint-ignore no-explicit-any
+async function mustDelete(sb: SupabaseClient, table: string, where: (q: any) => any): Promise<void> {
+  const { error } = await where(sb.from(table).delete());
+  if (error) throw new Error(`Couldn't remove ${table} for this account: ${error.message}`);
+}
+
 async function canPurgeUser(sb: SupabaseClient, userId: string): Promise<{ ok: true } | { ok: false; message: string }> {
   const { count: activeAgreements } = await sb
     .from("agreements")
@@ -124,25 +132,28 @@ async function purgeCustomerAccount(
 ): Promise<void> {
   const { data: ownedBusinesses } = await sb.from("businesses").select("id").eq("owner_user_id", targetId);
   for (const biz of ownedBusinesses || []) {
-    await sb.from("bulk_deal_campaigns").delete().eq("business_id", biz.id);
-    await sb.from("bulk_deals").delete().eq("business_id", biz.id);
-    await sb.from("catalog_items").delete().eq("business_id", biz.id);
-    await sb.from("offers").delete().eq("business_id", biz.id);
-    await sb.from("stories").delete().eq("owner_id", biz.id).eq("owner_type", "business");
-    await sb.from("businesses").delete().eq("id", biz.id);
+    // Claim passes reference the business with ON DELETE NO ACTION, so they have to go before the storefront —
+    // otherwise the delete fails with 23503 and, because the failure used to be ignored, the account's auth identity
+    // was deleted while its shop stayed live and discoverable (DEL-2). bulk_deal_campaigns never existed.
+    await mustDelete(sb, "bulk_deal_tokens", (q) => q.eq("business_id", biz.id));
+    await mustDelete(sb, "bulk_deals", (q) => q.eq("business_id", biz.id));
+    await mustDelete(sb, "catalog_items", (q) => q.eq("business_id", biz.id));
+    await mustDelete(sb, "offers", (q) => q.eq("business_id", biz.id));
+    await mustDelete(sb, "stories", (q) => q.eq("owner_id", biz.id).eq("owner_type", "business"));
+    await mustDelete(sb, "businesses", (q) => q.eq("id", biz.id));
   }
 
   const { data: ownedProviders } = await sb.from("providers").select("id").eq("user_id", targetId);
   for (const prov of ownedProviders || []) {
-    await sb.from("portfolio_items").delete().eq("provider_id", prov.id);
-    await sb.from("provider_packages").delete().eq("provider_id", prov.id);
-    await sb.from("stories").delete().eq("owner_id", prov.id).eq("owner_type", "provider");
+    await mustDelete(sb, "portfolio_items", (q) => q.eq("provider_id", prov.id));
+    await mustDelete(sb, "provider_packages", (q) => q.eq("provider_id", prov.id));
+    await mustDelete(sb, "stories", (q) => q.eq("owner_id", prov.id).eq("owner_type", "provider"));
 
     const { data: kycFiles } = await sb.storage.from("uploads").list(`kyc-docs/${prov.id}`);
     if (kycFiles && kycFiles.length > 0) {
       await sb.storage.from("uploads").remove(kycFiles.map((f) => `kyc-docs/${prov.id}/${f.name}`));
     }
-    await sb.from("providers").delete().eq("id", prov.id);
+    await mustDelete(sb, "providers", (q) => q.eq("id", prov.id));
   }
 
   const kinds = [
@@ -177,13 +188,15 @@ async function purgeCustomerAccount(
     console.warn("Could not delete auth identity:", authDeleteErr.message);
   }
 
-  // admin_user_id is NOT NULL — for cron use a stable system actor id.
-  await sb.from("admin_action_logs").insert({
+  // admin_user_id is NOT NULL — for cron use a stable system actor id. public.admin_actions (20260978): the old
+  // private.admin_action_logs is not reachable through PostgREST and service_role has no privileges on it, so every
+  // audit write here was silently lost (E2E-042).
+  await sb.from("admin_actions").insert({
     admin_user_id: actorUserId || "system:purge-deleted-accounts",
     action: "SELF_SERVE_DELETE_ACCOUNT",
     target_type: "CUSTOMER",
     target_id: targetId,
-    reason,
+    details: { reason },
   });
 }
 

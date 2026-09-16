@@ -1,0 +1,4 @@
+[
+  {"gap_id": "SECURITY_SETTINGS:SEC-5", "status": "FIXED", "evidence": "Limits match on both sides: the answer field is maxLength 80 with a 3-character minimum and the custom question maxLength 120 with a 3-character minimum (RecoveryQuestionStep, PasswordRecoverySheet), exactly what set_entity_recovery and _validate_recovery_question enforce (production definitions, 2026-09-16). The server's messages are already plain sentences ('Answer must be at most 80 characters'), which the sheets surface as-is."},
+  {"gap_id": "SECURITY_SETTINGS:SEC-6", "status": "FIXED", "evidence": "SecuritySettings passes a recoveryVersion that the backfill sheet bumps on save, and the card's effect depends on it — changing the question (which leaves recoveryIsSet true) now refreshes the label instead of showing the old prompt until a reload."}
+]

@@ -1,0 +1,147 @@
+[
+ {
+  "gap_id": "CUSTOMER_DELIVERY_TRACKING:T1",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "CUSTOMER_DELIVERY_TRACKING:T2",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "CUSTOMER_DELIVERY_TRACKING:T3",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped. The same public page also serves agreement live-share, which is live in v1: there the link is minted by the provider when they set off (AgreementScreen), so the ON_THE_WAY default is correct, and the delivery-status half of the claim is dark."
+ },
+ {
+  "gap_id": "CUSTOMER_DELIVERY_TRACKING:T4",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "CUSTOMER_DELIVERY_TRACKING:T5",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "CUSTOMER_DELIVERY_TRACKING:T6",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped. Re-checked today: the claimed TrackingPage.tsx line (path fill=#fff) no longer exists; the one literal left there is the white ring of the live map marker. DeliveryTrackControl is behind the flag."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R1",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R2",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R3",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R4",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R5",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R6",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R7",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R8",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R9",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R10",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R11",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "DELIVERY_RIDER_CONSOLE:R12",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D1",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D2",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D3",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D4",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D5",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D6",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D7",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D8",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D9",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D10",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ },
+ {
+  "gap_id": "MERCHANT_DELIVERY_DISPATCH:D11",
+  "status": "DEFERRED",
+  "evidence": "Delivery fulfilment is dark for v1: DELIVERY_AGENT_ENABLED = false (src/lib/features.ts), so no delivery can be created, assigned or tracked in the shipped app — the consoles, the assign/track controls and the customer IN_STORE/DELIVERY toggle are all behind the flag, and tests/e2e/flows/screens.spec.ts asserts /business/<id>/manage/deliveries and /delivery redirect away. Decision D2: revisit with the feature in v1.1, before the flag is flipped."
+ }
+]

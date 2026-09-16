@@ -18,7 +18,7 @@ import { useAdoptConsoleContext } from "@/hooks/useAdoptConsoleContext";
 export default function ProviderAccessGuard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
-  const { ownedProviderId, ownedEntitiesLoaded, setContext, showToast, providerPasswordIsSet } = useApp();
+  const { user, ownedProviderId, ownedEntitiesLoaded, setContext, showToast, providerPasswordIsSet } = useApp();
   const isOwner = ownedProviderId === id;
 
   const [pinUnlocked, setPinUnlocked] = useState(() => entityPasswordService.isSessionUnlocked(id));
@@ -60,7 +60,7 @@ export default function ProviderAccessGuard() {
     );
   }
 
-  setContext({ type: "customer", id: null, name: "" });
+  setContext({ type: "customer", id: null, name: user.name });
   showToast("You don't have access to that provider profile");
   return <Navigate to="/home" replace />;
 }

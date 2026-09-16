@@ -183,7 +183,8 @@ export default function BusinessAccessGuard() {
   }
 
   if (status === "denied") {
-    setContext({ type: "customer", id: null, name: "" });
+    // Keeps the user's own name in headers — blanking it left them nameless after a revoke (ROLE-6).
+    setContext({ type: "customer", id: null, name: user.name });
     showToast("Your access to that business was revoked");
     return <Navigate to="/home" replace />;
   }

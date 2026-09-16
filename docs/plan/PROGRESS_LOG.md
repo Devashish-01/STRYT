@@ -10,8 +10,8 @@ Plan: `docs/plan/README.md` and `docs/plan/phases/P00…P15`. Rules: `docs/plan/
 |---|---|
 | P03–P06 | Done, merged to `develop` |
 | **P07 E2E suite** | Full run #1 green: **134 passed, 0 failed** (with reseed, 9.8 min). 17 critical journeys (queue console added); breadth spec 103 screens; `tests/e2e/COVERAGE.md` maps all 52 flows. Left: action specs for screen-only flows, 2 more consecutive green full runs, P07 report. |
-| **P08 gap ledger** | 487 rows. Verified domains: booking (2), queue (3), chat (6), safety (10) — 0 unverified left in each; 41 E2E rows. 361 legacy rows still UNVERIFIED. |
-| **P09 fixes** | 102 FIXED (app + 8 DB migrations on staging), 19 OPEN, 4 DECISION, 1 DEFERRED. |
+| **P08 gap ledger** | 488 rows. Verified domains: onboarding-free ones — booking (2), queue (3), delivery (5, deferred by D2), chat (6), safety (10), account/admin/notifications/privacy/roles/security (11) — 0 unverified left in each; 42 E2E rows. 292 legacy rows still UNVERIFIED (domains 0, 1, 4, 7, 8, 9). |
+| **P09 fixes** | 142 FIXED (app + 12 DB migrations on staging), 19 OPEN, 6 DECISION, 30 DEFERRED. |
 | P10–P12 | Not started |
 | P13–P15 | Owner-led |
 
@@ -19,13 +19,16 @@ All work is committed on `phase/07-e2e` (local; push refused by the tool — own
 
 ### Waiting on the owner
 
-1. **Apply on production, in order: `20260973` → `20260980`** (`supabase/APPLY_LOG.md` → Pending). Broken for every
+1. **Apply on production, in order: `20260973` → `20260984`** (`supabase/APPLY_LOG.md` → Pending). Broken for every
    production user today: chat send + emergency live share (73), owner review replies, story reactions, provider
    recommendations (74), request notifications to shops/providers (75, 77), counter-offers (76), bulk campaigns never
    close (79); plus the admin audit trail (78). A read-only production scan shows exactly the 6 broken functions these
    fix and nothing else. `20260980` additionally closes a notification-spoofing hole (E2E-040) and must ship together
    with the app change that moves payment reminders to the new server function.
 2. Push `phase/07-e2e`; release to `main` (ships every app fix), then the pending phone-column lockdown.
+   Also **deploy the edge functions** `purge-deleted-accounts`, `admin-delete-profile` and `verification-review` — their
+   audit writes went to a table PostgREST can't reach (E2E-042) and the purge could delete a login while leaving the
+   shop live (DEL-2).
 3. Decisions: **E2E-028** restore or retire "Me too"; **E2E-037** what "Take action" does for reported reviews/users.
 4. `ci_readonly` login + `DRIFT_DATABASE_URL` secret; Sentry, Play Console, lawyer, testers, devices (P13–P15).
 5. Migrate existing base64 image rows to storage (E2E-015 follow-up, production writes).
@@ -99,3 +102,16 @@ lost its form, E2E-039 campaigns never closed.
   (M1), honest "Call next" under two counters (M2), payment claims need an amount (Q6), dismissed served-unpaid cards
   move to History (Q4), directions/message on a called card (Q9), colour tokens (Q10/M9). New specs
   `critical/queue-console` and `critical/notifications-authorized`; booking-accept now checks the message button.
+- 2026-09-16 — Full run #2 green (136 passed). P08 verification of delivery (29 rows, all DEFERRED behind the v1
+  feature flag) and of account deletion, admin moderation, notifications, profile privacy, role switching and console
+  security (42 rows). Fixes made on the way: account purge could delete a login and leave the shop live (DEL-2);
+  data export covered a fraction of the account (DEL-3); cancelling a deletion switched hidden profiles and shops back
+  on (DEL-5, migration 20260981); deleting an account took one tap (DEL-6); moderation told authors nothing and left
+  comment removals unaudited (MOD-1/3, migration 20260982); reported ratings and users were filed as "Action taken"
+  with the content untouched (MOD-2); notifications had no paging, a stale badge and a 16px "Mark all read"
+  (NOTIF-4/5/6/7); the phone field wrote an unverified number over the login identity (PROF-1); alias couldn't be
+  cleared, avatars saved themselves, provider listings stayed at old coordinates, verification badges never showed
+  (PROF-3/7/8/10); a delegated manager's /manage was blank (ROLE-4); five wrong console-password guesses by anyone
+  locked the owner out and anyone could make them (SEC-2/4, migration 20260983); password changes told nobody
+  (SEC-3, migration 20260984). New: **E2E-042** — every admin audit write from the edge functions was silently lost
+  (private.admin_action_logs is unreachable through PostgREST).

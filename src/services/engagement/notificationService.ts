@@ -31,6 +31,9 @@ function toNotif(row: Record<string, unknown>): AppNotification {
  *  rows that have no scope. Omit entirely for the unfiltered "everything" view. */
 export type NotifScope = { scope: "CUSTOMER" | "BUSINESS" | "PROVIDER"; id?: string };
 
+/** How many notifications one page holds (NOTIF-5: the list used to stop at this many, with no way to see older). */
+export const NOTIFICATION_PAGE_SIZE = 50;
+
 function applyScope(q: any, scope?: NotifScope) {
   if (!scope) return q;
   if (scope.scope === "BUSINESS" || scope.scope === "PROVIDER") {
@@ -73,13 +76,16 @@ async function reconcileBookingActions(sb: ReturnType<typeof getSupabase>, items
 }
 
 export const notificationService = {
-  async list(scope?: NotifScope): Promise<AppNotification[]> {
+  /** Newest first. `before` (an ISO timestamp) reads the page older than that, so the screen can go past the first
+   *  50 instead of burying everything older (NOTIF-5). */
+  async list(scope?: NotifScope, before?: string): Promise<AppNotification[]> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
     let q = sb.from("notifications").select("*").eq("user_id", uid);
     q = applyScope(q, scope);
-    const { data, error } = await q.order("created_at", { ascending: false }).limit(50);
+    if (before) q = q.lt("created_at", before);
+    const { data, error } = await q.order("created_at", { ascending: false }).limit(NOTIFICATION_PAGE_SIZE);
     if (error) throw error;
     return reconcileBookingActions(sb, (data ?? []).map(toNotif));
   },

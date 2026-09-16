@@ -229,12 +229,14 @@ serve(async (req) => {
       const { error: updateErr } = await sb.from(table).update(patch).eq("id", targetId);
       if (updateErr) throw updateErr;
 
-      await sb.from("admin_action_logs").insert({
+      // public.admin_actions (20260978) — the old private.admin_action_logs is not reachable through PostgREST and
+      // service_role has no privileges on it, so every audit write here was silently lost (E2E-042).
+      await sb.from("admin_actions").insert({
         admin_user_id: adminUser.id,
         action: logAction,
         target_type: targetType,
         target_id: targetId,
-        reason: reason?.trim() || "Approved",
+        details: { reason: reason?.trim() || "Approved" },
       });
 
       return new Response(JSON.stringify({ ok: true }), { headers: CORS });

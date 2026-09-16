@@ -180,12 +180,14 @@ serve(async (req) => {
       }
 
       // 7. Write Audit Log
-      await sb.from("admin_action_logs").insert({
+      // public.admin_actions (20260978) — the old private.admin_action_logs is not reachable through PostgREST and
+      // service_role has no privileges on it, so every audit write here was silently lost (E2E-042).
+      await sb.from("admin_actions").insert({
         admin_user_id: adminUser.id,
         action: "DELETE_ACCOUNT",
         target_type: "CUSTOMER",
         target_id: targetId,
-        reason: reason,
+        details: { reason },
       });
 
     } else if (targetType === "BUSINESS") {
@@ -252,12 +254,14 @@ serve(async (req) => {
 
       await sb.from("profile_deletion_requests").update({ status: "COMPLETED" }).eq("target_id", targetId);
 
-      await sb.from("admin_action_logs").insert({
+      // public.admin_actions (20260978) — the old private.admin_action_logs is not reachable through PostgREST and
+      // service_role has no privileges on it, so every audit write here was silently lost (E2E-042).
+      await sb.from("admin_actions").insert({
         admin_user_id: adminUser.id,
         action: "DELETE_PROFILE",
         target_type: "BUSINESS",
         target_id: targetId,
-        reason: reason,
+        details: { reason },
       });
 
     } else if (targetType === "PROVIDER") {
@@ -326,12 +330,14 @@ serve(async (req) => {
 
       await sb.from("profile_deletion_requests").update({ status: "COMPLETED" }).eq("target_id", targetId);
 
-      await sb.from("admin_action_logs").insert({
+      // public.admin_actions (20260978) — the old private.admin_action_logs is not reachable through PostgREST and
+      // service_role has no privileges on it, so every audit write here was silently lost (E2E-042).
+      await sb.from("admin_actions").insert({
         admin_user_id: adminUser.id,
         action: "DELETE_PROFILE",
         target_type: "PROVIDER",
         target_id: targetId,
-        reason: reason,
+        details: { reason },
       });
 
     } else {

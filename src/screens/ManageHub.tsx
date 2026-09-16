@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
 import { Store, Briefcase, Plus, ChevronRight, Eye, Phone, Star, TrendingUp } from "@/components/Icons";
 import { useApp } from "@/store";
-import { businessService, providerService } from "@/services";
+import { businessService, providerService, businessAccessService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 
@@ -11,8 +11,13 @@ export default function ManageHub() {
   const { ownedBusinessIds, ownedProviderId, roles, attemptSwitchContext } = useApp();
   const { data: myBiz, loading: bizLoading } = useQuery(() => businessService.mine(), [ownedBusinessIds.join(",")], `my-businesses:${ownedBusinessIds.join(",")}`);
   const { data: myProviders, loading: provLoading } = useQuery(() => providerService.mine(), [ownedProviderId], `my-providers:${ownedProviderId}`);
+  const { data: mySessions } = useQuery(() => businessAccessService.mySessions(), [ownedBusinessIds.join(",")], "manage-hub:my-sessions");
 
   const businesses = myBiz ?? [];
+  // Businesses someone else owns but this user manages. Without these, a team member opening "Manage all spaces"
+  // landed on an empty screen offering to create a business (ROLE-4).
+  const ownedIds = new Set(businesses.map((b) => b.id));
+  const delegated = (mySessions ?? []).filter((s) => s.status === "ACTIVE" && !ownedIds.has(s.businessId));
   const provider = (myProviders ?? []).find((p) => p.id === ownedProviderId) ?? (myProviders ?? [])[0];
 
   return (
@@ -72,6 +77,37 @@ export default function ManageHub() {
             )}
           </div>
         </div>
+
+        {delegated.length > 0 && (
+          <div>
+            <div className="small semi muted" style={{ marginBottom: 8 }}>Managed for others</div>
+            <div className="col gap-12">
+              {delegated.map((s) => (
+                <div key={s.id} className="card">
+                  <div className="row gap-12 center-v">
+                    <Store size={20} color="var(--brand-600)" />
+                    <div className="grow" style={{ minWidth: 0 }}>
+                      <span className="semi">{s.businessName || "Business"}</span>
+                      <div className="tiny muted">
+                        {s.accessLevel === "FULL" ? "Full access" : `Team member · ${(s.scopes ?? []).length} area${(s.scopes ?? []).length === 1 ? "" : "s"}`}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-outline btn-sm btn-block"
+                    style={{ marginTop: 12 }}
+                    onClick={() => {
+                      const dest = `/business/${s.businessId}/manage`;
+                      if (attemptSwitchContext({ type: "business", id: s.businessId, name: s.businessName || "Business" }, dest)) nav(dest);
+                    }}
+                  >
+                    Open <ChevronRight size={15} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Provider */}
         <div>

@@ -205,10 +205,18 @@ export default function PublicProfile() {
             {aliasName(u)}
           </h1>
 
+          {isSelf && user.customerEnabled === false && (
+            <div className="badge badge-amber" style={{ marginTop: 8 }}>
+              Hidden — only you can see this profile
+            </div>
+          )}
+
           <div className="row center gap-6" style={{ marginTop: 6, fontSize: 12, color: "rgba(255,255,255,0.75)", flexWrap: "wrap" }}>
-            {isSelf || locStatus === "APPROVED" ? (
+            {isSelf || locStatus === "APPROVED" || (u.area && u.showCityPublicly !== false) ? (
               <>
-                <span>📍 {u.area || t("neighborhood_member_fallback")}{distanceText && ` • ${distanceText}`}</span>
+                {/* The area is a neighbourhood name the member chose to publish (showCityPublicly) — only the exact
+                    distance needs an accepted location request (PROF-4). */}
+                <span>📍 {u.area || t("neighborhood_member_fallback")}{(isSelf || locStatus === "APPROVED") && distanceText ? ` • ${distanceText}` : ""}</span>
                 <span>•</span>
               </>
             ) : (

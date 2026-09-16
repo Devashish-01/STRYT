@@ -66,11 +66,11 @@ export default function RoleSwitcher({
         aria-label={enableLongPress ? "Switch account — long-press for all options" : "Switch account"}
         style={
           theme === "dark-pill"
-            ? { padding: "6px 10px 6px 6px", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 100, color: "#fff", alignItems: "center" }
-            : { padding: "6px 10px 6px 6px", background: "var(--ink-50)", border: "1px solid var(--line)", borderRadius: 100, color: "var(--ink-800)", alignItems: "center" }
+            ? { padding: "6px 10px 6px 6px", minHeight: 44, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 100, color: "var(--white)", alignItems: "center" }
+            : { padding: "6px 10px 6px 6px", minHeight: 44, background: "var(--ink-50)", border: "1px solid var(--line)", borderRadius: 100, color: "var(--ink-800)", alignItems: "center" }
         }
       >
-        <span style={{ width: 22, height: 22, borderRadius: "50%", background: curColor, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <span style={{ width: 22, height: 22, borderRadius: "50%", background: curColor, color: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <CurIcon size={12} />
         </span>
         <span className="tiny semi" style={{ color: "inherit", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -88,7 +88,8 @@ export default function RoleSwitcher({
             position: "absolute", top: "calc(100% + 8px)",
             ...(alignRight ? { right: 0 } : { left: 0 }),
             zIndex: 500,
-            width: PANEL_WIDTH, padding: 8, background: "#fff", color: "var(--ink-900)",
+            width: PANEL_WIDTH, padding: 8, background: "var(--surface)", color: "var(--ink-900)",
+            maxHeight: "min(70vh, 460px)", overflowY: "auto", overscrollBehavior: "contain",
             boxShadow: "0 12px 32px rgba(0,0,0,0.18)", border: "1px solid var(--line)",
           }}
         >

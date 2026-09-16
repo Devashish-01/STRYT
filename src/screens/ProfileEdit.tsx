@@ -36,7 +36,7 @@ export default function ProfileEdit() {
   const [name, setName]       = useState(user.name || "");
   const [alias, setAlias]     = useState(user.alias || "");
   const [avatar, setAvatar]   = useState(user.avatar || "");
-  const [phone, setPhone]     = useState(user.phone || "");
+  const phone = user.phone || "";
   const [areaInput, setAreaInput] = useState(user.area || "");
   const [lat, setLat]         = useState(user.lat || 0);
   const [lng, setLng]         = useState(user.lng || 0);
@@ -52,6 +52,10 @@ export default function ProfileEdit() {
     showRatingPublicly: user.showRatingPublicly !== false,
     locationPublic: user.locationPublic === true,          // exact location defaults private
   });
+
+  // Only the switches actually flipped on this screen are sent on save. Sending the whole set wrote back whatever
+  // this screen loaded at mount, quietly undoing a change made meanwhile in Settings → Privacy (PROF-6).
+  const touchedPrivacy = useRef<Set<PrivacyKey>>(new Set());
 
   const [uploading, setUploading] = useState(false);
   const [locating, setLocating]   = useState(false);
@@ -115,9 +119,9 @@ export default function ProfileEdit() {
     try {
       const url = await uploadService.upload(file, "avatar");
       setAvatar(url);
-      await userService.update({ avatar: url });
-      await refreshUser();
-      showToast("Photo uploaded ✓");
+      // Not written to the profile here: leaving this screen without saving used to leave the new photo live anyway,
+      // with no way to undo it (PROF-3). handleSave sends `avatar` with the rest of the form.
+      showToast("Photo ready — tap Save changes to apply");
     } catch (err: any) {
       setLocalPreview(null);
       showToast(err?.message || "Photo upload failed — check your connection");
@@ -134,11 +138,6 @@ export default function ProfileEdit() {
       showToast("Alias must be 3–20 chars: letters, numbers, . or _");
       return;
     }
-    const cleanPhone = phone.replace(/\D/g, "").slice(-10);
-    if (phone.trim() && (cleanPhone.length !== 10 || !/^[6-9]/.test(cleanPhone))) {
-      showToast("Please enter a valid 10-digit mobile number");
-      return;
-    }
     let resolvedLat = lat;
     let resolvedLng = lng;
     if (areaInput.trim() && areaInput.trim() !== user.area && (lat === 0 || lat === user.lat)) {
@@ -149,13 +148,17 @@ export default function ProfileEdit() {
     }
     setSaving(true);
     try {
+      const changedPrivacy = Object.fromEntries(
+        (Object.keys(privacy) as PrivacyKey[]).filter((k) => touchedPrivacy.current.has(k)).map((k) => [k, privacy[k]]),
+      );
       await userService.update({
         name: name.trim(),
-        alias: cleanAlias || undefined,
+        // Empty clears the handle (it used to drop out of the patch, so an alias could never be removed — PROF-7).
+        alias: alias.trim() ? cleanAlias : null,
         avatar: avatar || undefined,
-        phone: cleanPhone || undefined,
+        // phone is deliberately not here: it is the OTP-verified login identity (PROF-1).
         area: areaInput.trim() || undefined, lat: resolvedLat, lng: resolvedLng,
-        ...privacy,
+        ...changedPrivacy,
       });
       if (areaInput.trim()) setArea(areaInput.trim());
       await refreshUser();
@@ -340,7 +343,10 @@ export default function ProfileEdit() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setPrivacy((p) => ({ ...p, [f.key]: !p[f.key] }))}
+                  onClick={() => {
+                    touchedPrivacy.current.add(f.key);
+                    setPrivacy((p) => ({ ...p, [f.key]: !p[f.key] }));
+                  }}
                   style={{
                     width: 44, height: 26, borderRadius: 999, flexShrink: 0,
                     background: privacy[f.key] ? "var(--brand-600)" : "var(--ink-200)",
@@ -384,19 +390,25 @@ export default function ProfileEdit() {
               >
                 +91
               </div>
-              <input
-                className="input grow"
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel"
-                maxLength={10}
-                placeholder="10-digit mobile number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-              />
+              <div
+                className="grow"
+                aria-label="Primary mobile number"
+                style={{
+                  padding: "10px 14px",
+                  background: "var(--ink-50)",
+                  border: "1.5px solid var(--line)",
+                  borderRadius: "var(--radius-sm)",
+                  fontWeight: 700,
+                  fontSize: 14.5,
+                  color: "var(--ink-700)",
+                }}
+              >
+                {phone || "—"}
+              </div>
             </div>
             <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
-              Used for delivery coordination, order updates, and service bookings.
+              This is the number you sign in with, so it can only change by verifying a new one with an OTP —
+              contact support to move your account to a different number.
             </p>
           </div>
         </div>

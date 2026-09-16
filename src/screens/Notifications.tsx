@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Store, Briefcase, MessageSquareText, FileText, HandshakeIcon, Tag, Bell, Users, PartyPopper, Megaphone, MapPin, MessageCircle, Flag, Search, BadgeCheck, Clock, Package, Heart, Sparkles, CheckCircle2, ChartBar, At, Mountains, Star, Ticket, Wallet, Shield } from "@/components/Icons";
 import { notificationService, appointmentService, deliveryService, bulkService, locationService, customPaymentService, walletService, requestService } from "@/services";
 import { openCalendarEvent } from "@/lib/calendarExport";
-import type { NotifScope } from "@/services/engagement/notificationService";
+import { NOTIFICATION_PAGE_SIZE, type NotifScope } from "@/services/engagement/notificationService";
 import { useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { AppBar, EmptyState, PullToRefreshIndicator } from "@/components/common";
@@ -135,10 +135,11 @@ export default function Notifications() {
   // marking read here can invalidate exactly that badge's cache, rather than
   // waiting on the realtime channel to eventually resync it.
   const badgeCacheKey =
-    scope?.scope === "CUSTOMER" ? "notif:customer"
-    : scope?.scope === "BUSINESS" ? `notif:business:${scope.id}`
+    scope?.scope === "BUSINESS" ? `notif:business:${scope.id}`
     : scope?.scope === "PROVIDER" ? `notif:provider:${scope.id}`
-    : undefined;
+    // No ?scope= is the customer's own bell (Home, Profile, desktop sidebar), which is the badge to refresh —
+    // leaving it undefined meant marking read here never updated it (NOTIF-4).
+    : "notif:customer";
   const subtitle = scope?.scope === "BUSINESS" ? t("for_this_business")
     : scope?.scope === "PROVIDER" ? t("for_this_service")
     : scope?.scope === "CUSTOMER" ? t("personal_word") : undefined;
@@ -150,6 +151,10 @@ export default function Notifications() {
     user.id ? `user_id=eq.${user.id}` : undefined,
   );
   const [items, setItems] = useState<AppNotification[]>([]);
+  // Pages older than the newest 50, kept separately so a realtime refetch of the first page doesn't drop them.
+  const [older, setOlder] = useState<AppNotification[]>([]);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [noMoreOlder, setNoMoreOlder] = useState(false);
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
   // Booking being declined from its notification — held while the owner types
   // an optional reason, which the customer sees in their "Booking declined".
@@ -163,6 +168,11 @@ export default function Notifications() {
   // overwrite the row back to unread. Merging against this set keeps the tap
   // sticky; entries are dropped once the server agrees.
   const locallyReadRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    setOlder([]);
+    setNoMoreOlder(false);
+  }, [scopeKey]);
 
   useEffect(() => {
     if (!data) return;
@@ -179,7 +189,31 @@ export default function Notifications() {
 
   const { containerRef, pullDistance, refreshing, threshold } = usePullToRefresh<HTMLDivElement>(refetch);
 
-  const sections = useMemo(() => groupByDay(items, lang, t("today_word"), t("yesterday_word")), [items, lang, t]);
+  // A realtime refetch rebuilds the first page; anything already loaded below it stays.
+  const visible = useMemo(() => {
+    const seen = new Set(items.map((n) => n.id));
+    return [...items, ...older.filter((n) => !seen.has(n.id))];
+  }, [items, older]);
+  const sections = useMemo(() => groupByDay(visible, lang, t("today_word"), t("yesterday_word")), [visible, lang, t]);
+  const canLoadOlder = !noMoreOlder && visible.length >= NOTIFICATION_PAGE_SIZE;
+
+  async function loadOlder() {
+    const oldest = visible[visible.length - 1];
+    if (!oldest || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const page = await notificationService.list(scope, oldest.createdAt);
+      if (page.length < NOTIFICATION_PAGE_SIZE) setNoMoreOlder(true);
+      setOlder((p) => {
+        const seen = new Set([...p, ...items].map((n) => n.id));
+        return [...p, ...page.filter((n) => !seen.has(n.id))];
+      });
+    } catch {
+      showToast(t("couldnt_load"));
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
   const hasUnread = items.some((n) => !n.isRead);
 
   function open(n: AppNotification) {
@@ -203,9 +237,11 @@ export default function Notifications() {
   // if the delete fails server-side (design-principles §6: optimistic +
   // revert + toast for every write).
   function remove(n: AppNotification) {
+    const wasAt = items.findIndex((x) => x.id === n.id);
     setExitingIds((s) => new Set(s).add(n.id));
     setTimeout(() => {
       setItems((p) => p.filter((x) => x.id !== n.id));
+      setOlder((p) => p.filter((x) => x.id !== n.id));
       setExitingIds((s) => {
         const next = new Set(s);
         next.delete(n.id);
@@ -214,7 +250,13 @@ export default function Notifications() {
     }, 220);
     if (!n.isRead && badgeCacheKey) invalidateQueryCache(badgeCacheKey);
     notificationService.remove(n.id).catch(() => {
-      setItems((p) => (p.some((x) => x.id === n.id) ? p : [...p, n]));
+      // Back where it was, not at the end — appending it broke the day grouping it belongs to (NOTIF-6).
+      setItems((p) => {
+        if (p.some((x) => x.id === n.id)) return p;
+        const next = [...p];
+        next.splice(wasAt >= 0 ? Math.min(wasAt, next.length) : next.length, 0, n);
+        return next;
+      });
       showToast("Couldn't delete — try again");
     });
   }
@@ -969,9 +1011,10 @@ export default function Notifications() {
           hasUnread ? (
             <button
               className="tiny semi"
-              style={{ color: "var(--brand-700)" }}
+              // 44px minimum touch target — it used to be text-height only, next to the back button (NOTIF-7).
+              style={{ color: "var(--brand-700)", minHeight: 44, padding: "0 10px", background: "none", border: "none" }}
               onClick={() => {
-                const unreadIds = items.filter((n) => !n.isRead).map((n) => n.id);
+                const unreadIds = visible.filter((n) => !n.isRead).map((n) => n.id);
                 unreadIds.forEach((id) => locallyReadRef.current.add(id));
                 setItems((p) => p.map((n) => ({ ...n, isRead: true })));
                 if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
@@ -1030,6 +1073,13 @@ export default function Notifications() {
                 })}
               </div>
             ))}
+            {canLoadOlder && (
+              <div className="row center" style={{ padding: "14px 0 20px" }}>
+                <button className="btn btn-outline btn-sm" disabled={loadingOlder} onClick={() => void loadOlder()}>
+                  {loadingOlder ? t("loading") : t("load_older_notifications")}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

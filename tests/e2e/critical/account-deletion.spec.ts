@@ -29,6 +29,9 @@ test("account deletion: schedule, storefront hidden, cancel restores it", async 
     await expect(owner.getByRole("heading", { name: "Delete account?" })).toBeVisible();
     await expect(owner.getByText(/Your store and provider listings will be paused/)).toBeVisible();
     await owner.getByPlaceholder("Optional: why are you leaving? (helps us improve)").fill("E2E: testing the deletion flow");
+    // DEL-6: Delete stays disabled until the confirmation is typed.
+    await expect(owner.getByRole("button", { name: "Delete", exact: true })).toBeDisabled();
+    await owner.getByRole("textbox", { name: "Type DELETE to confirm" }).fill("DELETE");
     await owner.getByRole("button", { name: "Delete", exact: true }).click();
     await expect(owner).toHaveURL(/\/auth\/deletion-pending$/);
     await expect(owner.getByRole("button", { name: /Keep account & continue/ })).toBeVisible();

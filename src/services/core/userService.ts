@@ -189,11 +189,14 @@ export const userService = {
       .maybeSingle();
     throwIfError(error);
 
-    // Sync avatar and name changes to any provider profile owned by this user
-    if (patch.avatar !== undefined || patch.name !== undefined) {
+    // Sync avatar, name and location changes to any provider profile owned by this user. Coordinates used to be
+    // left behind, so editing your address in Profile moved you but left your service listing at the old spot (PROF-8).
+    if (patch.avatar !== undefined || patch.name !== undefined || patch.lat !== undefined || patch.lng !== undefined) {
       const provPatch: TablesUpdate<"providers"> = {};
       if (patch.avatar !== undefined) provPatch.avatar = patch.avatar;
       if (patch.name !== undefined) provPatch.display_name = patch.name;
+      if (patch.lat !== undefined) provPatch.lat = patch.lat as number;
+      if (patch.lng !== undefined) provPatch.lng = patch.lng as number;
       const { error: provErr } = await sb.from("providers").update(provPatch).eq("user_id", uid);
       if (provErr) console.warn("update (provider sync):", provErr.message);
     }
@@ -299,7 +302,7 @@ export const userService = {
     const [helpedRes, requestsRes, userProvidersData, ratingsRes, postsRes, userRequestsData, proposalsGivenData] = await Promise.all([
       sb.from("agreements").select("*", { count: "exact", head: true }).eq("responder_user_id", id).eq("status", "COMPLETED"),
       sb.from("requests").select("*", { count: "exact", head: true }).eq("requester_user_id", id),
-      sb.from("providers").select("id").eq("user_id", id),
+      sb.from("providers").select("id, is_verified, verification_status").eq("user_id", id),
       sb.from("ratings").select("id, rating, comment, created_at, ratee_type, ratee_id").eq("rater_user_id", id).order("created_at", { ascending: false }).limit(10),
       sb.from("community_posts").select("id, title, body, type, area, created_at, likes_count, comments_count, show_on_profile").eq("author_user_id", id).order("created_at", { ascending: false }).limit(20),
       sb.from("requests").select("id, category_name, description, status, budget_max, created_at").eq("requester_user_id", id).order("created_at", { ascending: false }).limit(20),
@@ -372,7 +375,14 @@ export const userService = {
         ...((requestsRes.count ?? 0) >= PROFILE_BADGE_THRESHOLDS.activeMember ? ["Active Member"] : []),
         ...((vouchCount ?? 0) >= PROFILE_BADGE_THRESHOLDS.wellVouched   ? ["Well Vouched"]    : []),
       ],
-      verifications: [],
+      // PROF-10: this was hardcoded empty, so a verified neighbour looked unverified. Phone is verified by the OTP
+      // sign-in itself; "id" comes from an approved KYC review on a service profile they own.
+      verifications: [
+        ...(ur.phone ? ["phone" as const] : []),
+        ...(((userProvidersData.data ?? []) as any[]).some((p) => p.is_verified || p.verification_status === "APPROVED")
+          ? ["id" as const]
+          : []),
+      ],
       reviewsGiven: ratings.map((r) => ({
         id: r.id,
         target: nameOf(r.ratee_type, r.ratee_id),
