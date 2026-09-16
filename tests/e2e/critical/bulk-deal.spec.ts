@@ -36,7 +36,7 @@ test("bulk deal: publish, pledges with deposits, owner confirms, campaign fills,
   await owner.getByRole("textbox", { name: "Target qty" }).fill("3");
   await owner.getByRole("textbox", { name: "Qty", exact: true }).fill("3");
   await owner.getByRole("textbox", { name: "Unit price ₹", exact: true }).fill("180");
-  await owner.getByRole("textbox", { name: "e.g. 100 — leave blank for no deposit" }).fill("50");
+  await owner.getByRole("textbox", { name: "Deposit to join (optional)" }).fill("50");
   await owner.getByRole("button", { name: "In-store pickup" }).click();
   await owner.getByRole("button", { name: "Publish campaign" }).click();
   await expect(owner.getByText("Campaign published 🎉")).toBeVisible();
