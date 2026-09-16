@@ -1,6 +1,6 @@
 # Hindi and Marathi review queue
 
-Every string below was drafted by the agent and needs a native speaker before launch (decision D9: the owner reviews both languages). Correct the wording directly in `src/lib/i18n.tsx`, then put your name and the date in the Reviewed column.
+Every string below was drafted by the agent and needs a native speaker before launch (decision D9: the owner reviews both languages). Correct the wording directly in `src/lib/i18n/hi.ts` and `src/lib/i18n/mr.ts`, then put your name and the date in the Reviewed column.
 
 | Key | English | Hindi (draft) | Marathi (draft) | Reviewed |
 |---|---|---|---|---|
@@ -68,3 +68,44 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `cpd_phone_placeholder` | Number to share (10 digits) | शेयर करने के लिए नंबर (10 अंक) | शेअर करण्यासाठी नंबर (१० अंक) |  |
 | `cpd_close_voting_q` | Close voting now? | अभी वोटिंग बंद करें? | आता मतदान बंद करायचे? |  |
 | `cpd_keep_open` | Keep it open | खुला रहने दें | उघडे ठेवा |  |
+| `ccp_posted` | Posted to community 🏘️ | समुदाय में पोस्ट हो गया 🏘️ | समुदायात पोस्ट झाले 🏘️ |  |
+| `ccp_post_failed` | Couldn't post. Try again. | पोस्ट नहीं हो सका। दोबारा कोशिश करें। | पोस्ट करता आले नाही. पुन्हा प्रयत्न करा. |  |
+| `ccp_campaign_published` | Campaign published 🎉 | कैंपेन पब्लिश हो गया 🎉 | मोहीम प्रकाशित झाली 🎉 |  |
+| `ccp_draft_restored` | Draft restored | ड्राफ़्ट वापस मिल गया | मसुदा परत मिळाला |  |
+| `ccp_draft_restored_hint` | Picked up where you left off. | आपने जहाँ छोड़ा था वहीं से आगे। | तुम्ही जिथे थांबला होता तिथून पुढे. |  |
+| `ccp_posting_as` | Posting as | इस रूप में पोस्ट कर रहे हैं | या रूपात पोस्ट करत आहात |  |
+| `ccp_change_about` | Change where this post is about | यह पोस्ट किस बारे में है, बदलें | ही पोस्ट कशाबद्दल आहे ते बदला |  |
+| `ccp_change` | Change | बदलें | बदला |  |
+| `ccp_where_about` | Where is this about? | यह किस जगह के बारे में है? | हे कोणत्या ठिकाणाबद्दल आहे? |  |
+| `ccp_post_as` | Post as | इस रूप में पोस्ट करें | या रूपात पोस्ट करा |  |
+| `ccp_make_campaign` | Make this a bulk-buying campaign | इसे थोक-खरीद कैंपेन बनाएं | याला घाऊक-खरेदी मोहीम बनवा |  |
+| `ccp_make_campaign_hint` | Customers pledge a quantity and pay a deposit to join — you fulfil once it's full | ग्राहक मात्रा तय करते हैं और जुड़ने के लिए जमा राशि देते हैं — पूरा होने पर आप पूरा करते हैं | ग्राहक प्रमाण ठरवतात आणि सामील होण्यासाठी अनामत भरतात — पूर्ण झाल्यावर तुम्ही पुरवता |  |
+| `ccp_what_kind` | What kind of post? | किस तरह की पोस्ट? | कोणत्या प्रकारची पोस्ट? |  |
+| `ccp_photo_helps` |  · helps a lot here |  · यहाँ बहुत मदद करती है |  · इथे खूप मदत होते |  |
+| `ccp_campaign_details` | Campaign details | कैंपेन की जानकारी | मोहिमेचे तपशील |  |
+| `ccp_volume_discounts` | Volume discounts (optional) | मात्रा पर छूट (वैकल्पिक) | प्रमाणावर सवलत (ऐच्छिक) |  |
+| `ccp_qty` | Qty | मात्रा | प्रमाण |  |
+| `ccp_plus_at` | + at | + पर | + ला |  |
+| `ccp_unit_price` | Unit price ₹ | प्रति नग कीमत ₹ | प्रति नग किंमत ₹ |  |
+| `ccp_remove_tier` | Remove tier | यह स्तर हटाएं | हा स्तर काढा |  |
+| `ccp_available_quota` | Available quota (optional) | उपलब्ध मात्रा (वैकल्पिक) | उपलब्ध प्रमाण (ऐच्छिक) |  |
+| `ccp_total_units` | Total units you can supply | आप कुल कितने नग दे सकते हैं | तुम्ही एकूण किती नग देऊ शकता |  |
+| `ccp_quota_hint` | Informational for now — shown on the listing, not enforced automatically when someone pledges. | अभी सिर्फ़ जानकारी के लिए — लिस्टिंग पर दिखेगा, पलेज करते समय अपने आप लागू नहीं होगा। | सध्या फक्त माहितीसाठी — लिस्टिंगवर दिसेल, प्लेज करताना आपोआप लागू होणार नाही. |  |
+| `ccp_deposit_hint` | The minimum a pledger pays upfront to reserve their spot. | जगह पक्की करने के लिए कम से कम इतनी राशि पहले देनी होगी। | जागा निश्चित करण्यासाठी किमान इतकी रक्कम आधी द्यावी लागेल. |  |
+| `ccp_deposit_placeholder` | e.g. 100 — leave blank for no deposit | जैसे 100 — जमा राशि न लेनी हो तो खाली छोड़ें | उदा. १०० — अनामत नको असल्यास रिकामे ठेवा |  |
+| `ccp_closing_deadline` | Closing deadline (optional) | बंद होने की तारीख़ (वैकल्पिक) | बंद होण्याची तारीख (ऐच्छिक) |  |
+| `ccp_closing_hint` | Closes automatically once this passes, or once it hits its target quantity — whichever comes first. | यह तारीख़ निकलते ही या तय मात्रा पूरी होते ही अपने आप बंद — जो पहले हो। | ही तारीख उलटताच किंवा ठरलेले प्रमाण पूर्ण होताच आपोआप बंद — जे आधी होईल ते. |  |
+| `ccp_fulfilment` | Fulfilment (optional) | डिलीवरी का तरीक़ा (वैकल्पिक) | पूर्तता (ऐच्छिक) |  |
+| `ccp_how_urgent` | How urgent is it? | यह कितना ज़रूरी है? | हे किती तातडीचे आहे? |  |
+| `ccp_alert_urgency` | Alert urgency | अलर्ट की तात्कालिकता | सूचनेची तातडी |  |
+| `ccp_voting_closes_in` | Voting closes in | वोटिंग बंद होगी | मतदान बंद होईल |  |
+| `ccp_pickup_heading` | 🎁 Pickup | 🎁 पिकअप | 🎁 पिकअप |  |
+| `ccp_resolving_identity` | Resolving your business/provider identity… | आपकी दुकान/सेवा पहचान देखी जा रही है… | तुमची दुकान/सेवा ओळख तपासली जात आहे… |  |
+| `ccp_draft_saved` | Draft saved | ड्राफ़्ट सेव हो गया | मसुदा जतन झाला |  |
+| `ccp_post_preview` | Post preview | पोस्ट का पूर्वावलोकन | पोस्टचे पूर्वावलोकन |  |
+| `ccp_keep_editing` | Keep editing | लिखते रहें | लिहीत राहा |  |
+| `ccp_keep_draft_q` | Keep this draft? | यह ड्राफ़्ट रखें? | हा मसुदा ठेवायचा? |  |
+| `ccp_save_draft` | Save draft | ड्राफ़्ट सेव करें | मसुदा जतन करा |  |
+| `ccp_regular_price` | Regular price (₹) | सामान्य कीमत (₹) | नेहमीची किंमत (₹) |  |
+| `ccp_target_qty` | Target qty | लक्ष्य मात्रा | लक्ष्य प्रमाण |  |
+| `ccp_deposit_join` | Deposit to join (optional) | जुड़ने के लिए जमा राशि (वैकल्पिक) | सामील होण्यासाठी अनामत (ऐच्छिक) |  |

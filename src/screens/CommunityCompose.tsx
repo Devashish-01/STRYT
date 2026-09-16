@@ -36,6 +36,7 @@ import {
   POLL_DURATIONS,
 } from "@/lib/communityTypes";
 import { FULFILLMENT_LABELS, type CommunityPostType, type FulfillmentType, type BulkTier, type PostTag } from "@/types";
+import { useI18n } from "@/lib/i18n";
 
 interface SellerContext {
   type: "business" | "provider";
@@ -67,6 +68,7 @@ export default function CommunityCompose() {
   const nav = useNavigate();
   const loc = useLocation();
   const { area, user, showToast, activeContext, ownedBusinessIds, ownedProviderId } = useApp();
+  const { t, tf } = useI18n();
 
   // A locally-chosen identity, overriding both the router-state context and the
   // app-wide active one. Deliberately local: this is "post as", not "become" —
@@ -274,17 +276,17 @@ export default function CommunityCompose() {
     e.target.value = "";
     if (!file) return;
     if (!canAddMedia(draft.media)) {
-      showToast(`Up to ${MAX_POST_MEDIA} photos per post`);
+      showToast(tf("cpd_photo_limit", { n: MAX_POST_MEDIA }));
       return;
     }
     setUploading(true);
     try {
       const url = await uploadService.upload(file, "community");
       const res = addMedia(draft.media, url);
-      if (res.rejected === "AT_LIMIT") showToast(`Up to ${MAX_POST_MEDIA} photos per post`);
+      if (res.rejected === "AT_LIMIT") showToast(tf("cpd_photo_limit", { n: MAX_POST_MEDIA }));
       else patch({ media: res.media });
     } catch {
-      showToast("Couldn't upload photo. Try again.");
+      showToast(t("cpd_photo_upload_failed"));
     } finally {
       setUploading(false);
     }
@@ -327,7 +329,7 @@ export default function CommunityCompose() {
       // 500ms below reads as "it worked" instead of an unexplained pause.
       setSucceeded(true);
       discard(); // the draft has become a post; keeping it would re-offer it
-      showToast("Posted to community 🏘️");
+      showToast(t("ccp_posted"));
       // Land on the post itself, not /community-hub — that's a TAB_ROUTE, which
       // forces the customer BottomNav onto a business/provider-context session
       // (its Profile tab has no activeContext awareness), stranding an owner on
@@ -336,7 +338,7 @@ export default function CommunityCompose() {
     } catch {
       // The draft is deliberately left intact here — a failed post is exactly
       // when losing the text hurts most.
-      showToast("Couldn't post. Try again.");
+      showToast(t("ccp_post_failed"));
       setPosting(false);
     }
   }
@@ -361,7 +363,7 @@ export default function CommunityCompose() {
       });
       haptics.success();
       discard();
-      showToast("Campaign published 🎉");
+      showToast(t("ccp_campaign_published"));
       setTimeout(() => nav(`/business/${sellerCtx.id}/manage/bulk-deals/${created.id}`, { replace: true }), 500);
     } catch (e: any) {
       showToast(e?.message || "Couldn't publish — try again");
@@ -379,7 +381,7 @@ export default function CommunityCompose() {
   return (
     <div className="screen compose-screen">
       <header className="compose-nav">
-        <button className="compose-nav-btn" onClick={handleCancel}>Cancel</button>
+        <button className="compose-nav-btn" onClick={handleCancel}>{t("cancel")}</button>
         <div className="compose-nav-title">
           {isBulkBuying ? "📦 Bulk-buying campaign" : meta ? `${meta.emoji} ${meta.label}` : "New post"}
         </div>
@@ -398,8 +400,8 @@ export default function CommunityCompose() {
           <div className="draft-restored" role="status">
             <span style={{ fontSize: 18 }}>📝</span>
             <div className="grow" style={{ minWidth: 0 }}>
-              <div className="semi small" style={{ color: "var(--amber-800)" }}>Draft restored</div>
-              <div className="tiny" style={{ color: "var(--amber-700)" }}>Picked up where you left off.</div>
+              <div className="semi small" style={{ color: "var(--amber-800)" }}>{t("ccp_draft_restored")}</div>
+              <div className="tiny" style={{ color: "var(--amber-700)" }}>{t("ccp_draft_restored_hint")}</div>
             </div>
             <button
               className="tiny semi"
@@ -408,7 +410,7 @@ export default function CommunityCompose() {
             >
               Start over
             </button>
-            <button className="icon-btn" aria-label="Dismiss" onClick={acknowledgeRestore} style={{ width: 26, height: 26 }}>
+            <button className="icon-btn" aria-label={t("dismiss_word")} onClick={acknowledgeRestore} style={{ width: 26, height: 26 }}>
               <X size={13} />
             </button>
           </div>
@@ -426,17 +428,17 @@ export default function CommunityCompose() {
             style={{ width: 40, height: 40, borderRadius: sellerCtx?.type === "business" ? 10 : "50%", flexShrink: 0 }}
           />
           <div className="grow col" style={{ gap: 3, minWidth: 0 }}>
-            <div className="tiny muted">Posting as</div>
+            <div className="tiny muted">{t("ccp_posting_as")}</div>
             <div className="semi small ellipsis" style={{ fontSize: 14.5 }}>{identityName}</div>
             <button
               type="button"
               className="compose-reach"
               style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textAlign: "left" }}
               onClick={() => setPlacePickerOpen(true)}
-              aria-label="Change where this post is about"
+              aria-label={t("ccp_change_about")}
             >
               <MapPin size={11} /> {postPlace?.area || area || "your street"} · {reachKm} km
-              <span className="semi" style={{ color: "var(--brand-700)", marginLeft: 5 }}>Change</span>
+              <span className="semi" style={{ color: "var(--brand-700)", marginLeft: 5 }}>{t("ccp_change")}</span>
             </button>
           </div>
           <div className="col gap-6" style={{ alignItems: "flex-end", flexShrink: 0 }}>
@@ -482,7 +484,7 @@ export default function CommunityCompose() {
 
         {placePickerOpen && (
           <LocationPickerSheet
-            title="Where is this about?"
+            title={t("ccp_where_about")}
             currentLabel={postPlace?.area || area || "Not set"}
             onPick={(place) => setPostPlace(place)}
             onClose={() => setPlacePickerOpen(false)}
@@ -491,9 +493,9 @@ export default function CommunityCompose() {
 
         {identityPickerOpen && (
           <div className="overlay" onClick={() => setIdentityPickerOpen(false)}>
-            <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Post as">
+            <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t("ccp_post_as")}>
               <div className="sheet-grab" />
-              <h3 className="bold h2" style={{ marginBottom: 4 }}>Post as</h3>
+              <h3 className="bold h2" style={{ marginBottom: 4 }}>{t("ccp_post_as")}</h3>
               <p className="small muted" style={{ marginBottom: 14 }}>
                 Each identity keeps its own draft — your text stays with the one you wrote it under.
               </p>
@@ -534,7 +536,7 @@ export default function CommunityCompose() {
                   );
                 })}
               </div>
-              <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setIdentityPickerOpen(false)}>Cancel</button>
+              <button className="btn btn-ghost btn-block" style={{ marginTop: 12 }} onClick={() => setIdentityPickerOpen(false)}>{t("cancel")}</button>
             </div>
           </div>
         )}
@@ -559,8 +561,8 @@ export default function CommunityCompose() {
           >
             <Package size={20} color={isBulkBuying ? "var(--brand-700)" : "var(--ink-500)"} />
             <span className="col grow" style={{ gap: 2 }}>
-              <span className="semi small" style={{ color: "var(--ink-800)" }}>Make this a bulk-buying campaign</span>
-              <span className="tiny muted">Customers pledge a quantity and pay a deposit to join — you fulfil once it's full</span>
+              <span className="semi small" style={{ color: "var(--ink-800)" }}>{t("ccp_make_campaign")}</span>
+              <span className="tiny muted">{t("ccp_make_campaign_hint")}</span>
             </span>
             <span style={{ width: 22, height: 22, borderRadius: 6, flexShrink: 0, border: isBulkBuying ? "none" : "2px solid var(--ink-300)", background: isBulkBuying ? "var(--brand-600)" : "transparent", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>
               {isBulkBuying ? "✓" : ""}
@@ -575,7 +577,7 @@ export default function CommunityCompose() {
           <div className="field" style={{ marginBottom: 0 }}>
             {pickerOpen || !meta ? (
               <>
-                <span className="compose-section-label" id="flair-label">What kind of post?</span>
+                <span className="compose-section-label" id="flair-label">{t("ccp_what_kind")}</span>
                 <div className="flair-grid" role="radiogroup" aria-labelledby="flair-label">
                   {COMMUNITY_TYPES.map((t) => {
                     const isSel = draft.type === t.type;
@@ -605,7 +607,7 @@ export default function CommunityCompose() {
               >
                 <span className="flair-chip-emoji" aria-hidden="true">{meta.emoji}</span>
                 <span className="flair-chip-label">{meta.label}</span>
-                <span className="flair-chip-change">Change</span>
+                <span className="flair-chip-change">{t("ccp_change")}</span>
               </button>
             )}
           </div>
@@ -615,7 +617,7 @@ export default function CommunityCompose() {
           <>
             <div className="field">
               <label className="row between" htmlFor="compose-title">
-                <span className="compose-section-label" style={{ marginBottom: 0 }}>Title *</span>
+                <span className="compose-section-label" style={{ marginBottom: 0 }}>{t("cpd_title_label")}</span>
                 <span className="tiny muted tabular-nums">{draft.title.length}/{MAX_TITLE_LEN}</span>
               </label>
               <input
@@ -632,7 +634,7 @@ export default function CommunityCompose() {
 
             <div className="field">
               <label className="row between" htmlFor="compose-body">
-                <span className="compose-section-label" style={{ marginBottom: 0 }}>Details</span>
+                <span className="compose-section-label" style={{ marginBottom: 0 }}>{t("details")}</span>
                 {draft.body.length > MAX_BODY_LEN * 0.8 && (
                   <span className="tiny muted tabular-nums">{draft.body.length}/{MAX_BODY_LEN}</span>
                 )}
@@ -657,7 +659,7 @@ export default function CommunityCompose() {
               <label className="row between">
                 <span className="compose-section-label" style={{ marginBottom: 0 }}>
                   Photos
-                  {photoForward && <span className="tiny muted" style={{ fontWeight: 500 }}> · helps a lot here</span>}
+                  {photoForward && <span className="tiny muted" style={{ fontWeight: 500 }}>{t("ccp_photo_helps")}</span>}
                 </span>
                 <span className="tiny muted tabular-nums">{draft.media.length}/{MAX_POST_MEDIA}</span>
               </label>
@@ -718,8 +720,8 @@ export default function CommunityCompose() {
                 <input
                   className="input"
                   style={{ marginTop: 9, padding: "10px 14px", borderRadius: 12, fontSize: 13.5 }}
-                  placeholder="Describe the photo (for screen readers)"
-                  aria-label="Photo description for screen readers"
+                  placeholder={t("cpd_alt_placeholder")}
+                  aria-label={t("cpd_alt_aria")}
                   value={draft.imageAlt}
                   maxLength={200}
                   onChange={(e) => patch({ imageAlt: e.target.value })}
@@ -731,22 +733,22 @@ export default function CommunityCompose() {
                 six-type picker's type-specific modules ---- */}
             {isBulkBuying && (
               <div className="type-module">
-                <div className="type-module-title"><Package size={13} /> Campaign details</div>
+                <div className="type-module-title"><Package size={13} /> {t("ccp_campaign_details")}</div>
                 <div className="col gap-12">
                   <div className="row gap-10">
                     <div className="grow">
-                      <label htmlFor="communitycompose-regular-price" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Regular price (₹)</label>
+                      <label htmlFor="communitycompose-regular-price" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("ccp_regular_price")}</label>
                       <input id="communitycompose-regular-price" className="input" inputMode="decimal" placeholder="1000" value={regularPrice} onChange={(e) => setRegularPrice(e.target.value.replace(/[^0-9.]/g, ""))} />
                     </div>
                     <div style={{ width: 130 }}>
-                      <label htmlFor="communitycompose-target-qty" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Target qty</label>
+                      <label htmlFor="communitycompose-target-qty" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("ccp_target_qty")}</label>
                       <input id="communitycompose-target-qty" className="input" inputMode="numeric" placeholder="10" value={campaignMoq} onChange={(e) => setCampaignMoq(e.target.value.replace(/[^0-9]/g, ""))} />
                     </div>
                   </div>
 
                   <div>
                     <div className="row between center-v" style={{ marginBottom: 6 }}>
-                      <label className="tiny semi muted">Volume discounts (optional)</label>
+                      <label className="tiny semi muted">{t("ccp_volume_discounts")}</label>
                       <button
                         type="button"
                         className="tiny semi row gap-4"
@@ -763,18 +765,18 @@ export default function CommunityCompose() {
                             className="input"
                             style={{ width: 90 }}
                             inputMode="numeric"
-                            placeholder="Qty"
+                            placeholder={t("ccp_qty")}
                             value={tier.minQty || ""}
                             onChange={(e) => {
                               const v = parseInt(e.target.value.replace(/[^0-9]/g, ""), 10) || 0;
                               setCampaignTiers((p) => p.map((x, idx) => (idx === i ? { ...x, minQty: v } : x)));
                             }}
                           />
-                          <span className="tiny muted">+ at</span>
+                          <span className="tiny muted">{t("ccp_plus_at")}</span>
                           <input
                             className="input grow"
                             inputMode="decimal"
-                            placeholder="Unit price ₹"
+                            placeholder={t("ccp_unit_price")}
                             value={tier.unitPrice || ""}
                             onChange={(e) => {
                               const v = parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0;
@@ -782,7 +784,7 @@ export default function CommunityCompose() {
                             }}
                           />
                           {campaignTiers.length > 1 && (
-                            <button type="button" className="icon-btn" onClick={() => setCampaignTiers((p) => p.filter((_, idx) => idx !== i))} aria-label="Remove tier">
+                            <button type="button" className="icon-btn" onClick={() => setCampaignTiers((p) => p.filter((_, idx) => idx !== i))} aria-label={t("ccp_remove_tier")}>
                               <Minus size={14} />
                             </button>
                           )}
@@ -792,25 +794,25 @@ export default function CommunityCompose() {
                   </div>
 
                   <div>
-                    <label htmlFor="communitycompose-available-quota-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Available quota (optional)</label>
-                    <input id="communitycompose-available-quota-optional" className="input" inputMode="numeric" placeholder="Total units you can supply" value={campaignQuota} onChange={(e) => setCampaignQuota(e.target.value.replace(/[^0-9]/g, ""))} />
-                    <div className="tiny muted" style={{ marginTop: 4 }}>Informational for now — shown on the listing, not enforced automatically when someone pledges.</div>
+                    <label htmlFor="communitycompose-available-quota-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("ccp_available_quota")}</label>
+                    <input id="communitycompose-available-quota-optional" className="input" inputMode="numeric" placeholder={t("ccp_total_units")} value={campaignQuota} onChange={(e) => setCampaignQuota(e.target.value.replace(/[^0-9]/g, ""))} />
+                    <div className="tiny muted" style={{ marginTop: 4 }}>{t("ccp_quota_hint")}</div>
                   </div>
 
                   <div>
-                    <label htmlFor="communitycompose-deposit-to-join-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Deposit to join (optional)</label>
-                    <input id="communitycompose-deposit-to-join-optional" className="input" inputMode="decimal" placeholder="e.g. 100 — leave blank for no deposit" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
-                    <div className="tiny muted" style={{ marginTop: 4 }}>The minimum a pledger pays upfront to reserve their spot.</div>
+                    <label htmlFor="communitycompose-deposit-to-join-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("ccp_deposit_join")}</label>
+                    <input id="communitycompose-deposit-to-join-optional" className="input" inputMode="decimal" placeholder={t("ccp_deposit_placeholder")} value={depositAmount} onChange={(e) => setDepositAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
+                    <div className="tiny muted" style={{ marginTop: 4 }}>{t("ccp_deposit_hint")}</div>
                   </div>
 
                   <div>
-                    <label htmlFor="communitycompose-closing-deadline-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Closing deadline (optional)</label>
+                    <label htmlFor="communitycompose-closing-deadline-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("ccp_closing_deadline")}</label>
                     <input id="communitycompose-closing-deadline-optional" type="datetime-local" className="input" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} />
-                    <div className="tiny muted" style={{ marginTop: 4 }}>Closes automatically once this passes, or once it hits its target quantity — whichever comes first.</div>
+                    <div className="tiny muted" style={{ marginTop: 4 }}>{t("ccp_closing_hint")}</div>
                   </div>
 
                   <div>
-                    <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Fulfilment (optional)</label>
+                    <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("ccp_fulfilment")}</label>
                     <div className="row gap-8" style={{ flexWrap: "wrap" }}>
                       {(Object.keys(FULFILLMENT_LABELS) as FulfillmentType[]).map((ft) => (
                         <button
@@ -832,8 +834,8 @@ export default function CommunityCompose() {
             {/* ---- ALERT: how loud, and how long ---- */}
             {draft.type === "ALERT" && (
               <div className="type-module">
-                <div className="type-module-title"><Megaphone size={13} /> How urgent is it?</div>
-                <div className="opt-row" role="radiogroup" aria-label="Alert urgency">
+                <div className="type-module-title"><Megaphone size={13} /> {t("ccp_how_urgent")}</div>
+                <div className="opt-row" role="radiogroup" aria-label={t("ccp_alert_urgency")}>
                   {ALERT_SEVERITIES.map((s) => {
                     const on = draft.severity === s.value;
                     const activeClass = s.tone === "red" ? "active-red" : s.tone === "amber" ? "active-amber" : "active-info";
@@ -864,7 +866,7 @@ export default function CommunityCompose() {
             {/* ---- POLL: options + a closing time ---- */}
             {draft.type === "POLL" && (
               <div className="type-module">
-                <div className="type-module-title">📊 Poll</div>
+                <div className="type-module-title">{t("type_poll")}</div>
                 <div className="col gap-8">
                   {draft.pollOptions.map((o, i) => (
                     <div key={i} className="row gap-8">
@@ -895,7 +897,7 @@ export default function CommunityCompose() {
                 {/* A poll that never closes never produces a result — and can't
                     tell its voters what won. */}
                 <div style={{ marginTop: 13 }}>
-                  <span className="compose-section-label" id="poll-duration-label">Voting closes in</span>
+                  <span className="compose-section-label" id="poll-duration-label">{t("ccp_voting_closes_in")}</span>
                   <div className="dur-row" role="radiogroup" aria-labelledby="poll-duration-label">
                     {POLL_DURATIONS.map((d) => (
                       <button
@@ -917,20 +919,20 @@ export default function CommunityCompose() {
             {/* ---- LOST & FOUND: where, and any reward ---- */}
             {draft.type === "LOST_FOUND" && (
               <div className="type-module">
-                <div className="type-module-title"><MapPin size={13} /> Where & reward</div>
+                <div className="type-module-title"><MapPin size={13} /> {t("cpd_where_reward_label")}</div>
                 <div className="col gap-10">
                   <input
                     className="input"
-                    placeholder="Last seen near… (e.g. the park gate)"
-                    aria-label="Last seen location"
+                    placeholder={t("cpd_last_seen_placeholder")}
+                    aria-label={t("cpd_last_seen_aria")}
                     value={draft.lastSeen}
                     maxLength={120}
                     onChange={(e) => patch({ lastSeen: e.target.value })}
                   />
                   <input
                     className="input"
-                    placeholder="Reward, if any (optional)"
-                    aria-label="Reward"
+                    placeholder={t("cpd_reward_placeholder")}
+                    aria-label={t("cpd_reward_aria")}
                     value={draft.reward}
                     maxLength={80}
                     onChange={(e) => patch({ reward: e.target.value })}
@@ -942,11 +944,11 @@ export default function CommunityCompose() {
             {/* ---- GIVEAWAY: how to collect it ---- */}
             {draft.type === "GIVEAWAY" && (
               <div className="type-module">
-                <div className="type-module-title">🎁 Pickup</div>
+                <div className="type-module-title">{t("ccp_pickup_heading")}</div>
                 <input
                   className="input"
-                  placeholder="When & how to collect (e.g. evenings after 6)"
-                  aria-label="Pickup details"
+                  placeholder={t("cpd_pickup_placeholder")}
+                  aria-label={t("cpd_pickup_aria")}
                   value={draft.pickupNote}
                   maxLength={140}
                   onChange={(e) => patch({ pickupNote: e.target.value })}
@@ -972,7 +974,7 @@ export default function CommunityCompose() {
                 style={{ width: "100%", padding: "12px 14px", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 14, cursor: "pointer", textAlign: "left" }}
               >
                 <div className="col" style={{ gap: 2, minWidth: 0 }}>
-                  <span className="semi small">Post settings</span>
+                  <span className="semi small">{t("cpd_post_settings")}</span>
                   <span className="tiny muted ellipsis">
                     {policyMeta.emoji} {policyMeta.label} can reply
                     {draft.hideLikeCount ? " · likes hidden" : ""}
@@ -987,8 +989,8 @@ export default function CommunityCompose() {
 
               {settingsOpen && (
                 <div className="type-module" style={{ marginTop: 10 }}>
-                  <div className="type-module-title"><MessageCircle size={13} /> Who can reply</div>
-                  <div className="col gap-8" role="radiogroup" aria-label="Who can reply">
+                  <div className="type-module-title"><MessageCircle size={13} /> {t("cpd_who_can_reply")}</div>
+                  <div className="col gap-8" role="radiogroup" aria-label={t("cpd_who_can_reply")}>
                     {COMMENT_POLICIES.map((p) => {
                       const on = draft.commentPolicy === p.value;
                       return (
@@ -1030,8 +1032,8 @@ export default function CommunityCompose() {
                     style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}
                   >
                     <span className="col" style={{ gap: 2 }}>
-                      <span className="semi small">Hide like count</span>
-                      <span className="tiny muted">People can still like it — the number stays private</span>
+                      <span className="semi small">{t("cpd_hide_like_count")}</span>
+                      <span className="tiny muted">{t("cpd_hide_like_hint")}</span>
                     </span>
                     <span style={{
                       width: 44, height: 26, borderRadius: 999, flexShrink: 0, position: "relative",
@@ -1063,7 +1065,7 @@ export default function CommunityCompose() {
                     <span className="semi small grow ellipsis">{draft.taggedListing.name}</span>
                     <button
                       className="icon-btn"
-                      aria-label="Remove tagged place"
+                      aria-label={t("cpd_remove_tag")}
                       style={{ width: 26, height: 26 }}
                       onClick={() => patch({ taggedListing: null })}
                     >
@@ -1083,14 +1085,14 @@ export default function CommunityCompose() {
 
       <div className="compose-footer">
         {sellerCtxLoading ? (
-          <p className="compose-hint">Resolving your business/provider identity…</p>
+          <p className="compose-hint">{t("ccp_resolving_identity")}</p>
         ) : isBulkBuying ? (
           !campaignValidation.ok && <p className="compose-hint" role="status">{campaignValidation.message}</p>
         ) : !validation.ok && draft.type ? (
           <p className="compose-hint" role="status">{validation.message}</p>
         ) : justSaved ? (
           <p style={{ margin: "0 0 8px", textAlign: "center" }}>
-            <span className="draft-pill" role="status"><Check size={11} /> Draft saved</span>
+            <span className="draft-pill" role="status"><Check size={11} /> {t("ccp_draft_saved")}</span>
           </p>
         ) : null}
         <div className="row gap-8">
@@ -1122,7 +1124,7 @@ export default function CommunityCompose() {
             style={{ maxHeight: "86vh", display: "flex", flexDirection: "column" }}
             role="dialog"
             aria-modal="true"
-            aria-label="Post preview"
+            aria-label={t("ccp_post_preview")}
           >
             <div className="sheet-grab" />
             <div className="compose-preview-note">
@@ -1149,7 +1151,7 @@ export default function CommunityCompose() {
               <button className="btn btn-primary btn-block" disabled={!canPost} onClick={post}>
                 {posting ? "Posting…" : "Looks good — post it"}
               </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setPreviewOpen(false)}>Keep editing</button>
+              <button className="btn btn-ghost btn-block" onClick={() => setPreviewOpen(false)}>{t("ccp_keep_editing")}</button>
             </div>
           </div>
         </div>
@@ -1180,12 +1182,12 @@ export default function CommunityCompose() {
         <div className="overlay" onClick={() => setLeaveConfirm(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
-            <h2 className="h2" style={{ marginBottom: 6 }}>Keep this draft?</h2>
+            <h2 className="h2" style={{ marginBottom: 6 }}>{t("ccp_keep_draft_q")}</h2>
             <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
               We can hold on to what you've written and bring it back next time you post.
             </p>
             <div className="col gap-8">
-              <button className="btn btn-primary btn-block" onClick={() => nav(-1)}>Save draft</button>
+              <button className="btn btn-primary btn-block" onClick={() => nav(-1)}>{t("ccp_save_draft")}</button>
               <button
                 className="btn btn-block"
                 style={{ background: "var(--red-500)", color: "var(--white)" }}
@@ -1193,7 +1195,7 @@ export default function CommunityCompose() {
               >
                 Discard
               </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setLeaveConfirm(false)}>Keep editing</button>
+              <button className="btn btn-ghost btn-block" onClick={() => setLeaveConfirm(false)}>{t("ccp_keep_editing")}</button>
             </div>
           </div>
         </div>
