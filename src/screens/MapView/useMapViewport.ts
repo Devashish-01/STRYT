@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import type { ViewStateChangeEvent } from "react-map-gl/maplibre";
+import type { Map as MapLibreMap } from "maplibre-gl";
 
 /**
  * The area the map is currently *searching* — as opposed to the area it's
@@ -52,7 +53,7 @@ function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number): num
  * ratio), and falls back to a zoom approximation before the map has painted —
  * `getBounds()` isn't meaningful until then.
  */
-export function radiusFromMap(map: maplibregl.Map | undefined, zoom: number, lat: number): number {
+export function radiusFromMap(map: MapLibreMap | undefined, zoom: number, lat: number): number {
   try {
     const b = map?.getBounds();
     if (b) {
@@ -100,7 +101,7 @@ export function useMapViewport(initial: SearchArea) {
   }, [searched]);
 
   /** Adopt the current viewport as the searched area. */
-  const searchHere = useCallback((map?: maplibregl.Map) => {
+  const searchHere = useCallback((map?: MapLibreMap) => {
     if (map) {
       const c = map.getCenter();
       const zoom = map.getZoom();

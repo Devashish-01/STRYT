@@ -79,7 +79,9 @@ function applyBasemapRetint(map: MaplibreMap, lampGlow: number) {
     const patches = retintFor(sourceLayer, layer.type, palette, layer.id);
     for (const patch of patches) {
       try {
-        map.setPaintProperty(layer.id, patch.property, patch.value);
+        // The property name comes from the retint table (data, not a literal), so maplibre 6's keyed type can't
+        // check it here; the try/catch below is what actually handles a property a layer doesn't support.
+        map.setPaintProperty(layer.id, patch.property as Parameters<typeof map.setPaintProperty>[1], patch.value);
       } catch {
         // This layer doesn't support the property we guessed for its type —
         // skip it rather than let one mismatch break every other layer.

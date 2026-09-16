@@ -72,7 +72,8 @@ test("chat: a photo sent by the customer arrives for the owner", async ({ custom
   await expect(customer2.getByRole("button", { name: "Remove photo" })).toBeVisible();
   await customer2.locator("textarea + button").click();
   const env = loadStagingEnv();
-  await expect(customer2.locator(`img[src*="${new URL(env.VITE_SUPABASE_URL).host}/storage/v1/object/public/uploads/"]`)).toBeVisible();
+  // .last(): the thread keeps photos from earlier runs, so only the one just sent is the subject here.
+  await expect(customer2.locator(`img[src*="${new URL(env.VITE_SUPABASE_URL).host}/storage/v1/object/public/uploads/"]`).last()).toBeVisible();
   await owner.goto(`/chat/${convId}`);
   await expect(owner.locator('img[src*="/storage/v1/object/public/uploads/"]').last()).toBeVisible();
 });
