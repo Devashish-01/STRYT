@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import "./maplibreWorker";
 import { MapPinPlus } from "@/components/Icons";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapEvent, MapRef, ViewStateChangeEvent } from "react-map-gl/maplibre";
-import type { Map as MaplibreMap } from "maplibre-gl";
+import type { Map as MaplibreMap, StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { discoveryService, requestService, socialService, userService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -31,7 +32,7 @@ import { MapFilterStrip, type ResultFilter } from "./MapFilterStrip";
 import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 import { useI18n } from "@/lib/i18n";
-import { mapboxStyleUrl, makeMapboxTransformRequest } from "./mapboxFallback";
+import { loadMapboxStyle, makeMapboxTransformRequest } from "./mapboxFallback";
 import { useMapViewport } from "./useMapViewport";
 import { paletteFor, retintFor } from "./mapPalette";
 
@@ -232,7 +233,7 @@ export default function MapView() {
   const [selected, setSelected] = useState<Selected>(null);
 
   const hasMapboxFallback = !!config.mapboxToken;
-  const [mapStyle, setMapStyle] = useState(FREE_MAP_STYLE);
+  const [mapStyle, setMapStyle] = useState<string | StyleSpecification>(FREE_MAP_STYLE);
   const [usingMapbox, setUsingMapbox] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const styleLoadedRef = useRef(false);
@@ -276,8 +277,14 @@ export default function MapView() {
       if (import.meta.env.DEV) {
         console.warn(`[MapView] OpenFreeMap hadn't loaded in ${FALLBACK_TIMEOUT_MS / 1000}s — falling back to Mapbox.`);
       }
-      setMapStyle(mapboxStyleUrl(config.mapboxToken));
-      setUsingMapbox(true);
+      loadMapboxStyle(config.mapboxToken)
+        .then((style) => {
+          if (styleLoadedRef.current) return; // the free map arrived while Mapbox's style was downloading
+          setMapStyle(style);
+          setUsingMapbox(true);
+        })
+        // Mapbox unreachable as well: stay on the free map, which may still arrive.
+        .catch(() => {});
     }, FALLBACK_TIMEOUT_MS);
     return () => {
       if (fallbackTimerRef.current) window.clearTimeout(fallbackTimerRef.current);

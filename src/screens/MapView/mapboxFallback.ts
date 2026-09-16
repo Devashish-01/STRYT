@@ -1,7 +1,23 @@
-import type { RequestParameters, RequestTransformFunction } from "maplibre-gl";
+import type { RequestParameters, RequestTransformFunction, StyleSpecification } from "maplibre-gl";
 
 export function mapboxStyleUrl(token: string): string {
   return `https://api.mapbox.com/styles/v1/mapbox/light-v11?access_token=${token}`;
+}
+
+/**
+ * Mapbox's hosted style, made loadable by maplibre-gl. It ships
+ * `projection: { name: "globe" }` — Mapbox GL's spelling; maplibre's is
+ * `{ type }` — and maplibre validates a style before drawing it and draws
+ * nothing when validation fails. Passing the URL straight to the map therefore
+ * left the fallback blank. Dropping the key keeps maplibre's default flat
+ * projection, which is what this map uses anyway (maxPitch 0, north-up).
+ */
+export async function loadMapboxStyle(token: string): Promise<StyleSpecification> {
+  const res = await fetch(mapboxStyleUrl(token));
+  if (!res.ok) throw new Error(`Mapbox style request failed (${res.status})`);
+  const style = (await res.json()) as StyleSpecification & { projection?: unknown };
+  delete style.projection;
+  return style;
 }
 
 function appendToken(url: string, token: string): string {
@@ -31,7 +47,12 @@ export function makeMapboxTransformRequest(token: string): RequestTransformFunct
       return { url: appendToken(url.replace("mapbox://fonts/", "https://api.mapbox.com/fonts/v1/"), token) };
     }
     if (url.startsWith("mapbox://sprites/")) {
-      return { url: appendToken(url.replace("mapbox://sprites/", "https://api.mapbox.com/styles/v1/"), token) };
+      // maplibre-gl has already appended the sprite suffix ("@2x.json", ".png") by the time the URL reaches this hook;
+      // Mapbox serves sprites one path segment deeper, as ".../light-v11/sprite@2x.json".
+      const path = url
+        .replace("mapbox://sprites/", "https://api.mapbox.com/styles/v1/")
+        .replace(/(@2x)?\.(json|png)$/, "/sprite$1.$2");
+      return { url: appendToken(path, token) };
     }
     if (url.startsWith("mapbox://styles/")) {
       return { url: appendToken(url.replace("mapbox://styles/", "https://api.mapbox.com/styles/v1/"), token) };
