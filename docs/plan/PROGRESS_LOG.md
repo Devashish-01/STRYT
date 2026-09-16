@@ -12,7 +12,9 @@ Plan: `docs/plan/README.md` and `docs/plan/phases/P00…P15`. Rules: `docs/plan/
 | **P07 E2E suite** | Full run #1 green: **134 passed, 0 failed** (with reseed, 9.8 min). 17 critical journeys (queue console added); breadth spec 103 screens; `tests/e2e/COVERAGE.md` maps all 52 flows. Left: action specs for screen-only flows, 2 more consecutive green full runs, P07 report. |
 | **P08 gap ledger** | **Done.** 488 rows, **0 unverified, 0 open**: 430 FIXED, 49 DEFERRED (v1.1, decision D17), 9 DECISION. Every domain verified against the code and, where it mattered, against the live database. |
 | **P09 fixes** | 430 FIXED (app + 16 DB migrations on staging), 0 OPEN. |
-| P10–P12 | Not started |
+| **P10 i18n** | P10.A done: translation parity test, CI ratchet on hardcoded strings (`npm run check-strings`, 1775 left, limit 1805), shared cards translated, 22 card keys queued for native review (`docs/i18n/REVIEW_QUEUE.md`). Left: convert the remaining strings in batches. |
+| **P11 performance/deps** | P11.A: no high/critical advisory in shipped code (maplibre-gl 6, react-map-gl 8.1.3). P11.B: guest /home first load 2136 KB → ~1590 KB (JS 1924 → 1378 KB) — Firebase and Leaflet load only when used, each device downloads only its language. Left: P11 report, Lighthouse on a deployed preview. |
+| P12 | Not started |
 | P13–P15 | Owner-led |
 
 All work is committed on `phase/07-e2e` (local; push refused by the tool — owner to push).
@@ -32,6 +34,10 @@ All work is committed on `phase/07-e2e` (local; push refused by the tool — own
 3. Decisions: **E2E-028** restore or retire "Me too"; **E2E-037** what "Take action" does for reported reviews/users.
 4. `ci_readonly` login + `DRIFT_DATABASE_URL` secret; Sentry, Play Console, lawyer, testers, devices (P13–P15).
 5. Migrate existing base64 image rows to storage (E2E-015 follow-up, production writes).
+6. On a real phone after release: **Google sign-in** (Firebase now loads only when it is used) and **the map screen**
+   (maplibre-gl 6 — basemap, pan/zoom, the pin-drop location picker). Both are proven on the staging build in a
+   desktop browser; neither has device coverage.
+7. Decision **D17** (the v1.1 deferrals list in `docs/plan/DECISIONS.md`) and native Hindi/Marathi review (D9).
 
 ### Bugs found (see `docs/gaps/GAP_LEDGER.csv` for evidence)
 
@@ -127,3 +133,19 @@ lost its form, E2E-039 campaigns never closed.
   and 77 form labels weren't tied to their fields (new audit `scripts/audit/label-association.mjs`, now 0).
   Full run #3 caught three specs that my own changes had invalidated (search is a searchbox now; the review sheet is
   titled "Edit your review" when one exists) — fixed, and the suite re-run.
+- 2026-09-16 — P10.A: `src/lib/i18n.parity.test.ts` (same keys, no blanks, matching placeholders in en/hi/mr) and
+  `scripts/check-hardcoded-strings.mjs` wired into `npm run lint` as a ratchet; shared feed/result cards translated.
+- 2026-09-16 — P11.A (4073960): maplibre-gl 5 → 6 (critical XSS advisory in 5.x), transitive highs fixed, unused
+  `lucide-react` removed. Remaining advisories: react-router-dom (moderate, needs v7) and vite/vitest (dev-only).
+- 2026-09-16 — P11.B (4b70f33, cbf0f10): Firebase is imported only when Google sign-in is used (and its redirect check
+  only runs when a redirect is pending); the Vite `manualChunks` rules that pinned Firebase and Leaflet into every
+  page load were removed; translations split into `src/lib/i18n/{en,hi,mr}.ts` with Hindi/Marathi loaded on demand
+  before the first render (`src/lib/i18n/runtime.ts`). Probe: English loads no language chunk, Hindi/Marathi load
+  only their own and paint Devanagari on first render.
+- 2026-09-16 — **Map fix (d7f9636).** The maplibre-gl 6 upgrade had left the map blank under its pins: the tile
+  worker wasn't in the build (fixed with `src/screens/MapView/maplibreWorker.ts`), react-map-gl 8.1.1 crashed on
+  camera events (→ 8.1.3), and the Mapbox fallback never rendered (style rejected by maplibre's validator; sprite
+  URLs 404'd — both fixed). New spec `critical/map-basemap` waits for a real vector tile and fails when the worker is
+  blocked. Breadth + onboarding + map specs 106/106, unit 645/645, lint clean (ESLint back to the 30-warning budget).
+  Note for runs on this machine: free RAM is very low with the local databases/IDEs open — one run died with
+  `VirtualAlloc failed`, another with DNS drops; use `--workers 1–2`.
