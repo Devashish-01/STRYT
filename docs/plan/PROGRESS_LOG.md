@@ -12,7 +12,7 @@ Plan: `docs/plan/README.md` and `docs/plan/phases/P00…P15`. Rules: `docs/plan/
 | **P07 E2E suite** | Full run #1 green: **134 passed, 0 failed** (with reseed, 9.8 min). 17 critical journeys (queue console added); breadth spec 103 screens; `tests/e2e/COVERAGE.md` maps all 52 flows. Left: action specs for screen-only flows, 2 more consecutive green full runs, P07 report. |
 | **P08 gap ledger** | **Done.** 488 rows, **0 unverified, 0 open**: 430 FIXED, 49 DEFERRED (v1.1, decision D17), 9 DECISION. Every domain verified against the code and, where it mattered, against the live database. |
 | **P09 fixes** | 430 FIXED (app + 16 DB migrations on staging), 0 OPEN. |
-| **P10 i18n** | P10.A done: translation parity test, CI ratchet on hardcoded strings (`npm run check-strings`, 1775 left, limit 1805), shared cards translated, 22 card keys queued for native review (`docs/i18n/REVIEW_QUEUE.md`). Left: convert the remaining strings in batches. |
+| **P10 i18n** | P10.A done. P10.B under way: **1744 → 1414** strings (`npm run check-strings` is the ratchet, lowered with each batch). Converted so far: community post detail, community composer, business settings, team & access (plus the shared scope labels), the shop dashboard and the listing flow. Every draft is queued for native review in `docs/i18n/REVIEW_QUEUE.md`. Left: the rest, biggest first (`--by-file`), then D9 review and `--max 0`. |
 | **P11 performance/deps** | P11.A: no high/critical advisory in shipped code (maplibre-gl 6, react-map-gl 8.1.3). P11.B: guest /home first load 2136 KB → 1605 KB (JS 1924 → 1377 KB), measured on the staging build — Firebase and Leaflet load only when used, each device downloads only its language. Left: P11 report, Lighthouse on a deployed preview. |
 | P12 | Not started |
 | P13–P15 | Owner-led |
@@ -149,3 +149,14 @@ lost its form, E2E-039 campaigns never closed.
   blocked. Breadth + onboarding + map specs 106/106, unit 645/645, lint clean (ESLint back to the 30-warning budget).
   Note for runs on this machine: free RAM is very low with the local databases/IDEs open — one run died with
   `VirtualAlloc failed`, another with DNS drops; use `--workers 1–2`.
+- 2026-09-17 — P11.D applied on staging (`20260989`): nine RLS policies now evaluate `auth.uid()` once per statement
+  and the four unindexed foreign keys have covering indexes; the staging advisor's `auth_rls_initplan` and
+  `unindexed_foreign_keys` both fell to 0. Production waits for the owner (APPLY_LOG).
+- 2026-09-17 — P10.B began, biggest screens first: 330 strings converted across six screens and the shared scope
+  labels (`SCOPE_LABEL_KEYS`). The checker itself was wrong three ways — it read generic type parameters and JSX
+  ternaries as screen text (39 findings that nobody could translate), and it never looked at `hint`, `subtitle`,
+  `description`, `caption` or `text` props, which hid 84 real strings. Both fixed, so the count is now honest.
+- 2026-09-17 — Full E2E run on the current code: **133 passed, 4 failed**, all four re-run green in isolation on a
+  fresh seed. They were machine-load flakes (that run took 20.9 min against the usual ~10; this machine has under a
+  gigabyte of free RAM with the local databases and IDEs open). Use `--workers 1` here, and don't apply a migration
+  while a run is in flight — doing so is what broke the run before it.
