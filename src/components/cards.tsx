@@ -4,6 +4,7 @@ import { Heart, MapPin, Clock, BadgeCheck, Zap, Eye, Users, Flame, Repeat, Messa
 import type { Business, Provider, RequestPost, CommunityPost, CommunityPostType, BookmarkTarget } from "@/types";
 import { Rating, inr, SafeImg } from "./common";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { displayName as safeName } from "@/lib/publicName";
 import { distanceLabel } from "@/lib/format";
@@ -32,6 +33,7 @@ import ReportSheet from "./ReportSheet";
 /* ---------------- Business cards ---------------- */
 
 export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: Business; style?: CSSProperties; entranceClass?: string }) {
+  const { t } = useI18n();
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark, isGuest } = useApp();
   const saved = isBookmarked("BUSINESS", b.id);
@@ -58,7 +60,7 @@ export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: B
               {b.isVerified && <BadgeCheck size={15} color="var(--brand-600)" fill="var(--brand-100)" />}
               {/* Paid-placement transparency: users must be able to tell boosted results apart. */}
               {b.isNew && <span className="badge badge-new" style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }}>NEW</span>}
-              {b.isBoosted && <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }}>Promoted</span>}
+              {b.isBoosted && <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px", flexShrink: 0 }}>{t("card_promoted_badge")}</span>}
             </div>
             <div className="row gap-6 center-v" style={{ flexShrink: 0 }}>
               <Rating value={b.ratingAvg} />
@@ -76,7 +78,7 @@ export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: B
                     haptics.selection();
                     toggleBookmark("BUSINESS", b.id);
                   }}
-                  aria-label="Save"
+                  aria-label={t("card_save_aria")}
                 >
                   <Heart size={14} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
                 </button>
@@ -105,6 +107,7 @@ export function BusinessCardWide({ b, style, entranceClass = "fade-up" }: { b: B
 }
 
 export function BusinessCardSmall({ b, style, entranceClass = "fade-up" }: { b: Business; style?: CSSProperties; entranceClass?: string }) {
+  const { t } = useI18n();
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark, isGuest } = useApp();
   const saved = isBookmarked("BUSINESS", b.id);
@@ -143,7 +146,7 @@ export function BusinessCardSmall({ b, style, entranceClass = "fade-up" }: { b: 
               haptics.selection();
               toggleBookmark("BUSINESS", b.id);
             }}
-            aria-label="Save"
+            aria-label={t("card_save_aria")}
           >
             <Heart size={14} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
           </button>
@@ -151,7 +154,7 @@ export function BusinessCardSmall({ b, style, entranceClass = "fade-up" }: { b: 
         {(b.isNew || b.isBoosted) && (
           <div className="card-badge-stack" style={{ top: 8, left: 8, gap: "var(--space-xxs)" }}>
             {b.isNew && <span className="badge badge-new" style={{ fontSize: 10 }}>NEW</span>}
-            {b.isBoosted && <span className="badge badge-amber" style={{ fontSize: 10 }}>Promoted</span>}
+            {b.isBoosted && <span className="badge badge-amber" style={{ fontSize: 10 }}>{t("card_promoted_badge")}</span>}
           </div>
         )}
       </div>
@@ -174,6 +177,7 @@ export function BusinessCardSmall({ b, style, entranceClass = "fade-up" }: { b: 
 /* ---------------- Provider card ---------------- */
 
 export function ProviderCard({ p, style, entranceClass = "fade-up" }: { p: Provider; style?: CSSProperties; entranceClass?: string }) {
+  const { t } = useI18n();
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark, isGuest } = useApp();
   const saved = isBookmarked("PROVIDER", p.id);
@@ -227,7 +231,7 @@ export function ProviderCard({ p, style, entranceClass = "fade-up" }: { p: Provi
                     haptics.selection();
                     toggleBookmark("PROVIDER", p.id);
                   }}
-                  aria-label="Save"
+                  aria-label={t("card_save_aria")}
                 >
                   <Heart size={14} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
                 </button>
@@ -252,6 +256,7 @@ export function ProviderCard({ p, style, entranceClass = "fade-up" }: { p: Provi
 }
 
 export function ProviderCardSmall({ p, style, entranceClass = "fade-up" }: { p: Provider; style?: CSSProperties; entranceClass?: string }) {
+  const { t } = useI18n();
   const nav = useNavigate();
   const { isBookmarked, toggleBookmark, isGuest } = useApp();
   const saved = isBookmarked("PROVIDER", p.id);
@@ -283,7 +288,7 @@ export function ProviderCardSmall({ p, style, entranceClass = "fade-up" }: { p: 
             haptics.selection();
             toggleBookmark("PROVIDER", p.id);
           }}
-          aria-label="Save"
+          aria-label={t("card_save_aria")}
         >
           <Heart size={13} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
         </button>
@@ -331,6 +336,7 @@ function expiryLabel(expiresAt?: string | null): string | null {
 }
 
 export function RequestCard({ r, style }: { r: RequestPost; style?: CSSProperties }) {
+  const { t } = useI18n();
   const nav = useNavigate();
   const { meToos } = useApp();
   const expiry = r.status === "OPEN" ? expiryLabel(r.expiresAt) : null;
@@ -364,10 +370,10 @@ export function RequestCard({ r, style }: { r: RequestPost; style?: CSSPropertie
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="row wrap gap-6" style={{ marginBottom: 4 }}>
             {statusBadge && <span className={`badge ${statusBadge.cls}`}>{statusBadge.label}</span>}
-            {isOpen && r.isUrgent && <span className="badge badge-red"><Flame size={11} /> Urgent</span>}
-            {isOpen && r.isBoosted && <span className="badge badge-amber"><Zap size={11} /> Boosted</span>}
+            {isOpen && r.isUrgent && <span className="badge badge-red"><Flame size={11} /> {t("urgent_badge")}</span>}
+            {isOpen && r.isBoosted && <span className="badge badge-amber"><Zap size={11} /> {t("boosted_badge")}</span>}
 
-            {r.isRecurring && <span className="badge badge-blue"><Repeat size={11} /> Recurring</span>}
+            {r.isRecurring && <span className="badge badge-blue"><Repeat size={11} /> {t("recurring_badge")}</span>}
             <span className="badge badge-purple">{r.categoryName}</span>
             {r.subCategory && <span className="badge badge-gray">{r.subCategory}</span>}
             {expiry && <span className="badge badge-amber">⏳ {expiry}</span>}
@@ -385,7 +391,7 @@ export function RequestCard({ r, style }: { r: RequestPost; style?: CSSPropertie
 
       <div className="row between">
         <div className="col" style={{ gap: 2 }}>
-          <span className="tiny muted">Budget</span>
+          <span className="tiny muted">{t("card_budget_label")}</span>
           <span className="bold tabular-nums" style={{ color: "var(--green-500)" }}>{budget}</span>
         </div>
         {GROUP_BUY_PROGRESS_ENABLED && !isOpen && meTooCount > 0 && (
@@ -419,6 +425,7 @@ export function RequestCard({ r, style }: { r: RequestPost; style?: CSSPropertie
  * like/save/share controls.
  */
 export function PostSummaryRow({ post, onClick }: { post: CommunityPost; onClick: () => void }) {
+  const { t } = useI18n();
   const M = COMMUNITY_TYPE_META[post.type];
   const media = postMedia(post);
   const sev = post.type === "ALERT" && post.severity ? severityMeta(post.severity) : null;
@@ -468,6 +475,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
   onHide?: (postId: string) => void;
   onMute?: (authorId: string, authorName: string) => void;
 }) {
+  const { t } = useI18n();
   const nav = useNavigate();
   const { votes, votePoll, user, showToast, isGuest } = useApp();
   const [recommendOpen, setRecommendOpen] = useState(false);
@@ -551,7 +559,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
     if (next) setBurst((n) => n + 1);
     communityService.like(post.id, liked).catch(() => {
       setLikeOverride(liked); // revert so the UI never lies
-      showToast("Couldn't update like — try again");
+      showToast(t("card_like_failed"));
     });
   }
 
@@ -580,7 +588,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
     }
 
     if (isGuest) {
-      showToast("Sign in to like posts");
+      showToast(t("card_sign_in_to_like"));
       return;
     }
     // Never unlikes — see doubleTapAction. Replays the burst instead, so the
@@ -699,7 +707,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
         {!isGuest && (
           <button
             className="icon-btn"
-            aria-label="More options"
+            aria-label={t("card_more_options")}
             style={{ position: "absolute", top: 12, right: 12, width: 30, height: 30, color: "var(--ink-500)" }}
             onClick={(e) => { e.stopPropagation(); setMenuOpen(true); }}
           >
@@ -942,7 +950,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
               className="row gap-6 small semi"
               style={{ color: "var(--ink-600)", background: "var(--ink-50)", padding: "6px 12px", borderRadius: 12, fontSize: 13, border: "none", cursor: "pointer" }}
               onClick={() => setSharing(true)}
-              aria-label="Share this post"
+              aria-label={t("card_share_post")}
             >
               <Share2 size={16} color="var(--ink-600)" />
             </button>
@@ -983,7 +991,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
         <div className="overlay" onClick={() => (deleting ? null : setDeleteConfirm(false))}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
-            <h2 className="h2" style={{ marginBottom: 6 }}>Delete this post?</h2>
+            <h2 className="h2" style={{ marginBottom: 6 }}>{t("card_delete_post_q")}</h2>
             <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
               This removes it and its comments for everyone. This can't be undone.
             </p>
@@ -996,7 +1004,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
                   setDeleting(true);
                   try {
                     await communityService.delete(post.id);
-                    showToast("Post deleted");
+                    showToast(t("card_post_deleted"));
                     setDeleteConfirm(false);
                     // The row has to leave the feed now — onHide drops it
                     // locally for feeds that track hidden ids, onRefetch for
@@ -1012,7 +1020,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
               >
                 {deleting ? "Deleting…" : "Yes, delete"}
               </button>
-              <button className="btn btn-ghost btn-block" disabled={deleting} onClick={() => setDeleteConfirm(false)}>Keep post</button>
+              <button className="btn btn-ghost btn-block" disabled={deleting} onClick={() => setDeleteConfirm(false)}>{t("card_keep_post")}</button>
             </div>
           </div>
         </div>
@@ -1020,7 +1028,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
 
       {menuOpen && (
         <div className="overlay" onClick={() => setMenuOpen(false)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Post options">
+          <div className="sheet" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={t("card_post_options")}>
             <div className="sheet-grab" />
             <div className="col gap-8">
               <button
@@ -1032,7 +1040,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
               </button>
               <button className="action-row" onClick={() => { setMenuOpen(false); setSharing(true); }}>
                 <Share2 size={18} color="var(--ink-700)" />
-                <span className="semi small grow" style={{ textAlign: "left" }}>Share</span>
+                <span className="semi small grow" style={{ textAlign: "left" }}>{t("card_share")}</span>
               </button>
               {isPostAuthor && (
                 <>
@@ -1045,7 +1053,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
                     onClick={() => { setMenuOpen(false); nav(`/community/${post.id}`, { state: { post, openEdit: true } }); }}
                   >
                     <Pencil size={18} color="var(--ink-700)" />
-                    <span className="semi small grow" style={{ textAlign: "left" }}>Edit post</span>
+                    <span className="semi small grow" style={{ textAlign: "left" }}>{t("card_edit_post")}</span>
                   </button>
                   {canMarkResolved && (
                     <button
@@ -1074,7 +1082,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
                   )}
                   <button className="action-row" onClick={() => { setMenuOpen(false); setDeleteConfirm(true); }}>
                     <Trash2 size={18} color="var(--red-500)" />
-                    <span className="semi small grow" style={{ textAlign: "left", color: "var(--red-600)" }}>Delete post</span>
+                    <span className="semi small grow" style={{ textAlign: "left", color: "var(--red-600)" }}>{t("card_delete_post")}</span>
                   </button>
                 </>
               )}
@@ -1087,11 +1095,11 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
                     onClick={() => {
                       setMenuOpen(false);
                       onHide?.(post.id);
-                      showToast("Hidden from your feed");
+                      showToast(t("card_post_hidden"));
                     }}
                   >
                     <EyeOff size={18} color="var(--ink-700)" />
-                    <span className="semi small grow" style={{ textAlign: "left" }}>Hide this post</span>
+                    <span className="semi small grow" style={{ textAlign: "left" }}>{t("card_hide_post")}</span>
                   </button>
                   {muteTargetId(post) && (
                     <button
@@ -1108,7 +1116,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
                   )}
                   <button className="action-row" onClick={() => { setMenuOpen(false); setReporting(true); }}>
                     <Flag size={18} color="var(--red-500)" />
-                    <span className="semi small grow" style={{ textAlign: "left", color: "var(--red-600)" }}>Report post</span>
+                    <span className="semi small grow" style={{ textAlign: "left", color: "var(--red-600)" }}>{t("card_report_post")}</span>
                   </button>
                 </>
               )}
