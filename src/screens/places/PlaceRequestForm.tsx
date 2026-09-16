@@ -110,8 +110,8 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
   const form = (
     <div className="col gap-16">
       <div>
-        <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Name</label>
-        <input className="input" placeholder="e.g. Sunset Point, Panchgani" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
+        <label htmlFor="placerequestform-name" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Name</label>
+        <input id="placerequestform-name" className="input" placeholder="e.g. Sunset Point, Panchgani" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
       </div>
 
       <div>
@@ -135,8 +135,8 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
       </div>
 
       <div>
-        <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Description (optional)</label>
-        <textarea
+        <label htmlFor="placerequestform-description-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Description (optional)</label>
+        <textarea id="placerequestform-description-optional"
           className="input"
           style={{ minHeight: 80, resize: "vertical" }}
           placeholder="What makes this place worth visiting?"
@@ -147,8 +147,8 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
       </div>
 
       <div>
-        <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Address (optional)</label>
-        <input className="input" placeholder="Nearest landmark or road" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} maxLength={200} />
+        <label htmlFor="placerequestform-address-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Address (optional)</label>
+        <input id="placerequestform-address-optional" className="input" placeholder="Nearest landmark or road" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} maxLength={200} />
       </div>
 
       <div>
@@ -195,23 +195,23 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
           <div className="col gap-14" style={{ marginTop: 12 }}>
             <div className="row gap-10">
               <div className="grow">
-                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Best time to visit</label>
-                <input className="input" placeholder="e.g. Oct-Feb, early morning" value={bestTimeToVisit} onChange={(e) => setBestTimeToVisit(e.target.value)} maxLength={150} />
+                <label htmlFor="placerequestform-best-time-to-visit" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Best time to visit</label>
+                <input id="placerequestform-best-time-to-visit" className="input" placeholder="e.g. Oct-Feb, early morning" value={bestTimeToVisit} onChange={(e) => setBestTimeToVisit(e.target.value)} maxLength={150} />
               </div>
               <div className="grow">
-                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Entry fee</label>
-                <input className="input" placeholder="Free, or ₹20 per person" value={entryFee} onChange={(e) => setEntryFee(e.target.value)} maxLength={100} />
+                <label htmlFor="placerequestform-entry-fee" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Entry fee</label>
+                <input id="placerequestform-entry-fee" className="input" placeholder="Free, or ₹20 per person" value={entryFee} onChange={(e) => setEntryFee(e.target.value)} maxLength={100} />
               </div>
             </div>
 
             <div className="row gap-10">
               <div className="grow">
-                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Hours</label>
-                <input className="input" placeholder="e.g. 6 AM - 7 PM" value={openingHours} onChange={(e) => setOpeningHours(e.target.value)} maxLength={100} />
+                <label htmlFor="placerequestform-hours" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Hours</label>
+                <input id="placerequestform-hours" className="input" placeholder="e.g. 6 AM - 7 PM" value={openingHours} onChange={(e) => setOpeningHours(e.target.value)} maxLength={100} />
               </div>
               <div className="grow">
-                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Typical visit length</label>
-                <input className="input" placeholder="e.g. 1-2 hours" value={visitDuration} onChange={(e) => setVisitDuration(e.target.value)} maxLength={100} />
+                <label htmlFor="placerequestform-typical-visit-length" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Typical visit length</label>
+                <input id="placerequestform-typical-visit-length" className="input" placeholder="e.g. 1-2 hours" value={visitDuration} onChange={(e) => setVisitDuration(e.target.value)} maxLength={100} />
               </div>
             </div>
 
@@ -232,24 +232,24 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
             </div>
 
             <div>
-              <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>How to reach</label>
-              <input className="input" placeholder="e.g. Own vehicle recommended, last 2km unpaved" value={howToReach} onChange={(e) => setHowToReach(e.target.value)} maxLength={300} />
+              <label htmlFor="placerequestform-how-to-reach" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>How to reach</label>
+              <input id="placerequestform-how-to-reach" className="input" placeholder="e.g. Own vehicle recommended, last 2km unpaved" value={howToReach} onChange={(e) => setHowToReach(e.target.value)} maxLength={300} />
             </div>
 
             <div className="row gap-10">
               <div className="grow">
-                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Parking</label>
-                <input className="input" placeholder="e.g. Free parking near entrance" value={parkingInfo} onChange={(e) => setParkingInfo(e.target.value)} maxLength={150} />
+                <label htmlFor="placerequestform-parking" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Parking</label>
+                <input id="placerequestform-parking" className="input" placeholder="e.g. Free parking near entrance" value={parkingInfo} onChange={(e) => setParkingInfo(e.target.value)} maxLength={150} />
               </div>
               <div style={{ width: 120 }}>
-                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Distance (km)</label>
-                <input className="input" inputMode="decimal" placeholder="35" value={distanceFromCityKm} onChange={(e) => setDistanceFromCityKm(e.target.value.replace(/[^0-9.]/g, ""))} />
+                <label htmlFor="placerequestform-distance-km" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Distance (km)</label>
+                <input id="placerequestform-distance-km" className="input" inputMode="decimal" placeholder="35" value={distanceFromCityKm} onChange={(e) => setDistanceFromCityKm(e.target.value.replace(/[^0-9.]/g, ""))} />
               </div>
             </div>
 
             <div>
-              <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Safety tips</label>
-              <textarea
+              <label htmlFor="placerequestform-safety-tips" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Safety tips</label>
+              <textarea id="placerequestform-safety-tips"
                 className="input"
                 style={{ minHeight: 60, resize: "vertical" }}
                 placeholder="Real precautions — e.g. avoid swimming near the falls during monsoon"
@@ -260,8 +260,8 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
             </div>
 
             <div>
-              <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Weather note</label>
-              <input className="input" placeholder="e.g. Dries up outside monsoon season" value={weatherNote} onChange={(e) => setWeatherNote(e.target.value)} maxLength={200} />
+              <label htmlFor="placerequestform-weather-note" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Weather note</label>
+              <input id="placerequestform-weather-note" className="input" placeholder="e.g. Dries up outside monsoon season" value={weatherNote} onChange={(e) => setWeatherNote(e.target.value)} maxLength={200} />
             </div>
           </div>
         )}

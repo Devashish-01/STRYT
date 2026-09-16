@@ -99,8 +99,8 @@ export default function BusinessLogin() {
         </div>
 
         <div className="field">
-          <label>Login id</label>
-          <input
+          <label htmlFor="businesslogin-login-id">Login id</label>
+          <input id="businesslogin-login-id"
             className="input"
             value={loginId}
             autoCapitalize="none"
@@ -111,8 +111,8 @@ export default function BusinessLogin() {
         </div>
 
         <div className="field">
-          <label>Password</label>
-          <input
+          <label htmlFor="businesslogin-password">Password</label>
+          <input id="businesslogin-password"
             className="input"
             type="password"
             value={password}

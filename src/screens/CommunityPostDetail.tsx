@@ -152,12 +152,12 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
         <h3 className="bold h2" style={{ marginBottom: 14 }}>Edit post</h3>
         <div className="col gap-12">
           <div className="field">
-            <label>Title *</label>
-            <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} />
+            <label htmlFor="communitypostdetail-title">Title *</label>
+            <input id="communitypostdetail-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} />
           </div>
           <div className="field">
-            <label>Details</label>
-            <textarea className="input" value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} />
+            <label htmlFor="communitypostdetail-details">Details</label>
+            <textarea id="communitypostdetail-details" className="input" value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} />
           </div>
           <div className="field">
             <label className="row between">
@@ -203,9 +203,9 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
               an author shouldn't have to relearn the form to correct it. */}
           {showLostFound && (
             <div className="field">
-              <label>Where & reward</label>
+              <label htmlFor="communitypostdetail-where-reward">Where & reward</label>
               <div className="col gap-10">
-                <input
+                <input id="communitypostdetail-where-reward"
                   className="input"
                   placeholder="Last seen near… (e.g. the park gate)"
                   aria-label="Last seen location"
@@ -227,8 +227,8 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
 
           {showGiveaway && (
             <div className="field">
-              <label>Pickup</label>
-              <input
+              <label htmlFor="communitypostdetail-pickup">Pickup</label>
+              <input id="communitypostdetail-pickup"
                 className="input"
                 placeholder="When & how to collect (e.g. evenings after 6)"
                 aria-label="Pickup details"

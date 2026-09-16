@@ -203,16 +203,16 @@ function QuoteTemplatesManager({ providerId, showToast }: { providerId: string; 
       ) : (
         <div className="card col gap-10" style={{ padding: 14 }}>
           <div className="field">
-            <label className="tiny semi muted">Title</label>
-            <input className="input" placeholder="e.g. Standard AC service" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <label htmlFor="providerfindwork-title" className="tiny semi muted">Title</label>
+            <input id="providerfindwork-title" className="input" placeholder="e.g. Standard AC service" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="field">
-            <label className="tiny semi muted">Message</label>
-            <textarea className="input" rows={3} placeholder="e.g. Includes full servicing, gas top-up check and a 15-day warranty." value={body} onChange={(e) => setBody(e.target.value)} />
+            <label htmlFor="providerfindwork-message" className="tiny semi muted">Message</label>
+            <textarea id="providerfindwork-message" className="input" rows={3} placeholder="e.g. Includes full servicing, gas top-up check and a 15-day warranty." value={body} onChange={(e) => setBody(e.target.value)} />
           </div>
           <div className="field">
-            <label className="tiny semi muted">Quote (₹, optional)</label>
-            <input className="input" inputMode="numeric" placeholder="e.g. 499" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
+            <label htmlFor="providerfindwork-quote-optional" className="tiny semi muted">Quote (₹, optional)</label>
+            <input id="providerfindwork-quote-optional" className="input" inputMode="numeric" placeholder="e.g. 499" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
           </div>
           <div className="row gap-8 end">
             <button className="btn btn-ghost btn-sm" onClick={() => { setAdding(false); setTitle(""); setBody(""); setPrice(""); }}>Cancel</button>

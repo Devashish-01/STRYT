@@ -135,8 +135,8 @@ export function PaymentMethodPanel({
           )}
 
           <div>
-            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>UPI transaction ID (optional)</label>
-            <input
+            <label htmlFor="paymentmethodpanel-upi-transaction-id-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>UPI transaction ID (optional)</label>
+            <input id="paymentmethodpanel-upi-transaction-id-optional"
               className="input"
               placeholder="e.g. 423187654321"
               value={reference}

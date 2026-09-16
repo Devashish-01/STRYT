@@ -286,8 +286,8 @@ export default function WeeklyHoursEditor({ initialRaw, onChange }: Props) {
       {/* Slot duration & max appointments */}
       <div className="row gap-12">
         <div className="field grow">
-          <label className="tiny semi muted">Appointment Slot Duration</label>
-          <select
+          <label htmlFor="weeklyhourseditor-appointment-slot-duration" className="tiny semi muted">Appointment Slot Duration</label>
+          <select id="weeklyhourseditor-appointment-slot-duration"
             className="input"
             value={w.slotDurationMin}
             onChange={(e) => commit({ ...w, slotDurationMin: Number(e.target.value) })}

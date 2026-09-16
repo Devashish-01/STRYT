@@ -57,6 +57,18 @@ export default function LiveLocationCard({ shareId, endedHint }: { shareId: stri
     mapRef.current.setView([view.lat, view.lng]);
   }, [view, ended]);
 
+  // Leaflet holds the DOM node, so leaving this screen while a share is still live used to leave the map attached —
+  // the next mount threw "Map container is already initialized" (LOC-9). Unmount tears it down whatever the state.
+  useEffect(() => {
+    return () => {
+      markerRef.current = null;
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
   // Tear the map down when the share ends.
   useEffect(() => {
     if (ended && mapRef.current) {

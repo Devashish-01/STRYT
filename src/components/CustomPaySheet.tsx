@@ -63,8 +63,8 @@ export function CustomPaySheet({ targetType, targetId, targetName, targetUpiId, 
         </div>
 
         <div style={{ marginBottom: "var(--space-sm)" }}>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Amount (₹)</label>
-          <input
+          <label htmlFor="custompaysheet-amount" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Amount (₹)</label>
+          <input id="custompaysheet-amount"
             className="input"
             inputMode="decimal"
             placeholder="Enter amount"
@@ -74,8 +74,8 @@ export function CustomPaySheet({ targetType, targetId, targetName, targetUpiId, 
         </div>
 
         <div style={{ marginBottom: "var(--space-md)" }}>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>What's this for? (optional)</label>
-          <input
+          <label htmlFor="custompaysheet-what-s-this-for-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>What's this for? (optional)</label>
+          <input id="custompaysheet-what-s-this-for-optional"
             className="input"
             placeholder="e.g. Extra service, tip, deposit"
             value={note}

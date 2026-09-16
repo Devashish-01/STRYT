@@ -91,6 +91,8 @@ export const locationService = {
       .select("id, owner_user_id, requester_user_id, status, created_at, updated_at, expires_at, requester:users!requester_user_id(name, avatar)")
       .eq("owner_user_id", uid)
       .eq("status", "APPROVED")
+      // An approved grant that has run out is history, not an active share (LOC-6).
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order("updated_at", { ascending: false });
     if (error) return [];
     return (data ?? []).map((r: any) => ({

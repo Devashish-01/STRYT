@@ -317,8 +317,8 @@ export default function ProviderOnboard() {
         {step === 0 && (
           <>
             <div className="field">
-              <label>Your professional name *</label>
-              <input
+              <label htmlFor="provideronboard-your-professional-name">Your professional name *</label>
+              <input id="provideronboard-your-professional-name"
                 className="input"
                 placeholder="e.g. Ramesh Plumbing Works, Priya Makeup Studio"
                 value={displayName}
@@ -338,10 +338,10 @@ export default function ProviderOnboard() {
               </div>
             </div>
             <div className="field">
-              <label>Don't see your skill? Propose a new category</label>
+              <label htmlFor="provideronboard-don-t-see-your-skill-propose-a-new-categ">Don't see your skill? Propose a new category</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <Plus size={16} color="var(--ink-400)" />
-                <input className="input" style={{ border: "none" }} placeholder="e.g. Drone pilot" value={newCat} onChange={(e) => { setNewCat(e.target.value); setCat(null); }} />
+                <input id="provideronboard-don-t-see-your-skill-propose-a-new-categ" className="input" style={{ border: "none" }} placeholder="e.g. Drone pilot" value={newCat} onChange={(e) => { setNewCat(e.target.value); setCat(null); }} />
               </div>
               {newCat && <span className="tiny muted">New categories are reviewed by our team before going live.</span>}
             </div>
@@ -361,14 +361,14 @@ export default function ProviderOnboard() {
               onError={(msg) => showToast(msg)}
             />
             <div className="field">
-              <label>Short bio *</label>
-              <textarea className="input" placeholder="What you do, your experience, what makes you reliable…" value={bio} onChange={(e) => setBio(e.target.value)} />
+              <label htmlFor="provideronboard-short-bio">Short bio *</label>
+              <textarea id="provideronboard-short-bio" className="input" placeholder="What you do, your experience, what makes you reliable…" value={bio} onChange={(e) => setBio(e.target.value)} />
             </div>
             <div className="field">
-              <label>Contact number *</label>
+              <label htmlFor="provideronboard-contact-number">Contact number *</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <Phone size={16} color="var(--ink-400)" />
-                <input
+                <input id="provideronboard-contact-number"
                   className="input"
                   style={{ border: "none" }}
                   inputMode="numeric"
@@ -380,10 +380,10 @@ export default function ProviderOnboard() {
               <span className="tiny muted">Customers tap this to call you. You can hide it publicly later from your dashboard.</span>
             </div>
             <div className="field">
-              <label>Starting price (₹) *</label>
+              <label htmlFor="provideronboard-starting-price">Starting price (₹) *</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <IndianRupee size={16} color="var(--ink-400)" />
-                <input className="input" style={{ border: "none" }} inputMode="numeric" placeholder="from ₹…" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
+                <input id="provideronboard-starting-price" className="input" style={{ border: "none" }} inputMode="numeric" placeholder="from ₹…" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
               </div>
             </div>
             <div className="field">

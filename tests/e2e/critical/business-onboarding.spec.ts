@@ -40,7 +40,7 @@ test("business onboarding: list a shop, admin approves, owner adds an item, cust
 
   // Not public yet.
   await customer.goto(`/search`);
-  await customer.getByRole("textbox").first().fill(name);
+  await customer.getByRole("searchbox").first().fill(name);
   await expect(customer.getByText(name)).toHaveCount(0);
 
   // Admin approves from the queue; the hours read like hours, not JSON.
@@ -74,9 +74,9 @@ test("business onboarding: list a shop, admin approves, owner adds an item, cust
 
   // A customer finds the café in search and sees the item.
   await customer.goto("/search");
-  await customer.getByRole("textbox").first().fill(name);
+  await customer.getByRole("searchbox").first().fill(name);
   await expectAfterReload(customer, async () => {
-    await customer.getByRole("textbox").first().fill(name);
+    await customer.getByRole("searchbox").first().fill(name);
     return customer.getByText(name);
   });
   await customer.goto(bizPath);

@@ -160,10 +160,10 @@ export default function HoursSelector({
       {/* Time range selection */}
       <div className="row gap-12">
         <div className="field grow">
-          <label className="tiny semi muted">Open From</label>
+          <label htmlFor="hoursselector-open-from" className="tiny semi muted">Open From</label>
           <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff", marginTop: 4 }}>
             <Clock size={14} color="var(--ink-400)" style={{ flexShrink: 0 }} />
-            <select
+            <select id="hoursselector-open-from"
               className="input"
               value={fromTime}
               onChange={(e) => {
@@ -186,10 +186,10 @@ export default function HoursSelector({
         </div>
 
         <div className="field grow">
-          <label className="tiny semi muted">Open Until</label>
+          <label htmlFor="hoursselector-open-until" className="tiny semi muted">Open Until</label>
           <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 10px", background: "#fff", marginTop: 4 }}>
             <Clock size={14} color="var(--ink-400)" style={{ flexShrink: 0 }} />
-            <select
+            <select id="hoursselector-open-until"
               className="input"
               value={toTime}
               onChange={(e) => {

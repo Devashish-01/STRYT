@@ -10,8 +10,8 @@ export default function LiveShareBanner() {
     <div
       role="status"
       style={{
-        position: "fixed", top: 8, left: "50%", transform: "translateX(-50%)",
-        zIndex: 4000, background: "var(--accent-500)", color: "#fff",
+        position: "fixed", top: "calc(8px + var(--safe-area-top, env(safe-area-inset-top, 0px)))", left: "50%", transform: "translateX(-50%)",
+        zIndex: 4000, background: "var(--accent-500)", color: "var(--white)",
         borderRadius: 999, padding: "7px 8px 7px 14px", display: "flex",
         alignItems: "center", gap: 10, fontSize: 12.5, fontWeight: 700,
         boxShadow: "0 4px 14px rgba(0,0,0,0.25)", maxWidth: "92vw",
@@ -19,7 +19,7 @@ export default function LiveShareBanner() {
     >
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <span style={{
-          width: 8, height: 8, borderRadius: "50%", background: "#fff",
+          width: 8, height: 8, borderRadius: "50%", background: "var(--white)",
           boxShadow: "0 0 0 0 rgba(255,255,255,0.7)", animation: "livePulseRing 1.6s ease-out infinite",
         }} />
         <MapPin size={14} /> Sharing live location
@@ -28,7 +28,7 @@ export default function LiveShareBanner() {
         onClick={() => void stop()}
         disabled={busy}
         style={{
-          background: "rgba(0,0,0,0.22)", color: "#fff", border: "none",
+          background: "rgba(0,0,0,0.22)", color: "var(--white)", border: "none",
           borderRadius: 999, padding: "4px 12px", fontSize: 12, fontWeight: 800,
           cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1,
         }}

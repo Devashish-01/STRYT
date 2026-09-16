@@ -143,16 +143,16 @@ export default function SubmitProposal() {
         )}
 
         <div className="field">
-          <label>{t("your_quote_label")}</label>
+          <label htmlFor="submitproposal-field">{t("your_quote_label")}</label>
           <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 12px", background: "var(--surface)" }}>
             <IndianRupee size={18} color="var(--ink-400)" />
-            <input className="input" style={{ border: "none", fontSize: 18, fontWeight: 700 }} inputMode="numeric" placeholder="0" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
+            <input id="submitproposal-field" className="input" style={{ border: "none", fontSize: 18, fontWeight: 700 }} inputMode="numeric" placeholder="0" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
           </div>
         </div>
 
         <div className="field">
-          <label>{t("when_can_you_do_it")}</label>
-          <input className="input" placeholder={t("eta_placeholder")} value={eta} onChange={(e) => setEta(e.target.value)} />
+          <label htmlFor="submitproposal-field-2">{t("when_can_you_do_it")}</label>
+          <input id="submitproposal-field-2" className="input" placeholder={t("eta_placeholder")} value={eta} onChange={(e) => setEta(e.target.value)} />
         </div>
 
         <div className="field">

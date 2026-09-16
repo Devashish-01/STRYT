@@ -91,7 +91,7 @@ export default function MyPeopleToggle({ size = 20 }: { size?: number }) {
 
   const style: CSSProperties = {
     background: sharing ? "var(--accent-500)" : "rgba(255,255,255,0.16)",
-    color: "#fff",
+    color: "var(--white)",
     border: "none",
     position: "relative",
     WebkitTouchCallout: "none",
@@ -120,7 +120,7 @@ export default function MyPeopleToggle({ size = 20 }: { size?: number }) {
       {sharing && (
         <span style={{
           position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%",
-          background: "#fff", boxShadow: "0 0 0 0 rgba(255,255,255,0.7)",
+          background: "var(--white)", boxShadow: "0 0 0 0 rgba(255,255,255,0.7)",
           animation: "livePulseRing 1.6s ease-out infinite",
         }} />
       )}

@@ -126,8 +126,8 @@ export default function ProviderProfileEditor() {
         </div>
 
         <div className="field">
-          <label>Starting price (₹)</label>
-          <input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
+          <label htmlFor="providerprofileeditor-starting-price">Starting price (₹)</label>
+          <input id="providerprofileeditor-starting-price" className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
         </div>
 
         <div className="field">

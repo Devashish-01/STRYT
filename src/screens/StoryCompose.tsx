@@ -245,8 +245,8 @@ export default function StoryCompose() {
         </div>
 
         <div className="field">
-          <label>Caption <span className="tiny muted">(optional)</span></label>
-          <input
+          <label htmlFor="storycompose-field">Caption <span className="tiny muted">(optional)</span></label>
+          <input id="storycompose-field"
             className="input"
             placeholder="What's happening? 🔥"
             value={caption}

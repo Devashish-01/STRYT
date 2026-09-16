@@ -62,8 +62,8 @@ export function QueuePaymentSheet({ tokenId, businessName, businessUpiId, onPaid
 
         {/* Amount — always freeform, no catalog price on a queue token */}
         <div style={{ marginBottom: "var(--space-md)" }}>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Amount (₹)</label>
-          <input
+          <label htmlFor="queuepaymentsheet-amount" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Amount (₹)</label>
+          <input id="queuepaymentsheet-amount"
             className="input"
             inputMode="decimal"
             placeholder="Enter amount"

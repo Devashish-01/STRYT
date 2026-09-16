@@ -337,12 +337,12 @@ export function ItemEditor({
 
         <div className="col gap-12">
           <div className="field">
-            <label>Name *</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={bizTheme.itemNamePlaceholder} />
+            <label htmlFor="catalogmanager-name">Name *</label>
+            <input id="catalogmanager-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={bizTheme.itemNamePlaceholder} />
           </div>
           <div className="field">
-            <label>Description</label>
-            <input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Brief description, size, variant…" />
+            <label htmlFor="catalogmanager-description">Description</label>
+            <input id="catalogmanager-description" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Brief description, size, variant…" />
           </div>
           <div className="row gap-10">
             <div className="field grow"><label>Price ₹ *</label><input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} /></div>
@@ -366,8 +366,8 @@ export function ItemEditor({
 
           {invType === "FINITE" && (
             <div className="field">
-              <label>Quantity in stock *</label>
-              <input className="input" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder="e.g. 25" />
+              <label htmlFor="catalogmanager-quantity-in-stock">Quantity in stock *</label>
+              <input id="catalogmanager-quantity-in-stock" className="input" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder="e.g. 25" />
             </div>
           )}
 
@@ -378,9 +378,9 @@ export function ItemEditor({
               to configure, and the server ignores these fields for them. */}
           {kind === "business" && bizTheme.showSlotCapacitySection && (
             <div className="field">
-              <label>{bizTheme.slotCapacityLabel}</label>
+              <label htmlFor="catalogmanager-field">{bizTheme.slotCapacityLabel}</label>
               <div className="row gap-10">
-                <input
+                <input id="catalogmanager-field"
                   className="input grow"
                   inputMode="numeric"
                   value={slotCap}

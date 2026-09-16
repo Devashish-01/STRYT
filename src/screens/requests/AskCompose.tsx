@@ -479,9 +479,9 @@ export default function AskCompose() {
 
         {/* Details */}
         <div className="field">
-          <label>{t("details_label")} <span className="tiny muted">{t("optional_word")}</span></label>
+          <label htmlFor="askcompose-field">{t("details_label")} <span className="tiny muted">{t("optional_word")}</span></label>
           <div style={{ position: "relative" }}>
-            <textarea
+            <textarea id="askcompose-field"
               className="input"
               style={{ minHeight: 100 }}
               placeholder={t("ask_desc_placeholder")}

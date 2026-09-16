@@ -18,13 +18,13 @@ export default function LocationSettings() {
   const { showToast, user } = useApp();
 
   const { data: pendingData, refetch: refetchPending } = useQueryWithRealtime(
-    () => locationService.pendingForMe(), "location_share_grants", [user.id], undefined, `home:pending-loc:${user.id}`
+    () => locationService.pendingForMe(), "location_share_grants", [user.id], user.id ? `owner_user_id=eq.${user.id}` : undefined, `home:pending-loc:${user.id}`
   );
   const { data: activeShares, refetch: refetchActive } = useQueryWithRealtime(
-    () => locationService.sharedByMe(), "location_share_grants", [user.id], undefined, `location:active-shares:${user.id}`
+    () => locationService.sharedByMe(), "location_share_grants", [user.id], user.id ? `owner_user_id=eq.${user.id}` : undefined, `location:active-shares:${user.id}`
   );
   const { data: historyShares, refetch: refetchHistory } = useQueryWithRealtime(
-    () => locationService.shareHistory(), "location_share_grants", [user.id], undefined, `location:history:${user.id}`
+    () => locationService.shareHistory(), "location_share_grants", [user.id], user.id ? `owner_user_id=eq.${user.id}` : undefined, `location:history:${user.id}`
   );
 
   const pending: LocationGrant[] = pendingData ?? [];

@@ -344,8 +344,8 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
           </div>
 
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>{config ? "New password (leave blank to keep the current one)" : "Password"}</label>
-            <input
+            <label htmlFor="businessaccess-field">{config ? "New password (leave blank to keep the current one)" : "Password"}</label>
+            <input id="businessaccess-field"
               className="input"
               type="password"
               value={password}
@@ -574,8 +574,8 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
         <p className="small muted" style={{ marginBottom: 14 }}>Add a team member by their STRYT mobile number, email, or username, and choose what they can manage.</p>
 
         <div className="field">
-          <label>Mobile number, email, or username</label>
-          <input
+          <label htmlFor="businessaccess-mobile-number-email-or-username">Mobile number, email, or username</label>
+          <input id="businessaccess-mobile-number-email-or-username"
             className="input"
             value={identifier}
             autoCapitalize="none"

@@ -10,7 +10,7 @@ test("guest wall: browse freely, write actions ask to sign in, sign-in returns t
   await expect(guest.getByText("Test Salon One").first()).toBeVisible();
 
   await guest.goto("/search");
-  await guest.getByRole("textbox").first().fill("Test Salon");
+  await guest.getByRole("searchbox").first().fill("Test Salon");
   await expect(guest.getByText("Test Salon One").first()).toBeVisible();
 
   await guest.goto(B);

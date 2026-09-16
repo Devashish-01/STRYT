@@ -173,8 +173,8 @@ export default function Support() {
               </div>
 
               <div className="field">
-                <label>Category</label>
-                <select
+                <label htmlFor="support-category">Category</label>
+                <select id="support-category"
                   className="input"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
@@ -189,8 +189,8 @@ export default function Support() {
               </div>
 
               <div className="field">
-                <label>Your Email Address</label>
-                <input
+                <label htmlFor="support-your-email-address">Your Email Address</label>
+                <input id="support-your-email-address"
                   type="email"
                   className="input"
                   placeholder="name@example.com"
@@ -201,8 +201,8 @@ export default function Support() {
               </div>
 
               <div className="field">
-                <label>Subject</label>
-                <input
+                <label htmlFor="support-subject">Subject</label>
+                <input id="support-subject"
                   type="text"
                   className="input"
                   placeholder="Brief summary of the issue"
@@ -213,8 +213,8 @@ export default function Support() {
               </div>
 
               <div className="field">
-                <label>Detailed Description</label>
-                <textarea
+                <label htmlFor="support-detailed-description">Detailed Description</label>
+                <textarea id="support-detailed-description"
                   className="input"
                   placeholder="Explain the complaint or issue in detail. If this is a complaint about a user or transaction, please provide relevant IDs or names."
                   value={message}
@@ -284,8 +284,8 @@ export default function Support() {
                 </div>
 
                 <div className="field">
-                  <label>Describe the Bug</label>
-                  <textarea
+                  <label htmlFor="support-describe-the-bug">Describe the Bug</label>
+                  <textarea id="support-describe-the-bug"
                     className="input"
                     placeholder="What happened? What screen were you on? (e.g. 'on the map screen when I touch on...')"
                     value={bugDescription}

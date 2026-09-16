@@ -52,8 +52,8 @@ export default function BlockSlotModal({ date, timeLabel, affected = [], onConfi
         </label>
 
         <div>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Reason (optional, customers won't see this)</label>
-          <textarea
+          <label htmlFor="blockslotmodal-reason-optional-customers-won-t-see-this" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Reason (optional, customers won't see this)</label>
+          <textarea id="blockslotmodal-reason-optional-customers-won-t-see-this"
             className="input"
             rows={2}
             placeholder="e.g. Lunch break / staff off / personal"

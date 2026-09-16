@@ -588,10 +588,10 @@ export default function MyAppointments() {
                 ⚠️ Your payment is still waiting to be confirmed. Cancelling now won't withdraw it — settle the refund directly with {cancelConfirm.targetName}.
               </div>
             )}
-            <label className="tiny semi muted" style={{ display: "block", marginBottom: 4 }}>
+            <label htmlFor="myappointments-cancel-reason" className="tiny semi muted" style={{ display: "block", marginBottom: 4 }}>
               Reason (optional — they'll see this)
             </label>
-            <textarea
+            <textarea id="myappointments-cancel-reason"
               className="input"
               rows={2}
               maxLength={300}

@@ -113,8 +113,14 @@ export const entityPasswordService = {
   async isRecoverySet(kind: EntityPasswordKind): Promise<boolean> {
     const sb = getSupabase();
     const { data, error } = await (sb.rpc as any)("is_entity_recovery_set", { p_kind: kind });
-    if (error) return false;
-    return !!data;
+    if (!error) return !!data;
+    // Called right after sign-in, this can run before the session is attached and come back 401 — reading that as
+    // "no backup question" would hide the recovery route from someone who has one (E2E-002). Wait for the session
+    // and ask once more before giving up.
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return false;
+    const retry = await (sb.rpc as any)("is_entity_recovery_set", { p_kind: kind });
+    return retry.error ? false : !!retry.data;
   },
 
   /** Returns the owner's recovery prompt (preset id + optional custom text). */

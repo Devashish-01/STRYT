@@ -994,10 +994,10 @@ export function AppointmentSheet({
 
           {/* Special Instructions / Notes */}
           <div className="field" style={{ marginBottom: 14 }}>
-            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>
+            <label htmlFor="appointmentsheet-notes" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>
               {vocabulary.notesHeading || (vocabulary.noun === "order" ? "Order & Sizing Instructions (Optional)" : "Service Notes / Instructions (Optional)")}
             </label>
-            <textarea
+            <textarea id="appointmentsheet-notes"
               className="input"
               rows={2}
               placeholder={vocabulary.notesPlaceholder || (vocabulary.noun === "order" ? "Add size, color, alteration, or pickup preferences..." : "Describe your requirement or service details...")}

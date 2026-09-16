@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Send, Phone, Image as ImageIcon, Check, DotsThree, Flag, Ban } from "@/components/Icons";
-import { chatService, inboxScopeFor } from "@/services/engagement/chatService";
+import { chatService, inboxScopeFor, MESSAGE_PAGE_SIZE } from "@/services/engagement/chatService";
 import { uploadService } from "@/services";
 import { socialService } from "@/services/engagement/socialService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
@@ -48,6 +48,27 @@ export default function ChatThread() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  // A long thread loads its most recent page and walks backwards from there (C8).
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const [noEarlier, setNoEarlier] = useState(false);
+
+  async function loadEarlier() {
+    const oldest = messages[0];
+    if (!oldest || loadingEarlier) return;
+    setLoadingEarlier(true);
+    try {
+      const page = await chatService.messages(id, oldest.createdAt);
+      if (page.length < MESSAGE_PAGE_SIZE) setNoEarlier(true);
+      setMessages((prev) => {
+        const seen = new Set(prev.map((m) => m.id));
+        return [...page.filter((m) => !seen.has(m.id)), ...prev];
+      });
+    } catch {
+      showToast("Couldn't load earlier messages");
+    } finally {
+      setLoadingEarlier(false);
+    }
+  }
 
   const typingRef = useRef<{ send: (uid: string) => void; unsubscribe: () => void } | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -292,6 +313,14 @@ export default function ChatThread() {
         }}
       >
         {loading && <Skeleton h={40} />}
+
+        {!loading && !noEarlier && messages.length >= MESSAGE_PAGE_SIZE && (
+          <div className="row center" style={{ padding: "4px 0 10px" }}>
+            <button className="btn btn-outline btn-sm" disabled={loadingEarlier} onClick={() => void loadEarlier()}>
+              {loadingEarlier ? "Loading…" : "Load earlier messages"}
+            </button>
+          </div>
+        )}
 
         {messages.map((msg, i) => {
           const isMe = msg.senderId === user.id;

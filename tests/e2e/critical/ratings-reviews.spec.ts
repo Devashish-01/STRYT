@@ -8,8 +8,13 @@ async function writeReview(customer: Page, stars: number, comment: string) {
   await customer.goto(B);
   await customer.getByRole("button", { name: "Reviews", exact: true }).click();
   await customer.getByRole("button", { name: /Write a review/i }).click();
-  const sheet = customer.locator(".sheet").filter({ hasText: "Write a review" });
-  await expect(sheet.getByRole("button", { name: "Submit review" })).toBeDisabled();
+  // The sheet is titled "Edit your review" once this customer has reviewed this shop before, and opens on what they
+  // wrote — so the "can't submit with no stars" rule only applies to a fresh review (CRAT-8).
+  const sheet = customer.locator(".sheet").filter({ hasText: /Write a review|Edit your review/ });
+  await expect(sheet).toBeVisible();
+  if (await sheet.getByText("Write a review").count()) {
+    await expect(sheet.getByRole("button", { name: "Submit review" })).toBeDisabled();
+  }
   await sheet.getByRole("button", { name: `${stars} star${stars > 1 ? "s" : ""}`, exact: true }).click();
   await expect(sheet.getByRole("button", { name: `${stars} star${stars > 1 ? "s" : ""}`, exact: true })).toHaveAttribute("aria-pressed", "true");
   await sheet.getByPlaceholder("Share your experience (optional)").fill(comment);

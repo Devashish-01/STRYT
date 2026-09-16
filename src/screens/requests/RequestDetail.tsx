@@ -615,20 +615,20 @@ export default function RequestDetail() {
             </div>
 
             <div className="col gap-10">
-              <label className="small semi muted">{t("title_headline_label")}</label>
-              <input className="input" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder={t("title_headline_placeholder")} />
+              <label htmlFor="requestdetail-field" className="small semi muted">{t("title_headline_label")}</label>
+              <input id="requestdetail-field" className="input" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder={t("title_headline_placeholder")} />
 
-              <label className="small semi muted">{t("detailed_description_label")}</label>
-              <textarea className="input" style={{ minHeight: 90, resize: "vertical" }} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={t("detailed_description_placeholder")} />
+              <label htmlFor="requestdetail-field-2" className="small semi muted">{t("detailed_description_label")}</label>
+              <textarea id="requestdetail-field-2" className="input" style={{ minHeight: 90, resize: "vertical" }} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder={t("detailed_description_placeholder")} />
 
               <div className="row gap-10">
                 <div className="col grow">
-                  <label className="small semi muted">{t("min_budget_label")}</label>
-                  <input className="input" type="number" value={editMinBudget} onChange={(e) => setEditMinBudget(e.target.value)} placeholder={t("budget_placeholder_500")} />
+                  <label htmlFor="requestdetail-field-3" className="small semi muted">{t("min_budget_label")}</label>
+                  <input id="requestdetail-field-3" className="input" type="number" value={editMinBudget} onChange={(e) => setEditMinBudget(e.target.value)} placeholder={t("budget_placeholder_500")} />
                 </div>
                 <div className="col grow">
-                  <label className="small semi muted">{t("max_budget_label")}</label>
-                  <input className="input" type="number" value={editMaxBudget} onChange={(e) => setEditMaxBudget(e.target.value)} placeholder={t("budget_placeholder_1500")} />
+                  <label htmlFor="requestdetail-field-4" className="small semi muted">{t("max_budget_label")}</label>
+                  <input id="requestdetail-field-4" className="input" type="number" value={editMaxBudget} onChange={(e) => setEditMaxBudget(e.target.value)} placeholder={t("budget_placeholder_1500")} />
                 </div>
               </div>
 

@@ -1223,8 +1223,8 @@ function AdminProfiles() {
             />
 
             <div className="col gap-4">
-              <label className="tiny muted">To confirm, type <strong>DELETE {selectedProfile.name || selectedProfile.display_name || "User"}</strong> below:</label>
-              <input
+              <label htmlFor="adminpanel-below" className="tiny muted">To confirm, type <strong>DELETE {selectedProfile.name || selectedProfile.display_name || "User"}</strong> below:</label>
+              <input id="adminpanel-below"
                 className="input"
                 placeholder={`DELETE ${selectedProfile.name || selectedProfile.display_name || "User"}`}
                 value={confirmText}

@@ -671,12 +671,12 @@ export default function QueueManager() {
             <h3 className="bold h2" style={{ marginBottom: 12 }}>Add a walk-in</h3>
             <div className="col gap-10">
               <div>
-                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Name</label>
-                <input className="input" placeholder="e.g. Rohit" value={walkInName} autoFocus onChange={(e) => setWalkInName(e.target.value)} maxLength={100} />
+                <label htmlFor="queuemanager-name" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Name</label>
+                <input id="queuemanager-name" className="input" placeholder="e.g. Rohit" value={walkInName} autoFocus onChange={(e) => setWalkInName(e.target.value)} maxLength={100} />
               </div>
               <div>
-                <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Party size</label>
-                <input className="input" type="number" min={1} max={MAX_QUEUE_PARTY_SIZE} value={walkInParty} onChange={(e) => setWalkInParty(e.target.value)} />
+                <label htmlFor="queuemanager-party-size" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Party size</label>
+                <input id="queuemanager-party-size" className="input" type="number" min={1} max={MAX_QUEUE_PARTY_SIZE} value={walkInParty} onChange={(e) => setWalkInParty(e.target.value)} />
               </div>
             </div>
             <button className="btn btn-primary btn-block" style={{ marginTop: 16, height: 48 }} disabled={addingWalkIn || !walkInName.trim()} onClick={addWalkIn}>

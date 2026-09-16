@@ -283,10 +283,10 @@ export default function ProfileEdit() {
           <SectionHead icon={<User size={15} color="var(--brand-600)" />} title="Personal info" />
           <div className="col gap-12">
             <div className="field">
-              <label>
+              <label htmlFor="profileedit-display-name">
                 Display Name <span style={{ color: "var(--red-500)" }}>*</span>
               </label>
-              <input
+              <input id="profileedit-display-name"
                 className="input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -299,10 +299,10 @@ export default function ProfileEdit() {
             </div>
 
             <div className="field">
-              <label>Public alias</label>
+              <label htmlFor="profileedit-public-alias">Public alias</label>
               <div className="row center-v" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <span className="semi" style={{ color: "var(--ink-400)" }}>@</span>
-                <input
+                <input id="profileedit-public-alias"
                   className="input"
                   style={{ border: "none", padding: "10px 6px", background: "transparent", flex: 1 }}
                   value={alias}

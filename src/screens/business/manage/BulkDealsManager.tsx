@@ -304,18 +304,18 @@ function DealComposer({ existing, onSaved, onClose }: { existing: BulkDeal; onSa
 
         <div className="col gap-14">
           <div>
-            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Title</label>
-            <input className="input" placeholder="e.g. Alphonso Mango Farm Box" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} />
+            <label htmlFor="bulkdealsmanager-title" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Title</label>
+            <input id="bulkdealsmanager-title" className="input" placeholder="e.g. Alphonso Mango Farm Box" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} />
           </div>
 
           <div>
-            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Description (optional)</label>
-            <textarea className="input" style={{ minHeight: 60, resize: "vertical" }} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />
+            <label htmlFor="bulkdealsmanager-description-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Description (optional)</label>
+            <textarea id="bulkdealsmanager-description-optional" className="input" style={{ minHeight: 60, resize: "vertical" }} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />
           </div>
 
           <div>
-            <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Available quota (optional)</label>
-            <input className="input" inputMode="numeric" placeholder="Total units you can supply" value={quota} onChange={(e) => setQuota(e.target.value.replace(/[^0-9]/g, ""))} />
+            <label htmlFor="bulkdealsmanager-available-quota-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Available quota (optional)</label>
+            <input id="bulkdealsmanager-available-quota-optional" className="input" inputMode="numeric" placeholder="Total units you can supply" value={quota} onChange={(e) => setQuota(e.target.value.replace(/[^0-9]/g, ""))} />
           </div>
 
           <div className="tiny muted" style={{ lineHeight: 1.5 }}>

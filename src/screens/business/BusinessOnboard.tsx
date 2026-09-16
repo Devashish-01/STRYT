@@ -436,8 +436,8 @@ export default function BusinessOnboard() {
           <>
 
             <div className="field">
-              <label>Business name *</label>
-              <input className="input" placeholder="e.g. Spice Route Kitchen" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+              <label htmlFor="businessonboard-business-name">Business name *</label>
+              <input id="businessonboard-business-name" className="input" placeholder="e.g. Spice Route Kitchen" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
             </div>
             <div className="field">
               <label>Category *</label>
@@ -461,10 +461,10 @@ export default function BusinessOnboard() {
               )}
             </div>
             <div className="field">
-              <label>Don't see your line of work? Propose a category</label>
+              <label htmlFor="businessonboard-don-t-see-your-line-of-work-propose-a-ca">Don't see your line of work? Propose a category</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <Plus size={16} color="var(--ink-400)" />
-                <input
+                <input id="businessonboard-don-t-see-your-line-of-work-propose-a-ca"
                   className="input"
                   style={{ border: "none" }}
                   placeholder="e.g. Cycle repair"
@@ -475,8 +475,8 @@ export default function BusinessOnboard() {
               {newCat.trim() && <span className="tiny muted">New categories are reviewed by our team before going live.</span>}
             </div>
             <div className="field">
-              <label>About your business</label>
-              <textarea
+              <label htmlFor="businessonboard-about-your-business">About your business</label>
+              <textarea id="businessonboard-about-your-business"
                 className="input"
                 style={{ minHeight: 80 }}
                 placeholder="What you sell or do, what you're known for, anything a first-time customer should know…"
@@ -557,8 +557,8 @@ export default function BusinessOnboard() {
               onError={(msg) => showToast(msg)}
             />
             <div className="field">
-              <label>Address *</label>
-              <textarea className="input" placeholder="Shop no, lane, area" value={address} onChange={(e) => setAddress(e.target.value)} style={{ minHeight: 70 }} />
+              <label htmlFor="businessonboard-address">Address *</label>
+              <textarea id="businessonboard-address" className="input" placeholder="Shop no, lane, area" value={address} onChange={(e) => setAddress(e.target.value)} style={{ minHeight: 70 }} />
             </div>
             <div className="row gap-10">
               <div className="field grow"><label>City *</label><input className="input" placeholder="e.g. Pune" value={city} onChange={(e) => { cityTouched.current = true; setCity(e.target.value); }} /></div>
@@ -644,8 +644,8 @@ export default function BusinessOnboard() {
               </div>
             </div>
             <div className="field">
-              <label>Opening offer (optional)</label>
-              <input className="input" placeholder="e.g. 50% OFF up to ₹100" value={offer} onChange={(e) => setOffer(e.target.value)} />
+              <label htmlFor="businessonboard-opening-offer-optional">Opening offer (optional)</label>
+              <input id="businessonboard-opening-offer-optional" className="input" placeholder="e.g. 50% OFF up to ₹100" value={offer} onChange={(e) => setOffer(e.target.value)} />
             </div>
           </>
         )}
@@ -699,10 +699,10 @@ export default function BusinessOnboard() {
               )}
             </div>
             <div className="field">
-              <label>Business email (optional)</label>
+              <label htmlFor="businessonboard-business-email-optional">Business email (optional)</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <Mail size={16} color="var(--ink-400)" />
-                <input
+                <input id="businessonboard-business-email-optional"
                   className="input"
                   style={{ border: "none" }}
                   inputMode="email"

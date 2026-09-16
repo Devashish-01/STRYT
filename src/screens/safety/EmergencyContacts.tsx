@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { ListSkeleton } from "@/components/states";
-import { useQuery } from "@/hooks/useApi";
+import { useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { emergencyService, type ContactUser } from "@/services/engagement/emergencyService";
 import { UserPlus, X, Search } from "@/components/Icons";
@@ -13,18 +13,44 @@ import { UserPlus, X, Search } from "@/components/Icons";
  */
 export default function EmergencyContacts() {
   const nav = useNavigate();
-  const { showToast } = useApp();
+  const { showToast, user } = useApp();
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<ContactUser | null>(null);
 
-  const { data: contacts, loading, refetch } = useQuery<ContactUser[]>(
-    () => emergencyService.listContacts(), []
+  const { data: contacts, loading, refetch } = useQueryWithRealtime<ContactUser[]>(
+    () => emergencyService.listContacts(),
+    "emergency_contacts",
+    [user.id],
+    user.id ? `owner_user_id=eq.${user.id}` : undefined,
+    `safety:contacts:${user.id}`,
   );
-  const { data: candidates, loading: candLoading } = useQuery<ContactUser[]>(
-    () => (adding ? emergencyService.candidateContacts(search) : Promise.resolve([])), [adding, search]
+  const { data: candidates, loading: candLoading } = useQueryWithRealtime<ContactUser[]>(
+    () => (adding ? emergencyService.candidateContacts(search) : Promise.resolve([])),
+    "emergency_contacts",
+    [adding, search],
+    user.id ? `owner_user_id=eq.${user.id}` : undefined,
   );
+  const [identifier, setIdentifier] = useState("");
+  const [addingByIdentifier, setAddingByIdentifier] = useState(false);
+
+  /** ECON-1: the people you'd actually list in an emergency usually aren't people you've chatted with in the app. */
+  async function addByIdentifier() {
+    if (!identifier.trim() || addingByIdentifier) return;
+    setAddingByIdentifier(true);
+    try {
+      const added = await emergencyService.addByIdentifier(identifier);
+      showToast(`${added.name} added as an emergency contact`);
+      setIdentifier("");
+      await refetch();
+      setAdding(false);
+    } catch (err: any) {
+      showToast(err?.message || "Couldn't add contact");
+    } finally {
+      setAddingByIdentifier(false);
+    }
+  }
 
   async function add(id: string) {
     setBusyId(id);
@@ -104,15 +130,42 @@ export default function EmergencyContacts() {
         {adding && (
           <div className="card" style={{ padding: 12 }}>
             <div className="row" style={{ alignItems: "center", marginBottom: 8 }}>
-              <span className="semi grow">Add from your chats</span>
+              <span className="semi grow">Add an emergency contact</span>
               <button className="btn-icon" onClick={() => { setAdding(false); setSearch(""); }} aria-label="Close"><X size={18} /></button>
             </div>
 
+            {/* By identifier first: family and neighbours are rarely people you've messaged in the app (ECON-1). */}
+            <div className="col gap-8" style={{ marginBottom: 12 }}>
+              <label className="tiny semi muted" htmlFor="emergency-identifier">Their mobile number, email or username</label>
+              <div className="row gap-8">
+                <input
+                  id="emergency-identifier"
+                  className="input grow"
+                  placeholder="e.g. 98765 43210"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") void addByIdentifier(); }}
+                  style={{ height: 40, fontSize: 13 }}
+                />
+                <button
+                  className="btn btn-primary"
+                  style={{ minHeight: 44, padding: "0 16px" }}
+                  disabled={!identifier.trim() || addingByIdentifier}
+                  onClick={() => void addByIdentifier()}
+                >
+                  {addingByIdentifier ? "Adding…" : "Add"}
+                </button>
+              </div>
+              <span className="tiny muted">They must already be on STRYT. Up to 10 contacts.</span>
+            </div>
+
+            <div className="tiny semi muted" style={{ marginBottom: 6 }}>Or pick someone you've chatted with</div>
             <div style={{ position: "relative", marginBottom: 10 }}>
               <Search size={15} color="var(--ink-400)" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)" }} />
               <input
                 type="search"
                 className="input"
+                aria-label="Search chats by name"
                 placeholder="Search chats by name…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -132,7 +185,13 @@ export default function EmergencyContacts() {
                   <div key={c.id} className="row gap-12" style={{ alignItems: "center", padding: "6px 2px" }}>
                     <SafeImg src={c.avatar} variant="avatar" style={{ width: 36, height: 36 }} />
                     <span className="grow">{c.name}</span>
-                    <button className="btn btn-sm" disabled={busyId === c.id} onClick={() => void add(c.id)}>
+                    <button
+                      className="btn btn-sm"
+                      style={{ minHeight: 44, minWidth: 64 }}
+                      aria-label={`Add ${c.name} as an emergency contact`}
+                      disabled={busyId === c.id}
+                      onClick={() => void add(c.id)}
+                    >
                       {busyId === c.id ? "…" : "Add"}
                     </button>
                   </div>

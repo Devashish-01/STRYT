@@ -735,12 +735,12 @@ export default function CommunityCompose() {
                 <div className="col gap-12">
                   <div className="row gap-10">
                     <div className="grow">
-                      <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Regular price (₹)</label>
-                      <input className="input" inputMode="decimal" placeholder="1000" value={regularPrice} onChange={(e) => setRegularPrice(e.target.value.replace(/[^0-9.]/g, ""))} />
+                      <label htmlFor="communitycompose-regular-price" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Regular price (₹)</label>
+                      <input id="communitycompose-regular-price" className="input" inputMode="decimal" placeholder="1000" value={regularPrice} onChange={(e) => setRegularPrice(e.target.value.replace(/[^0-9.]/g, ""))} />
                     </div>
                     <div style={{ width: 130 }}>
-                      <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Target qty</label>
-                      <input className="input" inputMode="numeric" placeholder="10" value={campaignMoq} onChange={(e) => setCampaignMoq(e.target.value.replace(/[^0-9]/g, ""))} />
+                      <label htmlFor="communitycompose-target-qty" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Target qty</label>
+                      <input id="communitycompose-target-qty" className="input" inputMode="numeric" placeholder="10" value={campaignMoq} onChange={(e) => setCampaignMoq(e.target.value.replace(/[^0-9]/g, ""))} />
                     </div>
                   </div>
 
@@ -792,20 +792,20 @@ export default function CommunityCompose() {
                   </div>
 
                   <div>
-                    <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Available quota (optional)</label>
-                    <input className="input" inputMode="numeric" placeholder="Total units you can supply" value={campaignQuota} onChange={(e) => setCampaignQuota(e.target.value.replace(/[^0-9]/g, ""))} />
+                    <label htmlFor="communitycompose-available-quota-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Available quota (optional)</label>
+                    <input id="communitycompose-available-quota-optional" className="input" inputMode="numeric" placeholder="Total units you can supply" value={campaignQuota} onChange={(e) => setCampaignQuota(e.target.value.replace(/[^0-9]/g, ""))} />
                     <div className="tiny muted" style={{ marginTop: 4 }}>Informational for now — shown on the listing, not enforced automatically when someone pledges.</div>
                   </div>
 
                   <div>
-                    <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Deposit to join (optional)</label>
-                    <input className="input" inputMode="decimal" placeholder="e.g. 100 — leave blank for no deposit" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
+                    <label htmlFor="communitycompose-deposit-to-join-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Deposit to join (optional)</label>
+                    <input id="communitycompose-deposit-to-join-optional" className="input" inputMode="decimal" placeholder="e.g. 100 — leave blank for no deposit" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
                     <div className="tiny muted" style={{ marginTop: 4 }}>The minimum a pledger pays upfront to reserve their spot.</div>
                   </div>
 
                   <div>
-                    <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Closing deadline (optional)</label>
-                    <input type="datetime-local" className="input" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} />
+                    <label htmlFor="communitycompose-closing-deadline-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Closing deadline (optional)</label>
+                    <input id="communitycompose-closing-deadline-optional" type="datetime-local" className="input" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} />
                     <div className="tiny muted" style={{ marginTop: 4 }}>Closes automatically once this passes, or once it hits its target quantity — whichever comes first.</div>
                   </div>
 

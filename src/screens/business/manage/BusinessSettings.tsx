@@ -579,10 +579,10 @@ export default function BusinessSettings() {
                 Bookings customers already have with you are kept, so nobody loses their history.
                 This can't be undone from the app.
               </p>
-              <label className="tiny semi" style={{ display: "block", marginBottom: 6 }}>
+              <label htmlFor="businesssettings-delete-confirm" className="tiny semi" style={{ display: "block", marginBottom: 6 }}>
                 Type <b>DELETE</b> to confirm
               </label>
-              <input
+              <input id="businesssettings-delete-confirm"
                 className="input"
                 value={deleteConfirm}
                 disabled={deleting}

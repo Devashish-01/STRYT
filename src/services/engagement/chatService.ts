@@ -79,6 +79,8 @@ export function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString("en-IN", { weekday: "short" });
 }
 
+export const MESSAGE_PAGE_SIZE = 50;
+
 export const chatService = {
   /** All conversations for the current user, enriched with the other person's profile. */
   async conversations(scope?: ChatScope): Promise<Conversation[]> {
@@ -174,15 +176,19 @@ export const chatService = {
   },
 
   /** All messages in a conversation, oldest first. */
-  async messages(conversationId: string): Promise<Message[]> {
+  /** The latest page of a thread, oldest-first for rendering. `before` (an ISO timestamp) reads the page older than
+   *  that, so a long thread loads its recent messages and pages backwards instead of fetching all of them (C8). */
+  async messages(conversationId: string, before?: string): Promise<Message[]> {
     const sb = getSupabase();
-    const { data, error } = await sb
+    let q = sb
       .from("messages")
       .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
+      .eq("conversation_id", conversationId);
+    if (before) q = q.lt("created_at", before);
+    // Newest first for the limit, then flipped — otherwise the limit would keep the *oldest* page.
+    const { data, error } = await q.order("created_at", { ascending: false }).limit(MESSAGE_PAGE_SIZE);
     throwIfError(error);
-    return toCamel<Message[]>(data ?? []);
+    return toCamel<Message[]>((data ?? []).slice().reverse());
   },
 
   /** Send a message (optionally with an image) and update conversation preview + unread flag on the other side. */

@@ -45,9 +45,11 @@ export default function OtpVerify() {
       return;
     }
     const val = clean.slice(-1);
-    const next = [...digits];
-    next[i] = val;
-    setDigits(next);
+    setDigits((prev) => {
+      const next = [...prev];
+      next[i] = val;
+      return next;
+    });
     if (val && i < digits.length - 1) refs.current[i + 1]?.focus();
   }
 

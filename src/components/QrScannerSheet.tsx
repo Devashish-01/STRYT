@@ -427,10 +427,10 @@ export default function QrScannerSheet({ onClose, onScan, title }: Props) {
         {tab === "input" && (
           <div className="col gap-14" style={{ paddingBottom: 16 }}>
             <div className="field">
-              <label style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 600, marginBottom: 6, display: "block" }}>
+              <label htmlFor="qrscanner-link" style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 600, marginBottom: 6, display: "block" }}>
                 Type or Paste QR Link/Path
               </label>
-              <input
+              <input id="qrscanner-link"
                 type="text"
                 className="input"
                 placeholder="e.g. /business/b1 or http://stryt.app/u/u1"

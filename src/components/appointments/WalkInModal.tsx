@@ -67,12 +67,12 @@ export default function WalkInModal({ date, timeLabel, packages, defaultCapacity
         <div className="tiny muted">{dateLabel} at {timeLabel}</div>
 
         <div>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Customer name *</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rahul Sharma" />
+          <label htmlFor="walkinmodal-customer-name" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Customer name *</label>
+          <input id="walkinmodal-customer-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rahul Sharma" />
         </div>
         <div>
-          <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Phone (optional)</label>
-          <input className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d+ ]/g, ""))} placeholder="e.g. 98765 43210" />
+          <label htmlFor="walkinmodal-phone-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Phone (optional)</label>
+          <input id="walkinmodal-phone-optional" className="input" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value.replace(/[^\d+ ]/g, ""))} placeholder="e.g. 98765 43210" />
         </div>
 
         <div>
