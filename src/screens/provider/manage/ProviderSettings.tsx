@@ -9,11 +9,13 @@ import { SettingsSection, SettingsRow, SettingsToggleRow } from "@/components/se
 import ProviderManageNav from "./ProviderManageNav";
 import { invalidateQueryCache } from "@/hooks/useApi";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
+import { useI18n } from "@/lib/i18n";
 
 export default function ProviderSettings() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast, setContext, user } = useApp();
+  const { t, tf } = useI18n();
   // "New leads" has no notification-emission trigger yet — localStorage-only
   // until that trigger exists. "Requests matching my skills", below, is
   // different: it already fires server-side via NEARBY_REQUEST/
@@ -36,7 +38,7 @@ export default function ProviderSettings() {
   const [bookingsOn, setBookingsOn] = useState(true);
 
   function persist(patch: Record<string, unknown>) {
-    void providerService.update(id, patch as any).catch(() => showToast("Couldn't save — try again"));
+    void providerService.update(id, patch as any).catch(() => showToast(t("cpd_save_failed")));
   }
   function persistMatched(v: boolean) {
     setMatched(v);
@@ -44,13 +46,13 @@ export default function ProviderSettings() {
       .then(() => showToast(v ? "You'll hear about matching requests" : "Matching-request alerts off"))
       .catch(() => {
         setMatched(!v);
-        showToast("Couldn't save — try again");
+        showToast(t("cpd_save_failed"));
       });
   }
   async function saveEmail() {
     setSavingEmail(true);
-    try { await providerService.update(id, { email: email.trim() || null } as any); showToast("Email saved"); }
-    catch { showToast("Couldn't save email"); }
+    try { await providerService.update(id, { email: email.trim() || null } as any); showToast(t("bset_email_saved")); }
+    catch { showToast(t("pset_email_save_failed")); }
     finally { setSavingEmail(false); }
   }
 
@@ -83,7 +85,7 @@ export default function ProviderSettings() {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Settings" />
+        <AppBar title={t("settings")} />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
       </div>
     );
@@ -120,11 +122,11 @@ export default function ProviderSettings() {
     setPkgKey(key);
     try {
       await providerService.update(id, { packageKey: key } as any);
-      showToast(`Page type set to ${BUSINESS_PACKAGES[key].label}`);
+      showToast(tf("bset_page_type_set", { label: BUSINESS_PACKAGES[key].label }));
       invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
     } catch {
       setPkgKey(prev);
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     }
   }
 
@@ -136,16 +138,16 @@ export default function ProviderSettings() {
       invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
     } catch {
       setBookingsOn(!v);
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     }
   }
 
   if (loading) {
     return (
       <div className="screen with-nav">
-        <AppBar title="Provider settings" />
+        <AppBar title={t("pset_title")} />
         <div className="screen-scroll page-pad col center" style={{ paddingTop: 80 }}>
-          <div className="muted small">Loading settings...</div>
+          <div className="muted small">{t("pset_loading")}</div>
         </div>
         <ProviderManageNav pid={id} />
       </div>
@@ -154,14 +156,14 @@ export default function ProviderSettings() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Provider settings" />
+      <AppBar title={t("pset_title")} />
 
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 20 }}>
-        <SettingsSection title="Notifications">
-          <SettingsToggleRow label="New leads" on={leads} onChange={setLeads} />
+        <SettingsSection title={t("notifications")}>
+          <SettingsToggleRow label={t("bset_new_leads")} on={leads} onChange={setLeads} />
           <SettingsToggleRow
-            label="Requests matching my skills"
-            hint="Also controls your personal 'Nearby requests' alerts"
+            label={t("pset_matching_skills")}
+            hint={t("bset_matching_requests_hint")}
             on={matched}
             onChange={persistMatched}
           />
@@ -169,25 +171,25 @@ export default function ProviderSettings() {
 
         {/* Business Packages — the choice made visible and changeable for
             good, not just a one-time onboarding moment (PackageConfirmCard). */}
-        <SettingsSection title="Page type">
+        <SettingsSection title={t("bset_page_type")}>
           <SettingsRow
             icon={<span style={{ fontSize: 18, lineHeight: 1 }}>{pkg.icon || "🏪"}</span>}
-            label="Page type"
-            hint="Controls your page's layout, CTA wording, and catalogue form"
+            label={t("bset_page_type")}
+            hint={t("bset_page_type_hint")}
             value={pkg.key === "generic" ? "Plain page" : pkg.label}
             onClick={() => setPackagePicking(true)}
           />
           <SettingsToggleRow
-            label="Take bookings"
+            label={t("bset_take_bookings")}
             hint={bookingsOn ? "Your page shows a booking button" : "No booking button — catalogue only"}
             on={bookingsOn}
             onChange={toggleBookingsEnabled}
           />
         </SettingsSection>
 
-        <SettingsSection title="Appointments">
+        <SettingsSection title={t("appointments")}>
           <SettingsToggleRow
-            label="Accepting appointments"
+            label={t("bset_accepting")}
             hint={accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}
             on={accepting}
             onChange={toggleAccepting}
@@ -197,40 +199,40 @@ export default function ProviderSettings() {
         {/* Payment setup now lives in the Money tab (UPI, QR, collection timing). */}
 
         {/* Service radius — set from the profile page (Profile → Edit profile), not here. */}
-        <SettingsSection title="Service area">
+        <SettingsSection title={t("service_area_label")}>
           <SettingsRow
             icon={<MapPin size={18} color="var(--green-600)" />}
-            label="Service radius"
+            label={t("bset_service_radius")}
             value={serviceRadiusKm >= 5000 ? "🌍 Worldwide" : serviceRadiusKm === 0.5 ? "500 m" : `${serviceRadiusKm} km`}
-            hint="Edit on your profile page"
+            hint={t("pset_radius_hint")}
             onClick={() => nav(`/provider/${id}/manage/edit-profile`)}
           />
         </SettingsSection>
 
-        <SettingsSection title="Contact & privacy">
+        <SettingsSection title={t("bset_contact_privacy")}>
           <div style={{ padding: "13px 14px" }}>
-            <div className="tiny semi" style={{ marginBottom: 6 }}>Email</div>
+            <div className="tiny semi" style={{ marginBottom: 6 }}>{t("pset_email")}</div>
             <div className="row gap-8">
-              <input className="input grow" placeholder="e.g. you@email.com" value={email} onChange={(e) => setEmail(e.target.value)} style={{ fontSize: 14 }} />
+              <input className="input grow" placeholder={t("pset_email_placeholder")} value={email} onChange={(e) => setEmail(e.target.value)} style={{ fontSize: 14 }} />
               <button className="btn btn-outline btn-sm" disabled={savingEmail} onClick={saveEmail}>{savingEmail ? "…" : "Save"}</button>
             </div>
           </div>
-          <SettingsToggleRow label="Show phone publicly" on={showPhone} onChange={(v) => { setShowPhone(v); persist({ showPhonePublicly: v }); }} />
-          <SettingsToggleRow label="Show email publicly" on={showEmail} onChange={(v) => { setShowEmail(v); persist({ showEmailPublicly: v }); }} />
-          <SettingsToggleRow label="Exact location public" hint="OFF = customers must request & you approve" on={locPublic} onChange={(v) => { setLocPublic(v); persist({ locationPublic: v }); }} />
+          <SettingsToggleRow label={t("bset_show_phone")} on={showPhone} onChange={(v) => { setShowPhone(v); persist({ showPhonePublicly: v }); }} />
+          <SettingsToggleRow label={t("bset_show_email")} on={showEmail} onChange={(v) => { setShowEmail(v); persist({ showEmailPublicly: v }); }} />
+          <SettingsToggleRow label={t("bset_exact_location")} hint={t("bset_exact_location_hint")} on={locPublic} onChange={(v) => { setLocPublic(v); persist({ locationPublic: v }); }} />
         </SettingsSection>
 
-        <SettingsSection title="Visibility">
-          <SettingsToggleRow label="Show provider profile publicly" on={ownerEnabled} onChange={handleToggleVisibility} />
+        <SettingsSection title={t("bset_visibility")}>
+          <SettingsToggleRow label={t("pset_show_profile")} on={ownerEnabled} onChange={handleToggleVisibility} />
         </SettingsSection>
 
-        <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>Exit provider mode</button>
+        <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>{t("pset_exit_provider")}</button>
 
         {packagePicking && (
           <div className="overlay" onClick={() => setPackagePicking(false)}>
             <div className="sheet" onClick={(e) => e.stopPropagation()}>
               <div className="sheet-grab" />
-              <h3 className="bold h2" style={{ marginBottom: 4 }}>Choose your page type</h3>
+              <h3 className="bold h2" style={{ marginBottom: 4 }}>{t("bset_choose_page_type")}</h3>
               <p className="small muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
                 Controls your page's layout, CTA wording, and the owner-side catalogue form.
               </p>

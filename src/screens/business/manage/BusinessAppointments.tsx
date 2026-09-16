@@ -8,6 +8,7 @@ import { ownerVisibleCustomerName } from "@/services/engagement/appointmentServi
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 import {
   Calendar, Check, X as XIcon, Image as ImageIcon, CheckCircle2, AlertTriangle,
   Share2, IndianRupee, Ban, Package, MapPin, MessageCircle,
@@ -38,6 +39,7 @@ type ConsoleTab = "TODAY" | "UPCOMING" | "DELIVERIES" | "HISTORY" | "CANCELLED";
 export default function BusinessAppointments() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
+  const { t, tf } = useI18n();
   const messageUser = useMessageUser();
   const { data: b } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   const { data, loading, error, refetch } = useQueryWithRealtime<AppointmentRecord[]>(
@@ -117,7 +119,7 @@ export default function BusinessAppointments() {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Appointments" />
+        <AppBar title={t("appointments")} />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
       </div>
     );
@@ -170,7 +172,7 @@ export default function BusinessAppointments() {
     } catch (e: any) {
       const msg = e?.message || "";
       if (/SLOT_FULL/i.test(msg) || /fully booked/i.test(msg)) {
-        showToast("This slot was booked by another customer in the meantime. Please decline or reschedule.");
+        showToast(t("bapt_slot_taken"));
       } else {
         showToast(e?.message || `Couldn't update ${vocab.noun}`);
       }
@@ -185,11 +187,11 @@ export default function BusinessAppointments() {
       if (action === "CONFIRM") {
         await appointmentService.confirmPayment(apt.id);
         haptics.success();
-        showToast("Payment confirmed ✓");
+        showToast(t("notif_pay_confirmed_toast"));
       } else {
         await appointmentService.rejectPaymentClaim(apt.id);
         haptics.warning();
-        showToast("Payment claim rejected — customer notified.");
+        showToast(t("bapt_payment_rejected"));
       }
       setPaymentAction(null);
       refetch();
@@ -207,7 +209,7 @@ export default function BusinessAppointments() {
     try {
       await appointmentService.recordWalkInPayment(apt.id, method, amount);
       haptics.success();
-      showToast(`Payment of ${inr(amount)} recorded (${method}) ✓`);
+      showToast(tf("bapt_payment_recorded", { amount: inr(amount), method }));
       refetch();
     } catch (e: any) {
       showToast(e?.message || "Couldn't record the payment. Try again.");
@@ -221,7 +223,7 @@ export default function BusinessAppointments() {
     try {
       await appointmentService.setUnpaidAmount(apt.id, amount);
       haptics.success();
-      showToast(`Added ${inr(amount)} to ${ownerVisibleCustomerName(apt)}'s tab 📒`);
+      showToast(tf("bapt_added_to_tab", { amount: inr(amount), name: ownerVisibleCustomerName(apt) }));
       refetch();
     } catch (e: any) {
       showToast(e?.message || "Couldn't update tab amount.");
@@ -234,9 +236,9 @@ export default function BusinessAppointments() {
     if (!apt.customerId) return;
     try {
       await appointmentService.nudgePayment(apt.id);
-      showToast("Payment request nudge sent 🔔");
+      showToast(t("bapt_nudge_sent"));
     } catch {
-      showToast("Couldn't send payment nudge.");
+      showToast(t("bapt_nudge_failed"));
     }
   }
 
@@ -244,10 +246,10 @@ export default function BusinessAppointments() {
     setNoShowBusy(apt.id);
     try {
       await appointmentService.updateStatus(apt.id, "NO_SHOW");
-      showToast("Marked as no-show");
+      showToast(t("bapt_no_show"));
       refetch();
     } catch {
-      showToast("Couldn't update. Try again.");
+      showToast(t("bapt_update_failed"));
     } finally {
       setNoShowBusy(null);
     }
@@ -266,7 +268,7 @@ export default function BusinessAppointments() {
     try {
       await deliveryService.assignBatch(Array.from(selectedForBatch), agentUserId);
       haptics.success();
-      showToast(`${selectedForBatch.size} ${selectedForBatch.size === 1 ? "delivery" : "deliveries"} assigned`);
+      showToast(tf(selectedForBatch.size === 1 ? "bapt_deliveries_assigned_one" : "bapt_deliveries_assigned_many", { n: selectedForBatch.size }));
       setSelectedForBatch(new Set());
       setDeliverySelectMode(false);
       setBatchAgentPicking(false);
@@ -303,10 +305,10 @@ export default function BusinessAppointments() {
   async function unblock(block: BlockedSlot) {
     try {
       await slotBlockService.unblock(block.id, id);
-      showToast("Unblocked");
+      showToast(t("bapt_unblocked"));
       refetchBlocked();
     } catch {
-      showToast("Couldn't unblock. Try again.");
+      showToast(t("bapt_unblock_failed"));
     }
   }
 
@@ -332,7 +334,7 @@ export default function BusinessAppointments() {
         partySize: opts.partySize,
         targetPackageKey: bizPackageKey,
       });
-      showToast("Walk-in booking added");
+      showToast(t("bapt_walkin_added"));
       setWalkInModal(null);
       refetch();
     } catch (e: any) {
@@ -371,8 +373,8 @@ export default function BusinessAppointments() {
             <div>
               <div className="row gap-6 center-v">
                 <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
-                {apt.isWalkIn && <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>Walk-in</span>}
-                {apt.isOutOfRange && <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px" }}>Out of radius</span>}
+                {apt.isWalkIn && <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>{t("bapt_walkin_badge")}</span>}
+                {apt.isOutOfRange && <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px" }}>{t("bapt_out_of_radius_badge")}</span>}
               </div>
               <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
                 <Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}
@@ -383,7 +385,7 @@ export default function BusinessAppointments() {
                 type="button"
                 className="icon-btn"
                 aria-label={`Message ${ownerVisibleCustomerName(apt)}`}
-                title="Message customer"
+                title={t("bapt_message_customer")}
                 onClick={() => messageUser(apt.customerId!)}
               >
                 <MessageCircle size={16} color="var(--brand-600)" />
@@ -409,7 +411,7 @@ export default function BusinessAppointments() {
           <div className="row gap-8 center-v" style={{ background: "var(--amber-50)", border: "1px solid var(--amber-200)", padding: "8px 10px", borderRadius: 8 }}>
             <MapPin size={15} color="var(--amber-800)" style={{ flexShrink: 0 }} />
             <div>
-              <div className="tiny bold" style={{ color: "var(--amber-800)" }}>Out-of-Radius Request</div>
+              <div className="tiny bold" style={{ color: "var(--amber-800)" }}>{t("bapt_out_of_radius_request")}</div>
               <div className="tiny" style={{ color: "var(--amber-900)", marginTop: 1 }}>
                 Customer booked from outside your standard radius. The calendar slot is not blocked until you accept.
               </div>
@@ -463,7 +465,7 @@ export default function BusinessAppointments() {
           <div className="card col gap-10" style={{ padding: "var(--space-sm)", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 12, marginTop: 2 }}>
             <div className="row between center-v">
               <div className="tiny semi muted">Payment outstanding {apt.packagePrice || apt.paymentAmount ? `(${inr(apt.packagePrice ?? apt.paymentAmount ?? 0)})` : ""}</div>
-              <span className="badge badge-amber" style={{ fontSize: 10 }}>Unpaid</span>
+              <span className="badge badge-amber" style={{ fontSize: 10 }}>{t("bapt_unpaid")}</span>
             </div>
             <div className="row gap-8">
               <button className="btn btn-green grow btn-sm" disabled={processingPayment === apt.id} onClick={() => setPaymentModalApt(apt)}>
@@ -637,11 +639,11 @@ export default function BusinessAppointments() {
 
             <div className="card col gap-10" style={{ padding: "var(--space-sm)", background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
               <div className="row gap-14">
-                <SummaryStat label="Booked" value={bookedCount} />
-                <SummaryStat label="Pending" value={pendingCount} />
-                <SummaryStat label="Blocked" value={blockedCount} />
-                {dayRevenue > 0 && <SummaryStat label="Revenue" value={`₹${dayRevenue}`} icon={<IndianRupee size={12} />} />}
-                <button className="icon-btn" style={{ marginLeft: "auto" }} title="Copy day summary" onClick={copyDaySummary}>
+                <SummaryStat label={t("bapt_booked")} value={bookedCount} />
+                <SummaryStat label={t("pending")} value={pendingCount} />
+                <SummaryStat label={t("bapt_blocked")} value={blockedCount} />
+                {dayRevenue > 0 && <SummaryStat label={t("bapt_revenue")} value={`₹${dayRevenue}`} icon={<IndianRupee size={12} />} />}
+                <button className="icon-btn" style={{ marginLeft: "auto" }} title={t("bapt_copy_summary")} onClick={copyDaySummary}>
                   <Share2 size={15} />
                 </button>
               </div>
@@ -667,7 +669,7 @@ export default function BusinessAppointments() {
         {!loading && !error && tab === "UPCOMING" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
             {upcomingList.length === 0 ? (
-              <EmptyState emoji="📅" title={`No upcoming ${vocab.nounPlural}`} text="New bookings will appear here." />
+              <EmptyState emoji="📅" title={`No upcoming ${vocab.nounPlural}`} text={t("bapt_new_bookings_here")} />
             ) : (
               upcomingList.map(renderAppointmentCard)
             )}
@@ -690,7 +692,7 @@ export default function BusinessAppointments() {
               </div>
             )}
             {deliveryList.length === 0 ? (
-              <EmptyState emoji="🛵" title="No deliveries yet" text={`${nounPluralCap} booked for home delivery will appear here once accepted.`} />
+              <EmptyState emoji="🛵" title={t("bapt_no_deliveries")} text={`${nounPluralCap} booked for home delivery will appear here once accepted.`} />
             ) : (
               deliveryList.map((apt) => (
                 <div key={apt.id} className="row gap-8" style={{ alignItems: "flex-start" }}>
@@ -698,7 +700,7 @@ export default function BusinessAppointments() {
                     <button
                       type="button"
                       onClick={() => toggleSelectedForBatch(apt.id)}
-                      aria-label="Select for batch assignment"
+                      aria-label={t("bapt_select_batch")}
                       style={{
                         marginTop: 14, width: 22, height: 22, borderRadius: 6, flexShrink: 0,
                         border: selectedForBatch.has(apt.id) ? "none" : "2px solid var(--ink-300)",
@@ -719,7 +721,7 @@ export default function BusinessAppointments() {
         {!loading && !error && tab === "HISTORY" && (
           <div className="page-pad col gap-16" style={{ paddingTop: 12 }}>
             {historyList.length === 0 ? (
-              <EmptyState emoji="🕘" title="Nothing here yet" text={`Completed and past ${vocab.nounPlural} will appear here.`} />
+              <EmptyState emoji="🕘" title={t("explore_empty_title")} text={`Completed and past ${vocab.nounPlural} will appear here.`} />
             ) : (
               historyGroups.map(([day, list]) => (
                 <div key={day} className="col gap-10">
@@ -734,7 +736,7 @@ export default function BusinessAppointments() {
         {!loading && !error && tab === "CANCELLED" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
             {cancelledList.length === 0 ? (
-              <EmptyState emoji="🚫" title="No cancelled bookings" text={`Cancelled and declined ${vocab.nounPlural} will appear here.`} />
+              <EmptyState emoji="🚫" title={t("bapt_no_cancelled")} text={`Cancelled and declined ${vocab.nounPlural} will appear here.`} />
             ) : (
               cancelledList.map((apt) => (
                 <div key={apt.id} className="card col gap-8 queue-row-enter" style={{ padding: 14, opacity: apt.cancelledBy === "CUSTOMER" ? 0.75 : 1 }}>
@@ -803,7 +805,7 @@ export default function BusinessAppointments() {
                 )}
 
                 <div>
-                  <div className="tiny semi" style={{ marginBottom: 5 }}>Delivery ETA you're promising</div>
+                  <div className="tiny semi" style={{ marginBottom: 5 }}>{t("bapt_eta_label")}</div>
                   <input
                     className="input"
                     placeholder={b?.deliveryTime || "e.g. 30–45 min"}
@@ -844,7 +846,7 @@ export default function BusinessAppointments() {
               style={{ fontSize: 13, padding: 10 }}
             />
             <div className="row gap-8 end">
-              <button className="btn btn-ghost btn-sm" disabled={updatingStatus} onClick={() => { setActiveApt(null); setActionType(null); }}>Back</button>
+              <button className="btn btn-ghost btn-sm" disabled={updatingStatus} onClick={() => { setActiveApt(null); setActionType(null); }}>{t("back_word")}</button>
               <button
                 className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : actionType === "CANCEL" ? "btn-red" : "btn-primary"}`}
                 disabled={updatingStatus}
@@ -874,7 +876,7 @@ export default function BusinessAppointments() {
               <div className="bold" style={{ fontSize: 22, color: "var(--green-500)" }}>₹{paymentAction.apt.paymentAmount}</div>
             )}
             <div className="row gap-8 end">
-              <button className="btn btn-ghost btn-sm" disabled={!!processingPayment} onClick={() => setPaymentAction(null)}>Back</button>
+              <button className="btn btn-ghost btn-sm" disabled={!!processingPayment} onClick={() => setPaymentAction(null)}>{t("back_word")}</button>
               <button
                 className={`btn btn-sm ${paymentAction.action === "CONFIRM" ? "btn-green" : "btn-red"}`}
                 disabled={!!processingPayment}
@@ -949,9 +951,9 @@ export default function BusinessAppointments() {
             <div className="bold" style={{ fontSize: 16 }}>
               Assign {selectedForBatch.size} {selectedForBatch.size === 1 ? "delivery" : "deliveries"} to…
             </div>
-            <div className="tiny muted">The agent must accept the whole run — never just part of it.</div>
+            <div className="tiny muted">{t("bapt_whole_run")}</div>
             {(deliveryTeam ?? []).length === 0 ? (
-              <div className="tiny muted">No delivery team members yet. Add one in Team &amp; access with the Delivery role.</div>
+              <div className="tiny muted">{t("bapt_no_delivery_team")}</div>
             ) : (
               <div className="col gap-8">
                 {(deliveryTeam ?? []).map((m) => (
@@ -970,7 +972,7 @@ export default function BusinessAppointments() {
                 ))}
               </div>
             )}
-            <button className="tiny muted" style={{ alignSelf: "flex-start" }} disabled={batchAssigning} onClick={() => setBatchAgentPicking(false)}>Cancel</button>
+            <button className="tiny muted" style={{ alignSelf: "flex-start" }} disabled={batchAssigning} onClick={() => setBatchAgentPicking(false)}>{t("cancel")}</button>
           </div>
         </div>
       )}

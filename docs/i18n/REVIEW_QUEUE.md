@@ -311,3 +311,74 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `bon_step_photos` | Photos | फ़ोटो | फोटो |  |
 | `bon_step_contact` | Contact | संपर्क | संपर्क |  |
 | `bon_step_of` | Step {n} of 4 • {name} | चरण {n} / 4 • {name} | टप्पा {n} / ४ • {name} |  |
+| `bapt_slot_taken` | This slot was booked by another customer in the meantime. Please decline or reschedule. | इस बीच यह समय किसी और ग्राहक ने बुक कर लिया। कृपया मना करें या समय बदलें। | यादरम्यान ही वेळ दुसऱ्या ग्राहकाने बुक केली. कृपया नकार द्या किंवा वेळ बदला. |  |
+| `bapt_payment_rejected` | Payment claim rejected — customer notified. | भुगतान का दावा अस्वीकार — ग्राहक को बता दिया। | पेमेंटचा दावा नाकारला — ग्राहकाला कळवले. |  |
+| `bapt_payment_recorded` | Payment of {amount} recorded ({method}) ✓ | {amount} का भुगतान दर्ज ({method}) ✓ | {amount} चे पेमेंट नोंदवले ({method}) ✓ |  |
+| `bapt_added_to_tab` | Added {amount} to {name}'s tab 📒 | {name} के खाते में {amount} जोड़े 📒 | {name} च्या खात्यात {amount} जोडले 📒 |  |
+| `bapt_nudge_sent` | Payment request nudge sent 🔔 | भुगतान की याद दिला दी 🔔 | पेमेंटची आठवण पाठवली 🔔 |  |
+| `bapt_nudge_failed` | Couldn't send payment nudge. | भुगतान की याद नहीं भेजी जा सकी। | पेमेंटची आठवण पाठवता आली नाही. |  |
+| `bapt_no_show` | Marked as no-show | नहीं आया, दर्ज कर दिया | आले नाहीत, नोंदवले |  |
+| `bapt_update_failed` | Couldn't update. Try again. | अपडेट नहीं हो सका। दोबारा कोशिश करें। | अपडेट करता आले नाही. पुन्हा प्रयत्न करा. |  |
+| `bapt_deliveries_assigned_one` | {n} delivery assigned | {n} डिलीवरी सौंपी | {n} डिलिव्हरी सोपवली |  |
+| `bapt_deliveries_assigned_many` | {n} deliveries assigned | {n} डिलीवरी सौंपीं | {n} डिलिव्हरी सोपवल्या |  |
+| `bapt_unblocked` | Unblocked | फिर से खोल दिया | पुन्हा उघडले |  |
+| `bapt_unblock_failed` | Couldn't unblock. Try again. | खोला नहीं जा सका। दोबारा कोशिश करें। | उघडता आले नाही. पुन्हा प्रयत्न करा. |  |
+| `bapt_walkin_added` | Walk-in booking added | बिना बुकिंग आए ग्राहक को दर्ज किया | बुकिंगशिवाय आलेला ग्राहक नोंदवला |  |
+| `bapt_walkin_badge` | Walk-in | बिना बुकिंग | बुकिंगशिवाय |  |
+| `bapt_out_of_radius_badge` | Out of radius | दायरे से बाहर | परिघाबाहेर |  |
+| `bapt_message_customer` | Message customer | ग्राहक को संदेश भेजें | ग्राहकाला संदेश पाठवा |  |
+| `bapt_out_of_radius_request` | Out-of-Radius Request | दायरे से बाहर की विनती | परिघाबाहेरची विनंती |  |
+| `bapt_unpaid` | Unpaid | बकाया | बाकी |  |
+| `bapt_booked` | Booked | बुक हुईं | बुक झाल्या |  |
+| `bapt_blocked` | Blocked | बंद | बंद |  |
+| `bapt_revenue` | Revenue | कमाई | कमाई |  |
+| `bapt_copy_summary` | Copy day summary | दिन का सारांश कॉपी करें | दिवसाचा सारांश कॉपी करा |  |
+| `bapt_new_bookings_here` | New bookings will appear here. | नई बुकिंग यहाँ दिखेंगी। | नवीन बुकिंग इथे दिसतील. |  |
+| `bapt_no_deliveries` | No deliveries yet | अभी कोई डिलीवरी नहीं | अजून एकही डिलिव्हरी नाही |  |
+| `bapt_select_batch` | Select for batch assignment | एक साथ सौंपने के लिए चुनें | एकत्र सोपवण्यासाठी निवडा |  |
+| `bapt_no_cancelled` | No cancelled bookings | कोई रद्द बुकिंग नहीं | एकही रद्द बुकिंग नाही |  |
+| `bapt_eta_label` | Delivery ETA you're promising | आप कितने समय में पहुँचाने का वादा कर रहे हैं | तुम्ही किती वेळेत पोहोचवण्याचे वचन देत आहात |  |
+| `bapt_whole_run` | The agent must accept the whole run — never just part of it. | डिलीवरी करने वाले को पूरा चक्कर लेना होगा — आधा नहीं। | डिलिव्हरी करणाऱ्याला पूर्ण फेरी घ्यावी लागेल — अर्धी नाही. |  |
+| `bapt_no_delivery_team` | No delivery team members yet. Add one in Team & access with the Delivery role. | अभी कोई डिलीवरी टीम नहीं। टीम और पहुँच में डिलीवरी भूमिका के साथ किसी को जोड़ें। | अजून डिलिव्हरी टीम नाही. टीम आणि प्रवेशमध्ये डिलिव्हरी भूमिकेसह कोणाला तरी जोडा. |  |
+| `qm_payment_confirmed` | ✓ Payment confirmed — {name} | ✓ भुगतान पक्का — {name} | ✓ पेमेंट निश्चित — {name} |  |
+| `qm_payment_rejected` | Payment claim rejected — {name} | भुगतान का दावा अस्वीकार — {name} | पेमेंटचा दावा नाकारला — {name} |  |
+| `qm_payment_requested` | 🔔 Payment request sent — {name} | 🔔 भुगतान की विनती भेजी — {name} | 🔔 पेमेंटची विनंती पाठवली — {name} |  |
+| `qm_enter_name` | Enter a name | नाम डालें | नाव टाका |  |
+| `qm_walkin_added` | Walk-in added to the queue | बिना बुकिंग आया ग्राहक क़तार में जोड़ा | बुकिंगशिवाय आलेला ग्राहक रांगेत जोडला |  |
+| `qm_update_failed` | Couldn't update queue — try again | क़तार अपडेट नहीं हो सकी — दोबारा कोशिश करें | रांग अपडेट करता आली नाही — पुन्हा प्रयत्न करा |  |
+| `qm_avg_save_failed` | Couldn't save avg time | औसत समय सेव नहीं हो सका | सरासरी वेळ जतन करता आली नाही |  |
+| `qm_called` | 🔔 Called {name} | 🔔 {name} को बुलाया | 🔔 {name} ला बोलावले |  |
+| `qm_served` | ✓ Served {name} | ✓ {name} निपटा दिया | ✓ {name} झाले |  |
+| `qm_removed_no_show` | Removed {name} — marked as a no-show | {name} को हटाया — नहीं आया दर्ज किया | {name} ला काढले — आले नाहीत असे नोंदवले |  |
+| `qm_refresh` | Refresh | ताज़ा करें | ताजे करा |  |
+| `qm_live_board` | Live board | चालू बोर्ड | चालू बोर्ड |  |
+| `qm_customers_can_join` | Customers can join from your page | ग्राहक आपके पेज से जुड़ सकते हैं | ग्राहक तुमच्या पेजवरून सामील होऊ शकतात |  |
+| `qm_joins_paused` | New customer joins from the app are paused. You can still manage and serve existing tickets below. | ऐप से नए ग्राहकों का जुड़ना रोका हुआ है। नीचे मौजूद पर्चियाँ आप संभाल और निपटा सकते हैं। | ॲपवरून नवीन ग्राहक जोडणे थांबवले आहे. खालील सध्याच्या पावत्या तुम्ही सांभाळू आणि पूर्ण करू शकता. |  |
+| `qm_avg_service_time` | Avg service time | औसत सेवा समय | सरासरी सेवा वेळ |  |
+| `qm_avg_hint` | Drives every customer's live wait estimate. | इसी से हर ग्राहक का इंतज़ार का अंदाज़ा बनता है। | यावरूनच प्रत्येक ग्राहकाच्या प्रतीक्षेचा अंदाज ठरतो. |  |
+| `qm_min_to_clear` | min to clear | मिनट में ख़ाली | मिनिटांत मोकळे |  |
+| `qm_now_serving` | Now serving | अभी चल रहा है | आता सुरू आहे |  |
+| `qm_message_person` | Message {name} | {name} को संदेश भेजें | {name} ला संदेश पाठवा |  |
+| `qm_remove_no_show` | Remove (no-show) | हटाएं (नहीं आया) | काढा (आले नाहीत) |  |
+| `qm_remove_person_no_show` | Remove {name} (no-show) | {name} को हटाएं (नहीं आया) | {name} ला काढा (आले नाहीत) |  |
+| `qm_up_next` | Up next | अगला नंबर | पुढील क्रमांक |  |
+| `qm_call_customer` | Call this customer | इस ग्राहक को बुलाएं | या ग्राहकाला बोलवा |  |
+| `qm_mark_served` | Mark served | निपटा हुआ दर्ज करें | झाले असे नोंदवा |  |
+| `qm_queue_empty` | Queue is empty 🎉 | क़तार ख़ाली है 🎉 | रांग रिकामी आहे 🎉 |  |
+| `qm_recently_served` | Recently served | हाल में निपटाए | नुकतेच झालेले |  |
+| `qm_past_queue` | Past queue | पुरानी क़तार | जुनी रांग |  |
+| `qm_no_past` | No past queue entries yet. | अभी कोई पुरानी पर्ची नहीं। | अजून एकही जुनी पावती नाही. |  |
+| `qm_close_queue_q` | Close the queue? | क़तार बंद करें? | रांग बंद करायची? |  |
+| `qm_add_walkin` | Add a walk-in | बिना बुकिंग आया ग्राहक जोड़ें | बुकिंगशिवाय आलेला ग्राहक जोडा |  |
+| `qm_name` | Name | नाम | नाव |  |
+| `qm_name_placeholder` | e.g. Rohit | जैसे रोहित | उदा. रोहित |  |
+| `qm_party_size` | Party size | कितने लोग | किती लोक |  |
+| `pset_title` | Provider settings | सेवा देने वाले की सेटिंग | सेवा देणाऱ्याची सेटिंग |  |
+| `pset_loading` | Loading settings... | सेटिंग आ रही हैं... | सेटिंग येत आहेत... |  |
+| `pset_matching_skills` | Requests matching my skills | मेरे हुनर से मिलती-जुलती मांगें | माझ्या कौशल्याशी जुळणाऱ्या मागण्या |  |
+| `pset_radius_hint` | Edit on your profile page | अपने प्रोफ़ाइल पेज पर बदलें | तुमच्या प्रोफाइल पेजवर बदला |  |
+| `pset_email` | Email | ईमेल | ईमेल |  |
+| `pset_email_placeholder` | e.g. you@email.com | जैसे you@email.com | उदा. you@email.com |  |
+| `pset_show_profile` | Show provider profile publicly | प्रोफ़ाइल सबको दिखाएं | प्रोफाइल सर्वांना दाखवा |  |
+| `pset_email_save_failed` | Couldn't save email | ईमेल सेव नहीं हो सका | ईमेल जतन करता आला नाही |  |
+| `pset_exit_provider` | Exit provider mode | सेवा मोड से बाहर निकलें | सेवा मोडमधून बाहेर पडा |  |

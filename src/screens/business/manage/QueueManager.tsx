@@ -16,6 +16,7 @@ import type { QueueOwnerToken as Token } from "@/types";
 import ManageNav from "./ManageNav";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { consoleFor } from "@/lib/consoleSteps";
+import { useI18n } from "@/lib/i18n";
 
 // "12m ago" style label for how long a token has been waiting.
 function waitedLabel(iso: string): string {
@@ -55,6 +56,8 @@ function etaClock(min: number): string {
 export default function QueueManager() {
   const { id: businessId = "" } = useParams<{ id: string }>();
   const { showToast } = useApp();
+  // `t` is a queue token throughout this file, so the translator keeps its own names here.
+  const { t: qt, tf: qtf } = useI18n();
   const messageUser = useMessageUser();
   const [live, setLive] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
@@ -131,7 +134,7 @@ export default function QueueManager() {
     setVerifying(token.id);
     try {
       await businessService.confirmQueuePayment(token.id);
-      showToast(`✓ Payment confirmed — ${token.name}`);
+      showToast(qtf("qm_payment_confirmed", { name: token.name }));
       refetch();
     } catch (e: any) {
       showToast(e?.message || "Couldn't confirm — try again");
@@ -144,7 +147,7 @@ export default function QueueManager() {
     setVerifying(token.id);
     try {
       await businessService.rejectQueuePaymentClaim(token.id);
-      showToast(`Payment claim rejected — ${token.name}`);
+      showToast(qtf("qm_payment_rejected", { name: token.name }));
       refetch();
     } catch (e: any) {
       showToast(e?.message || "Couldn't reject — try again");
@@ -157,7 +160,7 @@ export default function QueueManager() {
     setNudging(token.id);
     try {
       await businessService.nudgeQueuePayment(token.id);
-      showToast(`🔔 Payment request sent — ${token.name}`);
+      showToast(qtf("qm_payment_requested", { name: token.name }));
     } catch (e: any) {
       showToast(e?.message || "Couldn't send payment nudge.");
     } finally {
@@ -166,11 +169,11 @@ export default function QueueManager() {
   }
 
   async function addWalkIn() {
-    if (!walkInName.trim()) { showToast("Enter a name"); return; }
+    if (!walkInName.trim()) { showToast(qt("qm_enter_name")); return; }
     setAddingWalkIn(true);
     try {
       await businessService.createWalkInQueueToken(businessId, walkInName.trim(), `${parsePartySize(walkInParty) || 1} person${parsePartySize(walkInParty) === 1 ? "" : "s"}`);
-      showToast("Walk-in added to the queue");
+      showToast(qt("qm_walkin_added"));
       setWalkInOpen(false);
       setWalkInName("");
       setWalkInParty("1");
@@ -201,7 +204,7 @@ export default function QueueManager() {
       showToast(next ? "Queue is now open" : "Queue closed");
     } catch {
       setLive(!next);
-      showToast("Couldn't update queue — try again");
+      showToast(qt("qm_update_failed"));
     }
   }
 
@@ -210,7 +213,7 @@ export default function QueueManager() {
     try {
       await businessService.setQueueSettings(businessId, { avgServiceMin: val });
     } catch {
-      showToast("Couldn't save avg time");
+      showToast(qt("qm_avg_save_failed"));
     }
   }
 
@@ -226,7 +229,7 @@ export default function QueueManager() {
       const result = await businessService.callNextToken(businessId);
       if (!result.ok) throw new Error(result.message);
       haptics.success();
-      showToast(`🔔 Called ${result.name}`);
+      showToast(qtf("qm_called", { name: result.name }));
       if (result.tokenId !== first.id) refetch();
     } catch (e: any) {
       setWaiting((t) => [first, ...t]);
@@ -248,7 +251,7 @@ export default function QueueManager() {
     try {
       await businessService.callSpecificToken(token.id);
       haptics.success();
-      showToast(`🔔 Called ${token.name}`);
+      showToast(qtf("qm_called", { name: token.name }));
     } catch (e: any) {
       setWaiting((t) => [...t, token]);
       setCalled((c) => c.filter((x) => x.id !== token.id));
@@ -293,7 +296,7 @@ export default function QueueManager() {
     });
     try {
       await businessService.serveToken(token.id);
-      showToast(`✓ Served ${token.name}`);
+      showToast(qtf("qm_served", { name: token.name }));
     } catch (e: any) {
       showToast(e?.message || "Couldn't mark as served — try again");
       refetch();
@@ -304,7 +307,7 @@ export default function QueueManager() {
     animateOut(token.id, () => setCalled((c) => c.filter((x) => x.id !== token.id)));
     try {
       await businessService.removeNoShowToken(token.id);
-      showToast(`Removed ${token.name} — marked as a no-show`);
+      showToast(qtf("qm_removed_no_show", { name: token.name }));
     } catch (e: any) {
       showToast(e?.message || "Couldn't remove — try again");
       refetch();
@@ -367,15 +370,15 @@ export default function QueueManager() {
   return (
     <div className="screen with-nav">
       <AppBar title={queueLabel} right={
-        <button className="icon-btn" onClick={() => { refetch(); refetchHistory(); }} title="Refresh">
+        <button className="icon-btn" onClick={() => { refetch(); refetchHistory(); }} title={qt("qm_refresh")}>
           <RefreshCw size={17} />
         </button>
       } />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 30 }}>
         {/* Live board vs. past queue history */}
         <div className="hscroll" style={{ paddingBottom: 2 }}>
-          <button className={`chip ${view === "LIVE" ? "active" : ""}`} onClick={() => setView("LIVE")}>Live board</button>
-          <button className={`chip ${view === "HISTORY" ? "active" : ""}`} onClick={() => setView("HISTORY")}>History</button>
+          <button className={`chip ${view === "LIVE" ? "active" : ""}`} onClick={() => setView("LIVE")}>{qt("qm_live_board")}</button>
+          <button className={`chip ${view === "HISTORY" ? "active" : ""}`} onClick={() => setView("HISTORY")}>{qt("agreements_history_tab")}</button>
         </div>
 
         {view === "LIVE" && (
@@ -390,7 +393,7 @@ export default function QueueManager() {
               <span className="semi small">Queue is {live ? "ON" : "OFF"}</span>
               {live && <LivePulseDot />}
             </div>
-            <div className="tiny muted">Customers can join from your page</div>
+            <div className="tiny muted">{qt("qm_customers_can_join")}</div>
           </div>
           <Toggle on={live} />
         </button>
@@ -406,13 +409,13 @@ export default function QueueManager() {
         {!live && (
           <div className="row gap-8 center-v" style={{ padding: "10px 12px", background: "var(--ink-50)", borderRadius: "var(--radius-sm)" }}>
             <Clock size={15} color="var(--ink-600)" style={{ flexShrink: 0 }} />
-            <span className="tiny muted">New customer joins from the app are paused. You can still manage and serve existing tickets below.</span>
+            <span className="tiny muted">{qt("qm_joins_paused")}</span>
           </div>
         )}
 
         <div className="card">
           <div className="row between small semi" style={{ alignItems: "center" }}>
-            <span>Avg service time</span>
+            <span>{qt("qm_avg_service_time")}</span>
                 <div className="row gap-4" style={{ alignItems: "center" }}>
                   <input
                     type="number"
@@ -458,7 +461,7 @@ export default function QueueManager() {
                 onKeyUp={(e) => saveAvgTime(Number((e.target as HTMLInputElement).value))}
                 style={{ width: "100%", accentColor: "var(--brand-500)", marginTop: 12 }}
               />
-              <div className="tiny muted" style={{ marginTop: 4 }}>Drives every customer's live wait estimate.</div>
+              <div className="tiny muted" style={{ marginTop: 4 }}>{qt("qm_avg_hint")}</div>
             </div>
 
             {/* Summary strip */}
@@ -471,14 +474,14 @@ export default function QueueManager() {
               <div className="card grow col center" style={{ padding: 14, gap: 2, background: "var(--ink-50)", border: "none" }}>
                 <Clock size={22} color="var(--ink-600)" />
                 <span className="bold" style={{ fontSize: 22 }}>~{totalWait}</span>
-                <span className="tiny muted">min to clear</span>
+                <span className="tiny muted">{qt("qm_min_to_clear")}</span>
               </div>
             </div>
 
             {/* Now serving (CALLED) */}
             {called.length > 0 && (
               <div className="col gap-8">
-                <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Now serving</span>
+                <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>{qt("qm_now_serving")}</span>
                 {called.map((t) => {
                   const arrived = !!t.arrivedAt;
                   return (
@@ -504,11 +507,11 @@ export default function QueueManager() {
                         </button>
                       )}
                       {t.customerUserId && (
-                        <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--brand-600)" }} aria-label={`Message ${t.name}`} title="Message customer" onClick={() => messageUser(t.customerUserId!)}>
+                        <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--brand-600)" }} aria-label={qtf("qm_message_person", { name: t.name })} title={qt("bapt_message_customer")} onClick={() => messageUser(t.customerUserId!)}>
                           <MessageCircle size={15} />
                         </button>
                       )}
-                      <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} title="Remove (no-show)" aria-label={`Remove ${t.name} (no-show)`} onClick={() => removeToken(t)}>
+                      <button className="icon-btn" style={{ width: 32, height: 32, color: "var(--red-600)" }} title={qt("qm_remove_no_show")} aria-label={qtf("qm_remove_person_no_show", { name: t.name })} onClick={() => removeToken(t)}>
                         <X size={15} />
                       </button>
                     </div>
@@ -526,7 +529,7 @@ export default function QueueManager() {
             {/* Waiting line */}
             <div className="col gap-8">
               {waiting.length > 0 && (
-                <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Up next</span>
+                <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>{qt("qm_up_next")}</span>
               )}
               {waiting.map((t, i) => (
                 <div key={t.id} className={`card row gap-12${exitingIds.has(t.id) ? " queue-row-exit" : " queue-row-enter"}`} style={{ padding: 12 }}>
@@ -551,7 +554,7 @@ export default function QueueManager() {
                     <button
                       className="icon-btn"
                       style={{ width: 34, height: 34, color: "var(--brand-600)" }}
-                      title="Call this customer"
+                      title={qt("qm_call_customer")}
                       disabled={calling}
                       onClick={() => callToken(t)}
                     >
@@ -560,7 +563,7 @@ export default function QueueManager() {
                     <button
                       className="icon-btn"
                       style={{ width: 34, height: 34, color: "var(--green-500)" }}
-                      title="Mark served"
+                      title={qt("qm_mark_served")}
                       onClick={() => serveToken(t, "waiting")}
                     >
                       <Check size={16} />
@@ -569,7 +572,7 @@ export default function QueueManager() {
                 </div>
               ))}
               {waiting.length === 0 && called.length === 0 && (
-                <p className="muted small center" style={{ padding: 20 }}>Queue is empty 🎉</p>
+                <p className="muted small center" style={{ padding: 20 }}>{qt("qm_queue_empty")}</p>
               )}
             </div>
 
@@ -577,7 +580,7 @@ export default function QueueManager() {
                 surface once a token leaves the waiting/called board. */}
             {served.length > 0 && (
               <div className="col gap-8">
-                <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Recently served</span>
+                <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>{qt("qm_recently_served")}</span>
                 {served.map((t) => (
                   <div key={t.id} className="card col gap-6" style={{ padding: 12 }}>
                     <div className="row gap-12 center-v">
@@ -602,7 +605,7 @@ export default function QueueManager() {
 
         {view === "HISTORY" && (
           <div className="col gap-8">
-            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>Past queue</span>
+            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8 }}>{qt("qm_past_queue")}</span>
             {historyLoading && (
               <div className="col gap-8">
                 <Skeleton h={56} r={14} mb={0} />
@@ -610,7 +613,7 @@ export default function QueueManager() {
               </div>
             )}
             {!historyLoading && historyRows.length === 0 && (
-              <p className="muted small center" style={{ padding: 20 }}>No past queue entries yet.</p>
+              <p className="muted small center" style={{ padding: 20 }}>{qt("qm_no_past")}</p>
             )}
             {historyRows.map((t) => (
               <div key={t.id} className="card col gap-6" style={{ padding: 12 }}>
@@ -648,9 +651,9 @@ export default function QueueManager() {
       </div>
       {confirmClose && (
         <div className="overlay" onClick={() => setConfirmClose(false)}>
-          <div className="sheet" role="dialog" aria-label="Close the queue?" onClick={(e) => e.stopPropagation()}>
+          <div className="sheet" role="dialog" aria-label={qt("qm_close_queue_q")} onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
-            <h3 className="bold h2" style={{ marginBottom: 8 }}>Close the queue?</h3>
+            <h3 className="bold h2" style={{ marginBottom: 8 }}>{qt("qm_close_queue_q")}</h3>
             <p className="small muted" style={{ marginBottom: 16 }}>
               {removedOnClose === 1 ? "1 customer" : `${removedOnClose} customers`} still in line will be removed and notified.
               Customers who have arrived or have a payment in progress stay on your board.
@@ -668,14 +671,14 @@ export default function QueueManager() {
         <div className="overlay" onClick={() => !addingWalkIn && setWalkInOpen(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
-            <h3 className="bold h2" style={{ marginBottom: 12 }}>Add a walk-in</h3>
+            <h3 className="bold h2" style={{ marginBottom: 12 }}>{qt("qm_add_walkin")}</h3>
             <div className="col gap-10">
               <div>
-                <label htmlFor="queuemanager-name" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Name</label>
-                <input id="queuemanager-name" className="input" placeholder="e.g. Rohit" value={walkInName} autoFocus onChange={(e) => setWalkInName(e.target.value)} maxLength={100} />
+                <label htmlFor="queuemanager-name" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{qt("qm_name")}</label>
+                <input id="queuemanager-name" className="input" placeholder={qt("qm_name_placeholder")} value={walkInName} autoFocus onChange={(e) => setWalkInName(e.target.value)} maxLength={100} />
               </div>
               <div>
-                <label htmlFor="queuemanager-party-size" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Party size</label>
+                <label htmlFor="queuemanager-party-size" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{qt("qm_party_size")}</label>
                 <input id="queuemanager-party-size" className="input" type="number" min={1} max={MAX_QUEUE_PARTY_SIZE} value={walkInParty} onChange={(e) => setWalkInParty(e.target.value)} />
               </div>
             </div>
