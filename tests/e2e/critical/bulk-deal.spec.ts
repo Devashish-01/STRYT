@@ -32,8 +32,8 @@ test("bulk deal: publish, pledges with deposits, owner confirms, campaign fills,
   await owner.getByRole("button", { name: "New campaign" }).click();
   await expect(owner.getByRole("button", { name: /^Make this a bulk-buying campaign/ })).toHaveAttribute("aria-pressed", "true");
   await owner.getByRole("textbox", { name: /^Title/ }).fill(title);
-  await owner.getByRole("textbox", { name: "1000", exact: true }).fill("200");
-  await owner.getByRole("textbox", { name: "10", exact: true }).fill("3");
+  await owner.getByRole("textbox", { name: "Regular price (₹)" }).fill("200");
+  await owner.getByRole("textbox", { name: "Target qty" }).fill("3");
   await owner.getByRole("textbox", { name: "Qty", exact: true }).fill("3");
   await owner.getByRole("textbox", { name: "Unit price ₹", exact: true }).fill("180");
   await owner.getByRole("textbox", { name: "e.g. 100 — leave blank for no deposit" }).fill("50");

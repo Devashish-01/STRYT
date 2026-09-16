@@ -40,7 +40,7 @@ test("request → proposal → counter → agreement → payment → completion 
   await expect(provider).toHaveURL(new RegExp(`${PROVIDER_CONSOLE}/manage/find-work`));
   await provider.getByText(title).first().click();
   await provider.getByRole("button", { name: "Send a proposal" }).click();
-  await provider.getByRole("textbox", { name: "0" }).fill("700");
+  await provider.getByRole("textbox", { name: /Your quote/ }).fill("700");
   await provider.getByPlaceholder("e.g. Deliver by Saturday 5 PM").fill("Tomorrow 11 AM");
   await provider.getByPlaceholder(/Tell them why/).fill(pitch);
   await provider.getByRole("button", { name: /^Send proposal • / }).click();

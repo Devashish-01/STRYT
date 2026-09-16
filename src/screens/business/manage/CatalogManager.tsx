@@ -378,9 +378,9 @@ export function ItemEditor({
               to configure, and the server ignores these fields for them. */}
           {kind === "business" && bizTheme.showSlotCapacitySection && (
             <div className="field">
-              <label htmlFor="catalogmanager-field">{bizTheme.slotCapacityLabel}</label>
+              <label htmlFor="catalogmanager-slot-capacity">{bizTheme.slotCapacityLabel}</label>
               <div className="row gap-10">
-                <input id="catalogmanager-field"
+                <input id="catalogmanager-slot-capacity"
                   className="input grow"
                   inputMode="numeric"
                   value={slotCap}

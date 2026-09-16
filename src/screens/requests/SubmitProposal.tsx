@@ -143,16 +143,16 @@ export default function SubmitProposal() {
         )}
 
         <div className="field">
-          <label htmlFor="submitproposal-field">{t("your_quote_label")}</label>
+          <label htmlFor="submitproposal-your-quote-label">{t("your_quote_label")}</label>
           <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 12px", background: "var(--surface)" }}>
             <IndianRupee size={18} color="var(--ink-400)" />
-            <input id="submitproposal-field" className="input" style={{ border: "none", fontSize: 18, fontWeight: 700 }} inputMode="numeric" placeholder="0" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
+            <input id="submitproposal-your-quote-label" className="input" style={{ border: "none", fontSize: 18, fontWeight: 700 }} inputMode="numeric" placeholder="0" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
           </div>
         </div>
 
         <div className="field">
-          <label htmlFor="submitproposal-field-2">{t("when_can_you_do_it")}</label>
-          <input id="submitproposal-field-2" className="input" placeholder={t("eta_placeholder")} value={eta} onChange={(e) => setEta(e.target.value)} />
+          <label htmlFor="submitproposal-when-can-you-do-it">{t("when_can_you_do_it")}</label>
+          <input id="submitproposal-when-can-you-do-it" className="input" placeholder={t("eta_placeholder")} value={eta} onChange={(e) => setEta(e.target.value)} />
         </div>
 
         <div className="field">

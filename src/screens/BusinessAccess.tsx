@@ -344,8 +344,8 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
           </div>
 
           <div className="field" style={{ marginBottom: 0 }}>
-            <label htmlFor="businessaccess-field">{config ? "New password (leave blank to keep the current one)" : "Password"}</label>
-            <input id="businessaccess-field"
+            <label htmlFor="businessaccess-password">{config ? "New password (leave blank to keep the current one)" : "Password"}</label>
+            <input id="businessaccess-password"
               className="input"
               type="password"
               value={password}

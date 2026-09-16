@@ -2866,6 +2866,10 @@ const strings: Record<Lang, Record<string, string>> = {
     search_alert_removed: "अलर्ट काढला",
     search_will_notify: "\"{query}\" जवळ जोडल्यावर आम्ही तुम्हाला कळवू",
     search_alert_update_failed: "अलर्ट अपडेट करता आला नाही — पुन्हा प्रयत्न करा",
+    search_filter_open_now: "आत्ता उघडे",
+    search_no_open_results: "\"{query}\" साठी सध्या कोणतेही ठिकाण उघडे नाही",
+    search_no_open_results_hint: "सर्व नोंदी पाहण्यासाठी 'आत्ता उघडे' फिल्टर बंद करा.",
+    search_show_all_places: "सर्व ठिकाणे दाखवा",
 
     // Phase 1 multilingual — Map screen
     map_place_one: "{count} ठिकाण",

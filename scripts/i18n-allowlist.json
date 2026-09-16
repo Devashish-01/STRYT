@@ -1,0 +1,17 @@
+{
+  "_comment": "Strings the hardcoded-string checker ignores. Every entry needs a reason: it is read by whoever wonders why a visible string is allowed to stay English. Brand names, units and symbols that read the same in every language belong here; prose does not.",
+  "strings": [
+    { "value": "STRYT", "reason": "Brand name — identical in every language." },
+    { "value": "UPI", "reason": "Payment rail name, used as-is in Hindi and Marathi." },
+    { "value": "QR", "reason": "Used as-is in all three languages." },
+    { "value": "OTP", "reason": "Used as-is in all three languages." },
+    { "value": "WhatsApp", "reason": "Product name." },
+    { "value": "Google", "reason": "Product name." },
+    { "value": "Play Store", "reason": "Product name." },
+    { "value": "km", "reason": "Unit symbol." },
+    { "value": "kg", "reason": "Unit symbol." },
+    { "value": "GST", "reason": "Statutory term, used as-is." },
+    { "value": "PIN", "reason": "Used as-is in all three languages." },
+    { "value": "ID", "reason": "Used as-is in all three languages." }
+  ]
+}

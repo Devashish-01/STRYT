@@ -430,8 +430,8 @@ export default function BulkOrderSheet({
 
             {needsAddress && (
               <div style={{ marginBottom: "var(--space-md)" }}>
-                <label htmlFor="bulkordersheet-field" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("delivery_address_label")}</label>
-                <input id="bulkordersheet-field"
+                <label htmlFor="bulkordersheet-delivery-address-label" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("delivery_address_label")}</label>
+                <input id="bulkordersheet-delivery-address-label"
                   className="input"
                   placeholder={t("flat_street_landmark_placeholder")}
                   value={address}
@@ -443,8 +443,8 @@ export default function BulkOrderSheet({
             )}
 
             <div style={{ marginBottom: "var(--space-md)" }}>
-              <label htmlFor="bulkordersheet-field-2" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("notes_for_business_optional")}</label>
-              <input id="bulkordersheet-field-2"
+              <label htmlFor="bulkordersheet-notes-for-business-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("notes_for_business_optional")}</label>
+              <input id="bulkordersheet-notes-for-business-optional"
                 className="input"
                 placeholder={t("notes_business_placeholder")}
                 value={notes}
