@@ -31,6 +31,8 @@ import { tokenStore }          from "@/lib/auth";
 import { getSupabase }         from "@/lib/supabaseClient";
 import {
   hasFirebaseWebConfig,
+  hasPendingFirebaseRedirect,
+  hasUsedFirebaseSignIn,
   firebaseSilentRefresh,
   firebaseCompleteRedirect,
 } from "@/lib/firebaseWeb";
@@ -88,7 +90,9 @@ export function useAuthSession() {
         // 3a. If this page load is the return leg of a Firebase redirect
         // sign-in (the popup fallback), consume the pending credential and
         // bridge it to Supabase first. No-op when there's no pending redirect.
-        if (hasFirebaseWebConfig) {
+        // Only a load returning from Google can have a pending redirect; checking the marker first keeps the
+        // Firebase SDK out of every other page load (P11.B).
+        if (hasFirebaseWebConfig && hasPendingFirebaseRedirect()) {
           const bridged = await firebaseCompleteRedirect();
           if (bridged) {
             // onAuthStateChange fires with the new session and sets isAuthed.

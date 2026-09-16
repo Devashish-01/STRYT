@@ -26,18 +26,9 @@
  * hourly (the original bug).
  */
 
-import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
-  signOut as fbSignOut,
-  getIdToken,
-  type Auth,
-  type User,
-} from "firebase/auth";
+// Types only — erased at build time, so importing them costs nothing at runtime.
+import type { FirebaseApp } from "firebase/app";
+import type { Auth, GoogleAuthProvider as GoogleAuthProviderType, User } from "firebase/auth";
 import { getSupabase } from "@/lib/supabaseClient";
 
 // ---------------------------------------------------------------------------
@@ -65,19 +56,33 @@ export const hasFirebaseWebConfig = Boolean(
 );
 
 // ---------------------------------------------------------------------------
-// Internal singletons — lazily initialised so test/mock environments that
-// never call any firebase* function pay zero cost.
+// Internal singletons — the SDK itself is fetched on first use, not at import.
+// Firebase is only ever needed when someone signs in with Google; loading it
+// eagerly put ~218 KB into the first page load for everyone, guests included.
 // ---------------------------------------------------------------------------
 let _app:  FirebaseApp | null = null;
 let _auth: Auth        | null = null;
+let _sdk: Promise<{
+  app: typeof import("firebase/app");
+  auth: typeof import("firebase/auth");
+}> | null = null;
 
-function getFirebaseApp(): FirebaseApp {
-  if (!_app) _app = getApps().length ? getApp() : initializeApp(cfg);
+function loadSdk() {
+  if (!_sdk) {
+    _sdk = Promise.all([import("firebase/app"), import("firebase/auth")]).then(([app, auth]) => ({ app, auth }));
+  }
+  return _sdk;
+}
+
+async function getFirebaseApp(): Promise<FirebaseApp> {
+  const { app } = await loadSdk();
+  if (!_app) _app = app.getApps().length ? app.getApp() : app.initializeApp(cfg);
   return _app;
 }
 
-function getFirebaseAuth(): Auth {
-  if (!_auth) _auth = getAuth(getFirebaseApp());
+async function getFirebaseAuth(): Promise<Auth> {
+  const { auth } = await loadSdk();
+  if (!_auth) _auth = auth.getAuth(await getFirebaseApp());
   return _auth;
 }
 
@@ -89,6 +94,7 @@ async function bridgeToSupabase(idToken: string): Promise<void> {
   const sb = getSupabase();
   const { error } = await sb.auth.signInWithIdToken({ provider: "google", token: idToken });
   if (error) throw error;
+  rememberFirebaseBridge(true);
 }
 
 // ---------------------------------------------------------------------------
@@ -99,9 +105,9 @@ async function bridgeToSupabase(idToken: string): Promise<void> {
  * Read-only access to the Firebase currentUser.
  * Returns null when the user is not signed in through Firebase.
  */
-export function firebaseCurrentUser(): User | null {
+export async function firebaseCurrentUser(): Promise<User | null> {
   if (!hasFirebaseWebConfig) return null;
-  return getFirebaseAuth().currentUser;
+  return (await getFirebaseAuth()).currentUser;
 }
 
 /**
@@ -109,8 +115,9 @@ export function firebaseCurrentUser(): User | null {
  * always choose an account (prevents a different account silently resuming a
  * prior session).
  */
-function googleProvider(): GoogleAuthProvider {
-  const provider = new GoogleAuthProvider();
+async function googleProvider(): Promise<GoogleAuthProviderType> {
+  const { auth } = await loadSdk();
+  const provider = new auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
   return provider;
 }
@@ -133,11 +140,12 @@ function googleProvider(): GoogleAuthProvider {
  * Throws a user-visible Error on genuine failure.
  */
 export async function firebaseGoogleSignIn(): Promise<void> {
-  const auth = getFirebaseAuth();
+  const { auth: sdk } = await loadSdk();
+  const auth = await getFirebaseAuth();
 
   try {
-    const result  = await signInWithPopup(auth, googleProvider());
-    const cred    = GoogleAuthProvider.credentialFromResult(result);
+    const result  = await sdk.signInWithPopup(auth, await googleProvider());
+    const cred    = sdk.GoogleAuthProvider.credentialFromResult(result);
     const idToken = cred?.idToken;
 
     if (!idToken) {
@@ -158,7 +166,7 @@ export async function firebaseGoogleSignIn(): Promise<void> {
       code === "auth/cancelled-popup-request" ||
       code === "auth/operation-not-supported-in-this-environment"
     ) {
-      await signInWithRedirect(auth, googleProvider());
+      await sdk.signInWithRedirect(auth, await googleProvider());
       return;
     }
 
@@ -181,13 +189,62 @@ export async function firebaseGoogleSignIn(): Promise<void> {
  *
  * Never throws — a failed redirect completion must not block app startup.
  */
+/**
+ * Is a Firebase redirect sign-in waiting to be consumed on this page load?
+ *
+ * Firebase parks a `firebase:pendingRedirect:*` marker in sessionStorage when it sends the user to Google, and only
+ * a load that follows that redirect can have one. Checking it costs nothing, and skipping the SDK download for
+ * everyone else keeps ~260 KB out of the first load of every page (P11.B).
+ */
+const BRIDGED_KEY = "stryt_firebase_bridged";
+
+/**
+ * Has this device ever signed in through the Firebase bridge?
+ *
+ * Only then can a silent refresh find a Firebase session to re-bridge. Without this, every reload by every
+ * signed-out visitor downloaded the SDK to ask a question whose answer was always no (P11.B).
+ */
+export function hasUsedFirebaseSignIn(): boolean {
+  if (typeof window === "undefined" || !hasFirebaseWebConfig) return false;
+  try {
+    return localStorage.getItem(BRIDGED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function rememberFirebaseBridge(used: boolean): void {
+  try {
+    if (used) localStorage.setItem(BRIDGED_KEY, "1");
+    else localStorage.removeItem(BRIDGED_KEY);
+  } catch {
+    // Storage blocked: the silent-refresh path is an optimisation, not a requirement.
+  }
+}
+
+export function hasPendingFirebaseRedirect(): boolean {
+  if (typeof window === "undefined" || !hasFirebaseWebConfig) return false;
+  try {
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith("firebase:pendingRedirect")) return true;
+    }
+  } catch {
+    // Private mode or blocked storage: assume nothing is pending. A redirect sign-in couldn't have stored its
+    // marker either, so there is nothing to consume.
+  }
+  return false;
+}
+
 export async function firebaseCompleteRedirect(): Promise<boolean> {
   try {
     if (!hasFirebaseWebConfig) return false;
-    const result = await getRedirectResult(getFirebaseAuth());
+    if (!hasPendingFirebaseRedirect()) return false;
+    const { auth: sdk } = await loadSdk();
+    const result = await sdk.getRedirectResult(await getFirebaseAuth());
     if (!result) return false;
 
-    const cred    = GoogleAuthProvider.credentialFromResult(result);
+    const cred    = sdk.GoogleAuthProvider.credentialFromResult(result);
     const idToken = cred?.idToken;
     if (!idToken) return false;
 
@@ -210,12 +267,14 @@ export async function firebaseCompleteRedirect(): Promise<boolean> {
  */
 export async function firebaseSilentRefresh(): Promise<boolean> {
   try {
-    const user = getFirebaseAuth().currentUser;
+    if (!hasFirebaseWebConfig || !hasUsedFirebaseSignIn()) return false;
+    const { auth: sdk } = await loadSdk();
+    const user = (await getFirebaseAuth()).currentUser;
     if (!user) return false;
 
     // forceRefresh=true ensures we get a token valid for a full hour, not
     // a cached one that may itself be about to expire.
-    const freshIdToken = await getIdToken(user, /* forceRefresh */ true);
+    const freshIdToken = await sdk.getIdToken(user, /* forceRefresh */ true);
     await bridgeToSupabase(freshIdToken);
     return true;
   } catch {
@@ -231,8 +290,10 @@ export async function firebaseSilentRefresh(): Promise<boolean> {
 export async function firebaseSignOut(): Promise<void> {
   try {
     if (!hasFirebaseWebConfig) return;
-    const user = getFirebaseAuth().currentUser;
-    if (user) await fbSignOut(getFirebaseAuth());
+    const { auth: sdk } = await loadSdk();
+    const auth = await getFirebaseAuth();
+    if (auth.currentUser) await sdk.signOut(auth);
+    rememberFirebaseBridge(false);
   } catch {
     // Best-effort; Supabase sign-out already happened.
   }

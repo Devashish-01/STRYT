@@ -102,8 +102,12 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return;
-          if (id.includes("firebase")) return "vendor-firebase";
-          if (id.includes("leaflet")) return "vendor-map"; // leaflet + react-leaflet
+          // Firebase is deliberately NOT given a manual chunk: naming one pins it to the entry graph, and it was
+          // being preloaded on every page load. Left alone, it lands in the chunk created by the dynamic import in
+          // src/lib/firebaseWeb.ts and only downloads when someone signs in with Google (P11.B).
+          // Leaflet likewise: main.tsx imports leaflet.css, and a manual chunk matching that path made the whole
+          // leaflet JS a static dependency of the entry — 150 KB on every page, though only screens with a map use
+          // it. Without the rule it follows those lazy screens (P11.B).
           if (id.includes("@supabase")) return "vendor-supabase";
           if (id.includes("@phosphor-icons") || id.includes("lucide-react")) return "vendor-icons";
           if (id.includes("react-router")) return "vendor-react";
