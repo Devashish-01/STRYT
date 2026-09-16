@@ -1712,6 +1712,46 @@ const strings: Record<string, string> = {
     sup_business_listings: "दुकान की लिस्टिंग 🏪",
     sup_suggestion: "सुझाव/राय 💡",
 
+    // Place request form and provider jobs
+    prf_name_first: "पहले इसका नाम दें",
+    prf_drop_pin: "जगह के लिए पिन लगाएं",
+    prf_name_placeholder: "जैसे सनसेट पॉइंट, पाँचगनी",
+    prf_description: "विवरण (वैकल्पिक)",
+    prf_description_placeholder: "यह जगह देखने लायक़ क्यों है?",
+    prf_address: "पता (वैकल्पिक)",
+    prf_address_placeholder: "सबसे पास की पहचान या सड़क",
+    prf_location_label: "जगह — पिन लगाने के लिए मैप पर टैप करें",
+    prf_photo: "फ़ोटो (वैकल्पिक)",
+    prf_add_photo: "फ़ोटो जोड़ें",
+    prf_more_details: "और जानकारी (वैकल्पिक)",
+    prf_best_time: "जाने का सबसे अच्छा समय",
+    prf_best_time_placeholder: "जैसे अक्टूबर-फ़रवरी, सुबह जल्दी",
+    prf_entry_fee: "प्रवेश शुल्क",
+    prf_entry_fee_placeholder: "मुफ़्त, या ₹20 प्रति व्यक्ति",
+    prf_hours: "समय",
+    prf_hours_placeholder: "जैसे सुबह 6 - शाम 7",
+    prf_visit_length: "आम तौर पर कितनी देर",
+    prf_visit_length_placeholder: "जैसे 1-2 घंटे",
+    prf_difficulty: "कठिनाई (ट्रेक/पहाड़)",
+    prf_how_to_reach: "कैसे पहुँचें",
+    prf_how_to_reach_placeholder: "जैसे अपना वाहन बेहतर, आख़िरी 2 किमी कच्चा रास्ता",
+    prf_parking: "पार्किंग",
+    prf_parking_placeholder: "जैसे प्रवेश के पास मुफ़्त पार्किंग",
+    prf_distance: "दूरी (किमी)",
+    prf_safety_tips: "सुरक्षा की बातें",
+    prf_safety_placeholder: "असली सावधानियाँ — जैसे बरसात में झरने के पास न नहाएं",
+    prf_weather_note: "मौसम की बात",
+    prf_weather_placeholder: "जैसे बरसात के अलावा सूख जाता है",
+    pjob_title: "काम",
+    pjob_missing_provider: "सेवा देने वाला नहीं मिला",
+    pjob_missing_provider_text: "यूआरएल में कोई आईडी नहीं है।",
+    pjob_slot_taken: "इस बीच यह समय किसी और ग्राहक ने बुक कर लिया। कृपया मना करें या समय बदलें।",
+    pjob_message_client: "ग्राहक को संदेश भेजें",
+    pjob_paid_badge: "₹ चुकाया",
+
+    // Place request form — generic field label
+    prf_name: "नाम",
+
   };
 
 export default strings;

@@ -26,6 +26,7 @@ import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
+import { useI18n } from "@/lib/i18n";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
@@ -35,6 +36,7 @@ type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 export default function ProviderJobs() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
+  const { t, tf } = useI18n();
   const messageUser = useMessageUser();
   const { data: p } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
 
@@ -90,8 +92,8 @@ export default function ProviderJobs() {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Jobs" />
-        <EmptyState emoji="⚠️" title="Missing provider" text="No provider id in the URL." />
+        <AppBar title={t("pjob_title")} />
+        <EmptyState emoji="⚠️" title={t("pjob_missing_provider")} text={t("pjob_missing_provider_text")} />
       </div>
     );
   }
@@ -124,7 +126,7 @@ export default function ProviderJobs() {
     } catch (e: any) {
       const msg = e?.message || "";
       if (/SLOT_FULL/i.test(msg) || /fully booked/i.test(msg)) {
-        showToast("This slot was booked by another client in the meantime. Please decline or reschedule.");
+        showToast(t("pjob_slot_taken"));
       } else {
         showToast(e?.message || `Couldn't update ${vocab.noun}`);
       }
@@ -139,11 +141,11 @@ export default function ProviderJobs() {
       if (action === "CONFIRM") {
         await appointmentService.confirmPayment(apt.id);
         haptics.success();
-        showToast("Payment confirmed ✓");
+        showToast(t("notif_pay_confirmed_toast"));
       } else {
         await appointmentService.rejectPaymentClaim(apt.id);
         haptics.warning();
-        showToast("Payment claim rejected — customer can resubmit.");
+        showToast(t("pmon_payment_rejected"));
       }
       setPaymentAction(null);
       refetchApts();
@@ -166,7 +168,7 @@ export default function ProviderJobs() {
     try {
       await appointmentService.recordWalkInPayment(apt.id, method, amount);
       haptics.success();
-      showToast(`Payment of ${inr(amount)} recorded (${method}) ✓`);
+      showToast(tf("bapt_payment_recorded", { amount: inr(amount), method }));
       refetchApts();
     } catch (e: any) {
       showToast(e?.message || "Couldn't record the payment. Try again.");
@@ -180,7 +182,7 @@ export default function ProviderJobs() {
     try {
       await appointmentService.setUnpaidAmount(apt.id, amount);
       haptics.success();
-      showToast(`Added ${inr(amount)} to ${ownerVisibleCustomerName(apt)}'s tab 📒`);
+      showToast(tf("bapt_added_to_tab", { amount: inr(amount), name: ownerVisibleCustomerName(apt) }));
       refetchApts();
     } catch (e: any) {
       showToast(e?.message || "Couldn't update tab amount.");
@@ -193,9 +195,9 @@ export default function ProviderJobs() {
     if (!apt.customerId) return;
     try {
       await appointmentService.nudgePayment(apt.id);
-      showToast("Payment request nudge sent 🔔");
+      showToast(t("bapt_nudge_sent"));
     } catch {
-      showToast("Couldn't send payment nudge.");
+      showToast(t("bapt_nudge_failed"));
     }
   }
 
@@ -203,10 +205,10 @@ export default function ProviderJobs() {
     setNoShowBusy(apt.id);
     try {
       await appointmentService.updateStatus(apt.id, "NO_SHOW");
-      showToast("Marked as no-show");
+      showToast(t("bapt_no_show"));
       refetchApts();
     } catch {
-      showToast("Couldn't update. Try again.");
+      showToast(t("bapt_update_failed"));
     } finally {
       setNoShowBusy(null);
     }
@@ -234,10 +236,10 @@ export default function ProviderJobs() {
   async function unblock(block: BlockedSlot) {
     try {
       await slotBlockService.unblock(block.id, id);
-      showToast("Unblocked");
+      showToast(t("bapt_unblocked"));
       refetchBlocked();
     } catch {
-      showToast("Couldn't unblock. Try again.");
+      showToast(t("bapt_unblock_failed"));
     }
   }
 
@@ -262,7 +264,7 @@ export default function ProviderJobs() {
         packagePrice: opts.packagePrice,
         targetPackageKey: bizPackageKey,
       });
-      showToast("Walk-in booking added");
+      showToast(t("bapt_walkin_added"));
       setWalkInModal(null);
       refetchApts();
     } catch (e: any) {
@@ -299,8 +301,8 @@ export default function ProviderJobs() {
             <div>
               <div className="row gap-6 center-v">
                 <div className="bold small">{ownerVisibleCustomerName(apt)}</div>
-                {apt.isWalkIn && <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>Walk-in</span>}
-                {apt.isOutOfRange && <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px" }}>Out of radius</span>}
+                {apt.isWalkIn && <span className="badge badge-gray" style={{ fontSize: 9, padding: "1px 6px" }}>{t("bapt_walkin_badge")}</span>}
+                {apt.isOutOfRange && <span className="badge badge-amber" style={{ fontSize: 9, padding: "1px 6px" }}>{t("bapt_out_of_radius_badge")}</span>}
               </div>
               <div className="tiny muted row gap-4 center-v" style={{ marginTop: 2 }}>
                 <Calendar size={12} color="var(--brand-600)" /> {apt.dateLabel} at {apt.timeLabel}
@@ -311,7 +313,7 @@ export default function ProviderJobs() {
                 type="button"
                 className="icon-btn"
                 aria-label={`Message ${ownerVisibleCustomerName(apt)}`}
-                title="Message client"
+                title={t("pjob_message_client")}
                 onClick={() => messageUser(apt.customerId!)}
               >
                 <MessageCircle size={16} color="var(--brand-600)" />
@@ -326,7 +328,7 @@ export default function ProviderJobs() {
               {APPOINTMENT_STATUS_BADGE[apt.status].label}
             </span>
             {apt.paymentStatus === "PAID" && (
-              <span className="badge badge-green" style={{ fontSize: 9, padding: "2px 7px" }}>₹ Paid</span>
+              <span className="badge badge-green" style={{ fontSize: 9, padding: "2px 7px" }}>{t("pjob_paid_badge")}</span>
             )}
           </div>
         </div>
@@ -346,7 +348,7 @@ export default function ProviderJobs() {
           <div className="row gap-8 center-v" style={{ background: "var(--amber-50)", border: "1px solid var(--amber-200)", padding: "8px 10px", borderRadius: 8 }}>
             <MapPin size={15} color="var(--amber-800)" style={{ flexShrink: 0 }} />
             <div>
-              <div className="tiny bold" style={{ color: "var(--amber-800)" }}>Out-of-Radius Request</div>
+              <div className="tiny bold" style={{ color: "var(--amber-800)" }}>{t("bapt_out_of_radius_request")}</div>
               <div className="tiny" style={{ color: "var(--amber-900)", marginTop: 1 }}>
                 Client booked from outside your standard radius. The calendar slot is not blocked until you accept.
               </div>
@@ -394,7 +396,7 @@ export default function ProviderJobs() {
           <div className="card col gap-10" style={{ padding: "var(--space-sm)", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 12, marginTop: 2 }}>
             <div className="row between center-v">
               <div className="tiny semi muted">Payment outstanding {apt.packagePrice || apt.paymentAmount ? `(${inr(apt.packagePrice ?? apt.paymentAmount ?? 0)})` : ""}</div>
-              <span className="badge badge-amber" style={{ fontSize: 10 }}>Unpaid</span>
+              <span className="badge badge-amber" style={{ fontSize: 10 }}>{t("bapt_unpaid")}</span>
             </div>
             <div className="row gap-8">
               <button className="btn btn-green grow btn-sm" disabled={!!processingPayment} onClick={() => setPaymentModalApt(apt)}>
@@ -520,11 +522,11 @@ export default function ProviderJobs() {
 
             <div className="card col gap-10" style={{ padding: "var(--space-sm)", background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
               <div className="row gap-14">
-                <StatBlock label="Booked" value={bookedCount} />
-                <StatBlock label="Pending" value={pendingCount} />
-                <StatBlock label="Blocked" value={blockedCount} />
-                {dayRevenue > 0 && <StatBlock label="Revenue" value={`₹${dayRevenue}`} icon={<IndianRupee size={12} />} />}
-                <button className="icon-btn" style={{ marginLeft: "auto" }} title="Copy day summary" onClick={copyDaySummary}>
+                <StatBlock label={t("bapt_booked")} value={bookedCount} />
+                <StatBlock label={t("pending")} value={pendingCount} />
+                <StatBlock label={t("bapt_blocked")} value={blockedCount} />
+                {dayRevenue > 0 && <StatBlock label={t("bapt_revenue")} value={`₹${dayRevenue}`} icon={<IndianRupee size={12} />} />}
+                <button className="icon-btn" style={{ marginLeft: "auto" }} title={t("bapt_copy_summary")} onClick={copyDaySummary}>
                   <Share2 size={15} />
                 </button>
               </div>
@@ -549,7 +551,7 @@ export default function ProviderJobs() {
         {!aptsLoading && !aptsError && consoleTab === "UPCOMING" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
             {upcomingList.length === 0 ? (
-              <EmptyState emoji="📅" title={`No upcoming ${vocab.nounPlural}`} text="New bookings will appear here." />
+              <EmptyState emoji="📅" title={`No upcoming ${vocab.nounPlural}`} text={t("bapt_new_bookings_here")} />
             ) : (
               upcomingList.map(renderAppointmentCard)
             )}
@@ -559,7 +561,7 @@ export default function ProviderJobs() {
         {!aptsLoading && !aptsError && consoleTab === "HISTORY" && (
           <div className="page-pad col gap-16" style={{ paddingTop: 12 }}>
             {historyList.length === 0 ? (
-              <EmptyState emoji="🕘" title="Nothing here yet" text={`Completed and past ${vocab.nounPlural} will appear here.`} />
+              <EmptyState emoji="🕘" title={t("explore_empty_title")} text={`Completed and past ${vocab.nounPlural} will appear here.`} />
             ) : (
               historyGroups.map(([day, list]) => (
                 <div key={day} className="col gap-10">
@@ -574,7 +576,7 @@ export default function ProviderJobs() {
         {!aptsLoading && !aptsError && consoleTab === "CANCELLED" && (
           <div className="page-pad col gap-12" style={{ paddingTop: 12 }}>
             {cancelledList.length === 0 ? (
-              <EmptyState emoji="🚫" title="No cancelled bookings" text={`Cancelled and declined ${vocab.nounPlural} will appear here.`} />
+              <EmptyState emoji="🚫" title={t("bapt_no_cancelled")} text={`Cancelled and declined ${vocab.nounPlural} will appear here.`} />
             ) : (
               cancelledList.map((apt) => (
                 <div key={apt.id} className="card col gap-8 queue-row-enter" style={{ padding: 14, opacity: apt.cancelledBy === "CUSTOMER" ? 0.75 : 1 }}>
@@ -626,7 +628,7 @@ export default function ProviderJobs() {
               style={{ fontSize: 13, padding: 10 }}
             />
             <div className="row gap-8 end">
-              <button className="btn btn-ghost btn-sm" disabled={updatingStatus} onClick={() => { setActiveApt(null); setActionType(null); }}>Back</button>
+              <button className="btn btn-ghost btn-sm" disabled={updatingStatus} onClick={() => { setActiveApt(null); setActionType(null); }}>{t("back_word")}</button>
               <button
                 className={`btn btn-sm ${actionType === "ACCEPT" ? "btn-green" : "btn-primary"}`}
                 style={actionType === "CANCEL" ? { background: "var(--red-600)", color: "var(--white)" } : undefined}
@@ -657,7 +659,7 @@ export default function ProviderJobs() {
               <div className="bold" style={{ fontSize: 22, color: "var(--green-500)" }}>₹{paymentAction.apt.paymentAmount}</div>
             )}
             <div className="row gap-8 end">
-              <button className="btn btn-ghost btn-sm" disabled={!!processingPayment} onClick={() => setPaymentAction(null)}>Back</button>
+              <button className="btn btn-ghost btn-sm" disabled={!!processingPayment} onClick={() => setPaymentAction(null)}>{t("back_word")}</button>
               <button
                 className={`btn btn-sm ${paymentAction.action === "CONFIRM" ? "btn-green" : ""}`}
                 style={paymentAction.action === "REJECT" ? { background: "var(--red-600)", color: "var(--white)" } : undefined}

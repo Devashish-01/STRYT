@@ -1717,6 +1717,46 @@ const strings: Record<string, string> = {
     sup_business_listings: "Business Listings 🏪",
     sup_suggestion: "Suggestion/Feedback 💡",
 
+    // Place request form and provider jobs
+    prf_name_first: "Give it a name first",
+    prf_drop_pin: "Drop a pin for the location",
+    prf_name_placeholder: "e.g. Sunset Point, Panchgani",
+    prf_description: "Description (optional)",
+    prf_description_placeholder: "What makes this place worth visiting?",
+    prf_address: "Address (optional)",
+    prf_address_placeholder: "Nearest landmark or road",
+    prf_location_label: "Location — tap the map to drop a pin",
+    prf_photo: "Photo (optional)",
+    prf_add_photo: "Add a photo",
+    prf_more_details: "More details (optional)",
+    prf_best_time: "Best time to visit",
+    prf_best_time_placeholder: "e.g. Oct-Feb, early morning",
+    prf_entry_fee: "Entry fee",
+    prf_entry_fee_placeholder: "Free, or ₹20 per person",
+    prf_hours: "Hours",
+    prf_hours_placeholder: "e.g. 6 AM - 7 PM",
+    prf_visit_length: "Typical visit length",
+    prf_visit_length_placeholder: "e.g. 1-2 hours",
+    prf_difficulty: "Difficulty (treks/mountains)",
+    prf_how_to_reach: "How to reach",
+    prf_how_to_reach_placeholder: "e.g. Own vehicle recommended, last 2km unpaved",
+    prf_parking: "Parking",
+    prf_parking_placeholder: "e.g. Free parking near entrance",
+    prf_distance: "Distance (km)",
+    prf_safety_tips: "Safety tips",
+    prf_safety_placeholder: "Real precautions — e.g. avoid swimming near the falls during monsoon",
+    prf_weather_note: "Weather note",
+    prf_weather_placeholder: "e.g. Dries up outside monsoon season",
+    pjob_title: "Jobs",
+    pjob_missing_provider: "Missing provider",
+    pjob_missing_provider_text: "No provider id in the URL.",
+    pjob_slot_taken: "This slot was booked by another client in the meantime. Please decline or reschedule.",
+    pjob_message_client: "Message client",
+    pjob_paid_badge: "₹ Paid",
+
+    // Place request form — generic field label
+    prf_name: "Name",
+
   };
 
 export default strings;

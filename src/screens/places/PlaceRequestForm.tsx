@@ -6,6 +6,7 @@ import { placesService, uploadService } from "@/services";
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import type { PlaceCategory, PlaceDifficulty } from "@/types";
+import { useI18n } from "@/lib/i18n";
 
 const CATEGORIES: { id: PlaceCategory; label: string; icon: typeof Mountains }[] = [
   { id: "MOUNTAIN", label: "Mountain", icon: Mountains },
@@ -36,6 +37,7 @@ interface PlaceRequestFormProps {
 export default function PlaceRequestForm({ mode = "request", embedded = false, onDone, onClose }: PlaceRequestFormProps) {
   const nav = useNavigate();
   const { user, showToast } = useApp();
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [category, setCategory] = useState<PlaceCategory>("MOUNTAIN");
   const [description, setDescription] = useState("");
@@ -63,8 +65,8 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
   }
 
   async function submit() {
-    if (!name.trim()) { showToast("Give it a name first"); return; }
-    if (lat == null || lng == null) { showToast("Drop a pin for the location"); return; }
+    if (!name.trim()) { showToast(t("prf_name_first")); return; }
+    if (lat == null || lng == null) { showToast(t("prf_drop_pin")); return; }
     setSubmitting(true);
     try {
       let coverImage: string | undefined;
@@ -110,12 +112,12 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
   const form = (
     <div className="col gap-16">
       <div>
-        <label htmlFor="placerequestform-name" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Name</label>
-        <input id="placerequestform-name" className="input" placeholder="e.g. Sunset Point, Panchgani" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
+        <label htmlFor="placerequestform-name" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_name")}</label>
+        <input id="placerequestform-name" className="input" placeholder={t("prf_name_placeholder")} value={name} onChange={(e) => setName(e.target.value)} maxLength={120} />
       </div>
 
       <div>
-        <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Category</label>
+        <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("category")}</label>
         <div className="row gap-8" style={{ flexWrap: "wrap" }}>
           {CATEGORIES.map((c) => {
             const Icon = c.icon;
@@ -135,11 +137,11 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
       </div>
 
       <div>
-        <label htmlFor="placerequestform-description-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Description (optional)</label>
+        <label htmlFor="placerequestform-description-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_description")}</label>
         <textarea id="placerequestform-description-optional"
           className="input"
           style={{ minHeight: 80, resize: "vertical" }}
-          placeholder="What makes this place worth visiting?"
+          placeholder={t("prf_description_placeholder")}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           maxLength={1000}
@@ -147,17 +149,17 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
       </div>
 
       <div>
-        <label htmlFor="placerequestform-address-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Address (optional)</label>
-        <input id="placerequestform-address-optional" className="input" placeholder="Nearest landmark or road" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} maxLength={200} />
+        <label htmlFor="placerequestform-address-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_address")}</label>
+        <input id="placerequestform-address-optional" className="input" placeholder={t("prf_address_placeholder")} value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} maxLength={200} />
       </div>
 
       <div>
-        <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Location — tap the map to drop a pin</label>
+        <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_location_label")}</label>
         <LocationPicker lat={lat} lng={lng} storedLat={user.lat} storedLng={user.lng} onChange={(la, ln) => { setLat(la); setLng(ln); }} height={160} />
       </div>
 
       <div>
-        <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Photo (optional)</label>
+        <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_photo")}</label>
         {photoPreview ? (
           <div style={{ position: "relative", width: 120, height: 90 }}>
             <img src={photoPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 10 }} />
@@ -165,7 +167,7 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
           </div>
         ) : (
           <label className="row gap-8 center-v" style={{ width: "fit-content", padding: "10px 14px", borderRadius: 12, border: "1.5px dashed var(--ink-300)", cursor: "pointer" }}>
-            <Camera size={16} /> <span className="tiny semi">Add a photo</span>
+            <Camera size={16} /> <span className="tiny semi">{t("prf_add_photo")}</span>
             <input
               type="file"
               accept="image/*"
@@ -187,7 +189,7 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
           style={{ background: "none", border: "none", padding: 0, color: "var(--brand-700)" }}
           onClick={() => setShowMore((v) => !v)}
         >
-          <span className="tiny semi">More details (optional)</span>
+          <span className="tiny semi">{t("prf_more_details")}</span>
           <ChevronDown size={14} style={{ transform: showMore ? "rotate(180deg)" : undefined, transition: "transform .15s" }} />
         </button>
 
@@ -195,28 +197,28 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
           <div className="col gap-14" style={{ marginTop: 12 }}>
             <div className="row gap-10">
               <div className="grow">
-                <label htmlFor="placerequestform-best-time-to-visit" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Best time to visit</label>
-                <input id="placerequestform-best-time-to-visit" className="input" placeholder="e.g. Oct-Feb, early morning" value={bestTimeToVisit} onChange={(e) => setBestTimeToVisit(e.target.value)} maxLength={150} />
+                <label htmlFor="placerequestform-best-time-to-visit" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_best_time")}</label>
+                <input id="placerequestform-best-time-to-visit" className="input" placeholder={t("prf_best_time_placeholder")} value={bestTimeToVisit} onChange={(e) => setBestTimeToVisit(e.target.value)} maxLength={150} />
               </div>
               <div className="grow">
-                <label htmlFor="placerequestform-entry-fee" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Entry fee</label>
-                <input id="placerequestform-entry-fee" className="input" placeholder="Free, or ₹20 per person" value={entryFee} onChange={(e) => setEntryFee(e.target.value)} maxLength={100} />
+                <label htmlFor="placerequestform-entry-fee" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_entry_fee")}</label>
+                <input id="placerequestform-entry-fee" className="input" placeholder={t("prf_entry_fee_placeholder")} value={entryFee} onChange={(e) => setEntryFee(e.target.value)} maxLength={100} />
               </div>
             </div>
 
             <div className="row gap-10">
               <div className="grow">
-                <label htmlFor="placerequestform-hours" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Hours</label>
-                <input id="placerequestform-hours" className="input" placeholder="e.g. 6 AM - 7 PM" value={openingHours} onChange={(e) => setOpeningHours(e.target.value)} maxLength={100} />
+                <label htmlFor="placerequestform-hours" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_hours")}</label>
+                <input id="placerequestform-hours" className="input" placeholder={t("prf_hours_placeholder")} value={openingHours} onChange={(e) => setOpeningHours(e.target.value)} maxLength={100} />
               </div>
               <div className="grow">
-                <label htmlFor="placerequestform-typical-visit-length" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Typical visit length</label>
-                <input id="placerequestform-typical-visit-length" className="input" placeholder="e.g. 1-2 hours" value={visitDuration} onChange={(e) => setVisitDuration(e.target.value)} maxLength={100} />
+                <label htmlFor="placerequestform-typical-visit-length" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_visit_length")}</label>
+                <input id="placerequestform-typical-visit-length" className="input" placeholder={t("prf_visit_length_placeholder")} value={visitDuration} onChange={(e) => setVisitDuration(e.target.value)} maxLength={100} />
               </div>
             </div>
 
             <div>
-              <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Difficulty (treks/mountains)</label>
+              <label className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_difficulty")}</label>
               <div className="row gap-8">
                 {DIFFICULTIES.map((d) => (
                   <button
@@ -232,27 +234,27 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
             </div>
 
             <div>
-              <label htmlFor="placerequestform-how-to-reach" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>How to reach</label>
-              <input id="placerequestform-how-to-reach" className="input" placeholder="e.g. Own vehicle recommended, last 2km unpaved" value={howToReach} onChange={(e) => setHowToReach(e.target.value)} maxLength={300} />
+              <label htmlFor="placerequestform-how-to-reach" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_how_to_reach")}</label>
+              <input id="placerequestform-how-to-reach" className="input" placeholder={t("prf_how_to_reach_placeholder")} value={howToReach} onChange={(e) => setHowToReach(e.target.value)} maxLength={300} />
             </div>
 
             <div className="row gap-10">
               <div className="grow">
-                <label htmlFor="placerequestform-parking" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Parking</label>
-                <input id="placerequestform-parking" className="input" placeholder="e.g. Free parking near entrance" value={parkingInfo} onChange={(e) => setParkingInfo(e.target.value)} maxLength={150} />
+                <label htmlFor="placerequestform-parking" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_parking")}</label>
+                <input id="placerequestform-parking" className="input" placeholder={t("prf_parking_placeholder")} value={parkingInfo} onChange={(e) => setParkingInfo(e.target.value)} maxLength={150} />
               </div>
               <div style={{ width: 120 }}>
-                <label htmlFor="placerequestform-distance-km" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Distance (km)</label>
+                <label htmlFor="placerequestform-distance-km" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_distance")}</label>
                 <input id="placerequestform-distance-km" className="input" inputMode="decimal" placeholder="35" value={distanceFromCityKm} onChange={(e) => setDistanceFromCityKm(e.target.value.replace(/[^0-9.]/g, ""))} />
               </div>
             </div>
 
             <div>
-              <label htmlFor="placerequestform-safety-tips" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Safety tips</label>
+              <label htmlFor="placerequestform-safety-tips" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_safety_tips")}</label>
               <textarea id="placerequestform-safety-tips"
                 className="input"
                 style={{ minHeight: 60, resize: "vertical" }}
-                placeholder="Real precautions — e.g. avoid swimming near the falls during monsoon"
+                placeholder={t("prf_safety_placeholder")}
                 value={safetyTips}
                 onChange={(e) => setSafetyTips(e.target.value)}
                 maxLength={500}
@@ -260,8 +262,8 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
             </div>
 
             <div>
-              <label htmlFor="placerequestform-weather-note" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Weather note</label>
-              <input id="placerequestform-weather-note" className="input" placeholder="e.g. Dries up outside monsoon season" value={weatherNote} onChange={(e) => setWeatherNote(e.target.value)} maxLength={200} />
+              <label htmlFor="placerequestform-weather-note" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_weather_note")}</label>
+              <input id="placerequestform-weather-note" className="input" placeholder={t("prf_weather_placeholder")} value={weatherNote} onChange={(e) => setWeatherNote(e.target.value)} maxLength={200} />
             </div>
           </div>
         )}

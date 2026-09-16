@@ -1712,6 +1712,46 @@ const strings: Record<string, string> = {
     sup_business_listings: "दुकानाची लिस्टिंग 🏪",
     sup_suggestion: "सूचना/मत 💡",
 
+    // Place request form and provider jobs
+    prf_name_first: "आधी याचे नाव द्या",
+    prf_drop_pin: "ठिकाणासाठी पिन लावा",
+    prf_name_placeholder: "उदा. सनसेट पॉइंट, पाचगणी",
+    prf_description: "वर्णन (ऐच्छिक)",
+    prf_description_placeholder: "हे ठिकाण पाहण्यासारखे का आहे?",
+    prf_address: "पत्ता (ऐच्छिक)",
+    prf_address_placeholder: "जवळची खूण किंवा रस्ता",
+    prf_location_label: "ठिकाण — पिन लावण्यासाठी नकाशावर टॅप करा",
+    prf_photo: "फोटो (ऐच्छिक)",
+    prf_add_photo: "फोटो जोडा",
+    prf_more_details: "अधिक माहिती (ऐच्छिक)",
+    prf_best_time: "जाण्यासाठी सर्वोत्तम वेळ",
+    prf_best_time_placeholder: "उदा. ऑक्टोबर-फेब्रुवारी, पहाटे",
+    prf_entry_fee: "प्रवेश शुल्क",
+    prf_entry_fee_placeholder: "मोफत, किंवा ₹२० प्रति व्यक्ती",
+    prf_hours: "वेळ",
+    prf_hours_placeholder: "उदा. सकाळी ६ - संध्याकाळी ७",
+    prf_visit_length: "सहसा किती वेळ",
+    prf_visit_length_placeholder: "उदा. १-२ तास",
+    prf_difficulty: "अवघडपणा (ट्रेक/डोंगर)",
+    prf_how_to_reach: "कसे पोहोचायचे",
+    prf_how_to_reach_placeholder: "उदा. स्वतःचे वाहन बरे, शेवटचे २ किमी कच्चा रस्ता",
+    prf_parking: "पार्किंग",
+    prf_parking_placeholder: "उदा. प्रवेशाजवळ मोफत पार्किंग",
+    prf_distance: "अंतर (किमी)",
+    prf_safety_tips: "सुरक्षेच्या सूचना",
+    prf_safety_placeholder: "खऱ्या सूचना — उदा. पावसाळ्यात धबधब्याजवळ पोहू नका",
+    prf_weather_note: "हवामानाची नोंद",
+    prf_weather_placeholder: "उदा. पावसाळ्याशिवाय आटतो",
+    pjob_title: "कामे",
+    pjob_missing_provider: "सेवा देणारा सापडला नाही",
+    pjob_missing_provider_text: "URL मध्ये कोणताही आयडी नाही.",
+    pjob_slot_taken: "यादरम्यान ही वेळ दुसऱ्या ग्राहकाने बुक केली. कृपया नकार द्या किंवा वेळ बदला.",
+    pjob_message_client: "ग्राहकाला संदेश पाठवा",
+    pjob_paid_badge: "₹ दिले",
+
+    // Place request form — generic field label
+    prf_name: "नाव",
+
   };
 
 export default strings;

@@ -432,3 +432,39 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `sup_account_issue` | Account Issue 👤 | खाते की दिक़्क़त 👤 | खात्याची अडचण 👤 |  |
 | `sup_business_listings` | Business Listings 🏪 | दुकान की लिस्टिंग 🏪 | दुकानाची लिस्टिंग 🏪 |  |
 | `sup_suggestion` | Suggestion/Feedback 💡 | सुझाव/राय 💡 | सूचना/मत 💡 |  |
+| `prf_name_first` | Give it a name first | पहले इसका नाम दें | आधी याचे नाव द्या |  |
+| `prf_drop_pin` | Drop a pin for the location | जगह के लिए पिन लगाएं | ठिकाणासाठी पिन लावा |  |
+| `prf_name_placeholder` | e.g. Sunset Point, Panchgani | जैसे सनसेट पॉइंट, पाँचगनी | उदा. सनसेट पॉइंट, पाचगणी |  |
+| `prf_description` | Description (optional) | विवरण (वैकल्पिक) | वर्णन (ऐच्छिक) |  |
+| `prf_description_placeholder` | What makes this place worth visiting? | यह जगह देखने लायक़ क्यों है? | हे ठिकाण पाहण्यासारखे का आहे? |  |
+| `prf_address` | Address (optional) | पता (वैकल्पिक) | पत्ता (ऐच्छिक) |  |
+| `prf_address_placeholder` | Nearest landmark or road | सबसे पास की पहचान या सड़क | जवळची खूण किंवा रस्ता |  |
+| `prf_location_label` | Location — tap the map to drop a pin | जगह — पिन लगाने के लिए मैप पर टैप करें | ठिकाण — पिन लावण्यासाठी नकाशावर टॅप करा |  |
+| `prf_photo` | Photo (optional) | फ़ोटो (वैकल्पिक) | फोटो (ऐच्छिक) |  |
+| `prf_add_photo` | Add a photo | फ़ोटो जोड़ें | फोटो जोडा |  |
+| `prf_more_details` | More details (optional) | और जानकारी (वैकल्पिक) | अधिक माहिती (ऐच्छिक) |  |
+| `prf_best_time` | Best time to visit | जाने का सबसे अच्छा समय | जाण्यासाठी सर्वोत्तम वेळ |  |
+| `prf_best_time_placeholder` | e.g. Oct-Feb, early morning | जैसे अक्टूबर-फ़रवरी, सुबह जल्दी | उदा. ऑक्टोबर-फेब्रुवारी, पहाटे |  |
+| `prf_entry_fee` | Entry fee | प्रवेश शुल्क | प्रवेश शुल्क |  |
+| `prf_entry_fee_placeholder` | Free, or ₹20 per person | मुफ़्त, या ₹20 प्रति व्यक्ति | मोफत, किंवा ₹२० प्रति व्यक्ती |  |
+| `prf_hours` | Hours | समय | वेळ |  |
+| `prf_hours_placeholder` | e.g. 6 AM - 7 PM | जैसे सुबह 6 - शाम 7 | उदा. सकाळी ६ - संध्याकाळी ७ |  |
+| `prf_visit_length` | Typical visit length | आम तौर पर कितनी देर | सहसा किती वेळ |  |
+| `prf_visit_length_placeholder` | e.g. 1-2 hours | जैसे 1-2 घंटे | उदा. १-२ तास |  |
+| `prf_difficulty` | Difficulty (treks/mountains) | कठिनाई (ट्रेक/पहाड़) | अवघडपणा (ट्रेक/डोंगर) |  |
+| `prf_how_to_reach` | How to reach | कैसे पहुँचें | कसे पोहोचायचे |  |
+| `prf_how_to_reach_placeholder` | e.g. Own vehicle recommended, last 2km unpaved | जैसे अपना वाहन बेहतर, आख़िरी 2 किमी कच्चा रास्ता | उदा. स्वतःचे वाहन बरे, शेवटचे २ किमी कच्चा रस्ता |  |
+| `prf_parking` | Parking | पार्किंग | पार्किंग |  |
+| `prf_parking_placeholder` | e.g. Free parking near entrance | जैसे प्रवेश के पास मुफ़्त पार्किंग | उदा. प्रवेशाजवळ मोफत पार्किंग |  |
+| `prf_distance` | Distance (km) | दूरी (किमी) | अंतर (किमी) |  |
+| `prf_safety_tips` | Safety tips | सुरक्षा की बातें | सुरक्षेच्या सूचना |  |
+| `prf_safety_placeholder` | Real precautions — e.g. avoid swimming near the falls during monsoon | असली सावधानियाँ — जैसे बरसात में झरने के पास न नहाएं | खऱ्या सूचना — उदा. पावसाळ्यात धबधब्याजवळ पोहू नका |  |
+| `prf_weather_note` | Weather note | मौसम की बात | हवामानाची नोंद |  |
+| `prf_weather_placeholder` | e.g. Dries up outside monsoon season | जैसे बरसात के अलावा सूख जाता है | उदा. पावसाळ्याशिवाय आटतो |  |
+| `pjob_title` | Jobs | काम | कामे |  |
+| `pjob_missing_provider` | Missing provider | सेवा देने वाला नहीं मिला | सेवा देणारा सापडला नाही |  |
+| `pjob_missing_provider_text` | No provider id in the URL. | यूआरएल में कोई आईडी नहीं है। | URL मध्ये कोणताही आयडी नाही. |  |
+| `pjob_slot_taken` | This slot was booked by another client in the meantime. Please decline or reschedule. | इस बीच यह समय किसी और ग्राहक ने बुक कर लिया। कृपया मना करें या समय बदलें। | यादरम्यान ही वेळ दुसऱ्या ग्राहकाने बुक केली. कृपया नकार द्या किंवा वेळ बदला. |  |
+| `pjob_message_client` | Message client | ग्राहक को संदेश भेजें | ग्राहकाला संदेश पाठवा |  |
+| `pjob_paid_badge` | ₹ Paid | ₹ चुकाया | ₹ दिले |  |
+| `prf_name` | Name | नाम | नाव |  |
