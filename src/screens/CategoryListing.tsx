@@ -53,8 +53,12 @@ export default function CategoryListing() {
     localStorage.setItem("settings_radius", String(radius));
   }, [radius]);
 
-  const childIds = cat?.children?.map((c) => c.id) ?? [];
-  const matchIds = sub ? [sub] : [id, ...childIds];
+  // Every level below this category, not just its direct children — a listing filed under a sub-sub-category used
+  // to be missing from its parent's page (C3).
+  const descendantIds = (node?: { id: string; children?: { id: string; children?: unknown }[] }): string[] =>
+    (node?.children ?? []).flatMap((c) => [c.id, ...descendantIds(c as any)]);
+  const childIds = descendantIds(cat as any);
+  const matchIds = sub ? [sub, ...descendantIds(cat?.children?.find((c) => c.id === sub) as any)] : [id, ...childIds];
 
   const catListingGeoKey = `${(user.lat ?? 0).toFixed(2)}:${(user.lng ?? 0).toFixed(2)}`;
   const { data: bizPage, loading: bizLoading, error: bizError, refetch: refetchBiz } = useQuery(

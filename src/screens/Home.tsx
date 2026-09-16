@@ -281,7 +281,7 @@ export default function Home() {
         {/* ── Sticky gradient header — the "Living Street Light" sky ── */}
         <div className="living-sky-header" style={{
           background: theme.headerGradient,
-          color: "#fff",
+          color: "var(--white)",
           padding: "calc(14px + var(--safe-area-top)) 16px 16px",
           position: "sticky",
           top: 0,
@@ -292,7 +292,7 @@ export default function Home() {
           <AmbientSky dayPart={theme.dayPartKey} effect={theme.seasonEffect} glow={theme.lampGlow} />
           <div style={{ position: "relative", zIndex: 1 }}>
           <div className="row between center-v" style={{ marginBottom: 12 }}>
-            <BrandHome color="#fff" glow={theme.lampGlow} />
+            <BrandHome color="var(--white)" glow={theme.lampGlow} />
             <div className="row gap-8">
               <button
                 className="icon-btn"
@@ -300,7 +300,7 @@ export default function Home() {
                   background: "rgba(255, 255, 255, 0.16)",
                   backdropFilter: "blur(8px)",
                   border: "1px solid rgba(255, 255, 255, 0.2)",
-                  color: "#fff",
+                  color: "var(--white)",
                   position: "relative",
                   borderRadius: 12,
                   width: 38,
@@ -322,11 +322,11 @@ export default function Home() {
             </div>
           </div>
 
-          <button className="col" style={{ alignItems: "flex-start", gap: 3, background: "none", border: "none", color: "#fff", textAlign: "left", cursor: "pointer", padding: 0 }} onClick={() => setLocationOpen(true)}>
-            <span className="tiny" style={{ color: "#fff", opacity: 0.9, letterSpacing: 0.4, fontWeight: 600 }}>
+          <button className="col" style={{ alignItems: "flex-start", gap: 3, background: "none", border: "none", color: "var(--white)", textAlign: "left", cursor: "pointer", padding: 0 }} onClick={() => setLocationOpen(true)}>
+            <span className="tiny" style={{ color: "var(--white)", opacity: 0.9, letterSpacing: 0.4, fontWeight: 600 }}>
               {theme.greeting}{firstName ? `, ${firstName}` : ""}
             </span>
-            <span className="row gap-6 center-v bold" style={{ fontSize: 16, color: "#fff", background: "rgba(255, 255, 255, 0.16)", backdropFilter: "blur(8px)", padding: "4px 12px", borderRadius: 20, border: "1px solid rgba(255, 255, 255, 0.2)", marginTop: 2 }}>
+            <span className="row gap-6 center-v bold" style={{ fontSize: 16, color: "var(--white)", background: "rgba(255, 255, 255, 0.16)", backdropFilter: "blur(8px)", padding: "4px 12px", borderRadius: 20, border: "1px solid rgba(255, 255, 255, 0.2)", marginTop: 2 }}>
               <span>📍 {area}</span> <ChevronDown size={15} style={{ opacity: 0.9 }} />
             </span>
             {/* #8 — skipping location during onboarding leaves the feed
@@ -334,11 +334,11 @@ export default function Home() {
                 invisible: nothing distinguished "nothing nearby" from "we
                 don't know where you are". */}
             {noLocation && (
-              <span className="tiny" style={{ color: "#fff", opacity: 0.85, fontWeight: 500, marginTop: 3, display: "block" }}>
+              <span className="tiny" style={{ color: "var(--white)", opacity: 0.85, fontWeight: 500, marginTop: 3, display: "block" }}>
                 {t("location_off_feed_hint")}
               </span>
             )}
-            <span className="tiny" style={{ color: "#fff", opacity: 0.82, fontWeight: 500, marginTop: 3, display: "block" }}>
+            <span className="tiny" style={{ color: "var(--white)", opacity: 0.82, fontWeight: 500, marginTop: 3, display: "block" }}>
               {theme.ambientSubtitle}
             </span>
           </button>
@@ -673,29 +673,29 @@ export default function Home() {
           borderRadius: 20,
           padding: "20px 24px",
           marginBottom: 22,
-          color: "#fff",
+          color: "var(--white)",
           background: theme.headerGradient,
           transition: "background 0.6s ease, background-position 0.6s ease",
         }}>
           <AmbientSky dayPart={theme.dayPartKey} effect={theme.seasonEffect} glow={theme.lampGlow} />
           <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20 }}>
           <div>
-            <span style={{ color: "#fff", display: "inline-flex", marginBottom: 6 }}>
+            <span style={{ color: "var(--white)", display: "inline-flex", marginBottom: 6 }}>
               <BrandLockup glow={theme.lampGlow} size={19} onClick={() => nav("/home")} />
             </span>
-            <span className="tiny" style={{ color: "#fff", opacity: 0.82, fontWeight: 600, display: "block" }}>
+            <span className="tiny" style={{ color: "var(--white)", opacity: 0.82, fontWeight: 600, display: "block" }}>
               {theme.greeting}{firstName ? `, ${firstName}` : ""}
             </span>
-            <span className="tiny" style={{ color: "#fff", opacity: 0.78, fontWeight: 500, display: "block", marginTop: 2 }}>
+            <span className="tiny" style={{ color: "var(--white)", opacity: 0.78, fontWeight: 500, display: "block", marginTop: 2 }}>
               {theme.ambientSubtitle}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
               <button
                 onClick={() => setLocationOpen(true)}
-                style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, cursor: "pointer", color: "#fff", fontSize: 20, fontWeight: 800 }}
+                style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--white)", fontSize: 20, fontWeight: 800 }}
               >
                 <span>{area}</span>
-                <ChevronDown size={18} color="#fff" />
+                <ChevronDown size={18} color="var(--white)" />
               </button>
 
               {theme.weather && (
@@ -707,7 +707,7 @@ export default function Home() {
                   backdropFilter: "blur(8px)",
                   padding: "4px 10px",
                   borderRadius: 20,
-                  color: "#fff",
+                  color: "var(--white)",
                   fontSize: 12,
                   fontWeight: 600,
                   border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -723,17 +723,17 @@ export default function Home() {
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
             <button
               onClick={() => nav("/search")}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 16px", borderRadius: 12, border: "none", background: "#fff", cursor: "pointer", fontSize: 13, color: "var(--ink-500)", minWidth: 240, textAlign: "left" }}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 16px", borderRadius: 12, border: "none", background: "var(--surface)", cursor: "pointer", fontSize: 13, color: "var(--ink-500)", minWidth: 240, textAlign: "left" }}
             >
               <Search size={16} />
               <span>{t("search_placeholder")}</span>
             </button>
-            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "#fff", border: "none", position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
+            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.16)", color: "var(--white)", border: "none", position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
               <Bell size={18} />
               {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
             </button>
             <MyPeopleToggle size={18} />
-            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.22)", color: "#fff", border: "none" }} onClick={() => setScanner(true)} aria-label="Scan QR">
+            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.22)", color: "var(--white)", border: "none" }} onClick={() => setScanner(true)} aria-label="Scan QR">
               <QrCode size={18} />
             </button>
           </div>
@@ -914,7 +914,7 @@ export default function Home() {
 
             {/* Empty street CTA — same as mobile, for brand-new accounts */}
             {agreements.length === 0 && (categories ?? []).length === 0 && nearbyBiz.length === 0 && nearbyProv.length === 0 && (
-              <div className="card col center" style={{ padding: 40, gap: 12, textAlign: "center", background: "linear-gradient(135deg, var(--brand-50), #fff)" }}>
+              <div className="card col center" style={{ padding: 40, gap: 12, textAlign: "center", background: "linear-gradient(135deg, var(--brand-50), var(--surface))" }}>
                 <span style={{ fontSize: 52 }}>🏘️</span>
                 <div className="bold" style={{ fontSize: 18 }}>{t("street_getting_started")}</div>
                 <p className="small muted" style={{ maxWidth: 320, lineHeight: 1.5 }}>{t("first_to_list_desc")}</p>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Search as SearchIcon, X, TrendingUp, Clock, Bell } from "@/components/Icons";
 import { catalogService, discoveryService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
@@ -8,7 +8,7 @@ import { BusinessCardWide, ProviderCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import { NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, translations } from "@/lib/i18n";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import type { Business, Provider } from "@/types";
 
@@ -26,8 +26,19 @@ function loadRecent(): string[] {
 
 export default function Search() {
   const nav = useNavigate();
-  const [q, setQ] = useState("");
+  const [params, setParams] = useSearchParams();
+  const [q, setQ] = useState(() => params.get("q") ?? "");
   const [debounced, setDebounced] = useState("");
+
+  // Keep ?q= in step with what's typed, so a search can be shared, bookmarked and restored by back/forward (S6).
+  useEffect(() => {
+    const current = params.get("q") ?? "";
+    if (debounced === current) return;
+    const next = new URLSearchParams(params);
+    if (debounced) next.set("q", debounced); else next.delete("q");
+    setParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced]);
   const [recent, setRecent] = useState<string[]>(loadRecent);
   const [openOnly, setOpenOnly] = useState(false);
   const { user, showToast } = useApp();
@@ -154,8 +165,10 @@ export default function Search() {
         showToast(tf("search_will_notify", { query: debounced }));
       }
       refetchSaved();
-    } catch {
-      showToast(t("search_alert_update_failed"));
+    } catch (e: any) {
+      // A guest gets the reason (they need an account), not a generic failure — saving used to no-op and still
+      // report success (S5).
+      showToast(e?.message || t("search_alert_update_failed"));
     }
   }
 
@@ -167,14 +180,23 @@ export default function Search() {
           style={{ background: "var(--ink-50)", borderRadius: 12, padding: "0 12px", border: "1.5px solid var(--ink-200)" }}
         >
           <SearchIcon size={18} color="var(--ink-500)" />
-          <input
-            className="input"
-            style={{ border: "none", background: "transparent", padding: "11px 0", flex: 1 }}
-            placeholder={t("search_input_placeholder")}
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            autoFocus
-          />
+          <form
+            role="search"
+            style={{ display: "contents" }}
+            onSubmit={(e) => { e.preventDefault(); (e.currentTarget.querySelector("input") as HTMLInputElement | null)?.blur(); }}
+          >
+            <input
+              className="input"
+              type="search"
+              enterKeyHint="search"
+              aria-label={t("search_input_placeholder")}
+              style={{ border: "none", background: "transparent", padding: "11px 0", flex: 1 }}
+              placeholder={t("search_input_placeholder")}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              autoFocus
+            />
+          </form>
           {q && (
             <button onClick={() => setQ("")} aria-label={t("search_clear_aria")}>
               <X size={18} color="var(--ink-500)" />
@@ -211,7 +233,10 @@ export default function Search() {
             <div className="row wrap gap-8">
               {TREND_KEYS.map((key) => {
                 const word = t(key);
-                return <button key={key} className="chip" onClick={() => setQ(word)}>🔥 {word}</button>;
+                // Listings are written in English, so the chip searches the English term even when it reads in
+                // Hindi or Marathi — translated chips used to return nothing at all (S3).
+                const term = translations.en[key] ?? word;
+                return <button key={key} className="chip" onClick={() => setQ(term)}>🔥 {word}</button>;
               })}
             </div>
 

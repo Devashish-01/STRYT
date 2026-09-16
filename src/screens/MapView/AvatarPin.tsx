@@ -78,7 +78,7 @@ export function AvatarPin({ photo, name, tone, fallback: Fallback, size = MIN_TA
         <div
           style={{
             width: "100%", height: "100%", borderRadius: radius,
-            background: "var(--ink-100)", overflow: "hidden", border: "2px solid #fff",
+            background: "var(--ink-100)", overflow: "hidden", border: "2px solid var(--white)",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >

@@ -83,7 +83,7 @@ export function LocationPinDropOverlay({
           filter: "drop-shadow(0 6px 8px rgba(0,0,0,0.3))",
         }}
       >
-        <MapPin size={44} fill="var(--brand-600)" color="#fff" strokeWidth={1.5} />
+        <MapPin size={44} fill="var(--brand-600)" color="var(--white)" strokeWidth={1.5} />
       </div>
       {/* Ground shadow ellipse, reinforces the pin "hovering" over the point */}
       <div
@@ -103,7 +103,7 @@ export function LocationPinDropOverlay({
       >
         <div
           style={{
-            background: "#fff", borderRadius: 20, padding: 16,
+            background: "var(--surface)", borderRadius: 20, padding: 16,
             boxShadow: "var(--shadow)",
           }}
         >

@@ -177,7 +177,11 @@ export default function PlaceDetail() {
             <div className="card col gap-12" style={{ padding: 14 }}>
               <div className="tiny semi muted">Getting there</div>
               {place.distanceFromCityKm != null && (
-                <InfoRow icon={Navigation} label="Distance from Indore" value={`${place.distanceFromCityKm} km`} />
+                <InfoRow
+                  icon={Navigation}
+                  label={place.city ? `Distance from ${place.city}` : "Distance from the city"}
+                  value={`${place.distanceFromCityKm} km`}
+                />
               )}
               {place.howToReach && <InfoRow icon={Navigation} label="How to reach" value={place.howToReach} />}
               {place.parkingInfo && <InfoRow icon={Info} label="Parking" value={place.parkingInfo} />}

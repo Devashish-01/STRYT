@@ -71,11 +71,14 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
       if (photo) coverImage = await uploadService.upload(photo, "place-photo");
 
       const distanceNum = parseFloat(distanceFromCityKm);
+      // The submitter's own city, so the place can be filtered and labelled by city later — it used to be left out
+      // entirely (P4). Reverse geocoding the pin would be better; this is what we already know for certain.
       const payload = {
         name: name.trim(),
         category,
         description: description.trim() || null,
         addressLine1: addressLine1.trim() || null,
+        city: (user.city || user.area || "").trim() || null,
         lat,
         lng,
         coverImage: coverImage ?? null,
@@ -158,7 +161,7 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
         {photoPreview ? (
           <div style={{ position: "relative", width: 120, height: 90 }}>
             <img src={photoPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 10 }} />
-            <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 26, height: 26, background: "#fff", boxShadow: "var(--shadow-sm)" }} onClick={() => { setPhoto(null); setPhotoPreview(null); }}>×</button>
+            <button className="icon-btn" style={{ position: "absolute", top: -8, right: -8, width: 26, height: 26, background: "var(--surface)", boxShadow: "var(--shadow-sm)" }} onClick={() => { setPhoto(null); setPhotoPreview(null); }}>×</button>
           </div>
         ) : (
           <label className="row gap-8 center-v" style={{ width: "fit-content", padding: "10px 14px", borderRadius: 12, border: "1.5px dashed var(--ink-300)", cursor: "pointer" }}>

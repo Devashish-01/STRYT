@@ -153,7 +153,9 @@ export const discoveryService = {
   // for those, and the expected place count is far lower.
   async places(p: { lat?: number; lng?: number; radius?: number } = {}): Promise<Place[]> {
     const sb = getSupabase();
-    const { data, error } = await sb.from("places").select("*").eq("status", "ACTIVE");
+    // Bounded: this used to pull every active place row on every call (P7). 200 is far above what any screen shows,
+    // and the nearest-first ordering happens below.
+    const { data, error } = await sb.from("places").select("*").eq("status", "ACTIVE").limit(200);
     throwIfError(error);
     const rows = (data ?? []).map((r) => toCamel<Place>(r));
     if (!p.lat || !p.lng) return rows;
@@ -213,6 +215,29 @@ export const discoveryService = {
     const term = `%${safeQ}%`;
     const { from: bizFrom, to: bizTo, limit: bizLimit } = cursorToRange(opts.bizCursor);
     const { from: provFrom, to: provTo, limit: provLimit } = cursorToRange(opts.provCursor);
+
+    // With a location, search runs in the database (20260986): bounded by radius, ordered nearest first, and matching
+    // what a shop sells as well as its name (S1, S2). The plain filter below stays for the no-location case.
+    if (opts.lat != null && opts.lng != null) {
+      const args = { in_q: safeQ, in_lat: opts.lat, in_lng: opts.lng, in_radius_km: opts.radius ?? 25 };
+      const [bizRpc, provRpc] = await Promise.all([
+        (sb.rpc as any)("search_businesses_nearby", { ...args, in_limit: bizLimit, in_offset: bizFrom }),
+        (sb.rpc as any)("search_providers_nearby", { ...args, in_limit: provLimit, in_offset: provFrom }),
+      ]);
+      if (!bizRpc.error && !provRpc.error) {
+        const bizRows = toCamel<Business[]>(bizRpc.data ?? []).map((b) => withDistance(b, opts.lat!, opts.lng!));
+        const provRows = toCamel<Provider[]>(provRpc.data ?? []).map((p) => withDistance(p, opts.lat!, opts.lng!));
+        // A page shorter than the limit is the last one — the RPC doesn't count the whole set, and counting it would
+        // cost a second scan for a number the UI only uses to decide whether to offer "Load more".
+        const pageOf = <T,>(rows: T[], from: number, limit: number): Page<T> => ({
+          data: rows,
+          page: { next_cursor: rows.length === limit ? String(from + limit) : null, has_more: rows.length === limit },
+        });
+        return { businesses: pageOf(bizRows, bizFrom, bizLimit), providers: pageOf(provRows, provFrom, provLimit) };
+      }
+      // Fall through to the filter search if the functions aren't deployed yet.
+    }
+
     const [bizRes, provRes] = await Promise.all([
       sb.from("businesses").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null).or(`name.ilike.${term},category_name.ilike.${term}`).range(bizFrom, bizTo),
       sb.from("providers").select("*", { count: "exact" }).eq("status", "ACTIVE").eq("owner_enabled", true).is("deleted_at", null).or(`display_name.ilike.${term},category_name.ilike.${term}`).range(provFrom, provTo),
@@ -236,7 +261,7 @@ export const discoveryService = {
   async saveSearch(query: string, lat?: number, lng?: number, radiusKm = 5): Promise<void> {
     const sb = getSupabase();
     const uid = await currentUserId();
-    if (!uid) return;
+    if (!uid) throw new Error("Sign in to save a search and get told when something new matches it.");
     const { error } = await sb.from("saved_searches").upsert(
       { user_id: uid, query: query.trim(), lat: lat ?? null, lng: lng ?? null, radius_km: radiusKm },
       { onConflict: "user_id,query" }

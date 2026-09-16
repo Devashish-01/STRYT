@@ -72,6 +72,22 @@ export const catalogService = {
 
   async getCategoryCounts(lat?: number, lng?: number, radius?: number): Promise<{ bizCounts: Record<string, number>; provCounts: Record<string, number> }> {
     const sb = getSupabase();
+    // Counted in the database (20260986). This used to pull every active business and provider row to the client and
+    // tally them there (C2); the fallback below stays for the case where the function isn't deployed yet.
+    const counted = await (sb.rpc as any)("category_counts_nearby", {
+      in_lat: lat ?? null,
+      in_lng: lng ?? null,
+      in_radius_km: lat != null && lng != null && radius != null && radius < 5000 ? radius : null,
+    });
+    if (!counted.error && Array.isArray(counted.data)) {
+      const bizCounts: Record<string, number> = {};
+      const provCounts: Record<string, number> = {};
+      for (const row of counted.data as { category_id: string; kind: string; listings: number }[]) {
+        (row.kind === "business" ? bizCounts : provCounts)[row.category_id] = row.listings;
+      }
+      return { bizCounts, provCounts };
+    }
+
     const [{ data: bizRows }, { data: provRows }] = await Promise.all([
       sb.from("businesses").select("category_id, lat, lng").eq("status", "ACTIVE"),
       sb.from("providers").select("category_id, lat, lng").eq("status", "ACTIVE"),

@@ -243,7 +243,7 @@ export function MapMarkers({
                 <button
                   className="btn btn-sm btn-block"
                   onClick={() => nav(`/business/${b.id}`)}
-                  style={{ marginTop: 8, background: isBizOpen ? RING_BACKGROUND.open : "var(--ink-500)", color: "#fff" }}
+                  style={{ marginTop: 8, background: isBizOpen ? RING_BACKGROUND.open : "var(--ink-500)", color: "var(--white)" }}
                 >
                   {t("map_view_shop")}
                 </button>
@@ -267,7 +267,7 @@ export function MapMarkers({
                 <button
                   className="btn btn-sm btn-block"
                   onClick={() => nav(`/provider/${p.id}`)}
-                  style={{ marginTop: 8, background: isOpen ? RING_BACKGROUND.available : "var(--ink-500)", color: "#fff" }}
+                  style={{ marginTop: 8, background: isOpen ? RING_BACKGROUND.available : "var(--ink-500)", color: "var(--white)" }}
                 >
                   {t("map_view_profile")}
                 </button>
@@ -287,7 +287,7 @@ export function MapMarkers({
                 <button
                   className="btn btn-sm btn-block"
                   onClick={() => nav(`/request/${r.id}`)}
-                  style={{ marginTop: 8, background: pinColors.request, color: "#fff" }}
+                  style={{ marginTop: 8, background: pinColors.request, color: "var(--white)" }}
                 >
                   {t("map_view_request")}
                 </button>
@@ -309,7 +309,7 @@ export function MapMarkers({
                 <button
                   className="btn btn-sm btn-block"
                   onClick={() => nav(`/place/${pl.id}`)}
-                  style={{ marginTop: 8, background: RING_BACKGROUND.place, color: "#fff" }}
+                  style={{ marginTop: 8, background: RING_BACKGROUND.place, color: "var(--white)" }}
                 >
                   View place
                 </button>
