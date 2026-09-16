@@ -109,3 +109,72 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `ccp_regular_price` | Regular price (₹) | सामान्य कीमत (₹) | नेहमीची किंमत (₹) |  |
 | `ccp_target_qty` | Target qty | लक्ष्य मात्रा | लक्ष्य प्रमाण |  |
 | `ccp_deposit_join` | Deposit to join (optional) | जुड़ने के लिए जमा राशि (वैकल्पिक) | सामील होण्यासाठी अनामत (ऐच्छिक) |  |
+| `bset_qr_uploaded` | Custom QR code uploaded! | आपका QR कोड अपलोड हो गया! | तुमचा QR कोड अपलोड झाला! |  |
+| `bset_qr_upload_failed` | Failed to upload QR code. | QR कोड अपलोड नहीं हो सका। | QR कोड अपलोड करता आला नाही. |  |
+| `bset_qr_reverted` | Reverted to generated UPI QR | अपने आप बने UPI QR पर वापस | आपोआप तयार झालेल्या UPI QR वर परत |  |
+| `bset_email_saved` | Email saved | ईमेल सेव हो गया | ईमेल जतन झाला |  |
+| `bset_email_save_failed` | Couldn't save email. Try again. | ईमेल सेव नहीं हो सका। दोबारा कोशिश करें। | ईमेल जतन करता आला नाही. पुन्हा प्रयत्न करा. |  |
+| `bset_upi_saved` | UPI ID saved | UPI आईडी सेव हो गई | UPI आयडी जतन झाली |  |
+| `bset_upi_save_failed` | Couldn't save UPI ID. Try again. | UPI आईडी सेव नहीं हो सकी। दोबारा कोशिश करें। | UPI आयडी जतन करता आली नाही. पुन्हा प्रयत्न करा. |  |
+| `bset_deposit_saved` | Deposit saved | जमा राशि सेव हो गई | अनामत जतन झाली |  |
+| `bset_capacity_saved` | Booking capacity saved | बुकिंग क्षमता सेव हो गई | बुकिंग क्षमता जतन झाली |  |
+| `bset_delivery_time_saved` | Typical delivery time saved | डिलीवरी का सामान्य समय सेव हो गया | डिलिव्हरीची नेहमीची वेळ जतन झाली |  |
+| `bset_page_type_set` | Page type set to {label} | पेज का प्रकार {label} कर दिया गया | पेजचा प्रकार {label} केला |  |
+| `bset_business_settings` | Business settings | दुकान की सेटिंग | दुकानाची सेटिंग |  |
+| `bset_visibility` | Visibility | दिखना | दिसणे |  |
+| `bset_show_publicly` | Show business publicly | दुकान सबको दिखाएं | दुकान सर्वांना दाखवा |  |
+| `bset_page_type` | Page type | पेज का प्रकार | पेजचा प्रकार |  |
+| `bset_page_type_hint` | Controls your page's layout, CTA wording, and catalogue form | इससे आपके पेज का लेआउट, बटन के शब्द और कैटलॉग फ़ॉर्म तय होता है | यावरून तुमच्या पेजचा मांडणी, बटणाचे शब्द आणि कॅटलॉग फॉर्म ठरतो |  |
+| `bset_take_bookings` | Take bookings | बुकिंग लें | बुकिंग घ्या |  |
+| `bset_bookings_on` | Your page shows a booking button | आपके पेज पर बुकिंग का बटन दिखता है | तुमच्या पेजवर बुकिंगचे बटण दिसते |  |
+| `bset_bookings_off` | No booking button — products/services only | बुकिंग का बटन नहीं — सिर्फ़ सामान/सेवाएं | बुकिंगचे बटण नाही — फक्त वस्तू/सेवा |  |
+| `bset_notifications_reviews` | Notifications & Reviews | सूचनाएं और समीक्षाएं | सूचना आणि परीक्षणे |  |
+| `bset_customer_reviews` | Customer reviews | ग्राहकों की समीक्षाएं | ग्राहकांची परीक्षणे |  |
+| `bset_customer_reviews_hint` | View and reply to customer feedback | ग्राहकों की राय देखें और जवाब दें | ग्राहकांचे मत पाहा आणि उत्तर द्या |  |
+| `bset_new_leads` | New leads | नए ग्राहक | नवीन ग्राहक |  |
+| `bset_new_reviews` | New reviews | नई समीक्षाएं | नवीन परीक्षणे |  |
+| `bset_matching_requests` | Matching requests | आपसे मिलती-जुलती मांगें | तुमच्याशी जुळणाऱ्या मागण्या |  |
+| `bset_matching_requests_hint` | Also controls your personal 'Nearby requests' alerts | इससे आपके निजी 'आस-पास की मांगें' अलर्ट भी तय होते हैं | यावरून तुमचे वैयक्तिक 'जवळपासच्या मागण्या' अलर्टही ठरतात |  |
+| `bset_accepting` | Accepting appointments | अपॉइंटमेंट ले रहे हैं | अपॉइंटमेंट घेत आहात |  |
+| `bset_accepting_on` | Customers can book you right now | ग्राहक अभी आपको बुक कर सकते हैं | ग्राहक आत्ता तुम्हाला बुक करू शकतात |  |
+| `bset_accepting_off` | Paused — new bookings are turned off | रुका हुआ — नई बुकिंग बंद हैं | थांबवले — नवीन बुकिंग बंद आहेत |  |
+| `bset_service_area` | Service area & radius | सेवा क्षेत्र और दूरी | सेवा क्षेत्र आणि अंतर |  |
+| `bset_service_radius` | Service radius | सेवा की दूरी | सेवेचे अंतर |  |
+| `bset_service_radius_hint` | Set how far you take bookings and reach customers | तय करें कि आप कितनी दूर तक बुकिंग लेते हैं और ग्राहकों तक पहुँचते हैं | तुम्ही किती अंतरापर्यंत बुकिंग घेता आणि ग्राहकांपर्यंत पोहोचता ते ठरवा |  |
+| `bset_booking_capacity` | Booking capacity | बुकिंग क्षमता | बुकिंग क्षमता |  |
+| `bset_default_per_slot` | Default bookings per time slot | हर समय-स्लॉट में सामान्य बुकिंग | प्रत्येक वेळ-स्लॉटमधील नेहमीच्या बुकिंग |  |
+| `bset_overall_limit` | Overall limit at one time (optional) | एक समय में कुल सीमा (वैकल्पिक) | एका वेळी एकूण मर्यादा (ऐच्छिक) |  |
+| `bset_no_limit` | No limit | कोई सीमा नहीं | मर्यादा नाही |  |
+| `bset_home_delivery` | Home delivery | घर पहुँच सेवा | घरपोच सेवा |  |
+| `bset_offer_delivery` | Offer home delivery | घर पहुँच सेवा दें | घरपोच सेवा द्या |  |
+| `bset_delivery_on_hint` | Lets customers choose delivery instead of visiting, and send their address at booking | ग्राहक दुकान आने के बजाय डिलीवरी चुन सकते हैं और बुकिंग के समय पता भेज सकते हैं | ग्राहक दुकानात येण्याऐवजी डिलिव्हरी निवडू शकतात आणि बुकिंगच्या वेळी पत्ता पाठवू शकतात |  |
+| `bset_delivery_soon_hint` | Coming soon — this saves your preference now, but delivery isn't live for customers yet | जल्द आ रहा है — आपकी पसंद अभी सेव हो जाएगी, पर ग्राहकों के लिए डिलीवरी अभी चालू नहीं है | लवकरच येत आहे — तुमची निवड आता जतन होईल, पण ग्राहकांसाठी डिलिव्हरी अजून सुरू नाही |  |
+| `bset_typical_delivery_time` | Typical delivery time | डिलीवरी का सामान्य समय | डिलिव्हरीची नेहमीची वेळ |  |
+| `bset_delivery_time_placeholder` | e.g. 30–45 min | जैसे 30–45 मिनट | उदा. ३०–४५ मिनिटे |  |
+| `bset_upi_id` | UPI ID (VPA) | UPI आईडी (VPA) | UPI आयडी (VPA) |  |
+| `bset_upi_hint` | Customers pay you via UPI. Enter your UPI handle (e.g. myshop@okaxis) — a QR code is generated automatically. | ग्राहक आपको UPI से भुगतान करते हैं। अपना UPI हैंडल डालें (जैसे myshop@okaxis) — QR कोड अपने आप बन जाएगा। | ग्राहक तुम्हाला UPI ने पैसे देतात. तुमचा UPI हँडल टाका (उदा. myshop@okaxis) — QR कोड आपोआप तयार होईल. |  |
+| `bset_upi_placeholder` | e.g. yourname@okaxis | जैसे yourname@okaxis | उदा. yourname@okaxis |  |
+| `bset_custom_qr` | Custom Payment QR (optional) | अपना भुगतान QR (वैकल्पिक) | स्वतःचा पेमेंट QR (ऐच्छिक) |  |
+| `bset_custom_qr_hint` | Upload your own QR image (bank app screenshot, GPay/PhonePe QR, etc.). This overrides the auto-generated UPI QR on your share card. | अपना QR चित्र अपलोड करें (बैंक ऐप का स्क्रीनशॉट, GPay/PhonePe QR आदि)। यह आपके शेयर कार्ड पर अपने आप बने UPI QR की जगह ले लेगा। | तुमचा QR फोटो अपलोड करा (बँक ॲपचा स्क्रीनशॉट, GPay/PhonePe QR इ.). हा तुमच्या शेअर कार्डवरील आपोआप तयार झालेल्या UPI QR ची जागा घेईल. |  |
+| `bset_custom_qr_alt` | Custom Payment QR | अपना भुगतान QR | स्वतःचा पेमेंट QR |  |
+| `bset_upload_qr` | Upload QR Image | QR चित्र अपलोड करें | QR फोटो अपलोड करा |  |
+| `bset_when_collect` | When to collect appointment payment | अपॉइंटमेंट का पैसा कब लें | अपॉइंटमेंटचे पैसे कधी घ्यायचे |  |
+| `bset_upfront_deposit` | Upfront deposit (%) | पहले जमा राशि (%) | आधी अनामत (%) |  |
+| `bset_contact_privacy` | Contact & privacy | संपर्क और निजता | संपर्क आणि गोपनीयता |  |
+| `bset_business_email` | Business email | दुकान का ईमेल | दुकानाचा ईमेल |  |
+| `bset_email_placeholder` | e.g. hello@yourshop.com | जैसे hello@yourshop.com | उदा. hello@yourshop.com |  |
+| `bset_show_phone` | Show phone publicly | फ़ोन नंबर सबको दिखाएं | फोन नंबर सर्वांना दाखवा |  |
+| `bset_show_email` | Show email publicly | ईमेल सबको दिखाएं | ईमेल सर्वांना दाखवा |  |
+| `bset_exact_location` | Exact location public | सटीक पता सबको दिखाएं | नेमका पत्ता सर्वांना दाखवा |  |
+| `bset_exact_location_hint` | OFF = customers must request & you approve | बंद = ग्राहक पूछेंगे और आप मंज़ूरी देंगे | बंद = ग्राहक विचारतील आणि तुम्ही मंजुरी द्याल |  |
+| `bset_account` | Account | खाता | खाते |  |
+| `bset_team_access` | Team & access | टीम और पहुँच | टीम आणि प्रवेश |  |
+| `bset_team_access_hint` | Add team members with scoped access | तय पहुँच के साथ टीम के लोग जोड़ें | ठरलेल्या प्रवेशासह टीममधील लोक जोडा |  |
+| `bset_verification` | Verification | सत्यापन | पडताळणी |  |
+| `bset_verification_hint` | Documents and badge status | दस्तावेज़ और बैज की स्थिति | कागदपत्रे आणि बॅजची स्थिती |  |
+| `bset_danger_zone` | Danger zone | ख़तरे वाला हिस्सा | धोक्याचा भाग |  |
+| `bset_delete_business` | Delete this business | यह दुकान हटाएं | हे दुकान हटवा |  |
+| `bset_delete_hint` | Removes it from STRYT. Past bookings are kept. | यह STRYT से हट जाएगी। पुरानी बुकिंग रहेंगी। | हे STRYT वरून हटेल. जुन्या बुकिंग राहतील. |  |
+| `bset_business_deleted` | Business deleted | दुकान हटा दी गई | दुकान हटवले |  |
+| `bset_choose_page_type` | Choose your page type | अपने पेज का प्रकार चुनें | तुमच्या पेजचा प्रकार निवडा |  |
+| `bset_remove` | Remove | हटाएं | काढा |  |

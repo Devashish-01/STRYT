@@ -24,7 +24,9 @@ const allowed = new Set(ALLOWLIST.strings.map((s) => s.value));
 
 const SKIP_DIRS = new Set(["admin", "future-enhancement", "__tests__"]);
 const SKIP_FILE = /\.(test|spec)\.(ts|tsx)$/;
-const ATTRS = ["placeholder", "title", "aria-label", "alt", "label"];
+// The last four are this codebase's own component props (SettingsRow, SettingsSection, ConsoleTile and friends), and
+// they carry text a Hindi or Marathi user reads on screen just like a placeholder does.
+const ATTRS = ["placeholder", "title", "aria-label", "alt", "label", "hint", "subtitle", "description", "caption"];
 
 const args = process.argv.slice(2);
 const maxArg = args.indexOf("--max");

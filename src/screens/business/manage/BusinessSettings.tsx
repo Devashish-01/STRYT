@@ -10,11 +10,13 @@ import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
+import { useI18n } from "@/lib/i18n";
 
 export default function BusinessSettings() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast, setContext, user, refreshUser } = useApp();
+  const { t, tf } = useI18n();
   // #5 — delete flow state. Typed confirmation, not a yes/no: this is the one
   // action on this screen that removes the shop from the app.
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -62,7 +64,7 @@ export default function BusinessSettings() {
       .then(() => showToast(v ? "You'll hear about matching requests" : "Matching-request alerts off"))
       .catch(() => {
         setRequests(!v);
-        showToast("Couldn't save — try again");
+        showToast(t("cpd_save_failed"));
       });
   }
 
@@ -74,9 +76,9 @@ export default function BusinessSettings() {
       const url = await uploadService.upload(file, "verification");
       localStorage.setItem("stryt_upi_qr_" + id, url);
       setCustomQrUrl(url);
-      showToast("Custom QR code uploaded!");
+      showToast(t("bset_qr_uploaded"));
     } catch {
-      showToast("Failed to upload QR code.");
+      showToast(t("bset_qr_upload_failed"));
     } finally {
       setUploadingQr(false);
     }
@@ -85,7 +87,7 @@ export default function BusinessSettings() {
   function clearCustomQr() {
     localStorage.removeItem("stryt_upi_qr_" + id);
     setCustomQrUrl("");
-    showToast("Reverted to generated UPI QR");
+    showToast(t("bset_qr_reverted"));
   }
 
   useEffect(() => {
@@ -115,23 +117,23 @@ export default function BusinessSettings() {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Settings" />
+        <AppBar title={t("settings")} />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
       </div>
     );
   }
 
   function persist(patch: Record<string, unknown>) {
-    void businessService.update(id, patch as any).catch(() => showToast("Couldn't save — try again"));
+    void businessService.update(id, patch as any).catch(() => showToast(t("cpd_save_failed")));
   }
   async function saveEmail() {
     setSavingEmail(true);
     try {
       await businessService.update(id, { email: email.trim() || null } as any);
-      showToast("Email saved");
+      showToast(t("bset_email_saved"));
       void refetchBiz();
     } catch {
-      showToast("Couldn't save email. Try again.");
+      showToast(t("bset_email_save_failed"));
     } finally {
       setSavingEmail(false);
     }
@@ -141,10 +143,10 @@ export default function BusinessSettings() {
     setSavingUpi(true);
     try {
       await businessService.update(id, { upiId: upiId.trim() || null } as any);
-      showToast("UPI ID saved");
+      showToast(t("bset_upi_saved"));
       void refetchBiz();
     } catch {
-      showToast("Couldn't save UPI ID. Try again.");
+      showToast(t("bset_upi_save_failed"));
     } finally {
       setSavingUpi(false);
     }
@@ -159,7 +161,7 @@ export default function BusinessSettings() {
       void refetchBiz();
     } catch {
       setPaymentTiming(prev);
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     } finally {
       setSavingTiming(false);
     }
@@ -171,10 +173,10 @@ export default function BusinessSettings() {
     setSavingDeposit(true);
     try {
       await businessService.update(id, { depositPercent: n } as any);
-      showToast("Deposit saved");
+      showToast(t("bset_deposit_saved"));
       void refetchBiz();
     } catch {
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     } finally {
       setSavingDeposit(false);
     }
@@ -187,10 +189,10 @@ export default function BusinessSettings() {
         defaultSlotCapacity: Math.max(1, Number(defaultCapacity) || 1),
         maxConcurrentBookings: ceiling.trim() ? Math.max(1, Number(ceiling) || 1) : null,
       } as any);
-      showToast("Booking capacity saved");
+      showToast(t("bset_capacity_saved"));
       void refetchBiz();
     } catch {
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     } finally {
       setSavingCapacity(false);
     }
@@ -210,7 +212,7 @@ export default function BusinessSettings() {
       void refetchBiz();
     } catch {
       setDeliveryEnabled(!v); // optimistic + revert, per the app-wide write pattern
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     }
   }
 
@@ -218,10 +220,10 @@ export default function BusinessSettings() {
     setSavingEta(true);
     try {
       await businessService.update(id, { deliveryTime: defaultEta.trim() || null } as any);
-      showToast("Typical delivery time saved");
+      showToast(t("bset_delivery_time_saved"));
       void refetchBiz();
     } catch {
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     } finally {
       setSavingEta(false);
     }
@@ -243,10 +245,10 @@ export default function BusinessSettings() {
     setPackagePicking(false);
     try {
       await businessService.update(id, { packageKey: key } as any);
-      showToast(`Page type set to ${BUSINESS_PACKAGES[key].label}`);
+      showToast(tf("bset_page_type_set", { label: BUSINESS_PACKAGES[key].label }));
       void refetchBiz();
     } catch {
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     }
   }
 
@@ -258,7 +260,7 @@ export default function BusinessSettings() {
       void refetchBiz();
     } catch {
       setBookingsOn(!v);
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     }
   }
 
@@ -277,43 +279,43 @@ export default function BusinessSettings() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Business settings" />
+      <AppBar title={t("bset_business_settings")} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 20 }}>
 
-        <SettingsSection title="Visibility">
-          <SettingsToggleRow label="Show business publicly" on={ownerEnabled} onChange={handleToggleVisibility} />
+        <SettingsSection title={t("bset_visibility")}>
+          <SettingsToggleRow label={t("bset_show_publicly")} on={ownerEnabled} onChange={handleToggleVisibility} />
         </SettingsSection>
 
         {/* Business Packages — the choice made visible and changeable for
             good, not just a one-time onboarding moment (PackageConfirmCard). */}
-        <SettingsSection title="Page type">
+        <SettingsSection title={t("bset_page_type")}>
           <SettingsRow
             icon={<span style={{ fontSize: 18, lineHeight: 1 }}>{pkg.icon || "🏪"}</span>}
-            label="Page type"
-            hint="Controls your page's layout, CTA wording, and catalogue form"
+            label={t("bset_page_type")}
+            hint={t("bset_page_type_hint")}
             value={pkg.label}
             onClick={() => setPackagePicking(true)}
           />
           <SettingsToggleRow
-            label="Take bookings"
-            hint={bookingsOn ? "Your page shows a booking button" : "No booking button — products/services only"}
+            label={t("bset_take_bookings")}
+            hint={bookingsOn ? t("bset_bookings_on") : t("bset_bookings_off")}
             on={bookingsOn}
             onChange={toggleBookingsEnabled}
           />
         </SettingsSection>
 
-        <SettingsSection title="Notifications & Reviews">
+        <SettingsSection title={t("bset_notifications_reviews")}>
           <SettingsRow
             icon={<Star size={18} color="var(--amber-500)" />}
-            label="Customer reviews"
-            hint="View and reply to customer feedback"
+            label={t("bset_customer_reviews")}
+            hint={t("bset_customer_reviews_hint")}
             onClick={() => nav(`/business/${id}/manage/reviews`)}
           />
-          <SettingsToggleRow label="New leads" on={leads} onChange={setLeads} />
-          <SettingsToggleRow label="New reviews" on={reviewsN} onChange={setReviewsN} />
+          <SettingsToggleRow label={t("bset_new_leads")} on={leads} onChange={setLeads} />
+          <SettingsToggleRow label={t("bset_new_reviews")} on={reviewsN} onChange={setReviewsN} />
           <SettingsToggleRow
-            label="Matching requests"
-            hint="Also controls your personal 'Nearby requests' alerts"
+            label={t("bset_matching_requests")}
+            hint={t("bset_matching_requests_hint")}
             on={requests}
             onChange={persistMatchingRequests}
           />
@@ -322,20 +324,20 @@ export default function BusinessSettings() {
         {/* Accepting appointments — the real "pause bookings" control (businesses.is_open_now).
             Mirrored on the manage dashboard front door for one-tap access; this is the
             fuller settings-page home for it, alongside the rest of the booking controls. */}
-        <SettingsSection title="Appointments">
+        <SettingsSection title={t("appointments")}>
           <SettingsToggleRow
-            label="Accepting appointments"
-            hint={accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}
+            label={t("bset_accepting")}
+            hint={accepting ? t("bset_accepting_on") : t("bset_accepting_off")}
             on={accepting}
             onChange={toggleAccepting}
           />
         </SettingsSection>
 
-        <SettingsSection title="Service area & radius">
+        <SettingsSection title={t("bset_service_area")}>
           <SettingsRow
             icon={<MapPin size={18} color="var(--brand-600)" />}
-            label="Service radius"
-            hint="Set how far you take bookings and reach customers"
+            label={t("bset_service_radius")}
+            hint={t("bset_service_radius_hint")}
             value={business?.broadcastRadius ? `${business.broadcastRadius} km` : "5 km"}
             onClick={() => nav(`/business/${id}/manage/broadcast`)}
           />
@@ -349,10 +351,10 @@ export default function BusinessSettings() {
             unconditionally before, with nothing behind it to actually use it. */}
         {pkg.showSlotCapacitySection && (
         <div>
-          <div className="profile-eyebrow">Booking capacity</div>
+          <div className="profile-eyebrow">{t("bset_booking_capacity")}</div>
           <div className="card col gap-12" style={{ padding: 14 }}>
             <div>
-              <div className="tiny semi" style={{ marginBottom: 4 }}>Default bookings per time slot</div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_default_per_slot")}</div>
               <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
                 How many customers you can serve at the same time. Individual services can override this in your catalogue.
               </div>
@@ -365,7 +367,7 @@ export default function BusinessSettings() {
               />
             </div>
             <div>
-              <div className="tiny semi" style={{ marginBottom: 4 }}>Overall limit at one time (optional)</div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_overall_limit")}</div>
               <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
                 A hard cap across <em>all</em> services combined — useful when different services share the same space or staff. Leave blank for no overall limit.
               </div>
@@ -374,7 +376,7 @@ export default function BusinessSettings() {
                 inputMode="numeric"
                 value={ceiling}
                 onChange={(e) => setCeiling(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                placeholder="No limit"
+                placeholder={t("bset_no_limit")}
               />
             </div>
             <button className="btn btn-outline btn-sm" disabled={savingCapacity} onClick={saveCapacity}>
@@ -391,25 +393,25 @@ export default function BusinessSettings() {
             it doesn't do anything customer-facing yet — matching how
             ManageDashboard.tsx guards its own delivery tile behind the same
             flag rather than showing something that silently does nothing. */}
-        <SettingsSection title="Home delivery">
+        <SettingsSection title={t("bset_home_delivery")}>
           <SettingsToggleRow
-            label="Offer home delivery"
+            label={t("bset_offer_delivery")}
             hint={DELIVERY_AGENT_ENABLED
-              ? "Lets customers choose delivery instead of visiting, and send their address at booking"
-              : "Coming soon — this saves your preference now, but delivery isn't live for customers yet"}
+              ? t("bset_delivery_on_hint")
+              : t("bset_delivery_soon_hint")}
             on={deliveryEnabled}
             onChange={toggleDelivery}
           />
           {deliveryEnabled && (
             <div style={{ padding: "13px 14px", borderTop: "1px solid var(--line)" }}>
-              <div className="tiny semi" style={{ marginBottom: 4 }}>Typical delivery time</div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_typical_delivery_time")}</div>
               <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
                 Shown to customers as a guide. You still confirm an exact ETA when you accept each order.
               </div>
               <div className="row gap-8">
                 <input
                   className="input grow"
-                  placeholder="e.g. 30–45 min"
+                  placeholder={t("bset_delivery_time_placeholder")}
                   value={defaultEta}
                   maxLength={40}
                   onChange={(e) => setDefaultEta(e.target.value)}
@@ -424,16 +426,16 @@ export default function BusinessSettings() {
 
         {/* Payment */}
         <div>
-          <div className="profile-eyebrow">Payment</div>
+          <div className="profile-eyebrow">{t("payment")}</div>
           <div className="card col gap-12" style={{ padding: 14 }}>
             {/* UPI ID */}
             <div>
-              <div className="tiny semi" style={{ marginBottom: 4 }}>UPI ID (VPA)</div>
-              <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>Customers pay you via UPI. Enter your UPI handle (e.g. myshop@okaxis) — a QR code is generated automatically.</div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_upi_id")}</div>
+              <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>{t("bset_upi_hint")}</div>
               <div className="row gap-8">
                 <input
                   className="input grow"
-                  placeholder="e.g. yourname@okaxis"
+                  placeholder={t("bset_upi_placeholder")}
                   value={upiId}
                   onChange={(e) => setUpiId(e.target.value)}
                   style={{ fontSize: 14 }}
@@ -448,23 +450,23 @@ export default function BusinessSettings() {
 
             {/* Custom QR upload */}
             <div>
-              <div className="tiny semi" style={{ marginBottom: 4 }}>Custom Payment QR (optional)</div>
-              <div className="tiny muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>Upload your own QR image (bank app screenshot, GPay/PhonePe QR, etc.). This overrides the auto-generated UPI QR on your share card.</div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_custom_qr")}</div>
+              <div className="tiny muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>{t("bset_custom_qr_hint")}</div>
 
               {customQrUrl ? (
                 <div className="col gap-8" style={{ alignItems: "center" }}>
-                  <img src={customQrUrl} alt="Custom Payment QR" style={{ width: 140, height: 140, objectFit: "contain", borderRadius: 8, border: "1px solid var(--line)", background: "#fff", padding: 6 }} />
+                  <img src={customQrUrl} alt={t("bset_custom_qr_alt")} style={{ width: 140, height: 140, objectFit: "contain", borderRadius: 8, border: "1px solid var(--line)", background: "#fff", padding: 6 }} />
                   <div className="row gap-8">
                     <label className="btn btn-outline btn-sm row gap-6" style={{ cursor: "pointer" }}>
                       <ImageIcon size={13} /> Change
                       <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleQrUpload} />
                     </label>
-                    <button className="btn btn-outline btn-sm row gap-6" onClick={clearCustomQr}><X size={13} /> Remove</button>
+                    <button className="btn btn-outline btn-sm row gap-6" onClick={clearCustomQr}><X size={13} /> {t("bset_remove")}</button>
                   </div>
                 </div>
               ) : (
                 <label className="btn btn-outline btn-sm row gap-6" style={{ cursor: "pointer", alignSelf: "flex-start" }}>
-                  {uploadingQr ? "Uploading…" : <><ImageIcon size={13} /> Upload QR Image</>}
+                  {uploadingQr ? "Uploading…" : <><ImageIcon size={13} /> {t("bset_upload_qr")}</>}
                   <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleQrUpload} disabled={uploadingQr} />
                 </label>
               )}
@@ -474,7 +476,7 @@ export default function BusinessSettings() {
 
             {/* Appointment payment timing */}
             <div>
-              <div className="tiny semi" style={{ marginBottom: 4 }}>When to collect appointment payment</div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_when_collect")}</div>
               <div className="tiny muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>
                 "At booking" requires the customer to pay before you can accept their appointment. "At appointment" (default) lets you accept first — payment happens around the service, whenever suits you.
               </div>
@@ -503,7 +505,7 @@ export default function BusinessSettings() {
               {/* Deposit % — only meaningful when payment is collected upfront. */}
               {paymentTiming === "AT_BOOKING" && (
                 <div style={{ marginTop: 12 }}>
-                  <div className="tiny semi" style={{ marginBottom: 4 }}>Upfront deposit (%)</div>
+                  <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_upfront_deposit")}</div>
                   <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
                     Upfront deposit (%) — rest collected at the appointment. 0 = full amount up front.
                   </div>
@@ -527,13 +529,13 @@ export default function BusinessSettings() {
         </div>
 
         {/* Contact & privacy — control what customers can see */}
-        <SettingsSection title="Contact & privacy">
+        <SettingsSection title={t("bset_contact_privacy")}>
           <div style={{ padding: "13px 14px" }}>
-            <div className="tiny semi" style={{ marginBottom: 6 }}>Business email</div>
+            <div className="tiny semi" style={{ marginBottom: 6 }}>{t("bset_business_email")}</div>
             <div className="row gap-8">
               <input
                 className="input grow"
-                placeholder="e.g. hello@yourshop.com"
+                placeholder={t("bset_email_placeholder")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{ fontSize: 14 }}
@@ -543,14 +545,14 @@ export default function BusinessSettings() {
               </button>
             </div>
           </div>
-          <SettingsToggleRow label="Show phone publicly" on={showPhone} onChange={(v) => { setShowPhone(v); persist({ showPhonePublicly: v }); }} />
-          <SettingsToggleRow label="Show email publicly" on={showEmail} onChange={(v) => { setShowEmail(v); persist({ showEmailPublicly: v }); }} />
-          <SettingsToggleRow label="Exact location public" hint="OFF = customers must request & you approve" on={locPublic} onChange={(v) => { setLocPublic(v); persist({ locationPublic: v }); }} />
+          <SettingsToggleRow label={t("bset_show_phone")} on={showPhone} onChange={(v) => { setShowPhone(v); persist({ showPhonePublicly: v }); }} />
+          <SettingsToggleRow label={t("bset_show_email")} on={showEmail} onChange={(v) => { setShowEmail(v); persist({ showEmailPublicly: v }); }} />
+          <SettingsToggleRow label={t("bset_exact_location")} hint={t("bset_exact_location_hint")} on={locPublic} onChange={(v) => { setLocPublic(v); persist({ locationPublic: v }); }} />
         </SettingsSection>
 
-        <SettingsSection title="Account">
-          <SettingsRow icon={<UserPlus size={18} />} label="Team & access" hint="Add team members with scoped access" onClick={() => nav("/account/business-access")} />
-          <SettingsRow icon={<BadgeCheck size={18} />} label="Verification" hint="Documents and badge status" onClick={() => nav(`/business/${id}/manage/verify`)} />
+        <SettingsSection title={t("bset_account")}>
+          <SettingsRow icon={<UserPlus size={18} />} label={t("bset_team_access")} hint={t("bset_team_access_hint")} onClick={() => nav("/account/business-access")} />
+          <SettingsRow icon={<BadgeCheck size={18} />} label={t("bset_verification")} hint={t("bset_verification_hint")} onClick={() => nav(`/business/${id}/manage/verify`)} />
         </SettingsSection>
 
         <button className="btn btn-ghost btn-block" onClick={() => { setContext({ type: "customer", id: null, name: "Personal" }); nav("/home"); }}>
@@ -560,11 +562,11 @@ export default function BusinessSettings() {
         {/* Feedback #5 — there was no way to delete a business at all.
             Owner-only, last on the page, and behind a typed confirmation:
             this is the single most destructive thing an owner can do here. */}
-        <SettingsSection title="Danger zone">
+        <SettingsSection title={t("bset_danger_zone")}>
           <SettingsRow
             icon={<Trash2 size={18} color="var(--red-600)" />}
-            label="Delete this business"
-            hint="Removes it from STRYT. Past bookings are kept."
+            label={t("bset_delete_business")}
+            hint={t("bset_delete_hint")}
             onClick={() => setDeleteOpen(true)}
           />
         </SettingsSection>
@@ -598,7 +600,7 @@ export default function BusinessSettings() {
                   setDeleting(true);
                   try {
                     await businessService.delete(id);
-                    showToast("Business deleted");
+                    showToast(t("bset_business_deleted"));
                     setContext({ type: "customer", id: null, name: "Personal" });
                     await refreshUser();
                     nav("/home");
@@ -629,7 +631,7 @@ export default function BusinessSettings() {
           <div className="overlay" onClick={() => setPackagePicking(false)}>
             <div className="sheet" onClick={(e) => e.stopPropagation()}>
               <div className="sheet-grab" />
-              <h3 className="bold h2" style={{ marginBottom: 4 }}>Choose your page type</h3>
+              <h3 className="bold h2" style={{ marginBottom: 4 }}>{t("bset_choose_page_type")}</h3>
               <p className="small muted" style={{ marginBottom: 14, lineHeight: 1.5 }}>
                 Controls your page's layout, CTA wording, and the owner-side catalogue form.
               </p>
