@@ -76,6 +76,9 @@ function scanFile(file) {
 
     // JSX text between tags on one line: >Some words<
     for (const m of line.matchAll(/>([^<>{}\n]{2,})</g)) {
+      // `=> Promise<void>` is a return type, not a tag: the ">" that opened the match belongs to an arrow, and the
+      // "<" that closed it opens a generic parameter. Without this, every async callback prop reads as JSX text.
+      if (m.index > 0 && (line[m.index - 1] === "=" || line[m.index - 1] === "-")) continue;
       const text = m[1].trim();
       if (text) report("text", text);
     }
