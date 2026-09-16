@@ -46,12 +46,14 @@ import {
   type MentionQuery,
 } from "@/lib/mentions";
 import { postShareSubtitle } from "@/lib/postInteractions";
+import { useI18n } from "@/lib/i18n";
 
 /** Author-only edit sheet — title/details/photo, the same fields CommunityCompose
  *  collects at creation time. Kept local to this file since it's only ever
  *  opened from here. */
 function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClose: () => void; onSaved: (p: CommunityPost) => void }) {
   const { showToast } = useApp();
+  const { t, tf } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(post.title);
   const [body, setBody] = useState(post.body ?? "");
@@ -87,17 +89,17 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
     e.target.value = "";
     if (!file) return;
     if (!canAddMedia(media)) {
-      showToast(`Up to ${MAX_POST_MEDIA} photos per post`);
+      showToast(tf("cpd_photo_limit", { n: MAX_POST_MEDIA }));
       return;
     }
     setUploading(true);
     try {
       const url = await uploadService.upload(file, "community");
       const res = addMedia(media, url);
-      if (res.rejected === "AT_LIMIT") showToast(`Up to ${MAX_POST_MEDIA} photos per post`);
+      if (res.rejected === "AT_LIMIT") showToast(tf("cpd_photo_limit", { n: MAX_POST_MEDIA }));
       else setMedia(res.media);
     } catch {
-      showToast("Couldn't upload photo. Try again.");
+      showToast(t("cpd_photo_upload_failed"));
     } finally {
       setUploading(false);
     }
@@ -137,9 +139,9 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
         allowComments: commentPolicy !== "OFF",
         hideLikeCount,
       });
-      showToast("Post updated");
+      showToast(t("cpd_post_updated"));
     } catch {
-      showToast("Couldn't save changes. Try again.");
+      showToast(t("cpd_save_changes_failed"));
     } finally {
       setSaving(false);
     }
@@ -149,19 +151,19 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
-        <h3 className="bold h2" style={{ marginBottom: 14 }}>Edit post</h3>
+        <h3 className="bold h2" style={{ marginBottom: 14 }}>{t("card_edit_post")}</h3>
         <div className="col gap-12">
           <div className="field">
-            <label htmlFor="communitypostdetail-title">Title *</label>
+            <label htmlFor="communitypostdetail-title">{t("cpd_title_label")}</label>
             <input id="communitypostdetail-title" className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={150} />
           </div>
           <div className="field">
-            <label htmlFor="communitypostdetail-details">Details</label>
+            <label htmlFor="communitypostdetail-details">{t("details")}</label>
             <textarea id="communitypostdetail-details" className="input" value={body} onChange={(e) => setBody(e.target.value)} maxLength={2000} />
           </div>
           <div className="field">
             <label className="row between">
-              <span>Photos</span>
+              <span>{t("photos_label")}</span>
               <span className="tiny muted tabular-nums">{media.length}/{MAX_POST_MEDIA}</span>
             </label>
             <div className="media-strip">
@@ -190,8 +192,8 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
               <input
                 className="input"
                 style={{ marginTop: 9 }}
-                placeholder="Describe the photo (for screen readers)"
-                aria-label="Photo description for screen readers"
+                placeholder={t("cpd_alt_placeholder")}
+                aria-label={t("cpd_alt_aria")}
                 value={imageAlt}
                 maxLength={200}
                 onChange={(e) => setImageAlt(e.target.value)}
@@ -203,20 +205,20 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
               an author shouldn't have to relearn the form to correct it. */}
           {showLostFound && (
             <div className="field">
-              <label htmlFor="communitypostdetail-where-reward">Where & reward</label>
+              <label htmlFor="communitypostdetail-where-reward">{t("cpd_where_reward_label")}</label>
               <div className="col gap-10">
                 <input id="communitypostdetail-where-reward"
                   className="input"
-                  placeholder="Last seen near… (e.g. the park gate)"
-                  aria-label="Last seen location"
+                  placeholder={t("cpd_last_seen_placeholder")}
+                  aria-label={t("cpd_last_seen_aria")}
                   value={lastSeen}
                   maxLength={120}
                   onChange={(e) => setLastSeen(e.target.value)}
                 />
                 <input
                   className="input"
-                  placeholder="Reward, if any (optional)"
-                  aria-label="Reward"
+                  placeholder={t("cpd_reward_placeholder")}
+                  aria-label={t("cpd_reward_aria")}
                   value={reward}
                   maxLength={80}
                   onChange={(e) => setReward(e.target.value)}
@@ -227,11 +229,11 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
 
           {showGiveaway && (
             <div className="field">
-              <label htmlFor="communitypostdetail-pickup">Pickup</label>
+              <label htmlFor="communitypostdetail-pickup">{t("cpd_pickup_field_label")}</label>
               <input id="communitypostdetail-pickup"
                 className="input"
-                placeholder="When & how to collect (e.g. evenings after 6)"
-                aria-label="Pickup details"
+                placeholder={t("cpd_pickup_placeholder")}
+                aria-label={t("cpd_pickup_aria")}
                 value={pickupNote}
                 maxLength={140}
                 onChange={(e) => setPickupNote(e.target.value)}
@@ -241,7 +243,7 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
 
           {showTag && (
             <div className="field">
-              <label>Tagged place</label>
+              <label>{t("cpd_tagged_place")}</label>
               {taggedListing ? (
                 <div className="row gap-10 center-v" style={{ padding: "9px 11px", background: "var(--surface)", border: "1px solid var(--ink-200)", borderRadius: 12 }}>
                   <span style={{ fontSize: 18 }} aria-hidden="true">{taggedListing.listingType === "BUSINESS" ? "🏪" : "👤"}</span>
@@ -249,7 +251,7 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
                   <button
                     type="button"
                     className="icon-btn"
-                    aria-label="Remove tagged place"
+                    aria-label={t("cpd_remove_tag")}
                     style={{ width: 26, height: 26 }}
                     onClick={() => setTaggedListing(null)}
                   >
@@ -273,7 +275,7 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
               style={{ width: "100%", padding: "12px 14px", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 14, cursor: "pointer", textAlign: "left" }}
             >
               <div className="col" style={{ gap: 2, minWidth: 0 }}>
-                <span className="semi small">Post settings</span>
+                <span className="semi small">{t("cpd_post_settings")}</span>
                 <span className="tiny muted ellipsis">
                   {policyMeta.emoji} {policyMeta.label} can reply
                   {hideLikeCount ? " · likes hidden" : ""}
@@ -287,7 +289,7 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
             </button>
 
             {settingsOpen && (
-              <div className="col gap-8" style={{ marginTop: 10 }} role="radiogroup" aria-label="Who can reply">
+              <div className="col gap-8" style={{ marginTop: 10 }} role="radiogroup" aria-label={t("cpd_who_can_reply")}>
                 {COMMENT_POLICIES.map((pol) => {
                   const on = commentPolicy === pol.value;
                   return (
@@ -333,8 +335,8 @@ function EditPostSheet({ post, onClose, onSaved }: { post: CommunityPost; onClos
                   style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}
                 >
                   <span className="col" style={{ gap: 2 }}>
-                    <span className="semi small">Hide like count</span>
-                    <span className="tiny muted">People can still like it — the number stays private</span>
+                    <span className="semi small">{t("cpd_hide_like_count")}</span>
+                    <span className="tiny muted">{t("cpd_hide_like_hint")}</span>
                   </span>
                   <span style={{
                     width: 44, height: 26, borderRadius: 999, flexShrink: 0, position: "relative",
@@ -437,6 +439,7 @@ function CommentRow({
   const size = compact ? 32 : 38;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { t } = useI18n();
   const [editingBody, setEditingBody] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const tallies = Object.entries(c.reactions ?? {}).filter(([, n]) => n > 0);
@@ -491,11 +494,11 @@ function CommentRow({
                 style={{ minHeight: 60, fontSize: 13.5 }}
                 value={editingBody}
                 autoFocus
-                aria-label="Edit your comment"
+                aria-label={t("cpd_edit_comment_aria")}
                 onChange={(e) => setEditingBody(e.target.value)}
               />
               <div className="row gap-8">
-                <button className="btn btn-outline btn-sm grow" disabled={savingEdit} onClick={() => setEditingBody(null)}>Cancel</button>
+                <button className="btn btn-outline btn-sm grow" disabled={savingEdit} onClick={() => setEditingBody(null)}>{t("cancel")}</button>
                 <button className="btn btn-sm grow" disabled={savingEdit || !editingBody.trim()} onClick={saveEdit}>
                   {savingEdit ? "Saving…" : "Save"}
                 </button>
@@ -503,7 +506,7 @@ function CommentRow({
               {/* Mentions stay as originally posted — an edit can't @-ping new
                   people after the fact. Same rule community_comment_update
                   enforces server-side. */}
-              <span className="tiny muted" style={{ fontSize: 11 }}>Mentions stay as first posted.</span>
+              <span className="tiny muted" style={{ fontSize: 11 }}>{t("cpd_mentions_note")}</span>
             </div>
           ) : (
             <CommentBody body={c.body} mentions={c.mentions} />
@@ -515,7 +518,7 @@ function CommentRow({
               style={{ color: "var(--brand-700)", marginTop: 6, background: "var(--brand-50)", border: "1px solid var(--brand-100)", borderRadius: 10, padding: "4px 9px", width: "fit-content" }}
             >
               <Phone size={12} /> {c.sharedPhone}
-              {c.phoneVisibility === "OWNER" && <span className="muted" style={{ fontWeight: 500 }}>· shared with you</span>}
+              {c.phoneVisibility === "OWNER" && <span className="muted" style={{ fontWeight: 500 }}>{t("cpd_shared_with_you")}</span>}
             </a>
           )}
           {c.listingId && (
@@ -559,7 +562,7 @@ function CommentRow({
               style={{ color: "var(--ink-500)", padding: "2px 7px", background: "none", border: "none", cursor: "pointer", fontSize: 12.5 }}
               onClick={() => setPickerOpen((v) => !v)}
               aria-expanded={pickerOpen}
-              aria-label="Add a reaction"
+              aria-label={t("cpd_add_reaction")}
             >
               {tallies.length > 0 ? "＋" : "＋ React"}
             </button>
@@ -575,7 +578,7 @@ function CommentRow({
               style={{ color: "var(--ink-500)", padding: "0 5px", background: "none", border: "none", cursor: "pointer", lineHeight: 1 }}
               onClick={() => setMenuOpen((v) => !v)}
               aria-expanded={menuOpen}
-              aria-label="Comment actions"
+              aria-label={t("cpd_comment_actions")}
             >
               <DotsThree size={18} weight="bold" />
             </button>
@@ -637,6 +640,7 @@ export default function CommunityPostDetail() {
   const nav = useNavigate();
   const { state } = useLocation() as { state?: { post?: CommunityPost; openEdit?: boolean } };
   const { user, votes, votePoll, showToast, activeContext, isGuest } = useApp();
+  const { t } = useI18n();
 
   const { data: activeBiz } = useQuery(
     () => activeContext.type === "business" && activeContext.id ? businessService.get(activeContext.id) : Promise.resolve(null),
@@ -699,7 +703,7 @@ export default function CommunityPostDetail() {
     setRecommendOpen(false);
     try {
       await communityService.recommendListing(id, listingType, listingId, user.name || "A neighbor");
-      showToast("Recommendation added");
+      showToast(t("cpd_recommendation_added"));
     } catch (e: any) {
       showToast(e?.message || "Couldn't add recommendation — try again");
     }
@@ -819,7 +823,7 @@ export default function CommunityPostDetail() {
 
   if (!post) return (
     <div className="screen">
-      <div className="appbar"><button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeft size={20} /></button></div>
+      <div className="appbar"><button className="icon-btn" onClick={() => nav(-1)} aria-label={t("go_back")}><ArrowLeft size={20} /></button></div>
       <ListSkeleton count={3} />
     </div>
   );
@@ -883,7 +887,7 @@ export default function CommunityPostDetail() {
       await communityService.setResolved(safePost.id, next);
     } catch {
       setResolvedOverride(!next);
-      showToast("Couldn't update — try again");
+      showToast(t("cpd_update_failed"));
     } finally {
       setResolvedBusy(false);
     }
@@ -893,10 +897,10 @@ export default function CommunityPostDetail() {
     setDeleting(true);
     try {
       await communityService.delete(safePost.id);
-      showToast("Post deleted");
+      showToast(t("card_post_deleted"));
       nav("/community-hub", { replace: true });
     } catch {
-      showToast("Couldn't delete — try again");
+      showToast(t("cpd_delete_failed"));
       setDeleting(false);
     }
   }
@@ -910,7 +914,7 @@ export default function CommunityPostDetail() {
       await communityService.like(safePost.id, liked);
     } catch {
       setLikeOverride(liked); // revert so the UI never lies
-      showToast("Couldn't update like — try again");
+      showToast(t("card_like_failed"));
     }
   }
 
@@ -938,7 +942,7 @@ export default function CommunityPostDetail() {
     setClosingPoll(true);
     try {
       await communityService.closePoll(safePost.id);
-      showToast("Voting closed");
+      showToast(t("cpd_voting_closed"));
       setPollCloseConfirm(false);
       refetchPost();
     } catch (e: any) {
@@ -957,7 +961,7 @@ export default function CommunityPostDetail() {
       showToast(next ? "Saved" : "Removed from saved");
     } catch {
       setSaveOverride(saved); // revert so the UI never lies
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     }
   }
 
@@ -993,7 +997,7 @@ export default function CommunityPostDetail() {
     try {
       await communityService.deleteComment(c.id);
       setDeletingComment(null);
-      showToast("Comment deleted");
+      showToast(t("cpd_comment_deleted"));
     } catch (e: any) {
       setComments(before);
       showToast(e?.message || "Couldn't delete — try again");
@@ -1008,7 +1012,7 @@ export default function CommunityPostDetail() {
     try {
       await communityService.updateComment(c.id, body);
       setComments((prev) => prev.map((x) => (x.id === c.id ? { ...x, body, editedAt: new Date().toISOString() } : x)));
-      showToast("Comment updated");
+      showToast(t("cpd_comment_updated"));
     } catch (e: any) {
       showToast(e?.message || "Couldn't save the edit — try again");
       throw e;
@@ -1088,8 +1092,8 @@ export default function CommunityPostDetail() {
   return (
     <div className="screen" style={{ display: "flex", flexDirection: "column" }}>
       <header className="appbar" style={{ borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
-        <button className="icon-btn" onClick={() => nav(-1)} aria-label="Go back"><ArrowLeft size={20} /></button>
-        <span className="bold grow" style={{ fontSize: 16 }}>Post</span>
+        <button className="icon-btn" onClick={() => nav(-1)} aria-label={t("go_back")}><ArrowLeft size={20} /></button>
+        <span className="bold grow" style={{ fontSize: 16 }}>{t("post_word")}</span>
         {isAuthor && canMarkResolved && (
           <button
             className={`badge ${resolved ? "badge-green" : "badge-gray"}`}
@@ -1100,13 +1104,13 @@ export default function CommunityPostDetail() {
             <CheckCircle2 size={11} /> {resolved ? "Resolved" : "Mark resolved"}
           </button>
         )}
-        {!isAuthor && resolved && <span className="badge badge-green" style={{ marginRight: 8 }}><CheckCircle2 size={11} /> Resolved</span>}
+        {!isAuthor && resolved && <span className="badge badge-green" style={{ marginRight: 8 }}><CheckCircle2 size={11} /> {t("card_resolved_badge")}</span>}
         {isAuthor && (
           <>
-            <button className="icon-btn" onClick={() => setEditing(true)} aria-label="Edit post">
+            <button className="icon-btn" onClick={() => setEditing(true)} aria-label={t("card_edit_post")}>
               <Pencil size={18} />
             </button>
-            <button className="icon-btn" style={{ color: "var(--red-600)" }} onClick={() => setDeleteConfirm(true)} aria-label="Delete post">
+            <button className="icon-btn" style={{ color: "var(--red-600)" }} onClick={() => setDeleteConfirm(true)} aria-label={t("card_delete_post")}>
               <Trash2 size={18} />
             </button>
           </>
@@ -1124,11 +1128,11 @@ export default function CommunityPostDetail() {
             <Bookmark size={18} weight={saved ? "fill" : "regular"} />
           </button>
         )}
-        <button className="icon-btn" onClick={() => setSharing(true)} aria-label="Share this post">
+        <button className="icon-btn" onClick={() => setSharing(true)} aria-label={t("card_share_post")}>
           <Share2 size={18} />
         </button>
         {!isGuest && !isAuthor && (
-          <button className="icon-btn" onClick={() => setReporting(true)} aria-label="Report post">
+          <button className="icon-btn" onClick={() => setReporting(true)} aria-label={t("card_report_post")}>
             <Flag size={18} />
           </button>
         )}
@@ -1190,17 +1194,17 @@ export default function CommunityPostDetail() {
             <div className="col gap-6" style={{ marginTop: 12, padding: "11px 13px", background: "var(--ink-50)", border: "1px solid var(--ink-200)", borderRadius: 14 }}>
               {safePost.lastSeen && (
                 <span className="small row gap-6 center-v" style={{ color: "var(--ink-800)", fontSize: 13.5 }}>
-                  <MapPin size={13} color="var(--amber-700)" /> Last seen near <span className="semi">{safePost.lastSeen}</span>
+                  <MapPin size={13} color="var(--amber-700)" /> {t("card_last_seen_near")} <span className="semi">{safePost.lastSeen}</span>
                 </span>
               )}
               {safePost.reward && (
                 <span className="small row gap-6 center-v" style={{ color: "var(--ink-800)", fontSize: 13.5 }}>
-                  <span aria-hidden="true">🎁</span> Reward: <span className="semi">{safePost.reward}</span>
+                  <span aria-hidden="true">🎁</span> {t("card_reward_label")} <span className="semi">{safePost.reward}</span>
                 </span>
               )}
               {safePost.pickupNote && (
                 <span className="small row gap-6 center-v" style={{ color: "var(--ink-800)", fontSize: 13.5 }}>
-                  <Clock size={13} color="var(--green-600)" /> Pickup: <span className="semi">{safePost.pickupNote}</span>
+                  <Clock size={13} color="var(--green-600)" /> {t("card_pickup_label")} <span className="semi">{safePost.pickupNote}</span>
                 </span>
               )}
             </div>
@@ -1287,10 +1291,10 @@ export default function CommunityPostDetail() {
               <span className="row between center-v">
                 <span className="tiny muted semi">
                   {totalVotes} {totalVotes === 1 ? "vote" : "votes"}
-                  {votedOption && !pollClosed && <span className="muted"> · tap your choice to change or remove it</span>}
+                  {votedOption && !pollClosed && <span className="muted">{t("cpd_poll_tap_hint")}</span>}
                 </span>
                 {pollClosed
-                  ? <span className="tiny semi" style={{ color: "var(--ink-500)" }}>Voting closed</span>
+                  ? <span className="tiny semi" style={{ color: "var(--ink-500)" }}>{t("cpd_voting_closed")}</span>
                   : isAuthor && (
                     <button
                       className="tiny semi"
@@ -1378,7 +1382,7 @@ export default function CommunityPostDetail() {
             {/* Worth having even on short threads: a long "ask neighbors" thread
                 where the best answer arrived late is unreadable newest-first. */}
             {comments.length > 1 && (
-              <div className="row gap-4" style={{ background: "var(--ink-100)", padding: 3, borderRadius: 10 }} role="radiogroup" aria-label="Sort comments">
+              <div className="row gap-4" style={{ background: "var(--ink-100)", padding: 3, borderRadius: 10 }} role="radiogroup" aria-label={t("cpd_sort_comments")}>
                 {([["top", "Top"], ["newest", "Newest"]] as [CommentSort, string][]).map(([value, label]) => (
                   <button
                     key={value}
@@ -1451,7 +1455,7 @@ export default function CommunityPostDetail() {
                 );
               })}
               {comments.length === 0 && (
-                <p className="small muted center" style={{ padding: "20px 0" }}>No comments yet. Be the first!</p>
+                <p className="small muted center" style={{ padding: "20px 0" }}>{t("cpd_no_comments")}</p>
               )}
             </div>
           )}
@@ -1468,7 +1472,7 @@ export default function CommunityPostDetail() {
         </div>
       ) : gatePending ? (
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: "14px 12px max(14px, var(--safe-area-bottom))" }}>
-          <p className="small muted center" style={{ margin: 0 }}>Checking if you can reply…</p>
+          <p className="small muted center" style={{ margin: 0 }}>{t("cpd_checking_reply")}</p>
         </div>
       ) : !canComment ? (
         // One notice, worded by reason. Previously two hardcoded strings
@@ -1494,7 +1498,7 @@ export default function CommunityPostDetail() {
             socialService.searchNeighbors follows — you can't find a neighbor by
             their real name here, so a mention can't confirm an identity. */}
         {mentionQuery && (mentionResults?.length ?? 0) > 0 && (
-          <div className="mention-suggest" role="listbox" aria-label="Mention a neighbor">
+          <div className="mention-suggest" role="listbox" aria-label={t("cpd_mention_neighbor")}>
             {mentionResults!.slice(0, 5).map((n) => (
               <button
                 key={n.id}
@@ -1512,8 +1516,8 @@ export default function CommunityPostDetail() {
 
         {replyingTo && (
           <div className="row between center-v" style={{ marginBottom: "var(--space-xs)", padding: "6px 10px", background: "var(--brand-50)", borderRadius: 10 }}>
-            <span className="tiny" style={{ color: "var(--brand-700)" }}>Replying to <span className="semi">{replyingTo.authorName}</span></span>
-            <button className="tiny semi" style={{ color: "var(--ink-500)" }} onClick={() => setReplyingTo(null)}>Cancel</button>
+            <span className="tiny" style={{ color: "var(--brand-700)" }}>{t("cpd_replying_to")} <span className="semi">{replyingTo.authorName}</span></span>
+            <button className="tiny semi" style={{ color: "var(--ink-500)" }} onClick={() => setReplyingTo(null)}>{t("cancel")}</button>
           </div>
         )}
         {/* #8 share-phone controls */}
@@ -1565,7 +1569,7 @@ export default function CommunityPostDetail() {
                 style={{ border: "none", padding: "9px 0", fontSize: 14 }}
                 inputMode="numeric"
                 maxLength={10}
-                placeholder="Number to share (10 digits)"
+                placeholder={t("cpd_phone_placeholder")}
                 value={phoneInput}
                 onChange={(e) => setPhoneInput(e.target.value.replace(/\D/g, ""))}
               />
@@ -1684,7 +1688,7 @@ export default function CommunityPostDetail() {
         <div className="overlay" onClick={() => (closingPoll ? null : setPollCloseConfirm(false))}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
-            <h2 className="h2" style={{ marginBottom: 6 }}>Close voting now?</h2>
+            <h2 className="h2" style={{ marginBottom: 6 }}>{t("cpd_close_voting_q")}</h2>
             <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
               The results stay visible, but nobody can vote or change their vote after this. It can't be reopened.
             </p>
@@ -1692,7 +1696,7 @@ export default function CommunityPostDetail() {
               <button className="btn btn-primary btn-block" disabled={closingPoll} onClick={closePollNow}>
                 {closingPoll ? "Closing\u2026" : "Yes, close voting"}
               </button>
-              <button className="btn btn-ghost btn-block" disabled={closingPoll} onClick={() => setPollCloseConfirm(false)}>Keep it open</button>
+              <button className="btn btn-ghost btn-block" disabled={closingPoll} onClick={() => setPollCloseConfirm(false)}>{t("cpd_keep_open")}</button>
             </div>
           </div>
         </div>
@@ -1719,7 +1723,7 @@ export default function CommunityPostDetail() {
               >
                 {commentDeleteBusy ? "Deleting…" : "Yes, delete"}
               </button>
-              <button className="btn btn-ghost btn-block" disabled={commentDeleteBusy} onClick={() => setDeletingComment(null)}>Keep it</button>
+              <button className="btn btn-ghost btn-block" disabled={commentDeleteBusy} onClick={() => setDeletingComment(null)}>{t("keep_it")}</button>
             </div>
           </div>
         </div>
@@ -1729,7 +1733,7 @@ export default function CommunityPostDetail() {
         <div className="overlay" onClick={() => setDeleteConfirm(false)}>
           <div className="sheet" onClick={(e) => e.stopPropagation()}>
             <div className="sheet-grab" />
-            <h2 className="h2" style={{ marginBottom: 6 }}>Delete this post?</h2>
+            <h2 className="h2" style={{ marginBottom: 6 }}>{t("card_delete_post_q")}</h2>
             <p className="small muted" style={{ marginBottom: "var(--space-md)", lineHeight: 1.5 }}>
               This removes it and its comments for everyone. This can't be undone.
             </p>
@@ -1742,7 +1746,7 @@ export default function CommunityPostDetail() {
               >
                 {deleting ? "Deleting…" : "Yes, delete"}
               </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setDeleteConfirm(false)}>Keep post</button>
+              <button className="btn btn-ghost btn-block" onClick={() => setDeleteConfirm(false)}>{t("card_keep_post")}</button>
             </div>
           </div>
         </div>

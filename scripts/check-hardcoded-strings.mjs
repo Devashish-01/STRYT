@@ -34,6 +34,11 @@ const byFile = args.includes("--by-file");
 /** A string worth translating: at least two letters, and not a lone token like "OK" inside code. */
 const hasWords = (s) => (s.match(/[A-Za-z]/g) ?? []).length >= 2;
 
+/** Operators that appear in a JSX expression but never in a sentence on screen. A ternary whose branches are
+ *  elements — `{x === "a" ? <Store /> : y === "b" ? <Wrench /> : <User />}` — otherwise reads as text between the
+ *  two tags it happens to sit between. */
+const isCodeFragment = (s) => /===|!==|\?\.|&&|\|\||=>|\);|\.\w+\(/.test(s);
+
 /** Strings that are identifiers or values rather than prose. */
 const isTechnical = (s) =>
   /^[a-z0-9_]+$/.test(s) ||                       // snake_case key
@@ -63,7 +68,9 @@ function scanFile(file) {
     if (trimmed.startsWith("//") || trimmed.startsWith("*")) return;
 
     const report = (kind, text) => {
-      if (!hasWords(text) || isTechnical(text) || allowed.has(text)) return;
+      // Only JSX text can be a stray code fragment: a toast argument is a string literal already, and toasts do
+      // interpolate calls ("Open now — clears at ${…}"), which must still be translated.
+      if (!hasWords(text) || isTechnical(text) || (kind === "text" && isCodeFragment(text)) || allowed.has(text)) return;
       findings.push({ file: rel, line: i + 1, kind, text: text.slice(0, 80) });
     };
 
