@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import "./maplibreWorker";
 import { MapPinPlus } from "@/components/Icons";
 import Map, { Marker, Source, Layer } from "react-map-gl/maplibre";
 import type { MapEvent, MapRef, ViewStateChangeEvent } from "react-map-gl/maplibre";
@@ -33,6 +32,11 @@ import { PickCenterTracker, LocationPinDropOverlay } from "./LocationPinDrop";
 import { useLocationPinDrop } from "./useLocationPinDrop";
 import { useI18n } from "@/lib/i18n";
 import { loadMapboxStyle, makeMapboxTransformRequest } from "./mapboxFallback";
+// maplibre-gl 6 looks for its tile worker next to its own module (new URL("./maplibre-gl-worker.mjs", import.meta.url)),
+// which bundlers don't follow — without this the worker never starts, no tile is parsed, and the map stays blank under
+// its pins. `?worker&url` has Vite bundle the worker and hand back its URL; only a string is imported here, so
+// maplibre itself stays in the chunk react-map-gl loads when a map mounts.
+import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 import { useMapViewport } from "./useMapViewport";
 import { paletteFor, retintFor } from "./mapPalette";
 
@@ -682,6 +686,7 @@ export default function MapView() {
         initialViewState={{ longitude: homeLng, latitude: homeLat, zoom: 13 }}
         mapStyle={mapStyle}
         transformRequest={transformRequest}
+        workerUrl={maplibreWorkerUrl}
         onLoad={handleMapLoad}
         // Tracks where the map IS, so the pill knows when the on-screen results
         // stopped describing what's visible. Deliberately does not trigger a

@@ -13,7 +13,7 @@ Plan: `docs/plan/README.md` and `docs/plan/phases/P00…P15`. Rules: `docs/plan/
 | **P08 gap ledger** | **Done.** 488 rows, **0 unverified, 0 open**: 430 FIXED, 49 DEFERRED (v1.1, decision D17), 9 DECISION. Every domain verified against the code and, where it mattered, against the live database. |
 | **P09 fixes** | 430 FIXED (app + 16 DB migrations on staging), 0 OPEN. |
 | **P10 i18n** | P10.A done: translation parity test, CI ratchet on hardcoded strings (`npm run check-strings`, 1775 left, limit 1805), shared cards translated, 22 card keys queued for native review (`docs/i18n/REVIEW_QUEUE.md`). Left: convert the remaining strings in batches. |
-| **P11 performance/deps** | P11.A: no high/critical advisory in shipped code (maplibre-gl 6, react-map-gl 8.1.3). P11.B: guest /home first load 2136 KB → ~1590 KB (JS 1924 → 1378 KB) — Firebase and Leaflet load only when used, each device downloads only its language. Left: P11 report, Lighthouse on a deployed preview. |
+| **P11 performance/deps** | P11.A: no high/critical advisory in shipped code (maplibre-gl 6, react-map-gl 8.1.3). P11.B: guest /home first load 2136 KB → 1605 KB (JS 1924 → 1377 KB), measured on the staging build — Firebase and Leaflet load only when used, each device downloads only its language. Left: P11 report, Lighthouse on a deployed preview. |
 | P12 | Not started |
 | P13–P15 | Owner-led |
 
@@ -143,7 +143,7 @@ lost its form, E2E-039 campaigns never closed.
   before the first render (`src/lib/i18n/runtime.ts`). Probe: English loads no language chunk, Hindi/Marathi load
   only their own and paint Devanagari on first render.
 - 2026-09-16 — **Map fix (d7f9636).** The maplibre-gl 6 upgrade had left the map blank under its pins: the tile
-  worker wasn't in the build (fixed with `src/screens/MapView/maplibreWorker.ts`), react-map-gl 8.1.1 crashed on
+  worker wasn't in the build (fixed by passing a Vite-bundled `workerUrl` to the map), react-map-gl 8.1.1 crashed on
   camera events (→ 8.1.3), and the Mapbox fallback never rendered (style rejected by maplibre's validator; sprite
   URLs 404'd — both fixed). New spec `critical/map-basemap` waits for a real vector tile and fails when the worker is
   blocked. Breadth + onboarding + map specs 106/106, unit 645/645, lint clean (ESLint back to the 30-warning budget).
