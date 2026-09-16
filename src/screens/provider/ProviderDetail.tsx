@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Heart, Share2, Phone, BadgeCheck, MapPin, Clock,
+  ArrowLeft, Heart, Bookmark, Share2, Phone, BadgeCheck, MapPin, Clock,
   CheckCircle2, MessageCircle, Flag, Star, ThumbsUp,
   UserPlus, UserCheck, HandshakeIcon, Plus, Zap, Wallet,
 } from "@/components/Icons";
@@ -9,6 +9,7 @@ import { providerService, socialService, communityService } from "@/services";
 import { PostSummaryRow } from "@/components/cards";
 import { chatService } from "@/services/engagement/chatService";
 import ReviewSheet from "@/components/ReviewSheet";
+import AddToListSheet from "@/components/AddToListSheet";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { Rating, StarRow, VegDot, EmptyState, SafeImg, inr, RatingBars, Pill } from "@/components/common";
@@ -46,7 +47,11 @@ export default function ProviderDetail() {
 
   const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `provider:${id}`);
   const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => providerService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `provider:${id}:reviews`);
+  // What this viewer wrote before, so the review sheet edits it instead of starting blank (CRAT-8).
+  const { data: myReview, refetch: refetchMyReview } = useQuery(() => providerService.myReview(id), [id, user.id], `provider:${id}:my-review:${user.id}`);
   const { data: vouches } = useQueryWithRealtime(() => socialService.vouches(id), "vouches", [id], `provider_id=eq.${id}`, `provider:${id}:vouches`);
+  // Counted separately from the avatar list, which is capped (VOUCH-5).
+  const { data: vouchTotal } = useQueryWithRealtime(() => socialService.vouchCount(id), "vouches", [id], `provider_id=eq.${id}`, `provider:${id}:vouch-count`);
   const { data: endorsements } = useQueryWithRealtime(() => socialService.endorsements(id), "endorsements", [id], `provider_id=eq.${id}`, `provider:${id}:endorsements`);
   const { data: availList } = useQuery(() => socialService.availableNow(), [], "available-now");
   const { data: provPosts } = useQueryWithRealtime(() => communityService.byAuthorRef("provider", id), "community_posts", [id], `author_ref_id=eq.${id}`, `provider:${id}:posts`);
@@ -76,6 +81,7 @@ export default function ProviderDetail() {
   const [report, setReport] = useState(false);
   const [share, setShare] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [addList, setAddList] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [viewingHighlight, setViewingHighlight] = useState<number | null>(null);
   const [viewingPhotos, setViewingPhotos] = useState<{ photos: PhotoViewerItem[]; startIndex: number } | null>(null);
@@ -135,7 +141,16 @@ export default function ProviderDetail() {
     : null;
   const vouchList = vouches ?? [];
   const hasVouched = vouched.includes(p.id);
-  const endorseList = endorsements ?? [];
+  // Every skill the provider lists, whether or not anyone has endorsed it yet — endorsements only ever appeared for
+  // skills that already had rows, so a newly added skill could never receive its first endorsement (VOUCH-6).
+  const endorseList = (() => {
+    const rows = endorsements ?? [];
+    const known = new Set(rows.map((e) => e.skill));
+    const unendorsed = (p?.skills ?? [])
+      .filter((s) => s && !known.has(s))
+      .map((skill) => ({ skill, count: 0, endorsed: false }));
+    return [...rows, ...unendorsed];
+  })();
   const avail = (availList ?? []).find((a) => a.providerId === p.id);
   const evalRes = evaluateProviderAvailability(p.availabilityNote, p.isAvailableNow, p.availableUntil);
   const heroPhoto = p.portfolio[0]?.url;
@@ -196,9 +211,15 @@ export default function ProviderDetail() {
                 <>
                   <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={(e) => { e.stopPropagation(); setShare(true); }}><Share2 size={18} /></button>
                   {!isOwner && (
-                    <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={(e) => { e.stopPropagation(); toggleBookmark("PROVIDER", p.id); }}>
-                      <Heart size={18} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-900)"} />
-                    </button>
+                    <>
+                      {/* Save to a list, the same filing action business pages have had (LIST-4). */}
+                      <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "var(--white)" }} aria-label="Add to a list" title="Add to a list" onClick={(e) => { e.stopPropagation(); setAddList(true); }}>
+                        <Bookmark size={18} />
+                      </button>
+                      <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "var(--white)" }} onClick={(e) => { e.stopPropagation(); toggleBookmark("PROVIDER", p.id); }}>
+                        <Heart size={18} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-900)"} />
+                      </button>
+                    </>
                   )}
                 </>
               )}
@@ -423,7 +444,7 @@ export default function ProviderDetail() {
                 <div className="card">
                   <div className="row between" style={{ marginBottom: 10 }}>
                     <span className="semi small row gap-6">
-                      <Handshake size={16} color="var(--green-500)" /> {tf("neighbors_vouch_for", { count: displayVouches.length, name: p.displayName.split(" ")[0] })}
+                      <Handshake size={16} color="var(--green-500)" /> {tf("neighbors_vouch_for", { count: Math.max(vouchTotal ?? 0, vouchList.length) + (hasVouched && !isUserInVouchList ? 1 : 0) - (!hasVouched && isUserInVouchList ? 1 : 0), name: p.displayName.split(" ")[0] })}
                     </span>
                   </div>
                   <div className="row" style={{ marginLeft: 6 }}>
@@ -681,13 +702,17 @@ export default function ProviderDetail() {
           onClose={() => setShare(false)}
         />
       )}
+      {addList && <AddToListSheet type="PROVIDER" id={p.id} onClose={() => setAddList(false)} />}
       {reviewing && (
         <ReviewSheet
           targetName={p.displayName}
+          initialRating={myReview?.rating ?? 0}
+          initialComment={myReview?.comment ?? ""}
           onSubmit={async (rating, comment) => {
             await providerService.addReview(p.id, rating, comment);
             refetch();
             refetchReviews();
+            refetchMyReview();
           }}
           onClose={() => setReviewing(false)}
         />

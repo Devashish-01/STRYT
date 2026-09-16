@@ -175,6 +175,21 @@ export const businessService = {
     return promise;
   },
 
+  /** Several businesses in one query — the saved/followed lists used to fire one request per row (LIST-3).
+   *  Cards only, so no catalog or portfolio join. Missing ids are simply absent from the result. */
+  async byIds(ids: string[]): Promise<Business[]> {
+    if (ids.length === 0) return [];
+    const sb = getSupabase();
+    const { data, error } = await sb.from("businesses").select("*").in("id", ids);
+    throwIfError(error);
+    return ((data ?? []) as any[]).map((row) => {
+      const b = toCamel<Business>(row);
+      b.coverImage = getRelatableBusinessCover(b);
+      b.gallery = getRelatableBusinessGallery(b);
+      return b;
+    });
+  },
+
   async _getUncoalesced(id: string, lat?: number, lng?: number): Promise<Business | undefined> {
     if (isMockTarget(id)) {
       return {
@@ -1045,6 +1060,21 @@ export const businessService = {
       .map((b: any) => b.boost_type);
   },
 
+  /** This viewer's own review of a shop, so the review sheet opens on what they wrote last time (CRAT-8). */
+  async myReview(id: string): Promise<{ rating: number; comment: string } | null> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return null;
+    const { data } = await sb
+      .from("ratings")
+      .select("rating, comment")
+      .eq("rater_user_id", uid)
+      .eq("ratee_type", "BUSINESS")
+      .eq("ratee_id", id)
+      .maybeSingle();
+    return data ? { rating: (data as any).rating, comment: (data as any).comment ?? "" } : null;
+  },
+
   async addReview(id: string, rating: number, comment: string): Promise<void> {
     const sb = getSupabase();
     const uid = await currentUserId();
@@ -1069,6 +1099,7 @@ export const businessService = {
     if (existing?.id) {
       const { error } = await sb.from("ratings").update({ rating, comment: comment || null, is_verified_booking: isVerifiedBooking }).eq("id", existing.id);
       throwIfError(error);
+      bustBusinessGetCache(id);
       return;
     }
     const { count: existingCount } = await sb
@@ -1085,6 +1116,8 @@ export const businessService = {
       is_verified_booking: isVerifiedBooking,
     });
     throwIfError(error);
+    // The header's rating comes from the cached business row; without this the reviewer returns to their old one.
+    bustBusinessGetCache(id);
     if ((existingCount ?? 0) === 0) {
       const { data: biz } = await sb.from("businesses").select("owner_user_id").eq("id", id).maybeSingle();
       if (biz?.owner_user_id) void leaderboardService.addPoints(biz.owner_user_id, 3);

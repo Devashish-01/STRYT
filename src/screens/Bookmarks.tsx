@@ -40,14 +40,12 @@ export default function Bookmarks() {
 
   const { data: bizData, loading: bizLoading } = useQuery(async () => {
     if (bizIds.length === 0) return [];
-    const rows = await Promise.all(bizIds.map((id) => businessService.get(id).catch(() => undefined)));
-    return rows.filter((b): b is Business => !!b);
+    return businessService.byIds(bizIds).catch(() => []);
   }, [bizIds.join(",")], `bookmarks:biz-by-id:${user.id}:${bizIds.join(",")}`);
 
   const { data: provData, loading: provLoading } = useQuery(async () => {
     if (provIds.length === 0) return [];
-    const rows = await Promise.all(provIds.map((id) => providerService.get(id).catch(() => undefined)));
-    return rows.filter((p): p is Provider => !!p);
+    return providerService.byIds(provIds).catch(() => []);
   }, [provIds.join(",")], `bookmarks:prov-by-id:${user.id}:${provIds.join(",")}`);
 
   const { data: reqData, loading: reqLoading } = useQuery(async () => {

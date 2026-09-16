@@ -57,7 +57,18 @@ export default function AddToListSheet({
           <div className="card" style={{ marginTop: 12 }}>
             <div className="row gap-8" style={{ overflowX: "auto", marginBottom: 10 }}>
               {emojis.map((e) => (
-                <button key={e} onClick={() => setEmoji(e)} style={{ fontSize: 22, opacity: emoji === e ? 1 : 0.4, transform: emoji === e ? "scale(1.2)" : "scale(1)" }}>{e}</button>
+                <button
+                  key={e}
+                  aria-label={`Icon ${e}`}
+                  aria-pressed={emoji === e}
+                  onClick={() => setEmoji(e)}
+                  style={{
+                    fontSize: 22, opacity: emoji === e ? 1 : 0.4, transform: emoji === e ? "scale(1.2)" : "scale(1)",
+                    minWidth: 44, minHeight: 44, background: "none", border: "none", borderRadius: 12, cursor: "pointer",
+                  }}
+                >
+                  {e}
+                </button>
               ))}
             </div>
             <input className="input" placeholder="List name (e.g. Weekend plans)" value={name} onChange={(e) => setName(e.target.value)} autoFocus />

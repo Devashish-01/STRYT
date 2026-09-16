@@ -52,6 +52,8 @@ export default function BusinessDetail() {
 
   const { data: b, loading, error, refetch } = useQuery(() => businessService.get(id, user.lat || undefined, user.lng || undefined), [id, user.lat, user.lng], `business:${id}`);
   const { data: reviews, refetch: refetchReviews } = useQueryWithRealtime(() => businessService.reviews(id), "ratings", [id], `ratee_id=eq.${id}`, `business:${id}:reviews`);
+  // What this viewer wrote before, so the review sheet edits it instead of starting blank (CRAT-8).
+  const { data: myReview, refetch: refetchMyReview } = useQuery(() => businessService.myReview(id), [id, user.id], `business:${id}:my-review:${user.id}`);
   // Live via queue_settings, not queue_tokens: a trigger bumps its
   // line_changed_at whenever this line moves, and visitors can't read other
   // customers' tokens (migration 20260957). Also refreshes on open/close.
@@ -1119,10 +1121,13 @@ export default function BusinessDetail() {
       {reviewing && (
         <ReviewSheet
           targetName={b.name}
+          initialRating={myReview?.rating ?? 0}
+          initialComment={myReview?.comment ?? ""}
           onSubmit={async (rating, comment) => {
             await businessService.addReview(b.id, rating, comment);
             refetch();
             refetchReviews();
+            refetchMyReview();
           }}
           onClose={() => setReviewing(false)}
         />

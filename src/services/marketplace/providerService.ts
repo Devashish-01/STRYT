@@ -469,6 +469,30 @@ export const providerService = {
   },
 
   /** Submit a star rating + comment for a provider. Trigger recomputes rating_avg/count. */
+  /** Several providers in one query (LIST-3). */
+  async byIds(ids: string[]): Promise<Provider[]> {
+    if (ids.length === 0) return [];
+    const sb = getSupabase();
+    const { data, error } = await sb.from("providers").select("*").in("id", ids);
+    throwIfError(error);
+    return toCamel<Provider[]>(data ?? []);
+  },
+
+  /** This viewer's own review of a provider, so the review sheet opens on what they wrote last time (CRAT-8). */
+  async myReview(id: string): Promise<{ rating: number; comment: string } | null> {
+    const sb = getSupabase();
+    const uid = await currentUserId();
+    if (!uid) return null;
+    const { data } = await sb
+      .from("ratings")
+      .select("rating, comment")
+      .eq("rater_user_id", uid)
+      .eq("ratee_type", "PROVIDER")
+      .eq("ratee_id", id)
+      .maybeSingle();
+    return data ? { rating: (data as any).rating, comment: (data as any).comment ?? "" } : null;
+  },
+
   async addReview(id: string, rating: number, comment: string): Promise<void> {
     const sb = getSupabase();
     const uid = await currentUserId();

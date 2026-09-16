@@ -395,13 +395,24 @@ export const socialService = {
   },
 
   // ── Phase 38: Vouches ─────────────────────────────────────────
+  /** How many neighbours have vouched, uncapped — the avatar list below is capped, and used to be the count too. */
+  async vouchCount(providerId: string): Promise<number> {
+    const sb = getSupabase();
+    const { count, error } = await sb
+      .from("vouches")
+      .select("*", { count: "exact", head: true })
+      .eq("provider_id", providerId);
+    if (error) throw error;
+    return count ?? 0;
+  },
+
   async vouches(providerId: string): Promise<Vouch[]> {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("vouches")
       .select("from_user_id, users!from_user_id(name, avatar)")
       .eq("provider_id", providerId)
-      .limit(20);
+      .limit(50);
     if (error) throw error;
     return (data ?? []).map((r: any) => ({
       byUserId: r.from_user_id,

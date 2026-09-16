@@ -39,7 +39,7 @@ export default function ReviewsManager() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Reviews" subtitle={`${avg}★ • ${reviews.length} reviews`} />
+      <AppBar title="Reviews" subtitle={filter ? `${avg}★ • ${list.length} of ${reviews.length} reviews` : `${avg}★ • ${reviews.length} reviews`} />
       <div className="screen-scroll">
         <div className="hscroll" style={{ paddingTop: 12 }}>
           <button className={`chip ${filter === null ? "active" : ""}`} onClick={() => setFilter(null)}>All</button>

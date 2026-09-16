@@ -4,17 +4,20 @@ import { useApp } from "@/store";
 
 interface Props {
   targetName: string;
+  /** What this viewer already wrote, so editing a review starts from it instead of blanking it (CRAT-8). */
+  initialRating?: number;
+  initialComment?: string;
   onSubmit: (rating: number, comment: string) => Promise<void>;
   onClose: () => void;
 }
 
 const labels = ["", "Poor", "Fair", "Good", "Great", "Excellent"];
 
-export default function ReviewSheet({ targetName, onSubmit, onClose }: Props) {
+export default function ReviewSheet({ targetName, initialRating = 0, initialComment = "", onSubmit, onClose }: Props) {
   const { showToast } = useApp();
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(initialRating);
   const [hover, setHover] = useState(0);
-  const [comment, setComment] = useState("");
+  const [comment, setComment] = useState(initialComment);
   const [submitting, setSubmitting] = useState(false);
 
   async function submit() {
@@ -35,7 +38,7 @@ export default function ReviewSheet({ targetName, onSubmit, onClose }: Props) {
     <div className="overlay" onClick={onClose}>
       <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ paddingBottom: 24 }}>
         <div className="sheet-grab" />
-        <div className="bold" style={{ fontSize: 18, marginBottom: 4 }}>Write a review</div>
+        <div className="bold" style={{ fontSize: 18, marginBottom: 4 }}>{initialRating > 0 ? "Edit your review" : "Write a review"}</div>
         <div className="small muted" style={{ marginBottom: 20 }}>{targetName}</div>
 
         {/* Star picker */}
@@ -48,6 +51,7 @@ export default function ReviewSheet({ targetName, onSubmit, onClose }: Props) {
               onClick={() => setRating(i)}
               onMouseEnter={() => setHover(i)}
               onMouseLeave={() => setHover(0)}
+              style={{ minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", padding: 0 }}
             >
               <Star
                 size={40}

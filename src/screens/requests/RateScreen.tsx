@@ -78,7 +78,15 @@ export default function RateScreen() {
         {/* Stars */}
         <div className="row gap-8" style={{ marginTop: 20 }}>
           {[1, 2, 3, 4, 5].map((i) => (
-            <button key={i} aria-label={`${i} star${i > 1 ? "s" : ""}`} aria-pressed={i <= rating} onClick={() => setRating(i)} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(0)}>
+            <button
+              key={i}
+              aria-label={`${i} star${i > 1 ? "s" : ""}`}
+              aria-pressed={i <= rating}
+              onClick={() => setRating(i)}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(0)}
+              style={{ minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", padding: 0 }}
+            >
               <Star
                 size={42}
                 weight={i <= (hover || rating) ? "fill" : "regular"}
