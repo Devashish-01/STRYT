@@ -1,0 +1,6 @@
+[
+  {"gap_id": "SLOT_BLOCKING:S2", "status": "FIXED", "evidence": "DayTimetable lists the bookings already taken for a blocked day under the 'Closed — blocked for the whole day' card, with 'Blocking the day doesn't cancel them', and each one opens."},
+  {"gap_id": "SLOT_BLOCKING:S3", "status": "FIXED", "evidence": "BlockSlotModal takes the live bookings for that slot (or day) and says how many there are, that blocking keeps them, and lists the first few — both consoles pass them in."},
+  {"gap_id": "SLOT_BLOCKING:S4", "status": "FIXED", "evidence": "WeeklyHoursEditor flags a day whose shifts are unusable: a missing time, start equal to end, or two overlapping shifts. Overnight (to < from) stays valid — a kitchen open till 2am."},
+  {"gap_id": "SLOT_BLOCKING:S5", "status": "FIXED", "evidence": "grep '#fff' in BlockSlotModal.tsx, DayTimetable.tsx and WeeklyHoursEditor.tsx: none (2026-09-16)."}
+]

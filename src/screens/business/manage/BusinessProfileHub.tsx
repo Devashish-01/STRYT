@@ -56,7 +56,13 @@ export default function BusinessProfileHub() {
     );
   }
 
-  const verifyLabel = b?.isVerified ? "Verified ✓" : "Get verified";
+  const verifyLabel = b?.isVerified
+    ? "Verified ✓"
+    : b?.verificationStatus === "UNDER_REVIEW"
+      ? "Under review"
+      : b?.verificationStatus === "REJECTED"
+        ? "Verification declined — try again"
+        : "Get verified";
 
   return (
     <div className="screen with-nav">

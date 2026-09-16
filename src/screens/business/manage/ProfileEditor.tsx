@@ -104,10 +104,24 @@ export default function ProfileEditor() {
 
 
   const cats = categories ?? [];
-  const valid = name.trim().length > 1 && city.trim().length > 0;
+  // A wrong phone or pincode is worse than a missing one: the shop looks reachable and isn't (PRF-6).
+  const phoneDigits = phone.replace(/\D/g, "");
+  const whatsappDigits = whatsapp.replace(/\D/g, "");
+  const contactProblem =
+    phoneDigits && !/^[6-9]\d{9}$/.test(phoneDigits.slice(-10))
+      ? "Enter a valid 10-digit mobile number."
+      : whatsappDigits && !/^[6-9]\d{9}$/.test(whatsappDigits.slice(-10))
+        ? "Enter a valid 10-digit WhatsApp number."
+        : pincode && !/^\d{6}$/.test(pincode)
+          ? "A pincode is 6 digits."
+          : null;
+  const valid = name.trim().length > 1 && city.trim().length > 0 && !contactProblem;
 
   async function save() {
-    if (!valid) return;
+    if (!valid) {
+      if (contactProblem) showToast(contactProblem);
+      return;
+    }
     setSaving(true);
     try {
       // categoryId/categoryName were missing here — the chip picker below
@@ -186,7 +200,7 @@ export default function ProfileEditor() {
               className="row gap-6 center-v"
               style={{
                 position: "absolute", right: 10, bottom: 10,
-                background: "rgba(0,0,0,.62)", color: "#fff",
+                background: "rgba(0,0,0,.62)", color: "var(--white)",
                 padding: "6px 11px", borderRadius: 999, fontSize: 12, fontWeight: 600,
               }}
             >
@@ -252,7 +266,7 @@ export default function ProfileEditor() {
         </div>
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: 12 }}>
         <button className="btn btn-primary btn-block" disabled={saving || !valid} onClick={save}>{saving ? "Saving…" : "Save changes"}</button>
       </div>
 
@@ -261,7 +275,7 @@ export default function ProfileEditor() {
           <div
             className="sheet"
             onClick={(e) => e.stopPropagation()}
-            style={{ background: "#fff", maxHeight: "95vh", display: "flex", flexDirection: "column", borderRadius: "24px 24px 0 0", padding: "20px 16px calc(24px + var(--safe-area-bottom))" }}
+            style={{ background: "var(--surface)", maxHeight: "95vh", display: "flex", flexDirection: "column", borderRadius: "24px 24px 0 0", padding: "20px 16px calc(24px + var(--safe-area-bottom))" }}
           >
             <div className="sheet-grab" style={{ background: "var(--ink-200)" }} />
             <div className="row between" style={{ marginBottom: 12 }}>

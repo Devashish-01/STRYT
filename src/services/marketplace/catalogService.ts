@@ -25,6 +25,22 @@ async function fetchAllCategories(): Promise<Category[]> {
 }
 
 export const catalogService = {
+  /** Applies a stock change as a delta inside the database, so two people restocking the same item at once add up
+   *  instead of overwriting each other (INV-4, migration 20260985). Business catalog items only. */
+  async adjustQuantity(itemId: string, delta: number): Promise<void> {
+    const sb = getSupabase();
+    const { error } = await (sb.rpc as any)("catalog_item_adjust_quantity", { p_id: itemId, p_delta: delta });
+    if (error) {
+      const msg = String(error.message ?? "");
+      throw new Error(
+        msg.includes("NOT_CATALOG_MANAGER") ? "You don't manage this shop's catalog."
+        : msg.includes("NOT_A_COUNTED_ITEM") ? "This item doesn't track a count."
+        : msg.includes("ITEM_NOT_FOUND") ? "That item no longer exists."
+        : "Couldn't update stock. Try again.",
+      );
+    }
+  },
+
   async getCategories(kind?: "BUSINESS" | "SERVICE"): Promise<Category[]> {
     const flat = await fetchAllCategories();
     const tree = buildTree(flat);

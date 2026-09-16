@@ -3,7 +3,7 @@ import { useParams } from "react-router-dom";
 import { AppBar, VegDot, inr, EmptyState } from "@/components/common";
 import { Plus, Pencil, Trash2, Camera, Star, Tag } from "@/components/Icons";
 import { businessService, providerService, uploadService, bustBusinessGetCache, bustProviderGetCache } from "@/services";
-import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
+import { useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { CatalogItem } from "@/types";
@@ -21,10 +21,14 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   const { id = "" } = useParams();
   const { showToast } = useApp();
   const service = serviceFor(kind);
-  const { data: entity, loading, refetch } = useQuery<{ catalog: CatalogItem[]; defaultSlotCapacity?: number; categoryName?: string; subCategory?: string; packageKey?: string | null } | undefined>(
+  // Realtime on the catalog rows: two people (or two devices) editing the same shop used to see each other's
+  // changes only after a manual refresh (CAT-7).
+  const { data: entity, loading, refetch } = useQueryWithRealtime<{ catalog: CatalogItem[]; defaultSlotCapacity?: number; categoryName?: string; subCategory?: string; packageKey?: string | null } | undefined>(
     () => (kind === "business" ? businessService.get(id) : providerService.get(id)),
+    kind === "business" ? "catalog_items" : "provider_packages",
     [id],
-    kind === "business" ? `business:${id}` : `provider:${id}`
+    kind === "business" ? `business_id=eq.${id}` : `provider_id=eq.${id}`,
+    kind === "business" ? `business:${id}` : `provider:${id}`,
   );
 
   const [editing, setEditing] = useState<CatalogItem | null>(null);

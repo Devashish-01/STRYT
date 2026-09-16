@@ -1,0 +1,322 @@
+[
+ {
+  "gap_id": "BROADCAST_RADIUS:RAD-1",
+  "status": "FIXED",
+  "evidence": "BroadcastRadius busts the cached business row (bustBusinessGetCache) and invalidates the query cache after saving, so going back doesn't show the old radius."
+ },
+ {
+  "gap_id": "BROADCAST_RADIUS:RAD-2",
+  "status": "DEFERRED",
+  "evidence": "No map visualiser: the screen explains in words what the radius covers (bookings, community posts and stories — not Explore or Search) and shows the value in km. Drawing the circle over the shop's location is a v1.1 improvement, not a defect. Deferred to v1.1 under decision D17 (owner to confirm)."
+ },
+ {
+  "gap_id": "BROADCAST_RADIUS:RAD-3",
+  "status": "FIXED",
+  "evidence": "Both surfaces write the same businesses.broadcast_radius through businessService.update, and the profile editor seeds from the saved value, so they can't disagree."
+ },
+ {
+  "gap_id": "BROADCAST_RADIUS:RAD-4",
+  "status": "DEFERRED",
+  "evidence": "A live 'this many neighbours' estimate would need a count of users inside the radius, which is exactly the kind of population query the privacy model keeps off the client. Deferred as a product question rather than fixed with a guess. Deferred to v1.1 under decision D17 (owner to confirm)."
+ },
+ {
+  "gap_id": "BULK_DEALS:BLK-1",
+  "status": "FIXED",
+  "evidence": "_bulk_deal_close_internal handles a campaign with no deposit (staging source check, 2026-09-16) and E2E critical/bulk-deal drives a deposit campaign end to end (E2E-039 fixed the close path in 20260979)."
+ },
+ {
+  "gap_id": "BULK_DEALS:BLK-2",
+  "status": "FIXED",
+  "evidence": "bulk_deal_delete guards with raise exception and accounts for issued tokens (production source check), so deleting can't quietly void customers' claim passes."
+ },
+ {
+  "gap_id": "BULK_DEALS:BLK-3",
+  "status": "FIXED",
+  "evidence": "bulk_deal_close, bulk_deal_extend and bulk_deal_delete all consult has_business_scope, so a delegated manager can run a campaign."
+ },
+ {
+  "gap_id": "BULK_DEALS:BLK-4",
+  "status": "FIXED",
+  "evidence": "The redemption panel shows 'Balance to collect' from the token's balanceDue whenever one remains (BulkDealsManager)."
+ },
+ {
+  "gap_id": "BULK_DEALS:BLK-5",
+  "status": "FIXED",
+  "evidence": "bulk_deal_token_redeem checks the token's business_id, so a pass from another shop can't be accepted (production source check)."
+ },
+ {
+  "gap_id": "BULK_DEALS:BLK-6",
+  "status": "FIXED",
+  "evidence": "The deal console surfaces the server's message (e?.message) on confirm, reject, close and extend instead of a blanket failure."
+ },
+ {
+  "gap_id": "BULK_DEALS:BLK-7",
+  "status": "FIXED",
+  "evidence": "grep '#fff' in the bulk-deal console and card: none (2026-09-16); the composer is part of BulkDealsManager, which uses tokens."
+ },
+ {
+  "gap_id": "BUSINESS_PORTFOLIO:PORT-1",
+  "status": "FIXED",
+  "evidence": "The manager reads businessService.portfolioItems (the shop's own rows) instead of the enriched public list, so curated stand-ins for an empty portfolio no longer appear as items the owner can caption or delete."
+ },
+ {
+  "gap_id": "BUSINESS_PORTFOLIO:PORT-2",
+  "status": "FIXED",
+  "evidence": "Edit and delete are 40px targets, and delete opens a confirmation sheet showing the photo before removing it."
+ },
+ {
+  "gap_id": "BUSINESS_PORTFOLIO:PORT-3",
+  "status": "FIXED",
+  "evidence": "updatePortfolio and deletePortfolio select the affected rows and throw when nothing was touched, so a write RLS refuses is reported instead of looking like success."
+ },
+ {
+  "gap_id": "BUSINESS_PORTFOLIO:PORT-4",
+  "status": "FIXED",
+  "evidence": "All three portfolio writes bust the cached business row, and the manager's own query refetches, so an upload, caption or deletion shows immediately here and on the public page."
+ },
+ {
+  "gap_id": "BUSINESS_PORTFOLIO:PORT-5",
+  "status": "FIXED",
+  "evidence": "uploadService throws UPLOAD_FAILED instead of falling back to a base64 data URL (E2E-015); nothing writes an image into a text column any more. Migrating rows written before that fix is an owner step."
+ },
+ {
+  "gap_id": "BUSINESS_PORTFOLIO:PORT-6",
+  "status": "FIXED",
+  "evidence": "The caption editor has a cancel button that restores the previous caption and closes the editor."
+ },
+ {
+  "gap_id": "BUSINESS_PORTFOLIO:PORT-7",
+  "status": "DEFERRED",
+  "evidence": "Ordering and a hero pick need a sort column on business_portfolio_items plus drag-and-drop; the table has no ordering field (id, business_id, url, caption, created_at) and the gallery shows newest first. A v1.1 feature. Deferred to v1.1 under decision D17 (owner to confirm)."
+ },
+ {
+  "gap_id": "BUSINESS_PORTFOLIO:PORT-8",
+  "status": "FIXED",
+  "evidence": "grep '#fff' in BusinessPortfolio.tsx: none (2026-09-16), and every control is at least 40px with an aria-label."
+ },
+ {
+  "gap_id": "BUSINESS_VERIFICATION:VER-1",
+  "status": "FIXED",
+  "evidence": "businessService.update busts the cached business row, so the profile hub and the verification panel read the same status after a submission."
+ },
+ {
+  "gap_id": "BUSINESS_VERIFICATION:VER-2",
+  "status": "FIXED",
+  "evidence": "The profile hub reads verificationStatus: 'Under review' while UNDER_REVIEW, 'Verification declined — try again' when REJECTED, instead of inviting the owner to 'Get verified' again."
+ },
+ {
+  "gap_id": "BUSINESS_VERIFICATION:VER-3",
+  "status": "FIXED",
+  "evidence": "A PDF over 5 MB is refused when picked, with the file named, rather than failing later inside storage; images go through the compressor."
+ },
+ {
+  "gap_id": "BUSINESS_VERIFICATION:VER-4",
+  "status": "DEFERRED",
+  "evidence": "Submitted documents are KYC material: the panel deliberately doesn't re-display them, and withdrawing a review would need an admin-side state change. Worth revisiting with the verification queue in v1.1; the owner can see the status and resubmit after a decision. Deferred to v1.1 under decision D17 (owner to confirm)."
+ },
+ {
+  "gap_id": "BUSINESS_VERIFICATION:VER-5",
+  "status": "FIXED",
+  "evidence": "The status cards use theme tokens (var(--green-*), var(--amber-*), var(--red-*)) — no colour literals in VerificationPanel.tsx."
+ },
+ {
+  "gap_id": "CATALOG_MANAGEMENT:CAT-1",
+  "status": "FIXED",
+  "evidence": "The item editor sends explicit nulls (salePrice: sale.trim() ? Number(sale) : null, image: image ? image : null), so clearing a sale price or photo persists instead of being dropped as undefined."
+ },
+ {
+  "gap_id": "CATALOG_MANAGEMENT:CAT-2",
+  "status": "FIXED",
+  "evidence": "Deleting a catalog item opens a confirmation sheet naming the item (confirmDelete state in CatalogManager)."
+ },
+ {
+  "gap_id": "CATALOG_MANAGEMENT:CAT-3",
+  "status": "DEFERRED",
+  "evidence": "Manual ordering needs a sort column and a drag handle; the list is grouped and stable per fetch today. A v1.1 improvement for shops with long catalogs. Deferred to v1.1 under decision D17 (owner to confirm)."
+ },
+ {
+  "gap_id": "CATALOG_MANAGEMENT:CAT-4",
+  "status": "FIXED",
+  "evidence": "Any item can be marked unavailable and back ('Marked as unavailable' / 'Marked as available'), and a finite item that hits zero flips to OUT_OF_STOCK automatically."
+ },
+ {
+  "gap_id": "CATALOG_MANAGEMENT:CAT-5",
+  "status": "FIXED",
+  "evidence": "The shop page's cart stepper caps a FINITE item at the quantity left, so a customer can't order more than the shop has."
+ },
+ {
+  "gap_id": "CATALOG_MANAGEMENT:CAT-6",
+  "status": "DEFERRED",
+  "evidence": "Catalog search and category grouping matter at a size no v1 shop has yet (the editor lists items with their photos and prices). A v1.1 improvement. Deferred to v1.1 under decision D17 (owner to confirm)."
+ },
+ {
+  "gap_id": "CATALOG_MANAGEMENT:CAT-7",
+  "status": "FIXED",
+  "evidence": "The catalog console subscribes to catalog_items (or provider_packages) for this entity and refetches, so a change made on another device lands without a manual refresh."
+ },
+ {
+  "gap_id": "CATALOG_MANAGEMENT:CAT-8",
+  "status": "FIXED",
+  "evidence": "The file input is reset after each pick (e.target.value = \"\"), so the same photo can be chosen twice in a row; the editor's surfaces use theme tokens."
+ },
+ {
+  "gap_id": "INVENTORY_ALERTS:INV-1",
+  "status": "FIXED",
+  "evidence": "Every stock write busts the cached business row and invalidates business:<id>, then refetches, so the inventory screen, the catalog console and the public page agree."
+ },
+ {
+  "gap_id": "INVENTORY_ALERTS:INV-2",
+  "status": "FIXED",
+  "evidence": "The stepper stays usable on an out-of-stock item: +1 sets quantity 1 and IN_STOCK, and reaching zero sets OUT_OF_STOCK, so restocking never needs a detour through the item editor."
+ },
+ {
+  "gap_id": "INVENTORY_ALERTS:INV-3",
+  "status": "FIXED",
+  "evidence": "InventoryAlerts renders ManageNav for businesses, so the merchant can leave the screen."
+ },
+ {
+  "gap_id": "INVENTORY_ALERTS:INV-4",
+  "status": "FIXED",
+  "evidence": "Migration 20260985 adds catalog_item_adjust_quantity (row-locked delta, keeps stock_status consistent, checks the caller manages the catalog) and the console uses it, so two people restocking at once add up instead of overwriting each other. Forced-rollback tested on staging: before, the function didn't exist (42883); after, 5 → +3 → −10 lands at 0 / OUT_OF_STOCK and a stranger gets NOT_CATALOG_MANAGER."
+ },
+ {
+  "gap_id": "INVENTORY_ALERTS:INV-5",
+  "status": "DEFERRED",
+  "evidence": "The low-stock line is a fixed 5 (LOW_STOCK_THRESHOLD). A per-item threshold needs a column and an editor field; the fixed value is honest about what it means today. A v1.1 improvement. Deferred to v1.1 under decision D17 (owner to confirm)."
+ },
+ {
+  "gap_id": "INVENTORY_ALERTS:INV-6",
+  "status": "DEFERRED",
+  "evidence": "The screen already splits items into Out of stock / Running low / healthy, which is the filter that matters at v1 catalog sizes. Search is a v1.1 improvement. Deferred to v1.1 under decision D17 (owner to confirm)."
+ },
+ {
+  "gap_id": "STOREFRONT_BRANDING:PRF-1",
+  "status": "FIXED",
+  "evidence": "businessService.update busts the cached business row, so a saved profile shows everywhere instead of the app serving the old copy."
+ },
+ {
+  "gap_id": "STOREFRONT_BRANDING:PRF-2",
+  "status": "FIXED",
+  "evidence": "uploadService throws instead of storing a base64 data URL when storage refuses (E2E-015), so a failed cover upload can't bloat the row."
+ },
+ {
+  "gap_id": "STOREFRONT_BRANDING:PRF-3",
+  "status": "FIXED",
+  "evidence": "Deliberate: /business/:id/manage/profile sits under RequireOwner with the comment 'Owner-only — FULL delegates and scoped team members are bounced'. Branding, category and contact details are the owner's to change; team members manage the day-to-day surfaces."
+ },
+ {
+  "gap_id": "STOREFRONT_BRANDING:PRF-4",
+  "status": "FIXED",
+  "evidence": "A location move is review-gated through requestLocationChange (pending_lat/pending_lng) and the admin decision writes back status and rejection_reason, which the console surfaces; businessService.update strips lat/lng so nothing can move the pin silently."
+ },
+ {
+  "gap_id": "STOREFRONT_BRANDING:PRF-5",
+  "status": "FIXED",
+  "evidence": "The category picker resolves the parent from children (parentCat) and saves categoryId plus categoryName, so choosing a subcategory persists as that subcategory."
+ },
+ {
+  "gap_id": "STOREFRONT_BRANDING:PRF-6",
+  "status": "FIXED",
+  "evidence": "Saving refuses an invalid phone, WhatsApp number or pincode with a specific message ('Enter a valid 10-digit mobile number', 'A pincode is 6 digits'), instead of saving a shop nobody can reach."
+ },
+ {
+  "gap_id": "STOREFRONT_BRANDING:PRF-7",
+  "status": "FIXED",
+  "evidence": "grep '#fff' in ProfileEditor.tsx: none (2026-09-16)."
+ },
+ {
+  "gap_id": "STOREFRONT_QNA:QNA-1",
+  "status": "FIXED",
+  "evidence": "answerQuestion selects the updated row and throws when nothing was written, so an answer RLS refuses no longer shows 'Answer posted'."
+ },
+ {
+  "gap_id": "STOREFRONT_QNA:QNA-2",
+  "status": "FIXED",
+  "evidence": "QnaManager renders ManageNav, so answering a question is no longer a dead end."
+ },
+ {
+  "gap_id": "STOREFRONT_QNA:QNA-3",
+  "status": "FIXED",
+  "evidence": "Posting an answer refetches the list (onChanged), so the card moves into the answered group in the same sort order the screen defines."
+ },
+ {
+  "gap_id": "STOREFRONT_QNA:QNA-4",
+  "status": "FIXED",
+  "evidence": "Each question has a 'Report this question' action (ReportSheet, target type QUESTION) so spam reaches the admin queue; admins act on it there, and AdminPanel says so rather than filing it as handled (MOD-2)."
+ },
+ {
+  "gap_id": "STOREFRONT_QNA:QNA-5",
+  "status": "FIXED",
+  "evidence": "Editing an answer has a Cancel that restores the posted text and leaves edit mode."
+ },
+ {
+  "gap_id": "STOREFRONT_QNA:QNA-6",
+  "status": "FIXED",
+  "evidence": "The answer box is capped at 1000 characters and the answer is saved trimmed."
+ },
+ {
+  "gap_id": "STORE_HOURS:HRS-1",
+  "status": "FIXED",
+  "evidence": "The manual override is visible as its own state ('Manual override' badge, 'Manual override is active') with a way back to the schedule, so a shop can't be stuck manually closed without knowing why."
+ },
+ {
+  "gap_id": "STORE_HOURS:HRS-2",
+  "status": "FIXED",
+  "evidence": "getDayWindows handles overnight windows (to < from) and the previous day's spill past midnight (src/utils/availability.ts), and the unit tests cover it."
+ },
+ {
+  "gap_id": "STORE_HOURS:HRS-3",
+  "status": "FIXED",
+  "evidence": "calculateNextTurnoffTime returns today's closing time when it is still ahead and only then moves to the next day's close, instead of always leaping 24 hours forward; covered by availability.test.ts."
+ },
+ {
+  "gap_id": "STORE_HOURS:HRS-4",
+  "status": "FIXED",
+  "evidence": "Toggling open/closed saves pending hour edits first (isDirty && hoursRaw !== undefined → businessService.update), with the comment recording the claim (HRS-4)."
+ },
+ {
+  "gap_id": "STORE_HOURS:HRS-5",
+  "status": "DEFERRED",
+  "evidence": "Hours are evaluated against the device clock. Every v1 shop and its customers are in the same timezone (IST), so this shows up only for a traveller reading a shop's open/closed state from another zone. A stored business timezone is a v1.1 change to the hours model. Deferred to v1.1 under decision D17 (owner to confirm)."
+ },
+ {
+  "gap_id": "STORE_HOURS:HRS-6",
+  "status": "FIXED",
+  "evidence": "The 'Block a specific date or time' row is hidden unless the viewer has the appointments scope, so a team member without it is no longer sent to a screen the guard bounces them from."
+ },
+ {
+  "gap_id": "STORE_HOURS:HRS-7",
+  "status": "FIXED",
+  "evidence": "grep '#fff' in WeeklyHoursEditor.tsx: none (2026-09-16)."
+ },
+ {
+  "gap_id": "TEAM_ACCESS:#1",
+  "status": "FIXED",
+  "evidence": "Shop-login has a screen: src/screens/business/BusinessLogin.tsx calls businessAccessService.login, and BusinessAccess exposes suggestLogin/setLogin ('Approve each sign-in')."
+ },
+ {
+  "gap_id": "TEAM_ACCESS:#2",
+  "status": "FIXED",
+  "evidence": "BusinessAccess lists PENDING sessions and decides them (businessAccessService.decide, approve or deny). E2E critical/team-access drives a grant and a revoke."
+ },
+ {
+  "gap_id": "TEAM_ACCESS:#3",
+  "status": "FIXED",
+  "evidence": "Opening the editor on a FULL grant starts empty and says what's being given up, and saving refuses an empty scope list — the code comment explains why every scope ticked is not the same as FULL."
+ },
+ {
+  "gap_id": "TEAM_ACCESS:#4",
+  "status": "FIXED",
+  "evidence": "grant_team_member_access writes team-typed notifications, not QUEUE_UPDATE (production source check, 2026-09-16)."
+ },
+ {
+  "gap_id": "TEAM_ACCESS:#5",
+  "status": "FIXED",
+  "evidence": "expiryLabel renders the session's expiry on each grant row (the comment records that it used to be fetched and never shown)."
+ },
+ {
+  "gap_id": "TEAM_ACCESS:#6",
+  "status": "FIXED",
+  "evidence": "Revoking opens a confirmation (confirmRevoke), with the comment noting there is no undo — re-granting creates a new session."
+ }
+]

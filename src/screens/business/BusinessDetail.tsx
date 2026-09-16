@@ -251,7 +251,10 @@ export default function BusinessDetail() {
 
   function add(itemId: string, delta: number) {
     setCart((c) => {
-      const next = Math.max(0, (c[itemId] ?? 0) + delta);
+      // A finite item can't be ordered past what's left — the stepper used to keep counting up regardless (CAT-5).
+      const item = (b?.catalog ?? []).find((i) => i.id === itemId);
+      const cap = item?.inventoryType === "FINITE" ? Math.max(0, item.quantity ?? 0) : Infinity;
+      const next = Math.min(cap, Math.max(0, (c[itemId] ?? 0) + delta));
       const copy = { ...c };
       if (next === 0) delete copy[itemId];
       else copy[itemId] = next;

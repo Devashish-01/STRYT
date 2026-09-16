@@ -509,7 +509,7 @@ export default function AskCompose() {
             {photos.map((url, i) => (
               <div key={url} style={{ position: "relative" }}>
                 <img src={url} alt={tf("attached_photo_alt", { n: i + 1 })} className="thumb" style={{ width: 76, height: 76, borderRadius: 12 }} />
-                <button className="icon-btn" aria-label={t("remove_photo_label")} style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "#fff" }} onClick={() => setPhotos((p) => p.filter((_, x) => x !== i))}>
+                <button className="icon-btn" aria-label={t("remove_photo_label")} style={{ position: "absolute", top: -8, right: -8, width: 24, height: 24, background: "var(--red-500)", color: "var(--white)" }} onClick={() => setPhotos((p) => p.filter((_, x) => x !== i))}>
                   <X size={14} />
                 </button>
               </div>
@@ -518,7 +518,7 @@ export default function AskCompose() {
               <div key={url} style={{ position: "relative", width: 76, height: 76 }}>
                 <img src={url} alt={t("uploading_photo_alt")} className="thumb" style={{ width: 76, height: 76, borderRadius: 12, opacity: 0.5 }} />
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <RefreshCw size={18} color="#fff" className="spin" />
+                  <RefreshCw size={18} color="var(--white)" className="spin" />
                 </div>
               </div>
             ))}
@@ -571,11 +571,11 @@ export default function AskCompose() {
 
           <label>{budgetLabel} <span className="tiny muted">{t("optional_word")}</span></label>
           <div className="row gap-10">
-            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
+            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "var(--surface)" }}>
               <IndianRupee size={16} color="var(--ink-400)" />
               <input className="input" style={{ border: "none" }} inputMode="numeric" placeholder={budgetMinPlaceholder} value={budgetMin} onChange={(e) => setBudgetMin(e.target.value.replace(/\D/g, ""))} />
             </div>
-            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "#fff" }}>
+            <div className="row grow" style={{ border: "1.5px solid var(--ink-200)", borderRadius: "var(--radius-sm)", padding: "0 10px", background: "var(--surface)" }}>
               <IndianRupee size={16} color="var(--ink-400)" />
               <input className="input" style={{ border: "none" }} inputMode="numeric" placeholder={budgetMaxPlaceholder} value={budgetMax} onChange={(e) => setBudgetMax(e.target.value.replace(/\D/g, ""))} />
             </div>
@@ -664,8 +664,8 @@ export default function AskCompose() {
                 style={{
                   flex: 1,
                   minWidth: 64,
-                  background: expiryHrs === h ? "var(--brand-600)" : "#fff",
-                  color: expiryHrs === h ? "#fff" : "var(--ink-700)",
+                  background: expiryHrs === h ? "var(--brand-600)" : "var(--surface)",
+                  color: expiryHrs === h ? "var(--white)" : "var(--ink-700)",
                   borderColor: expiryHrs === h ? "var(--brand-600)" : "var(--ink-200)",
                   fontWeight: expiryHrs === h ? 700 : 500,
                 }}
@@ -693,7 +693,7 @@ export default function AskCompose() {
         )}
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: "8px 12px 12px" }}>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: "8px 12px 12px" }}>
         {missing && (
           <p className="tiny muted" style={{ textAlign: "center", marginBottom: 6 }}>
             {missing === "title" ? t("add_title_continue")
@@ -722,7 +722,7 @@ function ToggleRow({ icon, label, hint, on, set }: { icon: React.ReactNode; labe
         <div className="tiny muted">{hint}</div>
       </div>
       <span style={{ width: 44, height: 26, borderRadius: 999, background: on ? "var(--brand-600)" : "var(--ink-200)", position: "relative", flexShrink: 0 }}>
-        <span style={{ position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+        <span style={{ position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "var(--white)", transition: "left 0.2s" }} />
       </span>
     </button>
   );

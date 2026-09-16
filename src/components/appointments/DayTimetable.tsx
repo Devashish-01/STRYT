@@ -86,14 +86,38 @@ export default function DayTimetable({
   }, [date, isTargetToday, slots.length]);
 
   if (wholeDayBlock) {
+    // Bookings taken before the block still exist and still need serving or cancelling, so they're listed under the
+    // notice rather than hidden behind it (S2).
+    const liveOnDay = appointments.filter((a) => a.status !== "CANCELLED" && a.status !== "REJECTED");
     return (
-      <div className="card col center" style={{ padding: 28, gap: 10, background: "var(--red-50)", border: "1px solid var(--red-100)" }}>
-        <Lock size={26} color="var(--red-600)" />
-        <div className="semi small" style={{ color: "var(--red-600)" }}>Closed — blocked for the whole day</div>
-        {wholeDayBlock.reason && <div className="tiny muted center" style={{ maxWidth: 220 }}>"{wholeDayBlock.reason}"</div>}
-        <button className="btn btn-outline btn-sm" style={{ marginTop: 4 }} onClick={() => onUnblockWholeDay(wholeDayBlock)}>
-          <Unlock size={13} /> Unblock this day
-        </button>
+      <div className="col gap-12">
+        <div className="card col center" style={{ padding: 28, gap: 10, background: "var(--red-50)", border: "1px solid var(--red-100)" }}>
+          <Lock size={26} color="var(--red-600)" />
+          <div className="semi small" style={{ color: "var(--red-600)" }}>Closed — blocked for the whole day</div>
+          {wholeDayBlock.reason && <div className="tiny muted center" style={{ maxWidth: 220 }}>"{wholeDayBlock.reason}"</div>}
+          <button className="btn btn-outline btn-sm" style={{ marginTop: 4 }} onClick={() => onUnblockWholeDay(wholeDayBlock)}>
+            <Unlock size={13} /> Unblock this day
+          </button>
+        </div>
+        {liveOnDay.length > 0 && (
+          <div className="card col gap-8" style={{ padding: 14 }}>
+            <div className="semi small">
+              {liveOnDay.length === 1 ? "1 booking was already taken for this day" : `${liveOnDay.length} bookings were already taken for this day`}
+            </div>
+            <div className="tiny muted">Blocking the day doesn't cancel them — open each one to serve or cancel it.</div>
+            {liveOnDay.map((a) => (
+              <button
+                key={a.id}
+                className="card row between center-v"
+                style={{ padding: 10, textAlign: "left" }}
+                onClick={() => setExpandedApt(a)}
+              >
+                <span className="small semi">{a.timeLabel}</span>
+                <span className="tiny muted">{a.customerName || a.packageName || "Booking"}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
@@ -249,7 +273,7 @@ export default function DayTimetable({
                   type="button"
                   style={{
                     ...boxStyle,
-                    background: "repeating-linear-gradient(135deg, var(--red-50), var(--red-50) 6px, #fff 6px, #fff 12px)",
+                    background: "repeating-linear-gradient(135deg, var(--red-50), var(--red-50) 6px, var(--surface) 6px, var(--surface) 12px)",
                     border: "1px dashed var(--red-100)",
                     display: "flex", alignItems: "center", gap: 4, padding: "0 8px",
                   }}
@@ -286,7 +310,7 @@ export default function DayTimetable({
             <div ref={nowRef} style={{ position: "absolute", top: (nowMinOfDay - dayStartMin) * PX_PER_MIN, left: -6, right: 0, zIndex: 2, display: "flex", alignItems: "center", gap: 6, pointerEvents: "none" }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--orange-500)", flexShrink: 0 }} />
               <span style={{ flex: 1, height: 1.5, background: "var(--orange-500)" }} />
-              <span className="tiny bold" style={{ color: "var(--orange-500)", background: "#fff", padding: "0 4px", borderRadius: 4 }}>NOW</span>
+              <span className="tiny bold" style={{ color: "var(--orange-500)", background: "var(--surface)", padding: "0 4px", borderRadius: 4 }}>NOW</span>
             </div>
           )}
         </div>
@@ -295,7 +319,7 @@ export default function DayTimetable({
       {/* Shared slot (capacity > 1) — pick which booking to open. */}
       {slotList && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1150, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setSlotList(null)}>
-          <div className="card col gap-8" style={{ width: "100%", maxWidth: 360, padding: 14, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+          <div className="card col gap-8" style={{ width: "100%", maxWidth: 360, padding: 14, background: "var(--surface)" }} onClick={(e) => e.stopPropagation()}>
             <div className="row between center-v" style={{ marginBottom: 2 }}>
               <span className="bold small">{slotList.length} bookings at {slotList[0]?.timeLabel}</span>
               <button onClick={() => setSlotList(null)}><XIcon size={16} color="var(--ink-400)" /></button>
@@ -335,7 +359,7 @@ export default function DayTimetable({
       {/* Tap a blocked block — reason + unblock. */}
       {blockedPopup && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1150, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setBlockedPopup(null)}>
-          <div className="card col gap-12" style={{ width: "100%", maxWidth: 340, padding: 18, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+          <div className="card col gap-12" style={{ width: "100%", maxWidth: 340, padding: 18, background: "var(--surface)" }} onClick={(e) => e.stopPropagation()}>
             <div className="row between center-v">
               <div className="row gap-8 center-v"><Lock size={16} color="var(--red-600)" /><span className="bold small">{blockedPopup.timeLabel ?? "Blocked"}</span></div>
               <button onClick={() => setBlockedPopup(null)}><XIcon size={16} color="var(--ink-400)" /></button>
@@ -355,7 +379,7 @@ export default function DayTimetable({
       {/* Tap open space — quick walk-in / block actions for that time. */}
       {quickAction && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1150, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setQuickAction(null)}>
-          <div className="card col gap-10" style={{ width: "100%", maxWidth: 340, padding: 18, background: "#fff" }} onClick={(e) => e.stopPropagation()}>
+          <div className="card col gap-10" style={{ width: "100%", maxWidth: 340, padding: 18, background: "var(--surface)" }} onClick={(e) => e.stopPropagation()}>
             <div className="row between center-v">
               <div className="row gap-8 center-v"><Clock size={16} color="var(--brand-600)" /><span className="bold small">{quickAction}</span></div>
               <button onClick={() => setQuickAction(null)}><XIcon size={16} color="var(--ink-400)" /></button>

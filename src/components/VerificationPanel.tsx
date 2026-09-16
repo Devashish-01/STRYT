@@ -38,7 +38,14 @@ export default function VerificationPanel({ entityType, entityId }: { entityType
 
   function addFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
-    setFiles((prev) => [...prev, ...picked].slice(0, 5));
+    // Images are compressed on upload; a PDF is sent as-is, so an oversized scan is refused here with a sentence
+    // instead of failing later with a raw storage error (VER-3).
+    const MAX_PDF_BYTES = 5 * 1024 * 1024;
+    const tooBig = picked.filter((f) => f.type === "application/pdf" && f.size > MAX_PDF_BYTES);
+    if (tooBig.length > 0) {
+      showToast(`${tooBig[0].name} is over 5 MB — please attach a smaller scan.`);
+    }
+    setFiles((prev) => [...prev, ...picked.filter((f) => !tooBig.includes(f))].slice(0, 5));
     e.target.value = "";
   }
 

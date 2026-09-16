@@ -679,6 +679,7 @@ export const businessService = {
     delete (cols as Record<string, unknown>).lng;
     const { data, error } = await sb.from("businesses").update(toSnake(cols)).eq("id", id).select().maybeSingle();
     throwIfError(error);
+    bustBusinessGetCache(id);
     return toCamel<Business>(assertRowUpdated(data));
   },
 
@@ -813,23 +814,44 @@ export const businessService = {
   },
 
   // Portfolio (past-work gallery) — mirrors providerService's portfolio methods.
+
+  /** The rows as stored, with no curated stand-ins mixed in. The public profile shows placeholder work samples for a
+   *  shop that has none (enrichBusinessPortfolio); the owner's manager must show only what's really there, or they
+   *  try to caption and delete items that don't exist (PORT-1). */
+  async portfolioItems(id: string): Promise<PortfolioItem[]> {
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("business_portfolio_items")
+      .select("*")
+      .eq("business_id", id)
+      .order("created_at", { ascending: false });
+    throwIfError(error);
+    return toCamel<PortfolioItem[]>(data ?? []);
+  },
+
   async addPortfolio(id: string, item: Partial<PortfolioItem>) {
     const sb = getSupabase();
     const row = { ...toSnake(item), business_id: id };
     const { data, error } = await sb.from("business_portfolio_items").insert(row).select().maybeSingle();
     throwIfError(error);
+    bustBusinessGetCache(id);
     return toCamel<PortfolioItem>(data);
   },
-  async updatePortfolio(_id: string, itemId: string, patch: Partial<PortfolioItem>) {
+  // A write RLS refuses updates nothing and returns no error, so the screen has to be told (PORT-3).
+  async updatePortfolio(id: string, itemId: string, patch: Partial<PortfolioItem>) {
     const sb = getSupabase();
-    const { data, error } = await sb.from("business_portfolio_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
+    const { data, error } = await sb.from("business_portfolio_items").update(toSnake(patch)).eq("id", itemId).select();
     throwIfError(error);
-    return toCamel<PortfolioItem>(data);
+    if (!data || data.length === 0) throw new Error(WRITE_DENIED_MSG);
+    bustBusinessGetCache(id);
+    return toCamel<PortfolioItem>(data[0]);
   },
-  async deletePortfolio(_id: string, itemId: string) {
+  async deletePortfolio(id: string, itemId: string) {
     const sb = getSupabase();
-    const { error } = await sb.from("business_portfolio_items").delete().eq("id", itemId);
+    const { data, error } = await sb.from("business_portfolio_items").delete().eq("id", itemId).select("id");
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error(WRITE_DENIED_MSG);
+    bustBusinessGetCache(id);
     return { ok: true };
   },
 
@@ -933,11 +955,13 @@ export const businessService = {
   },
   async answerQuestion(qId: string, answer: string) {
     const sb = getSupabase();
-    const { error } = await sb
+    const { data, error } = await sb
       .from("business_qna")
       .update({ answer, answered_at: new Date().toISOString() })
-      .eq("id", qId);
+      .eq("id", qId)
+      .select("id");
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error(WRITE_DENIED_MSG);
     return { ok: true };
   },
   /** Upvote an unanswered question — surfaces what visitors most want the owner to answer. */

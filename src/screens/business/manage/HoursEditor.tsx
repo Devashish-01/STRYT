@@ -10,11 +10,13 @@ import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/
 import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
 import Toggle from "@/components/Toggle";
 import { ListSkeleton } from "@/components/states";
+import { useBusinessAccess } from "@/components/BusinessAccessGuard";
 
 export default function HoursEditor() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast } = useApp();
+  const { hasScope } = useBusinessAccess();
   const { data: b, loading, error, refetch: refetchBusiness } = useQuery(() => businessService.get(id), [id], `business:${id}`);
 
   const [hoursRaw, setHoursRaw] = useState<string | undefined>(undefined);
@@ -179,9 +181,11 @@ export default function HoursEditor() {
             here, which only ever saved a display string nobody read anywhere
             (not in slot generation, not on the public page). That real
             mechanism lives in the Appointments console. */}
+        {/* HRS-6: a team member without the appointments scope was bounced by the guard on arrival, so the row is
+            only offered to someone who can actually open it. */}
         <button
           className="card row gap-12 center-v"
-          style={{ width: "100%", padding: 14, textAlign: "left" }}
+          style={{ width: "100%", padding: 14, textAlign: "left", display: hasScope("appointments") ? undefined : "none" }}
           onClick={() => nav(`/business/${id}/manage/appointments`)}
         >
           <Calendar size={20} color="var(--brand-700)" />

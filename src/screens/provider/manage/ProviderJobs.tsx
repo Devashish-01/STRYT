@@ -676,6 +676,10 @@ export default function ProviderJobs() {
         <BlockSlotModal
           date={blockModal.date}
           timeLabel={blockModal.timeLabel}
+          affected={dayApts
+            .filter((a) => a.status !== "CANCELLED" && a.status !== "REJECTED")
+            .filter((a) => !blockModal.timeLabel || a.timeLabel === blockModal.timeLabel)
+            .map((a) => ({ id: a.id, timeLabel: a.timeLabel, who: ownerVisibleCustomerName(a) }))}
           submitting={blockSubmitting}
           onConfirm={confirmBlock}
           onClose={() => setBlockModal(null)}

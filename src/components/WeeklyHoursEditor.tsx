@@ -43,7 +43,7 @@ function Toggle({ on, onClick, size = "md" }: { on: boolean; onClick: () => void
       onClick={onClick}
       style={{ width: w, height: h, borderRadius: 999, background: on ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0, border: "none", cursor: "pointer" }}
     >
-      <span style={{ position: "absolute", top: 3, left: on ? w - knob - 3 : 3, width: knob, height: knob, borderRadius: "50%", background: "#fff", transition: "left .2s" }} />
+      <span style={{ position: "absolute", top: 3, left: on ? w - knob - 3 : 3, width: knob, height: knob, borderRadius: "50%", background: "var(--white)", transition: "left .2s" }} />
     </button>
   );
 }
@@ -110,6 +110,29 @@ export default function WeeklyHoursEditor({ initialRaw, onChange }: Props) {
     setDaySchedule(d, { ...ds, ranges });
   }
 
+  /** What's wrong with a day's shifts, in the owner's words. Overnight (to < from) is legitimate — a kitchen open
+   *  till 2am — so only an equal pair or a genuine overlap is flagged. */
+  function dayProblem(ranges: { from: string; to: string }[]): string | null {
+    for (const r of ranges) {
+      if (!r.from || !r.to) return "Set both a start and an end time.";
+      if (r.from === r.to) return "Start and end can't be the same time.";
+    }
+    if (ranges.length === 2) {
+      const [a, b] = ranges;
+      const span = (r: { from: string; to: string }) => {
+        const [fh, fm] = r.from.split(":").map(Number);
+        const [th, tm] = r.to.split(":").map(Number);
+        const start = fh * 60 + fm;
+        const end = th * 60 + tm;
+        return { start, end: end > start ? end : end + 1440 };
+      };
+      const x = span(a);
+      const y = span(b);
+      if (x.start < y.end && y.start < x.end) return "The two shifts overlap — give them separate times.";
+    }
+    return null;
+  }
+
   function toggleDayOpen(d: DayCode) {
     const ds = w.days[d];
     setDaySchedule(d, ds.open
@@ -148,7 +171,7 @@ export default function WeeklyHoursEditor({ initialRaw, onChange }: Props) {
       <button
         type="button"
         className="row between center-v"
-        style={{ padding: "10px 12px", borderRadius: 12, background: "#fff", width: "100%", border: w.mode === "24x7" ? "2px solid var(--brand-500)" : "1px solid var(--line)" }}
+        style={{ padding: "10px 12px", borderRadius: 12, background: "var(--surface)", width: "100%", border: w.mode === "24x7" ? "2px solid var(--brand-500)" : "1px solid var(--line)" }}
         onClick={toggle24x7}
       >
         <span className="semi small">Open 24×7</span>
@@ -209,6 +232,9 @@ export default function WeeklyHoursEditor({ initialRaw, onChange }: Props) {
                             <button type="button" className="tiny semi" style={{ color: "var(--brand-600)", textAlign: "left" }} onClick={() => addRange(d)}>
                               <Plus size={11} style={{ marginRight: 2, verticalAlign: -1 }} /> Add second shift
                             </button>
+                          )}
+                          {dayProblem(ds.ranges) && (
+                            <span className="tiny semi" style={{ color: "var(--red-600)" }}>{dayProblem(ds.ranges)}</span>
                           )}
                         </div>
                       ) : (

@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 import { useState } from "react";
 import { AppBar, EmptyState } from "@/components/common";
 import { AlertTriangle, ChevronRight, Package, Check, X } from "@/components/Icons";
-import { businessService, providerService, bustBusinessGetCache } from "@/services";
+import { businessService, providerService, catalogService, bustBusinessGetCache } from "@/services";
 import { useQuery, invalidateQueryCache } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
@@ -97,15 +97,37 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
     );
   }
 
-  function nudge(item: CatalogItem, delta: number) {
+  /** Business items go through the delta RPC, so two people restocking at once add up instead of overwriting each
+   *  other (INV-4). Provider packages have no counted stock, so they keep the direct write. */
+  async function nudge(item: CatalogItem, delta: number) {
+    if (busyId) return;
     const next = Math.max(0, (item.quantity ?? 0) + delta);
-    void patch(
-      item,
-      // Hitting zero IS going out of stock — keep the two fields consistent
-      // rather than leaving a "0 left" item still marked available.
-      next === 0 ? { quantity: 0, stockStatus: "OUT_OF_STOCK" } : { quantity: next, stockStatus: "IN_STOCK" },
-      next === 0 ? `${item.name} is now out of stock` : `${item.name}: ${next} left`,
-    );
+    if (kind !== "business") {
+      void patch(
+        item,
+        // Hitting zero IS going out of stock — keep the two fields consistent
+        // rather than leaving a "0 left" item still marked available.
+        next === 0 ? { quantity: 0, stockStatus: "OUT_OF_STOCK" } : { quantity: next, stockStatus: "IN_STOCK" },
+        next === 0 ? `${item.name} is now out of stock` : `${item.name}: ${next} left`,
+      );
+      return;
+    }
+    setBusyId(item.id);
+    haptics.selection();
+    try {
+      await catalogService.adjustQuantity(item.id, delta);
+      bustBusinessGetCache(id);
+      invalidateQueryCache(`business:${id}`);
+      const after = await refetch();
+      const fresh = ((after as any)?.catalog ?? []).find((i: CatalogItem) => i.id === item.id);
+      const shown = fresh?.quantity ?? next;
+      showToast(shown === 0 ? `${item.name} is now out of stock` : `${item.name}: ${shown} left`);
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't update — try again");
+      refetch();
+    } finally {
+      setBusyId(null);
+    }
   }
 
   function row(item: CatalogItem) {

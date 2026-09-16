@@ -340,8 +340,8 @@ export default function RequestDetail() {
                   className="chip"
                   style={{
                     padding: "5px 12px", fontSize: 12.5,
-                    background: propSort === key ? "var(--brand-600)" : "#fff",
-                    color: propSort === key ? "#fff" : "var(--ink-600)",
+                    background: propSort === key ? "var(--brand-600)" : "var(--surface)",
+                    color: propSort === key ? "var(--white)" : "var(--ink-600)",
                     borderColor: propSort === key ? "var(--brand-600)" : "var(--ink-200)",
                     fontWeight: propSort === key ? 700 : 500,
                   }}

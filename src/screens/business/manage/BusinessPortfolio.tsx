@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { AppBar, SafeImg } from "@/components/common";
-import { Camera, Pencil, Trash2, Check } from "@/components/Icons";
+import { Camera, Pencil, Trash2, Check, X } from "@/components/Icons";
 import { businessService, uploadService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
@@ -10,12 +10,16 @@ import ManageNav from "./ManageNav";
 
 export default function BusinessPortfolio() {
   const { id = "" } = useParams();
-  const { data: b, loading, refetch } = useQuery(() => businessService.get(id), [id], `business:${id}`);
+  // The owner's own rows, not the public profile's enriched list — that one substitutes curated stand-ins for a shop
+  // with no samples, and captioning or deleting one of those hits an id that doesn't exist (PORT-1).
+  const { data: items, loading, refetch } = useQuery(() => businessService.portfolioItems(id), [id], `business:${id}:portfolio-items`);
   const { showToast } = useApp();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [editingCaption, setEditingCaption] = useState<string | null>(null);
   const [captionVal, setCaptionVal] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; url: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   if (!id) {
     return (
@@ -26,7 +30,7 @@ export default function BusinessPortfolio() {
     );
   }
 
-  const portfolio = b?.portfolio ?? [];
+  const portfolio = items ?? [];
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -46,12 +50,16 @@ export default function BusinessPortfolio() {
   }
 
   async function deleteItem(itemId: string) {
+    setDeleting(true);
     try {
       await businessService.deletePortfolio(id, itemId);
       showToast("Removed from portfolio");
+      setConfirmDelete(null);
       refetch();
-    } catch {
-      showToast("Couldn't remove. Try again.");
+    } catch (e: any) {
+      showToast(e?.message || "Couldn't remove. Try again.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -66,8 +74,6 @@ export default function BusinessPortfolio() {
       </div>
     );
   }
-  if (!b) return null;
-
   return (
     <div className="screen with-nav">
       <AppBar title="Portfolio" subtitle={`${portfolio.length} sample${portfolio.length !== 1 ? "s" : ""} of past work`} />
@@ -102,7 +108,8 @@ export default function BusinessPortfolio() {
                   />
                   <button
                     className="icon-btn"
-                    style={{ width: 28, height: 28, background: "var(--green-500)", color: "#fff", flexShrink: 0 }}
+                    aria-label="Save caption"
+                    style={{ width: 40, height: 40, background: "var(--green-500)", color: "var(--white)", flexShrink: 0 }}
                     onClick={async () => {
                       try {
                         await businessService.updatePortfolio(id, item.id, { caption: captionVal });
@@ -115,30 +122,43 @@ export default function BusinessPortfolio() {
                   >
                     <Check size={14} />
                   </button>
+                  {/* Leaving the editor kept whatever was typed with no way back (PORT-6). */}
+                  <button
+                    className="icon-btn"
+                    aria-label="Cancel caption edit"
+                    style={{ width: 40, height: 40, background: "rgba(255,255,255,0.92)", flexShrink: 0 }}
+                    onClick={() => { setEditingCaption(null); setCaptionVal(""); }}
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               ) : (
                 <>
                   {item.caption && (
-                    <span className="tiny" style={{ position: "absolute", bottom: 36, left: 8, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,0.7)" }}>
+                    <span className="tiny" style={{ position: "absolute", bottom: 46, left: 8, color: "var(--white)", textShadow: "0 1px 3px rgba(0,0,0,0.7)" }}>
                       {item.caption}
                     </span>
                   )}
                   <div className="row gap-6" style={{ position: "absolute", bottom: 8, right: 8 }}>
+                    {/* 28px buttons sitting next to each other on a photo made deleting a sample a mis-tap away,
+                        with no confirmation and no undo (PORT-2). */}
                     <button
                       className="icon-btn"
-                      style={{ width: 28, height: 28, background: "rgba(255,255,255,0.92)" }}
+                      style={{ width: 40, height: 40, background: "rgba(255,255,255,0.92)" }}
                       onClick={() => { setEditingCaption(item.id); setCaptionVal(item.caption); }}
+                      aria-label="Edit caption"
                       title="Edit caption"
                     >
-                      <Pencil size={13} />
+                      <Pencil size={15} />
                     </button>
                     <button
                       className="icon-btn"
-                      style={{ width: 28, height: 28, background: "rgba(255,255,255,0.92)", color: "var(--red-600)" }}
-                      onClick={() => deleteItem(item.id)}
+                      style={{ width: 40, height: 40, background: "rgba(255,255,255,0.92)", color: "var(--red-600)" }}
+                      onClick={() => setConfirmDelete({ id: item.id, url: item.url })}
+                      aria-label="Delete work sample"
                       title="Delete"
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={15} />
                     </button>
                   </div>
                 </>
@@ -147,6 +167,22 @@ export default function BusinessPortfolio() {
           ))}
         </div>
       </div>
+      {confirmDelete && (
+        <div className="overlay" onClick={() => !deleting && setConfirmDelete(null)}>
+          <div className="sheet" role="dialog" aria-label="Remove this work sample?" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-grab" />
+            <h3 className="bold h2" style={{ marginBottom: 6 }}>Remove this work sample?</h3>
+            <p className="small muted" style={{ marginBottom: 14 }}>It disappears from your shop profile straight away. You can upload it again later.</p>
+            <SafeImg src={confirmDelete.url} className="thumb" style={{ width: "100%", height: 150, borderRadius: 14, objectFit: "cover", marginBottom: 14 }} />
+            <div className="row gap-10">
+              <button className="btn btn-outline grow" disabled={deleting} onClick={() => setConfirmDelete(null)}>Keep it</button>
+              <button className="btn btn-red grow" disabled={deleting} onClick={() => deleteItem(confirmDelete.id)}>
+                {deleting ? "Removing…" : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <ManageNav bizId={id} />
     </div>
   );
