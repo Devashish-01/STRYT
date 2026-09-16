@@ -10,8 +10,8 @@ Plan: `docs/plan/README.md` and `docs/plan/phases/P00…P15`. Rules: `docs/plan/
 |---|---|
 | P03–P06 | Done, merged to `develop` |
 | **P07 E2E suite** | Full run #1 green: **134 passed, 0 failed** (with reseed, 9.8 min). 17 critical journeys (queue console added); breadth spec 103 screens; `tests/e2e/COVERAGE.md` maps all 52 flows. Left: action specs for screen-only flows, 2 more consecutive green full runs, P07 report. |
-| **P08 gap ledger** | 488 rows. Verified domains: onboarding-free ones — booking (2), queue (3), delivery (5, deferred by D2), chat (6), safety (10), account/admin/notifications/privacy/roles/security (11) — 0 unverified left in each; 42 E2E rows. 292 legacy rows still UNVERIFIED (domains 0, 1, 4, 7, 8, 9). |
-| **P09 fixes** | 142 FIXED (app + 12 DB migrations on staging), 19 OPEN, 6 DECISION, 30 DEFERRED. |
+| **P08 gap ledger** | **Done.** 488 rows, **0 unverified, 0 open**: 430 FIXED, 49 DEFERRED (v1.1, decision D17), 9 DECISION. Every domain verified against the code and, where it mattered, against the live database. |
+| **P09 fixes** | 430 FIXED (app + 16 DB migrations on staging), 0 OPEN. |
 | P10–P12 | Not started |
 | P13–P15 | Owner-led |
 
@@ -19,7 +19,7 @@ All work is committed on `phase/07-e2e` (local; push refused by the tool — own
 
 ### Waiting on the owner
 
-1. **Apply on production, in order: `20260973` → `20260984`** (`supabase/APPLY_LOG.md` → Pending). Broken for every
+1. **Apply on production, in order: `20260973` → `20260988`** (`supabase/APPLY_LOG.md` → Pending). Broken for every
    production user today: chat send + emergency live share (73), owner review replies, story reactions, provider
    recommendations (74), request notifications to shops/providers (75, 77), counter-offers (76), bulk campaigns never
    close (79); plus the admin audit trail (78). A read-only production scan shows exactly the 6 broken functions these
@@ -115,3 +115,15 @@ lost its form, E2E-039 campaigns never closed.
   locked the owner out and anyone could make them (SEC-2/4, migration 20260983); password changes told nobody
   (SEC-3, migration 20260984). New: **E2E-042** — every admin audit write from the edge functions was silently lost
   (private.admin_action_logs is unreachable through PostgREST).
+- 2026-09-16 — **P08 finished: the gap ledger has no unverified and no open rows left.** Verified the remaining
+  domains — requests/proposals (32), business console (64), provider console (49), community/ratings (51),
+  onboarding (55), discovery (39) — and fixed what they turned up. Bigger ones: search matched only a listing's own
+  name with no radius or ordering, so it couldn't find a shop by what it sells (20260986, with category counts moved
+  into the database); restocking overwrote a colleague's count (20260985); the portfolio manager listed curated
+  stand-in photos the owner couldn't really delete; answering a customer question could silently do nothing; a
+  provider's reachouts screen had no link anywhere in the app. Then the last open rows: live location kept
+  broadcasting after its last recipient was revoked (20260987), emergency contacts couldn't include anyone you
+  hadn't chatted with (20260988), chat threads loaded every message ever sent, the OTP boxes dropped fast keystrokes,
+  and 77 form labels weren't tied to their fields (new audit `scripts/audit/label-association.mjs`, now 0).
+  Full run #3 caught three specs that my own changes had invalidated (search is a searchbox now; the review sheet is
+  titled "Edit your review" when one exists) — fixed, and the suite re-run.
