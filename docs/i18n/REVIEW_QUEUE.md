@@ -382,3 +382,53 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `pset_show_profile` | Show provider profile publicly | प्रोफ़ाइल सबको दिखाएं | प्रोफाइल सर्वांना दाखवा |  |
 | `pset_email_save_failed` | Couldn't save email | ईमेल सेव नहीं हो सका | ईमेल जतन करता आला नाही |  |
 | `pset_exit_provider` | Exit provider mode | सेवा मोड से बाहर निकलें | सेवा मोडमधून बाहेर पडा |  |
+| `sup_fill_required` | Please fill in all required fields. | कृपया सभी ज़रूरी जानकारी भरें। | कृपया सर्व आवश्यक माहिती भरा. |  |
+| `sup_sent` | Message sent successfully! | संदेश भेज दिया गया! | संदेश पाठवला! |  |
+| `sup_send_failed` | Failed to send message. Please try again. | संदेश नहीं भेजा जा सका। दोबारा कोशिश करें। | संदेश पाठवता आला नाही. पुन्हा प्रयत्न करा. |  |
+| `sup_describe_bug_first` | Please describe the bug before submitting. | भेजने से पहले गड़बड़ी के बारे में बताएं। | पाठवण्याआधी अडचणीबद्दल सांगा. |  |
+| `sup_bug_sent` | Bug reported successfully! | गड़बड़ी की जानकारी भेज दी! | अडचणीची माहिती पाठवली! |  |
+| `sup_bug_failed` | Failed to submit bug report. Please try again. | गड़बड़ी की जानकारी नहीं भेजी जा सकी। दोबारा कोशिश करें। | अडचणीची माहिती पाठवता आली नाही. पुन्हा प्रयत्न करा. |  |
+| `sup_title` | Help & Support | मदद और सहायता | मदत आणि सहाय्य |  |
+| `sup_contact_us` | Contact Us | हमसे संपर्क करें | आमच्याशी संपर्क करा |  |
+| `sup_report_bug` | Report a Bug | गड़बड़ी बताएं | अडचण कळवा |  |
+| `sup_message_sent_heading` | Message Sent! | संदेश भेज दिया! | संदेश पाठवला! |  |
+| `sup_contact_team` | Contact the Team | टीम से संपर्क करें | टीमशी संपर्क करा |  |
+| `sup_contact_hint` | Send us a message, complaint, or feedback about STRYT. | STRYT के बारे में संदेश, शिकायत या राय भेजें। | STRYT बद्दल संदेश, तक्रार किंवा मत पाठवा. |  |
+| `sup_file_complaint` | File a Complaint ⚠️ | शिकायत दर्ज करें ⚠️ | तक्रार नोंदवा ⚠️ |  |
+| `sup_your_email` | Your Email Address | आपका ईमेल पता | तुमचा ईमेल पत्ता |  |
+| `sup_email_placeholder` | name@example.com | name@example.com | name@example.com |  |
+| `sup_subject` | Subject | विषय | विषय |  |
+| `sup_subject_placeholder` | Brief summary of the issue | मामले का छोटा सार | प्रकरणाचा थोडक्यात सारांश |  |
+| `sup_description_placeholder` | Explain the complaint or issue in detail. If this is a complaint about a user or transaction, please provide relevant IDs or names. | शिकायत या मामला विस्तार से बताएं। अगर यह किसी व्यक्ति या लेन-देन की शिकायत है, तो उससे जुड़े आईडी या नाम भी दें। | तक्रार किंवा प्रकरण सविस्तर सांगा. जर ही एखाद्या व्यक्ती किंवा व्यवहाराबद्दलची तक्रार असेल, तर संबंधित आयडी किंवा नावे द्या. |  |
+| `sup_send_message` | Send Message | संदेश भेजें | संदेश पाठवा |  |
+| `sup_bug_logged` | Bug Logged! | गड़बड़ी दर्ज हुई! | अडचण नोंदवली! |  |
+| `sup_bug_hint` | Help us squish bugs! Describe what happened and we'll get it fixed. | गड़बड़ियाँ ठीक करने में मदद करें! क्या हुआ बताएं, हम ठीक कर देंगे। | अडचणी दूर करण्यात मदत करा! काय झाले ते सांगा, आम्ही दुरुस्त करू. |  |
+| `sup_reporting_as` | Reporting as | इस रूप में बता रहे हैं | या रूपात कळवत आहात |  |
+| `sup_describe_bug` | Describe the Bug | गड़बड़ी के बारे में बताएं | अडचणीबद्दल सांगा |  |
+| `sup_bug_placeholder` | What happened? What screen were you on? (e.g. 'on the map screen when I touch on...') | क्या हुआ? आप किस स्क्रीन पर थे? (जैसे 'मैप स्क्रीन पर जब मैंने छुआ...') | काय झाले? तुम्ही कोणत्या स्क्रीनवर होता? (उदा. 'नकाशाच्या स्क्रीनवर मी स्पर्श केला तेव्हा...') |  |
+| `sup_submit_bug` | Submit Bug Report | गड़बड़ी की जानकारी भेजें | अडचणीची माहिती पाठवा |  |
+| `pmon_title` | Money | पैसा | पैसा |  |
+| `pmon_subtitle` | Earnings & payments | कमाई और भुगतान | कमाई आणि पेमेंट |  |
+| `pmon_payment_rejected` | Payment claim rejected — customer can resubmit. | भुगतान का दावा अस्वीकार — ग्राहक दोबारा भेज सकता है। | पेमेंटचा दावा नाकारला — ग्राहक पुन्हा पाठवू शकतो. |  |
+| `pmon_invalid_upi` | Please enter a valid UPI ID (e.g. name@bank) | सही UPI आईडी डालें (जैसे name@bank) | बरोबर UPI आयडी टाका (उदा. name@bank) |  |
+| `pmon_qr_uploaded` | Custom QR code uploaded & saved! | आपका QR कोड अपलोड होकर सेव हो गया! | तुमचा QR कोड अपलोड होऊन जतन झाला! |  |
+| `pmon_qr_reset_failed` | Failed to reset QR code. | QR कोड वापस नहीं किया जा सका। | QR कोड परत करता आला नाही. |  |
+| `pmon_earned_offline` | Earned (offline) | कमाई (ऑफ़लाइन) | कमाई (ऑफलाइन) |  |
+| `pmon_this_week` | This week | इस हफ़्ते | या आठवड्यात |  |
+| `pmon_how_paid` | How you get paid | आपको पैसा कैसे मिलता है | तुम्हाला पैसे कसे मिळतात |  |
+| `pmon_upi_hint` | Customers pay you via UPI. Enter your handle (e.g. yourname@okaxis) — a QR is generated automatically. | ग्राहक आपको UPI से पैसे देते हैं। अपना हैंडल डालें (जैसे yourname@okaxis) — QR अपने आप बन जाएगा। | ग्राहक तुम्हाला UPI ने पैसे देतात. तुमचा हँडल टाका (उदा. yourname@okaxis) — QR आपोआप तयार होईल. |  |
+| `pmon_earnings_history` | Earnings history | कमाई का इतिहास | कमाईचा इतिहास |  |
+| `pmon_no_settlements` | Recorded settlements will appear here. | दर्ज हुए हिसाब यहाँ दिखेंगे। | नोंदवलेले हिशोब इथे दिसतील. |  |
+| `share_word` | Share | शेयर करें | शेअर करा |  |
+| `couldnt_load` | Couldn't load — try again | लोड नहीं हो सका — दोबारा कोशिश करें | लोड करता आले नाही — पुन्हा प्रयत्न करा |  |
+| `clear_action` | Clear | हटाएं | काढा |  |
+| `confirm_accept_proposal` | Accept Proposal | भाव स्वीकारें | दर स्वीकारा |  |
+| `confirm_accept` | Confirm & Accept | पक्का करें और स्वीकारें | निश्चित करा आणि स्वीकारा |  |
+| `business` | Business | दुकान | दुकान |  |
+| `place` | Place | जगह | ठिकाण |  |
+| `provider` | Provider | सेवा देने वाला | सेवा देणारा |  |
+| `pay` | Pay Now | अभी भुगतान करें | आता पैसे द्या |  |
+| `sup_inquiry` | General Inquiry 💬 | सामान्य पूछताछ 💬 | सर्वसाधारण चौकशी 💬 |  |
+| `sup_account_issue` | Account Issue 👤 | खाते की दिक़्क़त 👤 | खात्याची अडचण 👤 |  |
+| `sup_business_listings` | Business Listings 🏪 | दुकान की लिस्टिंग 🏪 | दुकानाची लिस्टिंग 🏪 |  |
+| `sup_suggestion` | Suggestion/Feedback 💡 | सुझाव/राय 💡 | सूचना/मत 💡 |  |

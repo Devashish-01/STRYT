@@ -12,6 +12,7 @@ import { CustomerKhataSection } from "@/components/appointments/CustomerKhataSec
 import ProviderManageNav from "./ProviderManageNav";
 import { Wallet, Briefcase, Star, QrCode, Image as ImageIcon, X, Calendar } from "@/components/Icons";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 
 const WEEK_MS = 7 * 86400 * 1000;
 
@@ -20,6 +21,7 @@ const WEEK_MS = 7 * 86400 * 1000;
 export default function ProviderMoney() {
   const { id = "" } = useParams();
   const { showToast } = useApp();
+  const { t } = useI18n();
 
   const { data: p } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { data: analytics, loading: analyticsLoading } = useQueryWithRealtime(
@@ -79,7 +81,7 @@ export default function ProviderMoney() {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Money" />
+        <AppBar title={t("pmon_title")} />
       </div>
     );
   }
@@ -100,10 +102,10 @@ export default function ProviderMoney() {
     try {
       if (action === "CONFIRM") {
         await appointmentService.confirmPayment(apt.id);
-        showToast("Payment confirmed ✓");
+        showToast(t("notif_pay_confirmed_toast"));
       } else {
         await appointmentService.rejectPaymentClaim(apt.id);
-        showToast("Payment claim rejected — customer can resubmit.");
+        showToast(t("pmon_payment_rejected"));
       }
       refetchApts();
     } catch (e: any) {
@@ -118,7 +120,7 @@ export default function ProviderMoney() {
   async function saveUpi() {
     const cleaned = upiId.trim();
     if (cleaned && !/^[\w.-]+@[\w.-]+$/.test(cleaned)) {
-      showToast("Please enter a valid UPI ID (e.g. name@bank)");
+      showToast(t("pmon_invalid_upi"));
       return;
     }
     setSavingUpi(true);
@@ -126,9 +128,9 @@ export default function ProviderMoney() {
       await providerService.update(id, { upiId: cleaned || null } as any);
       bustProviderGetCache(id);
       invalidateQueryCache(`provider:${id}`);
-      showToast("UPI ID saved");
+      showToast(t("bset_upi_saved"));
     } catch {
-      showToast("Couldn't save UPI ID");
+      showToast(t("bset_upi_save_failed"));
     } finally {
       setSavingUpi(false);
     }
@@ -145,9 +147,9 @@ export default function ProviderMoney() {
       await providerService.update(id, { upiQrUrl: url } as any);
       bustProviderGetCache(id);
       invalidateQueryCache(`provider:${id}`);
-      showToast("Custom QR code uploaded & saved!");
+      showToast(t("pmon_qr_uploaded"));
     } catch {
-      showToast("Failed to upload QR code.");
+      showToast(t("bset_qr_upload_failed"));
     } finally {
       setUploadingQr(false);
       e.target.value = "";
@@ -161,9 +163,9 @@ export default function ProviderMoney() {
       await providerService.update(id, { upiQrUrl: null } as any);
       bustProviderGetCache(id);
       invalidateQueryCache(`provider:${id}`);
-      showToast("Reverted to generated UPI QR");
+      showToast(t("bset_qr_reverted"));
     } catch {
-      showToast("Failed to reset QR code.");
+      showToast(t("pmon_qr_reset_failed"));
     }
   }
 
@@ -175,7 +177,7 @@ export default function ProviderMoney() {
       await providerService.update(id, { paymentTiming: v } as any);
     } catch {
       setPaymentTiming(prev);
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     } finally {
       setSavingTiming(false);
     }
@@ -187,9 +189,9 @@ export default function ProviderMoney() {
     setSavingDeposit(true);
     try {
       await providerService.update(id, { depositPercent: n } as any);
-      showToast("Deposit saved");
+      showToast(t("bset_deposit_saved"));
     } catch {
-      showToast("Couldn't save — try again");
+      showToast(t("cpd_save_failed"));
     } finally {
       setSavingDeposit(false);
     }
@@ -197,7 +199,7 @@ export default function ProviderMoney() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Money" subtitle="Earnings & payments" />
+      <AppBar title={t("pmon_title")} subtitle={t("pmon_subtitle")} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 24 }}>
 
         {/* Earnings summary */}
@@ -208,19 +210,19 @@ export default function ProviderMoney() {
             <div className="col center" style={{ gap: 4 }}>
               <Wallet size={20} color="var(--orange-500)" />
               <span className="bold h2" style={{ color: "var(--ink-900)" }}>{inr(analytics?.earnings ?? 0)}</span>
-              <span className="tiny muted">Earned (offline)</span>
+              <span className="tiny muted">{t("pmon_earned_offline")}</span>
             </div>
             <div style={{ width: 1, height: 36, background: "var(--line)" }} />
             <div className="col center" style={{ gap: 4 }}>
               <Calendar size={20} color="var(--green-500)" />
               <span className="bold h2" style={{ color: "var(--ink-900)" }}>{inr(thisWeek)}</span>
-              <span className="tiny muted">This week</span>
+              <span className="tiny muted">{t("pmon_this_week")}</span>
             </div>
             <div style={{ width: 1, height: 36, background: "var(--line)" }} />
             <div className="col center" style={{ gap: 4 }}>
               <Briefcase size={20} color="var(--brand-600)" />
               <span className="bold h2" style={{ color: "var(--ink-900)" }}>{analytics?.jobsDone ?? 0}</span>
-              <span className="tiny muted">Jobs done</span>
+              <span className="tiny muted">{t("jobs_done_label")}</span>
             </div>
           </div>
         )}
@@ -281,14 +283,14 @@ export default function ProviderMoney() {
 
         {/* Payment setup (relocated from Settings) */}
         <div>
-          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><QrCode size={14} /> How you get paid</div>
+          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><QrCode size={14} /> {t("pmon_how_paid")}</div>
           <div className="card col gap-12" style={{ padding: 14 }}>
             {/* UPI ID */}
             <div>
-              <div className="tiny semi" style={{ marginBottom: 4 }}>UPI ID (VPA)</div>
-              <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>Customers pay you via UPI. Enter your handle (e.g. yourname@okaxis) — a QR is generated automatically.</div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_upi_id")}</div>
+              <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>{t("pmon_upi_hint")}</div>
               <div className="row gap-8">
-                <input className="input grow" placeholder="e.g. yourname@okaxis" value={upiId} onChange={(e) => setUpiId(e.target.value)} style={{ fontSize: 14 }} />
+                <input className="input grow" placeholder={t("bset_upi_placeholder")} value={upiId} onChange={(e) => setUpiId(e.target.value)} style={{ fontSize: 14 }} />
                 <button className="btn btn-outline btn-sm" disabled={savingUpi} onClick={saveUpi}>{savingUpi ? "…" : "Save"}</button>
               </div>
             </div>
@@ -297,22 +299,22 @@ export default function ProviderMoney() {
 
             {/* Custom QR upload */}
             <div>
-              <div className="tiny semi" style={{ marginBottom: 4 }}>Custom Payment QR (optional)</div>
-              <div className="tiny muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>Upload your own QR image (bank app screenshot, GPay/PhonePe QR, etc.). This overrides the auto-generated UPI QR on your share card.</div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_custom_qr")}</div>
+              <div className="tiny muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>{t("bset_custom_qr_hint")}</div>
               {customQrUrl ? (
                 <div className="col gap-8" style={{ alignItems: "center" }}>
-                  <img src={customQrUrl} alt="Custom Payment QR" style={{ width: 140, height: 140, objectFit: "contain", borderRadius: 8, border: "1px solid var(--line)", background: "var(--white)", padding: 6 }} />
+                  <img src={customQrUrl} alt={t("bset_custom_qr_alt")} style={{ width: 140, height: 140, objectFit: "contain", borderRadius: 8, border: "1px solid var(--line)", background: "var(--white)", padding: 6 }} />
                   <div className="row gap-8">
                     <label className="btn btn-outline btn-sm row gap-6" style={{ cursor: "pointer" }}>
                       <ImageIcon size={13} /> Change
                       <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleQrUpload} />
                     </label>
-                    <button className="btn btn-outline btn-sm row gap-6" onClick={clearCustomQr}><X size={13} /> Remove</button>
+                    <button className="btn btn-outline btn-sm row gap-6" onClick={clearCustomQr}><X size={13} /> {t("bset_remove")}</button>
                   </div>
                 </div>
               ) : (
                 <label className="btn btn-outline btn-sm row gap-6" style={{ cursor: "pointer", alignSelf: "flex-start" }}>
-                  {uploadingQr ? "Uploading…" : <><ImageIcon size={13} /> Upload QR Image</>}
+                  {uploadingQr ? "Uploading…" : <><ImageIcon size={13} /> {t("bset_upload_qr")}</>}
                   <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleQrUpload} disabled={uploadingQr} />
                 </label>
               )}
@@ -322,7 +324,7 @@ export default function ProviderMoney() {
 
             {/* Appointment payment timing */}
             <div>
-              <div className="tiny semi" style={{ marginBottom: 4 }}>When to collect appointment payment</div>
+              <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_when_collect")}</div>
               <div className="tiny muted" style={{ marginBottom: 10, lineHeight: 1.5 }}>
                 "At booking" requires the customer to pay before you can accept their appointment. "At appointment" (default) lets you accept first — payment happens around the service, whenever suits you.
               </div>
@@ -351,7 +353,7 @@ export default function ProviderMoney() {
               {/* Deposit % — only meaningful when payment is collected upfront. */}
               {paymentTiming === "AT_BOOKING" && (
                 <div style={{ marginTop: 12 }}>
-                  <div className="tiny semi" style={{ marginBottom: 4 }}>Upfront deposit (%)</div>
+                  <div className="tiny semi" style={{ marginBottom: 4 }}>{t("bset_upfront_deposit")}</div>
                   <div className="tiny muted" style={{ marginBottom: 8, lineHeight: 1.5 }}>
                     Upfront deposit (%) — rest collected at the appointment. 0 = full amount up front.
                   </div>
@@ -376,11 +378,11 @@ export default function ProviderMoney() {
 
         {/* Earnings ledger */}
         <div>
-          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><Star size={14} /> Earnings history</div>
+          <div className="small semi muted row gap-6" style={{ marginBottom: 8 }}><Star size={14} /> {t("pmon_earnings_history")}</div>
           {(ledger ?? []).length === 0 ? (
             <div className="card col center" style={{ padding: 24, gap: 6 }}>
               <span style={{ fontSize: 28 }}>🧾</span>
-              <span className="tiny muted">Recorded settlements will appear here.</span>
+              <span className="tiny muted">{t("pmon_no_settlements")}</span>
             </div>
           ) : (
             <div className="card" style={{ overflow: "hidden", padding: 0 }}>

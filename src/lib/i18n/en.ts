@@ -1661,6 +1661,62 @@ const strings: Record<string, string> = {
     // Provider settings — exit
     pset_exit_provider: "Exit provider mode",
 
+    // Support and provider money
+    sup_fill_required: "Please fill in all required fields.",
+    sup_sent: "Message sent successfully!",
+    sup_send_failed: "Failed to send message. Please try again.",
+    sup_describe_bug_first: "Please describe the bug before submitting.",
+    sup_bug_sent: "Bug reported successfully!",
+    sup_bug_failed: "Failed to submit bug report. Please try again.",
+    sup_title: "Help & Support",
+    sup_contact_us: "Contact Us",
+    sup_report_bug: "Report a Bug",
+    sup_message_sent_heading: "Message Sent!",
+    sup_contact_team: "Contact the Team",
+    sup_contact_hint: "Send us a message, complaint, or feedback about STRYT.",
+    sup_file_complaint: "File a Complaint ⚠️",
+    sup_your_email: "Your Email Address",
+    sup_email_placeholder: "name@example.com",
+    sup_subject: "Subject",
+    sup_subject_placeholder: "Brief summary of the issue",
+    sup_description_placeholder: "Explain the complaint or issue in detail. If this is a complaint about a user or transaction, please provide relevant IDs or names.",
+    sup_send_message: "Send Message",
+    sup_bug_logged: "Bug Logged!",
+    sup_bug_hint: "Help us squish bugs! Describe what happened and we'll get it fixed.",
+    sup_reporting_as: "Reporting as",
+    sup_describe_bug: "Describe the Bug",
+    sup_bug_placeholder: "What happened? What screen were you on? (e.g. 'on the map screen when I touch on...')",
+    sup_submit_bug: "Submit Bug Report",
+    pmon_title: "Money",
+    pmon_subtitle: "Earnings & payments",
+    pmon_payment_rejected: "Payment claim rejected — customer can resubmit.",
+    pmon_invalid_upi: "Please enter a valid UPI ID (e.g. name@bank)",
+    pmon_qr_uploaded: "Custom QR code uploaded & saved!",
+    pmon_qr_reset_failed: "Failed to reset QR code.",
+    pmon_earned_offline: "Earned (offline)",
+    pmon_this_week: "This week",
+    pmon_how_paid: "How you get paid",
+    pmon_upi_hint: "Customers pay you via UPI. Enter your handle (e.g. yourname@okaxis) — a QR is generated automatically.",
+    pmon_earnings_history: "Earnings history",
+    pmon_no_settlements: "Recorded settlements will appear here.",
+
+    // Keys that were called but never defined
+    share_word: "Share",
+    couldnt_load: "Couldn't load — try again",
+    clear_action: "Clear",
+    confirm_accept_proposal: "Accept Proposal",
+    confirm_accept: "Confirm & Accept",
+    business: "Business",
+    place: "Place",
+    provider: "Provider",
+    pay: "Pay Now",
+
+    // Support — categories
+    sup_inquiry: "General Inquiry 💬",
+    sup_account_issue: "Account Issue 👤",
+    sup_business_listings: "Business Listings 🏪",
+    sup_suggestion: "Suggestion/Feedback 💡",
+
   };
 
 export default strings;

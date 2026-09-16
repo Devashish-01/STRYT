@@ -1656,6 +1656,62 @@ const strings: Record<string, string> = {
     // Provider settings — exit
     pset_exit_provider: "सेवा मोड से बाहर निकलें",
 
+    // Support and provider money
+    sup_fill_required: "कृपया सभी ज़रूरी जानकारी भरें।",
+    sup_sent: "संदेश भेज दिया गया!",
+    sup_send_failed: "संदेश नहीं भेजा जा सका। दोबारा कोशिश करें।",
+    sup_describe_bug_first: "भेजने से पहले गड़बड़ी के बारे में बताएं।",
+    sup_bug_sent: "गड़बड़ी की जानकारी भेज दी!",
+    sup_bug_failed: "गड़बड़ी की जानकारी नहीं भेजी जा सकी। दोबारा कोशिश करें।",
+    sup_title: "मदद और सहायता",
+    sup_contact_us: "हमसे संपर्क करें",
+    sup_report_bug: "गड़बड़ी बताएं",
+    sup_message_sent_heading: "संदेश भेज दिया!",
+    sup_contact_team: "टीम से संपर्क करें",
+    sup_contact_hint: "STRYT के बारे में संदेश, शिकायत या राय भेजें।",
+    sup_file_complaint: "शिकायत दर्ज करें ⚠️",
+    sup_your_email: "आपका ईमेल पता",
+    sup_email_placeholder: "name@example.com",
+    sup_subject: "विषय",
+    sup_subject_placeholder: "मामले का छोटा सार",
+    sup_description_placeholder: "शिकायत या मामला विस्तार से बताएं। अगर यह किसी व्यक्ति या लेन-देन की शिकायत है, तो उससे जुड़े आईडी या नाम भी दें।",
+    sup_send_message: "संदेश भेजें",
+    sup_bug_logged: "गड़बड़ी दर्ज हुई!",
+    sup_bug_hint: "गड़बड़ियाँ ठीक करने में मदद करें! क्या हुआ बताएं, हम ठीक कर देंगे।",
+    sup_reporting_as: "इस रूप में बता रहे हैं",
+    sup_describe_bug: "गड़बड़ी के बारे में बताएं",
+    sup_bug_placeholder: "क्या हुआ? आप किस स्क्रीन पर थे? (जैसे 'मैप स्क्रीन पर जब मैंने छुआ...')",
+    sup_submit_bug: "गड़बड़ी की जानकारी भेजें",
+    pmon_title: "पैसा",
+    pmon_subtitle: "कमाई और भुगतान",
+    pmon_payment_rejected: "भुगतान का दावा अस्वीकार — ग्राहक दोबारा भेज सकता है।",
+    pmon_invalid_upi: "सही UPI आईडी डालें (जैसे name@bank)",
+    pmon_qr_uploaded: "आपका QR कोड अपलोड होकर सेव हो गया!",
+    pmon_qr_reset_failed: "QR कोड वापस नहीं किया जा सका।",
+    pmon_earned_offline: "कमाई (ऑफ़लाइन)",
+    pmon_this_week: "इस हफ़्ते",
+    pmon_how_paid: "आपको पैसा कैसे मिलता है",
+    pmon_upi_hint: "ग्राहक आपको UPI से पैसे देते हैं। अपना हैंडल डालें (जैसे yourname@okaxis) — QR अपने आप बन जाएगा।",
+    pmon_earnings_history: "कमाई का इतिहास",
+    pmon_no_settlements: "दर्ज हुए हिसाब यहाँ दिखेंगे।",
+
+    // Keys that were called but never defined
+    share_word: "शेयर करें",
+    couldnt_load: "लोड नहीं हो सका — दोबारा कोशिश करें",
+    clear_action: "हटाएं",
+    confirm_accept_proposal: "भाव स्वीकारें",
+    confirm_accept: "पक्का करें और स्वीकारें",
+    business: "दुकान",
+    place: "जगह",
+    provider: "सेवा देने वाला",
+    pay: "अभी भुगतान करें",
+
+    // Support — categories
+    sup_inquiry: "सामान्य पूछताछ 💬",
+    sup_account_issue: "खाते की दिक़्क़त 👤",
+    sup_business_listings: "दुकान की लिस्टिंग 🏪",
+    sup_suggestion: "सुझाव/राय 💡",
+
   };
 
 export default strings;

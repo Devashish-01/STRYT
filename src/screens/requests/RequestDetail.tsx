@@ -552,7 +552,7 @@ export default function RequestDetail() {
         <div className="sheet-backdrop" onClick={() => setProposalToAccept(null)}>
           <div className="sheet col gap-14" style={{ maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div className="row between">
-              <span className="bold" style={{ fontSize: 18 }}>{t("confirm_accept_proposal") || "Accept Proposal"}</span>
+              <span className="bold" style={{ fontSize: 18 }}>{t("confirm_accept_proposal")}</span>
               <button className="icon-btn" onClick={() => setProposalToAccept(null)}><X size={18} /></button>
             </div>
             <p className="small muted" style={{ lineHeight: 1.5 }}>
@@ -579,7 +579,7 @@ export default function RequestDetail() {
                   acceptProposal(p);
                 }}
               >
-                {t("confirm_accept") || "Confirm & Accept"}
+                {t("confirm_accept")}
               </button>
             </div>
           </div>

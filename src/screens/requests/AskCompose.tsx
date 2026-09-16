@@ -363,7 +363,7 @@ export default function AskCompose() {
         right={
           (title || desc || cat || photos.length > 0 || Object.keys(fieldVals).length > 0) ? (
             <button type="button" className="btn btn-ghost btn-xs" onClick={handleClearDraft}>
-              {t("clear_action") || "Clear"}
+              {t("clear_action")}
             </button>
           ) : undefined
         }

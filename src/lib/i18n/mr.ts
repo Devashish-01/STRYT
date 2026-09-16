@@ -1656,6 +1656,62 @@ const strings: Record<string, string> = {
     // Provider settings — exit
     pset_exit_provider: "सेवा मोडमधून बाहेर पडा",
 
+    // Support and provider money
+    sup_fill_required: "कृपया सर्व आवश्यक माहिती भरा.",
+    sup_sent: "संदेश पाठवला!",
+    sup_send_failed: "संदेश पाठवता आला नाही. पुन्हा प्रयत्न करा.",
+    sup_describe_bug_first: "पाठवण्याआधी अडचणीबद्दल सांगा.",
+    sup_bug_sent: "अडचणीची माहिती पाठवली!",
+    sup_bug_failed: "अडचणीची माहिती पाठवता आली नाही. पुन्हा प्रयत्न करा.",
+    sup_title: "मदत आणि सहाय्य",
+    sup_contact_us: "आमच्याशी संपर्क करा",
+    sup_report_bug: "अडचण कळवा",
+    sup_message_sent_heading: "संदेश पाठवला!",
+    sup_contact_team: "टीमशी संपर्क करा",
+    sup_contact_hint: "STRYT बद्दल संदेश, तक्रार किंवा मत पाठवा.",
+    sup_file_complaint: "तक्रार नोंदवा ⚠️",
+    sup_your_email: "तुमचा ईमेल पत्ता",
+    sup_email_placeholder: "name@example.com",
+    sup_subject: "विषय",
+    sup_subject_placeholder: "प्रकरणाचा थोडक्यात सारांश",
+    sup_description_placeholder: "तक्रार किंवा प्रकरण सविस्तर सांगा. जर ही एखाद्या व्यक्ती किंवा व्यवहाराबद्दलची तक्रार असेल, तर संबंधित आयडी किंवा नावे द्या.",
+    sup_send_message: "संदेश पाठवा",
+    sup_bug_logged: "अडचण नोंदवली!",
+    sup_bug_hint: "अडचणी दूर करण्यात मदत करा! काय झाले ते सांगा, आम्ही दुरुस्त करू.",
+    sup_reporting_as: "या रूपात कळवत आहात",
+    sup_describe_bug: "अडचणीबद्दल सांगा",
+    sup_bug_placeholder: "काय झाले? तुम्ही कोणत्या स्क्रीनवर होता? (उदा. 'नकाशाच्या स्क्रीनवर मी स्पर्श केला तेव्हा...')",
+    sup_submit_bug: "अडचणीची माहिती पाठवा",
+    pmon_title: "पैसा",
+    pmon_subtitle: "कमाई आणि पेमेंट",
+    pmon_payment_rejected: "पेमेंटचा दावा नाकारला — ग्राहक पुन्हा पाठवू शकतो.",
+    pmon_invalid_upi: "बरोबर UPI आयडी टाका (उदा. name@bank)",
+    pmon_qr_uploaded: "तुमचा QR कोड अपलोड होऊन जतन झाला!",
+    pmon_qr_reset_failed: "QR कोड परत करता आला नाही.",
+    pmon_earned_offline: "कमाई (ऑफलाइन)",
+    pmon_this_week: "या आठवड्यात",
+    pmon_how_paid: "तुम्हाला पैसे कसे मिळतात",
+    pmon_upi_hint: "ग्राहक तुम्हाला UPI ने पैसे देतात. तुमचा हँडल टाका (उदा. yourname@okaxis) — QR आपोआप तयार होईल.",
+    pmon_earnings_history: "कमाईचा इतिहास",
+    pmon_no_settlements: "नोंदवलेले हिशोब इथे दिसतील.",
+
+    // Keys that were called but never defined
+    share_word: "शेअर करा",
+    couldnt_load: "लोड करता आले नाही — पुन्हा प्रयत्न करा",
+    clear_action: "काढा",
+    confirm_accept_proposal: "दर स्वीकारा",
+    confirm_accept: "निश्चित करा आणि स्वीकारा",
+    business: "दुकान",
+    place: "ठिकाण",
+    provider: "सेवा देणारा",
+    pay: "आता पैसे द्या",
+
+    // Support — categories
+    sup_inquiry: "सर्वसाधारण चौकशी 💬",
+    sup_account_issue: "खात्याची अडचण 👤",
+    sup_business_listings: "दुकानाची लिस्टिंग 🏪",
+    sup_suggestion: "सूचना/मत 💡",
+
   };
 
 export default strings;

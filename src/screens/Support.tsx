@@ -4,6 +4,7 @@ import { Bug, Mail, Send, CheckCircle2 } from "@/components/Icons";
 import { AppBar } from "@/components/common";
 import { useApp } from "@/store";
 import { supportService, type ReporterRole } from "@/services/core/supportService";
+import { useI18n } from "@/lib/i18n";
 type Tab = "CONTACT" | "BUG";
 
 const ROLE_LABELS: Record<ReporterRole, string> = {
@@ -21,6 +22,7 @@ function defaultReporterRole(activeRole: string): ReporterRole {
 export default function Support() {
   const nav = useNavigate();
   const { user, activeRole, showToast } = useApp();
+  const { t } = useI18n();
   const [searchParams] = useSearchParams();
   const [reporterRole, setReporterRole] = useState<ReporterRole>(() => defaultReporterRole(activeRole));
 
@@ -52,7 +54,7 @@ export default function Support() {
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !subject.trim() || !message.trim()) {
-      showToast("Please fill in all required fields.");
+      showToast(t("sup_fill_required"));
       return;
     }
 
@@ -65,10 +67,10 @@ export default function Support() {
         message: message.trim(),
       });
       setTicketSubmitted(true);
-      showToast("Message sent successfully!");
+      showToast(t("sup_sent"));
     } catch (err) {
       console.error(err);
-      showToast("Failed to send message. Please try again.");
+      showToast(t("sup_send_failed"));
     } finally {
       setLoading(false);
     }
@@ -77,7 +79,7 @@ export default function Support() {
   const handleBugSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bugDescription.trim()) {
-      showToast("Please describe the bug before submitting.");
+      showToast(t("sup_describe_bug_first"));
       return;
     }
 
@@ -88,10 +90,10 @@ export default function Support() {
         reporterRole,
       });
       setBugSubmitted(true);
-      showToast("Bug reported successfully!");
+      showToast(t("sup_bug_sent"));
     } catch (err) {
       console.error(err);
-      showToast("Failed to submit bug report. Please try again.");
+      showToast(t("sup_bug_failed"));
     } finally {
       setLoading(false);
     }
@@ -102,7 +104,7 @@ export default function Support() {
       {/* No hardcoded onBack — the only way in is from Settings, so forcing
           /profile skipped a level of the tree. AppBar defaults to nav(-1),
           which returns you to wherever you actually came from. */}
-      <AppBar title="Help & Support" />
+      <AppBar title={t("sup_title")} />
 
       {/* Tabs */}
       <div className="row" style={{ borderBottom: "1px solid var(--line)", background: "#fff" }}>
@@ -125,7 +127,7 @@ export default function Support() {
           }}
         >
           <Mail size={16} />
-          <span>Contact Us</span>
+          <span>{t("sup_contact_us")}</span>
         </button>
         <button
           onClick={() => {
@@ -146,7 +148,7 @@ export default function Support() {
           }}
         >
           <Bug size={16} />
-          <span>Report a Bug</span>
+          <span>{t("sup_report_bug")}</span>
         </button>
       </div>
 
@@ -157,7 +159,7 @@ export default function Support() {
               <div style={{ color: "var(--green-500)", animation: "pop 0.3s ease" }}>
                 <CheckCircle2 size={56} />
               </div>
-              <h3 className="bold h2">Message Sent!</h3>
+              <h3 className="bold h2">{t("sup_message_sent_heading")}</h3>
               <p className="muted small" style={{ lineHeight: 1.5, maxWidth: 300 }}>
                 Thank you for contacting us. We have received your query and will reply to <strong>{email}</strong> within 24 hours.
               </p>
@@ -168,32 +170,32 @@ export default function Support() {
           ) : (
             <form onSubmit={handleContactSubmit} className="col gap-14">
               <div className="col gap-4">
-                <h3 className="bold h2" style={{ color: "var(--ink-800)" }}>Contact the Team</h3>
-                <p className="muted small">Send us a message, complaint, or feedback about STRYT.</p>
+                <h3 className="bold h2" style={{ color: "var(--ink-800)" }}>{t("sup_contact_team")}</h3>
+                <p className="muted small">{t("sup_contact_hint")}</p>
               </div>
 
               <div className="field">
-                <label htmlFor="support-category">Category</label>
+                <label htmlFor="support-category">{t("category")}</label>
                 <select id="support-category"
                   className="input"
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
                   style={{ background: "#fff", appearance: "auto" }}
                 >
-                  <option value="COMPLAINT">File a Complaint ⚠️</option>
-                  <option value="INQUIRY">General Inquiry 💬</option>
-                  <option value="ACCOUNT">Account Issue 👤</option>
-                  <option value="BUSINESS">Business Listings 🏪</option>
-                  <option value="SUGGESTION">Suggestion/Feedback 💡</option>
+                  <option value="COMPLAINT">{t("sup_file_complaint")}</option>
+                  <option value="INQUIRY">{t("sup_inquiry")}</option>
+                  <option value="ACCOUNT">{t("sup_account_issue")}</option>
+                  <option value="BUSINESS">{t("sup_business_listings")}</option>
+                  <option value="SUGGESTION">{t("sup_suggestion")}</option>
                 </select>
               </div>
 
               <div className="field">
-                <label htmlFor="support-your-email-address">Your Email Address</label>
+                <label htmlFor="support-your-email-address">{t("sup_your_email")}</label>
                 <input id="support-your-email-address"
                   type="email"
                   className="input"
-                  placeholder="name@example.com"
+                  placeholder={t("sup_email_placeholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -201,11 +203,11 @@ export default function Support() {
               </div>
 
               <div className="field">
-                <label htmlFor="support-subject">Subject</label>
+                <label htmlFor="support-subject">{t("sup_subject")}</label>
                 <input id="support-subject"
                   type="text"
                   className="input"
-                  placeholder="Brief summary of the issue"
+                  placeholder={t("sup_subject_placeholder")}
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
                   required
@@ -213,10 +215,10 @@ export default function Support() {
               </div>
 
               <div className="field">
-                <label htmlFor="support-detailed-description">Detailed Description</label>
+                <label htmlFor="support-detailed-description">{t("detailed_description_label")}</label>
                 <textarea id="support-detailed-description"
                   className="input"
-                  placeholder="Explain the complaint or issue in detail. If this is a complaint about a user or transaction, please provide relevant IDs or names."
+                  placeholder={t("sup_description_placeholder")}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   style={{ minHeight: 120 }}
@@ -233,7 +235,7 @@ export default function Support() {
                 {loading ? "Sending..." : (
                   <>
                     <Send size={16} />
-                    <span>Send Message</span>
+                    <span>{t("sup_send_message")}</span>
                   </>
                 )}
               </button>
@@ -245,7 +247,7 @@ export default function Support() {
               <div style={{ color: "var(--green-500)", animation: "pop 0.3s ease" }}>
                 <CheckCircle2 size={56} />
               </div>
-              <h3 className="bold h2">Bug Logged!</h3>
+              <h3 className="bold h2">{t("sup_bug_logged")}</h3>
               <p className="muted small" style={{ lineHeight: 1.5, maxWidth: 300 }}>
                 Your bug report has been received and added to our tracking list. We appreciate your help in improving STRYT.
               </p>
@@ -261,13 +263,13 @@ export default function Support() {
           ) : (
             <div className="col gap-14">
               <div className="col gap-4">
-                <h3 className="bold h2" style={{ color: "var(--ink-800)" }}>Report a Bug</h3>
-                <p className="muted small">Help us squish bugs! Describe what happened and we'll get it fixed.</p>
+                <h3 className="bold h2" style={{ color: "var(--ink-800)" }}>{t("sup_report_bug")}</h3>
+                <p className="muted small">{t("sup_bug_hint")}</p>
               </div>
 
               <form onSubmit={handleBugSubmit} className="col gap-14" style={{ marginTop: 4 }}>
                 <div className="field">
-                  <label>Reporting as</label>
+                  <label>{t("sup_reporting_as")}</label>
                   <div className="row gap-8">
                     {(Object.keys(ROLE_LABELS) as ReporterRole[]).map((r) => (
                       <button
@@ -284,10 +286,10 @@ export default function Support() {
                 </div>
 
                 <div className="field">
-                  <label htmlFor="support-describe-the-bug">Describe the Bug</label>
+                  <label htmlFor="support-describe-the-bug">{t("sup_describe_bug")}</label>
                   <textarea id="support-describe-the-bug"
                     className="input"
-                    placeholder="What happened? What screen were you on? (e.g. 'on the map screen when I touch on...')"
+                    placeholder={t("sup_bug_placeholder")}
                     value={bugDescription}
                     onChange={(e) => setBugDescription(e.target.value)}
                     style={{ minHeight: 140 }}
@@ -303,7 +305,7 @@ export default function Support() {
                   {loading ? "Submitting..." : (
                     <>
                       <Send size={16} />
-                      <span>Submit Bug Report</span>
+                      <span>{t("sup_submit_bug")}</span>
                     </>
                   )}
                 </button>
