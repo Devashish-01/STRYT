@@ -246,3 +246,68 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `scope_label_delivery` | Delivery | डिलीवरी | डिलिव्हरी |  |
 | `acc_team_member` | Team member | टीम का सदस्य | टीम सदस्य |  |
 | `acc_delegated_access` | Business · Delegated access | दुकान · सौंपी गई पहुँच | दुकान · सोपवलेला प्रवेश |  |
+| `mdash_boost_expiring` | Your boost expires in less than 24h — renew to stay featured | आपका बूस्ट 24 घंटे से कम में ख़त्म — बने रहने के लिए दोबारा लें | तुमचा बूस्ट २४ तासांपेक्षा कमी वेळात संपेल — पुढे राहण्यासाठी पुन्हा घ्या |  |
+| `mdash_open_until` | Open now — clears at {time} | अभी खुला — {time} पर बंद | आता उघडे — {time} ला बंद |  |
+| `mdash_appointment_failed` | Couldn't update appointment | अपॉइंटमेंट अपडेट नहीं हो सकी | अपॉइंटमेंट अपडेट करता आली नाही |  |
+| `mdash_queue_payment_failed` | Couldn't update queue payment | क़तार का भुगतान अपडेट नहीं हो सका | रांगेचे पेमेंट अपडेट करता आले नाही |  |
+| `mdash_called` | Called {name} | {name} को बुलाया | {name} ला बोलावले |  |
+| `mdash_answer_posted` | Answer posted | जवाब पोस्ट हो गया | उत्तर पोस्ट झाले |  |
+| `mdash_answer_failed` | Couldn't post answer | जवाब पोस्ट नहीं हो सका | उत्तर पोस्ट करता आले नाही |  |
+| `mdash_share_shop` | Share shop | दुकान शेयर करें | दुकान शेअर करा |  |
+| `mdash_mark_open` | Mark shop open now | दुकान अभी खुली बताएं | दुकान आता उघडे असल्याचे सांगा |  |
+| `mdash_visible_nearby` | Visible to nearby customers | आस-पास के ग्राहकों को दिखेगा | जवळपासच्या ग्राहकांना दिसेल |  |
+| `mdash_all_caught_up` | You're all caught up. | सब निपट गया। | सर्व आटोपले. |  |
+| `mdash_queue_payment` | Queue payment | क़तार का भुगतान | रांगेचे पेमेंट |  |
+| `mdash_answer_placeholder` | Type your answer… | अपना जवाब लिखें… | तुमचे उत्तर लिहा… |  |
+| `mdash_post_answer` | Post answer | जवाब पोस्ट करें | उत्तर पोस्ट करा |  |
+| `mdash_answer_now` | Answer now | अभी जवाब दें | आता उत्तर द्या |  |
+| `mdash_reviews_link` | Reviews · reply to customers | समीक्षाएं · ग्राहकों को जवाब दें | परीक्षणे · ग्राहकांना उत्तर द्या |  |
+| `mdash_todays_appointments` | Today's appointments | आज की अपॉइंटमेंट | आजच्या अपॉइंटमेंट |  |
+| `mdash_view_all` | View all | सब देखें | सर्व पाहा |  |
+| `mdash_upcoming` | Upcoming | आगे आने वाली | पुढील |  |
+| `mdash_send_proposal` | Send a proposal to win the work | काम पाने के लिए भाव भेजें | काम मिळवण्यासाठी दर पाठवा |  |
+| `mdash_grow` | Grow | बढ़ाएं | वाढवा |  |
+| `mdash_post_update` | Post update | अपडेट पोस्ट करें | अपडेट पोस्ट करा |  |
+| `mdash_post_story` | Post story | स्टोरी पोस्ट करें | स्टोरी पोस्ट करा |  |
+| `mdash_share_qr` | Share QR | QR शेयर करें | QR शेअर करा |  |
+| `mdash_get_verified` | Get verified | सत्यापित हों | पडताळणी करून घ्या |  |
+| `mdash_action_needed` | Action needed | आपका ध्यान चाहिए | तुमचे लक्ष हवे |  |
+| `mdash_reject` | Reject | अस्वीकार करें | नाकारा |  |
+| `mdash_open_now` | Open now | अभी खुला | आता उघडे |  |
+| `bon_not_an_image` | That file isn't an image we can use — try a JPG or PNG. | यह फ़ाइल हम इस्तेमाल नहीं कर सकते — JPG या PNG आज़माएं। | ही फाइल आम्ही वापरू शकत नाही — JPG किंवा PNG वापरून पाहा. |  |
+| `bon_photo_too_big` | That photo is {size} MB — the limit is 8 MB. | यह फ़ोटो {size} MB की है — सीमा 8 MB है। | हा फोटो {size} MB चा आहे — मर्यादा ८ MB आहे. |  |
+| `bon_title` | List your business | अपनी दुकान दर्ज करें | तुमचे दुकान नोंदवा |  |
+| `bon_manage_businesses` | Manage my businesses | मेरी दुकानें संभालें | माझी दुकाने सांभाळा |  |
+| `bon_back_home` | Back to home | होम पर वापस | होमवर परत |  |
+| `bon_submitted` | Submitted for review | जाँच के लिए भेज दिया | तपासणीसाठी पाठवले |  |
+| `bon_business_name` | Business name * | दुकान का नाम * | दुकानाचे नाव * |  |
+| `bon_name_placeholder` | e.g. Spice Route Kitchen | जैसे Spice Route Kitchen | उदा. Spice Route Kitchen |  |
+| `bon_propose_category` | Don't see your line of work? Propose a category | अपना काम नहीं दिख रहा? नई श्रेणी सुझाएं | तुमचे काम दिसत नाही? नवीन श्रेणी सुचवा |  |
+| `bon_new_category_placeholder` | e.g. Cycle repair | जैसे साइकिल मरम्मत | उदा. सायकल दुरुस्ती |  |
+| `bon_category_review_note` | New categories are reviewed by our team before going live. | नई श्रेणियाँ लाइव होने से पहले हमारी टीम जाँचती है। | नवीन श्रेणी लाइव होण्याआधी आमची टीम तपासते. |  |
+| `bon_about` | About your business | अपनी दुकान के बारे में | तुमच्या दुकानाबद्दल |  |
+| `bon_about_placeholder` | What you sell or do, what you're known for, anything a first-time customer should know… | आप क्या बेचते या करते हैं, किस बात के लिए जाने जाते हैं, नए ग्राहक को क्या पता होना चाहिए… | तुम्ही काय विकता किंवा करता, कशासाठी ओळखले जाता, नव्या ग्राहकाला काय माहीत हवे… |  |
+| `bon_about_hint` | Shown at the top of your listing. You can change it any time. | यह आपकी लिस्टिंग के सबसे ऊपर दिखेगा। कभी भी बदल सकते हैं। | हे तुमच्या लिस्टिंगच्या सर्वात वर दिसेल. कधीही बदलू शकता. |  |
+| `bon_subcategories` | Sub-categories (select all that apply) | उप-श्रेणियाँ (जो भी लागू हों चुनें) | उप-श्रेणी (लागू असतील त्या निवडा) |  |
+| `bon_radius_hint` | How far you'll take bookings from, and how far your posts and stories reach nearby customers. | आप कितनी दूर तक बुकिंग लेंगे, और आपकी पोस्ट व स्टोरी कितनी दूर के ग्राहकों तक पहुँचेंगी। | तुम्ही किती अंतरापर्यंत बुकिंग घ्याल, आणि तुमच्या पोस्ट व स्टोरी किती अंतरावरील ग्राहकांपर्यंत पोहोचतील. |  |
+| `bon_address` | Address * | पता * | पत्ता * |  |
+| `bon_address_placeholder` | Shop no, lane, area | दुकान नंबर, गली, इलाक़ा | दुकान क्रमांक, गल्ली, परिसर |  |
+| `bon_city` | City * | शहर * | शहर * |  |
+| `bon_city_placeholder` | e.g. Pune | जैसे पुणे | उदा. पुणे |  |
+| `bon_pincode` | Pincode | पिनकोड | पिनकोड |  |
+| `bon_add_photos` | Add photos of your shop | अपनी दुकान की फ़ोटो जोड़ें | तुमच्या दुकानाचे फोटो जोडा |  |
+| `bon_add` | Add | जोड़ें | जोडा |  |
+| `bon_opening_offer` | Opening offer (optional) | शुरुआती ऑफ़र (वैकल्पिक) | सुरुवातीची ऑफर (ऐच्छिक) |  |
+| `bon_offer_placeholder` | e.g. 50% OFF up to ₹100 | जैसे ₹100 तक 50% छूट | उदा. ₹१०० पर्यंत ५०% सूट |  |
+| `bon_contact_number` | Contact number * | संपर्क नंबर * | संपर्क क्रमांक * |  |
+| `bon_same_as_contact` | Same as my contact number | मेरे संपर्क नंबर जैसा ही | माझ्या संपर्क क्रमांकासारखाच |  |
+| `bon_whatsapp_placeholder` | WhatsApp number | WhatsApp नंबर | WhatsApp क्रमांक |  |
+| `bon_business_email` | Business email (optional) | दुकान का ईमेल (वैकल्पिक) | दुकानाचा ईमेल (ऐच्छिक) |  |
+| `bon_email_placeholder` | shop@example.com | shop@example.com | shop@example.com |  |
+| `bon_email_hint` | For official enquiries. Hidden from your public listing until you turn it on in Settings. | सरकारी/आधिकारिक पूछताछ के लिए। जब तक आप सेटिंग में चालू न करें, यह लिस्टिंग पर नहीं दिखेगा। | अधिकृत चौकशीसाठी. तुम्ही सेटिंगमध्ये सुरू करेपर्यंत हे लिस्टिंगवर दिसणार नाही. |  |
+| `bon_opening_date` | Opening date | खुलने की तारीख़ | उघडण्याची तारीख |  |
+| `bon_step_basics` | Basics | बुनियादी बातें | मूलभूत माहिती |  |
+| `bon_step_location` | Location | जगह | ठिकाण |  |
+| `bon_step_photos` | Photos | फ़ोटो | फोटो |  |
+| `bon_step_contact` | Contact | संपर्क | संपर्क |  |
+| `bon_step_of` | Step {n} of 4 • {name} | चरण {n} / 4 • {name} | टप्पा {n} / ४ • {name} |  |

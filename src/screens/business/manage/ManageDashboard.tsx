@@ -15,6 +15,7 @@ import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/us
 import { AppBar, SafeImg, inr } from "@/components/common";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 import type { AppointmentRecord, QnaItem, QueueOwnerToken, RequestPost } from "@/types";
 import {
   calculateNextTurnoffTime, DEFAULT_ONBOARD_WORKING_HOURS,
@@ -41,6 +42,7 @@ export default function ManageDashboard() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast, user } = useApp();
+  const { t, tf } = useI18n();
   const ambient = useAmbientTheme(user.lat, user.lng, "business");
   // TMA-006 — no RequireScope on this route: it sits directly under
   // BusinessAccessGuard and self-hides by scope. Anything added here is
@@ -106,7 +108,7 @@ export default function ManageDashboard() {
     if (!business?.boostedUntil || business.boostReminderSent) return;
     const hoursLeft = (new Date(business.boostedUntil).getTime() - Date.now()) / 3_600_000;
     if (hoursLeft > 0 && hoursLeft <= 24) {
-      showToast("Your boost expires in less than 24h — renew to stay featured");
+      showToast(t("mdash_boost_expiring"));
       businessService.markBoostReminderSent(id).catch(() => {});
     }
   }, [business?.boostedUntil, business?.boostReminderSent, id, showToast]);
@@ -114,7 +116,7 @@ export default function ManageDashboard() {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Home" />
+        <AppBar title={t("home")} />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
       </div>
     );
@@ -127,7 +129,7 @@ export default function ManageDashboard() {
   if (businessLoading && !business) {
     return (
       <div className="screen with-nav">
-        <AppBar title="Home" />
+        <AppBar title={t("home")} />
         <div className="page-pad col gap-14" style={{ marginTop: 12 }}>
           <Skeleton h={120} r={20} mb={0} />
           <Skeleton h={56} mb={0} />
@@ -263,7 +265,7 @@ export default function ManageDashboard() {
       if (next && !scheduleEval.isOpenNow) {
         const until = calculateNextTurnoffTime(business?.hours);
         await businessService.setAvailability(id, true, until.toISOString());
-        showToast(`Open now — clears at ${until.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+        showToast(tf("mdash_open_until", { time: until.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }));
       } else {
         await businessService.setAvailability(id, next, null);
         showToast(next ? "Shop marked open right now" : "Shop marked closed");
@@ -307,7 +309,7 @@ export default function ManageDashboard() {
       showToast(status === "ACCEPTED" ? "Appointment accepted" : "Appointment declined");
       refetchAppointments();
     } catch {
-      showToast("Couldn't update appointment");
+      showToast(t("mdash_appointment_failed"));
     } finally {
       setBusyId(null);
     }
@@ -337,7 +339,7 @@ export default function ManageDashboard() {
       showToast(accept ? "Queue payment confirmed" : "Queue payment claim rejected");
       refetchQueue();
     } catch {
-      showToast("Couldn't update queue payment");
+      showToast(t("mdash_queue_payment_failed"));
     } finally {
       setBusyId(null);
     }
@@ -364,7 +366,7 @@ export default function ManageDashboard() {
     try {
       const result = await businessService.callNextToken(id);
       if (!result.ok) throw new Error(result.message);
-      showToast(`Called ${result.name}`);
+      showToast(tf("mdash_called", { name: result.name }));
       refetchQueue();
     } catch (error: any) {
       showToast(error?.message ?? "Couldn't call next");
@@ -380,10 +382,10 @@ export default function ManageDashboard() {
       await businessService.answerQuestion(question.id, answer.trim());
       setAnswer("");
       setAnsweringId(null);
-      showToast("Answer posted");
+      showToast(t("mdash_answer_posted"));
       refetchQuestions();
     } catch {
-      showToast("Couldn't post answer");
+      showToast(t("mdash_answer_failed"));
     } finally {
       setBusyId(null);
     }
@@ -425,14 +427,14 @@ export default function ManageDashboard() {
             <BrandHome color="#fff" glow={ambient.lampGlow} />
             <div className="row gap-8 center-v">
               <RoleSwitcher theme="dark-pill" enableLongPress />
-              <HeaderIcon label="Notifications" count={notificationUnread ?? 0} onClick={() => nav(`/notifications?scope=BUSINESS&id=${id}`)}>
+              <HeaderIcon label={t("notifications")} count={notificationUnread ?? 0} onClick={() => nav(`/notifications?scope=BUSINESS&id=${id}`)}>
                 <Bell size={16} />
               </HeaderIcon>
-              <HeaderIcon label="Messages" count={chatUnread ?? 0} onClick={() => nav(`/chats?scope=BUSINESS&id=${id}`)}>
+              <HeaderIcon label={t("messages_header")} count={chatUnread ?? 0} onClick={() => nav(`/chats?scope=BUSINESS&id=${id}`)}>
                 <MessageSquareText size={16} />
               </HeaderIcon>
               {isOwner && (
-              <button className="icon-btn-sm" aria-label="Share shop" onClick={() => setShare(true)} style={{ background: "rgba(255,255,255,.16)", color: "#fff" }}>
+              <button className="icon-btn-sm" aria-label={t("mdash_share_shop")} onClick={() => setShare(true)} style={{ background: "rgba(255,255,255,.16)", color: "#fff" }}>
                 <Share2 size={16} />
               </button>
               )}
@@ -498,7 +500,7 @@ export default function ManageDashboard() {
               <span style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", background: available ? "var(--green-100)" : "var(--ink-50)" }}>
                 <Zap size={21} color={available ? "var(--green-600)" : "var(--ink-400)"} weight={available ? "fill" : "regular"} />
               </span>
-              <div className="grow"><div className="semi small">{available ? "Open now" : "Mark shop open now"}</div><div className="tiny muted">Visible to nearby customers</div></div>
+              <div className="grow"><div className="semi small">{available ? t("mdash_open_now") : t("mdash_mark_open")}</div><div className="tiny muted">{t("mdash_visible_nearby")}</div></div>
               <Toggle on={available} />
             </button>
             {/* Only for businesses that structurally take bookings. A takeaway
@@ -531,7 +533,7 @@ export default function ManageDashboard() {
                   <div className="semi small">Queue · {queue?.waiting.length ?? 0} waiting</div>
                   <div className="tiny muted">{queue?.called.length ? `Serving ${queue.called[0].name}` : queue?.isOpen ? "Ready to call the next customer" : "Queue is currently off"}</div>
                 </div>
-                <button className="btn btn-outline btn-sm" onClick={() => nav(`${base}/queue`)}>Manage</button>
+                <button className="btn btn-outline btn-sm" onClick={() => nav(`${base}/queue`)}>{t("manage")}</button>
               </div>
               {queue?.isOpen && (queue.waiting.length ?? 0) > 0 && (
                 <button className="btn btn-primary btn-block btn-sm" style={{ marginTop: 10 }} disabled={busyId === "queue-call-next"} onClick={callNext}>
@@ -545,38 +547,38 @@ export default function ManageDashboard() {
         {(hasScope("appointments") || hasScope("queue") || hasScope("leads")) && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="row between center-v" style={{ marginBottom: 8 }}>
-              <span className="small semi muted" style={{ textTransform: "uppercase", letterSpacing: .5 }}>Action needed</span>
+              <span className="small semi muted" style={{ textTransform: "uppercase", letterSpacing: .5 }}>{t("mdash_action_needed")}</span>
               {actionCount > 0 && <span className="badge badge-amber">{actionCount}</span>}
             </div>
             {actionCount === 0 ? (
-              <div className="card col center" style={{ padding: 20, gap: 5 }}><span style={{ fontSize: 24 }}>✅</span><span className="tiny muted">You're all caught up.</span></div>
+              <div className="card col center" style={{ padding: 20, gap: 5 }}><span style={{ fontSize: 24 }}>✅</span><span className="tiny muted">{t("mdash_all_caught_up")}</span></div>
             ) : (
               <div className="col gap-10">
                 {hasScope("appointments") && pendingAppointments.slice(0, 3).map((item) => (
                   <TodayAction key={`appointment-${item.id}`} icon={<Calendar size={18} color="var(--brand-600)" />} title={`${ownerVisibleCustomerName(item)} · ${item.timeLabel}`} subtitle={item.packageName ?? item.dateLabel}>
-                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "ACCEPTED")}><Check size={14} /> Accept</button>
-                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "REJECTED")}><XIcon size={14} /> Decline</button>
+                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "ACCEPTED")}><Check size={14} /> {t("notif_apt_accept")}</button>
+                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointment(item, "REJECTED")}><XIcon size={14} /> {t("notif_apt_decline")}</button>
                   </TodayAction>
                 ))}
 
                 {hasScope("appointments") && appointmentClaims.slice(0, 3).map((item) => (
                   <TodayAction key={`appointment-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${ownerVisibleCustomerName(item)} claims ${inr(item.paymentAmount ?? item.packagePrice ?? 0)}`} subtitle={item.paymentReference ? `Reference ${item.paymentReference}` : "Appointment payment"}>
-                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, true)}>Confirm</button>
-                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, false)}>Reject</button>
+                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, true)}>{t("confirm")}</button>
+                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateAppointmentPayment(item, false)}>{t("mdash_reject")}</button>
                   </TodayAction>
                 ))}
 
                 {hasScope("queue") && queueClaims.slice(0, 3).map((item) => (
-                  <TodayAction key={`queue-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.name} claims ${inr(item.paymentAmount ?? 0)}`} subtitle="Queue payment">
-                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, true)}>Confirm</button>
-                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, false)}>Reject</button>
+                  <TodayAction key={`queue-payment-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.name} claims ${inr(item.paymentAmount ?? 0)}`} subtitle={t("mdash_queue_payment")}>
+                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, true)}>{t("confirm")}</button>
+                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.id} onClick={() => updateQueuePayment(item, false)}>{t("mdash_reject")}</button>
                   </TodayAction>
                 ))}
 
                 {hasScope("catalog") && bulkDepositClaims.slice(0, 3).map((item) => (
                   <TodayAction key={`bulk-deposit-${item.id}`} icon={<Wallet size={18} color="var(--amber-600)" />} title={`${item.pledgerName || "A pledger"} claims ${inr(item.depositAmount ?? 0)}`} subtitle={item.dealTitle}>
-                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.userId} onClick={() => updateBulkDeposit(item, true)}>Confirm</button>
-                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.userId} onClick={() => updateBulkDeposit(item, false)}>Reject</button>
+                    <button className="btn btn-green btn-sm grow" disabled={busyId === item.userId} onClick={() => updateBulkDeposit(item, true)}>{t("confirm")}</button>
+                    <button className="btn btn-outline btn-sm grow" disabled={busyId === item.userId} onClick={() => updateBulkDeposit(item, false)}>{t("mdash_reject")}</button>
                   </TodayAction>
                 ))}
 
@@ -584,19 +586,19 @@ export default function ManageDashboard() {
                   <div key={question.id} className="card" style={{ padding: 14 }}>
                     <div className="row gap-10 center-v"><HelpCircle size={18} color="var(--blue-500)" /><div className="grow"><div className="semi small">{question.question}</div><div className="tiny muted">Asked by {question.askerName}</div></div></div>
                     {answeringId === question.id ? (
-                      <div style={{ marginTop: 10 }}><textarea className="input" rows={2} value={answer} autoFocus placeholder="Type your answer…" onChange={(event) => setAnswer(event.target.value)} /><div className="row gap-8" style={{ marginTop: 8 }}><button className="btn btn-ghost btn-sm grow" onClick={() => { setAnsweringId(null); setAnswer(""); }}>Cancel</button><button className="btn btn-primary btn-sm grow" disabled={busyId === question.id || answer.trim().length < 2} onClick={() => postAnswer(question)}>Post answer</button></div></div>
-                    ) : <button className="btn btn-outline btn-sm btn-block" style={{ marginTop: 10 }} onClick={() => { setAnsweringId(question.id); setAnswer(""); }}>Answer now</button>}
+                      <div style={{ marginTop: 10 }}><textarea className="input" rows={2} value={answer} autoFocus placeholder={t("mdash_answer_placeholder")} onChange={(event) => setAnswer(event.target.value)} /><div className="row gap-8" style={{ marginTop: 8 }}><button className="btn btn-ghost btn-sm grow" onClick={() => { setAnsweringId(null); setAnswer(""); }}>{t("cancel")}</button><button className="btn btn-primary btn-sm grow" disabled={busyId === question.id || answer.trim().length < 2} onClick={() => postAnswer(question)}>{t("mdash_post_answer")}</button></div></div>
+                    ) : <button className="btn btn-outline btn-sm btn-block" style={{ marginTop: 10 }} onClick={() => { setAnsweringId(question.id); setAnswer(""); }}>{t("mdash_answer_now")}</button>}
                   </div>
                 ))}
               </div>
             )}
-            {isOwner && (reviews?.length ?? 0) > 0 && <button className="card row gap-10 center-v" style={{ width: "100%", marginTop: 10, textAlign: "left" }} onClick={() => nav(`${base}/reviews`)}><Star size={18} color="var(--amber-500)" /><span className="small semi grow">Reviews · reply to customers</span><ChevronRight size={17} color="var(--ink-300)" /></button>}
+            {isOwner && (reviews?.length ?? 0) > 0 && <button className="card row gap-10 center-v" style={{ width: "100%", marginTop: 10, textAlign: "left" }} onClick={() => nav(`${base}/reviews`)}><Star size={18} color="var(--amber-500)" /><span className="small semi grow">{t("mdash_reviews_link")}</span><ChevronRight size={17} color="var(--ink-300)" /></button>}
           </section>
         )}
 
         {bookingsOn && hasScope("appointments") && todayAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
-            <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">Today's appointments</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>View all</button></div>
+            <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">{t("mdash_todays_appointments")}</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>{t("mdash_view_all")}</button></div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
               {todayAppointments.slice(0, 3).map((item, index) => (
                 <button key={item.id} className="row gap-10 center-v" style={{ width: "100%", padding: "12px 14px", textAlign: "left", borderTop: index ? "1px solid var(--line)" : "none" }} onClick={() => nav(`${base}/appointments`)}>
@@ -609,7 +611,7 @@ export default function ManageDashboard() {
 
         {bookingsOn && hasScope("appointments") && upcomingAppointments.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
-            <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">Upcoming</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>View all</button></div>
+            <div className="row between center-v" style={{ marginBottom: 8 }}><span className="small semi">{t("mdash_upcoming")}</span><button className="see-all" onClick={() => nav(`${base}/appointments`)}>{t("mdash_view_all")}</button></div>
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
               {upcomingAppointments.map((item, index) => (
                 <button key={item.id} className="row gap-10 center-v" style={{ width: "100%", padding: "12px 14px", textAlign: "left", borderTop: index ? "1px solid var(--line)" : "none" }} onClick={() => nav(`${base}/appointments`)}>
@@ -639,18 +641,18 @@ export default function ManageDashboard() {
 
         {hasScope("leads") && matchingRequests.length > 0 && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
-            <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left", background: "var(--orange-50)" }} onClick={() => nav(`${base}/requests`)}><Search size={20} color="var(--orange-600)" /><div className="grow"><div className="semi small">{matchingRequests.length} nearby request{matchingRequests.length === 1 ? "" : "s"} match you</div><div className="tiny muted">Send a proposal to win the work</div></div><ChevronRight size={18} color="var(--orange-500)" /></button>
+            <button className="card row gap-12 center-v" style={{ width: "100%", textAlign: "left", background: "var(--orange-50)" }} onClick={() => nav(`${base}/requests`)}><Search size={20} color="var(--orange-600)" /><div className="grow"><div className="semi small">{matchingRequests.length} nearby request{matchingRequests.length === 1 ? "" : "s"} match you</div><div className="tiny muted">{t("mdash_send_proposal")}</div></div><ChevronRight size={18} color="var(--orange-500)" /></button>
           </section>
         )}
 
         {isOwner && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
-            <div className="small semi muted" style={{ marginBottom: 8 }}>Grow</div>
+            <div className="small semi muted" style={{ marginBottom: 8 }}>{t("mdash_grow")}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <GrowAction icon={<Megaphone size={18} color="var(--brand-600)" />} label="Post update" onClick={() => nav("/community/new", { state: composeState })} />
-              <GrowAction icon={<Camera size={18} color="var(--pink-500)" />} label="Post story" onClick={() => nav("/story/new", { state: composeState })} />
-              <GrowAction icon={<QrCode size={18} color="var(--ink-700)" />} label="Share QR" onClick={() => setShare(true)} />
-              {!business?.isVerified && <GrowAction icon={<BadgeCheck size={18} color="var(--green-600)" />} label="Get verified" onClick={() => nav(`${base}/verify`)} />}
+              <GrowAction icon={<Megaphone size={18} color="var(--brand-600)" />} label={t("mdash_post_update")} onClick={() => nav("/community/new", { state: composeState })} />
+              <GrowAction icon={<Camera size={18} color="var(--pink-500)" />} label={t("mdash_post_story")} onClick={() => nav("/story/new", { state: composeState })} />
+              <GrowAction icon={<QrCode size={18} color="var(--ink-700)" />} label={t("mdash_share_qr")} onClick={() => setShare(true)} />
+              {!business?.isVerified && <GrowAction icon={<BadgeCheck size={18} color="var(--green-600)" />} label={t("mdash_get_verified")} onClick={() => nav(`${base}/verify`)} />}
             </div>
           </section>
         )}

@@ -15,8 +15,10 @@ import { getBusinessTheme, BUSINESS_PACKAGES, type BusinessPackageKey } from "@/
 import { PackageConfirmCard } from "@/components/PackageConfirmCard";
 import { OnboardBookingsToggle } from "@/components/OnboardBookingsToggle";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { useI18n } from "@/lib/i18n";
 
-const steps = ["Basics", "Location", "Photos", "Contact"];
+/** Keys, resolved in the header so the step name reads in the viewer's language. */
+const stepKeys = ["bon_step_basics", "bon_step_location", "bon_step_photos", "bon_step_contact"];
 
 /** Cap on a single shop photo. A modern phone camera writes 8–15 MB files and
  *  the upload used to fail with no message at all, so the owner just saw a
@@ -43,6 +45,7 @@ const OPENING_DATE_MAX = isoDay(new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1
 export default function BusinessOnboard() {
   const nav = useNavigate();
   const { user, addRole, showToast, refreshUser, isAuthed, authReady, setContext, ownedBusinessIds, ownedEntitiesLoaded } = useApp();
+  const { t, tf } = useI18n();
   const { data: categories, loading: catLoading, error: catError, refetch: refetchCats } = useQuery(() => catalogService.getCategories("BUSINESS"), [], "categories:BUSINESS");
   const [step, setStep] = useState(0);
   const [done, setDone] = useState(false);
@@ -121,11 +124,11 @@ export default function BusinessOnboard() {
     // #6 — both of these used to be unchecked, and Supabase's rejection was
     // swallowed, so an oversized or unsupported file simply never appeared.
     if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
-      showToast("That file isn't an image we can use — try a JPG or PNG.");
+      showToast(t("bon_not_an_image"));
       return;
     }
     if (file.size > MAX_PHOTO_BYTES) {
-      showToast(`That photo is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 8 MB.`);
+      showToast(tf("bon_photo_too_big", { size: (file.size / 1024 / 1024).toFixed(1) }));
       return;
     }
     setPhotos((prev) => [...prev, { file, previewUrl: URL.createObjectURL(file) }]);
@@ -342,7 +345,7 @@ export default function BusinessOnboard() {
   if (atBusinessCap && !done) {
     return (
       <div className="screen">
-        <AppBar title="List your business" onBack={() => nav(-1)} />
+        <AppBar title={t("bon_title")} onBack={() => nav(-1)} />
         <div className="screen-scroll col center page-pad" style={{ paddingTop: 60, textAlign: "center" }}>
           <div style={{ width: 84, height: 84, borderRadius: "50%", background: "var(--ink-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Store size={40} color="var(--ink-500)" />
@@ -354,8 +357,8 @@ export default function BusinessOnboard() {
           </p>
         </div>
         <div className="page-pad col gap-10">
-          <button className="btn btn-primary btn-block" onClick={() => nav("/manage")}>Manage my businesses</button>
-          <button className="btn btn-ghost btn-block" onClick={() => nav("/home")}>Back to home</button>
+          <button className="btn btn-primary btn-block" onClick={() => nav("/manage")}>{t("bon_manage_businesses")}</button>
+          <button className="btn btn-ghost btn-block" onClick={() => nav("/home")}>{t("bon_back_home")}</button>
         </div>
       </div>
     );
@@ -368,7 +371,7 @@ export default function BusinessOnboard() {
           <div style={{ width: 96, height: 96, borderRadius: "50%", background: "var(--green-100)", display: "flex", alignItems: "center", justifyContent: "center", animation: "pop 0.4s ease" }}>
             <CheckCircle2 size={52} color="var(--green-500)" />
           </div>
-          <h1 className="bold h1" style={{ marginTop: 24 }}>Submitted for review</h1>
+          <h1 className="bold h1" style={{ marginTop: 24 }}>{t("bon_submitted")}</h1>
           {/* #17 — "3,247 nearby users" was a hardcoded literal shown to every
               owner in every city, including the first shop in a new market with
               no users at all. A promise the app can't keep is worse than no
@@ -387,7 +390,7 @@ export default function BusinessOnboard() {
           >
             Go to dashboard
           </button>
-          <button className="btn btn-ghost btn-block" onClick={() => nav("/home")}>Back to home</button>
+          <button className="btn btn-ghost btn-block" onClick={() => nav("/home")}>{t("bon_back_home")}</button>
         </div>
       </div>
     );
@@ -395,11 +398,11 @@ export default function BusinessOnboard() {
 
   return (
     <div className="screen">
-      <AppBar title="List your business" subtitle={`Step ${step + 1} of 4 • ${steps[step]}`} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
+      <AppBar title={t("bon_title")} subtitle={tf("bon_step_of", { n: step + 1, name: t(stepKeys[step]) })} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
 
       {/* Progress */}
       <div className="row gap-4 page-pad" style={{ paddingTop: 12, paddingBottom: 4 }}>
-        {steps.map((_, i) => (
+        {stepKeys.map((_, i) => (
           <div key={i} style={{ flex: 1, height: 5, borderRadius: 4, background: i <= step ? "var(--brand-600)" : "var(--ink-200)" }} />
         ))}
       </div>
@@ -426,7 +429,7 @@ export default function BusinessOnboard() {
               >
                 Start over
               </button>
-              <button type="button" className="icon-btn" aria-label="Dismiss" style={{ width: 24, height: 24 }} onClick={acknowledge}>
+              <button type="button" className="icon-btn" aria-label={t("dismiss_word")} style={{ width: 24, height: 24 }} onClick={acknowledge}>
                 <X size={12} />
               </button>
             </div>
@@ -436,20 +439,20 @@ export default function BusinessOnboard() {
           <>
 
             <div className="field">
-              <label htmlFor="businessonboard-business-name">Business name *</label>
-              <input id="businessonboard-business-name" className="input" placeholder="e.g. Spice Route Kitchen" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+              <label htmlFor="businessonboard-business-name">{t("bon_business_name")}</label>
+              <input id="businessonboard-business-name" className="input" placeholder={t("bon_name_placeholder")} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
             </div>
             <div className="field">
-              <label>Category *</label>
+              <label>{t("category_required_label")}</label>
               {catError ? (
                 <div className="card col gap-8" style={{ padding: 12, border: "1px solid var(--red-500)" }}>
                   <span className="tiny" style={{ color: "var(--red-600)" }}>Couldn't load categories: {catError.message || "network error"}</span>
-                  <button className="btn btn-outline btn-sm" style={{ width: "fit-content" }} onClick={refetchCats}>Retry</button>
+                  <button className="btn btn-outline btn-sm" style={{ width: "fit-content" }} onClick={refetchCats}>{t("retry")}</button>
                 </div>
               ) : catLoading && cats.length === 0 ? (
-                <div className="tiny muted">Loading categories…</div>
+                <div className="tiny muted">{t("loading_categories")}</div>
               ) : cats.length === 0 ? (
-                <div className="tiny muted">No categories available. <button className="semi" style={{ color: "var(--brand-700)" }} onClick={refetchCats}>Reload</button></div>
+                <div className="tiny muted">{t("no_categories_available")} <button className="semi" style={{ color: "var(--brand-700)" }} onClick={refetchCats}>{t("reload_word")}</button></div>
               ) : (
                 <div className="row wrap gap-8">
                   {cats.map((c) => (
@@ -461,34 +464,34 @@ export default function BusinessOnboard() {
               )}
             </div>
             <div className="field">
-              <label htmlFor="businessonboard-don-t-see-your-line-of-work-propose-a-ca">Don't see your line of work? Propose a category</label>
+              <label htmlFor="businessonboard-don-t-see-your-line-of-work-propose-a-ca">{t("bon_propose_category")}</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <Plus size={16} color="var(--ink-400)" />
                 <input id="businessonboard-don-t-see-your-line-of-work-propose-a-ca"
                   className="input"
                   style={{ border: "none" }}
-                  placeholder="e.g. Cycle repair"
+                  placeholder={t("bon_new_category_placeholder")}
                   value={newCat}
                   onChange={(e) => { setNewCat(e.target.value); if (e.target.value.trim()) { setCat(null); setSub([]); } }}
                 />
               </div>
-              {newCat.trim() && <span className="tiny muted">New categories are reviewed by our team before going live.</span>}
+              {newCat.trim() && <span className="tiny muted">{t("bon_category_review_note")}</span>}
             </div>
             <div className="field">
-              <label htmlFor="businessonboard-about-your-business">About your business</label>
+              <label htmlFor="businessonboard-about-your-business">{t("bon_about")}</label>
               <textarea id="businessonboard-about-your-business"
                 className="input"
                 style={{ minHeight: 80 }}
-                placeholder="What you sell or do, what you're known for, anything a first-time customer should know…"
+                placeholder={t("bon_about_placeholder")}
                 value={description}
                 maxLength={600}
                 onChange={(e) => setDescription(e.target.value)}
               />
-              <span className="tiny muted">Shown at the top of your listing. You can change it any time.</span>
+              <span className="tiny muted">{t("bon_about_hint")}</span>
             </div>
             {selectedCat?.children && (
               <div className="field">
-                <label>Sub-categories (select all that apply)</label>
+                <label>{t("bon_subcategories")}</label>
                 <div className="row wrap gap-8">
                   {selectedCat.children.map((c) => {
                     const active = sub.includes(c.id);
@@ -522,8 +525,8 @@ export default function BusinessOnboard() {
                 value={broadcastRadius}
                 onChange={setBroadcastRadius}
                 accentColor="var(--brand-600)"
-                label="Service radius"
-                description="How far you'll take bookings from, and how far your posts and stories reach nearby customers."
+                label={t("bset_service_radius")}
+                description={t("bon_radius_hint")}
               />
             </div>
           </>
@@ -557,12 +560,12 @@ export default function BusinessOnboard() {
               onError={(msg) => showToast(msg)}
             />
             <div className="field">
-              <label htmlFor="businessonboard-address">Address *</label>
-              <textarea id="businessonboard-address" className="input" placeholder="Shop no, lane, area" value={address} onChange={(e) => setAddress(e.target.value)} style={{ minHeight: 70 }} />
+              <label htmlFor="businessonboard-address">{t("bon_address")}</label>
+              <textarea id="businessonboard-address" className="input" placeholder={t("bon_address_placeholder")} value={address} onChange={(e) => setAddress(e.target.value)} style={{ minHeight: 70 }} />
             </div>
             <div className="row gap-10">
-              <div className="field grow"><label>City *</label><input className="input" placeholder="e.g. Pune" value={city} onChange={(e) => { cityTouched.current = true; setCity(e.target.value); }} /></div>
-              <div className="field grow"><label>Pincode</label><input className="input" placeholder="411001" inputMode="numeric" value={pincode} onChange={(e) => { pincodeTouched.current = true; setPincode(e.target.value.replace(/\D/g, "")); }} /></div>
+              <div className="field grow"><label>{t("bon_city")}</label><input className="input" placeholder={t("bon_city_placeholder")} value={city} onChange={(e) => { cityTouched.current = true; setCity(e.target.value); }} /></div>
+              <div className="field grow"><label>{t("bon_pincode")}</label><input className="input" placeholder="411001" inputMode="numeric" value={pincode} onChange={(e) => { pincodeTouched.current = true; setPincode(e.target.value.replace(/\D/g, "")); }} /></div>
             </div>
           </>
         )}
@@ -570,7 +573,7 @@ export default function BusinessOnboard() {
         {step === 2 && (
           <>
             <div className="field">
-              <label>Add photos of your shop</label>
+              <label>{t("bon_add_photos")}</label>
               <span className="tiny muted">
                 {bizTheme.onboardPhotoHint ?? "A great cover photo gets 3x more views."}
               </span>
@@ -628,7 +631,7 @@ export default function BusinessOnboard() {
                 ))}
                 {photos.length < 4 && (
                   <label className="col center" style={{ width: 96, height: 96, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, cursor: "pointer" }}>
-                    <Camera size={22} /><span className="tiny">Add</span>
+                    <Camera size={22} /><span className="tiny">{t("bon_add")}</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -644,8 +647,8 @@ export default function BusinessOnboard() {
               </div>
             </div>
             <div className="field">
-              <label htmlFor="businessonboard-opening-offer-optional">Opening offer (optional)</label>
-              <input id="businessonboard-opening-offer-optional" className="input" placeholder="e.g. 50% OFF up to ₹100" value={offer} onChange={(e) => setOffer(e.target.value)} />
+              <label htmlFor="businessonboard-opening-offer-optional">{t("bon_opening_offer")}</label>
+              <input id="businessonboard-opening-offer-optional" className="input" placeholder={t("bon_offer_placeholder")} value={offer} onChange={(e) => setOffer(e.target.value)} />
             </div>
           </>
         )}
@@ -653,7 +656,7 @@ export default function BusinessOnboard() {
         {step === 3 && (
           <>
             <div className="field">
-              <label>Contact number *</label>
+              <label>{t("bon_contact_number")}</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <Phone size={16} color="var(--ink-400)" />
                 {/* #10 — maxLength={10} counted the RAW keystrokes, so typing
@@ -682,7 +685,7 @@ export default function BusinessOnboard() {
                 }}>
                   {whatsappSame && <Check size={13} />}
                 </span>
-                <span className="small">Same as my contact number</span>
+                <span className="small">{t("bon_same_as_contact")}</span>
               </button>
               {!whatsappSame && (
                 <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
@@ -691,7 +694,7 @@ export default function BusinessOnboard() {
                     className="input"
                     style={{ border: "none" }}
                     inputMode="numeric"
-                    placeholder="WhatsApp number"
+                    placeholder={t("bon_whatsapp_placeholder")}
                     value={whatsapp}
                     onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, "").slice(-10))}
                   />
@@ -699,7 +702,7 @@ export default function BusinessOnboard() {
               )}
             </div>
             <div className="field">
-              <label htmlFor="businessonboard-business-email-optional">Business email (optional)</label>
+              <label htmlFor="businessonboard-business-email-optional">{t("bon_business_email")}</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <Mail size={16} color="var(--ink-400)" />
                 <input id="businessonboard-business-email-optional"
@@ -707,15 +710,15 @@ export default function BusinessOnboard() {
                   style={{ border: "none" }}
                   inputMode="email"
                   autoCapitalize="none"
-                  placeholder="shop@example.com"
+                  placeholder={t("bon_email_placeholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value.trim())}
                 />
               </div>
-              <span className="tiny muted">For official enquiries. Hidden from your public listing until you turn it on in Settings.</span>
+              <span className="tiny muted">{t("bon_email_hint")}</span>
             </div>
             <div className="field">
-              <label>Opening date</label>
+              <label>{t("bon_opening_date")}</label>
               {/* A real date input, not free text. This used to be a plain
                   text field with placeholder "e.g. 30 May 2026" writing into
                   businesses.opening_date, which is a genuine `date` column —
