@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import { AppProvider } from "./store";
 import { I18nProvider } from "./lib/i18n";
+import { initialLang, loadLang } from "./lib/i18n/runtime";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
@@ -34,21 +35,26 @@ void initNativeApp();
 // no auto-reload path to escape it. The native app updates via a new APK, not a
 // SW. initNativeApp() actively tears down any leftover SW from older builds.
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <BrowserRouter>
-        <I18nProvider>
-          <AppProvider>
-            <IconContext.Provider value={{ weight: "regular", size: "1em" }}>
-              <ServiceWorkerUpdater />
-              <App />
-              <Analytics />
-              <SpeedInsights />
-            </IconContext.Provider>
-          </AppProvider>
-        </I18nProvider>
-      </BrowserRouter>
-    </ErrorBoundary>
-  </React.StrictMode>
-);
+// Hindi and Marathi strings load on demand (src/lib/i18n/runtime.ts). Fetch the saved language before the first render so
+// the app opens in it rather than flashing English; English users skip the wait entirely. A failed fetch still
+// renders, in English.
+void loadLang(initialLang()).finally(() => {
+  ReactDOM.createRoot(document.getElementById("root")!).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <I18nProvider>
+            <AppProvider>
+              <IconContext.Provider value={{ weight: "regular", size: "1em" }}>
+                <ServiceWorkerUpdater />
+                <App />
+                <Analytics />
+                <SpeedInsights />
+              </IconContext.Provider>
+            </AppProvider>
+          </I18nProvider>
+        </BrowserRouter>
+      </ErrorBoundary>
+    </React.StrictMode>
+  );
+});

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { translations } from "./i18n";
+import { translations } from "./i18n/all";
 import type { NotificationMetadata, NotificationType } from "@/types";
 
 const ROOT = path.resolve(__dirname, "..", "..");

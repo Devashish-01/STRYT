@@ -8,7 +8,7 @@ import { BusinessCardWide, ProviderCard } from "@/components/cards";
 import { EmptyState } from "@/components/common";
 import { NoResultsIllustration } from "@/components/illustrations";
 import { useApp } from "@/store";
-import { useI18n, translations } from "@/lib/i18n";
+import { useI18n, englishStrings } from "@/lib/i18n";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import type { Business, Provider } from "@/types";
 
@@ -235,7 +235,7 @@ export default function Search() {
                 const word = t(key);
                 // Listings are written in English, so the chip searches the English term even when it reads in
                 // Hindi or Marathi — translated chips used to return nothing at all (S3).
-                const term = translations.en[key] ?? word;
+                const term = englishStrings[key] ?? word;
                 return <button key={key} className="chip" onClick={() => setQ(term)}>🔥 {word}</button>;
               })}
             </div>

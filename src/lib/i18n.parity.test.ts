@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { translations, type Lang } from "./i18n";
+import { translations } from "./i18n/all";
+import type { Lang } from "./i18n";
 
 /**
  * A key that exists in English but not in Hindi or Marathi shows that user an English string in the middle of their
