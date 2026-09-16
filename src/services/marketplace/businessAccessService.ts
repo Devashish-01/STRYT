@@ -25,13 +25,14 @@ export type AccessLevel = "FULL" | "SCOPED";
  * edit silently strips it.
  */
 export type Scope = "appointments" | "queue" | "catalog" | "leads" | "delivery";
-/** Short display label per scope — shared by the switcher and the Team screen so they never drift. */
-export const SCOPE_LABELS: Record<Scope, string> = {
-  appointments: "Appointments",
-  queue: "Queue",
-  catalog: "Catalogue",
-  leads: "Leads & quotes",
-  delivery: "Delivery",
+/** Translation key per scope — shared by the switcher and the Team screen so they never drift, and so a Hindi or
+ *  Marathi user reads the scope in their own language. Resolve with t() at the point of display. */
+export const SCOPE_LABEL_KEYS: Record<Scope, string> = {
+  appointments: "scope_label_appointments",
+  queue: "scope_label_queue",
+  catalog: "scope_label_catalog",
+  leads: "scope_label_leads",
+  delivery: "scope_label_delivery",
 };
 
 export interface AccessSession {

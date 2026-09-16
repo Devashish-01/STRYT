@@ -4,9 +4,10 @@ import { useApp } from "@/store";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { businessService, providerService, businessAccessService } from "@/services";
 import { deliveryService } from "@/services/engagement/deliveryService";
-import { SCOPE_LABELS } from "@/services/marketplace/businessAccessService";
+import { SCOPE_LABEL_KEYS } from "@/services/marketplace/businessAccessService";
 import { displayName as safeName } from "@/lib/publicName";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
+import { useI18n } from "@/lib/i18n";
 
 export interface AccountOption {
   type: "customer" | "business" | "provider" | "delivery";
@@ -30,6 +31,7 @@ export interface AccountOption {
  */
 export function useAccountOptions() {
   const nav = useNavigate();
+  const { t } = useI18n();
   const { user, activeContext, setContext, attemptSwitchContext, ownedBusinessIds, ownedProviderId, ownedEntitiesLoaded, roles, showToast } = useApp();
 
   const { data: myBiz } = useQuery(() => businessService.mine(), [user.id], `my-businesses:${user.id}`);
@@ -76,8 +78,8 @@ export function useAccountOptions() {
     ...delegatedGrants.map((s) => ({
       type: "business" as const, id: s.businessId, name: s.businessName || "Business", avatar: "",
       sub: s.accessLevel === "FULL"
-        ? "Business · Delegated access"
-        : `Team member · ${s.scopes.map((sc) => SCOPE_LABELS[sc]).join(", ") || "No access"}`,
+        ? t("acc_delegated_access")
+        : `${t("acc_team_member")} · ${s.scopes.map((sc) => t(SCOPE_LABEL_KEYS[sc])).join(", ") || t("scope_none")}`,
       dest: `/business/${s.businessId}/manage`, active: isActive("business", s.businessId),
       delegated: true,
     })),

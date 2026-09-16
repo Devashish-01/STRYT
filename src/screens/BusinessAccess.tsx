@@ -6,19 +6,21 @@ import { Store, Key, ChevronRight, UserPlus, Pencil, Clock, Check, X, Copy } fro
 import { businessService, businessAccessService } from "@/services";
 import type { Business } from "@/types";
 import type { AccessSession, Scope, BusinessLoginConfig } from "@/services/marketplace/businessAccessService";
-import { SCOPE_LABELS } from "@/services/marketplace/businessAccessService";
+import { SCOPE_LABEL_KEYS } from "@/services/marketplace/businessAccessService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
 import Toggle from "@/components/Toggle";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
+import { useI18n } from "@/lib/i18n";
 
-const SCOPE_META: Record<Scope, { label: string; text: string }> = {
-  appointments: { label: SCOPE_LABELS.appointments, text: "View and manage booking requests" },
-  queue: { label: SCOPE_LABELS.queue, text: "Call, serve and manage the walk-in queue" },
-  catalog: { label: SCOPE_LABELS.catalog, text: "Products, inventory, portfolio and hours" },
-  leads: { label: SCOPE_LABELS.leads, text: "Respond to leads, send quotes, answer questions" },
-  delivery: { label: SCOPE_LABELS.delivery, text: "Pick up and deliver orders assigned to them" },
+/** Keys, not words: every row here is read in the viewer's language. */
+const SCOPE_META: Record<Scope, { labelKey: string; textKey: string }> = {
+  appointments: { labelKey: SCOPE_LABEL_KEYS.appointments, textKey: "bacc_appointments_text" },
+  queue: { labelKey: SCOPE_LABEL_KEYS.queue, textKey: "bacc_queue_text" },
+  catalog: { labelKey: SCOPE_LABEL_KEYS.catalog, textKey: "bacc_catalog_text" },
+  leads: { labelKey: SCOPE_LABEL_KEYS.leads, textKey: "bacc_leads_text" },
+  delivery: { labelKey: SCOPE_LABEL_KEYS.delivery, textKey: "bacc_delivery_text" },
 };
 // Management scopes drive the "Full access" preset. Delivery is a distinct
 // role (its own hat/console), so it's a separate opt-in toggle rather than part
@@ -27,11 +29,11 @@ const MANAGEMENT_SCOPES: Scope[] = ["appointments", "queue", "catalog", "leads"]
 const ALL_SCOPES: Scope[] = DELIVERY_AGENT_ENABLED ? [...MANAGEMENT_SCOPES, "delivery"] : MANAGEMENT_SCOPES;
 
 type Preset = "front_desk" | "store_manager" | "delivery_rider" | "full" | "custom";
-const PRESETS: { id: Exclude<Preset, "custom">; label: string; scopes: Scope[] }[] = [
-  { id: "front_desk", label: "Front desk", scopes: ["appointments", "queue"] },
-  { id: "store_manager", label: "Store manager", scopes: ["catalog", "leads"] },
-  ...(DELIVERY_AGENT_ENABLED ? [{ id: "delivery_rider" as const, label: "Delivery rider", scopes: ["delivery"] as Scope[] }] : []),
-  { id: "full", label: "Full access", scopes: MANAGEMENT_SCOPES },
+const PRESETS: { id: Exclude<Preset, "custom">; labelKey: string; scopes: Scope[] }[] = [
+  { id: "front_desk", labelKey: "bacc_preset_front_desk", scopes: ["appointments", "queue"] },
+  { id: "store_manager", labelKey: "bacc_preset_store_manager", scopes: ["catalog", "leads"] },
+  ...(DELIVERY_AGENT_ENABLED ? [{ id: "delivery_rider" as const, labelKey: "bacc_preset_delivery_rider", scopes: ["delivery"] as Scope[] }] : []),
+  { id: "full", labelKey: "scope_full", scopes: MANAGEMENT_SCOPES },
 ];
 
 function presetForScopes(scopes: Scope[]): Preset {
@@ -43,27 +45,28 @@ function presetForScopes(scopes: Scope[]): Preset {
  *  that ends tonight looked identical to a permanent named grant. Null means it
  *  genuinely doesn't expire, which is worth saying out loud rather than leaving
  *  blank. */
-function expiryLabel(expiresAt: string | null): string | null {
+function expiryLabel(expiresAt: string | null, t: (k: string, f?: string) => string, tf: (k: string, p: Record<string, string | number>) => string): string | null {
   if (!expiresAt) return null;
   const ms = new Date(expiresAt).getTime() - Date.now();
   if (!Number.isFinite(ms)) return null;
-  if (ms <= 0) return "Expired";
+  if (ms <= 0) return t("bacc_expired");
   const mins = Math.round(ms / 60000);
-  if (mins < 60) return `Ends in ${mins} min`;
+  if (mins < 60) return tf("bacc_ends_in_min", { n: mins });
   const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `Ends in ${hrs} hr`;
-  return `Ends ${new Date(expiresAt).toLocaleDateString([], { day: "numeric", month: "short" })}`;
+  if (hrs < 24) return tf("bacc_ends_in_hr", { n: hrs });
+  return tf("bacc_ends_on", { date: new Date(expiresAt).toLocaleDateString([], { day: "numeric", month: "short" }) });
 }
 
-function scopeSummary(s: Pick<AccessSession, "accessLevel" | "scopes">): string {
-  if (s.accessLevel === "FULL") return "Full access";
-  if (s.scopes.length === 0) return "No access";
-  return s.scopes.map((sc) => SCOPE_META[sc].label).join(", ");
+function scopeSummary(s: Pick<AccessSession, "accessLevel" | "scopes">, t: (k: string) => string): string {
+  if (s.accessLevel === "FULL") return t("scope_full");
+  if (s.scopes.length === 0) return t("scope_none");
+  return s.scopes.map((sc) => t(SCOPE_META[sc].labelKey)).join(", ");
 }
 
 export default function BusinessAccess() {
   const nav = useNavigate();
   const { user, activeContext, setContext, attemptSwitchContext, showToast } = useApp();
+  const { t, tf } = useI18n();
 
   const { data: myBiz, loading: bizLoading } = useQuery(() => businessService.mine(), [user.id], `my-businesses:${user.id}`);
   const { data: mySessions, refetch: refetchMySessions } = useQueryWithRealtime(
@@ -94,7 +97,7 @@ export default function BusinessAccess() {
       if (activeContext.type === "business" && activeContext.id === s.businessId) {
         setContext({ type: "customer", id: null, name: user.name });
       }
-      showToast("Access removed");
+      showToast(t("bacc_access_removed"));
       refetchMySessions();
     } catch (e: any) {
       showToast(e?.message || "Couldn't remove access");
@@ -105,13 +108,13 @@ export default function BusinessAccess() {
 
   return (
     <div className="screen screen-boxed">
-      <AppBar title="Team & access" subtitle="Add team members & manage sessions" />
+      <AppBar title={t("bset_team_access")} subtitle={t("bacc_subtitle")} />
       <div className="screen-scroll page-pad col gap-16 scroll-pad-end" style={{ paddingTop: 14 }}>
 
         {/* ── Businesses granted to me ── */}
         {activeGrants.length > 0 && (
           <div className="col gap-6">
-            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Businesses you can access</span>
+            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_businesses_you_access")}</span>
             <div className="col gap-8">
               {activeGrants.map((s) => (
                 <div key={s.id} className="card row gap-12 center-v" style={{ padding: 12 }}>
@@ -120,8 +123,8 @@ export default function BusinessAccess() {
                     <div className="grow">
                       <div className="semi small">{s.businessName}</div>
                       <div className="tiny" style={{ color: "var(--green-600)" }}>
-                      {scopeSummary(s)}
-                      {expiryLabel(s.expiresAt) && <span className="muted"> · {expiryLabel(s.expiresAt)}</span>}
+                      {scopeSummary(s, t)}
+                      {expiryLabel(s.expiresAt, t, tf) && <span className="muted"> · {expiryLabel(s.expiresAt, t, tf)}</span>}
                     </div>
                     </div>
                     <ChevronRight size={18} color="var(--ink-300)" />
@@ -150,17 +153,17 @@ export default function BusinessAccess() {
             <Key size={19} color="var(--brand-700)" />
           </div>
           <div className="grow">
-            <div className="semi small">Have a shop login?</div>
-            <div className="tiny muted">Open a shop you work at using its id and password</div>
+            <div className="semi small">{t("bacc_have_shop_login")}</div>
+            <div className="tiny muted">{t("bacc_have_shop_login_hint")}</div>
           </div>
           <ChevronRight size={18} color="var(--ink-300)" />
         </button>
 
         {/* ── My businesses — add team members ── */}
         <div className="col gap-6">
-          <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Your businesses</span>
+          <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_your_businesses")}</span>
           {bizLoading ? <ListSkeleton count={2} /> : (myBiz ?? []).length === 0 ? (
-            <EmptyState emoji="🏪" title="No businesses yet" text="List a business to add team members to it." />
+            <EmptyState emoji="🏪" title={t("bacc_no_businesses")} text={t("bacc_no_businesses_text")} />
           ) : (
             <div className="col gap-8">
               {(myBiz ?? []).map((b) => (
@@ -168,7 +171,7 @@ export default function BusinessAccess() {
                   <SafeImg src={b.coverImage} className="thumb" style={{ width: 40, height: 40, borderRadius: 10, objectFit: "cover" }} />
                   <div className="grow">
                     <div className="semi small">{b.name}</div>
-                    <div className="tiny muted">Add team members & manage access</div>
+                    <div className="tiny muted">{t("bacc_manage_access")}</div>
                   </div>
                   <Key size={17} color="var(--ink-400)" />
                 </button>
@@ -199,6 +202,7 @@ export default function BusinessAccess() {
  */
 function ShopLoginSection({ businessId }: { businessId: string }) {
   const { showToast } = useApp();
+  const { t } = useI18n();
   const { data: config, loading, refetch } = useQuery(
     () => businessAccessService.getConfig(businessId),
     [businessId],
@@ -232,7 +236,7 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
     try {
       const s = await businessAccessService.suggestLogin(businessId);
       if (s) setLoginId(s);
-      else showToast("Couldn't suggest one — type your own");
+      else showToast(t("bacc_suggest_failed"));
     } finally {
       setSuggesting(false);
     }
@@ -244,11 +248,11 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
     // there is no existing hash the first time, so a blank one then would create
     // a login nobody can ever use.
     if (!config && !password.trim()) {
-      showToast("Set a password for the shop login");
+      showToast(t("bacc_set_password"));
       return;
     }
     if (password.trim() && password.trim().length < 6) {
-      showToast("Use at least 6 characters");
+      showToast(t("bacc_password_min"));
       return;
     }
     setSaving(true);
@@ -273,7 +277,7 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
 
   return (
     <div className="col gap-8" style={{ marginTop: 20 }}>
-      <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Shop login</span>
+      <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_shop_login")}</span>
 
       <button
         type="button"
@@ -308,7 +312,7 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
 
           <div className="field" style={{ marginBottom: 0 }}>
             <label className="row between center-v">
-              <span>Login id</span>
+              <span>{t("bacc_login_id")}</span>
               <button type="button" className="tiny semi" style={{ color: "var(--brand-700)", background: "none", border: "none", cursor: "pointer" }} disabled={suggesting} onClick={suggest}>
                 {suggesting ? "…" : "Suggest one"}
               </button>
@@ -320,7 +324,7 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
                 value={loginId}
                 autoCapitalize="none"
                 autoCorrect="off"
-                placeholder="e.g. spiceroute-kitchen"
+                placeholder={t("bacc_login_id_placeholder")}
                 onChange={(e) => setLoginId(e.target.value.toLowerCase().replace(/\s/g, ""))}
               />
               {config?.loginId && (
@@ -328,11 +332,11 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
                   type="button"
                   className="icon-btn"
                   style={{ width: 26, height: 26 }}
-                  aria-label="Copy login id"
+                  aria-label={t("bacc_copy_login_id")}
                   onClick={() => {
                     void navigator.clipboard?.writeText(config.loginId).then(
-                      () => showToast("Login id copied"),
-                      () => showToast("Couldn't copy")
+                      () => showToast(t("bacc_login_id_copied")),
+                      () => showToast(t("bacc_copy_failed"))
                     );
                   }}
                 >
@@ -340,7 +344,7 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
                 </button>
               )}
             </div>
-            <span className="tiny muted">4–30 letters, numbers, dot, dash or underscore — or your own mobile number.</span>
+            <span className="tiny muted">{t("bacc_login_id_rules")}</span>
           </div>
 
           <div className="field" style={{ marginBottom: 0 }}>
@@ -354,7 +358,7 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
               placeholder={config ? "••••••••" : "At least 6 characters"}
               onChange={(e) => setPassword(e.target.value)}
             />
-            <span className="tiny muted">Share it with your staff the way you'd share a till PIN. Change it when someone leaves.</span>
+            <span className="tiny muted">{t("bacc_password_share_hint")}</span>
           </div>
 
           <button
@@ -365,14 +369,14 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
             style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}
           >
             <span className="col" style={{ gap: 2, minWidth: 0 }}>
-              <span className="semi small">Approve each sign-in</span>
-              <span className="tiny muted">You get a request to accept before they can open the shop</span>
+              <span className="semi small">{t("bacc_approve_each")}</span>
+              <span className="tiny muted">{t("bacc_approve_each_hint")}</span>
             </span>
             <Toggle on={requireApproval} />
           </button>
 
           <div className="field" style={{ marginBottom: 0 }}>
-            <label>Session length</label>
+            <label>{t("bacc_session_length")}</label>
             <div className="row gap-6" style={{ flexWrap: "wrap" }}>
               {[4, 8, 12, 24, 168].map((h) => (
                 <button
@@ -385,7 +389,7 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
                 </button>
               ))}
             </div>
-            <span className="tiny muted">How long a sign-in lasts before they have to log in again.</span>
+            <span className="tiny muted">{t("bacc_session_length_hint")}</span>
           </div>
 
           <button
@@ -396,8 +400,8 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
             style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}
           >
             <span className="col" style={{ gap: 2, minWidth: 0 }}>
-              <span className="semi small">Shop login is on</span>
-              <span className="tiny muted">Turning this off ends every session opened with it</span>
+              <span className="semi small">{t("bacc_login_on")}</span>
+              <span className="tiny muted">{t("bacc_login_on_hint")}</span>
             </span>
             <Toggle on={enabled} />
           </button>
@@ -412,6 +416,7 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
 }
 
 function ScopeToggleList({ scopes, onToggle }: { scopes: Scope[]; onToggle: (s: Scope) => void }) {
+  const { t } = useI18n();
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       {ALL_SCOPES.map((s, idx) => (
@@ -423,8 +428,8 @@ function ScopeToggleList({ scopes, onToggle }: { scopes: Scope[]; onToggle: (s: 
           onClick={() => onToggle(s)}
         >
           <div className="grow">
-            <div className="semi small">{SCOPE_META[s].label}</div>
-            <div className="tiny muted">{SCOPE_META[s].text}</div>
+            <div className="semi small">{t(SCOPE_META[s].labelKey)}</div>
+            <div className="tiny muted">{t(SCOPE_META[s].textKey)}</div>
           </div>
           <Toggle on={scopes.includes(s)} />
         </button>
@@ -434,12 +439,13 @@ function ScopeToggleList({ scopes, onToggle }: { scopes: Scope[]; onToggle: (s: 
 }
 
 function PresetChips({ preset, onPick }: { preset: Preset; onPick: (p: Preset) => void }) {
+  const { t } = useI18n();
   return (
     <div className="row gap-6" style={{ flexWrap: "wrap", marginBottom: 10 }}>
       {PRESETS.map((p) => (
-        <button key={p.id} type="button" className={`chip ${preset === p.id ? "active" : ""}`} onClick={() => onPick(p.id)}>{p.label}</button>
+        <button key={p.id} type="button" className={`chip ${preset === p.id ? "active" : ""}`} onClick={() => onPick(p.id)}>{t(p.labelKey)}</button>
       ))}
-      <button type="button" className={`chip ${preset === "custom" ? "active" : ""}`} onClick={() => onPick("custom")}>Custom</button>
+      <button type="button" className={`chip ${preset === "custom" ? "active" : ""}`} onClick={() => onPick("custom")}>{t("map_custom")}</button>
     </div>
   );
 }
@@ -447,6 +453,7 @@ function PresetChips({ preset, onPick }: { preset: Preset; onPick: (p: Preset) =
 function ManageSheet({ business, onClose }: { business: Business; onClose: () => void }) {
   const nav = useNavigate();
   const { showToast, businessPasswordIsSet } = useApp();
+  const { t, tf } = useI18n();
   const { data: sessions, refetch: refetchSessions } = useQueryWithRealtime(
     () => businessAccessService.ownerSessions(business.id),
     "business_access_sessions",
@@ -499,8 +506,8 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
   }
 
   async function addGrant() {
-    if (!identifier.trim()) { showToast("Enter a mobile number, email, or username"); return; }
-    if (scopes.length === 0) { showToast("Pick at least one section to grant access to"); return; }
+    if (!identifier.trim()) { showToast(t("bacc_enter_identifier")); return; }
+    if (scopes.length === 0) { showToast(t("bacc_pick_section")); return; }
     setAdding(true);
     haptics.medium();
     try {
@@ -508,7 +515,7 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
         ? await businessAccessService.grantByIdentifier(business.id, identifier.trim())
         : await businessAccessService.grantTeamMember(business.id, identifier.trim(), scopes);
       haptics.success();
-      showToast(`Access granted to ${res.name}`);
+      showToast(tf("bacc_access_granted", { name: res.name }));
       setIdentifier("");
       pickPreset("front_desk");
       refetchSessions();
@@ -528,7 +535,7 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
     try {
       await businessAccessService.revoke(s.id);
       refetchSessions();
-      showToast("Access revoked");
+      showToast(t("bacc_access_revoked"));
       setRevoking(null);
     } catch (e: any) {
       showToast(e?.message || "Couldn't revoke");
@@ -551,12 +558,12 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
 
   async function saveEdit() {
     if (!editingId) return;
-    if (editScopes.length === 0) { showToast("Pick at least one section to grant access to"); return; }
+    if (editScopes.length === 0) { showToast(t("bacc_pick_section")); return; }
     setSavingEdit(true);
     try {
       await businessAccessService.updateTeamMemberScopes(editingId, editScopes);
       haptics.success();
-      showToast("Access updated");
+      showToast(t("bacc_access_updated"));
       setEditingId(null);
       refetchSessions();
     } catch (e: any) {
@@ -571,24 +578,24 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grab" />
         <h3 className="bold h2" style={{ marginBottom: 4 }}>{business.name} — team & access</h3>
-        <p className="small muted" style={{ marginBottom: 14 }}>Add a team member by their STRYT mobile number, email, or username, and choose what they can manage.</p>
+        <p className="small muted" style={{ marginBottom: 14 }}>{t("bacc_add_member_hint")}</p>
 
         <div className="field">
-          <label htmlFor="businessaccess-mobile-number-email-or-username">Mobile number, email, or username</label>
+          <label htmlFor="businessaccess-mobile-number-email-or-username">{t("bacc_identifier_label")}</label>
           <input id="businessaccess-mobile-number-email-or-username"
             className="input"
             value={identifier}
             autoCapitalize="none"
             autoCorrect="off"
-            placeholder="e.g. 98765 43210, name@email.com, or @username"
+            placeholder={t("bacc_identifier_placeholder")}
             onChange={(e) => setIdentifier(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") addGrant(); }}
           />
-          <div className="tiny muted" style={{ marginTop: 4 }}>They must already have a STRYT account.</div>
+          <div className="tiny muted" style={{ marginTop: 4 }}>{t("bacc_must_have_account")}</div>
         </div>
 
         <div className="field" style={{ marginTop: 14 }}>
-          <label>Access</label>
+          <label>{t("bacc_access_label")}</label>
           <PresetChips preset={preset} onPick={pickPreset} />
           <ScopeToggleList scopes={scopes} onToggle={toggleScope} />
         </div>
@@ -604,17 +611,17 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
         {active.length > 0 && !businessPasswordIsSet && (
           <div className="card row gap-10 center-v" style={{ marginTop: 16, padding: 12, background: "var(--amber-50)", border: "none" }}>
             <div className="grow">
-              <div className="tiny semi">No business password set</div>
-              <div className="tiny muted">Anyone with access can open this business without one. Set a password in your profile.</div>
+              <div className="tiny semi">{t("bacc_no_password")}</div>
+              <div className="tiny muted">{t("bacc_no_password_hint")}</div>
             </div>
-            <button className="tiny semi" style={{ color: "var(--brand-700)", flexShrink: 0 }} onClick={() => nav("/settings")}>Set up</button>
+            <button className="tiny semi" style={{ color: "var(--brand-700)", flexShrink: 0 }} onClick={() => nav("/settings")}>{t("bacc_set_up")}</button>
           </div>
         )}
 
         {/* #2 — waiting requests, which used to appear nowhere. */}
         {pending.length > 0 && (
           <div className="col gap-8" style={{ marginTop: 20 }}>
-            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Waiting for your approval</span>
+            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_waiting_approval")}</span>
             {pending.map((s) => (
               <div key={s.id} className="card" style={{ padding: 10, border: "1px solid var(--amber-200)", background: "var(--amber-50)" }}>
                 <div className="row gap-10 center-v">
@@ -644,7 +651,7 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
         {/* People with access */}
         {active.length > 0 && (
           <div className="col gap-8" style={{ marginTop: 20 }}>
-            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>People with access</span>
+            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_people_with_access")}</span>
             {active.map((s) => (
               <div key={s.id} className="card" style={{ padding: 10 }}>
                 <div className="row gap-10 center-v">
@@ -652,20 +659,20 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
                   <div className="grow">
                     <div className="semi small">{s.granteeName}</div>
                     <div className="tiny" style={{ color: s.accessLevel === "FULL" ? "var(--brand-700)" : "var(--green-600)" }}>
-                      {scopeSummary(s)}
-                      {expiryLabel(s.expiresAt) && <span className="muted"> · {expiryLabel(s.expiresAt)}</span>}
+                      {scopeSummary(s, t)}
+                      {expiryLabel(s.expiresAt, t, tf) && <span className="muted"> · {expiryLabel(s.expiresAt, t, tf)}</span>}
                     </div>
                   </div>
-                  <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => (editingId === s.id ? setEditingId(null) : startEdit(s))} aria-label="Edit access">
+                  <button className="icon-btn" style={{ width: 32, height: 32 }} onClick={() => (editingId === s.id ? setEditingId(null) : startEdit(s))} aria-label={t("bacc_edit_access")}>
                     <Pencil size={15} color="var(--ink-500)" />
                   </button>
-                  <button className="tiny semi" style={{ color: "var(--red-600)" }} onClick={() => setRevoking(s)}>Revoke</button>
+                  <button className="tiny semi" style={{ color: "var(--red-600)" }} onClick={() => setRevoking(s)}>{t("bacc_revoke")}</button>
                 </div>
                 {editingId === s.id && (
                   <div style={{ marginTop: 12 }}>
                     {s.accessLevel === "FULL" && (
                       <div className="card" style={{ padding: 10, marginBottom: 10, background: "var(--amber-50)", border: "1px solid var(--amber-200)" }}>
-                        <div className="tiny semi" style={{ color: "var(--amber-800)" }}>This will remove their full access</div>
+                        <div className="tiny semi" style={{ color: "var(--amber-800)" }}>{t("bacc_revoke_warning")}</div>
                         <div className="tiny muted" style={{ marginTop: 2, lineHeight: 1.4 }}>
                           They currently have everything the owner has. Picking sections below limits
                           them to only those, including for anything added later. Leave this without
@@ -678,7 +685,7 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
                       onToggle={(sc) => setEditScopes((prev) => (prev.includes(sc) ? prev.filter((x) => x !== sc) : [...prev, sc]))}
                     />
                     <div className="row gap-8" style={{ marginTop: 10 }}>
-                      <button className="btn btn-ghost btn-sm grow" onClick={() => setEditingId(null)}>Cancel</button>
+                      <button className="btn btn-ghost btn-sm grow" onClick={() => setEditingId(null)}>{t("cancel")}</button>
                       <button className="btn btn-primary btn-sm grow" disabled={savingEdit || editScopes.length === 0} onClick={saveEdit}>
                         {savingEdit ? "Saving…" : s.accessLevel === "FULL" ? "Limit access" : "Save"}
                       </button>
@@ -703,7 +710,7 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
                 <button className="btn btn-block" style={{ background: "var(--red-500)", color: "#fff" }} onClick={confirmRevoke}>
                   Yes, remove access
                 </button>
-                <button className="btn btn-ghost btn-block" onClick={() => setRevoking(null)}>Keep it</button>
+                <button className="btn btn-ghost btn-block" onClick={() => setRevoking(null)}>{t("keep_it")}</button>
               </div>
             </div>
           </div>
@@ -712,7 +719,7 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
         {/* History */}
         {history.length > 0 && (
           <div className="col gap-8" style={{ marginTop: 18 }}>
-            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>Access history</span>
+            <span className="tiny bold muted" style={{ textTransform: "uppercase", letterSpacing: 0.8, fontSize: 9 }}>{t("bacc_access_history")}</span>
             {history.map((s) => {
               const label = s.status === "DENIED" ? "Denied" : s.status === "REVOKED" ? "Revoked" : "Expired";
               const when = new Date(s.requestedAt).toLocaleString([], { hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" });

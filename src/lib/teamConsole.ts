@@ -1,5 +1,5 @@
 import type { AccessLevel } from "@/services/marketplace/businessAccessService";
-import { SCOPE_LABELS, type Scope } from "@/services/marketplace/businessAccessService";
+import { SCOPE_LABEL_KEYS, type Scope } from "@/services/marketplace/businessAccessService";
 
 export type ConsoleMode = "owner" | "full_delegate" | "team_member";
 
@@ -11,7 +11,7 @@ export function resolveConsoleMode(isOwner: boolean, accessLevel: AccessLevel): 
   return "team_member";
 }
 
-export function buildScopeLabel(hasScope: (scope: Scope) => boolean): string {
-  const labels = SCOPE_ORDER.filter(hasScope).map((s) => SCOPE_LABELS[s]);
-  return labels.join(" · ") || "No access yet";
+export function buildScopeLabel(hasScope: (scope: Scope) => boolean, t: (key: string) => string): string {
+  const labels = SCOPE_ORDER.filter(hasScope).map((s) => t(SCOPE_LABEL_KEYS[s]));
+  return labels.join(" · ") || t("scope_none_yet");
 }

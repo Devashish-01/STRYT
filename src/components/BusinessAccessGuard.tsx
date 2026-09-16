@@ -8,6 +8,7 @@ import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import { Skeleton } from "@/components/states";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { buildScopeLabel, resolveConsoleMode, type ConsoleMode } from "@/lib/teamConsole";
+import { useI18n } from "@/lib/i18n";
 import PinEntrySheet from "@/components/PinEntrySheet";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
 import { useAdoptConsoleContext } from "@/hooks/useAdoptConsoleContext";
@@ -148,6 +149,7 @@ export default function BusinessAccessGuard() {
     return () => { active = false; };
   }, [status, id]);
 
+  const { t } = useI18n();
   const value = useMemo((): BusinessAccessValue => {
     if (isOwner) return FULL_ACCESS;
     const hasScope = (s: Scope) => scope.accessLevel === "FULL" || scope.scopes.includes(s);
@@ -157,10 +159,10 @@ export default function BusinessAccessGuard() {
       scopes: scope.scopes,
       hasScope,
       consoleMode: resolveConsoleMode(false, scope.accessLevel),
-      scopeLabel: buildScopeLabel(hasScope),
+      scopeLabel: buildScopeLabel(hasScope, t),
       hasActiveDeliveries,
     };
-  }, [isOwner, scope, hasActiveDeliveries]);
+  }, [isOwner, scope, hasActiveDeliveries, t]);
 
   if (status === "checking") {
     return (

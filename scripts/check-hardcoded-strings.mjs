@@ -3,7 +3,8 @@
 //
 // Reports three kinds of finding in src/**/*.tsx and src/store/**/*.ts:
 //   * showToast("literal")           — the most common one, and the most visible
-//   * JSX attribute literals          — placeholder, title, aria-label, alt, label
+//   * JSX attribute literals          — placeholder, title, aria-label, alt, label, and the props this codebase
+//                                     puts text in: hint, subtitle, description, caption, text
 //   * JSX text nodes with 2+ letters  — the words themselves
 //
 // Not reported: tests, the admin panel (English-only by decision D9), code comments, keys, class names, numbers,
@@ -24,9 +25,9 @@ const allowed = new Set(ALLOWLIST.strings.map((s) => s.value));
 
 const SKIP_DIRS = new Set(["admin", "future-enhancement", "__tests__"]);
 const SKIP_FILE = /\.(test|spec)\.(ts|tsx)$/;
-// The last four are this codebase's own component props (SettingsRow, SettingsSection, ConsoleTile and friends), and
-// they carry text a Hindi or Marathi user reads on screen just like a placeholder does.
-const ATTRS = ["placeholder", "title", "aria-label", "alt", "label", "hint", "subtitle", "description", "caption"];
+// The last five are this codebase's own component props (SettingsRow, SettingsSection, ConsoleTile, EmptyState and
+// friends), and they carry text a Hindi or Marathi user reads on screen just like a placeholder does.
+const ATTRS = ["placeholder", "title", "aria-label", "alt", "label", "hint", "subtitle", "description", "caption", "text"];
 
 const args = process.argv.slice(2);
 const maxArg = args.indexOf("--max");

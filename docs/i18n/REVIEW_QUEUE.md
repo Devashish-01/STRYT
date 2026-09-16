@@ -178,3 +178,71 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `bset_business_deleted` | Business deleted | दुकान हटा दी गई | दुकान हटवले |  |
 | `bset_choose_page_type` | Choose your page type | अपने पेज का प्रकार चुनें | तुमच्या पेजचा प्रकार निवडा |  |
 | `bset_remove` | Remove | हटाएं | काढा |  |
+| `bacc_access_removed` | Access removed | पहुँच हटा दी गई | प्रवेश काढला |  |
+| `bacc_subtitle` | Add team members & manage sessions | टीम के लोग जोड़ें और सेशन संभालें | टीममधील लोक जोडा आणि सेशन सांभाळा |  |
+| `bacc_businesses_you_access` | Businesses you can access | जिन दुकानों तक आपकी पहुँच है | ज्या दुकानांपर्यंत तुमचा प्रवेश आहे |  |
+| `bacc_have_shop_login` | Have a shop login? | दुकान का लॉगिन है? | दुकानाचे लॉगिन आहे? |  |
+| `bacc_have_shop_login_hint` | Open a shop you work at using its id and password | जिस दुकान में आप काम करते हैं उसे उसकी आईडी और पासवर्ड से खोलें | तुम्ही जिथे काम करता ते दुकान त्याच्या आयडी आणि पासवर्डने उघडा |  |
+| `bacc_your_businesses` | Your businesses | आपकी दुकानें | तुमची दुकाने |  |
+| `bacc_no_businesses` | No businesses yet | अभी कोई दुकान नहीं | अजून एकही दुकान नाही |  |
+| `bacc_no_businesses_text` | List a business to add team members to it. | टीम के लोग जोड़ने के लिए पहले दुकान दर्ज करें। | टीममधील लोक जोडण्यासाठी आधी दुकान नोंदवा. |  |
+| `bacc_manage_access` | Add team members & manage access | टीम के लोग जोड़ें और पहुँच संभालें | टीममधील लोक जोडा आणि प्रवेश सांभाळा |  |
+| `bacc_suggest_failed` | Couldn't suggest one — type your own | सुझाव नहीं मिल सका — अपना लिखें | सूचना मिळाली नाही — स्वतःचे लिहा |  |
+| `bacc_set_password` | Set a password for the shop login | दुकान के लॉगिन के लिए पासवर्ड रखें | दुकानाच्या लॉगिनसाठी पासवर्ड ठेवा |  |
+| `bacc_password_min` | Use at least 6 characters | कम से कम 6 अक्षर रखें | किमान ६ अक्षरे ठेवा |  |
+| `bacc_shop_login` | Shop login | दुकान का लॉगिन | दुकानाचे लॉगिन |  |
+| `bacc_login_id` | Login id | लॉगिन आईडी | लॉगिन आयडी |  |
+| `bacc_login_id_placeholder` | e.g. spiceroute-kitchen | जैसे spiceroute-kitchen | उदा. spiceroute-kitchen |  |
+| `bacc_copy_login_id` | Copy login id | लॉगिन आईडी कॉपी करें | लॉगिन आयडी कॉपी करा |  |
+| `bacc_login_id_copied` | Login id copied | लॉगिन आईडी कॉपी हो गई | लॉगिन आयडी कॉपी झाली |  |
+| `bacc_copy_failed` | Couldn't copy | कॉपी नहीं हो सका | कॉपी करता आले नाही |  |
+| `bacc_login_id_rules` | 4–30 letters, numbers, dot, dash or underscore — or your own mobile number. | 4–30 अक्षर, अंक, डॉट, डैश या अंडरस्कोर — या अपना मोबाइल नंबर। | ४–३० अक्षरे, अंक, डॉट, डॅश किंवा अंडरस्कोर — किंवा तुमचा मोबाइल नंबर. |  |
+| `bacc_password_share_hint` | Share it with your staff the way you'd share a till PIN. Change it when someone leaves. | इसे अपने स्टाफ़ के साथ वैसे ही बाँटें जैसे गल्ले का पिन। कोई काम छोड़े तो बदल दें। | हे तुमच्या कर्मचाऱ्यांना गल्ल्याच्या पिनसारखे सांगा. कोणी सोडून गेल्यास बदला. |  |
+| `bacc_approve_each` | Approve each sign-in | हर लॉगिन को मंज़ूरी दें | प्रत्येक लॉगिनला मंजुरी द्या |  |
+| `bacc_approve_each_hint` | You get a request to accept before they can open the shop | दुकान खोलने से पहले आपके पास मंज़ूरी की विनती आएगी | दुकान उघडण्याआधी तुमच्याकडे मंजुरीची विनंती येईल |  |
+| `bacc_session_length` | Session length | सेशन कितनी देर चले | सेशन किती वेळ चालेल |  |
+| `bacc_session_length_hint` | How long a sign-in lasts before they have to log in again. | दोबारा लॉगिन करने से पहले एक लॉगिन कितनी देर चलेगा। | पुन्हा लॉगिन करण्याआधी एक लॉगिन किती वेळ चालेल. |  |
+| `bacc_login_on` | Shop login is on | दुकान का लॉगिन चालू है | दुकानाचे लॉगिन सुरू आहे |  |
+| `bacc_login_on_hint` | Turning this off ends every session opened with it | इसे बंद करते ही इससे खुले सारे सेशन ख़त्म हो जाएंगे | हे बंद करताच याने उघडलेले सर्व सेशन संपतील |  |
+| `bacc_enter_identifier` | Enter a mobile number, email, or username | मोबाइल नंबर, ईमेल या यूज़रनेम डालें | मोबाइल नंबर, ईमेल किंवा युजरनेम टाका |  |
+| `bacc_pick_section` | Pick at least one section to grant access to | पहुँच देने के लिए कम से कम एक हिस्सा चुनें | प्रवेश देण्यासाठी किमान एक भाग निवडा |  |
+| `bacc_access_granted` | Access granted to {name} | {name} को पहुँच दे दी गई | {name} ला प्रवेश दिला |  |
+| `bacc_access_revoked` | Access revoked | पहुँच वापस ले ली गई | प्रवेश परत घेतला |  |
+| `bacc_access_updated` | Access updated | पहुँच अपडेट हो गई | प्रवेश अपडेट झाला |  |
+| `bacc_add_member_hint` | Add a team member by their STRYT mobile number, email, or username, and choose what they can manage. | टीम के किसी व्यक्ति को उनके STRYT मोबाइल नंबर, ईमेल या यूज़रनेम से जोड़ें और तय करें कि वे क्या संभाल सकते हैं। | टीममधील व्यक्तीला त्यांच्या STRYT मोबाइल नंबर, ईमेल किंवा युजरनेमने जोडा आणि ते काय सांभाळू शकतात ते ठरवा. |  |
+| `bacc_identifier_label` | Mobile number, email, or username | मोबाइल नंबर, ईमेल या यूज़रनेम | मोबाइल नंबर, ईमेल किंवा युजरनेम |  |
+| `bacc_identifier_placeholder` | e.g. 98765 43210, name@email.com, or @username | जैसे 98765 43210, name@email.com, या @username | उदा. ९८७६५ ४३२१०, name@email.com, किंवा @username |  |
+| `bacc_must_have_account` | They must already have a STRYT account. | उनका STRYT खाता पहले से होना चाहिए। | त्यांचे STRYT खाते आधीपासून असावे लागेल. |  |
+| `bacc_access_label` | Access | पहुँच | प्रवेश |  |
+| `bacc_no_password` | No business password set | दुकान का कोई पासवर्ड नहीं रखा | दुकानाचा पासवर्ड ठेवलेला नाही |  |
+| `bacc_no_password_hint` | Anyone with access can open this business without one. Set a password in your profile. | पहुँच वाला कोई भी बिना पासवर्ड के यह दुकान खोल सकता है। अपनी प्रोफ़ाइल में पासवर्ड रखें। | प्रवेश असलेला कोणीही पासवर्डशिवाय हे दुकान उघडू शकतो. तुमच्या प्रोफाइलमध्ये पासवर्ड ठेवा. |  |
+| `bacc_set_up` | Set up | सेट करें | सेट करा |  |
+| `bacc_waiting_approval` | Waiting for your approval | आपकी मंज़ूरी का इंतज़ार | तुमच्या मंजुरीची वाट |  |
+| `bacc_people_with_access` | People with access | जिनके पास पहुँच है | ज्यांच्याकडे प्रवेश आहे |  |
+| `bacc_edit_access` | Edit access | पहुँच बदलें | प्रवेश बदला |  |
+| `bacc_revoke` | Revoke | वापस लें | परत घ्या |  |
+| `bacc_revoke_warning` | This will remove their full access | इससे उनकी पूरी पहुँच हट जाएगी | यामुळे त्यांचा पूर्ण प्रवेश जाईल |  |
+| `bacc_access_history` | Access history | पहुँच का इतिहास | प्रवेशाचा इतिहास |  |
+| `bacc_revoked_notice` | Your access to that business was revoked | उस दुकान तक आपकी पहुँच वापस ले ली गई | त्या दुकानापर्यंतचा तुमचा प्रवेश परत घेतला |  |
+| `scope_none_yet` | No access yet | अभी कोई पहुँच नहीं | अजून प्रवेश नाही |  |
+| `scope_none` | No access | कोई पहुँच नहीं | प्रवेश नाही |  |
+| `scope_full` | Full access | पूरी पहुँच | पूर्ण प्रवेश |  |
+| `bacc_appointments_text` | View and manage booking requests | बुकिंग की विनतियाँ देखें और संभालें | बुकिंगच्या विनंत्या पाहा आणि सांभाळा |  |
+| `bacc_queue_text` | Call, serve and manage the walk-in queue | क़तार बुलाएं, ग्राहक निपटाएं और क़तार संभालें | रांग बोलवा, ग्राहक हाताळा आणि रांग सांभाळा |  |
+| `bacc_catalog_text` | Products, inventory, portfolio and hours | सामान, स्टॉक, काम के नमूने और समय | वस्तू, साठा, कामाचे नमुने आणि वेळ |  |
+| `bacc_leads_text` | Respond to leads, send quotes, answer questions | ग्राहकों को जवाब दें, भाव भेजें, सवालों के जवाब दें | ग्राहकांना उत्तर द्या, दर पाठवा, प्रश्नांची उत्तरे द्या |  |
+| `bacc_delivery_text` | Pick up and deliver orders assigned to them | उन्हें सौंपे गए ऑर्डर लें और पहुँचाएं | त्यांना दिलेल्या ऑर्डर घ्या आणि पोहोचवा |  |
+| `bacc_preset_front_desk` | Front desk | स्वागत डेस्क | स्वागत डेस्क |  |
+| `bacc_preset_store_manager` | Store manager | दुकान प्रबंधक | दुकान व्यवस्थापक |  |
+| `bacc_preset_delivery_rider` | Delivery rider | डिलीवरी करने वाला | डिलिव्हरी करणारा |  |
+| `bacc_expired` | Expired | समय ख़त्म | मुदत संपली |  |
+| `bacc_ends_in_min` | Ends in {n} min | {n} मिनट में ख़त्म | {n} मिनिटांत संपेल |  |
+| `bacc_ends_in_hr` | Ends in {n} hr | {n} घंटे में ख़त्म | {n} तासांत संपेल |  |
+| `bacc_ends_on` | Ends {date} | {date} को ख़त्म | {date} ला संपेल |  |
+| `scope_label_appointments` | Appointments | अपॉइंटमेंट | अपॉइंटमेंट |  |
+| `scope_label_queue` | Queue | क़तार | रांग |  |
+| `scope_label_catalog` | Catalogue | कैटलॉग | कॅटलॉग |  |
+| `scope_label_leads` | Leads & quotes | ग्राहक और भाव | ग्राहक आणि दर |  |
+| `scope_label_delivery` | Delivery | डिलीवरी | डिलिव्हरी |  |
+| `acc_team_member` | Team member | टीम का सदस्य | टीम सदस्य |  |
+| `acc_delegated_access` | Business · Delegated access | दुकान · सौंपी गई पहुँच | दुकान · सोपवलेला प्रवेश |  |
