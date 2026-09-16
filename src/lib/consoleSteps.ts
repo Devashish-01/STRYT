@@ -69,6 +69,8 @@ const GENERIC_PROVIDER_CONSOLE: BizConsole = {
     { id: "catalog", label: "Services", hint: "What you offer" },
     { id: "bookings", label: "Jobs", hint: "Your schedule" },
     { id: "hours", label: "Availability", hint: "When you work" },
+    // A provider's reachouts screen existed and was routed, with nothing anywhere linking to it (LEAD-8).
+    { id: "inbox", label: "Reachouts", hint: "Calls & messages" },
     { id: "payments", label: "Money", hint: "Earnings & payments" },
   ],
   storeTabLabel: "Services",

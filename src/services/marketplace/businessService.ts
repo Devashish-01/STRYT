@@ -800,15 +800,17 @@ export const businessService = {
   },
   async updateCatalogItem(id: string, itemId: string, patch: Partial<CatalogItem>) {
     const sb = getSupabase();
-    const { data, error } = await sb.from("catalog_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
+    const { data, error } = await sb.from("catalog_items").update(toSnake(patch)).eq("id", itemId).select();
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error(WRITE_DENIED_MSG);
     bustBusinessGetCache(id);
-    return toCamel<CatalogItem>(data);
+    return toCamel<CatalogItem>(data[0]);
   },
   async deleteCatalogItem(id: string, itemId: string) {
     const sb = getSupabase();
-    const { error } = await sb.from("catalog_items").delete().eq("id", itemId);
+    const { data, error } = await sb.from("catalog_items").delete().eq("id", itemId).select("id");
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error(WRITE_DENIED_MSG);
     bustBusinessGetCache(id);
     return { ok: true };
   },
@@ -1020,10 +1022,11 @@ export const businessService = {
       handled: l.handled,
     }));
   },
-  async markLeadHandled(leadId: string) {
+  async markLeadHandled(leadId: string, handled = true) {
     const sb = getSupabase();
-    const { error } = await sb.from("leads").update({ handled: true }).eq("id", leadId);
+    const { data, error } = await sb.from("leads").update({ handled }).eq("id", leadId).select("id");
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error("Couldn't update this reachout — you may not have permission.");
     return { ok: true };
   },
   async recordInteraction(id: string, kind: "CALL" | "DIRECTIONS" | "MESSAGE") {

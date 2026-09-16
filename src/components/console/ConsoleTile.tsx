@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import {
-  BadgeCheck, CalendarClock, Clock, ImageIcon, LayoutGrid,
+  BadgeCheck, CalendarClock, Clock, ImageIcon, Inbox, LayoutGrid,
   Megaphone, Package, Users, Wallet,
 } from "@/components/Icons";
 import type { ConsoleCapability } from "@/lib/businessPackages";
@@ -59,6 +59,7 @@ export const CAPABILITY_TONE: Record<ConsoleCapability, { tint: string; accent: 
   payments: { tint: "var(--green-100)",   accent: "var(--green-600)" },
   verify:   { tint: "var(--green-100)",   accent: "var(--green-600)" },
   promote:  { tint: "var(--pink-100)",    accent: "var(--pink-600)" },
+  inbox:    { tint: "var(--amber-100)",   accent: "var(--amber-700)" },
 };
 
 /** Per-capability icon, shared by both consoles so a tile looks the same
@@ -73,4 +74,5 @@ export const CAPABILITY_ICON: Record<ConsoleCapability, ReactNode> = {
   payments: <Wallet size={20} />,
   verify:   <BadgeCheck size={20} />,
   promote:  <Megaphone size={20} />,
+  inbox:    <Inbox size={20} />,
 };

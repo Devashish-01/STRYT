@@ -116,7 +116,7 @@ export default function ProviderPortfolio() {
                   />
                   <button
                     className="icon-btn"
-                    style={{ width: 28, height: 28, background: "var(--green-500)", color: "var(--white)", flexShrink: 0 }}
+                    style={{ width: 40, height: 40, background: "var(--green-500)", color: "var(--white)", flexShrink: 0 }}
                     onClick={async () => {
                       await providerService.updatePortfolio?.(id, item.id, { caption: captionVal });
                       bustProviderGetCache(id);
@@ -129,7 +129,7 @@ export default function ProviderPortfolio() {
                   </button>
                   <button
                     className="icon-btn"
-                    style={{ width: 28, height: 28, background: "var(--surface)", color: "var(--ink-500)", flexShrink: 0 }}
+                    style={{ width: 40, height: 40, background: "var(--surface)", color: "var(--ink-500)", flexShrink: 0 }}
                     onClick={() => setEditingCaption(null)}
                   >
                     <X size={14} />
@@ -145,7 +145,7 @@ export default function ProviderPortfolio() {
                   <div className="row gap-6" style={{ position: "absolute", bottom: 8, right: 8 }}>
                     <button
                       className="icon-btn"
-                      style={{ width: 28, height: 28, background: "rgba(255,255,255,0.92)" }}
+                      style={{ width: 40, height: 40, background: "rgba(255,255,255,0.92)" }}
                       onClick={() => { setEditingCaption(item.id); setCaptionVal(item.caption); }}
                       title="Edit caption"
                     >
@@ -153,7 +153,7 @@ export default function ProviderPortfolio() {
                     </button>
                     <button
                       className="icon-btn"
-                      style={{ width: 28, height: 28, background: "rgba(255,255,255,0.92)", color: "var(--red-600)" }}
+                      style={{ width: 40, height: 40, background: "rgba(255,255,255,0.92)", color: "var(--red-600)" }}
                       onClick={() => setConfirmDeleteItem(item)}
                       title="Delete"
                     >

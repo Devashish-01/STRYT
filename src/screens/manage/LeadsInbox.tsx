@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { AppBar, EmptyState, SafeImg } from "@/components/common";
 import { businessService, providerService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
+import { useMessageUser } from "@/hooks/useMessageUser";
 import { ErrorView, ListSkeleton } from "@/components/states";
 import { CalendarCheck, Check, HelpCircle, MessageCircle, Navigation, Phone, Tag } from "@/components/Icons";
 import { useApp } from "@/store";
@@ -35,6 +36,7 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast } = useApp();
+  const messageUser = useMessageUser();
   const [handled, setHandled] = useState<string[]>([]);
   const isBusiness = entityType === "BUSINESS";
   const service = isBusiness ? businessService : providerService;
@@ -50,7 +52,7 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
     if (lead.kind === "QUESTION" && isBusiness) {
       nav(`/business/${id}/manage/qna`);
     } else if (lead.kind === "MESSAGE") {
-      if (lead.fromUserId) nav(`/chats?uid=${lead.fromUserId}`);
+      if (lead.fromUserId) void messageUser(lead.fromUserId);
       else nav("/chats");
     } else if (lead.kind === "CALL") {
       if (lead.phone) {
@@ -69,9 +71,22 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
     try {
       await service.markLeadHandled(lead.id);
       showToast("Marked handled");
-    } catch {
+    } catch (e: any) {
       setHandled((current) => current.filter((item) => item !== lead.id));
-      showToast("Couldn't update reachout");
+      showToast(e?.message || "Couldn't update reachout");
+    }
+  }
+
+  /** LEAD-5: handled was a one-way tap with no undo, so one mis-tap hid a customer who still needed calling back. */
+  async function unmarkHandled(lead: Lead) {
+    setHandled((current) => current.filter((item) => item !== lead.id));
+    try {
+      await service.markLeadHandled(lead.id, false);
+      showToast("Back in the list");
+      refetch();
+    } catch (e: any) {
+      setHandled((current) => [...current, lead.id]);
+      showToast(e?.message || "Couldn't update reachout");
     }
   }
 
@@ -86,7 +101,13 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
         {error && <ErrorView error={error} onRetry={refetch} />}
         {!loading && !error && (
           <div className="page-pad col gap-10">
-            {leads.length === 0 && <EmptyState emoji="📥" title="No reachouts" text="Calls and customer questions appear here." />}
+            {leads.length === 0 && (
+              <EmptyState
+                emoji="📥"
+                title="No reachouts"
+                text={isBusiness ? "Calls, directions and customer questions appear here." : "Calls and messages from customers appear here."}
+              />
+            )}
             {leads.map((lead) => {
               const style = meta[lead.kind] || meta.CALL;
               const Icon = style.icon;
@@ -101,7 +122,15 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
                 >
                   <div style={{ position: "relative" }}><SafeImg src={lead.avatar} variant="avatar" className="avatar" style={{ width: 42, height: 42 }} /><span style={{ position: "absolute", bottom: -2, right: -2, width: 18, height: 18, borderRadius: "50%", background: style.color, display: "grid", placeItems: "center", border: "2px solid var(--white)" }}><Icon size={9} color="var(--white)" /></span></div>
                   <div className="grow"><div className="semi small">{lead.name}</div><div className="tiny muted">{lead.text}</div><div className="tiny" style={{ color: "var(--ink-400)" }}>{lead.time}</div></div>
-                  {!done && <button className="icon-btn" aria-label="Mark handled" style={{ width: 34, height: 34, color: "var(--green-500)" }} onClick={(e) => { e.stopPropagation(); markHandled(lead); }}><Check size={16} /></button>}
+                  {done ? (
+                    <button className="tiny semi" style={{ color: "var(--ink-500)", background: "none", border: "none", minHeight: 44, padding: "0 8px" }} onClick={(e) => { e.stopPropagation(); unmarkHandled(lead); }}>
+                      Undo
+                    </button>
+                  ) : (
+                    // 44px: this sits inside a card that is itself tappable, so a small target meant opening the lead
+                    // when you meant to tick it off (LEAD-7).
+                    <button className="icon-btn" aria-label="Mark handled" style={{ width: 44, height: 44, color: "var(--green-500)" }} onClick={(e) => { e.stopPropagation(); markHandled(lead); }}><Check size={16} /></button>
+                  )}
                 </div>
               );
             })}

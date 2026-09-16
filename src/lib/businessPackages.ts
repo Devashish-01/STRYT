@@ -109,7 +109,9 @@ export type ConsoleCapability =
   | "delivery"
   | "payments"
   | "verify"
-  | "promote";
+  | "promote"
+  /** Calls and messages from customers (the leads inbox). */
+  | "inbox";
 
 export interface ConsoleStep {
   id: ConsoleCapability;

@@ -93,7 +93,7 @@ export const providerService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
-    const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*)").eq("user_id", uid);
+    const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*)").eq("user_id", uid).order("sort_order", { referencedTable: "portfolio_items", ascending: true });
     throwIfError(error);
     const provs = toCamel<Provider[]>(data ?? []);
     return provs.map((prov) => ({
@@ -145,7 +145,7 @@ export const providerService = {
       } as any;
     }
     const sb = getSupabase();
-    const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*), catalog:catalog_items(*)").eq("id", id).maybeSingle();
+    const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*), catalog:catalog_items(*)").eq("id", id).order("sort_order", { referencedTable: "portfolio_items", ascending: true }).maybeSingle();
     throwIfError(error);
     if (!data) return undefined;
     const prov = toCamel<Provider>(data);
@@ -265,15 +265,17 @@ export const providerService = {
   },
   async updateCatalogItem(id: string, itemId: string, patch: Partial<CatalogItem>) {
     const sb = getSupabase();
-    const { data, error } = await sb.from("catalog_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
+    const { data, error } = await sb.from("catalog_items").update(toSnake(patch)).eq("id", itemId).select();
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error("Couldn't save — you may not have permission to change this.");
     bustProviderGetCache(id);
-    return toCamel<CatalogItem>(data);
+    return toCamel<CatalogItem>(data[0]);
   },
   async deleteCatalogItem(id: string, itemId: string) {
     const sb = getSupabase();
-    const { error } = await sb.from("catalog_items").delete().eq("id", itemId);
+    const { data, error } = await sb.from("catalog_items").delete().eq("id", itemId).select("id");
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error("Couldn't remove — you may not have permission, or it was already removed.");
     bustProviderGetCache(id);
     return { ok: true };
   },
@@ -306,18 +308,20 @@ export const providerService = {
 
   async deletePortfolio(providerId: string, itemId: string) {
     const sb = getSupabase();
-    const { error } = await sb.from("portfolio_items").delete().eq("id", itemId);
+    const { data, error } = await sb.from("portfolio_items").delete().eq("id", itemId).select("id");
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error("Couldn't remove — you may not have permission, or it was already removed.");
     bustProviderGetCache(providerId);
     return { ok: true };
   },
 
   async updatePortfolio(providerId: string, itemId: string, patch: Partial<PortfolioItem>) {
     const sb = getSupabase();
-    const { data, error } = await sb.from("portfolio_items").update(toSnake(patch)).eq("id", itemId).select().maybeSingle();
+    const { data, error } = await sb.from("portfolio_items").update(toSnake(patch)).eq("id", itemId).select();
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error("Couldn't save — you may not have permission to change this.");
     bustProviderGetCache(providerId);
-    return toCamel<PortfolioItem>(data);
+    return toCamel<PortfolioItem>(data[0]);
   },
   async setAvailability(id: string, availableNow: boolean, hoursOrUntil?: number | string) {
     const sb = getSupabase();
@@ -372,10 +376,11 @@ export const providerService = {
       handled: l.handled,
     }));
   },
-  async markLeadHandled(leadId: string) {
+  async markLeadHandled(leadId: string, handled = true) {
     const sb = getSupabase();
-    const { error } = await sb.from("leads").update({ handled: true }).eq("id", leadId);
+    const { data, error } = await sb.from("leads").update({ handled }).eq("id", leadId).select("id");
     throwIfError(error);
+    if (!data || data.length === 0) throw new Error("Couldn't update this reachout — you may not have permission.");
     return { ok: true };
   },
   async analytics(id: string): Promise<ProviderAnalytics> {

@@ -29,7 +29,9 @@ export default function ProviderMoney() {
     undefined,
     `provider:${id}:analytics`
   );
-  const { data: ledger } = useQueryWithRealtime(
+  // The ledger counts booking payments as well as settlements, so it has to follow appointments too — subscribing
+  // only to settlements left a cash payment recorded on a job invisible here until a manual refresh (MONEY-6).
+  const { data: ledger, refetch: refetchLedger } = useQueryWithRealtime(
     () => providerService.earningsLedger(id),
     "settlements",
     [id],
@@ -42,6 +44,12 @@ export default function ProviderMoney() {
     [id],
     `target_id=eq.${id}`
   );
+
+  // A booking payment lands in appointments, not settlements, so the ledger is refreshed alongside them (MONEY-6).
+  useEffect(() => {
+    if (aptsData) refetchLedger();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aptsData]);
 
   // Payment-setup form state (seeded from the provider record).
   const [upiId, setUpiId] = useState("");

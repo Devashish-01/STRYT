@@ -82,6 +82,9 @@ export default function ProviderDashboard() {
     `provider:${id}:find-work`
   );
   const { data: notifUnread } = useQueryWithRealtime(() => notificationService.getUnreadCount({ scope: "PROVIDER", id }), "notifications", [id, user.id], user.id ? `user_id=eq.${user.id}` : undefined, `notif:provider:${id}`);
+  // Calls and messages waiting for a reply, for the Reachouts tile (LEAD-8).
+  const { data: leads } = useQueryWithRealtime(() => providerService.leads(id), "leads", [id], undefined, `provider:${id}:leads`);
+  const unhandledLeads = (leads ?? []).filter((l: { handled?: boolean }) => !l.handled).length;
   const { data: chatUnread } = useQueryWithRealtime(() => chatService.totalUnread({ scope: "PROVIDER", id }), "conversations", [id], undefined, `chat:provider:${id}`);
 
   const [available, setAvailable] = useState(false);
@@ -207,6 +210,10 @@ export default function ProviderDashboard() {
       onClick: () => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } }),
     },
     payments: { onClick: () => nav(`${base}/money`) },
+    inbox: {
+      onClick: () => nav(`${base}/inbox`),
+      value: unhandledLeads > 0 ? `${unhandledLeads} waiting` : undefined,
+    },
     ...(bookingsOn ? {
       bookings: {
         done: !isDefaultAvailability,
