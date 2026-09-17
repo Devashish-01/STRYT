@@ -7,6 +7,15 @@
 ## Goal
 A Hindi or Marathi user never sees English in customer-, merchant- or provider-facing screens. English, Hindi and Marathi have identical key sets, and CI blocks new hardcoded strings.
 
+> **v1.0 scope changed on 2026-09-17 (decision D18).** The app ships English-only: `LANGUAGES_ENABLED=false`
+> hides the language switcher and `initialLang()` returns English, so nobody meets a part-translated screen.
+> The goal above is what **v1.1** must meet before the flag goes back on.
+>
+> Done for v1.0: the parity and key tests, the CI ratchet, and 774 of 1744 strings converted (18 screens).
+> Left for v1.1: the remaining **970 strings** across 154 files, the per-package vocabulary in
+> `src/lib/businessPackages.ts` (English in a constants file the checker cannot see), native review of every
+> row in `docs/i18n/REVIEW_QUEUE.md` (D9), and `--max 0`.
+
 ## Baseline (2026-09-13)
 - `src/lib/i18n.tsx`: en 1,170 keys, hi 1,170, mr 1,166 (4 missing).
 - 62 of 245 screen/component files use `useI18n`.

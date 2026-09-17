@@ -12,7 +12,7 @@ Plan: `docs/plan/README.md` and `docs/plan/phases/P00…P15`. Rules: `docs/plan/
 | **P07 E2E suite** | Full run #1 green: **134 passed, 0 failed** (with reseed, 9.8 min). 17 critical journeys (queue console added); breadth spec 103 screens; `tests/e2e/COVERAGE.md` maps all 52 flows. Left: action specs for screen-only flows, 2 more consecutive green full runs, P07 report. |
 | **P08 gap ledger** | **Done.** 488 rows, **0 unverified, 0 open**: 430 FIXED, 49 DEFERRED (v1.1, decision D17), 9 DECISION. Every domain verified against the code and, where it mattered, against the live database. |
 | **P09 fixes** | 430 FIXED (app + 16 DB migrations on staging), 0 OPEN. |
-| **P10 i18n** | P10.A done. P10.B under way: **1744 → 1181** strings (`npm run check-strings` is the ratchet, lowered with each batch). Converted so far: community post detail and composer, business settings, team & access (plus the shared scope labels), the shop dashboard, the listing flow, appointments, the queue board, provider settings, support, provider money, the place submission form and provider jobs. Every draft is queued for native review in `docs/i18n/REVIEW_QUEUE.md`. Left: the rest, biggest first (`--by-file`), then D9 review and `--max 0`. |
+| **P10 i18n** | **v1.0 scope met (D18): English-only.** P10.A done. P10.B: **1744 → 970** strings (`npm run check-strings` is the ratchet, lowered with each batch). Converted so far: community post detail and composer, business settings, team & access (plus the shared scope labels), the shop dashboard, the listing flow, appointments, the queue board, provider settings, support, provider money, the place submission form and provider jobs. Every draft is queued for native review in `docs/i18n/REVIEW_QUEUE.md`. Left, now v1.1 work: 970 strings across 154 files, the vocabulary constants, D9 review, `--max 0`. |
 | **P11 performance/deps** | P11.A: no high/critical advisory in shipped code (maplibre-gl 6, react-map-gl 8.1.3). P11.B: guest /home first load 2136 KB → 1605 KB (JS 1924 → 1377 KB), measured on the staging build — Firebase and Leaflet load only when used, each device downloads only its language. Left: P11 report, Lighthouse on a deployed preview. |
 | P12 | Not started |
 | P13–P15 | Owner-led |
@@ -170,3 +170,12 @@ lost its form, E2E-039 campaigns never closed.
 - 2026-09-17 — Machine note: **C: has 3.9 GB free of 272 GB**. That is the likely cause of the `VirtualAlloc failed`
   crash and the flaky full runs, since Windows cannot grow the pagefile. The owner chose to leave the disk as is, so
   full runs stay unreliable; re-run individual failures before believing them.
+- 2026-09-17 — **Decision D18: v1.0 ships English-only.** Hiding the switcher alone was not enough — `initialLang()`
+  read the device locale, so a phone set to Hindi still opened a half-translated app. `LANGUAGES_ENABLED=false` now
+  hides the switcher (settings row and onboarding chips) and `initialLang()` returns English before it reads either
+  the saved choice or the locale. Checked first: all 31 production users already have `language = 'en'`, so no
+  account loses a language it was using. The translation work stays in the tree and the ratchet stays at 970, so
+  nothing new can creep in; v1.1 flips one boolean.
+- 2026-09-17 — Plan documents brought in line: gate 9 now states the v1.0 bar and the v1.1 bar separately, the phase
+  table no longer says "Not started" for P07/P08/P09 (done days ago), and P10's phase file records the split scope.
+  P12 started.

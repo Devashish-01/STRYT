@@ -22,7 +22,7 @@ The app is ready only when **every** line below is true, with evidence:
 | 6 | Dependencies clean | `npm audit --omit=dev`: 0 high/critical | P11 |
 | 7 | Database rebuildable | Staging built from baseline + migrations matches the production schema snapshot | P06 |
 | 8 | Operable | Weekly backups with a tested restore; error monitoring; uptime alerts; runbooks | P01, P14 |
-| 9 | Speaks the user's language | 0 hardcoded user-facing strings; Hindi and Marathi reviewed by a native speaker | P10 |
+| 9 | Speaks the user's language | **v1.0 ships English-only (D18)**, so this gate is measured at v1.1: 0 hardcoded user-facing strings, and Hindi and Marathi reviewed by a native speaker. For v1.0 the bar is narrower: the language switcher is hidden, `initialLang()` returns English, and `npm run check-strings` does not rise above its current ratchet. | P10 |
 | 10 | Store and legal | Play production approved; Data safety matches the real data inventory; legal documents reviewed | P15 |
 
 **On "100% accuracy":** no model can promise it, and this plan doesn't rely on anyone's promise. Accuracy comes from:
@@ -68,12 +68,12 @@ Run them **in order**. A phase starts only when the previous one is **Done** (ch
 | [P04](phases/P04_database_hardening.md) | Database hardening | Agent | 2 | ✅ Done |
 | [P05](phases/P05_authorization_audit.md) | Authorization, storage, edge function & auth-config audit | Agent | 3–4 | ✅ Done (independently checked and completed 2026-09-15; see report §6) |
 | [P06](phases/P06_baseline_and_staging.md) | Rebuildable schema baseline & staging environment | Agent + owner | 2–3 | ✅ Done (2026-09-15; executed by Claude — see report for deviations) |
-| [P07](phases/P07_e2e_test_suite.md) | End-to-end test suite on staging | Agent | 4–6 | ⬜ Not started |
-| [P08](phases/P08_gap_ledger.md) | Gap ledger: verify all 426 findings | Agent | 13 (one per domain) | ⬜ Not started |
-| [P09](phases/P09_close_functional_gaps.md) | Close functional gaps | Agent | 14+ | ⬜ Not started |
-| [P10](phases/P10_i18n_completeness.md) | Translation completeness | Agent + native reviewer | 3–4 | ⬜ Not started |
-| [P11](phases/P11_dependencies_bundle_performance.md) | Dependencies, bundle & performance | Agent | 2–3 | ⬜ Not started |
-| [P12](phases/P12_code_quality.md) | Code quality refactors (behaviour-preserving) | Agent | 3–4 | ⬜ Not started |
+| [P07](phases/P07_e2e_test_suite.md) | End-to-end test suite on staging | Agent | 4–6 | 🟨 Nearly done — 20 spec files, 18 critical journeys, breadth spec over 103 screens. Left: action specs for a few screen-only flows, 3 consecutive green full runs on final code, and the report |
+| [P08](phases/P08_gap_ledger.md) | Gap ledger: verify all 426 findings | Agent | 13 (one per domain) | ✅ Done — 488 rows, 0 unverified, 0 open (430 FIXED, 49 DEFERRED under D2/D17, 9 DECISION) |
+| [P09](phases/P09_close_functional_gaps.md) | Close functional gaps | Agent | 14+ | ✅ Done — 430 fixed: app changes plus 17 migrations applied to staging (`20260973`–`20260989`). Production apply is an owner step |
+| [P10](phases/P10_i18n_completeness.md) | Translation completeness | Agent + native reviewer | 3–4 | 🟦 v1.0 scope met (D18): English-only, switcher hidden. 774 of 1744 strings converted; **970 remain, deferred to v1.1** along with native review |
+| [P11](phases/P11_dependencies_bundle_performance.md) | Dependencies, bundle & performance | Agent | 2–3 | 🟨 11.A/11.B/11.D done — no high or critical advisory in shipped code; guest /home 2136 → 1605 KB; RLS initplan and FK indexes applied to staging. Left: the report, and Lighthouse (needs a deployed preview) |
+| [P12](phases/P12_code_quality.md) | Code quality refactors (behaviour-preserving) | Agent | 3–4 | 🟨 Starting 2026-09-17 |
 | [P13](phases/P13_device_accessibility_qa.md) | Device, accessibility & browser QA | Owner + agent | 2–4 | ⬜ Not started |
 | [P14](phases/P14_operations_monitoring.md) | Operations & monitoring | Agent + owner | 2 | ⬜ Not started |
 | [P15](phases/P15_store_legal_launch.md) | Store, legal & public launch | Owner + agent | 2–3 (+14-day closed test) | ⬜ Not started |
