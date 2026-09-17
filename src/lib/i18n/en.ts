@@ -1757,6 +1757,42 @@ const strings: Record<string, string> = {
     // Place request form — generic field label
     prf_name: "Name",
 
+    // Generic form button
+    save_button: "Save",
+
+    // Bulk deal detail and profile
+    bdd_deposit_confirmed: "Confirmed {name}'s deposit",
+    bdd_pledger_fallback: "pledger",
+    bdd_deposit_rejected: "Deposit rejected — they can try paying again",
+    bdd_no_addresses: "No delivery addresses to copy yet",
+    bdd_pick_date: "Pick a new closing date",
+    bdd_date_future: "Extension deadline must be in the future",
+    bdd_deadline_extended: "Deadline extended",
+    bdd_title: "Bulk deal",
+    bdd_share_campaign: "Share campaign",
+    bdd_closed_fulfilled: "Closed and fulfilled — claim passes issued to every paid pledger.",
+    bdd_closed_refunded: "Closed as refunded — settle deposits with pledgers directly, nothing was auto-charged.",
+    bdd_closed_under_target: "Closed under target — decide what happens",
+    bdd_passes: "Passes",
+    bdd_redeemed: "Redeemed",
+    bdd_no_deposit_note: "No deposit required on this deal, so pledges don't auto-confirm — close it yourself when you're ready to fulfil.",
+    bdd_close_early: "Close campaign early",
+    bdd_fulfil_anyway: "Fulfil anyway",
+    bdd_refund_everyone: "Refund everyone",
+    bdd_no_pledges: "No pledges yet",
+    bdd_no_pledges_text: "Once someone pledges into this campaign, they'll show up here.",
+    bdd_already_closed: "Campaign already closed — confirming now won't issue a claim pass.",
+    prof_view_public: "View your public profile",
+    prof_right_now: "Right now",
+    prof_your_activity: "Your activity",
+    prof_you_on_stryt: "You on STRYT",
+    prof_settings_more: "Settings & more",
+    prof_settings_hint: "Preferences, support, log out",
+    prof_my_highlights: "My highlights",
+    prof_manage_business: "Manage business & profile",
+    prof_start_selling: "Start selling on STRYT",
+    prof_start_selling_hint: "List your shop or offer your services",
+
   };
 
 export default strings;

@@ -230,11 +230,11 @@ export default function Profile() {
             <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />
             <div className="pf-hero-content">
               <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginBottom: 6 }}>
-                <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Messages">
+                <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label={t("messages_header")}>
                   <MessageSquare size={18} />
                   {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
                 </button>
-                <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
+                <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label={t("notifications")}>
                   <Bell size={18} />
                   {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
                 </button>
@@ -247,9 +247,9 @@ export default function Profile() {
                   label — worded as a state with a Globe/Lock it read like a
                   toggle, but tapping it never changed anything (that switch
                   lives in Edit profile → Privacy). */}
-              <button className="pf-glass-row" onClick={() => nav(`/u/${user.id}`)} aria-label="View your public profile">
+              <button className="pf-glass-row" onClick={() => nav(`/u/${user.id}`)} aria-label={t("prof_view_public")}>
                 <UserCircle size={15} />
-                <span className="pf-glass-row-label grow">View your public profile</span>
+                <span className="pf-glass-row-label grow">{t("prof_view_public")}</span>
                 <span className="pf-glass-row-cta">
                   {user.showNamePublicly ? <Globe size={13} /> : <Lock size={13} />}
                   {user.showNamePublicly ? "Name public" : "Name private"}
@@ -260,7 +260,7 @@ export default function Profile() {
                 <button className="btn btn-sm pf-edit-btn" onClick={() => nav("/profile/edit")}>
                   Edit profile
                 </button>
-                <button className="icon-btn pf-glass-btn" onClick={() => setShare(true)} aria-label="Share profile">
+                <button className="icon-btn pf-glass-btn" onClick={() => setShare(true)} aria-label={t("share_profile_label")}>
                   <Share2 size={16} />
                 </button>
               </div>
@@ -302,7 +302,7 @@ export default function Profile() {
           {/* ── Right now ────────────────────────────────────────────────── */}
           {(activeQueues.length > 0 || activeAgreements.length > 0) && (
             <div className="page-pad" style={{ paddingBottom: 0 }}>
-              <div className="profile-eyebrow">Right now</div>
+              <div className="profile-eyebrow">{t("prof_right_now")}</div>
               <div className="col gap-10">
                 {activeQueues.map((q) => (
                   <LiveRow
@@ -336,13 +336,13 @@ export default function Profile() {
 
           {/* ── Your activity ── */}
           <div className="page-pad" style={{ paddingBottom: 0 }}>
-            <div className="profile-eyebrow">Your activity</div>
+            <div className="profile-eyebrow">{t("prof_your_activity")}</div>
             <TileGrid tiles={activityTiles} />
           </div>
 
           {/* ── You on STRYT ── */}
           <div className="page-pad" style={{ paddingBottom: 0 }}>
-            <div className="profile-eyebrow">You on STRYT</div>
+            <div className="profile-eyebrow">{t("prof_you_on_stryt")}</div>
             <TileGrid tiles={youTiles} />
           </div>
 
@@ -355,8 +355,8 @@ export default function Profile() {
           <div className="page-pad">
             <button className="pf-row" onClick={() => nav("/account")}>
               <span className="pf-row-icon"><Settings size={19} /></span>
-              <span className="semi grow" style={{ fontSize: 14 }}>Settings &amp; more</span>
-              <span className="tiny">Preferences, support, log out</span>
+              <span className="semi grow" style={{ fontSize: 14 }}>{t("prof_settings_more")}</span>
+              <span className="tiny">{t("prof_settings_hint")}</span>
               <ChevronRight size={18} color="var(--ink-300)" />
             </button>
           </div>
@@ -387,11 +387,11 @@ export default function Profile() {
           <div style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span className="bold" style={{ fontSize: 22, letterSpacing: -0.5 }}>{t("profile")}</span>
             <div className="row gap-8">
-              <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label="Messages">
+              <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/chats?scope=CUSTOMER")} aria-label={t("messages_header")}>
                 <MessageSquare size={18} />
                 {chatUnread > 0 && <span className="count-badge btn-badge">{chatUnread > 9 ? "9+" : chatUnread}</span>}
               </button>
-              <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label="Notifications">
+              <button className="icon-btn pf-glass-btn" style={{ position: "relative" }} onClick={() => nav("/notifications?scope=CUSTOMER")} aria-label={t("notifications")}>
                 <Bell size={18} />
                 {(custUnread ?? 0) > 0 && <span className="count-badge btn-badge count-badge-accent">{(custUnread ?? 0) > 9 ? "9+" : custUnread}</span>}
               </button>
@@ -442,7 +442,7 @@ export default function Profile() {
                 <button className="btn btn-sm btn-outline grow" onClick={() => nav(`/u/${user.id}`)}>
                   <UserCircle size={16} /> Public profile
                 </button>
-                <button className="icon-btn" style={{ flexShrink: 0 }} onClick={() => setShare(true)} aria-label="Share profile">
+                <button className="icon-btn" style={{ flexShrink: 0 }} onClick={() => setShare(true)} aria-label={t("share_profile_label")}>
                   <Share2 size={16} />
                 </button>
               </div>
@@ -473,7 +473,7 @@ export default function Profile() {
             {/* Right now — same live rows as mobile, one shared vocabulary. */}
             {(activeQueues.length > 0 || activeAgreements.length > 0) && (
               <div className="card" style={{ borderRadius: 20 }}>
-                <div className="profile-eyebrow">Right now</div>
+                <div className="profile-eyebrow">{t("prof_right_now")}</div>
                 <div className="col gap-10">
                   {activeQueues.map((q) => (
                     <LiveRow
@@ -508,7 +508,7 @@ export default function Profile() {
             {/* Highlights */}
             {highlights.length > 0 && (
               <div className="card" style={{ padding: 20, borderRadius: 20 }}>
-                <div className="profile-eyebrow">My highlights</div>
+                <div className="profile-eyebrow">{t("prof_my_highlights")}</div>
                 <div className="row gap-12" style={{ overflowX: "auto" }}>
                   {highlights.map((h, i) => (
                     <button key={h.id} className="pf-highlight" onClick={() => setViewingHighlight(i)}>
@@ -524,9 +524,9 @@ export default function Profile() {
 
             {/* Same two groups as mobile — one shared vocabulary across both. */}
             <div className="card" style={{ padding: 24, borderRadius: 20 }}>
-              <div className="profile-eyebrow">Your activity</div>
+              <div className="profile-eyebrow">{t("prof_your_activity")}</div>
               <TileGrid tiles={activityTiles} />
-              <div className="profile-eyebrow" style={{ marginTop: 20 }}>You on STRYT</div>
+              <div className="profile-eyebrow" style={{ marginTop: 20 }}>{t("prof_you_on_stryt")}</div>
               <TileGrid tiles={youTiles} />
             </div>
 
@@ -539,23 +539,23 @@ export default function Profile() {
               {hasSellerProfile ? (
                 <button className="pf-row" style={themed("var(--orange-100)", "var(--orange-500)")} onClick={() => nav("/manage")}>
                   <span className="pf-row-icon"><Store size={19} /></span>
-                  <span className="semi grow" style={{ fontSize: 14 }}>Manage business &amp; profile</span>
+                  <span className="semi grow" style={{ fontSize: 14 }}>{t("prof_manage_business")}</span>
                   <ChevronRight size={18} color="var(--ink-300)" />
                 </button>
               ) : (
                 <button className="pf-row pf-row-invite" style={themed("var(--surface)", "var(--brand-600)")} onClick={() => nav("/manage")}>
                   <span className="pf-row-icon"><Store size={19} /></span>
                   <span className="col grow" style={{ gap: 2, textAlign: "left" }}>
-                    <span className="semi" style={{ fontSize: 14 }}>Start selling on STRYT</span>
-                    <span className="tiny" style={{ fontWeight: 500 }}>List your shop or offer your services</span>
+                    <span className="semi" style={{ fontSize: 14 }}>{t("prof_start_selling")}</span>
+                    <span className="tiny" style={{ fontWeight: 500 }}>{t("prof_start_selling_hint")}</span>
                   </span>
                   <ChevronRight size={18} color="var(--brand-300)" />
                 </button>
               )}
               <button className="pf-row" onClick={() => nav("/account")}>
                 <span className="pf-row-icon"><Settings size={19} /></span>
-                <span className="semi grow" style={{ fontSize: 14 }}>Settings &amp; more</span>
-                <span className="tiny">Preferences, support, log out</span>
+                <span className="semi grow" style={{ fontSize: 14 }}>{t("prof_settings_more")}</span>
+                <span className="tiny">{t("prof_settings_hint")}</span>
                 <ChevronRight size={18} color="var(--ink-300)" />
               </button>
             </div>

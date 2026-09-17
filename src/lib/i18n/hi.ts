@@ -1752,6 +1752,42 @@ const strings: Record<string, string> = {
     // Place request form — generic field label
     prf_name: "नाम",
 
+    // Generic form button
+    save_button: "सेव करें",
+
+    // Bulk deal detail and profile
+    bdd_deposit_confirmed: "{name} की जमा राशि पक्की की",
+    bdd_pledger_fallback: "पलेज करने वाला",
+    bdd_deposit_rejected: "जमा राशि अस्वीकार — वे दोबारा भुगतान कर सकते हैं",
+    bdd_no_addresses: "अभी कॉपी करने के लिए कोई पता नहीं",
+    bdd_pick_date: "बंद होने की नई तारीख़ चुनें",
+    bdd_date_future: "बढ़ाई गई तारीख़ आगे की होनी चाहिए",
+    bdd_deadline_extended: "तारीख़ बढ़ा दी",
+    bdd_title: "थोक सौदा",
+    bdd_share_campaign: "कैंपेन शेयर करें",
+    bdd_closed_fulfilled: "बंद और पूरा — हर भुगतान करने वाले को क्लेम पास दे दिया गया।",
+    bdd_closed_refunded: "बंद, पैसे वापस — जमा राशि सीधे पलेज करने वालों से निपटाएं, अपने आप कुछ नहीं कटा।",
+    bdd_closed_under_target: "लक्ष्य से कम पर बंद — तय करें आगे क्या",
+    bdd_passes: "पास",
+    bdd_redeemed: "इस्तेमाल हुए",
+    bdd_no_deposit_note: "इस सौदे में जमा राशि नहीं चाहिए, इसलिए पलेज अपने आप पक्के नहीं होते — तैयार हों तो ख़ुद बंद करें।",
+    bdd_close_early: "कैंपेन जल्दी बंद करें",
+    bdd_fulfil_anyway: "फिर भी पूरा करें",
+    bdd_refund_everyone: "सबके पैसे वापस करें",
+    bdd_no_pledges: "अभी कोई पलेज नहीं",
+    bdd_no_pledges_text: "जैसे ही कोई इस कैंपेन में पलेज करेगा, यहाँ दिखेगा।",
+    bdd_already_closed: "कैंपेन बंद हो चुका है — अब पक्का करने पर क्लेम पास नहीं मिलेगा।",
+    prof_view_public: "अपनी सार्वजनिक प्रोफ़ाइल देखें",
+    prof_right_now: "अभी",
+    prof_your_activity: "आपकी गतिविधि",
+    prof_you_on_stryt: "STRYT पर आप",
+    prof_settings_more: "सेटिंग और बाक़ी",
+    prof_settings_hint: "पसंद, मदद, लॉग आउट",
+    prof_my_highlights: "मेरी ख़ास बातें",
+    prof_manage_business: "दुकान और प्रोफ़ाइल संभालें",
+    prof_start_selling: "STRYT पर बेचना शुरू करें",
+    prof_start_selling_hint: "अपनी दुकान दर्ज करें या सेवाएं दें",
+
   };
 
 export default strings;

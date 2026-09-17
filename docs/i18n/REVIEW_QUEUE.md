@@ -468,3 +468,35 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `pjob_message_client` | Message client | ग्राहक को संदेश भेजें | ग्राहकाला संदेश पाठवा |  |
 | `pjob_paid_badge` | ₹ Paid | ₹ चुकाया | ₹ दिले |  |
 | `prf_name` | Name | नाम | नाव |  |
+| `save_button` | Save | सेव करें | जतन करा |  |
+| `bdd_deposit_confirmed` | Confirmed {name}'s deposit | {name} की जमा राशि पक्की की | {name} ची अनामत निश्चित केली |  |
+| `bdd_pledger_fallback` | pledger | पलेज करने वाला | प्लेज करणारा |  |
+| `bdd_deposit_rejected` | Deposit rejected — they can try paying again | जमा राशि अस्वीकार — वे दोबारा भुगतान कर सकते हैं | अनामत नाकारली — ते पुन्हा पैसे देऊ शकतात |  |
+| `bdd_no_addresses` | No delivery addresses to copy yet | अभी कॉपी करने के लिए कोई पता नहीं | अजून कॉपी करण्यासाठी पत्ता नाही |  |
+| `bdd_pick_date` | Pick a new closing date | बंद होने की नई तारीख़ चुनें | बंद होण्याची नवी तारीख निवडा |  |
+| `bdd_date_future` | Extension deadline must be in the future | बढ़ाई गई तारीख़ आगे की होनी चाहिए | वाढवलेली तारीख पुढची असावी |  |
+| `bdd_deadline_extended` | Deadline extended | तारीख़ बढ़ा दी | तारीख वाढवली |  |
+| `bdd_title` | Bulk deal | थोक सौदा | घाऊक सौदा |  |
+| `bdd_share_campaign` | Share campaign | कैंपेन शेयर करें | मोहीम शेअर करा |  |
+| `bdd_closed_fulfilled` | Closed and fulfilled — claim passes issued to every paid pledger. | बंद और पूरा — हर भुगतान करने वाले को क्लेम पास दे दिया गया। | बंद आणि पूर्ण — पैसे दिलेल्या प्रत्येकाला क्लेम पास दिला. |  |
+| `bdd_closed_refunded` | Closed as refunded — settle deposits with pledgers directly, nothing was auto-charged. | बंद, पैसे वापस — जमा राशि सीधे पलेज करने वालों से निपटाएं, यहाँ कुछ नहीं लिया गया। | बंद, पैसे परत — अनामत थेट प्लेज करणाऱ्यांशी मिटवा, इथे काहीही घेतले नाही. |  |
+| `bdd_closed_under_target` | Closed under target — decide what happens | लक्ष्य से कम पर बंद — तय करें आगे क्या | लक्ष्यापेक्षा कमी वर बंद — पुढे काय ते ठरवा |  |
+| `bdd_passes` | Passes | पास | पास |  |
+| `bdd_redeemed` | Redeemed | इस्तेमाल हुए | वापरलेले |  |
+| `bdd_no_deposit_note` | No deposit required on this deal, so pledges don't auto-confirm — close it yourself when you're ready to fulfil. | इस सौदे में जमा राशि नहीं चाहिए, इसलिए पलेज अपने आप पक्के नहीं होते — तैयार हों तो ख़ुद बंद करें। | या सौद्यात अनामत लागत नाही, त्यामुळे प्लेज आपोआप निश्चित होत नाहीत — तयार असाल तेव्हा स्वतः बंद करा. |  |
+| `bdd_close_early` | Close campaign early | कैंपेन जल्दी बंद करें | मोहीम लवकर बंद करा |  |
+| `bdd_fulfil_anyway` | Fulfil anyway | फिर भी पूरा करें | तरीही पूर्ण करा |  |
+| `bdd_refund_everyone` | Refund everyone | सबके पैसे वापस करें | सर्वांचे पैसे परत करा |  |
+| `bdd_no_pledges` | No pledges yet | अभी कोई पलेज नहीं | अजून एकही प्लेज नाही |  |
+| `bdd_no_pledges_text` | Once someone pledges into this campaign, they'll show up here. | जैसे ही कोई इस कैंपेन में पलेज करेगा, यहाँ दिखेगा। | कोणी या मोहिमेत प्लेज करताच इथे दिसेल. |  |
+| `bdd_already_closed` | Campaign already closed — confirming now won't issue a claim pass. | कैंपेन बंद हो चुका है — अब पक्का करने पर क्लेम पास नहीं मिलेगा। | मोहीम बंद झाली आहे — आता निश्चित केल्यास क्लेम पास मिळणार नाही. |  |
+| `prof_view_public` | View your public profile | अपनी सार्वजनिक प्रोफ़ाइल देखें | तुमची सार्वजनिक प्रोफाइल पाहा |  |
+| `prof_right_now` | Right now | अभी | आत्ता |  |
+| `prof_your_activity` | Your activity | आपकी गतिविधि | तुमची हालचाल |  |
+| `prof_you_on_stryt` | You on STRYT | STRYT पर आप | STRYT वर तुम्ही |  |
+| `prof_settings_more` | Settings & more | सेटिंग और बाक़ी | सेटिंग आणि इतर |  |
+| `prof_settings_hint` | Preferences, support, log out | पसंद, मदद, लॉग आउट | आवडी, मदत, लॉग आउट |  |
+| `prof_my_highlights` | My highlights | मेरी ख़ास बातें | माझी खास ठळक |  |
+| `prof_manage_business` | Manage business & profile | दुकान और प्रोफ़ाइल संभालें | दुकान आणि प्रोफाइल सांभाळा |  |
+| `prof_start_selling` | Start selling on STRYT | STRYT पर बेचना शुरू करें | STRYT वर विकायला सुरुवात करा |  |
+| `prof_start_selling_hint` | List your shop or offer your services | अपनी दुकान दर्ज करें या सेवाएं दें | तुमचे दुकान नोंदवा किंवा सेवा द्या |  |

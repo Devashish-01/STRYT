@@ -1752,6 +1752,42 @@ const strings: Record<string, string> = {
     // Place request form — generic field label
     prf_name: "नाव",
 
+    // Generic form button
+    save_button: "जतन करा",
+
+    // Bulk deal detail and profile
+    bdd_deposit_confirmed: "{name} ची अनामत निश्चित केली",
+    bdd_pledger_fallback: "प्लेज करणारा",
+    bdd_deposit_rejected: "अनामत नाकारली — ते पुन्हा पैसे देऊ शकतात",
+    bdd_no_addresses: "अजून कॉपी करण्यासाठी पत्ता नाही",
+    bdd_pick_date: "बंद होण्याची नवी तारीख निवडा",
+    bdd_date_future: "वाढवलेली तारीख पुढची असावी",
+    bdd_deadline_extended: "तारीख वाढवली",
+    bdd_title: "घाऊक सौदा",
+    bdd_share_campaign: "मोहीम शेअर करा",
+    bdd_closed_fulfilled: "बंद आणि पूर्ण — पैसे दिलेल्या प्रत्येकाला क्लेम पास दिला.",
+    bdd_closed_refunded: "बंद, पैसे परत — अनामत थेट प्लेज करणाऱ्यांशी मिटवा, आपोआप काहीही कापले गेले नाही.",
+    bdd_closed_under_target: "लक्ष्यापेक्षा कमी वर बंद — पुढे काय ते ठरवा",
+    bdd_passes: "पास",
+    bdd_redeemed: "वापरलेले",
+    bdd_no_deposit_note: "या सौद्यात अनामत लागत नाही, त्यामुळे प्लेज आपोआप निश्चित होत नाहीत — तयार असाल तेव्हा स्वतः बंद करा.",
+    bdd_close_early: "मोहीम लवकर बंद करा",
+    bdd_fulfil_anyway: "तरीही पूर्ण करा",
+    bdd_refund_everyone: "सर्वांचे पैसे परत करा",
+    bdd_no_pledges: "अजून एकही प्लेज नाही",
+    bdd_no_pledges_text: "कोणी या मोहिमेत प्लेज करताच इथे दिसेल.",
+    bdd_already_closed: "मोहीम बंद झाली आहे — आता निश्चित केल्यास क्लेम पास मिळणार नाही.",
+    prof_view_public: "तुमची सार्वजनिक प्रोफाइल पाहा",
+    prof_right_now: "आत्ता",
+    prof_your_activity: "तुमची हालचाल",
+    prof_you_on_stryt: "STRYT वर तुम्ही",
+    prof_settings_more: "सेटिंग आणि इतर",
+    prof_settings_hint: "आवडी, मदत, लॉग आउट",
+    prof_my_highlights: "माझी खास ठळक",
+    prof_manage_business: "दुकान आणि प्रोफाइल सांभाळा",
+    prof_start_selling: "STRYT वर विकायला सुरुवात करा",
+    prof_start_selling_hint: "तुमचे दुकान नोंदवा किंवा सेवा द्या",
+
   };
 
 export default strings;

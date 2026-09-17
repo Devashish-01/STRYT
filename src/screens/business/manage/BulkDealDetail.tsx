@@ -8,6 +8,7 @@ import { chatService } from "@/services/engagement/chatService";
 import { copyText } from "@/lib/clipboard";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 import { poolProgress } from "@/lib/groupBuy";
 import ShareCard from "@/components/ShareCard";
 import type { BulkDealPledge, DepositStatus } from "@/types";
@@ -26,6 +27,7 @@ export default function BulkDealDetail() {
   const { dealId = "" } = useParams();
   const nav = useNavigate();
   const { showToast, user } = useApp();
+  const { t, tf } = useI18n();
   // Both realtime — watching the campaign's own row (pledged_quantity, status,
   // closed_at) and its pledge roster separately, so this screen updates live
   // instead of needing a manual reload while a customer pledges or pays.
@@ -80,7 +82,7 @@ export default function BulkDealDetail() {
     setBusyId(p.id);
     try {
       await bulkService.confirmDeposit(dealId, p.userId);
-      showToast(`Confirmed ${p.pledgerName || "pledger"}'s deposit`);
+      showToast(tf("bdd_deposit_confirmed", { name: p.pledgerName || t("bdd_pledger_fallback") }));
       refetchPledges();
       refetch();
     } catch (e: any) {
@@ -94,7 +96,7 @@ export default function BulkDealDetail() {
     setBusyId(p.id);
     try {
       await bulkService.rejectDeposit(dealId, p.userId);
-      showToast("Deposit rejected — they can try paying again");
+      showToast(t("bdd_deposit_rejected"));
       refetchPledges();
     } catch (e: any) {
       showToast(e?.message || "Couldn't reject — try again");
@@ -124,7 +126,7 @@ export default function BulkDealDetail() {
    *  otherwise all of them — the same rule confirmedQty above uses. */
   async function copyDeliveryList() {
     const relevant = pledges.filter((p) => (hasDeposit ? p.depositStatus === "PAID" : true) && p.deliveryAddress);
-    if (relevant.length === 0) { showToast("No delivery addresses to copy yet"); return; }
+    if (relevant.length === 0) { showToast(t("bdd_no_addresses")); return; }
     const body = relevant
       .map((p, i) => `${i + 1}. ${p.pledgerName || "Customer"} — ${p.quantity} unit${p.quantity > 1 ? "s" : ""}\n   ${p.deliveryAddress}${p.notes ? `\n   Note: ${p.notes}` : ""}`)
       .join("\n\n");
@@ -146,17 +148,17 @@ export default function BulkDealDetail() {
   }
 
   async function extend() {
-    if (!extendDate) { showToast("Pick a new closing date"); return; }
+    if (!extendDate) { showToast(t("bdd_pick_date")); return; }
     const picked = new Date(extendDate).getTime();
     if (isNaN(picked) || picked <= Date.now()) {
-      showToast("Extension deadline must be in the future");
+      showToast(t("bdd_date_future"));
       return;
     }
     const iso = new Date(extendDate).toISOString();
     setBusyId("extend");
     try {
       await bulkService.extendDeal(dealId, iso);
-      showToast("Deadline extended");
+      showToast(t("bdd_deadline_extended"));
       setExtending(false);
       refetch();
     } catch (e: any) {
@@ -169,7 +171,7 @@ export default function BulkDealDetail() {
   if (loading || !deal) {
     return (
       <div className="screen">
-        <AppBar title="Bulk deal" />
+        <AppBar title={t("bdd_title")} />
         <div className="screen-scroll page-pad"><ListSkeleton count={3} /></div>
       </div>
     );
@@ -181,7 +183,7 @@ export default function BulkDealDetail() {
         title={deal.title}
         subtitle={`Min ${deal.moq} · ${inr(deal.regularPrice)} regular`}
         right={
-          <button className="icon-btn" onClick={() => setSharing(true)} aria-label="Share campaign">
+          <button className="icon-btn" onClick={() => setSharing(true)} aria-label={t("bdd_share_campaign")}>
             <Share2 size={20} />
           </button>
         }
@@ -192,20 +194,20 @@ export default function BulkDealDetail() {
         {isClosed && outcome === "FULFILLED" && (
           <div className="card row gap-10 center-v" style={{ padding: 14, background: "var(--green-100)", border: "1px solid var(--green-500)" }}>
             <CheckCircle2 size={20} color="var(--green-600)" style={{ flexShrink: 0 }} />
-            <div className="tiny" style={{ color: "var(--green-700)", lineHeight: 1.5 }}>Closed and fulfilled — claim passes issued to every paid pledger.</div>
+            <div className="tiny" style={{ color: "var(--green-700)", lineHeight: 1.5 }}>{t("bdd_closed_fulfilled")}</div>
           </div>
         )}
         {isClosed && outcome === "REFUNDED" && (
           <div className="card row gap-10 center-v" style={{ padding: 14, background: "var(--ink-50)", border: "1px solid var(--ink-200)" }}>
             <XCircle size={20} color="var(--ink-500)" style={{ flexShrink: 0 }} />
-            <div className="tiny" style={{ color: "var(--ink-600)", lineHeight: 1.5 }}>Closed as refunded — settle deposits with pledgers directly, nothing was auto-charged.</div>
+            <div className="tiny" style={{ color: "var(--ink-600)", lineHeight: 1.5 }}>{t("bdd_closed_refunded")}</div>
           </div>
         )}
         {pendingDecision && (
           <div className="card col gap-10" style={{ padding: 14, background: "var(--amber-50)", border: "1px solid var(--amber-500)" }}>
             <div className="row gap-8 center-v">
               <AlertCircle size={18} color="var(--amber-700)" />
-              <div className="semi small" style={{ color: "var(--amber-800)" }}>Closed under target — decide what happens</div>
+              <div className="semi small" style={{ color: "var(--amber-800)" }}>{t("bdd_closed_under_target")}</div>
             </div>
             <div className="tiny" style={{ color: "var(--amber-800)", lineHeight: 1.5 }}>
               {pledged} of {target} confirmed. Fulfil anyway, refund everyone, or reopen with a new deadline.
@@ -216,9 +218,9 @@ export default function BulkDealDetail() {
         {/* Redemption stats once fulfilled */}
         {stats && (
           <div className="row gap-8">
-            <StatChip label="Passes" value={stats.total} />
-            <StatChip label="Redeemed" value={stats.redeemed} color="var(--green-600)" />
-            <StatChip label="Pending" value={stats.pending} color="var(--amber-700)" />
+            <StatChip label={t("bdd_passes")} value={stats.total} />
+            <StatChip label={t("bdd_redeemed")} value={stats.redeemed} color="var(--green-600)" />
+            <StatChip label={t("pending")} value={stats.pending} color="var(--amber-700)" />
           </div>
         )}
 
@@ -236,7 +238,7 @@ export default function BulkDealDetail() {
               <div className="tiny muted">{totalPledged} pledged in total — the rest are unpaid or awaiting confirmation below.</div>
             )}
             {!hasDeposit && (
-              <div className="tiny muted">No deposit required on this deal, so pledges don't auto-confirm — close it yourself when you're ready to fulfil.</div>
+              <div className="tiny muted">{t("bdd_no_deposit_note")}</div>
             )}
             {deal.closesAtISO && !isClosed && (
               <div className="row gap-6 center-v tiny muted">
@@ -254,13 +256,13 @@ export default function BulkDealDetail() {
                 {closing ? "Closing…" : `Close & fulfil — ${pledged} pledges`}
               </button>
             ) : !confirmingClose ? (
-              <button className="btn btn-outline btn-block" onClick={() => setConfirmingClose(true)}>Close campaign early</button>
+              <button className="btn btn-outline btn-block" onClick={() => setConfirmingClose(true)}>{t("bdd_close_early")}</button>
             ) : (
               <div className="card col gap-8" style={{ padding: 12 }}>
                 <div className="tiny muted">Under target ({pledged} of {target}). What should happen to it?</div>
-                <button className="btn btn-primary btn-sm" disabled={closing} onClick={() => close("FULFILLED")}>Fulfil anyway</button>
-                <button className="btn btn-sm" style={{ background: "var(--ink-100)" }} disabled={closing} onClick={() => close("REFUNDED")}>Refund everyone</button>
-                <button className="btn btn-sm" style={{ background: "none" }} onClick={() => setConfirmingClose(false)}>Cancel</button>
+                <button className="btn btn-primary btn-sm" disabled={closing} onClick={() => close("FULFILLED")}>{t("bdd_fulfil_anyway")}</button>
+                <button className="btn btn-sm" style={{ background: "var(--ink-100)" }} disabled={closing} onClick={() => close("REFUNDED")}>{t("bdd_refund_everyone")}</button>
+                <button className="btn btn-sm" style={{ background: "none" }} onClick={() => setConfirmingClose(false)}>{t("cancel")}</button>
               </div>
             )}
             {!extending ? (
@@ -274,8 +276,8 @@ export default function BulkDealDetail() {
                   value={extendDate}
                   onChange={(e) => setExtendDate(e.target.value)}
                 />
-                <button className="btn btn-primary btn-sm" disabled={busyId === "extend"} onClick={extend}>Save</button>
-                <button className="btn btn-sm" style={{ background: "none" }} onClick={() => setExtending(false)}>Cancel</button>
+                <button className="btn btn-primary btn-sm" disabled={busyId === "extend"} onClick={extend}>{t("save_button")}</button>
+                <button className="btn btn-sm" style={{ background: "none" }} onClick={() => setExtending(false)}>{t("cancel")}</button>
               </div>
             )}
           </div>
@@ -283,8 +285,8 @@ export default function BulkDealDetail() {
 
         {pendingDecision && (
           <div className="col gap-8">
-            <button className="btn btn-primary btn-sm" disabled={closing} onClick={() => close("FULFILLED")}>Fulfil anyway</button>
-            <button className="btn btn-sm" style={{ background: "var(--ink-100)" }} disabled={closing} onClick={() => close("REFUNDED")}>Refund everyone</button>
+            <button className="btn btn-primary btn-sm" disabled={closing} onClick={() => close("FULFILLED")}>{t("bdd_fulfil_anyway")}</button>
+            <button className="btn btn-sm" style={{ background: "var(--ink-100)" }} disabled={closing} onClick={() => close("REFUNDED")}>{t("bdd_refund_everyone")}</button>
             {!extending ? (
               <button className="btn btn-outline btn-sm" onClick={() => setExtending(true)}>{deal.closesAtISO ? "Extend deadline instead" : "Set a deadline instead"}</button>
             ) : (
@@ -296,8 +298,8 @@ export default function BulkDealDetail() {
                   value={extendDate}
                   onChange={(e) => setExtendDate(e.target.value)}
                 />
-                <button className="btn btn-primary btn-sm" disabled={busyId === "extend"} onClick={extend}>Save</button>
-                <button className="btn btn-sm" style={{ background: "none" }} onClick={() => setExtending(false)}>Cancel</button>
+                <button className="btn btn-primary btn-sm" disabled={busyId === "extend"} onClick={extend}>{t("save_button")}</button>
+                <button className="btn btn-sm" style={{ background: "none" }} onClick={() => setExtending(false)}>{t("cancel")}</button>
               </div>
             )}
           </div>
@@ -317,7 +319,7 @@ export default function BulkDealDetail() {
             <Users size={14} /> Pledgers ({pledges.length})
           </div>
           {pledges.length === 0 && (
-            <EmptyState emoji="🙋" title="No pledges yet" text="Once someone pledges into this campaign, they'll show up here." />
+            <EmptyState emoji="🙋" title={t("bdd_no_pledges")} text={t("bdd_no_pledges_text")} />
           )}
           <div className="col gap-8">
             {pledges.map((p) => {
@@ -369,7 +371,7 @@ export default function BulkDealDetail() {
                     </div>
                   )}
                   {p.depositStatus === "PENDING_CONFIRM" && isClosed && (
-                    <div className="tiny muted row gap-4 center-v"><Clock size={11} /> Campaign already closed — confirming now won't issue a claim pass.</div>
+                    <div className="tiny muted row gap-4 center-v"><Clock size={11} /> {t("bdd_already_closed")}</div>
                   )}
                 </div>
               );
