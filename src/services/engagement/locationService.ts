@@ -8,8 +8,9 @@ export interface LocationGrant {
   status: "PENDING" | "APPROVED" | "DENIED" | "REVOKED";
   requesterName?: string;
   requesterAvatar?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  // Nullable in the column; the app type said otherwise and an `any` kept the two from meeting.
+  createdAt?: string | null;
+  updatedAt?: string | null;
   /** APPROVED grants lapse 24h after being given unless renewed. */
   expiresAt?: string | null;
 }
@@ -69,11 +70,13 @@ export const locationService = {
       .eq("status", "PENDING")
       .order("created_at", { ascending: false });
     if (error) return [];
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.id,
       ownerUserId: r.owner_user_id,
       requesterUserId: r.requester_user_id,
-      status: r.status,
+      // location_share_grants.status carries no CHECK constraint; these are the values this service
+      // writes, so the narrowing records a convention rather than proving one.
+      status: r.status as LocationGrant["status"],
       requesterName: r.requester?.name ?? "Someone",
       requesterAvatar: r.requester?.avatar ?? "",
       createdAt: r.created_at,
@@ -95,11 +98,13 @@ export const locationService = {
       .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order("updated_at", { ascending: false });
     if (error) return [];
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.id,
       ownerUserId: r.owner_user_id,
       requesterUserId: r.requester_user_id,
-      status: r.status,
+      // location_share_grants.status carries no CHECK constraint; these are the values this service
+      // writes, so the narrowing records a convention rather than proving one.
+      status: r.status as LocationGrant["status"],
       requesterName: r.requester?.name ?? "Someone",
       requesterAvatar: r.requester?.avatar ?? "",
       createdAt: r.created_at,
@@ -121,11 +126,13 @@ export const locationService = {
       .order("updated_at", { ascending: false })
       .limit(20);
     if (error) return [];
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.id,
       ownerUserId: r.owner_user_id,
       requesterUserId: r.requester_user_id,
-      status: r.status,
+      // location_share_grants.status carries no CHECK constraint; these are the values this service
+      // writes, so the narrowing records a convention rather than proving one.
+      status: r.status as LocationGrant["status"],
       requesterName: r.requester?.name ?? "Someone",
       requesterAvatar: r.requester?.avatar ?? "",
       createdAt: r.created_at,

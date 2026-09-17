@@ -1,8 +1,11 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import type { AppNotification, NotificationType, NotificationMetadata } from "@/types";
 
-function relDate(iso: string): string {
-  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 60000); // minutes
+/** `created_at` is nullable in most tables, and this has always been handed those nulls: `new Date(null)`
+ *  is the epoch, so a row without a timestamp reads as 1970. That is preserved here, not introduced —
+ *  see P12-002 for the question of what it should show instead. */
+function relDate(iso: string | null): string {
+  const d = Math.floor((Date.now() - new Date(iso ?? 0).getTime()) / 60000); // minutes
   if (d < 1) return "just now";
   if (d < 60) return `${d}m ago`;
   const h = Math.floor(d / 60);

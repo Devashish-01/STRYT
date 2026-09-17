@@ -1,7 +1,7 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { cursorToRange, throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
-import type { CommunityPost, Comment } from "@/types";
+import type { CommunityPost, Comment, BookmarkTarget } from "@/types";
 import { haversineKm } from "@/lib/geocode";
 import { aliasName } from "@/lib/publicName";
 import { MAX_POST_MEDIA } from "@/lib/communityTypes";
@@ -102,7 +102,7 @@ function mapPost(
   return p;
 }
 
-function relLabel(iso: string): string {
+function relLabel(iso: string | null): string {
   if (!iso) return "recently";
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
@@ -199,7 +199,7 @@ export const communityService = {
     throwIfError(error);
     if (!rows || rows.length === 0) return makePage([], count, from, limit);
 
-    const postIds = rows.map((r: any) => r.id);
+    const postIds = rows.map((r) => r.id);
 
     // 2. Current user's likes
     const likedIds = new Set<string>();
@@ -209,7 +209,7 @@ export const communityService = {
         .select("post_id")
         .eq("user_id", uid)
         .in("post_id", postIds);
-      (likes ?? []).forEach((l: any) => likedIds.add(l.post_id));
+      (likes ?? []).forEach((l) => likedIds.add(l.post_id));
     }
 
     // 3. Current user's votes
@@ -220,7 +220,7 @@ export const communityService = {
         .select("post_id, option_id")
         .eq("user_id", uid)
         .in("post_id", postIds);
-      (votes ?? []).forEach((v: any) => { userVotes[v.post_id] = v.option_id; });
+      (votes ?? []).forEach((v) => { userVotes[v.post_id] = v.option_id; });
     }
 
     // 3b. Current user's saves — same shape as likes above. RLS restricts this
@@ -231,18 +231,18 @@ export const communityService = {
         .select("post_id")
         .eq("user_id", uid)
         .in("post_id", postIds);
-      (saves ?? []).forEach((s: any) => savedIds.add(s.post_id));
+      (saves ?? []).forEach((s) => savedIds.add(s.post_id));
     }
 
     // 4. All vote counts for poll posts
     const voteCounts: Record<string, Record<string, number>> = {};
-    const pollIds = rows.filter((r: any) => r.poll_options).map((r: any) => r.id);
+    const pollIds = rows.filter((r) => r.poll_options).map((r) => r.id);
     if (pollIds.length > 0) {
       const { data: allVotes } = await sb
         .from("poll_votes")
         .select("post_id, option_id")
         .in("post_id", pollIds);
-      (allVotes ?? []).forEach((v: any) => {
+      (allVotes ?? []).forEach((v) => {
         if (!voteCounts[v.post_id]) voteCounts[v.post_id] = {};
         voteCounts[v.post_id][v.option_id] = (voteCounts[v.post_id][v.option_id] ?? 0) + 1;
       });
@@ -252,7 +252,7 @@ export const communityService = {
     // RPC before it). This client-side pass stays as a belt-and-braces guard for
     // the no-coords fallback path, which has no radius predicate at all.
     const posts = rows
-      .map((r: any) => mapPost(r, likedIds, userVotes, voteCounts, opts.lat, opts.lng, savedIds))
+      .map((r) => mapPost(r, likedIds, userVotes, voteCounts, opts.lat, opts.lng, savedIds))
       .filter((post) => {
         if (opts.lat && opts.lng && post.lat && post.lng) {
           return post.distanceKm <= radiusLimit;
@@ -291,7 +291,7 @@ export const communityService = {
     if (row.poll_options) {
       const { data } = await sb.from("poll_votes").select("option_id").eq("post_id", id);
       voteCounts[id] = {};
-      (data ?? []).forEach((v: any) => {
+      (data ?? []).forEach((v) => {
         voteCounts[id][v.option_id] = (voteCounts[id][v.option_id] ?? 0) + 1;
       });
     }
@@ -325,10 +325,10 @@ export const communityService = {
         .from("post_likes")
         .select("post_id")
         .eq("user_id", uid)
-        .in("post_id", rows.map((r: any) => r.id));
-      (likes ?? []).forEach((l: any) => likedIds.add(l.post_id));
+        .in("post_id", rows.map((r) => r.id));
+      (likes ?? []).forEach((l) => likedIds.add(l.post_id));
     }
-    return rows.map((r: any) => mapPost(r, likedIds, {}, {}));
+    return rows.map((r) => mapPost(r, likedIds, {}, {}));
   },
 
   /** Community posts made "as" a specific business/provider — used on that seller's public Posts tab. */
@@ -351,10 +351,10 @@ export const communityService = {
         .from("post_likes")
         .select("post_id")
         .eq("user_id", uid)
-        .in("post_id", rows.map((r: any) => r.id));
-      (likes ?? []).forEach((l: any) => likedIds.add(l.post_id));
+        .in("post_id", rows.map((r) => r.id));
+      (likes ?? []).forEach((l) => likedIds.add(l.post_id));
     }
-    return rows.map((r: any) => mapPost(r, likedIds, {}, {}));
+    return rows.map((r) => mapPost(r, likedIds, {}, {}));
   },
 
   async create(data: Partial<CommunityPost> & { lat?: number; lng?: number }): Promise<CommunityPost> {
@@ -497,21 +497,21 @@ export const communityService = {
       .order("created_at", { ascending: false })
       .limit(50);
     throwIfError(error);
-    const ids = (saves ?? []).map((s: any) => s.post_id);
+    const ids = (saves ?? []).map((s) => s.post_id);
     if (ids.length === 0) return [];
 
     const { data: rows } = await sb.from("community_posts").select("*").in("id", ids);
     const likedIds = new Set<string>();
     const { data: likes } = await sb.from("post_likes").select("post_id").eq("user_id", uid).in("post_id", ids);
-    (likes ?? []).forEach((l: any) => likedIds.add(l.post_id));
+    (likes ?? []).forEach((l) => likedIds.add(l.post_id));
     const savedIds = new Set<string>(ids);
     // Ordered by when they were SAVED, not when they were posted — that's the
     // order the user built this list in.
-    const byId = new Map<string, any>((rows ?? []).map((r: any) => [r.id, r]));
+    const byId = new Map<string, any>((rows ?? []).map((r) => [r.id, r]));
     return ids
       .map((pid: string) => byId.get(pid))
       .filter(Boolean)
-      .map((r: any) => mapPost(r, likedIds, {}, {}, undefined, undefined, savedIds));
+      .map((r) => mapPost(r, likedIds, {}, {}, undefined, undefined, savedIds));
   },
 
   /** Cast or CHANGE a vote. `ignoreDuplicates` used to be true, which made the
@@ -569,19 +569,19 @@ export const communityService = {
     // Reaction tallies, in one query for the whole thread rather than per
     // comment. Counts are public (same as post_likes), so this needs no
     // per-viewer branching — only `myReaction` is viewer-specific.
-    const commentIds = rows.map((r: any) => r.id);
+    const commentIds = rows.map((r) => r.id);
     const tallies: Record<string, Record<string, number>> = {};
     const mine: Record<string, string> = {};
     const { data: reactions } = await sb.from("comment_reactions")
       .select("comment_id, user_id, emoji")
       .in("comment_id", commentIds);
-    (reactions ?? []).forEach((r: any) => {
+    (reactions ?? []).forEach((r) => {
       if (!tallies[r.comment_id]) tallies[r.comment_id] = {};
       tallies[r.comment_id][r.emoji] = (tallies[r.comment_id][r.emoji] ?? 0) + 1;
       if (uid && r.user_id === uid) mine[r.comment_id] = r.emoji;
     });
 
-    return rows.map((r: any) => {
+    return rows.map((r) => {
       // The number is stored on the comment at share-time (reading another user's
       // live phone is blocked by RLS for privacy). Show it only to those allowed.
       const canSeePhone = !!r.shared_phone && (
@@ -596,11 +596,14 @@ export const communityService = {
         time: relLabel(r.created_at),
         createdAtISO: r.created_at ?? undefined,
         parentId: r.parent_id ?? null,
-        listingType: r.listing_type ?? undefined,
+        listingType: (r.listing_type ?? undefined) as BookmarkTarget | undefined,
         listingId: r.listing_id ?? undefined,
-        sharedPhone: canSeePhone ? r.shared_phone : undefined,
-        phoneVisibility: r.phone_visibility ?? undefined,
-        mentions: Array.isArray(r.mentions) ? r.mentions : [],
+        sharedPhone: (canSeePhone ? r.shared_phone : undefined) ?? undefined,
+        // post_comments.phone_visibility is written only by addComment, which sends "OWNER" or "PUBLIC".
+        phoneVisibility: (r.phone_visibility ?? undefined) as "OWNER" | "PUBLIC" | undefined,
+        // jsonb, so the generated type is Json[]. addComment below is the only writer and always puts
+        // { userId, alias } objects in, which is what this shape asserts.
+        mentions: (Array.isArray(r.mentions) ? r.mentions : []) as { userId: string; alias: string }[],
         pinnedAt: r.pinned_at ?? null,
         editedAt: r.edited_at ?? null,
         reactions: tallies[r.id] ?? {},
@@ -666,8 +669,7 @@ export const communityService = {
       mentions = (mentioned ?? [])
         // Mentioning yourself is legal to write but pointless to record — it
         // would only generate a notification about your own comment.
-        .filter((u: any) => u.alias && u.id !== uid)
-        .map((u: any) => ({ userId: u.id, alias: u.alias }));
+        .flatMap((u) => (u.alias && u.id !== uid ? [{ userId: u.id, alias: u.alias }] : []));
     }
 
     const { data: created, error } = await sb.from("post_comments").insert({

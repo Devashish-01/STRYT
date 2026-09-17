@@ -241,7 +241,9 @@ export function SafeImg({
   variant = "photo",
   onClick,
 }: {
-  src?: string;
+  // null as well as undefined: several columns this renders are nullable, and the body already
+  // falls back with `src || ""`, so a null was always fine — only the type disagreed.
+  src?: string | null;
   alt?: string;
   className?: string;
   style?: CSSProperties;

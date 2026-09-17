@@ -329,7 +329,8 @@ export interface PublicUser {
    *  anyone else (COMMUNITY_POSTS_GAP_LOG #7). */
   posts?: { id: string; title?: string; body: string; type: string; area?: string; date: string; likesCount: number; commentsCount: number; hiddenOnProfile?: boolean; showOnProfile?: boolean }[];
   requests?: { id: string; categoryName?: string; description: string; status: string; budget?: number; date: string }[];
-  proposalsGiven?: { id: string; requestId: string; requestTitle: string; price: number; note: string; date: string }[];
+  // requestId is nullable in the column (a proposal whose request was deleted keeps the row).
+  proposalsGiven?: { id: string; requestId: string | null; requestTitle: string; price: number; note: string; date: string }[];
   proposalsReceivedCount?: number;
   showPostsPublicly?: boolean;
   showAsksPublicly?: boolean;

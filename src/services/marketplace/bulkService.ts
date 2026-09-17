@@ -9,7 +9,7 @@ function rowToDeal(r: any, userLat = 0, userLng = 0): BulkDeal {
   const biz = r.business ?? {};
   const tiers: BulkTier[] = Array.isArray(r.tiers)
     ? [...r.tiers]
-        .map((t: any) => ({ minQty: Number(t.minQty ?? t.min_qty ?? 0), unitPrice: Number(t.unitPrice ?? t.unit_price ?? 0) }))
+        .map((t) => ({ minQty: Number(t.minQty ?? t.min_qty ?? 0), unitPrice: Number(t.unitPrice ?? t.unit_price ?? 0) }))
         .filter((t) => t.minQty > 0 && t.unitPrice > 0)
         .sort((a, b) => a.minQty - b.minQty)
     : [];
@@ -344,7 +344,7 @@ export const bulkService = {
       .eq("deposit_status", "PENDING_CONFIRM")
       .order("created_at", { ascending: false });
     throwIfError(error);
-    return ((data ?? []) as any[]).map((r) => ({ ...rowToPledge(r), dealTitle: r.deal?.title ?? "Campaign" }));
+    return (data ?? []).map((r) => ({ ...rowToPledge(r), dealTitle: r.deal?.title ?? "Campaign" }));
   },
 
   /** Full pledger roster for the owner's own console — a direct table read,
@@ -357,7 +357,7 @@ export const bulkService = {
       .eq("deal_id", dealId)
       .order("created_at", { ascending: false });
     throwIfError(error);
-    return ((data ?? []) as any[]).map(rowToPledge);
+    return (data ?? []).map(rowToPledge);
   },
 
   /** Business confirms a pledger's PENDING_CONFIRM deposit. This is also the
@@ -413,7 +413,7 @@ export const bulkService = {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("bulk_deal_tokens_for_deal", { p_deal_id: dealId });
     throwIfError(error);
-    return ((data ?? []) as any[]).map(rowToBulkDealToken);
+    return (data ?? []).map(rowToBulkDealToken);
   },
 
   async dealRedemptionStats(dealId: string): Promise<GroupBuyRedemptionStats> {
@@ -443,7 +443,7 @@ export const bulkService = {
     ]);
     throwIfError(groupRes.error);
     throwIfError(bulkRes.error);
-    const merged = [...(groupRes.data ?? []).map(rowToToken), ...((bulkRes.data ?? []) as any[]).map(rowToBulkDealToken)];
+    const merged = [...(groupRes.data ?? []).map(rowToToken), ...(bulkRes.data ?? []).map(rowToBulkDealToken)];
     return merged.sort((a, b) => new Date(b.createdAtISO).getTime() - new Date(a.createdAtISO).getTime());
   },
 
@@ -455,7 +455,7 @@ export const bulkService = {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("group_buy_tokens_for_agreement", { p_agreement_id: agreementId });
     throwIfError(error);
-    return ((data ?? []) as any[]).map(rowToToken);
+    return (data ?? []).map(rowToToken);
   },
 
   /** Merchant scan. Server-side `for update` + status guard means a double

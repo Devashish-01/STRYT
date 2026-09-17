@@ -170,13 +170,14 @@ export const businessAccessService = {
       .select("id, business_id, grantee_user_id, status, requested_at, expires_at, access_level, scopes, grantee:users!grantee_user_id(alias, avatar)")
       .eq("business_id", businessId)
       .order("requested_at", { ascending: false });
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.id,
       businessId: r.business_id,
       granteeUserId: r.grantee_user_id ?? undefined,
       granteeName: aliasName({ alias: r.grantee?.alias }, "A user"),
       granteeAvatar: r.grantee?.avatar ?? undefined,
-      status: r.status,
+      // business_access_sessions_status_check constrains this column to exactly AccessStatus's members.
+      status: r.status as AccessStatus,
       requestedAt: r.requested_at,
       expiresAt: r.expires_at ?? null,
       accessLevel: (r.access_level as AccessLevel) ?? "FULL",
@@ -194,12 +195,13 @@ export const businessAccessService = {
       .select("id, business_id, status, requested_at, expires_at, access_level, scopes, businesses!business_id(name)")
       .eq("grantee_user_id", uid)
       .order("requested_at", { ascending: false });
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.id,
       businessId: r.business_id,
       businessName: r.businesses?.name ?? "Business",
       granteeName: "You",
-      status: r.status,
+      // business_access_sessions_status_check constrains this column to exactly AccessStatus's members.
+      status: r.status as AccessStatus,
       requestedAt: r.requested_at,
       expiresAt: r.expires_at ?? null,
       accessLevel: (r.access_level as AccessLevel) ?? "FULL",

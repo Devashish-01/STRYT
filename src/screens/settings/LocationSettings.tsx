@@ -63,7 +63,7 @@ export default function LocationSettings() {
     }
   }
 
-  const formatRel = (iso?: string) => {
+  const formatRel = (iso?: string | null) => {
     if (!iso) return "";
     const diff = Date.now() - new Date(iso).getTime();
     const m = Math.floor(diff / 60000);

@@ -88,7 +88,7 @@ export const emergencyService = {
     // Throwing puts the screen into its error state with a retry; returning [] here used to render "No emergency
     // contacts" — the most alarming possible lie on this screen (ECON-4).
     throwIfError(error);
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.contact_user_id,
       name: aliasName(r.contact ?? {}),
       avatar: r.contact?.avatar ?? "",
@@ -149,7 +149,7 @@ export const emergencyService = {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("my_live_share_recipients");
     throwIfError(error);
-    return ((data ?? []) as any[]).map((r) => ({ userId: r.recipient_user_id, name: r.recipient_name, avatar: r.recipient_avatar ?? null }));
+    return (data ?? []).map((r) => ({ userId: r.recipient_user_id, name: r.recipient_name, avatar: r.recipient_avatar ?? null }));
   },
 
   // Drop ONE recipient from an active share without stopping it for everyone.

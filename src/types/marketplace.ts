@@ -334,7 +334,8 @@ export interface LoyaltyCard {
 
 export interface Coupon {
   id: string;
-  businessId: string;
+  // Nullable in the column; the app type said otherwise and an `any` kept the two from meeting.
+  businessId: string | null;
   businessName: string;
   title: string;
   code: string;

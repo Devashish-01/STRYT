@@ -2,7 +2,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import type { TablesInsert, TablesUpdate } from "@/lib/dbTypes";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import type { Business, CatalogItem, PortfolioItem, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken, QueueHistoryToken } from "@/types";
+import type { Business, CatalogItem, PortfolioItem, Review, QueueInfo, LoyaltyCard, MyQueueEntry, PaymentMethod, QueueOwnerToken, QueueHistoryToken, QueueTokenStatus, PaymentStatus } from "@/types";
 import { leaderboardService } from "./leaderboardService";
 import { haversineKm } from "@/lib/geocode";
 import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
@@ -80,8 +80,11 @@ export function bustBusinessGetCache(id: string) {
   }
 }
 
-function relDate(iso: string): string {
-  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+/** `created_at` is nullable in most tables, and this has always been handed those nulls: `new Date(null)`
+ *  is the epoch, so a row without a timestamp reads as 1970. That is preserved here, not introduced —
+ *  see P12-002 for the question of what it should show instead. */
+function relDate(iso: string | null): string {
+  const d = Math.floor((Date.now() - new Date(iso ?? 0).getTime()) / 86400000);
   if (d === 0) return "today";
   if (d === 1) return "yesterday";
   if (d < 7) return `${d} days ago`;
@@ -95,12 +98,12 @@ function sevenDaysAgoIso(): string {
 }
 
 // Bucket a list of ISO timestamps into a 7-element series (oldest → newest day).
-function dailyBuckets(isoDates: string[]): number[] {
+function dailyBuckets(isoDates: (string | null)[]): number[] {
   const buckets = [0, 0, 0, 0, 0, 0, 0];
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   for (const iso of isoDates) {
-    const dayIdx = 6 - Math.floor((startOfToday.getTime() - new Date(iso).getTime()) / 86400000);
+    const dayIdx = 6 - Math.floor((startOfToday.getTime() - new Date(iso ?? 0).getTime()) / 86400000);
     if (dayIdx >= 0 && dayIdx <= 6) buckets[dayIdx]++;
   }
   return buckets;
@@ -182,7 +185,7 @@ export const businessService = {
     const sb = getSupabase();
     const { data, error } = await sb.from("businesses").select("*").in("id", ids);
     throwIfError(error);
-    return ((data ?? []) as any[]).map((row) => {
+    return (data ?? []).map((row) => {
       const b = toCamel<Business>(row);
       b.coverImage = getRelatableBusinessCover(b);
       b.gallery = getRelatableBusinessGallery(b);
@@ -265,7 +268,7 @@ export const businessService = {
       .order("created_at", { ascending: false })
       .limit(30);
     throwIfError(error);
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.id,
       raterName: aliasName({ alias: r.rater?.alias, name: r.rater?.name, showNamePublicly: r.rater?.show_name_publicly }, "Anonymous"),
       raterAvatar: r.rater?.avatar ?? "",
@@ -339,7 +342,7 @@ export const businessService = {
           .gte("created_at", since)
           .order("created_at", { ascending: false }),
       ]);
-      const rows = (tokensRes.data ?? []) as any[];
+      const rows = (tokensRes.data ?? []);
       const map = (t: any): QueueOwnerToken => ({
         id: t.id,
         name: t.customer_name,
@@ -347,8 +350,8 @@ export const businessService = {
         joinedAtISO: t.created_at,
         arrivedAt: t.arrived_at ?? null,
         customerUserId: t.customer_user_id ?? null,
-        paymentStatus: t.payment_status ?? "UNPAID",
-        paymentMethod: t.payment_method ?? null,
+        paymentStatus: (t.payment_status ?? "UNPAID") as PaymentStatus,
+        paymentMethod: (t.payment_method ?? null) as PaymentMethod | null,
         paymentAmount: t.payment_amount ?? null,
         paymentReference: t.payment_reference ?? null,
       });
@@ -359,7 +362,7 @@ export const businessService = {
         called: rows.filter((t) => t.status === "CALLED").map(map),
         // Once served, the visit is complete — the owner reverts to the customer's
         // public alias rather than keeping their real name on the history card.
-        served: ((servedRes.data ?? []) as any[]).map((t) => ({
+        served: (servedRes.data ?? []).map((t) => ({
           ...map(t),
           name: aliasName({ alias: t.customer?.alias, name: t.customer_name, showNamePublicly: t.customer?.show_name_publicly }, "Customer"),
         })),
@@ -392,15 +395,16 @@ export const businessService = {
       .order("created_at", { ascending: false })
       .limit(50);
     throwIfError(error);
-    return ((data ?? []) as any[]).map((t) => ({
+    return (data ?? []).map((t) => ({
       id: t.id,
       name: t.customer_name,
       partySize: t.party_size,
       joinedAtISO: t.created_at,
-      status: t.status,
+      // queue_tokens_status_check constrains this column to exactly QueueTokenStatus's members.
+      status: t.status as QueueTokenStatus,
       closedReason: t.closed_reason ?? null,
-      paymentStatus: t.payment_status ?? "UNPAID",
-      paymentMethod: t.payment_method ?? null,
+      paymentStatus: (t.payment_status ?? "UNPAID") as PaymentStatus,
+      paymentMethod: (t.payment_method ?? null) as PaymentMethod | null,
       paymentAmount: t.payment_amount ?? null,
     }));
   },
@@ -588,7 +592,7 @@ export const businessService = {
       .order("created_at", { ascending: false })
       .limit(100);
     throwIfError(error);
-    const rows = (data ?? []) as any[];
+    const rows = (data ?? []);
     if (rows.length === 0) return [];
 
     const activeBizIds = Array.from(new Set(
@@ -625,15 +629,16 @@ export const businessService = {
         businessId: r.business_id,
         businessName: r.businesses?.name ?? "Shop",
         businessImage: r.businesses?.cover_image ?? "",
-        status: r.status,
+        // queue_tokens_status_check constrains this column to exactly QueueTokenStatus's members.
+        status: r.status as QueueTokenStatus,
         position: idx >= 0 ? idx + 1 : 0,
         peopleAhead,
         partySize: r.party_size ?? "1 person",
         joinedAtISO: r.created_at,
         estWaitMin: r.status === "WAITING" ? weightedWaitMin(sizesAhead, avg) : 0,
         businessUpiId: r.businesses?.upi_id ?? null,
-        paymentStatus: r.payment_status ?? "UNPAID",
-        paymentMethod: r.payment_method ?? null,
+        paymentStatus: (r.payment_status ?? "UNPAID") as PaymentStatus,
+        paymentMethod: (r.payment_method ?? null) as PaymentMethod | null,
         paymentAmount: r.payment_amount ?? null,
         paymentReference: r.payment_reference ?? null,
         closedReason: r.closed_reason ?? null,
@@ -908,8 +913,8 @@ export const businessService = {
       catalogViews: 0,
       reviews: b.rating_count ?? 0,
       questions: qnaRes.count ?? 0,
-      viewsSeries: dailyBuckets((viewsRes.data ?? []).map((r: any) => r.viewed_at)),
-      leadsSeries: dailyBuckets((leadsRes.data ?? []).map((r: any) => r.created_at)),
+      viewsSeries: dailyBuckets((viewsRes.data ?? []).map((r) => r.viewed_at)),
+      leadsSeries: dailyBuckets((leadsRes.data ?? []).map((r) => r.created_at)),
     };
   },
 
@@ -932,11 +937,11 @@ export const businessService = {
         .from("qna_upvotes")
         .select("qna_id")
         .eq("user_id", uid)
-        .in("qna_id", rows.map((q: any) => q.id));
-      upvotedIds = new Set((mine ?? []).map((r: any) => r.qna_id));
+        .in("qna_id", rows.map((q) => q.id));
+      upvotedIds = new Set((mine ?? []).map((r) => r.qna_id));
     }
 
-    return rows.map((q: any) => ({
+    return rows.map((q) => ({
       id: q.id,
       businessId: q.business_id,
       askerName: aliasName({ alias: q.asker?.alias, name: q.asker?.name, showNamePublicly: q.asker?.show_name_publicly }, "Customer"),
@@ -1011,13 +1016,13 @@ export const businessService = {
       .order("created_at", { ascending: false })
       .limit(100);
     throwIfError(error);
-    return (data ?? []).map((l: any) => ({
+    return (data ?? []).map((l) => ({
       id: l.id,
       businessId: l.business_id,
       kind: l.kind,
       name: l.from?.name ?? "Someone",
       avatar: l.from?.avatar ?? "",
-      text: leadText(l.kind, l.note),
+      text: leadText(l.kind, l.note ?? undefined),
       time: relDate(l.created_at),
       handled: l.handled,
     }));
@@ -1083,8 +1088,8 @@ export const businessService = {
       .eq("target_id", id);
     throwIfError(error);
     return (data ?? [])
-      .filter((b: any) => !b.ends_at || b.ends_at > nowIso)
-      .map((b: any) => b.boost_type);
+      .filter((b) => !b.ends_at || b.ends_at > nowIso)
+      .map((b) => b.boost_type);
   },
 
   /** This viewer's own review of a shop, so the review sheet opens on what they wrote last time (CRAT-8). */

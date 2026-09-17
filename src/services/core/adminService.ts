@@ -40,8 +40,11 @@ async function callVerificationReview<T = any>(payload: Record<string, unknown>)
   return json;
 }
 
-function relDate(iso: string): string {
-  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+/** `created_at` is nullable in most tables, and this has always been handed those nulls: `new Date(null)`
+ *  is the epoch, so a row without a timestamp reads as 1970. That is preserved here, not introduced —
+ *  see P12-002 for the question of what it should show instead. */
+function relDate(iso: string | null): string {
+  const d = Math.floor((Date.now() - new Date(iso ?? 0).getTime()) / 86400000);
   if (d === 0) return "today";
   if (d === 1) return "yesterday";
   if (d < 7) return `${d} days ago`;
@@ -193,7 +196,7 @@ export const adminService = {
         .eq("status", "PENDING")
         .order("created_at", { ascending: true }); // oldest first — fairest queue
       throwIfError(error);
-      return (data ?? []).map((b: any) => ({
+      return (data ?? []).map((b) => ({
         id: b.id,
         name: b.name,
         sub: b.sub_category || b.category_name || "",
@@ -224,7 +227,7 @@ export const adminService = {
         .eq("status", "PENDING")
         .order("created_at", { ascending: true });
       throwIfError(error);
-      return (data ?? []).map((p: any) => ({
+      return (data ?? []).map((p) => ({
         id: p.id,
         name: p.display_name,
         sub: p.category_name || "",
@@ -250,7 +253,7 @@ export const adminService = {
         .eq("status", "PENDING")
         .order("created_at", { ascending: true });
       throwIfError(error);
-      return (data ?? []).map((p: any) => ({
+      return (data ?? []).map((p) => ({
         id: p.id,
         name: p.name,
         sub: p.category,
@@ -272,7 +275,7 @@ export const adminService = {
       .select("id, name, parent_id, parent:categories!parent_id(name)")
       .eq("status", "PENDING");
     throwIfError(error);
-    return (data ?? []).map((c: any) => ({
+    return (data ?? []).map((c) => ({
       id: c.id,
       name: c.name,
       sub: c.parent ? `under ${c.parent.name}` : "proposed root",
@@ -289,7 +292,7 @@ export const adminService = {
       .in("status", ["OPEN", "REVIEWING"])
       .order("created_at", { ascending: false });
     throwIfError(error);
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.id,
       targetType: r.target_type,
       targetId: r.target_id,
@@ -329,7 +332,7 @@ export const adminService = {
       .select("*, reporter:users!user_id(name)")
       .order("created_at", { ascending: false });
     throwIfError(error);
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.id,
       description: r.description,
       reporterRole: (r.reporter_role ?? "CUSTOMER") as AdminBugReport["reporterRole"],
@@ -592,7 +595,7 @@ export const adminService = {
       .eq("location_review_status", "PENDING")
       .order("pending_location_requested_at", { ascending: true });
     throwIfError(error);
-    return ((data ?? []) as any[]).map((b) => ({
+    return (data ?? []).map((b: any) => ({
       id: b.id,
       name: b.name,
       coverImage: b.cover_image ?? "",

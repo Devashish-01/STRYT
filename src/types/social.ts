@@ -141,7 +141,8 @@ export interface CommunityPost {
 export interface Comment {
   id: string;
   authorName: string;
-  authorAvatar: string;
+  // Nullable in the column; the app type said otherwise and an `any` kept the two from meeting.
+  authorAvatar: string | null;
   /** The user who wrote it — needed to link a mention back to a profile and to
    *  know whether the viewer may delete it. */
   authorUserId?: string;

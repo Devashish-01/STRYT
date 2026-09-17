@@ -166,7 +166,7 @@ function rowToItem(r: any): DeliveryItem {
     lng: r.lng ?? null,
     batchId: r.batch_id ?? null,
     stopOrder: r.stop_order ?? null,
-    batchStatus: r.batch_status ?? null,
+    batchStatus: (r.batch_status ?? null) as DeliveryBatchStatus | null,
     batchLat: r.batch_lat ?? null,
     batchLng: r.batch_lng ?? null,
     createdAt: r.created_at ?? null,
@@ -190,7 +190,7 @@ export const deliveryService = {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("my_deliveries");
     if (error) throw error;
-    return ((data ?? []) as any[]).map(rowToItem);
+    return (data ?? []).map(rowToItem);
   },
 
   /** Agent pushes a live status (+ optional GPS). Server maps it to the
@@ -361,11 +361,13 @@ export const deliveryService = {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("business_active_deliveries", { p_business_id: businessId });
     if (error) throw error;
-    return ((data ?? []) as any[]).map((r) => ({
+    return (data ?? []).map((r) => ({
       id: r.id,
       appointmentId: r.appointment_id,
-      status: r.status,
-      liveStatus: r.live_status ?? null,
+      // appointment_deliveries_status_check and _live_status_check constrain both columns to exactly the
+      // members of these unions.
+      status: r.status as DeliveryStatus,
+      liveStatus: (r.live_status ?? null) as DeliveryLiveStatus | null,
       agentUserId: r.agent_user_id ?? null,
       agentName: r.agent_name ?? "Delivery agent",
       agentAvatar: r.agent_avatar ?? null,
@@ -380,7 +382,7 @@ export const deliveryService = {
       timeLabel: r.time_label ?? null,
       batchId: r.batch_id ?? null,
       stopOrder: r.stop_order ?? null,
-      batchStatus: r.batch_status ?? null,
+      batchStatus: (r.batch_status ?? null) as DeliveryBatchStatus | null,
       agentLat: r.agent_lat ?? null,
       agentLng: r.agent_lng ?? null,
       agentHeading: r.agent_heading ?? null,

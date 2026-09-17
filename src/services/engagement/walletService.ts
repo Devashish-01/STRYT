@@ -22,8 +22,11 @@ export interface WalletTransaction {
   note?: string;
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+/** `created_at` is nullable in most tables, and this has always been handed those nulls: `new Date(null)`
+ *  is the epoch, so a row without a timestamp reads as 1970. That is preserved here, not introduced —
+ *  see P12-002 for the question of what it should show instead. */
+function fmtDate(iso: string | null): string {
+  return new Date(iso ?? 0).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
 export const walletService = {
@@ -57,7 +60,7 @@ export const walletService = {
     const stampMap: Record<string, number> = {};
     for (const s of stampRes.data ?? []) stampMap[s.card_id] = s.stamps;
 
-    const loyaltyCards: LoyaltyCard[] = (lcRes.data ?? []).map((r: any) => ({
+    const loyaltyCards: LoyaltyCard[] = (lcRes.data ?? []).map((r) => ({
       id:            r.id,
       businessId:    r.business_id,
       businessName:  r.businesses?.name ?? "Business",
@@ -69,8 +72,8 @@ export const walletService = {
 
     // Coupons
     const coupons: Coupon[] = (couponRes.data ?? [])
-      .filter((r: any) => r.offers)
-      .map((r: any) => ({
+      .filter((r) => r.offers)
+      .map((r) => ({
         id:           r.offers.id,
         businessId:   r.offers.business_id,
         businessName: r.offers.businesses?.name ?? "Business",
@@ -83,7 +86,7 @@ export const walletService = {
       }));
 
     // Settlements
-    const settlements: Settlement[] = (settlRes.data ?? []).map((r: any) => ({
+    const settlements: Settlement[] = (settlRes.data ?? []).map((r) => ({
       id:          r.id,
       agreementId: r.agreement_id,
       withName:    r.users?.name ?? "User",
@@ -120,7 +123,7 @@ export const walletService = {
         .select("*, users!with_user_id(name, alias, avatar)")
         .eq("user_id", uid)
         .order("created_at", { ascending: false });
-      for (const r of (data ?? []) as any[]) {
+      for (const r of (data ?? [])) {
         out.push({
           id: `s_${r.id}`,
           source: "REQUEST",
@@ -129,7 +132,7 @@ export const walletService = {
           amount: (r.amount ?? 0) + (r.tip ?? 0),
           mode: r.mode === "CASH" ? "Cash" : "UPI",
           date: fmtDate(r.created_at),
-          ts: new Date(r.created_at).getTime(),
+          ts: new Date(r.created_at ?? 0).getTime(),
           note: r.note ?? undefined,
         });
       }
@@ -143,7 +146,7 @@ export const walletService = {
         .eq("payment_status", "PAID")
         .or(`target_owner_user_id.eq.${uid},customer_user_id.eq.${uid}`)
         .order("created_at", { ascending: false });
-      for (const r of (data ?? []) as any[]) {
+      for (const r of (data ?? [])) {
         const isOwner = r.target_owner_user_id === uid;
         out.push({
           id: `a_${r.id}`,
@@ -155,7 +158,7 @@ export const walletService = {
           amount: r.payment_amount ?? 0,
           mode: r.payment_method ?? "—",
           date: fmtDate(r.created_at),
-          ts: new Date(r.created_at).getTime(),
+          ts: new Date(r.created_at ?? 0).getTime(),
         });
       }
     } catch (e) { console.error("wallet: appointments source failed", e); }
@@ -163,7 +166,7 @@ export const walletService = {
     // Live queue — paid visits, as shop owner (earning) or customer (spend).
     try {
       const { data: ownedBiz } = await sb.from("businesses").select("id").eq("owner_user_id", uid);
-      const ownedIds = (ownedBiz ?? []).map((b: any) => b.id);
+      const ownedIds = (ownedBiz ?? []).map((b) => b.id);
       const filter = ownedIds.length
         ? `business_id.in.(${ownedIds.join(",")}),customer_user_id.eq.${uid}`
         : `customer_user_id.eq.${uid}`;
@@ -173,7 +176,7 @@ export const walletService = {
         .eq("payment_status", "PAID")
         .or(filter)
         .order("created_at", { ascending: false });
-      for (const r of (data ?? []) as any[]) {
+      for (const r of (data ?? [])) {
         const isOwner = ownedIds.includes(r.business_id);
         out.push({
           id: `q_${r.id}`,
@@ -185,7 +188,7 @@ export const walletService = {
           amount: r.payment_amount ?? 0,
           mode: r.payment_method ?? "—",
           date: fmtDate(r.created_at),
-          ts: new Date(r.created_at).getTime(),
+          ts: new Date(r.created_at ?? 0).getTime(),
         });
       }
     } catch (e) { console.error("wallet: queue source failed", e); }
@@ -274,7 +277,7 @@ export const walletService = {
       .eq("card_id", data.id)
       .order("stamps", { ascending: false })
       .limit(20);
-    return (stamps ?? []).map((s: any) => ({
+    return (stamps ?? []).map((s) => ({
       name:   s.users?.name ?? "User",
       avatar: s.users?.avatar ?? "",
       stamps: s.stamps,

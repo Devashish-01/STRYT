@@ -12,7 +12,8 @@ export interface SavedSearch {
   id: string;
   query: string;
   radiusKm: number;
-  createdAt: string;
+  // Nullable in the column; the app type said otherwise and an `any` kept the two from meeting.
+  createdAt: string | null;
 }
 
 interface FeedParams {
@@ -279,7 +280,7 @@ export const discoveryService = {
       .eq("user_id", uid)
       .order("created_at", { ascending: false });
     if (error) return [];
-    return (data ?? []).map((r: any) => ({ id: r.id, query: r.query, radiusKm: r.radius_km, createdAt: r.created_at }));
+    return (data ?? []).map((r) => ({ id: r.id, query: r.query, radiusKm: r.radius_km, createdAt: r.created_at }));
   },
 
   async removeSavedSearch(id: string): Promise<void> {

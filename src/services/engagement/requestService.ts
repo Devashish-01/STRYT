@@ -135,7 +135,7 @@ async function withOfferIdentity(sb: ReturnType<typeof getSupabase>, rows: any[]
   const ids = Array.from(new Set(rows.map((r) => r.proposal_id).filter(Boolean)));
   if (ids.length === 0) return rows;
   const { data } = await sb.from("proposals").select("id, responder_name, responder_avatar").in("id", ids);
-  const byId = new Map((data ?? []).map((p: any) => [p.id, p]));
+  const byId = new Map((data ?? []).map((p) => [p.id, p]));
   return rows.map((r) => ({ ...r, offer: byId.get(r.proposal_id) }));
 }
 
@@ -233,7 +233,7 @@ export const requestService = {
     // already-seen rows, and a page that's entirely outside the radius stalls
     // pagination forever (next_cursor never moves). Same fix communityService
     // already applies for exactly this reason — see its comment on makePage.
-    const rawRows = (data ?? []).map((r: any) => rowToRequest(r, p.lat, p.lng));
+    const rawRows = (data ?? []).map((r) => rowToRequest(r, p.lat, p.lng));
     let rows = rawRows;
     if (p.lat && p.lng) {
       // A request is only visible within the SMALLER of (a) the viewer's own
@@ -258,7 +258,7 @@ export const requestService = {
       .eq("requester_user_id", uid)
       .order("created_at", { ascending: false });
     throwIfError(error);
-    return (data ?? []).map((r: any) => rowToRequest(r, userLat, userLng));
+    return (data ?? []).map((r) => rowToRequest(r, userLat, userLng));
   },
 
   async get(id: string, userLat = 0, userLng = 0): Promise<RequestPost | undefined> {
@@ -391,7 +391,7 @@ export const requestService = {
     q = entityId ? q.eq("responder_entity_id", entityId) : q.eq("responder_user_id", uid);
     const { data, error } = await q;
     throwIfError(error);
-    return (data ?? []).map((row: any) => {
+    return (data ?? []).map((row) => {
       const { request, ...rest } = row;
       return {
         ...rowToProposal(rest),

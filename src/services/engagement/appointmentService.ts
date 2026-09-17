@@ -582,7 +582,7 @@ export const appointmentService = {
       const sb = getSupabase();
       const { data, error } = await sb.rpc("booked_slots", { p_target_id: targetId });
       if (error) throw error;
-      return (data ?? []).map((r: any) => ({
+      return (data ?? []).map((r) => ({
         scheduledForISO: r.scheduled_for as string,
         packageId: (r.package_id as string | null) ?? null,
         usedSpots: Number(r.used_spots ?? 0),
@@ -604,7 +604,7 @@ export const appointmentService = {
       const { data, error } = await sb.rpc("business_slot_capacities", { p_business_id: businessId });
       if (error) throw error;
       const out: Record<string, { capacity: number; maxPartySize: number }> = {};
-      for (const r of (data ?? []) as any[]) {
+      for (const r of (data ?? [])) {
         out[r.package_id] = {
           capacity: Math.max(1, Number(r.slot_capacity ?? 1)),
           maxPartySize: Math.max(1, Number(r.max_party_size ?? 1)),

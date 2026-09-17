@@ -193,7 +193,7 @@ export const socialService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return (data || []).map((v: any) => ({
+    return (data || []).map((v) => ({
       userId: v.viewer?.id,
       name: v.viewer?.name,
       avatar: v.viewer?.avatar,
@@ -260,7 +260,7 @@ export const socialService = {
       .not("alias", "is", null)
       .limit(10);
     if (error) throw error;
-    return (data || []).map((r: any) => ({ id: r.id, name: r.alias, avatar: r.avatar }));
+    return (data || []).map((r) => ({ id: r.id, name: r.alias, avatar: r.avatar }));
   },
 
   // ── Phase 34: Available-now ───────────────────────────────────
@@ -387,7 +387,7 @@ export const socialService = {
       .eq("target_id", userId)
       .limit(100);
     if (error) throw error;
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.follower_user_id,
       name: aliasName({ alias: r.users?.alias, name: r.users?.name }),
       avatar: r.users?.avatar ?? "",
@@ -414,7 +414,7 @@ export const socialService = {
       .eq("provider_id", providerId)
       .limit(50);
     if (error) throw error;
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       byUserId: r.from_user_id,
       byName:   r.users?.name ?? "Someone",
       byAvatar: r.users?.avatar ?? "",
@@ -486,7 +486,7 @@ export const socialService = {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("get_leaderboard");
     if (error) throw error;
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       rank:       Number(r.rank),
       name:       r.name,
       avatar:     r.avatar ?? "",

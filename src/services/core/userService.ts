@@ -48,8 +48,11 @@ function pickColumns<T extends Record<string, unknown>>(obj: T, allowed: Set<str
   return out;
 }
 
-function relDate(iso: string): string {
-  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+/** `created_at` is nullable in most tables, and this has always been handed those nulls: `new Date(null)`
+ *  is the epoch, so a row without a timestamp reads as 1970. That is preserved here, not introduced —
+ *  see P12-002 for the question of what it should show instead. */
+function relDate(iso: string | null): string {
+  const d = Math.floor((Date.now() - new Date(iso ?? 0).getTime()) / 86400000);
   if (d <= 0) return "today";
   if (d === 1) return "yesterday";
   if (d < 7) return `${d} days ago`;
@@ -233,7 +236,14 @@ export const userService = {
     let delegatedIds: string[] = [];
     try {
       const { data: del } = await sb.rpc("my_delegated_businesses");
-      if (Array.isArray(del)) delegatedIds = del.map((r: any) => (typeof r === "string" ? r : r?.my_delegated_businesses)).filter(Boolean);
+      // The generated type says string[], but PostgREST can hand back single-column rows as objects
+      // instead — userService.owned.test.ts pins both shapes, so both are still handled. The cast is
+      // what the generated type cannot express, not a licence to stop checking.
+      if (Array.isArray(del)) {
+        delegatedIds = del
+          .map((r) => (typeof r === "string" ? r : (r as { my_delegated_businesses?: string })?.my_delegated_businesses))
+          .filter((id): id is string => !!id);
+      }
     } catch { /* table/rpc not present yet */ }
     const ownedSet = new Set(ownedIds);
     return {
@@ -310,27 +320,27 @@ export const userService = {
       sb.from("proposals").select("id, request_id, price, message, created_at").eq("responder_user_id", id).order("created_at", { ascending: false }).limit(20),
     ]);
 
-    const ownedProvIds = ((userProvidersData.data ?? []) as any[]).map((p) => p.id);
+    const ownedProvIds = (userProvidersData.data ?? []).map((p) => p.id);
     const { count: vouchCount } = ownedProvIds.length
       ? await sb.from("vouches").select("*", { count: "exact", head: true }).in("provider_id", ownedProvIds)
       : { count: 0 };
 
     // Resolve request titles for proposals given
-    const proposals = (proposalsGivenData.data ?? []) as any[];
-    const reqIds = Array.from(new Set(proposals.map((p) => p.request_id).filter(Boolean)));
+    const proposals = (proposalsGivenData.data ?? []);
+    const reqIds = Array.from(new Set(proposals.map((p) => p.request_id).filter((id): id is string => !!id)));
     const { data: reqTitlesData } = reqIds.length
       ? await sb.from("requests").select("id, description, category_name").in("id", reqIds)
       : { data: [] as any[] };
-    const reqTitlesMap = new Map((reqTitlesData ?? []).map((r: any) => [r.id, r.category_name || r.description?.slice(0, 30) || "Request"]));
+    const reqTitlesMap = new Map((reqTitlesData ?? []).map((r) => [r.id, r.category_name || r.description?.slice(0, 30) || "Request"]));
 
     // Count proposals received on user's requests
-    const userReqIds = (userRequestsData.data ?? []).map((r: any) => r.id);
+    const userReqIds = (userRequestsData.data ?? []).map((r) => r.id);
     const { count: propRecCount } = userReqIds.length
       ? await sb.from("proposals").select("*", { count: "exact", head: true }).in("request_id", userReqIds)
       : { count: 0 };
 
     // Resolve the names of whatever this user reviewed.
-    const ratings = (ratingsRes.data ?? []) as any[];
+    const ratings = (ratingsRes.data ?? []);
     const idsByType = (t: string) => ratings.filter((r) => r.ratee_type === t).map((r) => r.ratee_id);
     const bizIds = idsByType("BUSINESS");
     const provIds = idsByType("PROVIDER");
@@ -341,9 +351,9 @@ export const userService = {
       userIds.length ? sb.from("users").select("id, name").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
     ]);
     const nameOf = (type: string, tid: string): string => {
-      if (type === "BUSINESS") return (bizN.data ?? []).find((x: any) => x.id === tid)?.name ?? "A business";
-      if (type === "PROVIDER") return (provN.data ?? []).find((x: any) => x.id === tid)?.display_name ?? "A provider";
-      return (userN.data ?? []).find((x: any) => x.id === tid)?.name ?? "A neighbor";
+      if (type === "BUSINESS") return (bizN.data ?? []).find((x) => x.id === tid)?.name ?? "A business";
+      if (type === "PROVIDER") return (provN.data ?? []).find((x) => x.id === tid)?.display_name ?? "A provider";
+      return (userN.data ?? []).find((x) => x.id === tid)?.name ?? "A neighbor";
     };
 
     return {
@@ -379,7 +389,7 @@ export const userService = {
       // sign-in itself; "id" comes from an approved KYC review on a service profile they own.
       verifications: [
         ...(ur.phone ? ["phone" as const] : []),
-        ...(((userProvidersData.data ?? []) as any[]).some((p) => p.is_verified || p.verification_status === "APPROVED")
+        ...((userProvidersData.data ?? []).some((p) => p.is_verified || p.verification_status === "APPROVED")
           ? ["id" as const]
           : []),
       ],
@@ -390,7 +400,7 @@ export const userService = {
         comment: r.comment ?? "",
         date: relDate(r.created_at),
       })),
-      posts: (postsRes.data ?? []).map((p: any) => ({
+      posts: (postsRes.data ?? []).map((p) => ({
         id: p.id,
         title: p.title ?? undefined,
         body: p.body ?? "",
@@ -401,7 +411,7 @@ export const userService = {
         commentsCount: p.comments_count ?? 0,
         showOnProfile: p.show_on_profile ?? true,
       })),
-      requests: (userRequestsData.data ?? []).map((r: any) => ({
+      requests: (userRequestsData.data ?? []).map((r) => ({
         id: r.id,
         categoryName: r.category_name ?? undefined,
         description: r.description ?? "",
@@ -409,7 +419,7 @@ export const userService = {
         budget: r.budget_max ?? undefined,
         date: relDate(r.created_at),
       })),
-      proposalsGiven: proposals.map((p: any) => ({
+      proposalsGiven: proposals.map((p) => ({
         id: p.id,
         requestId: p.request_id,
         requestTitle: reqTitlesMap.get(p.request_id) || "Help Request",

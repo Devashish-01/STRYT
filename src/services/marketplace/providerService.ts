@@ -1,5 +1,8 @@
-function relDate(iso: string): string {
-  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+/** `created_at` is nullable in most tables, and this has always been handed those nulls: `new Date(null)`
+ *  is the epoch, so a row without a timestamp reads as 1970. That is preserved here, not introduced —
+ *  see P12-002 for the question of what it should show instead. */
+function relDate(iso: string | null): string {
+  const d = Math.floor((Date.now() - new Date(iso ?? 0).getTime()) / 86400000);
   if (d === 0) return "today";
   if (d === 1) return "yesterday";
   if (d < 7) return `${d} days ago`;
@@ -8,12 +11,12 @@ function relDate(iso: string): string {
 }
 
 // Bucket ISO timestamps into a 7-element series (oldest → newest day).
-function providerDailyBuckets(isoDates: string[]): number[] {
+function providerDailyBuckets(isoDates: (string | null)[]): number[] {
   const buckets = [0, 0, 0, 0, 0, 0, 0];
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
   for (const iso of isoDates) {
-    const dayIdx = 6 - Math.floor((startOfToday.getTime() - new Date(iso).getTime()) / 86400000);
+    const dayIdx = 6 - Math.floor((startOfToday.getTime() - new Date(iso ?? 0).getTime()) / 86400000);
     if (dayIdx >= 0 && dayIdx <= 6) buckets[dayIdx]++;
   }
   return buckets;
@@ -170,7 +173,7 @@ export const providerService = {
       .order("created_at", { ascending: false })
       .limit(30);
     throwIfError(error);
-    return (data ?? []).map((r: any) => ({
+    return (data ?? []).map((r) => ({
       id: r.id,
       raterName: aliasName({ alias: r.rater?.alias, name: r.rater?.name, showNamePublicly: r.rater?.show_name_publicly }, "Anonymous"),
       raterAvatar: r.rater?.avatar ?? "",
@@ -363,7 +366,7 @@ export const providerService = {
     // hidden, and users.phone is being locked to the owner (supabase/pending/).
     const { data, error } = await sb.rpc("provider_leads", { p_provider_id: id });
     throwIfError(error);
-    return ((data ?? []) as any[]).map((l) => ({
+    return (data ?? []).map((l) => ({
       id: l.id,
       providerId: l.provider_id,
       fromUserId: l.from_user_id,
@@ -412,8 +415,8 @@ export const providerService = {
       accepted: acceptedRes.count ?? 0,
       jobsDone: prov.jobs_done ?? 0,
       earnings,
-      viewsSeries: providerDailyBuckets((viewsSerRes.data ?? []).map((r: any) => r.viewed_at)),
-      leadsSeries: providerDailyBuckets((leadsSerRes.data ?? []).map((r: any) => r.created_at)),
+      viewsSeries: providerDailyBuckets((viewsSerRes.data ?? []).map((r) => r.viewed_at)),
+      leadsSeries: providerDailyBuckets((leadsSerRes.data ?? []).map((r) => r.created_at)),
     };
   },
 
@@ -445,7 +448,7 @@ export const providerService = {
     throwIfError(settleRes.error);
     throwIfError(apptRes.error);
 
-    const settleEntries: EarningEntry[] = (settleRes.data ?? []).map((s: any) => ({
+    const settleEntries: EarningEntry[] = (settleRes.data ?? []).map((s) => ({
       id: s.id,
       amount: s.amount ?? 0,
       tip: s.tip ?? 0,
@@ -456,7 +459,7 @@ export const providerService = {
       agreementId: s.agreement_id ?? "",
     }));
 
-    const apptEntries: EarningEntry[] = (apptRes.data ?? []).map((a: any) => ({
+    const apptEntries: EarningEntry[] = (apptRes.data ?? []).map((a) => ({
       id: a.id,
       amount: Number(a.payment_amount ?? a.package_price ?? 0),
       tip: 0,

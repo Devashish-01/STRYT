@@ -97,7 +97,7 @@ export const subscriptionService = {
       .lte("log_date", to)
       .order("log_date");
     throwIfError(error);
-    return (data ?? []).map((r: any) => toCamel<SubscriptionLog>(r));
+    return (data ?? []).map((r) => toCamel<SubscriptionLog>(r));
   },
 
   async markDay(subscriptionId: string, date: string, status: SubscriptionLog["status"], note?: string): Promise<void> {

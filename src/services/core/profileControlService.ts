@@ -18,7 +18,8 @@ export interface DeletionRequest {
   userId: string;
   targetType: ProfileTarget;
   targetId: string | null;
-  reason: string;
+  // Nullable in the column; the app type said otherwise and an `any` kept the two from meeting.
+  reason: string | null;
   status: "PENDING" | "REVIEWING" | "APPROVED" | "COMPLETED" | "REJECTED";
   createdAt: string;
   updatedAt: string;
@@ -234,7 +235,7 @@ export const profileControlService = {
 
     throwIfError(error);
 
-    return (data || []).map((r: any) => ({
+    return (data || []).map((r) => ({
       id: r.id,
       userId: r.user_id,
       targetType: r.target_type as ProfileTarget,
