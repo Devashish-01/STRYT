@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
+import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import { inr } from "@/lib/format";
 import { NoDealsIllustration } from "@/components/illustrations";
 import { requestService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";

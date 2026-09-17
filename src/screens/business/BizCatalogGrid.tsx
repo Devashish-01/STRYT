@@ -1,5 +1,6 @@
 import { Minus, Plus } from "@/components/Icons";
-import { SafeImg, VegDot, inr } from "@/components/common";
+import { SafeImg, VegDot } from "@/components/common";
+import { inr } from "@/lib/format";
 import type { BusinessPackage } from "@/lib/businessPackages";
 import type { CatalogItem } from "@/types";
 

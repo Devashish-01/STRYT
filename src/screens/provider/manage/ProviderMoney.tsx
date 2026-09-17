@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { AppBar, SafeImg, inr } from "@/components/common";
+import { AppBar, SafeImg } from "@/components/common";
+import { inr } from "@/lib/format";
 import { providerService, appointmentService, uploadService } from "@/services";
 import { bustProviderGetCache } from "@/services/marketplace/providerService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppBar, EmptyState, inr, PullToRefreshIndicator } from "@/components/common";
+import { AppBar, EmptyState, PullToRefreshIndicator } from "@/components/common";
+import { inr } from "@/lib/format";
 import { requestService, businessService, catalogService } from "@/services";
 import { requestMatchesCategory } from "@/lib/categoryMatch";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";

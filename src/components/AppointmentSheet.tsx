@@ -13,7 +13,7 @@ import { PaymentSheet } from "@/components/PaymentSheet";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import LocationPicker from "@/components/LocationPicker";
 import { BUSINESS_PACKAGES, type BizVocabulary } from "@/lib/businessPackages";
-import { inr } from "@/components/common";
+import { inr } from "@/lib/format";
 
 function getSlotHour(s: AppointmentSlot): number {
   if (s.isoTimestamp) {

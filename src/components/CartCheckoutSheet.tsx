@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { PaymentMethodPanel } from "@/components/PaymentMethodPanel";
-import { inr } from "@/components/common";
+import { inr } from "@/lib/format";
 import { CalendarClock, IndianRupee, ChevronRight } from "@/components/Icons";
 import { appointmentService } from "@/services";
 import { useApp } from "@/store";

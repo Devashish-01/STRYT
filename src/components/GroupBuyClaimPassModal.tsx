@@ -1,6 +1,6 @@
 import { QRCodeSVG } from "qrcode.react";
 import { X, CheckCircle2, Copy, Clock, XCircle } from "@/components/Icons";
-import { inr } from "@/components/common";
+import { inr } from "@/lib/format";
 import { copyText } from "@/lib/clipboard";
 import { useApp } from "@/store";
 import type { GroupBuyToken } from "@/types";

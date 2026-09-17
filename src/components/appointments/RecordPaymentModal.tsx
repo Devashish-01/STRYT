@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, Clock, IndianRupee, X } from "@/components/Icons";
-import { inr, SafeImg } from "@/components/common";
+import { SafeImg } from "@/components/common";
+import { inr } from "@/lib/format";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord, PaymentMethod } from "@/types";
 

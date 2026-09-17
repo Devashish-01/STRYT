@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
-import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator, inr } from "@/components/common";
+import { AppBar, EmptyState, SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { inr } from "@/lib/format";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useMessageUser } from "@/hooks/useMessageUser";

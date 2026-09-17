@@ -200,11 +200,6 @@ export function VegDot({ veg }: { veg?: boolean }) {
   );
 }
 
-export function inr(n?: number) {
-  if (n == null) return "";
-  return "₹" + n.toLocaleString("en-IN");
-}
-
 // Image with graceful fallback. Real data has missing/broken image URLs;
 // this avoids broken-image icons across the app.
 const FALLBACK_IMG =

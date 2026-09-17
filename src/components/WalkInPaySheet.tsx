@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, Plus, Minus } from "@/components/Icons";
-import { SafeImg, inr } from "@/components/common";
+import { SafeImg } from "@/components/common";
+import { inr } from "@/lib/format";
 import { appointmentService } from "@/services";
 import { useApp } from "@/store";
 import { PaymentMethodPanel } from "@/components/PaymentMethodPanel";

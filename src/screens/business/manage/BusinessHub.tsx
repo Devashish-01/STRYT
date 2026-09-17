@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { AppBar, inr } from "@/components/common";
+import { AppBar } from "@/components/common";
+import { inr } from "@/lib/format";
 import { appointmentService, businessService, customPaymentService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";

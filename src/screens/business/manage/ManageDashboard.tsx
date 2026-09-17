@@ -12,7 +12,8 @@ import {
 import { chatService } from "@/services/engagement/chatService";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
-import { AppBar, SafeImg, inr } from "@/components/common";
+import { AppBar, SafeImg } from "@/components/common";
+import { inr } from "@/lib/format";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";

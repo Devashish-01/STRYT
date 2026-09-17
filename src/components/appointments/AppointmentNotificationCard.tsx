@@ -1,7 +1,8 @@
 import React, { useMemo } from "react";
 import { Calendar, Clock, Check, X, Users, MapPin, ArrowRight, Trash2 } from "@/components/Icons";
-import { inr, SafeImg } from "@/components/common";
-import { toneColor, toneBg } from "@/components/NotificationContent";
+import { SafeImg } from "@/components/common";
+import { inr } from "@/lib/format";
+import { toneColor, toneBg } from "@/lib/notificationTone";
 import type { NotificationMetadata } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";

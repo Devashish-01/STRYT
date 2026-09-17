@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppBar, inr, EmptyState, SafeImg } from "@/components/common";
+import { AppBar, EmptyState, SafeImg } from "@/components/common";
+import { inr } from "@/lib/format";
 import { CheckCircle2, Circle, Wallet, Calendar, ShieldCheck, Info, AlertTriangle, MapPin, Clock, ExternalLink, Share2, XCircle, QrCode, MessageCircle } from "@/components/Icons";
 import { requestService, chatService } from "@/services";
 import DealUpiSheet from "@/components/DealUpiSheet";

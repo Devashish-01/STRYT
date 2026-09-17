@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { CheckCircle2, Phone, Search, ChevronDown, ChevronUp, Clock, IndianRupee, X } from "@/components/Icons";
-import { inr, SafeImg } from "@/components/common";
+import { SafeImg } from "@/components/common";
+import { inr } from "@/lib/format";
 import { appointmentService, groupCustomerTabs, type CustomerTabGroup } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord, PaymentMethod } from "@/types";
 import { useApp } from "@/store";

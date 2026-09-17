@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppBar, inr, EmptyState } from "@/components/common";
+import { AppBar, EmptyState } from "@/components/common";
+import { inr } from "@/lib/format";
 import { ListSkeleton } from "@/components/states";
 import { CheckCircle2, XCircle, Clock, Users, AlertCircle, Calendar, Share2, MessageCircle, MapPin } from "@/components/Icons";
 import { bulkService } from "@/services";

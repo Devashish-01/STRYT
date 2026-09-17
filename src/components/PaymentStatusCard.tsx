@@ -1,5 +1,5 @@
 import { Clock, CheckCircle2, XCircle } from "@/components/Icons";
-import { inr } from "@/components/common";
+import { inr } from "@/lib/format";
 
 export interface PaymentStatusCardProps {
   paymentStatus?: "UNPAID" | "PENDING_CONFIRM" | "PAID" | "REJECTED" | string | null;

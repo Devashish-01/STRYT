@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { AppBar, VegDot, inr, EmptyState } from "@/components/common";
+import { AppBar, VegDot, EmptyState } from "@/components/common";
+import { inr } from "@/lib/format";
 import { Plus, Pencil, Trash2, Camera, Star, Tag } from "@/components/Icons";
 import { businessService, providerService, uploadService, bustBusinessGetCache, bustProviderGetCache } from "@/services";
 import { serviceFor, type Kind } from "./catalogKind";

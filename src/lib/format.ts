@@ -33,3 +33,11 @@ export function formatDate(iso: string, lang: string, opts?: Intl.DateTimeFormat
   const locale = LOCALE_BY_LANG[lang] ?? "en-IN";
   return new Date(iso).toLocaleDateString(locale, opts ?? { day: "numeric", month: "short", year: "numeric" });
 }
+
+/** Rupees, the way every price in the app is written. Lived in components/common.tsx, which meant a
+ *  currency format could not be used outside a component file without dragging the whole component
+ *  module in. */
+export function inr(n?: number) {
+  if (n == null) return "";
+  return "₹" + n.toLocaleString("en-IN");
+}

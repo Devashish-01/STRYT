@@ -7,7 +7,8 @@ import {
 import { providerService, bustProviderGetCache, communityService, appointmentService, notificationService, requestService, catalogService } from "@/services";
 import { requestMatchesCategory } from "@/lib/categoryMatch";
 import { chatService } from "@/services/engagement/chatService";
-import { SafeImg, inr, AppBar } from "@/components/common";
+import { SafeImg, AppBar } from "@/components/common";
+import { inr } from "@/lib/format";
 import { useQuery, useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
 import { ErrorView, Skeleton } from "@/components/states";
 import { useApp } from "@/store";

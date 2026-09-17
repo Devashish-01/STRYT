@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
-import { SafeImg, inr } from "@/components/common";
+import { SafeImg } from "@/components/common";
 import { Package, Store, MapPin, CheckCircle2, Clock, Ticket } from "@/components/Icons";
 import { calcBulkTotal, type BulkDeal, type GroupBuyToken } from "@/types";
-import { distanceLabel } from "@/lib/format";
+import { inr, distanceLabel } from "@/lib/format";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { poolProgress } from "@/lib/groupBuy";

@@ -8,7 +8,8 @@ import {
 import { requestService, chatService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
-import { Rating, EmptyState, SafeImg, inr } from "@/components/common";
+import { Rating, EmptyState, SafeImg } from "@/components/common";
+import { inr } from "@/lib/format";
 import { useApp } from "@/store";
 import GuestSignInPrompt from "@/components/GuestSignInPrompt";
 import ReportSheet from "@/components/ReportSheet";

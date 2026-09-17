@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { UserPlus, X } from "@/components/Icons";
-import { inr } from "@/components/common";
+import { inr } from "@/lib/format";
 
 export interface WalkInPackageOption {
   id: string;

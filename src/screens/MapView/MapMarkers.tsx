@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import { useNavigate } from "react-router-dom";
 import { Marker, Popup } from "react-map-gl/maplibre";
-import { Rating, inr } from "@/components/common";
+import { Rating } from "@/components/common";
 import { Store, Briefcase, Mountains, Trophy, Binoculars, MapPin as MapPinIcon } from "@/components/Icons";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability } from "@/utils/availability";
@@ -13,7 +13,7 @@ import { RING_BACKGROUND } from "./pinTone";
 import type { Business, Provider, Place, PlaceCategory } from "@/types";
 import type { RequestPost } from "@/types";
 import { displayName as safeName } from "@/lib/publicName";
-import { distanceLabel } from "@/lib/format";
+import { inr, distanceLabel } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 
 // react-map-gl separates <Popup> from <Marker> (no nested-children-opens-

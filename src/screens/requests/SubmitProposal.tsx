@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { AppBar, inr, EmptyState } from "@/components/common";
+import { AppBar, EmptyState } from "@/components/common";
+import { inr } from "@/lib/format";
 import { requestService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";

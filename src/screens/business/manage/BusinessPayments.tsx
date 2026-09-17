@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { AppBar, SafeImg, inr, PullToRefreshIndicator } from "@/components/common";
+import { AppBar, SafeImg, PullToRefreshIndicator } from "@/components/common";
+import { inr } from "@/lib/format";
 import { appointmentService, bulkService, businessService, customPaymentService } from "@/services";
 import { ownerVisibleCustomerName } from "@/services/engagement/appointmentService";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";

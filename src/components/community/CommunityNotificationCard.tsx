@@ -12,7 +12,7 @@ import {
   Eye,
 } from "@/components/Icons";
 import { SafeImg } from "@/components/common";
-import { toneColor, toneBg } from "@/components/NotificationContent";
+import { toneColor, toneBg } from "@/lib/notificationTone";
 import type { NotificationMetadata, NotificationType } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";

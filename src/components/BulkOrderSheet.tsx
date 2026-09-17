@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Minus, Plus, CheckCircle2, Clock, MessageCircle } from "@/components/Icons";
-import { inr } from "@/components/common";
+import { inr } from "@/lib/format";
 import { bulkService } from "@/services";
 import { chatService } from "@/services/engagement/chatService";
 import { useApp } from "@/store";

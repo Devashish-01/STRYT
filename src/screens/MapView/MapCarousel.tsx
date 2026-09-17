@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import type { ComponentType } from "react";
-import { inr } from "@/components/common";
 import { Store, Briefcase, Mountains, Trophy, Binoculars, MapPin as MapPinIcon } from "@/components/Icons";
 import { useApp } from "@/store";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import { displayName as safeName } from "@/lib/publicName";
-import { pedestrianDistanceLabel } from "@/lib/format";
+import { inr, pedestrianDistanceLabel } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
 import { AvatarPin, type RingTone } from "./AvatarPin";
 import { pinColors } from "./mapIcons";
