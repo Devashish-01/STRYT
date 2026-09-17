@@ -57,7 +57,7 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
 - [x] **D1** `docs/qa/DEVICE_MATRIX.md` — device classes, Android versions, what only a device can prove.
 - [x] **D2** `docs/qa/DEVICE_QA_CHECKLIST.md` — push, permissions, camera, dialling, background/resume, slow
   network, screen reader, large fonts. Each item says what "pass" looks like.
-- [ ] **D3** Automated accessibility pass over the app's own markup: run an a11y audit in the E2E harness
+- [x] **D3** Automated accessibility pass over the app's own markup: run an a11y audit in the E2E harness
   (axe) across the screens breadth spec already visits, log findings to the ledger.
 - [owner] Running the checklist on real phones.
 
@@ -102,6 +102,7 @@ Appended as work lands. Newest last.
 | ~02:47 | B2 | scrubPii + 26 tests, wired into the existing client_errors sink — that was a live leak, not a future one. |
 | 03:00 | B1/B3/B4 | Sentry wired, DSN-gated and lazily imported. Caught two bundle regressions: manualChunks pinned it into vendor-react (+27 KB eager), and the SW precached 350 KB of it. Both fixed; precache +7 KiB net. B3/B4 already satisfied. |
 | 03:12 | D1/D2 | Device matrix + device QA checklist written. Scoped to what only a device proves; the 420-line MANUAL_TEST_PLAN already covers the functional flows and is cross-referenced rather than duplicated. |
+| 03:15 | D3 | axe added to the E2E harness over 13 screens. 34 findings: 132 contrast nodes (logged P13-001, owner decision — it is the brand palette), 10 unnamed icon buttons and a disabled pinch-zoom, both fixed (P13-002/003), 4 smaller ones left open (P13-004). |
 
 ## Owner steps found so far
 

@@ -445,6 +445,8 @@ const strings: Record<string, string> = {
     reviews_suffix: "reviews",
     open_now: "Open now",
     closed_status: "Closed",
+    save_word: "Save",
+    photo_n_of_m: "Photo {n} of {m}",
     call: "Call",
     directions: "Directions",
     message: "Message",

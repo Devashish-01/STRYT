@@ -6,7 +6,11 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="mask-icon" href="/favicon.svg" color="#8b47f5" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- maximum-scale/user-scalable removed 2026-09-18: they disabled pinch-zoom entirely, which axe flags
+         on every screen and which WCAG 1.4.4 treats as a failure — someone who needs to magnify text simply
+         could not. The usual reason for keeping them is iOS auto-zooming when a <16px input is focused;
+         that is a cosmetic annoyance and not worth taking zoom away from everyone. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#8b47f5" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

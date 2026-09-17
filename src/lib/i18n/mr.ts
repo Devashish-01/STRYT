@@ -440,6 +440,8 @@ const strings: Record<string, string> = {
     reviews_suffix: "पुनरावलोकने",
     open_now: "आता उघडे आहे",
     closed_status: "बंद",
+    save_word: "जतन करा",
+    photo_n_of_m: "फोटो {n} / {m}",
     call: "कॉल करा",
     directions: "दिशादर्शन",
     message: "संदेश",
