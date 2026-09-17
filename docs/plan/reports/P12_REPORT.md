@@ -18,7 +18,7 @@
 | Phase file says | Done instead | Why |
 |---|---|---|
 | `git switch -c phase/12-quality origin/develop` | Stayed on `phase/07-e2e` | P07–P12 are being run as one unpushed stretch on that branch; splitting now would fragment history that has not been reviewed yet. |
-| "`npm run e2e` green before and after every refactor commit" | Unit tests only | The owner asked for coding now and all testing at the end. Recorded here because it is the phase's own safety rule, and one commit (§3 step 6) genuinely needs E2E before it can be called done. |
+| "`npm run e2e` green before and after every refactor commit" | Unit tests after every commit; E2E once, against the finished phase | The owner asked for coding now and all testing at the end. Recorded because it is the phase's own safety rule: a single run at the end proves the end state but not which commit would have broken what, so a bisect would be needed if it had failed. It did not — 137/137 first attempt. |
 | Step 2: "no screen file over 700 lines" | Met for 3 of 8 named files; 5 left untouched | Forcing the other five would make the code worse, not better. See §5. |
 | Step 3: app ≤ 250 `any`, services ≤ 20 | 455 and 128 | Large reduction, target not reached. See §5. |
 
