@@ -32,7 +32,7 @@ We collect only what the features you use require. Grouped by purpose:
 
 ### 3.1 Account and profile
 - Your name (real name — **kept private by default**), your public handle (**alias**), profile photo or emoji avatar, phone number, email address, neighbourhood/area, city, preferred language, roles/"hats", and your notification/discovery radius.
-- Authentication identifiers from **Google Sign-In (via Firebase Authentication)** — your Google account email and basic profile, used to create and secure your Account.
+- Authentication identifiers from **Google Sign-In (via Firebase Authentication)** — your Google account email and basic profile, used to create and secure your Account. **Google Sign-In is currently the only way to sign in**, so an email address is required to hold an Account; a phone number is optional and is collected only if you add one or use a phone sign-in route.
 - Your privacy settings (which of: real name, posts, asks, badges, phone, email, city, rating, exact location are public), onboarding status, and account state (enabled, deletion-scheduled timestamps).
 
 ### 3.2 Location data
@@ -107,7 +107,9 @@ We use personal data only for purposes compatible with those for which it was co
 
 5.1 **Your real name is private by default.** Strangers see your alias/handle. Your phone, email, city, exact location, posts, asks, badges, and rating are shown to others **only if you switch each on** in your privacy settings.
 
-5.2 **Exact location is private by default.** Distances shown to other Users are computed server-side from the viewer's own location; your raw coordinates are not exposed to them. Exact location is shared only when you globally opt in or approve a specific one-time location request.
+5.2 **Exact location is private by default — from other Users.** Distances shown to other Users are computed server-side from the viewer's own location; your raw coordinates are not exposed **to them**. Exact location reaches another User only when you globally opt in, approve a specific one-time location request, or start a live share.
+
+This is about other Users, not about our processors. To turn coordinates into an area name, and to answer a place search, those coordinates or that query are sent to our geocoding provider (Section 8.2). Displaying a map also sends the area you are looking at to the map-tile provider. These are service providers acting on our instructions, not other Users, but they do receive location data.
 
 5.3 **Sellers are more public by nature.** If you list a Business or Provider, your listing details (including business address, hours, catalogue, and contact options you enable) are public so customers can find and reach you.
 
@@ -147,7 +149,9 @@ As inherent to the features you use — e.g. a Seller sees your name/alias and d
 - **Google / Firebase** — Google Sign-In (authentication) and Firebase Cloud Messaging (push notifications).
 - **Vercel** — website hosting and anonymous analytics/speed insights.
 - **Mapbox** — primary geocoding and place search; when you search a place or we reverse-geocode your coordinates, that query/those coordinates are sent to Mapbox to return results.
-- **OpenStreetMap / Nominatim** — fallback geocoding, and the source of the underlying map tile data (served via OpenStreetMap-based tile providers such as OpenFreeMap).
+- **OpenStreetMap / Nominatim** — fallback geocoding, and the source of the underlying map tile data.
+- **Map tile providers** — OpenFreeMap, CARTO, and Mapbox when a Mapbox style is in use. Showing you a map sends the map area you are viewing to whichever of these serves the tiles.
+- **Overpass API (OpenStreetMap)** — queried for nearby public places when you browse the map.
 - **Email/SMTP provider** — to deliver support-ticket emails to our support inbox (your reply-to email, category, subject, and message are included).
 - **Web Push services** — the browser's push service to deliver web notifications.
 - **NPCI/UPI and your bank/UPI app** — you interact with these directly to make payments (not a STRYT processor, but essential to the payment you initiate).

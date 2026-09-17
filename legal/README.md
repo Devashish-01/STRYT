@@ -64,3 +64,21 @@ Search the documents for these bracketed tokens if editing by hand:
 ---
 
 *Drafted 19 July 2026. Do not publish without legal review.*
+
+## Pending review — changes of 2026-09-18
+
+`privacy-policy.md` was amended from `docs/launch/DATA_SAFETY_DIFF.md`, which compared the policy against the
+code and schema. Three factual corrections, no compliance judgement:
+
+1. §3.1 — Google Sign-In is currently the **only** sign-in method, so email is required and phone optional.
+2. §5.2 — "your raw coordinates are not exposed" was true of other Users but not of the geocoding provider,
+   which receives the coordinate pair by design. Scoped, and the processors stated separately.
+3. §8.2 — named the map-tile providers (OpenFreeMap, CARTO, Mapbox) and the Overpass API, all of which the
+   code calls and which receive the area you are viewing.
+
+**These are unreviewed.** P15 §15.B.4 requires a qualified Indian lawyer to review for DPDP Act and IT Rules
+obligations; nothing here claims compliance. Record the reviewer and date below when that happens.
+
+| Reviewer | Date | Scope |
+|---|---|---|
+| _(pending)_ | | |
