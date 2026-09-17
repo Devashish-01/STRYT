@@ -10,6 +10,7 @@ import { PLACEHOLDER_AVATAR } from "@/lib/placeholders";
 import { useI18n } from "@/lib/i18n";
 import { shareCapabilities, type ShareSubject } from "@/lib/share";
 import { config } from "@/config";
+import { openExternal } from "@/lib/openExternal";
 
 interface Props {
   /** What's being shared. Pass an array to render the role-switcher chips
@@ -119,7 +120,7 @@ export default function ShareCard({ subjects, onClose }: Props) {
 
   function shareWhatsApp() {
     const text = encodeURIComponent(`${shareText}\n${shareUrl}`);
-    window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
+    openExternal(`https://wa.me/?text=${text}`);
     onClose();
   }
 

@@ -3,6 +3,7 @@ import { Navigation } from "@/components/Icons";
 import { makePinIcon } from "@/lib/leafletIcon";
 import "@/lib/leafletIcon";
 import { config } from "@/config";
+import { openExternal } from "@/lib/openExternal";
 
 interface Props {
   lat: number;
@@ -22,7 +23,7 @@ interface Props {
 export default function MiniMap({ lat, lng, pinColor = "var(--brand-600)", height = 160, label }: Props) {
   if (!lat || !lng) return null;
   const openDirections = () => {
-    window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, "_blank", "noopener");
+    openExternal(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`);
   };
   return (
     <div

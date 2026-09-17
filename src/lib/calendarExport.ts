@@ -2,6 +2,8 @@
  * Calendar export utilities for STRYT bookings & appointments.
  * Pure TypeScript, zero external dependencies, works seamlessly on Web, Android, iOS.
  */
+import { openExternal } from "@/lib/openExternal";
+
 
 export interface CalendarEventDetails {
   title: string;
@@ -122,7 +124,7 @@ export function openCalendarEvent(event: CalendarEventDetails): void {
   const gcalUrl = getGoogleCalendarUrl(event);
   // If in browser or Android with browser, opening gcal URL is smoothest.
   // We open the Google Calendar event in a new tab/window, with fallback to ICS download.
-  const win = window.open(gcalUrl, "_blank", "noopener,noreferrer");
+  const win = openExternal(gcalUrl);
   if (!win || win.closed || typeof win.closed === "undefined") {
     // Popup was blocked or Webview doesn't support popup -> download ICS file
     downloadIcsFile(event);

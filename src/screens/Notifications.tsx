@@ -14,6 +14,7 @@ import { useApp } from "@/store";
 import type { NotificationType, AppNotification } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { formatDate } from "@/lib/format";
+import { openExternal } from "@/lib/openExternal";
 
 const Handshake = HandshakeIcon as any;
 
@@ -749,7 +750,7 @@ export default function Notifications() {
       }
     } else if (action === "DIRECTIONS") {
       if (meta?.lat != null && meta?.lng != null) {
-        window.open(`https://www.google.com/maps/dir/?api=1&destination=${meta.lat},${meta.lng}`, "_blank");
+        openExternal(`https://www.google.com/maps/dir/?api=1&destination=${meta.lat},${meta.lng}`);
       } else if (n.deepLink) {
         nav(n.deepLink);
       } else {

@@ -7,6 +7,8 @@
  * destination and everything before it rides along as waypoints, in the order
  * given (the console has already sorted them nearest-neighbour).
  */
+import { openExternal } from "@/lib/openExternal";
+
 
 export interface RouteStop {
   lat: number;
@@ -68,6 +70,6 @@ export function exceedsRouteCap(stopCount: number): boolean {
 export function openRoute(stops: RouteStop[]): boolean {
   const url = buildRouteUrl(stops);
   if (!url) return false;
-  window.open(url, "_blank", "noopener");
+  openExternal(url);
   return true;
 }

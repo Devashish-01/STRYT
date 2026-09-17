@@ -23,6 +23,7 @@ import DeliveryStatusPill from "@/components/delivery/DeliveryStatusPill";
 import DeliveryStepper from "@/components/delivery/DeliveryStepper";
 import HandoffCodeInput from "@/components/delivery/HandoffCodeInput";
 import CantDeliverSheet from "@/components/delivery/CantDeliverSheet";
+import { openExternal } from "@/lib/openExternal";
 
 /** Best-effort current position; resolves null if unavailable/denied. */
 function getGPS(): Promise<{ lat: number; lng: number } | null> {
@@ -48,7 +49,7 @@ function whenLabel(d: DeliveryItem): string {
 }
 
 function openNativeDirections(lat: number, lng: number) {
-  window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, "_blank", "noopener");
+  openExternal(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`);
 }
 
 /** Stops → the {lat,lng} shape buildRouteUrl expects, in the given order. */

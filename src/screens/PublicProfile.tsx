@@ -28,6 +28,7 @@ import type { RequestStatus } from "@/types";
 import { aliasName } from "@/lib/publicName";
 import { postTypeMeta } from "@/lib/communityTypes";
 import { useI18n } from "@/lib/i18n";
+import { openExternal } from "@/lib/openExternal";
 
 const verifyLabelKeys: Record<string, string> = {
   phone: "verify_label_phone",
@@ -656,7 +657,7 @@ function LocationShareControl({
     try {
       const loc = await locationService.getSharedLocation(targetId);
       if (loc) {
-        window.open(`https://www.google.com/maps?q=${loc.lat},${loc.lng}`, "_blank", "noopener");
+        openExternal(`https://www.google.com/maps?q=${loc.lat},${loc.lng}`);
       } else {
         showToast("Location no longer shared");
         setStatus("NONE");

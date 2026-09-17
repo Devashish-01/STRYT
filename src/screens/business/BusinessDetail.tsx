@@ -38,6 +38,7 @@ import { MAX_QUEUE_PARTY_SIZE, isQueuePayable } from "@/lib/queueMath";
 import { haptics } from "@/lib/haptics";
 import MiniMap from "@/components/MiniMap";
 import { useI18n } from "@/lib/i18n";
+import { openExternal } from "@/lib/openExternal";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();
@@ -413,7 +414,7 @@ export default function BusinessDetail() {
                   showToast("Opening Google Maps…");
                   const origin = user.lat && user.lng ? `${user.lat},${user.lng}` : "";
                   const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${b.lat},${b.lng}&travelmode=driving`;
-                  window.open(mapsUrl, "_blank");
+                  openExternal(mapsUrl);
                 }}
               >
                 <Navigation size={17} /> {t("directions")}

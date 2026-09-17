@@ -9,6 +9,7 @@ import PhotoViewer from "@/components/PhotoViewer";
 import { useApp } from "@/store";
 import { useWeather } from "@/features/ambient/useWeather";
 import type { PlaceCategory } from "@/types";
+import { openExternal } from "@/lib/openExternal";
 
 // WMO weather codes (open-meteo's `current.weather_code`) collapsed into a
 // short label — same standard the ambient header's rain/hot flags already
@@ -218,7 +219,7 @@ export default function PlaceDetail() {
               className="btn btn-primary row gap-8 center"
               onClick={() => {
                 const origin = user.lat && user.lng ? `${user.lat},${user.lng}` : "";
-                window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${place.lat},${place.lng}&travelmode=driving`, "_blank");
+                openExternal(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${place.lat},${place.lng}&travelmode=driving`);
               }}
             >
               <Navigation size={16} /> Get Directions

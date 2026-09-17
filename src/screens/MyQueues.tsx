@@ -16,6 +16,7 @@ import { haptics } from "@/lib/haptics";
 import LivePulseDot from "@/components/LivePulseDot";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import type { MyQueueEntry } from "@/types";
+import { openExternal } from "@/lib/openExternal";
 
 // A queue entry stays "active" (still needs the customer's attention) while
 // waiting or called — and, crucially, after being SERVED while payment is still
@@ -283,7 +284,7 @@ export default function MyQueues() {
                           className="btn btn-outline btn-sm grow row gap-6 center"
                           onClick={() => {
                             const origin = user.lat && user.lng ? `${user.lat},${user.lng}` : "";
-                            window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${q.businessLat},${q.businessLng}&travelmode=walking`, "_blank");
+                            openExternal(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${q.businessLat},${q.businessLng}&travelmode=walking`);
                           }}
                         >
                           <Navigation size={14} /> Directions
