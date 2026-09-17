@@ -78,6 +78,19 @@ The E2E suite (P07) and unit tests are the safety net: **they must be green befo
 | `npm run verify` | exit 0 |
 | Bundle size | Not larger than P11's after-numbers |
 
+> **Status 2026-09-18 — see [the report](../reports/P12_REPORT.md).**
+> Done: steps 1, 4, 5, 6, 7, 8. Step 2 is done for `AdminPanel` (1253→109), `cards.tsx` (1144→12) and
+> `Notifications` (1111→409); five screens remain over 700 lines. Step 3 reduced `any` from 670 to 455 in the
+> app and 361 to 128 in services, short of 250/20.
+>
+> Two things the report argues rather than assumes: the remaining five screens each need a container/presenter
+> hook, not a component extraction (measured at 18–30 props), and the remaining `any` are concentrated in row
+> mappers that need per-query row types. Three bugs found during the work are logged as P12-001/002/003 and
+> deliberately not fixed inside a refactor.
+>
+> **None of it has been through the E2E suite** — the owner's instruction was to code now and test at the end.
+> The demo-mode removal (step 6) is the one that most needs it: it changes the booking and listing read paths.
+
 ## Definition of Done
 - [ ] Notification actions as a tested registry.
 - [ ] No screen over 700 lines.

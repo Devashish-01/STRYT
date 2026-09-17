@@ -44,7 +44,7 @@ so an unused import fails the build, and all PRs and releases are gated on `veri
 |---|---|---|
 | Entry | `src/main.tsx` | Mounts `<App/>` inside `<AppProvider>` |
 | App + route table | `src/App.tsx` | All routes; `ProtectedLayout` / `PublicOnlyLayout` guards; `TAB_ROUTES` decides when BottomNav shows |
-| Global state | `src/store.tsx` | `AppProvider` + `useApp()` hook (see §4) |
+| Global state | `src/store.ts` + `src/store/AppProvider.tsx` | `useApp()` and the context live in `store.ts`; the provider is its own module so neither file exports both a component and a hook (Fast Refresh). Import stays `@/store` |
 | Bottom nav | `src/components/BottomNav.tsx` | Home · Map · Create(FAB) · You; the FAB opens the create sheet (Ask / Story / Community) |
 | Runtime config | `src/config.ts` | `config.*` (env-driven), default location, preset areas |
 | Supabase client | `src/lib/supabaseClient.ts` | `getSupabase()` (throws if env unset), `currentUserId()`, `hasSupabaseEnv` |
@@ -133,7 +133,7 @@ import + `<Route>` in `App.tsx` to bring one back.
 
 ---
 
-## 4. Global state — `useApp()` (`src/store.tsx`)
+## 4. Global state — `useApp()` (`src/store.ts`)
 
 One React context holds session + optimistic social state. Import with `import { useApp } from "@/store"`.
 
@@ -358,7 +358,10 @@ holds the files.
   Public identity uses `aliasName()` in `src/lib/publicName.ts` (alias-first; real name only in active relationships).
 - **`src/lib/`** — `supabaseClient.ts`, `caseMap.ts`, `supabasePage.ts`, `apiClient.ts` (`ApiError`, `Page`),
   `auth.ts` (`tokenStore`), `geocode.ts` (`haversineKm`, reverse geocode), `alias.ts` (privacy alias),
-  `i18n.tsx`, `clipboard.ts`, `returnTo.ts`, `pushNotifications.ts`, `leafletIcon.ts`, `mock.ts`.
+  `i18n.ts` (context + `useI18n`; the provider is `i18n/I18nProvider.tsx`), `format.ts` (`inr`, `distanceLabel`,
+  `formatDate`), `notificationTone.ts`, `categoryTree.ts`, `deliveryStatus.ts`, `businessAccess.ts`
+  (`useBusinessAccess`), `openExternal.ts` (every external link; `tel:` is the one exception),
+  `clipboard.ts`, `returnTo.ts`, `pushNotifications.ts`, `leafletIcon.ts`, `mock.ts`.
 - **`src/hooks/`** — `useApi.ts` (`useQuery`/`useMutation`/`useQueryWithRealtime`), `useGeolocation.ts`.
 - **`src/utils/`** — `availability.ts` (hours/slots), `constants.ts`.
 - **`src/features/`** — `ambient/` (time-of-day theme, `useAmbientTheme`), `neighborhood-today/`.
@@ -402,7 +405,7 @@ For a typical new capability, touch these in order:
    `throwIfError`; whitelist write columns). Export from `services/index.ts` if new file.
 4. **Screen/UI** → consume with `useQuery`/`useMutation`; render `loading`/`error` via `states.tsx`; **surface errors**.
 5. **Route** → add `<Route>` in `src/App.tsx` (+ lazy import); add nav entry (BottomNav / ManageNav / ProviderManageNav / a dashboard tile).
-6. **Store** (if it's cross-screen personal state) → add field + optimistic action in `src/store.tsx`.
+6. **Store** (if it's cross-screen personal state) → add the field to `AppState` in `src/store.ts` and the optimistic action in `src/store/AppProvider.tsx`.
 7. **Verify** → `npx tsc --noEmit` then `npm run build`.
 8. **Update this file** → adjust the relevant table(s).
 
@@ -410,7 +413,7 @@ For a typical new capability, touch these in order:
 
 ## 15. Gotchas & conventions
 
-- **Optimistic + revert:** social toggles update UI first, persist async, revert + toast on failure (see `store.tsx`).
+- **Optimistic + revert:** social toggles update UI first, persist async, revert + toast on failure (see `store/AppProvider.tsx`).
 - **Denormalized counters:** `likes_count`/`comments_count` are caches; the source of truth is the join table
   (e.g. `post_likes`). Recount from source after writes and clamp display with `Math.max(0, …)`.
 - **RLS-safe reads:** don't join other users' rows you can't read (e.g. `users(phone)`); store the needed value
@@ -423,6 +426,23 @@ For a typical new capability, touch these in order:
 
 ---
 
+### Files P12 split (2026-09-18)
+
+| Was | Now |
+|---|---|
+| `components/cards.tsx` (1144 lines) | `components/cards/` — `businessCards.tsx`, `providerCards.tsx`, `RequestCard.tsx`, `PostSummaryRow.tsx`, `CommunityCard.tsx`. `cards.tsx` stays as the re-export barrel, so `@/components/cards` still works |
+| `screens/admin/AdminPanel.tsx` (1253) | `screens/admin/tabs/` — one module per tab; the panel is 110 lines and only picks between them. `Tab`/`QueueType` in `screens/admin/types.ts` |
+| `screens/Notifications.tsx` (1111) | 409 lines. The 700-line action chain is `screens/notifications/actions.ts`, a registry keyed by action name, with `actions.test.ts` beside it |
+| `screens/CommunityPostDetail.tsx` (1757) | 1175. `EditPostSheet` and `CommentRow` moved to `screens/community/`; `hoistPinned` to `lib/communityPost.ts` |
+| `store.tsx` (770) | `store.ts` (types, context, `useApp`) + `store/AppProvider.tsx` |
+| `lib/i18n.tsx` | `lib/i18n.ts` + `lib/i18n/I18nProvider.tsx` |
+| `features/live-share/useLiveShare.tsx` | `useLiveShare.ts` + `LiveShareProvider.tsx` |
+
+Five screens were **not** split and are still over 700 lines — `BusinessDetail` (1268),
+`CommunityCompose` (1205), `CommunityPostDetail` (1175), `AppointmentSheet` (1147),
+`BusinessAppointments` (1014). Each is one component with 20–30 pieces of state, where cutting the JSX
+into sub-components means 18–25 prop interfaces. See P12's report for what they need instead.
+
 *Last mapped: 2026-09-03 — refreshed §3/§6/§9 against the actual current `App.tsx` route table,
 `src/services/**` (32 files across `core/`/`marketplace/`/`engagement/`), and `src/screens/**` (new
 `settings/`, `safety/`, `places/`, `manage/`, `auth/onboard/` folders). **2026-09-17 (P12):**
@@ -430,6 +450,9 @@ For a typical new capability, touch these in order:
 entries (neither exists under `src/services/`, confirmed by grep — nothing imports them); added
 `customPaymentService`, `appealService`, `placesService`, `bulkService`, `businessAccessService`,
 `slotBlockService`, `locationService`, `emergencyService`, `leaderboardService` to the index.
+**2026-09-18 (P12):** recorded the file splits above; `store.tsx`/`i18n.tsx` are now `.ts` with their
+providers in separate modules; demo mode (`isMockTarget` and the fabricated listings behind ids `b1`,
+`p1`, `biz_mock_*`, `prov_mock_*`) is gone from every service and screen.
 
 Earlier: home delivery (per-business `delivery_enabled`, two-way ETA, multi-stop
 routing via `src/lib/routeLink.ts`, owner live-tracking page, customer restricted to progress-only);
