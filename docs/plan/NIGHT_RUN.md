@@ -25,7 +25,7 @@ half-judged.
 Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reason given) · `[owner]` handed over
 
 ### A — P15 data inventory (highest value: every store declaration depends on it)
-- [ ] **A1** `docs/launch/DATA_INVENTORY.md` built *from the code and schema*, not from existing docs. Per
+- [x] **A1** `docs/launch/DATA_INVENTORY.md` built *from the code and schema*, not from existing docs. Per
   data type: where collected (screen/service), where stored (table/bucket), who can read it (P05 matrix),
   third parties, retention, whether optional. Must cover name, alias, phone, email, precise + approximate
   location, live location, emergency contacts, photos, chat, payment references, device/push tokens, crash
@@ -80,6 +80,14 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
 - [ ] **G2** Full E2E after E lands.
 - [ ] **G3** Final: `npm run verify`, full E2E, clean tree, this file's handover section written.
 
+## A note on how this runs
+
+A self-waking scheduled job was attempted and **refused by the safety classifier** ("Create Unsafe Agents").
+That refusal is respected, not worked around — so this run is one continuous session rather than a
+self-restarting loop. The consequence: if the session ends, nothing restarts itself. That is exactly why this
+file exists and why every task states its own definition of done; picking it up cold costs a read, not a
+re-derivation.
+
 ## Progress log
 
 Appended as work lands. Newest last.
@@ -87,6 +95,8 @@ Appended as work lands. Newest last.
 | Time | Task | Result |
 |---|---|---|
 | 02:33 | — | Branch cut, queue written. |
+| 02:34 | harness | Self-waking cron refused by the classifier. Not worked around; run continues in-session. |
+| 02:52 | A1 | DATA_INVENTORY written from schema + code. 18 file paths and 22 table.column refs verified by script, 0 missing. Six findings raised, incl. purge-deleted-accounts not deployed so the 30-day deletion promise does not complete. |
 
 ## Owner steps found so far
 
