@@ -70,10 +70,10 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
   BusinessAppointments 1014. One screen per commit, E2E at the end.
 
 ### F — Reports and phase closure
-- [ ] **F1** `P07_REPORT.md` — the E2E suite, its coverage, the 137-test run.
-- [ ] **F2** `P11_REPORT.md` — dependencies, bundle, RLS initplan. Lighthouse marked owner-blocked.
+- [x] **F1** `P07_REPORT.md` — the E2E suite, its coverage, the 137-test run.
+- [x] **F2** `P11_REPORT.md` — dependencies, bundle, RLS initplan. Lighthouse marked owner-blocked.
 - [x] **F3** `P13_REPORT.md`, `P14_REPORT.md`, `P15_REPORT.md` for whatever landed.
-- [~] **F4** `docs/plan/README.md` phase table brought true.
+- [x] **F4** `docs/plan/README.md` phase table brought true.
 
 ### G — Checkpoints
 - [ ] **G1** Full E2E after B+C land.
@@ -104,6 +104,7 @@ Appended as work lands. Newest last.
 | 03:12 | D1/D2 | Device matrix + device QA checklist written. Scoped to what only a device proves; the 420-line MANUAL_TEST_PLAN already covers the functional flows and is cross-referenced rather than duplicated. |
 | 03:15 | D3 | axe added to the E2E harness over 13 screens. 34 findings: 132 contrast nodes (logged P13-001, owner decision — it is the brand palette), 10 unnamed icon buttons and a disabled pinch-zoom, both fixed (P13-002/003), 4 smaller ones left open (P13-004). |
 | 03:30 | F3/F4 | P13, P14 and P15 reports written; phase table updated for all three. |
+| 03:35 | F1/F2 | P07 and P11 reports written. P07 states plainly that 22 of 52 flows are journey-level and 25 only prove the screen opens — that distinction was not written down anywhere before. |
 
 ## Owner steps found so far
 
