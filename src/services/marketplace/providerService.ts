@@ -31,7 +31,6 @@ import { getRelatableProviderAvatar, enrichProviderPortfolio } from "@/lib/curat
 import { aliasName } from "@/lib/publicName";
 import { haversineKm } from "@/lib/geocode";
 import { config } from "@/config";
-import { isMockTarget } from "@/services/engagement/appointmentService";
 import { DEFAULT_MOCK_WORKING_HOURS } from "@/utils/availability";
 import { PLACEHOLDER_PROVIDER_AVATAR, PLACEHOLDER_PORTFOLIO_IMAGE } from "@/lib/placeholders";
 import { uploadService } from "@/services/core/uploadService";
@@ -115,38 +114,6 @@ export const providerService = {
   },
 
   async _getUncoalesced(id: string, lat?: number, lng?: number): Promise<Provider | undefined> {
-    if (isMockTarget(id)) {
-      return {
-        id,
-        userId: "mock_user_2",
-        displayName: "Alex Sharma",
-        categoryId: "2",
-        categoryName: "AC Repair",
-        bio: "Certified AC technician with 8+ years of experience. Quick troubleshooting and honest pricing.",
-        avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80",
-        lat: config.defaultLocation.lat,
-        lng: config.defaultLocation.lng,
-        distanceKm: 0.8,
-        serviceRadiusKm: 15,
-        startingPrice: 350,
-        availabilityNote: DEFAULT_MOCK_WORKING_HOURS,
-        status: "ACTIVE",
-        isVerified: true,
-        ratingAvg: 4.8,
-        ratingCount: 24,
-        jobsDone: 142,
-        responseTime: "Under 15 mins",
-        isNew: false,
-        skills: ["AC installation", "Gas refilling", "Compressor repair", "General servicing"],
-        portfolio: [
-          { id: "port_1", caption: "Dual-inverter split AC installation at Koregaon Park office", url: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=75" },
-          { id: "port_2", caption: "Copper piping and outdoor unit condenser mounting", url: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&w=800&q=75" },
-          { id: "port_3", caption: "Complete jet pump deep coil foam cleaning service", url: "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=800&q=75" }
-        ],
-        catalog: [],
-        phone: "9876543211"
-      } as any;
-    }
     const sb = getSupabase();
     const { data, error } = await sb.from("providers").select("*, portfolio:portfolio_items(*), catalog:catalog_items(*)").eq("id", id).order("sort_order", { referencedTable: "portfolio_items", ascending: true }).maybeSingle();
     throwIfError(error);
@@ -158,12 +125,6 @@ export const providerService = {
     return prov;
   },
   async reviews(id: string): Promise<Review[]> {
-    if (isMockTarget(id)) {
-      return [
-        { id: "rev_1", raterName: "Daniel Craig", raterAvatar: "", rating: 5, comment: "Super fast response and very neat work.", date: "3 days ago" },
-        { id: "rev_2", raterName: "Pooja Hegde", raterAvatar: "", rating: 4, comment: "Fixed the leakage in 10 minutes. Good behavior.", date: "2 weeks ago" }
-      ];
-    }
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
@@ -426,7 +387,6 @@ export const providerService = {
    * Feeds the Money screen's ledger.
    */
   async earningsLedger(id: string): Promise<EarningEntry[]> {
-    if (isMockTarget(id)) return [];
     const sb = getSupabase();
     const provRes = await sb.from("providers").select("user_id").eq("id", id).maybeSingle();
     throwIfError(provRes.error);

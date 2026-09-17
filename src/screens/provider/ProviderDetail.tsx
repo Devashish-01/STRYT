@@ -23,7 +23,7 @@ import { StoryViewer } from "@/components/Stories";
 import { AppointmentSheet } from "@/components/AppointmentSheet";
 import { PaymentSheet } from "@/components/PaymentSheet";
 import { evaluateProviderAvailability, formatHoursForDisplay } from "@/utils/availability";
-import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
+import { appointmentService } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord } from "@/types";
 import { PROVIDER_BADGE_THRESHOLDS } from "@/lib/badges";
 import { displayName as safeName } from "@/lib/publicName";
@@ -174,11 +174,6 @@ export default function ProviderDetail() {
   return (
     <div className="screen" style={{ position: "relative" }} data-biz-theme={bizThemeKey === "generic" ? undefined : bizThemeKey}>
       <div className="screen-scroll" style={{ paddingBottom: 90 }}>
-        {isMockTarget(id) && (
-          <div style={{ padding: "8px 14px", background: "var(--orange-50)", borderBottom: "1px solid var(--orange-100)" }}>
-            <span className="tiny" style={{ color: "var(--amber-700)", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
-          </div>
-        )}
         {/* Header */}
         <div
           onClick={heroPhoto ? () => setViewingPhotos({ photos: p.portfolio.map((i) => ({ url: i.url, caption: i.caption })), startIndex: 0 }) : undefined}

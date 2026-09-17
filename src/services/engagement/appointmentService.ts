@@ -98,12 +98,6 @@ export function groupCustomerTabs(appointments: AppointmentRecord[]): CustomerTa
   );
 }
 
-// Mock/demo targets have owners that don't exist in the users table, so a DB
-// insert would fail the FK. Those (and signed-out guests) fall back to local.
-export function isMockTarget(id: string): boolean {
-  return id === "b1" || id === "p1" || id.startsWith("biz_mock_") || id.startsWith("prov_mock_");
-}
-
 // Maps a cart's camelCase line items to the snake_case shape the p_items
 // jsonb RPC param expects. Undefined (not an empty array) when there's
 // nothing to send, so a plain single-package booking still hits the RPC's
@@ -321,42 +315,23 @@ export const appointmentService = {
 
     // A real shop only ever gets server bookings. Without a session a "local" booking would tell the customer
     // they're booked while the owner never sees it (E2E-009) — refuse instead, so they can retry.
-    if (!uid && !isMockTarget(payload.targetId)) {
+    if (!uid) {
       throw new Error("Couldn't confirm you're signed in. Check your connection and try again.");
     }
 
     // Real target + signed-in customer → persist to the shared appointments
     // table so the owner sees it and status changes propagate back.
-    if (uid && !isMockTarget(payload.targetId)) {
-      try {
-        const sb = getSupabase();
+    try {
+      const sb = getSupabase();
 
-        // Reschedule → atomic cancel-old + create-new in one transaction, so a
-        // failure can't strand two live bookings and the original is excluded
-        // from the daily-limit count.
-        if (payload.rescheduledFrom) {
-          // Reschedule carries the original's cart forward server-side (it's
-          // the same purchase, just retimed) — no items param, no re-reserve.
-          const { data, error } = await sb.rpc("reschedule_appointment", {
-            p_original_id: payload.rescheduledFrom,
-            p_scheduled_for: payload.scheduledForISO,
-            p_date_label: payload.dateLabel,
-            p_time_label: payload.timeLabel,
-            p_notes: payload.notes ?? undefined,
-            p_photo_url: payload.photoUrl ?? undefined,
-            p_package_id: payload.packageId ?? undefined,
-            p_package_name: payload.packageName ?? undefined,
-            p_package_price: payload.packagePrice ?? undefined,
-          });
-          if (error) throw error;
-          const record = rowToRecord(data);
-          upsertLocal(record);
-          return record;
-        }
-
-        const { data, error } = await sb.rpc("appointment_create", {
-          p_target_type: payload.targetType,
-          p_target_id: payload.targetId,
+      // Reschedule → atomic cancel-old + create-new in one transaction, so a
+      // failure can't strand two live bookings and the original is excluded
+      // from the daily-limit count.
+      if (payload.rescheduledFrom) {
+        // Reschedule carries the original's cart forward server-side (it's
+        // the same purchase, just retimed) — no items param, no re-reserve.
+        const { data, error } = await sb.rpc("reschedule_appointment", {
+          p_original_id: payload.rescheduledFrom,
           p_scheduled_for: payload.scheduledForISO,
           p_date_label: payload.dateLabel,
           p_time_label: payload.timeLabel,
@@ -365,121 +340,96 @@ export const appointmentService = {
           p_package_id: payload.packageId ?? undefined,
           p_package_name: payload.packageName ?? undefined,
           p_package_price: payload.packagePrice ?? undefined,
-          p_items: toRpcItems(payload.items),
-          p_fulfillment_type: payload.fulfillmentType ?? "IN_STORE",
-          p_delivery_address_line: payload.deliveryAddressLine ?? undefined,
-          p_delivery_lat: payload.deliveryLat ?? undefined,
-          p_delivery_lng: payload.deliveryLng ?? undefined,
-          p_requested_delivery_window: payload.requestedDeliveryWindow ?? undefined,
-          p_party_size: payload.partySize ?? undefined,
-          p_target_package_key: payload.targetPackageKey ?? undefined,
-        } as any);
+        });
         if (error) throw error;
         const record = rowToRecord(data);
-        upsertLocal(record); // keep a local cache for instant reads
+        upsertLocal(record);
         return record;
-      } catch (err: any) {
-        // The double-booking unique index (appointments_no_double_book) rejects
-        // a slot that was taken between load and confirm — say so plainly.
-        const msg: string = err?.message || "";
-        if (err?.code === "23505" || /duplicate key|unique|no_double_book/i.test(msg)) {
-          throw new Error("That slot was just taken. Please pick another time.");
-        }
-        // Capacity guard (enforce_slot_capacity). SLOT_FULL_OVERALL means the
-        // business's own concurrent-bookings ceiling is the binding limit, not
-        // this service's — worth distinguishing so the copy isn't misleading.
-        if (/SLOT_FULL_OVERALL/i.test(msg)) {
-          throw new Error("This business is fully booked at that time. Please pick another slot.");
-        }
-        if (/SLOT_FULL/i.test(msg)) {
-          throw new Error("Those spots just went — please pick another time.");
-        }
-        if (/PARTY_SIZE_TOO_LARGE/i.test(msg)) {
-          throw new Error("That's more spots than this slot allows. Reduce the number and try again.");
-        }
-        if (/INVALID_PARTY_SIZE/i.test(msg)) {
-          throw new Error("Please enter a valid party size (1 or more).");
-        }
-        if (/INSUFFICIENT_STOCK/i.test(msg)) {
-          throw new Error("An item in your order just sold out — please update your cart and try again.");
-        }
-        if (/OUT_OF_SERVICE_AREA/i.test(msg)) {
-          throw new Error(`You're outside this ${payload.targetType === "BUSINESS" ? "business" : "provider"}'s service area — booking isn't available from here.`);
-        }
-        if (/INVALID_APPOINTMENT_TIME/i.test(msg)) {
-          throw new Error("This slot has already passed or is invalid. Please pick an upcoming time.");
-        }
-        if (/NOT_ACCEPTING_APPOINTMENTS/i.test(msg)) {
-          throw new Error("This business is temporarily not accepting new appointments.");
-        }
-        if (/DELIVERY_NOT_OFFERED/i.test(msg)) {
-          throw new Error("Home delivery is not offered for this service. Please choose store visit.");
-        }
-        if (/DELIVERY_ADDRESS_REQUIRED/i.test(msg)) {
-          throw new Error("Please provide a complete delivery address with a pinned map location.");
-        }
-        if (/INVALID_TRANSITION/i.test(msg)) {
-          throw new Error("This booking cannot be rescheduled because its status has changed.");
-        }
-        if (/APPOINTMENT_NOT_FOUND/i.test(msg)) {
-          throw new Error("The original appointment could not be found.");
-        }
-        if (/NOT_YOUR_BOOKING/i.test(msg)) {
-          throw new Error("You can only reschedule your own appointments.");
-        }
-        if (/UNAUTHENTICATED/i.test(msg)) {
-          throw new Error("Please sign in to complete your booking.");
-        }
-        if (/CUSTOMER_NAME_REQUIRED/i.test(msg)) {
-          throw new Error("Customer name is required.");
-        }
-        // Surface the real reason instead of silently succeeding.
-        throw new Error(msg || "Couldn't book the appointment. Please try again.");
       }
+
+      const { data, error } = await sb.rpc("appointment_create", {
+        p_target_type: payload.targetType,
+        p_target_id: payload.targetId,
+        p_scheduled_for: payload.scheduledForISO,
+        p_date_label: payload.dateLabel,
+        p_time_label: payload.timeLabel,
+        p_notes: payload.notes ?? undefined,
+        p_photo_url: payload.photoUrl ?? undefined,
+        p_package_id: payload.packageId ?? undefined,
+        p_package_name: payload.packageName ?? undefined,
+        p_package_price: payload.packagePrice ?? undefined,
+        p_items: toRpcItems(payload.items),
+        p_fulfillment_type: payload.fulfillmentType ?? "IN_STORE",
+        p_delivery_address_line: payload.deliveryAddressLine ?? undefined,
+        p_delivery_lat: payload.deliveryLat ?? undefined,
+        p_delivery_lng: payload.deliveryLng ?? undefined,
+        p_requested_delivery_window: payload.requestedDeliveryWindow ?? undefined,
+        p_party_size: payload.partySize ?? undefined,
+        p_target_package_key: payload.targetPackageKey ?? undefined,
+      } as any);
+      if (error) throw error;
+      const record = rowToRecord(data);
+      upsertLocal(record); // keep a local cache for instant reads
+      return record;
+    } catch (err: any) {
+      // The double-booking unique index (appointments_no_double_book) rejects
+      // a slot that was taken between load and confirm — say so plainly.
+      const msg: string = err?.message || "";
+      if (err?.code === "23505" || /duplicate key|unique|no_double_book/i.test(msg)) {
+        throw new Error("That slot was just taken. Please pick another time.");
+      }
+      // Capacity guard (enforce_slot_capacity). SLOT_FULL_OVERALL means the
+      // business's own concurrent-bookings ceiling is the binding limit, not
+      // this service's — worth distinguishing so the copy isn't misleading.
+      if (/SLOT_FULL_OVERALL/i.test(msg)) {
+        throw new Error("This business is fully booked at that time. Please pick another slot.");
+      }
+      if (/SLOT_FULL/i.test(msg)) {
+        throw new Error("Those spots just went — please pick another time.");
+      }
+      if (/PARTY_SIZE_TOO_LARGE/i.test(msg)) {
+        throw new Error("That's more spots than this slot allows. Reduce the number and try again.");
+      }
+      if (/INVALID_PARTY_SIZE/i.test(msg)) {
+        throw new Error("Please enter a valid party size (1 or more).");
+      }
+      if (/INSUFFICIENT_STOCK/i.test(msg)) {
+        throw new Error("An item in your order just sold out — please update your cart and try again.");
+      }
+      if (/OUT_OF_SERVICE_AREA/i.test(msg)) {
+        throw new Error(`You're outside this ${payload.targetType === "BUSINESS" ? "business" : "provider"}'s service area — booking isn't available from here.`);
+      }
+      if (/INVALID_APPOINTMENT_TIME/i.test(msg)) {
+        throw new Error("This slot has already passed or is invalid. Please pick an upcoming time.");
+      }
+      if (/NOT_ACCEPTING_APPOINTMENTS/i.test(msg)) {
+        throw new Error("This business is temporarily not accepting new appointments.");
+      }
+      if (/DELIVERY_NOT_OFFERED/i.test(msg)) {
+        throw new Error("Home delivery is not offered for this service. Please choose store visit.");
+      }
+      if (/DELIVERY_ADDRESS_REQUIRED/i.test(msg)) {
+        throw new Error("Please provide a complete delivery address with a pinned map location.");
+      }
+      if (/INVALID_TRANSITION/i.test(msg)) {
+        throw new Error("This booking cannot be rescheduled because its status has changed.");
+      }
+      if (/APPOINTMENT_NOT_FOUND/i.test(msg)) {
+        throw new Error("The original appointment could not be found.");
+      }
+      if (/NOT_YOUR_BOOKING/i.test(msg)) {
+        throw new Error("You can only reschedule your own appointments.");
+      }
+      if (/UNAUTHENTICATED/i.test(msg)) {
+        throw new Error("Please sign in to complete your booking.");
+      }
+      if (/CUSTOMER_NAME_REQUIRED/i.test(msg)) {
+        throw new Error("Customer name is required.");
+      }
+      // Surface the real reason instead of silently succeeding.
+      throw new Error(msg || "Couldn't book the appointment. Please try again.");
     }
 
-    // Mock/demo target → local-only record.
-    let paymentStatus: AppointmentRecord["paymentStatus"] = payload.paymentStatus ?? "UNPAID";
-    let paymentMethod = payload.paymentMethod ?? null;
-    let paymentAmount = payload.paymentAmount ?? null;
-    let paymentReference = payload.paymentReference ?? null;
-    let packageId = payload.packageId;
-    let packageName = payload.packageName;
-    let packagePrice = payload.packagePrice;
-
-    if (payload.rescheduledFrom) {
-      const existing = getLocalAppointments();
-      const orig = existing.find((a) => a.id === payload.rescheduledFrom);
-      if (orig) {
-        orig.status = "CANCELLED";
-        orig.cancelledBy = "CUSTOMER";
-        orig.responseNote = orig.responseNote || "Rescheduled";
-        upsertLocal(orig);
-        paymentStatus = orig.paymentStatus ?? paymentStatus;
-        paymentMethod = orig.paymentMethod ?? paymentMethod;
-        paymentAmount = orig.paymentAmount ?? paymentAmount;
-        paymentReference = orig.paymentReference ?? paymentReference;
-        packageId = packageId ?? orig.packageId;
-        packageName = packageName ?? orig.packageName;
-        packagePrice = packagePrice ?? orig.packagePrice;
-      }
-    }
-
-    const record: AppointmentRecord = {
-      ...payload,
-      id: "apt_" + Math.random().toString(36).slice(2) + Date.now().toString(36),
-      status: "PENDING",
-      createdAtISO: new Date().toISOString(),
-      paymentStatus,
-      paymentMethod,
-      paymentAmount,
-      paymentReference,
-      packageId,
-      packageName,
-      packagePrice,
-    };
-    upsertLocal(record);
-    return record;
   },
 
   async listForCustomer(customerId: string): Promise<AppointmentRecord[]> {
@@ -522,20 +472,18 @@ export const appointmentService = {
     if (inFlight) return inFlight;
 
     const promise = (async () => {
-      if (!isMockTarget(targetId)) {
-        try {
-          await sweepRemoteAppointments(); // DB does the stale-state transitions
-          const sb = getSupabase();
-          const { data, error } = await sb
-            .from("appointments")
-            .select("*, customer:users!customer_user_id(alias)")
-            .eq("target_id", targetId)
-            .order("created_at", { ascending: false });
-          if (error) throw error;
-          return (data ?? []).map(rowToRecord);
-        } catch {
-          return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
-        }
+      try {
+        await sweepRemoteAppointments(); // DB does the stale-state transitions
+        const sb = getSupabase();
+        const { data, error } = await sb
+          .from("appointments")
+          .select("*, customer:users!customer_user_id(alias)")
+          .eq("target_id", targetId)
+          .order("created_at", { ascending: false });
+        if (error) throw error;
+        return (data ?? []).map(rowToRecord);
+      } catch {
+        return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
       }
       return localHousekeeping(getLocalAppointments().filter((a) => a.targetId === targetId));
     })();
@@ -574,7 +522,6 @@ export const appointmentService = {
    * a slot with capacity can show how many are left.
    */
   async bookedSlots(targetId: string): Promise<BookedSlotUsage[]> {
-    if (isMockTarget(targetId)) return [];
     // Release any abandoned PENDING holds first so a viewer opening the sheet
     // sees freed slots reflected in the grid. Awaited but non-fatal.
     await this.releaseStaleHolds();
@@ -598,7 +545,6 @@ export const appointmentService = {
    * lookup blip degrades to capacity-1 rather than blocking booking.
    */
   async slotCapacities(businessId: string): Promise<Record<string, { capacity: number; maxPartySize: number }>> {
-    if (isMockTarget(businessId)) return {};
     try {
       const sb = getSupabase();
       const { data, error } = await sb.rpc("business_slot_capacities", { p_business_id: businessId });
@@ -835,69 +781,45 @@ export const appointmentService = {
 
     const notes = payload.customerPhone ? `Walk-in • ${payload.customerPhone}` : "Walk-in";
 
-    if (!isMockTarget(payload.targetId)) {
-      try {
-        const sb = getSupabase();
-        const { data, error } = await sb.rpc("appointment_create_walk_in", {
-          p_target_type: payload.targetType,
-          p_target_id: payload.targetId,
-          p_customer_name: payload.customerName,
-          // No SQL default for this one (unlike the others below) — the RPC
-          // itself already treats an empty string as "no phone given".
-          p_customer_phone: payload.customerPhone ?? "",
-          p_scheduled_for: payload.scheduledForISO,
-          p_date_label: payload.dateLabel,
-          p_time_label: payload.timeLabel,
-          p_package_id: payload.packageId ?? undefined,
-          p_package_name: payload.packageName ?? undefined,
-          p_package_price: payload.packagePrice ?? undefined,
-          p_party_size: payload.partySize ?? undefined,
-          p_target_package_key: payload.targetPackageKey ?? undefined,
-        } as any);
-        if (error) throw error;
-        const record = rowToRecord(data);
-        upsertLocal(record);
-        return record;
-      } catch (err: any) {
-        const msg: string = err?.message || "";
-        // Same capacity-guard mapping as create() — a walk-in goes through the
-        // identical trg_enforce_slot_capacity trigger, so it can hit the same
-        // errors (e.g. an owner double-booking a slot a customer already took).
-        if (/SLOT_FULL_OVERALL/i.test(msg)) {
-          throw new Error("This time is fully booked across your services. Pick another slot.");
-        }
-        if (/SLOT_FULL/i.test(msg)) {
-          throw new Error("That slot is already full. Pick another time.");
-        }
-        if (/PARTY_SIZE_TOO_LARGE/i.test(msg)) {
-          throw new Error("That's more spots than this slot allows. Reduce the party size.");
-        }
-        throw new Error(msg || "Couldn't add the walk-in booking. Please try again.");
+    try {
+      const sb = getSupabase();
+      const { data, error } = await sb.rpc("appointment_create_walk_in", {
+        p_target_type: payload.targetType,
+        p_target_id: payload.targetId,
+        p_customer_name: payload.customerName,
+        // No SQL default for this one (unlike the others below) — the RPC
+        // itself already treats an empty string as "no phone given".
+        p_customer_phone: payload.customerPhone ?? "",
+        p_scheduled_for: payload.scheduledForISO,
+        p_date_label: payload.dateLabel,
+        p_time_label: payload.timeLabel,
+        p_package_id: payload.packageId ?? undefined,
+        p_package_name: payload.packageName ?? undefined,
+        p_package_price: payload.packagePrice ?? undefined,
+        p_party_size: payload.partySize ?? undefined,
+        p_target_package_key: payload.targetPackageKey ?? undefined,
+      } as any);
+      if (error) throw error;
+      const record = rowToRecord(data);
+      upsertLocal(record);
+      return record;
+    } catch (err: any) {
+      const msg: string = err?.message || "";
+      // Same capacity-guard mapping as create() — a walk-in goes through the
+      // identical trg_enforce_slot_capacity trigger, so it can hit the same
+      // errors (e.g. an owner double-booking a slot a customer already took).
+      if (/SLOT_FULL_OVERALL/i.test(msg)) {
+        throw new Error("This time is fully booked across your services. Pick another slot.");
       }
+      if (/SLOT_FULL/i.test(msg)) {
+        throw new Error("That slot is already full. Pick another time.");
+      }
+      if (/PARTY_SIZE_TOO_LARGE/i.test(msg)) {
+        throw new Error("That's more spots than this slot allows. Reduce the party size.");
+      }
+      throw new Error(msg || "Couldn't add the walk-in booking. Please try again.");
     }
 
-    const record: AppointmentRecord = {
-      id: "apt_" + Math.random().toString(36).slice(2) + Date.now().toString(36),
-      targetId: payload.targetId,
-      targetType: payload.targetType,
-      targetName: payload.targetName,
-      customerId: uid,
-      customerName: payload.customerName,
-      scheduledForISO: payload.scheduledForISO,
-      dateLabel: payload.dateLabel,
-      timeLabel: payload.timeLabel,
-      notes,
-      packageId: payload.packageId,
-      packageName: payload.packageName,
-      packagePrice: payload.packagePrice,
-      partySize: payload.partySize ?? 1,
-      targetPackageKey: payload.targetPackageKey ?? null,
-      status: "ACCEPTED",
-      isWalkIn: true,
-      createdAtISO: new Date().toISOString(),
-    };
-    upsertLocal(record);
-    return record;
   },
 
   /**

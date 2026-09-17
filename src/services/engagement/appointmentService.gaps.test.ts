@@ -6,9 +6,11 @@ import { appointmentService } from "./appointmentService";
 // getSupabase() build a client that then found no session — on a fresh checkout
 // or CI getSupabase() threw instead. Saying "nobody is signed in" directly keeps
 // them hermetic: no env, no client, no network.
+const rpc = vi.fn();
 vi.mock("@/lib/supabaseClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/supabaseClient")>()),
   currentUserId: async () => null,
+  getSupabase: () => ({ rpc }),
 }));
 
 // Mock localStorage for Node test environment
@@ -24,17 +26,32 @@ globalThis.localStorage = localStorageMock as any;
 describe("appointmentService booking gaps coverage (B3 to B10)", () => {
   beforeEach(() => {
     localStorage.clear();
+    rpc.mockReset();
     vi.clearAllMocks();
   });
 
   describe("Gap B3: Multi-spot party size pricing & record integrity", () => {
-    it("preserves partySize and computes total packagePrice correctly for multi-spot booking", async () => {
+    // Booked a demo shop as a guest before P12 removed demo mode, which meant it asserted that the local
+    // record kept the fields it had just been handed. The number that matters is the one reaching the
+    // database, so it now checks what appointment_create is called with.
+    it("sends the party size and the total price to the server", async () => {
+      const mod = await import("@/lib/supabaseClient");
+      vi.spyOn(mod, "currentUserId").mockResolvedValue("cust_yoga_1");
+      rpc.mockResolvedValue({
+        data: {
+          id: "apt_1", target_id: "b_yoga", target_type: "BUSINESS", customer_user_id: "cust_yoga_1",
+          customer_name: "Riya Sen", scheduled_for: new Date(Date.now() + 86400000).toISOString(),
+          date_label: "Tomorrow", time_label: "07:00 AM", status: "PENDING",
+          created_at: new Date().toISOString(), party_size: 3, package_price: 1200,
+        },
+        error: null,
+      });
+
       const partySize = 3;
       const unitPrice = 400;
-      const totalPackagePrice = unitPrice * partySize;
 
       const created = await appointmentService.create({
-        targetId: "biz_mock_yoga_studio",
+        targetId: "b_yoga",
         targetName: "Prana Yoga Studio",
         targetType: "BUSINESS",
         customerId: "cust_yoga_1",
@@ -44,13 +61,18 @@ describe("appointmentService booking gaps coverage (B3 to B10)", () => {
         timeLabel: "07:00 AM",
         packageId: "pkg_yoga_morning",
         packageName: "Morning Vinyasa Flow",
-        packagePrice: totalPackagePrice,
+        packagePrice: unitPrice * partySize,
         partySize,
       });
 
+      const [fn, args] = rpc.mock.calls[rpc.mock.calls.length - 1];
+      expect(fn).toBe("appointment_create");
+      expect(args.p_party_size).toBe(3);
+      expect(args.p_package_price).toBe(1200);
       expect(created.partySize).toBe(3);
-      expect(created.packagePrice).toBe(1200);
       expect(created.status).toBe("PENDING");
+
+      vi.mocked(mod.currentUserId).mockRestore();
     });
   });
 

@@ -8,7 +8,6 @@ import { haversineKm } from "@/lib/geocode";
 import { parsePartySize, weightedWaitMin } from "@/lib/queueMath";
 import { aliasName } from "@/lib/publicName";
 import { config } from "@/config";
-import { isMockTarget } from "@/services/engagement/appointmentService";
 import { PLACEHOLDER_BUSINESS_COVER } from "@/lib/placeholders";
 import { uploadService } from "@/services/core/uploadService";
 import { leadText } from "@/lib/leadText";
@@ -194,47 +193,6 @@ export const businessService = {
   },
 
   async _getUncoalesced(id: string, lat?: number, lng?: number): Promise<Business | undefined> {
-    if (isMockTarget(id)) {
-      return {
-        id,
-        ownerUserId: "mock_user",
-        name: "John's Grocery Store",
-        slug: "johns-grocery-store",
-        categoryId: "1",
-        categoryName: "Grocery",
-        subCategory: "Supermarket",
-        description: "Fresh fruits, vegetables, and daily essentials right at your street.",
-        addressLine1: "123 Street Lane",
-        city: "Pune",
-        pincode: "411001",
-        lat: config.defaultLocation.lat,
-        lng: config.defaultLocation.lng,
-        phone: "9876543210",
-        hours: "9 AM - 9 PM",
-        status: "ACTIVE",
-        coverImage: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80",
-        gallery: [
-          "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=800&q=75",
-          "https://images.unsplash.com/photo-1546470427-e5ac89c8ba3a?auto=format&fit=crop&w=800&q=75"
-        ],
-        ratingAvg: 4.8,
-        ratingCount: 38,
-        isOpenNow: true,
-        isVerified: true,
-        isFeatured: false,
-        catalog: [
-          { id: "item_1", name: "Fresh Organic Apple (1kg)", description: "Sweet and crisp Shimla organic apples", price: 180, image: "https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=600&q=75", stockStatus: "IN_STOCK", isVeg: true, bestSeller: true },
-          { id: "item_2", name: "Whole Wheat Artisan Bread", description: "Freshly baked whole wheat rustic bread loaf", price: 55, image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=75", stockStatus: "IN_STOCK", isVeg: true, bestSeller: false },
-          { id: "item_3", name: "Fresh Farm Milk (1L)", description: "Pasteurized organic full-cream farm fresh milk", price: 68, image: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=600&q=75", stockStatus: "IN_STOCK", isVeg: true, bestSeller: true },
-          { id: "item_4", name: "Organic Bell Peppers (500g)", description: "Crisp red, yellow, and green capsicums", price: 90, image: "https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?auto=format&fit=crop&w=600&q=75", stockStatus: "IN_STOCK", isVeg: true, bestSeller: false }
-        ],
-        portfolio: [
-          { id: "mock_p1", url: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=75", caption: "Farm-fresh organic fruits & produce display" },
-          { id: "mock_p2", url: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=75", caption: "Daily fresh artisanal bakery section" },
-          { id: "mock_p3", url: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=800&q=75", caption: "Well-stocked grocery aisles and quick checkout" }
-        ]
-      } as any;
-    }
     const sb = getSupabase();
     const { data, error } = await sb
       .from("businesses")
@@ -253,12 +211,6 @@ export const businessService = {
   },
 
   async reviews(id: string): Promise<Review[]> {
-    if (isMockTarget(id)) {
-      return [
-        { id: "rev_1", raterName: "Emily Watson", raterAvatar: "", rating: 5, comment: "Amazing fresh produce and friendly service!", date: "2 days ago" },
-        { id: "rev_2", raterName: "Michael Chang", raterAvatar: "", rating: 4, comment: "Great variety of groceries, highly recommend.", date: "1 week ago" }
-      ];
-    }
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")

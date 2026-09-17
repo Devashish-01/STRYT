@@ -1,150 +1,140 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { appointmentService } from "./appointmentService";
 
-// These tests run as a guest (no signed-in user), so bookings stay in
-// localStorage. They used to reach that path only when a real .env let
-// getSupabase() build a client that then found no session — on a fresh checkout
-// or CI getSupabase() threw instead. Saying "nobody is signed in" directly keeps
-// them hermetic: no env, no client, no network.
+/**
+ * These used to book mock business "b1" as a signed-out guest and assert that the local record carried the
+ * original's payment and package forward. That path is gone (P12 step 6): demo ids no longer short-circuit
+ * anything, and a guest cannot book at all — which is E2E-009's fix, not a regression.
+ *
+ * What they protected is still worth protecting, so they now check the path that actually ships. Carry-forward
+ * happens inside reschedule_appointment, so the contract to hold is that a reschedule calls THAT function with
+ * the original's id and does not re-send the payment fields, which would let the client overwrite what the
+ * server preserved.
+ */
+
+const rpc = vi.fn();
 vi.mock("@/lib/supabaseClient", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/supabaseClient")>()),
-  currentUserId: async () => null,
+  currentUserId: async () => "cust_123",
+  getSupabase: () => ({ rpc }),
 }));
 
-// Mock localStorage for Node test environment
 const store = new Map<string, string>();
-const localStorageMock = {
+globalThis.localStorage = {
   getItem: (key: string) => store.get(key) ?? null,
   setItem: (key: string, value: string) => { store.set(key, String(value)); },
   removeItem: (key: string) => { store.delete(key); },
   clear: () => { store.clear(); },
-};
-globalThis.localStorage = localStorageMock as any;
+} as any;
 
-describe("appointmentService reschedule payment and package preservation", () => {
+import { appointmentService } from "./appointmentService";
+
+/** The row shape reschedule_appointment returns, with the payment fields it carried over itself. */
+function serverRow(over: Record<string, unknown> = {}) {
+  return {
+    id: "apt_new",
+    target_id: "b_real",
+    target_name: "Salon Elegance",
+    target_type: "BUSINESS",
+    customer_user_id: "cust_123",
+    customer_name: "Priya Sharma",
+    scheduled_for: new Date(Date.now() + 172800000).toISOString(),
+    date_label: "Day after",
+    time_label: "2:00 PM",
+    status: "PENDING",
+    created_at: new Date().toISOString(),
+    payment_status: "PAID",
+    payment_method: "UPI",
+    payment_amount: 500,
+    payment_reference: "upi_ref_abc123",
+    package_id: "pkg_haircut",
+    package_name: "Deluxe Haircut",
+    package_price: 500,
+    ...over,
+  };
+}
+
+const base = {
+  targetId: "b_real",
+  targetName: "Salon Elegance",
+  targetType: "BUSINESS" as const,
+  customerId: "cust_123",
+  customerName: "Priya Sharma",
+  scheduledForISO: new Date(Date.now() + 172800000).toISOString(),
+  dateLabel: "Day after",
+  timeLabel: "2:00 PM",
+};
+
+describe("appointmentService reschedule", () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.clearAllMocks();
+    rpc.mockReset();
+    rpc.mockResolvedValue({ data: serverRow(), error: null });
   });
 
-  it("preserves PAID paymentStatus, method, amount and reference when rescheduling", async () => {
-    // 1. Create an initial booking for mock business b1
-    const original = await appointmentService.create({
-      targetId: "b1",
-      targetName: "Salon Elegance",
-      targetType: "BUSINESS",
-      customerId: "cust_123",
-      customerName: "Priya Sharma",
-      scheduledForISO: new Date(Date.now() + 86400000).toISOString(),
-      dateLabel: "Tomorrow",
-      timeLabel: "10:00 AM",
-      packageId: "pkg_haircut",
-      packageName: "Deluxe Haircut",
-      packagePrice: 500,
+  it("reschedules through reschedule_appointment, not a fresh booking", async () => {
+    await appointmentService.create({ ...base, rescheduledFrom: "apt_original" });
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    const [fn, args] = rpc.mock.calls[0];
+    expect(fn).toBe("reschedule_appointment");
+    expect(args.p_original_id).toBe("apt_original");
+    expect(args.p_scheduled_for).toBe(base.scheduledForISO);
+  });
+
+  it("does not re-send the payment fields, so the server's carry-forward stands", async () => {
+    await appointmentService.create({
+      ...base,
+      rescheduledFrom: "apt_original",
       paymentStatus: "PAID",
       paymentMethod: "UPI",
       paymentAmount: 500,
       paymentReference: "upi_ref_abc123",
     });
 
-    expect(original.paymentStatus).toBe("PAID");
-    expect(original.packagePrice).toBe(500);
+    const [, args] = rpc.mock.calls[0];
+    for (const key of ["p_payment_status", "p_payment_method", "p_payment_amount", "p_payment_reference"]) {
+      expect(args).not.toHaveProperty(key);
+    }
+  });
 
-    // 2. Reschedule the appointment to a new slot without re-specifying payment
-    const newSlotISO = new Date(Date.now() + 172800000).toISOString();
-    const rescheduled = await appointmentService.create({
-      targetId: "b1",
-      targetName: "Salon Elegance",
-      targetType: "BUSINESS",
-      customerId: "cust_123",
-      customerName: "Priya Sharma",
-      scheduledForISO: newSlotISO,
-      dateLabel: "Day After Tomorrow",
-      timeLabel: "02:00 PM",
-      rescheduledFrom: original.id,
-    });
+  it("returns what the server preserved, including payment and package", async () => {
+    const rescheduled = await appointmentService.create({ ...base, rescheduledFrom: "apt_original" });
 
-    // 3. Assert payment details are carried over to the rescheduled appointment
-    expect(rescheduled.rescheduledFrom).toBe(original.id);
     expect(rescheduled.paymentStatus).toBe("PAID");
     expect(rescheduled.paymentMethod).toBe("UPI");
     expect(rescheduled.paymentAmount).toBe(500);
     expect(rescheduled.paymentReference).toBe("upi_ref_abc123");
-
-    // 4. Assert package info is preserved from original
     expect(rescheduled.packageId).toBe("pkg_haircut");
-    expect(rescheduled.packageName).toBe("Deluxe Haircut");
     expect(rescheduled.packagePrice).toBe(500);
-
-    // 5. Assert original appointment is now CANCELLED
-    const list = await appointmentService.listForCustomer("cust_123");
-    const foundOrig = list.find((a) => a.id === original.id);
-    expect(foundOrig?.status).toBe("CANCELLED");
   });
 
-  it("preserves UNPAID status if original was not paid", async () => {
-    const original = await appointmentService.create({
-      targetId: "b1",
-      targetName: "Salon Elegance",
-      targetType: "BUSINESS",
-      customerId: "cust_456",
-      customerName: "Amit Kumar",
-      scheduledForISO: new Date(Date.now() + 86400000).toISOString(),
-      dateLabel: "Tomorrow",
-      timeLabel: "11:00 AM",
-      paymentStatus: "UNPAID",
+  it("passes a deliberately chosen new package through to the server", async () => {
+    rpc.mockResolvedValue({
+      data: serverRow({ package_id: "pkg_spa", package_name: "Spa Day", package_price: 1500 }),
+      error: null,
     });
 
     const rescheduled = await appointmentService.create({
-      targetId: "b1",
-      targetName: "Salon Elegance",
-      targetType: "BUSINESS",
-      customerId: "cust_456",
-      customerName: "Amit Kumar",
-      scheduledForISO: new Date(Date.now() + 172800000).toISOString(),
-      dateLabel: "Day After Tomorrow",
-      timeLabel: "03:00 PM",
-      rescheduledFrom: original.id,
-    });
-
-    expect(rescheduled.paymentStatus).toBe("UNPAID");
-  });
-
-  it("allows selecting a new package during reschedule when explicitly chosen", async () => {
-    const original = await appointmentService.create({
-      targetId: "b1",
-      targetName: "Salon Elegance",
-      targetType: "BUSINESS",
-      customerId: "cust_789",
-      customerName: "Rohan V",
-      scheduledForISO: new Date(Date.now() + 86400000).toISOString(),
-      dateLabel: "Tomorrow",
-      timeLabel: "10:00 AM",
-      packageId: "pkg_basic",
-      packageName: "Basic Trim",
-      packagePrice: 200,
-      paymentStatus: "PAID",
-    });
-
-    const rescheduled = await appointmentService.create({
-      targetId: "b1",
-      targetName: "Salon Elegance",
-      targetType: "BUSINESS",
-      customerId: "cust_789",
-      customerName: "Rohan V",
-      scheduledForISO: new Date(Date.now() + 172800000).toISOString(),
-      dateLabel: "Day After Tomorrow",
-      timeLabel: "04:00 PM",
-      rescheduledFrom: original.id,
+      ...base,
+      rescheduledFrom: "apt_original",
       packageId: "pkg_spa",
-      packageName: "Full Spa Care",
-      packagePrice: 1200,
+      packageName: "Spa Day",
+      packagePrice: 1500,
     });
 
-    expect(rescheduled.packageId).toBe("pkg_spa");
-    expect(rescheduled.packageName).toBe("Full Spa Care");
-    expect(rescheduled.packagePrice).toBe(1200);
-    // Payment status still preserved from original
-    expect(rescheduled.paymentStatus).toBe("PAID");
+    const [, args] = rpc.mock.calls[0];
+    expect(args.p_package_id).toBe("pkg_spa");
+    expect(args.p_package_price).toBe(1500);
+    expect(rescheduled.packageName).toBe("Spa Day");
+  });
+
+  it("refuses to reschedule when nobody is signed in rather than writing a local record", async () => {
+    const mod = await import("@/lib/supabaseClient");
+    vi.spyOn(mod, "currentUserId").mockResolvedValueOnce(null as any);
+
+    await expect(
+      appointmentService.create({ ...base, rescheduledFrom: "apt_original" }),
+    ).rejects.toThrow(/Couldn't confirm you're signed in/);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

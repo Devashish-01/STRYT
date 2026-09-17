@@ -1,7 +1,7 @@
 import { getSupabase } from "@/lib/supabaseClient";
 import { toCamel } from "@/lib/caseMap";
 import type { BlockedSlot } from "@/types";
-import { isMockTarget, resolveTargetOwner } from "./appointmentService";
+import { resolveTargetOwner } from "./appointmentService";
 
 const STORAGE_KEY = "stryt_blocked_slots";
 
@@ -22,15 +22,13 @@ function saveLocal(list: BlockedSlot[]) {
 
 export const slotBlockService = {
   async list(targetId: string): Promise<BlockedSlot[]> {
-    if (!isMockTarget(targetId)) {
-      try {
-        const sb = getSupabase();
-        const { data, error } = await sb.from("blocked_slots").select("*").eq("target_id", targetId);
-        if (error) throw error;
-        return toCamel<BlockedSlot[]>(data ?? []);
-      } catch {
-        // fall through to local cache
-      }
+    try {
+      const sb = getSupabase();
+      const { data, error } = await sb.from("blocked_slots").select("*").eq("target_id", targetId);
+      if (error) throw error;
+      return toCamel<BlockedSlot[]>(data ?? []);
+    } catch {
+      // fall through to local cache
     }
     return getLocal().filter((b) => b.targetId === targetId);
   },
@@ -58,15 +56,13 @@ export const slotBlockService = {
   },
 
   async unblock(id: string, targetId: string): Promise<void> {
-    if (!isMockTarget(targetId)) {
-      try {
-        const sb = getSupabase();
-        const { error } = await sb.from("blocked_slots").delete().eq("id", id);
-        if (error) throw error;
-        return;
-      } catch {
-        // fall through to local cache
-      }
+    try {
+      const sb = getSupabase();
+      const { error } = await sb.from("blocked_slots").delete().eq("id", id);
+      if (error) throw error;
+      return;
+    } catch {
+      // fall through to local cache
     }
     saveLocal(getLocal().filter((b) => b.id !== id));
   },
@@ -81,30 +77,28 @@ async function insertBlock(payload: {
   reason: string | null;
   recurring: boolean;
 }): Promise<BlockedSlot> {
-  if (!isMockTarget(payload.targetId)) {
-    try {
-      const ownerId = await resolveTargetOwner(payload.targetType, payload.targetId);
-      if (!ownerId) throw new Error("Couldn't resolve owner for this listing.");
-      const sb = getSupabase();
-      const { data, error } = await sb
-        .from("blocked_slots")
-        .insert({
-          target_type: payload.targetType,
-          target_id: payload.targetId,
-          target_owner_user_id: ownerId,
-          date: payload.date,
-          weekday: payload.weekday,
-          time_label: payload.timeLabel,
-          reason: payload.reason,
-          recurring: payload.recurring,
-        })
-        .select()
-        .maybeSingle();
-      if (error) throw error;
-      return toCamel<BlockedSlot>(data);
-    } catch (err: any) {
-      throw new Error(err?.message || "Couldn't block this slot. Try again.");
-    }
+  try {
+    const ownerId = await resolveTargetOwner(payload.targetType, payload.targetId);
+    if (!ownerId) throw new Error("Couldn't resolve owner for this listing.");
+    const sb = getSupabase();
+    const { data, error } = await sb
+      .from("blocked_slots")
+      .insert({
+        target_type: payload.targetType,
+        target_id: payload.targetId,
+        target_owner_user_id: ownerId,
+        date: payload.date,
+        weekday: payload.weekday,
+        time_label: payload.timeLabel,
+        reason: payload.reason,
+        recurring: payload.recurring,
+      })
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    return toCamel<BlockedSlot>(data);
+  } catch (err: any) {
+    throw new Error(err?.message || "Couldn't block this slot. Try again.");
   }
 
   const record: BlockedSlot = {

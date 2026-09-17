@@ -29,7 +29,7 @@ import { WalkInPaySheet } from "@/components/WalkInPaySheet";
 import { CustomPaySheet } from "@/components/CustomPaySheet";
 import { PaymentStatusCard } from "@/components/PaymentStatusCard";
 import { evaluateProviderAvailability, DEFAULT_WORKING_HOURS, formatHoursForDisplay } from "@/utils/availability";
-import { appointmentService, isMockTarget } from "@/services/engagement/appointmentService";
+import { appointmentService } from "@/services/engagement/appointmentService";
 import type { AppointmentRecord, CatalogItem, MyQueueEntry } from "@/types";
 import { inr, distanceLabel } from "@/lib/format";
 import { displayName as safeName } from "@/lib/publicName";
@@ -313,11 +313,6 @@ export default function BusinessDetail() {
   return (
     <div className="screen" style={{ position: "relative" }} data-biz-theme={bizThemeKey === "generic" ? undefined : bizThemeKey}>
       <div className="screen-scroll" style={{ paddingBottom: cartCount ? 88 : 24 }}>
-        {isMockTarget(id) && (
-          <div style={{ padding: "8px 14px", background: "var(--orange-50)", borderBottom: "1px solid var(--orange-100)" }}>
-            <span className="tiny" style={{ color: "var(--amber-700)", fontWeight: 600 }}>Demo preview — bookings here aren't saved or sent to an owner.</span>
-          </div>
-        )}
         {/* Cover */}
         <div style={{ position: "relative" }}>
           <SafeImg
@@ -448,7 +443,7 @@ export default function BusinessDetail() {
                 needs a way to pay (walk-in tip, deposit, ad-hoc amount). The
                 first three branches below cover an existing claimable
                 relationship; customPaySheet is the fallback with none. */}
-            {!isOwner && !isGuest && !isMockTarget(id) && (
+            {!isOwner && !isGuest && (
               <button
                 className="row gap-10"
                 style={{ width: "100%", marginTop: 10, padding: "12px 14px", background: "var(--brand-50)", border: "1.5px solid var(--brand-200)", borderRadius: 14 }}
