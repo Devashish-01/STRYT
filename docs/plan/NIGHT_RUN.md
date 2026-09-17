@@ -31,7 +31,7 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
   location, live location, emergency contacts, photos, chat, payment references, device/push tokens, crash
   data, analytics, verification documents, ratings.
   *Done when:* every row cites a real file path or table name that exists, checked by script.
-- [ ] **A2** Diff the inventory against `PLAY_CONSOLE_MASTER_DOSSIER.md` §4 and `legal/privacy-policy.md`.
+- [x] **A2** Diff the inventory against `PLAY_CONSOLE_MASTER_DOSSIER.md` §4 and `legal/privacy-policy.md`.
   Every mismatch listed. *Done when:* a mismatch table exists and each row says which source is wrong.
 - [ ] **A3** Draft the corrections to `legal/privacy-policy.md` and siblings so they match A1.
   *Done when:* drafted and flagged for the owner's lawyer — not marked compliant.
@@ -97,6 +97,7 @@ Appended as work lands. Newest last.
 | 02:33 | — | Branch cut, queue written. |
 | 02:34 | harness | Self-waking cron refused by the classifier. Not worked around; run continues in-session. |
 | 02:52 | A1 | DATA_INVENTORY written from schema + code. 18 file paths and 22 table.column refs verified by script, 0 missing. Six findings raised, incl. purge-deleted-accounts not deployed so the 30-day deletion promise does not complete. |
+| 03:10 | A2 | Diff written: dossier §4 is wrong on 3 rows and missing 5 data types (government ID, payment refs, address, crash logs, analytics). Privacy policy is the most accurate of the three. Corrected my own inventory first — I had auth and geocoding wrong. |
 
 ## Owner steps found so far
 
@@ -112,3 +113,4 @@ Collected here as they come up, so 07:30 has one list rather than a hunt.
 | 6 | Lawyer review of the legal documents for DPDP Act + IT Rules | The agent must not claim legal compliance |
 | 7 | Play Console paperwork and the closed test | Owner-only console access |
 | 8 | Lighthouse run against a deployed preview | Needs a deployed URL |
+| 9 | **Highest priority.** `purge-deleted-accounts` has never been deployed, so the 30-day account-deletion promise in the privacy policy and the store listing does not complete | Owner deploy step; found by A1/A2 |
