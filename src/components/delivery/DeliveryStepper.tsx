@@ -1,4 +1,4 @@
-import type { DeliveryLiveStatus, DeliveryStatus } from "@/services/engagement/deliveryService";
+import type { DeliveryStatus } from "@/services/engagement/deliveryService";
 
 const STEPS: { key: DeliveryStatus; label: string }[] = [
   { key: "ASSIGNED", label: "Assigned" },
@@ -7,25 +7,6 @@ const STEPS: { key: DeliveryStatus; label: string }[] = [
   { key: "DELIVERED", label: "Delivered" },
 ];
 const STEP_INDEX: Record<string, number> = { ASSIGNED: 0, EN_ROUTE: 1, ARRIVED: 2, DELIVERED: 3 };
-
-/** Maps the raw live-status vocabulary an agent pushes (LEAVING/ON_THE_WAY/
- *  ARRIVED/DONE) to the lifecycle status these steps track — mirrors
- *  appointment_update_delivery_status's own server-side mapping, for surfaces
- *  (like the public tracking page) that only ever see live_status, never the
- *  lifecycle `status` column directly. */
-export function liveStatusToDeliveryStatus(liveStatus: DeliveryLiveStatus | string | null): DeliveryStatus {
-  switch (liveStatus) {
-    case "LEAVING":
-    case "ON_THE_WAY":
-      return "EN_ROUTE";
-    case "ARRIVED":
-      return "ARRIVED";
-    case "DONE":
-      return "DELIVERED";
-    default:
-      return "ASSIGNED";
-  }
-}
 
 /** Shared progress-dots stepper, replacing the four independent hand-rolled
  *  copies across the delivery agent console, the customer's tracking card,

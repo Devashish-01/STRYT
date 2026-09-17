@@ -5,7 +5,8 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { SafeImg } from "@/components/common";
 import { config } from "@/config";
-import DeliveryStepper, { liveStatusToDeliveryStatus } from "@/components/delivery/DeliveryStepper";
+import DeliveryStepper from "@/components/delivery/DeliveryStepper";
+import { liveStatusToDeliveryStatus } from "@/lib/deliveryStatus";
 
 const anonSb = createClient(
   config.supabaseUrl,

@@ -7,7 +7,8 @@ import { Camera, CheckCircle2, IndianRupee, Plus, Briefcase, Phone, X } from "@/
 import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import RadiusSelector from "@/components/RadiusSelector";
-import HoursSelector, { parseAvailability } from "@/components/HoursSelector";
+import HoursSelector from "@/components/HoursSelector";
+import { parseAvailability } from "@/utils/availability";
 import { DEFAULT_ONBOARD_WORKING_HOURS, expandPatternToWeekly, serializeHoursValue } from "@/utils/availability";
 import { getBusinessTheme, BUSINESS_PACKAGES, type BusinessPackageKey } from "@/lib/businessPackages";
 import { PackageConfirmCard } from "@/components/PackageConfirmCard";

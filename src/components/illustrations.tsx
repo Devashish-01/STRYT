@@ -176,19 +176,3 @@ export function NoPhotosIllustration({ size = 96 }: IllustrationProps) {
   );
 }
 
-export const illustrations = {
-  results: NoResultsIllustration,
-  list: EmptyListIllustration,
-  appointments: NoAppointmentsIllustration,
-  queue: NoQueueIllustration,
-  notifications: NoNotificationsIllustration,
-  messages: NoMessagesIllustration,
-  deals: NoDealsIllustration,
-  network: NetworkErrorIllustration,
-  people: NoPeopleIllustration,
-  locked: LockedIllustration,
-  success: SuccessIllustration,
-  photos: NoPhotosIllustration,
-} as const;
-
-export type IllustrationKey = keyof typeof illustrations;

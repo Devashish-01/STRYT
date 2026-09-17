@@ -11,7 +11,7 @@ import { Phone } from "@/components/Icons";
  *  bogus call links. */
 const PHONE_RE = /(?:\+?91[-\s]?|0)?([6-9]\d{4}[-\s]?\d{5})\b/;
 
-export function extractPhone(note: string | null | undefined): string | null {
+function extractPhone(note: string | null | undefined): string | null {
   if (!note) return null;
   const m = PHONE_RE.exec(note);
   if (!m) return null;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Clock, Calendar } from "@/components/Icons";
-import { DEFAULT_START_TIME, DEFAULT_ONBOARD_END_TIME, DEFAULT_ONBOARD_DAYS_PATTERN } from "@/utils/availability";
+import { DEFAULT_START_TIME, DEFAULT_ONBOARD_END_TIME, DEFAULT_ONBOARD_DAYS_PATTERN, normalizeTimeStr, parseAvailability } from "@/utils/availability";
 
 interface HoursSelectorProps {
   value: string;
@@ -26,73 +26,6 @@ for (let h = 0; h < 24; h++) {
     const displayH = hour12 < 10 ? `0${hour12}` : `${hour12}`;
     TIME_OPTIONS.push(`${displayH}:${m} ${ampm}`);
   }
-}
-
-export function normalizeTimeStr(tStr: string): string {
-  if (!tStr) return DEFAULT_START_TIME;
-  const cleaned = tStr.trim().toUpperCase();
-  
-  // Check if PM/AM is present, if not infer from hour
-  const hasPM = cleaned.includes("PM");
-  const hasAM = cleaned.includes("AM");
-  
-  const numPart = cleaned.replace(/(AM|PM)/g, "").trim();
-  const parts = numPart.split(":");
-  const hour = parseInt(parts[0], 10) || 0;
-  const minute = parseInt(parts[1], 10) || 0;
-  
-  const isPM = hasPM || (hour >= 12 && !hasAM);
-  
-  let displayHour = hour % 12;
-  if (displayHour === 0) displayHour = 12;
-  const displayHStr = displayHour < 10 ? `0${displayHour}` : `${displayHour}`;
-  const displayMStr = minute < 10 ? `0${minute}` : `${minute}`;
-  const ampm = isPM ? "PM" : "AM";
-  
-  return `${displayHStr}:${displayMStr} ${ampm}`;
-}
-
-export function parseAvailability(raw: string | undefined): { days: string; from: string; to: string } {
-  const defaults = { days: DEFAULT_ONBOARD_DAYS_PATTERN, from: DEFAULT_START_TIME, to: DEFAULT_ONBOARD_END_TIME };
-  if (!raw) return defaults;
-  
-  let main = raw.trim();
-  if (main.includes("duration=")) {
-    const pipeIdx = main.lastIndexOf("|");
-    if (pipeIdx !== -1) {
-      main = main.substring(0, pipeIdx).trim();
-    }
-  }
-  
-  if (main.includes("from ") && main.includes(" to ")) {
-    const parts = main.split(" from ");
-    const daysPattern = parts[0]?.trim() || DEFAULT_ONBOARD_DAYS_PATTERN;
-    const times = parts[1]?.split(" to ");
-    const fromTime = normalizeTimeStr(times?.[0] || DEFAULT_START_TIME);
-    const toTime = normalizeTimeStr(times?.[1] || DEFAULT_ONBOARD_END_TIME);
-    return { days: daysPattern, from: fromTime, to: toTime };
-  }
-  
-  if (main.includes("|")) {
-    const parts = main.split("|");
-    const daysPattern = parts[0]?.trim() || DEFAULT_ONBOARD_DAYS_PATTERN;
-    const times = (parts[1] || "").split(/-|–/);
-    const fromTime = normalizeTimeStr(times?.[0] || DEFAULT_START_TIME);
-    const toTime = normalizeTimeStr(times?.[1] || DEFAULT_ONBOARD_END_TIME);
-    return { days: daysPattern, from: fromTime, to: toTime };
-  }
-  
-  if (main.includes("-") || main.includes("–")) {
-    const sep = main.includes("–") ? "–" : "-";
-    const parts = main.split(sep);
-    const daysPattern = parts[0]?.trim() || DEFAULT_ONBOARD_DAYS_PATTERN;
-    const times = (parts[1] || "").split(/-|–/);
-    const fromTime = normalizeTimeStr(times?.[0] || DEFAULT_START_TIME);
-    const toTime = normalizeTimeStr(times?.[1] || DEFAULT_ONBOARD_END_TIME);
-    return { days: daysPattern, from: fromTime, to: toTime };
-  }
-  
-  return defaults;
 }
 
 export default function HoursSelector({

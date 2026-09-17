@@ -3,6 +3,10 @@ import { useParams } from "react-router-dom";
 import { AppBar, VegDot, inr, EmptyState } from "@/components/common";
 import { Plus, Pencil, Trash2, Camera, Star, Tag } from "@/components/Icons";
 import { businessService, providerService, uploadService, bustBusinessGetCache, bustProviderGetCache } from "@/services";
+import { serviceFor, type Kind } from "./catalogKind";
+
+// Re-exported so the catalog screens keep one import for the kind they run as.
+export type { Kind };
 import { useQueryWithRealtime, invalidateQueryCache } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
@@ -12,11 +16,6 @@ import ManageNav from "@/screens/business/manage/ManageNav";
 import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
 import { useI18n } from "@/lib/i18n";
 
-export type Kind = "business" | "provider";
-
-export function serviceFor(kind: Kind) {
-  return kind === "business" ? businessService : providerService;
-}
 
 export function CatalogManager({ kind }: { kind: Kind }) {
   const { id = "" } = useParams();

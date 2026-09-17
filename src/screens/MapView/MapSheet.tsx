@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { haptics } from "@/lib/haptics";
+import { NEXT_DETENT, type MapSheetDetent } from "./sheetDetent";
 
-export type MapSheetDetent = "peek" | "half" | "full";
+// Re-exported so callers keep importing the detent type from the sheet it describes.
+export type { MapSheetDetent };
 
-/** Exported so the filter strip's List/Map chip can cycle detents the exact
- *  same way the grip handle does — one cycle definition, two affordances. */
-export const NEXT_DETENT: Record<MapSheetDetent, MapSheetDetent> = { peek: "half", half: "full", full: "peek" };
 const ORDER: MapSheetDetent[] = ["peek", "half", "full"];
 /** Below this many px of vertical drag, release snaps back to where it started. */
 const DRAG_COMMIT_PX = 40;

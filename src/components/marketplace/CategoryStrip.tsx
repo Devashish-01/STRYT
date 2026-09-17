@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Category } from "@/types";
+import { findCategoryNode } from "@/lib/categoryTree";
 import { useI18n } from "@/lib/i18n";
 
 /**
@@ -8,15 +9,6 @@ import { useI18n } from "@/lib/i18n";
  * resolve the `?cat=` URL param — which may name a root OR a child — back to
  * the node itself, and the tree is the only place that mapping exists.
  */
-export function findCategoryNode(nodes: Category[], id: string): Category | undefined {
-  for (const node of nodes) {
-    if (node.id === id) return node;
-    const hit = node.children ? findCategoryNode(node.children, id) : undefined;
-    if (hit) return hit;
-  }
-  return undefined;
-}
-
 /**
  * The marketplace's category selector — one horizontal chip rail. Selecting a
  * chip filters the feed below it; selecting the active chip again clears back

@@ -12,19 +12,12 @@ import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
 import type { Category, Business, Provider } from "@/types";
+import { findCategoryNode } from "@/lib/categoryTree";
 
 // catalogService.get(id) is a flat single-row fetch — it never populates
 // .children. The category tree (with children) only comes from getCategories(),
 // which is cached under "categories" (Explore/AllCategories already warm it),
 // so this looks the node up there instead of a second, tree-less fetch.
-function findCategoryNode(tree: Category[], id: string): Category | undefined {
-  for (const c of tree) {
-    if (c.id === id) return c;
-    const found = findCategoryNode(c.children ?? [], id);
-    if (found) return found;
-  }
-  return undefined;
-}
 
 export default function CategoryListing() {
   const { id = "" } = useParams();

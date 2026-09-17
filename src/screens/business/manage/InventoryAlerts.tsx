@@ -8,7 +8,8 @@ import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import type { CatalogItem } from "@/types";
-import { ItemEditor, serviceFor, type Kind } from "./CatalogManager";
+import { ItemEditor, type Kind } from "./CatalogManager";
+import { serviceFor } from "./catalogKind";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import ManageNav from "./ManageNav";
 
