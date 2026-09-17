@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import { useBusinessAccess } from "@/lib/businessAccess";
 import TeamConsoleBanner from "@/components/TeamConsoleBanner";
 
 /** Wraps all /business/:id/manage* routes with console-mode theming. */

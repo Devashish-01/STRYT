@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Briefcase, CalendarClock, Home, Package, Store, Users } from "@/components/Icons";
 import { businessService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
-import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import { useBusinessAccess } from "@/lib/businessAccess";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import FooterProfileTab from "@/components/FooterProfileTab";
 import { BUSINESS_PACKAGES, resolvePackage } from "@/lib/businessPackages";

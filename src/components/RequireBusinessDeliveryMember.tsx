@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useParams } from "react-router-dom";
-import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import { useBusinessAccess } from "@/lib/businessAccess";
 import { useApp } from "@/store";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 

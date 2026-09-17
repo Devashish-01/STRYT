@@ -1,24 +1,14 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
 import { emergencyService } from "@/services";
 import { backgroundLocation } from "@/lib/backgroundLocation";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { useApp } from "@/store";
 import BackgroundLocationDisclosure from "./BackgroundLocationDisclosure";
+import { LiveShareContext } from "./useLiveShare";
 
 const DISCLOSURE_KEY = "stryt_bg_location_disclosure_v1";
 
-/**
- * App-wide live-location share state. Owns the single ACTIVE session and the
- * background (or foreground-fallback) watcher that keeps it fresh.
- */
-interface LiveShareCtx {
-  activeShareId: string | null;
-  busy: boolean;
-  start: () => Promise<string | null>;
-  stop: () => Promise<void>;
-}
-const Ctx = createContext<LiveShareCtx | null>(null);
 
 function firstFix(): Promise<{ lat: number; lng: number } | null> {
   return new Promise((res) =>
@@ -148,17 +138,11 @@ export function LiveShareProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ activeShareId, busy, start, stop }}>
+    <LiveShareContext.Provider value={{ activeShareId, busy, start, stop }}>
       {children}
       {disclosureOpen && (
         <BackgroundLocationDisclosure onAccept={acceptDisclosure} onDecline={declineDisclosure} />
       )}
-    </Ctx.Provider>
+    </LiveShareContext.Provider>
   );
-}
-
-export function useLiveShare(): LiveShareCtx {
-  const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("useLiveShare must be used within LiveShareProvider");
-  return ctx;
 }

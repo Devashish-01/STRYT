@@ -10,7 +10,7 @@ import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/
 import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
 import Toggle from "@/components/Toggle";
 import { ListSkeleton } from "@/components/states";
-import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import { useBusinessAccess } from "@/lib/businessAccess";
 
 export default function HoursEditor() {
   const { id = "" } = useParams();

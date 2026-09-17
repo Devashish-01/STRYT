@@ -38,7 +38,7 @@ import Toggle from "@/components/Toggle";
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import AmbientSky from "@/features/ambient/AmbientSky";
-import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import { useBusinessAccess } from "@/lib/businessAccess";
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();

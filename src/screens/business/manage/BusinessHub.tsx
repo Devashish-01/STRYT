@@ -14,7 +14,7 @@ import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import type { QueueOwnerToken } from "@/types";
 import { deriveMoneySummary } from "@/utils/paymentSummary";
 import ManageNav from "./ManageNav";
-import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import { useBusinessAccess } from "@/lib/businessAccess";
 import type { ReactNode } from "react";
 
 interface HubLink {

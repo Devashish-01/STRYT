@@ -1,4 +1,4 @@
-import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import { useBusinessAccess } from "@/lib/businessAccess";
 
 /**
  * Shown at the top of every business-manage screen for delegates and scoped

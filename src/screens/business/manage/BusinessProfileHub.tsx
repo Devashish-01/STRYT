@@ -5,7 +5,7 @@ import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { Skeleton, ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow } from "@/components/settings";
-import { useBusinessAccess } from "@/components/BusinessAccessGuard";
+import { useBusinessAccess } from "@/lib/businessAccess";
 import HatSwitcherCard from "@/components/HatSwitcherCard";
 import ManageNav from "./ManageNav";
 import {

@@ -4,7 +4,7 @@ import UserProfileSheet from "./components/UserProfileSheet";
 import BottomNav from "./components/BottomNav";
 import OfflineBanner from "./components/OfflineBanner";
 import NotificationPermissionExplainer from "./components/NotificationPermissionExplainer";
-import { LiveShareProvider } from "./features/live-share/useLiveShare";
+import { LiveShareProvider } from "./features/live-share/LiveShareProvider";
 import LiveShareBanner from "./features/live-share/LiveShareBanner";
 import DesktopSidebar from "./components/DesktopSidebar";
 import BusinessAccessGuard from "./components/BusinessAccessGuard";
