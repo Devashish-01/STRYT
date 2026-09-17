@@ -13,12 +13,15 @@ import { getBusinessTheme, BUSINESS_PACKAGES, type BusinessPackageKey } from "@/
 import { PackageConfirmCard } from "@/components/PackageConfirmCard";
 import { OnboardBookingsToggle } from "@/components/OnboardBookingsToggle";
 import { useFormDraft } from "@/hooks/useFormDraft";
+import { useI18n } from "@/lib/i18n";
 
-const steps = ["Skill", "Area & price", "Portfolio", "Photo"];
+/** Keys, resolved in the header so the step name reads in the viewer's language. */
+const stepKeys = ["pon_step_skill", "pon_step_area_price", "pon_step_portfolio", "pon_step_photo"];
 
 export default function ProviderOnboard() {
   const nav = useNavigate();
   const { user, addRole, showToast, refreshUser, ownedProviderId, isAuthed, authReady, setContext } = useApp();
+  const { t, tf } = useI18n();
   const { data: serviceCatsData } = useQuery(() => catalogService.byKind("SERVICE"), [], "catalog:by-kind:SERVICE");
 
   const [step, setStep] = useState(0);
@@ -222,7 +225,7 @@ export default function ProviderOnboard() {
             uploadedUrls.map((url) => providerService.addPortfolio(providerId as string, { url, caption: "" }))
           );
         } catch {
-          showToast("Profile created — some portfolio photos didn't upload. Add them from your dashboard.");
+          showToast(t("pon_partial_upload"));
         }
       }
 
@@ -260,7 +263,7 @@ export default function ProviderOnboard() {
               copy had providers waiting for an approval that was never coming,
               and not promoting a profile that was already public. The blue tick
               is the separate thing that actually gets reviewed. */}
-          <h1 className="bold h1" style={{ marginTop: 24 }}>You're live!</h1>
+          <h1 className="bold h1" style={{ marginTop: 24 }}>{t("pon_youre_live")}</h1>
           <p className="muted" style={{ marginTop: 8, lineHeight: 1.5, maxWidth: 290 }}>
             Your profile is now visible in search and the feed for everyone within <span className="semi" style={{ color: "var(--ink-900)" }}>{radius} km</span>. Add your ID from the dashboard whenever you want the verified badge.
           </p>
@@ -272,7 +275,7 @@ export default function ProviderOnboard() {
           >
             Go to my dashboard
           </button>
-          <button className="btn btn-ghost btn-block" onClick={() => nav("/home")}>Back to home</button>
+          <button className="btn btn-ghost btn-block" onClick={() => nav("/home")}>{t("bon_back_home")}</button>
         </div>
       </div>
     );
@@ -280,10 +283,10 @@ export default function ProviderOnboard() {
 
   return (
     <div className="screen">
-      <AppBar title="Offer a service" subtitle={`Step ${step + 1} of 4 • ${steps[step]}`} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
+      <AppBar title={t("pon_title")} subtitle={tf("bon_step_of", { n: step + 1, name: t(stepKeys[step]) })} onBack={() => (step === 0 ? nav(-1) : setStep(step - 1))} />
 
       <div className="row gap-4 page-pad" style={{ paddingTop: 12, paddingBottom: 4 }}>
-        {steps.map((_, i) => (
+        {stepKeys.map((_, i) => (
           <div key={i} style={{ flex: 1, height: 5, borderRadius: 4, background: i <= step ? "var(--green-500)" : "var(--ink-200)" }} />
         ))}
       </div>
@@ -308,7 +311,7 @@ export default function ProviderOnboard() {
               >
                 Start over
               </button>
-              <button type="button" className="icon-btn" aria-label="Dismiss" style={{ width: 24, height: 24 }} onClick={acknowledge}>
+              <button type="button" className="icon-btn" aria-label={t("dismiss_word")} style={{ width: 24, height: 24 }} onClick={acknowledge}>
                 <X size={12} />
               </button>
             </div>
@@ -317,18 +320,18 @@ export default function ProviderOnboard() {
         {step === 0 && (
           <>
             <div className="field">
-              <label htmlFor="provideronboard-your-professional-name">Your professional name *</label>
+              <label htmlFor="provideronboard-your-professional-name">{t("pon_professional_name")}</label>
               <input id="provideronboard-your-professional-name"
                 className="input"
-                placeholder="e.g. Ramesh Plumbing Works, Priya Makeup Studio"
+                placeholder={t("pon_name_placeholder")}
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 autoFocus
               />
-              <span className="tiny muted">This is what customers will see — use your name or business name.</span>
+              <span className="tiny muted">{t("pon_name_hint")}</span>
             </div>
             <div className="field">
-              <label>What service do you offer? *</label>
+              <label>{t("pon_what_service")}</label>
               <div className="row wrap gap-8">
                 {serviceCats.map((c) => (
                   <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} style={cat === c.id ? { background: "var(--green-500)", borderColor: "var(--green-500)" } : undefined} onClick={() => { setCat(c.id); setNewCat(""); }}>
@@ -338,12 +341,12 @@ export default function ProviderOnboard() {
               </div>
             </div>
             <div className="field">
-              <label htmlFor="provideronboard-don-t-see-your-skill-propose-a-new-categ">Don't see your skill? Propose a new category</label>
+              <label htmlFor="provideronboard-don-t-see-your-skill-propose-a-new-categ">{t("pon_propose_category")}</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <Plus size={16} color="var(--ink-400)" />
-                <input id="provideronboard-don-t-see-your-skill-propose-a-new-categ" className="input" style={{ border: "none" }} placeholder="e.g. Drone pilot" value={newCat} onChange={(e) => { setNewCat(e.target.value); setCat(null); }} />
+                <input id="provideronboard-don-t-see-your-skill-propose-a-new-categ" className="input" style={{ border: "none" }} placeholder={t("pon_new_skill_placeholder")} value={newCat} onChange={(e) => { setNewCat(e.target.value); setCat(null); }} />
               </div>
-              {newCat && <span className="tiny muted">New categories are reviewed by our team before going live.</span>}
+              {newCat && <span className="tiny muted">{t("bon_category_review_note")}</span>}
             </div>
           </>
         )}
@@ -361,11 +364,11 @@ export default function ProviderOnboard() {
               onError={(msg) => showToast(msg)}
             />
             <div className="field">
-              <label htmlFor="provideronboard-short-bio">Short bio *</label>
-              <textarea id="provideronboard-short-bio" className="input" placeholder="What you do, your experience, what makes you reliable…" value={bio} onChange={(e) => setBio(e.target.value)} />
+              <label htmlFor="provideronboard-short-bio">{t("pon_short_bio")}</label>
+              <textarea id="provideronboard-short-bio" className="input" placeholder={t("pon_bio_placeholder")} value={bio} onChange={(e) => setBio(e.target.value)} />
             </div>
             <div className="field">
-              <label htmlFor="provideronboard-contact-number">Contact number *</label>
+              <label htmlFor="provideronboard-contact-number">{t("bon_contact_number")}</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <Phone size={16} color="var(--ink-400)" />
                 <input id="provideronboard-contact-number"
@@ -377,13 +380,13 @@ export default function ProviderOnboard() {
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(-10))}
                 />
               </div>
-              <span className="tiny muted">Customers tap this to call you. You can hide it publicly later from your dashboard.</span>
+              <span className="tiny muted">{t("pon_contact_hint")}</span>
             </div>
             <div className="field">
-              <label htmlFor="provideronboard-starting-price">Starting price (₹) *</label>
+              <label htmlFor="provideronboard-starting-price">{t("pon_starting_price")}</label>
               <div className="row" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <IndianRupee size={16} color="var(--ink-400)" />
-                <input id="provideronboard-starting-price" className="input" style={{ border: "none" }} inputMode="numeric" placeholder="from ₹…" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
+                <input id="provideronboard-starting-price" className="input" style={{ border: "none" }} inputMode="numeric" placeholder={t("pon_price_placeholder")} value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} />
               </div>
             </div>
             <div className="field">
@@ -391,8 +394,8 @@ export default function ProviderOnboard() {
                 value={radius}
                 onChange={setRadius}
                 accentColor="var(--green-500)"
-                label="Service radius"
-                description="How far you'll travel to serve, and how far your posts and stories reach nearby customers."
+                label={t("bset_service_radius")}
+                description={t("pon_radius_hint")}
               />
             </div>
             <OnboardBookingsToggle
@@ -410,7 +413,7 @@ export default function ProviderOnboard() {
                 value={availability}
                 onChange={setAvailability}
                 accentColor="var(--green-500)"
-                label="Working hours"
+                label={t("pon_working_hours")}
                 description={wantsBookings
                   ? "Specify when you are available for customer bookings"
                   : "Shown on your profile so customers know when to reach you"}
@@ -421,8 +424,8 @@ export default function ProviderOnboard() {
 
         {step === 2 && (
           <div className="field">
-            <label>Show your past work</label>
-            <span className="tiny muted">Portfolio photos build trust and win more jobs.</span>
+            <label>{t("pon_show_past_work")}</label>
+            <span className="tiny muted">{t("pon_portfolio_hint")}</span>
             <div className="row gap-8 wrap" style={{ marginTop: 8 }}>
               {photos.map((ph, idx) => (
                 <div key={ph.previewUrl} style={{ position: "relative", width: 96, height: 96 }}>
@@ -448,7 +451,7 @@ export default function ProviderOnboard() {
               ))}
               {photos.length < 5 && (
                 <label className="col center" style={{ width: 96, height: 96, borderRadius: 12, border: "2px dashed var(--ink-300)", color: "var(--ink-500)", gap: 4, cursor: "pointer" }}>
-                  <Camera size={22} /><span className="tiny">Add</span>
+                  <Camera size={22} /><span className="tiny">{t("bon_add")}</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -475,10 +478,10 @@ export default function ProviderOnboard() {
 
             {/* Photograph (becomes profile photo) */}
             <div className="field">
-              <label>Your photograph *</label>
+              <label>{t("pon_your_photo")}</label>
               <label className="row gap-12" style={{ cursor: "pointer", alignItems: "center" }}>
                 {photoPreview
-                  ? <img src={photoPreview} alt="Your profile photo" className="thumb" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }} />
+                  ? <img src={photoPreview} alt={t("pon_photo_alt")} className="thumb" style={{ width: 72, height: 72, borderRadius: "50%", objectFit: "cover" }} />
                   : <div className="col center" style={{ width: 72, height: 72, borderRadius: "50%", border: "2px dashed var(--ink-300)", color: "var(--ink-500)" }}><Camera size={22} /></div>}
                 <span className="small semi" style={{ color: photoFile ? "var(--green-600)" : "var(--ink-600)" }}>
                   {photoFile ? "Photo added — tap to change" : "Add a clear face photo"}

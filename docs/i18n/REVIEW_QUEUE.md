@@ -500,3 +500,51 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `prof_manage_business` | Manage business & profile | दुकान और प्रोफ़ाइल संभालें | दुकान आणि प्रोफाइल सांभाळा |  |
 | `prof_start_selling` | Start selling on STRYT | STRYT पर बेचना शुरू करें | STRYT वर विकायला सुरुवात करा |  |
 | `prof_start_selling_hint` | List your shop or offer your services | अपनी दुकान दर्ज करें या सेवाएं दें | तुमचे दुकान नोंदवा किंवा सेवा द्या |  |
+| `bdm_pass_accepted_one` | ✓ Pass accepted — {n} unit | ✓ पास स्वीकारा — {n} नग | ✓ पास स्वीकारला — {n} नग |  |
+| `bdm_pass_accepted_many` | ✓ Pass accepted — {n} units | ✓ पास स्वीकारा — {n} नग | ✓ पास स्वीकारला — {n} नग |  |
+| `bdm_already_used` | Already used — this pass was claimed before | पहले ही इस्तेमाल हो चुका — यह पास पहले लिया जा चुका है | आधीच वापरला — हा पास आधी घेतला गेला आहे |  |
+| `bdm_expired` | This pass has expired | इस पास की मियाद ख़त्म हो गई | या पासची मुदत संपली |  |
+| `bdm_unrecognised` | Unrecognised code | कोड पहचाना नहीं गया | कोड ओळखता आला नाही |  |
+| `bdm_not_your_business` | This pass isn't for your business | यह पास आपकी दुकान का नहीं है | हा पास तुमच्या दुकानाचा नाही |  |
+| `bdm_title` | Bulk-buying campaigns | थोक-ख़रीद कैंपेन | घाऊक-खरेदी मोहिमा |  |
+| `bdm_subtitle_for` | For {name} | {name} के लिए | {name} साठी |  |
+| `bdm_subtitle_default` | Pledges, deposits & claim passes | पलेज, जमा राशि और क्लेम पास | प्लेज, अनामत आणि क्लेम पास |  |
+| `bdm_validate_pass` | Validate a claim pass | क्लेम पास जाँचें | क्लेम पास तपासा |  |
+| `bdm_code_placeholder` | STRYT-XXXX-XXXX | STRYT-XXXX-XXXX | STRYT-XXXX-XXXX |  |
+| `bdm_balance_to_collect` | Balance to collect: | बाक़ी लेना है: | बाकी घ्यायचे: |  |
+| `bdm_no_campaigns` | No campaigns yet | अभी कोई कैंपेन नहीं | अजून एकही मोहीम नाही |  |
+| `bdm_no_campaigns_text` | Post a bulk-buying campaign — customers pledge a quantity and you fulfil once it's full. | थोक-ख़रीद कैंपेन डालें — ग्राहक मात्रा तय करते हैं और पूरा होने पर आप पूरा करते हैं। | घाऊक-खरेदी मोहीम टाका — ग्राहक प्रमाण ठरवतात आणि पूर्ण झाल्यावर तुम्ही पुरवता. |  |
+| `bdm_scan_pass` | Scan claim pass | क्लेम पास स्कैन करें | क्लेम पास स्कॅन करा |  |
+| `bdm_deal_removed` | Deal removed | सौदा हटा दिया | सौदा काढला |  |
+| `bdm_cannot_delete` | Cannot delete: active unredeemed claim passes exist for this campaign. | हटा नहीं सकते: इस कैंपेन के कुछ क्लेम पास अभी इस्तेमाल नहीं हुए हैं। | हटवता येणार नाही: या मोहिमेचे काही क्लेम पास अजून वापरलेले नाहीत. |  |
+| `bdm_edit_deal` | Edit deal | सौदा बदलें | सौदा बदला |  |
+| `bdm_remove_deal` | Remove deal | सौदा हटाएं | सौदा काढा |  |
+| `bdm_name_required` | Give the campaign a name | कैंपेन का नाम दें | मोहिमेला नाव द्या |  |
+| `bdm_campaign_updated` | Campaign updated ✓ | कैंपेन अपडेट हुआ ✓ | मोहीम अपडेट झाली ✓ |  |
+| `bdm_edit_campaign` | Edit campaign | कैंपेन बदलें | मोहीम बदला |  |
+| `bdm_title_label` | Title | शीर्षक | शीर्षक |  |
+| `bdm_title_placeholder` | e.g. Alphonso Mango Farm Box | जैसे हापुस आम फ़ार्म बॉक्स | उदा. हापूस आंबा फार्म बॉक्स |  |
+| `pon_partial_upload` | Profile created — some portfolio photos didn't upload. Add them from your dashboard. | प्रोफ़ाइल बन गई — कुछ फ़ोटो अपलोड नहीं हुईं। उन्हें डैशबोर्ड से जोड़ें। | प्रोफाइल तयार झाली — काही फोटो अपलोड झाले नाहीत. ते डॅशबोर्डवरून जोडा. |  |
+| `pon_youre_live` | You're live! | आप लाइव हैं! | तुम्ही लाइव्ह आहात! |  |
+| `pon_title` | Offer a service | सेवा दें | सेवा द्या |  |
+| `pon_step_skill` | Skill | हुनर | कौशल्य |  |
+| `pon_step_area_price` | Area & price | इलाक़ा और दाम | परिसर आणि किंमत |  |
+| `pon_step_portfolio` | Portfolio | काम के नमूने | कामाचे नमुने |  |
+| `pon_step_photo` | Photo | फ़ोटो | फोटो |  |
+| `pon_professional_name` | Your professional name * | आपका पेशेवर नाम * | तुमचे व्यावसायिक नाव * |  |
+| `pon_name_placeholder` | e.g. Ramesh Plumbing Works, Priya Makeup Studio | जैसे रमेश प्लंबिंग वर्क्स, प्रिया मेकअप स्टूडियो | उदा. रमेश प्लंबिंग वर्क्स, प्रिया मेकअप स्टुडिओ |  |
+| `pon_name_hint` | This is what customers will see — use your name or business name. | ग्राहक यही देखेंगे — अपना नाम या दुकान का नाम रखें। | ग्राहक हेच पाहतील — तुमचे नाव किंवा दुकानाचे नाव ठेवा. |  |
+| `pon_what_service` | What service do you offer? * | आप कौन सी सेवा देते हैं? * | तुम्ही कोणती सेवा देता? * |  |
+| `pon_propose_category` | Don't see your skill? Propose a new category | अपना हुनर नहीं दिख रहा? नई श्रेणी सुझाएं | तुमचे कौशल्य दिसत नाही? नवीन श्रेणी सुचवा |  |
+| `pon_short_bio` | Short bio * | छोटा परिचय * | थोडक्यात ओळख * |  |
+| `pon_bio_placeholder` | What you do, your experience, what makes you reliable… | आप क्या करते हैं, कितना अनुभव है, आप पर भरोसा क्यों… | तुम्ही काय करता, किती अनुभव आहे, तुमच्यावर विश्वास का… |  |
+| `pon_contact_hint` | Customers tap this to call you. You can hide it publicly later from your dashboard. | ग्राहक इसी पर टैप करके फ़ोन करेंगे। बाद में डैशबोर्ड से इसे छिपा सकते हैं। | ग्राहक यावर टॅप करून फोन करतील. नंतर डॅशबोर्डवरून हे लपवू शकता. |  |
+| `pon_starting_price` | Starting price (₹) * | शुरुआती दाम (₹) * | सुरुवातीची किंमत (₹) * |  |
+| `pon_price_placeholder` | from ₹… | ₹… से | ₹… पासून |  |
+| `pon_radius_hint` | How far you'll travel to serve, and how far your posts and stories reach nearby customers. | आप कितनी दूर तक सेवा देने जाएंगे, और आपकी पोस्ट व स्टोरी कितनी दूर तक पहुँचेंगी। | तुम्ही किती अंतरापर्यंत सेवा द्यायला जाल, आणि तुमच्या पोस्ट व स्टोरी किती अंतरापर्यंत पोहोचतील. |  |
+| `pon_working_hours` | Working hours | काम के घंटे | कामाचे तास |  |
+| `pon_show_past_work` | Show your past work | अपना पिछला काम दिखाएं | तुमचे मागील काम दाखवा |  |
+| `pon_portfolio_hint` | Portfolio photos build trust and win more jobs. | काम की फ़ोटो भरोसा बनाती हैं और ज़्यादा काम दिलाती हैं। | कामाचे फोटो विश्वास निर्माण करतात आणि जास्त कामे मिळवून देतात. |  |
+| `pon_your_photo` | Your photograph * | आपकी फ़ोटो * | तुमचा फोटो * |  |
+| `pon_photo_alt` | Your profile photo | आपकी प्रोफ़ाइल फ़ोटो | तुमचा प्रोफाइल फोटो |  |
+| `pon_new_skill_placeholder` | e.g. Drone pilot | जैसे ड्रोन पायलट | उदा. ड्रोन पायलट |  |

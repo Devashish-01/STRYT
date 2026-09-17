@@ -9,6 +9,7 @@ import { useApp } from "@/store";
 import QrScannerSheet from "@/components/QrScannerSheet";
 import ManageNav from "./ManageNav";
 import type { BulkDeal, GroupBuyToken } from "@/types";
+import { useI18n } from "@/lib/i18n";
 
 /** Business console: create/edit wholesale offers, and validate group-buy
  *  claim passes at handover. */
@@ -16,6 +17,7 @@ export default function BulkDealsManager() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { showToast } = useApp();
+  const { t, tf } = useI18n();
   const { data: biz } = useQuery(() => businessService.get(id), [id], `business:${id}`);
   // Realtime — a customer pledging or paying a deposit while the owner has
   // this screen open used to need a manual reload to show up, unlike the
@@ -43,15 +45,15 @@ export default function BulkDealsManager() {
       setLastRedeemed(token);
       setManualCode("");
       setScanning(false);
-      showToast(`✓ Pass accepted — ${token.quantity} unit${token.quantity > 1 ? "s" : ""}`);
+      showToast(tf(token.quantity > 1 ? "bdm_pass_accepted_many" : "bdm_pass_accepted_one", { n: token.quantity }));
     } catch (e: any) {
       const msg = String(e?.message ?? "");
       // The server distinguishes these deliberately; surface the difference so
       // staff know whether to hand goods over or turn someone away.
-      if (/ALREADY_REDEEMED/.test(msg)) showToast("Already used — this pass was claimed before");
-      else if (/TOKEN_EXPIRED/.test(msg)) showToast("This pass has expired");
-      else if (/TOKEN_NOT_FOUND/.test(msg)) showToast("Unrecognised code");
-      else if (/TOKEN_NOT_FOR_THIS_BUSINESS|NOT_AUTHORIZED/.test(msg)) showToast("This pass isn't for your business");
+      if (/ALREADY_REDEEMED/.test(msg)) showToast(t("bdm_already_used"));
+      else if (/TOKEN_EXPIRED/.test(msg)) showToast(t("bdm_expired"));
+      else if (/TOKEN_NOT_FOUND/.test(msg)) showToast(t("bdm_unrecognised"));
+      else if (/TOKEN_NOT_FOR_THIS_BUSINESS|NOT_AUTHORIZED/.test(msg)) showToast(t("bdm_not_your_business"));
       else showToast(msg || "Couldn't validate — try again");
     } finally {
       setRedeeming(false);
@@ -59,18 +61,18 @@ export default function BulkDealsManager() {
   }
 
   if (!id) {
-    return <div className="screen"><AppBar title="Bulk-buying campaigns" /></div>;
+    return <div className="screen"><AppBar title={t("bdm_title")} /></div>;
   }
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Bulk-buying campaigns" subtitle={biz?.name ? `For ${biz.name}` : "Pledges, deposits & claim passes"} />
+      <AppBar title={t("bdm_title")} subtitle={biz?.name ? tf("bdm_subtitle_for", { name: biz.name }) : t("bdm_subtitle_default")} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 24 }}>
 
         {/* Claim pass validator */}
         <div className="card col gap-10" style={{ padding: 14 }}>
           <div className="row between center-v">
-            <div className="semi small">Validate a claim pass</div>
+            <div className="semi small">{t("bdm_validate_pass")}</div>
             <button className="btn btn-outline btn-sm row gap-6" onClick={() => setScanning(true)}>
               <QrCode size={14} /> Scan
             </button>
@@ -78,7 +80,7 @@ export default function BulkDealsManager() {
           <div className="row gap-8">
             <input
               className="input grow"
-              placeholder="STRYT-XXXX-XXXX"
+              placeholder={t("bdm_code_placeholder")}
               value={manualCode}
               style={{ fontFamily: "monospace", textTransform: "uppercase" }}
               onChange={(e) => setManualCode(e.target.value)}
@@ -103,7 +105,7 @@ export default function BulkDealsManager() {
               </div>
               {lastRedeemed.balanceDue != null && lastRedeemed.balanceDue > 0 && (
                 <div className="row between center-v card" style={{ padding: "6px 10px", background: "var(--amber-50)", border: "1px solid var(--amber-200)", marginTop: 4 }}>
-                  <span className="tiny semi" style={{ color: "var(--amber-800)" }}>Balance to collect:</span>
+                  <span className="tiny semi" style={{ color: "var(--amber-800)" }}>{t("bdm_balance_to_collect")}</span>
                   <span className="bold small" style={{ color: "var(--amber-900)" }}>{inr(lastRedeemed.balanceDue)}</span>
                 </div>
               )}
@@ -114,7 +116,7 @@ export default function BulkDealsManager() {
         {/* Deals */}
         <div>
           <div className="row between center-v" style={{ marginBottom: 8 }}>
-            <div className="small semi muted">Your campaigns</div>
+            <div className="small semi muted">{t("your_campaigns")}</div>
             <button
               className="btn btn-primary btn-sm row gap-6"
               onClick={() => nav("/community/new", { state: { businessId: id, businessName: biz?.name, businessAvatar: biz?.coverImage, bulkBuying: true } })}
@@ -126,7 +128,7 @@ export default function BulkDealsManager() {
           {loading && <ListSkeleton count={2} />}
 
           {!loading && (deals ?? []).length === 0 && (
-            <EmptyState emoji="📦" title="No campaigns yet" text="Post a bulk-buying campaign — customers pledge a quantity and you fulfil once it's full." />
+            <EmptyState emoji="📦" title={t("bdm_no_campaigns")} text={t("bdm_no_campaigns_text")} />
           )}
 
           <div className="col gap-10">
@@ -146,7 +148,7 @@ export default function BulkDealsManager() {
       )}
       {scanning && (
         <QrScannerSheet
-          title="Scan claim pass"
+          title={t("bdm_scan_pass")}
           onScan={(code) => void redeem(code)}
           onClose={() => setScanning(false)}
         />
@@ -159,6 +161,7 @@ export default function BulkDealsManager() {
 function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; businessId: string; onChanged: () => void; onEdit: () => void }) {
   const nav = useNavigate();
   const { showToast } = useApp();
+  const { t, tf } = useI18n();
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const hasPledges = (deal.pledgedQuantity ?? 0) > 0;
@@ -168,12 +171,12 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
     setBusy(true);
     try {
       await bulkService.deleteDeal(deal.id);
-      showToast("Deal removed");
+      showToast(t("bdm_deal_removed"));
       onChanged();
     } catch (e: any) {
       const msg = String(e?.message ?? "");
       if (/CANNOT_DELETE_ACTIVE_TOKENS/.test(msg)) {
-        showToast("Cannot delete: active unredeemed claim passes exist for this campaign.");
+        showToast(t("bdm_cannot_delete"));
       } else {
         showToast(e?.message || "Couldn't remove");
       }
@@ -204,10 +207,10 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
           </div>
         </button>
         <div className="row gap-4" style={{ flexShrink: 0 }}>
-          <button className="icon-btn" onClick={onEdit} aria-label="Edit deal">
+          <button className="icon-btn" onClick={onEdit} aria-label={t("bdm_edit_deal")}>
             <Edit3 size={16} color="var(--brand-700)" />
           </button>
-          <button className="icon-btn" disabled={busy} onClick={() => setConfirmOpen(true)} aria-label="Remove deal">
+          <button className="icon-btn" disabled={busy} onClick={() => setConfirmOpen(true)} aria-label={t("bdm_remove_deal")}>
             <Trash2 size={16} color="var(--red-600)" />
           </button>
         </div>
@@ -265,13 +268,14 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
  *  CommunityCompose instead (see the "New campaign" button above). */
 function DealComposer({ existing, onSaved, onClose }: { existing: BulkDeal; onSaved: () => void; onClose: () => void }) {
   const { showToast } = useApp();
+  const { t, tf } = useI18n();
   const [title, setTitle] = useState(existing.title);
   const [description, setDescription] = useState(existing.description ?? "");
   const [quota, setQuota] = useState(existing.availableQuota != null ? String(existing.availableQuota) : "");
   const [busy, setBusy] = useState(false);
 
   async function save() {
-    if (!title.trim()) { showToast("Give the campaign a name"); return; }
+    if (!title.trim()) { showToast(t("bdm_name_required")); return; }
     setBusy(true);
     try {
       await bulkService.updateDeal(existing.id, {
@@ -279,7 +283,7 @@ function DealComposer({ existing, onSaved, onClose }: { existing: BulkDeal; onSa
         description: description.trim() || null,
         availableQuota: quota ? parseInt(quota, 10) : null,
       });
-      showToast("Campaign updated ✓");
+      showToast(t("bdm_campaign_updated"));
       onSaved();
     } catch (e: any) {
       showToast(e?.message || "Couldn't save — try again");
@@ -298,24 +302,24 @@ function DealComposer({ existing, onSaved, onClose }: { existing: BulkDeal; onSa
         onClick={(e) => e.stopPropagation()}
       >
         <div className="row between center-v" style={{ marginBottom: "var(--space-md)" }}>
-          <div className="bold" style={{ fontSize: 18 }}>Edit campaign</div>
+          <div className="bold" style={{ fontSize: 18 }}>{t("bdm_edit_campaign")}</div>
           <button className="icon-btn" onClick={onClose}><X size={20} /></button>
         </div>
 
         <div className="col gap-14">
           <div>
-            <label htmlFor="bulkdealsmanager-title" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Title</label>
-            <input id="bulkdealsmanager-title" className="input" placeholder="e.g. Alphonso Mango Farm Box" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} />
+            <label htmlFor="bulkdealsmanager-title" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("bdm_title_label")}</label>
+            <input id="bulkdealsmanager-title" className="input" placeholder={t("bdm_title_placeholder")} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={140} />
           </div>
 
           <div>
-            <label htmlFor="bulkdealsmanager-description-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Description (optional)</label>
+            <label htmlFor="bulkdealsmanager-description-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("prf_description")}</label>
             <textarea id="bulkdealsmanager-description-optional" className="input" style={{ minHeight: 60, resize: "vertical" }} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={500} />
           </div>
 
           <div>
-            <label htmlFor="bulkdealsmanager-available-quota-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>Available quota (optional)</label>
-            <input id="bulkdealsmanager-available-quota-optional" className="input" inputMode="numeric" placeholder="Total units you can supply" value={quota} onChange={(e) => setQuota(e.target.value.replace(/[^0-9]/g, ""))} />
+            <label htmlFor="bulkdealsmanager-available-quota-optional" className="tiny semi muted" style={{ display: "block", marginBottom: 6 }}>{t("ccp_available_quota")}</label>
+            <input id="bulkdealsmanager-available-quota-optional" className="input" inputMode="numeric" placeholder={t("ccp_total_units")} value={quota} onChange={(e) => setQuota(e.target.value.replace(/[^0-9]/g, ""))} />
           </div>
 
           <div className="tiny muted" style={{ lineHeight: 1.5 }}>
