@@ -1,4 +1,5 @@
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
+import type { Tables } from "@/lib/dbTypes";
 import { cursorToRange, throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import type { CommunityPost, Comment, BookmarkTarget } from "@/types";
@@ -35,9 +36,13 @@ function parsePollOpts(raw: any): { id: string; label: string }[] | null {
   return null;
 }
 
+/** A row reaching mapPost: either a community_posts row, or one from community_posts_feed, which is
+ *  declared `setof community_posts` and so has the same columns. */
+type PostRow = Tables<"community_posts">;
+
 /** Map a DB community_posts row → CommunityPost shape, enriched with like/vote state. */
 function mapPost(
-  row: Record<string, any>,
+  row: PostRow,
   likedIds: Set<string>,
   userVotes: Record<string, string>,
   voteCounts: Record<string, Record<string, number>>,
@@ -48,18 +53,18 @@ function mapPost(
   const p = toCamel<CommunityPost>(row);
   p.likes = Number(row.likes_count) || 0;
   p.liked = likedIds.has(p.id);
-  // New column not in the generated DB types — read via `as any`. Defaults to
-  // false so older rows (pre-migration) behave as "comments off".
-  p.allowComments = (row as any).allow_comments ?? false;
+  // Defaults to false so older rows (pre-migration) behave as "comments off".
+  p.allowComments = row.allow_comments ?? false;
   // Who may comment. resolveCommentPolicy reads the newer `comment_policy`
   // column when present and otherwise translates the legacy boolean —
   // `allow_comments = true` meant "on, mutual follows only", i.e. MUTUALS, so an
   // old post can't be widened just by shipping this code.
   p.commentPolicy = resolveCommentPolicy({
-    commentPolicy: (row as any).comment_policy ?? null,
-    allowComments: (row as any).allow_comments ?? null,
+    // community_posts_comment_policy_check constrains this column to exactly CommentPolicy's members.
+    commentPolicy: (row.comment_policy ?? null) as CommentPolicy | null,
+    allowComments: row.allow_comments ?? null,
   });
-  p.hideLikeCount = (row as any).hide_like_count === true;
+  p.hideLikeCount = row.hide_like_count === true;
   // A save is private to the viewer, so it's only ever "true" for rows the
   // caller looked up for themselves — never inferred from anyone else's.
   p.saved = savedIds ? savedIds.has(p.id) : false;
@@ -72,13 +77,13 @@ function mapPost(
   // `media` is the exception: a row written before that migration has only
   // `image`, so it's surfaced as a one-item array. Callers then read one field
   // instead of branching on which era the row is from (see postMedia()).
-  const media = (row as any).media;
+  const media = row.media;
   p.media = Array.isArray(media) && media.length > 0
     ? media.filter((m: unknown): m is string => typeof m === "string" && m.length > 0)
     : (row.image ? [row.image] : []);
 
   // Poll options & counts
-  const rawOpts = parsePollOpts((row as any).poll_options);
+  const rawOpts = parsePollOpts(row.poll_options);
   if (rawOpts) {
     const postVoteMap = voteCounts[p.id] ?? {};
     const totalVotes = Object.values(postVoteMap).reduce((a, b) => a + b, 0);
@@ -93,11 +98,13 @@ function mapPost(
   }
 
   p.postedAt = relLabel(row.created_at);
-  p.createdAtISO = row.created_at;
+  p.createdAtISO = row.created_at ?? undefined;
   if (userLat != null && userLng != null && row.lat != null && row.lng != null) {
     p.distanceKm = Math.round(haversineKm(userLat, userLng, row.lat, row.lng) * 10) / 10;
   } else {
-    p.distanceKm = (p as any).distance_km ?? 0.5;
+    // Always 0.5: `p` is already camelCased, so this read can never hit, and no row reaching here
+    // carries distance_km anyway. Kept verbatim rather than simplified — see P12-003.
+    p.distanceKm = (p as unknown as { distance_km?: number }).distance_km ?? 0.5;
   }
   return p;
 }
