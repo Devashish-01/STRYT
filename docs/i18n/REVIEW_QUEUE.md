@@ -578,3 +578,41 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `pdash_edit_profile` | Edit profile | प्रोफ़ाइल बदलें | प्रोफाइल बदला |  |
 | `cat_optional_placeholder` | Optional | वैकल्पिक | ऐच्छिक |  |
 | `cat_qty_placeholder` | e.g. 25 | जैसे 25 | उदा. २५ |  |
+| `pedit_picked_location` | Picked location: {area} | चुनी गई जगह: {area} | निवडलेले ठिकाण: {area} |  |
+| `pedit_photo_ready` | Photo ready — tap Save changes to apply | फ़ोटो तैयार — लागू करने के लिए सेव करें | फोटो तयार — लागू करण्यासाठी जतन करा |  |
+| `pedit_name_required` | Name is required | नाम ज़रूरी है | नाव आवश्यक आहे |  |
+| `pedit_alias_rules` | Alias must be 3–20 chars: letters, numbers, . or _ | उपनाम 3–20 अक्षरों का हो: अक्षर, अंक, . या _ | टोपणनाव ३–२० अक्षरांचे असावे: अक्षरे, अंक, . किंवा _ |  |
+| `pedit_saved` | Profile saved ✓ | प्रोफ़ाइल सेव हो गई ✓ | प्रोफाइल जतन झाली ✓ |  |
+| `pedit_save_failed` | Couldn't save profile changes | प्रोफ़ाइल के बदलाव सेव नहीं हो सके | प्रोफाइलचे बदल जतन करता आले नाहीत |  |
+| `pedit_title` | Edit Profile | प्रोफ़ाइल बदलें | प्रोफाइल बदला |  |
+| `pedit_photo_limits` | JPG or PNG · max 5 MB | JPG या PNG · ज़्यादा से ज़्यादा 5 MB | JPG किंवा PNG · जास्तीत जास्त ५ MB |  |
+| `pedit_personal_info` | Personal info | निजी जानकारी | वैयक्तिक माहिती |  |
+| `pedit_name_placeholder` | Your full name | आपका पूरा नाम | तुमचे पूर्ण नाव |  |
+| `pedit_public_alias` | Public alias | सार्वजनिक उपनाम | सार्वजनिक टोपणनाव |  |
+| `pedit_privacy` | Privacy | निजता | गोपनीयता |  |
+| `pedit_primary_mobile` | Primary Mobile Number | मुख्य मोबाइल नंबर | मुख्य मोबाइल क्रमांक |  |
+| `pedit_primary_mobile_aria` | Primary mobile number | मुख्य मोबाइल नंबर | मुख्य मोबाइल क्रमांक |  |
+| `pedit_neighbourhood` | Neighbourhood | मोहल्ला | परिसर |  |
+| `pedit_area_placeholder` | Your neighbourhood area | आपका मोहल्ला | तुमचा परिसर |  |
+| `pedit_search_area` | Search for your area... | अपना इलाक़ा खोजें... | तुमचा परिसर शोधा... |  |
+| `pphub_public_page` | Your public page | आपका सार्वजनिक पेज | तुमचे सार्वजनिक पेज |  |
+| `pphub_profile_services` | Profile & services | प्रोफ़ाइल और सेवाएं | प्रोफाइल आणि सेवा |  |
+| `pphub_edit_profile_hint` | Bio, skills, price, service radius | परिचय, हुनर, दाम, सेवा की दूरी | ओळख, कौशल्य, किंमत, सेवेचे अंतर |  |
+| `pphub_services` | Services | सेवाएं | सेवा |  |
+| `pphub_services_one` | {n} service customers can book | {n} सेवा जो ग्राहक बुक कर सकते हैं | {n} सेवा जी ग्राहक बुक करू शकतात |  |
+| `pphub_services_many` | {n} services customers can book | {n} सेवाएं जो ग्राहक बुक कर सकते हैं | {n} सेवा ज्या ग्राहक बुक करू शकतात |  |
+| `pphub_inventory` | Inventory management | स्टॉक संभालें | साठा सांभाळा |  |
+| `pphub_restock_one` | {n} item needs restocking | {n} चीज़ का स्टॉक भरना है | {n} वस्तूचा साठा भरायचा आहे |  |
+| `pphub_restock_many` | {n} items need restocking | {n} चीज़ों का स्टॉक भरना है | {n} वस्तूंचा साठा भरायचा आहे |  |
+| `pphub_stock_ok` | Out-of-stock and low items | ख़त्म और कम बची चीज़ें | संपलेल्या आणि कमी असलेल्या वस्तू |  |
+| `pphub_hours` | Hours & Availability | समय और उपलब्धता | वेळ आणि उपलब्धता |  |
+| `pphub_hours_hint` | Working days, hours & slot length | काम के दिन, समय और स्लॉट की लंबाई | कामाचे दिवस, वेळ आणि स्लॉटची लांबी |  |
+| `pphub_samples_one` | {n} work sample | {n} काम का नमूना | {n} कामाचा नमुना |  |
+| `pphub_samples_many` | {n} work samples | {n} काम के नमूने | {n} कामाचे नमुने |  |
+| `pphub_communication` | Customer communication | ग्राहकों से बातचीत | ग्राहकांशी संवाद |  |
+| `pphub_reachouts` | Reachouts | ग्राहकों की पहल | ग्राहकांचा संपर्क |  |
+| `pphub_reachouts_hint` | Calls and messages from customers | ग्राहकों के फ़ोन और संदेश | ग्राहकांचे फोन आणि संदेश |  |
+| `pphub_money_hint` | UPI, QR & when you get paid | UPI, QR और पैसा कब मिलेगा | UPI, QR आणि पैसे कधी मिळतील |  |
+| `pphub_settings_hint` | Contact visibility, notifications, visibility | संपर्क दिखना, सूचनाएं, दिखना | संपर्क दिसणे, सूचना, दिसणे |  |
+| `pphub_recent_reviews` | Recent reviews | हाल की समीक्षाएं | अलीकडची परीक्षणे |  |
+| `pphub_no_reviews` | Reviews from completed jobs appear here. | पूरे हुए कामों की समीक्षाएं यहाँ दिखेंगी। | पूर्ण झालेल्या कामांची परीक्षणे इथे दिसतील. |  |

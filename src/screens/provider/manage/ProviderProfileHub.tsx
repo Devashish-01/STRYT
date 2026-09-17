@@ -3,6 +3,7 @@ import { AppBar, SafeImg, StarRow } from "@/components/common";
 import { providerService } from "@/services";
 import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
+import { useI18n } from "@/lib/i18n";
 import { Skeleton, ErrorView } from "@/components/states";
 import { SettingsSection, SettingsRow } from "@/components/settings";
 import HatSwitcherCard from "@/components/HatSwitcherCard";
@@ -22,6 +23,7 @@ export default function ProviderProfileHub() {
   const { id = "" } = useParams();
   const nav = useNavigate();
   const { signOut } = useApp();
+  const { t, tf } = useI18n();
   const base = `/provider/${id}/manage`;
 
   const { data: p, loading, error, refetch } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
@@ -30,7 +32,7 @@ export default function ProviderProfileHub() {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Profile" />
+        <AppBar title={t("profile")} />
       </div>
     );
   }
@@ -38,7 +40,7 @@ export default function ProviderProfileHub() {
   if (loading) {
     return (
       <div className="screen with-nav">
-        <AppBar title="Profile" />
+        <AppBar title={t("profile")} />
         <div className="page-pad col gap-12" style={{ marginTop: 12 }}>
           <Skeleton h={120} mb={0} />
           <Skeleton h={56} mb={0} />
@@ -52,7 +54,7 @@ export default function ProviderProfileHub() {
   if (error) {
     return (
       <div className="screen with-nav">
-        <AppBar title="Profile" />
+        <AppBar title={t("profile")} />
         <ErrorView error={error} onRetry={refetch} />
         <ProviderManageNav pid={id} />
       </div>
@@ -74,13 +76,13 @@ export default function ProviderProfileHub() {
 
   return (
     <div className="screen with-nav">
-      <AppBar title="Profile" />
+      <AppBar title={t("profile")} />
       <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 24 }}>
 
         {/* Public preview — what customers see */}
         <div className="card col gap-12" style={{ padding: 16 }}>
           <div className="row between center-v">
-            <span className="tiny semi muted" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>Your public page</span>
+            <span className="tiny semi muted" style={{ textTransform: "uppercase", letterSpacing: 0.5 }}>{t("pphub_public_page")}</span>
             <button className="tiny semi row gap-4 center-v" style={{ color: "var(--brand-700)" }} onClick={() => nav(`/provider/${id}`)}>
               <Globe size={13} /> View →
             </button>
@@ -106,31 +108,31 @@ export default function ProviderProfileHub() {
           )}
         </div>
 
-        <SettingsSection title="Profile & services">
-          <SettingsRow icon={<User size={19} color="var(--pink-500)" />} label="Edit profile" hint="Bio, skills, price, service radius" onClick={() => nav(`${base}/edit-profile`)} />
-          <SettingsRow icon={<FileText size={19} color="var(--brand-600)" />} label="Services" hint={`${p?.catalog?.length ?? 0} service${(p?.catalog?.length ?? 0) === 1 ? "" : "s"} customers can book`} onClick={() => nav(`${base}/catalog`)} />
-          <SettingsRow icon={<AlertTriangle size={19} color="var(--red-600)" />} label="Inventory management" hint={flaggedCount > 0 ? `${flaggedCount} item${flaggedCount === 1 ? "" : "s"} need restocking` : "Out-of-stock and low items"} onClick={() => nav(`${base}/inventory`)} />
-          <SettingsRow icon={<Clock size={19} color="var(--blue-500)" />} label="Hours & Availability" hint="Working days, hours & slot length" onClick={() => nav(`${base}/availability`)} />
-          <SettingsRow icon={<ImageIcon size={19} color="var(--brand-600)" />} label="Portfolio" hint={`${p?.portfolio?.length ?? 0} work sample${(p?.portfolio?.length ?? 0) === 1 ? "" : "s"}`} onClick={() => nav(`${base}/portfolio`)} />
+        <SettingsSection title={t("pphub_profile_services")}>
+          <SettingsRow icon={<User size={19} color="var(--pink-500)" />} label={t("pdash_edit_profile")} hint={t("pphub_edit_profile_hint")} onClick={() => nav(`${base}/edit-profile`)} />
+          <SettingsRow icon={<FileText size={19} color="var(--brand-600)" />} label={t("pphub_services")} hint={tf((p?.catalog?.length ?? 0) === 1 ? "pphub_services_one" : "pphub_services_many", { n: p?.catalog?.length ?? 0 })} onClick={() => nav(`${base}/catalog`)} />
+          <SettingsRow icon={<AlertTriangle size={19} color="var(--red-600)" />} label={t("pphub_inventory")} hint={flaggedCount > 0 ? tf(flaggedCount === 1 ? "pphub_restock_one" : "pphub_restock_many", { n: flaggedCount }) : t("pphub_stock_ok")} onClick={() => nav(`${base}/inventory`)} />
+          <SettingsRow icon={<Clock size={19} color="var(--blue-500)" />} label={t("pphub_hours")} hint={t("pphub_hours_hint")} onClick={() => nav(`${base}/availability`)} />
+          <SettingsRow icon={<ImageIcon size={19} color="var(--brand-600)" />} label={t("pon_step_portfolio")} hint={tf((p?.portfolio?.length ?? 0) === 1 ? "pphub_samples_one" : "pphub_samples_many", { n: p?.portfolio?.length ?? 0 })} onClick={() => nav(`${base}/portfolio`)} />
         </SettingsSection>
 
-        <SettingsSection title="Customer communication">
-          <SettingsRow icon={<Inbox size={19} color="var(--blue-500)" />} label="Reachouts" hint="Calls and messages from customers" onClick={() => nav(`${base}/inbox`)} />
+        <SettingsSection title={t("pphub_communication")}>
+          <SettingsRow icon={<Inbox size={19} color="var(--blue-500)" />} label={t("pphub_reachouts")} hint={t("pphub_reachouts_hint")} onClick={() => nav(`${base}/inbox`)} />
         </SettingsSection>
 
-        <SettingsSection title="Account">
-          <SettingsRow icon={<BadgeCheck size={19} color="var(--green-600)" />} label="Verification" hint={verifyLabel} onClick={() => nav(`${base}/verify`)} />
-          <SettingsRow icon={<Wallet size={19} color="var(--orange-500)" />} label="Money" hint="UPI, QR & when you get paid" onClick={() => nav(`${base}/money`)} />
-          <SettingsRow icon={<Settings size={19} color="var(--ink-600)" />} label="Provider settings" hint="Contact visibility, notifications, visibility" onClick={() => nav(`${base}/settings`)} />
+        <SettingsSection title={t("bset_account")}>
+          <SettingsRow icon={<BadgeCheck size={19} color="var(--green-600)" />} label={t("bset_verification")} hint={verifyLabel} onClick={() => nav(`${base}/verify`)} />
+          <SettingsRow icon={<Wallet size={19} color="var(--orange-500)" />} label={t("pmon_title")} hint={t("pphub_money_hint")} onClick={() => nav(`${base}/money`)} />
+          <SettingsRow icon={<Settings size={19} color="var(--ink-600)" />} label={t("pset_title")} hint={t("pphub_settings_hint")} onClick={() => nav(`${base}/settings`)} />
         </SettingsSection>
 
         {/* Reviews (read-only) */}
         <div>
-          <div className="profile-eyebrow">Recent reviews</div>
+          <div className="profile-eyebrow">{t("pphub_recent_reviews")}</div>
           {(reviews ?? []).length === 0 ? (
             <div className="card col center" style={{ padding: 24, gap: 6 }}>
               <span style={{ fontSize: 28 }}>⭐</span>
-              <span className="tiny muted">Reviews from completed jobs appear here.</span>
+              <span className="tiny muted">{t("pphub_no_reviews")}</span>
             </div>
           ) : (
             <div className="col gap-10">

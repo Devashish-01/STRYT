@@ -8,6 +8,7 @@ import AvatarRing from "@/components/AvatarRing";
 import { normalizeAlias, isValidAlias } from "@/lib/publicName";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
+import { useI18n } from "@/lib/i18n";
 
 type PrivacyKey =
   | "showNamePublicly"
@@ -30,6 +31,7 @@ const PRIVACY_FIELDS: { key: PrivacyKey; label: string; hint: string }[] = [
 export default function ProfileEdit() {
   const nav = useNavigate();
   const { user, refreshUser, setArea, showToast } = useApp();
+  const { t, tf } = useI18n();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,7 +80,7 @@ export default function ProfileEdit() {
   function pickPlace(p: GeoPlace) {
     setLat(p.lat); setLng(p.lng); setAreaInput(p.area);
     setLocQuery(""); setLocResults([]);
-    showToast(`Picked location: ${p.area}`);
+    showToast(tf("pedit_picked_location", { area: p.area }));
   }
 
   async function getGPSLocation() {
@@ -90,11 +92,11 @@ export default function ProfileEdit() {
         try {
           const areaName = await reverseGeocode(latitude, longitude);
           if (areaName) setAreaInput(areaName);
-          showToast("Location updated with GPS coords ✓");
-        } catch { showToast("GPS coords set. Reverse geocoding failed."); }
+          showToast(t("gps_updated"));
+        } catch { showToast(t("gps_failed")); }
         finally { setLocating(false); }
       },
-      () => { setLocating(false); showToast("GPS access denied"); },
+      () => { setLocating(false); showToast(t("gps_denied")); },
       { enableHighAccuracy: false, timeout: 8000 }
     );
   }
@@ -107,7 +109,7 @@ export default function ProfileEdit() {
 
     // Client-side size guard (5 MB)
     if (file.size > 5 * 1024 * 1024) {
-      showToast("File too large — please pick a photo under 5 MB");
+      showToast(t("photo_too_large"));
       return;
     }
 
@@ -121,7 +123,7 @@ export default function ProfileEdit() {
       setAvatar(url);
       // Not written to the profile here: leaving this screen without saving used to leave the new photo live anyway,
       // with no way to undo it (PROF-3). handleSave sends `avatar` with the rest of the form.
-      showToast("Photo ready — tap Save changes to apply");
+      showToast(t("pedit_photo_ready"));
     } catch (err: any) {
       setLocalPreview(null);
       showToast(err?.message || "Photo upload failed — check your connection");
@@ -132,10 +134,10 @@ export default function ProfileEdit() {
 
   async function handleSave() {
     if (saving) return;
-    if (!name.trim()) { showToast("Name is required"); return; }
+    if (!name.trim()) { showToast(t("pedit_name_required")); return; }
     const cleanAlias = normalizeAlias(alias);
     if (alias.trim() && !isValidAlias(alias)) {
-      showToast("Alias must be 3–20 chars: letters, numbers, . or _");
+      showToast(t("pedit_alias_rules"));
       return;
     }
     let resolvedLat = lat;
@@ -162,14 +164,14 @@ export default function ProfileEdit() {
       });
       if (areaInput.trim()) setArea(areaInput.trim());
       await refreshUser();
-      showToast("Profile saved ✓");
+      showToast(t("pedit_saved"));
       nav("/profile");
     } catch (e: any) {
       // The partial unique index on lower(alias) rejects a taken handle.
       if (e?.code === "23505" || /duplicate|unique|alias/i.test(e?.message ?? "")) {
         showToast(`"${cleanAlias}" is already taken — try another alias`);
       } else {
-        showToast("Couldn't save profile changes");
+        showToast(t("pedit_save_failed"));
       }
     }
     finally { setSaving(false); }
@@ -195,7 +197,7 @@ export default function ProfileEdit() {
 
   return (
     <div className="screen">
-      <AppBar title="Edit Profile" />
+      <AppBar title={t("pedit_title")} />
       <div className="screen-scroll page-pad col gap-20" style={{ paddingBottom: 100 }}>
 
         {/* ── Avatar upload ── */}
@@ -222,7 +224,7 @@ export default function ProfileEdit() {
               {(localPreview || avatar) ? (
                 <SafeImg
                   src={localPreview ?? avatar}
-                  alt="Profile"
+                  alt={t("profile")}
                   variant="avatar"
                   style={{
                     width: "100%", height: "100%", borderRadius: "50%", objectFit: "cover",
@@ -275,12 +277,12 @@ export default function ProfileEdit() {
           >
             {uploading ? "Uploading…" : "Change photo"}
           </button>
-          <span style={{ fontSize: 11, color: "var(--ink-400)", marginTop: 6 }}>JPG or PNG · max 5 MB</span>
+          <span style={{ fontSize: 11, color: "var(--ink-400)", marginTop: 6 }}>{t("pedit_photo_limits")}</span>
         </div>
 
         {/* ── Personal info ── */}
         <div>
-          <SectionHead icon={<User size={15} color="var(--brand-600)" />} title="Personal info" />
+          <SectionHead icon={<User size={15} color="var(--brand-600)" />} title={t("pedit_personal_info")} />
           <div className="col gap-12">
             <div className="field">
               <label htmlFor="profileedit-display-name">
@@ -290,7 +292,7 @@ export default function ProfileEdit() {
                 className="input"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your full name"
+                placeholder={t("pedit_name_placeholder")}
               />
               <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
                 Private by default — only shared with a shop/provider once you book, join their queue, or send a proposal.
@@ -299,7 +301,7 @@ export default function ProfileEdit() {
             </div>
 
             <div className="field">
-              <label htmlFor="profileedit-public-alias">Public alias</label>
+              <label htmlFor="profileedit-public-alias">{t("pedit_public_alias")}</label>
               <div className="row center-v" style={{ border: "1.5px solid var(--ink-200)", borderRadius: 10, padding: "0 12px", background: "#fff" }}>
                 <span className="semi" style={{ color: "var(--ink-400)" }}>@</span>
                 <input id="profileedit-public-alias"
@@ -322,7 +324,7 @@ export default function ProfileEdit() {
 
         {/* ── Privacy ── */}
         <div>
-          <SectionHead icon={<Lock size={15} color="var(--brand-600)" />} title="Privacy" />
+          <SectionHead icon={<Lock size={15} color="var(--brand-600)" />} title={t("pedit_privacy")} />
           <div style={{
             background: "#fff", border: "1.5px solid var(--ink-200)",
             borderRadius: 16, overflow: "hidden",
@@ -365,10 +367,10 @@ export default function ProfileEdit() {
 
         {/* ── Contact ── */}
         <div>
-          <SectionHead icon={<Phone size={15} color="var(--brand-600)" />} title="Contact" />
+          <SectionHead icon={<Phone size={15} color="var(--brand-600)" />} title={t("bon_step_contact")} />
           <div className="field">
             <div className="row justify-between" style={{ alignItems: "center", marginBottom: 6 }}>
-              <label style={{ margin: 0 }}>Primary Mobile Number</label>
+              <label style={{ margin: 0 }}>{t("pedit_primary_mobile")}</label>
               {phone && phone.replace(/\D/g, "").length === 10 && (
                 <span className="tiny bold" style={{ color: "var(--green-700)", display: "flex", alignItems: "center", gap: 4 }}>
                   <CheckCircle size={13} color="var(--green-600)" /> Contact number
@@ -392,7 +394,7 @@ export default function ProfileEdit() {
               </div>
               <div
                 className="grow"
-                aria-label="Primary mobile number"
+                aria-label={t("pedit_primary_mobile_aria")}
                 style={{
                   padding: "10px 14px",
                   background: "var(--ink-50)",
@@ -415,7 +417,7 @@ export default function ProfileEdit() {
 
         {/* ── Location / Neighbourhood ── */}
         <div>
-          <SectionHead icon={<MapPin size={15} color="var(--brand-600)" />} title="Neighbourhood" />
+          <SectionHead icon={<MapPin size={15} color="var(--brand-600)" />} title={t("pedit_neighbourhood")} />
           <div style={{
             background: "#fff", border: "1.5px solid var(--ink-200)",
             borderRadius: 16, overflow: "hidden",
@@ -430,7 +432,7 @@ export default function ProfileEdit() {
                   value={areaInput}
                   onChange={(e) => setAreaInput(e.target.value)}
                   style={{ border: "none", padding: 0, background: "transparent", fontWeight: 600, fontSize: 14, flex: 1 }}
-                  placeholder="Your neighbourhood area"
+                  placeholder={t("pedit_area_placeholder")}
                 />
               </div>
               {lat && lng ? (
@@ -468,7 +470,7 @@ export default function ProfileEdit() {
                 <input
                   className="input"
                   style={{ border: "none", padding: "9px 0", fontSize: 13, background: "transparent", flex: 1 }}
-                  placeholder="Search for your area..."
+                  placeholder={t("pedit_search_area")}
                   value={locQuery}
                   onChange={(e) => void searchPlaces(e.target.value)}
                 />
