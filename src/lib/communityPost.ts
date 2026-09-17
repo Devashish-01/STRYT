@@ -268,3 +268,13 @@ export const SEVERITY_TONE: Record<AlertSeverity, "blue" | "amber" | "red"> = {
 export function severityMeta(severity: AlertSeverity) {
   return ALERT_SEVERITIES.find((s) => s.value === severity) ?? ALERT_SEVERITIES[0];
 }
+
+/** A pinned comment sits above everything regardless of the chosen sort —
+ *  "Newest" shouldn't bury the answer the author marked as the answer. Only
+ *  one can be pinned (community_comment_set_pinned clears the rest), so this
+ *  never reorders more than a single row. */
+export function hoistPinned<T extends { pinnedAt?: string | null }>(rows: T[]): T[] {
+  const i = rows.findIndex((r) => !!r.pinnedAt);
+  if (i <= 0) return rows;
+  return [rows[i], ...rows.slice(0, i), ...rows.slice(i + 1)];
+}
