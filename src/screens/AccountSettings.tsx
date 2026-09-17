@@ -8,6 +8,7 @@ import {
   FileText, Bell, Lock, Search, Users, Pencil, Download, Trash2,
 } from "@/components/Icons";
 import { useApp } from "@/store";
+import { LANGUAGES_ENABLED } from "@/lib/features";
 import { useI18n, LANG_LABELS } from "@/lib/i18n";
 import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 
@@ -60,7 +61,10 @@ export default function AccountSettings() {
         { icon: <Bell size={19} color="var(--accent-600)" />, label: "Notifications", hint: "What you're alerted about, and how far", keywords: "alerts push radius sound quiet", onClick: () => nav("/settings/notifications") },
         { icon: <Shield size={19} color="var(--green-500)" />, label: "Privacy & visibility", hint: "What neighbours can see about you", keywords: "public private hide name phone", onClick: () => nav("/settings/privacy") },
         { icon: <Search size={19} color="var(--brand-600)" />, label: "Discovery", hint: "What shows up in your feeds & map", keywords: "providers feed data saver", onClick: () => nav("/settings/discovery") },
-        { icon: <Globe size={19} color="var(--blue-500)" />, label: "Language", value: LANG_LABELS[lang], keywords: "english hindi marathi भाषा", onClick: () => nav("/settings/language") },
+        // Language picker is hidden while the app ships English-only (LANGUAGES_ENABLED).
+        ...(LANGUAGES_ENABLED
+          ? [{ icon: <Globe size={19} color="var(--blue-500)" />, label: "Language", value: LANG_LABELS[lang], keywords: "english hindi marathi भाषा", onClick: () => nav("/settings/language") }]
+          : []),
       ],
     },
     {

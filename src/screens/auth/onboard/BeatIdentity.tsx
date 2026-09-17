@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { SafeImg } from "@/components/common";
+import { LANGUAGES_ENABLED } from "@/lib/features";
 import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
 import { isUnusableName } from "@/lib/publicName";
 import { BeatFrame } from "./BeatFrame";
@@ -52,7 +53,7 @@ export function BeatIdentity({
       ctaDisabled={!ready}
       ctaBusy={busy}
       onCta={() => onDone({ name: value, phone: cleanPhone })}
-      footer={
+      footer={LANGUAGES_ENABLED ? (
         <div className="ob-langs" role="group" aria-label={t("language")}>
           {(Object.keys(LANG_LABELS) as Lang[]).map((l) => (
             <button
@@ -65,7 +66,7 @@ export function BeatIdentity({
             </button>
           ))}
         </div>
-      }
+      ) : undefined}
     >
       <div className="ob-identity-card">
         <SafeImg src={avatar} variant="avatar" className="ob-identity-avatar" />
