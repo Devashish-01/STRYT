@@ -184,7 +184,7 @@ export function AppointmentSheet({
     return () => {
       active = false;
     };
-  }, [targetId, user?.id, targetType]);
+  }, [targetId, user?.id, targetType, showToast]);
 
   /** Reload just the live usage — after a SLOT_FULL race, so the grid reflects
    *  reality in place instead of stranding the user on a stale view. */

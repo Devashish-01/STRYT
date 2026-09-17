@@ -96,15 +96,23 @@ export default function ManageDashboard() {
     () => chatService.totalUnread({ scope: "BUSINESS", id }), "conversations", [id], undefined, `chat:business:${id}`,
   );
 
-  useEffect(() => {
-    if (business == null) return;
-    setAvailable(business.isAvailableNow ?? false);
-  }, [business?.id, business?.isAvailableNow]);
+  // Watched as fields, not as the object: `business` gets a new identity on every refetch, and
+  // re-running these then would reset a toggle the owner just flipped, before the server echoes it
+  // back. `businessLoaded` only ever changes together with `businessId`, so it adds no re-runs.
+  const businessId = business?.id;
+  const businessLoaded = business != null;
+  const businessAvailableNow = business?.isAvailableNow;
+  const businessOpenNow = business?.isOpenNow;
 
   useEffect(() => {
-    if (business == null) return;
-    setAccepting(business.isOpenNow ?? true);
-  }, [business?.id, business?.isOpenNow]);
+    if (!businessLoaded) return;
+    setAvailable(businessAvailableNow ?? false);
+  }, [businessId, businessLoaded, businessAvailableNow]);
+
+  useEffect(() => {
+    if (!businessLoaded) return;
+    setAccepting(businessOpenNow ?? true);
+  }, [businessId, businessLoaded, businessOpenNow]);
 
   useEffect(() => {
     if (!business?.boostedUntil || business.boostReminderSent) return;
@@ -113,6 +121,10 @@ export default function ManageDashboard() {
       showToast(t("mdash_boost_expiring"));
       businessService.markBoostReminderSent(id).catch(() => {});
     }
+    // `t` is deliberately omitted. It is a fresh function every time a language file finishes loading,
+    // and this effect must fire once: re-running it would show the boost toast a second time, before
+    // markBoostReminderSent has come back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [business?.boostedUntil, business?.boostReminderSent, id, showToast]);
 
   if (!id) {

@@ -301,5 +301,9 @@ export function useAmbientTheme(
     // into one on-brand ambient — so it's intentionally excluded here.
     // `dayPartTick` is a deliberate dependency with no direct use in the body
     // below — see its declaration above for why it needs to be here at all.
+    // dayPartTick IS the mechanism: the body reads the clock via getDayPart(),
+    // which no dependency can track, so the tick is what re-runs this when the
+    // hour rolls over. Removing it freezes the ambient theme at mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weather, dayPartTick]);
 }

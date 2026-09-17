@@ -102,12 +102,18 @@ export default function ProviderDashboard() {
   const radiusKm = p?.serviceRadiusKm ?? 10;
   const radiusLabel = radiusKm >= 5000 ? "🌍 Worldwide" : radiusKm === 0.5 ? "500 m" : `${radiusKm} km`;
 
+  // Fields, not the object — see ManageDashboard: depending on `p` would reset a toggle the provider
+  // just flipped on the next refetch.
+  const providerId = p?.id;
+  const providerLoaded = p != null;
+  const providerAvailableNow = p?.isAvailableNow;
+  const providerOpenNow = p?.isOpenNow;
+
   useEffect(() => {
-    if (p) {
-      setAvailable(p.isAvailableNow ?? false);
-      setAccepting(p.isOpenNow ?? true);
-    }
-  }, [p?.id, p?.isAvailableNow, p?.isOpenNow]);
+    if (!providerLoaded) return;
+    setAvailable(providerAvailableNow ?? false);
+    setAccepting(providerOpenNow ?? true);
+  }, [providerId, providerLoaded, providerAvailableNow, providerOpenNow]);
 
   if (!id) {
     return (

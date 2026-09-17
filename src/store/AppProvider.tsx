@@ -322,14 +322,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void registerPush(uid);
   }
 
-  function confirmNotifExplainer() {
+  // useCallback, not a plain function: these two are in the dependency list of the context's useMemo
+  // below, so a new identity each render rebuilt the whole store value every render and re-rendered
+  // all 149 consumers. Everything they touch is stable — a ref, a setState, a module import — so the
+  // empty dependency list is exact.
+  const confirmNotifExplainer = useCallback(() => {
     try { localStorage.setItem(NOTIF_EXPLAINED_KEY, "1"); } catch { /* best-effort */ }
     setNotifExplainerPending(false);
     if (pendingPushUid.current) void registerPush(pendingPushUid.current);
     pendingPushUid.current = null;
-  }
+  }, []);
 
-  function dismissNotifExplainer() {
+  const dismissNotifExplainer = useCallback(() => {
     // Deliberately does NOT set the "explained" flag — same rule as
     // LiveShareExplainer (confirmed correct in the audit's regression check,
     // workflow 23): dismissing isn't consent, so this asks again next
@@ -337,7 +341,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // no explainer at all next time.
     setNotifExplainerPending(false);
     pendingPushUid.current = null;
-  }
+  }, []);
 
   useEffect(() => {
     if (isAuthed) {

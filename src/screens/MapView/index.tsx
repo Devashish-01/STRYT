@@ -482,8 +482,10 @@ export default function MapView() {
     layers.place ? `map:place:${geoCacheKey}` : undefined
   );
 
-  const businesses = bizPage?.data ?? [];
-  const providers  = provPage?.data ?? [];
+  // Memoised so their identity survives a render: these feed the selectedCoords memo below, which
+  // otherwise recomputed on every render because a fresh [] is never === the last one.
+  const businesses = useMemo(() => bizPage?.data ?? [], [bizPage?.data]);
+  const providers  = useMemo(() => provPage?.data ?? [], [provPage?.data]);
   const requests   = (reqPage?.data ?? []).filter((r) => r.status === "OPEN");
   const mapStories = (nearbyStories ?? []).filter((s) => s.lat && s.lng);
   const places     = (nearbyPlaces ?? []).filter((pl) => pl.lat && pl.lng);
