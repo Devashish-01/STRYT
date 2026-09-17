@@ -324,11 +324,9 @@ A good template for an end-to-end flow.
 **admin/** `AdminLogin`, `AdminPanel`. **legal/** `LegalIndex`, `LegalDoc`. **guide/** `GuideIndex`,
 `GuideDoc`.
 
-**future-enhancement/** — 13 screens kept but **deliberately unrouted** (no `<Route>` in `App.tsx`, no
-in-app nav link — shelved together after a launch audit, not deleted): `AvailableNow`,
-`BusinessProUpgrade`, `Leaderboard`, `LoyaltySetup`, `Neighborhood`, `NewSubscription`, `PhotosManager`,
-`Promote`, `SocietyScreen`, `StoryComposer`, `SubscriptionDetail`, `SubscriptionManager`, `Wallet`.
-Do not treat these as live screens when tracing a route — re-check §3 first.
+**future-enhancement/** — gone. Those 13 unrouted screens were deleted in P12 under decision D3, together with
+`societyService`, which nothing else imported. An older note mentioning the folder is out of date; git history
+holds the files.
 
 ---
 
@@ -427,8 +425,8 @@ For a typical new capability, touch these in order:
 
 *Last mapped: 2026-09-03 — refreshed §3/§6/§9 against the actual current `App.tsx` route table,
 `src/services/**` (32 files across `core/`/`marketplace/`/`engagement/`), and `src/screens/**` (new
-`settings/`, `safety/`, `places/`, `manage/`, `auth/onboard/` folders; `future-enhancement/`'s 13
-deliberately-unrouted screens called out as such). Removed the stale `kycService`/`paymentService`
+`settings/`, `safety/`, `places/`, `manage/`, `auth/onboard/` folders). **2026-09-17 (P12):**
+`future-enhancement/`'s 13 screens and `societyService` deleted under D3. Removed the stale `kycService`/`paymentService`
 entries (neither exists under `src/services/`, confirmed by grep — nothing imports them); added
 `customPaymentService`, `appealService`, `placesService`, `bulkService`, `businessAccessService`,
 `slotBlockService`, `locationService`, `emergencyService`, `leaderboardService` to the index.
