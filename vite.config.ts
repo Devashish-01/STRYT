@@ -80,6 +80,10 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // The Sentry SDK loads only when VITE_SENTRY_DSN is set. Precaching it would push ~350 KB to
+        // every device for code that never runs without one — the opposite of what P11 spent a phase
+        // achieving. Excluded here; it is fetched on demand on the one branch that needs it.
+        globIgnores: ["**/sentry-*.js"],
       },
       devOptions: {
         // Enable SW in dev for easy testing (disable if it causes caching issues)
@@ -108,6 +112,12 @@ export default defineConfig({
           // Leaflet likewise: main.tsx imports leaflet.css, and a manual chunk matching that path made the whole
           // leaflet JS a static dependency of the entry — 150 KB on every page, though only screens with a map use
           // it. Without the rule it follows those lazy screens (P11.B).
+          // @sentry/react must NOT fall into the react rules below: its path contains "/react/", so it
+          // was being pinned into vendor-react — the eagerly-loaded chunk — which undid the point of
+          // importing it dynamically only when a DSN exists (src/lib/sentry.ts). Measured at +27 KB on
+          // vendor-react. Naming it here keeps it a separate chunk with a predictable filename, which
+          // is what lets the precache rule below exclude it.
+          if (id.includes("@sentry")) return "sentry";
           if (id.includes("@supabase")) return "vendor-supabase";
           if (id.includes("@phosphor-icons") || id.includes("lucide-react")) return "vendor-icons";
           if (id.includes("react-router")) return "vendor-react";

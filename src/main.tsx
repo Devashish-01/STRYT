@@ -10,6 +10,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { IconContext } from "@phosphor-icons/react";
 import { initNativeApp } from "./lib/nativeApp";
+import { initSentry } from "./lib/sentry";
 import { initMonitoring } from "./lib/monitoring";
 import ServiceWorkerUpdater from "./components/ServiceWorkerUpdater";
 import "leaflet/dist/leaflet.css";
@@ -19,6 +20,8 @@ import "./index.css";
 // handlers and ships captured errors to the client_errors sink. Wired first so
 // it's active before anything else can throw.
 initMonitoring();
+// No-ops unless VITE_SENTRY_DSN is set, and only then is the SDK fetched.
+void initSentry();
 
 // Native wrapper setup (back button, status bar, splash). No-ops on web.
 void initNativeApp();

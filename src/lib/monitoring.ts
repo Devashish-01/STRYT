@@ -18,6 +18,7 @@
 
 import { getSupabase, hasSupabaseEnv } from "./supabaseClient";
 import { scrubErrorReport } from "./scrubPii";
+import { reportToSentry } from "./sentry";
 
 export type ErrorKind = "REACT" | "WINDOW_ERROR" | "UNHANDLED_REJECTION" | "MANUAL";
 
@@ -74,7 +75,11 @@ export function captureException(
     seen.add(key);
     if (seen.size > 300) seen.clear();
 
-    // 3) Remote sink — best-effort, gated, swallowed.
+    // 3) Sentry, when a DSN is configured. It scrubs in its own beforeSend, so this hands over the raw
+    //    error rather than the truncated strings above — a stack is more useful whole.
+    reportToSentry(err, { kind, ...(context ?? {}) });
+
+    // 4) Remote sink — best-effort, gated, swallowed.
     if (!hasSupabaseEnv || !withinRateLimit()) return;
     void sendToSink({ kind, message, stack, context });
   } catch {
