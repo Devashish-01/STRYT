@@ -8,9 +8,19 @@
 #      the live Supabase project via direct connection using the least-privilege
 #      ci_readonly role.
 #
+#   3. Nightly — also checks pg_cron job health (a job that failed recently, or
+#      stopped running altogether).
+#
 # The drift check needs DRIFT_DATABASE_URL as a GitHub repository secret.
-# Until provisioned, the nightly job exits cleanly (the script skips gracefully
-# when credentials are absent).
+# The cron check accepts either that or SUPABASE_PERSONAL_ACCESS_TOKEN +
+# SUPABASE_PROJECT_REF. Note that a least-privilege role is NOT enough for the
+# cron check: cron.job and cron.job_run_details have RLS, and pg_cron restricts
+# rows to the job owner, so such a role sees zero rows — which looks identical to
+# a healthy database with no jobs. See the note at the top of
+# scripts/check-cron-health.mjs.
+#
+# Until provisioned, both jobs exit cleanly (the scripts skip gracefully when
+# credentials are absent).
 
 name: Database Guardrails
 
@@ -80,3 +90,17 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DRIFT_DATABASE_URL }}
         run: node scripts/check-migration-drift.mjs
+
+      # Fails when a pg_cron job has failed in the last 24h, or has stopped running within twice its own
+      # schedule. Nothing else watches these: if close-expired-business-sessions stops, a revoked team-access
+      # session keeps working, because expiring it is that job's whole purpose.
+      #
+      # `if: always()` so a drift failure above does not hide a cron failure here — they are independent
+      # problems and the nightly run should report both.
+      - name: Check cron job health
+        if: always()
+        env:
+          DATABASE_URL: ${{ secrets.DRIFT_DATABASE_URL }}
+          SUPABASE_PERSONAL_ACCESS_TOKEN: ${{ secrets.SUPABASE_PERSONAL_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: node scripts/check-cron-health.mjs

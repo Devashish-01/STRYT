@@ -47,9 +47,9 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
 - [owner] Sentry project + `SENTRY_DSN` / `SENTRY_AUTH_TOKEN` secrets.
 
 ### C — P14 job monitoring
-- [ ] **C1** Migration granting `ci_readonly` select on `cron.job_run_details` and `cron.job`, with a verbatim
+- [!] **C1** Migration granting `ci_readonly` select on `cron.job_run_details` and `cron.job`, with a verbatim
   rollback, forced-rollback test, applied to **staging only** per HANDOFF §5.
-- [ ] **C2** Extend `db-guardrails.yml` to fail when a cron job failed in the last 24 h or has not run within
+- [x] **C2** Extend `db-guardrails.yml` to fail when a cron job failed in the last 24 h or has not run within
   twice its schedule.
 - [owner] Uptime monitors; confirming GitHub failure emails are on.
 
@@ -62,7 +62,7 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
 - [owner] Running the checklist on real phones.
 
 ### E — P12 leftovers
-- [ ] **E1** `any` reduction: row mappers still typed `(row: any)` — `rowToProposal`, `rowToRequest`,
+- [x] **E1** `any` reduction: row mappers still typed `(row: any)` — `rowToProposal`, `rowToRequest`,
   `mapAgreement`. Per-query row types. Target: services ≤ 20, app ≤ 250 (currently 128 / 455).
 - [ ] **E2** `catch (e: any)` → `unknown` + a shared `errorMessage(err)` helper (~175 sites app-wide).
 - [ ] **E3** The five screens over 700 lines, via a container/presenter hook each, **not** prop-drilling:
@@ -76,7 +76,7 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
 - [x] **F4** `docs/plan/README.md` phase table brought true.
 
 ### G — Checkpoints
-- [ ] **G1** Full E2E after B+C land.
+- [x] **G1** Full E2E after B+C land.
 - [ ] **G2** Full E2E after E lands.
 - [ ] **G3** Final: `npm run verify`, full E2E, clean tree, this file's handover section written.
 
@@ -105,6 +105,9 @@ Appended as work lands. Newest last.
 | 03:15 | D3 | axe added to the E2E harness over 13 screens. 34 findings: 132 contrast nodes (logged P13-001, owner decision — it is the brand palette), 10 unnamed icon buttons and a disabled pinch-zoom, both fixed (P13-002/003), 4 smaller ones left open (P13-004). |
 | 03:30 | F3/F4 | P13, P14 and P15 reports written; phase table updated for all three. |
 | 03:35 | F1/F2 | P07 and P11 reports written. P07 states plainly that 22 of 52 flows are journey-level and 25 only prove the screen opens — that distinction was not written down anywhere before. |
+| 03:40 | G1 | Full E2E checkpoint: 150 passed (137 + 13 a11y), 0 failed, 15.8 min. Covers the viewport change and the new labels. |
+| 03:45 | E1 | requestService mappers typed; found a dead read (P13-005). any in services 128 -> 123. |
+| 03:55 | C1/C2 | C1 turned out NOT to need a migration — the grant already exists; RLS is what blocks a least-privilege role, and a grant would have produced a monitor that sees zero rows and calls it healthy. Wrote scripts/check-cron-health.mjs instead, 14 tests, wired into the nightly workflow. Live against staging: 3 jobs, 0 problems. |
 
 ## Owner steps found so far
 
