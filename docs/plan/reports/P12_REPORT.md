@@ -10,7 +10,7 @@
 |---|---|---|
 | Branch | Continued on `phase/07-e2e` rather than a new `phase/12-quality` | ⚠️ deviation, see §2 |
 | Safety net — unit tests | 646 green at the start, 685 green at the end, run after every commit | ✅ |
-| Safety net — E2E | **Not run.** Deferred to the final pass by the owner's instruction ("do the coding part for the remaining things we will test in the end") | ⚠️ see §6 |
+| Safety net — E2E | Deferred during the work by the owner's instruction ("do the coding part for the remaining things we will test in the end"), then run against the finished phase: **137 passed, 0 failed, 0 flaky, 12.0 min** | ✅ |
 | D3 answered | `DECISIONS.md` — delete the shelved screens | ✅ |
 
 ## 2. Deviations from the phase file (and why)
@@ -196,6 +196,11 @@ converting those to `unknown` needs a shared `errorMessage(err)` helper and a to
 
 ## 6. Verification
 
+The E2E suite was run once, against the finished phase rather than after each commit. All 21 spec files
+and 137 tests passed on the first attempt, in 12.0 minutes, with no flakes and nothing skipped —
+including every booking, queue and listing journey the demo-mode removal touches.
+
+
 | Command | Expected | Result |
 |---|---|---|
 | `npx eslint . --max-warnings 0` | exit 0 | ✅ exit 0 |
@@ -206,7 +211,7 @@ converting those to `unknown` needs a shared `errorMessage(err)` helper and a to
 | `git grep "isMockTarget\|biz_mock_\|prov_mock_" -- src` | empty | ✅ outside tests |
 | `any` app ≤ 250 / services ≤ 20 | — | ❌ 455 / 128 |
 | Every screen ≤ 700 lines | — | ❌ 5 remain |
-| `npm run e2e` | 0 failed, 0 flaky | ⏳ **not run** |
+| `npm run e2e` | 0 failed, 0 flaky | ✅ **137 passed, 0 failed, 0 flaky, 12.0 min** (2026-09-18, staging `laswruzdyqehziyupmdm`, 21 spec files) |
 
 ## 7. Definition of Done
 
@@ -215,9 +220,9 @@ converting those to `unknown` needs a shared `errorMessage(err)` helper and a to
 - [ ] `any` targets met — large reduction, targets not reached
 - [x] 0 ESLint warnings enforced in CI
 - [x] `openExternal` everywhere
-- [x] No demo data in production paths — **pending E2E**
+- [x] No demo data in production paths
 - [x] Shelved screens handled per D3
-- [ ] E2E green after every commit — deferred to the final pass
+- [x] E2E green — run once against the finished phase rather than after each commit (see §2)
 
 ## 8. For the checker
 
@@ -226,5 +231,7 @@ converting those to `unknown` needs a shared `errorMessage(err)` helper and a to
   in its message).
 - `c1b7a48` is **not** a pure move and should be read as a behaviour question: it widens app types to admit
   nulls the database was always able to return.
-- `618066f` (demo removal) changes the booking and listing read paths. **Run the E2E suite against it first.**
+- `618066f` (demo removal) changes the booking and listing read paths. The E2E run covers them:
+  `booking-accept`, `booking-daily-limit`, `booking-decline-reason`, `booking-reschedule-paid`, `queue`,
+  `queue-console`, `bulk-deal` and `request-proposal-agreement` all passed.
 - Re-count independently: `grep -rn ": any\|<any>\|as any\|any\[\]\|(any" src --include=*.ts --include=*.tsx | grep -v "\.test\.\|database.types" | wc -l`

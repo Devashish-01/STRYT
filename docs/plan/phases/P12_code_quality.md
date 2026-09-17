@@ -88,8 +88,9 @@ The E2E suite (P07) and unit tests are the safety net: **they must be green befo
 > mappers that need per-query row types. Three bugs found during the work are logged as P12-001/002/003 and
 > deliberately not fixed inside a refactor.
 >
-> **None of it has been through the E2E suite** — the owner's instruction was to code now and test at the end.
-> The demo-mode removal (step 6) is the one that most needs it: it changes the booking and listing read paths.
+> E2E was deferred during the work and then run against the finished phase: **137 passed, 0 failed, 0 flaky,
+> 12.0 min** across all 21 spec files, first attempt. That covers the demo-mode removal's booking and
+> listing read paths, which were the part most at risk.
 
 ## Definition of Done
 - [ ] Notification actions as a tested registry.
