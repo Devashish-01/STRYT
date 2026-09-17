@@ -1,8 +1,9 @@
 import type { Page } from "@/lib/apiClient";
+import type { Tables } from "@/lib/dbTypes";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { cursorToRange, throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
-import type { RequestPost, Proposal, Agreement, ProposalCounter } from "@/types";
+import type { RequestPost, Proposal, Agreement, AgreementStatus, ProposalCounter } from "@/types";
 import { leaderboardService } from "@/services/marketplace/leaderboardService";
 import { clampRadiusForViewer, isGuestMode } from "@/lib/guestMode";
 import { firstName, aliasName, greetingName } from "@/lib/publicName";
@@ -75,7 +76,36 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 10) / 10;
 }
 
-function rowToProposal(row: any, requesterUserId = ""): Proposal {
+/**
+ * The row shapes these mappers actually receive: a table row plus whatever the select's embedded relations
+ * bring with it. They were `any`, which meant every column name in the mappers below was unchecked too.
+ *
+ * The relations are optional and partial on purpose — each select asks for a different subset of the joined
+ * user's columns, so promising a full `Tables<"users">` here would be a lie the compiler would then trust.
+ */
+type JoinedUser = Partial<Tables<"users">> | null;
+
+type ProposalRow = Tables<"proposals"> & {
+  responder?: JoinedUser;
+  counters?: Tables<"proposal_counters">[] | null;
+};
+
+type RequestRow = Tables<"requests"> & {
+  requester?: JoinedUser;
+  proposals?: ProposalRow[] | null;
+};
+
+type AgreementRow = Tables<"agreements"> & {
+  req?: Partial<Tables<"requests">> | null;
+  requester?: JoinedUser;
+  responder?: JoinedUser;
+  /** Never populated: AGREEMENT_SELECT does not ask for it, so every `row.offer?.x` below resolves to
+   *  undefined and the `||` fallback is what actually runs. Kept so the behaviour is unchanged; logged as
+   *  P13-005 rather than deleted inside a typing pass. */
+  offer?: { responder_name?: string | null; responder_avatar?: string | null } | null;
+};
+
+function rowToProposal(row: ProposalRow, requesterUserId = ""): Proposal {
   const responderRating = Number(row.responder?.rating_avg ?? 0);
   const { responder: _r, counters: rawCounters, ...rest } = row;
   const counters: ProposalCounter[] = (rawCounters ?? [])
@@ -95,7 +125,7 @@ function rowToProposal(row: any, requesterUserId = ""): Proposal {
   };
 }
 
-function rowToRequest(row: any, userLat = 0, userLng = 0): RequestPost {
+function rowToRequest(row: RequestRow, userLat = 0, userLng = 0): RequestPost {
   const requester = row.requester ?? {};
   const { requester: _req, proposals: rawProposals, ...rest } = row;
   const base = toCamel<RequestPost>(rest);
@@ -112,7 +142,7 @@ function rowToRequest(row: any, userLat = 0, userLng = 0): RequestPost {
                        ? haversineKm(userLat, userLng, row.lat, row.lng)
                        : 0,
     photos:    Array.isArray(row.photos) ? row.photos : [],
-    proposals: (rawProposals ?? []).map((p: any) => rowToProposal(p, row.requester_user_id)),
+    proposals: (rawProposals ?? []).map((p) => rowToProposal(p, row.requester_user_id ?? "")),
   };
 }
 
@@ -140,34 +170,36 @@ async function withOfferIdentity(sb: ReturnType<typeof getSupabase>, rows: any[]
 }
 
 /** Map a DB agreements row (with nested requester/responder user objects) → Agreement. */
-function mapAgreement(row: any): Agreement {
+function mapAgreement(row: AgreementRow): Agreement {
   return {
     id: row.id,
-    requestId: row.request_id,
+    requestId: row.request_id ?? "",
     requestTitle: row.request_title ?? "Agreement",
-    proposalId: row.proposal_id,
-    requesterUserId: row.requester_user_id,
-    responderUserId: row.responder_user_id,
+    proposalId: row.proposal_id ?? "",
+    requesterUserId: row.requester_user_id ?? "",
+    responderUserId: row.responder_user_id ?? "",
     responderEntityId: row.responder_entity_id ?? undefined,
     responderType: row.responder_type ?? undefined,
     requesterName: row.requester?.name ?? "Requester",
     requesterAvatar: row.requester?.avatar ?? "",
     responderName: row.offer?.responder_name || row.responder?.name || "Responder",
     responderAvatar: row.offer?.responder_avatar || row.responder?.avatar || "",
-    agreedPrice: row.agreed_price,
+    agreedPrice: row.agreed_price ?? 0,
     terms: row.terms ?? "",
     scheduledFor: row.scheduled_for ?? "",
     requesterConfirmed: row.requester_confirmed ?? false,
     responderConfirmed: row.responder_confirmed ?? false,
-    paymentMode: row.payment_mode ?? "OFFLINE",
-    status: row.status,
+    // agreements carries no CHECK constraint on these three, so the unions are this service's own
+    // convention rather than something the database enforces. Narrowed, and saying so.
+    paymentMode: (row.payment_mode ?? "OFFLINE") as Agreement["paymentMode"],
+    status: (row.status ?? "PENDING") as AgreementStatus,
     createdAt: row.created_at ?? undefined,
-    requestArea: (row.req as any)?.area ?? undefined,
+    requestArea: row.req?.area ?? undefined,
     providerLat: row.provider_lat ?? undefined,
     providerLng: row.provider_lng ?? undefined,
     liveStatus: (row.live_status as any) ?? undefined,
     trackingToken: row.tracking_token ?? undefined,
-    paymentMethod: row.payment_method ?? null,
+    paymentMethod: (row.payment_method ?? null) as Agreement["paymentMethod"],
     paymentStatus: (row.payment_status as any) ?? "UNPAID",
     paymentAmount: row.payment_amount ?? null,
     paymentReference: row.payment_reference ?? null,
@@ -233,7 +265,9 @@ export const requestService = {
     // already-seen rows, and a page that's entirely outside the radius stalls
     // pagination forever (next_cursor never moves). Same fix communityService
     // already applies for exactly this reason — see its comment on makePage.
-    const rawRows = (data ?? []).map((r) => rowToRequest(r, p.lat, p.lng));
+    // PostgREST types an embedded select's rows as a union with GenericStringError. throwIfError above has
+    // already thrown if the query failed, so what is left here is the row.
+    const rawRows = ((data ?? []) as unknown as RequestRow[]).map((r) => rowToRequest(r, p.lat, p.lng));
     let rows = rawRows;
     if (p.lat && p.lng) {
       // A request is only visible within the SMALLER of (a) the viewer's own
@@ -258,7 +292,7 @@ export const requestService = {
       .eq("requester_user_id", uid)
       .order("created_at", { ascending: false });
     throwIfError(error);
-    return (data ?? []).map((r) => rowToRequest(r, userLat, userLng));
+    return ((data ?? []) as unknown as RequestRow[]).map((r) => rowToRequest(r, userLat, userLng));
   },
 
   async get(id: string, userLat = 0, userLng = 0): Promise<RequestPost | undefined> {
@@ -407,7 +441,8 @@ export const requestService = {
     const sb = getSupabase();
     const { data, error } = await sb.rpc("withdraw_proposal", { p_proposal_id: proposalId });
     throwIfError(error);
-    return rowToProposal(data);
+    if (!data) throw new Error("Couldn't withdraw the proposal — please try again.");
+    return rowToProposal(data as unknown as ProposalRow);
   },
 
   async acceptProposal(proposalId: string) {
