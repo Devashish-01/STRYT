@@ -2,6 +2,7 @@
 // exports only the provider and its hook (React Fast Refresh needs component files to export components).
 import en from "./en";
 import type { Lang } from "../i18n";
+import { LANGUAGES_ENABLED } from "../features";
 
 /** Hindi and Marathi arrive on demand; English is always present because it is the fallback. */
 const loaders: Record<Exclude<Lang, "en">, () => Promise<{ default: Record<string, string> }>> = {
@@ -41,6 +42,10 @@ function deviceLang(): Lang {
 
 /** The language this device will start in: an explicit choice, else the OS/browser locale. */
 export function initialLang(): Lang {
+  // English for everyone while LANGUAGES_ENABLED is off. This returns before the saved choice and before
+  // deviceLang(), so neither a phone set to Hindi nor a stale "naya_lang" from an earlier build can land
+  // someone in the part-translated app.
+  if (!LANGUAGES_ENABLED) return "en";
   try {
     const saved = localStorage.getItem("naya_lang") as Lang | null;
     if (saved && ["en", "hi", "mr"].includes(saved)) return saved;
