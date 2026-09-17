@@ -1845,6 +1845,40 @@ const strings: Record<string, string> = {
     // Provider onboarding — new category
     pon_new_skill_placeholder: "e.g. Drone pilot",
 
+    // Catalogue manager and provider dashboard
+    cat_item_removed: "Item removed",
+    cat_no_listings_text: "Add your products, services, or menu items. Customers see these on your public page.",
+    cat_add_first: "Add first listing",
+    cat_delete_item: "Delete item",
+    cat_upload_failed: "Upload failed. Try again.",
+    cat_save_failed: "Couldn't save. Try again.",
+    cat_name: "Name *",
+    cat_description: "Description",
+    cat_desc_placeholder: "Brief description, size, variant…",
+    cat_price: "Price ₹ *",
+    cat_sale_price: "Sale price ₹",
+    cat_sale_too_high: "Sale price must be lower than the regular price.",
+    cat_availability: "Availability",
+    cat_always_available: "Always available",
+    cat_limited_stock: "Limited stock",
+    cat_quantity: "Quantity in stock *",
+    cat_spots_placeholder: "Spots per booking",
+    cat_is_food: "Is this a food item?",
+    cat_food_item: "Food item",
+    cat_not_food: "Not a food item",
+    cat_veg_nonveg: "Veg / Non-veg",
+    pdash_payment_rejected: "Payment claim rejected",
+    pdash_all_caught_up: "You're all caught up — nothing needs a response.",
+    pdash_todays_schedule: "Today's schedule",
+    pdash_send_proposal: "Send a proposal to win the job",
+    pdash_post_update: "Post community update",
+    pdash_post_story: "Post a story",
+    pdash_edit_profile: "Edit profile",
+
+    // Catalogue manager — field placeholders
+    cat_optional_placeholder: "Optional",
+    cat_qty_placeholder: "e.g. 25",
+
   };
 
 export default strings;

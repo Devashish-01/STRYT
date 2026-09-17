@@ -548,3 +548,33 @@ Every string below was drafted by the agent and needs a native speaker before la
 | `pon_your_photo` | Your photograph * | आपकी फ़ोटो * | तुमचा फोटो * |  |
 | `pon_photo_alt` | Your profile photo | आपकी प्रोफ़ाइल फ़ोटो | तुमचा प्रोफाइल फोटो |  |
 | `pon_new_skill_placeholder` | e.g. Drone pilot | जैसे ड्रोन पायलट | उदा. ड्रोन पायलट |  |
+| `cat_item_removed` | Item removed | चीज़ हटा दी | वस्तू काढली |  |
+| `cat_no_listings_text` | Add your products, services, or menu items. Customers see these on your public page. | अपना सामान, सेवाएं या मेन्यू जोड़ें। ग्राहक इन्हें आपके पेज पर देखेंगे। | तुमच्या वस्तू, सेवा किंवा मेन्यू जोडा. ग्राहक हे तुमच्या पेजवर पाहतील. |  |
+| `cat_add_first` | Add first listing | पहली चीज़ जोड़ें | पहिली वस्तू जोडा |  |
+| `cat_delete_item` | Delete item | चीज़ हटाएं | वस्तू काढा |  |
+| `cat_upload_failed` | Upload failed. Try again. | अपलोड नहीं हुआ। दोबारा कोशिश करें। | अपलोड झाले नाही. पुन्हा प्रयत्न करा. |  |
+| `cat_save_failed` | Couldn't save. Try again. | सेव नहीं हो सका। दोबारा कोशिश करें। | जतन करता आले नाही. पुन्हा प्रयत्न करा. |  |
+| `cat_name` | Name * | नाम * | नाव * |  |
+| `cat_description` | Description | विवरण | वर्णन |  |
+| `cat_desc_placeholder` | Brief description | छोटा विवरण | थोडक्यात वर्णन |  |
+| `cat_price` | Price ₹ * | दाम ₹ * | किंमत ₹ * |  |
+| `cat_sale_price` | Sale price ₹ | छूट का दाम ₹ | सवलतीची किंमत ₹ |  |
+| `cat_sale_too_high` | Sale price must be lower than the regular price. | छूट का दाम सामान्य दाम से कम होना चाहिए। | सवलतीची किंमत नेहमीच्या किमतीपेक्षा कमी असावी. |  |
+| `cat_availability` | Availability | उपलब्धता | उपलब्धता |  |
+| `cat_always_available` | Always available | हमेशा उपलब्ध | नेहमी उपलब्ध |  |
+| `cat_limited_stock` | Limited stock | सीमित स्टॉक | मर्यादित साठा |  |
+| `cat_quantity` | Quantity in stock * | स्टॉक में कितने * | साठ्यात किती * |  |
+| `cat_spots_placeholder` | Spots per booking | हर बुकिंग में कितनी जगह | प्रत्येक बुकिंगमध्ये किती जागा |  |
+| `cat_is_food` | Is this a food item? | क्या यह खाने की चीज़ है? | ही खाण्याची वस्तू आहे का? |  |
+| `cat_food_item` | Food item | खाने की चीज़ | खाण्याची वस्तू |  |
+| `cat_not_food` | Not a food item | खाने की चीज़ नहीं | खाण्याची वस्तू नाही |  |
+| `cat_veg_nonveg` | Veg / Non-veg | शाकाहारी / मांसाहारी | शाकाहारी / मांसाहारी |  |
+| `pdash_payment_rejected` | Payment claim rejected | भुगतान का दावा अस्वीकार | पेमेंटचा दावा नाकारला |  |
+| `pdash_all_caught_up` | You're all caught up — nothing needs a response. | सब निपट गया — किसी जवाब की ज़रूरत नहीं। | सर्व आटोपले — कशाचेही उत्तर द्यायचे नाही. |  |
+| `pdash_todays_schedule` | Today's schedule | आज का कार्यक्रम | आजचा कार्यक्रम |  |
+| `pdash_send_proposal` | Send a proposal to win the job | काम पाने के लिए भाव भेजें | काम मिळवण्यासाठी दर पाठवा |  |
+| `pdash_post_update` | Post community update | समुदाय में अपडेट डालें | समुदायात अपडेट टाका |  |
+| `pdash_post_story` | Post a story | स्टोरी डालें | स्टोरी टाका |  |
+| `pdash_edit_profile` | Edit profile | प्रोफ़ाइल बदलें | प्रोफाइल बदला |  |
+| `cat_optional_placeholder` | Optional | वैकल्पिक | ऐच्छिक |  |
+| `cat_qty_placeholder` | e.g. 25 | जैसे 25 | उदा. २५ |  |

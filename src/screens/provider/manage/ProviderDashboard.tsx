@@ -26,6 +26,7 @@ import { buildConsoleSteps, consoleFor, type CapabilityState } from "@/lib/conso
 import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
+import { useI18n } from "@/lib/i18n";
 
 function renderWeatherIcon(code: number) {
   const size = 15;
@@ -63,6 +64,7 @@ export default function ProviderDashboard() {
   const nav = useNavigate();
   const { data: p, loading: providerLoading, refetch: refetchProvider } = useQuery(() => providerService.get(id), [id], `provider:${id}`);
   const { showToast, user } = useApp();
+  const { t } = useI18n();
   const ambient = useAmbientTheme(user.lat, user.lng, "provider");
   const { data: analytics } = useQuery(() => providerService.analytics(id), [id], `provider:${id}:analytics`);
   const { data: categoryParents } = useQuery(() => catalogService.parentMap(), [], "catalog:parent-map");
@@ -108,7 +110,7 @@ export default function ProviderDashboard() {
   if (!id) {
     return (
       <div className="screen">
-        <AppBar title="Today" />
+        <AppBar title={t("today_word")} />
         <ErrorView error={{ code: "BAD_REQUEST", message: "Missing target ID parameter." } as any} />
       </div>
     );
@@ -119,7 +121,7 @@ export default function ProviderDashboard() {
   if (providerLoading && !p) {
     return (
       <div className="screen with-nav">
-        <AppBar title="Today" />
+        <AppBar title={t("today_word")} />
         <div className="page-pad col gap-14" style={{ marginTop: 12 }}>
           <Skeleton h={120} r={20} mb={0} />
           <Skeleton h={56} mb={0} />
@@ -276,7 +278,7 @@ export default function ProviderDashboard() {
       showToast(action === "ACCEPT" ? "Appointment accepted 📅" : "Appointment declined");
       refetchApts();
     } catch {
-      showToast("Couldn't update — try again");
+      showToast(t("cpd_update_failed"));
     } finally {
       setBusyApt(null);
     }
@@ -287,8 +289,8 @@ export default function ProviderDashboard() {
     if (import.meta.env.DEV) console.log("quickPayment called:", { aptId: apt.id, action, paymentStatus: apt.paymentStatus });
     setBusyApt(apt.id);
     try {
-      if (action === "CONFIRM") { await appointmentService.confirmPayment(apt.id); showToast("Payment confirmed ✓"); }
-      else { await appointmentService.rejectPaymentClaim(apt.id); showToast("Payment claim rejected"); }
+      if (action === "CONFIRM") { await appointmentService.confirmPayment(apt.id); showToast(t("notif_pay_confirmed_toast")); }
+      else { await appointmentService.rejectPaymentClaim(apt.id); showToast(t("pdash_payment_rejected")); }
       refetchApts();
     } catch (e: any) {
       // Show the actual error to help debug the issue
@@ -344,7 +346,7 @@ export default function ProviderDashboard() {
                 className="icon-btn-sm"
                 style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
                 onClick={() => nav(`/notifications?scope=PROVIDER&id=${id}`)}
-                aria-label="Notifications"
+                aria-label={t("notifications")}
               >
                 <Bell size={15} />
                 {(notifUnread ?? 0) > 0 && (
@@ -355,7 +357,7 @@ export default function ProviderDashboard() {
                 className="icon-btn-sm"
                 style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
                 onClick={() => nav(`/chats?scope=PROVIDER&id=${id}`)}
-                aria-label="Messages"
+                aria-label={t("messages_header")}
               >
                 <MessageSquareText size={15} />
                 {(chatUnread ?? 0) > 0 && (
@@ -366,7 +368,7 @@ export default function ProviderDashboard() {
                 className="icon-btn-sm"
                 style={{ background: "rgba(255, 255, 255, 0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
                 onClick={() => setShare(true)}
-                aria-label="Share QR Code"
+                aria-label={t("share_qr_code_label")}
               >
                 <Share2 size={15} />
               </button>
@@ -470,7 +472,7 @@ export default function ProviderDashboard() {
               <Calendar size={22} color={accepting ? "var(--ink-400)" : "var(--red-600)"} />
             </div>
             <div className="grow">
-              <div className="semi small">Accepting appointments</div>
+              <div className="semi small">{t("bset_accepting")}</div>
               <div className="tiny muted">{accepting ? "Customers can book you right now" : "Paused — new bookings are turned off"}</div>
             </div>
             <span style={{ width: 44, height: 26, borderRadius: 999, background: accepting ? "var(--green-500)" : "var(--ink-200)", position: "relative", flexShrink: 0, transition: "background-color 0.2s" }}>
@@ -482,14 +484,14 @@ export default function ProviderDashboard() {
         {/* ── Action needed — the core "function faster" block ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <div className="row between" style={{ marginBottom: 8 }}>
-            <span className="small semi muted" style={{ letterSpacing: 0.5, textTransform: "uppercase" }}>Action needed</span>
+            <span className="small semi muted" style={{ letterSpacing: 0.5, textTransform: "uppercase" }}>{t("mdash_action_needed")}</span>
             {actionCount > 0 && <span className="badge badge-amber" style={{ fontSize: 10 }}>{actionCount}</span>}
           </div>
 
           {actionCount === 0 ? (
             <div className="card col center" style={{ padding: 22, gap: 6 }}>
               <span style={{ fontSize: 26 }}>✅</span>
-              <span className="tiny muted">You're all caught up — nothing needs a response.</span>
+              <span className="tiny muted">{t("pdash_all_caught_up")}</span>
             </div>
           ) : (
             <div className="col gap-10">
@@ -548,8 +550,8 @@ export default function ProviderDashboard() {
         {todayAppts.length > 0 && (
           <div style={{ paddingBottom: 4 }}>
             <div className="row between page-pad" style={{ paddingBottom: 0 }}>
-              <span className="semi small">Today's schedule</span>
-              <button className="see-all" onClick={() => nav(`${base}/jobs`)}>View all</button>
+              <span className="semi small">{t("pdash_todays_schedule")}</span>
+              <button className="see-all" onClick={() => nav(`${base}/jobs`)}>{t("mdash_view_all")}</button>
             </div>
             <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
               {todayAppts.map((a, idx) => (
@@ -578,8 +580,8 @@ export default function ProviderDashboard() {
         {upcomingAppts.length > 0 && (
           <div style={{ paddingBottom: 4 }}>
             <div className="row between page-pad" style={{ paddingBottom: 0 }}>
-              <span className="semi small">Upcoming</span>
-              <button className="see-all" onClick={() => nav(`${base}/jobs`)}>View all</button>
+              <span className="semi small">{t("mdash_upcoming")}</span>
+              <button className="see-all" onClick={() => nav(`${base}/jobs`)}>{t("mdash_view_all")}</button>
             </div>
             <div className="hscroll today-rail" style={{ paddingTop: 10 }}>
               {upcomingAppts.map((a, idx) => (
@@ -627,7 +629,7 @@ export default function ProviderDashboard() {
               </div>
               <div className="grow">
                 <div className="semi small" style={{ color: "var(--green-700)" }}>{matchingRequests.length} open request{matchingRequests.length > 1 ? "s" : ""} match you</div>
-                <div className="tiny" style={{ color: "var(--green-600)" }}>Send a proposal to win the job</div>
+                <div className="tiny" style={{ color: "var(--green-600)" }}>{t("pdash_send_proposal")}</div>
               </div>
               <ChevronRight size={18} color="var(--green-600)" />
             </button>
@@ -636,14 +638,14 @@ export default function ProviderDashboard() {
 
         {/* ── Grow — only actions that aren't already in the nav ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
-          <div className="small semi muted" style={{ marginBottom: 10, letterSpacing: 0.5 }}>Grow</div>
+          <div className="small semi muted" style={{ marginBottom: 10, letterSpacing: 0.5 }}>{t("mdash_grow")}</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <GrowTile icon={Megaphone} color="var(--brand-600)" label="Post community update" onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
-            <GrowTile icon={Camera} color="var(--pink-500)" label="Post a story" onClick={() => nav("/story/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
-            <GrowTile icon={QrCode} color="var(--ink-700)" label="Share QR" onClick={() => setShare(true)} />
+            <GrowTile icon={Megaphone} color="var(--brand-600)" label={t("pdash_post_update")} onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
+            <GrowTile icon={Camera} color="var(--pink-500)" label={t("pdash_post_story")} onClick={() => nav("/story/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
+            <GrowTile icon={QrCode} color="var(--ink-700)" label={t("mdash_share_qr")} onClick={() => setShare(true)} />
             {!p?.isVerified
-              ? <GrowTile icon={BadgeCheck} color="var(--green-600)" label="Get verified" onClick={() => nav(`${base}/verify`)} />
-              : <GrowTile icon={FileText} color="var(--brand-600)" label="Edit profile" onClick={() => nav(`${base}/edit-profile`)} />}
+              ? <GrowTile icon={BadgeCheck} color="var(--green-600)" label={t("mdash_get_verified")} onClick={() => nav(`${base}/verify`)} />
+              : <GrowTile icon={FileText} color="var(--brand-600)" label={t("pdash_edit_profile")} onClick={() => nav(`${base}/edit-profile`)} />}
           </div>
         </div>
 

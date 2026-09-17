@@ -10,6 +10,7 @@ import type { CatalogItem } from "@/types";
 import { resolvePackage, BUSINESS_PACKAGES, type BusinessPackage } from "@/lib/businessPackages";
 import ManageNav from "@/screens/business/manage/ManageNav";
 import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
+import { useI18n } from "@/lib/i18n";
 
 export type Kind = "business" | "provider";
 
@@ -20,6 +21,7 @@ export function serviceFor(kind: Kind) {
 export function CatalogManager({ kind }: { kind: Kind }) {
   const { id = "" } = useParams();
   const { showToast } = useApp();
+  const { t } = useI18n();
   const service = serviceFor(kind);
   // Realtime on the catalog rows: two people (or two devices) editing the same shop used to see each other's
   // changes only after a manual refresh (CAT-7).
@@ -58,7 +60,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
   async function remove(item: CatalogItem) {
     try {
       await service.deleteCatalogItem(id, item.id);
-      showToast("Item removed");
+      showToast(t("cat_item_removed"));
       if (kind === "business") {
         bustBusinessGetCache(id);
         invalidateQueryCache(`business:${id}`);
@@ -105,9 +107,9 @@ export function CatalogManager({ kind }: { kind: Kind }) {
         {catalog.length === 0 && (
           <EmptyState
             emoji="🏷️"
-            title="No listings yet"
-            text="Add your products, services, or menu items. Customers see these on your public page."
-            action={<button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>Add first listing</button>}
+            title={t("catlist_empty_title")}
+            text={t("cat_no_listings_text")}
+            action={<button className="btn btn-primary btn-sm" onClick={() => setCreating(true)}>{t("cat_add_first")}</button>}
           />
         )}
         {catalog.map((item) => (
@@ -147,7 +149,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
             </div>
             <div className="col gap-8">
               <button className="icon-btn" style={{ width: 34, height: 34 }} onClick={() => setEditing(item)}><Pencil size={15} /></button>
-              <button className="icon-btn" style={{ width: 34, height: 34, color: "var(--red-600)" }} onClick={() => setConfirmDelete(item)} title="Delete item"><Trash2 size={15} /></button>
+              <button className="icon-btn" style={{ width: 34, height: 34, color: "var(--red-600)" }} onClick={() => setConfirmDelete(item)} title={t("cat_delete_item")}><Trash2 size={15} /></button>
             </div>
           </div>
         ))}
@@ -192,7 +194,7 @@ export function CatalogManager({ kind }: { kind: Kind }) {
               >
                 Yes, delete item
               </button>
-              <button className="btn btn-ghost btn-block" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="btn btn-ghost btn-block" onClick={() => setConfirmDelete(null)}>{t("cancel")}</button>
             </div>
           </div>
         </div>
@@ -217,6 +219,7 @@ export function ItemEditor({
   onSaved: () => void;
 }) {
   const { showToast } = useApp();
+  const { t } = useI18n();
   const service = serviceFor(kind);
   const fileRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(item?.name ?? "");
@@ -251,7 +254,7 @@ export function ItemEditor({
       const url = await uploadService.upload(file, "catalog");
       setImage(url);
     } catch {
-      showToast("Upload failed. Try again.");
+      showToast(t("cat_upload_failed"));
     } finally {
       setUploading(false);
       if (e.target) e.target.value = "";
@@ -300,7 +303,7 @@ export function ItemEditor({
       showToast(item ? "Item updated" : "Item added");
       onSaved();
     } catch {
-      showToast("Couldn't save. Try again.");
+      showToast(t("cat_save_failed"));
     } finally {
       setSaving(false);
     }
@@ -337,25 +340,25 @@ export function ItemEditor({
 
         <div className="col gap-12">
           <div className="field">
-            <label htmlFor="catalogmanager-name">Name *</label>
+            <label htmlFor="catalogmanager-name">{t("cat_name")}</label>
             <input id="catalogmanager-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={bizTheme.itemNamePlaceholder} />
           </div>
           <div className="field">
-            <label htmlFor="catalogmanager-description">Description</label>
-            <input id="catalogmanager-description" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Brief description, size, variant…" />
+            <label htmlFor="catalogmanager-description">{t("cat_description")}</label>
+            <input id="catalogmanager-description" className="input" value={desc} onChange={(e) => setDesc(e.target.value)} placeholder={t("cat_desc_placeholder")} />
           </div>
           <div className="row gap-10">
-            <div className="field grow"><label>Price ₹ *</label><input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} /></div>
-            <div className="field grow"><label>Sale price ₹</label><input className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} placeholder="Optional" /></div>
+            <div className="field grow"><label>{t("cat_price")}</label><input className="input" inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))} /></div>
+            <div className="field grow"><label>{t("cat_sale_price")}</label><input className="input" inputMode="numeric" value={sale} onChange={(e) => setSale(e.target.value.replace(/\D/g, ""))} placeholder={t("cat_optional_placeholder")} /></div>
           </div>
-          {saleTooHigh && <div className="tiny" style={{ color: "var(--red-600)" }}>Sale price must be lower than the regular price.</div>}
+          {saleTooHigh && <div className="tiny" style={{ color: "var(--red-600)" }}>{t("cat_sale_too_high")}</div>}
 
           {/* Inventory mode — countable stock vs an always-available service */}
           <div className="field">
-            <label>Availability</label>
+            <label>{t("cat_availability")}</label>
             <div className="row gap-8">
-              <button className={`chip ${invType === "INFINITE" ? "active" : ""}`} onClick={() => setInvType("INFINITE")} style={{ flex: 1, justifyContent: "center" }}>Always available</button>
-              <button className={`chip ${invType === "FINITE" ? "active" : ""}`} onClick={() => setInvType("FINITE")} style={{ flex: 1, justifyContent: "center" }}>Limited stock</button>
+              <button className={`chip ${invType === "INFINITE" ? "active" : ""}`} onClick={() => setInvType("INFINITE")} style={{ flex: 1, justifyContent: "center" }}>{t("cat_always_available")}</button>
+              <button className={`chip ${invType === "FINITE" ? "active" : ""}`} onClick={() => setInvType("FINITE")} style={{ flex: 1, justifyContent: "center" }}>{t("cat_limited_stock")}</button>
             </div>
             <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
               {invType === "FINITE"
@@ -366,8 +369,8 @@ export function ItemEditor({
 
           {invType === "FINITE" && (
             <div className="field">
-              <label htmlFor="catalogmanager-quantity-in-stock">Quantity in stock *</label>
-              <input id="catalogmanager-quantity-in-stock" className="input" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder="e.g. 25" />
+              <label htmlFor="catalogmanager-quantity-in-stock">{t("cat_quantity")}</label>
+              <input id="catalogmanager-quantity-in-stock" className="input" inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))} placeholder={t("cat_qty_placeholder")} />
             </div>
           )}
 
@@ -392,7 +395,7 @@ export function ItemEditor({
                   inputMode="numeric"
                   value={maxParty}
                   onChange={(e) => setMaxParty(e.target.value.replace(/\D/g, "").slice(0, 3))}
-                  placeholder="Spots per booking"
+                  placeholder={t("cat_spots_placeholder")}
                 />
               </div>
               <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
@@ -414,17 +417,17 @@ export function ItemEditor({
               (most categories) show the toggle. */}
           {bizTheme.foodToggleMode === "manual" && (
             <div className="field">
-              <label>Is this a food item?</label>
+              <label>{t("cat_is_food")}</label>
               <div className="row gap-8">
-                <button className={`chip ${isFood ? "active" : ""}`} onClick={() => setIsFood(true)} style={{ flex: 1, justifyContent: "center" }}>Food item</button>
-                <button className={`chip ${!isFood ? "active" : ""}`} onClick={() => setIsFood(false)} style={{ flex: 1, justifyContent: "center" }}>Not a food item</button>
+                <button className={`chip ${isFood ? "active" : ""}`} onClick={() => setIsFood(true)} style={{ flex: 1, justifyContent: "center" }}>{t("cat_food_item")}</button>
+                <button className={`chip ${!isFood ? "active" : ""}`} onClick={() => setIsFood(false)} style={{ flex: 1, justifyContent: "center" }}>{t("cat_not_food")}</button>
               </div>
             </div>
           )}
 
           {isFood && (
             <div className="field">
-              <label>Veg / Non-veg</label>
+              <label>{t("cat_veg_nonveg")}</label>
               <div className="row gap-8">
                 <button className={`chip ${isVeg ? "active" : ""}`} onClick={() => setIsVeg(true)} style={{ flex: 1, justifyContent: "center" }}>
                   <VegDot veg /> Veg

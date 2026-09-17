@@ -1840,6 +1840,40 @@ const strings: Record<string, string> = {
     // Provider onboarding — new category
     pon_new_skill_placeholder: "उदा. ड्रोन पायलट",
 
+    // Catalogue manager and provider dashboard
+    cat_item_removed: "वस्तू काढली",
+    cat_no_listings_text: "तुमच्या वस्तू, सेवा किंवा मेन्यू जोडा. ग्राहक हे तुमच्या पेजवर पाहतील.",
+    cat_add_first: "पहिली वस्तू जोडा",
+    cat_delete_item: "वस्तू काढा",
+    cat_upload_failed: "अपलोड झाले नाही. पुन्हा प्रयत्न करा.",
+    cat_save_failed: "जतन करता आले नाही. पुन्हा प्रयत्न करा.",
+    cat_name: "नाव *",
+    cat_description: "वर्णन",
+    cat_desc_placeholder: "थोडक्यात वर्णन, आकार, प्रकार…",
+    cat_price: "किंमत ₹ *",
+    cat_sale_price: "सवलतीची किंमत ₹",
+    cat_sale_too_high: "सवलतीची किंमत नेहमीच्या किमतीपेक्षा कमी असावी.",
+    cat_availability: "उपलब्धता",
+    cat_always_available: "नेहमी उपलब्ध",
+    cat_limited_stock: "मर्यादित साठा",
+    cat_quantity: "साठ्यात किती *",
+    cat_spots_placeholder: "प्रत्येक बुकिंगमध्ये किती जागा",
+    cat_is_food: "ही खाण्याची वस्तू आहे का?",
+    cat_food_item: "खाण्याची वस्तू",
+    cat_not_food: "खाण्याची वस्तू नाही",
+    cat_veg_nonveg: "शाकाहारी / मांसाहारी",
+    pdash_payment_rejected: "पेमेंटचा दावा नाकारला",
+    pdash_all_caught_up: "सर्व आटोपले — कशाचेही उत्तर द्यायचे नाही.",
+    pdash_todays_schedule: "आजचा कार्यक्रम",
+    pdash_send_proposal: "काम मिळवण्यासाठी दर पाठवा",
+    pdash_post_update: "समुदायात अपडेट टाका",
+    pdash_post_story: "स्टोरी टाका",
+    pdash_edit_profile: "प्रोफाइल बदला",
+
+    // Catalogue manager — field placeholders
+    cat_optional_placeholder: "ऐच्छिक",
+    cat_qty_placeholder: "उदा. २५",
+
   };
 
 export default strings;
