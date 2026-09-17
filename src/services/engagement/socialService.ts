@@ -108,7 +108,7 @@ export const socialService = {
 
   async storiesNearby(lat: number, lng: number, radiusKm = 5): Promise<Story[]> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("stories_nearby", {
+    const { data, error } = await sb.rpc("stories_nearby", {
       in_lng: lng,
       in_lat: lat,
       in_radius_km: radiusKm,
@@ -346,7 +346,7 @@ export const socialService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid || !otherUserId || uid === otherUserId) return;
-    const { error } = await (sb.from as any)("user_blocks")
+    const { error } = await sb.from("user_blocks")
       .upsert({ blocker_user_id: uid, blocked_user_id: otherUserId }, {
         onConflict: "blocker_user_id,blocked_user_id",
         ignoreDuplicates: true,
@@ -358,7 +358,7 @@ export const socialService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid || !otherUserId) return;
-    const { error } = await (sb.from as any)("user_blocks")
+    const { error } = await sb.from("user_blocks")
       .delete()
       .eq("blocker_user_id", uid)
       .eq("blocked_user_id", otherUserId);
@@ -370,7 +370,7 @@ export const socialService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid || !otherUserId) return false;
-    const { count } = await (sb.from as any)("user_blocks")
+    const { count } = await sb.from("user_blocks")
       .select("*", { count: "exact", head: true })
       .eq("blocker_user_id", uid)
       .eq("blocked_user_id", otherUserId);

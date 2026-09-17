@@ -145,7 +145,7 @@ export const businessAccessService = {
     const sb = getSupabase();
     // Cast: grant_team_member_access isn't in the generated schema types yet
     // (new RPC — same typegen gap as my_business_access_status).
-    const { data, error } = await (sb.rpc as any)("grant_team_member_access", {
+    const { data, error } = await sb.rpc("grant_team_member_access", {
       p_business_id: businessId, p_identifier: identifier, p_scopes: scopes,
     });
     if (error) throw new Error(error.message || "Couldn't add team member.");
@@ -157,7 +157,7 @@ export const businessAccessService = {
   async updateTeamMemberScopes(sessionId: string, scopes: Scope[]) {
     const sb = getSupabase();
     // Cast: update_team_member_scopes isn't in the generated schema types (new RPC).
-    const { error } = await (sb.rpc as any)("update_team_member_scopes", { p_session_id: sessionId, p_scopes: scopes });
+    const { error } = await sb.rpc("update_team_member_scopes", { p_session_id: sessionId, p_scopes: scopes });
     if (error) throw new Error(error.message || "Couldn't update access.");
     return { ok: true };
   },
@@ -255,7 +255,7 @@ export const businessAccessService = {
   async myScope(businessId: string): Promise<AccessScope> {
     const sb = getSupabase();
     // Cast: my_business_access_scope isn't in the generated schema types (new RPC).
-    const { data, error } = await (sb.rpc as any)("my_business_access_scope", { p_business_id: businessId });
+    const { data, error } = await sb.rpc("my_business_access_scope", { p_business_id: businessId });
     if (error) return { accessLevel: "SCOPED", scopes: [] };
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) return { accessLevel: "SCOPED", scopes: [] };
@@ -268,7 +268,7 @@ export const businessAccessService = {
     for (let attempt = 0; attempt < 2; attempt++) {
       // Cast: my_business_access_status isn't in the generated schema types
       // (a typegen gap for this SECURITY DEFINER helper), so the name is asserted.
-      const { data, error } = await (sb.rpc as any)("my_business_access_status", { p_business_id: businessId });
+      const { data, error } = await sb.rpc("my_business_access_status", { p_business_id: businessId });
       if (!error) return data ? "ALLOWED" : "DENIED";
       if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
     }

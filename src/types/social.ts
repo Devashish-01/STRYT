@@ -66,11 +66,13 @@ export type AlertSeverity = "INFO" | "WARNING" | "URGENT";
 /** A business/provider the author explicitly tagged in a post (RECOMMENDATION
  *  / SHOUTOUT). Distinct from `CommunityPost.recommendations`, which is what
  *  *other* neighbors added in response. */
-export interface PostTag {
+// A type alias rather than an interface on purpose: this is sent to community_post_update as jsonb, and
+// TypeScript gives aliases an implicit index signature, so only this form is assignable to Json.
+export type PostTag = {
   listingType: "BUSINESS" | "PROVIDER";
   listingId: string;
   name: string;
-}
+};
 
 export interface CommunityPost {
   id: string;

@@ -29,7 +29,7 @@ export const catalogService = {
    *  instead of overwriting each other (INV-4, migration 20260985). Business catalog items only. */
   async adjustQuantity(itemId: string, delta: number): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("catalog_item_adjust_quantity", { p_id: itemId, p_delta: delta });
+    const { error } = await sb.rpc("catalog_item_adjust_quantity", { p_id: itemId, p_delta: delta });
     if (error) {
       const msg = String(error.message ?? "");
       throw new Error(
@@ -74,10 +74,10 @@ export const catalogService = {
     const sb = getSupabase();
     // Counted in the database (20260986). This used to pull every active business and provider row to the client and
     // tally them there (C2); the fallback below stays for the case where the function isn't deployed yet.
-    const counted = await (sb.rpc as any)("category_counts_nearby", {
-      in_lat: lat ?? null,
-      in_lng: lng ?? null,
-      in_radius_km: lat != null && lng != null && radius != null && radius < 5000 ? radius : null,
+    const counted = await sb.rpc("category_counts_nearby", {
+      in_lat: lat ?? undefined,
+      in_lng: lng ?? undefined,
+      in_radius_km: lat != null && lng != null && radius != null && radius < 5000 ? radius : undefined,
     });
     if (!counted.error && Array.isArray(counted.data)) {
       const bizCounts: Record<string, number> = {};

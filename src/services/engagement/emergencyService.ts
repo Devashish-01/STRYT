@@ -60,7 +60,7 @@ export const emergencyService = {
    *  so there is still no directory to browse — you have to already know how to reach them (ECON-1). */
   async addByIdentifier(identifier: string): Promise<ContactUser> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("emergency_contact_add_by_identifier", { p_identifier: identifier.trim() });
+    const { data, error } = await sb.rpc("emergency_contact_add_by_identifier", { p_identifier: identifier.trim() });
     if (error) {
       const msg = String(error.message ?? "");
       throw new Error(
@@ -147,7 +147,7 @@ export const emergencyService = {
   // workflow 10).
   async myShareRecipients(): Promise<{ userId: string; name: string; avatar: string | null }[]> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("my_live_share_recipients");
+    const { data, error } = await sb.rpc("my_live_share_recipients");
     throwIfError(error);
     return ((data ?? []) as any[]).map((r) => ({ userId: r.recipient_user_id, name: r.recipient_name, avatar: r.recipient_avatar ?? null }));
   },
@@ -155,7 +155,7 @@ export const emergencyService = {
   // Drop ONE recipient from an active share without stopping it for everyone.
   async revokeShareRecipient(recipientUserId: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("revoke_live_share_recipient", { p_recipient_user_id: recipientUserId });
+    const { error } = await sb.rpc("revoke_live_share_recipient", { p_recipient_user_id: recipientUserId });
     throwIfError(error);
   },
 

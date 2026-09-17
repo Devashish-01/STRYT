@@ -142,8 +142,8 @@ export const userService = {
    *  append-only audit row and stamps users.terms_accepted_version server-side). */
   async acceptTerms(version: string) {
     const sb = getSupabase();
-    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : null;
-    const { error } = await (sb.rpc as any)("record_terms_acceptance", { p_version: version, p_user_agent: userAgent });
+    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : undefined;
+    const { error } = await sb.rpc("record_terms_acceptance", { p_version: version, p_user_agent: userAgent });
     throwIfError(error);
   },
 
@@ -165,7 +165,7 @@ export const userService = {
     const wanted = aliases.map((a) => a.trim()).filter(Boolean);
     if (wanted.length === 0) return {};
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("aliases_available", { p_aliases: wanted });
+    const { data, error } = await sb.rpc("aliases_available", { p_aliases: wanted });
     throwIfError(error);
     const out: Record<string, boolean> = {};
     for (const row of (data ?? []) as { alias: string; available: boolean }[]) {

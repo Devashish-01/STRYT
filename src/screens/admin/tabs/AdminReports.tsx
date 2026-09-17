@@ -55,13 +55,13 @@ export function AdminReports() {
         const { error } = await sb.from(table).update({ status: "SUSPENDED" }).eq("id", r.targetId);
         if (error) throw error;
       } else if (r.targetType === "POST") {
-        const { error } = await (sb.rpc as any)("admin_delete_post", { p_id: r.targetId });
+        const { error } = await sb.rpc("admin_delete_post", { p_id: r.targetId });
         if (error) throw error;
       } else if (r.targetType === "REQUEST") {
-        const { error } = await (sb.rpc as any)("admin_cancel_request", { p_id: r.targetId });
+        const { error } = await sb.rpc("admin_cancel_request", { p_id: r.targetId });
         if (error) throw error;
       } else if (r.targetType === "COMMENT") {
-        const { error } = await (sb.rpc as any)("admin_delete_comment", { p_id: r.targetId });
+        const { error } = await sb.rpc("admin_delete_comment", { p_id: r.targetId });
         if (error) throw error;
       }
       await resolve(r.id, "ACTION_TAKEN");

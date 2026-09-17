@@ -207,7 +207,7 @@ export const notificationService = {
    *  text itself. */
   async requestPaymentNudge(kind: PaymentNudgeKind, id: string) {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("request_payment_nudge", { p_kind: kind, p_id: id });
+    const { error } = await sb.rpc("request_payment_nudge", { p_kind: kind, p_id: id });
     if (error) {
       const code = String(error.message ?? "");
       const message = code.includes("NUDGE_COOLDOWN")

@@ -601,7 +601,7 @@ export const appointmentService = {
     if (isMockTarget(businessId)) return {};
     try {
       const sb = getSupabase();
-      const { data, error } = await (sb.rpc as any)("business_slot_capacities", { p_business_id: businessId });
+      const { data, error } = await sb.rpc("business_slot_capacities", { p_business_id: businessId });
       if (error) throw error;
       const out: Record<string, { capacity: number; maxPartySize: number }> = {};
       for (const r of (data ?? []) as any[]) {
@@ -678,7 +678,7 @@ export const appointmentService = {
     const sb = getSupabase();
     // Cast: appointment_accept_with_eta isn't in the generated schema types yet
     // (new RPC — same typegen gap as the delivery RPCs).
-    const { data, error } = await (sb.rpc as any)("appointment_accept_with_eta", {
+    const { data, error } = await sb.rpc("appointment_accept_with_eta", {
       p_id: id,
       p_eta_text: etaText,
     });
@@ -723,7 +723,7 @@ export const appointmentService = {
   /** Set custom price/amount on an appointment and retain UNPAID status for the customer tab/Khata. */
   async setUnpaidAmount(id: string, amount: number): Promise<AppointmentRecord | undefined> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("appointment_set_unpaid_amount", {
+    const { data, error } = await sb.rpc("appointment_set_unpaid_amount", {
       p_id: id,
       p_amount: amount,
     });
@@ -922,7 +922,7 @@ export const appointmentService = {
     // Cast: appointment_create_walk_in_payment isn't in the generated schema
     // types yet — a typegen gap until the migration is applied and types are
     // regenerated (same pattern as businessAccessService.checkAccess).
-    const { data, error } = await (sb.rpc as any)("appointment_create_walk_in_payment", {
+    const { data, error } = await sb.rpc("appointment_create_walk_in_payment", {
       p_target_id: payload.targetId,
       p_package_name: payload.packageName,
       p_package_price: payload.packagePrice,

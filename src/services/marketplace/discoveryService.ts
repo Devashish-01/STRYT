@@ -221,8 +221,8 @@ export const discoveryService = {
     if (opts.lat != null && opts.lng != null) {
       const args = { in_q: safeQ, in_lat: opts.lat, in_lng: opts.lng, in_radius_km: opts.radius ?? 25 };
       const [bizRpc, provRpc] = await Promise.all([
-        (sb.rpc as any)("search_businesses_nearby", { ...args, in_limit: bizLimit, in_offset: bizFrom }),
-        (sb.rpc as any)("search_providers_nearby", { ...args, in_limit: provLimit, in_offset: provFrom }),
+        sb.rpc("search_businesses_nearby", { ...args, in_limit: bizLimit, in_offset: bizFrom }),
+        sb.rpc("search_providers_nearby", { ...args, in_limit: provLimit, in_offset: provFrom }),
       ]);
       if (!bizRpc.error && !provRpc.error) {
         const bizRows = toCamel<Business[]>(bizRpc.data ?? []).map((b) => withDistance(b, opts.lat!, opts.lng!));

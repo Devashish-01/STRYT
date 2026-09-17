@@ -40,7 +40,7 @@ export const locationService = {
   // Owner revokes a previously granted / pending share. Notifies the requester.
   async revoke(requesterUserId: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("revoke_location_share", { p_requester: requesterUserId });
+    const { error } = await sb.rpc("revoke_location_share", { p_requester: requesterUserId });
     throwIfError(error);
   },
 

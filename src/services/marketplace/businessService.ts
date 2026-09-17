@@ -162,7 +162,7 @@ export const businessService = {
    */
   async delete(businessId: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("delete_business", { p_business_id: businessId });
+    const { error } = await sb.rpc("delete_business", { p_business_id: businessId });
     if (error) throw new Error(error.message || "Couldn't delete this business.");
   },
 
@@ -563,7 +563,7 @@ export const businessService = {
    *  which multiple walk-ins would collide on if they shared an id. */
   async createWalkInQueueToken(businessId: string, customerName: string, partySize = "1 person") {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("queue_token_create_walk_in", {
+    const { error } = await sb.rpc("queue_token_create_walk_in", {
       p_business_id: businessId,
       p_customer_name: customerName,
       p_party_size: partySize,

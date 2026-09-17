@@ -50,7 +50,7 @@ export const entityPasswordService = {
   /** Is a password of this kind set on MY OWN account (Settings display + owner switch-in)? */
   async isSet(kind: EntityPasswordKind): Promise<boolean> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("is_entity_password_set", { p_kind: kind });
+    const { data, error } = await sb.rpc("is_entity_password_set", { p_kind: kind });
     if (error) return false;
     return !!data;
   },
@@ -58,10 +58,10 @@ export const entityPasswordService = {
   /** Set or change the password. `currentPassword` is required only when one is already set. */
   async set(kind: EntityPasswordKind, newPassword: string, currentPassword?: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("set_entity_password", {
+    const { error } = await sb.rpc("set_entity_password", {
       p_kind: kind,
       p_new_password: newPassword,
-      p_current_password: currentPassword ?? null,
+      p_current_password: currentPassword ?? undefined,
     });
     if (error) throw new Error(error.message || "Couldn't save the password.");
   },
@@ -69,7 +69,7 @@ export const entityPasswordService = {
   /** Remove the password — requires the current one to confirm. */
   async clear(kind: EntityPasswordKind, currentPassword: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("clear_entity_password", {
+    const { error } = await sb.rpc("clear_entity_password", {
       p_kind: kind,
       p_current_password: currentPassword,
     });
@@ -86,9 +86,14 @@ export const entityPasswordService = {
    */
   async verify(kind: EntityPasswordKind, entityId: string | undefined, password: string): Promise<boolean> {
     const sb = getSupabase();
-    const fn = kind === "business" ? "verify_business_password" : "verify_provider_password";
-    const idKey = kind === "business" ? "p_business_id" : "p_provider_id";
-    const { data, error } = await (sb.rpc as any)(fn, { [idKey]: entityId ?? null, p_password: password });
+    // Both functions take the id as a nullable text parameter with no default: null means "whatever
+    // entity the caller owns" (see verify_business_password in 20260941). The generated Args type
+    // marks it non-null because the SQL has no DEFAULT, so the deliberate null is asserted past it —
+    // omitting the key instead would send no argument at all and the call would fail.
+    const id = (entityId ?? null) as unknown as string;
+    const { data, error } = kind === "business"
+      ? await sb.rpc("verify_business_password", { p_business_id: id, p_password: password })
+      : await sb.rpc("verify_provider_password", { p_provider_id: id, p_password: password });
     if (error) return false;
     return !!data;
   },
@@ -100,7 +105,7 @@ export const entityPasswordService = {
    */
   async myDelegatedBusinessPasswordStatus(): Promise<Record<string, boolean>> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("my_delegated_business_password_status");
+    const { data, error } = await sb.rpc("my_delegated_business_password_status");
     if (error) return {};
     const map: Record<string, boolean> = {};
     for (const row of (data ?? []) as { business_id: string; required: boolean }[]) {
@@ -112,21 +117,21 @@ export const entityPasswordService = {
   /** Is a backup recovery question set for this kind on my account? */
   async isRecoverySet(kind: EntityPasswordKind): Promise<boolean> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("is_entity_recovery_set", { p_kind: kind });
+    const { data, error } = await sb.rpc("is_entity_recovery_set", { p_kind: kind });
     if (!error) return !!data;
     // Called right after sign-in, this can run before the session is attached and come back 401 — reading that as
     // "no backup question" would hide the recovery route from someone who has one (E2E-002). Wait for the session
     // and ask once more before giving up.
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return false;
-    const retry = await (sb.rpc as any)("is_entity_recovery_set", { p_kind: kind });
+    const retry = await sb.rpc("is_entity_recovery_set", { p_kind: kind });
     return retry.error ? false : !!retry.data;
   },
 
   /** Returns the owner's recovery prompt (preset id + optional custom text). */
   async getRecoveryQuestion(kind: EntityPasswordKind): Promise<EntityRecoveryQuestion | null> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("get_entity_recovery_question", { p_kind: kind });
+    const { data, error } = await sb.rpc("get_entity_recovery_question", { p_kind: kind });
     if (error || !data?.length) return null;
     const row = data[0] as { question_id: string; question_text: string | null };
     return {
@@ -144,11 +149,11 @@ export const entityPasswordService = {
     questionText?: string,
   ): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("setup_entity_password_with_recovery", {
+    const { error } = await sb.rpc("setup_entity_password_with_recovery", {
       p_kind: kind,
       p_new_password: password,
       p_question_id: questionId,
-      p_question_text: questionText ?? null,
+      p_question_text: questionText ?? undefined,
       p_answer: answer,
     });
     if (error) throw new Error(error.message || "Couldn't save the password and recovery question.");
@@ -163,10 +168,10 @@ export const entityPasswordService = {
     questionText?: string,
   ): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("set_entity_recovery", {
+    const { error } = await sb.rpc("set_entity_recovery", {
       p_kind: kind,
       p_question_id: questionId,
-      p_question_text: questionText ?? null,
+      p_question_text: questionText ?? undefined,
       p_answer: answer,
       p_current_password: currentPassword,
     });
@@ -180,7 +185,7 @@ export const entityPasswordService = {
     newPassword: string,
   ): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("reset_entity_password_via_recovery", {
+    const { error } = await sb.rpc("reset_entity_password_via_recovery", {
       p_kind: kind,
       p_answer: answer,
       p_new_password: newPassword,

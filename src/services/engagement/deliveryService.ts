@@ -178,8 +178,8 @@ export const deliveryService = {
   /** Count non-terminal deliveries assigned to the signed-in user. */
   async countMyActiveDeliveries(businessId?: string): Promise<number> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("count_my_active_deliveries", {
-      p_business_id: businessId ?? null,
+    const { data, error } = await sb.rpc("count_my_active_deliveries", {
+      p_business_id: businessId ?? undefined,
     });
     if (error) throw error;
     return typeof data === "number" ? data : Number(data ?? 0);
@@ -188,7 +188,7 @@ export const deliveryService = {
   /** All deliveries assigned to the signed-in agent (active first). */
   async myDeliveries(): Promise<DeliveryItem[]> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("my_deliveries");
+    const { data, error } = await sb.rpc("my_deliveries");
     if (error) throw error;
     return ((data ?? []) as any[]).map(rowToItem);
   },
@@ -197,7 +197,7 @@ export const deliveryService = {
    *  lifecycle status and stamps delivered_at on DONE. */
   async updateStatus(deliveryId: string, status: DeliveryLiveStatus, lat?: number, lng?: number): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("appointment_update_delivery_status", {
+    const { error } = await sb.rpc("appointment_update_delivery_status", {
       p_delivery_id: deliveryId,
       p_status: status,
       p_lat: lat ?? undefined,
@@ -214,7 +214,7 @@ export const deliveryService = {
    */
   async cancelDelivery(deliveryId: string, reason: CancelReason, note?: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("cancel_delivery", {
+    const { error } = await sb.rpc("cancel_delivery", {
       p_delivery_id: deliveryId,
       p_reason: reason,
       p_note: note?.trim() || undefined,
@@ -230,7 +230,7 @@ export const deliveryService = {
    */
   async dutyBlockers(): Promise<DutyBlockers> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("my_duty_blockers");
+    const { data, error } = await sb.rpc("my_duty_blockers");
     if (error) throw error;
     const r = Array.isArray(data) ? data[0] : data;
     return {
@@ -243,7 +243,7 @@ export const deliveryService = {
   /** Verify the customer's handoff code; true when it matches. */
   async confirmHandoff(deliveryId: string, code: string): Promise<boolean> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("confirm_handoff", {
+    const { data, error } = await sb.rpc("confirm_handoff", {
       p_delivery_id: deliveryId,
       p_code: code,
     });
@@ -260,14 +260,16 @@ export const deliveryService = {
    */
   async myProgress(appointmentId: string): Promise<CustomerDeliveryProgress | null> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("my_delivery_progress", { p_appointment_id: appointmentId });
+    const { data, error } = await sb.rpc("my_delivery_progress", { p_appointment_id: appointmentId });
     if (error) throw error;
     const r = Array.isArray(data) ? data[0] : data;
     if (!r) return null;
     return {
       id: r.id,
-      status: r.status,
-      liveStatus: r.live_status ?? null,
+      // status / live_status / cancel_reason are text columns with CHECK constraints listing exactly
+      // the members of these unions (20260845, 20260872), so the RPC's `text` cannot hold anything else.
+      status: r.status as DeliveryStatus,
+      liveStatus: (r.live_status ?? null) as DeliveryLiveStatus | null,
       handoffCode: r.handoff_code ?? null,
       handoffVerified: !!r.handoff_verified,
       agentName: r.agent_name ?? null,
@@ -276,7 +278,7 @@ export const deliveryService = {
       agentRevealed: !!r.agent_revealed,
       etaText: r.eta_text ?? null,
       stopsBefore: r.stops_before ?? null,
-      cancelReason: r.cancel_reason ?? null,
+      cancelReason: (r.cancel_reason ?? null) as CancelReason | null,
       cancelNote: r.cancel_note ?? null,
     };
   },
@@ -287,7 +289,7 @@ export const deliveryService = {
    */
   async createTrackingToken(appointmentId: string): Promise<string> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("appointment_create_tracking_token", {
+    const { data, error } = await sb.rpc("appointment_create_tracking_token", {
       p_appointment_id: appointmentId,
     });
     if (error) throw error;
@@ -299,7 +301,7 @@ export const deliveryService = {
    *  way any stop in the batch becomes workable. */
   async acceptBatch(batchId: string, stopOrder?: string[]): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("accept_delivery_batch", {
+    const { error } = await sb.rpc("accept_delivery_batch", {
       p_batch_id: batchId,
       p_stop_order: stopOrder && stopOrder.length > 0 ? stopOrder : undefined,
     });
@@ -309,7 +311,7 @@ export const deliveryService = {
   /** Agent declines the whole run — every stop is unassigned so the owner can reassign. */
   async declineBatch(batchId: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("decline_delivery_batch", { p_batch_id: batchId });
+    const { error } = await sb.rpc("decline_delivery_batch", { p_batch_id: batchId });
     if (error) throw error;
   },
 
@@ -325,7 +327,7 @@ export const deliveryService = {
    */
   async updatePosition(deliveryId: string, lat: number, lng: number, accuracy?: number, heading?: number): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("update_delivery_position", {
+    const { error } = await sb.rpc("update_delivery_position", {
       p_delivery_id: deliveryId,
       p_lat: lat,
       p_lng: lng,
@@ -339,7 +341,7 @@ export const deliveryService = {
    *  so a throttled background fix never has to pretend to be a status transition. */
   async updateBatchPosition(batchId: string, lat: number, lng: number, accuracy?: number, heading?: number): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("update_delivery_batch_position", {
+    const { error } = await sb.rpc("update_delivery_batch_position", {
       p_batch_id: batchId,
       p_lat: lat,
       p_lng: lng,
@@ -357,7 +359,7 @@ export const deliveryService = {
    */
   async businessDeliveries(businessId: string): Promise<BusinessDeliveryItem[]> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("business_active_deliveries", { p_business_id: businessId });
+    const { data, error } = await sb.rpc("business_active_deliveries", { p_business_id: businessId });
     if (error) throw error;
     return ((data ?? []) as any[]).map((r) => ({
       id: r.id,
@@ -417,7 +419,7 @@ export const deliveryService = {
   /** The signed-in agent's own duty status. */
   async myDutyStatus(): Promise<boolean> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("get_delivery_duty");
+    const { data, error } = await sb.rpc("get_delivery_duty");
     if (error) throw error;
     return data !== false;
   },
@@ -426,14 +428,14 @@ export const deliveryService = {
    *  have any non-terminal delivery work when going off duty. */
   async setDuty(onDuty: boolean): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("set_delivery_duty", { p_on_duty: onDuty });
+    const { error } = await sb.rpc("set_delivery_duty", { p_on_duty: onDuty });
     if (error) throw error;
   },
 
   /** Owner/manager assigns (or reassigns) a delivery for an appointment. */
   async assignDelivery(appointmentId: string, agentUserId: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("assign_delivery", {
+    const { error } = await sb.rpc("assign_delivery", {
       p_appointment_id: appointmentId,
       p_agent_user_id: agentUserId,
     });
@@ -444,7 +446,7 @@ export const deliveryService = {
    *  must accept the whole batch or decline it, there's no per-stop assignment here. */
   async assignBatch(appointmentIds: string[], agentUserId: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("assign_delivery_batch", {
+    const { error } = await sb.rpc("assign_delivery_batch", {
       p_appointment_ids: appointmentIds,
       p_agent_user_id: agentUserId,
     });

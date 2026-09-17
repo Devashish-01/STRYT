@@ -123,7 +123,7 @@ async function sweepExpiredDeals(sb: ReturnType<typeof getSupabase>): Promise<vo
   // deal read made while this sweep ran — the "Couldn't load" toast on bulk-deal screens and the Community hub
   // (E2E-005). A failed sweep must never fail the read; retry on the next call instead.
   try {
-    const { error } = await (sb.rpc as any)("close_expired_bulk_deals");
+    const { error } = await sb.rpc("close_expired_bulk_deals");
     if (error) lastBulkSweepAt = 0;
   } catch {
     lastBulkSweepAt = 0;
@@ -227,7 +227,7 @@ export const bulkService = {
 
   async deleteDeal(id: string) {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("bulk_deal_delete", { p_deal_id: id });
+    const { error } = await sb.rpc("bulk_deal_delete", { p_deal_id: id });
     throwIfError(error);
     return { ok: true };
   },
@@ -244,7 +244,7 @@ export const bulkService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return deals;
-    const { data, error } = await (sb.from as any)("bulk_deal_pledges")
+    const { data, error } = await sb.from("bulk_deal_pledges")
       .select("deal_id, quantity, deposit_status")
       .eq("user_id", uid)
       .in("deal_id", deals.map((d) => d.id));
@@ -269,7 +269,7 @@ export const bulkService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
-    const { data: pledgeRows, error: pledgeErr } = await (sb.from as any)("bulk_deal_pledges")
+    const { data: pledgeRows, error: pledgeErr } = await sb.from("bulk_deal_pledges")
       .select("deal_id, quantity, deposit_status")
       .eq("user_id", uid);
     if (pledgeErr) return [];
@@ -297,7 +297,7 @@ export const bulkService = {
    *  yet: this only reserves the intent, claimDeposit is a separate step. */
   async pledgeJoin(dealId: string, quantity: number, notes?: string | null, deliveryAddress?: string | null): Promise<BulkDeal> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("bulk_deal_pledge_join", {
+    const { data, error } = await sb.rpc("bulk_deal_pledge_join", {
       p_deal_id: dealId,
       p_quantity: quantity,
       p_notes: notes ?? undefined,
@@ -309,7 +309,7 @@ export const bulkService = {
 
   async pledgeLeave(dealId: string): Promise<BulkDeal> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("bulk_deal_pledge_leave", { p_deal_id: dealId });
+    const { data, error } = await sb.rpc("bulk_deal_pledge_leave", { p_deal_id: dealId });
     throwIfError(error);
     return rowToDeal(data);
   },
@@ -319,7 +319,7 @@ export const bulkService = {
    *  console, this only records what the pledger says they paid. */
   async claimDeposit(dealId: string, method: PaymentMethod, reference?: string | null) {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("bulk_deal_pledge_claim_deposit", {
+    const { data, error } = await sb.rpc("bulk_deal_pledge_claim_deposit", {
       p_deal_id: dealId,
       p_method: method,
       p_reference: reference ?? undefined,
@@ -338,7 +338,7 @@ export const bulkService = {
    *  pledgesForDeal below, joined through to the owning deal for its title. */
   async pendingDepositsForBusiness(businessId: string): Promise<(BulkDealPledge & { dealTitle: string })[]> {
     const sb = getSupabase();
-    const { data, error } = await (sb.from as any)("bulk_deal_pledges")
+    const { data, error } = await sb.from("bulk_deal_pledges")
       .select("*, pledger:users!user_id(alias), deal:bulk_deals!inner(title, business_id)")
       .eq("deal.business_id", businessId)
       .eq("deposit_status", "PENDING_CONFIRM")
@@ -352,7 +352,7 @@ export const bulkService = {
    *  owner/team via has_business_access, same posture as request_me_toos. */
   async pledgesForDeal(dealId: string): Promise<BulkDealPledge[]> {
     const sb = getSupabase();
-    const { data, error } = await (sb.from as any)("bulk_deal_pledges")
+    const { data, error } = await sb.from("bulk_deal_pledges")
       .select("*, pledger:users!user_id(alias)")
       .eq("deal_id", dealId)
       .order("created_at", { ascending: false });
@@ -365,7 +365,7 @@ export const bulkService = {
    *  target — the server trigger, not this call, decides that. */
   async confirmDeposit(dealId: string, pledgerUserId: string): Promise<BulkDealPledge> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("bulk_deal_pledge_confirm_deposit", {
+    const { data, error } = await sb.rpc("bulk_deal_pledge_confirm_deposit", {
       p_deal_id: dealId,
       p_pledger_user_id: pledgerUserId,
     });
@@ -375,7 +375,7 @@ export const bulkService = {
 
   async rejectDeposit(dealId: string, pledgerUserId: string): Promise<BulkDealPledge> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("bulk_deal_pledge_reject_deposit", {
+    const { data, error } = await sb.rpc("bulk_deal_pledge_reject_deposit", {
       p_deal_id: dealId,
       p_pledger_user_id: pledgerUserId,
     });
@@ -388,7 +388,7 @@ export const bulkService = {
    *  the under-target "fulfil anyway" / "refund everyone" decision. */
   async closeDeal(dealId: string, outcome?: "FULFILLED" | "REFUNDED" | null): Promise<BulkDeal> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("bulk_deal_close", {
+    const { data, error } = await sb.rpc("bulk_deal_close", {
       p_deal_id: dealId,
       p_outcome: outcome ?? undefined,
     });
@@ -400,7 +400,7 @@ export const bulkService = {
    *  closed under target awaiting a decision, not one already resolved. */
   async extendDeal(dealId: string, newClosesAtISO: string): Promise<BulkDeal> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("bulk_deal_extend", {
+    const { data, error } = await sb.rpc("bulk_deal_extend", {
       p_deal_id: dealId,
       p_new_closes_at: newClosesAtISO,
     });
@@ -411,14 +411,14 @@ export const bulkService = {
   /** Claim-pass roster for a closed (FULFILLED) campaign. */
   async tokensForDeal(dealId: string): Promise<GroupBuyToken[]> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("bulk_deal_tokens_for_deal", { p_deal_id: dealId });
+    const { data, error } = await sb.rpc("bulk_deal_tokens_for_deal", { p_deal_id: dealId });
     throwIfError(error);
     return ((data ?? []) as any[]).map(rowToBulkDealToken);
   },
 
   async dealRedemptionStats(dealId: string): Promise<GroupBuyRedemptionStats> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("bulk_deal_redemption_stats", { p_deal_id: dealId });
+    const { data, error } = await sb.rpc("bulk_deal_redemption_stats", { p_deal_id: dealId });
     throwIfError(error);
     const row = Array.isArray(data) ? data[0] : data;
     return {
@@ -439,7 +439,7 @@ export const bulkService = {
     if (!uid) return [];
     const [groupRes, bulkRes] = await Promise.all([
       sb.from("group_buy_tokens").select("*").eq("holder_user_id", uid).order("created_at", { ascending: false }),
-      (sb.from as any)("bulk_deal_tokens").select("*").eq("holder_user_id", uid).order("created_at", { ascending: false }),
+      sb.from("bulk_deal_tokens").select("*").eq("holder_user_id", uid).order("created_at", { ascending: false }),
     ]);
     throwIfError(groupRes.error);
     throwIfError(bulkRes.error);
@@ -467,7 +467,7 @@ export const bulkService = {
     const sb = getSupabase();
     const trimmed = tokenCode.trim().toUpperCase();
     if (trimmed.startsWith("STRYT-D-")) {
-      const { data, error } = await (sb.rpc as any)("bulk_deal_token_redeem", {
+      const { data, error } = await sb.rpc("bulk_deal_token_redeem", {
         p_token_code: trimmed,
         ...(businessId ? { p_business_id: businessId } : {}),
       });

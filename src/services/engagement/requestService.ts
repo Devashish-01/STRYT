@@ -333,7 +333,7 @@ export const requestService = {
       let allowed = !!entity && (entity as any)[ownerCol] === uid;
       if (!allowed && entity && responderType === "business") {
         // Cast: my_business_access_scope isn't in the generated schema types (new RPC).
-        const { data: scope } = await (sb.rpc as any)("my_business_access_scope", { p_business_id: responderEntityId });
+        const { data: scope } = await sb.rpc("my_business_access_scope", { p_business_id: responderEntityId });
         const row = Array.isArray(scope) ? scope[0] : scope;
         allowed = !!row && (row.access_level === "FULL" || (row.scopes ?? []).includes("leads"));
       }
@@ -405,7 +405,7 @@ export const requestService = {
    *  counterpart to a requester declining it, for a mis-quote sent too fast. */
   async withdrawProposal(proposalId: string): Promise<Proposal> {
     const sb = getSupabase();
-    const { data, error } = await (sb.rpc as any)("withdraw_proposal", { p_proposal_id: proposalId });
+    const { data, error } = await sb.rpc("withdraw_proposal", { p_proposal_id: proposalId });
     throwIfError(error);
     return rowToProposal(data);
   },
@@ -446,7 +446,7 @@ export const requestService = {
     if (!uid) throw toApiError({ code: "UNAUTHENTICATED" }, 401);
 
     try {
-      const { data, error } = await (sb.rpc as any)("me_too_toggle", { p_request_id: requestId });
+      const { data, error } = await sb.rpc("me_too_toggle", { p_request_id: requestId });
       if (!error && data) {
         return { ok: true, meTooed: (data as any).meTooed, count: (data as any).count };
       }

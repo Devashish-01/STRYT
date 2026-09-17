@@ -136,8 +136,8 @@ export const communityService = {
     const radiusLimit = opts.radiusKm ?? (saved ? parseFloat(saved) : 5);
     const { from, to, limit } = cursorToRange(opts.cursor, 20);
     const sort = normalizeFeedSort(opts.sort);
-    const typeFilter = opts.type ?? null;
-    const searchQuery = opts.query?.trim() || null;
+    const typeFilter = opts.type ?? undefined;
+    const searchQuery = opts.query?.trim() || undefined;
 
     // 1. Posts. community_posts_feed does the radius, the type filter AND the
     //    ordering server-side, which is what makes "trending" mean the whole
@@ -147,9 +147,9 @@ export const communityService = {
     let error: any = null;
     let count: number | null = null;
 
-    const res = await (sb.rpc as any)("community_posts_feed", {
-      in_lat: opts.lat ?? null,
-      in_lng: opts.lng ?? null,
+    const res = await sb.rpc("community_posts_feed", {
+      in_lat: opts.lat ?? undefined,
+      in_lng: opts.lng ?? undefined,
       in_radius_km: radiusLimit,
       in_limit: limit,
       in_offset: from,
@@ -227,7 +227,7 @@ export const communityService = {
     // table to the caller's own rows, so there's nothing else it could return.
     const savedIds = new Set<string>();
     if (uid) {
-      const { data: saves } = await (sb.from as any)("post_saves")
+      const { data: saves } = await sb.from("post_saves")
         .select("post_id")
         .eq("user_id", uid)
         .in("post_id", postIds);
@@ -297,7 +297,7 @@ export const communityService = {
     }
     const savedIds = new Set<string>();
     if (uid) {
-      const { data } = await (sb.from as any)("post_saves")
+      const { data } = await sb.from("post_saves")
         .select("post_id")
         .eq("user_id", uid)
         .eq("post_id", id);
@@ -471,7 +471,7 @@ export const communityService = {
     const uid = await currentUserId();
     if (!uid) return currentlySaved;
     if (currentlySaved) {
-      const { error } = await (sb.from as any)("post_saves")
+      const { error } = await sb.from("post_saves")
         .delete()
         .eq("post_id", postId)
         .eq("user_id", uid);
@@ -479,7 +479,7 @@ export const communityService = {
     } else {
       // Upsert rather than insert: a double-tap on Save shouldn't surface a
       // primary-key violation as a failure the user has to understand.
-      const { error } = await (sb.from as any)("post_saves")
+      const { error } = await sb.from("post_saves")
         .upsert({ post_id: postId, user_id: uid }, { onConflict: "post_id,user_id", ignoreDuplicates: true });
       throwIfError(error);
     }
@@ -491,7 +491,7 @@ export const communityService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return [];
-    const { data: saves, error } = await (sb.from as any)("post_saves")
+    const { data: saves, error } = await sb.from("post_saves")
       .select("post_id")
       .eq("user_id", uid)
       .order("created_at", { ascending: false })
@@ -545,7 +545,7 @@ export const communityService = {
    *  expiry filter, notify_ended_polls — then behaves as if it had expired. */
   async closePoll(postId: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("community_poll_close", { p_id: postId });
+    const { error } = await sb.rpc("community_poll_close", { p_id: postId });
     throwIfError(error);
   },
 
@@ -572,7 +572,7 @@ export const communityService = {
     const commentIds = rows.map((r: any) => r.id);
     const tallies: Record<string, Record<string, number>> = {};
     const mine: Record<string, string> = {};
-    const { data: reactions } = await (sb.from as any)("comment_reactions")
+    const { data: reactions } = await sb.from("comment_reactions")
       .select("comment_id, user_id, emoji")
       .in("comment_id", commentIds);
     (reactions ?? []).forEach((r: any) => {
@@ -620,7 +620,7 @@ export const communityService = {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return "SIGN_IN";
-    const { data, error } = await (sb.rpc as any)("comment_gate_reason", { p_post_id: postId });
+    const { data, error } = await sb.rpc("comment_gate_reason", { p_post_id: postId });
     // A failed probe must not silently close a thread the user can actually
     // comment on — let them try and have RLS be the arbiter.
     if (error) return "OK";
@@ -643,7 +643,7 @@ export const communityService = {
     // hardcoded "comments on + mutual follow", which is now only one of four
     // policies, and it couldn't see blocks or the rate limit at all.
     // The RLS policy remains the actual enforcement.
-    const { data: reason } = await (sb.rpc as any)("comment_gate_reason", { p_post_id: postId });
+    const { data: reason } = await sb.rpc("comment_gate_reason", { p_post_id: postId });
     if (reason && reason !== "OK") {
       throw new Error(gateCopy(reason as CommentGateReason).message || "You can't comment on this post");
     }
@@ -721,7 +721,7 @@ export const communityService = {
     const uid = await currentUserId();
     if (!uid) return;
     if (!emoji) {
-      const { error } = await (sb.from as any)("comment_reactions")
+      const { error } = await sb.from("comment_reactions")
         .delete()
         .eq("comment_id", commentId)
         .eq("user_id", uid);
@@ -729,7 +729,7 @@ export const communityService = {
       return;
     }
     if (!isValidReaction(emoji)) throw new Error("That reaction isn't available");
-    const { error } = await (sb.from as any)("comment_reactions")
+    const { error } = await sb.from("comment_reactions")
       .upsert(
         { comment_id: commentId, user_id: uid, emoji },
         { onConflict: "comment_id,user_id" }
@@ -744,7 +744,7 @@ export const communityService = {
    *  point of a RECOMMENDATION post. */
   async recommendListing(postId: string, listingType: "BUSINESS" | "PROVIDER", listingId: string, byName: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("community_post_add_recommendation", {
+    const { error } = await sb.rpc("community_post_add_recommendation", {
       p_post_id: postId,
       p_listing_type: listingType,
       p_listing_id: listingId,
@@ -785,16 +785,16 @@ export const communityService = {
     const media = patch.media
       ? patch.media.filter((m) => !!m).slice(0, MAX_POST_MEDIA)
       : undefined;
-    const { error } = await (sb.rpc as any)("community_post_update", {
+    const { error } = await sb.rpc("community_post_update", {
       p_id: postId,
       p_title: patch.title,
-      p_body: patch.body ?? null,
-      p_image: (media ? media[0] : patch.image) ?? null,
+      p_body: patch.body ?? undefined,
+      p_image: (media ? media[0] : patch.image) ?? undefined,
       // Omitted (undefined) rather than null when the caller didn't specify:
       // the RPC treats null as "no media given" and falls back to p_image, which
       // is what an older OTA bundle still calling the 4-arg shape needs.
       ...(media ? { p_media: media } : {}),
-      p_image_alt: patch.imageAlt ?? null,
+      p_image_alt: patch.imageAlt ?? undefined,
       // '' is the clear signal for these three, so a null coalesces to '' — but
       // only when the key was passed at all.
       ...(patch.lastSeen !== undefined ? { p_last_seen: patch.lastSeen ?? "" } : {}),
@@ -817,7 +817,7 @@ export const communityService = {
   /** Author-only delete — cascades comments/likes/votes server-side. */
   async delete(postId: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("community_post_delete", { p_id: postId });
+    const { error } = await sb.rpc("community_post_delete", { p_id: postId });
     throwIfError(error);
   },
 
@@ -825,7 +825,7 @@ export const communityService = {
    *  without this. */
   async setResolved(postId: string, resolved: boolean): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("community_post_set_resolved", { p_id: postId, p_resolved: resolved });
+    const { error } = await sb.rpc("community_post_set_resolved", { p_id: postId, p_resolved: resolved });
     throwIfError(error);
   },
 
@@ -834,7 +834,7 @@ export const communityService = {
    *  clean) — enforced server-side in community_comment_delete (20260929). */
   async deleteComment(commentId: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("community_comment_delete", { p_id: commentId });
+    const { error } = await sb.rpc("community_comment_delete", { p_id: commentId });
     throwIfError(error);
   },
 
@@ -842,14 +842,14 @@ export const communityService = {
    *  server-side — see the migration for why. */
   async updateComment(commentId: string, body: string): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("community_comment_update", { p_id: commentId, p_body: body });
+    const { error } = await sb.rpc("community_comment_update", { p_id: commentId, p_body: body });
     throwIfError(error);
   },
 
   /** Post author pins one comment as the accepted answer. */
   async setCommentPinned(commentId: string, pinned: boolean): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("community_comment_set_pinned", { p_id: commentId, p_pinned: pinned });
+    const { error } = await sb.rpc("community_comment_set_pinned", { p_id: commentId, p_pinned: pinned });
     throwIfError(error);
   },
 
@@ -859,7 +859,7 @@ export const communityService = {
    *  neighbourhood feed and reachable by link. */
   async setShowOnProfile(postId: string, show: boolean): Promise<void> {
     const sb = getSupabase();
-    const { error } = await (sb.rpc as any)("community_post_set_profile_visibility", { p_id: postId, p_show: show });
+    const { error } = await sb.rpc("community_post_set_profile_visibility", { p_id: postId, p_show: show });
     throwIfError(error);
   },
 };

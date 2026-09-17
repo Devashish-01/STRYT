@@ -361,7 +361,7 @@ export const providerService = {
     // provider_leads() (20260972) returns the sender's phone only when they share it.
     // Don't embed users.phone here: the raw number would reach the browser even when
     // hidden, and users.phone is being locked to the owner (supabase/pending/).
-    const { data, error } = await (sb.rpc as any)("provider_leads", { p_provider_id: id });
+    const { data, error } = await sb.rpc("provider_leads", { p_provider_id: id });
     throwIfError(error);
     return ((data ?? []) as any[]).map((l) => ({
       id: l.id,
