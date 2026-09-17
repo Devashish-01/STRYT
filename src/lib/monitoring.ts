@@ -8,12 +8,16 @@
 //   • Best-effort remote sink: only when Supabase env is present AND the user is
 //     authenticated (RLS blocks anon). Sink failures are swallowed.
 //   • Deduped per session + rate-limited so one hot error loop can't spam the DB.
-//   • No PII beyond the error text/stack + URL + UA the user already exposes.
+//   • Personal data is removed by scrubPii before anything leaves the device. This used to be a stated
+//     intention ("no PII beyond the error text/stack") with nothing enforcing it — but an error message
+//     carries whatever the throwing code put in it, and a failed fetch carries the whole URL including its
+//     query string. P15's data inventory raised that as a finding; scrubPii is the answer to it.
 //
 // A clean seam for a full APM later: add another reporter inside `report()`
 // (e.g. Sentry.captureException) — everything already funnels through here.
 
 import { getSupabase, hasSupabaseEnv } from "./supabaseClient";
+import { scrubErrorReport } from "./scrubPii";
 
 export type ErrorKind = "REACT" | "WINDOW_ERROR" | "UNHANDLED_REJECTION" | "MANUAL";
 
@@ -90,15 +94,24 @@ async function sendToSink(payload: {
     const { data } = await sb.auth.getSession();
     if (!data.session) return;
 
+    // Everything below this line has been through scrubPii. Nothing reaches the table unscrubbed.
+    const safe = scrubErrorReport({
+      message: payload.message,
+      stack: payload.stack,
+      url: (typeof location !== "undefined" ? location.href : "").slice(0, 1000),
+      breadcrumbs: breadcrumbs.slice(-12),
+      context: payload.context,
+    });
+
     await sb.from("client_errors").insert({
       // user_id is stamped server-side from the JWT (column default) — don't send it.
       kind: payload.kind,
-      message: payload.message,
-      stack: payload.stack || null,
-      url: (typeof location !== "undefined" ? location.href : "").slice(0, 1000),
+      message: safe.message ?? "",
+      stack: safe.stack || null,
+      url: safe.url ?? "",
       user_agent: (typeof navigator !== "undefined" ? navigator.userAgent : "").slice(0, 400),
       app_version: APP_VERSION,
-      context: { ...(payload.context ?? {}), breadcrumbs: breadcrumbs.slice(-12) },
+      context: { ...(safe.context ?? {}), breadcrumbs: safe.breadcrumbs ?? [] },
     });
     sinkReady = true;
   } catch {
