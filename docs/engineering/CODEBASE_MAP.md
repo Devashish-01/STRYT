@@ -125,10 +125,10 @@ guest-browsable):** `/story/new` `StoryCompose` · `/community/new` `CommunityCo
 **Catch-all:** unmatched paths → `ContextHomeRedirect` (home of whatever hat — customer/business/provider —
 is currently active)
 
-**Unrouted — `screens/future-enhancement/`:** `Wallet`, `SocietyScreen`, `SubscriptionManager` /
-`NewSubscription` / `SubscriptionDetail`, `BusinessProUpgrade`, `Neighborhood`, `AvailableNow`,
-`Leaderboard`, `LoyaltySetup`, `Promote`, `PhotosManager`, `StoryComposer` — 13 screens total, shelved
-(no in-app nav link, found during a launch audit) rather than deleted. Not live routes; re-add a lazy
+**Deleted — `screens/future-enhancement/`:** the 13 unrouted screens (`Wallet`, `SocietyScreen`,
+`SubscriptionManager` / `NewSubscription` / `SubscriptionDetail`, `BusinessProUpgrade`, `Neighborhood`,
+`AvailableNow`, `Leaderboard`, `LoyaltySetup`, `Promote`, `PhotosManager`, `StoryComposer`) were removed in
+P12 under decision D3, along with `societyService`, which nothing else used. Git history holds them. Re-add a lazy
 import + `<Route>` in `App.tsx` to bring one back.
 
 ---

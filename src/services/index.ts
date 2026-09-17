@@ -19,7 +19,6 @@ export { walletService } from "./engagement/walletService";
 export { userService } from "./core/userService";
 export { notificationService } from "./engagement/notificationService";
 export { chatService } from "./engagement/chatService";
-export { societyService } from "./engagement/societyService";
 export { subscriptionService } from "./engagement/subscriptionService";
 export { proService, PRO_PLANS, LEAD_PACKS } from "./core/proService";
 export { aiService } from "./core/aiService";

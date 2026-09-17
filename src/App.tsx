@@ -157,14 +157,8 @@ const BusinessLogin = lazy(() => import("./screens/business/BusinessLogin"));
 // RequireDeliveryAgent, so the route is inert until the feature ships).
 const DeliveryConsole = lazy(() => import("./screens/delivery/DeliveryConsole"));
 
-// Society / Subscriptions / Pro / Neighborhood / Available / Wallet / Loyalty /
-// Photos / Story: all moved to screens/future-enhancement/ and unrouted —
-// none of these had any in-app nav link (found during a launch audit), so
-// they're shelved together rather than left reachable only by guessing a URL.
-// Screen files are kept; re-add a lazy import + <Route> here to bring one back.
-// BusinessProUpgrade is the one exception already unrouted for a different
-// reason (its paid-upgrade flow has no payment provider — STRYT uses
-// UPI-deeplink payments only) — screen file stays in future-enhancement/.
+// Society, Subscriptions, Pro upgrade, Neighborhood, Available Now, Wallet, Loyalty, Photos and Story were
+// unrouted screens with no in-app link. Deleted in P12 (decision D3); git history holds them if one is ever wanted.
 
 // Routes that show the bottom navigation bar
 const TAB_ROUTES = ["/home", "/map", "/notifications", "/explore", "/chats", "/community-hub", "/profile"];
