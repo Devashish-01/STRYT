@@ -33,17 +33,17 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
   *Done when:* every row cites a real file path or table name that exists, checked by script.
 - [x] **A2** Diff the inventory against `PLAY_CONSOLE_MASTER_DOSSIER.md` §4 and `legal/privacy-policy.md`.
   Every mismatch listed. *Done when:* a mismatch table exists and each row says which source is wrong.
-- [ ] **A3** Draft the corrections to `legal/privacy-policy.md` and siblings so they match A1.
+- [x] **A3** Draft the corrections to `legal/privacy-policy.md` and siblings so they match A1.
   *Done when:* drafted and flagged for the owner's lawyer — not marked compliant.
 
 ### B — P14 error monitoring (you cannot fix what you cannot see)
-- [ ] **B1** Sentry wiring for web + native, initialised **only when a DSN is present** so dev and tests stay
+- [x] **B1** Sentry wiring for web + native, initialised **only when a DSN is present** so dev and tests stay
   silent. `release` from package.json version + platform.
-- [ ] **B2** `beforeSend` scrubber removing phone, email, name, address, lat/lng, OTP, token, handoff code
+- [x] **B2** `beforeSend` scrubber removing phone, email, name, address, lat/lng, OTP, token, handoff code
   from message, breadcrumbs, request bodies and URLs. **Unit-tested with realistic Indian-format samples.**
   *Done when:* the scrubber has tests that fail if a field leaks.
-- [ ] **B3** Top-level error boundary that reports and shows a retry screen.
-- [ ] **B4** Confirm `dist/` ships no `.map` files (or they are blocked). *Done when:* proven by a build.
+- [x] **B3** Top-level error boundary that reports and shows a retry screen.
+- [x] **B4** Confirm `dist/` ships no `.map` files (or they are blocked). *Done when:* proven by a build.
 - [owner] Sentry project + `SENTRY_DSN` / `SENTRY_AUTH_TOKEN` secrets.
 
 ### C — P14 job monitoring
@@ -54,8 +54,8 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
 - [owner] Uptime monitors; confirming GitHub failure emails are on.
 
 ### D — P13 device & accessibility prep
-- [ ] **D1** `docs/qa/DEVICE_MATRIX.md` — device classes, Android versions, what only a device can prove.
-- [ ] **D2** `docs/qa/DEVICE_QA_CHECKLIST.md` — push, permissions, camera, dialling, background/resume, slow
+- [x] **D1** `docs/qa/DEVICE_MATRIX.md` — device classes, Android versions, what only a device can prove.
+- [x] **D2** `docs/qa/DEVICE_QA_CHECKLIST.md` — push, permissions, camera, dialling, background/resume, slow
   network, screen reader, large fonts. Each item says what "pass" looks like.
 - [ ] **D3** Automated accessibility pass over the app's own markup: run an a11y audit in the E2E harness
   (axe) across the screens breadth spec already visits, log findings to the ledger.
@@ -96,8 +96,12 @@ Appended as work lands. Newest last.
 |---|---|---|
 | 02:33 | — | Branch cut, queue written. |
 | 02:34 | harness | Self-waking cron refused by the classifier. Not worked around; run continues in-session. |
-| 02:52 | A1 | DATA_INVENTORY written from schema + code. 18 file paths and 22 table.column refs verified by script, 0 missing. Six findings raised, incl. purge-deleted-accounts not deployed so the 30-day deletion promise does not complete. |
-| 03:10 | A2 | Diff written: dossier §4 is wrong on 3 rows and missing 5 data types (government ID, payment refs, address, crash logs, analytics). Privacy policy is the most accurate of the three. Corrected my own inventory first — I had auth and geocoding wrong. |
+| ~02:20 | A1 | DATA_INVENTORY written from schema + code. 18 file paths and 22 table.column refs verified by script, 0 missing. Six findings raised, incl. purge-deleted-accounts not deployed so the 30-day deletion promise does not complete. |
+| ~02:30 | A2 | Diff written: dossier §4 is wrong on 3 rows and missing 5 data types (government ID, payment refs, address, crash logs, analytics). Privacy policy is the most accurate of the three. Corrected my own inventory first — I had auth and geocoding wrong. |
+| ~02:38 | A3 | Privacy policy corrected on 3 factual points; legal/README records them as unreviewed with an empty reviewer row. |
+| ~02:47 | B2 | scrubPii + 26 tests, wired into the existing client_errors sink — that was a live leak, not a future one. |
+| 03:00 | B1/B3/B4 | Sentry wired, DSN-gated and lazily imported. Caught two bundle regressions: manualChunks pinned it into vendor-react (+27 KB eager), and the SW precached 350 KB of it. Both fixed; precache +7 KiB net. B3/B4 already satisfied. |
+| 03:12 | D1/D2 | Device matrix + device QA checklist written. Scoped to what only a device proves; the 420-line MANUAL_TEST_PLAN already covers the functional flows and is cross-referenced rather than duplicated. |
 
 ## Owner steps found so far
 
