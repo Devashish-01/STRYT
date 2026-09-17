@@ -18,9 +18,9 @@ who can read it, and what removes it. The DPDP Act / IT Rules judgement is the o
 | Play category | Collected | Shared with third parties | Optional | Deletable in-app |
 |---|---|---|---|---|
 | Name | Yes — `users.name`, plus an `alias` | No | Real name optional; alias auto-suggested | Yes (account deletion) |
-| Email | Yes — `users.email`, `businesses.email`, `providers.email`, `support_tickets.email` | No | Yes | Yes |
-| Phone | Yes — `users.phone` (sign-in identifier) | **Yes** — Twilio/MessageCentral for OTP delivery | No (it is the login) | Yes |
-| Precise location | Yes — `users.lat/lng`, `live_shares.lat/lng`, `appointment_deliveries.lat/lng` | **Yes** — Nominatim (reverse geocode), map tile hosts | Yes (guest browsing works without) | Yes |
+| Email | Yes — `users.email`, `businesses.email`, `providers.email`, `support_tickets.email` | **Yes** — Google/Firebase Authentication supplies it at sign-in | **No** — Google is the only sign-in the UI offers, and it supplies the email | Yes |
+| Phone | Yes — `users.phone` | Only if the phone-OTP route is used (OTP delivery provider) | **Yes** in the shipped UI — see §2.1 | Yes |
+| Precise location | Yes — `users.lat/lng`, `live_shares.lat/lng`, `appointment_deliveries.lat/lng` | **Yes** — Mapbox (geocoding), Nominatim (fallback), map tile hosts, and other users for a live share | Yes (guest browsing works without) | Yes |
 | Approximate location | Yes — `businesses.lat/lng`, `providers.lat/lng`, `places.lat/lng` | Same as above | For a listing, no | With the listing |
 | Photos | Yes — `uploads` bucket; `appointments.photo_url`, `messages.image_url`, `stories.image_url` | No | Yes | Yes |
 | Messages | Yes — `messages`, `post_comments` | No | Yes | Yes |
@@ -39,11 +39,21 @@ who can read it, and what removes it. The DPDP Act / IT Rules judgement is the o
 
 | Field | Collected at | Stored in | Who can read | Optional |
 |---|---|---|---|---|
-| Phone | `src/screens/auth/` OTP flow | `users.phone`, `auth.users` | The user; admins | No — it is the sign-in identifier |
+| Phone | `src/screens/auth/OtpVerify.tsx` (route reachable, button hidden) | `users.phone`, `auth.users` | The user; admins | **Yes** — see the note below |
 | Real name | Onboarding, `src/screens/settings/` | `users.name` | Per `users.show_name_publicly`; otherwise the alias is shown | Yes |
 | Alias | Auto-suggested, `src/lib/aliasSuggest.ts` | `users.alias` | Everyone | No (generated) |
 | Email | Settings; support | `users.email`, `support_tickets.email` | Per `users.show_email_publicly` | Yes |
 | Avatar | Settings | `users.avatar` → `uploads` bucket | Everyone | Yes |
+
+**Sign-in is Google-only in the shipped UI.** `src/screens/auth/PhoneEntry.tsx` says so in a comment —
+"Number/email login is hidden for the live launch — Google is the only sign-in method until phone/email OTP
+is reintroduced" — and only `handleGoogleLogin` is wired. So **email is required** (Google supplies it) and
+**phone is optional**. Two consequences worth carrying into the declaration:
+
+- **Google / Firebase Authentication is a third party in the identity path**, via `signInWithIdToken`
+  (`src/services/core/authService.ts`). It is in the privacy policy §8.2 but not in the dossier's table.
+- `/auth/otp` **is still routed** (`src/App.tsx:571`), so phone sign-in remains reachable by direct URL even
+  though nothing links to it — that is how the E2E personas sign in. It is live but unadvertised, not gone.
 
 The alias/real-name split is the privacy model: `src/lib/publicName.ts` `aliasName()` resolves which one a
 viewer sees, and real names surface only inside an active relationship. This is worth stating in the privacy
@@ -60,8 +70,9 @@ policy because it is stronger than what the policy currently claims.
 | Delivery position | Delivery console | `appointment_deliveries.lat/lng`, `delivery_batches.lat/lng` | With the delivery record |
 | Saved searches | `discoveryService` | `saved_searches.lat/lng` | Until deleted |
 
-**Third parties in the location path:** `nominatim.openstreetmap.org` for reverse geocoding
-(`src/lib/geocode.ts`), and map tile hosts — `tiles.openfreemap.org`, CARTO, and `api.mapbox.com` when a
+**Third parties in the location path:** **Mapbox is the primary geocoder** — `mapboxReverse()` and the
+forward place search in `src/lib/geocode.ts` both call `api.mapbox.com`, with
+`nominatim.openstreetmap.org` as the fallback. Plus map tile hosts — `tiles.openfreemap.org`, CARTO, and `api.mapbox.com` when a
 Mapbox token is configured (`src/screens/MapView/mapboxFallback.ts`). A tile request reveals the viewport to
 the tile host. `overpass-api.de` is also called for place data.
 
@@ -143,9 +154,11 @@ declaration risk: the Play listing and the privacy policy both promise deletion.
 |---|---|---|
 | Supabase | Everything — it is the database, auth and storage | — |
 | Firebase Cloud Messaging | Push token + notification payload | `src/lib/pushNotifications.ts`, `supabase/functions/send-push` |
-| Twilio / MessageCentral | Phone number, for OTP delivery | Supabase Auth provider |
+| OTP delivery provider (Twilio / MessageCentral) | Phone number — **only on the unadvertised `/auth/otp` route** | Supabase Auth provider |
 | Vercel | Page views, Web Vitals, IP-derived coarse geography | `src/main.tsx` |
-| Nominatim (OSM) | Latitude/longitude for reverse geocoding | `src/lib/geocode.ts` |
+| Google / Firebase Auth | Google account identity; supplies the email at sign-in | `src/services/core/authService.ts` |
+| Mapbox | Coordinates (reverse geocode) and typed place queries (forward search) | `src/lib/geocode.ts` |
+| Nominatim (OSM) | The same, as fallback when Mapbox is unavailable | `src/lib/geocode.ts` |
 | OpenFreeMap / CARTO / Mapbox | Viewport tile requests | `src/screens/MapView/` |
 | Overpass API | Place queries | place lookup |
 | Google Maps | Only as an outbound link (directions); no data pushed | `src/lib/openExternal.ts` call sites |
