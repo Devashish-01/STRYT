@@ -1,26 +1,38 @@
-// STRYT — classify-report edge function
+// STRYT — moderation edge function
 //
-// Triage for user reports against community posts and comments. One TypeSafe request asks Jev several narrow
-// questions about the reported content at once; explicit code below turns the typed answers into a priority for
-// the moderation queue. Advisory only: it never hides, deletes or dismisses anything — a moderator decides.
+// Two jobs, one TypeSafe (Jev) node. Both ask several narrow questions in one request and let explicit code below
+// decide what to do with the typed answers.
 //
-//   POST { reportId }  with an admin's bearer token  ->  { ok: true, triage }
+//   1. The automatic check (from the database). Every new or edited community post and comment is queued here by
+//      a trigger (migration 20260990) while moderation_settings.content_check_enabled is on:
+//        POST { action: "check_content", targetType: "POST" | "COMMENT", targetId }   apikey: <secret key>
+//      A clear violation is hidden at once and filed for a moderator; a borderline one is only filed. Possible
+//      self-harm is filed as "reach out" and never hidden on that alone.
+//
+//   2. Report triage (from an admin). A priority for a user report in the moderation queue:
+//        POST { action: "classify_report", reportId }   Authorization: Bearer <admin's token>
+//      Advisory only.
+//
+// Neither removes anything: a moderator removes or restores (admin_moderation_remove / admin_moderation_restore).
+//
+// Deploy with verify_jwt = false (supabase/config.toml): the trigger sends the secret key, which is not a JWT. Each
+// path checks its caller itself — the secret key for the first, an admin's session for the second.
 //
 // Secrets:
-//   TYPESAFE_API_KEY  required. Without it the function answers 503 and sends nothing anywhere.
-//   TYPESAFE_MODEL    optional. Defaults to the Jev version the thresholds in POLICY were written against.
+//   TYPESAFE_API_KEY  required. Without it both paths answer 503 and send nothing anywhere.
+//   TYPESAFE_MODEL    optional. Defaults to the Jev version the thresholds were written against.
 // Auto-injected:
 //   SUPABASE_URL, SUPABASE_SECRET_KEYS
 //
-// Privacy: the reported text leaves our servers for TypeSafe (a processor). Phone numbers, emails, ID numbers
-// and UPI handles are masked first, and nothing identifying the reporter or the author is sent. Name TypeSafe in
-// the privacy policy before enabling this in production.
+// Privacy: post and comment text leaves our servers for TypeSafe (a processor). Phone numbers, emails, ID numbers
+// and UPI handles are masked first, and nothing identifying the author or a reporter is sent. Name TypeSafe in the
+// privacy policy before enabling this in production.
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 // >>> report-classifier
 // The classification node. Pure: no Deno, no Supabase — `fetch` is passed in — so tests/report-classifier.test.ts
-// and scripts/eval-report-classifier.mjs run exactly this code.
+// and scripts/eval-moderation.mjs run exactly this code.
 
 /** What the node classifies: user-written community content. Other report targets need different questions. */
 const CLASSIFIABLE = ["POST", "COMMENT"];
@@ -81,6 +93,8 @@ function clip(text: string | null | undefined): string {
 
 const CATEGORIES = [
   "none", "spam", "scam", "harassment", "sexual", "dangerous", "private_info", "false_info", "wrong_place",
+  // Offered only by the automatic check (CONTENT_QUESTIONS); the report questions do not include it.
+  "graphic",
 ] as const;
 type Category = (typeof CATEGORIES)[number];
 
@@ -156,8 +170,59 @@ const QUESTIONS = {
   },
 };
 
+// ── The automatic check ──────────────────────────────────────────────────────────────────────────────────────
+// Every new or edited post and comment, queued by a database trigger (20260990). The report questions, asked of
+// `content` instead of `reported_content`, plus two a report does not need: graphic content, and abusive language —
+// which here is often Hindi or Hinglish.
+
+/** What the automatic check reads. */
+interface ContentInput {
+  kind: "POST" | "COMMENT";
+  /** The community post type — for a comment, the type of the post it is on. */
+  postType: string | null;
+  /** The post title — for a comment, the title of the post it is on. */
+  title: string | null;
+  /** The post's body, or the comment. */
+  text: string;
+}
+
+/** A report question, asked about `content` instead. */
+function aboutContent<T extends { instructions: string }>(q: T): T {
+  return { ...q, instructions: q.instructions.split("`reported_content`").join("`content`") };
+}
+
+const CONTENT_QUESTIONS = {
+  category: {
+    type: "choice",
+    instructions:
+      "Which description best fits `content`? Most posts and comments in a neighbourhood app are ordinary; answer none unless something is clearly wrong.",
+    criteria: {
+      ...QUESTIONS.category.criteria,
+      none: "Nothing is wrong: an ordinary post or comment for a neighbourhood community, including complaints, strong opinions and disagreements.",
+      graphic: "Describes gore, injury, cruelty or disgusting things in graphic detail, to shock or disgust.",
+    },
+  },
+  severity: aboutContent(QUESTIONS.severity),
+  threat: aboutContent(QUESTIONS.threat),
+  self_harm: aboutContent(QUESTIONS.self_harm),
+  money_or_credentials: aboutContent(QUESTIONS.money_or_credentials),
+  exposes_someone: aboutContent(QUESTIONS.exposes_someone),
+  abusive_language: {
+    type: "noul",
+    instructions: "Does `content` use swear words, slurs or vulgar insults, in any language, including Hindi or Hinglish?",
+    criteria: {
+      true: "It uses abusive, obscene or vulgar words, even as a joke.",
+      false: "It uses none. Anger, criticism and complaints in clean words do not count.",
+    },
+  },
+};
+
 /** Pinned: the thresholds in POLICY are written against one model version. Re-check them before moving it. */
 const DEFAULT_MODEL = "jev-1.13.0";
+
+/** Context for every question: where this text was written. */
+const APP_CONTEXT =
+  "STRYT, a neighbourhood app in India. People post to their local community (lost and found, safety alerts, recommendations, giveaways, polls, shout-outs) and comment on each other's posts.";
 
 function buildRequest(input: ReportInput, model: string = DEFAULT_MODEL) {
   const postType = input.postType ? (POST_TYPE_LABELS[input.postType] ?? input.postType) : null;
@@ -167,7 +232,7 @@ function buildRequest(input: ReportInput, model: string = DEFAULT_MODEL) {
   return {
     model,
     state: {
-      app: "STRYT, a neighbourhood app in India. People post to their local community (lost and found, safety alerts, recommendations, giveaways, polls, shout-outs) and comment on each other's posts.",
+      app: APP_CONTEXT,
       reported_content,
       report: {
         reason: REASON_LABELS[input.reason] ?? REASON_LABELS.OTHER,
@@ -183,7 +248,7 @@ function buildRequest(input: ReportInput, model: string = DEFAULT_MODEL) {
  *
  * Starting points only: flag 0.70 to act and 0.35 to review, and severity 2 as serious, come from TypeSafe's
  * guardrails cookbook — not from STRYT data, which had two reports in total on 18 Sept 2026. Re-set them with
- * scripts/eval-report-classifier.mjs once moderators have labelled real reports.
+ * scripts/eval-moderation.mjs once moderators have labelled real reports.
  */
 const POLICY = {
   /** Any flag at or above this makes a report urgent. */
@@ -243,7 +308,17 @@ function num(v: unknown): v is number {
 }
 
 /** Validates the answers against the questions asked. Anything missing or malformed is an error, never a default. */
-function readAnswers(response: unknown): Judgments {
+type TypedAnswers = {
+  category: Judgments["category"];
+  severity: Judgments["severity"];
+  nouls: Record<string, number>;
+};
+
+/**
+ * Validates the answers against the questions asked. Anything missing or malformed is an error, never a default.
+ * `categories` is what the Choice offered, so an answer outside it is rejected too.
+ */
+function readTyped(response: unknown, nouls: readonly string[], categories: readonly string[]): TypedAnswers {
   const answers = (response as { answers?: Record<string, Record<string, unknown>> } | null)?.answers;
   if (!answers || typeof answers !== "object") throw new Error("TypeSafe response has no answers");
   const get = (id: string, type: string) => {
@@ -253,21 +328,19 @@ function readAnswers(response: unknown): Judgments {
   };
 
   const c = get("category", "choice");
-  if (!CATEGORIES.includes(c.choice as Category) || !num(c.confidence) || typeof c.probabilities !== "object") {
+  if (!categories.includes(c.choice as string) || !num(c.confidence) || typeof c.probabilities !== "object") {
     throw new Error(`TypeSafe answer "category" is malformed`);
   }
   const s = get("severity", "score");
   if (!num(s.score) || s.score > 3 || !num(s.confidence) || typeof s.probabilities !== "object") {
     throw new Error(`TypeSafe answer "severity" is malformed`);
   }
-  const noul = (id: string) => {
+  const values: Record<string, number> = {};
+  for (const id of nouls) {
     const v = get(id, "noul").noul;
     if (!num(v) || v > 1) throw new Error(`TypeSafe answer "${id}" is malformed`);
-    return v;
-  };
-
-  const flags = {} as Record<Flag, number>;
-  for (const f of FLAGS) flags[f] = noul(f);
+    values[id] = v;
+  }
   return {
     category: {
       choice: c.choice as Category,
@@ -279,9 +352,16 @@ function readAnswers(response: unknown): Judgments {
       confidence: s.confidence as number,
       probabilities: s.probabilities as Record<string, number>,
     },
-    flags,
-    reportSupported: noul("report_supported"),
+    nouls: values,
   };
+}
+
+/** A report's answers. */
+function readAnswers(response: unknown): Judgments {
+  const a = readTyped(response, [...FLAGS, "report_supported"], Object.keys(QUESTIONS.category.criteria));
+  const flags = {} as Record<Flag, number>;
+  for (const f of FLAGS) flags[f] = a.nouls[f];
+  return { category: a.category, severity: a.severity, flags, reportSupported: a.nouls.report_supported };
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -387,6 +467,124 @@ async function classifyReport(
   const usage = (response as { usage?: ReportTriage["usage"] }).usage;
   return usage ? { ...triage, usage } : triage;
 }
+
+function buildContentRequest(input: ContentInput, model: string = DEFAULT_MODEL) {
+  const postType = input.postType ? (POST_TYPE_LABELS[input.postType] ?? input.postType) : null;
+  const content = input.kind === "POST"
+    ? { kind: "community post", post_type: postType, title: clip(input.title), text: clip(input.text) }
+    : { kind: "comment on a community post", text: clip(input.text), on_post: { post_type: postType, title: clip(input.title) } };
+  return { model, state: { app: APP_CONTEXT, content }, questions: CONTENT_QUESTIONS };
+}
+
+const CONTENT_NOULS = [...FLAGS, "abusive_language"] as const;
+
+/**
+ * What the automatic check does with its answers. Hiding someone's post before a person has looked is a stronger
+ * act than ordering a queue, so the bar to hide is higher than the bar to ask a moderator.
+ *
+ * Starting points, like POLICY — re-set them with scripts/eval-moderation.mjs on labelled posts.
+ */
+const CONTENT_POLICY = {
+  /** threat, money_or_credentials or exposes_someone at or above this: hide. */
+  hideFlag: 0.7,
+  /** abusive_language at or above this: hide. */
+  hideAbusive: 0.8,
+  /** One of these categories, this confident, at this severity or more: hide. */
+  hideCategories: ["scam", "harassment", "sexual", "dangerous", "private_info", "graphic"] as readonly string[],
+  hideCategoryConfidence: 0.8,
+  hideSeverity: 2,
+  /** Otherwise any flag at or above this, or severity at or above reviewSeverity: a moderator looks, nothing hides. */
+  reviewFlag: 0.5,
+  reviewSeverity: 1.5,
+  /** Or a confident label that something is wrong, however mild: a moderator looks. */
+  reviewCategoryConfidence: 0.8,
+  /** self_harm at or above this: a moderator reaches out. Never hidden on this alone — neighbours may be the help. */
+  support: 0.35,
+};
+
+type ContentAction = "hide" | "review" | "pass";
+
+interface ContentVerdict {
+  action: ContentAction;
+  /** Possible self-harm: reach out. */
+  support: boolean;
+  category: Category | "uncertain";
+  categoryConfidence: number;
+  severity: number;
+  /** Flags (and abusive_language) at or above CONTENT_POLICY.reviewFlag, strongest first. */
+  flags: string[];
+  reasons: string[];
+  model: string;
+  judgments: TypedAnswers;
+  usage?: { input_tokens: number; output_tokens: number };
+}
+
+function decideContent(a: TypedAnswers, model: string, policy = CONTENT_POLICY): ContentVerdict {
+  const reasons: string[] = [];
+  const cat = a.category.choice;
+  const conf = a.category.confidence;
+  const sev = a.severity.score;
+  const support = a.nouls.self_harm >= policy.support;
+
+  const strong = FLAGS.filter((f) => f !== "self_harm" && a.nouls[f] >= policy.hideFlag);
+  for (const f of strong) reasons.push(`${f} ${r2(a.nouls[f])} ≥ ${policy.hideFlag}`);
+  const abusive = a.nouls.abusive_language >= policy.hideAbusive;
+  if (abusive) reasons.push(`abusive_language ${r2(a.nouls.abusive_language)} ≥ ${policy.hideAbusive}`);
+  // A cry for help is labelled "dangerous" too; it is not hidden on the category alone.
+  const categoryHide = !support && policy.hideCategories.includes(cat) &&
+    conf >= policy.hideCategoryConfidence && sev >= policy.hideSeverity;
+  if (categoryHide) reasons.push(`${cat} at confidence ${r2(conf)}, severity ${r2(sev)}`);
+
+  let action: ContentAction;
+  if (strong.length > 0 || abusive || categoryHide) {
+    action = "hide";
+  } else {
+    const soft = CONTENT_NOULS.filter((f) => f !== "self_harm" && a.nouls[f] >= policy.reviewFlag);
+    for (const f of soft) reasons.push(`${f} ${r2(a.nouls[f])} ≥ ${policy.reviewFlag}`);
+    if (sev >= policy.reviewSeverity) reasons.push(`severity ${r2(sev)} ≥ ${policy.reviewSeverity}`);
+    // wrong_place is a filing problem, not a moderation one.
+    const labelled = cat !== "none" && cat !== "wrong_place" && conf >= policy.reviewCategoryConfidence;
+    if (labelled) reasons.push(`${cat} at confidence ${r2(conf)}`);
+    if (support) reasons.push(`self_harm ${r2(a.nouls.self_harm)} ≥ ${policy.support}: reach out`);
+    action = soft.length > 0 || sev >= policy.reviewSeverity || labelled || support ? "review" : "pass";
+  }
+
+  const flags = CONTENT_NOULS
+    .filter((f) => a.nouls[f] >= policy.reviewFlag)
+    .sort((x, y) => a.nouls[y] - a.nouls[x]);
+  return {
+    action,
+    support,
+    category: conf >= POLICY.categoryConfidence ? cat : "uncertain",
+    categoryConfidence: r2(conf),
+    severity: r2(sev),
+    flags,
+    reasons,
+    model,
+    judgments: a,
+  };
+}
+
+/** The automatic check: a post or comment in, a verdict out. Throws rather than guessing. */
+async function classifyContent(
+  input: ContentInput,
+  opts: CallOptions & { model?: string },
+): Promise<ContentVerdict> {
+  const request = buildContentRequest(input, opts.model ?? DEFAULT_MODEL);
+  const response = await callTypeSafe(request, opts);
+  const categories = Object.keys(CONTENT_QUESTIONS.category.criteria);
+  const verdict = decideContent(readTyped(response, CONTENT_NOULS, categories), request.model);
+  const usage = (response as { usage?: ContentVerdict["usage"] }).usage;
+  return usage ? { ...verdict, usage } : verdict;
+}
+
+/** One line for the moderator's queue, in the words they act on. */
+function verdictSummary(v: ContentVerdict): string {
+  const what = v.action === "hide" ? "Hidden by the automatic check" : "Flagged by the automatic check";
+  const label = v.category === "uncertain" ? "unclear category" : v.category.replace(/_/g, " ");
+  const help = v.support ? " Possible self-harm: reach out to the author, do not only remove." : "";
+  return `${what}: ${label}, severity ${v.severity}/3. ${v.reasons.join("; ")}.${help}`;
+}
 // <<< report-classifier
 
 /**
@@ -422,6 +620,121 @@ function corsHeaders(req: Request): Record<string, string> {
   };
 }
 
+/**
+ * Whether the caller is our own database trigger. It sends the project's secret key on `apikey` (see 20260883 for
+ * why never on Authorization). Same check as send-push; with verify_jwt off, this is the boundary for that path.
+ */
+function isInternalCall(req: Request): boolean {
+  const key = secretKey();
+  if (!key) return false;
+  const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer /, "");
+  return req.headers.get("apikey") === key || bearer === key;
+}
+
+// deno-lint-ignore no-explicit-any
+type Admin = any;
+
+/** The automatic check for one post or comment: hide it and/or file it for a moderator, per the verdict. */
+async function checkContent(sb: Admin, apiKey: string, targetType: string, targetId: string) {
+  let input: ContentInput;
+  let hidden: string | null;
+  let name: string;
+  if (targetType === "POST") {
+    const { data: post, error } = await sb
+      .from("community_posts").select("title, body, type, hidden_at").eq("id", targetId).maybeSingle();
+    if (error) throw error;
+    if (!post) return { ok: true, skipped: "gone" };
+    input = { kind: "POST", postType: post.type, title: post.title, text: post.body ?? "" };
+    hidden = post.hidden_at;
+    name = post.title || "a post";
+  } else {
+    const { data: comment, error } = await sb
+      .from("post_comments").select("body, post_id, hidden_at").eq("id", targetId).maybeSingle();
+    if (error) throw error;
+    if (!comment) return { ok: true, skipped: "gone" };
+    const { data: post } = await sb
+      .from("community_posts").select("title, type").eq("id", comment.post_id).maybeSingle();
+    input = { kind: "COMMENT", postType: post?.type ?? null, title: post?.title ?? null, text: comment.body };
+    hidden = comment.hidden_at;
+    name = `a comment on ${post?.title ? `"${post.title}"` : "a post"}`;
+  }
+
+  const verdict = await classifyContent(input, {
+    apiKey,
+    fetch,
+    model: Deno.env.get("TYPESAFE_MODEL") || undefined,
+  });
+  if (verdict.action === "pass") return { ok: true, verdict };
+
+  if (verdict.action === "hide" && !hidden) {
+    const table = targetType === "POST" ? "community_posts" : "post_comments";
+    const { error } = await sb.from(table)
+      .update({ hidden_at: new Date().toISOString(), hidden_reason: "AUTO_CHECK" })
+      .eq("id", targetId).is("hidden_at", null);
+    if (error) throw error;
+  }
+
+  // One open automatic report per item: an edit that is flagged again does not add a second.
+  const { data: open, error: openError } = await sb
+    .from("reports").select("id")
+    .eq("target_type", targetType).eq("target_id", targetId).eq("reason", "AUTO_CHECK")
+    .in("status", ["OPEN", "REVIEWING"]).limit(1);
+  if (openError) throw openError;
+  if (!open || open.length === 0) {
+    const { error } = await sb.from("reports").insert({
+      target_type: targetType,
+      target_id: targetId,
+      target_name: name.slice(0, 200),
+      reason: "AUTO_CHECK",
+      details: verdictSummary(verdict),
+      reporter_user_id: null,
+    });
+    if (error) throw error;
+  }
+  return { ok: true, verdict };
+}
+
+/** Advisory triage for one user report, for the moderator's queue. */
+async function triageReport(sb: Admin, apiKey: string, reportId: string) {
+  const { data: report, error: reportError } = await sb
+    .from("reports")
+    .select("id, target_type, target_id, reason, details")
+    .eq("id", reportId)
+    .maybeSingle();
+  if (reportError) throw reportError;
+  if (!report) return { status: 404, body: { ok: false, message: "Report not found" } };
+  if (!CLASSIFIABLE.includes(report.target_type)) {
+    return {
+      status: 422,
+      body: { ok: false, message: `Only reports on community posts and comments are classified, not ${report.target_type}` },
+    };
+  }
+
+  let input: ReportInput;
+  if (report.target_type === "POST") {
+    const { data: post, error } = await sb
+      .from("community_posts").select("title, body, type").eq("id", report.target_id).maybeSingle();
+    if (error) throw error;
+    if (!post) return { status: 404, body: { ok: false, message: "The reported post no longer exists" } };
+    input = { kind: "POST", reason: report.reason, details: report.details ?? "", postType: post.type, title: post.title, text: post.body ?? "" };
+  } else {
+    const { data: comment, error } = await sb
+      .from("post_comments").select("body, post_id").eq("id", report.target_id).maybeSingle();
+    if (error) throw error;
+    if (!comment) return { status: 404, body: { ok: false, message: "The reported comment no longer exists" } };
+    const { data: post } = await sb
+      .from("community_posts").select("title, type").eq("id", comment.post_id).maybeSingle();
+    input = { kind: "COMMENT", reason: report.reason, details: report.details ?? "", postType: post?.type ?? null, title: post?.title ?? null, text: comment.body };
+  }
+
+  const triage = await classifyReport(input, {
+    apiKey,
+    fetch,
+    model: Deno.env.get("TYPESAFE_MODEL") || undefined,
+  });
+  return { status: 200, body: { ok: true, reportId, triage } };
+}
+
 serve(async (req) => {
   const CORS = corsHeaders(req);
   const reply = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: CORS });
@@ -429,10 +742,24 @@ serve(async (req) => {
   if (req.method !== "POST") return reply({ ok: false, message: "Method not allowed" }, 405);
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const sb = createClient(Deno.env.get("SUPABASE_URL")!, secretKey());
+    const apiKey = Deno.env.get("TYPESAFE_API_KEY") ?? "";
+
+    // ── From the database trigger: check one new or edited post or comment ──
+    if (isInternalCall(req)) {
+      if (body.action !== "check_content") return reply({ ok: false, message: "Unknown action" }, 400);
+      if (!apiKey) return reply({ ok: false, message: "Content check is not configured (TYPESAFE_API_KEY)" }, 503);
+      const { targetType, targetId } = body;
+      if (!CLASSIFIABLE.includes(targetType) || typeof targetId !== "string" || !targetId || targetId.length > 100) {
+        return reply({ ok: false, message: "targetType POST or COMMENT and targetId are required" }, 400);
+      }
+      return reply(await checkContent(sb, apiKey, targetType, targetId));
+    }
+
+    // ── From an admin: triage a user report ──
     const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
     if (!token) return reply({ ok: false, message: "Missing authorization header" }, 401);
-
-    const sb = createClient(Deno.env.get("SUPABASE_URL")!, secretKey());
     const { data: { user }, error: authError } = await sb.auth.getUser(token);
     if (authError || !user) return reply({ ok: false, message: "Invalid or expired token" }, 401);
 
@@ -442,51 +769,19 @@ serve(async (req) => {
     if (!roles.includes("admin") && !roles.includes("super_admin")) {
       return reply({ ok: false, message: "Forbidden: Admin privileges required" }, 403);
     }
-
-    const apiKey = Deno.env.get("TYPESAFE_API_KEY") ?? "";
     if (!apiKey) return reply({ ok: false, message: "Report classification is not configured (TYPESAFE_API_KEY)" }, 503);
 
-    const { reportId } = await req.json().catch(() => ({}));
+    const action = body.action ?? "classify_report";
+    if (action !== "classify_report") return reply({ ok: false, message: "Unknown action" }, 400);
+    const { reportId } = body;
     if (typeof reportId !== "string" || reportId.length === 0 || reportId.length > 100) {
       return reply({ ok: false, message: "reportId is required" }, 400);
     }
-
-    const { data: report, error: reportError } = await sb
-      .from("reports")
-      .select("id, target_type, target_id, reason, details")
-      .eq("id", reportId)
-      .maybeSingle();
-    if (reportError) throw reportError;
-    if (!report) return reply({ ok: false, message: "Report not found" }, 404);
-    if (!CLASSIFIABLE.includes(report.target_type)) {
-      return reply({ ok: false, message: `Only reports on community posts and comments are classified, not ${report.target_type}` }, 422);
-    }
-
-    let input: ReportInput;
-    if (report.target_type === "POST") {
-      const { data: post, error } = await sb
-        .from("community_posts").select("title, body, type").eq("id", report.target_id).maybeSingle();
-      if (error) throw error;
-      if (!post) return reply({ ok: false, message: "The reported post no longer exists" }, 404);
-      input = { kind: "POST", reason: report.reason, details: report.details ?? "", postType: post.type, title: post.title, text: post.body ?? "" };
-    } else {
-      const { data: comment, error } = await sb
-        .from("post_comments").select("body, post_id").eq("id", report.target_id).maybeSingle();
-      if (error) throw error;
-      if (!comment) return reply({ ok: false, message: "The reported comment no longer exists" }, 404);
-      const { data: post } = await sb
-        .from("community_posts").select("title, type").eq("id", comment.post_id).maybeSingle();
-      input = { kind: "COMMENT", reason: report.reason, details: report.details ?? "", postType: post?.type ?? null, title: post?.title ?? null, text: comment.body };
-    }
-
-    const triage = await classifyReport(input, {
-      apiKey,
-      fetch,
-      model: Deno.env.get("TYPESAFE_MODEL") || undefined,
-    });
-    return reply({ ok: true, reportId, triage });
+    const result = await triageReport(sb, apiKey, reportId);
+    return reply(result.body, result.status);
   } catch (e) {
-    console.error("classify-report failed:", e instanceof Error ? e.message : e);
-    return reply({ ok: false, message: e instanceof Error ? e.message : "Classification failed" }, 502);
+    const message = e instanceof Error ? e.message : (e as { message?: string })?.message ?? "Moderation failed";
+    console.error("moderation failed:", message);
+    return reply({ ok: false, message }, 502);
   }
 });

@@ -18,6 +18,7 @@ import ListingPickerSheet from "../ListingPickerSheet";
 import ShareCard from "../ShareCard";
 import ReportSheet from "../ReportSheet";
 import { errorMessage } from "@/lib/errorMessage";
+import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
 
 export function CommunityCard({ post, onRefetch, onHide, onMute }: {
   post: CommunityPost;
@@ -249,6 +250,7 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
               )}
             </div>
             <span className="tiny muted row gap-4 center-v" style={{ marginTop: 3, fontSize: 12 }}><MapPin size={11} /> {post.area} • {post.postedAt}</span>
+            {post.hiddenAt && <UnderReviewNotice kind="post" />}
           </div>
         </button>
 

@@ -8,10 +8,10 @@ import { transformSync } from "esbuild";
  *
  * What these can prove: the request is well-formed and private, the answers are validated, the policy maps
  * judgments to priorities as documented, and failures are loud. What they cannot prove is that Jev's judgments
- * are right for STRYT's reports — that is scripts/eval-report-classifier.mjs, against the live API.
+ * are right for STRYT's reports — that is scripts/eval-moderation.mjs, against the live API.
  */
 
-const FILE = "supabase/functions/classify-report/index.ts";
+const FILE = "supabase/functions/moderation/index.ts";
 const START = "// >>> report-classifier";
 const END = "// <<< report-classifier";
 
@@ -32,6 +32,17 @@ type Node = {
   classifyReport: (input: Input, opts: any) => Promise<Triage>;
   POLICY: Record<string, number>;
   DEFAULT_MODEL: string;
+  buildContentRequest: (input: ContentIn, model?: string) => { model: string; state: any; questions: Record<string, any> };
+  readTyped: (r: unknown, nouls: readonly string[], categories: readonly string[]) => any;
+  decideContent: (a: any, model: string) => Verdict;
+  classifyContent: (input: ContentIn, opts: any) => Promise<Verdict>;
+  verdictSummary: (v: Verdict) => string;
+  CONTENT_NOULS: readonly string[];
+};
+type ContentIn = { kind: "POST" | "COMMENT"; postType: string | null; title: string | null; text: string };
+type Verdict = {
+  action: "hide" | "review" | "pass"; support: boolean; category: string; categoryConfidence: number;
+  severity: number; flags: string[]; reasons: string[]; model: string; usage?: unknown;
 };
 type Input = { kind: "POST" | "COMMENT"; reason: string; details: string; postType: string | null; title: string | null; text: string };
 type Triage = {
@@ -41,7 +52,8 @@ type Triage = {
 
 const node: Node = new Function(
   `${transformSync(block(), { loader: "ts" }).code}
-  return { maskPersonalData, buildRequest, readAnswers, decide, callTypeSafe, classifyReport, POLICY, DEFAULT_MODEL };`,
+  return { maskPersonalData, buildRequest, readAnswers, decide, callTypeSafe, classifyReport, POLICY, DEFAULT_MODEL,
+    buildContentRequest, readTyped, decideContent, classifyContent, verdictSummary, CONTENT_NOULS };`,
 )();
 
 const post = (text: string, extra: Partial<Input> = {}): Input => ({
@@ -307,5 +319,132 @@ describe("the node end to end, against a fake API", () => {
   it("fails loudly on a malformed response instead of guessing a priority", async () => {
     const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ answers: {} })));
     await expect(node.classifyReport(post("x"), { apiKey: "k", fetch })).rejects.toThrow(/TypeSafe/);
+  });
+});
+
+// ── The automatic check (every new or edited post and comment) ────────────────────────────────────────────────
+
+const contentPost = (text: string): ContentIn => ({ kind: "POST", postType: "SHOUTOUT", title: "Hello", text });
+
+/** A well-formed automatic-check response; override any answer. */
+function contentResponse(over: Record<string, unknown> = {}) {
+  const base = response().answers as Record<string, unknown>;
+  delete base.report_supported;
+  return {
+    model: "jev-1.13.0",
+    answers: { ...base, abusive_language: { type: "noul", noul: 0.02 }, ...over },
+    usage: { input_tokens: 800, output_tokens: 7 },
+  };
+}
+const verdict = (over: Record<string, unknown> = {}) =>
+  node.decideContent(
+    node.readTyped(contentResponse(over), node.CONTENT_NOULS, Object.keys(node.buildContentRequest(contentPost("x")).questions.category.criteria)),
+    "jev-1.13.0",
+  );
+
+describe("the automatic check's request", () => {
+  const req = node.buildContentRequest(contentPost("Lost cat, call 98765 43210"));
+
+  it("asks about `content`, never about a report", () => {
+    const text = JSON.stringify(req.questions);
+    expect(text).not.toMatch(/reported_content|`report`/);
+    expect(req.state).not.toHaveProperty("report");
+  });
+
+  it("only points questions at state that exists", () => {
+    for (const q of Object.values(req.questions)) {
+      for (const [, path] of q.instructions.matchAll(/`([a-z_.]+)`/g)) {
+        const value = path.split(".").reduce((o: any, k: string) => o?.[k], req.state);
+        expect(value, `${path} in: ${q.instructions}`).toBeDefined();
+      }
+    }
+  });
+
+  it("adds graphic content and abusive language, which the report questions do not ask", () => {
+    expect(req.questions.category.criteria).toHaveProperty("graphic");
+    expect(req.questions).toHaveProperty("abusive_language");
+    const report = node.buildRequest(post("x"));
+    expect(report.questions.category.criteria).not.toHaveProperty("graphic");
+    expect(report.questions).not.toHaveProperty("abusive_language");
+  });
+
+  it("keeps the report questions word for word, since those were evaluated", () => {
+    const report = node.buildRequest(post("x"));
+    for (const id of ["severity", "threat", "self_harm", "money_or_credentials", "exposes_someone"]) {
+      expect(req.questions[id].instructions).toBe(report.questions[id].instructions.split("`reported_content`").join("`content`"));
+    }
+  });
+
+  it("masks personal details here too", () => {
+    expect(JSON.stringify(req)).not.toMatch(/98765/);
+  });
+
+  it("a report answer outside the report's options is rejected", () => {
+    const bad = response({ category: category("graphic", 0.9) });
+    expect(() => node.readAnswers(bad)).toThrow(/category/);
+  });
+});
+
+describe("the automatic check's decision", () => {
+  it("ordinary content passes", () => {
+    expect(verdict().action).toBe("pass");
+  });
+
+  it.each(["threat", "money_or_credentials", "exposes_someone"])("hides on %s at 0.70", (flag) => {
+    expect(verdict({ [flag]: noul(0.7) }).action).toBe("hide");
+    expect(verdict({ [flag]: noul(0.69) }).action).toBe("review");
+  });
+
+  it("hides abusive language at 0.80, and only asks a moderator below that", () => {
+    expect(verdict({ abusive_language: noul(0.8) }).action).toBe("hide");
+    expect(verdict({ abusive_language: noul(0.6) }).action).toBe("review");
+  });
+
+  it("hides a confident, serious violation of a hiding category", () => {
+    const v = verdict({ category: category("harassment", 0.9), severity: severity(2.2) });
+    expect(v.action).toBe("hide");
+  });
+
+  it("does not hide on a category that is unsure or mild", () => {
+    expect(verdict({ category: category("harassment", 0.7), severity: severity(2.2) }).action).toBe("review");
+    expect(verdict({ category: category("harassment", 0.9), severity: severity(1.2) }).action).toBe("review");
+  });
+
+  it("a confident label, however mild, reaches a moderator; an unsure one or a filing problem does not", () => {
+    expect(verdict({ category: category("harassment", 0.85), severity: severity(0.8) }).action).toBe("review");
+    expect(verdict({ category: category("harassment", 0.6), severity: severity(0.8) }).action).toBe("pass");
+    expect(verdict({ category: category("wrong_place", 0.95), severity: severity(0.2) }).action).toBe("pass");
+  });
+
+  it("never hides spam or misinformation on the category alone — a moderator decides those", () => {
+    expect(verdict({ category: category("spam", 0.99), severity: severity(2.4) }).action).toBe("review");
+    expect(verdict({ category: category("false_info", 0.99), severity: severity(2.4) }).action).toBe("review");
+  });
+
+  it("a cry for help is filed as 'reach out', not hidden, even when labelled dangerous", () => {
+    const v = verdict({ self_harm: noul(0.9), category: category("dangerous", 0.96), severity: severity(2.9) });
+    expect(v.action).toBe("review");
+    expect(v.support).toBe(true);
+    expect(node.verdictSummary(v)).toMatch(/reach out/);
+  });
+
+  it("but self-harm content that also threatens others is still hidden", () => {
+    const v = verdict({ self_harm: noul(0.9), threat: noul(0.9) });
+    expect(v.action).toBe("hide");
+    expect(v.support).toBe(true);
+  });
+
+  it("says why, in the moderator's queue", () => {
+    const v = verdict({ money_or_credentials: noul(0.95), category: category("scam", 0.98), severity: severity(3) });
+    expect(node.verdictSummary(v)).toBe(
+      "Hidden by the automatic check: scam, severity 3/3. money_or_credentials 0.95 ≥ 0.7; scam at confidence 0.98, severity 3.",
+    );
+  });
+
+  it("end to end against a fake API, with usage reported", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(contentResponse({ abusive_language: noul(0.93) }))));
+    const v = await node.classifyContent(contentPost("..."), { apiKey: "k", fetch });
+    expect(v.action).toBe("hide");
+    expect(v.usage).toEqual({ input_tokens: 800, output_tokens: 7 });
   });
 });

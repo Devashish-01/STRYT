@@ -33,7 +33,9 @@ test("admin moderation: report with details, admin takes action, reporter is tol
     return report();
   });
   await expect(report().getByText(title)).toBeVisible();
-  await expect(report().getByText(/reported by Test Customer Two/)).toBeVisible();
+  // One card per reported thing (20260990): it counts the people, and shows each note with who wrote it.
+  await expect(report().getByText(/reported by 1 person/)).toBeVisible();
+  await expect(report().getByText(/Test Customer Two:/)).toBeVisible();
   await report().getByRole("button", { name: "Take action" }).click();
   await expect(report()).toHaveCount(0);
 

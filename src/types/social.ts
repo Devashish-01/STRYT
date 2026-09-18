@@ -88,6 +88,9 @@ export interface CommunityPost {
   title: string;
   body: string;
   area: string;
+  /** Set when moderation has hidden this post (20260990). Only its author and admins are sent a hidden post. */
+  hiddenAt?: string | null;
+  hiddenReason?: "REPORTS" | "AUTO_CHECK" | null;
   /** Kilometres from the viewer; absent when the viewer's location is unknown — never a made-up number. */
   distanceKm?: number;
   postedAt: string;
@@ -153,6 +156,8 @@ export interface Comment {
   createdAtISO?: string;
   /** Set when this comment is a reply to another comment (nested threads). */
   parentId?: string | null;
+  /** Set when moderation has hidden this comment. Only its author and admins are sent a hidden comment. */
+  hiddenAt?: string | null;
   listingType?: BookmarkTarget;
   listingId?: string;
   // #8 optional shared phone, surfaced only when the viewer is allowed to see it

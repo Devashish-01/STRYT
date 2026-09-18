@@ -3,6 +3,7 @@ import { throwIfError } from "@/lib/supabasePage";
 import { notificationService } from "@/services/engagement/notificationService";
 import { functionUrl } from "@/config";
 import { formatHoursForDisplay } from "@/utils/availability";
+import { AUTO_CHECK_REASON, groupReports, moderationKey, type HiddenState, type ModerationItem, type Priority } from "@/lib/moderationQueue";
 
 export type VerificationTargetType = "BUSINESS" | "PROVIDER";
 export type VerificationDecision = "APPROVE" | "REJECT" | "SUSPEND";
@@ -61,8 +62,27 @@ export interface AdminReport {
   /** What the reporter wrote. Moderators never saw it before (E2E-030). */
   details: string;
   reporter: string;
+  /** Null for a report filed by the automatic check. */
+  reporterUserId: string | null;
   status: "OPEN" | "REVIEWING" | "ACTION_TAKEN" | "DISMISSED";
   time: string;
+}
+
+/** The first 280 characters of a reported text, on one line. */
+function preview(text: string): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > 280 ? `${flat.slice(0, 279)}…` : flat;
+}
+
+/** The moderation function's advisory priority for a user report (supabase/functions/moderation). */
+export interface ReportTriage {
+  priority: Priority;
+  category: string;
+  categoryConfidence: number;
+  alternatives: string[];
+  flags: string[];
+  support: boolean;
+  reasons: string[];
 }
 
 export interface AdminBugReport {
@@ -299,10 +319,77 @@ export const adminService = {
       targetName: r.target_name,
       reason: r.reason,
       details: (r.details ?? "").trim(),
-      reporter: r.reporter?.name || "Anonymous",
+      reporter: r.reason === AUTO_CHECK_REASON ? "the automatic check" : r.reporter?.name || "Anonymous",
+      reporterUserId: r.reporter_user_id ?? null,
       status: r.status as AdminReport["status"],
       time: relDate(r.created_at),
     }));
+  },
+
+  /** Open reports grouped by what they are about, with whether each post or comment is currently hidden. */
+  async moderationQueue(): Promise<ModerationItem[]> {
+    const reports = await this.reports();
+    const sb = getSupabase();
+    const ids = (type: string) => [...new Set(reports.filter((r) => r.targetType === type).map((r) => r.targetId))];
+    const hidden: Record<string, HiddenState> = {};
+    const postIds = ids("POST");
+    if (postIds.length > 0) {
+      const { data, error } = await sb.from("community_posts").select("id, title, body, hidden_at, hidden_reason").in("id", postIds);
+      throwIfError(error);
+      for (const p of data ?? []) {
+        hidden[moderationKey("POST", p.id)] = {
+          hiddenAt: p.hidden_at,
+          hiddenReason: p.hidden_reason as HiddenState["hiddenReason"],
+          preview: preview(`${p.title}${p.body ? ` — ${p.body}` : ""}`),
+        };
+      }
+    }
+    const commentIds = ids("COMMENT");
+    if (commentIds.length > 0) {
+      const { data, error } = await sb.from("post_comments").select("id, body, post_id, hidden_at, hidden_reason").in("id", commentIds);
+      throwIfError(error);
+      for (const c of data ?? []) {
+        hidden[moderationKey("COMMENT", c.id)] = {
+          hiddenAt: c.hidden_at,
+          hiddenReason: c.hidden_reason as HiddenState["hiddenReason"],
+          preview: preview(c.body),
+          postId: c.post_id,
+        };
+      }
+    }
+    return groupReports(reports, hidden);
+  },
+
+  /** "No action": visible again, and every open report on it closed as reviewed (admin_moderation_restore). */
+  async moderationRestore(targetType: string, targetId: string): Promise<void> {
+    const { error } = await getSupabase().rpc("admin_moderation_restore", { p_target_type: targetType, p_target_id: targetId });
+    throwIfError(error);
+  },
+
+  /** "Remove": deleted, and every open report on it closed as actioned (admin_moderation_remove). */
+  async moderationRemove(targetType: string, targetId: string): Promise<void> {
+    const { error } = await getSupabase().rpc("admin_moderation_remove", { p_target_type: targetType, p_target_id: targetId });
+    throwIfError(error);
+  },
+
+  /**
+   * The moderation function's advisory priority for one user report. Null when the function is not deployed or
+   * configured, or fails: the queue works without it, it is only an order and a label.
+   */
+  async classifyReport(reportId: string): Promise<ReportTriage | null> {
+    try {
+      const { data: { session } } = await getSupabase().auth.getSession();
+      if (!session) return null;
+      const res = await fetch(functionUrl("moderation"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ action: "classify_report", reportId }),
+      });
+      const json = await res.json().catch(() => null);
+      return res.ok && json?.ok ? (json.triage as ReportTriage) : null;
+    } catch {
+      return null;
+    }
   },
 
   async resolveReport(id: string, status: string) {

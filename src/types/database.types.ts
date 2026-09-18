@@ -1,6 +1,6 @@
 // Generated from the STAGING database (laswruzdyqehziyupmdm) with the Management API on 2026-09-18.
 //
-// Staging carries migrations 20260973-20260989, which production has not had applied yet (an owner step).
+// Staging carries migrations 20260973-20260990, which production has not had applied yet (an owner step).
 // These types therefore describe the schema the app is written against, not the one production runs today.
 // Regenerate after any migration: the previous copy had drifted far enough that it still declared
 // bulk_deal_order and bulk_deal_quote, dropped back in 20260921, and knew none of the community_* RPCs the
@@ -1637,6 +1637,8 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           geom: unknown
+          hidden_at: string | null
+          hidden_reason: string | null
           hide_like_count: boolean
           id: string
           image: string | null
@@ -1673,6 +1675,8 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           geom?: unknown
+          hidden_at?: string | null
+          hidden_reason?: string | null
           hide_like_count?: boolean
           id?: string
           image?: string | null
@@ -1709,6 +1713,8 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           geom?: unknown
+          hidden_at?: string | null
+          hidden_reason?: string | null
           hide_like_count?: boolean
           id?: string
           image?: string | null
@@ -2614,6 +2620,27 @@ export type Database = {
           },
         ]
       }
+      moderation_settings: {
+        Row: {
+          content_check_enabled: boolean
+          id: boolean
+          report_hide_threshold: number
+          updated_at: string
+        }
+        Insert: {
+          content_check_enabled?: boolean
+          id?: boolean
+          report_hide_threshold?: number
+          updated_at?: string
+        }
+        Update: {
+          content_check_enabled?: boolean
+          id?: boolean
+          report_hide_threshold?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string
@@ -2930,6 +2957,8 @@ export type Database = {
           body: string
           created_at: string | null
           edited_at: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           listing_id: string | null
           listing_type: string | null
@@ -2947,6 +2976,8 @@ export type Database = {
           body: string
           created_at?: string | null
           edited_at?: string | null
+          hidden_at?: string | null
+          hidden_reason?: string | null
           id?: string
           listing_id?: string | null
           listing_type?: string | null
@@ -2964,6 +2995,8 @@ export type Database = {
           body?: string
           created_at?: string | null
           edited_at?: string | null
+          hidden_at?: string | null
+          hidden_reason?: string | null
           id?: string
           listing_id?: string | null
           listing_type?: string | null
@@ -5091,6 +5124,14 @@ export type Database = {
       admin_cancel_request: { Args: { p_id: string }; Returns: undefined }
       admin_delete_comment: { Args: { p_id: string }; Returns: undefined }
       admin_delete_post: { Args: { p_id: string }; Returns: undefined }
+      admin_moderation_remove: {
+        Args: { p_target_id: string; p_target_type: string }
+        Returns: undefined
+      }
+      admin_moderation_restore: {
+        Args: { p_target_id: string; p_target_type: string }
+        Returns: undefined
+      }
       admin_recent_users: {
         Args: never
         Returns: {
@@ -6416,6 +6457,8 @@ export type Database = {
           body: string
           created_at: string | null
           edited_at: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           listing_id: string | null
           listing_type: string | null
@@ -6442,6 +6485,8 @@ export type Database = {
           body: string
           created_at: string | null
           edited_at: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           listing_id: string | null
           listing_type: string | null
@@ -6475,6 +6520,8 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           geom: unknown
+          hidden_at: string | null
+          hidden_reason: string | null
           hide_like_count: boolean
           id: string
           image: string | null
@@ -6525,6 +6572,8 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           geom: unknown
+          hidden_at: string | null
+          hidden_reason: string | null
           hide_like_count: boolean
           id: string
           image: string | null
@@ -6575,6 +6624,8 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           geom: unknown
+          hidden_at: string | null
+          hidden_reason: string | null
           hide_like_count: boolean
           id: string
           image: string | null
@@ -6620,6 +6671,8 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           geom: unknown
+          hidden_at: string | null
+          hidden_reason: string | null
           hide_like_count: boolean
           id: string
           image: string | null
@@ -6679,6 +6732,8 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           geom: unknown
+          hidden_at: string | null
+          hidden_reason: string | null
           hide_like_count: boolean
           id: string
           image: string | null
@@ -6733,6 +6788,8 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           geom: unknown
+          hidden_at: string | null
+          hidden_reason: string | null
           hide_like_count: boolean
           id: string
           image: string | null
@@ -6784,6 +6841,8 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           geom: unknown
+          hidden_at: string | null
+          hidden_reason: string | null
           hide_like_count: boolean
           id: string
           image: string | null

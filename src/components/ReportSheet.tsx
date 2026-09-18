@@ -3,6 +3,7 @@ import { Flag } from "@/components/Icons";
 import { useApp } from "@/store";
 import type { BookmarkTarget } from "@/types";
 import { adminService } from "@/services/core/adminService";
+import { useI18n } from "@/lib/i18n";
 
 const reasons = [
   ["SPAM", "Spam or misleading"],
@@ -25,6 +26,7 @@ export default function ReportSheet({
   onClose: () => void;
 }) {
   const { showToast } = useApp();
+  const { t } = useI18n();
   const [reason, setReason] = useState<string | null>(null);
   const [details, setDetails] = useState("");
 
@@ -88,8 +90,13 @@ export default function ReportSheet({
               });
               showToast("Report submitted. Thank you.");
             } catch (err: any){
-              console.error("Error submitting report:", err);
-              showToast("Error submitting report. Try again.");
+              // One open report per person per item (20260990): a second tap is a duplicate, not a failure.
+              if ((err as { code?: string } | null)?.code === "23505") {
+                showToast(t("report_already_submitted"));
+              } else {
+                console.error("Error submitting report:", err);
+                showToast("Error submitting report. Try again.");
+              }
             }
             onClose();
           }}

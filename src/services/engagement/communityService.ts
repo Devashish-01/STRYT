@@ -601,6 +601,7 @@ export const communityService = {
         time: relLabel(r.created_at),
         createdAtISO: r.created_at ?? undefined,
         parentId: r.parent_id ?? null,
+        hiddenAt: r.hidden_at ?? null,
         listingType: (r.listing_type ?? undefined) as BookmarkTarget | undefined,
         listingId: r.listing_id ?? undefined,
         sharedPhone: (canSeePhone ? r.shared_phone : undefined) ?? undefined,

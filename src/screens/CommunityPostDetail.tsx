@@ -52,6 +52,7 @@ import { useI18n } from "@/lib/i18n";
 import { EditPostSheet } from "@/screens/community/EditPostSheet";
 import { CommentRow } from "@/screens/community/CommentRow";
 import { errorMessage } from "@/lib/errorMessage";
+import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
 
 /** Author-only edit sheet — title/details/photo, the same fields CommunityCompose
  *  collects at creation time. Kept local to this file since it's only ever
@@ -587,6 +588,7 @@ export default function CommunityPostDetail() {
             <div className="grow" style={{ minWidth: 0 }}>
               <div className="semi small" style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-900)" }}>{safePost.authorName}</div>
               <span className="tiny muted row gap-4 center-v" style={{ marginTop: 2, fontSize: 12 }}><MapPin size={11} />{safePost.area} • {safePost.postedAt}</span>
+              {safePost.hiddenAt && <UnderReviewNotice kind="post" />}
             </div>
           </div>
           <div className="row gap-8 center-v wrap" style={{ marginBottom: 8 }}>

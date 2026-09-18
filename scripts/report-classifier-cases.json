@@ -1,5 +1,5 @@
 {
-  "about": "Synthetic, hand-labelled reports for scripts/eval-report-classifier.mjs. None is real user content. 'priority' and 'category' list every answer a moderator would accept.",
+  "about": "Synthetic, hand-labelled reports for scripts/eval-moderation.mjs. None is real user content. 'priority' and 'category' list every answer a moderator would accept.",
   "cases": [
     {
       "id": "lost-wallet-own-number",

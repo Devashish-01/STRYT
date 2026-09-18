@@ -6,6 +6,7 @@ import { hoistPinned } from "@/lib/communityPost";
 import { openProfile } from "@/lib/profileSheet";
 import { COMMENT_REACTIONS, parseBody } from "@/lib/mentions";
 import { useI18n } from "@/lib/i18n";
+import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
 
 export function CommentBody({ body, mentions }: { body: string; mentions?: { userId: string; alias: string }[] }) {
   const segments = parseBody(body, mentions ?? []);
@@ -135,7 +136,10 @@ export function CommentRow({
               <span className="tiny muted" style={{ fontSize: 11 }}>{t("cpd_mentions_note")}</span>
             </div>
           ) : (
-            <CommentBody body={c.body} mentions={c.mentions} />
+            <>
+              <CommentBody body={c.body} mentions={c.mentions} />
+              {c.hiddenAt && <UnderReviewNotice kind="comment" />}
+            </>
           )}
           {c.sharedPhone && (
             <a
