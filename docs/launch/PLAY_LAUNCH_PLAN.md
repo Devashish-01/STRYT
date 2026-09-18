@@ -105,7 +105,7 @@ of the manifest, and merging is a clean fast-forward — `origin/main` has nothi
   - financial features declaration — the app records UPI payment claims between users and does **not**
     process payments
   - option A only: the background location declaration and video
-- [ ] **10. Store listing**, from `play-console/STORE_LISTING.md` and `play-console/graphics/`.
+- [ ] **10. Store listing**, from `play-console/STORE_LISTING.md` and the images in `playstore-assets/graphics/` (repo root).
 - [ ] **11. Internal testing:** upload the AAB, install it on your own phone, and run
   `docs/qa/DEVICE_QA_CHECKLIST.md`. At minimum: first run (§7), push notifications (§2) and dialling (§5).
 - [ ] **12. Closed testing:** add the 12+ tester emails, roll out, and send the opt-in link. The 14 days count
