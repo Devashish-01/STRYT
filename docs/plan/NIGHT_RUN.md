@@ -64,8 +64,8 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
 ### E — P12 leftovers
 - [x] **E1** `any` reduction: row mappers still typed `(row: any)` — `rowToProposal`, `rowToRequest`,
   `mapAgreement`. Per-query row types. Target: services ≤ 20, app ≤ 250 (currently 128 / 455).
-- [ ] **E2** `catch (e: any)` → `unknown` + a shared `errorMessage(err)` helper (~175 sites app-wide).
-- [ ] **E3** The five screens over 700 lines, via a container/presenter hook each, **not** prop-drilling:
+- [x] **E2** `catch (e: any)` → `unknown` + a shared `errorMessage(err)` helper (~175 sites app-wide).
+- [!] **E3** The five screens over 700 lines, via a container/presenter hook each, **not** prop-drilling:
   BusinessDetail 1263, CommunityCompose 1205, CommunityPostDetail 1176, AppointmentSheet 1147,
   BusinessAppointments 1014. One screen per commit, E2E at the end.
 
@@ -77,8 +77,8 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
 
 ### G — Checkpoints
 - [x] **G1** Full E2E after B+C land.
-- [ ] **G2** Full E2E after E lands.
-- [ ] **G3** Final: `npm run verify`, full E2E, clean tree, this file's handover section written.
+- [x] **G2** Full E2E after E lands.
+- [~] **G3** Final: `npm run verify`, full E2E, clean tree, this file's handover section written.
 
 ## A note on how this runs
 
@@ -124,3 +124,73 @@ Collected here as they come up, so 07:30 has one list rather than a hunt.
 | 7 | Play Console paperwork and the closed test | Owner-only console access |
 | 8 | Lighthouse run against a deployed preview | Needs a deployed URL |
 | 9 | **Highest priority.** `purge-deleted-accounts` has never been deployed, so the 30-day account-deletion promise in the privacy policy and the store listing does not complete | Owner deploy step; found by A1/A2 |
+
+---
+
+# Handover — read this first
+
+**Branch:** `night/2026-09-18`, 18 commits on top of `phase/07-e2e` @ `8f5ce2d`. Nothing pushed, `main`
+untouched, no production change.
+
+## First, the thing that went wrong with the run itself
+
+**I overran.** The queue was written at 02:33 for a 07:30 review. Work ran normally until about 03:45, and
+then roughly six and a half hours passed between that commit and the next command completing — the machine
+almost certainly slept during a long lint run. I cannot tell you that with certainty, so I am not going to
+dress it up: the schedule was missed and I do not have a confident account of the gap.
+
+The separate thing you should know: **the self-waking scheduler was refused by the safety classifier**
+("Create Unsafe Agents") at 02:34. I did not work around it. So there was never an automatic restart — the
+whole run depended on one session staying alive, which is exactly the fragility that cost the morning.
+
+Everything below is committed and verified regardless.
+
+## What is worth your attention, in order
+
+1. **`purge-deleted-accounts` has never been deployed.** The privacy policy and the Play listing both promise
+   account deletion after 30 days. The grace period starts and nothing completes it. This is the one item here
+   that is closer to a misrepresentation than a gap. Owner step 9.
+2. **The Play *Data safety* table is wrong.** Missing five data types — government ID (Aadhaar/PAN), payment
+   references, address, crash logs, analytics — and wrong on three rows. `docs/launch/DATA_SAFETY_DIFF.md`
+   lists each with a verdict. I did not rewrite the dossier: it is the document you fill the form from, and
+   how wrong it is should be visible to you.
+3. **132 contrast failures across 11 screens.** They are in the Street Light tokens, so fixing them changes
+   the brand palette. Your call, not mine. Logged P13-001.
+4. **BLOCKER 3 is still open.** Nothing has been tested on a phone. `docs/qa/DEVICE_QA_CHECKLIST.md` is ready
+   to hand to a tester; every row says what pass looks like.
+
+## What landed
+
+| Phase | Work |
+|---|---|
+| **P15** | Data inventory built from the schema, every citation verified by script. Diffed against the dossier and the policy. Three factual corrections to the privacy policy, recorded as unreviewed. |
+| **P14** | PII scrubber (26 tests) wired into the existing `client_errors` sink — that was a live leak. Sentry, DSN-gated and lazily imported. Cron health check (14 tests) in the nightly workflow. |
+| **P13** | Device matrix, device QA checklist, axe pass over 13 screens. Two findings fixed (unnamed icon buttons, disabled pinch-zoom), two logged. |
+| **P12** | Request/proposal/agreement mappers typed. 165 catch blocks converted to `unknown` + `errorMessage()`. `any` 455 → 286. |
+| **Reports** | P07, P11, P13, P14, P15 written; phase table brought true. |
+
+## What I did not finish
+
+- **E3 — the five screens over 700 lines.** Untouched. They need a container/presenter hook each, which is a
+  redesign rather than a move; P12's report explains why prop-drilling them is worse than leaving them.
+- **`any` targets.** App 286 against 250, services 117 against 20. What is left in services is row mappers
+  needing per-query types, which is per-query work.
+- **P14's rollback drill**, and the uptime monitors (yours).
+- **P07's three consecutive green runs** — the branch kept moving underneath them.
+
+## Findings logged this run
+
+`P13-001` contrast · `P13-002` icon button names (fixed) · `P13-003` pinch-zoom (fixed) · `P13-004` four
+smaller a11y · `P13-005` `mapAgreement` reads a relation the select never fetches.
+
+Plus, from earlier: `P12-001` `REPLY_CHAT` → `/chat` is not a route · `P12-002` null `created_at` renders as
+1970 · `P12-003` post distance is a hardcoded 0.5 km.
+
+## Two mistakes of mine worth knowing about
+
+- I wrote that phone was the sign-in identifier and email optional. The shipped UI offers **Google only**, so
+  it is the other way round. The dossier was right and I was wrong; corrected before it reached the policy.
+- I added `share_word` to `en.ts` without checking and it already existed. Duplicate removed, parity test
+  passes.
+
+Both are in the reports rather than only here.
