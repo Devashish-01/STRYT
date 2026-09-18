@@ -55,6 +55,17 @@ applying anything.**
 
 ### 1.3 Apply the 19 migrations, one at a time, in order
 
+**One command (19 Sept 2026, owner chose to apply directly, without the per-migration forced-rollback tests):**
+
+```
+node scripts/release/apply-production-migrations.mjs --backup D:/STRYT-db-backups/<UTC>            # dry run
+node scripts/release/apply-production-migrations.mjs --backup D:/STRYT-db-backups/<UTC> --apply    # applies
+```
+
+It refuses to start without the backup folder from 1.1, checks every file against its APPLY_LOG hash before
+applying anything, applies in order through the migrations endpoint, confirms each ledger row, and stops at the
+first failure. The step-by-step procedure below is the same thing by hand.
+
 `20260973`, `20260974`, … `20260989`, then `20260990` and `20260991`. For **each** one, follow its row in the *Pending* table of
 `supabase/APPLY_LOG.md`, which records the specifics. The loop is `docs/database/HANDOFF.md` §5:
 
