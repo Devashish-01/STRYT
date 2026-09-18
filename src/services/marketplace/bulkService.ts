@@ -36,6 +36,7 @@ function rowToDeal(r: any, userLat = 0, userLng = 0): BulkDeal {
     businessName: biz.name ?? null,
     businessCover: biz.cover_image ?? null,
     businessUpiId: biz.upi_id ?? null,
+    hiddenAt: r.hidden_at ?? null,
     distanceKm:
       userLat && userLng && biz.lat && biz.lng ? haversineKm(userLat, userLng, biz.lat, biz.lng) : undefined,
   };

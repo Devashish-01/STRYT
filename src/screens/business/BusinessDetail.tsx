@@ -40,6 +40,7 @@ import MiniMap from "@/components/MiniMap";
 import { useI18n } from "@/lib/i18n";
 import { openExternal } from "@/lib/openExternal";
 import { errorMessage } from "@/lib/errorMessage";
+import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();
@@ -922,6 +923,7 @@ export default function BusinessDetail() {
                     )}
                   </div>
                   <p className="small" style={{ marginTop: 6, lineHeight: 1.55 }}>{rv.comment}</p>
+                  {rv.hiddenAt && <UnderReviewNotice kind="item" />}
                   {rv.ownerReply && (
                     <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
                       <div className="tiny semi" style={{ color: "var(--brand-700)" }}>{b.name} (Owner reply)</div>

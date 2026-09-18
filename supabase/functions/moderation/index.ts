@@ -3,11 +3,13 @@
 // Two jobs, one TypeSafe (Jev) node. Both ask several narrow questions in one request and let explicit code below
 // decide what to do with the typed answers.
 //
-//   1. The automatic check (from the database). Every new or edited community post and comment is queued here by
-//      a trigger (migration 20260990) while moderation_settings.content_check_enabled is on:
-//        POST { action: "check_content", targetType: "POST" | "COMMENT", targetId }   apikey: <secret key>
-//      A clear violation is hidden at once and filed for a moderator; a borderline one is only filed. Possible
-//      self-harm is filed as "reach out" and never hidden on that alone.
+//   1. The automatic check (from the database). Every new or edited public text is queued here by a trigger
+//      (migrations 20260990, 20260991) while moderation_settings.content_check_enabled is on — community posts and
+//      comments, reviews, requests, story captions, bulk deals, business listings and provider profiles:
+//        POST { action: "check_content", targetType: <CONTENT_KINDS>, targetId }   apikey: <secret key>
+//      A clear violation is hidden at once and filed for a moderator; a borderline one is only filed. Businesses
+//      and providers are only ever filed, never hidden. Possible self-harm is filed as "reach out" and never
+//      hidden on that alone. Proposal messages and chat are not checked: they are private.
 //
 //   2. Report triage (from an admin). A priority for a user report in the moderation queue:
 //        POST { action: "classify_report", reportId }   Authorization: Bearer <admin's token>
@@ -177,14 +179,34 @@ const QUESTIONS = {
 
 /** What the automatic check reads. */
 interface ContentInput {
-  kind: "POST" | "COMMENT";
-  /** The community post type — for a comment, the type of the post it is on. */
+  kind: ContentKind;
+  /** The community post type — for a comment, the type of the post it is on. Only posts and comments have one. */
   postType: string | null;
-  /** The post title — for a comment, the title of the post it is on. */
+  /** A title or name: the post's (for a comment, its post's), a request's or deal's title, a business or provider name. */
   title: string | null;
-  /** The post's body, or the comment. */
+  /** The text itself: the post's body, the comment, the review, the description, the caption or the bio. */
   text: string;
 }
+
+/**
+ * Every place the automatic check reads (20260990, 20260991). Proposal messages and chat are not here on purpose:
+ * they are private between two people.
+ */
+const CONTENT_KINDS = ["POST", "COMMENT", "RATING", "REQUEST", "STORY", "BULK_DEAL", "BUSINESS", "PROVIDER"] as const;
+type ContentKind = (typeof CONTENT_KINDS)[number];
+
+/** Filed for a moderator, never hidden automatically: hiding a whole shop or profile is a moderator's decision. */
+const REVIEW_ONLY_KINDS: readonly string[] = ["BUSINESS", "PROVIDER"];
+
+/** How each kind is described to the model. Posts and comments keep the shape that was evaluated. */
+const CONTENT_KIND_LABELS: Record<Exclude<ContentKind, "POST" | "COMMENT">, string> = {
+  RATING: "review of a local business or service provider",
+  REQUEST: "request for a local service, shown to nearby providers",
+  STORY: "caption on a short-lived story",
+  BULK_DEAL: "group-buy offer from a local business",
+  BUSINESS: "a local business's public listing (name and description)",
+  PROVIDER: "a service provider's public profile (name and bio)",
+};
 
 /** A report question, asked about `content` instead. */
 function aboutContent<T extends { instructions: string }>(q: T): T {
@@ -470,9 +492,14 @@ async function classifyReport(
 
 function buildContentRequest(input: ContentInput, model: string = DEFAULT_MODEL) {
   const postType = input.postType ? (POST_TYPE_LABELS[input.postType] ?? input.postType) : null;
-  const content = input.kind === "POST"
-    ? { kind: "community post", post_type: postType, title: clip(input.title), text: clip(input.text) }
-    : { kind: "comment on a community post", text: clip(input.text), on_post: { post_type: postType, title: clip(input.title) } };
+  let content: Record<string, unknown>;
+  if (input.kind === "POST") {
+    content = { kind: "community post", post_type: postType, title: clip(input.title), text: clip(input.text) };
+  } else if (input.kind === "COMMENT") {
+    content = { kind: "comment on a community post", text: clip(input.text), on_post: { post_type: postType, title: clip(input.title) } };
+  } else {
+    content = { kind: CONTENT_KIND_LABELS[input.kind], ...(input.title ? { title: clip(input.title) } : {}), text: clip(input.text) };
+  }
   return { model, state: { app: APP_CONTEXT, content }, questions: CONTENT_QUESTIONS };
 }
 
@@ -573,7 +600,10 @@ async function classifyContent(
   const request = buildContentRequest(input, opts.model ?? DEFAULT_MODEL);
   const response = await callTypeSafe(request, opts);
   const categories = Object.keys(CONTENT_QUESTIONS.category.criteria);
-  const verdict = decideContent(readTyped(response, CONTENT_NOULS, categories), request.model);
+  let verdict = decideContent(readTyped(response, CONTENT_NOULS, categories), request.model);
+  if (verdict.action === "hide" && REVIEW_ONLY_KINDS.includes(input.kind)) {
+    verdict = { ...verdict, action: "review", reasons: [...verdict.reasons, "a listing or profile is never hidden automatically"] };
+  }
   const usage = (response as { usage?: ContentVerdict["usage"] }).usage;
   return usage ? { ...verdict, usage } : verdict;
 }
@@ -634,30 +664,76 @@ function isInternalCall(req: Request): boolean {
 // deno-lint-ignore no-explicit-any
 type Admin = any;
 
-/** The automatic check for one post or comment: hide it and/or file it for a moderator, per the verdict. */
-async function checkContent(sb: Admin, apiKey: string, targetType: string, targetId: string) {
-  let input: ContentInput;
-  let hidden: string | null;
-  let name: string;
-  if (targetType === "POST") {
-    const { data: post, error } = await sb
-      .from("community_posts").select("title, body, type, hidden_at").eq("id", targetId).maybeSingle();
+/** Tables that can hide a row (20260990, 20260991). Businesses and providers are checked but never hidden here. */
+const HIDE_TABLE: Record<string, string> = {
+  POST: "community_posts",
+  COMMENT: "post_comments",
+  RATING: "ratings",
+  REQUEST: "requests",
+  STORY: "stories",
+  BULK_DEAL: "bulk_deals",
+};
+
+type Loaded = { input: ContentInput; hidden: string | null; name: string };
+
+/** Reads what the automatic check needs for one item. Null when it no longer exists. */
+async function loadContent(sb: Admin, kind: ContentKind, id: string): Promise<Loaded | null> {
+  const one = async (table: string, columns: string) => {
+    const { data, error } = await sb.from(table).select(columns).eq("id", id).maybeSingle();
     if (error) throw error;
-    if (!post) return { ok: true, skipped: "gone" };
-    input = { kind: "POST", postType: post.type, title: post.title, text: post.body ?? "" };
-    hidden = post.hidden_at;
-    name = post.title || "a post";
-  } else {
-    const { data: comment, error } = await sb
-      .from("post_comments").select("body, post_id, hidden_at").eq("id", targetId).maybeSingle();
-    if (error) throw error;
-    if (!comment) return { ok: true, skipped: "gone" };
-    const { data: post } = await sb
-      .from("community_posts").select("title, type").eq("id", comment.post_id).maybeSingle();
-    input = { kind: "COMMENT", postType: post?.type ?? null, title: post?.title ?? null, text: comment.body };
-    hidden = comment.hidden_at;
-    name = `a comment on ${post?.title ? `"${post.title}"` : "a post"}`;
+    return data;
+  };
+  const input = (title: string | null, text: string | null, postType: string | null = null): ContentInput =>
+    ({ kind, postType, title, text: text ?? "" });
+
+  switch (kind) {
+    case "POST": {
+      const r = await one("community_posts", "title, body, type, hidden_at");
+      return r && { input: input(r.title, r.body, r.type), hidden: r.hidden_at, name: r.title || "a post" };
+    }
+    case "COMMENT": {
+      const r = await one("post_comments", "body, post_id, hidden_at");
+      if (!r) return null;
+      const { data: post } = await sb.from("community_posts").select("title, type").eq("id", r.post_id).maybeSingle();
+      return {
+        input: input(post?.title ?? null, r.body, post?.type ?? null),
+        hidden: r.hidden_at,
+        name: `a comment on ${post?.title ? `"${post.title}"` : "a post"}`,
+      };
+    }
+    case "RATING": {
+      const r = await one("ratings", "comment, hidden_at");
+      return r && { input: input(null, r.comment), hidden: r.hidden_at, name: "a review" };
+    }
+    case "REQUEST": {
+      const r = await one("requests", "title, description, hidden_at");
+      return r && { input: input(r.title, r.description), hidden: r.hidden_at, name: r.title || "a request" };
+    }
+    case "STORY": {
+      const r = await one("stories", "caption, hidden_at");
+      return r && { input: input(null, r.caption), hidden: r.hidden_at, name: "a story" };
+    }
+    case "BULK_DEAL": {
+      const r = await one("bulk_deals", "title, description, hidden_at");
+      return r && { input: input(r.title, r.description), hidden: r.hidden_at, name: r.title || "a bulk deal" };
+    }
+    case "BUSINESS": {
+      const r = await one("businesses", "name, description");
+      return r && { input: input(r.name, r.description), hidden: null, name: r.name || "a business" };
+    }
+    case "PROVIDER": {
+      const r = await one("providers", "display_name, bio");
+      return r && { input: input(r.display_name, r.bio), hidden: null, name: r.display_name || "a provider" };
+    }
   }
+}
+
+/** The automatic check for one item: hide it and/or file it for a moderator, per the verdict. */
+async function checkContent(sb: Admin, apiKey: string, targetType: ContentKind, targetId: string) {
+  const loaded = await loadContent(sb, targetType, targetId);
+  if (!loaded) return { ok: true, skipped: "gone" };
+  const { input, hidden, name } = loaded;
+  if (!input.text.trim() && !input.title?.trim()) return { ok: true, skipped: "empty" };
 
   const verdict = await classifyContent(input, {
     apiKey,
@@ -666,8 +742,8 @@ async function checkContent(sb: Admin, apiKey: string, targetType: string, targe
   });
   if (verdict.action === "pass") return { ok: true, verdict };
 
-  if (verdict.action === "hide" && !hidden) {
-    const table = targetType === "POST" ? "community_posts" : "post_comments";
+  const table = HIDE_TABLE[targetType];
+  if (verdict.action === "hide" && !hidden && table) {
     const { error } = await sb.from(table)
       .update({ hidden_at: new Date().toISOString(), hidden_reason: "AUTO_CHECK" })
       .eq("id", targetId).is("hidden_at", null);
@@ -751,8 +827,8 @@ serve(async (req) => {
       if (body.action !== "check_content") return reply({ ok: false, message: "Unknown action" }, 400);
       if (!apiKey) return reply({ ok: false, message: "Content check is not configured (TYPESAFE_API_KEY)" }, 503);
       const { targetType, targetId } = body;
-      if (!CLASSIFIABLE.includes(targetType) || typeof targetId !== "string" || !targetId || targetId.length > 100) {
-        return reply({ ok: false, message: "targetType POST or COMMENT and targetId are required" }, 400);
+      if (!CONTENT_KINDS.includes(targetType) || typeof targetId !== "string" || !targetId || targetId.length > 100) {
+        return reply({ ok: false, message: `targetType (${CONTENT_KINDS.join(", ")}) and targetId are required` }, 400);
       }
       return reply(await checkContent(sb, apiKey, targetType, targetId));
     }

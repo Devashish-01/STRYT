@@ -33,6 +33,7 @@ import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { BizCatalogGrid } from "@/screens/business/BizCatalogGrid";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
 
 const Handshake = HandshakeIcon as any;
 
@@ -560,6 +561,7 @@ export default function ProviderDetail() {
                     )}
                   </div>
                   <p className="small" style={{ marginTop: 6, lineHeight: 1.55 }}>{rv.comment}</p>
+                  {rv.hiddenAt && <UnderReviewNotice kind="item" />}
                   {rv.ownerReply && (
                     <div className="card card-condensed" style={{ marginTop: 10, background: "var(--ink-50)", border: "none" }}>
                       <div className="tiny semi" style={{ color: "var(--green-700)" }}>{p.displayName} (Provider reply)</div>

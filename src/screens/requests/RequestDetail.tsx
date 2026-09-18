@@ -23,6 +23,7 @@ import { haptics } from "@/lib/haptics";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
+import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
 
 export default function RequestDetail() {
   const { id = "" } = useParams();
@@ -298,6 +299,7 @@ export default function RequestDetail() {
             {r.expiresInHrs && <span className="badge badge-gray"><Clock size={11} /> {tf("expires_in_hrs", { h: r.expiresInHrs })}</span>}
           </div>
           <h1 className="bold h1" style={{ marginTop: 8 }}>{r.title}</h1>
+          {r.hiddenAt && <UnderReviewNotice kind="item" />}
           <p className="small" style={{ marginTop: "var(--space-xs)", lineHeight: 1.6, color: "var(--ink-700)" }}>{r.description}</p>
 
           {r.photos.length > 0 && (

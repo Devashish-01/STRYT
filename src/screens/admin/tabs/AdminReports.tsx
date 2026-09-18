@@ -12,11 +12,18 @@ import { AUTO_CHECK_REASON, orderQueue, type ModerationItem, type Priority } fro
 /**
  * The moderation queue: one card per reported thing, not per report.
  *
- * Community posts and comments get the two decisions from 20260990 — Remove, or No action (restore it and close
- * every report on it). They may already be hidden: after five different people report them, or by the automatic
- * check. Everything else keeps the per-type action it had.
+ * Everything that can be hidden gets the two decisions from 20260990/20260991 — Remove, or No action (restore it
+ * and close every report on it). It may already be hidden: a post or comment after five different people report
+ * it, anything by the automatic check. Businesses, providers and users keep the action they had (suspend).
  */
-const COMMUNITY = new Set(["POST", "COMMENT"]);
+const HIDEABLE = new Set(["POST", "COMMENT", "RATING", "REQUEST", "STORY", "BULK_DEAL"]);
+
+/** What the link says, per type. */
+const OPEN_LABEL: Record<string, string> = {
+  COMMENT: "Open the post it is on →",
+  RATING: "Open what it reviews →",
+  BULK_DEAL: "Open the business →",
+};
 
 const PRIORITY_BADGE: Record<Priority, string> = {
   urgent: "badge-red",
@@ -38,7 +45,8 @@ export function AdminReports() {
   // the moderation function not deployed or configured, nothing appears and the queue works as before.
   useEffect(() => {
     for (const item of data ?? []) {
-      if (!COMMUNITY.has(item.targetType) || requested.current.has(item.key)) continue;
+      // Report triage covers posts and comments; the report questions were not evaluated on other kinds.
+      if (!["POST", "COMMENT"].includes(item.targetType) || requested.current.has(item.key)) continue;
       const report = item.reports.find((r) => r.reason !== AUTO_CHECK_REASON);
       if (!report) continue;
       requested.current.add(item.key);
@@ -53,17 +61,11 @@ export function AdminReports() {
     return orderQueue(data ?? [], priorities);
   }, [data, triage]);
 
-  /** Where a moderator can read the reported thing in context (MOD-4). A comment is read on its post. */
+  /** Where a moderator can read the reported thing in context (MOD-4): the queue works it out per type — a comment
+   *  on its post, a review on what it reviews. A user has a profile; a story has nowhere. */
   function targetLink(item: ModerationItem): string | null {
-    switch (item.targetType) {
-      case "POST": return `/community/${item.targetId}`;
-      case "COMMENT": return item.postId ? `/community/${item.postId}` : null;
-      case "REQUEST": return `/request/${item.targetId}`;
-      case "BUSINESS": return `/business/${item.targetId}`;
-      case "PROVIDER": return `/provider/${item.targetId}`;
-      case "USER": return `/u/${item.targetId}`;
-      default: return null;
-    }
+    if (item.link) return item.link;
+    return item.targetType === "USER" ? `/u/${item.targetId}` : null;
   }
 
   async function run(item: ModerationItem, outcome: "ACTION_TAKEN" | "DISMISSED", work: () => Promise<void>, toast: string) {
@@ -84,17 +86,14 @@ export function AdminReports() {
     for (const r of item.reports) await adminService.resolveReport(r.id, status);
   }
 
-  // Non-community targets keep the action they had (flow-completeness audit, workflow 21): BUSINESS/PROVIDER are
-  // suspended; REQUEST is soft-cancelled, never hard-deleted, since an agreement can hang off it. Anything without an
-  // action stays open and says so (MOD-2; owner decision E2E-037).
+  // Businesses and providers keep the action they had (flow-completeness audit, workflow 21): suspended. Anything
+  // without an action stays open and says so (MOD-2; owner decision E2E-037). Requests moved to Remove, which
+  // closes them the same way (admin_cancel_request) and keeps them hidden.
   async function takeOtherAction(item: ModerationItem) {
     const sb = getSupabase();
     if (item.targetType === "BUSINESS" || item.targetType === "PROVIDER") {
       const table = item.targetType === "BUSINESS" ? "businesses" : "providers";
       const { error } = await sb.from(table).update({ status: "SUSPENDED" }).eq("id", item.targetId);
-      if (error) throw error;
-    } else if (item.targetType === "REQUEST") {
-      const { error } = await sb.rpc("admin_cancel_request", { p_id: item.targetId });
       if (error) throw error;
     } else {
       throw new Error(`No automatic action for a reported ${item.targetType.toLowerCase()} yet — handle it directly, then dismiss.`);
@@ -118,7 +117,7 @@ export function AdminReports() {
             const outcome = done[item.key];
             const t = triage[item.key];
             const link = targetLink(item);
-            const community = COMMUNITY.has(item.targetType);
+            const hideable = HIDEABLE.has(item.targetType);
             const notes = item.reports.filter((r) => r.details).slice(0, 3);
             return (
               <div key={item.key} className="card">
@@ -172,15 +171,15 @@ export function AdminReports() {
                     style={{ background: "none", border: "none", padding: "6px 0 0", color: "var(--brand-700)", cursor: "pointer" }}
                     onClick={() => nav(link)}
                   >
-                    {item.targetType === "COMMENT" ? "Open the post it is on →" : `Open the reported ${item.targetType.toLowerCase()} →`}
+                    {OPEN_LABEL[item.targetType] ?? `Open the reported ${item.targetType.toLowerCase()} →`}
                   </button>
                 )}
 
                 {outcome ? (
                   <span className={`badge ${outcome === "ACTION_TAKEN" ? "badge-red" : "badge-gray"}`} style={{ marginTop: 10 }}>
-                    {outcome === "ACTION_TAKEN" ? (community ? "Removed" : "Action taken") : (community ? "No action — visible again" : "Dismissed")}
+                    {outcome === "ACTION_TAKEN" ? (hideable ? "Removed" : "Action taken") : (hideable ? "No action — visible again" : "Dismissed")}
                   </span>
-                ) : community ? (
+                ) : hideable ? (
                   <div className="row gap-8" style={{ marginTop: 12 }}>
                     <button
                       className="btn btn-outline grow btn-sm"

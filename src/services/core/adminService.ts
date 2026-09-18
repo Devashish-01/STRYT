@@ -331,33 +331,80 @@ export const adminService = {
     const reports = await this.reports();
     const sb = getSupabase();
     const ids = (type: string) => [...new Set(reports.filter((r) => r.targetType === type).map((r) => r.targetId))];
-    const hidden: Record<string, HiddenState> = {};
-    const postIds = ids("POST");
-    if (postIds.length > 0) {
-      const { data, error } = await sb.from("community_posts").select("id, title, body, hidden_at, hidden_reason").in("id", postIds);
-      throwIfError(error);
-      for (const p of data ?? []) {
-        hidden[moderationKey("POST", p.id)] = {
-          hiddenAt: p.hidden_at,
-          hiddenReason: p.hidden_reason as HiddenState["hiddenReason"],
-          preview: preview(`${p.title}${p.body ? ` — ${p.body}` : ""}`),
-        };
-      }
-    }
-    const commentIds = ids("COMMENT");
-    if (commentIds.length > 0) {
-      const { data, error } = await sb.from("post_comments").select("id, body, post_id, hidden_at, hidden_reason").in("id", commentIds);
-      throwIfError(error);
-      for (const c of data ?? []) {
-        hidden[moderationKey("COMMENT", c.id)] = {
-          hiddenAt: c.hidden_at,
-          hiddenReason: c.hidden_reason as HiddenState["hiddenReason"],
-          preview: preview(c.body),
-          postId: c.post_id,
-        };
-      }
-    }
-    return groupReports(reports, hidden);
+    const state: Record<string, HiddenState> = {};
+    const put = (type: string, id: string, s: Partial<HiddenState>) => {
+      state[moderationKey(type, id)] = {
+        hiddenAt: s.hiddenAt ?? null,
+        hiddenReason: (s.hiddenReason ?? null) as HiddenState["hiddenReason"],
+        preview: s.preview,
+        link: s.link,
+      };
+    };
+    const hiddenOf = (row: { hidden_at: string | null; hidden_reason: string | null }) => ({
+      hiddenAt: row.hidden_at,
+      hiddenReason: row.hidden_reason as HiddenState["hiddenReason"],
+    });
+
+    // What each reported thing says, whether it is hidden, and where to read it in context. One query per type,
+    // all at once; a type with no open reports is skipped.
+    const loads: Record<string, (list: string[]) => Promise<void>> = {
+      POST: async (list) => {
+        const { data, error } = await sb.from("community_posts").select("id, title, body, hidden_at, hidden_reason").in("id", list);
+        throwIfError(error);
+        for (const r of data ?? []) {
+          put("POST", r.id, { ...hiddenOf(r), preview: preview(`${r.title}${r.body ? ` — ${r.body}` : ""}`), link: `/community/${r.id}` });
+        }
+      },
+      COMMENT: async (list) => {
+        const { data, error } = await sb.from("post_comments").select("id, body, post_id, hidden_at, hidden_reason").in("id", list);
+        throwIfError(error);
+        for (const r of data ?? []) put("COMMENT", r.id, { ...hiddenOf(r), preview: preview(r.body), link: `/community/${r.post_id}` });
+      },
+      RATING: async (list) => {
+        const { data, error } = await sb.from("ratings").select("id, comment, rating, ratee_type, ratee_id, hidden_at, hidden_reason").in("id", list);
+        throwIfError(error);
+        for (const r of data ?? []) {
+          const link = r.ratee_type === "BUSINESS" ? `/business/${r.ratee_id}` : r.ratee_type === "PROVIDER" ? `/provider/${r.ratee_id}` : `/u/${r.ratee_id}`;
+          put("RATING", r.id, { ...hiddenOf(r), preview: preview(`${r.rating}★${r.comment ? ` — ${r.comment}` : ""}`), link });
+        }
+      },
+      REQUEST: async (list) => {
+        const { data, error } = await sb.from("requests").select("id, title, description, hidden_at, hidden_reason").in("id", list);
+        throwIfError(error);
+        for (const r of data ?? []) {
+          put("REQUEST", r.id, { ...hiddenOf(r), preview: preview(`${r.title}${r.description ? ` — ${r.description}` : ""}`), link: `/request/${r.id}` });
+        }
+      },
+      STORY: async (list) => {
+        const { data, error } = await sb.from("stories").select("id, caption, hidden_at, hidden_reason").in("id", list);
+        throwIfError(error);
+        for (const r of data ?? []) put("STORY", r.id, { ...hiddenOf(r), preview: r.caption ? preview(r.caption) : undefined });
+      },
+      BULK_DEAL: async (list) => {
+        const { data, error } = await sb.from("bulk_deals").select("id, title, description, business_id, hidden_at, hidden_reason").in("id", list);
+        throwIfError(error);
+        for (const r of data ?? []) {
+          put("BULK_DEAL", r.id, { ...hiddenOf(r), preview: preview(`${r.title}${r.description ? ` — ${r.description}` : ""}`), link: `/business/${r.business_id}` });
+        }
+      },
+      BUSINESS: async (list) => {
+        const { data, error } = await sb.from("businesses").select("id, name, description").in("id", list);
+        throwIfError(error);
+        for (const r of data ?? []) put("BUSINESS", r.id, { preview: preview(`${r.name}${r.description ? ` — ${r.description}` : ""}`), link: `/business/${r.id}` });
+      },
+      PROVIDER: async (list) => {
+        const { data, error } = await sb.from("providers").select("id, display_name, bio").in("id", list);
+        throwIfError(error);
+        for (const r of data ?? []) put("PROVIDER", r.id, { preview: preview(`${r.display_name}${r.bio ? ` — ${r.bio}` : ""}`), link: `/provider/${r.id}` });
+      },
+    };
+    await Promise.all(
+      Object.entries(loads).map(([type, load]) => {
+        const list = ids(type);
+        return list.length > 0 ? load(list) : Promise.resolve();
+      }),
+    );
+    return groupReports(reports, state);
   },
 
   /** "No action": visible again, and every open report on it closed as reviewed (admin_moderation_restore). */
@@ -366,7 +413,8 @@ export const adminService = {
     throwIfError(error);
   },
 
-  /** "Remove": deleted, and every open report on it closed as actioned (admin_moderation_remove). */
+  /** "Remove" (admin_moderation_remove): a post, comment or story is deleted; a request is closed and stays hidden;
+   *  a review or bulk deal stays hidden for good. Every open report on it is closed as actioned. */
   async moderationRemove(targetType: string, targetId: string): Promise<void> {
     const { error } = await getSupabase().rpc("admin_moderation_remove", { p_target_type: targetType, p_target_id: targetId });
     throwIfError(error);

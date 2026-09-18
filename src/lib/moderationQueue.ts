@@ -11,11 +11,11 @@ export type Priority = "urgent" | "high" | "normal" | "low";
 /** What the queue knows about a reported post or comment beyond its reports. */
 export interface HiddenState {
   hiddenAt: string | null;
-  hiddenReason: "REPORTS" | "AUTO_CHECK" | null;
-  /** The start of its text. A comment has no screen of its own, so without this a moderator could not read it. */
+  hiddenReason: "REPORTS" | "AUTO_CHECK" | "REMOVED" | null;
+  /** The start of its text. A comment or review has no screen of its own, so without this a moderator could not read it. */
   preview?: string;
-  /** For a comment: the post it is on, where it can be read in context. */
-  postId?: string;
+  /** Where it can be read in context: a comment's post, a review's business or provider, a deal's business. */
+  link?: string;
 }
 
 export interface ModerationItem {
@@ -35,8 +35,8 @@ export interface ModerationItem {
   reasons: string[];
   /** The start of its text, when it still exists. */
   preview: string | null;
-  /** For a comment: the post it is on. */
-  postId: string | null;
+  /** Where to read it in context, when it has somewhere. */
+  link: string | null;
 }
 
 /** The reason code the automatic check files under. */
@@ -65,7 +65,7 @@ export function groupReports(reports: AdminReport[], hidden: Record<string, Hidd
         hiddenReason: h?.hiddenAt ? h.hiddenReason : null,
         reasons: [],
         preview: h?.preview ?? null,
-        postId: h?.postId ?? null,
+        link: h?.link ?? null,
       };
       items.set(key, item);
       people.set(key, new Set());

@@ -1295,6 +1295,7 @@ const strings: Record<string, string> = {
     cpd_edit_comment_aria: "अपनी टिप्पणी एडिट करें",
     mod_under_review_post: "जाँच चल रही है — अभी यह पोस्ट सिर्फ़ आपको और मॉडरेटर को दिखती है।",
     mod_under_review_comment: "जाँच चल रही है — अभी यह टिप्पणी सिर्फ़ आपको और मॉडरेटर को दिखती है।",
+    mod_under_review_item: "जाँच चल रही है — अभी यह सिर्फ़ आपको और मॉडरेटर को दिखता है।",
     report_already_submitted: "आप इसकी रिपोर्ट पहले ही कर चुके हैं। धन्यवाद — एक मॉडरेटर इसे देखेगा।",
     cpd_mentions_note: "मेंशन वैसे ही रहेंगे जैसे पहली बार पोस्ट हुए थे।",
     cpd_shared_with_you: "· आपके साथ शेयर किया गया",

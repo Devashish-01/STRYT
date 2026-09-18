@@ -7,6 +7,7 @@ import { SafeImg } from "@/components/common";
 import { useApp } from "@/store";
 import type { Story } from "@/types";
 import { getSupabase } from "@/lib/supabaseClient";
+import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
 
 interface AuthorGroup {
   authorId: string;
@@ -642,6 +643,7 @@ export function StoryViewer({
 
       {/* Caption + CTA Link */}
       <div style={{ position: "absolute", bottom: `calc(${isOwnStory ? 76 : 74}px + var(--safe-area-bottom))`, left: 16, right: 16, zIndex: 3 }}>
+        {story.hiddenAt && <UnderReviewNotice kind="item" />}
         {story.caption && (
           <div style={{
             background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",

@@ -31,6 +31,8 @@ export interface BulkTier {
 
 export interface BulkDeal {
   id: string;
+  /** Set when moderation has hidden this (20260991). Only its author and admins are sent a hidden one. */
+  hiddenAt?: string | null;
   businessId: string;
   ownerUserId: string;
   catalogItemId?: string | null;

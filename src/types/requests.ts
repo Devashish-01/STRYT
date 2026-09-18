@@ -20,6 +20,8 @@ export type JobLiveStatus =
 
 export interface RequestPost {
   id: string;
+  /** Set when moderation has hidden this (20260991). Only its author and admins are sent a hidden one. */
+  hiddenAt?: string | null;
   requesterUserId: string;
   requesterName: string;
   requesterAvatar: string;
@@ -164,6 +166,8 @@ export interface Review {
   date: string;
   isVerifiedBooking?: boolean;
   ownerReply?: string;
+  /** Set when moderation has hidden this (20260991). Only its author and admins are sent a hidden one. */
+  hiddenAt?: string | null;
 }
 
 export interface Settlement {

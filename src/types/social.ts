@@ -4,6 +4,8 @@ import type { BookmarkTarget } from "./user";
 
 export interface Story {
   id: string;
+  /** Set when moderation has hidden this (20260991). Only its author and admins are sent a hidden one. */
+  hiddenAt?: string | null;
   businessId?: string;
   providerId?: string;
   userId?: string;

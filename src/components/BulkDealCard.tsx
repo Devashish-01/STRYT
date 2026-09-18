@@ -6,6 +6,7 @@ import { inr, distanceLabel } from "@/lib/format";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import { poolProgress } from "@/lib/groupBuy";
+import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
 
 /** Business-run bulk-buying campaign, in the feed.
  *
@@ -122,6 +123,7 @@ export default function BulkDealCard({
       <div className="bold" style={{ fontSize: 17, marginTop: 12, letterSpacing: "-0.3px", lineHeight: 1.3, color: "var(--ink-900)" }}>
         {deal.title}
       </div>
+      {deal.hiddenAt && <UnderReviewNotice kind="item" />}
       {deal.description && (
         <div
           className="small muted"

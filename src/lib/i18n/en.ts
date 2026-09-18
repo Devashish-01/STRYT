@@ -1300,6 +1300,7 @@ const strings: Record<string, string> = {
     cpd_edit_comment_aria: "Edit your comment",
     mod_under_review_post: "Under review — only you and moderators can see this post right now.",
     mod_under_review_comment: "Under review — only you and moderators can see this comment right now.",
+    mod_under_review_item: "Under review — only you and moderators can see this right now.",
     report_already_submitted: "You've already reported this. Thanks — a moderator will look at it.",
     cpd_mentions_note: "Mentions stay as first posted.",
     cpd_shared_with_you: "· shared with you",

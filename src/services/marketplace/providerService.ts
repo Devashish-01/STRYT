@@ -128,7 +128,7 @@ export const providerService = {
     const sb = getSupabase();
     const { data, error } = await sb
       .from("ratings")
-      .select("id, rating, comment, created_at, is_verified_booking, owner_reply, rater:users!rater_user_id(name, alias, avatar, show_name_publicly)")
+      .select("id, rating, comment, created_at, is_verified_booking, owner_reply, hidden_at, rater:users!rater_user_id(name, alias, avatar, show_name_publicly)")
       .eq("ratee_type", "PROVIDER")
       .eq("ratee_id", id)
       .order("created_at", { ascending: false })
@@ -143,6 +143,7 @@ export const providerService = {
       date: relDate(r.created_at),
       isVerifiedBooking: !!r.is_verified_booking,
       ownerReply: r.owner_reply ?? undefined,
+      hiddenAt: r.hidden_at ?? null,
     }));
   },
   async update(id: string, patch: Partial<Provider>) {

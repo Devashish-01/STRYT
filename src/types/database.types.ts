@@ -1,6 +1,6 @@
 // Generated from the STAGING database (laswruzdyqehziyupmdm) with the Management API on 2026-09-18.
 //
-// Staging carries migrations 20260973-20260990, which production has not had applied yet (an owner step).
+// Staging carries migrations 20260973-20260991, which production has not had applied yet (an owner step).
 // These types therefore describe the schema the app is written against, not the one production runs today.
 // Regenerate after any migration: the previous copy had drifted far enough that it still declared
 // bulk_deal_order and bulk_deal_quote, dropped back in 20260921, and knew none of the community_* RPCs the
@@ -801,6 +801,8 @@ export type Database = {
           deposit_amount: number | null
           description: string | null
           fulfillment_type: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           image: string | null
           moq: number
@@ -822,6 +824,8 @@ export type Database = {
           deposit_amount?: number | null
           description?: string | null
           fulfillment_type?: string | null
+          hidden_at?: string | null
+          hidden_reason?: string | null
           id?: string
           image?: string | null
           moq?: number
@@ -843,6 +847,8 @@ export type Database = {
           deposit_amount?: number | null
           description?: string | null
           fulfillment_type?: string | null
+          hidden_at?: string | null
+          hidden_reason?: string | null
           id?: string
           image?: string | null
           moq?: number
@@ -3702,6 +3708,8 @@ export type Database = {
           agreement_id: string | null
           comment: string | null
           created_at: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           is_verified_booking: boolean
           owner_reply: string | null
@@ -3716,6 +3724,8 @@ export type Database = {
           agreement_id?: string | null
           comment?: string | null
           created_at?: string | null
+          hidden_at?: string | null
+          hidden_reason?: string | null
           id?: string
           is_verified_booking?: boolean
           owner_reply?: string | null
@@ -3730,6 +3740,8 @@ export type Database = {
           agreement_id?: string | null
           comment?: string | null
           created_at?: string | null
+          hidden_at?: string | null
+          hidden_reason?: string | null
           id?: string
           is_verified_booking?: boolean
           owner_reply?: string | null
@@ -3853,6 +3865,8 @@ export type Database = {
           geom: unknown
           group_agreement_id: string | null
           group_buy_target: number | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           is_anonymous: boolean | null
           is_boosted: boolean | null
@@ -3887,6 +3901,8 @@ export type Database = {
           geom?: unknown
           group_agreement_id?: string | null
           group_buy_target?: number | null
+          hidden_at?: string | null
+          hidden_reason?: string | null
           id?: string
           is_anonymous?: boolean | null
           is_boosted?: boolean | null
@@ -3921,6 +3937,8 @@ export type Database = {
           geom?: unknown
           group_agreement_id?: string | null
           group_buy_target?: number | null
+          hidden_at?: string | null
+          hidden_reason?: string | null
           id?: string
           is_anonymous?: boolean | null
           is_boosted?: boolean | null
@@ -4184,6 +4202,8 @@ export type Database = {
           cta: string
           expires_at: string
           geom: unknown
+          hidden_at: string | null
+          hidden_reason: string | null
           hidden_user_ids: string[] | null
           id: string
           image_url: string
@@ -4204,6 +4224,8 @@ export type Database = {
           cta?: string
           expires_at: string
           geom?: unknown
+          hidden_at?: string | null
+          hidden_reason?: string | null
           hidden_user_ids?: string[] | null
           id?: string
           image_url: string
@@ -4224,6 +4246,8 @@ export type Database = {
           cta?: string
           expires_at?: string
           geom?: unknown
+          hidden_at?: string | null
+          hidden_reason?: string | null
           hidden_user_ids?: string[] | null
           id?: string
           image_url?: string
@@ -5998,6 +6022,8 @@ export type Database = {
           deposit_amount: number | null
           description: string | null
           fulfillment_type: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           image: string | null
           moq: number
@@ -6029,6 +6055,8 @@ export type Database = {
           deposit_amount: number | null
           description: string | null
           fulfillment_type: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           image: string | null
           moq: number
@@ -6108,6 +6136,8 @@ export type Database = {
           deposit_amount: number | null
           description: string | null
           fulfillment_type: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           image: string | null
           moq: number
@@ -6138,6 +6168,8 @@ export type Database = {
           deposit_amount: number | null
           description: string | null
           fulfillment_type: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           image: string | null
           moq: number
@@ -7358,6 +7390,8 @@ export type Database = {
           geom: unknown
           group_agreement_id: string | null
           group_buy_target: number | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           is_anonymous: boolean | null
           is_boosted: boolean | null
@@ -7401,6 +7435,8 @@ export type Database = {
           geom: unknown
           group_agreement_id: string | null
           group_buy_target: number | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           is_anonymous: boolean | null
           is_boosted: boolean | null
@@ -7822,6 +7858,8 @@ export type Database = {
           agreement_id: string | null
           comment: string | null
           created_at: string | null
+          hidden_at: string | null
+          hidden_reason: string | null
           id: string
           is_verified_booking: boolean
           owner_reply: string | null
@@ -8738,6 +8776,8 @@ export type Database = {
           cta: string
           expires_at: string
           geom: unknown
+          hidden_at: string | null
+          hidden_reason: string | null
           hidden_user_ids: string[] | null
           id: string
           image_url: string

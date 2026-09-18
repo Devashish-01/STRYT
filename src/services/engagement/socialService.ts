@@ -54,6 +54,7 @@ function rowToStory(row: Record<string, unknown>): Story {
     allowedUserIds: (row.allowed_user_ids as string[]) ?? [],
     hiddenUserIds: (row.hidden_user_ids as string[]) ?? [],
     isHighlighted: (row.is_highlighted as boolean) ?? false,
+    hiddenAt: (row.hidden_at as string | null) ?? null,
   };
 }
 

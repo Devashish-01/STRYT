@@ -38,8 +38,9 @@ type Node = {
   classifyContent: (input: ContentIn, opts: any) => Promise<Verdict>;
   verdictSummary: (v: Verdict) => string;
   CONTENT_NOULS: readonly string[];
+  CONTENT_KINDS: readonly string[];
 };
-type ContentIn = { kind: "POST" | "COMMENT"; postType: string | null; title: string | null; text: string };
+type ContentIn = { kind: string; postType: string | null; title: string | null; text: string };
 type Verdict = {
   action: "hide" | "review" | "pass"; support: boolean; category: string; categoryConfidence: number;
   severity: number; flags: string[]; reasons: string[]; model: string; usage?: unknown;
@@ -53,7 +54,7 @@ type Triage = {
 const node: Node = new Function(
   `${transformSync(block(), { loader: "ts" }).code}
   return { maskPersonalData, buildRequest, readAnswers, decide, callTypeSafe, classifyReport, POLICY, DEFAULT_MODEL,
-    buildContentRequest, readTyped, decideContent, classifyContent, verdictSummary, CONTENT_NOULS };`,
+    buildContentRequest, readTyped, decideContent, classifyContent, verdictSummary, CONTENT_NOULS, CONTENT_KINDS };`,
 )();
 
 const post = (text: string, extra: Partial<Input> = {}): Input => ({
@@ -446,5 +447,44 @@ describe("the automatic check's decision", () => {
     const v = await node.classifyContent(contentPost("..."), { apiKey: "k", fetch });
     expect(v.action).toBe("hide");
     expect(v.usage).toEqual({ input_tokens: 800, output_tokens: 7 });
+  });
+});
+
+describe("the automatic check, everywhere people write in public (20260991)", () => {
+  it("covers every public text and nothing private", () => {
+    expect([...node.CONTENT_KINDS].sort()).toEqual(
+      ["BULK_DEAL", "BUSINESS", "COMMENT", "POST", "PROVIDER", "RATING", "REQUEST", "STORY"],
+    );
+    expect(node.CONTENT_KINDS).not.toContain("PROPOSAL");
+  });
+
+  it("tells the model what kind of text it is reading", () => {
+    const req = node.buildContentRequest({ kind: "RATING", postType: null, title: null, text: "Rude staff, never again." });
+    expect(req.state.content).toEqual({ kind: "review of a local business or service provider", text: "Rude staff, never again." });
+    const deal = node.buildContentRequest({ kind: "BULK_DEAL", postType: null, title: "Mango crates", text: "Order by Friday" });
+    expect(deal.state.content).toEqual({ kind: "group-buy offer from a local business", title: "Mango crates", text: "Order by Friday" });
+  });
+
+  it("leaves the evaluated post and comment requests exactly as they were", () => {
+    const post = node.buildContentRequest(contentPost("hello"));
+    expect(post.state.content).toEqual({ kind: "community post", post_type: "Shout-out", title: "Hello", text: "hello" });
+  });
+
+  it("masks personal details in every kind", () => {
+    const req = node.buildContentRequest({ kind: "PROVIDER", postType: null, title: "Ravi", text: "Call 98765 43210" });
+    expect(JSON.stringify(req)).not.toMatch(/98765/);
+  });
+
+  it.each(["BUSINESS", "PROVIDER"])("never hides a %s, only files it", async (kind) => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(contentResponse({ abusive_language: noul(0.97) }))));
+    const v = await node.classifyContent({ kind, postType: null, title: "Name", text: "..." }, { apiKey: "k", fetch });
+    expect(v.action).toBe("review");
+    expect(v.reasons.join(" ")).toMatch(/never hidden automatically/);
+  });
+
+  it.each(["RATING", "REQUEST", "STORY", "BULK_DEAL"])("hides a clear violation in a %s", async (kind) => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify(contentResponse({ abusive_language: noul(0.97) }))));
+    const v = await node.classifyContent({ kind, postType: null, title: null, text: "..." }, { apiKey: "k", fetch });
+    expect(v.action).toBe("hide");
   });
 });

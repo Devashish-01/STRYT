@@ -33,11 +33,11 @@ describe("grouping open reports into decisions", () => {
     expect(items.map((i) => i.key)).toEqual(["POST:x", "COMMENT:x"]);
   });
 
-  it("carries hidden state, a text preview and a comment's post", () => {
+  it("carries hidden state, a text preview and where to read it", () => {
     const items = groupReports([report({ targetType: "COMMENT", targetId: "c1" })], {
-      [moderationKey("COMMENT", "c1")]: { hiddenAt: "2026-09-18T10:00:00Z", hiddenReason: "REPORTS", preview: "rude words", postId: "p9" },
+      [moderationKey("COMMENT", "c1")]: { hiddenAt: "2026-09-18T10:00:00Z", hiddenReason: "REPORTS", preview: "rude words", link: "/community/p9" },
     });
-    expect(items[0]).toMatchObject({ hidden: true, hiddenReason: "REPORTS", preview: "rude words", postId: "p9" });
+    expect(items[0]).toMatchObject({ hidden: true, hiddenReason: "REPORTS", preview: "rude words", link: "/community/p9" });
   });
 
   it("a restored item is not hidden, whatever reason was once recorded", () => {
