@@ -111,24 +111,33 @@ Navigate to: **Policy → App content**
 
 Navigate to: **Policy → App content → Data safety**
 
-### Global Questions
-| Question | Answer | Notes |
-|---|---|---|
-| Does your app collect or share any user data? | **Yes** | Account, location, proposals |
-| Is all data encrypted in transit? | **Yes** | HTTPS/TLS enforced by CSP |
-| Do you provide a way for users to request data deletion? | **Yes** | `https://stryt.in/legal/account-deletion` |
+> **Fill the form from [`DATA_SAFETY.md`](DATA_SAFETY.md), not from this section.** It is the copy/paste
+> source: every row there cites the code or schema behind it, and it was revised on 18 September 2026.
+>
+> This section used to carry its own shorter table. The two drifted — this one was missing **ten** data types
+> the other declares (user IDs, address, other info including government ID, purchase history, other
+> financial info, app interactions, other user-generated content, in-app search history, crash logs and
+> diagnostics), and disagreed with it on whether **name** and **phone** are shared. Keeping one table is how
+> that stops.
 
-### Data Types Declaration Table
-| Data Category | Data Type | Collected? | Shared? | Required / Optional | Purposes |
-|---|---|---|---|---|---|
-| **Location** | Approximate Location | **Yes** | **No** | Optional | App functionality, Personalization |
-| **Location** | Precise Location | **Yes** | **Yes** *(User-to-user only)* | Optional | App functionality *(My People live share)* |
-| **Personal Info** | Name | **Yes** | **No** | Required | App functionality, Account management |
-| **Personal Info** | Email address | **Yes** | **No** | Required | App functionality, Account management |
-| **Personal Info** | Phone number | **Yes** | **No** | Optional | App functionality, Account verification |
-| **Messages** | In-app messages | **Yes** | **Yes** *(Buyer-seller)* | Optional | App functionality *(Bargain proposals)* |
-| **Photos & Videos**| Photos | **Yes** | **Yes** *(Public/profile)*| Optional | App functionality *(Product photos/avatars)*|
-| **Device / IDs** | Device / Other IDs | **Yes** | **No** | Required | App functionality *(FCM Push Notification Token)*|
+### Before you open the form
+
+1. **Deploy `purge-deleted-accounts` to production** (`../RELEASE_RUNBOOK.md` part 2). The form asks whether
+   users can request deletion. The honest answer is only "Yes" once the function that completes a deletion
+   exists — it has never been deployed there.
+2. **Settle the background-location decision** (`../PLAY_LAUNCH_PLAN.md`, owner step 1). It decides whether §3.9
+   above applies at all.
+
+### The global answers, for reference
+
+| Question | Answer |
+|---|---|
+| Does your app collect or share any of the required user data types? | **Yes** |
+| Is all of the user data collected by your app encrypted in transit? | **Yes** |
+| Do you provide a way for users to request that their data is deleted? | **Yes** — subject to point 1 above |
+
+Everything else — each data type, whether it is shared, optional or required, and its purposes — is in
+`DATA_SAFETY.md` §1–§11.
 
 ---
 

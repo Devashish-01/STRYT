@@ -44,7 +44,7 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
   *Done when:* the scrubber has tests that fail if a field leaks.
 - [x] **B3** Top-level error boundary that reports and shows a retry screen.
 - [x] **B4** Confirm `dist/` ships no `.map` files (or they are blocked). *Done when:* proven by a build.
-- [owner] Sentry project + `SENTRY_DSN` / `SENTRY_AUTH_TOKEN` secrets.
+- [owner] Sentry project + a `VITE_SENTRY_DSN` secret *(was written `SENTRY_DSN` — corrected 18 Sept)*.
 
 ### C — P14 job monitoring
 - [!] **C1** Migration granting `ci_readonly` select on `cron.job_run_details` and `cron.job`, with a verbatim
@@ -78,7 +78,7 @@ Status: `[ ]` pending · `[~]` in progress · `[x]` done · `[!]` blocked (reaso
 ### G — Checkpoints
 - [x] **G1** Full E2E after B+C land.
 - [x] **G2** Full E2E after E lands.
-- [~] **G3** Final: `npm run verify`, full E2E, clean tree, this file's handover section written.
+- [x] **G3** *(Closed 18 Sept: owner judged no rerun was needed after the label commit; a full `npm run verify` and a 150/150 E2E ran later on `45626bf` anyway.)* Final: `npm run verify`, full E2E, clean tree, this file's handover section written.
 
 ## A note on how this runs
 
@@ -117,7 +117,7 @@ Collected here as they come up, so 07:30 has one list rather than a hunt.
 |---|---|---|
 | 1 | Apply migrations `20260973`–`20260989` to production | Production applies are owner-only (HANDOFF §5) |
 | 2 | Deploy edge functions `purge-deleted-accounts`, `admin-delete-profile`, `verification-review` | Owner deploy step |
-| 3 | Create the Sentry project; add `SENTRY_DSN` and `SENTRY_AUTH_TOKEN` as GitHub secrets | Account + secret creation |
+| 3 | Create the Sentry project; add a `VITE_SENTRY_DSN` secret *(corrected from `SENTRY_DSN`)* | Account + secret creation |
 | 4 | Create uptime monitors (stryt.in, app-update function, Supabase REST) | External account |
 | 5 | Run the device QA checklist on real phones | Only a device can prove push, camera, dialling, background |
 | 6 | Lawyer review of the legal documents for DPDP Act + IT Rules | The agent must not claim legal compliance |

@@ -22,14 +22,21 @@ Covers all the types the phase lists. Six findings came out of it:
 
 | # | Finding | Status |
 |---|---|---|
-| 1 | **`purge-deleted-accounts` has never been deployed**, so the 30-day deletion promise starts and never completes | **Owner step 9 — highest priority in the phase** |
+| 1 | **`purge-deleted-accounts` has never been deployed**, so the 30-day deletion promise starts and never completes | **Owner** — `RELEASE_RUNBOOK.md` part 2. *18 Sept:* deletion also never removed Aadhaar/PAN documents (P15-001) — fixed in both functions, reaches production with that deploy |
 | 2 | `client_errors` had no scrubber; its "no PII" note was intent, not enforcement | **Fixed** in P14 (`scrubPii`) |
-| 3 | `verification-docs` — the only non-public bucket, holding Aadhaar and PAN — deserves its own RLS re-check | Open |
+| 3 | `verification-docs` — the only non-public bucket, holding Aadhaar and PAN — deserves its own RLS re-check | **Done 18 Sept** — private on both projects, no read policy for any client role |
 | 4 | "Contacts" must be declared **not collected**: `emergency_contacts` holds a STRYT user id, and the app never reads the device contact book | For the form |
 | 5 | Map tile hosts and the geocoder receive location; absent from the policy | **Fixed** in §15.B below |
-| 6 | Vercel Analytics runs with no in-app disclosure found | Open — decide whether it stays |
+| 6 | Vercel Analytics runs with no in-app disclosure found | **Resolved 18 Sept** — it runs on the website only; its script cannot load inside the app |
 
 ## 2. 15.A.2 — Diff against the dossier and the policy ✅
+
+> **Correction (later on 18 Sept).** This section overstated the problem. It diffed the dossier's short
+> summary table rather than `play-console/DATA_SAFETY.md`, which is the copy/paste source and already
+> declared most of the "missing" types. And it used the everyday meaning of *shared*: Play excludes
+> service providers, so the "wrong on three rows" verdict below was itself wrong. The genuine gaps turned
+> out to be one under-declaration (**in-app search history**) and the deletion precondition — both now
+> fixed in `DATA_SAFETY.md`. The dossier summary has been replaced with a pointer to it.
 
 `docs/launch/DATA_SAFETY_DIFF.md`. Three documents describe what STRYT collects and they disagree; this says
 which one is wrong in each case, judged against the code rather than against each other.
@@ -74,7 +81,7 @@ run — they need the running app, and they are rows 7.4 and 7.5 of the device c
 |---|---|
 | 15.C — Play Console | Owner-only console access |
 | 15.D — release checks, closed test | Depends on 15.C, plus the 14-day wait if D11 requires it |
-| Rewriting dossier §4 from the inventory | Left to the owner deliberately: it is the document they will fill the form from, and §2 lists exactly what to change. Doing it silently would hide how wrong it currently is. |
+| ~~Rewriting dossier §4 from the inventory~~ | **Done differently, 18 Sept:** dossier §4 now points at `play-console/DATA_SAFETY.md`, which was revised instead — see the correction in §2 |
 | §15.B.5 in-app confirmations | Needs the running app — device checklist 7.4/7.5 |
 
 ## 5. Owner steps, in the order that matters
@@ -82,10 +89,10 @@ run — they need the running app, and they are rows 7.4 and 7.5 of the device c
 1. **Deploy `purge-deleted-accounts`**, then prove one purge on staging. The policy and the store listing both
    promise deletion after 30 days and nothing completes it today. This is the one that could be called a
    misrepresentation rather than a gap.
-2. **Rewrite dossier §4** from `DATA_INVENTORY.md` §1 — five types missing, three rows wrong.
+2. **Fill the Data safety form from `play-console/DATA_SAFETY.md`** (revised 18 Sept). *(This step used to say "rewrite dossier §4 — five types missing, three rows wrong"; see the §2 correction.)*
 3. **Lawyer review** of the legal documents; record reviewer and date in `legal/README.md`.
-4. **Re-check `verification-docs` bucket RLS** before declaring government ID.
-5. **Decide on Vercel Analytics** — disclose it in-app or drop it.
+4. ~~Re-check `verification-docs` bucket RLS~~ — done by the agent on 18 Sept; it is locked down.
+5. ~~Decide on Vercel Analytics~~ — it runs on the website only, so it is not an app declaration; the privacy policy already names it.
 6. Play Console paperwork and the closed test.
 
 ## 6. Verification
@@ -104,6 +111,6 @@ run — they need the running app, and they are rows 7.4 and 7.5 of the device c
 - [x] Privacy policy corrected where it described something the code does not do
 - [x] Corrections recorded as unreviewed
 - [ ] Lawyer review — **owner**
-- [ ] Dossier §4 rewritten — **owner**
+- [x] Data safety answers revised and made a single source (`play-console/DATA_SAFETY.md`) — agent, 18 Sept
 - [ ] Play Console, closed test, launch — **owner**
 - [ ] Account deletion actually completing — **owner step 1, and it gates an honest declaration**

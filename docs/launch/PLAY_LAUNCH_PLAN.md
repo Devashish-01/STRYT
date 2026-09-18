@@ -38,20 +38,27 @@ of the manifest, and merging is a clean fast-forward — `origin/main` has nothi
     foreground-only, and check the *merged* manifest so the background-geolocation plugin does not re-add
     them.
   - Option A: finalise `play-console/BACKGROUND_LOCATION_DECLARATION.md` and write the demo-video script.
-- [ ] **2. Wire `VITE_SENTRY_DSN` into `android-release.yml` and `ota-release.yml`.** Correction to the P14
+- [x] **2. Wire `VITE_SENTRY_DSN` into `android-release.yml` and `ota-release.yml`.** *Done `4dd2a70`.* Correction to the P14
   report, which said to create a `SENTRY_DSN` secret: the build reads `VITE_SENTRY_DSN`, and neither workflow
   passed it, so Sentry would never have switched on.
-- [ ] **3. Fix P12-001** — a reply-to-chat notification navigates to `/chat`, which is not a route. The fix
+- [x] **3. Fix P12-001** *(done `4dd2a70`, 37 tests pass)* — a reply-to-chat notification navigates to `/chat`, which is not a route. The fix
   changes `src/screens/notifications/actions.ts` and the test in `actions.test.ts` that currently pins the
   broken fallback.
-- [ ] **4. Rewrite `play-console/DATA_SAFETY.md` and dossier §4** as exact answers to paste into the console,
-  from `DATA_INVENTORY.md` §1. Five data types are currently missing and three rows are wrong
-  (`DATA_SAFETY_DIFF.md`).
-- [ ] **5. Read-only check of the `verification-docs` bucket policies** (it holds Aadhaar/PAN) before
+- [x] **4. Revise `play-console/DATA_SAFETY.md` and make it the single source** — dossier §4 now points at it.
+  *Correction:* it was largely right already. The earlier "five missing, three wrong" came from diffing the
+  dossier's short summary and from using the everyday meaning of *shared*; Play excludes service providers.
+  The genuine fixes: **in-app search history** was under-declared, and the deletion answer needs
+  `purge-deleted-accounts` live first.
+- [x] **5. Read-only check of the `verification-docs` bucket policies** — locked down on both projects. It
+  also found that **deletion never removed these documents** (P15-001): fixed in both edge functions
+  (`fd20e49`), tested against the shipped code, deployed to staging. (it holds Aadhaar/PAN) before
   government ID is declared.
-- [ ] **6. Read-only production preflight:** confirm which of `20260973`–`20260989` are missing on production,
+- [x] **6. Read-only production preflight** — see `RELEASE_RUNBOOK.md`. Production is missing exactly the 17;
+  all 17 files and rollbacks match their logged hashes. confirm which of `20260973`–`20260989` are missing on production,
   and write the owner's step-by-step apply runbook.
-- [ ] **7. Final checks on the release commit:** `npm run verify`, full E2E, and a written merge checklist.
+- [x] **7. Final checks on the release commit:** `npm run verify` passed (743 unit tests, build clean); full
+  E2E **150 passed, 0 failed** on `45626bf`, which holds every code change; the merge checklist is
+  `RELEASE_RUNBOOK.md` part 4. Commits after that are documentation only.
 
 ### During the closed test
 
@@ -83,7 +90,8 @@ of the manifest, and merging is a clean fast-forward — `origin/main` has nothi
   `docs/database/HANDOFF.md` §5.
 - [ ] **5. Deploy three edge functions to production:** `purge-deleted-accounts`, `admin-delete-profile` and
   `verification-review`. `purge-deleted-accounts` matters most: without it, the 30-day account deletion that
-  the privacy policy and store listing promise never completes.
+  the privacy policy and store listing promise never completes. These versions also delete Aadhaar/PAN
+  documents with the account (P15-001). Follow `RELEASE_RUNBOOK.md` parts 1–2.
 - [ ] **6. Create the Sentry project** and add a `VITE_SENTRY_DSN` repository secret.
 
 ### Release

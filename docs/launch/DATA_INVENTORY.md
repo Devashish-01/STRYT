@@ -15,6 +15,11 @@ who can read it, and what removes it. The DPDP Act / IT Rules judgement is the o
 
 ## 1. Summary for the Play *Data safety* form
 
+> **Read the *Shared* column as "reaches a third party"** — which is what the privacy policy must
+> disclose. It is **not** Play's meaning of *shared*, which excludes service providers processing data on
+> your behalf (Mapbox, tile hosts, Firebase). For the actual form answers use
+> `play-console/DATA_SAFETY.md`. *(Clarified 18 Sept, after this column was misread as the Play answer.)*
+
 | Play category | Collected | Shared with third parties | Optional | Deletable in-app |
 |---|---|---|---|---|
 | Name | Yes — `users.name`, plus an `alias` | No | Real name optional; alias auto-suggested | Yes (account deletion) |
@@ -107,9 +112,10 @@ directly. `custom_payments` records a claim and its confirmation.
 `verification_document_url` for both listing types. These are government identity documents and are the most
 sensitive data the app holds.
 
-Readable by: the uploading owner and admins (`verification-review` edge function). **To verify before the
-Play declaration:** that the bucket's RLS policies match that sentence — P05 covered access broadly, but this
-bucket deserves its own re-check because a public URL here would be severe.
+**Checked 2026-09-18, and tighter than first written here:** the bucket is private on production and
+staging, and **no** storage policy lets any client role read it — not even the uploader. The only policy is
+an insert into the uploader's own folder. Reviewers see a document through a short-lived signed URL minted by
+the `verification-review` function using the service role.
 
 ### 2.6 Device and technical
 
@@ -170,11 +176,11 @@ declaration risk: the Play listing and the privacy policy both promise deletion.
 
 | # | Finding | Action |
 |---|---|---|
-| 1 | `purge-deleted-accounts` is not deployed, so the 30-day deletion promise does not complete | **Owner step 2** — deploy it, then verify one purge on staging |
-| 2 | `client_errors` has no scrubber; the "no PII" note is intent, not enforcement | Cover it with the task-B scrubber |
-| 3 | `verification-docs` RLS deserves its own re-check | Verify the bucket policies before declaring |
+| 1 | `purge-deleted-accounts` is not deployed, so the 30-day deletion promise does not complete | **Owner step 2** — deploy it, then verify one purge on staging — *18 Sept:* also, deletion never removed KYC documents at all (P15-001, fixed in both functions; reaches production with the deploy) |
+| 2 | `client_errors` has no scrubber; the "no PII" note is intent, not enforcement | Cover it with the task-B scrubber — *18 Sept:* **done**, `scrubPii` now runs on every report before it leaves |
+| 3 | `verification-docs` RLS deserves its own re-check | Verify the bucket policies before declaring — *18 Sept:* **done**, locked down (see §2.5) |
 | 4 | "Contacts" must be declared **not collected** — `emergency_contacts` holds user ids | Correct the form if it says otherwise |
 | 5 | Map tile hosts and Nominatim receive location; likely absent from the current policy | Add to the privacy policy (task A3) |
-| 6 | Vercel Analytics is running with no in-app disclosure found | Disclose, or decide to drop it |
+| 6 | Vercel Analytics is running with no in-app disclosure found | Disclose, or decide to drop it — *18 Sept:* Vercel runs on the **website only**; its script cannot load inside the app |
 
 *Next: A2 diffs this against the dossier §4 and the privacy policy.*

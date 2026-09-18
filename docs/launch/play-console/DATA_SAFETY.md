@@ -2,6 +2,8 @@
 
 **App:** STRYT · `in.stryt.app`
 **Prepared:** 4 August 2026 · derived from the shipping code, not from memory
+**Revised:** 18 September 2026 — see *What changed on 18 September* at the end. Two answers changed
+(search history, and the deletion answer's precondition); the rest are corrected justifications.
 **Privacy policy URL:** `https://stryt.in/legal/privacy-policy`
 **Account deletion URL:** `https://stryt.in/legal/account-deletion`
 
@@ -19,6 +21,11 @@ binary is a policy violation, not a paperwork slip.
 | Does your app collect or share any of the required user data types? | **Yes** |
 | Is all of the user data collected by your app encrypted in transit? | **Yes** — all traffic is HTTPS/TLS (Supabase, Firebase, Mapbox); CSP in `vercel.json` blocks any non-HTTPS destination |
 | Do you provide a way for users to request that their data is deleted? | **Yes** — `https://stryt.in/legal/account-deletion`, plus in-app **Account → Delete account** |
+
+> **Blocking precondition for the "Yes" above.** The 30-day purge is done by the `purge-deleted-accounts`
+> edge function, which has **never been deployed to production**, and the workflow that calls it daily is not
+> on `main` yet. Until both are live, a deletion request enters the grace period and nothing completes it.
+> Deploy it before submitting this form — `docs/launch/RELEASE_RUNBOOK.md` part 2.
 
 **Data deletion type:** *Account deletion and data deletion.*
 STRYT deletes uploads and anonymises the user record; the retained-data
@@ -39,7 +46,7 @@ exceptions are documented in `legal/data-retention-policy.md` §3.4.
 **Why:** `users.lat` / `users.lng` store a last-known position for nearby
 discovery (`neighborhood_today`, map/Explore). Live share streams position
 while active — `ACCESS_BACKGROUND_LOCATION` +
-`FOREGROUND_SERVICE_LOCATION` in `android/app/src/main/AndroidManifest.xml:60-68`,
+`FOREGROUND_SERVICE_LOCATION` in `android/app/src/main/AndroidManifest.xml:89-91`,
 driven by `src/lib/backgroundLocation.ts`. (⏸ Delivery runs are the same
 mechanism but are deferred to v1.1 — `DELIVERY_AGENT_ENABLED` is `false` for
 this submission, see `BACKGROUND_LOCATION_DECLARATION.md`.)
@@ -52,6 +59,11 @@ with. (⏸ v1.1: also the shop and the customer on a delivery run.) It is
 > STRYT stores only the *last known* position, not a movement history. Say so in
 > the "data usage and handling" free text — it is true (`DataSettings.tsx`
 > repeats the same claim to users) and it materially reduces reviewer concern.
+
+> **Depends on an open owner decision** (`docs/launch/PLAY_LAUNCH_PLAN.md`, owner step 1). If live share
+> becomes foreground-only for v1.0, the two background permissions leave the manifest and the declaration
+> below is not needed. Precise location is still collected in the foreground either way, so the rows above
+> do not change.
 
 **Background location declaration:** required separately under App content →
 Sensitive permissions. See `BACKGROUND_LOCATION_DECLARATION.md` in this folder —
@@ -68,7 +80,7 @@ share); delivery is deferred to v1.1.
 | Email address | **Yes** | No | Required | App functionality; Account management | `users.email` (from Google sign-in) |
 | User IDs | **Yes** | No | Required | App functionality | `users.id`, `users.admin_login_id` |
 | Phone number | **Yes** | **Yes** (only if `show_phone_publicly`) | **Optional** | App functionality | `users.phone` |
-| Address | **Yes** | No | **Optional** | App functionality | `users.area`, `users.city`, `users.unit_number` (society flat) |
+| Address | **Yes** | No | **Optional** | App functionality | `users.area`, `users.city`, `users.unit_number` (society flat); delivery addresses `appointments.delivery_address_line`, `bulk_deal_pledges.delivery_address`, `request_me_toos.delivery_address`; a business's `address_line1` |
 | Other info | **Yes** | No | **Optional** | Account management | recovery Q&A hashes, role passwords — stored **hashed** (`users.*_hash`) |
 
 **Note on names:** STRYT has an alias/real-name split — a user can present an
@@ -128,11 +140,21 @@ Direct messages between users. Not shared with third parties.
 |---|---|---|---|---|
 | App interactions | **Yes** | No | Required | Analytics; App functionality |
 | Other user-generated content | **Yes** | **Yes** (public by design) | Optional | App functionality |
-| Search history | No | — | — | — |
+| In-app search history | **Yes** | No | **Optional** | App functionality |
 
-**Why:** `@vercel/analytics` + `@vercel/speed-insights` (aggregate, no advertising
-identifiers); business/provider view counters (`bump_business_metric`,
-`bump_provider_views`); reviews, ratings, vouches, requests, stories.
+**Why:** inside the app, *App interactions* are the business/provider view counters
+(`bump_business_metric`, `bump_provider_views`). *User-generated content* is reviews, ratings, vouches,
+requests and stories.
+
+**In-app search history — this was "No" and was wrong.** `src/screens/Search.tsx` lets a signed-in user save
+a search, and `discoveryService.saveSearch` stores the query text with the coordinates it was made at
+(`saved_searches`). Optional (only when the user saves one), deletable, never shared.
+
+**Vercel Analytics / Speed Insights do not run inside the Android app.** They load their script from
+`/_vercel/insights/script.js`, relative to the page. In the app the page is served from `https://localhost`
+(Capacitor, `androidScheme: 'https'`) out of the local bundle, which has no such file, so the request 404s and
+nothing is collected. They run on the **website** (stryt.in, hosted on Vercel) only. Checked 2026-09-18: the
+built `dist/` has no `_vercel` directory.
 
 ---
 
@@ -143,8 +165,16 @@ identifiers); business/provider view counters (`bump_business_metric`,
 | Crash logs | **Yes** | No | Required | Analytics |
 | Diagnostics | **Yes** | No | Required | Analytics |
 
-Client error logs and Vercel Speed Insights. No third-party crash SDK (no
-Sentry/Crashlytics) ships in this build.
+**Crash logs:** the app's own `client_errors` table (`src/lib/monitoring.ts`), and **Sentry** when a
+`VITE_SENTRY_DSN` is set at build time (`src/lib/sentry.ts` — without one it never loads). Sentry is a
+service provider acting for STRYT, so this is not "sharing".
+
+**Diagnostics:** the app version and user agent attached to each crash report. (Vercel Speed Insights runs on
+the website only — see §6.)
+
+**Worth saying in the handling notes:** before any report leaves the device, `src/lib/scrubPii.ts` removes
+phone numbers, emails, Aadhaar/PAN, UPI handles, coordinates, tokens and OTPs — for both sinks. 26 tests
+assert the values are absent from the output.
 
 ---
 
@@ -171,6 +201,15 @@ Other info**, and describe it in the free-text handling notes:
 > to STRYT reviewers, are never shown to other users, and are deleted when the
 > profile is deleted.
 
+**Was that last sentence true?** Not until 18 September 2026. Both deletion functions cleaned only the public
+`uploads` bucket, and every document in `verification-docs` outlived its account (ledger P15-001). Fixed in
+`purge-deleted-accounts` and `admin-delete-profile`, but production gets the fix only when those functions are
+deployed — so the sentence becomes true at that deploy, not before.
+
+**"Visible only to STRYT reviewers" was checked on 2026-09-18:** the bucket is private on production and
+staging, no storage policy lets any client role read it, and reviewers see a document only through a
+short-lived signed URL minted by the `verification-review` function.
+
 Collected **Yes** · Shared **No** · **Optional** · Purpose: **Fraud prevention,
 security, and compliance** · Also tick **Account management**.
 
@@ -190,7 +229,8 @@ egress allowlist, so it is the correct place to audit this from.
 | `nominatim.openstreetmap.org`, `overpass-api.de` | Fallback reverse-geocoding coordinates | No |
 | `api.open-meteo.com` | Coarse coordinates for the weather in the ambient header | No |
 | `fonts.googleapis.com`, `fonts.gstatic.com` | Nothing user-specific — static CSS/font-file requests only, cached by the service worker | No |
-| Vercel Analytics / Speed Insights | Aggregate page + performance events | No — analytics processor |
+| Vercel Analytics / Speed Insights | Aggregate page + performance events — **website only**, does not run in the app (§6) | No — analytics processor |
+| Sentry (`*.ingest.sentry.io`) | Crash reports, scrubbed of personal data first — only when `VITE_SENTRY_DSN` is set | No — service provider |
 
 None of these receive an advertising identifier, and STRYT ships **no ad SDK** —
 answer **"No"** to the ads question in App content.
@@ -210,3 +250,25 @@ Say no, and mean it — these are the ones that get apps pulled:
 > for voice input, but there is **no `RECORD_AUDIO` permission in the Android
 > manifest** — Android voice input runs through the browser Speech API. Do not
 > declare audio collection for the Play listing.
+
+---
+
+## What changed on 18 September
+
+| Section | Change | Why |
+|---|---|---|
+| §0 | Added a blocking precondition to the deletion answer | `purge-deleted-accounts` has never been deployed to production |
+| §1 | Manifest line numbers; note on the background-location decision | Lines moved; the decision is still open |
+| §2 | More sources for *Address* | Delivery and business addresses were missing from the justification |
+| **§6** | **In-app search history: No → Yes (optional)** | Saved searches store query text and coordinates — an under-declaration |
+| §6, §7 | Vercel scoped to the website | Its script cannot load inside the app |
+| §7 | Sentry, and the PII scrubber | Both added in P14 |
+| §9 | The deletion sentence was false until the P15-001 fix | Documents outlived accounts |
+| §10 | Sentry row; Vercel marked website-only | As above |
+
+**Unchanged, and correct:** treating Supabase, Firebase, Mapbox, the map tile hosts, Nominatim, Overpass,
+Open-Meteo and Vercel as service providers rather than "sharing". Play's definition of sharing excludes
+transfers to a service provider processing data on your behalf. An earlier comparison
+(`../DATA_SAFETY_DIFF.md`, 18 Sept) wrongly called three of those answers mistakes, and has been corrected.
+Whether a free public service such as Nominatim counts as *your* service provider is a question for the lawyer
+review; if in doubt, over-declaring is the safer error.

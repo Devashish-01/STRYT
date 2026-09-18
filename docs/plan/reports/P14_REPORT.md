@@ -76,22 +76,29 @@ high or critical advisory in shipped code" still holds.
 `src/components/ErrorBoundary.tsx` wraps the router in `main.tsx`, reports via `captureException`, and offers
 a reload. The build emits **zero** `.map` files.
 
-### 14.B — Job monitoring
+### 14.B — Job monitoring ✅ *(added after this report was first written)*
 
-**Not done.** See §4.
+`scripts/check-cron-health.mjs` fails the nightly `db-guardrails.yml` run when a pg_cron job has failed in the
+last 24 h or has not run within twice its schedule, and treats an unrecognised schedule or zero visible jobs
+as an error rather than as healthy. 14 tests. Live against staging: 3 active jobs, 0 problems.
+
+**No migration was needed — the phase's plan was the wrong fix.** `cron.job` and `cron.job_run_details`
+already grant SELECT to PUBLIC; what blocks a least-privilege role is RLS, which restricts rows to the job
+owner. The planned grant would have produced a monitor that queries successfully, sees zero rows, and reports
+that as healthy. The check runs through the Management API (or an owning role) instead.
 
 ## 4. Not done
 
 | Item | Why |
 |---|---|
-| 14.B.7 — migration granting `ci_readonly` select on `cron.job_run_details` / `cron.job`, and the drift job failing on a stale or failed cron | Ran out of the night. It is a live database change and `docs/database/HANDOFF.md` §5 requires backup, snapshot, verbatim rollback, a forced-rollback test, then apply and verify — not something to start with an hour left and leave half-applied. The three jobs it would watch are `close-expired-bulk-deals` (*/10), `close-expired-business-sessions` (every minute) and `notify-ended-polls` (*/10). |
-| 14.C — rollback drill | Depends on 14.B. |
+| ~~14.B.7 — the `ci_readonly` grant migration~~ | **Done differently** — see §3 14.B. The monitoring exists; the migration would not have worked. |
+| 14.C — rollback drill | Not started. `RELEASE_RUNBOOK.md` part 5 now documents the OTA rollback and confirms its target bundle exists, but nobody has rehearsed it. |
 
 ## 5. Owner steps
 
 | # | Step |
 |---|---|
-| 3 | Create the Sentry project; add `SENTRY_DSN` and `SENTRY_AUTH_TOKEN` as GitHub secrets. Nothing reports until `VITE_SENTRY_DSN` is set at build time. |
+| 3 | Create the Sentry project; add a **`VITE_SENTRY_DSN`** GitHub secret. *(Corrected 18 Sept: this row said `SENTRY_DSN`, which the build never reads — and neither release workflow passed a DSN at all until the same day.)* `SENTRY_AUTH_TOKEN` is only needed later, for source-map upload. |
 | 4 | Create the uptime monitors (stryt.in, the `app-update` function, Supabase REST). |
 | — | Confirm GitHub emails on workflow failure are on. |
 
@@ -116,5 +123,5 @@ a reload. The build emits **zero** `.map` files.
 - [x] No source maps served
 - [ ] Sentry receiving a real scrubbed event — owner step 3
 - [ ] Uptime monitors — owner step 4
-- [ ] Cron job monitoring — §4
-- [ ] Rollback drill — depends on the above
+- [x] Cron job monitoring — §3 14.B
+- [ ] Rollback drill — documented in the runbook, not rehearsed
