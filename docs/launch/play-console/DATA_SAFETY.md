@@ -60,10 +60,9 @@ with. (⏸ v1.1: also the shop and the customer on a delivery run.) It is
 > the "data usage and handling" free text — it is true (`DataSettings.tsx`
 > repeats the same claim to users) and it materially reduces reviewer concern.
 
-> **Depends on an open owner decision** (`docs/launch/PLAY_LAUNCH_PLAN.md`, owner step 1). If live share
-> becomes foreground-only for v1.0, the two background permissions leave the manifest and the declaration
-> below is not needed. Precise location is still collected in the foreground either way, so the rows above
-> do not change.
+> **Decided 18 Sept 2026 (D19):** background location stays for live share and is declared, so the
+> declaration below applies. The rows above would have been the same either way — precise location is
+> collected in the foreground too.
 
 **Background location declaration:** required separately under App content →
 Sensitive permissions. See `BACKGROUND_LOCATION_DECLARATION.md` in this folder —

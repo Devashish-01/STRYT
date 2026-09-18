@@ -19,10 +19,10 @@ docs in this repo. It was not written from memory. Tick the boxes as you go.
    which builds the AAB. The new code expects migrations `20260973`–`20260989`, which production does not have
    yet. **Apply the database changes to production before merging, or current users break.**
 
-3. **Background location is the one open decision.** `android/app/src/main/AndroidManifest.xml` line 89 still
-   requests `ACCESS_BACKGROUND_LOCATION` for My People live share. Play reads permissions from the build
-   itself, so you cannot answer "No" in the console while the build asks for it. D2 removed delivery's use of
-   the permission but not live share's.
+3. **Background location is declared, not removed** — decided 18 Sept (D19, option A). The build requests
+   `ACCESS_BACKGROUND_LOCATION` for My People live share, so Play needs a declaration, a demo video and a
+   human review before the closed test can start. A rejection costs days on the critical path; the fallback
+   after two rejections is option B (foreground-only).
 
 Already verified and not a concern: the battery-optimisation permission (BLOCKER 1) really is commented out
 of the manifest, and merging is a clean fast-forward — `origin/main` has nothing our branch lacks.
@@ -33,11 +33,13 @@ of the manifest, and merging is a clean fast-forward — `origin/main` has nothi
 
 ### Before the owner merges
 
-- [ ] **1. Apply the background-location decision** (blocked on owner step 1).
-  - Option B: remove `ACCESS_BACKGROUND_LOCATION` and `FOREGROUND_SERVICE_LOCATION`, make live share
-    foreground-only, and check the *merged* manifest so the background-geolocation plugin does not re-add
-    them.
-  - Option A: finalise `play-console/BACKGROUND_LOCATION_DECLARATION.md` and write the demo-video script.
+- [x] **1. Apply the background-location decision** — option A (D19), 18 Sept.
+  - The app now meets the policy it is declared under. Three defects a reviewer would have seen are fixed:
+    the notification said "for active deliveries"; the disclosure was shown once per install rather than
+    whenever the permission is not granted (both `528763b`); and an expired share kept collecting location
+    and was resumed on every launch (P15-003 — production had one such share on 18 Sept).
+  - `play-console/BACKGROUND_LOCATION_DECLARATION.md` finalised, including the foreground-service answers
+    (§1b); `play-console/BACKGROUND_LOCATION_VIDEO_SCRIPT.md` written; `APP_ACCESS.md` §3 corrected.
 - [x] **2. Wire `VITE_SENTRY_DSN` into `android-release.yml` and `ota-release.yml`.** *Done `4dd2a70`.* Correction to the P14
   report, which said to create a `SENTRY_DSN` secret: the build reads `VITE_SENTRY_DSN`, and neither workflow
   passed it, so Sentry would never have switched on.
@@ -72,7 +74,7 @@ of the manifest, and merging is a clean fast-forward — `origin/main` has nothi
 
 ### Today
 
-- [ ] **1. Decide background location.**
+- [x] **1. Decide background location.** *Decided 18 Sept: **A** — keep it and declare it (D19).*
   - **A — keep it.** Needs a Play declaration, a demo video and a human review. This is the highest
     remaining rejection risk, and a rejection delays the 14-day clock.
   - **B — foreground-only for v1.0** *(agent's recommendation)*. The permission is removed and no declaration
@@ -112,7 +114,9 @@ of the manifest, and merging is a clean fast-forward — `origin/main` has nothi
   - Data safety — paste the agent's answers (agent step 4)
   - financial features declaration — the app records UPI payment claims between users and does **not**
     process payments
-  - option A only: the background location declaration and video
+  - background location declaration — paste `play-console/BACKGROUND_LOCATION_DECLARATION.md` §1, and the
+    video link. **Record the video** with `play-console/BACKGROUND_LOCATION_VIDEO_SCRIPT.md` (two phones, or
+    a phone and a laptop). Answer §1b too if *Foreground service permissions* is listed.
 - [ ] **10. Store listing**, from `play-console/STORE_LISTING.md` and the images in `playstore-assets/graphics/` (repo root).
 - [ ] **11. Internal testing:** upload the AAB, install it on your own phone, and run
   `docs/qa/DEVICE_QA_CHECKLIST.md`. At minimum: first run (§7), push notifications (§2) and dialling (§5).

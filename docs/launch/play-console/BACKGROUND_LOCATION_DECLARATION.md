@@ -4,6 +4,10 @@ Use this when Google Play asks you to declare **Background location**
 (App content → Sensitive permissions → Background location access)
 and when filling **Data safety**.
 
+> ✅ **Decided 18 Sept 2026 — D19, option A.** Background location stays in v1.0 for **My People live
+> share** and is declared with this page. Record the demo video with
+> [`BACKGROUND_LOCATION_VIDEO_SCRIPT.md`](BACKGROUND_LOCATION_VIDEO_SCRIPT.md).
+
 > ⏸ **v1.0 STATUS: delivery is deferred.** `DELIVERY_AGENT_ENABLED` is `false`
 > for this submission (`src/lib/features.ts`) — the on-duty toggle, the
 > `/delivery` console, and every path into it are unreachable in this build,
@@ -13,11 +17,19 @@ and when filling **Data safety**.
 > deleted, so it's ready to paste again for the v1.1 update — every block
 > marked `⏸ DEFERRED` is not part of this submission.
 
-STRYT already shows an in-app prominent disclosure before the system
-permission dialog (`BackgroundLocationDisclosure`) — wired into
-`useLiveShare.tsx` (live for v1.0) and `DeliveryConsole.tsx` (deferred). You
-still must declare the use in Play Console yourself (requires your developer
-account).
+You still must declare the use in Play Console yourself (it needs your developer account).
+
+### What a reviewer will find in the build
+
+Checked against the code on 18 Sept 2026. Three of these were wrong until that day, and a reviewer would
+have seen each one.
+
+| Play requires | STRYT |
+|---|---|
+| An in-app disclosure **immediately before** the system dialog, saying location is collected even when the app is closed or not in use | `BackgroundLocationDisclosure.tsx`, opened by `LiveShareProvider.tsx` **every time** background permission is not granted — `backgroundLocation.needsBackgroundDisclosure()` asks Android, it does not remember. *Fixed in `528763b`: it used to be shown once per install, so a user who denied the dialog was asked again with nothing in front of it.* |
+| A persistent notification while location is collected | **"STRYT live location — Sharing your live location with My People until you stop. Open STRYT to stop sharing."** (`LIVE_SHARE_NOTICE`, `src/lib/backgroundLocation.ts`). *Fixed in `528763b`: it used to say "for active deliveries", a feature that is not in v1.0.* |
+| User-initiated, and stoppable | Starts only when the user taps **Start sharing** (Account → My People) or the Home **My People** tile; after an app restart, only a share the user started and that has not expired is resumed. Stops on **Stop sharing**, on the live-share banner's **Stop**, or by itself 8 hours after it started. *Fixed on 18 Sept (P15-003): an expired share kept collecting location, and every launch resumed it.* |
+| Only the people the user chose receive it | The user's emergency contacts. Each gets a live location card in their chat with the sharer. |
 
 ---
 
@@ -36,7 +48,8 @@ My People live location share. A user shares their precise location with
 contacts they explicitly choose, so those contacts can follow them on a map
 until the user stops sharing. Location must keep updating while the app is
 backgrounded or the screen is locked, which is the entire point of the
-feature — a share that freezes when the phone locks does not work.
+feature — a share that freezes when the phone locks does not work. A share
+also ends by itself 8 hours after it starts.
 
 Nearby discovery, maps and search use while-in-use location only. STRYT
 stores a last known position, not a location history.
@@ -51,19 +64,29 @@ stores a last known position, not a location history.
 > delivery comes back, this form MUST be re-submitted with both paragraphs,
 > not just re-using the v1.0 answer.
 
-**Video instructions for v1.0** (what reviewers should do):
+**Video link:** record it with [`BACKGROUND_LOCATION_VIDEO_SCRIPT.md`](BACKGROUND_LOCATION_VIDEO_SCRIPT.md),
+upload to YouTube as **Unlisted**, and paste the link.
+
+**Instructions for the reviewer** (paste if the form asks; the same steps are in `APP_ACCESS.md` §3):
 
 ```
-1. Sign in with the test Google account provided in App access. It already has
-   one "My People" emergency contact saved.
-2. Open Home → tap the My People (people) icon, or open My People from Account.
-3. Read the in-app disclosure that states location is collected even when the
-   app is closed or not in use → tap Continue.
-4. Grant location "Allow all the time" (and notifications if prompted).
-5. Confirm a persistent "STRYT live location" notification appears.
-6. Background or lock the device; the second test account (the contact) opens
-   the chat with the sharer and the live map keeps updating.
-7. Stop sharing from the in-app banner / My People → Stop sharing.
+1. Sign in with the customer account from App access. Its My People list
+   already contains the second App access account.
+2. Open Account -> My People and tap Start sharing.
+3. Read the in-app disclosure "Allow location in the background?". It states
+   that STRYT collects precise location even when the app is closed or not in
+   use. Tap Continue.
+4. Allow location, then choose "Allow all the time" (Android 11 and later open
+   Settings for this). Allow notifications if asked.
+5. Pull down the notification shade. A persistent notification reads
+   "STRYT live location - Sharing your live location with My People until
+   you stop."
+6. Press Home or lock the phone. Signed in as the second account (another
+   phone, or stryt.in in a browser), open the chat with the first: a live
+   location card shows its position and keeps updating.
+7. On the first phone, tap Stop on the live-share banner, or Account ->
+   My People -> Stop sharing. The notification disappears. A share also ends
+   by itself 8 hours after it starts.
 ```
 
 > ⏸ DEFERRED — v1.1 delivery-run video script:
@@ -90,6 +113,21 @@ stores a last known position, not a location history.
 **Link to privacy policy:**
 `https://stryt.in/legal/privacy-policy`
 
+### 1b. Foreground service permissions — if Play Console lists it
+
+The app targets API 36 and declares `FOREGROUND_SERVICE_LOCATION`: while a share is on, the
+background-geolocation plugin runs a foreground service of type `location`. Google asks apps targeting
+Android 14+ to declare their foreground service types on the App content page
+([Play Console Help](https://support.google.com/googleplay/android-developer/answer/13392821)). If
+**App content → Foreground service permissions** appears for this app, answer:
+
+- **Type:** Location.
+- **Task:** My People live location share. The user starts it, a persistent notification is shown the whole
+  time, the user can stop it at any time, and it ends by itself after 8 hours.
+- **If it were interrupted or deferred:** the contacts the user chose would stop receiving their location
+  while the phone is locked — the moment the feature exists for.
+- **Video:** the same link as §1.
+
 ---
 
 ## 2. Data safety (location)
@@ -111,4 +149,5 @@ Purpose: App functionality.
 
 1. Build a new AAB (CI: Android release workflow, or local `bundleRelease`).
 2. Upload to an internal/closed testing track first.
-3. Ensure the build’s permission list includes `ACCESS_BACKGROUND_LOCATION`.
+3. Ensure the build’s permission list includes `ACCESS_BACKGROUND_LOCATION` and
+   `FOREGROUND_SERVICE_LOCATION`.

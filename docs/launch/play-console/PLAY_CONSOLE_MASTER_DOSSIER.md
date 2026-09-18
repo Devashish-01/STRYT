@@ -98,12 +98,13 @@ Navigate to: **Policy → App content**
 
   Nearby discovery, maps, and search use while-in-use location only. STRYT stores a last known position, not a historical trail.
   ```
-* **Video Demonstration:**
-  * Prepare a short 30-second screen capture showing:
-    1. The "My People" screen.
-    2. The in-app prominent disclosure dialog explaining location use.
-    3. Granting the permission and turning on live share.
-    4. Backgrounding the app with the persistent foreground notification visible.
+* **Decided 18 Sept 2026 (D19): declare it.** Paste from
+  [`BACKGROUND_LOCATION_DECLARATION.md`](BACKGROUND_LOCATION_DECLARATION.md) — it is the source; the text
+  above is a copy kept for reference, and if the two ever differ, that file wins.
+* **Video Demonstration:** record it with
+  [`BACKGROUND_LOCATION_VIDEO_SCRIPT.md`](BACKGROUND_LOCATION_VIDEO_SCRIPT.md) — 13 steps, about 60–90
+  seconds. *(This used to describe a 30-second capture of four items; it left out the contact actually
+  receiving the location and the "Allow all the time" screen, which is what reviewers look for.)*
 
 ---
 
@@ -125,8 +126,7 @@ Navigate to: **Policy → App content → Data safety**
 1. **Deploy `purge-deleted-accounts` to production** (`../RELEASE_RUNBOOK.md` part 2). The form asks whether
    users can request deletion. The honest answer is only "Yes" once the function that completes a deletion
    exists — it has never been deployed there.
-2. **Settle the background-location decision** (`../PLAY_LAUNCH_PLAN.md`, owner step 1). It decides whether §3.9
-   above applies at all.
+2. ~~Settle the background-location decision~~ — decided 18 Sept (D19): declared, so §3.9 applies.
 
 ### The global answers, for reference
 

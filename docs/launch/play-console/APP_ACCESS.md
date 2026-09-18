@@ -111,18 +111,22 @@ Note: the business console asks for a business password on entry. It is:
 ```
 This is the feature the ACCESS_BACKGROUND_LOCATION declaration covers.
 
-1. Sign in as the customer account. It already has one emergency contact saved.
-2. Home → the My People (people) icon.
+1. Sign in as the customer account. Its one emergency contact is the second
+   review account.
+2. Account -> My People -> Start sharing (or tap the My People tile on Home).
 3. An in-app disclosure appears BEFORE any system dialog, stating that location
    is collected even when the app is closed or not in use, and naming exactly who
    receives it. Tap Continue.
 4. Grant location "Allow all the time", and notifications if prompted.
-5. A persistent "STRYT live location" notification appears while sharing.
-6. Lock or background the device — the chosen contact keeps seeing live position.
+5. A persistent notification appears while sharing: "STRYT live location -
+   Sharing your live location with My People until you stop."
+6. Lock or background the device. Signed in as the second review account
+   (another phone, or stryt.in), open the chat with the customer: the live
+   location card keeps updating.
 7. Stop from the in-app banner, or My People → Stop sharing.
 
-The share ends when the user stops it. Location is never collected in the
-background at any other time.
+The share ends when the user stops it, or by itself 8 hours after it started.
+Location is never collected in the background at any other time.
 ```
 
 ---
@@ -175,7 +179,7 @@ that it is internal-only and gated to STRYT staff.
 ## Pre-submission checklist for the review accounts
 
 - [ ] Two Google accounts created, **2FA off**, each signed into once on a real device
-- [ ] Customer account: onboarding completed, at least one emergency contact saved
+- [ ] Customer account: onboarding completed, and the second review account saved as its emergency contact
 - [ ] Business account: owns a demo business, business password set and written above
 - [ ] ⏸ DEFERRED to v1.1: delivery account holding an active grant, one order queued
 - [ ] Every password in this file replaced with the real value **before** pasting into the Console
