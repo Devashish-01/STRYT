@@ -16,7 +16,7 @@ docs in this repo. It was not written from memory. Tick the boxes as you go.
 
 2. **Merging to `main` ships to every current user immediately.** A push to `main` triggers
    `ota-release.yml`, which sends an over-the-air update to existing installs, and `android-release.yml`,
-   which builds the AAB. The new code expects migrations `20260973`–`20260989`, which production does not have
+   which builds the AAB. The new code expects migrations `20260973`–`20260990`, which production does not have
    yet. **Apply the database changes to production before merging, or current users break.**
 
 3. **Background location is declared, not removed** — decided 18 Sept (D19, option A). The build requests
@@ -88,7 +88,7 @@ of the manifest, and merging is a clean fast-forward — `origin/main` has nothi
 
 ### Before merging — order matters
 
-- [ ] **4. Apply migrations `20260973`–`20260989` to production**, using the agent's runbook and
+- [ ] **4. Apply migrations `20260973`–`20260990` to production** *(18 — `20260990`, community moderation, was added 19 Sept)*, using the agent's runbook and
   `docs/database/HANDOFF.md` §5.
 - [ ] **5. Deploy three edge functions to production:** `purge-deleted-accounts`, `admin-delete-profile` and
   `verification-review`. `purge-deleted-accounts` matters most: without it, the 30-day account deletion that

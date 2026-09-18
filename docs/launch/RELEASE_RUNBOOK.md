@@ -20,6 +20,10 @@ Read-only checks against production and staging on 2026-09-18:
 | A rollback file for each | Yes — `supabase/rollbacks/<name>.rollback.sql`. |
 | `verification-docs` bucket (Aadhaar/PAN) | Private on both projects. No read policy for any client role, only an insert into the uploader's own folder. |
 
+> **Added 19 Sept 2026: an 18th migration, `20260990_community_moderation`** (the table above was checked
+> before it existed). It is required before the merge too: the app's admin Reports tab reads the new
+> `hidden_at` columns. It is applied on staging and tested there; its row is in `supabase/APPLY_LOG.md`.
+
 **Urgent context:** `20260973` fixes chat sending, which the apply log records as **broken for every
 production user right now**. It is first in the order for that reason as well.
 
@@ -48,9 +52,9 @@ Diff it against `supabase/snapshots/2026-09-16_pre_20260973.sql`. They should be
 timestamp. **Any other difference means someone changed production directly — stop and find out why before
 applying anything.**
 
-### 1.3 Apply the 17 migrations, one at a time, in order
+### 1.3 Apply the 18 migrations, one at a time, in order
 
-`20260973`, `20260974`, … `20260989`. For **each** one, follow its row in the *Pending* table of
+`20260973`, `20260974`, … `20260989`, then `20260990`. For **each** one, follow its row in the *Pending* table of
 `supabase/APPLY_LOG.md`, which records the specifics. The loop is `docs/database/HANDOFF.md` §5:
 
 1. **Forced-rollback test** of the behaviour (HANDOFF §6.2). It proves the change works and leaves no trace.
@@ -65,10 +69,10 @@ applying anything.**
 ### 1.4 Snapshot after
 
 ```
-node scripts/snapshot-live-schema.mjs supabase/snapshots/<date>_after_20260989.sql
+node scripts/snapshot-live-schema.mjs supabase/snapshots/<date>_after_20260990.sql
 ```
 
-The diff against 1.2 must show only the objects these 17 migrations create or change.
+The diff against 1.2 must show only the objects these 18 migrations create or change.
 
 ### If something goes wrong
 
@@ -114,6 +118,36 @@ Check both exist now. After the merge, run the workflow once by hand (Actions �
 
 Until then, the 30-day deletion that the privacy policy and store listing promise never completes.
 
+### 2.4 Moderation (optional — not needed for the Play launch)
+
+Migration `20260990` already makes posts and comments hide themselves after 5 different people report them;
+that part needs no function. The `moderation` function adds two things on top: a priority label on each
+report in the admin queue, and the automatic check of every new post and comment. Both use TypeSafe.
+
+1. **Privacy policy first.** Post and comment text goes to TypeSafe (a processor; personal details are masked
+   before sending). Name TypeSafe in the privacy policy's list of service providers — part of the lawyer
+   review. Data safety answers do not change: a service provider is not "sharing".
+2. **Secret:** Dashboard → Edge Functions → Secrets → add `TYPESAFE_API_KEY`. Never paste it into a chat.
+3. **Deploy** (reads `verify_jwt = false` from `supabase/config.toml`; the function checks its callers itself):
+
+   ```
+   npx supabase functions deploy moderation --project-ref gnswxlfmcwyhmzlfipql --use-api --no-verify-jwt
+   ```
+
+   Report labels start working at once.
+4. **Turn the automatic check on** when you are ready — it uses the push trigger's vault secrets
+   (`functions_url`, `service_role_key`), which production already has if push notifications work:
+
+   ```sql
+   update public.moderation_settings set content_check_enabled = true;
+   ```
+
+   Off again: the same with `false`. The threshold for hiding after reports is
+   `moderation_settings.report_hide_threshold` (5).
+
+To check it on staging first: `scripts/db-tests/live-moderation-staging.mjs` runs the whole chain there and
+cleans up after itself.
+
 ---
 
 ## Part 3 — Sentry (optional before merge)
@@ -127,7 +161,7 @@ release workflows now pass it to the build. Without it, the build ships with Sen
 
 ### Before you merge
 
-- [ ] Part 1 finished: all 17 applied, verified and recorded
+- [ ] Part 1 finished: all 18 applied, verified and recorded
 - [ ] Part 2 finished: three functions deployed and booting
 - [ ] The agent's final `npm run verify` and full E2E on the release commit are green (recorded in
   `PLAY_LAUNCH_PLAN.md`)
@@ -169,4 +203,4 @@ SUPABASE_SERVICE_ROLE_KEY=... node scripts/rollback-ota-update.mjs 1.0.63
 
 That repoints the update pointer at the bundle before the merge. `bundle-1.0.63.zip` was confirmed present in
 production storage on 2026-09-18 (1.6 MB), so the target exists. If the new database objects must also go, use
-the rollback files from part 1 — **newest first**, `20260989` down to `20260973`.
+the rollback files from part 1 — **newest first**, `20260990` down to `20260973`.
