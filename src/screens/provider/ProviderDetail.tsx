@@ -187,7 +187,7 @@ export default function ProviderDetail() {
           }}
         >
           <div className="row between">
-            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={(e) => { e.stopPropagation(); nav(-1); }}><ArrowLeft size={20} /></button>
+            <button className="icon-btn" aria-label={t("back_word")} style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={(e) => { e.stopPropagation(); nav(-1); }}><ArrowLeft size={20} /></button>
             <div className="row gap-8">
               {/* Call stays available to guests — it's the provider's own
                   published number, and recordInteraction's lead insert is
@@ -206,14 +206,14 @@ export default function ProviderDetail() {
               )}
               {!isGuest && (
                 <>
-                  <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={(e) => { e.stopPropagation(); setShare(true); }}><Share2 size={18} /></button>
+                  <button className="icon-btn" aria-label={t("share_word")} style={{ background: "rgba(255,255,255,0.18)", color: "#fff" }} onClick={(e) => { e.stopPropagation(); setShare(true); }}><Share2 size={18} /></button>
                   {!isOwner && (
                     <>
                       {/* Save to a list, the same filing action business pages have had (LIST-4). */}
                       <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "var(--white)" }} aria-label="Add to a list" title="Add to a list" onClick={(e) => { e.stopPropagation(); setAddList(true); }}>
                         <Bookmark size={18} />
                       </button>
-                      <button className="icon-btn" style={{ background: "rgba(255,255,255,0.18)", color: "var(--white)" }} onClick={(e) => { e.stopPropagation(); toggleBookmark("PROVIDER", p.id); }}>
+                      <button className="icon-btn" aria-label={t("save_word")} style={{ background: "rgba(255,255,255,0.18)", color: "var(--white)" }} onClick={(e) => { e.stopPropagation(); toggleBookmark("PROVIDER", p.id); }}>
                         <Heart size={18} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-900)"} />
                       </button>
                     </>

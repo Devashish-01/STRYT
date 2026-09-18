@@ -324,16 +324,16 @@ export default function BusinessDetail() {
           />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.35), transparent 35%, transparent 70%, rgba(0,0,0,0.25))", pointerEvents: "none" }} />
           <div className="row between" style={{ position: "absolute", top: "calc(12px + var(--safe-area-top))", left: 12, right: 12 }}>
-            <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
+            <button className="icon-btn" aria-label={t("back_word")} style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => nav(-1)}><ArrowLeft size={20} /></button>
             {/* Guests view only — save/list/share all write to an account they
                 don't have, so the controls are hidden rather than gated. */}
             {!isGuest && (
               <div className="row gap-8">
-                <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
+                <button className="icon-btn" aria-label={t("share_word")} style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setShare(true)}><Share2 size={18} /></button>
                 {!isOwner && (
                   <>
-                    <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setAddList(true)}><Bookmark size={18} /></button>
-                    <button className="icon-btn" style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => toggleBookmark("BUSINESS", b.id)}>
+                    <button className="icon-btn" aria-label={t("save_word")} style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => setAddList(true)}><Bookmark size={18} /></button>
+                    <button className="icon-btn" aria-label={t("save_word")} style={{ background: "rgba(255,255,255,0.92)" }} onClick={() => toggleBookmark("BUSINESS", b.id)}>
                       <Heart size={18} weight={saved ? "fill" : "regular"} color={saved ? "var(--red-500)" : "var(--ink-600)"} />
                     </button>
                   </>
@@ -347,6 +347,7 @@ export default function BusinessDetail() {
                 <img
                   key={i}
                   src={g.url}
+                  alt={g.caption || tf("photo_n_of_m", { n: i + 1, m: galleryPhotos.length })}
                   style={{ width: 40, height: 40, borderRadius: 8, border: "2px solid var(--surface)", objectFit: "cover", cursor: "pointer" }}
                   onClick={() => setViewingPhotos({ photos: galleryPhotos, startIndex: i })}
                 />
