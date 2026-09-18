@@ -7,8 +7,12 @@ on:
       - develop
   workflow_call:
 
+# One group per calling workflow. The OTA and Android release workflows both call this gate on the same push to
+# main; with a group of just the ref, the second to start cancelled the first — the first release after this gate
+# was added (1.0.64, 18 Sept 2026) lost its Android build that way. In a reusable workflow `github.workflow` is the
+# caller's name, so each release keeps its own gate while repeated pushes to one PR still cancel each other.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
