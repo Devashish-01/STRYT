@@ -43,6 +43,58 @@ function corsHeaders(req: Request, extraHeaders = "authorization, x-client-info,
   };
 }
 
+// >>> verification-docs cleanup — keep byte-identical in purge-deleted-accounts and admin-delete-profile
+/**
+ * Government ID and business-proof documents live in the private `verification-docs` bucket under
+ * `<uploader uid>/<kind>/<file>` (uploadPrivate in src/services/core/uploadService.ts). The data-retention
+ * policy promises they are deleted with the account, and with the profile they were submitted for. Both
+ * deletion paths used to clean the public `uploads` bucket only, so every KYC document outlived its account.
+ *
+ * `ownerId` removes everything the user ever uploaded there, including earlier submissions a resubmission
+ * orphaned. `paths` removes exactly the files a profile row recorded — used when one profile is deleted but
+ * the account (and any other profile it owns, sharing the same folder) stays.
+ *
+ * Throws instead of returning quietly: a deletion that could not remove an identity document must not be
+ * recorded as complete. Callers leave the request pending, so the next run retries.
+ */
+async function removeVerificationDocs(
+  sb: ReturnType<typeof createClient>,
+  opts: { ownerId?: string; paths?: unknown[] },
+): Promise<number> {
+  const bucket = sb.storage.from("verification-docs");
+  const toRemove: string[] = [];
+
+  if (opts.ownerId) {
+    const { data: top, error: topErr } = await bucket.list(opts.ownerId, { limit: 1000 });
+    if (topErr) throw new Error(`verification-docs: could not list ${opts.ownerId}: ${topErr.message}`);
+    for (const entry of top ?? []) {
+      if (entry.id) {
+        // A file sitting directly under the user's folder.
+        toRemove.push(`${opts.ownerId}/${entry.name}`);
+        continue;
+      }
+      // A folder — one per upload kind.
+      const dir = `${opts.ownerId}/${entry.name}`;
+      const { data: files, error } = await bucket.list(dir, { limit: 1000 });
+      if (error) throw new Error(`verification-docs: could not list ${dir}: ${error.message}`);
+      for (const f of files ?? []) toRemove.push(`${dir}/${f.name}`);
+    }
+  }
+
+  for (const p of opts.paths ?? []) {
+    // Only storage paths belong to this bucket. A full URL is a legacy value pointing somewhere else.
+    if (typeof p === "string" && p.trim() && !/^https?:\/\//i.test(p) && !toRemove.includes(p)) {
+      toRemove.push(p);
+    }
+  }
+
+  if (toRemove.length === 0) return 0;
+  const { error } = await bucket.remove(toRemove);
+  if (error) throw new Error(`verification-docs: could not remove ${toRemove.length} file(s): ${error.message}`);
+  return toRemove.length;
+}
+// <<< verification-docs cleanup
+
 serve(async (req) => {
   const CORS = corsHeaders(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -160,6 +212,8 @@ serve(async (req) => {
           await sb.storage.from("uploads").remove(files.map(f => `${targetId}/${kind}/${f.name}`));
         }
       }
+      // Identity documents, which live in the private bucket and were never removed here.
+      await removeVerificationDocs(sb, { ownerId: targetId });
 
       // 4. Anonymize user record
       await sb.from("users").update({
@@ -222,6 +276,14 @@ serve(async (req) => {
       if (heldPayments && heldPayments > 0) {
         return new Response(JSON.stringify({ ok: false, message: "Cannot delete business: held escrow payments exist" }), { status: 400, headers: CORS });
       }
+
+      // Identity documents submitted for this business. Removed by the paths the row recorded, not by the
+      // owner's folder, which also holds any provider profile's documents.
+      const { data: bizDocs } = await sb.from("businesses")
+        .select("verification_documents, verification_document_url").eq("id", targetId).maybeSingle();
+      await removeVerificationDocs(sb, {
+        paths: [...((bizDocs?.verification_documents as unknown[] | null) ?? []), bizDocs?.verification_document_url],
+      });
 
       // Delete storage files
       const kinds = ["business-photo", "kyc-business", "catalog"];
@@ -296,6 +358,13 @@ serve(async (req) => {
       if (heldPayments && heldPayments > 0) {
         return new Response(JSON.stringify({ ok: false, message: "Cannot delete provider: held escrow payments exist" }), { status: 400, headers: CORS });
       }
+
+      // Identity documents submitted for this provider — by recorded path, for the same reason as above.
+      const { data: provDocs } = await sb.from("providers")
+        .select("verification_documents, verification_document_url").eq("id", targetId).maybeSingle();
+      await removeVerificationDocs(sb, {
+        paths: [...((provDocs?.verification_documents as unknown[] | null) ?? []), provDocs?.verification_document_url],
+      });
 
       // Delete storage files
       const kinds = ["kyc-provider", "provider-photo", "portfolio"];
