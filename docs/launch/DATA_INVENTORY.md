@@ -71,7 +71,7 @@ policy because it is stronger than what the policy currently claims.
 | Account location | `src/lib/nativeGeolocation.ts`, onboarding | `users.lat/lng`, gated by `users.location_public` | Until changed or account deleted |
 | Guest location | Same, held in memory | **Not persisted** — `src/lib/guestMode.ts` | Session only |
 | Listing location | Business/provider onboarding | `businesses.lat/lng`, `providers.lat/lng`; pending changes in `pending_lat/pending_lng` with `location_review_status` | With the listing |
-| Live share | `src/features/live-share/`, `emergencyService` | `live_shares.lat/lng` | **Auto-expires: `expires_at` defaults to `now() + 8 hours`** |
+| Live share | `src/features/live-share/`, `emergencyService` | `live_shares.lat/lng` (one position, overwritten — not a trail) | **Ends 8 hours after it starts** (`expires_at` default). *Corrected 18 Sept: this row said it auto-expired, but the server only records expiry on the next start, and the app kept collecting and resumed expired shares. The app now enforces it (P15-003).* |
 | Delivery position | Delivery console | `appointment_deliveries.lat/lng`, `delivery_batches.lat/lng` | With the delivery record |
 | Saved searches | `discoveryService` | `saved_searches.lat/lng` | Until deleted |
 
@@ -145,7 +145,7 @@ device contact list. This matters for the Play form: "Contacts" should be declar
 | Purge | `supabase/functions/purge-deleted-accounts/index.ts` | Runs past the grace period; sets `users.customer_deleted_at` |
 | Storefront pause during grace | `profileControlService.requestDeletion` | Owned listings set `owner_enabled = false`, restored on cancel (ledger `ACCOUNT_DELETION:DEL-1`) |
 | Soft delete | `businesses.deleted_at`, `providers.deleted_at` | Hidden, not yet purged |
-| Automatic expiry | `live_shares` (8 h), `stories`, `requests`, `community_posts`, `tracking_tokens`, `location_share_grants`, `business_access_sessions` | `expires_at` |
+| Automatic expiry | `live_shares` (8 h — enforced by the app, see P15-003), `stories`, `requests`, `community_posts`, `tracking_tokens`, `location_share_grants`, `business_access_sessions` | `expires_at` |
 | Scheduled jobs | `cron.job` | `close-expired-bulk-deals` (*/10), `close-expired-business-sessions` (* * * * *), `notify-ended-polls` (*/10) |
 
 **Gap:** `purge-deleted-accounts` is **not deployed** (owner step 2 in `docs/plan/NIGHT_RUN.md`). Until it is,

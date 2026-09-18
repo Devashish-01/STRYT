@@ -179,17 +179,20 @@ export const emergencyService = {
 
   // On app load: is there already an ACTIVE session I own? (Restores the
   // "you're sharing" banner + resumes the location pusher.)
-  async myActiveShareId(): Promise<string | null> {
+  // The caller's share still marked ACTIVE, with when it ends. ACTIVE does not mean unexpired: the server
+  // ends an expired share only on the next start, so the caller must check expiresAt (shareSession.ts).
+  async myActiveShare(): Promise<{ id: string; expiresAt: string } | null> {
     const sb = getSupabase();
     const uid = await currentUserId();
     if (!uid) return null;
     const { data, error } = await sb
       .from("live_shares")
-      .select("id")
+      .select("id, expires_at")
       .eq("sharer_user_id", uid)
       .eq("status", "ACTIVE")
       .maybeSingle();
-    if (error) return null;
-    return (data as any)?.id ?? null;
+    if (error || !data) return null;
+    const row = data as { id: string; expires_at: string };
+    return { id: row.id, expiresAt: row.expires_at };
   },
 };

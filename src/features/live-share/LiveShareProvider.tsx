@@ -5,6 +5,7 @@ import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { useApp } from "@/store";
 import BackgroundLocationDisclosure from "./BackgroundLocationDisclosure";
 import { LiveShareContext } from "./useLiveShare";
+import { assumedExpiry, shareToResume, watchShare, type ShareWatch } from "./shareSession";
 
 function firstFix(): Promise<{ lat: number; lng: number } | null> {
   return new Promise((res) =>
@@ -21,7 +22,7 @@ export function LiveShareProvider({ children }: { children: ReactNode }) {
   const [activeShareId, setActiveShareId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [disclosureOpen, setDisclosureOpen] = useState(false);
-  const watching = useRef(false);
+  const watch = useRef<ShareWatch | null>(null);
   const disclosureResolver = useRef<((accepted: boolean) => void) | null>(null);
 
   // Shown whenever background location is not actually granted — immediately before the system dialog, as
@@ -34,22 +35,23 @@ export function LiveShareProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const beginWatch = useCallback(() => {
-    if (watching.current) return;
-    watching.current = true;
-    void backgroundLocation.start((f) => {
-      if (f.lat === 0 && f.lng === 0) return;
-      void emergencyService.updateShare(f.lat, f.lng, f.accuracy, f.heading);
-    }).then((mode) => {
-      if (mode === "foreground") {
-        showToast("Live share is on — keep STRYT open for continuous updates.");
-      }
+  // Collects until stopped or until the share expires — see shareSession.ts for why expiry is enforced here.
+  const beginWatch = useCallback((expiresAt: string) => {
+    if (watch.current) return;
+    watch.current = watchShare(expiresAt, {
+      onExpired: () => {
+        watch.current = null;
+        setActiveShareId(null);
+        showToast("Your live share ended automatically. Start it again to keep sharing.");
+      },
+      onForegroundOnly: () => showToast("Live share is on — keep STRYT open for continuous updates."),
     });
   }, [showToast]);
 
   const endWatch = useCallback(() => {
-    watching.current = false;
-    void backgroundLocation.stop();
+    if (watch.current) watch.current.stop();
+    else void backgroundLocation.stop();
+    watch.current = null;
   }, []);
 
   useEffect(() => {
@@ -59,10 +61,10 @@ export function LiveShareProvider({ children }: { children: ReactNode }) {
       return;
     }
     let alive = true;
-    void emergencyService.myActiveShareId().then((id) => {
-      if (!alive || !id) return;
-      setActiveShareId(id);
-      beginWatch();
+    void shareToResume().then((share) => {
+      if (!alive || !share) return;
+      setActiveShareId(share.id);
+      beginWatch(share.expiresAt);
     });
     return () => {
       alive = false;
@@ -89,8 +91,10 @@ export function LiveShareProvider({ children }: { children: ReactNode }) {
 
       const id = await emergencyService.startShare(fix.lat, fix.lng);
       if (id) {
+        // start_live_share may resume a running share, which keeps its original expiry — read it back.
+        const share = await emergencyService.myActiveShare().catch(() => null);
         setActiveShareId(id);
-        beginWatch();
+        beginWatch(share?.id === id ? share.expiresAt : assumedExpiry());
       }
       return id;
     } finally {
