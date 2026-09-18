@@ -1,5 +1,7 @@
 import { type ReactNode } from "react";
-import { FileText, HandshakeIcon, Megaphone, MessageSquareText, Check, X, Repeat, Wallet, ArrowRight } from "@/components/Icons";
+import { FileText, HandshakeIcon, Megaphone, MessageSquareText, Check, X, Repeat, Wallet, ArrowRight, Trash2 } from "@/components/Icons";
+import { AmountLine, NotificationAvatar, StatusPill } from "@/components/NotificationContent";
+import { distinctPill } from "@/lib/notificationCard";
 import type { NotificationMetadata, NotificationType } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
@@ -17,6 +19,20 @@ interface ProposalNotificationCardProps {
   onDelete?: () => void;
 }
 
+/** The type's color: the tile behind its icon when there is no one to picture, and the corner badge otherwise. */
+const TYPE_COLOR: Partial<Record<NotificationType, string>> = {
+  PROPOSAL: "var(--blue-500)",
+  PROPOSAL_COUNTER: "var(--amber-500)",
+  QUOTE_BROADCAST: "var(--brand-600)",
+  AGREEMENT: "var(--green-600)",
+  NEARBY_REQUEST: "var(--brand-600)",
+};
+
+/**
+ * Quotes, counter-offers, agreements and nearby requests, on the same layout as every other card: picture, title and
+ * time, then who and which request, then one row of small chips (amount, status). It used to stack a type badge, a
+ * status badge and a separate ₹ box on top of all that.
+ */
 export default function ProposalNotificationCard({
   type,
   metadata,
@@ -25,43 +41,30 @@ export default function ProposalNotificationCard({
   time,
   unread,
   onAction,
+  onDelete,
 }: ProposalNotificationCardProps) {
   const { t } = useI18n();
 
-  const isProposal = type === "PROPOSAL";
   const isCounter = type === "PROPOSAL_COUNTER";
   const isBroadcast = type === "QUOTE_BROADCAST";
   const isAgreement = type === "AGREEMENT";
   const isNearbyRequest = type === "NEARBY_REQUEST";
 
-  const typeLabel = isCounter
-    ? t("notif_prop_counter_label", "Counter-Offer")
-    : isBroadcast
-    ? t("notif_prop_broadcast_label", "Group Quote")
-    : isAgreement
-    ? t("notif_prop_agreement_label", "Agreement")
-    : isNearbyRequest
-    ? t("notif_prop_request_label", "Nearby Need")
-    : t("notif_prop_quote_label", "Quote Received");
+  const typeIcon = (size: number): ReactNode =>
+    isCounter ? (
+      <Repeat size={size} color="#fff" weight="bold" />
+    ) : isBroadcast ? (
+      <Megaphone size={size} color="#fff" weight="fill" />
+    ) : isAgreement ? (
+      <Handshake size={size} color="#fff" weight="fill" />
+    ) : isNearbyRequest ? (
+      <MessageSquareText size={size} color="#fff" weight="fill" />
+    ) : (
+      <FileText size={size} color="#fff" weight="fill" />
+    );
+  const typeColor = TYPE_COLOR[type] ?? "var(--brand-600)";
 
-  const typeIcon: ReactNode = isCounter ? (
-    <Repeat size={12} weight="bold" />
-  ) : isBroadcast ? (
-    <Megaphone size={12} weight="fill" />
-  ) : isAgreement ? (
-    <Handshake size={12} weight="fill" />
-  ) : isNearbyRequest ? (
-    <MessageSquareText size={12} weight="fill" />
-  ) : (
-    <FileText size={12} weight="fill" />
-  );
-
-  const actorName =
-    metadata.actorName ||
-    metadata.proposerName ||
-    (isAgreement ? t("notif_prop_deal_partner", "Deal Partner") : t("provider", "Provider"));
-
-  const targetTitle = metadata.requestTitle || title;
+  const actorName = metadata.actorName || metadata.proposerName;
   const avatarUrl = metadata.avatarUrl || metadata.proposerAvatar;
   const amount = metadata.amount ?? metadata.quotedPrice ?? metadata.counterPrice ?? metadata.agreedPrice;
   const amountLabel =
@@ -72,86 +75,87 @@ export default function ProposalNotificationCard({
       ? t("notif_prop_agreed_price", "Agreed Price")
       : t("notif_prop_quoted_price", "Quoted Price"));
 
-  const statusPill =
+  const pill = distinctPill(
+    title,
     metadata.statusPill ||
-    (isCounter
-      ? t("notif_prop_pill_counter", "Awaiting Decision")
-      : isAgreement
-      ? t("notif_prop_pill_active", "Active")
-      : t("notif_prop_pill_quote", "New Quote"));
-
-  const toneClass = metadata.tone ? `notif-prop-pill-${metadata.tone}` : "notif-prop-pill-brand";
+      (isCounter
+        ? t("notif_prop_pill_counter", "Awaiting Decision")
+        : isAgreement
+        ? t("notif_prop_pill_active", "Active")
+        : t("notif_prop_pill_quote", "New Quote"))
+  );
 
   return (
-    <div className={`notif-prop-card${unread ? " notif-prop-unread" : ""}`}>
-      {/* Top Meta Bar */}
-      <div className="notif-prop-top-bar">
-        <div className="notif-prop-badge-row">
-          <span className={`notif-prop-type-pill notif-prop-type-${type.toLowerCase()}`}>
-            {typeIcon}
-            <span>{typeLabel}</span>
-          </span>
-          <span className={`notif-prop-status-pill ${toneClass}`}>{statusPill}</span>
-        </div>
-        <div className="notif-prop-time-row">
-          <span className="notif-prop-time">{time}</span>
+    <div className="notif-prop-card">
+      <div className="notif-prop-header">
+        <div className="notif-prop-leading">
+          <NotificationAvatar
+            src={avatarUrl}
+            name={actorName}
+            icon={typeIcon(20)}
+            iconBg={typeColor}
+            badge={typeIcon(11)}
+            badgeBg={typeColor}
+          />
           {unread && <span className="notif-unread-dot" aria-hidden="true" />}
         </div>
-      </div>
 
-      {/* Main Party & Request Info */}
-      <div className="notif-prop-main">
-        {avatarUrl ? (
-          <img src={avatarUrl} alt={actorName} className="notif-prop-avatar" />
-        ) : (
-          <div className={`notif-prop-avatar-fallback notif-prop-fallback-${type.toLowerCase()}`}>
-            {typeIcon}
-          </div>
-        )}
-
-        <div className="notif-prop-info">
-          <div className="notif-prop-actor-row">
-            <span className="notif-prop-actor">{actorName}</span>
-          </div>
-          <span className="notif-prop-request-title">
-            {t("notif_prop_on_prefix", "On")}: "{targetTitle}"
-          </span>
-        </div>
-      </div>
-
-      {/* Bargain / Quotation Voucher Box */}
-      {amount != null && (
-        <div className={`notif-prop-voucher${isCounter ? " notif-prop-voucher-counter" : ""}`}>
-          <div className="notif-prop-voucher-left">
-            <span className="notif-prop-amount-label">{amountLabel}</span>
-            <div className="notif-prop-amount-val">
-              <span className="notif-prop-currency">₹</span>
-              <span className="notif-prop-num">{amount.toLocaleString("en-IN")}</span>
-            </div>
-          </div>
-
-          {metadata.paymentMethod && (
-            <div className="notif-prop-payment-method">
-              <Wallet size={12} />
-              <span>{metadata.paymentMethod}</span>
-              {metadata.paymentRef && (
-                <span className="notif-prop-payment-ref">#{metadata.paymentRef}</span>
+        <div className="notif-prop-meta">
+          <div className="notif-row-top">
+            <span className={`notif-row-title${unread ? " unread" : ""}`}>{title}</span>
+            <span className="notif-row-time-slot">
+              <span className="notif-row-time">{time}</span>
+              {onDelete && (
+                <button
+                  type="button"
+                  className="notif-row-quick-delete"
+                  aria-label={t("notif_delete")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <Trash2 size={15} color="var(--ink-400)" />
+                </button>
               )}
+            </span>
+          </div>
+
+          {/* Who, and about which request. */}
+          {(actorName || metadata.requestTitle) && (
+            <p className="notif-prop-line ellipsis">
+              {actorName && <span className="notif-prop-actor">{actorName}</span>}
+              {actorName && metadata.requestTitle && " · "}
+              {metadata.requestTitle && <span>“{metadata.requestTitle}”</span>}
+            </p>
+          )}
+
+          {(amount != null || metadata.paymentMethod || pill) && (
+            <div className="notif-supporting-row">
+              <AmountLine amount={amount} label={amountLabel} />
+              {metadata.paymentMethod && (
+                <span className="notif-category-chip">
+                  <Wallet size={11} />
+                  {metadata.paymentMethod}
+                  {metadata.paymentRef && ` #${metadata.paymentRef}`}
+                </span>
+              )}
+              {pill && <StatusPill label={pill} tone={metadata.tone ?? "brand"} />}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Message Note Bubble */}
+          {/* The body text repeats the amount, so it shows only when there is no amount or message to show. */}
+          {amount == null && !metadata.message && <p className="notif-prop-preview clamp-2">{preview}</p>}
+        </div>
+      </div>
+
       {metadata.message && (
         <div className="notif-prop-message-box">
           <p className="notif-prop-message-text">"{metadata.message}"</p>
         </div>
-      )}
-
-      {/* Fallback Preview if no price or message */}
-      {amount == null && !metadata.message && (
-        <p className="notif-prop-preview">{preview}</p>
       )}
 
       {/* Action Toolbar */}

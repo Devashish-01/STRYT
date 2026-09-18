@@ -11,6 +11,8 @@ import {
 } from "@/components/Icons";
 import { SafeImg } from "@/components/common";
 import { toneColor, toneBg } from "@/lib/notificationTone";
+import { StatusPill } from "@/components/NotificationContent";
+import { distinctPill } from "@/lib/notificationCard";
 import type { NotificationMetadata, NotificationType } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
@@ -37,6 +39,7 @@ export default function LocationNotificationCard({
   onDelete,
 }: LocationNotificationCardProps) {
   const { t } = useI18n();
+  const pill = distinctPill(title, metadata.statusPill);
   const actions = metadata.actions || [];
   const isLive = type === "LIVE_LOCATION";
   const isRequest = type === "LOCATION_REQUEST";
@@ -106,7 +109,7 @@ export default function LocationNotificationCard({
                 <button
                   type="button"
                   className="notif-row-quick-delete"
-                  aria-label="Delete notification"
+                  aria-label={t("notif_delete")}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete();
@@ -124,17 +127,9 @@ export default function LocationNotificationCard({
           <p className="notif-loc-preview clamp-2">{preview}</p>
 
           {/* Status Pill if present */}
-          {metadata.statusPill && (
-            <div style={{ marginTop: 5 }}>
-              <span
-                className="notif-pill"
-                style={{
-                  color: toneColor(metadata.tone),
-                  background: toneBg(metadata.tone),
-                }}
-              >
-                {metadata.statusPill}
-              </span>
+          {pill && (
+            <div className="notif-pill-row">
+              <StatusPill label={pill} tone={metadata.tone} />
             </div>
           )}
         </div>

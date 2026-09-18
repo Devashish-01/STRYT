@@ -12,7 +12,8 @@ import {
   Eye,
 } from "@/components/Icons";
 import { SafeImg } from "@/components/common";
-import { toneColor, toneBg } from "@/lib/notificationTone";
+import { NotificationAvatar, StatusPill } from "@/components/NotificationContent";
+import { distinctPill } from "@/lib/notificationCard";
 import type { NotificationMetadata, NotificationType } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
@@ -28,21 +29,22 @@ interface CommunityNotificationCardProps {
   onDelete?: () => void;
 }
 
-function getBadgeIcon(type: NotificationType) {
+/** The type icon, white: a corner badge at 11px, or the whole tile at 20px when there is no one to picture. */
+function getBadgeIcon(type: NotificationType, size: number) {
   switch (type) {
     case "COMMUNITY_LIKE":
-      return <Heart size={10} color="#fff" weight="fill" />;
+      return <Heart size={size} color="#fff" weight="fill" />;
     case "COMMUNITY_COMMENT":
     case "COMMUNITY_REPLY":
-      return <MessageSquare size={10} color="#fff" weight="fill" />;
+      return <MessageSquare size={size} color="#fff" weight="fill" />;
     case "COMMUNITY_RECOMMENDATION":
-      return <Star size={10} color="#fff" weight="fill" />;
+      return <Star size={size} color="#fff" weight="fill" />;
     case "COMMUNITY_RESOLVED":
-      return <CheckCircle2 size={10} color="#fff" weight="fill" />;
+      return <CheckCircle2 size={size} color="#fff" weight="fill" />;
     case "COMMUNITY_POLL_ENDED":
-      return <ChartBar size={10} color="#fff" weight="fill" />;
+      return <ChartBar size={size} color="#fff" weight="fill" />;
     case "COMMUNITY_MENTION":
-      return <At size={10} color="#fff" weight="fill" />;
+      return <At size={size} color="#fff" weight="fill" />;
     default:
       return null;
   }
@@ -80,8 +82,8 @@ export default function CommunityNotificationCard({
   const { t } = useI18n();
   const actions = metadata.actions || [];
   const isStory = type === "STORY_REACTION";
-  const badgeIcon = getBadgeIcon(type);
   const badgeBg = getBadgeBg(type);
+  const pill = distinctPill(title, metadata.statusPill);
 
   return (
     <div className="notif-comm-card">
@@ -95,23 +97,16 @@ export default function CommunityNotificationCard({
                 <span className="notif-comm-emoji-overlay">{metadata.emoji}</span>
               )}
             </div>
-          ) : metadata.avatarUrl ? (
-            <div className="notif-row-icon notif-row-avatar-wrap">
-              <SafeImg src={metadata.avatarUrl} variant="avatar" className="notif-avatar-img" />
-              {badgeIcon && (
-                <span className="notif-comm-corner-badge" style={{ background: badgeBg }}>
-                  {badgeIcon}
-                </span>
-              )}
-            </div>
           ) : (
-            <div className="notif-comm-icon-wrap" style={{ background: toneBg(metadata.tone) }}>
-              {badgeIcon ? (
-                <span style={{ display: "flex" }}>{badgeIcon}</span>
-              ) : (
-                <MessageSquare size={18} color="var(--brand-700)" />
-              )}
-            </div>
+            // Without a photo this used to be a pale tile holding a 10px white icon — close to invisible.
+            <NotificationAvatar
+              src={metadata.avatarUrl}
+              name={metadata.actorName}
+              icon={getBadgeIcon(type, 20) ?? <MessageSquare size={20} color="#fff" weight="fill" />}
+              iconBg={badgeBg}
+              badge={getBadgeIcon(type, 11)}
+              badgeBg={badgeBg}
+            />
           )}
           {unread && <span className="notif-unread-dot" aria-hidden="true" />}
         </div>
@@ -128,7 +123,7 @@ export default function CommunityNotificationCard({
                 <button
                   type="button"
                   className="notif-row-quick-delete"
-                  aria-label="Delete notification"
+                  aria-label={t("notif_delete")}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete();
@@ -161,17 +156,9 @@ export default function CommunityNotificationCard({
           )}
 
           {/* Status pill (e.g. "Resolved") */}
-          {metadata.statusPill && (
-            <div style={{ marginTop: 4 }}>
-              <span
-                className="notif-pill"
-                style={{
-                  color: toneColor(metadata.tone),
-                  background: toneBg(metadata.tone),
-                }}
-              >
-                {metadata.statusPill}
-              </span>
+          {pill && (
+            <div className="notif-pill-row">
+              <StatusPill label={pill} tone={metadata.tone} />
             </div>
           )}
         </div>

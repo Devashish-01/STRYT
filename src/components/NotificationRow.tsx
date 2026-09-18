@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { Trash2 } from "@/components/Icons";
 import { haptics } from "@/lib/haptics";
+import { useI18n } from "@/lib/i18n";
 import type { NotificationMetadata, NotificationType } from "@/types";
 import { NotificationLeadingVisual, NotificationSupportingLine } from "@/components/NotificationContent";
 import AppointmentNotificationCard from "@/components/appointments/AppointmentNotificationCard";
@@ -57,6 +58,7 @@ export default function NotificationRow({
   onDelete: () => void;
   onAction?: (action: string, metadata: NotificationMetadata) => void;
 }) {
+  const { t } = useI18n();
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0);
@@ -111,11 +113,13 @@ export default function NotificationRow({
   const revealed = Math.min(1, -dragX / SWIPE_REVEAL);
 
   return (
-    <div className="notif-row-wrap">
+    // The red backdrop exists only while the row is dragged. Painted all the time, it showed through as thin pink
+    // lines at the row's edges and seams.
+    <div className={`notif-row-wrap${dragX < 0 ? " notif-row-wrap-swiping" : ""}`}>
       {dragX < 0 && (
         <button
           className="notif-row-delete-btn"
-          aria-label="Delete notification"
+          aria-label={t("notif_delete")}
           style={{ opacity: revealed }}
           onClick={() => {
             haptics.light();
@@ -123,13 +127,14 @@ export default function NotificationRow({
           }}
         >
           <Trash2 size={18} />
-          <span>Delete</span>
+          <span>{t("notif_delete_short")}</span>
         </button>
       )}
       <div
         role="button"
         tabIndex={0}
-        className={`notif-row${urgent ? " notif-row-urgent" : ""}${dragging ? " notif-row-dragging" : ""}`}
+        // One unread treatment for every card type, set here rather than by each card.
+        className={`notif-row${urgent ? " notif-row-urgent" : unread ? " notif-row-unread" : ""}${dragging ? " notif-row-dragging" : ""}`}
         style={{ "--notif-swipe-x": `${dragX}px` } as React.CSSProperties}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
@@ -293,7 +298,7 @@ export default function NotificationRow({
                   <span className="notif-row-time">{time}</span>
                   <button
                     className="notif-row-quick-delete"
-                    aria-label="Delete notification"
+                    aria-label={t("notif_delete")}
                     onClick={(e) => {
                       e.stopPropagation();
                       onDelete();

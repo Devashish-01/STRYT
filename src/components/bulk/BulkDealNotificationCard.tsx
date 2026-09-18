@@ -14,7 +14,8 @@ import {
   Eye,
 } from "@/components/Icons";
 import { inr } from "@/lib/format";
-import { toneColor, toneBg } from "@/lib/notificationTone";
+import { StatusPill } from "@/components/NotificationContent";
+import { distinctPill } from "@/lib/notificationCard";
 import type { NotificationMetadata, NotificationType } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
@@ -91,6 +92,7 @@ export default function BulkDealNotificationCard({
   onDelete,
 }: BulkDealNotificationCardProps) {
   const { t, tf } = useI18n();
+  const pill = distinctPill(title, metadata.statusPill);
   const actions = metadata.actions || [];
   const { icon, bg } = getLeadingIcon(type);
 
@@ -135,7 +137,7 @@ export default function BulkDealNotificationCard({
                 <button
                   type="button"
                   className="notif-row-quick-delete"
-                  aria-label="Delete notification"
+                  aria-label={t("notif_delete")}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete();
@@ -153,17 +155,9 @@ export default function BulkDealNotificationCard({
           <p className="notif-bulk-preview clamp-2">{preview}</p>
 
           {/* Status Pill if present */}
-          {metadata.statusPill && (
-            <div style={{ marginTop: 6 }}>
-              <span
-                className="notif-pill"
-                style={{
-                  color: toneColor(metadata.tone),
-                  background: toneBg(metadata.tone),
-                }}
-              >
-                {metadata.statusPill}
-              </span>
+          {pill && (
+            <div className="notif-pill-row">
+              <StatusPill label={pill} tone={metadata.tone} />
             </div>
           )}
         </div>

@@ -31,12 +31,14 @@ export default function NearbyAlertNotificationCard({
   onAction,
   onDelete,
 }: NearbyAlertNotificationCardProps) {
-  const { t } = useI18n();
+  const { t, tf } = useI18n();
   const severity = metadata.severity || "INFO";
   const actions = metadata.actions || ["VIEW_POST", "SHARE_ALERT"];
 
   const isUrgent = severity === "URGENT";
   const isWarning = severity === "WARNING";
+  // Shown translated, not as the raw database value ("URGENT", "INFO").
+  const severityLabel = isUrgent ? t("notif_alert_urgent") : isWarning ? t("notif_alert_warning") : t("notif_alert_notice");
 
   return (
     <div
@@ -83,7 +85,7 @@ export default function NearbyAlertNotificationCard({
                 <button
                   type="button"
                   className="notif-row-quick-delete"
-                  aria-label="Delete notification"
+                  aria-label={t("notif_delete")}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete();
@@ -109,7 +111,7 @@ export default function NearbyAlertNotificationCard({
                   : "notif-alert-badge-info"
               }`}
             >
-              {severity}
+              {severityLabel}
             </span>
 
             {metadata.area && (
@@ -127,7 +129,7 @@ export default function NearbyAlertNotificationCard({
         <p className="notif-alert-preview">{preview}</p>
         {metadata.actorName && (
           <span className="notif-alert-author">
-            Posted by {metadata.actorName}
+            {tf("notif_alert_posted_by", { name: metadata.actorName })}
           </span>
         )}
       </div>

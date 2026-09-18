@@ -2,7 +2,8 @@ import React, { useMemo } from "react";
 import { Calendar, Clock, Check, X, Users, MapPin, ArrowRight, Trash2 } from "@/components/Icons";
 import { SafeImg } from "@/components/common";
 import { inr } from "@/lib/format";
-import { toneColor, toneBg } from "@/lib/notificationTone";
+import { StatusPill } from "@/components/NotificationContent";
+import { distinctPill } from "@/lib/notificationCard";
 import type { NotificationMetadata } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
@@ -52,6 +53,7 @@ export default function AppointmentNotificationCard({
   onDelete,
 }: AppointmentNotificationCardProps) {
   const { t } = useI18n();
+  const pill = distinctPill(title, metadata.statusPill);
 
   const dateTile = useMemo(
     () => parseDateTile(metadata.scheduledFor, metadata.dateLabel),
@@ -93,7 +95,7 @@ export default function AppointmentNotificationCard({
               {onDelete && (
                 <button
                   className="notif-row-quick-delete"
-                  aria-label="Delete notification"
+                  aria-label={t("notif_delete")}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete();
@@ -156,18 +158,7 @@ export default function AppointmentNotificationCard({
             </span>
           )}
 
-          {metadata.statusPill && (
-            <span
-              className="notif-pill"
-              style={{
-                color: toneColor(metadata.tone),
-                background: toneBg(metadata.tone),
-                marginLeft: "auto",
-              }}
-            >
-              {metadata.statusPill}
-            </span>
-          )}
+          {pill && <StatusPill label={pill} tone={metadata.tone} style={{ marginLeft: "auto" }} />}
         </div>
 
         {/* Reason / Decline note. Without a reason, a declined or cancelled booking shows the server's own sentence

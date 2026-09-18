@@ -11,6 +11,8 @@ import {
 } from "@/components/Icons";
 import { SafeImg } from "@/components/common";
 import { toneColor, toneBg } from "@/lib/notificationTone";
+import { AmountLine, StatusPill } from "@/components/NotificationContent";
+import { distinctPill } from "@/lib/notificationCard";
 import type { NotificationMetadata, NotificationType } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
@@ -41,6 +43,15 @@ export default function PaymentNotificationCard({
   const isReceived = type === "CUSTOM_PAYMENT_RECEIVED";
   const isConfirmed = type === "CUSTOM_PAYMENT_CONFIRMED";
   const isRejected = type === "CUSTOM_PAYMENT_REJECTED";
+  // Older rows can carry the amount as a string.
+  const amount = metadata.amount == null || isNaN(Number(metadata.amount)) ? undefined : Number(metadata.amount);
+  const pill = distinctPill(title, metadata.statusPill);
+  const methodLabel =
+    metadata.paymentMethod === "UPI"
+      ? t("notif_pay_method_upi")
+      : metadata.paymentMethod === "CASH"
+      ? t("notif_pay_method_cash")
+      : metadata.paymentMethod;
 
   return (
     <div className={`notif-pay-card${isReceived ? " notif-pay-card-pending" : ""}`}>
@@ -95,7 +106,7 @@ export default function PaymentNotificationCard({
                 <button
                   type="button"
                   className="notif-row-quick-delete"
-                  aria-label="Delete notification"
+                  aria-label={t("notif_delete")}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete();
@@ -112,46 +123,24 @@ export default function PaymentNotificationCard({
 
           <p className="notif-pay-preview clamp-2">{preview}</p>
 
-          {/* Status Pill if present */}
-          {metadata.statusPill && (
-            <div style={{ marginTop: 5 }}>
-              <span
-                className="notif-pill"
-                style={{
-                  color: toneColor(metadata.tone),
-                  background: toneBg(metadata.tone),
-                }}
-              >
-                {metadata.statusPill}
-              </span>
+          {/* Amount, method and status as one row of small chips. The amount used to get its own large box as
+              well, repeating the ₹ figure the text above already gives. */}
+          {(amount != null || metadata.paymentMethod || pill) && (
+            <div className="notif-supporting-row">
+              <AmountLine amount={amount} />
+              {metadata.paymentMethod && (
+                <span className={`notif-pay-method-badge notif-pay-method-${metadata.paymentMethod.toLowerCase()}`}>
+                  {methodLabel}
+                </span>
+              )}
+              {pill && <StatusPill label={pill} tone={metadata.tone} />}
             </div>
           )}
         </div>
       </div>
 
-      {/* Payment Slip Callout */}
-      {metadata.amount != null && (
+      {(metadata.paymentRef || metadata.note) && (
         <div className="notif-pay-slip">
-          <div className="notif-pay-slip-top">
-            <div className="notif-pay-amount-box">
-              <span className="notif-pay-currency-symbol">₹</span>
-              <span className="notif-pay-amount-val">
-                {typeof metadata.amount === "number"
-                  ? metadata.amount.toLocaleString("en-IN")
-                  : metadata.amount}
-              </span>
-            </div>
-            {metadata.paymentMethod && (
-              <span className={`notif-pay-method-badge notif-pay-method-${metadata.paymentMethod.toLowerCase()}`}>
-                {metadata.paymentMethod === "UPI"
-                  ? t("notif_pay_method_upi")
-                  : metadata.paymentMethod === "CASH"
-                  ? t("notif_pay_method_cash")
-                  : metadata.paymentMethod}
-              </span>
-            )}
-          </div>
-
           {/* Reference / UTR Number if present */}
           {metadata.paymentRef && (
             <div className="notif-pay-ref-row">

@@ -14,7 +14,8 @@ import {
   RotateCcw,
 } from "@/components/Icons";
 import { SafeImg } from "@/components/common";
-import { toneColor, toneBg } from "@/lib/notificationTone";
+import { StatusPill } from "@/components/NotificationContent";
+import { distinctPill } from "@/lib/notificationCard";
 import type { NotificationMetadata } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
@@ -55,6 +56,7 @@ export default function DeliveryNotificationCard({
   onDelete,
 }: DeliveryNotificationCardProps) {
   const { t } = useI18n();
+  const pill = distinctPill(title, metadata.statusPill);
   const [copied, setCopied] = useState(false);
 
   const actions = metadata.actions || [];
@@ -112,7 +114,7 @@ export default function DeliveryNotificationCard({
                 <button
                   type="button"
                   className="notif-row-quick-delete"
-                  aria-label="Delete notification"
+                  aria-label={t("notif_delete")}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDelete();
@@ -209,18 +211,7 @@ export default function DeliveryNotificationCard({
               </span>
             )}
 
-            {metadata.statusPill && (
-              <span
-                className="notif-pill"
-                style={{
-                  color: toneColor(metadata.tone),
-                  background: toneBg(metadata.tone),
-                  marginLeft: "auto",
-                }}
-              >
-                {metadata.statusPill}
-              </span>
-            )}
+            {pill && <StatusPill label={pill} tone={metadata.tone} style={{ marginLeft: "auto" }} />}
           </div>
 
           {/* Cancellation / Issue note if present */}

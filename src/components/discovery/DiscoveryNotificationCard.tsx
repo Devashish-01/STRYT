@@ -1,5 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { Store, Briefcase, Mountains, Tag, MapPin, Phone, Ticket, Copy, Check, Navigation, Calendar } from "@/components/Icons";
+import { Store, Briefcase, Mountains, Tag, MapPin, Phone, Ticket, Copy, Check, Navigation, Calendar, Trash2 } from "@/components/Icons";
+import { SafeImg } from "@/components/common";
+import { StatusPill } from "@/components/NotificationContent";
+import { distinctPill } from "@/lib/notificationCard";
 import type { NotificationMetadata, NotificationType } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
@@ -23,6 +26,7 @@ export default function DiscoveryNotificationCard({
   time,
   unread,
   onAction,
+  onDelete,
 }: DiscoveryNotificationCardProps) {
   const { t } = useI18n();
   const [copied, setCopied] = useState(false);
@@ -43,19 +47,22 @@ export default function DiscoveryNotificationCard({
     metadata.category ||
     (isOffer ? t("notif_disc_offer_badge", "Offer") : isProvider ? t("provider", "Provider") : isPlace ? t("place", "Place") : t("business", "Business"));
 
-  const statusLabel =
+  const pill = distinctPill(
+    entityName,
     metadata.statusPill ||
-    (isOffer ? t("notif_disc_deal_pill", "Limited Deal") : isProvider ? t("notif_disc_provider_pill", "New Pro") : isPlace ? t("notif_disc_place_pill", "New Landmark") : t("notif_disc_business_pill", "Newly Opened"));
-
-  const badgeIcon: ReactNode = isOffer ? (
-    <Tag size={12} weight="fill" />
-  ) : isProvider ? (
-    <Briefcase size={12} weight="fill" />
-  ) : isPlace ? (
-    <Mountains size={12} weight="fill" />
-  ) : (
-    <Store size={12} weight="fill" />
+      (isOffer ? t("notif_disc_deal_pill", "Limited Deal") : isProvider ? t("notif_disc_provider_pill", "New Pro") : isPlace ? t("notif_disc_place_pill", "New Landmark") : t("notif_disc_business_pill", "Newly Opened"))
   );
+
+  const badgeIcon = (size: number): ReactNode =>
+    isOffer ? (
+      <Tag size={size} weight="fill" />
+    ) : isProvider ? (
+      <Briefcase size={size} weight="fill" />
+    ) : isPlace ? (
+      <Mountains size={size} weight="fill" />
+    ) : (
+      <Store size={size} weight="fill" />
+    );
 
   const thumbUrl = metadata.imageUrl || metadata.avatarUrl;
 
@@ -69,36 +76,44 @@ export default function DiscoveryNotificationCard({
   };
 
   return (
-    <div className={`notif-disc-card${unread ? " notif-disc-unread" : ""}`}>
-      {/* Top Meta Bar */}
-      <div className="notif-disc-top-bar">
-        <div className="notif-disc-badge-row">
-          <span className={`notif-disc-type-pill notif-disc-type-${type.toLowerCase()}`}>
-            {badgeIcon}
-            <span>{categoryLabel}</span>
-          </span>
-          <span className="notif-disc-status-pill">{statusLabel}</span>
-        </div>
-        <div className="notif-disc-time-row">
-          <span className="notif-disc-time">{time}</span>
+    // Same layout as the other cards (picture, name and time, details, one chip row). It used to be a boxed card with
+    // its own badge bar, sitting inside the row's own card.
+    <div className="notif-disc-card">
+      <div className="notif-disc-header">
+        <div className="notif-disc-leading">
+          {thumbUrl ? (
+            <div className="notif-disc-thumb-wrap">
+              <SafeImg src={thumbUrl} alt={entityName} variant="photo" className="notif-disc-thumb" />
+            </div>
+          ) : (
+            <div className={`notif-disc-icon-fallback notif-disc-fallback-${type.toLowerCase()}`}>{badgeIcon(20)}</div>
+          )}
           {unread && <span className="notif-unread-dot" aria-hidden="true" />}
         </div>
-      </div>
-
-      {/* Main Content Row */}
-      <div className="notif-disc-main">
-        {thumbUrl ? (
-          <div className="notif-disc-thumb-wrap">
-            <img src={thumbUrl} alt={entityName} className="notif-disc-thumb" />
-          </div>
-        ) : (
-          <div className={`notif-disc-icon-fallback notif-disc-fallback-${type.toLowerCase()}`}>
-            {badgeIcon}
-          </div>
-        )}
 
         <div className="notif-disc-info">
-          <h4 className="notif-disc-title">{entityName}</h4>
+          <div className="notif-row-top">
+            <span className={`notif-row-title${unread ? " unread" : ""}`}>{entityName}</span>
+            <span className="notif-row-time-slot">
+              <span className="notif-row-time">{time}</span>
+              {onDelete && (
+                <button
+                  type="button"
+                  className="notif-row-quick-delete"
+                  aria-label={t("notif_delete")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <Trash2 size={15} color="var(--ink-400)" />
+                </button>
+              )}
+            </span>
+          </div>
 
           {metadata.address ? (
             <div className="notif-disc-location-row">
@@ -106,7 +121,7 @@ export default function DiscoveryNotificationCard({
               <span className="notif-disc-address">{metadata.address}</span>
             </div>
           ) : (
-            <p className="notif-disc-preview">{preview}</p>
+            <p className="notif-disc-preview clamp-2">{preview}</p>
           )}
 
           {metadata.phone && (
@@ -115,6 +130,14 @@ export default function DiscoveryNotificationCard({
               <span>{metadata.phone}</span>
             </div>
           )}
+
+          <div className="notif-supporting-row">
+            <span className={`notif-category-chip notif-disc-type-${type.toLowerCase()}`}>
+              {badgeIcon(11)}
+              {categoryLabel}
+            </span>
+            {pill && <StatusPill label={pill} tone={metadata.tone ?? "brand"} />}
+          </div>
         </div>
       </div>
 

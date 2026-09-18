@@ -1,19 +1,60 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { NotificationMetadata, NotificationTone } from "@/types";
 import { toneColor, toneBg } from "@/lib/notificationTone";
 import { SafeImg } from "@/components/common";
 import { inr } from "@/lib/format";
+import { initialsOf } from "@/lib/notificationCard";
 
 /** Small rounded status pill — "Confirmed", "Rejected", "Pending", etc.
  *  Reuses the app's tone→color mapping rather than a new color system. */
-export function StatusPill({ label, tone }: { label: string; tone?: NotificationTone }) {
+export function StatusPill({ label, tone, style }: { label: string; tone?: NotificationTone; style?: CSSProperties }) {
   return (
     <span
       className="notif-pill"
-      style={{ color: toneColor(tone), background: toneBg(tone) }}
+      style={{ color: toneColor(tone), background: toneBg(tone), ...style }}
     >
       {label}
     </span>
+  );
+}
+
+/**
+ * The round leading picture every card shares: the person's photo; without one, their initials; without a name,
+ * the card's own icon on a colored tile. `badge` is the small type icon in the corner (a heart for a like, a speech
+ * bubble for a comment), so the picture says who and the badge says what.
+ */
+export function NotificationAvatar({
+  src,
+  name,
+  icon,
+  iconBg,
+  badge,
+  badgeBg,
+}: {
+  src?: string | null;
+  name?: string | null;
+  /** Shown when there is neither a photo nor a name. */
+  icon?: ReactNode;
+  iconBg?: string;
+  badge?: ReactNode;
+  badgeBg?: string;
+}) {
+  const initials = initialsOf(name);
+  return (
+    <div className="notif-avatar">
+      {src ? (
+        <SafeImg src={src} variant="avatar" className="notif-avatar-img" />
+      ) : initials ? (
+        <span className="notif-avatar-initials" aria-hidden="true">{initials}</span>
+      ) : (
+        <span className="notif-avatar-icon" style={{ background: iconBg }}>{icon}</span>
+      )}
+      {badge && (src || initials) && (
+        <span className="notif-corner-badge" style={{ background: badgeBg }} aria-hidden="true">
+          {badge}
+        </span>
+      )}
+    </div>
   );
 }
 
