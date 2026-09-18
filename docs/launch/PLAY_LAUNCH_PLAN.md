@@ -100,7 +100,7 @@ of the manifest, and merging is a clean fast-forward — `origin/main` has nothi
 
 - [x] **7. Review the branch and merge to `main`.** *(done 18 Sept 21:37 UTC: fast-forward to `69d91bf`, 130 commits. OTA 1.0.64 published (run 35397697103, gate green). The Android build of that push was cancelled by a CI concurrency clash — fixed in `3305486`, which ships with the next release — and was re-run from `main` as run 35398394593.)* Remember fact 2: this ships to current users by OTA and
   builds the AAB.
-- [ ] **8. Download the AAB** from the `android-release` workflow run.
+- [x] **8. Download the AAB** from the `android-release` workflow run. *(done 19 Sept: run 35398394593 on `1eb9692`, version 1.0.64, gate and build green. Artifact `stryt-playstore-aab` (kept until 18 Oct) downloaded to `D:/STRYT-release/1.0.64/stryt.aab`, 9,379,749 bytes, sha256 starts `c02bb827915b7d39`.)*
 
 ### Play Console
 
