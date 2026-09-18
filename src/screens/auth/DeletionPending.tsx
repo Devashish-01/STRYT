@@ -4,6 +4,7 @@ import { AlertTriangle, LogOut, ArrowRight, Loader } from "@/components/Icons";
 import { useApp } from "@/store";
 import { profileControlService } from "@/services/core/profileControlService";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function DeletionPending() {
   const nav = useNavigate();
@@ -40,9 +41,9 @@ export default function DeletionPending() {
         showToast("Your account has been permanently deleted.");
         await signOut();
         nav("/", { replace: true });
-      } catch (err: any) {
+      } catch (err) {
         if (!cancelled) {
-          showToast(err?.message || "Could not finish deleting your account. We'll retry shortly.");
+          showToast(errorMessage(err, "Could not finish deleting your account. We'll retry shortly."));
           setPurging(false);
         }
       }
@@ -57,8 +58,8 @@ export default function DeletionPending() {
       await refreshUser();
       showToast("Welcome back — account deletion cancelled.");
       nav("/home", { replace: true });
-    } catch (err: any) {
-      showToast(err.message || "Failed to cancel deletion");
+    } catch (err) {
+      showToast(errorMessage(err, "Failed to cancel deletion"));
     } finally {
       setCancelling(false);
     }

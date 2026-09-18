@@ -5,6 +5,7 @@ import { openCalendarEvent } from "@/lib/calendarExport";
 import { invalidateQueryCache } from "@/hooks/useApi";
 import { openExternal } from "@/lib/openExternal";
 import type { AppNotification } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 /**
  * Everything a notification action can reach. It used to be the closure of Notifications.tsx's
@@ -95,8 +96,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await appointmentService.updateStatus(aptId, "ACCEPTED");
       showToast(t("notif_apt_accepted_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't accept appointment");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't accept appointment"));
       refetch();
     }
   },
@@ -148,8 +149,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await deliveryService.acceptBatch(batchId);
       showToast(t("notif_dlv_accepted_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't accept delivery run");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't accept delivery run"));
       refetch();
     }
   },
@@ -178,8 +179,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await deliveryService.declineBatch(batchId);
       showToast(t("notif_dlv_declined_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't decline delivery run");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't decline delivery run"));
       refetch();
     }
   },
@@ -276,8 +277,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await bulkService.confirmDeposit(dealId, pledgerUserId);
       showToast(t("notif_bulk_deposit_confirmed_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't confirm deposit");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't confirm deposit"));
       refetch();
     }
   },
@@ -307,8 +308,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await bulkService.rejectDeposit(dealId, pledgerUserId);
       showToast(t("notif_bulk_deposit_rejected_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't reject deposit");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't reject deposit"));
       refetch();
     }
   },
@@ -366,8 +367,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await locationService.respond(reqId, true);
       showToast(t("notif_loc_approved_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't approve location request");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't approve location request"));
       refetch();
     }
   },
@@ -396,8 +397,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await locationService.respond(reqId, false);
       showToast(t("notif_loc_declined_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't decline location request");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't decline location request"));
       refetch();
     }
   },
@@ -460,8 +461,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await customPaymentService.confirm(paymentId);
       showToast(t("notif_pay_confirmed_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't confirm payment");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't confirm payment"));
       refetch();
     }
   },
@@ -490,8 +491,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await customPaymentService.reject(paymentId);
       showToast(t("notif_pay_rejected_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't reject payment");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't reject payment"));
       refetch();
     }
   },
@@ -612,8 +613,8 @@ export const notificationActions: Record<string, NotificationAction> = {
         await walletService.saveCoupon(offerId);
         showToast(t("notif_disc_offer_saved_toast", "Coupon saved to your wallet! 🎉"));
         if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-      } catch (err: any) {
-        showToast(err?.message || "Couldn't save coupon to wallet");
+      } catch (err) {
+        showToast(errorMessage(err, "Couldn't save coupon to wallet"));
         refetch();
       }
     } else if (n.deepLink) {
@@ -671,8 +672,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       showToast(t("notif_prop_accepted_toast", "Quote accepted! Agreement created 🎉"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
       if (res.agreementId) nav(`/agreement/${res.agreementId}`);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't accept quote");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't accept quote"));
       refetch();
     }
   },
@@ -703,8 +704,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       showToast(t("notif_prop_counter_accepted_toast", "Counter-offer accepted! 🎉"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
       if (res.agreementId) nav(`/agreement/${res.agreementId}`);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't accept counter-offer");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't accept counter-offer"));
       refetch();
     }
   },
@@ -779,8 +780,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await requestService.confirmAgreementPayment(agId);
       showToast(t("notif_prop_payment_confirmed_toast", "Payment verified and confirmed ✓"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't confirm payment");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't confirm payment"));
       refetch();
     }
   },
@@ -809,8 +810,8 @@ export const notificationActions: Record<string, NotificationAction> = {
       await requestService.rejectAgreementPaymentClaim(agId);
       showToast(t("notif_prop_payment_rejected_toast", "Payment verification rejected"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't reject payment");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't reject payment"));
       refetch();
     }
   },

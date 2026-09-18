@@ -14,6 +14,7 @@ import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import LocationPicker from "@/components/LocationPicker";
 import { BUSINESS_PACKAGES, type BizVocabulary } from "@/lib/businessPackages";
 import { inr } from "@/lib/format";
+import { errorMessage } from "@/lib/errorMessage";
 
 function getSlotHour(s: AppointmentSlot): number {
   if (s.isoTimestamp) {
@@ -433,8 +434,8 @@ export function AppointmentSheet({
         onBooked?.();
         onClose();
       }
-    } catch (err: any) {
-      const msg: string = err?.message || `Couldn't complete your ${vocabulary.noun}. Try again.`;
+    } catch (err) {
+      const msg: string = errorMessage(err, `Couldn't complete your ${vocabulary.noun}. Try again.`);
       showToast(msg);
       // Someone took the last spots between load and confirm. Refresh usage in
       // place so the grid tells the truth and the customer can pick again,

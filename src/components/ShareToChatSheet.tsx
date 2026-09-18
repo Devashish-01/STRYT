@@ -7,6 +7,7 @@ import { useQuery } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { useI18n } from "@/lib/i18n";
 import type { Conversation } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 /**
  * Send a shared link into an existing 1:1 conversation.
@@ -38,8 +39,8 @@ export default function ShareToChatSheet({
       showToast(t("shared_to_chat_toast"));
       onSent?.();
       onClose();
-    } catch (e: any) {
-      showToast(e?.message || t("couldnt_send_try_again"));
+    } catch (e) {
+      showToast(errorMessage(e) || t("couldnt_send_try_again"));
     } finally {
       setSendingId(null);
     }

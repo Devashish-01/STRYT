@@ -13,6 +13,7 @@ import ReportSheet from "@/components/ReportSheet";
 import PhotoViewer from "@/components/PhotoViewer";
 import type { Message, Conversation } from "@/types";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 const TYPING_THROTTLE_MS = 2000;
 const TYPING_HIDE_MS = 3000;
@@ -182,11 +183,11 @@ export default function ChatThread() {
     try {
       const msg = await chatService.send(id, text, conv, image);
       setMessages((prev) => prev.map((m) => (m.id === tempId ? msg : m)));
-    } catch (e: any) {
+    } catch (e) {
       setBody(text); // restore input on failure
       setPendingImage(image ?? null);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      showToast(e?.message || "Failed to send message — tap to retry");
+      showToast(errorMessage(e, "Failed to send message — tap to retry"));
     } finally {
       setSending(false);
     }
@@ -200,8 +201,8 @@ export default function ChatThread() {
         await socialService.unblockUser(other.id);
         setIsBlocked(false);
         showToast(`Unblocked ${other.name}`);
-      } catch (e: any) {
-        showToast(e?.message || "Failed to unblock user");
+      } catch (e) {
+        showToast(errorMessage(e, "Failed to unblock user"));
       }
     } else {
       if (!window.confirm(`Block ${other.name}? They will no longer be able to message you.`)) return;
@@ -209,8 +210,8 @@ export default function ChatThread() {
         await socialService.blockUser(other.id);
         setIsBlocked(true);
         showToast(`Blocked ${other.name}`);
-      } catch (e: any) {
-        showToast(e?.message || "Failed to block user");
+      } catch (e) {
+        showToast(errorMessage(e, "Failed to block user"));
       }
     }
   }

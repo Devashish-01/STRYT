@@ -4,6 +4,7 @@ import { deliveryService } from "@/services";
 import { useApp } from "@/store";
 import { Package } from "@/components/Icons";
 import { RowSkeleton } from "@/components/states";
+import { errorMessage } from "@/lib/errorMessage";
 
 const STATUS_LABEL: Record<string, string> = {
   ASSIGNED: "Assigned", EN_ROUTE: "On the way", ARRIVED: "Arrived", DELIVERED: "Delivered", CANCELLED: "Cancelled",
@@ -28,8 +29,8 @@ export default function DeliveryAssignControl({ appointmentId, businessId }: { a
       showToast("Delivery assigned");
       setPicking(false);
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't assign delivery");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't assign delivery"));
     } finally {
       setBusy(false);
     }

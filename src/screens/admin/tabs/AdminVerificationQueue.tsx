@@ -5,6 +5,7 @@ import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { Check, X, Store, Briefcase, AlertTriangle, Eye, ExternalLink } from "@/components/Icons";
 import { useApp } from "@/store";
+import { errorMessage } from "@/lib/errorMessage";
 
 export function AdminVerificationQueue() {
   const { showToast } = useApp();
@@ -25,8 +26,8 @@ export function AdminVerificationQueue() {
     try {
       const urls = await adminService.viewVerificationDocs(item.targetType, item.targetId);
       setDocsById((m) => ({ ...m, [key]: urls }));
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't load documents");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't load documents"));
     } finally {
       setLoadingDocsKey(null);
     }
@@ -44,8 +45,8 @@ export function AdminVerificationQueue() {
       await adminService.reviewVerification(item.targetType, item.targetId, decision, reason || undefined);
       showToast(decision === "APPROVE" ? "Approved ✓" : decision === "REJECT" ? "Rejected" : "Suspended");
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't submit decision");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't submit decision"));
     } finally {
       setActingKey(null);
     }

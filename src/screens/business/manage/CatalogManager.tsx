@@ -16,6 +16,7 @@ import { resolvePackage, BUSINESS_PACKAGES, type BusinessPackage } from "@/lib/b
 import ManageNav from "@/screens/business/manage/ManageNav";
 import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 
 export function CatalogManager({ kind }: { kind: Kind }) {
@@ -69,8 +70,8 @@ export function CatalogManager({ kind }: { kind: Kind }) {
         invalidateQueryCache(`provider:${id}`);
       }
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't remove — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't remove — try again"));
     }
   }
 
@@ -87,8 +88,8 @@ export function CatalogManager({ kind }: { kind: Kind }) {
         invalidateQueryCache(`provider:${id}`);
       }
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update — try again"));
     }
   }
 

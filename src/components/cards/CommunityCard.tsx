@@ -17,6 +17,7 @@ import { DOUBLE_TAP_MS, doubleTapAction, isDoubleTap, muteTargetId, postShareSub
 import ListingPickerSheet from "../ListingPickerSheet";
 import ShareCard from "../ShareCard";
 import ReportSheet from "../ReportSheet";
+import { errorMessage } from "@/lib/errorMessage";
 
 export function CommunityCard({ post, onRefetch, onHide, onMute }: {
   post: CommunityPost;
@@ -561,8 +562,8 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
                     // the rest. Whichever the parent passed.
                     onHide?.(post.id);
                     onRefetch?.();
-                  } catch (e: any) {
-                    showToast(e?.message || "Couldn't delete — try again");
+                  } catch (e) {
+                    showToast(errorMessage(e, "Couldn't delete — try again"));
                   } finally {
                     setDeleting(false);
                   }
@@ -618,9 +619,9 @@ export function CommunityCard({ post, onRefetch, onHide, onMute }: {
                           await communityService.setResolved(post.id, next);
                           showToast(next ? "Marked resolved" : "Reopened");
                           onRefetch?.();
-                        } catch (e: any) {
+                        } catch (e) {
                           setResolvedOverride(!next); // revert so the badge never lies
-                          showToast(e?.message || "Couldn't update — try again");
+                          showToast(errorMessage(e, "Couldn't update — try again"));
                         } finally {
                           setResolvedBusy(false);
                         }

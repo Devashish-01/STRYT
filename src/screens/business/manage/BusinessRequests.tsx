@@ -12,6 +12,7 @@ import { PROPOSAL_STATUS_BADGE } from "@/lib/statusBadges";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
 import type { RequestPost } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 // Business-as-responder: open requests matching the business category, plus
 // a "Sent" tab tracking this business's own submitted proposals independently
@@ -53,8 +54,8 @@ export default function BusinessRequests() {
       haptics.success();
       showToast("Proposal withdrawn");
       refetchSent();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't withdraw — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't withdraw — try again"));
     } finally {
       setWithdrawing(null);
     }

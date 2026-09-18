@@ -4,6 +4,7 @@ import { useApp } from "@/store";
 import { useQuery } from "@/hooks/useApi";
 import { appealService, type AppealEntityType } from "@/services/core/appealService";
 import { businessService } from "@/services";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface AccountStatusBannerProps {
   entityType: AppealEntityType;
@@ -65,8 +66,8 @@ export function AccountStatusBanner({ entityType, entityId, status, rejectionRea
       setOpen(false);
       setReason("");
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't send review request. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't send review request. Try again."));
     } finally {
       setSubmitting(false);
     }
@@ -77,8 +78,8 @@ export function AccountStatusBanner({ entityType, entityId, status, rejectionRea
     try {
       await businessService.submitForReview(entityId);
       showToast("Sent back for review");
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't resubmit. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't resubmit. Try again."));
     } finally {
       setResubmitting(false);
     }

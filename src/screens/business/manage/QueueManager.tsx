@@ -17,6 +17,7 @@ import ManageNav from "./ManageNav";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { consoleFor } from "@/lib/consoleSteps";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 // "12m ago" style label for how long a token has been waiting.
 function waitedLabel(iso: string): string {
@@ -136,8 +137,8 @@ export default function QueueManager() {
       await businessService.confirmQueuePayment(token.id);
       showToast(qtf("qm_payment_confirmed", { name: token.name }));
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't confirm — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't confirm — try again"));
     } finally {
       setVerifying(null);
     }
@@ -149,8 +150,8 @@ export default function QueueManager() {
       await businessService.rejectQueuePaymentClaim(token.id);
       showToast(qtf("qm_payment_rejected", { name: token.name }));
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't reject — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't reject — try again"));
     } finally {
       setVerifying(null);
     }
@@ -161,8 +162,8 @@ export default function QueueManager() {
     try {
       await businessService.nudgeQueuePayment(token.id);
       showToast(qtf("qm_payment_requested", { name: token.name }));
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't send payment nudge.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't send payment nudge."));
     } finally {
       setNudging(null);
     }
@@ -178,8 +179,8 @@ export default function QueueManager() {
       setWalkInName("");
       setWalkInParty("1");
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't add walk-in");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't add walk-in"));
     } finally {
       setAddingWalkIn(false);
     }
@@ -231,10 +232,10 @@ export default function QueueManager() {
       haptics.success();
       showToast(qtf("qm_called", { name: result.name }));
       if (result.tokenId !== first.id) refetch();
-    } catch (e: any) {
+    } catch (e) {
       setWaiting((t) => [first, ...t]);
       setCalled((c) => c.filter((x) => x.id !== first.id));
-      showToast(e?.message || "Couldn't call next — try again");
+      showToast(errorMessage(e, "Couldn't call next — try again"));
       refetch();
     } finally {
       setCalling(false);
@@ -252,10 +253,10 @@ export default function QueueManager() {
       await businessService.callSpecificToken(token.id);
       haptics.success();
       showToast(qtf("qm_called", { name: token.name }));
-    } catch (e: any) {
+    } catch (e) {
       setWaiting((t) => [...t, token]);
       setCalled((c) => c.filter((x) => x.id !== token.id));
-      showToast(e?.message || "Couldn't call token — try again");
+      showToast(errorMessage(e, "Couldn't call token — try again"));
       refetch();
     } finally {
       setCalling(false);
@@ -267,9 +268,9 @@ export default function QueueManager() {
     setCalled((c) => c.map((x) => (x.id === token.id ? { ...x, arrivedAt: now } : x)));
     try {
       await businessService.markArrived(token.id);
-    } catch (e: any) {
+    } catch (e) {
       setCalled((c) => c.map((x) => (x.id === token.id ? { ...x, arrivedAt: null } : x)));
-      showToast(e?.message || "Couldn't mark arrived — try again");
+      showToast(errorMessage(e, "Couldn't mark arrived — try again"));
     }
   }
 
@@ -297,8 +298,8 @@ export default function QueueManager() {
     try {
       await businessService.serveToken(token.id);
       showToast(qtf("qm_served", { name: token.name }));
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't mark as served — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't mark as served — try again"));
       refetch();
     }
   }
@@ -308,8 +309,8 @@ export default function QueueManager() {
     try {
       await businessService.removeNoShowToken(token.id);
       showToast(qtf("qm_removed_no_show", { name: token.name }));
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't remove — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't remove — try again"));
       refetch();
     }
   }

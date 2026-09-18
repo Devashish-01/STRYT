@@ -37,6 +37,7 @@ import {
 } from "@/lib/communityTypes";
 import { FULFILLMENT_LABELS, type CommunityPostType, type FulfillmentType, type BulkTier, type PostTag } from "@/types";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface SellerContext {
   type: "business" | "provider";
@@ -365,8 +366,8 @@ export default function CommunityCompose() {
       discard();
       showToast(t("ccp_campaign_published"));
       setTimeout(() => nav(`/business/${sellerCtx.id}/manage/bulk-deals/${created.id}`, { replace: true }), 500);
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't publish — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't publish — try again"));
       setPosting(false);
     }
   }

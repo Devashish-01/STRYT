@@ -8,6 +8,7 @@ import { useApp } from "@/store";
 import { PaymentMethodPanel } from "@/components/PaymentMethodPanel";
 import { FULFILLMENT_LABELS, calcBulkTotal, type BulkDeal, type PaymentMethod } from "@/types";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 const MAX_PLEDGE = 999;
 
@@ -94,8 +95,8 @@ export default function BulkOrderSheet({
       } else {
         setJustPledged(true);
       }
-    } catch (e: any) {
-      const msg = String(e?.message ?? "");
+    } catch (e) {
+      const msg = String(errorMessage(e, ""));
       const friendly =
         /DEAL_CLOSED|DEAL_NOT_ACTIVE/.test(msg) ? "This campaign is no longer accepting pledges" :
         /OWNER_CANNOT_PLEDGE/.test(msg) ? "You can't pledge to your own campaign" :
@@ -125,8 +126,8 @@ export default function BulkOrderSheet({
       showToast(t("deposit_submitted_toast"));
       onOrdered?.(); // refresh the list now, so the NEXT open already shows PENDING_CONFIRM
       setJustPaid(true);
-    } catch (e: any) {
-      const msg = String(e?.message ?? "");
+    } catch (e) {
+      const msg = String(errorMessage(e, ""));
       const friendly = msg || "Couldn't submit your deposit — try again";
       showToast(friendly);
       setErrorDetail({ friendly, raw: msg || "(no message on the error object)" });
@@ -142,8 +143,8 @@ export default function BulkOrderSheet({
       showToast(t("left_pledge_toast"));
       onOrdered?.();
       onClose();
-    } catch (e: any) {
-      const msg = String(e?.message ?? "");
+    } catch (e) {
+      const msg = String(errorMessage(e, ""));
       // The server refuses this once a campaign has closed (20260919) — say so
       // in plain words rather than surfacing the raw DEAL_CLOSED code.
       const friendly = /DEAL_CLOSED/.test(msg)
@@ -175,8 +176,8 @@ export default function BulkOrderSheet({
       });
       onClose();
       nav(`/chat/${conv.id}`);
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't open chat. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't open chat. Try again."));
     }
   }
 

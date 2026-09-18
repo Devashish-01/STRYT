@@ -10,6 +10,7 @@ import ReportSheet from "@/components/ReportSheet";
 import ManageNav from "./ManageNav";
 import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
 import type { Review } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function ReviewsManager() {
   const { id = "" } = useParams();
@@ -89,8 +90,8 @@ function ReviewItem({ r, isProvider, onReplied }: { r: Review; isProvider: boole
       showToast(r.ownerReply ? "Reply updated" : "Reply posted");
       setReplying(false);
       onReplied();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't post reply — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't post reply — try again"));
     } finally {
       setPosting(false);
     }
@@ -108,8 +109,8 @@ function ReviewItem({ r, isProvider, onReplied }: { r: Review; isProvider: boole
       setReply("");
       setReplying(false);
       onReplied();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't remove reply");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't remove reply"));
     }
   }
 

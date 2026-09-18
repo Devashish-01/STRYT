@@ -39,6 +39,7 @@ import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import AmbientSky from "@/features/ambient/AmbientSky";
 import { useBusinessAccess } from "@/lib/businessAccess";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function ManageDashboard() {
   const { id = "" } = useParams();
@@ -286,9 +287,9 @@ export default function ManageDashboard() {
       }
       invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
       void refetchBusiness();
-    } catch (error: any) {
+    } catch (error) {
       setAvailable(previous);
-      const msg = String(error?.message ?? "");
+      const msg = String(errorMessage(error, ""));
       showToast(msg.includes("has_business_full_access")
         ? "Couldn't save — database permissions need updating (migration 20260842)"
         : msg || "Couldn't update availability");
@@ -307,9 +308,9 @@ export default function ManageDashboard() {
       showToast(next ? "Now accepting appointments" : "Paused — customers can't book new appointments");
       invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
       void refetchBusiness();
-    } catch (error: any) {
+    } catch (error) {
       setAccepting(previous);
-      const msg = String(error?.message ?? "");
+      const msg = String(errorMessage(error, ""));
       showToast(msg.includes("has_business_full_access")
         ? "Couldn't save — database permissions need updating (migration 20260842)"
         : msg || "Couldn't update appointment setting");
@@ -336,7 +337,7 @@ export default function ManageDashboard() {
       else await appointmentService.rejectPaymentClaim(item.id);
       showToast(accept ? "Payment confirmed" : "Payment claim rejected");
       refetchAppointments();
-    } catch (e: any) {
+    } catch (e: any){
       console.error("Payment update failed:", e);
       const errorMsg = e?.message || "Couldn't update payment";
       showToast(errorMsg);
@@ -366,8 +367,8 @@ export default function ManageDashboard() {
       else await bulkService.rejectDeposit(item.dealId, item.userId);
       showToast(accept ? "Deposit confirmed" : "Deposit claim rejected");
       refetchBulkDeposits();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update deposit");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update deposit"));
     } finally {
       setBusyId(null);
     }
@@ -382,8 +383,8 @@ export default function ManageDashboard() {
       if (!result.ok) throw new Error(result.message);
       showToast(tf("mdash_called", { name: result.name }));
       refetchQueue();
-    } catch (error: any) {
-      showToast(error?.message ?? "Couldn't call next");
+    } catch (error) {
+      showToast(errorMessage(error, "Couldn't call next"));
     } finally {
       setBusyId(null);
     }

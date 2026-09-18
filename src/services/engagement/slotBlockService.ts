@@ -2,6 +2,7 @@ import { getSupabase } from "@/lib/supabaseClient";
 import { toCamel } from "@/lib/caseMap";
 import type { BlockedSlot } from "@/types";
 import { resolveTargetOwner } from "./appointmentService";
+import { errorMessage } from "@/lib/errorMessage";
 
 const STORAGE_KEY = "stryt_blocked_slots";
 
@@ -97,8 +98,8 @@ async function insertBlock(payload: {
       .maybeSingle();
     if (error) throw error;
     return toCamel<BlockedSlot>(data);
-  } catch (err: any) {
-    throw new Error(err?.message || "Couldn't block this slot. Try again.");
+  } catch (err) {
+    throw new Error(errorMessage(err, "Couldn't block this slot. Try again."));
   }
 
   const record: BlockedSlot = {

@@ -6,6 +6,7 @@ import { appointmentService } from "@/services";
 import { useApp } from "@/store";
 import { PaymentMethodPanel } from "@/components/PaymentMethodPanel";
 import type { CatalogItem, PaymentMethod } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface WalkInPaySheetProps {
   targetId: string;
@@ -64,8 +65,8 @@ export function WalkInPaySheet({ targetId, businessName, businessUpiId, catalog,
       showToast("Payment claim sent — waiting for the shop to confirm");
       onPaid();
       onClose();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't record payment. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't record payment. Try again."));
     } finally {
       setClaiming(false);
     }

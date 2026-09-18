@@ -11,6 +11,7 @@ import { openProfile } from "@/lib/profileSheet";
 import type { Lead } from "@/types";
 import ManageNav from "@/screens/business/manage/ManageNav";
 import ProviderManageNav from "@/screens/provider/manage/ProviderManageNav";
+import { errorMessage } from "@/lib/errorMessage";
 
 const meta: Record<string, { icon: any; color: string }> = {
   CALL: { icon: Phone, color: "var(--green-500)" },
@@ -71,9 +72,9 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
     try {
       await service.markLeadHandled(lead.id);
       showToast("Marked handled");
-    } catch (e: any) {
+    } catch (e) {
       setHandled((current) => current.filter((item) => item !== lead.id));
-      showToast(e?.message || "Couldn't update reachout");
+      showToast(errorMessage(e, "Couldn't update reachout"));
     }
   }
 
@@ -84,9 +85,9 @@ export default function LeadsInbox({ entityType }: LeadsInboxProps) {
       await service.markLeadHandled(lead.id, false);
       showToast("Back in the list");
       refetch();
-    } catch (e: any) {
+    } catch (e) {
       setHandled((current) => [...current, lead.id]);
-      showToast(e?.message || "Couldn't update reachout");
+      showToast(errorMessage(e, "Couldn't update reachout"));
     }
   }
 

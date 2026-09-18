@@ -11,6 +11,7 @@ import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
 import Toggle from "@/components/Toggle";
 import { ListSkeleton } from "@/components/states";
 import { useBusinessAccess } from "@/lib/businessAccess";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function HoursEditor() {
   const { id = "" } = useParams();
@@ -58,8 +59,8 @@ export default function HoursEditor() {
       showToast("Resumed automatic schedule (following weekly hours)");
       invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
       void refetchBusiness();
-    } catch (e: any) {
-      showToast(e?.message ?? "Couldn't resume schedule");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't resume schedule"));
     }
   }
 
@@ -90,10 +91,10 @@ export default function HoursEditor() {
       }
       invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
       void refetchBusiness();
-    } catch (e: any) {
+    } catch (e) {
       setOpenNow(prev);
       setIsAuto(b?.isAvailableNow == null);
-      showToast(e?.message ?? "Couldn't update availability");
+      showToast(errorMessage(e, "Couldn't update availability"));
     }
   }
 

@@ -6,6 +6,7 @@ import { appointmentService, groupCustomerTabs, type CustomerTabGroup } from "@/
 import type { AppointmentRecord, PaymentMethod } from "@/types";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface CustomerKhataSectionProps {
   appointments: AppointmentRecord[];
@@ -57,8 +58,8 @@ export function CustomerKhataSection({
       showToast(`✓ Settled ${inr(settlingGroup.totalOwed)} for ${settlingGroup.customerName}`);
       setSettlingGroup(null);
       onRefresh();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't settle tab. Please try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't settle tab. Please try again."));
     } finally {
       setBusy(false);
     }
@@ -73,8 +74,8 @@ export function CustomerKhataSection({
       showToast(`✓ Payment recorded for ${settlingIndividualApt.dateLabel}`);
       setSettlingIndividualApt(null);
       onRefresh();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't record payment.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't record payment."));
     } finally {
       setBusy(false);
     }

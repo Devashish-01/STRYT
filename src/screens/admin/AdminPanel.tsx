@@ -26,6 +26,7 @@ import { AdminBugs } from "./tabs/AdminBugs";
 import { AdminDisputes } from "./tabs/AdminDisputes";
 import { AdminAppeals } from "./tabs/AdminAppeals";
 import { AdminProfiles } from "./tabs/AdminProfiles";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function AdminPanel() {
   const nav = useNavigate();
@@ -45,8 +46,8 @@ export default function AdminPanel() {
       // Re-fetch the profile so the new admin role flows into the store and the
       // panel re-renders in place — no jarring full-page reload.
       await refreshUser();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't claim admin access.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't claim admin access."));
     } finally {
       setClaiming(false);
     }

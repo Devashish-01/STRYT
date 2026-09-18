@@ -12,6 +12,7 @@ import { CustomerKhataSection } from "@/components/appointments/CustomerKhataSec
 import type { AppointmentRecord, QueueOwnerToken, CustomPayment } from "@/types";
 import ManageNav from "./ManageNav";
 import { useApp } from "@/store";
+import { errorMessage } from "@/lib/errorMessage";
 
 /**
  * The business console's single payments home — appointment claims and queue
@@ -118,8 +119,8 @@ export default function BusinessPayments() {
         showToast("Payment claim rejected — customer notified.");
       }
       refetchApts();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update payment status. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update payment status. Try again."));
     } finally {
       setProcessingApt(null);
     }
@@ -136,8 +137,8 @@ export default function BusinessPayments() {
         showToast(`Payment claim rejected — ${token.name}`);
       }
       refetchQueue();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update — try again"));
     } finally {
       setProcessingQueue(null);
     }
@@ -154,8 +155,8 @@ export default function BusinessPayments() {
         showToast("Payment claim rejected — customer notified.");
       }
       refetchCustom();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update payment status. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update payment status. Try again."));
     } finally {
       setProcessingCustom(null);
     }
@@ -172,8 +173,8 @@ export default function BusinessPayments() {
         showToast("Deposit claim rejected — pledger notified.");
       }
       refetchBulkDeposits();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update payment status. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update payment status. Try again."));
     } finally {
       setProcessingBulk(null);
     }
@@ -184,8 +185,8 @@ export default function BusinessPayments() {
     try {
       await appointmentService.nudgePayment(apt.id);
       showToast("Payment request nudge sent 🔔");
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't send payment nudge.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't send payment nudge."));
     } finally {
       setNudging(null);
     }
@@ -196,8 +197,8 @@ export default function BusinessPayments() {
     try {
       await businessService.nudgeQueuePayment(token.id);
       showToast(`🔔 Payment request sent — ${token.name}`);
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't send payment nudge.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't send payment nudge."));
     } finally {
       setNudging(null);
     }

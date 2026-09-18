@@ -32,6 +32,7 @@ import MiniMap from "@/components/MiniMap";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { BizCatalogGrid } from "@/screens/business/BizCatalogGrid";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 const Handshake = HandshakeIcon as any;
 
@@ -618,7 +619,7 @@ export default function ProviderDetail() {
                   });
                   providerService.recordInteraction(p.id, "MESSAGE").catch(() => {});
                   nav(`/chat/${conv.id}`);
-                } catch (e: any) { showToast(e?.message || "Couldn't open chat. Try again."); }
+                } catch (e) { showToast(errorMessage(e, "Couldn't open chat. Try again.")); }
               }}
             >
               <MessageCircle size={17} />

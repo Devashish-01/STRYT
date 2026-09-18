@@ -24,6 +24,7 @@ import DeliveryStepper from "@/components/delivery/DeliveryStepper";
 import HandoffCodeInput from "@/components/delivery/HandoffCodeInput";
 import CantDeliverSheet from "@/components/delivery/CantDeliverSheet";
 import { openExternal } from "@/lib/openExternal";
+import { errorMessage } from "@/lib/errorMessage";
 
 /** Best-effort current position; resolves null if unavailable/denied. */
 function getGPS(): Promise<{ lat: number; lng: number } | null> {
@@ -169,8 +170,8 @@ export default function DeliveryConsole() {
       // has to keep reporting location, and OEM battery managers are what stop
       // it. Never asked of customers. Best-effort; never blocks the toggle.
       if (next) void promptBatteryExemptionForDuty(user.id);
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update duty status");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update duty status"));
     } finally {
       setDutyBusy(false);
     }
@@ -263,8 +264,8 @@ export default function DeliveryConsole() {
       haptics.success();
       showToast(okMsg);
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update — try again"));
     } finally {
       setBusyId(null);
     }
@@ -286,8 +287,8 @@ export default function DeliveryConsole() {
       // The whole point of this feature is unblocking duty. Re-read the
       // blockers immediately so the toggle enables in the same beat.
       refetchBlockers();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update — try again"));
     } finally {
       setCancelBusy(false);
     }
@@ -299,8 +300,8 @@ export default function DeliveryConsole() {
       if (ok) { haptics.success(); showToast("Handoff confirmed"); refetch(); }
       else { showToast("Code doesn't match — check with the customer"); }
       return ok;
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't verify — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't verify — try again"));
       return false;
     }
   }
@@ -315,8 +316,8 @@ export default function DeliveryConsole() {
       haptics.success();
       showToast(`Accepted — ${batch.items.length} stops`);
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't accept — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't accept — try again"));
     } finally {
       setDecidingBatch(null);
     }
@@ -329,8 +330,8 @@ export default function DeliveryConsole() {
       await deliveryService.declineBatch(batch.batchId);
       showToast("Declined — the business has been notified");
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't decline — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't decline — try again"));
     } finally {
       setDecidingBatch(null);
     }

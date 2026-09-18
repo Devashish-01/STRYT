@@ -4,6 +4,7 @@ import { customPaymentService } from "@/services";
 import { useApp } from "@/store";
 import { PaymentMethodPanel } from "@/components/PaymentMethodPanel";
 import type { PaymentMethod } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface CustomPaySheetProps {
   targetType: "BUSINESS" | "PROVIDER";
@@ -38,8 +39,8 @@ export function CustomPaySheet({ targetType, targetId, targetName, targetUpiId, 
       showToast("Payment claim sent — waiting for confirmation");
       onPaid();
       onClose();
-    } catch (e: any) {
-      showToast(e?.message ? `Couldn't record payment: ${e.message}` : "Couldn't record payment. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e) ? `Couldn't record payment: ${errorMessage(e)}` : "Couldn't record payment. Try again.");
     } finally {
       setClaiming(false);
     }

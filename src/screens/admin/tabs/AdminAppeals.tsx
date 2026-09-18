@@ -5,6 +5,7 @@ import { useQuery } from "@/hooks/useApi";
 import { ListSkeleton } from "@/components/states";
 import { Check, X, Store, Briefcase } from "@/components/Icons";
 import { useApp } from "@/store";
+import { errorMessage } from "@/lib/errorMessage";
 
 export function AdminAppeals() {
   const { showToast } = useApp();
@@ -18,8 +19,8 @@ export function AdminAppeals() {
       await appealService.resolve(appeal, approve, noteById[appeal.id] ?? "");
       showToast(approve ? "Appeal approved — account reactivated" : "Appeal rejected");
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't resolve appeal.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't resolve appeal."));
     } finally {
       setResolvingId(null);
     }

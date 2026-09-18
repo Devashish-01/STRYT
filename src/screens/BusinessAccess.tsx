@@ -13,6 +13,7 @@ import { haptics } from "@/lib/haptics";
 import Toggle from "@/components/Toggle";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 /** Keys, not words: every row here is read in the viewer's language. */
 const SCOPE_META: Record<Scope, { labelKey: string; textKey: string }> = {
@@ -99,8 +100,8 @@ export default function BusinessAccess() {
       }
       showToast(t("bacc_access_removed"));
       refetchMySessions();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't remove access");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't remove access"));
     } finally {
       setLeaving(null);
     }
@@ -268,8 +269,8 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
       showToast(config ? "Shop login updated" : "Shop login created");
       setPassword("");
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't save the login");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't save the login"));
     } finally {
       setSaving(false);
     }
@@ -484,8 +485,8 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
       haptics.success();
       showToast(approve ? "Access approved" : "Request denied");
       refetchSessions();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update the request");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update the request"));
     } finally {
       setDeciding(null);
     }
@@ -519,8 +520,8 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
       setIdentifier("");
       pickPreset("front_desk");
       refetchSessions();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't grant access");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't grant access"));
     } finally {
       setAdding(false);
     }
@@ -537,8 +538,8 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
       refetchSessions();
       showToast(t("bacc_access_revoked"));
       setRevoking(null);
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't revoke");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't revoke"));
     }
   }
 
@@ -566,8 +567,8 @@ function ManageSheet({ business, onClose }: { business: Business; onClose: () =>
       showToast(t("bacc_access_updated"));
       setEditingId(null);
       refetchSessions();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update access");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update access"));
     } finally {
       setSavingEdit(false);
     }

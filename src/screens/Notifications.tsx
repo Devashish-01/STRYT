@@ -15,6 +15,7 @@ import type { NotificationType, AppNotification } from "@/types";
 import { useI18n } from "@/lib/i18n";
 import { formatDate } from "@/lib/format";
 import { notificationActions } from "@/screens/notifications/actions";
+import { errorMessage } from "@/lib/errorMessage";
 
 const Handshake = HandshakeIcon as any;
 
@@ -295,8 +296,8 @@ export default function Notifications() {
       await appointmentService.updateStatus(aptId, "REJECTED", note || undefined);
       showToast(t("notif_apt_declined_toast"));
       if (badgeCacheKey) invalidateQueryCache(badgeCacheKey);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't decline appointment");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't decline appointment"));
       refetch();
     }
   }

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { adminService } from "@/services/core/adminService";
 import { KeyRound, LogOut } from "@/components/Icons";
 import { useApp } from "@/store";
+import { errorMessage } from "@/lib/errorMessage";
 
 export function AdminAccount() {
   const nav = useNavigate();
@@ -20,8 +21,8 @@ export function AdminAccount() {
       await adminService.setAdminLoginId(newId.trim());
       showToast("Admin ID updated");
       setNewId("");
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update admin ID.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update admin ID."));
     } finally {
       setSavingId(false);
     }
@@ -36,8 +37,8 @@ export function AdminAccount() {
       showToast("Password updated");
       setNewPassword("");
       setConfirmPassword("");
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update password.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update password."));
     } finally {
       setSavingPassword(false);
     }

@@ -3,6 +3,7 @@ import { BadgeCheck, ShieldCheck, Camera, Clock, XCircle } from "@/components/Ic
 import { useApp } from "@/store";
 import { businessService, providerService } from "@/services";
 import type { Business, Provider } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 type EntityType = "BUSINESS" | "PROVIDER";
 
@@ -64,8 +65,8 @@ export default function VerificationPanel({ entityType, entityId }: { entityType
       showToast("Documents submitted — under review");
       setFiles([]);
       await load();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't submit documents");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't submit documents"));
     } finally {
       setSubmitting(false);
     }

@@ -2,6 +2,7 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { aliasName } from "@/lib/publicName";
 import { notificationService } from "@/services/engagement/notificationService";
 import type { AppointmentRecord, AppointmentStatus, PaymentMethod, CancelledBy } from "@/types";
+import { errorCode, errorMessage } from "@/lib/errorMessage";
 
 const STORAGE_KEY = "stryt_appointments";
 
@@ -261,11 +262,11 @@ async function patchPaymentStatus(
         upsertLocal(record);
         return record;
       }
-    } catch (e: any) {
+    } catch (e) {
       // appointment_confirm_payment/appointment_reject_payment raise bare
       // codes — map them to copy a merchant can act on, same as
       // createWalkIn already does for its own RPC's SLOT_FULL family below.
-      const msg: string = e?.message || "";
+      const msg: string = errorMessage(e, "");
       if (/APPOINTMENT_NOT_FOUND/i.test(msg)) throw new Error("That booking no longer exists.");
       if (/NOT_TARGET_MANAGER/i.test(msg)) throw new Error("You don't have permission to act on this booking.");
       if (/INVALID_TRANSITION/i.test(msg)) throw new Error("Already handled — someone beat you to it.");
@@ -371,11 +372,11 @@ export const appointmentService = {
       const record = rowToRecord(data);
       upsertLocal(record); // keep a local cache for instant reads
       return record;
-    } catch (err: any) {
+    } catch (err) {
       // The double-booking unique index (appointments_no_double_book) rejects
       // a slot that was taken between load and confirm — say so plainly.
-      const msg: string = err?.message || "";
-      if (err?.code === "23505" || /duplicate key|unique|no_double_book/i.test(msg)) {
+      const msg: string = errorMessage(err, "");
+      if (errorCode(err) === "23505" || /duplicate key|unique|no_double_book/i.test(msg)) {
         throw new Error("That slot was just taken. Please pick another time.");
       }
       // Capacity guard (enforce_slot_capacity). SLOT_FULL_OVERALL means the
@@ -593,8 +594,8 @@ export const appointmentService = {
           upsertLocal(record);
           return record;
         }
-      } catch (e: any) {
-        throw new Error(e?.message || "Couldn't record the payment. Please try again.");
+      } catch (e) {
+        throw new Error(errorMessage(e, "Couldn't record the payment. Please try again."));
       }
     }
 
@@ -730,13 +731,13 @@ export const appointmentService = {
           upsertLocal(record);
           return record;
         }
-      } catch (e: any) {
+      } catch (e) {
         // The booking moved on elsewhere (accepted from the console, cancelled by the customer…): say so instead of
         // showing the raw code (E2E-007).
-        if (/INVALID_TRANSITION/i.test(e?.message ?? "")) {
+        if (/INVALID_TRANSITION/i.test(errorMessage(e, ""))) {
           throw new Error("This booking was already updated. Refresh to see its current status.");
         }
-        throw new Error(e?.message || "Couldn't update the appointment. Please try again.");
+        throw new Error(errorMessage(e, "Couldn't update the appointment. Please try again."));
       }
     }
 
@@ -803,8 +804,8 @@ export const appointmentService = {
       const record = rowToRecord(data);
       upsertLocal(record);
       return record;
-    } catch (err: any) {
-      const msg: string = err?.message || "";
+    } catch (err) {
+      const msg: string = errorMessage(err, "");
       // Same capacity-guard mapping as create() — a walk-in goes through the
       // identical trg_enforce_slot_capacity trigger, so it can hit the same
       // errors (e.g. an owner double-booking a slot a customer already took).

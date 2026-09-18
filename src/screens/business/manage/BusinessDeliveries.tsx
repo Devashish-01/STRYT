@@ -19,6 +19,7 @@ import { openRoute } from "@/lib/routeLink";
 import DeliveryStatusPill from "@/components/delivery/DeliveryStatusPill";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import ManageNav from "./ManageNav";
+import { errorMessage } from "@/lib/errorMessage";
 
 const ACTIVE_STATUSES = ["ASSIGNED", "EN_ROUTE", "ARRIVED"] as const;
 
@@ -61,8 +62,8 @@ export default function BusinessDeliveries() {
       setCancelTarget(null);
       showToast(`Delivery cancelled — ${target.agentName} has been notified`);
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't cancel — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't cancel — try again"));
     } finally {
       setCancelBusy(false);
     }
@@ -331,8 +332,8 @@ function DeliveryRow({ d, focused, businessId, onFocus, onCancel }: {
       }
       await navigator.clipboard.writeText(url);
       showToast("Tracking link copied to clipboard");
-    } catch (e: any) {
-      showToast(e?.message || "Could not generate tracking link");
+    } catch (e) {
+      showToast(errorMessage(e, "Could not generate tracking link"));
     } finally {
       setSharing(false);
     }

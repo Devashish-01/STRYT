@@ -39,6 +39,7 @@ import { haptics } from "@/lib/haptics";
 import MiniMap from "@/components/MiniMap";
 import { useI18n } from "@/lib/i18n";
 import { openExternal } from "@/lib/openExternal";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function BusinessDetail() {
   const { id = "" } = useParams();
@@ -430,7 +431,7 @@ export default function BusinessDetail() {
                       });
                       businessService.recordInteraction(b.id, "MESSAGE").catch(() => {});
                       nav(`/chat/${conv.id}`);
-                    } catch (e: any) { showToast(e?.message || "Couldn't open chat. Try again."); }
+                    } catch (e) { showToast(errorMessage(e, "Couldn't open chat. Try again.")); }
                   }}
                 >
                   <MessageCircle size={20} />
@@ -602,8 +603,8 @@ export default function BusinessDetail() {
                           setJoiningQueue(false);
                           setPartySize(1);
                           refetchMyQueues();
-                        } catch (e: any) {
-                          showToast(e?.message || "Sign in to join the queue");
+                        } catch (e) {
+                          showToast(errorMessage(e, "Sign in to join the queue"));
                         } finally {
                           setQueueBusy(false);
                         }

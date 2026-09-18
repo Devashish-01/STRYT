@@ -6,6 +6,7 @@ import { ListSkeleton } from "@/components/states";
 import { Flag } from "@/components/Icons";
 import { useApp } from "@/store";
 import { getSupabase } from "@/lib/supabaseClient";
+import { errorMessage } from "@/lib/errorMessage";
 
 export function AdminReports() {
   const { data, loading } = useQueryWithRealtime<AdminReport[]>(() => adminService.reports() as any, "reports", []);
@@ -65,8 +66,8 @@ export function AdminReports() {
         if (error) throw error;
       }
       await resolve(r.id, "ACTION_TAKEN");
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't take action — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't take action — try again"));
     }
   }
 

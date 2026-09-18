@@ -25,6 +25,7 @@ import {
   ExternalLink,
   X,
 } from "@/components/Icons";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface MiniProfile {
   id: string;
@@ -180,8 +181,8 @@ export default function UserProfileSheet() {
       }
       close();
       nav(`/chat/${conv.id}`);
-    } catch (err: any) {
-      showToast(err.message || "Couldn't start chat");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't start chat"));
     } finally {
       setChatting(false);
     }

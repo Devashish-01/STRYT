@@ -29,6 +29,7 @@ import { useAmbientTheme } from "@/features/ambient/useAmbientTheme";
 import AmbientSky from "@/features/ambient/AmbientSky";
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog } from "@phosphor-icons/react";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 function renderWeatherIcon(code: number) {
   const size = 15;
@@ -255,9 +256,9 @@ export default function ProviderDashboard() {
       showToast(next ? "You're available for 3 hours ⚡" : "Marked unavailable");
       invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
       void refetchProvider();
-    } catch (e: any) {
+    } catch (e) {
       setAvailable(prev);
-      showToast(e?.message ?? "Couldn't update availability");
+      showToast(errorMessage(e, "Couldn't update availability"));
     }
   }
 
@@ -273,9 +274,9 @@ export default function ProviderDashboard() {
       showToast(next ? "Now accepting appointments" : "Paused — customers can't book new appointments");
       invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
       void refetchProvider();
-    } catch (e: any) {
+    } catch (e) {
       setAccepting(prev);
-      showToast(e?.message ?? "Couldn't save — try again");
+      showToast(errorMessage(e, "Couldn't save — try again"));
     }
   }
 
@@ -300,7 +301,7 @@ export default function ProviderDashboard() {
       if (action === "CONFIRM") { await appointmentService.confirmPayment(apt.id); showToast(t("notif_pay_confirmed_toast")); }
       else { await appointmentService.rejectPaymentClaim(apt.id); showToast(t("pdash_payment_rejected")); }
       refetchApts();
-    } catch (e: any) {
+    } catch (e: any){
       // Show the actual error to help debug the issue
       const errorMsg = e?.message || "Couldn't update payment — try again";
       console.error("Payment update failed:", e);

@@ -7,6 +7,7 @@ import { ListSkeleton } from "@/components/states";
 import { AlertTriangle } from "@/components/Icons";
 import { useApp } from "@/store";
 import { getSupabase } from "@/lib/supabaseClient";
+import { errorMessage } from "@/lib/errorMessage";
 
 export function AdminProfiles() {
   const { showToast, user: currentAdmin } = useApp();
@@ -61,8 +62,8 @@ export function AdminProfiles() {
         if (error) throw error;
         setResults(data || []);
       }
-    } catch (e: any) {
-      showToast("Couldn't load recent signups: " + e.message);
+    } catch (e) {
+      showToast("Couldn't load recent signups: " + errorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -73,8 +74,8 @@ export function AdminProfiles() {
     try {
       const data = await profileControlService.getDeletionRequests();
       setRequests(data);
-    } catch (e: any) {
-      showToast("Failed to load requests: " + e.message);
+    } catch (e) {
+      showToast("Failed to load requests: " + errorMessage(e));
     } finally {
       setLoadingRequests(false);
     }
@@ -105,8 +106,8 @@ export function AdminProfiles() {
         if (error) throw error;
         setResults(data || []);
       }
-    } catch (e: any) {
-      showToast("Search failed: " + e.message);
+    } catch (e) {
+      showToast("Search failed: " + errorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -136,8 +137,8 @@ export function AdminProfiles() {
         );
       }
       void runSearch();
-    } catch (e: any) {
-      showToast("Failed to update status: " + e.message);
+    } catch (e) {
+      showToast("Failed to update status: " + errorMessage(e));
     }
   }
 
@@ -168,8 +169,8 @@ export function AdminProfiles() {
       setConfirmText("");
       void runSearch();
       if (subTab === "requests") void loadRequests();
-    } catch (err: any) {
-      showToast(err.message || "Deletion failed");
+    } catch (err) {
+      showToast(errorMessage(err, "Deletion failed"));
     } finally {
       setDeleting(false);
     }
@@ -180,8 +181,8 @@ export function AdminProfiles() {
       await profileControlService.updateRequestStatus(requestId, "REJECTED");
       showToast("Request rejected");
       void loadRequests();
-    } catch (e: any) {
-      showToast("Failed to reject: " + e.message);
+    } catch (e) {
+      showToast("Failed to reject: " + errorMessage(e));
     }
   }
 

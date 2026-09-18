@@ -28,6 +28,7 @@ import { APPOINTMENT_STATUS_BADGE } from "@/lib/statusBadges";
 import { haptics } from "@/lib/haptics";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "HISTORY" | "CANCELLED";
 
@@ -124,12 +125,12 @@ export default function ProviderJobs() {
       setActionType(null);
       setResponseNote("");
       refetchApts();
-    } catch (e: any) {
-      const msg = e?.message || "";
+    } catch (e) {
+      const msg = errorMessage(e, "");
       if (/SLOT_FULL/i.test(msg) || /fully booked/i.test(msg)) {
         showToast(t("pjob_slot_taken"));
       } else {
-        showToast(e?.message || `Couldn't update ${vocab.noun}`);
+        showToast(errorMessage(e, `Couldn't update ${vocab.noun}`));
       }
     } finally {
       setUpdatingStatus(false);
@@ -150,7 +151,7 @@ export default function ProviderJobs() {
       }
       setPaymentAction(null);
       refetchApts();
-    } catch (e: any) {
+    } catch (e: any){
       console.error("Payment action failed:", e);
       const errorMsg = e?.message || "Couldn't update payment status. Try again.";
       showToast(errorMsg);
@@ -171,8 +172,8 @@ export default function ProviderJobs() {
       haptics.success();
       showToast(tf("bapt_payment_recorded", { amount: inr(amount), method }));
       refetchApts();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't record the payment. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't record the payment. Try again."));
     } finally {
       setProcessingPayment(null);
     }
@@ -185,8 +186,8 @@ export default function ProviderJobs() {
       haptics.success();
       showToast(tf("bapt_added_to_tab", { amount: inr(amount), name: ownerVisibleCustomerName(apt) }));
       refetchApts();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update tab amount.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update tab amount."));
     } finally {
       setProcessingPayment(null);
     }
@@ -227,8 +228,8 @@ export default function ProviderJobs() {
       showToast(blockModal.timeLabel ? "Slot blocked" : "Day blocked");
       setBlockModal(null);
       refetchBlocked();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't block. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't block. Try again."));
     } finally {
       setBlockSubmitting(false);
     }
@@ -268,8 +269,8 @@ export default function ProviderJobs() {
       showToast(t("bapt_walkin_added"));
       setWalkInModal(null);
       refetchApts();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't add walk-in. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't add walk-in. Try again."));
     } finally {
       setWalkInSubmitting(false);
     }

@@ -6,6 +6,7 @@ import { ListSkeleton } from "@/components/states";
 import { Check, X, Store, MapPin } from "@/components/Icons";
 import MiniMap from "@/components/MiniMap";
 import { useApp } from "@/store";
+import { errorMessage } from "@/lib/errorMessage";
 
 function fmtCoord(lat: number | null, lng: number | null): string {
   if (lat == null || lng == null) return "—";
@@ -34,8 +35,8 @@ export function AdminLocationChanges() {
         showToast("Location change rejected");
       }
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update the location change.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update the location change."));
     } finally {
       setActingId(null);
     }

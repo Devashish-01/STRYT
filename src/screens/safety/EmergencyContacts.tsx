@@ -6,6 +6,7 @@ import { useQueryWithRealtime } from "@/hooks/useApi";
 import { useApp } from "@/store";
 import { emergencyService, type ContactUser } from "@/services/engagement/emergencyService";
 import { UserPlus, X, Search } from "@/components/Icons";
+import { errorMessage } from "@/lib/errorMessage";
 
 /**
  * Manage the people who receive your live location when you share it. Contacts
@@ -45,8 +46,8 @@ export default function EmergencyContacts() {
       setIdentifier("");
       await refetch();
       setAdding(false);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't add contact");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't add contact"));
     } finally {
       setAddingByIdentifier(false);
     }
@@ -60,8 +61,8 @@ export default function EmergencyContacts() {
       await refetch();
       setAdding(false);
       setSearch("");
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't add contact");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't add contact"));
     } finally {
       setBusyId(null);
     }
@@ -73,8 +74,8 @@ export default function EmergencyContacts() {
       await emergencyService.removeContact(id);
       showToast("Emergency contact removed");
       await refetch();
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't remove contact");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't remove contact"));
     } finally {
       setBusyId(null);
     }

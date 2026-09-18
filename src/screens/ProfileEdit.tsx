@@ -9,6 +9,7 @@ import { normalizeAlias, isValidAlias } from "@/lib/publicName";
 import { reverseGeocode, forwardGeocode, type GeoPlace } from "@/lib/geocode";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { useI18n } from "@/lib/i18n";
+import { errorCode, errorMessage } from "@/lib/errorMessage";
 
 type PrivacyKey =
   | "showNamePublicly"
@@ -124,9 +125,9 @@ export default function ProfileEdit() {
       // Not written to the profile here: leaving this screen without saving used to leave the new photo live anyway,
       // with no way to undo it (PROF-3). handleSave sends `avatar` with the rest of the form.
       showToast(t("pedit_photo_ready"));
-    } catch (err: any) {
+    } catch (err) {
       setLocalPreview(null);
-      showToast(err?.message || "Photo upload failed — check your connection");
+      showToast(errorMessage(err, "Photo upload failed — check your connection"));
     } finally {
       setUploading(false);
     }
@@ -166,9 +167,9 @@ export default function ProfileEdit() {
       await refreshUser();
       showToast(t("pedit_saved"));
       nav("/profile");
-    } catch (e: any) {
+    } catch (e) {
       // The partial unique index on lower(alias) rejects a taken handle.
-      if (e?.code === "23505" || /duplicate|unique|alias/i.test(e?.message ?? "")) {
+      if (errorCode(e) === "23505" || /duplicate|unique|alias/i.test(errorMessage(e, ""))) {
         showToast(`"${cleanAlias}" is already taken — try another alias`);
       } else {
         showToast(t("pedit_save_failed"));

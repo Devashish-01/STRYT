@@ -7,6 +7,7 @@ import { useApp } from "@/store";
 import { profileControlService } from "@/services";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/accountDeletion";
 import { LEGAL_ROUTES } from "@/lib/legal";
+import { errorMessage } from "@/lib/errorMessage";
 
 /**
  * Your data — take a copy, or close the account.
@@ -76,8 +77,8 @@ export default function DataSettings() {
       await refreshUser();
       showToast(`Account scheduled for deletion in ${ACCOUNT_DELETION_GRACE_DAYS} days`);
       nav("/auth/deletion-pending", { replace: true });
-    } catch (err: any) {
-      showToast(err.message || "Failed to schedule deletion");
+    } catch (err) {
+      showToast(errorMessage(err, "Failed to schedule deletion"));
     } finally {
       setSubmittingDelete(false);
     }

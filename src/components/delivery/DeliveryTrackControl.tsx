@@ -5,6 +5,7 @@ import { SafeImg } from "@/components/common";
 import { Package, Phone, CheckCircle, Share2 } from "@/components/Icons";
 import DeliveryStepper from "@/components/delivery/DeliveryStepper";
 import { useApp } from "@/store";
+import { errorMessage } from "@/lib/errorMessage";
 
 /**
  * Customer's view of their delivery: progress only.
@@ -61,8 +62,8 @@ export default function DeliveryTrackControl({ appointmentId, fallbackEtaText }:
       }
       await navigator.clipboard.writeText(url);
       showToast("Tracking link copied to clipboard");
-    } catch (e: any) {
-      showToast(e?.message || "Could not generate tracking link");
+    } catch (e) {
+      showToast(errorMessage(e, "Could not generate tracking link"));
     } finally {
       setSharing(false);
     }

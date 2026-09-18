@@ -24,6 +24,7 @@ import { haptics } from "@/lib/haptics";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 import { useI18n } from "@/lib/i18n";
 import { formatDate } from "@/lib/format";
+import { errorMessage } from "@/lib/errorMessage";
 
 // A booking counts as "upcoming" while it is still live and in the future.
 function isUpcoming(a: AppointmentRecord): boolean {
@@ -235,8 +236,8 @@ export default function MyAppointments() {
           targetPackageKey: resolvePackage(p),
         });
       }
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't open booking. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't open booking. Try again."));
     } finally {
       setLoadingTarget(null);
     }

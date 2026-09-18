@@ -8,6 +8,7 @@ import { useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import type { QnaItem } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function QnaManager() {
   const { id = "" } = useParams();
@@ -60,8 +61,8 @@ function QaCard({ q, onChanged }: { q: QnaItem; onChanged: () => void }) {
       setEditing(false);
       showToast("Answer posted");
       onChanged();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't post — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't post — try again"));
     } finally {
       setSaving(false);
     }

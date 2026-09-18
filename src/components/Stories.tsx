@@ -407,7 +407,7 @@ export function StoryViewer({
         if (!error && data) {
           setPrivacyUsers(data);
         }
-      } catch (err: any) {
+      } catch (err: any){
         console.warn("Failed to fetch privacy users:", err);
       } finally {
         setLoadingPrivacy(false);

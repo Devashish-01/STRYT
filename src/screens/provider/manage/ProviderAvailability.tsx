@@ -10,6 +10,7 @@ import LivePulseDot from "@/components/LivePulseDot";
 import ProviderManageNav from "./ProviderManageNav";
 import WeeklyHoursEditor from "@/components/WeeklyHoursEditor";
 import { evaluateProviderAvailability, calculateNextTurnoffTime } from "@/utils/availability";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function ProviderAvailability() {
   const { id = "" } = useParams();
@@ -68,9 +69,9 @@ export default function ProviderAvailability() {
         showToast(next ? `Available right now ⚡` : "Marked offline");
       }
       invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
-    } catch (e: any) {
+    } catch (e) {
       setNow(prev);
-      showToast(e?.message ?? "Couldn't update availability");
+      showToast(errorMessage(e, "Couldn't update availability"));
     }
   }
 

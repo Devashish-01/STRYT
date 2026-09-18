@@ -17,6 +17,7 @@ import LivePulseDot from "@/components/LivePulseDot";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import type { MyQueueEntry } from "@/types";
 import { openExternal } from "@/lib/openExternal";
+import { errorMessage } from "@/lib/errorMessage";
 
 // A queue entry stays "active" (still needs the customer's attention) while
 // waiting or called — and, crucially, after being SERVED while payment is still
@@ -135,13 +136,13 @@ export default function MyQueues() {
       await businessService.leaveQueueToken(tokenId);
       showToast("Left the queue");
       refetch();
-    } catch (e: any) {
+    } catch (e) {
       setRemovedIds((prev) => {
         const next = new Set(prev);
         next.delete(tokenId);
         return next;
       });
-      showToast(e?.message ? `Couldn't leave queue: ${e.message}` : "Couldn't leave queue. Try again.");
+      showToast(errorMessage(e) ? `Couldn't leave queue: ${errorMessage(e)}` : "Couldn't leave queue. Try again.");
     } finally {
       setLeaving(null);
     }
@@ -155,8 +156,8 @@ export default function MyQueues() {
       await businessService.cancelQueuePaymentClaim(tokenId);
       showToast("Payment claim cancelled");
       refetch();
-    } catch (e: any) {
-      showToast(e?.message ? `Couldn't cancel claim: ${e.message}` : "Couldn't cancel claim. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e) ? `Couldn't cancel claim: ${errorMessage(e)}` : "Couldn't cancel claim. Try again.");
     } finally {
       setCancellingClaim(null);
     }

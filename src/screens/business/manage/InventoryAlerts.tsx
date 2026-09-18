@@ -12,6 +12,7 @@ import { ItemEditor, type Kind } from "./CatalogManager";
 import { serviceFor } from "./catalogKind";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
 import ManageNav from "./ManageNav";
+import { errorMessage } from "@/lib/errorMessage";
 
 const LOW_STOCK_THRESHOLD = 5;
 
@@ -78,8 +79,8 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
         invalidateQueryCache(`business:${id}`);
       }
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update — try again"));
     } finally {
       setBusyId(null);
     }
@@ -123,8 +124,8 @@ export function InventoryAlerts({ kind }: { kind: Kind }) {
       const fresh = ((after as any)?.catalog ?? []).find((i: CatalogItem) => i.id === item.id);
       const shown = fresh?.quantity ?? next;
       showToast(shown === 0 ? `${item.name} is now out of stock` : `${item.name}: ${shown} left`);
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update — try again"));
       refetch();
     } finally {
       setBusyId(null);

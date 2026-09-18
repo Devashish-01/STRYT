@@ -34,6 +34,7 @@ import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import DeliveryAssignControl from "@/components/delivery/DeliveryAssignControl";
 import { deliveryService } from "@/services";
 import { resolvePackage, BUSINESS_PACKAGES } from "@/lib/businessPackages";
+import { errorMessage } from "@/lib/errorMessage";
 
 type ConsoleTab = "TODAY" | "UPCOMING" | "DELIVERIES" | "HISTORY" | "CANCELLED";
 
@@ -170,12 +171,12 @@ export default function BusinessAppointments() {
       setResponseNote("");
       setDeliveryEta("");
       refetch();
-    } catch (e: any) {
-      const msg = e?.message || "";
+    } catch (e) {
+      const msg = errorMessage(e, "");
       if (/SLOT_FULL/i.test(msg) || /fully booked/i.test(msg)) {
         showToast(t("bapt_slot_taken"));
       } else {
-        showToast(e?.message || `Couldn't update ${vocab.noun}`);
+        showToast(errorMessage(e, `Couldn't update ${vocab.noun}`));
       }
     } finally {
       setUpdatingStatus(false);
@@ -196,7 +197,7 @@ export default function BusinessAppointments() {
       }
       setPaymentAction(null);
       refetch();
-    } catch (e: any) {
+    } catch (e: any){
       console.error("Payment action failed:", e);
       const errorMsg = e?.message || "Couldn't update payment status. Try again.";
       showToast(errorMsg);
@@ -212,8 +213,8 @@ export default function BusinessAppointments() {
       haptics.success();
       showToast(tf("bapt_payment_recorded", { amount: inr(amount), method }));
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't record the payment. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't record the payment. Try again."));
     } finally {
       setProcessingPayment(null);
     }
@@ -226,8 +227,8 @@ export default function BusinessAppointments() {
       haptics.success();
       showToast(tf("bapt_added_to_tab", { amount: inr(amount), name: ownerVisibleCustomerName(apt) }));
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update tab amount.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update tab amount."));
     } finally {
       setProcessingPayment(null);
     }
@@ -274,8 +275,8 @@ export default function BusinessAppointments() {
       setDeliverySelectMode(false);
       setBatchAgentPicking(false);
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't assign — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't assign — try again"));
     } finally {
       setBatchAssigning(false);
     }
@@ -296,8 +297,8 @@ export default function BusinessAppointments() {
       showToast(blockModal.timeLabel ? "Slot blocked" : "Day blocked");
       setBlockModal(null);
       refetchBlocked();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't block. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't block. Try again."));
     } finally {
       setBlockSubmitting(false);
     }
@@ -338,8 +339,8 @@ export default function BusinessAppointments() {
       showToast(t("bapt_walkin_added"));
       setWalkInModal(null);
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't add walk-in. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't add walk-in. Try again."));
     } finally {
       setWalkInSubmitting(false);
     }

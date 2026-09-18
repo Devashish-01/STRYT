@@ -7,6 +7,7 @@ import { useQuery } from "@/hooks/useApi";
 import { Skeleton, ErrorView } from "@/components/states";
 import { useApp } from "@/store";
 import ManageNav from "./ManageNav";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function BusinessPortfolio() {
   const { id = "" } = useParams();
@@ -56,8 +57,8 @@ export default function BusinessPortfolio() {
       showToast("Removed from portfolio");
       setConfirmDelete(null);
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't remove. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't remove. Try again."));
     } finally {
       setDeleting(false);
     }
@@ -115,8 +116,8 @@ export default function BusinessPortfolio() {
                         await businessService.updatePortfolio(id, item.id, { caption: captionVal });
                         setEditingCaption(null);
                         refetch();
-                      } catch (e: any) {
-                        showToast(e?.message || "Couldn't save caption — try again");
+                      } catch (e) {
+                        showToast(errorMessage(e, "Couldn't save caption — try again"));
                       }
                     }}
                   >

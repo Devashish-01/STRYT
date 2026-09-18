@@ -5,6 +5,7 @@ import { SettingsSection, SettingsToggleRow, SettingsRow } from "@/components/se
 import { UserCircle, FileText, Award, Eye, Pencil } from "@/components/Icons";
 import { useApp } from "@/store";
 import { userService, profileControlService } from "@/services";
+import { errorMessage } from "@/lib/errorMessage";
 
 /**
  * What neighbours can see about you. The four visibility flags that used to be
@@ -51,9 +52,9 @@ export default function PrivacySettings() {
       await profileControlService.setEnabled("CUSTOMER", null, v);
       showToast(v ? "Customer profile is now visible" : "Customer profile hidden from discovery");
       void refreshUser();
-    } catch (err: any) {
+    } catch (err) {
       setCustomerEnabled(!v);
-      showToast(err.message || "Failed to update visibility");
+      showToast(errorMessage(err, "Failed to update visibility"));
     }
   }
 

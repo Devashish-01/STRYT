@@ -13,6 +13,7 @@ import { BeatLocation, type PickedPlace } from "./onboard/BeatLocation";
 import { BeatInterests } from "./onboard/BeatInterests";
 import { LOCATION_SKIPPED_KEY } from "@/lib/locationPrompt";
 import { returnTo } from "@/lib/returnTo";
+import { errorCode, errorMessage } from "@/lib/errorMessage";
 
 /**
  * First-run onboarding — "light up your street".
@@ -105,9 +106,9 @@ export default function UserOnboard() {
     try {
       await save();
       advance(to);
-    } catch (err: any) {
-      const isDuplicate = err?.code === "23505" || /duplicate|unique|alias/i.test(err?.message ?? "");
-      showToast(isDuplicate ? t("ob_handle_taken") : err?.message || "Couldn't save. Try again.");
+    } catch (err) {
+      const isDuplicate = errorCode(err) === "23505" || /duplicate|unique|alias/i.test(errorMessage(err, ""));
+      showToast(isDuplicate ? t("ob_handle_taken") : errorMessage(err, "Couldn't save. Try again."));
     } finally {
       setBusy(false);
     }
@@ -133,8 +134,8 @@ export default function UserOnboard() {
       if (reduced) { nav(dest, { replace: true }); return; }
       setRevealing(true);
       revealTimer.current = setTimeout(() => nav(dest, { replace: true }), 1100);
-    } catch (err: any) {
-      showToast(err?.message || "Couldn't save. Try again.");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't save. Try again."));
       setBusy(false);
     }
   }

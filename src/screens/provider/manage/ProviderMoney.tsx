@@ -109,7 +109,7 @@ export default function ProviderMoney() {
         showToast(t("pmon_payment_rejected"));
       }
       refetchApts();
-    } catch (e: any) {
+    } catch (e: any){
       console.error("Payment action failed:", e);
       const errorMsg = e?.message || "Couldn't update payment status. Try again.";
       showToast(errorMsg);

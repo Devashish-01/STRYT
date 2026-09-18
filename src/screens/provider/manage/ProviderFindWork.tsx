@@ -15,6 +15,7 @@ import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
 import { copyText } from "@/lib/clipboard";
 import { loadQuoteTemplates, addQuoteTemplate, deleteQuoteTemplate, type QuoteTemplate } from "@/lib/quoteTemplates";
+import { errorMessage } from "@/lib/errorMessage";
 
 type Tab = "requests" | "sent" | "templates";
 
@@ -42,8 +43,8 @@ export default function ProviderFindWork() {
       haptics.success();
       showToast("Proposal withdrawn");
       refetchSent();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't withdraw — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't withdraw — try again"));
     } finally {
       setWithdrawing(null);
     }

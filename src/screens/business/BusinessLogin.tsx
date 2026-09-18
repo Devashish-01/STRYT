@@ -5,6 +5,7 @@ import { Key, Clock, CheckCircle2 } from "@/components/Icons";
 import { businessAccessService } from "@/services";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
+import { errorMessage } from "@/lib/errorMessage";
 
 /**
  * The staff half of the shared shop login (TEAM_ACCESS #1).
@@ -49,10 +50,10 @@ export default function BusinessLogin() {
       await refreshUser();
       showToast(`Signed in to ${res.businessName}`);
       nav(`/business/${res.businessId}/manage`, { replace: true });
-    } catch (e: any) {
+    } catch (e) {
       // login() already turns the RPC's statuses into readable reasons —
       // invalid credentials, and the lockout message with its own countdown.
-      showToast(e?.message || "Couldn't sign in");
+      showToast(errorMessage(e, "Couldn't sign in"));
       setPassword("");
     } finally {
       setBusy(false);

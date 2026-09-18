@@ -51,6 +51,7 @@ import { postShareSubtitle } from "@/lib/postInteractions";
 import { useI18n } from "@/lib/i18n";
 import { EditPostSheet } from "@/screens/community/EditPostSheet";
 import { CommentRow } from "@/screens/community/CommentRow";
+import { errorMessage } from "@/lib/errorMessage";
 
 /** Author-only edit sheet — title/details/photo, the same fields CommunityCompose
  *  collects at creation time. Kept local to this file since it's only ever
@@ -124,8 +125,8 @@ export default function CommunityPostDetail() {
     try {
       await communityService.recommendListing(id, listingType, listingId, user.name || "A neighbor");
       showToast(t("cpd_recommendation_added"));
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't add recommendation — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't add recommendation — try again"));
     }
   }
   const [commentSort, setCommentSort] = useState<CommentSort>("top");
@@ -350,9 +351,9 @@ export default function CommunityPostDetail() {
       if (next === null) await communityService.clearVote(safePost.id);
       else await communityService.vote(safePost.id, next);
       refetchPost();
-    } catch (e: any) {
+    } catch (e) {
       votePoll(safePost.id, previous); // revert so the bars never lie
-      showToast(e?.message || "Couldn't record your vote — try again");
+      showToast(errorMessage(e, "Couldn't record your vote — try again"));
     }
   }
 
@@ -365,8 +366,8 @@ export default function CommunityPostDetail() {
       showToast(t("cpd_voting_closed"));
       setPollCloseConfirm(false);
       refetchPost();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't close the poll — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't close the poll — try again"));
     } finally {
       setClosingPoll(false);
     }
@@ -400,9 +401,9 @@ export default function CommunityPostDetail() {
     }));
     try {
       await communityService.reactToComment(c.id, emoji);
-    } catch (e: any) {
+    } catch (e) {
       setComments(before);
-      showToast(e?.message || "Couldn't react — try again");
+      showToast(errorMessage(e, "Couldn't react — try again"));
     }
   }
 
@@ -418,9 +419,9 @@ export default function CommunityPostDetail() {
       await communityService.deleteComment(c.id);
       setDeletingComment(null);
       showToast(t("cpd_comment_deleted"));
-    } catch (e: any) {
+    } catch (e) {
       setComments(before);
-      showToast(e?.message || "Couldn't delete — try again");
+      showToast(errorMessage(e, "Couldn't delete — try again"));
     } finally {
       setCommentDeleteBusy(false);
     }
@@ -433,7 +434,7 @@ export default function CommunityPostDetail() {
       await communityService.updateComment(c.id, body);
       setComments((prev) => prev.map((x) => (x.id === c.id ? { ...x, body, editedAt: new Date().toISOString() } : x)));
       showToast(t("cpd_comment_updated"));
-    } catch (e: any) {
+    } catch (e: any){
       showToast(e?.message || "Couldn't save the edit — try again");
       throw e;
     }
@@ -453,9 +454,9 @@ export default function CommunityPostDetail() {
     try {
       await communityService.setCommentPinned(c.id, next);
       showToast(next ? "Pinned as the answer" : "Unpinned");
-    } catch (e: any) {
+    } catch (e) {
       setComments(before);
-      showToast(e?.message || "Couldn't pin — try again");
+      showToast(errorMessage(e, "Couldn't pin — try again"));
     }
   }
 
@@ -492,11 +493,11 @@ export default function CommunityPostDetail() {
       setSharePhone(false);
       setReplyingTo(null);
       setCommentListing(null);
-    } catch (e: any) {
+    } catch (e) {
       // addComment throws clear, user-facing reasons ("Comments are turned
       // off…" / "You both need to follow each other…") — surface them so the
       // toast is actionable instead of a generic failure.
-      showToast(e?.message || "Couldn't send. Try again.");
+      showToast(errorMessage(e, "Couldn't send. Try again."));
       setNewComment(text);
     } finally {
       setSending(false);

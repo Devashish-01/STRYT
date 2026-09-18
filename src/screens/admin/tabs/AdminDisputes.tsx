@@ -5,6 +5,7 @@ import { ListSkeleton } from "@/components/states";
 import { Check, X, Flag } from "@/components/Icons";
 import { useApp } from "@/store";
 import { getSupabase } from "@/lib/supabaseClient";
+import { errorMessage } from "@/lib/errorMessage";
 
 export function AdminDisputes() {
   const { showToast } = useApp();
@@ -26,8 +27,8 @@ export function AdminDisputes() {
         ? "Resolved — marked complete, escrow released"
         : "Resolved — cancelled, escrow refunded");
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't resolve the dispute.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't resolve the dispute."));
     }
   }
 

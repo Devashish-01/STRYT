@@ -87,7 +87,7 @@ export default function ReportSheet({
                 details,
               });
               showToast("Report submitted. Thank you.");
-            } catch (err: any) {
+            } catch (err: any){
               console.error("Error submitting report:", err);
               showToast("Error submitting report. Try again.");
             }

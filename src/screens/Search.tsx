@@ -11,6 +11,7 @@ import { useApp } from "@/store";
 import { useI18n, englishStrings } from "@/lib/i18n";
 import { evaluateProviderAvailability } from "@/utils/availability";
 import type { Business, Provider } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 const TREND_KEYS = ["search_trend_1", "search_trend_2", "search_trend_3", "search_trend_4", "search_trend_5", "search_trend_6"] as const;
 const RECENT_KEY = "stryt_recent_searches";
@@ -165,10 +166,10 @@ export default function Search() {
         showToast(tf("search_will_notify", { query: debounced }));
       }
       refetchSaved();
-    } catch (e: any) {
+    } catch (e) {
       // A guest gets the reason (they need an account), not a generic failure — saving used to no-op and still
       // report success (S5).
-      showToast(e?.message || t("search_alert_update_failed"));
+      showToast(errorMessage(e) || t("search_alert_update_failed"));
     }
   }
 

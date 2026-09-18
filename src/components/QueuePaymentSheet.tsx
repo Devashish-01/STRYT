@@ -4,6 +4,7 @@ import { businessService } from "@/services";
 import { useApp } from "@/store";
 import { PaymentMethodPanel } from "@/components/PaymentMethodPanel";
 import type { PaymentMethod } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface QueuePaymentSheetProps {
   tokenId: string;
@@ -35,8 +36,8 @@ export function QueuePaymentSheet({ tokenId, businessName, businessUpiId, onPaid
       showToast("Payment claim sent — waiting for business to confirm");
       onPaid();
       onClose();
-    } catch (e: any) {
-      showToast(e?.message ? `Couldn't record payment: ${e.message}` : "Couldn't record payment. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e) ? `Couldn't record payment: ${errorMessage(e)}` : "Couldn't record payment. Try again.");
     } finally {
       setClaiming(false);
     }

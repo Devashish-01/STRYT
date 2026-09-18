@@ -11,6 +11,7 @@ import QrScannerSheet from "@/components/QrScannerSheet";
 import ManageNav from "./ManageNav";
 import type { BulkDeal, GroupBuyToken } from "@/types";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 /** Business console: create/edit wholesale offers, and validate group-buy
  *  claim passes at handover. */
@@ -47,8 +48,8 @@ export default function BulkDealsManager() {
       setManualCode("");
       setScanning(false);
       showToast(tf(token.quantity > 1 ? "bdm_pass_accepted_many" : "bdm_pass_accepted_one", { n: token.quantity }));
-    } catch (e: any) {
-      const msg = String(e?.message ?? "");
+    } catch (e) {
+      const msg = String(errorMessage(e, ""));
       // The server distinguishes these deliberately; surface the difference so
       // staff know whether to hand goods over or turn someone away.
       if (/ALREADY_REDEEMED/.test(msg)) showToast(t("bdm_already_used"));
@@ -174,12 +175,12 @@ function DealRow({ deal, businessId, onChanged, onEdit }: { deal: BulkDeal; busi
       await bulkService.deleteDeal(deal.id);
       showToast(t("bdm_deal_removed"));
       onChanged();
-    } catch (e: any) {
-      const msg = String(e?.message ?? "");
+    } catch (e) {
+      const msg = String(errorMessage(e, ""));
       if (/CANNOT_DELETE_ACTIVE_TOKENS/.test(msg)) {
         showToast(t("bdm_cannot_delete"));
       } else {
-        showToast(e?.message || "Couldn't remove");
+        showToast(errorMessage(e, "Couldn't remove"));
       }
     } finally {
       setBusy(false);
@@ -286,8 +287,8 @@ function DealComposer({ existing, onSaved, onClose }: { existing: BulkDeal; onSa
       });
       showToast(t("bdm_campaign_updated"));
       onSaved();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't save — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't save — try again"));
     } finally {
       setBusy(false);
     }

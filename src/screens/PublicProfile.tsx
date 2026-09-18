@@ -29,6 +29,7 @@ import { aliasName } from "@/lib/publicName";
 import { postTypeMeta } from "@/lib/communityTypes";
 import { useI18n } from "@/lib/i18n";
 import { openExternal } from "@/lib/openExternal";
+import { errorMessage } from "@/lib/errorMessage";
 
 const verifyLabelKeys: Record<string, string> = {
   phone: "verify_label_phone",
@@ -94,8 +95,8 @@ export default function PublicProfile() {
       await communityService.setShowOnProfile(postId, currentlyHidden);
       showToast(currentlyHidden ? "Post is now visible on public profile" : "Post hidden from public profile");
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't update — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't update — try again"));
     } finally {
       setTogglingPost(null);
     }
@@ -111,8 +112,8 @@ export default function PublicProfile() {
     try {
       const conv = await chatService.getOrCreate(id);
       nav(`/chat/${conv.id}`);
-    } catch (err: any) {
-      showToast(err.message || "Couldn't start chat");
+    } catch (err) {
+      showToast(errorMessage(err, "Couldn't start chat"));
     } finally {
       setChatting(false);
     }

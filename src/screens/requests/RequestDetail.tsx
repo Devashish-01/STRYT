@@ -22,6 +22,7 @@ import { REQUEST_STATUS_BADGE, PROPOSAL_STATUS_BADGE } from "@/lib/statusBadges"
 import { haptics } from "@/lib/haptics";
 import AnimatedNumber from "@/components/AnimatedNumber";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function RequestDetail() {
   const { id = "" } = useParams();
@@ -127,8 +128,8 @@ export default function RequestDetail() {
         type: subjectType as any, id: p.responderUserId, name: p.responderName, avatar: p.responderAvatar, ownerUserId: p.responderUserId,
       });
       nav(`/chat/${conv.id}`);
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't open chat. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't open chat. Try again."));
     } finally {
       setMessaging(null);
     }

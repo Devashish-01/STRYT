@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabaseClient";
 import type { NeighborhoodTodayRaw, TodaySignal } from "./types";
+import { errorMessage } from "@/lib/errorMessage";
 
 export function useNeighborhoodToday(lat?: number, lng?: number, radiusM = 3000) {
   const [signals, setSignals] = useState<TodaySignal[]>([]);
@@ -28,8 +29,8 @@ export function useNeighborhoodToday(lat?: number, lng?: number, radiusM = 3000)
         if (cancelled) return;
         if (rpcError) throw rpcError;
         setSignals(buildSignals(data as unknown as NeighborhoodTodayRaw));
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message ?? "unknown");
+      } catch (e) {
+        if (!cancelled) setError(errorMessage(e, "unknown"));
       } finally {
         if (!cancelled) setLoading(false);
       }

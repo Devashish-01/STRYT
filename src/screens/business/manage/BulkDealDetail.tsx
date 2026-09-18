@@ -13,6 +13,7 @@ import { useI18n } from "@/lib/i18n";
 import { poolProgress } from "@/lib/groupBuy";
 import ShareCard from "@/components/ShareCard";
 import type { BulkDealPledge, DepositStatus } from "@/types";
+import { errorMessage } from "@/lib/errorMessage";
 
 const DEPOSIT_META: Record<DepositStatus, { label: string; color: string; bg: string }> = {
   UNPAID: { label: "Not paid", color: "var(--ink-500)", bg: "var(--ink-100)" },
@@ -86,8 +87,8 @@ export default function BulkDealDetail() {
       showToast(tf("bdd_deposit_confirmed", { name: p.pledgerName || t("bdd_pledger_fallback") }));
       refetchPledges();
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't confirm — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't confirm — try again"));
     } finally {
       setBusyId(null);
     }
@@ -99,8 +100,8 @@ export default function BulkDealDetail() {
       await bulkService.rejectDeposit(dealId, p.userId);
       showToast(t("bdd_deposit_rejected"));
       refetchPledges();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't reject — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't reject — try again"));
     } finally {
       setBusyId(null);
     }
@@ -113,8 +114,8 @@ export default function BulkDealDetail() {
       showToast(withOutcome === "REFUNDED" ? "Closed — refund your pledgers directly" : "Closed — claim passes issued to paid pledgers");
       setConfirmingClose(false);
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't close — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't close — try again"));
     } finally {
       setClosing(false);
     }
@@ -143,8 +144,8 @@ export default function BulkDealDetail() {
     try {
       const conv = await chatService.getOrCreate(p.userId);
       nav(`/chat/${conv.id}`);
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't open chat. Try again.");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't open chat. Try again."));
     }
   }
 
@@ -162,8 +163,8 @@ export default function BulkDealDetail() {
       showToast(t("bdd_deadline_extended"));
       setExtending(false);
       refetch();
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't extend — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't extend — try again"));
     } finally {
       setBusyId(null);
     }

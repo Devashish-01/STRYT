@@ -11,6 +11,7 @@ import ManageNav from "./ManageNav";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function BusinessSettings() {
   const { id = "" } = useParams();
@@ -235,9 +236,9 @@ export default function BusinessSettings() {
       await profileControlService.setEnabled("BUSINESS", id, v);
       showToast(v ? "Business is now visible publicly" : "Business is hidden from discovery");
       void refetchBiz();
-    } catch (err: any) {
+    } catch (err) {
       setOwnerEnabled(!v);
-      showToast(err.message || "Failed to update visibility");
+      showToast(errorMessage(err, "Failed to update visibility"));
     }
   }
 
@@ -271,9 +272,9 @@ export default function BusinessSettings() {
       showToast(v ? "Now accepting appointments" : "Paused — customers can't book new appointments");
       invalidateQueryCache(`business:${id}`, () => bustBusinessGetCache(id));
       void refetchBiz();
-    } catch (err: any) {
+    } catch (err) {
       setAccepting(!v);
-      showToast(err?.message || "Couldn't save — try again");
+      showToast(errorMessage(err, "Couldn't save — try again"));
     }
   }
 
@@ -604,7 +605,7 @@ export default function BusinessSettings() {
                     setContext({ type: "customer", id: null, name: "Personal" });
                     await refreshUser();
                     nav("/home");
-                  } catch (e: any) {
+                  } catch (e: any){
                     // Surfaces the server's own reason — e.g. "You have 3
                     // upcoming booking(s)" — which is actionable, unlike a
                     // generic failure.

@@ -7,6 +7,7 @@ import { useApp } from "@/store";
 import LocationPicker from "@/components/LocationPicker";
 import type { PlaceCategory, PlaceDifficulty } from "@/types";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 const CATEGORIES: { id: PlaceCategory; label: string; icon: typeof Mountains }[] = [
   { id: "MOUNTAIN", label: "Mountain", icon: Mountains },
@@ -102,8 +103,8 @@ export default function PlaceRequestForm({ mode = "request", embedded = false, o
       showToast(mode === "admin-create" ? "Place added ✓" : "Submitted for review — we'll let you know once it's live");
       if (onDone) onDone();
       else nav(-1);
-    } catch (e: any) {
-      showToast(e?.message || "Couldn't submit — try again");
+    } catch (e) {
+      showToast(errorMessage(e, "Couldn't submit — try again"));
     } finally {
       setSubmitting(false);
     }

@@ -10,6 +10,7 @@ import ProviderManageNav from "./ProviderManageNav";
 import { invalidateQueryCache } from "@/hooks/useApi";
 import { resolvePackage, BUSINESS_PACKAGES, PACKAGE_KEYS, type BusinessPackageKey } from "@/lib/businessPackages";
 import { useI18n } from "@/lib/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 export default function ProviderSettings() {
   const { id = "" } = useParams();
@@ -96,9 +97,9 @@ export default function ProviderSettings() {
     try {
       await profileControlService.setEnabled("PROVIDER", id, v);
       showToast(v ? "Provider profile is now visible" : "Provider profile hidden from discovery");
-    } catch (err: any) {
+    } catch (err) {
       setOwnerEnabled(!v);
-      showToast(err.message || "Failed to update visibility");
+      showToast(errorMessage(err, "Failed to update visibility"));
     }
   }
 
@@ -108,9 +109,9 @@ export default function ProviderSettings() {
       await providerService.update(id, { isOpenNow: v });
       showToast(v ? "Now accepting appointments" : "Paused — customers can't book new appointments");
       invalidateQueryCache(`provider:${id}`, () => bustProviderGetCache(id));
-    } catch (err: any) {
+    } catch (err) {
       setAccepting(!v);
-      showToast(err?.message || "Couldn't save — try again");
+      showToast(errorMessage(err, "Couldn't save — try again"));
     }
   }
 

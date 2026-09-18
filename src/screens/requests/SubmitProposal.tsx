@@ -59,7 +59,7 @@ export default function SubmitProposal() {
       });
       showToast(boost ? "Proposal sent & prioritized!" : "Proposal sent!");
       setTimeout(() => nav(-1), 600);
-    } catch (e: any) {
+    } catch (e: any){
       showToast(e instanceof Error && e.message ? e.message : "Couldn't send proposal. Try again.");
       setSending(false);
     }
