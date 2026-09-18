@@ -2,24 +2,35 @@ import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError } from "@/lib/supabasePage";
 import { toCamel } from "@/lib/caseMap";
 import { aliasName } from "@/lib/publicName";
-import type { Conversation, Message, ChatSubject } from "@/types";
+import type { Conversation, Message, ChatSubject, ChatCounterpart } from "@/types";
 
 /**
  * Resolve what THIS user should see as the "other side" of a conversation.
  * For a listing chat the customer sees the business/provider; the owner sees
  * the actual customer. Plain user↔user chats always show the other person.
+ *
+ * The profile link follows the same rule: a customer's "View contact" opens the business or provider page they
+ * messaged, never the owner's personal profile; the owner's opens the customer's profile.
  */
-function resolveOther(
+export function resolveOther(
   c: Conversation,
   uid: string,
   profile?: { id: string; name: string; avatar: string }
-): { id: string; name: string; avatar: string } | undefined {
+): ChatCounterpart {
   const otherId = c.participantA === uid ? c.participantB : c.participantA;
   if (c.subjectId && uid !== c.subjectOwnerId) {
-    // I'm the customer → show the listing's identity.
-    return { id: otherId, name: c.subjectName ?? "Business", avatar: c.subjectAvatar ?? "" };
+    // I'm the customer → show the listing's identity, and link to the listing.
+    const kind = c.subjectType === "provider" ? "provider" : "business";
+    return {
+      id: otherId,
+      name: c.subjectName ?? (kind === "provider" ? "Provider" : "Business"),
+      avatar: c.subjectAvatar ?? "",
+      profilePath: `/${kind}/${c.subjectId}`,
+      kind,
+    };
   }
-  return profile ?? { id: otherId, name: "STRYT user", avatar: "" };
+  const person = profile ?? { id: otherId, name: "STRYT user", avatar: "" };
+  return { ...person, profilePath: `/u/${person.id}`, kind: "user" };
 }
 
 /** Always store participants in lexicographic order so the UNIQUE constraint works. */

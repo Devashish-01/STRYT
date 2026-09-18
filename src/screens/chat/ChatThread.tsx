@@ -233,7 +233,7 @@ export default function ChatThread() {
         <button
           className="row gap-8 grow"
           style={{ minWidth: 0, background: "none", border: "none", alignItems: "center", textAlign: "left", cursor: other ? "pointer" : "default" }}
-          onClick={() => other && nav(`/u/${other.id}`)}
+          onClick={() => other && nav(other.profilePath)}
           disabled={!other}
         >
           <SafeImg
@@ -277,9 +277,9 @@ export default function ChatThread() {
                 <button
                   className="row gap-8 center-v small"
                   style={{ padding: "10px 14px", background: "none", border: "none", width: "100%", textAlign: "left", cursor: "pointer" }}
-                  onClick={() => { setMenuOpen(false); nav(`/u/${other.id}`); }}
+                  onClick={() => { setMenuOpen(false); nav(other.profilePath); }}
                 >
-                  <Phone size={15} /> View contact
+                  <Phone size={15} /> {other.kind === "business" ? t("chat_view_business") : other.kind === "provider" ? t("chat_view_provider") : "View contact"}
                 </button>
                 <button
                   className="row gap-8 center-v small"

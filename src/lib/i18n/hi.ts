@@ -187,6 +187,8 @@ const strings: Record<string, string> = {
     say_hello_to: "{name} को नमस्ते कहें!",
     type_message: "संदेश लिखें…",
     typing_is_typing: "लिख रहा है…",
+    chat_view_business: "बिज़नेस देखें",
+    chat_view_provider: "प्रोवाइडर देखें",
     view_profile: "प्रोफ़ाइल देखें",
     photo_upload_failed: "फ़ोटो अपलोड करने में विफल",
 

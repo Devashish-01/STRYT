@@ -187,6 +187,8 @@ const strings: Record<string, string> = {
     say_hello_to: "Say hello to {name}!",
     type_message: "Type a message…",
     typing_is_typing: "is typing…",
+    chat_view_business: "View business",
+    chat_view_provider: "View provider",
     view_profile: "View profile",
     photo_upload_failed: "Failed to upload photo",
 

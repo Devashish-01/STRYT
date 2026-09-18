@@ -18,7 +18,21 @@ export interface Conversation {
   subjectAvatar?: string | null;
   subjectOwnerId?: string | null;
   // Client-enriched (already resolved to what THIS user should see):
-  otherUser?: { id: string; name: string; avatar: string };
+  otherUser?: ChatCounterpart;
+}
+
+/**
+ * The other side of a conversation, as THIS user should see it. For a customer messaging a listing that is the
+ * business or provider, and its profile is the listing's page; otherwise it is the person.
+ */
+export interface ChatCounterpart {
+  /** The other participant's user id — what blocking and reporting act on. */
+  id: string;
+  name: string;
+  avatar: string;
+  /** Where "View profile" / "View contact" goes. */
+  profilePath: string;
+  kind: "business" | "provider" | "user";
 }
 
 /** What a new conversation is about — passed when messaging a listing. */
