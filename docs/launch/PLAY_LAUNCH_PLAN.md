@@ -88,7 +88,7 @@ of the manifest, and merging is a clean fast-forward — `origin/main` has nothi
 
 ### Before merging — order matters
 
-- [ ] **4. Apply migrations `20260973`–`20260991` to production** *(19 — `20260990` and `20260991`, moderation, were added 19 Sept)*, using the agent's runbook and
+- [x] **4. Apply migrations `20260973`–`20260991` to production** *(done 18 Sept ~19:50 UTC by the owner with `scripts/release/apply-production-migrations.mjs`, after a verified backup; recorded as APPLY_LOG #36–#54. Until the merge, the old app's "Request payment" button fails — 20260980 — so merge soon.)* *(19 — `20260990` and `20260991`, moderation, were added 19 Sept)*, using the agent's runbook and
   `docs/database/HANDOFF.md` §5.
 - [ ] **5. Deploy three edge functions to production:** `purge-deleted-accounts`, `admin-delete-profile` and
   `verification-review`. `purge-deleted-accounts` matters most: without it, the 30-day account deletion that
