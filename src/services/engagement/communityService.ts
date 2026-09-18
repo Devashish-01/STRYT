@@ -40,8 +40,8 @@ function parsePollOpts(raw: any): { id: string; label: string }[] | null {
  *  declared `setof community_posts` and so has the same columns. */
 type PostRow = Tables<"community_posts">;
 
-/** Map a DB community_posts row → CommunityPost shape, enriched with like/vote state. */
-function mapPost(
+/** Map a DB community_posts row → CommunityPost shape, enriched with like/vote state. Exported for tests. */
+export function mapPost(
   row: PostRow,
   likedIds: Set<string>,
   userVotes: Record<string, string>,
@@ -101,11 +101,9 @@ function mapPost(
   p.createdAtISO = row.created_at ?? undefined;
   if (userLat != null && userLng != null && row.lat != null && row.lng != null) {
     p.distanceKm = Math.round(haversineKm(userLat, userLng, row.lat, row.lng) * 10) / 10;
-  } else {
-    // Always 0.5: `p` is already camelCased, so this read can never hit, and no row reaching here
-    // carries distance_km anyway. Kept verbatim rather than simplified — see P12-003.
-    p.distanceKm = (p as unknown as { distance_km?: number }).distance_km ?? 0.5;
   }
+  // Otherwise no distance at all. This used to fall back to a constant 0.5 km (P12-003): a made-up number
+  // for a viewer whose location is unknown. The owner decided such viewers see no distance (18 Sept 2026).
   return p;
 }
 
@@ -262,7 +260,7 @@ export const communityService = {
       .map((r) => mapPost(r, likedIds, userVotes, voteCounts, opts.lat, opts.lng, savedIds))
       .filter((post) => {
         if (opts.lat && opts.lng && post.lat && post.lng) {
-          return post.distanceKm <= radiusLimit;
+          return post.distanceKm === undefined || post.distanceKm <= radiusLimit;
         }
         return true;
       });

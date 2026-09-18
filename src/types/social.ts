@@ -88,7 +88,8 @@ export interface CommunityPost {
   title: string;
   body: string;
   area: string;
-  distanceKm: number;
+  /** Kilometres from the viewer; absent when the viewer's location is unknown — never a made-up number. */
+  distanceKm?: number;
   postedAt: string;
   /** Raw timestamp behind `postedAt`'s relative label — used for engagement-decay sorting ("Trending nearby"). */
   createdAtISO?: string;

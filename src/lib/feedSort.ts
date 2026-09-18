@@ -95,8 +95,8 @@ export function sortPostsLocally(posts: CommunityPost[], sort: FeedSort): Commun
   copy.sort((a, b) => {
     // A post with no distance sorts last rather than first — "unknown" is not
     // "here". Number.isFinite guards the 0-vs-undefined trap.
-    const da = Number.isFinite(a.distanceKm) ? a.distanceKm : Infinity;
-    const db = Number.isFinite(b.distanceKm) ? b.distanceKm : Infinity;
+    const da = a.distanceKm !== undefined && Number.isFinite(a.distanceKm) ? a.distanceKm : Infinity;
+    const db = b.distanceKm !== undefined && Number.isFinite(b.distanceKm) ? b.distanceKm : Infinity;
     return da - db;
   });
   return copy;
