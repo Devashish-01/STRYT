@@ -1,0 +1,35 @@
+{
+  "about": "Synthetic, hand-labelled reports written AFTER the question wording was tuned on report-classifier-cases.json, and run once to check the tuning generalises. Once its result has influenced a change, it is no longer held out: write fresh cases.",
+  "cases": [
+    {
+      "id": "selling-cycle-own-number",
+      "input": { "kind": "POST", "reason": "SPAM", "details": "", "postType": "GIVEAWAY", "title": "Selling my old cycle", "text": "Selling my son's old Hero cycle, good condition, ₹3000. Call 98901 23456 after 6 pm." },
+      "expect": { "priority": ["low", "normal"], "category": ["none", "wrong_place"] }
+    },
+    {
+      "id": "neighbour-number-pile-on",
+      "input": { "kind": "COMMENT", "reason": "OFFENSIVE", "details": "", "postType": "POLL", "title": "Parking rules for visitors", "text": "Aunty in B-203 is spreading lies about my family. Her number is 98220 45678, everyone call her and tell her to shut up." },
+      "expect": { "priority": ["urgent"], "category": ["private_info", "harassment"] }
+    },
+    {
+      "id": "work-from-home-fee",
+      "input": { "kind": "POST", "reason": "SCAM", "details": "", "postType": "RECOMMENDATION", "title": "Work from home opportunity", "text": "Earn ₹50,000 per month from home by liking videos! Limited seats. Registration fee only ₹1500, pay today to confirm your seat." },
+      "expect": { "priority": ["urgent"], "category": ["scam"] }
+    },
+    {
+      "id": "water-cut-notice",
+      "input": { "kind": "POST", "reason": "FAKE", "details": "", "postType": "ALERT", "title": "Water supply off tomorrow", "text": "Water supply will be off tomorrow from 10 am to 2 pm for tank cleaning. Please store water tonight. — Society office" },
+      "expect": { "priority": ["low", "normal"], "category": ["none"] }
+    },
+    {
+      "id": "mild-insult",
+      "input": { "kind": "COMMENT", "reason": "OFFENSIVE", "details": "", "postType": "POLL", "title": "New gym in the clubhouse?", "text": "You people are idiots if you vote for this." },
+      "expect": { "priority": ["normal", "high"], "category": ["harassment", "none"] }
+    },
+    {
+      "id": "baby-clothes-own-email",
+      "input": { "kind": "POST", "reason": "SPAM", "details": "", "postType": "GIVEAWAY", "title": "Free baby clothes", "text": "Giving away baby clothes (0–6 months), all washed. Pick up from Kharadi, message me at priya.k@gmail.com." },
+      "expect": { "priority": ["low", "normal"], "category": ["none"] }
+    }
+  ]
+}
