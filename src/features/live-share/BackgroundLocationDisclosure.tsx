@@ -8,7 +8,7 @@ const DEFAULT_BODY = (
   </>
 );
 const DEFAULT_NOTICE =
-  "Location is shared only with emergency contacts you choose. A persistent notification stays visible while sharing. Stop anytime in the app or from that notification.";
+  "Location is shared only with emergency contacts you choose. A persistent notification stays visible while sharing. Stop anytime in the app.";
 
 /**
  * Play / Apple prominent disclosure shown BEFORE the system location

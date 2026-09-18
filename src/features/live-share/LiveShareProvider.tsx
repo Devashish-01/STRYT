@@ -1,14 +1,10 @@
 import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
-import { Capacitor } from "@capacitor/core";
 import { emergencyService } from "@/services";
 import { backgroundLocation } from "@/lib/backgroundLocation";
 import { nativeGeolocation } from "@/lib/nativeGeolocation";
 import { useApp } from "@/store";
 import BackgroundLocationDisclosure from "./BackgroundLocationDisclosure";
 import { LiveShareContext } from "./useLiveShare";
-
-const DISCLOSURE_KEY = "stryt_bg_location_disclosure_v1";
-
 
 function firstFix(): Promise<{ lat: number; lng: number } | null> {
   return new Promise((res) =>
@@ -20,14 +16,6 @@ function firstFix(): Promise<{ lat: number; lng: number } | null> {
   );
 }
 
-function disclosureAlreadyAccepted(): boolean {
-  try {
-    return localStorage.getItem(DISCLOSURE_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
 export function LiveShareProvider({ children }: { children: ReactNode }) {
   const { isAuthed, showToast } = useApp();
   const [activeShareId, setActiveShareId] = useState<string | null>(null);
@@ -36,10 +24,11 @@ export function LiveShareProvider({ children }: { children: ReactNode }) {
   const watching = useRef(false);
   const disclosureResolver = useRef<((accepted: boolean) => void) | null>(null);
 
-  const ensureBackgroundDisclosure = useCallback((): Promise<boolean> => {
-    if (!Capacitor.isNativePlatform()) return Promise.resolve(true);
-    if (disclosureAlreadyAccepted()) return Promise.resolve(true);
-    return new Promise((resolve) => {
+  // Shown whenever background location is not actually granted — immediately before the system dialog, as
+  // Play requires — rather than once per install. See backgroundLocation.needsBackgroundDisclosure().
+  const ensureBackgroundDisclosure = useCallback(async (): Promise<boolean> => {
+    if (!(await backgroundLocation.needsBackgroundDisclosure())) return true;
+    return new Promise<boolean>((resolve) => {
       disclosureResolver.current = resolve;
       setDisclosureOpen(true);
     });
@@ -121,11 +110,6 @@ export function LiveShareProvider({ children }: { children: ReactNode }) {
   }, [endWatch]);
 
   function acceptDisclosure() {
-    try {
-      localStorage.setItem(DISCLOSURE_KEY, "1");
-    } catch {
-      /* ignore */
-    }
     setDisclosureOpen(false);
     disclosureResolver.current?.(true);
     disclosureResolver.current = null;

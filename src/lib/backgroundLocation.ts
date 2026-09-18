@@ -21,6 +21,23 @@ export interface Fix {
 }
 type FixCb = (f: Fix) => void;
 
+/** The persistent notification Android shows while location is collected in the background. */
+export interface ForegroundNotice {
+  title: string;
+  message: string;
+}
+
+/**
+ * What the notification says during a My People live share — the only background-location use declared to
+ * Google Play for v1.0. It must describe that feature: a reviewer watches this notification in the demo video,
+ * and it used to read "Sharing live location for active deliveries", a feature that is off in this release.
+ * Keep it in step with docs/launch/play-console/BACKGROUND_LOCATION_VIDEO_SCRIPT.md.
+ */
+export const LIVE_SHARE_NOTICE: ForegroundNotice = {
+  title: "STRYT live location",
+  message: "Sharing your live location with My People until you stop. Open STRYT to stop sharing.",
+};
+
 const MIN_INTERVAL_MS = 12000;
 
 let webWatchId: number | null = null;
@@ -52,7 +69,7 @@ export async function ensureLocationNotificationPermission(): Promise<void> {
 }
 
 export const backgroundLocation = {
-  async start(onFix: FixCb): Promise<"background" | "foreground" | "web"> {
+  async start(onFix: FixCb, notice: ForegroundNotice = LIVE_SHARE_NOTICE): Promise<"background" | "foreground" | "web"> {
     await this.stop();
     lastPush = 0;
     const push = throttled(onFix);
@@ -68,9 +85,8 @@ export const backgroundLocation = {
 
         await BackgroundGeolocation.start(
           {
-            backgroundMessage:
-              "Sharing live location for active deliveries. Open STRYT to view status.",
-            backgroundTitle: "STRYT Live Tracking",
+            backgroundMessage: notice.message,
+            backgroundTitle: notice.title,
             requestPermissions: false,
             stale: false,
             distanceFilter: 15,
@@ -141,6 +157,33 @@ export const backgroundLocation = {
       navigator.geolocation.clearWatch(webWatchId);
       webWatchId = null;
     }
+  },
+
+  /**
+   * Whether background ("Allow all the time") location is actually granted right now. Read from the OS,
+   * not remembered: the user can revoke it in Settings at any time. False when it cannot be read.
+   */
+  async hasBackgroundPermission(): Promise<boolean> {
+    if (!Capacitor.isNativePlatform()) return false;
+    try {
+      const status = await BackgroundGeolocation.checkPermissions();
+      return status.backgroundLocation === "granted" || status.backgroundLocation === "always";
+    } catch {
+      return false;
+    }
+  },
+
+  /**
+   * Whether the in-app prominent disclosure must be shown before start() asks for background location.
+   *
+   * Google Play requires the disclosure immediately before the runtime request. It used to be shown once
+   * per install behind a localStorage flag, so a user who denied the system dialog was asked again with no
+   * disclosure in front of it. Now: shown whenever the permission is not granted. If the check fails, the
+   * answer is "show it" — the safe direction for a compliance gate. Web never asks for background location.
+   */
+  async needsBackgroundDisclosure(): Promise<boolean> {
+    if (!Capacitor.isNativePlatform()) return false;
+    return !(await this.hasBackgroundPermission());
   },
 
   openSettings(): void {

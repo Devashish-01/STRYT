@@ -37,9 +37,13 @@ function getGPS(): Promise<{ lat: number; lng: number } | null> {
   );
 }
 
-// Same OS-level "always allow background location" consent live-share already
-// asks for — reused so a user who already accepted it there isn't asked twice.
-const DISCLOSURE_KEY = "stryt_bg_location_disclosure_v1";
+// The notification shown while an agent's location is collected in the background. Delivery is off in v1.0;
+// its wording is kept here, explicitly, so live share's notification can describe live share (v1.0's only
+// declared background use) — see LIVE_SHARE_NOTICE in src/lib/backgroundLocation.ts.
+const DELIVERY_NOTICE = {
+  title: "STRYT Live Tracking",
+  message: "Sharing live location for active deliveries. Open STRYT to view status.",
+};
 
 type Tab = "ACTIVE" | "ASSIGNED" | "HISTORY";
 
@@ -177,17 +181,16 @@ export default function DeliveryConsole() {
     }
   }
 
-  function ensureDisclosure(): Promise<boolean> {
-    try {
-      if (localStorage.getItem(DISCLOSURE_KEY) === "1") return Promise.resolve(true);
-    } catch { /* ignore */ }
-    return new Promise((resolve) => {
+  // Same rule as live share: shown whenever background location is not granted, immediately before the
+  // system dialog — not once per install. Delivery will need its own Play declaration when it returns.
+  async function ensureDisclosure(): Promise<boolean> {
+    if (!(await backgroundLocation.needsBackgroundDisclosure())) return true;
+    return new Promise<boolean>((resolve) => {
       disclosureResolver.current = resolve;
       setDisclosureOpen(true);
     });
   }
   function acceptDisclosure() {
-    try { localStorage.setItem(DISCLOSURE_KEY, "1"); } catch { /* ignore */ }
     setDisclosureOpen(false);
     disclosureResolver.current?.(true);
     disclosureResolver.current = null;
@@ -248,7 +251,7 @@ export default function DeliveryConsole() {
           // Coordinates only — never a status transition. See DLV-003.
           void deliveryService.updatePosition(soloId, f.lat, f.lng, f.accuracy, f.heading).catch(() => { /* transient */ });
         }
-      });
+      }, DELIVERY_NOTICE);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackingKey]);
