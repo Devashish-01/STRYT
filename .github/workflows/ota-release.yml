@@ -65,6 +65,8 @@ jobs:
             fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + newVer + '\n');
           "
 
+      # VITE_SENTRY_DSN: src/lib/sentry.ts starts Sentry only when this is non-empty. An unset secret
+      # expands to "", which leaves it off — so the line is safe before the Sentry project exists.
       - name: Create .env file
         run: |
           cat > .env << 'EOF'
@@ -83,6 +85,7 @@ jobs:
           VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}
           VITE_BUG_REPORT_EXCEL_URL=${{ secrets.VITE_BUG_REPORT_EXCEL_URL }}
           VITE_BUG_REPORT_SCRIPT_URL=${{ secrets.VITE_BUG_REPORT_SCRIPT_URL }}
+          VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
           EOF
 
       - name: Build Vite web app

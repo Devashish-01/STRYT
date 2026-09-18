@@ -52,6 +52,8 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      # VITE_SENTRY_DSN: src/lib/sentry.ts starts Sentry only when this is non-empty. An unset secret
+      # expands to "", which leaves it off — so the line is safe before the Sentry project exists.
       - name: Create .env file
         run: |
           cat > .env << 'EOF'
@@ -68,6 +70,7 @@ jobs:
           VITE_MAPBOX_TOKEN=${{ secrets.VITE_MAPBOX_TOKEN }}
           VITE_API_URL=https://stryt.in
           VITE_APP_URL=https://stryt.in
+          VITE_SENTRY_DSN=${{ secrets.VITE_SENTRY_DSN }}
           EOF
 
       - name: Build Vite web app

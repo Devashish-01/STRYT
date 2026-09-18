@@ -137,17 +137,18 @@ describe("navigation", () => {
     expect(ctx.nav).toHaveBeenCalledWith("/somewhere/else");
   });
 
-  // P12-001. OPEN_CHAT matched twice in the chain and the first branch won, so the two fall back to
-  // different routes — and /chat is not a registered route. Pinned here so the fix is deliberate and
-  // this test is updated with it, rather than the difference being lost in a later refactor.
-  it("keeps the two chat fallbacks different, as first-match-wins left them (P12-001)", async () => {
+  // P12-001, fixed. REPLY_CHAT used to fall back to /chat, which is not a registered route, so a reply
+  // notification with no conversation id and no deepLink led nowhere. Both chat actions now land on the
+  // conversation list. This test pinned the old difference so that changing it would be deliberate.
+  it("falls back to the conversation list for both chat actions (P12-001)", async () => {
     const open = makeCtx();
     await notificationActions["OPEN_CHAT"](open);
     expect(open.nav).toHaveBeenCalledWith("/chats");
 
     const reply = makeCtx();
     await notificationActions["REPLY_CHAT"](reply);
-    expect(reply.nav).toHaveBeenCalledWith("/chat");
+    expect(reply.nav).toHaveBeenCalledWith("/chats");
+    expect(reply.nav).not.toHaveBeenCalledWith("/chat");
   });
 });
 

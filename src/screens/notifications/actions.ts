@@ -67,8 +67,8 @@ const viewRequest: NotificationAction = (ctx) => {
  *
  * Order does not matter here, which it did in the chain: the first matching `else if` won, so a name
  * appearing twice meant the second branch was dead. OPEN_CHAT was such a name, and only the branch that
- * ran before is kept. The two differed (they fall back to different routes) and that is logged as P12-001
- * rather than corrected here — a refactor must not change behaviour, even behaviour that looks wrong.
+ * ran before is kept. The two differed: REPLY_CHAT fell back to /chat, which is not a route. That was logged
+ * as P12-001 during the refactor and fixed afterwards in its own change — both now fall back to /chats.
  */
 export const notificationActions: Record<string, NotificationAction> = {
   ACCEPT: async (ctx) => {
@@ -862,7 +862,8 @@ export const notificationActions: Record<string, NotificationAction> = {
     } else if (n.deepLink) {
       nav(n.deepLink);
     } else {
-      nav("/chat");
+      // /chats, the conversation list. This was /chat, which App.tsx does not register (P12-001).
+      nav("/chats");
     }
   },
   ANSWER_QNA: (ctx) => {
