@@ -1,7 +1,7 @@
 # STRYT — Privacy Policy
 
 **Effective Date:** [To be set by STRYT on publication]
-**Last Updated:** 26 August 2026
+**Last Updated:** 19 September 2026
 **Version:** 1.0 (draft for legal review)
 
 > This Privacy Policy was drafted from a direct reading of the STRYT database schema (72 tables), Edge Functions, and client code so that the data categories, flows, and third parties described here reflect what the product actually does. Items only STRYT can confirm (legal entity name, registered address, Data Protection Officer / Grievance Officer identity, and the data-residency region of the hosting project) are marked and must be completed before publication and reviewed by qualified Indian counsel.
@@ -76,6 +76,7 @@ We collect only what the features you use require. Grouped by purpose:
 ### 3.10 Support, moderation, and audit
 - Support tickets (category, your reply-to email, subject, message — delivered to us by email), bug reports (with the role you were using), reports you file about content/people, and account appeals.
 - Administrative action logs (audit records of moderation/verification/deletion actions).
+- Automated content-safety results about public content you post (for example a category such as "spam" or "abusive language", and how confident the check was), and whether a post, comment, review, request, story or deal is hidden while it is reviewed (Section 7.3).
 
 ### 3.11 Analytics
 - Anonymous, aggregate usage and performance data via **Vercel Analytics and Speed Insights** (website).
@@ -133,7 +134,13 @@ This is about other Users, not about our processors. To turn coordinates into an
 
 7.2 We use automated logic for discovery, ranking, "nearby" results, wait-time estimates, and matching (e.g. saved-search alerts, request-to-seller matches). These are convenience features, are not "decisions" that produce legal or similarly significant effects on you, and may be inaccurate.
 
-7.3 If we introduce AI-based processing of your content in future, we will update this Policy and obtain any notice/consent required by law before doing so.
+7.3 **Automated content-safety checks.** To keep public spaces safe, the text of public content you post or edit — community posts and comments, reviews, service requests, story captions, bulk deals, and business listings and provider profiles — may be checked automatically, and reports about such content may be triaged the same way. The check is done by **TypeSafe**, an AI service acting as our processor (Section 8.2). It returns judgments, not text: for example whether the content contains abusive language, a threat, a request for money or an OTP, someone else's personal details, or signs that someone may harm themselves. Before the text is sent, phone numbers, email addresses, ID numbers and UPI IDs in it are masked, and no account identifiers are sent. **Private chat messages and offer (proposal) messages are not checked.** Photos are not checked automatically.
+
+7.4 **What happens with the result.** If the check finds a clear problem, the content may be hidden from other Users while a STRYT moderator reviews it; content that is only possibly a problem is flagged for review without being hidden. A post or comment is also hidden automatically when several different Users report it. Business listings and provider profiles are never hidden by the automated check. Content that is hidden stays visible to you, marked as under review. **A person decides** whether it is removed or restored — the automated check does not remove anything on its own. If you think your content was hidden by mistake, contact our Grievance Officer (Section 13).
+
+7.5 Apart from Sections 7.3–7.4, we do not send your content to an external AI service. If that changes, we will update this Policy and give any notice, and obtain any consent, the law requires before doing so.
+
+> `[Counsel to confirm: whether the automated checks in 7.3–7.4 need consent under the DPDP Act or can rely on notice and legitimate use for safety and moderation, and TypeSafe's processing location for Section 9.]`
 
 ---
 
@@ -154,6 +161,7 @@ As inherent to the features you use — e.g. a Seller sees your name/alias and d
 - **Overpass API (OpenStreetMap)** — queried for nearby public places when you browse the map.
 - **Email/SMTP provider** — to deliver support-ticket emails to our support inbox (your reply-to email, category, subject, and message are included).
 - **Web Push services** — the browser's push service to deliver web notifications.
+- **TypeSafe** — automated content-safety checks (Section 7.3). Receives the text of public content and of reports about it, with phone numbers, email addresses, ID numbers and UPI IDs masked and no account identifiers; never private chat or offer messages.
 - **NPCI/UPI and your bank/UPI app** — you interact with these directly to make payments (not a STRYT processor, but essential to the payment you initiate).
 
 Each processor is engaged to process data on our instructions for the purposes above; they have their own privacy terms for the parts they control.
@@ -165,7 +173,7 @@ We may disclose data where required by law, court order, or a lawful government 
 
 ## 9. Cross-border storage and transfers
 
-9.1 Our infrastructure providers (Supabase, Vercel, Google/Firebase) may store or process data on servers **outside India**, depending on region configuration. Where personal data is stored or transferred outside India, we will comply with the DPDP Act and any restrictions notified by the Central Government.
+9.1 Our infrastructure providers (Supabase, Vercel, Google/Firebase) and our content-safety processor (TypeSafe) may store or process data on servers **outside India**, depending on region configuration. Where personal data is stored or transferred outside India, we will comply with the DPDP Act and any restrictions notified by the Central Government.
 
 9.2 Our primary product audience is India. Infrastructure regions depend on each provider's project configuration (Supabase database/auth/storage, Vercel edge/hosting, Google/Firebase). If you need the current hosting region details for a data-rights request, contact us at contact@stryt.in and we will provide them.
 
