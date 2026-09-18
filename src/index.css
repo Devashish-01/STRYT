@@ -415,10 +415,12 @@ h3, .h3 {
   transition: background 0.25s ease, border-color 0.25s ease;
 }
 
+/* 8px, not 12: five 44px controls plus the title share a phone's width, and at 12px the title column was left
+   too narrow for the location pill (touch targets stay 44px). */
 .community-hub-top {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .community-hub-actions {
@@ -484,9 +486,11 @@ h3, .h3 {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
+/* Its parent (.screen-scroll) has no side padding, so the row's own 16px is the gutter. A -16px margin used to
+   push the first chip ("All") half off the screen. */
 .community-hub-filters {
   padding: 10px 16px 12px;
-  margin: 0 -16px;
+  margin: 0;
   display: flex;
   gap: 8px;
   overflow-x: auto;
@@ -2332,6 +2336,9 @@ textarea.input {
   overflow-x: auto;
   padding: 2px 16px 4px;
   scroll-snap-type: x mandatory;
+  /* Snap to the gutter, not the edge. Without this, start-aligned snapping scrolls the first item flush to the
+     scroller's edge and ignores the 16px padding, so the first chip or card sat against the screen edge. */
+  scroll-padding-inline: 16px;
 }
 .hscroll > * { scroll-snap-align: start; }
 

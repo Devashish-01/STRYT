@@ -37,9 +37,9 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useRealtimeInserts } from "@/hooks/useRealtimeInserts";
 import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 import { useI18n } from "@/lib/i18n";
+import { nextWidenRadius } from "@/lib/widenRadius";
 
 const DEALS_RADIUS_KM = 10;
-const WIDEN_RADIUS_KM = 5;
 
 // The two chips ("Alerts", "Lost & Found") that stay on the main row are the
 // most commonly filtered/time-sensitive types; the other four move into the
@@ -269,9 +269,8 @@ export default function CommunityHub() {
     refetchDeals();
   }
 
-  function widenRadius() {
-    applyRadius(Math.max(radiusKm, WIDEN_RADIUS_KM));
-  }
+  // The next preset up, or null when there is nothing further to offer (see nextWidenRadius).
+  const widenTo = nextWidenRadius(radiusKm);
 
   const allPosts = appendPage(postData?.data ?? [], extraPosts);
   // "Show me less of this" is applied client-side and immediately: the row
@@ -354,7 +353,7 @@ export default function CommunityHub() {
                 actually changes what's on screen, so it belongs next to the
                 place name, in the sticky header. */}
             <button
-              className="tiny semi row gap-4 ellipsis"
+              className="tiny semi row gap-4"
               onClick={() => { haptics.selection(); setMoreOpen(true); }}
               aria-label={t("change_radius")}
               style={{
@@ -363,13 +362,20 @@ export default function CommunityHub() {
                 padding: "2.5px 9px",
                 borderRadius: 12,
                 width: "fit-content",
+                // It used to grow past its column and slide under the first header button on a phone.
+                maxWidth: "100%",
+                minWidth: 0,
+                overflow: "hidden",
+                alignItems: "center",
                 border: "1px solid var(--brand-150)",
                 fontSize: 11.5,
                 letterSpacing: "-0.1px",
                 cursor: "pointer",
               }}
             >
-              <MapPin size={11} /> {area} · {radiusLabel(radiusKm)}
+              <MapPin size={11} style={{ flexShrink: 0 }} />
+              <span className="ellipsis" style={{ minWidth: 0 }}>{area}</span>
+              <span style={{ flexShrink: 0 }}>· {radiusLabel(radiusKm)}</span>
             </button>
           </div>
           {/* Persistent entry to /community/activity — the ONLY other way in
@@ -465,7 +471,9 @@ export default function CommunityHub() {
         {/* Stories — discovery content, not navigation, so it scrolls away
             like everything else here instead of sitting permanently under
             the nav bar. */}
-        <div style={{ margin: "0 -16px 4px", paddingTop: 10 }}>
+        {/* The scroller has no side padding; the rail brings its own 16px (.hscroll). It used to pull itself
+            16px further left, clipping "Your story" against the screen edge. */}
+        <div style={{ margin: "0 0 4px", paddingTop: 10 }}>
           <StoriesBar />
         </div>
 
@@ -644,10 +652,12 @@ export default function CommunityHub() {
               title={t("nothing_posted_yet")}
               text={t("nothing_posted_desc")}
               action={
-                <div className="col gap-8" style={{ alignItems: "center" }}>
-                  <button className="btn btn-primary btn-sm" onClick={widenRadius}>
-                    {tf("widen_to_n_km", { n: WIDEN_RADIUS_KM })}
-                  </button>
+                <div className="col gap-12" style={{ alignItems: "center" }}>
+                  {widenTo !== null && (
+                    <button className="btn btn-primary btn-sm" onClick={() => applyRadius(widenTo)}>
+                      {tf("widen_to_n_km", { n: widenTo })}
+                    </button>
+                  )}
                   <button className="btn btn-ghost btn-sm" onClick={goToCompose}>
                     <Plus size={15} /> {t("post_something")}
                   </button>
