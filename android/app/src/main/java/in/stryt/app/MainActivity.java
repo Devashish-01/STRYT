@@ -4,6 +4,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -25,7 +26,22 @@ public class MainActivity extends BridgeActivity {
         // collects registered plugins.
         registerPlugin(BatteryOptimizationPlugin.class);
         super.onCreate(savedInstanceState);
+        lockTextSize();
         createNotificationChannels();
+    }
+
+    // The WebView scales every font size by the phone's Settings > Display > Font size (up to ~130%), but the
+    // layout's boxes are sized in px and don't grow with it: at "Largest", the console's bottom nav pushed its
+    // Profile tab off the screen and header buttons ran off the edge (GAPS_LOG #25). The owner chose to keep text
+    // at the size the layout is designed for. A font-scale change recreates the activity, so this runs again.
+    private void lockTextSize() {
+        if (getBridge() == null) {
+            return;
+        }
+        WebView webView = getBridge().getWebView();
+        if (webView != null) {
+            webView.getSettings().setTextZoom(100);
+        }
     }
 
     // On Android 8+ (API 26+) a notification targeting a channel that does not
