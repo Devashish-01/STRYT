@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useMap } from "react-map-gl/maplibre";
 import { MapPin, X, Check, Loader } from "@/components/Icons";
 import { useI18n } from "@/lib/i18n";
+import MapBottomDock from "./MapBottomDock";
 
 // Lives inside <Map>. The pin itself is fixed on screen — this just reports
 // the map's center whenever a pan/zoom settles, so the caller can resolve
@@ -97,10 +98,7 @@ export function LocationPinDropOverlay({
       />
 
       {/* Bottom confirm card */}
-      <div
-        className="map-bottom-dock"
-        style={{ pointerEvents: "auto" }}
-      >
+      <MapBottomDock style={{ pointerEvents: "auto" }}>
         <div
           style={{
             background: "var(--surface)", borderRadius: 20, padding: 16,
@@ -140,7 +138,7 @@ export function LocationPinDropOverlay({
           </button>
         </div>
         </div>
-      </div>
+      </MapBottomDock>
     </>
   );
 }

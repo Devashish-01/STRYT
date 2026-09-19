@@ -368,7 +368,7 @@ export default function AskCompose() {
           ) : undefined
         }
       />
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: "calc(90px + var(--safe-area-bottom))" }}>
         <div className="card row gap-10" style={{ padding: "var(--space-sm)", background: "var(--brand-50)", border: "1px solid var(--brand-100)" }}>
           <Sparkles size={20} color="var(--brand-600)" />
           <span className="tiny" style={{ color: "var(--brand-700)", lineHeight: 1.4 }}>
@@ -379,7 +379,7 @@ export default function AskCompose() {
         {/* Templates */}
         <div className="field">
           <label>{t("quick_start_label")}</label>
-          <div className="hscroll" style={{ padding: 0, marginLeft: -2 }}>
+          <div className="hscroll" style={{ padding: 0, marginLeft: -2, scrollPaddingInline: 0 }}>
             {templates.map((tpl) => (
               <button key={tpl.label} className={`chip ${template?.label === tpl.label ? "active" : ""}`} onClick={() => applyTemplate(tpl)}>
                 {tpl.emoji} {tpl.label}
@@ -483,7 +483,7 @@ export default function AskCompose() {
           <div style={{ position: "relative" }}>
             <textarea id="askcompose-details-label"
               className="input"
-              style={{ minHeight: 100 }}
+              style={{ minHeight: 100, paddingRight: 56 }}
               placeholder={t("ask_desc_placeholder")}
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
@@ -491,6 +491,7 @@ export default function AskCompose() {
             />
             <button
               className="icon-btn"
+              aria-label={t("voice_input_label")}
               style={{ position: "absolute", bottom: 8, right: 8, background: listening ? "var(--red-100)" : "var(--brand-50)", color: listening ? "var(--red-600)" : "var(--brand-700)" }}
               onClick={toggleVoice}
             >
@@ -605,7 +606,7 @@ export default function AskCompose() {
           <label>{t("when_need_it_label")} <span className="tiny muted">{t("optional_word")}</span></label>
 
           {/* Date strip */}
-          <div className="hscroll" style={{ padding: "0 0 4px", marginLeft: -2 }}>
+          <div className="hscroll" style={{ padding: "0 0 4px", marginLeft: -2, scrollPaddingInline: 0 }}>
             {getDateChips(lang, t).map((chip) => (
               <button
                 key={chip.iso}
@@ -693,7 +694,7 @@ export default function AskCompose() {
         )}
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: "8px 12px 12px" }}>
+      <div className="action-bar" style={{ paddingTop: 8 }}>
         {missing && (
           <p className="tiny muted" style={{ textAlign: "center", marginBottom: 6 }}>
             {missing === "title" ? t("add_title_continue")

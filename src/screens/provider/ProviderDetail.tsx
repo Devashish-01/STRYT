@@ -175,7 +175,7 @@ export default function ProviderDetail() {
 
   return (
     <div className="screen" style={{ position: "relative" }} data-biz-theme={bizThemeKey === "generic" ? undefined : bizThemeKey}>
-      <div className="screen-scroll" style={{ paddingBottom: 90 }}>
+      <div className="screen-scroll" style={{ paddingBottom: "calc(90px + var(--safe-area-bottom))" }}>
         {/* Header */}
         <div
           onClick={heroPhoto ? () => setViewingPhotos({ photos: p.portfolio.map((i) => ({ url: i.url, caption: i.caption })), startIndex: 0 }) : undefined}
@@ -303,10 +303,10 @@ export default function ProviderDetail() {
         )}
 
         {/* Tabs */}
-        <div className="row page-pad" style={{ paddingTop: 10, paddingBottom: 0, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
+        <div className="row page-pad detail-tabs" style={{ paddingTop: 10, paddingBottom: 0, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
           {([["about", t("tab_about")], ["posts", tf("tab_posts_count", { count: (provPosts ?? []).length })], ["portfolio", tf("tab_work_count", { count: p.portfolio.length })], ["reviews", t("tab_reviews")]] as const).map(([tabKey, label]) => (
-            <button key={tabKey} onClick={() => setTab(tabKey)} className="semi"
-          style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === tabKey ? accent : "var(--ink-500)", borderBottom: tab === tabKey ? `2.5px solid ${accent}` : "2.5px solid transparent" }}>
+            <button key={tabKey} onClick={() => setTab(tabKey)} className="semi detail-tab"
+          style={{ color: tab === tabKey ? accent : "var(--ink-500)", borderBottom: tab === tabKey ? `2.5px solid ${accent}` : "2.5px solid transparent" }}>
               {label}
             </button>
           ))}
@@ -514,7 +514,7 @@ export default function ProviderDetail() {
             {p.portfolio.length === 0 ? (
               <EmptyState emoji="🖼️" title={t("no_work_samples")} text={t("provider_no_portfolio_desc")} />
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
                 {p.portfolio.map((item, i) => (
                   <div key={item.id}>
                     <SafeImg
@@ -586,7 +586,7 @@ export default function ProviderDetail() {
       {/* Bottom action bar — a guest still sees the starting price (that's the
           thing they came to find out), but the call/message/book controls are
           replaced by a single sign-in prompt. */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--white)", borderTop: "1px solid var(--line)", padding: 12, zIndex: 30 }}>
+      <div className="action-bar">
         <div className="row gap-10">
           <div className="col" style={{ gap: 0 }}>
             <span className="tiny muted">{t("starting_label")}</span>

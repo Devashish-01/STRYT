@@ -16,7 +16,7 @@ export function AdminDashboard() {
   ];
   return (
     <div className="page-pad col gap-14">
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
         {cards.map((c) => {
           const Icon = c.icon;
           return (

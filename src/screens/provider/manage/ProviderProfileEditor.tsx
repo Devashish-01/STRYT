@@ -88,7 +88,7 @@ export default function ProviderProfileEditor() {
   return (
     <div className="screen">
       <AppBar title="Edit profile" subtitle={displayName || p?.displayName} />
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: "calc(90px + var(--safe-area-bottom))" }}>
         <div className="field"><label>Display name</label><input className="input" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={80} placeholder="What customers see" /></div>
         <div className="field"><label>Short bio</label><textarea className="input" value={bio} onChange={(e) => setBio(e.target.value)} /></div>
 
@@ -144,7 +144,7 @@ export default function ProviderProfileEditor() {
           Working days & hours are set separately in <span className="semi" style={{ color: "var(--green-600)" }}>Profile → Schedule</span>.
         </p>
       </div>
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
+      <div className="action-bar">
         <button className="btn btn-green btn-block" disabled={saving} onClick={save}>{saving ? "Saving…" : "Save changes"}</button>
       </div>
     </div>

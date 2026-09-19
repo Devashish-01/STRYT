@@ -347,10 +347,11 @@ export default function ProviderDashboard() {
             )}
           </div>
 
-          {/* Top navigation row */}
-          <div className="row between">
+          {/* Top navigation row. "View Public" used to be a fourth control here: squeezed into a three-line blob at
+              the screen edge, with the switcher touching the bell. It sits next to the name below now. */}
+          <div className="row between" style={{ gap: 8 }}>
             <RoleSwitcher theme="dark-pill" enableLongPress />
-            <div className="row gap-8" style={{ alignItems: "center" }}>
+            <div className="row gap-8" style={{ alignItems: "center", flexShrink: 0 }}>
               <button
                 className="icon-btn-sm"
                 style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: "50%", width: 32, height: 32, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative" }}
@@ -381,13 +382,6 @@ export default function ProviderDashboard() {
               >
                 <Share2 size={15} />
               </button>
-              <button
-                className="tiny semi"
-                style={{ padding: "6px 12px", background: "rgba(255, 255, 255, 0.15)", border: "1px solid rgba(255, 255, 255, 0.2)", borderRadius: 100, color: "#fff" }}
-                onClick={() => nav(`/provider/${id}`)}
-              >
-                View Public →
-              </button>
             </div>
           </div>
 
@@ -407,18 +401,26 @@ export default function ProviderDashboard() {
                 </span>
               )}
             </div>
-            <div className="grow">
+            <div className="grow" style={{ minWidth: 0 }}>
               <div className="row gap-6" style={{ alignItems: "center" }}>
-                <span className="bold h1" style={{ color: "#fff" }}>{p?.displayName}</span>
+                <span className="bold h1 ellipsis" style={{ color: "#fff" }}>{p?.displayName}</span>
                 {p?.isVerified && <BadgeCheck size={18} color="var(--accent-400)" weight="fill" />}
               </div>
               <div className="small" style={{ color: "#fff", opacity: 0.9, marginTop: 2, display: "flex", flexDirection: "column", gap: 2 }}>
                 <span>{p?.categoryName}</span>
-                <span className="tiny" style={{ opacity: 0.8, fontWeight: 500 }}>
+                {/* Full strength of its parent (0.9): at 0.8 × 0.9 it was hard to read over the skyline. */}
+                <span className="tiny" style={{ fontWeight: 500 }}>
                   {ambient.greeting} • {ambient.ambientSubtitle.toLowerCase()} • 📡 {radiusLabel} reach
                 </span>
               </div>
             </div>
+            <button
+              className="tiny semi"
+              style={{ padding: "7px 10px", background: "rgba(255, 255, 255, 0.16)", border: "1px solid rgba(255, 255, 255, 0.2)", borderRadius: 999, color: "#fff", whiteSpace: "nowrap", flexShrink: 0 }}
+              onClick={() => nav(`/provider/${id}`)}
+            >
+              View Public →
+            </button>
           </div>
         </div>
       </div>
@@ -648,7 +650,7 @@ export default function ProviderDashboard() {
         {/* ── Grow — only actions that aren't already in the nav ── */}
         <div className="page-pad" style={{ paddingTop: 0 }}>
           <div className="small semi muted" style={{ marginBottom: 10, letterSpacing: 0.5 }}>{t("mdash_grow")}</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
             <GrowTile icon={Megaphone} color="var(--brand-600)" label={t("pdash_post_update")} onClick={() => nav("/community/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
             <GrowTile icon={Camera} color="var(--pink-500)" label={t("pdash_post_story")} onClick={() => nav("/story/new", { state: { providerId: id, providerName: p?.displayName, providerAvatar: p?.avatar } })} />
             <GrowTile icon={QrCode} color="var(--ink-700)" label={t("mdash_share_qr")} onClick={() => setShare(true)} />

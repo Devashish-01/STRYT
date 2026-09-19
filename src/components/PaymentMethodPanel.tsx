@@ -111,7 +111,7 @@ export function PaymentMethodPanel({
           {isIOS() ? (
             <div className="col gap-8">
               <div className="tiny semi muted" style={{ textAlign: "center" }}>Open in UPI app</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
                 {UPI_APPS.map((app) => (
                   <a
                     key={app.name}

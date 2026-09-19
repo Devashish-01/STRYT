@@ -329,6 +329,56 @@ h3, .h3 {
 .with-nav {
   padding-bottom: calc(var(--nav-h) + var(--safe-area-bottom) + 8px);
 }
+/* Small controls keep their look but get a 44px tap area: an invisible ring around them (::before —
+   .set-switch's ::after is its knob). Inline styles that position these buttons still win; a static one is
+   made relative so the ring has something to sit on. */
+.icon-btn-sm {
+  position: relative;
+}
+.icon-btn-sm::before,
+.set-switch::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+.set-switch::before {
+  inset: -9px -4px;
+}
+
+/* Business / provider page tabs. They share the width when they fit and scroll sideways when they don't; a label
+   never wraps. Six flex:1 tabs used to get ~55px each on a phone, so "Services (3)" broke onto two lines. */
+.detail-tabs {
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.detail-tab {
+  flex: 1 0 auto;
+  padding: 10px 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+/* A screen's bottom action bar (Save, Next, Post, Book). The app draws edge-to-edge, so on a phone with
+   3-button navigation the system bar covers the bottom ~48px: the bar's padding adds that inset or its
+   button sits under Back/Home. The scroll area above it keeps calc(90px + var(--safe-area-bottom)) of room. */
+.action-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding: 12px 12px calc(12px + var(--safe-area-bottom));
+}
+/* On a route that also shows a bottom nav (the consoles), the nav covers the page's last stretch: the bar sits on
+   top of it. It used to sit under it, which hid the business Edit-profile "Save changes" button entirely. */
+.with-nav > .action-bar {
+  bottom: calc(var(--nav-h) + var(--safe-area-bottom));
+  padding-bottom: 12px;
+}
+
 /* Breathing room under the last item of a scroll region that isn't behind the
    bottom nav (settings/manage pages). Referenced in several screens but never
    defined, so their last row sat flush against the bottom edge. */
@@ -847,7 +897,7 @@ h3, .h3 {
 /* ---- Type "flair" picker ---- */
 .flair-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1529,6 +1579,7 @@ textarea.input {
 /* Smaller round variant — was referenced across several screens (business/
    provider dashboards, Community headers) but never actually defined, so
    those buttons rendered as unstyled rectangles instead of circles. */
+/* 32px to look at, 44px to hit (::before, near the top of this file). */
 .icon-btn-sm {
   width: 32px;
   height: 32px;
@@ -1571,6 +1622,18 @@ textarea.input {
   position: relative;
 }
 .nav-item.active { color: var(--brand-700); }
+/* A tab may shrink below its label's width, and the label shortens with "…", instead of pushing the last tab off
+   the screen (the six-tab business console nav did that with large text). */
+.nav-item { min-width: 0; }
+/* Six tabs of uneven labels ("Appointments"): size each to its label, so they only shorten when the row really
+   doesn't fit. Equal widths cut "Appointments" to "Appoint…" at normal text size. */
+.manage-nav .nav-item { flex: 1 1 auto; }
+.nav-item > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* Feedback #4 — the tabs read as static labels rather than controls. Three
    things fix that, and they apply to EVERY tab: the complaint named Profile
    only because it's the one people reach for, but all five share this class,
@@ -1635,6 +1698,9 @@ textarea.input {
 /* Green pill active-state, larger tap targets, and a leads badge — the
    provider console's own footer identity, distinct from the customer nav. */
 .provider-nav .nav-item { gap: 4px; }
+/* The shared Profile tab (FooterProfileTab) has no 30px .provider-nav-icon wrapper, so its label sat ~4px higher
+   than the other four. Pad its 22px icon to the same height. */
+.provider-nav .nav-item > svg { margin: 4px 0; }
 .provider-nav .nav-item.active { color: var(--green-600); }
 .provider-nav .nav-item.active::before { display: none; } /* replace brand top-bar with the green pill */
 .provider-nav-icon {
@@ -2061,7 +2127,7 @@ textarea.input {
    see BusinessPackage.catalogRenderMode) instead of the default list. */
 .biz-catalog-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 .biz-catalog-grid-card {
@@ -2361,7 +2427,8 @@ textarea.input {
 
 .toast {
   position: fixed;
-  bottom: calc(var(--nav-h) + 20px);
+  /* + the Android nav-bar inset: with 3-button navigation the bottom nav sits higher than --nav-h alone */
+  bottom: calc(var(--nav-h) + var(--safe-area-bottom) + 20px);
   left: 50%;
   transform: translateX(-50%);
   background: var(--ink-900);
@@ -2476,6 +2543,7 @@ button.set-row:active {
 
 /* Switch. The six previous copies were bare <button>s with no role, no
    aria-checked and no accessible name — invisible to a screen reader. */
+/* 26px tall to look at; ::before (near the top of this file) makes it 44px to hit. */
 .set-switch {
   width: 44px;
   height: 26px;
@@ -2681,7 +2749,7 @@ button.set-row:active {
 
 .launch-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 .launch-tile {
@@ -3098,7 +3166,7 @@ button.set-row:active {
 
   /* 3. 2x2 home screen tiles -> 4-column horizontal strip */
   .launch-grid {
-    grid-template-columns: repeat(4, 1fr) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 16px !important;
   }
 
@@ -3683,7 +3751,7 @@ button.set-row:active {
 /* ---- Destination tiles (Your activity / You on STRYT) ---- */
 .pf-tiles {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 .pf-tile {
@@ -4734,14 +4802,15 @@ button.set-row:active {
 
 .map-fab-pin {
   position: absolute;
-  bottom: var(--map-pin-bottom);
+  bottom: calc(var(--map-pin-bottom) + var(--map-dock-h, 0px));
   right: var(--map-chrome-inset);
   z-index: 1001;
 }
 
 .map-fab-recenter {
   position: absolute;
-  bottom: var(--map-fab-bottom);
+  /* + the dock's height (MapBottomDock), so the guest notice / pin-drop card never covers these buttons */
+  bottom: calc(var(--map-fab-bottom) + var(--map-dock-h, 0px));
   right: var(--map-chrome-inset);
   z-index: 1001;
 }
@@ -4759,7 +4828,7 @@ button.set-row:active {
   left: var(--map-chrome-inset);
   /* Not + --map-over-nav — --map-carousel-h already includes it (see the
      --map-fab-bottom comment in :root). */
-  bottom: calc(var(--map-carousel-h) + 4px);
+  bottom: calc(var(--map-carousel-h) + 4px + var(--map-dock-h, 0px));
   /* Above .map-sheet (z-index 8) — its `bottom` offset already tracks the
      sheet's real height via --map-carousel-h (MapSheet.tsx's ResizeObserver),
      so this is a hardening for the drag transition specifically: a required
@@ -4814,7 +4883,7 @@ button.set-row:active {
 
   .map-attribution {
     left: calc(var(--map-panel-w) + var(--map-chrome-inset));
-    bottom: 4px;
+    bottom: calc(4px + var(--map-dock-h, 0px));
   }
 
   .map-screen__search {
@@ -7858,7 +7927,7 @@ button.set-row:active {
 /* beat 4: interests */
 .ob-interests {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
 }
 .ob-interest {

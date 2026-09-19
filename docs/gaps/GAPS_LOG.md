@@ -18,6 +18,198 @@ re-reporting something that sounds familiar; check it's not already fixed.
 
 ---
 
+## #28 — UI spacing audit (2026-09-19): index of #19–#27
+
+**Status:** Fixed — 2026-09-19 (not yet committed). Owner: "fix all"; #25 option B (lock text size); #27 checked fine on a phone.
+**Reported:** "some buttons overlap and some are out according to the android app but not proper … do a code level through check of the spacing b/w the buttons"
+
+**How it was checked:** every route (96, by the persona that uses it) opened on staging at 360×740 — a common
+Android width — with the native app's safe-area floor (`.native-safe`) switched on, then measured in the page:
+tappables overlapping, anything partly past the screen edge, tappables touching, label text wider than its
+button, tap targets under 32px, and (scrolled to the end) the last items stuck under the bottom nav or a
+sticky bar. Run twice: normal text, and text at 130% (Android's largest font size — the WebView scales all text
+by the phone's font setting, see #25). Reads only: writes were blocked in the browser and the staging reseed was
+off. Then each hit was root-caused in code, and the pinned-bar / grid patterns were swept statically.
+
+**Most screens pass at normal size.** The real problems cluster in: bars pinned to the bottom (#19, #20), the
+two console headers (#21, #22), the listing-page tab strips (#23), the map's bottom stack (#24), and what large
+text does to fixed layouts (#25).
+
+---
+
+## #27 — Small maps may show an "API KEY REQUIRED" stamp
+
+**Status:** Not a bug — the owner checked a small map on a real phone (2026-09-19): it renders cleanly. The stamp only shows on the local staging preview.
+**Area:** `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/…` in `components/MiniMap.tsx:47`,
+`components/LocationPicker.tsx:211`, `features/live-share/LiveLocationCard.tsx:46`, `screens/TrackingPage.tsx:100`,
+`screens/business/manage/BusinessDeliveries.tsx:193`, `screens/delivery/DeliveryConsole.tsx:755`
+
+**Seen:** the business Edit-profile mini map (staging preview) is covered in "API KEY REQUIRED" text. The big Map
+screen is unaffected — it uses OpenFreeMap (`MapView/index.tsx:59`).
+
+**Fix:** if it shows on stryt.in / the app too, move these six raster layers to a free source that needs no key
+(OpenFreeMap raster or OSM tiles within their usage policy), keeping the attribution.
+
+---
+
+## #26 — Small layout slips (one entry, each a one-liner)
+
+**Status:** Fixed — 2026-09-19 (not yet committed). All six below, plus 7–8 found while fixing.
+
+1. **Explore — "Sort by" chips touch the first result card.** `Explore.tsx:548` sets `paddingBottom: 0` on the
+   mobile sort row and the list adds no top space. Give the row 12px bottom padding.
+2. **Ask — the mic button sits on the description box's text.** `AskCompose.tsx:484–500`: the button is absolute
+   at the textarea's bottom-right but the textarea reserves no room, so longer text runs under it. Also no
+   `aria-label`. Add right/bottom padding to the textarea and a label.
+3. **Rails I broke on 2026-09-19 (`f9033af`).** `.hscroll` got `scroll-padding-inline: 16px`, but nine rails
+   override its padding to 0/2px (Home ×4 `Home.tsx:806/879/889/900`, `Explore.tsx:504`, `AskCompose.tsx:382/608`,
+   `PlaceDetail.tsx:110`, `CommunityHub.tsx:676`), so after a swipe they snap with a 16px sliver of the previous
+   card. Make the scroll padding follow the padding (a `.hscroll-flush` modifier, or `scrollPaddingInline: 0`).
+4. **Toast overlaps the nav on 3-button-navigation phones.** `index.css` `.toast { bottom: calc(var(--nav-h) + 20px) }`
+   ignores `--safe-area-bottom`; with a 48px system bar the nav top is higher than the toast. Add the inset.
+5. **Provider nav — "Profile" label sits ~4px higher than the rest**, because the four tabs wrap their icon in
+   `.provider-nav-icon` and `FooterProfileTab` doesn't (`ProviderManageNav.tsx:31–47`). The four tab labels
+   ("Today", "Jobs", "Find work", "Money") are also hard-coded English.
+6. **Small tap targets** (under 32px): the radius pills ("500m" … "25 km"), text-only buttons ("Add second shift",
+   "View →", "● Available", "Cancel"), `.icon-btn-sm` (32px), `.set-switch` (26px tall). Android asks for 48dp;
+   this app's own rule is 44px. Grow the hit area with padding (not the visuals) on the shared classes.
+   *Done:* `.icon-btn-sm` and `.set-switch` get an invisible 44px ring (`::before`; the switch's `::after` is its
+   knob). The radius pills and the one-off text buttons are unchanged.
+7. **Community header crowded at 360px** (found while fixing #25 — the scan only compared tappables). Back + four
+   44px buttons left the title ~68px: "Community" ran under the first button and the place name in the pill
+   vanished ("· 5 km"). The Filter button opened the same sheet as the pill, so it's gone; the pill is labelled
+   "Filter & sort" and shows a dot when a filter is on. The title now has ~120px.
+8. **Hours — the same-every-day time boxes** were 90px and cut "00:00" next to the browser's clock icon
+   (`WeeklyHoursEditor.tsx`); now 104px.
+
+---
+
+## #25 — Large phone font size breaks fixed layouts
+
+**Status:** Fixed — 2026-09-19 (not yet committed) — owner chose **B: lock the text size** in the app (`MainActivity.lockTextSize()` → `WebView.setTextZoom(100)`; ships with the next Android build, not an OTA). The cheap layout guards were done too, since they also protect stryt.in in a phone browser: `.nav-item` can shrink with an ellipsis label (`.manage-nav` tabs size to their labels), the 21 grids use `minmax(0, 1fr)`, the Community title ellipsizes.
+**Area:** Android WebView text zoom (not set anywhere: `android/app/src/main/java/in/stryt/app/MainActivity.java`,
+`capacitor.config.ts`)
+
+**Root cause:** the WebView scales every font size by the phone's Settings → Display → Font size (up to 130%),
+but boxes sized in px don't grow. At 130%:
+- Business dashboard: header buttons pushed off-screen (worse #21), the 2-column tile grid runs past the right
+  edge ("Appointments" cut), and the 6-tab console nav cuts "Profile" to "Prof".
+- Community: the header's round buttons cover the "Community" title; the location pill shrinks to "· 5 km".
+- Listing tabs run together ("AboutReviews", #23); map "Open now" label spills out of its button.
+- Business console bottom nav (every console screen): "Appointments" widens its tab and the **"Profile" tab is
+  pushed off the right edge** (x 329–382 of 360). `.nav-item` is `flex: 1` with no `min-width: 0`, so a tab can't
+  shrink below its label (`ManageNav.tsx:60–70`; labels there are also hard-coded English).
+- Provider dashboard: "View Public →" pushed past the edge (x 321–389) — worse #22.
+- Community: the location pill cuts "Test Nagar · 5 km" to "· 5 km" once the title column shrinks.
+- Ask: the mic button covers the description box's text (#26.2).
+
+**Grid pattern (21 places):** `grid-template-columns: 1fr 1fr` (and `repeat(n, 1fr)`) can't shrink below a
+cell's min-content, so large text or one long word pushes the grid past the screen. Seen live on the business
+dashboard; the same pattern is in `index.css:850/2064/2684/3686/7861`, `ManageDashboard.tsx:666`,
+`ProviderDashboard.tsx:651`, `AllCategories.tsx:115/128`, `ProviderDetail.tsx:517`, `Achievements.tsx:36`,
+`MyActivity.tsx:68`, both Portfolio screens, `AppointmentSheet.tsx:862/892` (time-slot grid),
+`PaymentMethodPanel.tsx:114`, `AdminDashboard.tsx:19`. Fix: `minmax(0, 1fr)`.
+
+---
+
+## #24 — Map: the location banner covers the map buttons and the map credit
+
+**Status:** Fixed — 2026-09-19 (not yet committed) — new `MapView/MapBottomDock.tsx` measures itself into `--map-dock-h`; the pin/recenter buttons and the credit line add it (guest notice and pin-drop card both use it).
+**Area:** `index.css` `.map-bottom-dock` (~4716), `.map-fab-recenter` / `.map-fab-pin` (~4735), `.map-attribution` (~4750)
+
+**Seen:** with location off, "Turn on location to see what's near you" sits on top of the recenter button (and
+at large text the pin button too) and over "© OpenStreetMap contributors".
+
+**Root cause:** all three are positioned from the same baseline — `bottom: calc(var(--map-carousel-h) + 4…12px)` —
+and the dock (z 1002) is drawn above the buttons (z 1001). Nothing moves the buttons up when the dock has content.
+
+**Fix:** measure the dock (ResizeObserver → `--map-dock-h`, like `--map-carousel-h` already is) and add it to
+the buttons' and the credit line's `bottom`.
+
+---
+
+## #23 — Business and provider pages: the six tabs don't fit a phone
+
+**Status:** Fixed — 2026-09-19 (not yet committed) — `.detail-tabs` / `.detail-tab` (index.css): tabs share the width when they fit, scroll sideways when they don't, never wrap.
+**Area:** `BusinessDetail.tsx:637–651`, `ProviderDetail.tsx:306`
+
+**Seen (normal text):** "Services (3)" and "Posts (0)" wrap onto two lines while "Work (2)" stays on one — uneven
+tabs, labels on different baselines. At 130% the labels run into each other ("AboutReviews").
+
+**Root cause:** up to six tabs, each `flex: 1` with `gap: 0`, in a strip that can't scroll — ~55px per label.
+
+**Fix:** a sideways-scrolling tab strip (`overflow-x: auto`, tabs `flex: 0 0 auto`, `white-space: nowrap`,
+12px side padding), keeping it sticky.
+
+---
+
+## #22 — Provider dashboard header is overcrowded
+
+**Status:** Fixed — 2026-09-19 (not yet committed) — "View Public →" moved next to the name (`nowrap`), the top row got an 8px gap, the name ellipsizes, the greeting line is at full strength.
+**Area:** `screens/provider/manage/ProviderDashboard.tsx:351–392`
+
+**Seen:** the switcher touches the bell (0px gap); "View Public →" is squeezed into a three-line blob at the screen
+edge; the greeting line ("Good morning • cloudy monsoon skies & cool breeze • 10 km reach") is faint and wraps
+into the skyline drawing.
+
+**Root cause:** switcher + three 32px icons + a text button that isn't `nowrap`, all in one `row between`.
+
+**Fix:** move "View Public" into the profile block as a pill (as the business dashboard's "View shop" is), keep
+the three icons, add a gap; shorten or brighten the greeting line.
+
+---
+
+## #21 — Business dashboard header runs off the screen: "Share shop" is cut off
+
+**Status:** Fixed — 2026-09-19 (not yet committed) — Share moved next to "View shop"; the top row (logo + switcher + two buttons ≈ 348px) now fits 360px.
+**Area:** `screens/business/manage/ManageDashboard.tsx:423–456`
+
+**Seen:** the Share button ends at x=365 on a 360px screen (half cut); at 130% text both the chat and share
+buttons are off-screen. The greeting line wraps as "… 5 km / reach".
+
+**Root cause:** one row holds the STRYT logo (83px) + the business switcher (~145px, name capped at 120px) + three
+32px buttons + gaps + 32px page padding ≈ 388px — too wide for 360px whatever the business is called.
+
+**Fix:** drop the logo from this row on narrow screens (the console already says whose shop it is) or move Share
+next to "View shop"; let the icon group shrink.
+
+---
+
+## #20 — Bars pinned to the bottom ignore the Android navigation bar
+
+**Status:** Fixed — 2026-09-19 (not yet committed) — shared `.action-bar` (index.css) used by the eight standard bars; BusinessDetail's floating cart button got the inset inline; each screen's end padding is `calc(90px + var(--safe-area-bottom))`.
+**Area:** nine page-level bars, each `position: absolute; bottom: 0` with plain 12–14px padding:
+`BusinessDetail.tsx:1032` (Book / Join), `ProviderDetail.tsx:589`, `BusinessOnboard.tsx:784`,
+`ProviderOnboard.tsx:510`, `HoursEditor.tsx:201`, `ProfileEditor.tsx:269`, `ProviderProfileEditor.tsx:147`,
+`AskCompose.tsx:696`, `StoryCompose.tsx:392`
+
+**Root cause:** the app draws edge-to-edge (Capacitor 8, targetSdk 36, `StatusBar.setOverlaysWebView` in
+`App.tsx:495`), so on phones with 3-button navigation the system bar covers the bottom ~48px. These bars don't add
+`--safe-area-bottom`, so their main button sits partly under the Back/Home/Recents buttons. `RateScreen`,
+`RequestDetail`, `SubmitProposal`, `CommunityPostDetail` and `ProfileEdit` already do it right.
+
+**Fix:** one shared `.action-bar` class — `padding-bottom: calc(12px + var(--safe-area-bottom))` — used by all
+nine, with each screen's scroll padding matched so the last field isn't hidden under the bar.
+
+---
+
+## #19 — Business "Edit profile": the Save button is hidden behind the bottom nav
+
+**Status:** Fixed — 2026-09-19 (not yet committed) — `.with-nav > .action-bar` sits at `bottom: calc(var(--nav-h) + var(--safe-area-bottom))`, above the console nav. Checked on screen at 360px with a 48px Android bar.
+**Area:** `screens/business/manage/ProfileEditor.tsx:269` (bar), `:175` (`screen with-nav`)
+
+**Seen:** at the top of the screen and scrolled to the very end, "Save changes" is nowhere to be seen — the
+console's bottom nav (Home · Queue · Appointments · Services · Business · Profile) sits on top of it.
+
+**Root cause:** the Save bar is `position: absolute; bottom: 0`, and this route also shows the console nav,
+which is `position: fixed; bottom: 0; z-index: 50` — the bar is drawn underneath it. The provider twin
+(`ProviderProfileEditor`) doesn't show a nav on its route, so it's fine.
+
+**Fix:** put the bar above the nav — `bottom: calc(var(--nav-h) + var(--safe-area-bottom))` when the nav is
+shown — and raise the scroll padding by the same amount. Do it with #20's shared class.
+
+---
+
 ## #18 — Two retired bulk-order RPCs are still live and callable
 
 **Status:** Fixed — 2026-09-08 (`20260921_drop_retired_instant_order_rpcs.sql`, applied & verified live)

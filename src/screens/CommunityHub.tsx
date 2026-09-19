@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, MapPin, ArrowLeft, SlidersHorizontal, RefreshCw, Check, Ticket, CheckCircle2, Search, X } from "@/components/Icons";
+import { Plus, MapPin, ArrowLeft, RefreshCw, Check, Ticket, CheckCircle2, Search, X } from "@/components/Icons";
 import { requestService, communityService, bulkService } from "@/services";
 import { useQuery, useQueryWithRealtime } from "@/hooks/useApi";
 import { ListSkeleton, ErrorView, PostCardSkeleton } from "@/components/states";
@@ -344,7 +344,8 @@ export default function CommunityHub() {
             <ArrowLeft size={19} />
           </button>
           <div className="grow col" style={{ gap: 2, minWidth: 0 }}>
-            <div className="bold" style={{ fontSize: 20, letterSpacing: "-0.4px", lineHeight: 1.2, color: "var(--ink-900)" }}>
+            {/* Shortens with "…" when the column is narrow, instead of running under the header buttons. */}
+            <div className="bold ellipsis" style={{ fontSize: 20, letterSpacing: "-0.4px", lineHeight: 1.2, color: "var(--ink-900)" }}>
               {t("community_header")}
             </div>
             {/* Location AND radius, in one always-reachable control. Radius
@@ -352,13 +353,17 @@ export default function CommunityHub() {
                 posts) — but "how far am I looking?" is the question that
                 actually changes what's on screen, so it belongs next to the
                 place name, in the sticky header. */}
+            {/* This pill opens the filter & sort sheet (radius, sort, the rarer post types). A separate filter
+                button in the header opened the same sheet; with it, five 44px controls left the title ~68px on a
+                360px phone, so "Community" ran under the buttons and the place name vanished. The pill carries
+                the "filters on" state instead (the dot). */}
             <button
               className="tiny semi row gap-4"
               onClick={() => { haptics.selection(); setMoreOpen(true); }}
-              aria-label={t("change_radius")}
+              aria-label={t("filter_and_sort_title")}
               style={{
                 color: "var(--brand-700)",
-                background: "var(--brand-50)",
+                background: isLongTailFilter ? "var(--brand-100)" : "var(--brand-50)",
                 padding: "2.5px 9px",
                 borderRadius: 12,
                 width: "fit-content",
@@ -376,6 +381,9 @@ export default function CommunityHub() {
               <MapPin size={11} style={{ flexShrink: 0 }} />
               <span className="ellipsis" style={{ minWidth: 0 }}>{area}</span>
               <span style={{ flexShrink: 0 }}>· {radiusLabel(radiusKm)}</span>
+              {isLongTailFilter && (
+                <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--brand-600)", flexShrink: 0 }} />
+              )}
             </button>
           </div>
           {/* Persistent entry to /community/activity — the ONLY other way in
@@ -412,14 +420,6 @@ export default function CommunityHub() {
             aria-label={t("search_posts_label")}
           >
             <Search size={19} />
-          </button>
-          <button
-            className="icon-btn"
-            style={{ width: 44, height: 44, borderRadius: "50%", background: isLongTailFilter ? "var(--brand-100)" : "var(--ink-100)", color: isLongTailFilter ? "var(--brand-700)" : "var(--ink-700)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-            onClick={() => setMoreOpen(true)}
-            aria-label={t("filter_and_sort_title")}
-          >
-            <SlidersHorizontal size={19} />
           </button>
           <button
             className="icon-btn"
@@ -673,7 +673,7 @@ export default function CommunityHub() {
                   something to show. */}
               {dealsRail.length > 0 && (
                 <Section title={t("bulk_deals_from_shops_nearby")} action={t("see_all_word")} onAction={() => setPostFilter("BULK")}>
-                  <div className="hscroll" style={{ padding: "10px 2px 2px" }}>
+                  <div className="hscroll" style={{ padding: "10px 2px 2px", scrollPaddingInline: 2 }}>
                     {dealsRail.map((d) => (
                       <div key={d.id} style={{ minWidth: 260, scrollSnapAlign: "start" }}>
                         <BulkDealCard deal={d} onBook={onBook} />

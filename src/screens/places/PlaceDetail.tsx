@@ -107,7 +107,7 @@ export default function PlaceDetail() {
       <AppBar title={place.name} />
       <div className="screen-scroll">
         {photos.length > 0 ? (
-          <div className="hscroll" style={{ padding: "0 0 4px" }}>
+          <div className="hscroll" style={{ padding: "0 0 4px", scrollPaddingInline: 0 }}>
             {photos.map((url, i) => (
               <SafeImg
                 key={i}

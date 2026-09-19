@@ -333,9 +333,9 @@ function RangesEditor({
     <div className="col gap-8">
       {ranges.map((r, i) => (
         <div key={i} className="row gap-8 center-v">
-          <input className="input" style={{ width: 90, padding: "8px 8px", textAlign: "center" }} type="time" value={r.from} onChange={(e) => onUpdate(i, { from: e.target.value })} />
+          <input className="input" style={{ width: 104, padding: "8px 8px", textAlign: "center" }} type="time" value={r.from} onChange={(e) => onUpdate(i, { from: e.target.value })} />
           <span className="muted">–</span>
-          <input className="input" style={{ width: 90, padding: "8px 8px", textAlign: "center" }} type="time" value={r.to} onChange={(e) => onUpdate(i, { to: e.target.value })} />
+          <input className="input" style={{ width: 104, padding: "8px 8px", textAlign: "center" }} type="time" value={r.to} onChange={(e) => onUpdate(i, { to: e.target.value })} />
           {ranges.length > 1 && (
             <button type="button" className="icon-btn" style={{ width: 28, height: 28 }} onClick={() => onRemove(i)}>
               <X size={14} />

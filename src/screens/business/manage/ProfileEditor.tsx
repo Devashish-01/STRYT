@@ -177,7 +177,7 @@ export default function ProfileEditor() {
       {/* paddingBottom clears the sticky "Save changes" bar below —
           ProviderProfileEditor.tsx (this screen's provider twin) already has
           it; this one didn't, so the last field rendered under the button. */}
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: "calc(90px + var(--safe-area-bottom))" }}>
         {/* Live preview — the cover image doubles as the change-photo control,
             so the owner edits it where they already see it. */}
         <div className="card" style={{ overflow: "hidden" }}>
@@ -266,7 +266,7 @@ export default function ProfileEditor() {
         </div>
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: 12 }}>
+      <div className="action-bar">
         <button className="btn btn-primary btn-block" disabled={saving || !valid} onClick={save}>{saving ? "Saving…" : "Save changes"}</button>
       </div>
 

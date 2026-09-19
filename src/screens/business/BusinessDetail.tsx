@@ -314,7 +314,7 @@ export default function BusinessDetail() {
 
   return (
     <div className="screen" style={{ position: "relative" }} data-biz-theme={bizThemeKey === "generic" ? undefined : bizThemeKey}>
-      <div className="screen-scroll" style={{ paddingBottom: cartCount ? 88 : 24 }}>
+      <div className="screen-scroll" style={{ paddingBottom: cartCount ? "calc(88px + var(--safe-area-bottom))" : 24 }}>
         {/* Cover */}
         <div style={{ position: "relative" }}>
           <SafeImg
@@ -635,7 +635,7 @@ export default function BusinessDetail() {
         )}
 
         {/* Tabs */}
-        <div className="row page-pad" style={{ gap: 0, paddingBottom: 0, paddingTop: 12, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
+        <div className="row page-pad detail-tabs" style={{ paddingBottom: 0, paddingTop: 12, borderBottom: "1px solid var(--line)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 5 }}>
           {([
             // #10 — was hardcoded "Menu", so salons and chemists advertised one too.
             ["catalog", `${bizTheme.catalogNoun} (${b.catalog.length})`],
@@ -645,8 +645,8 @@ export default function BusinessDetail() {
             ["reviews", t("tab_reviews")],
             ...(!isOwner && !isGuest ? [["mine", mineRows.length > 0 ? tf("tab_mine_count", { count: mineRows.length }) : t("tab_mine")]] : []),
           ] as [typeof tab, string][]).map(([t, label]) => (
-            <button key={t} onClick={() => setTab(t)} className="semi"
-              style={{ flex: 1, padding: "10px 0", fontSize: 14, color: tab === t ? "var(--biz-accent-strong)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--biz-accent-strong)" : "2.5px solid transparent" }}>
+            <button key={t} onClick={() => setTab(t)} className="semi detail-tab"
+              style={{ color: tab === t ? "var(--biz-accent-strong)" : "var(--ink-500)", borderBottom: tab === t ? "2.5px solid var(--biz-accent-strong)" : "2.5px solid transparent" }}>
               {label}
             </button>
           ))}
@@ -1029,7 +1029,7 @@ export default function BusinessDetail() {
       {/* Cart bar — opens the buy-now vs book-later fork rather than jumping
           straight into scheduling. */}
       {!isOwner && cartCount > 0 && (
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: 14, zIndex: 30 }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "14px 14px calc(14px + var(--safe-area-bottom))", zIndex: 30 }}>
           <button
             className="btn btn-green btn-block row between"
             style={{ boxShadow: "var(--shadow-lg)" }}

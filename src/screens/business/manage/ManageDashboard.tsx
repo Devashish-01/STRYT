@@ -438,9 +438,11 @@ export default function ManageDashboard() {
           {isOwner && <AmbientSky dayPart={ambient.dayPartKey} effect={ambient.seasonEffect} glow={ambient.lampGlow} />}
         </div>
         <div style={{ position: "relative", zIndex: 1 }}>
-          <div className="row between center-v">
+          {/* Logo + switcher + two buttons is ~348px with the page padding — it fits a 360px phone. Share used to be a
+              third button here and ran off the screen; it lives next to "View shop" now. */}
+          <div className="row between center-v" style={{ gap: 8 }}>
             <BrandHome color="#fff" glow={ambient.lampGlow} />
-            <div className="row gap-8 center-v">
+            <div className="row gap-8 center-v" style={{ minWidth: 0 }}>
               <RoleSwitcher theme="dark-pill" enableLongPress />
               <HeaderIcon label={t("notifications")} count={notificationUnread ?? 0} onClick={() => nav(`/notifications?scope=BUSINESS&id=${id}`)}>
                 <Bell size={16} />
@@ -448,11 +450,6 @@ export default function ManageDashboard() {
               <HeaderIcon label={t("messages_header")} count={chatUnread ?? 0} onClick={() => nav(`/chats?scope=BUSINESS&id=${id}`)}>
                 <MessageSquareText size={16} />
               </HeaderIcon>
-              {isOwner && (
-              <button className="icon-btn-sm" aria-label={t("mdash_share_shop")} onClick={() => setShare(true)} style={{ background: "rgba(255,255,255,.16)", color: "#fff" }}>
-                <Share2 size={16} />
-              </button>
-              )}
             </div>
           </div>
           <div className="row gap-12 center-v" style={{ marginTop: 18 }}>
@@ -467,9 +464,16 @@ export default function ManageDashboard() {
                 {headerSubtitle}
               </div>
             </div>
-            <button className="tiny semi" style={{ color: "#fff", background: "rgba(255,255,255,.16)", padding: "7px 10px", borderRadius: 999 }} onClick={() => nav(`/business/${id}`)}>
-              View shop
-            </button>
+            <div className="row gap-8 center-v" style={{ flexShrink: 0 }}>
+              <button className="tiny semi" style={{ color: "#fff", background: "rgba(255,255,255,.16)", padding: "7px 10px", borderRadius: 999, whiteSpace: "nowrap" }} onClick={() => nav(`/business/${id}`)}>
+                View shop
+              </button>
+              {isOwner && (
+                <button className="icon-btn-sm" aria-label={t("mdash_share_shop")} onClick={() => setShare(true)} style={{ background: "rgba(255,255,255,.16)", color: "#fff" }}>
+                  <Share2 size={16} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -663,7 +667,7 @@ export default function ManageDashboard() {
         {isOwner && (
           <section className="page-pad" style={{ paddingTop: 0 }}>
             <div className="small semi muted" style={{ marginBottom: 8 }}>{t("mdash_grow")}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
               <GrowAction icon={<Megaphone size={18} color="var(--brand-600)" />} label={t("mdash_post_update")} onClick={() => nav("/community/new", { state: composeState })} />
               <GrowAction icon={<Camera size={18} color="var(--pink-500)" />} label={t("mdash_post_story")} onClick={() => nav("/story/new", { state: composeState })} />
               <GrowAction icon={<QrCode size={18} color="var(--ink-700)" />} label={t("mdash_share_qr")} onClick={() => setShare(true)} />

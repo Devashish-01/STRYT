@@ -65,7 +65,7 @@ export default function MyActivity() {
           storiesLoading ? <ListSkeleton count={2} /> : stories.length === 0 ? (
             <EmptyState emoji="📸" title="No saved stories" text={`Stories ${roleLabel} highlight will be kept here past their 24-hour expiry.`} />
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
               {stories.map((s, i) => (
                 <button key={s.id} onClick={() => setViewing(i)} style={{ position: "relative", border: "none", padding: 0, background: "none", cursor: "pointer" }}>
                   <SafeImg src={s.image} variant="photo" style={{ width: "100%", aspectRatio: "3/4", borderRadius: 12, objectFit: "cover" }} />

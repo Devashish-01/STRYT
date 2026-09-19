@@ -112,7 +112,7 @@ export default function AllCategories() {
         {loading ? (
           <div
             className="page-pad"
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-sm)", paddingTop: 16 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-sm)", paddingTop: 16 }}
           >
             {Array.from({ length: 8 }).map((_, i) => (
               <div key={i} style={{ height: 120, borderRadius: 18, background: "var(--ink-100)" }} className="skel" />
@@ -125,7 +125,7 @@ export default function AllCategories() {
         ) : (
           <div
             className="page-pad"
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-sm)", paddingTop: 16, paddingBottom: 32 }}
+            style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "var(--space-sm)", paddingTop: 16, paddingBottom: 32 }}
           >
             {filtered.map((c) => {
               const { biz, prov } = countFor(c);

@@ -194,7 +194,7 @@ export default function StoryCompose() {
         subtitle={sellerCtx ? `Posting as ${sellerCtx.name}` : "Visible to neighbors nearby"}
       />
 
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: "calc(90px + var(--safe-area-bottom))" }}>
         {/* Photo picker — phone-story aspect ratio */}
         <div style={{
           position: "relative", width: "100%",
@@ -389,7 +389,7 @@ export default function StoryCompose() {
         )}
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
+      <div className="action-bar">
         {!image && (
           <p className="tiny muted" style={{ textAlign: "center", marginBottom: 6 }}>Add a photo to continue</p>
         )}

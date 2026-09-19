@@ -859,7 +859,7 @@ export function AppointmentSheet({
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                   gap: "var(--space-xs)",
                 }}
               >
@@ -889,7 +889,7 @@ export function AppointmentSheet({
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
                   gap: "var(--space-xs)",
                   maxHeight: 180,
                   overflowY: "auto",

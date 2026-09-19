@@ -803,7 +803,7 @@ export default function Home() {
                   <span className="semi" style={{ fontSize: 15 }}>{t("your_day")}</span>
                   {activeQueues.length > 0 && <button className="see-all" style={{ border: "none", background: "none", cursor: "pointer" }} onClick={() => nav("/queues")}>{t("my_queues")}</button>}
                 </div>
-                <div className="hscroll today-rail" style={{ padding: 0 }}>
+                <div className="hscroll today-rail" style={{ padding: 0, scrollPaddingInline: 0 }}>
                   {todayItems.map((tItem, idx) => (
                     <button
                       key={tItem.key}
@@ -876,7 +876,7 @@ export default function Home() {
             {nearbyRailLoading ? (
               <div className="card" style={{ padding: 20 }}>
                 <Skeleton h={15} w={160} mb={14} />
-                <div className="hscroll" style={{ padding: 0, gap: 10 }}>
+                <div className="hscroll" style={{ padding: 0, gap: 10, scrollPaddingInline: 0 }}>
                   {[0, 1, 2, 3].map((i) => <Skeleton key={i} h={150} w={150} r={16} mb={0} />)}
                 </div>
               </div>
@@ -886,7 +886,7 @@ export default function Home() {
                   <span className="semi" style={{ fontSize: 15 }}>{t("nearby_on_street")}</span>
                   <button className="see-all" style={{ border: "none", background: "none", cursor: "pointer" }} onClick={() => nav("/explore")}>{t("explore_all")}</button>
                 </div>
-                <div className="hscroll" style={{ padding: 0 }}>
+                <div className="hscroll" style={{ padding: 0, scrollPaddingInline: 0 }}>
                   {nearbyBiz.slice(0, 6).map((b, idx) => <BusinessCardSmall key={b.id} b={b} style={{ animationDelay: `${idx * 35}ms` }} />)}
                   {nearbyProv.slice(0, 6).map((p, idx) => <ProviderCardSmall key={p.id} p={p} style={{ animationDelay: `${idx * 35}ms` }} />)}
                 </div>
@@ -897,7 +897,7 @@ export default function Home() {
             {recentlyViewed.length > 0 && (
               <div className="card" style={{ padding: 20 }}>
                 <span className="semi" style={{ fontSize: 15, display: "block", marginBottom: 14 }}>{t("recently_viewed")}</span>
-                <div className="hscroll" style={{ padding: 0 }}>
+                <div className="hscroll" style={{ padding: 0, scrollPaddingInline: 0 }}>
                   {recentlyViewed.map((r) => (
                     <button
                       key={`${r.type}:${r.id}`}

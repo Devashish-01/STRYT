@@ -26,6 +26,7 @@ import { GUEST_RADIUS_KM } from "@/lib/guestMode";
 import { MapMarkers, type Selected } from "./MapMarkers";
 import { MapCarousel } from "./MapCarousel";
 import { MapSheet, type MapSheetDetent } from "./MapSheet";
+import MapBottomDock from "./MapBottomDock";
 import { NEXT_DETENT } from "./sheetDetent";
 import { haptics } from "@/lib/haptics";
 import { MapFilterStrip, type ResultFilter } from "./MapFilterStrip";
@@ -665,7 +666,7 @@ export default function MapView() {
               override is now inside MapFilterStrip's popover). Guests keep
               their notice; the 1 km cap itself is applied to the searched
               area, not just to a hidden control. */}
-          {isGuest && <div className="map-bottom-dock"><GuestRadiusNotice /></div>}
+          {isGuest && <MapBottomDock><GuestRadiusNotice /></MapBottomDock>}
 
           <button
             type="button"

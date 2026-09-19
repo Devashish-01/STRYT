@@ -3,8 +3,10 @@ import { LayoutDashboard, CalendarClock, Search, Wallet } from "@/components/Ico
 import { appointmentService } from "@/services";
 import { useQueryWithRealtime } from "@/hooks/useApi";
 import FooterProfileTab from "@/components/FooterProfileTab";
+import { useI18n } from "@/lib/i18n";
 
 export default function ProviderManageNav({ pid }: { pid: string }) {
+  const { t } = useI18n();
   const nav = useNavigate();
   const loc = useLocation();
   const base = `/provider/${pid}/manage`;
@@ -21,10 +23,10 @@ export default function ProviderManageNav({ pid }: { pid: string }) {
   const pendingLeads = (appts ?? []).filter((a) => a.status === "PENDING").length;
 
   const items = [
-    { to: base, label: "Today", icon: LayoutDashboard, exact: true, badge: 0 },
-    { to: `${base}/jobs`, label: "Jobs", icon: CalendarClock, badge: pendingLeads },
-    { to: `${base}/find-work`, label: "Find work", icon: Search, badge: 0 },
-    { to: `${base}/money`, label: "Money", icon: Wallet, badge: 0 },
+    { to: base, label: t("nav_today"), icon: LayoutDashboard, exact: true, badge: 0 },
+    { to: `${base}/jobs`, label: t("nav_jobs"), icon: CalendarClock, badge: pendingLeads },
+    { to: `${base}/find-work`, label: t("nav_find_work"), icon: Search, badge: 0 },
+    { to: `${base}/money`, label: t("nav_money"), icon: Wallet, badge: 0 },
   ];
 
   return (

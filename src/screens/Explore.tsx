@@ -501,7 +501,7 @@ export default function Explore() {
                 tab. Requests included: it's passed this same selection as a
                 prop (see selectedCategoryName in the render below). */}
             <div className="row gap-8 center-v" style={{ margin: "0 -16px 10px", padding: "0 16px" }}>
-              <div className="hscroll grow" style={{ padding: 0, margin: 0 }}>
+              <div className="hscroll grow" style={{ padding: 0, margin: 0, scrollPaddingInline: 0 }}>
                 <button className={`chip ${!cat ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(null); }}>{t("explore_tab_all")}</button>
                 {catTree.map((c) => (
                   <button key={c.id} className={`chip ${cat === c.id ? "active" : ""}`} onClick={() => { haptics.selection(); setCat(cat === c.id ? null : c.id); }}>
@@ -545,7 +545,7 @@ export default function Explore() {
                 results it orders. Hidden on Requests, which has no sort
                 concept of its own. */}
             {tab !== "requests" && (
-              <div className="mobile-only page-pad" style={{ paddingTop: 12, paddingBottom: 0 }}>
+              <div className="mobile-only page-pad" style={{ paddingTop: 12, paddingBottom: 12 }}>
                 <SortMenu value={sort} onChange={setSort} label={t("sort_label")} />
               </div>
             )}

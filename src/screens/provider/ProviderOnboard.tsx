@@ -292,7 +292,7 @@ export default function ProviderOnboard() {
         ))}
       </div>
 
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: "calc(90px + var(--safe-area-bottom))" }}>
         {restored && (
           <div className="row between center-v" style={{ padding: "9px 12px", background: "var(--amber-50)", border: "1px solid var(--amber-200)", borderRadius: 12 }}>
             <span className="tiny semi" style={{ color: "var(--amber-800)", lineHeight: 1.4 }}>
@@ -507,7 +507,7 @@ export default function ProviderOnboard() {
         )}
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "#fff", borderTop: "1px solid var(--line)", padding: 12 }}>
+      <div className="action-bar">
         {blockedReason && (
           <p className="tiny muted center" style={{ marginBottom: 8 }} role="status">{blockedReason}</p>
         )}

@@ -122,7 +122,7 @@ export default function HoursEditor() {
       {/* paddingBottom clears the sticky "Save Working Timing" bar below —
           ProviderAvailability.tsx (this screen's provider twin) already has
           it; this one didn't, so the last card rendered under the button. */}
-      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: 90 }}>
+      <div className="screen-scroll page-pad col gap-16" style={{ paddingBottom: "calc(90px + var(--safe-area-bottom))" }}>
         {/* ── Instant availability banner (presence — separate from bookable slots) ── */}
         <div className="card" style={{ background: openNow ? "var(--green-100)" : "var(--ink-50)", border: "none" }}>
           <div className="row between center-v">
@@ -198,7 +198,7 @@ export default function HoursEditor() {
         </button>
       </div>
 
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", padding: 12 }}>
+      <div className="action-bar">
         <button className="btn btn-primary btn-block" disabled={saving} onClick={save}>
           {saving ? "Saving…" : isDirty ? "Save Working Timing *" : "Save Working Timing"}
         </button>

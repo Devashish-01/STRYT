@@ -63,7 +63,7 @@ export default function ProviderPortfolio() {
     return (
       <div className="screen with-nav">
         <AppBar title="Portfolio" />
-        <div className="page-pad" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div className="page-pad" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
           {[1, 2, 3, 4].map((i) => <Skeleton key={i} h={130} mb={0} />)}
         </div>
         <ProviderManageNav pid={id} />
@@ -98,7 +98,7 @@ export default function ProviderPortfolio() {
           </p>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
           {realPortfolio.map((item) => (
             <div key={item.id} style={{ position: "relative" }}>
               <SafeImg src={item.url} className="thumb" style={{ width: "100%", height: 130, borderRadius: 14, objectFit: "cover" }} />

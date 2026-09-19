@@ -33,7 +33,7 @@ export default function Achievements() {
           <ListSkeleton count={4} />
         ) : (
         <div className="page-pad" style={{ paddingTop: 4 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
             {achievements.map((a) => (
               <div key={a.id} className="card col" style={{ padding: 14, gap: 6, alignItems: "center", textAlign: "center", opacity: a.unlocked ? 1 : 0.75 }}>
                 <div style={{ width: 56, height: 56, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, background: a.unlocked ? "var(--brand-50)" : "var(--ink-100)", filter: a.unlocked ? "none" : "grayscale(1)" }}>

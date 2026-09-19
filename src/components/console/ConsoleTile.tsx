@@ -28,7 +28,7 @@ export function ConsoleTile({
       <span className="pf-tile-icon">{icon}</span>
       <span className="pf-tile-body">
         <span className="pf-tile-label ellipsis">{label}</span>
-        {sub ? <span className="pf-tile-sub ellipsis">{sub}</span> : null}
+        {sub ? <span className="pf-tile-sub clamp-2">{sub}</span> : null}
       </span>
     </button>
   );

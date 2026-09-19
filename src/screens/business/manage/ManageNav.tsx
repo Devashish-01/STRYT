@@ -7,8 +7,10 @@ import { DELIVERY_AGENT_ENABLED } from "@/lib/features";
 import FooterProfileTab from "@/components/FooterProfileTab";
 import { BUSINESS_PACKAGES, resolvePackage } from "@/lib/businessPackages";
 import { consoleFor } from "@/lib/consoleSteps";
+import { useI18n } from "@/lib/i18n";
 
 export default function ManageNav({ bizId, waitingCount }: { bizId: string; waitingCount?: number }) {
+  const { t } = useI18n();
   const nav = useNavigate();
   const location = useLocation();
   const { hasScope, hasActiveDeliveries } = useBusinessAccess();
@@ -57,22 +59,22 @@ export default function ManageNav({ bizId, waitingCount }: { bizId: string; wait
   // Declaring `NavItem` and filtering into it explicitly sidesteps that.
   type NavItem = { to: string; label: string; icon: any; active: boolean; badge?: number };
   const rawItems = [
-    { to: base, label: "Home", icon: Home, active: location.pathname === base },
-    hasScope("queue") && hasEverUsedQueue && { to: `${base}/queue`, label: "Queue", icon: Users, active: location.pathname.startsWith(`${base}/queue`), badge: queueCount },
-    hasScope("appointments") && bookingsOn && { to: `${base}/appointments`, label: "Appointments", icon: CalendarClock, active: location.pathname.startsWith(`${base}/appointments`) },
+    { to: base, label: t("home"), icon: Home, active: location.pathname === base },
+    hasScope("queue") && hasEverUsedQueue && { to: `${base}/queue`, label: t("nav_queue"), icon: Users, active: location.pathname.startsWith(`${base}/queue`), badge: queueCount },
+    hasScope("appointments") && bookingsOn && { to: `${base}/appointments`, label: t("nav_appointments"), icon: CalendarClock, active: location.pathname.startsWith(`${base}/appointments`) },
     DELIVERY_AGENT_ENABLED && hasActiveDeliveries && {
       to: `${base}/my-deliveries`,
-      label: "Deliveries",
+      label: t("nav_deliveries"),
       icon: Package,
       active: location.pathname.startsWith(`${base}/my-deliveries`),
     },
     hasScope("catalog") && { to: `${base}/store`, label: storeTabLabel, icon: Store, active: storeRoutes.some((path) => location.pathname.startsWith(base + path)) },
-    { to: `${base}/business`, label: "Business", icon: Briefcase, active: businessRoutes.some((path) => location.pathname.startsWith(base + path)) },
+    { to: `${base}/business`, label: t("nav_business"), icon: Briefcase, active: businessRoutes.some((path) => location.pathname.startsWith(base + path)) },
   ];
   const items: NavItem[] = rawItems.filter((item): item is NavItem => Boolean(item) && typeof item === "object");
 
   return (
-    <nav className="bottom-nav" aria-label="Business console">
+    <nav className="bottom-nav manage-nav" aria-label="Business console">
       {items.map((item) => {
         const Icon = item.icon;
         return (
