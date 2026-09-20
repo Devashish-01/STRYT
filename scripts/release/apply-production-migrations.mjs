@@ -7,6 +7,9 @@
  *   node scripts/release/apply-production-migrations.mjs --backup <folder>            # dry run: shows the plan
  *   node scripts/release/apply-production-migrations.mjs --backup <folder> --apply    # applies
  *
+ * --from / --to narrow the window (default: the September 2026 batch 20260973–20260991):
+ *   node scripts/release/apply-production-migrations.mjs --from 20260994 --to 20260994 --backup <folder>
+ *
  * --backup is required: the folder of a fresh `node scripts/export-live-data.mjs <folder> --verify` run. It is
  * the only way back, so the script refuses to start without one that exists.
  *
@@ -24,12 +27,30 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 
 const PRODUCTION = "gnswxlfmcwyhmzlfipql";
-const FIRST = "20260973";
-const LAST = "20260991";
+// The release window, overridable so a later release does not mean editing this file:
+//   --from 20260994 --to 20260994    (a single migration)
+// Defaults are the September 2026 batch, so existing invocations behave exactly as before.
+const DEFAULT_FIRST = "20260973";
+const DEFAULT_LAST = "20260991";
 
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
 const backup = args[args.indexOf("--backup") + 1];
+const argVal = (flag, fallback) => {
+  const i = args.indexOf(flag);
+  const v = i >= 0 ? args[i + 1] : undefined;
+  if (i >= 0 && (!v || !/^\d{8}$/.test(v))) {
+    console.error(`REFUSED: ${flag} needs an 8-digit migration number, e.g. ${flag} 20260994.`);
+    process.exit(2);
+  }
+  return v || fallback;
+};
+const FIRST = argVal("--from", DEFAULT_FIRST);
+const LAST = argVal("--to", DEFAULT_LAST);
+if (FIRST > LAST) {
+  console.error(`REFUSED: --from ${FIRST} is after --to ${LAST}.`);
+  process.exit(2);
+}
 if (!args.includes("--backup") || !backup || backup.startsWith("--") || !existsSync(backup) || readdirSync(backup).length === 0) {
   console.error("REFUSED: pass --backup <folder> — a fresh, non-empty export from scripts/export-live-data.mjs --verify.");
   process.exit(2);

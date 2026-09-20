@@ -38,7 +38,8 @@
     "e2e": "playwright test -c playwright.e2e.config.ts",
     "e2e:ui": "playwright test -c playwright.e2e.config.ts --ui",
     "build:staging": "vite build --mode staging --outDir dist-staging",
-    "preview:staging": "vite preview --mode staging --outDir dist-staging"
+    "preview:staging": "vite preview --mode staging --outDir dist-staging",
+    "check-idor": "node scripts/db-tests/idor-sweep.mjs"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.3.0",

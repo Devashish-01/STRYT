@@ -1,6 +1,6 @@
 # Personal-data access matrix
 
-**Generated:** 2026-09-15T16:41:13.276Z from `docs/security/data-access-results.json` by `scripts/audit/render-data-access-matrix.mjs`.
+**Generated:** 2026-09-20T07:28:25.720Z from `docs/security/data-access-results.json` by `scripts/audit/render-data-access-matrix.mjs`.
 **Tests:** `scripts/audit/data-access-tests.mjs` — real queries on production (`gnswxlfmcwyhmzlfipql`), one forced-rollback
 transaction per table, each actor in its own rolled-back sub-block. Nothing was kept.
 
@@ -29,8 +29,8 @@ transaction per table, each actor in its own rolled-back sub-block. Nothing was 
 | `account_appeals` | 1 | 0 · 0 · 0 | 0 · 0 · 0 | 1/1 · 1 · 0 | n/a | n/a | n/a |
 | `agreements` | 1 | ✗ · ✗ · ✗ | 0 · 0 · 0 | 1/1 · 0 · 0 | n/a | n/a | n/a |
 | `appointment_deliveries` | 1 | ✗ · ✗ · 0 | 0 · 0 · 0 | 1/1 · 0 · 0 | 1/1 · 0 · 0 | 1/1 · 0 · 0 | 0/1 · 0 · 0 |
-| `appointment_items` | 11 | ✗ · ✗ · ✗ | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
-| `appointments` | 16 | ✗ · ✗ · ✗ | 0 · 0 · 0 | 12/12 · 2 · 0 | n/a | n/a | n/a |
+| `appointment_items` | 15 | ✗ · ✗ · ✗ | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
+| `appointments` | 21 | ✗ · ✗ · ✗ | 0 · 0 · 0 | 14/14 · 2 · 0 | n/a | n/a | n/a |
 | `bulk_deal_pledges` | 2 | 0 · 0 · 0 | 0 · 0 · 0 | 1/1 · 0 · 0 | n/a | n/a | n/a |
 | `bulk_deal_tokens` | 0 | 0 · 0 · 0 | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
 | `business_login_credentials` | 0 | ✗ · ✗ · ✗ | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
@@ -40,10 +40,10 @@ transaction per table, each actor in its own rolled-back sub-block. Nothing was 
 | `catalog_items` | 64 | 64 · ✗ · ✗ | 64 · 0 · 0 | n/a | 4/4 · 4 · 4 | 4/4 · 4 · 4 | 4/4 · 0 · 0 |
 | `categories` | 56 | 56 · 0 · 0 | 56 · 0 · 0 | n/a | n/a | n/a | n/a |
 | `community_posts` | 2 | 2 · 0 · 0 | 2 · 0 · 0 | 2/2 · 2 · 2 | n/a | n/a | n/a |
-| `conversations` | 7 | 0 · 0 · 0 | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
+| `conversations` | 8 | 0 · 0 · 0 | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
 | `custom_payments` | 2 | 0 · 0 · 0 | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
 | `delivery_batches` | 0 | 0 · 0 · 0 | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
-| `fcm_tokens` | 24 | 0 · 0 · 0 | 0 · 0 · 0 | 11/11 · 11 · 11 | n/a | n/a | n/a |
+| `fcm_tokens` | 25 | 0 · 0 · 0 | 0 · 0 · 0 | 11/11 · 11 · 11 | n/a | n/a | n/a |
 | `group_buy_tokens` | 0 | 0 · 0 · 0 | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
 | `leads` | 16 | 0 · 0 · 0 | 0 · 0 · 0 | n/a | 5/5 · 10 · 0 | 0/5 · 0 · 0 | 0/5 · 0 · 0 |
 | `live_shares` | 13 | 0 · 0 · 0 | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
@@ -55,7 +55,7 @@ transaction per table, each actor in its own rolled-back sub-block. Nothing was 
 | `queue_tokens` | 0 | ✗ · ✗ · ✗ | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
 | `reports` | 1 | 0 · 0 · 0 | 0 · 0 · 0 | 0/1 · 0 · 0 | n/a | n/a | n/a |
 | `request_me_toos` | 2 | 2 · 0 · 0 | 2 · 0 · 0 | 1/1 · 0 · 1 | n/a | n/a | n/a |
-| `requests` | 7 | 7 · 0 · 0 | 7 · 0 · 0 | 5/5 · 5 · 5 | n/a | n/a | n/a |
+| `requests` | 8 | 8 · 0 · 0 | 8 · 0 · 0 | 5/5 · 5 · 5 | n/a | n/a | n/a |
 | `saved_searches` | 1 | 0 · 0 · 0 | 0 · 0 · 0 | 1/1 · 1 · 1 | n/a | n/a | n/a |
 | `settlements` | 2 | 0 · 0 · 0 | 0 · 0 · 0 | 1/1 · 0 · 0 | n/a | n/a | n/a |
 | `societies` | 1 | 1 · 0 · 0 | 1 · 0 · 0 | n/a | n/a | n/a | n/a |
@@ -64,7 +64,7 @@ transaction per table, each actor in its own rolled-back sub-block. Nothing was 
 | `subscriptions` | 0 | 0 · 0 · 0 | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
 | `support_tickets` | 0 | 0 · 0 · 0 | 0 · 0 · 0 | n/a | n/a | n/a | n/a |
 | `user_lists` | 2 | 0 · 0 · 0 | 0 · 0 · 0 | 2/2 · 2 · 2 | n/a | n/a | n/a |
-| `users` | 29 | 0 · 0 · 0 | 29 · 0 · 0 | n/a | n/a | n/a | n/a |
+| `users` | 32 | 0 · 0 · 0 | 32 · 0 · 0 | n/a | n/a | n/a | n/a |
 
 ## Rows a guest, stranger or wrong-scope team member could change
 

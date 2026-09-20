@@ -18,6 +18,178 @@ re-reporting something that sounds familiar; check it's not already fixed.
 
 ---
 
+## #31 — `spatial_ref_sys` is writable by anyone holding the publishable key
+
+**Status:** Open — **we cannot fix this with a migration**; options below are for the owner.
+**Found:** 2026-09-20 by the new IDOR sweep (`scripts/db-tests/idor-sweep.mjs`), on its first real run.
+
+**What is wrong (verified on staging and matching production's advisor):** PostGIS's `spatial_ref_sys`
+lives in `public`, so PostgREST exposes it, and both `anon` and `authenticated` hold
+`SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER` on it with **RLS off**. Confirmed against
+the live API, not just the catalogue — using only the publishable key:
+
+```
+anon DELETE /rest/v1/spatial_ref_sys?srid=eq.-999  -> 204  (authorized; filter matched nothing)
+anon PATCH  /rest/v1/spatial_ref_sys?srid=eq.-999  -> 204  (authorized)
+anon SELECT                                        -> 8500 rows
+```
+
+A filter that matches rows instead of none would delete them. Nothing in the app needs this table to be
+writable by anyone.
+
+**Actual blast radius — smaller than it first looks, and worth being precise about.** Wiping the table
+was tested inside a transaction on staging and rolled back:
+
+| After deleting all 8500 rows | Result |
+|---|---|
+| Nearby search (`ST_DWithin` on `geography`) | **still works** — PostGIS treats geography as 4326 without consulting the table |
+| `ST_Transform` | **broken** (`XX000`) |
+
+STRYT uses no `ST_Transform` anywhere (only `ST_SetSRID` / `ST_MakePoint` / `ST_DWithin`), so discovery
+would survive. This is therefore **unauthorized write access to a system table in our database**, not a
+discovery outage — serious, but not the emergency the raw permissions suggest. It would become one the
+day any feature needs a coordinate transform.
+
+**Why we cannot just revoke it:** the table is owned by `supabase_admin`, and `postgres` has no grant
+option on it — `revoke all on public.spatial_ref_sys from anon, authenticated` runs as a silent no-op
+(PostgreSQL warns rather than errors when a non-owner revokes). Tested on staging 2026-09-20. The same
+reason `20260824` already records for `postgis_cache_bbox`: *"we don't own those and ALTER/REVOKE on them
+fails"*.
+
+**Options, for the owner:**
+1. **Move PostGIS out of `public`** into an `extensions` schema. This is the correct fix and is what
+   Supabase's own advisor means by its `extension_in_public` WARN — the table simply stops being exposed.
+   Cost: every `SECURITY DEFINER` function pinned to `set search_path = public` would need
+   `public, extensions`, which is 50+ functions. Its own migration and its own testing pass.
+2. **Ask Supabase support to revoke** the grants on the managed table. Cheapest if they will do it.
+3. **Accept and document**, on the strength of the blast-radius test above — but then re-open this the
+   moment anything starts using `ST_Transform`.
+
+**Note:** this is the only finding the sweep produced once every intentional exposure was justified in
+`scripts/db-tests/idor-allowlist.json`. Every privacy-sensitive table tested clean — see #30's sibling
+note below.
+
+---
+
+## #30 — `tracking_tokens` was world-readable: every live tracking token enumerable by anyone
+
+**Status:** **Fixed** — applied to staging (`laswruzdyqehziyupmdm`) and production (`gnswxlfmcwyhmzlfipql`)
+2026-09-20, verified read-only; migration ledger repaired the same day (see `supabase/APPLY_LOG.md` row 55).
+**Found:** 2026-09-20, while proof-reading an external architecture review against the codebase. The review
+flagged the *public tracking URL* as a risk and recommended high-entropy tokens plus expiry — both of which
+STRYT already had. The actual hole was one line above the thing it recommended fixing.
+
+**What was wrong (verified against production `gnswxlfmcwyhmzlfipql`, 2026-09-20):**
+- `public.tracking_tokens` carried `CREATE POLICY tt_read ... FOR SELECT TO PUBLIC USING (true)`;
+- `anon` and `authenticated` both held `SELECT` on the table (plus INSERT/UPDATE/DELETE/TRUNCATE/
+  REFERENCES/TRIGGER).
+
+So any holder of the publishable key could `select * from tracking_tokens`, harvest every unexpired token id,
+and replay each through `get_tracking()` — which for the agreement branch returns the responder's live
+`provider_lat` / `provider_lng`, name and avatar. The token's `gen_random_uuid()` entropy and its `expires_at`
+window were doing no work, because the *list* of live tokens was itself public. Enumeration never needed to
+guess a token; it could just read them.
+
+**Root cause — a leftover, not a mistake in the current design:** in the initial commit (`a9d6c1d`)
+`src/screens/TrackingPage.tsx:56` read the table directly
+(`.from("tracking_tokens").select("*").eq("id", token).maybeSingle()`), and `tt_read` existed to let a
+signed-out visitor do that. The read later moved behind the `get_tracking()` RPC
+(`TrackingPage.tsx:76`, `:156`) but the policy and the table grants were never withdrawn. Same shape as the
+`queue_tokens` leak: a permissive rule that outlived the code path it was written for.
+
+**Blast radius — nil, confirmed before writing the fix:**
+- the table holds **0 rows** on production, so no token has ever been created by any path and nothing has
+  actually leaked;
+- only three functions reference it — `get_tracking`, `agreement_create_tracking_token`,
+  `appointment_create_tracking_token` — and all three are `SECURITY DEFINER` owned by `postgres`, so they
+  need no grants to `anon`/`authenticated`;
+- no view or materialized view references it;
+- no current app code touches the table (only generated rows in `src/types/database.types.ts`).
+
+**Fix:** `supabase/migrations/20260992_tracking_tokens_not_world_readable.sql` — drops `tt_read` and
+`tt_insert`, revokes all table grants from `anon` and `authenticated`, leaves RLS enabled so the table is
+default-deny rather than merely ungranted. `get_tracking(text)` stays granted to `anon` (that is the point of
+a share link); the two `create_*` RPCs stay granted to `authenticated` only.
+Rollback: `supabase/rollbacks/20260992_tracking_tokens_not_world_readable.rollback.sql`, built from the live
+catalog.
+
+**Staging result (2026-09-20)** — staging carried the identical pre-fix state. After applying, three
+role-scoped checks run as `anon`:
+
+| Check | Result |
+|---|---|
+| direct `SELECT` on `tracking_tokens` | PASS — denied (`42501`) |
+| `get_tracking()` RPC | PASS — executed, 0 rows (SECURITY DEFINER still reads the table) |
+| direct `INSERT` | PASS — denied (`42501`) |
+
+So the hole closes and the signed-out share link keeps working.
+
+**Production result (2026-09-20)** — applied by the owner; verified read-only by the agent. 0 policies, no
+`anon`/`authenticated` grants, RLS on, 0 rows, `get_tracking` still granted to `anon`. The same role-scoped
+checks pass, plus `authenticated`:
+
+| Check | Result |
+|---|---|
+| `anon` direct `SELECT` | PASS — denied (`42501`) |
+| `authenticated` direct `SELECT` | PASS — denied (`42501`) |
+| `anon` direct `INSERT` | PASS — denied (`42501`) |
+| `anon` `get_tracking()` RPC | PASS — executed, 0 rows |
+
+Snapshots `2026-09-20_pre_20260992.sql` → `2026-09-20_after_20260992.sql`: policies 212→210, table grants
+263→261, nothing else changed. Security advisor shows no new finding; `tracking_tokens` now sits under the
+INFO lint `rls_enabled_no_policy`, which is the intended end state.
+
+**Ledger repair (2026-09-20, same day):** the production apply initially left **no row** in
+`supabase_migrations.schema_migrations` — it did not go through the Management API endpoint, so baseline +
+migrations would have silently skipped this fix on any rebuild and re-opened the hole. Repaired by inserting
+version `20260920045700`, name `20260992_tracking_tokens_not_world_readable`, with the migration body in
+`statements` so the row matches staging's `20260920043851` exactly. Ledger now 178 → 179 rows and the tail
+reads `20260920045700 20260992_tracking_tokens_not_world_readable`. Rebuildability (P06) is intact again.
+
+**Lesson worth keeping:** applying production DDL through the Supabase SQL Editor leaves the database correct
+and its provenance wrong — the most expensive kind of silent drift, because nothing fails at the time. HANDOFF
+rule 3 exists for this. Prefer `apply_migration` / `scripts/release/apply-production-migrations.mjs`; if the
+Editor is ever used, write the ledger row in the same sitting.
+
+**Follow-up worth doing, not done here:** this was found by reading one file. Nothing systematically checks
+for `USING (true)` policies that outlived their caller — 206 policies and 248 functions have never had a
+cross-account sweep. Assume there is a second one.
+
+---
+
+## #29 — Pharmacy listings could be read as selling prescription medicines
+
+**Status:** Mitigated in policy — 2026-09-20 (not yet committed). Product decision and counsel review still open.
+**Found:** while filling Play Console's Health apps declaration (20 Sept).
+
+**What the app does:** `src/lib/businessPackages.ts` ships purpose-built packages for `clinic` (consultation
+booking), `diagnostics` (book a test), `pharmacy` (catalog + **orders**) and `vet`. A pharmacy can therefore list
+items and take orders through STRYT, and nothing in the code or the policies distinguished prescription-only
+medicines. There is no prescription upload, and no verification step anywhere (`grep -ri prescription src/`
+returns one unrelated string in `curatedImages.ts`).
+
+**Why it matters:** Google restricts apps that facilitate the sale of prescription medicines, and Indian law
+(Drugs and Cosmetics Act, Schedules H/H1/X) requires a registered practitioner's prescription. The old wording
+banned only "illegal drugs, controlled substances" — silent on prescription-only medicines.
+
+**Done (policy):** an explicit ban on listing, ordering or arranging prescription-only medicines, in the three
+places a merchant or member would look:
+- `legal/acceptable-use-policy.md` §3 (prohibited goods and services),
+- `legal/community-guidelines.md` (the trade rules),
+- `legal/merchant-terms.md` §7.4 — the fullest statement: what a pharmacy, clinic or lab *may* list, the
+  Schedule H/H1/X ban, that STRYT holds no prescription, and that dispensing stays the merchant's own duty.
+
+**Still open, for the owner:**
+1. Counsel to confirm the wording is enough for India, alongside the other launch documents.
+2. Product: the rule is written but not enforced in code. Options — leave as policy-only (moderators remove
+   offending listings, reports already exist); add a blocked-word check on pharmacy catalog items; or build a
+   prescription flow in v1.1 and allow it properly.
+
+**Play declaration filed with this:** *Healthcare services and management* (the app books appointments with
+clinics and labs), not "no health features".
+
+---
+
 ## #28 — UI spacing audit (2026-09-19): index of #19–#27
 
 **Status:** Fixed — 2026-09-19 (not yet committed). Owner: "fix all"; #25 option B (lock text size); #27 checked fine on a phone.
