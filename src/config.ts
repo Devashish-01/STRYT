@@ -9,7 +9,12 @@ export const config = {
   bugReportExcelUrl: (import.meta as any).env?.VITE_BUG_REPORT_EXCEL_URL ?? "",
   bugReportScriptUrl: (import.meta as any).env?.VITE_BUG_REPORT_SCRIPT_URL ?? "",
   supabaseUrl: (import.meta as any).env?.VITE_SUPABASE_URL ?? "",
-  supabaseAnonKey: (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ?? "",
+  // Publishable key, under either variable name — see the note in lib/supabaseClient.ts. The field
+  // keeps its old name so callers do not have to change while the environments are migrated.
+  supabaseAnonKey:
+    (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY ??
+    (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ??
+    "",
   defaultLocation: {
     lat: Number((import.meta as any).env?.VITE_DEFAULT_LAT ?? 18.536),
     lng: Number((import.meta as any).env?.VITE_DEFAULT_LNG ?? 73.893),

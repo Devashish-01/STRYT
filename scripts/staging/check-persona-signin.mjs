@@ -18,7 +18,8 @@ if (!env.STAGING_REF || env.STAGING_REF === PROD || !env.VITE_SUPABASE_URL.inclu
   console.error("REFUSED: .env.staging does not point at the staging project");
   process.exit(2);
 }
-const H = { apikey: env.VITE_SUPABASE_ANON_KEY, "Content-Type": "application/json" };
+// Either variable name, for the same reason as idor-sweep.mjs.
+const H = { apikey: env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY, "Content-Type": "application/json" };
 console.log("auth target:", env.STAGING_REF, "(staging)");
 let failures = 0;
 for (const p of PERSONAS) {

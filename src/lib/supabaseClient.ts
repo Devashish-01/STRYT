@@ -1,11 +1,20 @@
-// Single Supabase client for the whole app. ONLY the anon/public key goes
-// here — never the service_role key (it bypasses RLS and must stay server-side).
-// Reads VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY from the environment.
+// Single Supabase client for the whole app. ONLY the publishable/anon key goes here — never the secret
+// or service_role key, which bypass RLS and must stay server-side.
+//
+// Key formats: Supabase is retiring the legacy JWT `anon` key in favour of `sb_publishable_…`, and
+// supabase-js accepts either, so the swap is a value change rather than a code change. Both variable
+// names are read here — VITE_SUPABASE_PUBLISHABLE_KEY first, then VITE_SUPABASE_ANON_KEY — so the
+// rename can happen one environment at a time instead of as a flag day across .env, Vercel, CI and
+// every script. `.env.staging` already carries an `sb_publishable_…` value under the old name, which is
+// how we know the new format works end to end here.
+//
+// Once every environment has moved, drop the VITE_SUPABASE_ANON_KEY fallback and the old name with it.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 
-const url = (import.meta as any).env?.VITE_SUPABASE_URL ?? "";
-const anonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ?? "";
+const env = (import.meta as any).env ?? {};
+const url = env.VITE_SUPABASE_URL ?? "";
+const anonKey = env.VITE_SUPABASE_PUBLISHABLE_KEY ?? env.VITE_SUPABASE_ANON_KEY ?? "";
 
 // Lazily created so mock mode never needs the env vars set.
 let _client: SupabaseClient<Database> | null = null;
@@ -13,8 +22,9 @@ let _client: SupabaseClient<Database> | null = null;
 export function getSupabase(): SupabaseClient<Database> {
   if (!url || !anonKey) {
     throw new Error(
-      "Supabase env not set. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to .env " +
-        "(and keep VITE_USE_MOCKS=false to use the real backend)."
+      "Supabase env not set. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY " +
+        "(or the legacy VITE_SUPABASE_ANON_KEY) to .env — and keep VITE_USE_MOCKS=false " +
+        "to use the real backend."
     );
   }
   if (!_client) {
