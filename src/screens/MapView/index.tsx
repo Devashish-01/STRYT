@@ -668,15 +668,30 @@ export default function MapView() {
               area, not just to a hidden control. */}
           {isGuest && <MapBottomDock><GuestRadiusNotice /></MapBottomDock>}
 
+          {/* Labelled, while Re-centre stays a bare icon — the two used to be
+              identical glass circles distinguishable only by a `title`, which
+              is a desktop hover tooltip and therefore renders NOTHING on the
+              phone this app is mostly used on. Two anonymous purple circles,
+              one above the other, and no way to tell which was which.
+
+              They are not two flavours of the same thing, so they should not
+              look alike: Re-centre is a VIEW action (move the camera, costs
+              nothing, tap it constantly) and follows the arrow-in-a-circle
+              convention every map app shares. This one is a DATA action — it
+              changes the location saved on your profile, which is what the
+              whole app filters by. The unfamiliar, consequential one is the
+              one that gets words. */}
           <button
             type="button"
-            className="icon-btn map-glass-panel map-fab-pin"
+            className="chip-pill map-glass-panel map-fab-pin"
+            aria-label={t("map_set_location_aria")}
             title={t("map_set_location_manually")}
             /* Wrapped, not passed by reference — enterPickMode now takes an
                optional start point and would otherwise receive the click event. */
             onClick={() => pin.enterPickMode()}
           >
-            <MapPinPlus size={18} color="var(--brand-600)" />
+            <MapPinPlus size={15} color="var(--brand-600)" />
+            <span>{t("map_set_location_cta")}</span>
           </button>
         </>
       )}

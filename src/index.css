@@ -4800,11 +4800,33 @@ button.set-row:active {
   pointer-events: auto;
 }
 
+/* "Set my location" — a labelled pill, not a third anonymous circle.
+   It sat above Re-centre as an identical glass circle whose only label was a
+   `title`, i.e. a hover tooltip that never appears on a touch screen. Two
+   look-alike buttons, one of which quietly rewrites the location the entire
+   app filters by, is a trap rather than a choice.
+
+   Right-aligned with Re-centre below it so the column still reads as one
+   control stack, and `width: max-content` so the pill grows with its label —
+   Hindi and Marathi are noticeably longer than English here, and a fixed
+   width would clip them. */
 .map-fab-pin {
   position: absolute;
   bottom: calc(var(--map-pin-bottom) + var(--map-dock-h, 0px));
   right: var(--map-chrome-inset);
   z-index: 1001;
+  width: max-content;
+  max-width: calc(100vw - (2 * var(--map-chrome-inset)));
+  gap: 6px;
+  /* The glass panel supplies the background, border and shadow via
+     !important, so only the shape and text colour are set here. */
+  color: var(--brand-700);
+  font-weight: 650;
+}
+.map-fab-pin > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .map-fab-recenter {

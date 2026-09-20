@@ -63,6 +63,12 @@ export function RecenterButton({
     <button
       type="button"
       className="icon-btn map-glass-panel map-fab-recenter"
+      /* `title` is a hover tooltip and shows nothing on a touch device, so it
+         cannot be the only label. The arrow-in-a-circle is the one map control
+         people already know, so it stays icon-only — but it still needs a real
+         name for screen readers, and one that says what it does rather than
+         what it is called. */
+      aria-label={t("map_recenter_aria")}
       title={t("map_recenter_title")}
       onClick={() => {
         nativeGeolocation.getCurrentPosition(
