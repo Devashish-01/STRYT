@@ -7,6 +7,7 @@ import { SafeImg } from "@/components/common";
 import { config } from "@/config";
 import DeliveryStepper from "@/components/delivery/DeliveryStepper";
 import { liveStatusToDeliveryStatus } from "@/lib/deliveryStatus";
+import { track } from "@/lib/analytics";
 
 const anonSb = createClient(
   config.supabaseUrl,
@@ -75,6 +76,10 @@ export default function TrackingPage() {
       // (see supabase/legacy/migration_launch_hardening.sql).
       const { data, error } = await anonSb.rpc("get_tracking", { p_token: token });
       const row = Array.isArray(data) ? data[0] : data;
+      // A tracking link is the one STRYT URL that routinely travels through
+      // WhatsApp and comes back. Whether it still resolves is the signal;
+      // the token itself is never sent.
+      track("share_link_opened", { kind: "tracking", valid: !error && !!row });
       if (error || !row) { setExpired(true); setLoading(false); return; }
       setAgreementId(row.agreement_id);
       setProviderLat(row.provider_lat ?? null);

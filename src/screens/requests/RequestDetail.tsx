@@ -24,6 +24,7 @@ import AnimatedNumber from "@/components/AnimatedNumber";
 import { useI18n } from "@/lib/i18n";
 import { errorMessage } from "@/lib/errorMessage";
 import UnderReviewNotice from "@/features/moderation/UnderReviewNotice";
+import { track } from "@/lib/analytics";
 
 export default function RequestDetail() {
   const { id = "" } = useParams();
@@ -36,6 +37,13 @@ export default function RequestDetail() {
     [id],
     `id=eq.${id}`
   );
+
+  // How far an ask actually reaches. Fires once per request per mount, not on
+  // every realtime refetch, so a live-updating page does not inflate the count.
+  // Guests are counted too — reach before sign-in is the whole question.
+  useEffect(() => {
+    if (id) track("request_viewed", { guest: isGuest });
+  }, [id, isGuest]);
 
   // proposals is a separate table from requests, so the row-level subscription
   // above doesn't cover a new proposal landing — subscribe to it too.
