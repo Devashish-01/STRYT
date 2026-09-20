@@ -5,8 +5,9 @@
 // and 248 functions had never been exercised from a second account.
 //
 // What it does, in four phases, WITHOUT WRITING ANY DATA:
-//   A. Discovery — asks PostgREST itself which tables are exposed (its OpenAPI document) rather than
-//      carrying a hardcoded list that goes stale the next time someone adds a table.
+//   A. Discovery — reads the exposed tables out of the generated src/types/database.types.ts rather
+//      than carrying a hardcoded list. (PostgREST's OpenAPI document would be authoritative, but
+//      Supabase now requires a secret key for it — see the note above discover().)
 //   B. Read reach — for every identity (anon + each persona), how many rows does a bare SELECT return?
 //   C. Cross-user read — for every table with an owner column, can identity A read rows owned by B?
 //      This is the actual IDOR question, and it needs no hand-written expectations matrix.
@@ -54,7 +55,9 @@ if (!env.STAGING_REF || env.STAGING_REF === PRODUCTION_REF || !env.VITE_SUPABASE
   process.exit(2);
 }
 const URL_BASE = env.VITE_SUPABASE_URL;
-const APIKEY = env.VITE_SUPABASE_ANON_KEY;
+// Either variable name — the publishable-key rename is being rolled out per environment,
+// and a test harness must not be the thing that blocks it.
+const APIKEY = env.VITE_SUPABASE_PUBLISHABLE_KEY || env.VITE_SUPABASE_ANON_KEY;
 
 // Columns that name the row's owner. Kept here rather than inferred from a name pattern so that adding a
 // new convention is a deliberate edit — a silently unrecognised owner column would mean a silently
@@ -68,6 +71,7 @@ const OWNER_COLUMNS = [
 const allowlist = JSON.parse(fs.readFileSync(ALLOWLIST_PATH, "utf8"));
 const publicReadOk = new Set(Object.keys(allowlist.publicRead || {}));
 const crossUserReadOk = new Set(Object.keys(allowlist.crossUserRead || {}));
+const anonWriteOk = new Set(Object.keys(allowlist.anonWrite || {}));
 
 function headers(token) {
   const h = { apikey: APIKEY, "Content-Type": "application/json" };
@@ -214,7 +218,7 @@ async function main() {
     // Phase D — anon write authorization (no data is written)
     const insertStatus = await probeInsert(t.name, null);
     row.anonInsert = insertStatus;
-    if (insertStatus === 400) {
+    if (insertStatus === 400 && !anonWriteOk.has(t.name)) {
       findings.push({
         severity: "CRITICAL", kind: "anon-write", table: t.name,
         detail: `anon INSERT reached validation (HTTP 400), meaning authorization did not stop it`,

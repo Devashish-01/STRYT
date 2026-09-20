@@ -18,6 +18,51 @@ re-reporting something that sounds familiar; check it's not already fixed.
 
 ---
 
+## #32 — Map's two location buttons were indistinguishable on a phone
+
+**Status:** Fixed — 2026-09-20 (not yet committed).
+**Reported:** "Map पर दो buttons हैं… एक location का और एक change location का, तो वह समझ नहीं पा रहे user
+कि कौन-सा वाला है।"
+
+**Root cause — the labels existed, but not where a phone user could see them.** Both controls sat in the
+same right-hand column as identical 40px glass circles:
+
+| | Element | Icon | Label |
+|---|---|---|---|
+| Upper | `.map-fab-pin` (`MapView/index.tsx`) | `MapPinPlus`, `--brand-600` | `title="Set location manually"` |
+| Lower | `.map-fab-recenter` (`MapView/MapControllers.tsx`) | `Navigation`, `--brand-500` | `title="Re-centre"` |
+
+`title` is a **hover tooltip**. On a touch device it renders nothing at all, and neither button had an
+`aria-label`, so screen readers got nothing either. What a phone user actually saw was two same-sized,
+same-styled purple circles one above the other — and `--brand-500` vs `--brand-600` is not a
+distinguishable difference at 18px.
+
+**Why it mattered more than it looked.** The two are not variants of one thing:
+- **Re-centre** is a *view* action — move the camera, costs nothing, tapped constantly, and it follows
+  the arrow-in-a-circle convention every map app shares.
+- **Set location** is a *data* action — it rewrites `users.lat/lng`, the coordinates the entire app
+  filters discovery by. Tapping it by mistake silently moves your home.
+
+A reversible action and a consequential one looked identical.
+
+**Fix:** stop making them look alike, and put the words where they are visible.
+- `.map-fab-pin` is now a **labelled pill** (`chip-pill`) reading "Set my location" — icon plus text.
+  The unfamiliar, consequential control is the one that gets words.
+- Re-centre stays **icon-only**, deliberately: it is the control people already know, and turning both
+  into pills would just create two competing labels in the same corner.
+- Both gained a real `aria-label` describing the *effect*, not the control's name —
+  "Centre the map on where I am now" and "Change my saved location by picking a point on the map".
+- The pill uses `width: max-content` with a viewport-bounded `max-width`; the Hindi and Marathi strings
+  are considerably longer than the English, and a fixed width would have clipped them.
+
+**Files:** `src/screens/MapView/index.tsx`, `src/screens/MapView/MapControllers.tsx`, `src/index.css`,
+`src/lib/i18n/{en,hi,mr}.ts` (3 new keys each, counts stay equal at 1780).
+
+**Not changed:** the stacking maths. `--map-pin-bottom` is derived from the *Re-centre* button's height,
+which sits below, so the pill's own height does not affect the offset.
+
+---
+
 ## #31 — `spatial_ref_sys` is writable by anyone holding the publishable key
 
 **Status:** Open — **we cannot fix this with a migration**; options below are for the owner.

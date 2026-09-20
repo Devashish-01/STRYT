@@ -6,6 +6,8 @@
     "publicRead    — signed-out visitors are meant to read this table (discovery, share links, SEO).",
     "crossUserRead — a signed-in user is meant to see rows owned by someone else (public authorship,",
     "                counterparty visibility, admin review). Use 'table' or the narrower 'table.column'.",
+    "anonWrite     — signed-out visitors are meant to INSERT here. Rare, and the highest bar of the three:",
+    "                say what stops it being abused, not just why it is needed.",
     "",
     "Adding an entry silences a finding, so each one is a claim you are making about the product.",
     "Review this file whenever a policy changes.",
@@ -14,7 +16,6 @@
     "checked against what the product actually promises, not merely against what the database happened",
     "to allow."
   ],
-
   "publicRead": {
     "businesses": "Shops are the catalogue. A signed-out visitor browsing the map is the primary funnel. read_businesses already narrows this to status=ACTIVE AND owner_enabled AND deleted_at IS NULL.",
     "providers": "Same as businesses — independent providers are discoverable by design.",
@@ -25,7 +26,6 @@
     "requests": "Open 'asks' are public by design: the whole point is that nearby sellers can see and answer them. Guests must be able to read them to be persuaded to sign up.",
     "leaderboard_points": "Deliberate public leaderboard (public_sel_leaderboard_points USING true). Columns are user_id, points, updated_at — no PII beyond a user id that public profiles already expose. CAVEAT: this does let an anonymous client enumerate every user id and activity level, which is a scraping vector rather than a leak. Revisit under the rate-limiting/anti-enumeration work, not as an RLS change."
   },
-
   "crossUserRead": {
     "businesses": "A shop is public; its owner_user_id is part of the public record.",
     "providers": "As above — a provider profile is public.",
@@ -35,5 +35,8 @@
     "client_errors": "Admin-only, same as bug_reports — this is the crash triage queue.",
     "support_tickets": "Admin-only. Support staff must read the ticket they are answering.",
     "profile_deletion_requests": "Admin-only. Deletion requests are reviewed by a human before the purge runs."
+  },
+  "anonWrite": {
+    "events": "Guest funnel. The question analytics exists to answer is how many people browse before signing up, and a guest has no JWT, so anon must be able to INSERT. Bounded rather than trusted: `name` is constrained by a CHECK to ten known event names, so nothing arbitrary can be written; `props` is capped at 2 KB so it cannot be used as storage; user_id defaults to auth.uid() and the events_insert_guest policy requires it to be NULL, so a guest cannot forge a signed-in user's row; and reads are admin-only. The residual risk is inflated counts of known events — a data-quality problem we can spot, not a breach. See supabase/migrations/20260996_product_analytics.sql."
   }
 }

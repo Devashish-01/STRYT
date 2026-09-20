@@ -20,7 +20,7 @@ invisible to one and obvious to the other.
 | **INSERT** | not tested generically (needs per-table values) | probed with an empty body: `400` = authorized, `401/403` = blocked. Nothing is written |
 | **Safety** | every table in a forced-rollback transaction; ends with `RAISE EXCEPTION` | read-only by construction — it never writes |
 | **Output** | `data-access-results.json` → `DATA_ACCESS_MATRIX.md` | console/JSON + **exit code** (CI-usable) |
-| **Expectations** | read the matrix and judge | `idor-allowlist.json` — every allowed exposure carries a written reason |
+| **Expectations** | read the matrix and judge | `idor-allowlist.json` — every allowed exposure carries a written reason, in one of three categories: `publicRead`, `crossUserRead`, `anonWrite` |
 | **Command** | `node scripts/audit/data-access-tests.mjs <out.json>` | `npm run check-idor` |
 
 ---
