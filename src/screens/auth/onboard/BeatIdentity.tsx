@@ -3,17 +3,19 @@ import { SafeImg } from "@/components/common";
 import { LANGUAGES_ENABLED } from "@/lib/features";
 import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
 import { isUnusableName } from "@/lib/publicName";
+import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { uploadService } from "@/services";
 import { useApp } from "@/store";
 import { BeatFrame } from "./BeatFrame";
 
-export function BeatIdentity({ name, avatar, email, ageConfirmed, busy, onDone }: {
+export function BeatIdentity({ name, avatar, email, phone, ageConfirmed, busy, onDone }: {
   name: string;
   avatar?: string;
   email?: string;
+  phone?: string;
   ageConfirmed?: boolean;
   busy?: boolean;
-  onDone: (data: { name: string; avatar: string; ageConfirmed: true }) => void;
+  onDone: (data: { name: string; avatar: string; phone: string; ageConfirmed: true }) => void;
 }) {
   const { t, lang, setLang } = useI18n();
   const { showToast } = useApp();
@@ -21,8 +23,13 @@ export function BeatIdentity({ name, avatar, email, ageConfirmed, busy, onDone }
   const [photo, setPhoto] = useState(avatar || "");
   const [adult, setAdult] = useState(ageConfirmed === true);
   const [uploading, setUploading] = useState(false);
+  const [phoneDraft, setPhoneDraft] = useState(phone ?? "");
   const value = draft.trim();
-  const ready = value.length > 0 && value.length <= 40 && !isUnusableName(value) && adult;
+  // Only complain once they have typed enough to be worth judging — flagging "invalid" at the first
+  // keystroke is how a required field starts feeling hostile.
+  const phoneTouched = phoneDraft.replace(/\D/g, "").length >= 4;
+  const phoneOk = isValidPhone(phoneDraft);
+  const ready = value.length > 0 && value.length <= 40 && !isUnusableName(value) && phoneOk && adult;
   async function upload(file?: File) {
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
@@ -36,7 +43,7 @@ export function BeatIdentity({ name, avatar, email, ageConfirmed, busy, onDone }
   return (
     <BeatFrame title={t("ob_beat1_title")} sub={t("ob_identity_sub")}
       ctaLabel={t("ob_continue")} ctaDisabled={!ready} ctaBusy={busy || uploading}
-      onCta={() => onDone({ name: value, avatar: photo, ageConfirmed: true })}
+      onCta={() => onDone({ name: value, avatar: photo, phone: normalizePhone(phoneDraft), ageConfirmed: true })}
       footer={LANGUAGES_ENABLED ? (
         <div className="ob-langs" role="group" aria-label={t("language")}>
           {(Object.keys(LANG_LABELS) as Lang[]).map(l => (
@@ -57,12 +64,20 @@ export function BeatIdentity({ name, avatar, email, ageConfirmed, busy, onDone }
           placeholder={t("full_name_placeholder")} />
         <label className="ob-label" htmlFor="onboard-email">{t("ob_google_email")}</label>
         <input id="onboard-email" className="input ob-identity-input" type="email" value={email || ""} readOnly />
+        <label className="ob-label" htmlFor="onboard-phone">{t("mobile_phone")}</label>
+        <input id="onboard-phone" className="input ob-identity-input" type="tel" inputMode="tel"
+          value={phoneDraft} onChange={e => setPhoneDraft(e.target.value)} disabled={busy}
+          autoComplete="tel" maxLength={18} placeholder={t("mobile_phone_placeholder")}
+          aria-invalid={phoneTouched && !phoneOk} aria-describedby="onboard-phone-hint" />
+        <p id="onboard-phone-hint"
+           className={`ob-identity-hint ${phoneTouched && !phoneOk ? "bad" : ""}`}>
+          {phoneTouched && !phoneOk ? t("ob_phone_invalid") : t("ob_phone_why")}
+        </p>
         <label className="ob-age-confirm" htmlFor="onboard-adult">
           <input id="onboard-adult" type="checkbox" checked={adult} disabled={busy}
             onChange={e => setAdult(e.target.checked)} />
           <span>{t("ob_age_confirm")}</span>
         </label>
-        <p className="ob-identity-hint">{t("ob_phone_later")}</p>
       </div>
     </BeatFrame>
   );

@@ -14,6 +14,7 @@ import { BeatInterests } from "./onboard/BeatInterests";
 import { LOCATION_SKIPPED_KEY, hasNoLocation } from "@/lib/locationPrompt";
 import { returnTo } from "@/lib/returnTo";
 import { errorCode, errorMessage } from "@/lib/errorMessage";
+import { track } from "@/lib/analytics";
 
 /** Each completed beat is saved server-side; device storage is never a gate. */
 export default function UserOnboard() {
@@ -22,7 +23,10 @@ export default function UserOnboard() {
   const { t } = useI18n();
   const [beat, setBeat] = useState(() => Math.min(Math.max(user.onboardingStep ?? 0, 0), 3));
   const [busy, setBusy] = useState(false);
-  const [identity, setIdentity] = useState({ name: user.name, avatar: user.avatar || "", ageConfirmed: !!user.ageConfirmedAt });
+  const [identity, setIdentity] = useState({
+    name: user.name, avatar: user.avatar || "", phone: user.phone || "",
+    ageConfirmed: !!user.ageConfirmedAt,
+  });
   const [alias, setAlias] = useState(user.alias || "");
   const [place, setPlace] = useState<PickedPlace | null>(() =>
     !hasNoLocation(user.lat, user.lng) && Number.isFinite(user.lat) && Number.isFinite(user.lng)
@@ -50,6 +54,9 @@ export default function UserOnboard() {
     setBusy(true);
     try {
       await onboardingService.save("finish", { interests });
+      // The end of the funnel that starts with a guest opening the app.
+      // Count of interests only — not which ones, and nothing identifying.
+      track("signup_completed", { interests: interests.length, skipped_location: !place });
       await refreshUser({ throwOnError: true });
       nav(returnTo.consume(), { replace: true });
     } catch (err) {

@@ -410,7 +410,7 @@ export default function ProfileEdit() {
               </div>
             </div>
             <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
-              {t("ob_phone_later")}
+              {t("ob_phone_why")}
             </p>
           </div>
         </div>
