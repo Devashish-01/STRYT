@@ -71,7 +71,8 @@ We collect only what the features you use require. Grouped by purpose:
 ### 3.9 Device, notifications, and technical data
 - Web-push subscriptions and Firebase Cloud Messaging device tokens (to deliver notifications), your in-app notifications, and technical data such as IP address, device/browser type, and app interactions collected to operate and secure the service.
 - **Camera access** — used only when you actively take a photo (e.g. for a listing, profile, or Content) or scan a QR code; we do not access your camera at any other time.
-- **Client error logs** and listing **view counts** (business/provider view logs) for reliability and analytics.
+- **Client error logs and crash reports** — when something goes wrong in the app we record the error message and where it happened, the app version, and basic device/browser details, so we can fix it. These are stored by us and sent to our error-monitoring processor (**Sentry**, Section 8.2). Personal data — phone numbers, email addresses, identity-document references, payment handles, coordinates and access tokens — is removed before an error report leaves your device.
+- Listing **view counts** (business/provider view logs) for reliability and analytics.
 
 ### 3.10 Support, moderation, and audit
 - Support tickets (category, your reply-to email, subject, message — delivered to us by email), bug reports (with the role you were using), reports you file about content/people, and account appeals.
@@ -161,6 +162,7 @@ As inherent to the features you use — e.g. a Seller sees your name/alias and d
 - **Overpass API (OpenStreetMap)** — queried for nearby public places when you browse the map.
 - **Email/SMTP provider** — to deliver support-ticket emails to our support inbox (your reply-to email, category, subject, and message are included).
 - **Web Push services** — the browser's push service to deliver web notifications.
+- **Sentry** — error and crash monitoring (Section 3.9). Receives the technical details of an error after personal data has been removed from it; it does not receive your content, contacts or location.
 - **TypeSafe** — automated content-safety checks (Section 7.3). Receives the text of public content and of reports about it, with phone numbers, email addresses, ID numbers and UPI IDs masked and no account identifiers; never private chat or offer messages.
 - **NPCI/UPI and your bank/UPI app** — you interact with these directly to make payments (not a STRYT processor, but essential to the payment you initiate).
 
@@ -173,7 +175,7 @@ We may disclose data where required by law, court order, or a lawful government 
 
 ## 9. Cross-border storage and transfers
 
-9.1 Our infrastructure providers (Supabase, Vercel, Google/Firebase) and our content-safety processor (TypeSafe) may store or process data on servers **outside India**, depending on region configuration. Where personal data is stored or transferred outside India, we will comply with the DPDP Act and any restrictions notified by the Central Government.
+9.1 Our infrastructure providers (Supabase, Vercel, Google/Firebase), our error-monitoring processor (Sentry) and our content-safety processor (TypeSafe) may store or process data on servers **outside India**, depending on region configuration. Where personal data is stored or transferred outside India, we will comply with the DPDP Act and any restrictions notified by the Central Government.
 
 9.2 Our primary product audience is India. Infrastructure regions depend on each provider's project configuration (Supabase database/auth/storage, Vercel edge/hosting, Google/Firebase). If you need the current hosting region details for a data-rights request, contact us at contact@stryt.in and we will provide them.
 

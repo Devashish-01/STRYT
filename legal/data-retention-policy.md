@@ -81,6 +81,7 @@ The following are STRYT's retention targets. Except where a mechanism is hard-co
 | Reports & appeals | For trust/safety record and any legal need |
 | Admin action / audit logs | Extended retention for accountability & legal obligation *(policy default: e.g. 3–7 years — confirm)* |
 | Client error logs / view logs | Short operational retention *(policy default: e.g. 90 days — confirm)* |
+| Crash reports held by Sentry (error monitoring) | Per Sentry's plan retention — 30 days on the current plan |
 | Analytics (Vercel) | Per provider defaults; anonymous/aggregate |
 | Backups | Short rolling window (Section 6) |
 
