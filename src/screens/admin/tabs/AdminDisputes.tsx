@@ -23,9 +23,11 @@ export function AdminDisputes() {
   async function resolve(agreementId: string, newStatus: "COMPLETED" | "CANCELLED") {
     try {
       await adminService.resolveAgreementDispute(agreementId, newStatus);
+      // No "escrow released/refunded" here: STRYT never holds the money, so resolving a dispute
+      // settles the record, not a transfer. Saying otherwise told admins a payout had happened.
       showToast(newStatus === "COMPLETED"
-        ? "Resolved — marked complete, escrow released"
-        : "Resolved — cancelled, escrow refunded");
+        ? "Resolved — marked complete"
+        : "Resolved — marked cancelled");
       refetch();
     } catch (e) {
       showToast(errorMessage(e, "Couldn't resolve the dispute."));

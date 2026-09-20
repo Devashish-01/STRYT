@@ -1,11 +1,3 @@
-// Generated from the STAGING database (laswruzdyqehziyupmdm) with the Management API on 2026-09-18.
-//
-// Staging carries migrations 20260973-20260991, which production has not had applied yet (an owner step).
-// These types therefore describe the schema the app is written against, not the one production runs today.
-// Regenerate after any migration: the previous copy had drifted far enough that it still declared
-// bulk_deal_order and bulk_deal_quote, dropped back in 20260921, and knew none of the community_* RPCs the
-// app calls - which is why service code was reaching for `as any` to get past its own types.
-
 export type Json =
   | string
   | number
@@ -1891,6 +1883,35 @@ export type Database = {
           },
         ]
       }
+      customer_onboarding_state: {
+        Row: {
+          age_confirmed_at: string | null
+          step: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          age_confirmed_at?: string | null
+          step?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          age_confirmed_at?: string | null
+          step?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_onboarding_state_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_agent_duty: {
         Row: {
           on_duty: boolean
@@ -2118,6 +2139,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      events: {
+        Row: {
+          app_version: string | null
+          created_at: string
+          id: string
+          name: string
+          props: Json
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          props?: Json
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          props?: Json
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
       }
       fcm_tokens: {
         Row: {
@@ -2731,66 +2782,6 @@ export type Database = {
             columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "businesses"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      payments: {
-        Row: {
-          agreement_id: string
-          amount: number
-          created_at: string | null
-          currency: string
-          escrow_status: string
-          id: string
-          payer_user_id: string
-          razorpay_order_id: string
-          razorpay_payment_id: string | null
-          razorpay_signature: string | null
-          status: string
-          updated_at: string | null
-        }
-        Insert: {
-          agreement_id: string
-          amount: number
-          created_at?: string | null
-          currency?: string
-          escrow_status?: string
-          id?: string
-          payer_user_id: string
-          razorpay_order_id: string
-          razorpay_payment_id?: string | null
-          razorpay_signature?: string | null
-          status?: string
-          updated_at?: string | null
-        }
-        Update: {
-          agreement_id?: string
-          amount?: number
-          created_at?: string | null
-          currency?: string
-          escrow_status?: string
-          id?: string
-          payer_user_id?: string
-          razorpay_order_id?: string
-          razorpay_payment_id?: string | null
-          razorpay_signature?: string | null
-          status?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payments_agreement_id_fkey"
-            columns: ["agreement_id"]
-            isOneToOne: false
-            referencedRelation: "agreements"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payments_payer_user_id_fkey"
-            columns: ["payer_user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -4470,22 +4461,28 @@ export type Database = {
       }
       terms_acceptances: {
         Row: {
+          acceptance_method: string | null
           accepted_at: string
           id: string
+          login_attempt_id: string | null
           user_agent: string | null
           user_id: string
           version: string
         }
         Insert: {
+          acceptance_method?: string | null
           accepted_at?: string
           id?: string
+          login_attempt_id?: string | null
           user_agent?: string | null
           user_id: string
           version: string
         }
         Update: {
+          acceptance_method?: string | null
           accepted_at?: string
           id?: string
+          login_attempt_id?: string | null
           user_agent?: string | null
           user_id?: string
           version?: string
@@ -6998,6 +6995,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      customer_onboarding: {
+        Args: { p_action?: string; p_payload?: Json }
+        Returns: Json
+      }
       decide_business_session: {
         Args: { p_approve: boolean; p_session_id: string }
         Returns: undefined
@@ -7563,6 +7564,7 @@ export type Database = {
       }
       is_switch_pin_set: { Args: never; Returns: boolean }
       longtransactionsenabled: { Args: never; Returns: boolean }
+      marketplace_health: { Args: { p_days?: number }; Returns: Json }
       me_too_toggle: { Args: { p_request_id: string }; Returns: Json }
       my_business_access_scope: {
         Args: { p_business_id: string }
@@ -7845,12 +7847,8 @@ export type Database = {
         }[]
       }
       record_login_acceptance: {
-        Args: { p_version: string; p_attempt_id: string; p_user_agent?: string }
+        Args: { p_attempt_id: string; p_user_agent?: string; p_version: string }
         Returns: undefined
-      }
-      customer_onboarding: {
-        Args: { p_action?: string; p_payload?: Json }
-        Returns: Json
       }
       record_terms_acceptance: {
         Args: { p_user_agent?: string; p_version: string }

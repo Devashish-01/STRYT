@@ -74,14 +74,11 @@ export const profileControlService = {
         throw new Error("You still have active deals. Finish or cancel them before deleting your account.");
       }
 
-      const { count: heldPayments } = await sb
-        .from("payments")
-        .select("*", { count: "exact", head: true })
-        .eq("escrow_status", "HELD")
-        .eq("payer_user_id", uid);
-      if (heldPayments && heldPayments > 0) {
-        throw new Error("You have payments still marked as held. Resolve them in your deals before deleting your account.");
-      }
+      // There used to be a second gate here, blocking deletion while any payments row had
+      // escrow_status = 'HELD'. STRYT never held funds, so that state could not be reached and the
+      // check only ever cost a round trip; 20260995 dropped the table with it. Payment is settled
+      // directly between the two people over UPI or cash — the active-deal check above is the real
+      // gate, because that is the only thing deletion could leave hanging.
 
       const { data: existing } = await sb
         .from("profile_deletion_requests")
@@ -326,7 +323,6 @@ export const profileControlService = {
       { key: "communityPosts", table: "community_posts", match: `author_user_id.eq.${uid}` },
       { key: "communityComments", table: "post_comments", match: `author_user_id.eq.${uid}` },
       { key: "emergencyContacts", table: "emergency_contacts", match: `user_id.eq.${uid}` },
-      { key: "payments", table: "payments", match: `payer_user_id.eq.${uid}` },
       { key: "customPayments", table: "custom_payments", match: `payer_user_id.eq.${uid}` },
       { key: "reportsFiled", table: "reports", match: `reporter_user_id.eq.${uid}` },
       { key: "bugReports", table: "bug_reports", match: `user_id.eq.${uid}` },
