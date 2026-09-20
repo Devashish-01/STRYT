@@ -4,6 +4,8 @@
 // custom location). Both fail soft (return null/[]) so callers can fall back to
 // manual entry when offline.
 import { config } from "@/config";
+import { primaryProvider, fallbackProvider } from "./geo";
+import type { ReverseHit } from "./geo";
 
 export interface GeoPlace {
   area: string;   // short name — neighbourhood/locality (e.g. "Marathahalli")
@@ -96,37 +98,15 @@ function cacheSet(key: string, v: unknown): void {
 // is a community service being used far outside its terms here. So Mapbox goes
 // first and Nominatim becomes the fallback for when the token is missing or the
 // request fails.
-function mapboxToken(): string {
-  return config.mapboxToken || "";
+// Mapbox now lives behind the provider interface (./geo/mapbox.ts). These two wrappers keep the call
+// sites below reading the same as before — one asks "what does the primary geocoder say about this
+// point", the other "did it give us a usable area name".
+async function primaryReverse(lat: number, lng: number): Promise<ReverseHit> {
+  return primaryProvider().reverse(lat, lng, 0);
 }
 
-interface MapboxPlace { text: string; place_name: string; center: [number, number]; place_type: string[]; }
-
-async function mapboxReverse(lat: number, lng: number): Promise<MapboxPlace[] | null> {
-  const token = mapboxToken();
-  if (!token) return null;
-  try {
-    const url =
-      `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json` +
-      `?access_token=${token}&language=en&limit=5` +
-      `&types=neighborhood,locality,place,district,postcode`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return Array.isArray(data?.features) ? (data.features as MapboxPlace[]) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Best short area name from a Mapbox reverse result, most specific first. */
-function areaFromMapbox(features: MapboxPlace[] | null): string | null {
-  if (!features?.length) return null;
-  for (const want of ["neighborhood", "locality", "place", "district"]) {
-    const hit = features.find((f) => f.place_type?.includes(want));
-    if (hit?.text) return hit.text;
-  }
-  return null;
+function areaFromPrimary(hit: ReverseHit | null): string | null {
+  return hit?.area ?? null;
 }
 
 function pickAreaName(addr: Record<string, string | undefined>): string | null {
@@ -174,18 +154,9 @@ async function reverseGeocodeAt(lat: number, lng: number, zoom: number): Promise
   const cached = cacheGet<ReverseGeocodeHit>(key);
   if (cached) return cached;
 
-  const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=${zoom}&addressdetails=1&accept-language=en`;
-  const res = await queueNominatim(() => fetch(url));
-  if (!res.ok) throw new Error(`reverse geocode ${res.status}`);
-  const data = await res.json();
-  const addr = data?.address ?? {};
-  const featureName = typeof data?.name === "string" && data.name.trim() ? data.name.trim() : null;
-  const hit: ReverseGeocodeHit = {
-    area: pickAreaName(addr),
-    city: addr.city || addr.town || addr.municipality || null,
-    road: addr.road || null,
-    featureName,
-  };
+  // Still inside queueNominatim: the provider makes the request, the queue decides when. Keeping the
+  // 1 req/s gate here rather than in the provider is what lets a replacement inherit it for free.
+  const hit = await queueNominatim(() => fallbackProvider().reverse(lat, lng, zoom));
   cacheSet(key, hit);
   return hit;
 }
@@ -290,7 +261,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
 
   // 1. Mapbox first — ONE request, and it's a service meant to be called this
   //    way. This is what takes the common case from ~7 Nominatim hits to zero.
-  const mb = areaFromMapbox(await mapboxReverse(lat, lng));
+  const mb = areaFromPrimary(await primaryReverse(lat, lng));
   if (mb) { cacheSet(key, mb); return mb; }
 
   // 2. Fall through to the OSM cascade only when Mapbox gave nothing (or no
@@ -349,29 +320,17 @@ export async function reverseGeocodeFull(lat: number, lng: number): Promise<Geoc
   const cached = cacheGet<GeocodeResult>(key);
   if (cached) return cached;
 
-  // Mapbox first — it returns both the place and the postcode in one call.
-  const features = await mapboxReverse(lat, lng);
-  if (features?.length) {
-    const place = features.find((f) => f.place_type?.includes("place"))?.text ?? null;
-    const postcode = features.find((f) => f.place_type?.includes("postcode"))?.text ?? null;
-    if (place || postcode) {
-      const out = { city: place, pincode: postcode };
-      cacheSet(key, out);
-      return out;
-    }
+  // The primary geocoder returns both the place and the postcode in one call.
+  const hit = await primaryReverse(lat, lng);
+  if (hit.city || hit.postcode) {
+    const out = { city: hit.city, pincode: hit.postcode };
+    cacheSet(key, out);
+    return out;
   }
 
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=en`;
-    const res = await queueNominatim(() => fetch(url));
-    if (!res.ok) return null;
-    const data = await res.json();
-    const addr = data?.address ?? {};
-
-    const city = addr.city || addr.town || addr.village || addr.municipality || null;
-    const pincode = addr.postcode || null;
-
-    const out = { city, pincode };
+    const fb = await queueNominatim(() => fallbackProvider().reverse(lat, lng, 18));
+    const out = { city: fb.city, pincode: fb.postcode };
     cacheSet(key, out);
     return out;
   } catch {
@@ -390,60 +349,18 @@ export async function forwardGeocode(query: string): Promise<GeoPlace[]> {
   const cached = cacheGet<GeoPlace[]>(cacheKey);
   if (cached) return cached;
 
-  // Mapbox first. This path is search-as-you-type (Explore, the map SearchBar,
+  // Primary first. This path is search-as-you-type (Explore, the map SearchBar,
   // onboarding), which is the single worst thing to point at Nominatim — their
   // terms call out autocomplete explicitly. Mapbox is built for it.
-  const token = mapboxToken();
-  if (token) {
-    try {
-      const url =
-        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json` +
-        `?access_token=${token}&country=${country}&language=en&limit=5&autocomplete=true`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const data = await res.json();
-        const feats: MapboxPlace[] = Array.isArray(data?.features) ? data.features : [];
-        if (feats.length) {
-          const out = feats.map((f): GeoPlace => ({
-            area: f.text,
-            full: f.place_name,
-            lng: f.center[0],
-            lat: f.center[1],
-          }));
-          cacheSet(cacheKey, out);
-          return out;
-        }
-      }
-    } catch { /* fall through to Nominatim */ }
+  const primaryHits = await primaryProvider().forward(q, country);
+  if (primaryHits.length) {
+    cacheSet(cacheKey, primaryHits);
+    return primaryHits;
   }
 
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&addressdetails=1&countrycodes=${country}&accept-language=en`;
-    const res = await queueNominatim(() => fetch(url));
-    if (!res.ok) return [];
-    const data = await res.json();
-    
-    if (!Array.isArray(data)) return [];
-    
-    const out = data.map((item: any): GeoPlace => {
-      const addr = item.address ?? {};
-      // Determine a friendly short area name (e.g. suburb/neighborhood, fallback to first segment of display name)
-      const areaName =
-        item.name ||
-        addr.neighbourhood ||
-        addr.suburb ||
-        addr.village ||
-        addr.locality ||
-        addr.city_district ||
-        item.display_name.split(",")[0];
-
-      return {
-        area: areaName,
-        full: item.display_name,
-        lng: parseFloat(item.lon),
-        lat: parseFloat(item.lat),
-      };
-    });
+    const out = await queueNominatim(() => fallbackProvider().forward(q, country));
+    if (!out.length) return [];
     cacheSet(cacheKey, out);
     return out;
   } catch {
