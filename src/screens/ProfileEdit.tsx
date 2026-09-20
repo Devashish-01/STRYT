@@ -159,7 +159,7 @@ export default function ProfileEdit() {
         // Empty clears the handle (it used to drop out of the patch, so an alias could never be removed — PROF-7).
         alias: alias.trim() ? cleanAlias : null,
         avatar: avatar || undefined,
-        // phone is deliberately not here: it is the OTP-verified login identity (PROF-1).
+        // Phone changes need a separate same-account verification flow.
         area: areaInput.trim() || undefined, lat: resolvedLat, lng: resolvedLng,
         ...changedPrivacy,
       });
@@ -410,8 +410,7 @@ export default function ProfileEdit() {
               </div>
             </div>
             <p className="tiny muted" style={{ marginTop: 6, lineHeight: 1.4 }}>
-              This is the number you sign in with, so it can only change by verifying a new one with an OTP —
-              contact support to move your account to a different number.
+              {t("ob_phone_later")}
             </p>
           </div>
         </div>

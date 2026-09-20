@@ -37,7 +37,7 @@ Business Owner, Provider, and Delivery Agent are not separate logins — one per
 #### Phone Number & SMS OTP Auth Infrastructure
 - **What it does:** A production-ready phone number authentication pipeline (`authService.sendOtp` & `authService.verifyOtp`, `PhoneEntry.tsx`, `OtpVerify.tsx`). E.164 phone normalization (+91) and profile sync (`ensureProfile`) are fully built. Designed to integrate directly with SMS providers like Message Central or Twilio via Supabase Auth's **Send SMS Hook** for regional cost optimization.
 - **Where it lives:** `src/services/core/authService.ts`, `PhoneEntry.tsx`, `OtpVerify.tsx`.
-- **Who can use it:** Infrastructure is built and tested; can be exposed in the UI as a secondary sign-in method.
+- **Who can use it:** Infrastructure is built and tested; can be exposed in the UI as a secondary sign-in method. The UI is currently hidden for launch (`PhoneEntry.tsx` renders only the Google button), but the **phone provider is still enabled in Supabase** — 8 production accounts are phone-confirmed, and `phone` is in the project's auth providers. Hiding the button does not close the endpoint: `POST /auth/v1/otp` is reachable by anyone holding the publishable key, which ships in the app bundle. Until the provider is switched off or rate-limited with a CAPTCHA, this is a live SMS-billing and SMS-bombing surface.
 - **Why it matters:** Provides an essential login fallback in India tier 2/3 markets and protects against single-provider lockout.
 
 #### Direct APK Download & OTA Updates
@@ -53,10 +53,17 @@ Business Owner, Provider, and Delivery Agent are not separate logins — one per
 - **Why it matters:** Lets someone see real value in their own neighborhood before being asked to commit to an account.
 
 #### First-Time Profile Setup
-- **What it does:** After signing in for the first time, a short setup walks the new user through their name, neighborhood, a profile photo (or one of 10 emoji avatars), phone number, preferred language, and how far they'd like alerts/discovery to reach. A "Skip for now" option is always available.
-- **Where it lives:** Immediately after first sign-in.
+- **What it does:** After signing in for the first time, a four-step setup ("beats") runs: **identity** (display name, a profile photo or emoji avatar, preferred language, and a one-time confirmation that the person is 18+), **handle** (a public `@alias`, checked for availability as it is typed), **location** (the neighborhood, with a genuine "Skip" that leaves discovery running on a wider radius), and **interests** (top-level categories, also skippable). Google's name and profile photo are pulled in automatically as a starting point, so most people only confirm what is already filled in.
+- **Where it lives:** Immediately after first sign-in — `UserOnboard.tsx` with `onboard/BeatIdentity`, `BeatHandle`, `BeatLocation`, `BeatInterests`.
 - **Who can use it:** New accounts.
-- **Why it matters:** Gets a person to a useful, personalized home screen as fast as possible.
+- **Why it matters:** Gets a person to a useful, personalized home screen as fast as possible, and it is where the app establishes the two things the rest of the product depends on — a public identity that is not the person's real name, and a neighborhood.
+- **Enforced on the server, not in the browser:** progress is saved step by step through the `customer_onboarding` RPC (migration `20260993`), which re-checks each gate itself: terms must be accepted first, identity before handle, the 18+ confirmation before anything, and a valid category before finishing. Skipping a step by calling the API directly fails with `TERMS_REQUIRED`, `IDENTITY_REQUIRED`, `AGE_CONFIRMATION_REQUIRED` or `ONBOARDING_INCOMPLETE`. A person who has already finished cannot be walked back through it — replaying a step is a no-op that leaves their name alone. Only **location** and **interests** are genuinely optional; the earlier "Skip for now is always available" behaviour no longer applies.
+
+#### Terms Acceptance Record
+- **What it does:** Accepting the terms at sign-in writes a dated, versioned row (who, which version, when, from what device) rather than only a flag on the profile. Each sign-in attempt carries its own id, so a retried or double-tapped login records once, not twice.
+- **Where it lives:** `record_login_acceptance` RPC (migration `20260993`), `loginAcceptance.ts`.
+- **Who can use it:** Every account, automatically.
+- **Why it matters:** Under the DPDP Act, being able to show *what* a person agreed to and *when* is the evidence that matters. A boolean on a profile is not that evidence.
 
 #### One-Time Location Permission
 - **What it does:** Asks once for location access so the app can show what's actually nearby; if declined, it's not asked again and the app is upfront that results will be less relevant without it.

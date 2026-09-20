@@ -7714,8 +7714,7 @@ button.set-row:active {
 }
 
 .ob-beat {
-  flex: 1;
-  min-height: 0;
+  flex: 1 0 auto;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -7741,7 +7740,29 @@ button.set-row:active {
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.72);
 }
-.ob-beat-body { flex: 1; min-height: 0; }
+.ob-beat-body { flex: 1 0 auto; }
+.ob-back {
+  position: absolute;
+  top: calc(14px + var(--safe-area-top));
+  left: 14px;
+  z-index: 3;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.google-legal-notice { font-size: 13px; line-height: 1.5; color: var(--ink-600); margin: 12px 0 16px; }
+.google-legal-notice a { color: var(--brand-700); text-decoration: underline; font-weight: 600; }
+.ob-identity-card .ob-label { align-self: flex-start; margin-bottom: -8px; }
+.ob-identity-card input[type="file"] { max-width: 100%; font-size: 12px; }
+.ob-age-confirm { display: flex; align-items: flex-start; gap: 10px; text-align: left; font-size: 14px; line-height: 1.5; }
+.ob-age-confirm input { flex-shrink: 0; width: 20px; height: 20px; margin-top: 1px; }
+.ob-identity-hint { font-size: 12px; line-height: 1.5; opacity: 0.85; }
 .ob-beat-foot {
   flex-shrink: 0;
   padding: 16px 0 calc(14px + var(--safe-area-bottom));
@@ -8071,5 +8092,4 @@ button.set-row:active {
 .map-carousel.is-list-view .map-carousel__sub {
   text-align: left;
 }
-
 

@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { Users, MapPin, Eye, X, Check } from "@/components/Icons";
 import { haptics } from "@/lib/haptics";
 
@@ -40,9 +41,15 @@ export default function LiveShareExplainer({
   onConfirm: () => void;
   onClose: () => void;
 }) {
-  return (
+  return createPortal(
     <div className="overlay" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="live-share-explainer-title"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="sheet-grab" />
 
         <div className="row between center-v" style={{ marginBottom: 2 }}>
@@ -58,7 +65,7 @@ export default function LiveShareExplainer({
             >
               <Users size={17} color="var(--accent-600)" />
             </span>
-            <h3 className="bold h2">Share live location?</h3>
+            <h3 id="live-share-explainer-title" className="bold h2">Share live location?</h3>
           </div>
           <button
             className="icon-btn"
@@ -116,6 +123,7 @@ export default function LiveShareExplainer({
           You'll only see this once.
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

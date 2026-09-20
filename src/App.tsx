@@ -1,3 +1,4 @@
+import ProfileLoadError from "./components/ProfileLoadError";
 import { Routes, Route, useLocation, useNavigate, Navigate, Outlet } from "react-router-dom";
 import { lazy, Suspense, useEffect, type ReactNode } from "react";
 import UserProfileSheet from "./components/UserProfileSheet";
@@ -263,7 +264,7 @@ function AppShellSkeleton() {
  * being asked to sign in is the entire point of guest mode.
  */
 function GuestOrAuthLayout() {
-  const { isAuthed, authReady, profileReady, user } = useApp();
+  const { isAuthed, authReady, profileReady, profileLoadError, user } = useApp();
   const location = useLocation();
 
   const isAuthCallback =
@@ -287,11 +288,13 @@ function GuestOrAuthLayout() {
   // shop/provider pages, Search, Map) are where most actions start, and they used to skip every gate: an account
   // scheduled for deletion kept booking and messaging from Home, and a user who hadn't accepted the current terms
   // or finished first-login onboarding never saw those screens (E2E-029). Same order as ProtectedLayout.
+  if (isAuthed && (profileLoadError || !user.id)) return <ProfileLoadError />;
   if (isAuthed && user.id) {
     if (user.deletionScheduledAt) {
       return <Navigate to="/auth/deletion-pending" replace />;
     }
-    if (user.termsAcceptedVersion !== undefined && user.termsAcceptedVersion !== LEGAL_VERSION) {
+    if (user.termsAcceptedVersion !== LEGAL_VERSION) {
+      returnTo.remember(location.pathname + location.search);
       return <Navigate to="/auth/terms" replace />;
     }
     if (user.onboardingCompletedAt === null) {
@@ -305,7 +308,7 @@ function GuestOrAuthLayout() {
 }
 
 function ProtectedLayout() {
-  const { isAuthed, authReady, profileReady, user, activeContext } = useApp();
+  const { isAuthed, authReady, profileReady, profileLoadError, user, activeContext } = useApp();
   const location = useLocation();
   const { lang, setLang } = useI18n();
 
@@ -344,6 +347,8 @@ function ProtectedLayout() {
     return <AppShellSkeleton />;
   }
 
+  if (profileLoadError || !user.id) return <ProfileLoadError />;
+
   // Deletion pending: redirect to warning screen
   const isDeletionPending = isAuthed && user.id && user.deletionScheduledAt;
   if (isDeletionPending) {
@@ -359,15 +364,12 @@ function ProtectedLayout() {
   // Terms & Privacy acceptance (clickwrap) gate. A signed-in user must have
   // accepted the CURRENT LEGAL_VERSION before using the app — bumping that
   // constant after a policy update re-prompts everyone here automatically.
-  // `termsAcceptedVersion === undefined` means the value couldn't be read (e.g.
-  // the acceptance migration hasn't run yet) — treated as unknown so we never
-  // brick; only a genuine null/stale version blocks. Runs before onboarding so
-  // acceptance comes first, and short-circuits those gates while outstanding.
+  // A failed profile read is handled above, never treated as accepted.
   const termsOutstanding =
     isAuthed && !!user.id && !user.deletionScheduledAt &&
-    user.termsAcceptedVersion !== undefined &&
     user.termsAcceptedVersion !== LEGAL_VERSION;
   if (termsOutstanding) {
+    if (!location.pathname.startsWith("/auth/")) returnTo.remember(location.pathname + location.search);
     return location.pathname === "/auth/terms" ? <Outlet /> : <Navigate to="/auth/terms" replace />;
   }
   if (location.pathname === "/auth/terms") {
@@ -385,6 +387,7 @@ function ProtectedLayout() {
   // (not localStorage), so skipping on one device sticks across all of them.
   const needsOnboard = isAuthed && user.id && user.onboardingCompletedAt === null && location.pathname !== "/auth/onboard";
   if (needsOnboard) {
+    if (!location.pathname.startsWith("/auth/")) returnTo.remember(location.pathname + location.search);
     return <Navigate to="/auth/onboard" replace />;
   }
 
@@ -399,13 +402,18 @@ function ProtectedLayout() {
 }
 
 function PublicOnlyLayout() {
-  const { isAuthed, activeContext, user } = useApp();
+  const { isAuthed, authReady, profileReady, profileLoadError, activeContext, user } = useApp();
   const isAuthCallback =
     window.location.hash.includes("access_token=") ||
     window.location.hash.includes("error=") ||
     window.location.search.includes("code=");
 
+  if (!authReady || isAuthCallback) return <AuthSplash />;
+  if (isAuthed && !profileReady) return <AppShellSkeleton />;
+  if (isAuthed && (profileLoadError || !user.id)) return <ProfileLoadError />;
   if (isAuthed && !isAuthCallback) {
+    if (user.deletionScheduledAt) return <Navigate to="/auth/deletion-pending" replace />;
+    if (user.termsAcceptedVersion !== LEGAL_VERSION) return <Navigate to="/auth/terms" replace />;
     // G1 — a BRAND NEW user is about to be bounced to /auth/onboard by
     // ProtectedLayout's needsOnboard gate. Consuming the remembered path here
     // would destroy it before onboarding could honour it: the guest who tapped
@@ -805,7 +813,7 @@ export default function App() {
       <PinGateSheet />
       <BatteryOptimizationSheet />
       {toast && <div className="toast">{toast}</div>}
-      {notifExplainerPending && (
+      {notifExplainerPending && location.pathname === "/home" && (
         <NotificationPermissionExplainer onConfirm={confirmNotifExplainer} onClose={dismissNotifExplainer} />
       )}
           </LiveShareProvider>

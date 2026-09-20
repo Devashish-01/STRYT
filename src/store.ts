@@ -12,7 +12,7 @@ export interface ActiveContext {
 export interface AppState {
   // current user (hydrated from userService after auth)
   user: CurrentUser;
-  refreshUser: () => Promise<void>;
+  refreshUser: (options?: { throwOnError?: boolean }) => Promise<void>;
 
   // location
   area: string;
@@ -138,6 +138,8 @@ export interface AppState {
   // or failure) — the route guard waits on this so screens never mount against
   // the blank seed user and briefly show placeholder identity data.
   profileReady: boolean;
+  profileLoadError: boolean;
+  offerNotificationPermission: () => Promise<void>;
 
   // chat unread count
   chatUnread: number;

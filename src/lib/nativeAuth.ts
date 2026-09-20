@@ -24,6 +24,7 @@
 import { Capacitor } from "@capacitor/core";
 import { getSupabase }            from "@/lib/supabaseClient";
 import { returnTo }               from "@/lib/returnTo";
+import { completeLoginAcceptance } from "./loginAcceptance";
 
 // ---------------------------------------------------------------------------
 // Platform detection
@@ -59,6 +60,7 @@ export async function nativeGoogleSignInViaFirebase(): Promise<void> {
     nonce:    result.credential?.nonce,
   });
   if (error) throw error;
+  await completeLoginAcceptance();
 }
 
 // ---------------------------------------------------------------------------

@@ -16,12 +16,13 @@ function urlBase64ToUint8Array(base64: string): Uint8Array {
 // PushNotifications.register() can crash the process on the native side.
 const FCM_READY = true;
 
-export async function registerPush(userId: string): Promise<void> {
+export async function registerPush(userId: string, options: { requestPermission?: boolean } = {}): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     if (!FCM_READY) return; // see FCM_READY comment above — prevents a native crash
     try {
       let permStatus = await PushNotifications.checkPermissions();
-      if (permStatus.receive === "prompt") {
+      if (permStatus.receive !== "granted" && options.requestPermission === false) return;
+      if (permStatus.receive === "prompt" || permStatus.receive === "prompt-with-rationale") {
         permStatus = await PushNotifications.requestPermissions();
       }
       if (permStatus.receive !== "granted") return;
@@ -101,12 +102,14 @@ export async function registerPush(userId: string): Promise<void> {
   // logging a scary error for something that only ever works in a built app.
   if (import.meta.env.DEV) return;
 
+  if (!("Notification" in window)) return;
+  if (options.requestPermission === false && Notification.permission !== "granted") return;
   try {
     const reg = await navigator.serviceWorker.register("/sw.js");
     await navigator.serviceWorker.ready;
 
     const existing = await reg.pushManager.getSubscription();
-    const permission = existing
+    const permission = existing || Notification.permission === "granted"
       ? "granted"
       : await Notification.requestPermission();
     if (permission !== "granted") return;
@@ -164,4 +167,18 @@ export async function unregisterPush(userId: string): Promise<void> {
       }
     }
   } catch { /* ignore */ }
+}
+
+/** Read-only eligibility check; never opens an OS permission dialog. */
+export async function canOfferPushPermission(): Promise<boolean> {
+  try {
+    if (Capacitor.isNativePlatform()) {
+      if (!FCM_READY) return false;
+      const { receive } = await PushNotifications.checkPermissions();
+      return receive === "prompt" || receive === "prompt-with-rationale";
+    }
+    return !import.meta.env.DEV && !!import.meta.env.VITE_VAPID_PUBLIC_KEY &&
+      "serviceWorker" in navigator && "PushManager" in window && "Notification" in window &&
+      Notification.permission === "default";
+  } catch { return false; }
 }

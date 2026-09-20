@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, Bell, ChevronDown, ChevronRight, X, QrCode, MessageSquare, Package } from "@/components/Icons";
 import { ActionIconBadge } from "@/components/ActionIconBadge";
@@ -92,7 +92,7 @@ function getWeatherText(code: number): string {
 export default function Home() {
   const nav = useNavigate();
   const { t, tf } = useI18n();
-  const { area: rawArea, chatUnread, user, manageableBusinessIds } = useApp();
+  const { area: rawArea, chatUnread, user, manageableBusinessIds, offerNotificationPermission } = useApp();
   // One business per owner is a hard DB constraint — don't invite someone who
   // already manages a business (owned or delegated) to list a brand-new one.
   const hasAnyBusiness = manageableBusinessIds.length > 0;
@@ -167,6 +167,15 @@ export default function Home() {
   // reason to be on this screen — simply didn't render at all while loading,
   // making the whole page look sparse instead of visibly loading.
   const nearbyRailLoading = nearbyBizLoading && nearbyProvLoading && nearbyBiz.length === 0 && nearbyProv.length === 0;
+
+  useEffect(() => {
+    if (nearbyRailLoading) return;
+    // Let Home become useful first; never stack over an existing sheet.
+    const timer = window.setTimeout(() => {
+      if (!document.querySelector('.overlay, [role="dialog"]')) void offerNotificationPermission();
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [nearbyRailLoading, offerNotificationPermission, scanner, locationOpen, payingQueueToken]);
 
   // Upcoming = still-live bookings scheduled in the future.
   const upcomingAppointments = (myAppointments ?? [])

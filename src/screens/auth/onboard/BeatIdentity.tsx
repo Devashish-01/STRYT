@@ -3,146 +3,66 @@ import { SafeImg } from "@/components/common";
 import { LANGUAGES_ENABLED } from "@/lib/features";
 import { useI18n, LANG_LABELS, type Lang } from "@/lib/i18n";
 import { isUnusableName } from "@/lib/publicName";
+import { uploadService } from "@/services";
+import { useApp } from "@/store";
 import { BeatFrame } from "./BeatFrame";
 
-/**
- * Beat 1 — "Is this you?"
- *
- * Google already gave us a real name and avatar (userService.me() reads them
- * off user_metadata), so for almost everyone this is a confirmation, not a
- * form: one tap and they're past what used to be the two required fields.
- * The editable input only takes over when there is genuinely nothing usable to
- * confirm — `isUnusableName` covers blank, the "New user" seed, and a raw
- * email or phone that leaked in as a display name.
- *
- * The language switcher lives here rather than in a step of its own: it costs
- * one row on the first screen, and putting it any later means a Hindi or
- * Marathi speaker reads the whole flow in English to reach it.
- */
-export function BeatIdentity({
-  name,
-  avatar,
-  initialPhone,
-  busy,
-  onDone,
-}: {
+export function BeatIdentity({ name, avatar, email, ageConfirmed, busy, onDone }: {
   name: string;
   avatar?: string;
-  initialPhone?: string;
+  email?: string;
+  ageConfirmed?: boolean;
   busy?: boolean;
-  onDone: (data: { name: string; phone: string }) => void;
+  onDone: (data: { name: string; avatar: string; ageConfirmed: true }) => void;
 }) {
   const { t, lang, setLang } = useI18n();
-  const derived = isUnusableName(name) ? "" : name.trim();
-  // Nothing worth confirming → open straight into the editable state, so the
-  // screen never shows a card that says "Is this you?" above an empty name.
-  const [editing, setEditing] = useState(!derived);
-  const [draft, setDraft] = useState(derived);
-  const [phone, setPhone] = useState(() => (initialPhone ? initialPhone.replace(/\D/g, "").slice(-10) : ""));
-
+  const { showToast } = useApp();
+  const [draft, setDraft] = useState(isUnusableName(name) ? "" : name.trim());
+  const [photo, setPhoto] = useState(avatar || "");
+  const [adult, setAdult] = useState(ageConfirmed === true);
+  const [uploading, setUploading] = useState(false);
   const value = draft.trim();
-  const cleanPhone = phone.replace(/\D/g, "");
-  const phoneValid = cleanPhone.length === 10 && /^[6-9]/.test(cleanPhone);
-  const ready = value.length > 0 && !isUnusableName(value) && phoneValid;
-
+  const ready = value.length > 0 && value.length <= 40 && !isUnusableName(value) && adult;
+  async function upload(file?: File) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
+      showToast(t("ob_photo_invalid")); return;
+    }
+    setUploading(true);
+    try { setPhoto(await uploadService.upload(file, "avatar")); }
+    catch { showToast(t("ob_photo_failed")); }
+    finally { setUploading(false); }
+  }
   return (
-    <BeatFrame
-      title={t("ob_beat1_title")}
-      sub={t("ob_beat1_sub")}
-      ctaLabel={editing ? t("ob_continue") : (t("ob_continue") || t("ob_beat1_confirm"))}
-      ctaDisabled={!ready}
-      ctaBusy={busy}
-      onCta={() => onDone({ name: value, phone: cleanPhone })}
+    <BeatFrame title={t("ob_beat1_title")} sub={t("ob_identity_sub")}
+      ctaLabel={t("ob_continue")} ctaDisabled={!ready} ctaBusy={busy || uploading}
+      onCta={() => onDone({ name: value, avatar: photo, ageConfirmed: true })}
       footer={LANGUAGES_ENABLED ? (
         <div className="ob-langs" role="group" aria-label={t("language")}>
-          {(Object.keys(LANG_LABELS) as Lang[]).map((l) => (
-            <button
-              key={l}
-              type="button"
-              className={`ob-lang ${lang === l ? "active" : ""}`}
-              onClick={() => setLang(l)}
-            >
+          {(Object.keys(LANG_LABELS) as Lang[]).map(l => (
+            <button key={l} type="button" className={`ob-lang ${lang === l ? "active" : ""}`} onClick={() => setLang(l)}>
               {LANG_LABELS[l]}
             </button>
           ))}
         </div>
-      ) : undefined}
-    >
+      ) : undefined}>
       <div className="ob-identity-card">
-        <SafeImg src={avatar} variant="avatar" className="ob-identity-avatar" />
-        {editing ? (
-          <input
-            className="input ob-identity-input"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder={t("full_name_placeholder")}
-            maxLength={40}
-            autoFocus
-            aria-label={t("full_name")}
-          />
-        ) : (
-          <div className="ob-identity-name">{value}</div>
-        )}
-
-        {!editing && (
-          <button type="button" className="ob-inline-link" onClick={() => setEditing(true)} style={{ marginTop: -4 }}>
-            {t("ob_beat1_edit")}
-          </button>
-        )}
-
-        {/* Mobile number field */}
-        <div style={{ width: "100%", marginTop: 6, paddingTop: 14, borderTop: "1px solid rgba(255, 255, 255, 0.16)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255, 255, 255, 0.95)" }}>
-              {t("ob_beat1_phone_label")}
-            </span>
-            {cleanPhone.length === 10 && phoneValid && (
-              <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--green-400)" }}>
-                ✓ Valid
-              </span>
-            )}
-          </div>
-
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <div
-              style={{
-                padding: "10px 14px",
-                background: "rgba(255, 255, 255, 0.16)",
-                border: "1px solid rgba(255, 255, 255, 0.25)",
-                borderRadius: 12,
-                fontWeight: 800,
-                fontSize: 14,
-                color: "#fff",
-                flexShrink: 0,
-              }}
-            >
-              +91
-            </div>
-            <input
-              className="input"
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel"
-              maxLength={10}
-              placeholder={t("ob_beat1_phone_placeholder")}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-              style={{
-                flex: 1,
-                background: "#fff",
-                color: "var(--ink-900)",
-                fontWeight: 600,
-                fontSize: 15,
-                borderRadius: 12,
-                borderColor: cleanPhone.length > 0 && !phoneValid && cleanPhone.length === 10 ? "var(--red-400)" : undefined,
-              }}
-              aria-label={t("ob_beat1_phone_label")}
-            />
-          </div>
-          <div style={{ fontSize: 11.5, color: "rgba(255, 255, 255, 0.72)", marginTop: 6, textAlign: "left", lineHeight: 1.4 }}>
-            {t("ob_beat1_phone_hint")}
-          </div>
-        </div>
+        <SafeImg src={photo} variant="avatar" className="ob-identity-avatar" />
+        <label className="ob-photo-label" htmlFor="onboard-photo">{t("ob_change_photo")}</label>
+        <input id="onboard-photo" type="file" accept="image/jpeg,image/png,image/webp"
+          disabled={busy || uploading} onChange={e => { void upload(e.target.files?.[0]); e.target.value = ""; }} />
+        <label className="ob-label" htmlFor="onboard-name">{t("full_name")}</label>
+        <input id="onboard-name" className="input ob-identity-input" value={draft}
+          onChange={e => setDraft(e.target.value)} maxLength={40} autoComplete="name" disabled={busy}
+          placeholder={t("full_name_placeholder")} />
+        <label className="ob-label" htmlFor="onboard-email">{t("ob_google_email")}</label>
+        <input id="onboard-email" className="input ob-identity-input" type="email" value={email || ""} readOnly />
+        <label className="ob-age-confirm" htmlFor="onboard-adult">
+          <input id="onboard-adult" type="checkbox" checked={adult} disabled={busy}
+            onChange={e => setAdult(e.target.checked)} />
+          <span>{t("ob_age_confirm")}</span>
+        </label>
+        <p className="ob-identity-hint">{t("ob_phone_later")}</p>
       </div>
     </BeatFrame>
   );

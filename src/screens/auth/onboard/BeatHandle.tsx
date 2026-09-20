@@ -25,18 +25,20 @@ type Availability = "idle" | "checking" | "free" | "taken";
 export function BeatHandle({
   name,
   email,
+  initialAlias,
   busy,
   onDone,
 }: {
   name: string;
   email?: string;
+  initialAlias?: string;
   busy?: boolean;
   onDone: (alias: string) => void;
 }) {
   const { t } = useI18n();
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [chosen, setChosen] = useState("");
-  const [custom, setCustom] = useState("");
+  const [custom, setCustom] = useState(initialAlias || "");
   const [avail, setAvail] = useState<Availability>("idle");
   /** Guards against a slow earlier check overwriting a newer one's verdict. */
   const checkSeq = useRef(0);
@@ -67,26 +69,27 @@ export function BeatHandle({
 
   // Debounced check for the custom field.
   useEffect(() => {
+    let active = true;
+    const seq = ++checkSeq.current;
     const candidate = normalizeAlias(custom);
     if (!custom) { setAvail("idle"); return; }
     if (!isValidAlias(candidate)) { setAvail("idle"); return; }
     setAvail("checking");
-    const seq = ++checkSeq.current;
     const timer = setTimeout(() => {
       userService
         .aliasesAvailable([candidate])
         .then((map) => {
-          if (seq !== checkSeq.current) return;
+          if (!active || seq !== checkSeq.current) return;
           setAvail(map[candidate] ? "free" : "taken");
         })
         .catch(() => {
-          if (seq !== checkSeq.current) return;
+          if (!active || seq !== checkSeq.current) return;
           // Unknown, not "free" — the write path still enforces uniqueness, so
           // let them proceed rather than blocking on a network blip.
           setAvail("idle");
         });
     }, 400);
-    return () => clearTimeout(timer);
+    return () => { active = false; clearTimeout(timer); };
   }, [custom]);
 
   const customClean = normalizeAlias(custom);

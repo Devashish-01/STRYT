@@ -1,3 +1,5 @@
+import { waitForLoginAcceptance } from "@/lib/loginAcceptance";
+import { onboardingService } from "./onboardingService";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { throwIfError, toApiError } from "@/lib/supabasePage";
 import { toCamel, toSnake } from "@/lib/caseMap";
@@ -62,17 +64,14 @@ function relDate(iso: string | null): string {
 
 export const userService = {
   async me(): Promise<CurrentUser> {
+    await waitForLoginAcceptance();
     const sb = getSupabase();
     const { data: { user: au } } = await sb.auth.getUser();
     if (!au) throw toApiError({ code: "UNAUTHENTICATED", message: "Not signed in" }, 401);
     const uid = au.id;
 
-    // Terms/Privacy acceptance (clickwrap). Read separately from get_own_profile()
-    // — not sensitive, same pattern as the alias fallback below. Best-effort: if
-    // the acceptance migration hasn't run these columns don't exist and the query
-    // errors; we then leave the fields `undefined`, which the app's gate reads as
-    // "unknown → don't block", so a client shipped ahead of the migration can't
-    // brick. A missing row (brand-new user, pre-seed) reads as null = not accepted.
+    // Never bypass the terms gate after a failed read.
+    const onboarding = await onboardingService.save("read");
     let termsAcceptedVersion: string | null | undefined;
     let termsAcceptedAt: string | null | undefined;
     {
@@ -80,6 +79,7 @@ export const userService = {
         .select("terms_accepted_version, terms_accepted_at")
         .eq("id", uid)
         .maybeSingle();
+      throwIfError(tErr);
       if (!tErr) {
         termsAcceptedVersion = (tRow?.terms_accepted_version ?? null) as string | null;
         termsAcceptedAt = (tRow?.terms_accepted_at ?? null) as string | null;
@@ -116,7 +116,7 @@ export const userService = {
 
       u.termsAcceptedVersion = termsAcceptedVersion;
       u.termsAcceptedAt = termsAcceptedAt;
-      return u;
+      return { ...u, ...onboarding };
     }
     // Row missing — happens for Google OAuth / phone-auth users when the DB trigger hasn't run or completed yet.
     // Upsert a seed row so FK constraints on requests / proposals don't block the user.
@@ -138,6 +138,7 @@ export const userService = {
       ...toCamel<CurrentUser>({ id: uid, name, phone: au.phone ?? null, email: au.email ?? null, avatar, roles: ["customer"], area: null, city: null, lat: 0, lng: 0, rating_avg: 0, rating_count: 0, language: "en", notification_radius_km: 5, deletion_scheduled_at: null, onboarding_completed_at: null }),
       termsAcceptedVersion,
       termsAcceptedAt,
+      ...onboarding,
     };
   },
 

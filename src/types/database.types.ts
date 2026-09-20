@@ -7844,6 +7844,14 @@ export type Database = {
           party_size: string
         }[]
       }
+      record_login_acceptance: {
+        Args: { p_version: string; p_attempt_id: string; p_user_agent?: string }
+        Returns: undefined
+      }
+      customer_onboarding: {
+        Args: { p_action?: string; p_payload?: Json }
+        Returns: Json
+      }
       record_terms_acceptance: {
         Args: { p_user_agent?: string; p_version: string }
         Returns: undefined

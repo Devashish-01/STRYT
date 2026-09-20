@@ -2,6 +2,22 @@
 // Keep the key set identical across en, hi and mr — src/lib/i18n.parity.test.ts enforces it.
 
 const strings: Record<string, string> = {
+    login_google: "Google सह पुढे जा",
+    login_failed: "Google साइन इन अयशस्वी झाले. पुन्हा प्रयत्न करा.",
+    login_terms_prefix: "Google सह पुढे जा वर टॅप करून, तुम्ही आमच्या",
+    login_terms: "अटी व शर्ती स्वीकारता",
+    login_privacy_prefix: "कृपया आमचे धोरण वाचा:",
+    login_privacy: "गोपनीयता धोरण",
+    ob_identity_sub: "सुरू करण्यासाठी तुमची माहिती तपासा. तुम्ही नाव आणि फोटो बदलू शकता.",
+    ob_change_photo: "फोटो बदला (ऐच्छिक)",
+    ob_google_email: "Google खात्याचा ईमेल",
+    ob_age_confirm: "मी पुष्टी करतो/करते की माझे वय 18 वर्षे किंवा अधिक आहे.",
+    ob_phone_later: "STRYT पाहण्यासाठी फोन नंबर आवश्यक नाही.",
+    ob_photo_invalid: "5 MB पेक्षा लहान JPG, PNG किंवा WebP फोटो निवडा.",
+    ob_photo_failed: "फोटो अपलोड झाला नाही. पुन्हा प्रयत्न करा.",
+    ob_save_failed: "माहिती जतन झाली नाही. पुन्हा प्रयत्न करा.",
+    ob_profile_error: "तुमची प्रोफाइल लोड झाली नाही. इंटरनेट तपासून पुन्हा प्रयत्न करा.",
+    ob_retry: "पुन्हा प्रयत्न करा",
     home: "मुखपृष्ठ",
     explore: "शोधा",
     requests: "विनंत्या",

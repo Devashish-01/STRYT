@@ -26,10 +26,12 @@ export interface PickedPlace {
  * it's read from the same discovery query Home will run a moment later.
  */
 export function BeatLocation({
+  initial,
   busy,
   onDone,
   onSkip,
 }: {
+  initial?: PickedPlace | null;
   busy?: boolean;
   onDone: (place: PickedPlace) => void;
   onSkip: () => void;
@@ -37,7 +39,7 @@ export function BeatLocation({
   const { t, tf } = useI18n();
   const [locating, setLocating] = useState(false);
   const [denied, setDenied] = useState(false);
-  const [place, setPlace] = useState<PickedPlace | null>(null);
+  const [place, setPlace] = useState<PickedPlace | null>(initial ?? null);
   const [nearby, setNearby] = useState<{ count: number; more: boolean } | null>(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GeoPlace[]>([]);

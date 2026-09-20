@@ -1,9 +1,7 @@
-import { useEffect } from "react";
+import GoogleSignIn from "@/components/GoogleSignIn";
 import { APK_DOWNLOAD_URL, APK_FILENAME } from "@/lib/apkDownload";
 import { useNavigate } from "react-router-dom";
 import { MapPin, Store, Sparkles } from "@/components/Icons";
-import { useApp } from "@/store";
-import { contextHomePath } from "@/lib/contextHome";
 import StreetScene from "@/components/StreetScene";
 import BrandLockup from "@/components/BrandLockup";
 import AppMark from "@/components/AppMark";
@@ -14,14 +12,6 @@ const LOGIN_GLOW = 0.85;
 
 export default function Splash() {
   const nav = useNavigate();
-  const { isAuthed, activeContext } = useApp();
-
-  useEffect(() => {
-    // Land in the home of the hat the user last wore (customer Home, or their
-    // business/provider console) so the page matches the sidebar/nav identity.
-    if (isAuthed) nav(contextHomePath(activeContext), { replace: true });
-  }, [isAuthed, activeContext, nav]);
-
   return (
     <div style={{ display: "flex", minHeight: "100vh", width: "100%" }}>
       {/* ── LEFT PANEL: brand hero (desktop only) ── */}
@@ -143,31 +133,7 @@ export default function Splash() {
             Connect with locals, discover services, and manage your bookings — all in one place.
           </p>
 
-          <button
-            style={{
-              width:"100%",
-              padding:"16px",
-              borderRadius:16,
-              background:"linear-gradient(135deg, var(--brand-500) 0%, var(--brand-700) 100%)",
-              color:"#fff",
-              fontWeight:800,
-              fontSize:16,
-              border:"none",
-              cursor:"pointer",
-              boxShadow:"0 8px 24px rgba(132,27,184,0.32)",
-              marginBottom:12,
-              transition:"all 0.2s",
-              display:"flex",
-              alignItems:"center",
-              justifyContent:"center",
-              gap:8,
-            }}
-            onClick={() => nav("/auth/phone")}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 14px 36px rgba(132,27,184,0.42)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(132,27,184,0.32)"; }}
-          >
-            Get Started <span style={{ fontSize:18 }}>→</span>
-          </button>
+          <GoogleSignIn />
 
           {/* The guest-mode door. A stranger won't create an account for a
               street they can't see yet — let them look first, then sign in when
@@ -190,9 +156,7 @@ export default function Splash() {
             Look around first
           </button>
 
-          <p style={{ fontSize:11, color:"var(--ink-400)", lineHeight:1.5 }}>
-            By continuing you agree to our Terms &amp; Privacy Policy
-          </p>
+
         </div>
 
         {/* APK download pill */}

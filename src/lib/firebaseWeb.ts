@@ -30,6 +30,7 @@
 import type { FirebaseApp } from "firebase/app";
 import type { Auth, GoogleAuthProvider as GoogleAuthProviderType, User } from "firebase/auth";
 import { getSupabase } from "@/lib/supabaseClient";
+import { completeLoginAcceptance, restoreLoginAcceptance, cancelLoginAcceptance } from "./loginAcceptance";
 
 // ---------------------------------------------------------------------------
 // Config — sourced from Vite env. apiKey + authDomain + projectId are all that
@@ -155,6 +156,7 @@ export async function firebaseGoogleSignIn(): Promise<void> {
     // Bridge to Supabase. Firebase session is intentionally kept alive here —
     // see the module-level doc block for why.
     await bridgeToSupabase(idToken);
+    await completeLoginAcceptance();
   } catch (e: unknown) {
     const code = (e as { code?: string } | null)?.code;
 
@@ -240,17 +242,20 @@ export async function firebaseCompleteRedirect(): Promise<boolean> {
   try {
     if (!hasFirebaseWebConfig) return false;
     if (!hasPendingFirebaseRedirect()) return false;
+    restoreLoginAcceptance();
     const { auth: sdk } = await loadSdk();
     const result = await sdk.getRedirectResult(await getFirebaseAuth());
-    if (!result) return false;
+    if (!result) { cancelLoginAcceptance(); return false; }
 
     const cred    = sdk.GoogleAuthProvider.credentialFromResult(result);
     const idToken = cred?.idToken;
-    if (!idToken) return false;
+    if (!idToken) { cancelLoginAcceptance(); return false; }
 
     await bridgeToSupabase(idToken);
+    await completeLoginAcceptance();
     return true;
   } catch (e) {
+    cancelLoginAcceptance();
     console.warn("[auth] Firebase redirect completion failed:", e);
     return false;
   }

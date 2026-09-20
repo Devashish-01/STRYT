@@ -1,3 +1,5 @@
+import { LEGAL_VERSION } from "@/lib/legal";
+import { Geolocation } from "@capacitor/geolocation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { BookmarkTarget, Role, CurrentUser } from "@/types";
 import { tokenStore } from "@/lib/auth";
@@ -8,7 +10,7 @@ import { reverseGeocode } from "@/lib/geocode";
 import { authService } from "@/services/core/authService";
 import { entityPasswordService } from "@/services/core/entityPasswordService";
 import { chatService } from "@/services/engagement/chatService";
-import { registerPush } from "@/lib/pushNotifications";
+import { registerPush, canOfferPushPermission } from "@/lib/pushNotifications";
 import { Capacitor } from "@capacitor/core";
 import { getSupabase, currentUserId } from "@/lib/supabaseClient";
 import { useToast } from "@/store/useToast";
@@ -87,6 +89,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const { chatUnread, setChatUnread } = useNotificationBadges(isAuthed);
   const [profileReady, setProfileReady] = useState(false);
+  const [profileLoadError, setProfileLoadError] = useState(false);
 
   // ── Guest mode ────────────────────────────────────────────────────────────
   // A visitor who has finished the auth check and turned out to be signed out.
@@ -205,10 +208,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [setBookmarks, setChatUnread, setEndorsed, setFollows, setLists, setMeToos, setSavedCoupons, setVouched]);
 
   // Pull the real user + owned entities whenever we become authenticated.
-  const refreshUser = useCallback(async () => {
+  const refreshUser = useCallback(async (options?: { throwOnError?: boolean }) => {
     if (!tokenStore.isAuthed) return;
     try {
       const [me, owned] = await Promise.all([userService.me(), userService.owned()]);
+      if (!tokenStore.isAuthed || await currentUserId() !== me.id) return;
+      setProfileLoadError(false);
       setUser(me);
       if (me.notificationRadiusKm) {
         localStorage.setItem("settings_radius", String(me.notificationRadiusKm));
@@ -250,8 +255,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         return ctx;
       });
-    } catch {
-      // leave seed values; a 401 will be handled by the auth layer.
+    } catch (error) {
+      setProfileLoadError(true);
+      if (options?.throwOnError) throw error;
     }
   }, [lang, setLang]);
 
@@ -268,9 +274,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (sessionStorage.getItem(syncKey) === "1") return;
     sessionStorage.setItem(syncKey, "1");
     try {
-      const perm = await (navigator as any).permissions?.query?.({ name: "geolocation" });
-      if (perm && perm.state !== "granted") return;
-    } catch { /* Permissions API unavailable (native webview) — proceed */ }
+      if (Capacitor.isNativePlatform()) {
+        const perm = await Geolocation.checkPermissions();
+        if (perm.location !== "granted" && perm.coarseLocation !== "granted") return;
+      } else {
+        const perm = await navigator.permissions?.query({ name: "geolocation" });
+        if (perm?.state !== "granted") return;
+      }
+    } catch { return; }
     nativeGeolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -309,18 +320,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [notifExplainerPending, setNotifExplainerPending] = useState(false);
   const pendingPushUid = useRef<string | null>(null);
 
-  function maybeRegisterPush(uid: string) {
-    // Only native ever shows the OS prompt registerPush gates on — no reason
-    // to interrupt a web session with an explainer for a dialog that will
-    // never appear.
-    const alreadyExplained = (() => { try { return localStorage.getItem(NOTIF_EXPLAINED_KEY) === "1"; } catch { return true; } })();
-    if (Capacitor.isNativePlatform() && !alreadyExplained) {
-      pendingPushUid.current = uid;
-      setNotifExplainerPending(true);
-      return;
-    }
-    void registerPush(uid);
-  }
+  const notificationOffered = useRef<string | null>(null);
+  const offerNotificationPermission = useCallback(async () => {
+    if (!isAuthed || !profileReady || profileLoadError || !user.id || !user.onboardingCompletedAt ||
+        user.termsAcceptedVersion !== LEGAL_VERSION || user.deletionScheduledAt) return;
+    if (notificationOffered.current === user.id) return;
+    notificationOffered.current = user.id;
+    try { if (localStorage.getItem(NOTIF_EXPLAINED_KEY) === "1") return; } catch { /* Session-only fallback. */ }
+    if (!await canOfferPushPermission() || await currentUserId() !== user.id) return;
+    pendingPushUid.current = user.id;
+    setNotifExplainerPending(true);
+  }, [isAuthed, profileReady, profileLoadError, user.id, user.onboardingCompletedAt, user.termsAcceptedVersion, user.deletionScheduledAt]);
 
   // useCallback, not a plain function: these two are in the dependency list of the context's useMemo
   // below, so a new identity each render rebuilt the whole store value every render and re-rendered
@@ -345,10 +355,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isAuthed) {
-      void refreshUser().finally(() => setProfileReady(true)).then(() => {
-        currentUserId().then((uid) => { if (uid) maybeRegisterPush(uid); });
-        void autoRefreshLocation();
-      });
+      void refreshUser().finally(() => setProfileReady(true));
+      void currentUserId().then(uid => { if (uid) void registerPush(uid, { requestPermission: false }); });
       void hydratePersonalData();
       void refreshEntityPasswordStatus();
     } else {
@@ -357,9 +365,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // drop) re-fetches the real profile instead of staying stuck on stale/seed
       // data with profileReady=true from a previous successful fetch.
       setProfileReady(false);
+      setNotifExplainerPending(false);
+      pendingPushUid.current = null;
+      notificationOffered.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthed]);
+
+  useEffect(() => {
+    if (isAuthed && profileReady && !profileLoadError && user.onboardingCompletedAt && user.area) void autoRefreshLocation();
+  }, [isAuthed, profileReady, profileLoadError, user.onboardingCompletedAt, user.area, autoRefreshLocation]);
 
   const setPersistedActiveRole = useCallback((role: Role) => {
     setActiveRole(role);
@@ -516,6 +531,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       removeFromList,
       isInAnyList,
       profileReady,
+      profileLoadError,
+      offerNotificationPermission,
       chatUnread,
       setChatUnread,
       toast,
@@ -537,6 +554,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         tokenStore.clear();
         setIsAuthed(false);
         setProfileReady(false);
+        setProfileLoadError(false);
+        setNotifExplainerPending(false);
+        pendingPushUid.current = null;
+        notificationOffered.current = null;
         setUser(seedUser);
         setArea("");
         setRoles(seedUser.roles);
@@ -572,7 +593,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       businessRecoveryIsSet, providerRecoveryIsSet, businessPasswordRequired, pendingContextSwitch,
       bookmarks, follows, viewedStories, meToos, likes, votes,
       savedCoupons, extraStamps, endorsed, vouched, notifySubs, queuesJoined, lists,
-      chatUnread, toast, isAuthed, authReady, profileReady,
+      chatUnread, toast, isAuthed, authReady, profileReady, profileLoadError, offerNotificationPermission,
       isGuest, guestLocation, guestLocationStatus, requestGuestLocation, setGuestLocation,
       dataSaver, setDataSaver, notifExplainerPending,
       toggleBookmark, isBookmarked, toggleFollow, isFollowing, markStoryViewed, toggleMeToo,

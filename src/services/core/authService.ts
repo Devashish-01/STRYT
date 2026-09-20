@@ -22,6 +22,7 @@
 import { tokenStore }  from "@/lib/auth";
 import { getSupabase } from "@/lib/supabaseClient";
 import { toApiError }  from "@/lib/supabasePage";
+import { beginLoginAcceptance, cancelLoginAcceptance } from "@/lib/loginAcceptance";
 import {
   isNativePlatform,
   nativeGoogleSignInViaFirebase,
@@ -183,6 +184,8 @@ export const authService = {
    * not need to do anything after awaiting this.
    */
   async signInWithGoogle(): Promise<void> {
+    beginLoginAcceptance();
+    try {
     if (isNativePlatform()) {
       await nativeGoogleSignInViaFirebase();
       return;
@@ -195,6 +198,10 @@ export const authService = {
     }
 
     await firebaseGoogleSignIn();
+    } catch (error) {
+      cancelLoginAcceptance();
+      throw error;
+    }
   },
 
   // ── Sign out ───────────────────────────────────────────────────────────────
