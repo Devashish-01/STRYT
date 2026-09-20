@@ -61,3 +61,8 @@ scratch/
 playwright-report-e2e
 test-results-e2e
 dist-staging
+
+# External tools & worktrees
+tools/
+.verify-wt/
+
