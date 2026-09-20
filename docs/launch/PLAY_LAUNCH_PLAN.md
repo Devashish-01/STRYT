@@ -94,7 +94,7 @@ of the manifest, and merging is a clean fast-forward — `origin/main` has nothi
   `verification-review`. `purge-deleted-accounts` matters most: without it, the 30-day account deletion that
   the privacy policy and store listing promise never completes. These versions also delete Aadhaar/PAN
   documents with the account (P15-001). Follow `RELEASE_RUNBOOK.md` parts 1–2.
-- [ ] **6. Create the Sentry project** and add a `VITE_SENTRY_DSN` repository secret.
+- [x] **6. Create the Sentry project** and add a `VITE_SENTRY_DSN` repository secret. *(done 20 Sept: org `zetax-f4`, project `javascript-react`, US region. DSN set as the GitHub Actions secret and as a Vercel Production variable (type Config — a `VITE_*` value is public by design, it ships in the bundle). Checked through Sentry's API: IP addresses scrubbed, server-side data scrubbing on, key rate-limited to 100 events/minute. Live from release 1.0.68; the legal documents name Sentry as of `d5e74b5`.)*
 
 ### Release
 

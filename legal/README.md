@@ -34,7 +34,7 @@ Indian Contract Act 1872; Information Technology Act 2000 and the IT (Intermedia
 - **Auth** is Google Sign-In via Firebase only; guests are capped to ~1 km.
 - **Sensitive data:** optional KYC/verification documents are uploaded and stored; exact location is used but only the **last-known** point is stored (no history); privacy-by-default (real name/contact/location private).
 - **Deletion** = 30-day recoverable grace period, then anonymise user record + delete Auth identity + purge storage/KYC files; blocked while active deals or "held"-status payment records exist; admin actions audit-logged; full customer deletion needs Super Admin + typed confirmation.
-- **Integrations:** Supabase (data/auth/storage), Google/Firebase (auth + FCM push), Mapbox (primary geocoding/place search), OpenStreetMap/Nominatim (fallback geocoding + map tiles), Vercel (hosting + anonymous analytics), SMTP/Gmail (support email to stryt.assistance@gmail.com), Web Push. Domain: **stryt.in**.
+- **Integrations:** Supabase (data/auth/storage), Google/Firebase (auth + FCM push), Mapbox (primary geocoding/place search), OpenStreetMap/Nominatim (fallback geocoding + map tiles), Vercel (hosting + anonymous analytics), SMTP/Gmail (support email to support@stryt.in), Web Push. Domain: **stryt.in**.
 
 ## ⚠️ Must be completed before publication (fill-ins)
 
@@ -47,7 +47,7 @@ Search the documents for these bracketed tokens if editing by hand:
 2. **`[REGISTERED ADDRESS]` / `[REGISTERED OFFICE ADDRESS]`** — registered office.
 3. **`[CIN...]` and `[GSTIN]`** — company/firm registration and GST numbers, if applicable.
 4. **`[GRIEVANCE OFFICER NAME]` + designation + dedicated email + phone** — a named, India-based Grievance Officer is **mandatory** (IT Rules 2021 / DPDP).
-5. **`[grievance@stryt.in]`** — provision a dedicated grievance mailbox (interim: contact@stryt.in / stryt.assistance@gmail.com).
+5. **`[grievance@stryt.in]`** — provision a dedicated grievance mailbox.
 6. **`[CITY, STATE OF REGISTERED OFFICE]`** — governing jurisdiction / arbitration seat in Terms §50–51 (currently suggested as Pune, Maharashtra based on the app's default location — confirm).
 7. **Effective Date** — set on each document at publication (the apply script sets this from `operator.yaml`).
 

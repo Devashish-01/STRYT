@@ -17,7 +17,7 @@ The STRYT application, website (**https://stryt.in**), and native Android and iO
 - **CIN / registration no.:** `[CIN or firm registration number, if applicable]`
 - **GSTIN:** `[GST number, if registered]`
 - **General contact email:** contact@stryt.in *(present in the codebase)*
-- **Support email / in-app support:** stryt.assistance@gmail.com and **Account → Help & Support** in the app *(present in the codebase)*
+- **Support email / in-app support:** support@stryt.in and **Account → Help & Support** in the app *(present in the codebase)*
 - **Grievance Officer:** `[NAME, designation, email, phone — see grievance-redressal-policy.md]`
 
 In these Terms, **"STRYT"**, **"we"**, **"us"**, and **"our"** refer to the operator named above. **"You"** and **"User"** refer to any person who accesses or uses the Platform in any capacity.
@@ -630,7 +630,7 @@ Without limiting the Acceptable Use Policy, you must not:
 ## 52. Contact Information
 
 - **General:** contact@stryt.in
-- **Support:** stryt.assistance@gmail.com, or **Account → Help & Support** in the app
+- **Support:** support@stryt.in, or **Account → Help & Support** in the app
 - **Grievance Officer:** as named in `grievance-redressal-policy.md`
 - **Postal:** `[REGISTERED OFFICE ADDRESS — Section 0]`
 

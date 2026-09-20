@@ -104,7 +104,7 @@ Fraud, fake reviews, impersonation, misusing payments or safety features, scrapi
 
 ## Need help or want to raise a concern?
 
-- **Support:** stryt.assistance@gmail.com or **Account → Help & Support** in the app
+- **Support:** support@stryt.in or **Account → Help & Support** in the app
 - **General:** contact@stryt.in
 - **Grievance Officer:** see the [Grievance Redressal Policy](grievance-redressal-policy.md)
 

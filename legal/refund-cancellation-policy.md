@@ -96,7 +96,7 @@ This Refund & Cancellation Policy forms part of the [Terms & Conditions](terms-a
 ## 7. How to raise a refund/cancellation concern with STRYT
 
 - In-app: **Account → Help & Support** (choose the "Complaint" category).
-- Email: stryt.assistance@gmail.com
+- Email: support@stryt.in
 - Escalation / data or unresolved grievances: see the [Grievance Redressal Policy](grievance-redressal-policy.md).
 
 Please include the Seller, the transaction (booking/deal/queue/walk-in), date, amount, method, and any UPI reference so we can assist effectively.

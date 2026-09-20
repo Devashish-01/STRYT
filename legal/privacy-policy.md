@@ -219,7 +219,7 @@ You also have the right to complain to the **Data Protection Board of India** if
 For any question, request, or grievance about your personal data:
 
 - **Grievance Officer:** `[NAME, designation]` — see the [Grievance Redressal Policy](grievance-redressal-policy.md)
-- **Email:** contact@stryt.in (general) / stryt.assistance@gmail.com (support)
+- **Email:** contact@stryt.in (general) / support@stryt.in (support)
 - **In app:** Account → Help & Support
 - **Postal:** `[REGISTERED OFFICE ADDRESS]`
 

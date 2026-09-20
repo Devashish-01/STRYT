@@ -111,7 +111,7 @@ If you want to step away without deleting, you can instead:
 
 ## 8. Contact
 
-- **Support:** stryt.assistance@gmail.com — or **Account → Help & Support**
+- **Support:** support@stryt.in — or **Account → Help & Support**
 - **General / privacy:** contact@stryt.in
 - **Grievance Officer:** see the
   [Grievance Redressal Policy](grievance-redressal-policy.md)

@@ -27,7 +27,7 @@ In accordance with the Intermediary Guidelines and applicable law, STRYT designa
 
 - **Name:** `[GRIEVANCE OFFICER NAME]`
 - **Designation:** Grievance Officer, `[STRYT OPERATOR LEGAL NAME]`
-- **Email:** `[grievance@stryt.in — provision this dedicated address]` *(interim: contact@stryt.in / stryt.assistance@gmail.com)*
+- **Email:** `[grievance@stryt.in — provision this dedicated address]` *(contact@stryt.in)*
 - **Postal address:** `[REGISTERED OFFICE ADDRESS]`
 - **In-app:** Account → Help & Support
 
@@ -88,7 +88,7 @@ If a matter needs more time or third-party input (e.g. the other party's respons
 ## 7. Contact summary
 
 - **Grievance Officer:** `[NAME]` — `[grievance@stryt.in]`
-- **Support:** stryt.assistance@gmail.com / **Account → Help & Support**
+- **Support:** support@stryt.in / **Account → Help & Support**
 - **General:** contact@stryt.in
 - **Post:** `[REGISTERED OFFICE ADDRESS]`
 

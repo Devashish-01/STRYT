@@ -93,6 +93,13 @@ In these Merchant Terms, **"Seller"** means a Business or a Provider; **"you"** 
 
 7.3 If you collect personal data from your customers through your dealings, you are responsible for handling it lawfully under the DPDP Act.
 
+7.4 **Pharmacies, clinics, and diagnostic labs.** You may list your establishment, your consultations, tests, and
+over-the-counter products. You must **not** list, sell, or accept orders through STRYT for **prescription-only
+medicines** (Schedule H, H1, or X drugs, or any medicine that requires a registered practitioner's prescription).
+STRYT provides no facility to upload, verify, or retain a prescription, and orders placed here carry none. Listings
+that breach this are removed, and repeat breaches end the account (Section 11). Dispensing itself remains yours to
+conduct lawfully under the Drugs and Cosmetics Act and your licence.
+
 ---
 
 ## 8. Delegated access and team

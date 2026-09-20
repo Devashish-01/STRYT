@@ -33,6 +33,7 @@ STRYT is your street, and your people. It works because real neighbours — cust
 
 - **No lies or scams.** No fake listings, fake reviews, fake availability, fake "I paid" claims, misleading prices, or fraud of any kind.
 - **No harassment or hate.** No bullying, threats, stalking, or hateful/discriminatory content targeting anyone based on religion, caste, gender, sexual orientation, disability, ethnicity, or similar.
+- **No prescription medicines.** Pharmacies and clinics are welcome, and so are everyday over-the-counter products — but nothing that needs a doctor's prescription may be listed or ordered through STRYT. Ask your pharmacist in person for those.
 - **No harmful or illegal content or trade.** Nothing unlawful; no weapons, drugs, counterfeit or stolen goods, sexual services, or anything you're not licensed to sell (see the AUP for the full list).
 - **No sexual, obscene, or violent content**, and absolutely nothing that endangers, sexualises, or exploits children.
 - **No privacy violations.** Don't share someone's personal information, photos, or location without their consent (no doxxing). Don't screenshot and spread private chats to harm someone.

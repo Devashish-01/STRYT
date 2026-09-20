@@ -41,6 +41,9 @@ You must not use STRYT to advertise, solicit, sell, or arrange:
 - anything illegal under Indian law;
 - weapons, explosives, or regulated firearms;
 - illegal drugs, controlled substances, or drug paraphernalia;
+- **prescription-only medicines** — a pharmacy or clinic may list its shop, its services and over-the-counter
+  products, but medicines that require a doctor's prescription must not be listed, ordered, or arranged through
+  STRYT. STRYT has no prescription upload or verification, so such a sale cannot be conducted lawfully here;
 - counterfeit, stolen, or smuggled goods, or goods that infringe IP;
 - sexual services or human trafficking of any kind;
 - wildlife, human organs, or other prohibited items;

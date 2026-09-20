@@ -33,12 +33,29 @@ exceptions are documented in `legal/data-retention-policy.md` §3.4.
 
 ---
 
+## On sharing — every answer is "No"
+
+Play counts data as **shared** only when it is transferred to a **third party**. Two exclusions cover
+everything STRYT does, so no data type is declared as shared:
+
+- **Service providers acting for us** (Supabase, Firebase, Mapbox, Sentry, TypeSafe — §10) are not third
+  parties for this question.
+- **Transfers the user starts** are excluded: a post or review they publish, a message they send, a live
+  location they share with a contact they picked. The visibility toggles (`show_phone_publicly`,
+  `show_name_publicly`) are privacy controls over that user-initiated publication, not a separate transfer.
+
+Earlier drafts of this file answered "Yes" for name, phone, photos, messages, user-generated content and
+precise location, reasoning that other users can see them. That was the cautious reading, not the rule Play
+states; the filed answers use the rule.
+
+---
+
 ## 1. Location
 
 | Field | Approximate location | Precise location |
 |---|---|---|
 | Collected | **Yes** | **Yes** |
-| Shared | No | **Yes** — see below |
+| Shared | No | No — see "On sharing" below |
 | Processed ephemerally | No | No |
 | Required or optional | **Optional** | **Optional** |
 | Purposes | App functionality; Personalisation | App functionality |
@@ -75,12 +92,12 @@ share); delivery is deferred to v1.1.
 
 | Data type | Collected | Shared | Optional? | Purposes | Source |
 |---|---|---|---|---|---|
-| Name | **Yes** | **Yes** (shown to other users; `show_name_publicly` controls visibility) | Required | App functionality | `users.name`, `users.alias` |
-| Email address | **Yes** | No | Required | App functionality; Account management | `users.email` (from Google sign-in) |
-| User IDs | **Yes** | No | Required | App functionality | `users.id`, `users.admin_login_id` |
-| Phone number | **Yes** | **Yes** (only if `show_phone_publicly`) | **Optional** | App functionality | `users.phone` |
-| Address | **Yes** | No | **Optional** | App functionality | `users.area`, `users.city`, `users.unit_number` (society flat); delivery addresses `appointments.delivery_address_line`, `bulk_deal_pledges.delivery_address`, `request_me_toos.delivery_address`; a business's `address_line1` |
-| Other info | **Yes** | No | **Optional** | Account management | recovery Q&A hashes, role passwords — stored **hashed** (`users.*_hash`) |
+| Name | **Yes** | No | Required | App functionality; Account management | `users.name`, `users.alias` |
+| Email address | **Yes** | No | Required | App functionality; Account management | `users.email` — **every account has one: Google is the only sign-in for v1.0** (`src/screens/auth/PhoneEntry.tsx:17`, number/email login hidden) |
+| User IDs | **Yes** | No | Required | App functionality; Account management | `users.id`, `users.admin_login_id` |
+| Phone number | **Yes** | No | **Optional** | App functionality | `users.phone` — added to a profile, or as a shop/provider contact number; not part of signing in |
+| Address | **Yes** | No | **Optional** | App functionality; Personalisation | `users.area`, `users.city`, `users.unit_number` (society flat); delivery addresses `appointments.delivery_address_line`, `bulk_deal_pledges.delivery_address`, `request_me_toos.delivery_address`; a business's `address_line1` |
+| Other info | **Yes** | No | **Optional** | App functionality; Fraud prevention, security and compliance; Account management | **the KYC documents (§9)**, plus recovery Q&A hashes and role passwords — stored **hashed** (`users.*_hash`) |
 
 **Note on names:** STRYT has an alias/real-name split — a user can present an
 alias publicly while their real name stays private. Declare the collection
@@ -93,8 +110,8 @@ a reason to answer "No".
 
 | Data type | Collected | Shared | Optional? | Purposes |
 |---|---|---|---|---|
-| Purchase history | **Yes** | No | Required for the feature | App functionality |
-| Other financial info | **Yes** | No | Optional (merchants only) | App functionality |
+| Purchase history | **Yes** | No | **Optional** | App functionality |
+| Other financial info | **Yes** | No | **Optional** (merchants only) | App functionality |
 
 **Why:** orders, appointments, and deal/agreement records are stored. Merchants
 may save a **UPI VPA** for their payment QR.
@@ -115,7 +132,7 @@ payment processor to declare.
 
 | Data type | Collected | Shared | Optional? | Purposes |
 |---|---|---|---|---|
-| Photos | **Yes** | **Yes** (posts/stories/listings are visible to other users) | Optional | App functionality |
+| Photos | **Yes** | No | **Optional** | App functionality |
 
 **Why:** `CAMERA` permission (`AndroidManifest.xml:69`); avatars, posts, stories,
 request photos, business/catalogue/portfolio images in the public `uploads`
@@ -127,7 +144,7 @@ bucket.
 
 | Data type | Collected | Shared | Optional? | Purposes |
 |---|---|---|---|---|
-| Other in-app messages | **Yes** | **Yes** (delivered to the recipient) | Optional | App functionality |
+| Other in-app messages | **Yes** | No | **Optional** | App functionality |
 
 Direct messages between users. Not shared with third parties.
 
@@ -137,8 +154,8 @@ Direct messages between users. Not shared with third parties.
 
 | Data type | Collected | Shared | Optional? | Purposes |
 |---|---|---|---|---|
-| App interactions | **Yes** | No | Required | Analytics; App functionality |
-| Other user-generated content | **Yes** | **Yes** (public by design) | Optional | App functionality |
+| App interactions | **Yes** | No | Required | App functionality; Analytics |
+| Other user-generated content | **Yes** | No | **Optional** | App functionality |
 | In-app search history | **Yes** | No | **Optional** | App functionality |
 
 **Why:** inside the app, *App interactions* are the business/provider view counters
@@ -181,11 +198,14 @@ assert the values are absent from the output.
 
 | Data type | Collected | Shared | Optional? | Purposes |
 |---|---|---|---|---|
-| Device or other IDs | **Yes** | No | Required for notifications | App functionality |
+| Device or other IDs | **Yes** | No | **Optional** | App functionality; Developer communications |
 
 **Why:** FCM registration tokens and web-push endpoints in `push_subscriptions`
 (`src/lib/pushNotifications.ts:114`). Used only to deliver notifications the user
 opted into. **Not** used for advertising or cross-app tracking.
+
+**Optional, not required:** the app asks for notification permission first and registers only if it is granted
+(`src/lib/pushNotifications.ts:23-27`), so a user who declines produces no token.
 
 ---
 
@@ -264,6 +284,21 @@ Say no, and mean it — these are the ones that get apps pulled:
 | §7 | Sentry, and the PII scrubber | Both added in P14 |
 | §9 | The deletion sentence was false until the P15-001 fix | Documents outlived accounts |
 | §10 | Sentry row; Vercel marked website-only | As above |
+
+## What changed on 20 September (filed in Play Console)
+
+| Section | Change | Why |
+|---|---|---|
+| All | Every **Shared** answer → **No** | Service providers and user-initiated publication are both excluded from Play's definition (see "On sharing") |
+| §2 | Email **required**, phone **optional** | Google is the only sign-in for v1.0, so every account has an email and no account needs a phone number |
+| §2 | *Other info* now names the KYC documents, and adds *Fraud prevention, security and compliance* | Play has no "government ID" row (§9); verification is what the documents are for |
+| §2, §1 | *Address* and *Approximate location* gain **Personalisation** | Both decide what is shown nearby |
+| §3, §4, §5, §6 | Purchase history, photos, messages and user-generated content → **Optional** | The app works without booking, posting, chatting or uploading |
+| §8 | Device IDs → **Optional**, plus *Developer communications* | No permission, no token; announcements are sent alongside activity alerts |
+| §7 | Crash logs and Diagnostics stay **required** | There is no user switch for error reporting |
+
+Filed by the owner on 2026-09-20. The store listing's summary read back: *"No data shared with third
+parties"*, data encrypted in transit, deletion links to `https://stryt.in/legal/account-deletion`.
 
 **Unchanged, and correct:** treating Supabase, Firebase, Mapbox, the map tile hosts, Nominatim, Overpass,
 Open-Meteo and Vercel as service providers rather than "sharing". Play's definition of sharing excludes

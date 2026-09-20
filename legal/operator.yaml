@@ -4,14 +4,14 @@
 # Required for App Store / IT Rules publication. Do not invent values.
 
 brand: STRYT
-operator_legal_name: ""
+operator_legal_name: "Devashish Patel"  # sole proprietor trading as STRYT; no company registered
 registered_address: ""
 cin_or_registration: "Not applicable"
 gstin: "Not applicable"
-grievance_officer_name: ""
+grievance_officer_name: "Devashish Patel"
 grievance_officer_designation: "Grievance Officer"
-grievance_officer_email: "contact@stryt.in"
-grievance_officer_phone: ""
+grievance_officer_email: "grievance@stryt.in"
+grievance_officer_phone: "+91 95897 81311"  # business line; not the owner's personal number
 jurisdiction_city_state: "Pune, Maharashtra"
 effective_date: "26 August 2026"
 legal_version: "2026-08-26"
