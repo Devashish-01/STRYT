@@ -64,7 +64,7 @@
       ]
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!__/auth/).*)",
       "headers": [
         {
           "key": "X-Content-Type-Options",
@@ -84,7 +84,32 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; worker-src 'self' blob:; manifest-src 'self'; script-src 'self' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com https://tiles.openfreemap.org https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://overpass-api.de https://api.open-meteo.com https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://fonts.gstatic.com; frame-src https://accounts.google.com https://*.firebaseapp.com"
+          "value": "default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; worker-src 'self' blob:; manifest-src 'self'; script-src 'self' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com https://tiles.openfreemap.org https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://overpass-api.de https://api.open-meteo.com https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://fonts.gstatic.com; frame-src 'self' https://accounts.google.com https://*.firebaseapp.com"
+        }
+      ]
+    },
+    {
+      "source": "/__/auth/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(self), geolocation=(self), microphone=()"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; frame-ancestors 'self'; object-src 'none'; worker-src 'self' blob:; manifest-src 'self'; script-src 'self' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com https://tiles.openfreemap.org https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://overpass-api.de https://api.open-meteo.com https://*.googleapis.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://fonts.gstatic.com; frame-src 'self' https://accounts.google.com https://*.firebaseapp.com"
         }
       ]
     }
@@ -97,6 +122,14 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/__/auth/:path*",
+      "destination": "https://zetax-52843.firebaseapp.com/__/auth/:path*"
+    },
+    {
+      "source": "/__/firebase/init.json",
+      "destination": "https://zetax-52843.firebaseapp.com/__/firebase/init.json"
+    },
     {
       "source": "/((?!stryt\\.apk|sw\\.js|workbox-.*|version\\.json|favicon\\.svg|icon-.*\\.png|manifest\\.webmanifest|assets/.*).*)",
       "destination": "/index.html"
