@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppBar } from "@/components/common";
 import { Key, Clock, CheckCircle2 } from "@/components/Icons";
 import { businessAccessService } from "@/services";
+import { entityPasswordService } from "@/services/core/entityPasswordService";
 import { useApp } from "@/store";
 import { haptics } from "@/lib/haptics";
 import { errorMessage } from "@/lib/errorMessage";
+import { getSupabase, hasSupabaseEnv } from "@/lib/supabaseClient";
 
 /**
  * The staff half of the shared shop login (TEAM_ACCESS #1).
@@ -30,7 +32,77 @@ export default function BusinessLogin() {
   /** Set when the owner requires approval — the session exists but isn't usable
    *  yet. A toast would have been the wrong shape for this: it's a state to sit
    *  in, not an event that just happened. */
-  const [awaiting, setAwaiting] = useState<{ businessName: string } | null>(null);
+  const [awaiting, setAwaiting] = useState<{
+    sessionId: string;
+    businessId: string;
+    businessName: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!awaiting?.sessionId) return;
+    let cancelled = false;
+
+    async function handleApproved() {
+      if (cancelled || !awaiting) return;
+      haptics.success();
+      entityPasswordService.markSessionUnlocked(awaiting.businessId);
+      setContext({ type: "business", id: awaiting.businessId, name: awaiting.businessName });
+      await refreshUser();
+      showToast(`Access approved! Signed in to ${awaiting.businessName}`);
+      nav(`/business/${awaiting.businessId}/manage`, { replace: true });
+    }
+
+    // 1. Realtime postgres_changes subscription
+    let channel: any = null;
+    if (hasSupabaseEnv) {
+      const sb = getSupabase();
+      channel = sb
+        .channel(`rt:business_login_awaiting:${awaiting.sessionId}`)
+        .on(
+          "postgres_changes" as any,
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "business_access_sessions",
+            filter: `id=eq.${awaiting.sessionId}`,
+          },
+          (payload: any) => {
+            const status = payload?.new?.status;
+            if (status === "ACTIVE") {
+              void handleApproved();
+            } else if (status === "DENIED" || status === "REVOKED") {
+              showToast("Request was declined by the owner.");
+              setAwaiting(null);
+            }
+          }
+        )
+        .subscribe();
+    }
+
+    // 2. Fallback polling every 3s in case realtime drops or reconnects
+    const pollInterval = setInterval(async () => {
+      try {
+        const session = await businessAccessService.sessionForPrompt(awaiting.sessionId);
+        if (!session || cancelled) return;
+        if (session.status === "ACTIVE") {
+          void handleApproved();
+        } else if (session.status === "DENIED" || session.status === "REVOKED") {
+          showToast("Request was declined by the owner.");
+          setAwaiting(null);
+        }
+      } catch {
+        /* ignore polling errors */
+      }
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(pollInterval);
+      if (channel && hasSupabaseEnv) {
+        getSupabase().removeChannel(channel);
+      }
+    };
+  }, [awaiting, nav, refreshUser, setContext, showToast]);
 
   async function submit() {
     if (!loginId.trim() || !password) return;
@@ -39,11 +111,18 @@ export default function BusinessLogin() {
       const res = await businessAccessService.login(loginId.trim(), password);
       haptics.success();
       if (res.status === "PENDING") {
-        setAwaiting({ businessName: res.businessName });
+        setAwaiting({
+          sessionId: res.sessionId,
+          businessId: res.businessId,
+          businessName: res.businessName,
+        });
         setPassword("");
         return;
       }
       // ACTIVE — the grant is live, so put the hat on and go.
+      // Mark unlocked in this session so the staff member who just proved
+      // credentials isn't re-prompted by the owner's personal master PIN.
+      entityPasswordService.markSessionUnlocked(res.businessId);
       setContext({ type: "business", id: res.businessId, name: res.businessName });
       // The console's guard reads owned/delegated ids off the store; without
       // this it can bounce a session that was granted seconds ago.

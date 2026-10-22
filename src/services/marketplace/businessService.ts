@@ -951,6 +951,17 @@ export const businessService = {
    */
   async setAvailability(id: string, availableNow: boolean | null, availableUntil?: string | null) {
     const sb = getSupabase();
+    // Use dedicated RPC (TMA-AVAIL-01) which allows active team members on the console
+    // to toggle shop availability without requiring direct table UPDATE permission on public.businesses.
+    try {
+      const { error: rpcErr } = await sb.rpc("set_business_availability" as any, {
+        p_business_id: id,
+        p_available_now: !!availableNow,
+        p_available_until: availableNow && availableUntil ? availableUntil : null,
+      });
+      if (!rpcErr) return { ok: true, availableNow };
+    } catch { /* fallback to direct table update */ }
+
     const { data, error } = await sb
       .from("businesses")
       .update({ is_available_now: availableNow, available_until: availableNow ? availableUntil ?? null : null })

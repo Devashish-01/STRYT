@@ -187,6 +187,41 @@ export default function BusinessAccess() {
   );
 }
 
+function ScopeToggleList({ scopes, onToggle }: { scopes: Scope[]; onToggle: (s: Scope) => void }) {
+  const { t } = useI18n();
+  return (
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      {ALL_SCOPES.map((s, idx) => (
+        <button aria-pressed={scopes.includes(s)}
+          key={s}
+          type="button"
+          className="row gap-12 center-v"
+          style={{ width: "100%", padding: "12px 14px", textAlign: "left", borderTop: idx ? "1px solid var(--line)" : "none" }}
+          onClick={() => onToggle(s)}
+        >
+          <div className="grow">
+            <div className="semi small">{t(SCOPE_META[s].labelKey)}</div>
+            <div className="tiny muted">{t(SCOPE_META[s].textKey)}</div>
+          </div>
+          <Toggle on={scopes.includes(s)} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PresetChips({ preset, onPick }: { preset: Preset; onPick: (p: Preset) => void }) {
+  const { t } = useI18n();
+  return (
+    <div className="row gap-6" style={{ flexWrap: "wrap", marginBottom: 10 }}>
+      {PRESETS.map((p) => (
+        <button key={p.id} type="button" className={`chip ${preset === p.id ? "active" : ""}`} onClick={() => onPick(p.id)}>{t(p.labelKey)}</button>
+      ))}
+      <button type="button" className={`chip ${preset === "custom" ? "active" : ""}`} onClick={() => onPick("custom")}>{t("map_custom")}</button>
+    </div>
+  );
+}
+
 /**
  * #1 — the owner half of the shared shop login.
  *
@@ -216,13 +251,13 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
   const [requireApproval, setRequireApproval] = useState(true);
   const [sessionHours, setSessionHours] = useState(8);
   const [enabled, setEnabled] = useState(true);
+  const [preset, setPreset] = useState<Preset>("front_desk");
+  const [scopes, setScopes] = useState<Scope[]>(PRESETS[0].scopes);
   const [saving, setSaving] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
   const seeded = useState({ done: false })[0];
 
-  // Seeded from the saved config the first time it lands. Not a plain
-  // `useState(config?.…)` — the query resolves after mount, so the initial
-  // values would be the empty ones forever.
+  // Seeded from the saved config the first time it lands.
   useEffect(() => {
     if (!config || seeded.done) return;
     seeded.done = true;
@@ -230,6 +265,10 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
     setRequireApproval(config.requireApproval);
     setSessionHours(config.sessionHours || 8);
     setEnabled(config.isEnabled);
+    if (config.scopes && config.scopes.length > 0) {
+      setScopes(config.scopes);
+      setPreset(config.accessLevel === "FULL" ? "full" : presetForScopes(config.scopes));
+    }
   }, [config, seeded]);
 
   async function suggest() {
@@ -243,17 +282,32 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
     }
   }
 
+  function pickPreset(p: Preset) {
+    haptics.selection();
+    setPreset(p);
+    if (p !== "custom") setScopes(PRESETS.find((x) => x.id === p)!.scopes);
+  }
+
+  function toggleScope(s: Scope) {
+    haptics.selection();
+    setScopes((prev) => {
+      const next = prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s];
+      setPreset(presetForScopes(next));
+      return next;
+    });
+  }
+
   async function save() {
-    // The RPC keeps the existing hash when the password is blank, which is what
-    // makes "change the session length without retyping the password" work. But
-    // there is no existing hash the first time, so a blank one then would create
-    // a login nobody can ever use.
     if (!config && !password.trim()) {
       showToast(t("bacc_set_password"));
       return;
     }
     if (password.trim() && password.trim().length < 6) {
       showToast(t("bacc_password_min"));
+      return;
+    }
+    if (scopes.length === 0) {
+      showToast(t("bacc_pick_section"));
       return;
     }
     setSaving(true);
@@ -264,6 +318,8 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
         requireApproval,
         sessionHours,
         enabled,
+        accessLevel: preset === "full" ? "FULL" : "SCOPED",
+        scopes,
       });
       haptics.success();
       showToast(config ? "Shop login updated" : "Shop login created");
@@ -307,7 +363,7 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
         <div className="card col gap-14" style={{ padding: 14 }}>
           <p className="tiny muted" style={{ lineHeight: 1.45, margin: 0 }}>
             Staff sign in to STRYT on their own phone, then use this id and password to
-            open {"this shop"}. Their access is scoped to what you allow below and ends
+            open this shop. Their access is scoped to what you allow below and ends
             when the session does — you always see who is on the console.
           </p>
 
@@ -362,6 +418,12 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
             <span className="tiny muted">{t("bacc_password_share_hint")}</span>
           </div>
 
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>{t("bacc_access_label")}</label>
+            <PresetChips preset={preset} onPick={pickPreset} />
+            <ScopeToggleList scopes={scopes} onToggle={toggleScope} />
+          </div>
+
           <button
             type="button"
             className="row between center-v"
@@ -407,46 +469,11 @@ function ShopLoginSection({ businessId }: { businessId: string }) {
             <Toggle on={enabled} />
           </button>
 
-          <button className="btn btn-primary btn-block" disabled={saving || !loginId.trim()} onClick={save}>
+          <button className="btn btn-primary btn-block" disabled={saving || !loginId.trim() || scopes.length === 0} onClick={save}>
             {saving ? "Saving…" : config ? "Save changes" : "Create shop login"}
           </button>
         </div>
       )}
-    </div>
-  );
-}
-
-function ScopeToggleList({ scopes, onToggle }: { scopes: Scope[]; onToggle: (s: Scope) => void }) {
-  const { t } = useI18n();
-  return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      {ALL_SCOPES.map((s, idx) => (
-        <button aria-pressed={scopes.includes(s)}
-          key={s}
-          type="button"
-          className="row gap-12 center-v"
-          style={{ width: "100%", padding: "12px 14px", textAlign: "left", borderTop: idx ? "1px solid var(--line)" : "none" }}
-          onClick={() => onToggle(s)}
-        >
-          <div className="grow">
-            <div className="semi small">{t(SCOPE_META[s].labelKey)}</div>
-            <div className="tiny muted">{t(SCOPE_META[s].textKey)}</div>
-          </div>
-          <Toggle on={scopes.includes(s)} />
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function PresetChips({ preset, onPick }: { preset: Preset; onPick: (p: Preset) => void }) {
-  const { t } = useI18n();
-  return (
-    <div className="row gap-6" style={{ flexWrap: "wrap", marginBottom: 10 }}>
-      {PRESETS.map((p) => (
-        <button key={p.id} type="button" className={`chip ${preset === p.id ? "active" : ""}`} onClick={() => onPick(p.id)}>{t(p.labelKey)}</button>
-      ))}
-      <button type="button" className={`chip ${preset === "custom" ? "active" : ""}`} onClick={() => onPick("custom")}>{t("map_custom")}</button>
     </div>
   );
 }

@@ -80,8 +80,8 @@ export function buildDialItems(ctx: DialContext): DialItem[] {
   const available: Record<DialId, DialItem | null> = {
     appointments: hasScope("appointments") && ctx.bookingsOn ? { id: "appointments", to: `${base}/appointments`, labelKey: "nav_appointments" } : null,
     queue: hasScope("queue") && ctx.queueUsed ? { id: "queue", to: `${base}/queue`, labelKey: "nav_queue", badge: ctx.queueWaiting } : null,
-    deliveries: ctx.deliveryOn && hasScope("appointments") ? { id: "deliveries", to: `${base}/deliveries`, labelKey: "bdial_live_deliveries" } : null,
-    "my-deliveries": ctx.deliveryOn && ctx.hasActiveDeliveries ? { id: "my-deliveries", to: `${base}/my-deliveries`, labelKey: "nav_deliveries" } : null,
+    deliveries: ctx.deliveryOn && (hasScope("appointments") || hasScope("delivery")) ? { id: "deliveries", to: `${base}/deliveries`, labelKey: "bdial_live_deliveries" } : null,
+    "my-deliveries": ctx.deliveryOn && (ctx.hasActiveDeliveries || hasScope("delivery")) ? { id: "my-deliveries", to: `${base}/my-deliveries`, labelKey: "nav_deliveries" } : null,
     store: hasScope("catalog") ? { id: "store", to: `${base}/store`, label: ctx.storeLabel } : null,
     business: { id: "business", to: `${base}/business`, labelKey: "nav_business" },
     messages: hasScope("leads") ? { id: "messages", to: `/chats?scope=BUSINESS&id=${businessId}`, labelKey: "messages_header" } : null,

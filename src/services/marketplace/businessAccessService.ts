@@ -6,6 +6,8 @@ export interface BusinessLoginConfig {
   requireApproval: boolean;
   sessionHours: number;
   isEnabled: boolean;
+  accessLevel?: AccessLevel;
+  scopes?: Scope[];
 }
 
 export type AccessStatus = "PENDING" | "ACTIVE" | "EXPIRED" | "REVOKED" | "DENIED";
@@ -67,7 +69,7 @@ export const businessAccessService = {
     const sb = getSupabase();
     const { data } = await sb
       .from("business_login_credentials")
-      .select("login_id, require_approval, session_hours, is_enabled")
+      .select("login_id, require_approval, session_hours, is_enabled, access_level, scopes")
       .eq("business_id", businessId)
       .maybeSingle();
     if (!data) return null;
@@ -76,6 +78,8 @@ export const businessAccessService = {
       requireApproval: (data as any).require_approval,
       sessionHours: (data as any).session_hours,
       isEnabled: (data as any).is_enabled,
+      accessLevel: (data as any).access_level ?? "SCOPED",
+      scopes: (data as any).scopes ?? ["appointments", "queue", "catalog", "leads"],
     };
   },
 
@@ -88,7 +92,15 @@ export const businessAccessService = {
   },
 
   /** Owner: create/update the login id, password, approval + session settings. */
-  async setLogin(businessId: string, cfg: { loginId: string; password: string; requireApproval: boolean; sessionHours: number; enabled: boolean }) {
+  async setLogin(businessId: string, cfg: {
+    loginId: string;
+    password: string;
+    requireApproval: boolean;
+    sessionHours: number;
+    enabled: boolean;
+    accessLevel?: AccessLevel;
+    scopes?: Scope[];
+  }) {
     const sb = getSupabase();
     const { error } = await sb.rpc("set_business_login", {
       p_business_id: businessId,
@@ -97,6 +109,8 @@ export const businessAccessService = {
       p_require_approval: cfg.requireApproval,
       p_session_hours: cfg.sessionHours,
       p_enabled: cfg.enabled,
+      p_access_level: cfg.accessLevel ?? "SCOPED",
+      p_scopes: cfg.scopes ?? ["appointments", "queue", "catalog", "leads"],
     });
     if (error) {
       if (error.code === "23505" || /duplicate|unique/i.test(error.message ?? "")) {
